@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kleinian Group Visualizer</title>
+  <style>
+    html, body {
+      margin: 0;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+      font-family: sans-serif;
+      background-color: #111;
+      color: #eee;
+    }
+
+    #welcomeScreen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    #welcomeScreen h1 {
+      font-size: 2.5em;
+      margin-bottom: 0.5em;
+    }
+    #welcomeScreen p {
+      font-size: 1.1em;
+      margin-bottom: 1.2em;
+      max-width: 400px;
+      text-align: center;
+      color: #ccc;
+    }
+    #welcomeScreen .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #welcomeScreen button {
+      padding: 0.6em 1.4em;
+      font-size: 1em;
+      background-color: #3399ff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.15s;
+    }
+    #welcomeScreen button:hover {
+      background-color: #2277cc;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="welcomeScreen">
+    <h1>Kleinian Group Visualizer</h1>
+    <p>Select one of the tools below to begin exploring Kleinian groups and their limit‐set/Dirichlet‐domain visualizations.</p>
+    <div class="button-group">
+      <button id="limitSetsBtn">Limit Set</button>
+      <button id="dirichletBtn">Dirichlet Domain</button>
+      
+      <!-- (In the future, you could add more buttons here, e.g. “Dirichlet Domain,” “Trace Plot,” etc.) -->
+    </div>
+    <div style="margin-top: 20px;">
+      <button onclick="window.location.href = '../index.html';">Back</button>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('limitSetsBtn').addEventListener('click', () => {
+      // Navigate to the Limit Sets tool
+      window.location.href = 'Tools/limitsets.html';
+    });
+  </script>
+
+  <script>
+    document.getElementById('dirichletBtn').addEventListener('click', () => {
+      // Navigate to the Dirichlet Domain tool
+      window.location.href = 'Tools/dirichlet.html';
+    });
+  </script>
+
+</body>
+</html>
