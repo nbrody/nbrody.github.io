@@ -1,0 +1,122 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mandelbrot and Julia Set Explorer</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    canvas { display: block; cursor: crosshair; }
+    #juliaWindow {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      width: 200px;
+      height: 200px;
+      border: 1px solid #888;
+      background: white;
+    }
+  </style>
+</head>
+<body>
+  <button id="backButton" style="position: absolute; top: 10px; left: 10px; z-index: 10;">Back</button>
+  <canvas id="mandelbrotCanvas"></canvas>
+  <canvas id="juliaWindow"></canvas>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.min.js"></script>
+  <script>
+    window.onload = function() {
+      const mCanvas = document.getElementById("mandelbrotCanvas");
+      const jCanvas = document.getElementById("juliaWindow");
+      const mCtx = mCanvas.getContext("2d");
+      const jCtx = jCanvas.getContext("2d");
+
+      function resize() {
+        mCanvas.width = window.innerWidth;
+        mCanvas.height = window.innerHeight;
+        drawMandelbrot();
+      }
+
+      window.addEventListener("resize", resize);
+      resize();
+
+      const maxIter = 300;
+      const escapeRadius = 2;
+
+      const bounds = {
+        xmin: -2.5, xmax: 1,
+        ymin: -1.5, ymax: 1.5
+      };
+
+      function drawMandelbrot() {
+        const imageData = mCtx.createImageData(mCanvas.width, mCanvas.height);
+        for (let x = 0; x < mCanvas.width; x++) {
+          for (let y = 0; y < mCanvas.height; y++) {
+            const cx = bounds.xmin + (x / mCanvas.width) * (bounds.xmax - bounds.xmin);
+            const cy = bounds.ymin + (y / mCanvas.height) * (bounds.ymax - bounds.ymin);
+            const [iter] = computeMandelbrot(cx, cy);
+            const idx = (y * mCanvas.width + x) * 4;
+            const color = iter === maxIter ? 0 : 255 - Math.floor(255 * iter / maxIter);
+            imageData.data[idx + 0] = color;
+            imageData.data[idx + 1] = color;
+            imageData.data[idx + 2] = color;
+            imageData.data[idx + 3] = 255;
+          }
+        }
+        mCtx.putImageData(imageData, 0, 0);
+      }
+
+      function computeMandelbrot(cx, cy) {
+        let x = 0, y = 0, iter = 0;
+        while (x*x + y*y <= escapeRadius**2 && iter < maxIter) {
+          const xtemp = x*x - y*y + cx;
+          y = 2*x*y + cy;
+          x = xtemp;
+          iter++;
+        }
+        return [iter];
+      }
+
+      function drawJulia(cx, cy) {
+        jCtx.clearRect(0, 0, jCanvas.width, jCanvas.height);
+        const w = jCanvas.width, h = jCanvas.height;
+        const imageData = jCtx.createImageData(w, h);
+        for (let x = 0; x < w; x++) {
+          for (let y = 0; y < h; y++) {
+            let zx = (x / w) * 4 - 2;
+            let zy = (y / h) * 4 - 2;
+            let i = 0;
+            while (zx*zx + zy*zy <= 4 && i < maxIter) {
+              const tmp = zx*zx - zy*zy + cx;
+              zy = 2*zx*zy + cy;
+              zx = tmp;
+              i++;
+            }
+            const idx = (y * w + x) * 4;
+            const col = i === maxIter ? 0 : 255 - Math.floor(i * 255 / maxIter);
+            imageData.data[idx + 0] = col;
+            imageData.data[idx + 1] = col;
+            imageData.data[idx + 2] = col;
+            imageData.data[idx + 3] = 255;
+          }
+        }
+        jCtx.putImageData(imageData, 0, 0);
+      }
+
+      mCanvas.addEventListener("click", (e) => {
+        const rect = mCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const cx = bounds.xmin + (x / mCanvas.width) * (bounds.xmax - bounds.xmin);
+        const cy = bounds.ymin + (y / mCanvas.height) * (bounds.ymax - bounds.ymin);
+        drawJulia(cx, cy);
+      });
+
+      document.getElementById("backButton").addEventListener("click", () => {
+        window.location.href = "../index.html";
+      });
+    };
+  </script>
+</body>
+</html>
