@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Three.js Test</title>
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/examples/js/controls/OrbitControls.js"></script>
   <style>
     body { margin: 0; }
     canvas { display: block; }
@@ -29,11 +30,17 @@
     const cube = new THREE.Mesh(geometry, material);
     scene.add(cube);
 
+    // Add OrbitControls for panning and zooming
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
     // Animation loop
     function animate() {
       requestAnimationFrame(animate);
       cube.rotation.x += 0.01;
       cube.rotation.y += 0.01;
+      controls.update();
       renderer.render(scene, camera);
     }
     animate();
