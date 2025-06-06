@@ -114,9 +114,28 @@
     <input id="Lparam" type="number" value="6" min="1" step="1" />
 
     <button id="resetViewBtn">Default view</button>
+    <button id="newExampleBtn">New example!</button>
   </div>
 
   <script>
+    const exampleLibrary = [
+      {
+        A: ['1', '2', '0', '1'],
+        B: ['0', '-1', '1', '0']
+      },
+      {
+        A: ['1', '1+i', '0', '1'],
+        B: ['0', '-1', '1', '0']
+      },
+      {
+        A: ['1', '2i', '0', '1'],
+        B: ['1', '-1', '1', '1']
+      },
+      {
+        A: ['2', '-2', '0', '1/2'],
+        B: ['3', '4', '2', '3']
+      }
+    ];
     // Palette: finer gradient for smooth color transition
     const palette = [
       "rgba(0, 255, 255, ALPHA)",  // cyan
@@ -397,6 +416,21 @@
         panY = 0;
         redraw();
       });
+      document.getElementById('newExampleBtn').addEventListener('click', () => {
+        const rand = exampleLibrary[Math.floor(Math.random() * exampleLibrary.length)];
+        setExample(rand);
+      });
+    }
+
+    function setExample(example) {
+      const { A, B } = example;
+      ['A11', 'A12', 'A21', 'A22'].forEach((id, i) => {
+        document.getElementById(id).value = A[i];
+      });
+      ['B11', 'B12', 'B21', 'B22'].forEach((id, i) => {
+        document.getElementById(id).value = B[i];
+      });
+      rebuildIsometricCircles();
     }
 
     window.addEventListener('DOMContentLoaded', () => {
