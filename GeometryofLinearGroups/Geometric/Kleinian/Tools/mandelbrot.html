@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,6 +30,9 @@
       const mCtx = mCanvas.getContext("2d");
       const jCtx = jCanvas.getContext("2d");
 
+      const maxIter = 300;
+      const escapeRadius = 2;
+
       function resize() {
         mCanvas.width = window.innerWidth;
         mCanvas.height = window.innerHeight;
@@ -40,9 +41,6 @@
 
       window.addEventListener("resize", resize);
       resize();
-
-      const maxIter = 300;
-      const escapeRadius = 2;
 
       const bounds = {
         xmin: -2.5, xmax: 1,

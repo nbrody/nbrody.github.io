@@ -63,6 +63,7 @@
     <div class="button-group">
       <button id="kleinianBtn">Kleinian Groups</button>
       <button id="padicBtn">p-adic Groups</button>
+      <button id="euclideanBtn">Euclidean Groups</button>
       
       <!-- (In the future, you could add more buttons here, e.g. “Dirichlet Domain,” “Trace Plot,” etc.) -->
     </div>
@@ -82,6 +83,13 @@
     document.getElementById('geometricBtn').addEventListener('click', () => {
       // Navigate to the Geometric site
       window.location.href = 'padicGroups/index.html';
+    });
+  </script>
+
+  <script>
+    document.getElementById('euclideanBtn').addEventListener('click', () => {
+      // Navigate to the Euclidean site
+      window.location.href = 'Euclidean/index.html';
     });
   </script>
 </body>

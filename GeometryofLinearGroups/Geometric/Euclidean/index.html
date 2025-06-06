@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Algebraic Groups</title>
+  <title>Euclidean Groups</title>
   <style>
     html, body {
       margin: 0;
@@ -58,11 +58,11 @@
 <body>
 
   <div id="welcomeScreen">
-    <h1>Algebraic groups</h1>
-    <p>There's nothing here yet!</p>
+    <h1>Euclidean groups</h1>
+    <p>Here you can explore 2 or 3-dimensional groups</p>
     <div class="button-group">
-      <button id="numberRingBtn">Number rings</button>
-      <button id="zariskiBtn">Zariski closures</button>
+      <button id="2dBtn">2-dimensional Lattices</button>
+      <button id="3dBtn">3-dimensional Lattices</button>
       
       <!-- (In the future, you could add more buttons here, e.g. “Dirichlet Domain,” “Trace Plot,” etc.) -->
     </div>
@@ -72,11 +72,17 @@
   </div>
 
   <script>
-    document.getElementById('kleinianBtn').addEventListener('click', () => {
-      // Navigate to the Number Rings site
-      window.location.href = 'NumberRings/index.html';
+    document.getElementById('2dBtn').addEventListener('click', () => {
+      // Navigate to the 2d site
+      window.location.href = 'Tools/2deuc.html';
     });
   </script>
 
+  <script>
+    document.getElementById('3dBtn').addEventListener('click', () => {
+      // Navigate to the 3d site
+      window.location.href = 'Tools/3deuc.html';
+    });
+  </script>
 </body>
 </html>
