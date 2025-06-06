@@ -31,7 +31,8 @@
     scene.add(cube);
 
     // Add OrbitControls for panning and zooming
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    const OrbitControls = THREE.OrbitControls;
+    const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
 
