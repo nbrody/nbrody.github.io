@@ -54,6 +54,7 @@
       background-color: #2277cc;
     }
   </style>
+  <link rel="stylesheet" href="../../assets/css/backBtn.css" />
 </head>
 <body>
 
@@ -64,16 +65,14 @@
       <button id="numberRingBtn">Number rings</button>
       <button id="zariskiBtn">Zariski closures</button>
       
-      <!-- (In the future, you could add more buttons here, e.g. “Dirichlet Domain,” “Trace Plot,” etc.) -->
-    </div>
-    <div style="margin-top: 20px;">
-      <button onclick="window.location.href = '../index.html';">Back</button>
+      <!-- More buttons can be added here in the future, e.g., “Dirichlet Domain,” “Trace Plot,” etc. -->
     </div>
   </div>
+  <button id="backBtn" onclick="window.location.href = '../index.html';">Back</button>
 
   <script>
     document.getElementById('numberRingBtn').addEventListener('click', () => {
-      // Navigate to the Number Rings site
+      // Open the Number Rings page within the site
       window.location.href = 'NumberRings/index.html';
     });
 
