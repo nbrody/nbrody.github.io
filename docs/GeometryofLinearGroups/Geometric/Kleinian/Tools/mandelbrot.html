@@ -110,11 +110,13 @@
         const cy = bounds.ymin + (y / mCanvas.height) * (bounds.ymax - bounds.ymin);
         drawJulia(cx, cy);
       });
-
-      document.getElementById("backButton").addEventListener("click", () => {
-        window.location.href = "../index.html";
-      });
     };
+    
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('backButton').addEventListener('click', () => {
+        window.location.href = '../index.html';
+      });
+    });
   </script>
 </body>
 </html>
