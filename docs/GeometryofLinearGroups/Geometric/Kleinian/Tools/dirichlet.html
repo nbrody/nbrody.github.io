@@ -4,10 +4,6 @@
   <meta charset="UTF-8">
   <title>Dirichlet Domain Visualization</title>
 
-  <!-- Three.js (r152 or later recommended) -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
-  <!-- OrbitControls (for camera interaction) -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/examples/js/controls/OrbitControls.js"></script>
   <!-- Math.js for complex arithmetic -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.3.2/math.min.js"></script>
 
@@ -68,7 +64,14 @@
       padding: 6px 12px;
       font-size: 14px;
     }
-  </style>
+</style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.module.js"
+    }
+  }
+  </script>
 </head>
 
 <body>
@@ -117,7 +120,9 @@
   <!-- -------------- Three.js CANVAS -------------- -->
   <canvas id="threeCanvas"></canvas>
 
-  <script>
+  <script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.152.0/examples/jsm/controls/OrbitControls.js';
     // ================================================
     // Global variables for Three.js scene, camera, etc.
     // ================================================
@@ -158,7 +163,7 @@
       scene.add(dirLight);
 
       // Controls
-      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.1;
 
@@ -479,7 +484,7 @@
       updateDirichletDomain(); // initial render with default A, B
 
       document.getElementById('updateButton').addEventListener('click', () => {
-        updateDirichletDomain();
+        updateDirichletDomain(); 
       });
     });
     window.addEventListener('DOMContentLoaded', () => {
