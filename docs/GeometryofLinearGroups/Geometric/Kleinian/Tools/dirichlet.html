@@ -87,7 +87,7 @@
       <div class="grid" id="matrixA">
         <!-- Four <input> fields for A[0,0], A[0,1], A[1,0], A[1,1] -->
         <input type="text" class="entry" id="A00" value="1">
-        <input type="text" class="entry" id="A01" value="2">
+        <input type="text" class="entry" id="A01" value="1+i">
         <input type="text" class="entry" id="A10" value="0">
         <input type="text" class="entry" id="A11" value="1">
       </div>
@@ -110,8 +110,8 @@
 
     <!-- Depth control (optional) -->
     <div style="margin-bottom:8px; font-size:14px;">
-      Word‐length up to:
-      <input type="number" id="wordDepth" value="5" min="1" max="12" style="width:50px; margin-left:4px;">
+      Word length up to:
+      <input type="number" id="wordDepth" value="6" min="1" max="12" style="width:50px; margin-left:4px;">
     </div>
 
     <button id="updateButton">Update Domain</button>
@@ -453,14 +453,24 @@
         const u = img.u;
         const t = img.t;
 
-        // Skip if t is very close to 1 (would produce a vertical plane)
-        if (Math.abs(t - 1) < 1e-6) continue;
+        // If t ≈ 1: draw perpendicular bisector as a vertical half‐plane
+        if (Math.abs(t - 1) < 1e-6) {
+          const uRe = u.re, uIm = u.im;
+          const absUSq = uRe*uRe + uIm*uIm;
+          if (absUSq < 1e-6) continue;
+          const d0 = absUSq / 2;
+          const normal = new THREE.Vector3(uRe, uIm, 0).normalize();
+          const plane = new THREE.Plane(normal, -d0);
+          const helper = new THREE.PlaneHelper(plane, 20, 0xff6600);
+          scene.add(helper);
+          bisectorMeshes.push(helper);
+          continue;
+        }
 
-        // Compute bisector hemisphere
+        // Otherwise: draw the hemisphere bisector
         const hemi = computeBisectorHemisphere(u, t);
         if (!hemi) continue;
 
-        // Create a mesh (all share same color; you can vary by word length if desired)
         const mesh = makeHemisphereMesh(hemi.center, hemi.radius, 0xff6600);
         scene.add(mesh);
         bisectorMeshes.push(mesh);
