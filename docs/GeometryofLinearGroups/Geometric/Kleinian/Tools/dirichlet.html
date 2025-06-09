@@ -111,7 +111,7 @@
     <!-- Depth control (optional) -->
     <div style="margin-bottom:8px; font-size:14px;">
       Word‐length up to:
-      <input type="number" id="wordDepth" value="3" min="1" max="6" style="width:50px; margin-left:4px;">
+      <input type="number" id="wordDepth" value="5" min="1" max="12" style="width:50px; margin-left:4px;">
     </div>
 
     <button id="updateButton">Update Domain</button>
@@ -203,10 +203,16 @@
       function parseEntry(id) {
         const str = document.getElementById(id).value.trim();
         try {
-          // math.complex will parse things like "1+2i", "i", "3-4i", or a real.
-          return math.complex(str);
+          const val = math.evaluate(str);
+          if (typeof val === 'number') {
+            return math.complex(val);
+          } else if (val && val.isComplex) {
+            return val;
+          } else {
+            return math.complex(val);
+          }
         } catch (e) {
-          console.warn(`Could not parse '${str}' as a complex number. Defaulting to 0.`);
+          console.warn(`Could not parse '${str}' as a valid expression. Defaulting to 0.`);
           return math.complex(0);
         }
       }
@@ -400,14 +406,15 @@
     // We create only the upper hemisphere (z ≥ 0) using SphereGeometry's phi/theta ranges.
     // ================================================
     function makeHemisphereMesh(center, radius, colorHex = 0x3399ff) {
-      // Only upper hemisphere: thetaStart=0, thetaLength=Math.PI/2
+      // Only upper hemisphere: thetaStart=0, thetaLength=Math.PI
       const sphereGeo = new THREE.SphereGeometry(
-        radius, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2
+        radius, 32, 16, 0, Math.PI * 2, 0, Math.PI
       );
       const mat = new THREE.MeshPhongMaterial({
         color: colorHex,
-        opacity: 1.0,
-        transparent: false,
+        opacity: 0.5,
+        transparent: true,
+        depthWrite: false,
         side: THREE.DoubleSide
       });
       const mesh = new THREE.Mesh(sphereGeo, mat);
@@ -425,11 +432,6 @@
         scene.remove(m);
       }
       bisectorMeshes.length = 0;
-
-      // Add a green test hemisphere for rendering verification
-      const testMesh = makeHemisphereMesh(new THREE.Vector3(0, 0, 0), 1, 0x00ff00);
-      scene.add(testMesh);
-      bisectorMeshes.push(testMesh);
 
       const mats = parseInputMatrices();
       const A = mats.A, B = mats.B;
