@@ -31,7 +31,7 @@
     #welcomeScreen p {
       font-size: 1.1em;
       margin-bottom: 1.2em;
-      max-width: 400px;
+      max-width: 600px;
       text-align: center;
       color: #ccc;
     }
@@ -54,6 +54,18 @@
       background-color: #2277cc;
     }
   </style>
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
 </head>
 <body>
 
@@ -68,6 +80,19 @@
       <button id="arithmeticBtn">Arithmetic</button>
       
       <!-- (In the future, you could add more buttons here, e.g. “Dirichlet Domain,” “Trace Plot,” etc.) -->
+    </div>
+    <button id="moreInfoBtn" style="margin-top: 2em; background-color: transparent; color: #88c; border: 1px solid #88c; font-size: 0.95em;">More info</button>
+    <div id="moreInfoBox" style="display: none; margin-top: 1em; max-width: 800px; text-align: center; font-size: 0.95em; color: #bbb;">
+      <p>
+        Let \( k \) be a number field, and \( \mathbb{G} \) a simple \( k \)-algebraic group. We say that a subgroup \( \Gamma \) of \( \mathbb{G}(k) \) is:
+        <div style="text-align: left; margin-bottom: 1em;">
+          <br><em>algebraic</em> if it is contained in a proper \( \mathbb{Q} \)-algebraic subgroup of \( \mathrm{Res}_{k/\mathbb{Q}} \mathbb{G} \),
+          <br><em>geometric</em> if there is a completion \( k_v \) of \( k \) so that \( \Gamma \) is discrete in \( \mathbb{G}(k_v) \),
+          <br><em>arithmetic</em> if there is a subring \( A \subset k \) so that \( \Gamma \) is commensurable with \( \mathbb{G}(A) \).
+        </div>
+
+        We conjecture that every \(\Gamma\) is either algebraic, geometric, or arithmetic. 
+      </p>
     </div>
   </div>
 
@@ -89,6 +114,16 @@
     document.getElementById('arithmeticBtn').addEventListener('click', () => {
       // Navigate to the Geometric site
       window.location.href = 'Arithmetic/index.html';
+    });
+  </script>
+  <script>
+    document.getElementById('moreInfoBtn').addEventListener('click', () => {
+      const box = document.getElementById('moreInfoBox');
+      if (box.style.display === 'none') {
+        box.style.display = 'block';
+      } else {
+        box.style.display = 'none';
+      }
     });
   </script>
 </body>

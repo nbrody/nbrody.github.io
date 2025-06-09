@@ -233,6 +233,16 @@
       ctx.save();
       ctx.translate(canvasWidth / 2 + panX, canvasHeight / 2 + panY);
       ctx.scale(scale, -scale);
+      // Draw subtle axes
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.lineWidth = 1 / scale;
+      ctx.beginPath();
+      ctx.moveTo(-canvasWidth, 0);
+      ctx.lineTo(canvasWidth, 0);
+      ctx.moveTo(0, -canvasHeight);
+      ctx.lineTo(0, canvasHeight);
+      ctx.stroke();
+      // Draw circles
       circles.forEach(({ center, radius, color }) => {
         ctx.fillStyle = color;
         ctx.beginPath();
