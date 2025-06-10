@@ -152,9 +152,9 @@
 
       // Camera
       camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-      camera.position.set(0, 0, 1.5);
+      camera.position.set(0, -5, 2);
       camera.up.set(0, 0, 1);
-      camera.lookAt(new THREE.Vector3(0, 0, 1));
+      camera.lookAt(new THREE.Vector3(0, 0, 0));
 
       // Light
       const ambient = new THREE.AmbientLight(0x888888);
@@ -165,7 +165,6 @@
 
       // Controls
       controls = new OrbitControls(camera, renderer.domElement);
-      controls.target.set(0, 0, 1);
       controls.enableDamping = true;
       controls.dampingFactor = 0.1;
 
@@ -417,11 +416,31 @@
         opacity: 0.5,
         transparent: true,
         depthWrite: false,
-        side: THREE.FrontSide
+        side: THREE.DoubleSide
       });
       const mesh = new THREE.Mesh(sphereGeo, mat);
       mesh.position.copy(center);
       return mesh;
+    }
+
+    // Compute intersection points of three spheres b1,b2,b3
+    function intersectThreeSpheres(b1, b2, b3) {
+      const P1 = b1.center, r1 = b1.radius;
+      const P2 = b2.center, r2 = b2.radius;
+      const P3 = b3.center, r3 = b3.radius;
+      const ex = P2.clone().sub(P1).normalize();
+      const d = P1.distanceTo(P2);
+      const x = (r1*r1 - r2*r2 + d*d) / (2*d);
+      const temp = P1.clone().add(ex.clone().multiplyScalar(x));
+      const i = ex.dot(P3.clone().sub(P1));
+      const ey = P3.clone().sub(P1).sub(ex.clone().multiplyScalar(i)).normalize();
+      const y = (r1*r1 - r3*r3 + P1.distanceTo(P3)**2 - 2*i*x + x*x) / (2*i);
+      const z2 = r1*r1 - x*x - y*y;
+      if (z2 < 0) return [];
+      const ez = ex.clone().cross(ey);
+      const p0 = temp.add(ey.multiplyScalar(y));
+      const z = Math.sqrt(z2);
+      return [p0.clone().add(ez.clone().multiplyScalar(z)), p0.clone().sub(ez.clone().multiplyScalar(z))];
     }
 
     // ================================================
@@ -463,9 +482,9 @@
           const d0 = absUSq / 2;
           const normal = new THREE.Vector3(uRe, uIm, 0).normalize();
           const plane = new THREE.Plane(normal, -d0);
-          // const helper = new THREE.PlaneHelper(plane, 20, 0xff6600);
-          // scene.add(helper);
-          // bisectorMeshes.push(helper);
+          const helper = new THREE.PlaneHelper(plane, 20, 0xff6600);
+          scene.add(helper);
+          bisectorMeshes.push(helper);
           continue;
         }
 
@@ -474,49 +493,100 @@
         if (!hemi) continue;
 
         const mesh = makeHemisphereMesh(hemi.center, hemi.radius, 0xff6600);
-        // scene.add(mesh);
+        scene.add(mesh);
         bisectorMeshes.push(mesh);
       }
 
-      // ---- New code: compute and render only the filled intersection region containing (0,0,1) ----
-      // Collect all bisector planes (approximating spherical caps by their tangent planes at their center)
-      const halfSpacePlanes = bisectorMeshes.map(m => {
-        // For each hemisphere mesh: its geometry center and radius are in mesh.position and .geometry.parameters.radius
-        // Compute the plane tangent at the top point toward (0,0,1)
-        const c = m.position.clone();
-        const normal = c.clone().sub(new THREE.Vector3(0,0,1)).normalize();
-        const constant = -normal.dot(c);
-        return new THREE.Plane(normal, constant);
+      // Hide all bisector hemisphere meshes and plane helpers
+      bisectorMeshes.forEach(m => { m.visible = false; });
+      // Compute intersections to extract domain vertices
+      const bisData = bisectorMeshes.map(mesh => {
+        if (mesh.isMesh) {
+          return { type: 'sphere', center: mesh.position.clone(), radius: mesh.geometry.parameters.radius };
+        } else if (mesh instanceof THREE.PlaneHelper) {
+          return { type: 'plane', plane: mesh.plane };
+        }
+      });
+      // Debug: log bisector types
+      console.log('Bisector types:', bisData.map(b => b.type));
+      const vertices = [];
+      for (let i = 0; i < bisData.length; i++) {
+        for (let j = i + 1; j < bisData.length; j++) {
+          for (let k = j + 1; k < bisData.length; k++) {
+            const b1 = bisData[i], b2 = bisData[j], b3 = bisData[k];
+            if (b1.type === 'sphere' && b2.type === 'sphere' && b3.type === 'sphere') {
+              const pts = intersectThreeSpheres(b1, b2, b3);
+              pts.forEach(p => {
+                let inside = true;
+                for (const b of bisData) {
+                  if (b.type === 'sphere') {
+                    if (p.distanceTo(b.center) > b.radius + 1e-6) { inside = false; break; }
+                  } else if (b.type === 'plane') {
+                    if (b.plane.distanceToPoint(p) > 1e-6) { inside = false; break; }
+                  }
+                }
+                if (inside) vertices.push(p);
+              });
+            }
+          }
+        }
+      }
+      // Deduplicate and build convex hull
+      const unique = [];
+      vertices.forEach(p => {
+        if (!unique.some(u => u.distanceTo(p) < 1e-6)) unique.push(p);
+      });
+      // Debug logging and visualization of unique points
+      console.log(`Found ${vertices.length} raw vertices, ${unique.length} unique.`);
+      console.log('Sample vertices:', unique.slice(0, 10).map(p => p.toArray()));
+      // Temporarily disable clipping to ensure points are visible
+      renderer.clippingPlanes = [];
+      unique.forEach(p => {
+        const ptGeo = new THREE.SphereGeometry(0.1, 16, 16);
+        const ptMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const ptMesh = new THREE.Mesh(ptGeo, ptMat);
+        ptMesh.position.copy(p);
+        scene.add(ptMesh);
       });
 
-      // Intersect a large bounding box with all half-spaces to find the convex polyhedron
-      // Start with the eight corners of a large cube around (0,0,1)
-      const L = 10;
-      const corners = [
-        new THREE.Vector3(-L,-L,-L), new THREE.Vector3(L,-L,-L),
-        new THREE.Vector3(-L,L,-L),  new THREE.Vector3(L,L,-L),
-        new THREE.Vector3(-L,-L,L*2),new THREE.Vector3(L,-L,L*2),
-        new THREE.Vector3(-L,L,L*2), new THREE.Vector3(L,L,L*2)
-      ];
-      // Clip corners by all planes
-      const vertices = corners.filter(v =>
-        halfSpacePlanes.every(plane => plane.distanceToPoint(v) <= 0)
+      // Filter out any vertices with NaN or infinite coordinates
+      const validPoints = unique.filter(p =>
+        Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z)
       );
-      // Compute convex hull of the remaining vertices
-      if (vertices.length >= 4) {
-        const domainGeom = new ConvexGeometry(vertices);
-        const domainMat = new THREE.MeshPhongMaterial({
-          color: 0x00cc00, opacity: 0.3, transparent: true
+      console.log(`Valid points for hull: ${validPoints.length}`);
+      if (validPoints.length > 0) {
+        // Compute centroid of valid points
+        const centroid = new THREE.Vector3();
+        validPoints.forEach(p => centroid.add(p));
+        centroid.divideScalar(validPoints.length);
+        // Compute max distance from centroid
+        let maxDist = 0;
+        validPoints.forEach(p => {
+          const d = p.distanceTo(centroid);
+          if (d > maxDist) maxDist = d;
         });
-        const domainMesh = new THREE.Mesh(domainGeom, domainMat);
-        scene.add(domainMesh);
-        // Clear out raw bisector meshes
-        bisectorMeshes.forEach(m => scene.remove(m));
-        bisectorMeshes.length = 0;
-        bisectorMeshes.push(domainMesh);
+        // Position camera diagonally relative to centroid
+        camera.position.copy(centroid.clone().add(new THREE.Vector3(maxDist, maxDist, maxDist)));
+        // Update orbit controls target
+        controls.target.copy(centroid);
+        controls.update();
       }
 
-      // ---- End new code ----
+      // Build convex hull only if we have enough non-coplanar points
+      if (validPoints.length >= 4) {
+        try {
+          const hull = new ConvexGeometry(validPoints);
+          const polyMat = new THREE.MeshPhongMaterial({
+            color: 0x00ff00, opacity: 0.3, transparent: true, side: THREE.DoubleSide
+          });
+          const polyMesh = new THREE.Mesh(hull, polyMat);
+          scene.add(polyMesh);
+        } catch (e) {
+          console.warn('Convex hull generation failed:', e);
+        }
+      } else {
+        console.warn('Not enough valid points to build a convex hull.');
+      }
 
       console.log(`Rendered ${bisectorMeshes.length} bisector spheres (up to word length ${depth}).`);
     }

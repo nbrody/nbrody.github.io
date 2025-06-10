@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>O[1,1,1,-7] Coxeter Polyhedron</title>
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@13.3.2/dist/math.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r153/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    #angleTable {
+      position: absolute; top: 10px; left: 10px;
+      background: rgba(255,255,255,0.9); padding: 10px;
+      font-family: sans-serif; font-size: 14px;
+      border: 1px solid #ccc;   
+    }
+    #angleTable table { border-collapse: collapse; }
+    #angleTable th, #angleTable td {
+      border: 1px solid #888; padding: 4px 8px; text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="angleTable"></div>
+  <script>
+  //–– 1. Define the form and reflections in math.js
+  const f = math.diag(1,1,1,-7);
+
+  function B(v,w) {
+    // v · f · wᵀ
+    return math.multiply(math.multiply(v, f), math.transpose(w));
+  }
+  function q(v) {
+    return B(v, v);
+  }
+  function Mat(v,w) {
+    // vᵀ ⊗ (f·w)
+    return math.multiply(math.transpose([v]), [ math.multiply(f, w) ]);
+  }
+  function R(v) {
+    // Reflection matrix: I - 2/q[v] · Mat[v,v]
+    return math.subtract(
+      math.identity(4),
+      math.multiply(2 / q(v), Mat(v, v))
+    );
+  }
+
+  //–– 2. The five generating normals x[1]…x[5]
+  const x = {};
+  x[1] = [ 1,  0,  0,  0 ];
+  x[2] = [ -1, 1,  0,  0 ];
+  x[3] = [ -1,-2, -2, -1 ];
+  x[4] = [  0, 0, -3, -1 ];
+  x[5] = [  0,-1,  1,  0 ];
+
+  //–– 3. Build and display the 5×5 table of angles (in units of π)
+  const tableDiv = document.getElementById('angleTable');
+  let html = '<table><tr><th></th>';
+  for(let i=1; i<=5; i++) html += `<th>x[${i}]</th>`;
+  html += '</tr>';
+
+  for(let i=1; i<=5; i++){
+    html += `<tr><th>x[${i}]</th>`;
+    for(let j=1; j<=5; j++){
+      const cosθ = B(x[i], x[j]) / Math.sqrt( q(x[i]) * q(x[j]) );
+      const θ    = Math.acos(cosθ);
+      // show as multiple of π (3 decimals)
+      html += `<td>${(θ/Math.PI).toFixed(3)} π</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</table>';
+  tableDiv.innerHTML = html;
+
+  //–– 4. Set up three.js scene + camera + controls
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.set(2, 2, 2);
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+
+  //–– 5. Draw the unit sphere (Poincaré ball boundary)
+  const ball = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 64, 64),
+    new THREE.MeshBasicMaterial({
+      color: 0x3333ff,
+      wireframe: true,
+      opacity: 0.2,
+      transparent: true
+    })
+  );
+  scene.add(ball);
+
+  //–– 6. Approximate each hyperbolic reflecting plane by a Euclidean plane
+  for(let i=1; i<=5; i++){
+    // use only the spatial part (x,y,z) of the normal
+    const nv = new THREE.Vector3(x[i][0], x[i][1], x[i][2]).normalize();
+    // build a big grid‐plane and align it to nv
+    const pg = new THREE.PlaneBufferGeometry(4, 4, 1, 1);
+    const pm = new THREE.MeshBasicMaterial({
+      color: 0xff3333,
+      wireframe: true,
+      opacity: 0.3,
+      transparent: true,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(pg, pm);
+    // rotate so its normal points along nv
+    const qtn = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0,0,1),
+      nv
+    );
+    mesh.setRotationFromQuaternion(qtn);
+    scene.add(mesh);
+  }
+
+  //–– 7. Animation loop
+  function animate(){
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  //–– 8. Handle resizing
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+  </script>
+</body>
+</html>
