@@ -1,0 +1,139 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Euclidean Dirichlet Domain</title>
+  <style>
+    body, html { margin: 0; padding: 0; overflow: hidden; }
+    #canvas { display: block; }
+    .control-panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      border-radius: 4px;
+      font-family: sans-serif;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .control-panel textarea {
+      width: 200px;
+      height: 80px;
+      font-family: monospace;
+    }
+    .control-panel button {
+      margin-top: 5px;
+      padding: 4px 8px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div class="control-panel">
+    <label for="vectors">Vectors S (as JSON array of [x,y]):</label><br>
+    <textarea id="vectors">[[1,0],[0,1]]</textarea><br>
+    <button id="draw-btn">Draw Dirichlet Domain</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      drawDomain();
+    }
+    window.addEventListener('resize', resize);
+
+    function parseVectors(text) {
+      try {
+        const arr = JSON.parse(text);
+        return arr.filter(v => v.length === 2).map(v => ({x: +v[0], y: +v[1]}));
+      } catch {
+        return [];
+      }
+    }
+
+    function generateOrbit(vectors, range = 3) {
+      const points = [{x:0,y:0}];
+      const n = vectors.length;
+      const indices = Array(n).fill(0);
+      const rec = (i) => {
+        if (i === n) {
+          const x = indices.reduce((sum, c, j) => sum + c * vectors[j].x, 0);
+          const y = indices.reduce((sum, c, j) => sum + c * vectors[j].y, 0);
+          if (!(x === 0 && y === 0)) points.push({x,y});
+        } else {
+          for (let c = -range; c <= range; c++) {
+            indices[i] = c;
+            rec(i+1);
+          }
+        }
+      };
+      rec(0);
+      return points;
+    }
+
+    // Sutherland–Hodgman polygon clipping by half-plane
+    function clipPolygon(poly, p) {
+      const A = {x: p.x/2, y: p.y/2};
+      const nx = p.x, ny = p.y;
+      const keep = (pt) => (pt.x - A.x)*nx + (pt.y - A.y)*ny <= 0;
+      const res = [];
+      for (let i = 0; i < poly.length; i++) {
+        const P = poly[i], Q = poly[(i+1)%poly.length];
+        const inP = keep(P), inQ = keep(Q);
+        if (inP) res.push(P);
+        if (inP !== inQ) {
+          const t = ((nx*A.x + ny*A.y) - (nx*P.x + ny*P.y)) / (nx*(Q.x - P.x) + ny*(Q.y - P.y));
+          res.push({ x: P.x + t*(Q.x-P.x), y: P.y + t*(Q.y-P.y) });
+        }
+      }
+      return res;
+    }
+
+    function drawDomain() {
+      const vectors = parseVectors(document.getElementById('vectors').value);
+      if (vectors.length === 0) return;
+      const orbit = generateOrbit(vectors, 3);
+      // Start with a large square polygon
+      let domain = [
+        {x:-1000,y:-1000}, {x:1000,y:-1000},
+        {x:1000,y:1000}, {x:-1000,y:1000}
+      ];
+      for (const p of orbit) {
+        domain = clipPolygon(domain, p);
+      }
+      // Clear and draw
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(canvas.width/2, canvas.height/2);
+      ctx.scale(50, -50); // scale for better visibility
+      // Draw lattice points
+      ctx.fillStyle = 'rgba(200,0,0,0.5)';
+      for (const p of orbit) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 0.05, 0, 2*Math.PI);
+        ctx.fill();
+      }
+      // Draw domain polygon
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 0.02;
+      ctx.beginPath();
+      domain.forEach((pt, i) => {
+        if (i===0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      });
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    document.getElementById('draw-btn').addEventListener('click', drawDomain);
+    resize();
+  </script>
+</body>
+</html>
