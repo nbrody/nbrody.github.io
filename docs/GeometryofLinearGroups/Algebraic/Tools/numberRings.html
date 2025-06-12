@@ -1,55 +1,67 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Minimal Ring A via SageMathCell</title>
-  <!-- 1) load the SageCell widget library -->
+  <link rel="stylesheet" href="../../assets/css/backBtn.css">
+  <meta charset="UTF-8">
+  <title>Number Ring Tool</title>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <script src="https://sagecell.sagemath.org/static/embedded_sagecell.js"></script>
 </head>
-<body style="font-family: sans-serif; margin: 2em;">
-  <h1>Compute the Minimal Ring A for ⟨S⟩⊆PGL₂(A)</h1>
-  <p>Edit the definition of <code>S</code> below, then click “Compute A”.</p>
+<body>
+  <a href="../../index.html" class="back-button">← Back</a>
+  <h1>Number Rings</h1>
+  <h2>Gröbner Basis Calculator</h2>
+  <p>Enter a finite set of polynomials (e.g., \( x_1^2 + x_2 - 3 \)). Use variables \( x_i \) with integer coefficients.</p>
+  <textarea id="poly-input" rows="5" cols="60" placeholder="Enter polynomials, one per line..."></textarea>
 
-  <!-- 2) container for the cell -->
-  <div id="sage-cell"></div>
+  <div id="math-output"></div>
+  <div id="sage-cell" style="margin-top: 20px;"></div>
+  <div><p>TODO: Output information about the ring. Determine if it remains characteristic zero, and if it is a number ring (embeds in Qbar).</p></div>
 
   <script>
-    // 3) turn that div into a live Sage cell
+    // MathJax dynamic rendering of input
+    const polyInput = document.getElementById("poly-input");
+    const mathOutput = document.getElementById("math-output");
+    function renderMath() {
+      const lines = polyInput.value.split('\n').filter(line => line.trim() !== "");
+      if (lines.length === 0) {
+        mathOutput.innerHTML = "";
+        return;
+      }
+      mathOutput.innerHTML = lines.map(line => `\\(${line}\\)`).join("<br>");
+      if (window.MathJax && MathJax.typesetPromise) {
+        MathJax.typesetPromise([mathOutput]);
+      }
+    }
+    polyInput.addEventListener("input", renderMath);
+    window.addEventListener("load", renderMath);
+
+    // Set up SageMathCell
     sagecell.makeSagecell({
       inputLocation: '#sage-cell',
-      evalButtonText: 'Compute A',
+      evalButtonText: 'Compute Gröbner basis',
       template: sagecell.templates.minimal,
-      code: `
-# ===== Replace this list with your own S = [Matrix(...), ...] =====
-# Example: S = { [[2,0],[0,1]], [[0,i],[-i,0]] }
-S = [
-    Matrix([[2,0],[0,1]]),
-    Matrix([[0, I],[-I,0]])
-]
-
-# 1) Collect all matrix‐entries
-E = set(e for M in S for e in M.list())
-
-# 2) Form the composite number field K = Q(E)
-#    by taking the product of the minimal polynomials
-polys = [ minimal_polynomial(e, 'x') for e in E ]
-F = prod(polys)
-K = NumberField(F, 'a')
-
-# 3) Embed each entry into K and build A0 = Z[E]
-E_K = [ K(e) for e in E ]
-A0 = K.subring(E_K)
-
-# 4) Collect determinants and localize
-dets = [ K(M.det()) for M in S ]
-A = A0.localization(dets)
-
-print("Entries E =", E)
-print("Base ring A0 =", A0)
-print("Determinants to invert =", dets)
-print("→ Minimal ring A =", A)
-`
+      autoeval: false,
+      linked: true
     });
+
+    // Add dynamic update logic for SageMathCell input
+    const updateSageInput = () => {
+      const input = polyInput.value;
+      const lines = input.split("\n").filter(line => line.trim() !== "");
+      const subscripts = input.match(/x_([0-9]+)/g) || [];
+      let maxSub = 1;
+      if (subscripts.length > 0) {
+        maxSub = Math.max(...subscripts.map(s => parseInt(s.split("_")[1])));
+      }
+      const ringVars = Array.from({length: maxSub}, (_, i) => `x_${i + 1}`).join(",");
+      const polyList = lines.map(p => p.replace(/\^/g, "**")).join(",\n  ");
+      const code = `R = PolynomialRing(ZZ, [${ringVars}])\nI = R.ideal([${polyList}])\nfor g in I.groebner_basis():\n    print(latex(g))`;
+      sagecell.setInputText(document.querySelector("#sage-cell .sagecell_editor"), code);
+    };
+
+    document.querySelector("#sage-cell").addEventListener("click", updateSageInput);
   </script>
 </body>
 </html>
