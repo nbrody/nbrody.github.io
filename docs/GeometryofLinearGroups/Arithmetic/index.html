@@ -62,17 +62,27 @@
     <h1>Arithmetic groups</h1>
     <p>There's nothing here yet!</p>
     <div class="button-group">
-      <button id="arithmeticBtn">Arithmetic</button>
-      <button id="congruenceBtn">Congruence quotients</button>
+      <button id="modularBtn">Modular groups</button>
+      <button id="bianchiBtn">Bianchi groups</button>
+      <button id="orthogonalBtn">Orthogonal groups</button>
+      <button id="finiteBtn">Finite groups</button>
       
       <!-- (In the future, you could add more buttons here, e.g. “Dirichlet Domain,” “Trace Plot,” etc.) -->
     </div>
   </div>
 
   <script>
-    document.getElementById('kleinianBtn').addEventListener('click', () => {
-      // Navigate to the Algebraic site
-      window.location.href = 'Kleinian/index.html';
+    document.getElementById('modularBtn').addEventListener('click', () => {
+      window.location.href = 'Tools/modular.html';
+    });
+    document.getElementById('bianchiBtn').addEventListener('click', () => {
+      window.location.href = 'Tools/bianchi.html';
+    });
+    document.getElementById('orthogonalBtn').addEventListener('click', () => {
+      window.location.href = 'Tools/orthogonal.html';
+    });
+    document.getElementById('finiteBtn').addEventListener('click', () => {
+      window.location.href = 'Tools/finite.html';
     });
   </script>
 
