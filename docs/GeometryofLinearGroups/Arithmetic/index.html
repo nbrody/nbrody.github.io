@@ -66,6 +66,7 @@
       <button id="bianchiBtn">Bianchi groups</button>
       <button id="orthogonalBtn">Orthogonal groups</button>
       <button id="finiteBtn">Finite groups</button>
+      <button id="quaternionBtn">Quaternion groups</button>
       
       <!-- (In the future, you could add more buttons here, e.g. “Dirichlet Domain,” “Trace Plot,” etc.) -->
     </div>
@@ -83,6 +84,9 @@
     });
     document.getElementById('finiteBtn').addEventListener('click', () => {
       window.location.href = 'Tools/finite.html';
+    });
+    document.getElementById('quaternionBtn').addEventListener('click', () => {
+      window.location.href = 'Tools/quaternion.html';
     });
   </script>
 
