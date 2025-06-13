@@ -264,56 +264,8 @@
       redraw();
     });
 
-    function generateGroupElements(A, B, L) {
-      const gens = {
-        'A': A,
-        'B': B,
-        'a': A.inverse(),
-        'b': B.inverse()
-      };
-      let results = [];
-      let visited = new Set();
-      let queue = ['A', 'B', 'a', 'b'];
 
-      queue.forEach(w => {
-        const M = gens[w];
-        results.push(M);
-        visited.add(wordSignature(M));
-      });
-
-      for (let depth = 2; depth <= L; depth++) {
-        const newQueue = [];
-        for (const word of queue) {
-          for (const gen of ['A', 'B', 'a', 'b']) {
-            const lastChar = word[word.length - 1];
-            if (
-              (lastChar === 'A' && gen === 'a') ||
-              (lastChar === 'a' && gen === 'A') ||
-              (lastChar === 'B' && gen === 'b') ||
-              (lastChar === 'b' && gen === 'B')
-            ) {
-              continue;
-            }
-            const newWord = word + gen;
-            let M = gens[newWord[0]];
-            for (let i = 1; i < newWord.length; i++) {
-              M = M.compose(gens[newWord[i]]);
-            }
-            const sig = wordSignature(M);
-            if (!visited.has(sig)) {
-              visited.add(sig);
-              results.push(M);
-              newQueue.push(newWord);
-            }
-          }
-        }
-        queue = newQueue;
-        if (queue.length === 0) break;
-      }
-      return results;
-    }
-
-    function generateGroupElementsFromList(generators, L) {
+    function generateGroupElements(generators, L) {
       const gens = {};
       const n = generators.length;
       // Assign labels: uppercase for generators, lowercase for inverses
@@ -441,7 +393,7 @@
           parseComplex(inputs[3].value)
         );
       });
-      const elements = generateGroupElementsFromList(matrices, L);
+      const elements = generateGroupElements(matrices, L);
 
       // Build raw list of { center, radius }
       const rawCircles = [];

@@ -90,10 +90,17 @@
 <body>
   <button id="backButton" style="position: absolute; top: 10px; left: 10px; z-index: 11;">Back</button>
 
-  <canvas id="canvas"></canvas>
 
   <div id="controlPanel">
-    <h3>Isometric Circles</h3>
+    <h3>
+      <span style="display: inline-flex; align-items: center;">
+        <input id="pInput" type="text" value="2" style="width: 40px; font-size: 14px; font-weight: bold; text-align: center; margin-right: 4px;" />
+        <button id="pUpBtn" style="padding: 2px 6px; font-size: 12px;">▲</button>
+        <button id="pDownBtn" style="padding: 2px 6px; font-size: 12px; margin-left: 2px;">▼</button>
+      </span>
+      -adic Tree
+    </h3>
+    <div id="pError" style="color: red; font-size: 12px; display: none;">Please enter a prime number.</div>
 
     <div id="matrixInputs"></div>
     <button id="addMatrixBtn">Add Matrix</button>
@@ -108,6 +115,7 @@
   </div>
 
   <script>
+    window.pprime = 2;
     const exampleLibrary = [
       {
         A: ['1', '2', '0', '1'],
@@ -189,131 +197,7 @@
       }
     }
 
-    // ===== Canvas & Drawing Globals =====
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-
-    let canvasWidth, canvasHeight;
-    let panX = 0, panY = 0, scale = 1;
-    let isPanning = false, lastMouseX = 0, lastMouseY = 0;
-    let circles = [];
-
-    function resizeCanvas() {
-      canvasWidth = canvas.clientWidth;
-      canvasHeight = canvas.clientHeight;
-      canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
-      // Show [-2.5, +2.5] by default
-      scale = Math.min(canvasWidth, canvasHeight) / 5;
-      panX = 0;
-      panY = 0;
-      redraw();
-    }
-    window.addEventListener('resize', resizeCanvas);
-
-    function redraw() {
-      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-      ctx.save();
-      ctx.translate(canvasWidth / 2 + panX, canvasHeight / 2 + panY);
-      ctx.scale(scale, -scale);
-      // Draw subtle axes
-      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-      ctx.lineWidth = 1 / scale;
-      ctx.beginPath();
-      ctx.moveTo(-canvasWidth, 0);
-      ctx.lineTo(canvasWidth, 0);
-      ctx.moveTo(0, -canvasHeight);
-      ctx.lineTo(0, canvasHeight);
-      ctx.stroke();
-      // Draw circles
-      circles.forEach(({ center, radius, color }) => {
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(center.re, center.im, radius, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      ctx.restore();
-    }
-
-    canvas.addEventListener('mousedown', (e) => {
-      isPanning = true;
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-    });
-    canvas.addEventListener('mouseup', () => {
-      isPanning = false;
-    });
-    canvas.addEventListener('mousemove', (e) => {
-      if (!isPanning) return;
-      const dx = e.clientX - lastMouseX;
-      const dy = e.clientY - lastMouseY;
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-      panX += dx;
-      panY += dy;
-      redraw();
-    });
-    canvas.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const mouseX = e.clientX - canvasWidth / 2 - panX;
-      const mouseY = e.clientY - canvasHeight / 2 - panY;
-      const oldScale = scale;
-      scale *= (e.deltaY > 0 ? 0.9 : 1.1);
-      panX -= mouseX * (scale / oldScale - 1);
-      panY -= mouseY * (scale / oldScale - 1);
-      redraw();
-    });
-
-    function generateGroupElements(A, B, L) {
-      const gens = {
-        'A': A,
-        'B': B,
-        'a': A.inverse(),
-        'b': B.inverse()
-      };
-      let results = [];
-      let visited = new Set();
-      let queue = ['A', 'B', 'a', 'b'];
-
-      queue.forEach(w => {
-        const M = gens[w];
-        results.push(M);
-        visited.add(wordSignature(M));
-      });
-
-      for (let depth = 2; depth <= L; depth++) {
-        const newQueue = [];
-        for (const word of queue) {
-          for (const gen of ['A', 'B', 'a', 'b']) {
-            const lastChar = word[word.length - 1];
-            if (
-              (lastChar === 'A' && gen === 'a') ||
-              (lastChar === 'a' && gen === 'A') ||
-              (lastChar === 'B' && gen === 'b') ||
-              (lastChar === 'b' && gen === 'B')
-            ) {
-              continue;
-            }
-            const newWord = word + gen;
-            let M = gens[newWord[0]];
-            for (let i = 1; i < newWord.length; i++) {
-              M = M.compose(gens[newWord[i]]);
-            }
-            const sig = wordSignature(M);
-            if (!visited.has(sig)) {
-              visited.add(sig);
-              results.push(M);
-              newQueue.push(newWord);
-            }
-          }
-        }
-        queue = newQueue;
-        if (queue.length === 0) break;
-      }
-      return results;
-    }
-
-    function generateGroupElementsFromList(generators, L) {
+    function generateGroupElements(generators, L) {
       const gens = {};
       const n = generators.length;
       // Assign labels: uppercase for generators, lowercase for inverses
@@ -430,71 +314,11 @@
       if (window.MathJax) MathJax.typeset();
     }
 
-    function rebuildIsometricCircles() {
-      const L = parseInt(document.getElementById('Lparam').value, 10);
-      const matrices = Array.from(document.querySelectorAll('#matrixInputs .matrix-block')).map(block => {
-        const inputs = block.querySelectorAll('input');
-        return new Mobius(
-          parseComplex(inputs[0].value),
-          parseComplex(inputs[1].value),
-          parseComplex(inputs[2].value),
-          parseComplex(inputs[3].value)
-        );
-      });
-      const elements = generateGroupElementsFromList(matrices, L);
-
-      // Build raw list of { center, radius }
-      const rawCircles = [];
-      elements.forEach(M => {
-        const iso = M.isoCircle();
-        if (!iso) return;
-        if (iso.radius < 0.01) return;
-        rawCircles.push({ center: iso.center, radius: iso.radius });
-      });
-
-      // Determine min/max radius
-      if (rawCircles.length === 0) {
-        circles = [];
-        redraw();
-        return;
-      }
-      let minR = rawCircles[0].radius;
-      let maxR = rawCircles[0].radius;
-      rawCircles.forEach(c => {
-        if (c.radius < minR) minR = c.radius;
-        if (c.radius > maxR) maxR = c.radius;
-      });
-
-      rawCircles.sort((a, b) => b.radius - a.radius);
-
-      // Assign RGBA color based on normalized radius, small circles vibrant and more opaque
-      circles = rawCircles.map(c => {
-        let idx = 0;
-        let alpha = 0.4;
-        if (maxR > minR) {
-          const t = (c.radius - minR) / (maxR - minR);
-          idx = Math.floor(t * (palette.length - 1));
-          alpha = 0.2 + 0.6 * (1 - t); // More opaque for smaller circles
-        }
-        const baseColor = palette[idx].replace('ALPHA', alpha.toFixed(2));
-        return {
-          center: c.center,
-          radius: c.radius,
-          color: baseColor
-        };
-      });
-
-      redraw();
-    }
+    // (rebuildIsometricCircles and all canvas drawing code removed)
 
     function setupUI() {
-      document.getElementById('Lparam').addEventListener('change', rebuildIsometricCircles);
-      document.getElementById('resetViewBtn').addEventListener('click', () => {
-        scale = Math.min(canvasWidth, canvasHeight) / 5;
-        panX = 0;
-        panY = 0;
-        redraw();
-      });
+      document.getElementById('Lparam').addEventListener('change', function() {});
+      document.getElementById('resetViewBtn').addEventListener('click', function() {});
       document.getElementById('newExampleBtn').addEventListener('click', () => {
         const rand = exampleLibrary[Math.floor(Math.random() * exampleLibrary.length)];
         setExample(rand);
@@ -502,6 +326,42 @@
       document.getElementById('addMatrixBtn').addEventListener('click', () => {
         addMatrixInput();
       });
+
+      document.getElementById('pInput').addEventListener('change', () => {
+        const val = parseInt(document.getElementById('pInput').value, 10);
+        const error = document.getElementById('pError');
+        if (!isPrime(val)) {
+          error.style.display = 'block';
+        } else {
+          error.style.display = 'none';
+          window.pprime = val;
+        }
+      });
+
+      document.getElementById('pUpBtn').addEventListener('click', () => {
+        let p = window.pprime + 1;
+        while (!isPrime(p)) p++;
+        updatePInput(p);
+      });
+
+      document.getElementById('pDownBtn').addEventListener('click', () => {
+        let p = window.pprime - 1;
+        while (p >= 2 && !isPrime(p)) p--;
+        if (p >= 2) updatePInput(p);
+      });
+
+      function updatePInput(p) {
+        document.getElementById('pInput').value = p;
+        document.getElementById('pError').style.display = 'none';
+        window.pprime = p;
+      }
+    }
+    function isPrime(n) {
+      if (n < 2 || n % 1 !== 0) return false;
+      for (let i = 2; i * i <= n; i++) {
+        if (n % i === 0) return false;
+      }
+      return true;
     }
 
     function setExample(example) {
@@ -521,15 +381,13 @@
           });
         });
       }
-      rebuildIsometricCircles();
+      // (rebuildIsometricCircles removed)
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      resizeCanvas();
       setupUI();
       addMatrixInput(['1', '2', '0', '1']);
       addMatrixInput(['0', '-1', '1', '0']);
-      rebuildIsometricCircles();
       document.getElementById('backButton').addEventListener('click', () => {
         window.location.href = '../index.html';
       });
