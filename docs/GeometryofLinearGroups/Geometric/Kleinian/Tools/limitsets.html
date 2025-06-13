@@ -93,37 +93,70 @@
   <canvas id="canvas"></canvas>
 
   <div id="controlPanel">
-    <h3>Isometric Circles</h3>
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <h3 style="margin: 0;">Isometric Circles</h3>
+      <button id="resetViewBtn" style="padding: 2px 6px; font-size: 11px; width: 100px;">Default view</button>
+    </div>
+
 
     <div id="matrixInputs"></div>
-    <button id="addMatrixBtn">Add Matrix</button>
+    <div style="display: flex; gap: 8px; margin-top: 12px;">
+      <button id="addMatrixBtn">Add Matrix</button>
+      <button id="updateGroupBtn">Update</button>
+    </div>
 
     <label for="Lparam" style="display: flex; align-items: center; justify-content: space-between;">
       Word length:
       <input id="Lparam" type="number" value="6" min="1" step="1" style="width: 60px; margin-left: 10px;" />
     </label>
 
-    <button id="resetViewBtn">Reset view</button>
-    <button id="newExampleBtn">New example!</button>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
+      <label for="groupSelector" style="margin: 0;">Predefined group:</label>
+      <select id="groupSelector" style="flex-grow: 1; margin: 0 6px;">
+        <option value="">-- Select --</option>
+        <option value="0">Modular group</option>
+        <option value="1">Surface group</option>
+        <option value="2">Figure eight knot group</option>
+        <option value="3">Borromean rings group</option>
+        <option value="3">Random example</option>
+      </select>
+      <button id="newExampleBtn" style="padding: 0px 6px; font-size: 10px; min-width: unset; width: auto; height: 20px; line-height: 20px;">??</button>
+    </div>
   </div>
 
   <script>
     const exampleLibrary = [
       {
-        A: ['1', '2', '0', '1'],
-        B: ['0', '-1', '1', '0']
+        name: "Modular group",
+        g1: ['1', '1', '0', '1'],
+        g2: ['0', '-1', '1', '0'],
       },
       {
-        A: ['1', '1+i', '0', '1'],
-        B: ['0', '-1', '1', '0']
+        name: "Surface group",
+        g1: ['2', '-2', '0', '1/2'],
+        g2: ['3', '4', '2', '3']
       },
       {
-        A: ['1', '2i', '0', '1'],
-        B: ['1', '-1', '1', '1']
+        name: "Figure eight knot group",
+        g1: ['1', '(-1+sqrt(3)i)/2', '0', '1'],
+        g2: ['1', '0', '1', '1']
       },
       {
-        A: ['2', '-2', '0', '1/2'],
-        B: ['3', '4', '2', '3']
+        name: "Borromean rings group",
+        g1: ['1', '2', '0', '1'],
+        g2: ['1', 'i', '0', '1'],
+        g3: ['1', '0', '-1-i', '1']
+      },
+      {
+        name: "Triangle group",
+        g1: ['1', '2i', '0', '1'],
+        g2: ['1', '-1', '1', '1']
+      },
+      {
+        name: "Random example",
+        g1: ['2', '-2', '0', '1/2'],
+        g2: ['3', '4', '2', '3']
       }
     ];
     // Palette: finer gradient for smooth color transition
@@ -259,6 +292,8 @@
       const mouseY = e.clientY - canvasHeight / 2 - panY;
       const oldScale = scale;
       scale *= (e.deltaY > 0 ? 0.9 : 1.1);
+      // Clamp scale between 1 and 500
+      scale = Math.max(1, Math.min(scale, 500));
       panX -= mouseX * (scale / oldScale - 1);
       panY -= mouseY * (scale / oldScale - 1);
       redraw();
@@ -289,13 +324,11 @@
       for (let depth = 2; depth <= L; depth++) {
         const newQueue = [];
         for (const word of queue) {
-          for (let i = 0; i < n; i++) {
-            const gen = String.fromCharCode(65 + i);
-            const genInv = gen.toLowerCase();
+          for (const gen of Object.keys(gens)) {
             const lastChar = word[word.length - 1];
             if (
-              (lastChar === gen && genInv === lastChar.toLowerCase()) ||
-              (lastChar === genInv && gen === lastChar.toUpperCase())
+              lastChar.toLowerCase() === gen.toLowerCase() &&
+              lastChar !== gen
             ) {
               continue;
             }
@@ -309,17 +342,6 @@
               visited.add(sig);
               results.push(M);
               newQueue.push(newWord);
-            }
-            const newWordInv = word + genInv;
-            let MInv = gens[newWordInv[0]];
-            for (let j = 1; j < newWordInv.length; j++) {
-              MInv = MInv.compose(gens[newWordInv[j]]);
-            }
-            const sigInv = wordSignature(MInv);
-            if (!visited.has(sigInv)) {
-              visited.add(sigInv);
-              results.push(MInv);
-              newQueue.push(newWordInv);
             }
           }
         }
@@ -376,9 +398,20 @@
       `;
       container.querySelector('.delete-matrix-btn').addEventListener('click', () => {
         container.remove();
+        // Relabel all matrix-labels after removing
+        const labels = document.querySelectorAll('.matrix-label');
+        labels.forEach((label, i) => {
+          label.innerHTML = `\\( g_{${i + 1}} = \\)`;
+        });
+        if (window.MathJax) MathJax.typeset();
         rebuildIsometricCircles();
       });
       document.getElementById('matrixInputs').appendChild(container);
+      // Relabel all matrix-labels after appending
+      const labels = document.querySelectorAll('.matrix-label');
+      labels.forEach((label, i) => {
+        label.innerHTML = `\\( g_{${i + 1}} = \\)`;
+      });
       if (window.MathJax) MathJax.typeset();
     }
 
@@ -454,29 +487,29 @@
       document.getElementById('addMatrixBtn').addEventListener('click', () => {
         addMatrixInput();
       });
+      document.getElementById('groupSelector').addEventListener('change', (e) => {
+        const idx = parseInt(e.target.value, 10);
+        if (!isNaN(idx)) {
+          setExample(exampleLibrary[idx]);
+        }
+      });
+      document.getElementById('updateGroupBtn').addEventListener('click', rebuildIsometricCircles);
     }
 
     function setExample(example) {
-      const { A, B } = example;
-      const matrixBlocks = document.querySelectorAll('#matrixInputs .matrix-block');
-      if(matrixBlocks.length < 2){
-        // Clear existing and add two
-        document.getElementById('matrixInputs').innerHTML = '';
-        addMatrixInput(A);
-        addMatrixInput(B);
-      } else {
-        ['A', 'B'].forEach((label, i) => {
-          const values = label === 'A' ? A : B;
-          const inputs = matrixBlocks[i].querySelectorAll('input');
-          values.forEach((val, idx) => {
-            inputs[idx].value = val;
-          });
-        });
-      }
+      const keys = Object.keys(example).filter(k => k !== 'name');
+      keys.sort();  // Ensure consistent order g1, g2, ...
+      document.getElementById('matrixInputs').innerHTML = '';
+      keys.forEach(key => {
+        addMatrixInput(example[key]);
+      });
       rebuildIsometricCircles();
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      math.import({
+        I: math.complex(0, 1)
+      }, { override: true });
       resizeCanvas();
       setupUI();
       addMatrixInput(['1', '2', '0', '1']);
