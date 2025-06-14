@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gromov–Piatetski-Shapiro Manifolds Tool</title>
+  <!-- Link to global CSS -->
+  <link rel="stylesheet" href="../../assets/css/style.css" />
+  <!-- Link to tool-specific CSS -->
+  <link rel="stylesheet" href="../css/GPS.css" />
+</head>
+<body>
+  <header>
+    <h1>Gromov–Piatetski-Shapiro Manifolds</h1>
+    <p class="description">Compute and visualize Gromov–Piatetski-Shapiro manifolds by gluing hyperbolic pieces.</p>
+  </header>
+
+  <main>
+    <!-- Introduction section -->
+    <section id="introduction">
+      <h2>Introduction</h2>
+      <p>Provide a brief overview of the construction and what this tool does.</p>
+    </section>
+
+    <!-- Parameters and input form -->
+    <section id="parameters">
+      <h2>Input Parameters</h2>
+      <form id="gps-form">
+        <!-- Example input fields -->
+        <div class="form-group">
+          <label for="manifoldA">Hyperbolic Manifold A</label>
+          <input type="text" id="manifoldA" name="manifoldA" placeholder="Enter manifold A data" required />
+        </div>
+        <div class="form-group">
+          <label for="manifoldB">Hyperbolic Manifold B</label>
+          <input type="text" id="manifoldB" name="manifoldB" placeholder="Enter manifold B data" required />
+        </div>
+        <div class="form-group">
+          <label for="glueParams">Gluing Parameters</label>
+          <input type="text" id="glueParams" name="glueParams" placeholder="e.g., twist angles" required />
+        </div>
+        <button type="button" id="compute-btn">Compute Manifold</button>
+      </form>
+    </section>
+
+    <!-- Actions and controls -->
+    <section id="controls">
+      <h2>Controls</h2>
+      <button id="reset-btn">Reset</button>
+      <button id="export-btn">Export Data</button>
+    </section>
+
+    <!-- Results and visualization -->
+    <section id="results">
+      <h2>Results</h2>
+      <div id="output">
+        <!-- Numerical or textual output goes here -->
+      </div>
+      <div id="visualization">
+        <!-- Canvas or WebGL scene for manifold visualization -->
+        <canvas id="gps-canvas"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Nic Brody / UCSC Geometry Tools</p>
+  </footer>
+
+  <!-- External scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@11.3.0/lib/browser/math.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
+  <!-- Tool-specific script -->
+  <script src="../js/GPS.js"></script>
+</body>
+</html>
