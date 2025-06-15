@@ -1,4 +1,5 @@
 (function() {
+  // Inject shared CDN libraries if they haven't been loaded yet
   const libs = [
     "https://polyfill.io/v3/polyfill.min.js?features=es6",
     "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js",
@@ -15,9 +16,12 @@
     "https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"
   ];
   libs.forEach(url => {
-    const script = document.createElement('script');
-    script.src = url;
-    script.async = false;
-    document.head.appendChild(script);
+    if (!document.querySelector(`script[src="${url}"]`)) {
+      const script = document.createElement('script');
+      script.src = url;
+      script.async = false;
+      document.head.appendChild(script);
+    }
   });
 })();
+
