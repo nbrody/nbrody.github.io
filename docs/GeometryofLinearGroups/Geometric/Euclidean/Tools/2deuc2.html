@@ -127,7 +127,7 @@
 
     <div id="matrixInputs"></div>
     <div style="display: flex; gap: 8px; margin-top: 12px;">
-      <button id="addMatrixBtn">Add Matrix</button>
+      <button id="addVectorBtn">Add Vector</button>
       <button id="updateGroupBtn">Update</button>
     </div>
 
@@ -446,7 +446,7 @@
       const rand = exampleLibrary[Math.floor(Math.random() * exampleLibrary.length)];
       setExample(rand);
     });
-    document.getElementById('addMatrixBtn').addEventListener('click', () => {
+    document.getElementById('addVectorBtn').addEventListener('click', () => {
       addMatrixInput();
     });
     document.getElementById('groupSelector').addEventListener('change', (e) => {
