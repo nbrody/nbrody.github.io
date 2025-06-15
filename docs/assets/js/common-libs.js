@@ -1,6 +1,7 @@
 // Central loader for frequently used CDN libraries.
 // Include this file once per page. It safely injects each library only once.
-(function() {
+
+(function () {
   if (window.__commonLibsInjected) return;
   window.__commonLibsInjected = true;
 
@@ -15,7 +16,11 @@
   ];
 
   libs.forEach(src => {
-    document.write('<script src="' + src + '"><\/script>');
+    if (!document.querySelector(`script[src="${src}"]`)) {
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = false; // Preserve order
+      document.head.appendChild(script);
+    }
   });
 })();
-
