@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 // Central loader for frequently used CDN libraries.
 // Include this file once per page. It safely injects each library only once.
 
@@ -5,6 +6,10 @@
   if (window.__commonLibsInjected) return;
   window.__commonLibsInjected = true;
 
+=======
+// Insert commonly used CDN libraries once per page
+(function() {
+>>>>>>> Stashed changes
   const libs = [
     "https://polyfill.io/v3/polyfill.min.js?features=es6",
     "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js",
@@ -16,11 +21,15 @@
   ];
 
   libs.forEach(src => {
+<<<<<<< Updated upstream
     if (!document.querySelector(`script[src="${src}"]`)) {
       const script = document.createElement('script');
       script.src = src;
       script.async = false; // Preserve order
       document.head.appendChild(script);
     }
+=======
+    document.write('<script src="' + src + '"><\/script>');
+>>>>>>> Stashed changes
   });
 })();
