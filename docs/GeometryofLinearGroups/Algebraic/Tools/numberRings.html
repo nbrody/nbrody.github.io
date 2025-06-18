@@ -4,7 +4,7 @@
   <link rel="stylesheet" href="../../../assets/css/backBtn.css">
   <meta charset="UTF-8">
   <title>Number Ring Tool</title>
-  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/core-js-bundle@3.30.0/minified.js"></script>
   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <script src="https://sagecell.sagemath.org/static/embedded_sagecell.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
@@ -45,10 +45,14 @@
       background-color: #1e1e1e !important;
       color: white !important;
     }
+    /* Hide the intermediate MathJax rendering container */
+    #math-output {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <a href="../../index.html" class="back-button">← Back</a>
+  <button id="backButton" class="back-button">Back</button>
   <h1>Number Rings</h1>
   <h2>Gröbner Basis Calculator</h2>
   <p>Enter a finite set of polynomials (e.g., \( x_1^2 + x_2 - 3 \)). Use variables \( x_i \) with integer coefficients.</p>
@@ -97,12 +101,20 @@
     document.querySelector("#sage-cell").addEventListener("click", updateSageInput);
 
     // Set up SageMathCell
+    // Prepopulate the Sage cell with the current polynomials
+    updateSageInput();
+    // Create the Sage cell for computing Gröbner bases in Z[x_i]
     sagecell.makeSagecell({
       inputLocation: '#sage-cell',
       evalButtonText: 'Compute Gröbner basis',
       template: sagecell.templates.minimal,
       autoeval: false,
       linked: true
+    });
+  </script>
+  <script>
+    document.getElementById('backButton').addEventListener('click', function() {
+      window.location.href = '../../index.html';
     });
   </script>
 </body>

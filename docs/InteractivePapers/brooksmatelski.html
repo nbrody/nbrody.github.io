@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Brooks-Matelski Interactive Paper</title>
+<style>
+  details.section {
+    margin-bottom: 1em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 0.5em;
+  }
+  details.section > summary {
+    font-weight: bold;
+    cursor: pointer;
+  }
+  details.section .visualization {
+    margin-top: 0.5em;
+  }
+</style>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('details.section').forEach(detail => {
+      detail.addEventListener('toggle', () => {
+        if (detail.open) {
+          const viz = detail.querySelector('.visualization');
+          if (viz && !viz.hasChildNodes()) {
+            // Placeholder: call your visualization initializer here,
+            // e.g., initVisualization(detail.id, viz);
+          }
+        }
+      });
+    });
+  });
+</script>
+</head>
+<body>
+
+<details class="section" id="details-section-1">
+  <summary>Introduction</summary>
+  <div class="content">
+    <p>This paper introduces the Brooks-Matelski framework for analyzing complex dynamical systems...</p>
+    <div class="visualization" id="viz-section-1"></div>
+  </div>
+</details>
+
+<details class="section" id="details-section-2">
+  <summary>Background</summary>
+  <div class="content">
+    <p>The background section covers previous work on dynamical systems and topological methods...</p>
+    <div class="visualization" id="viz-section-2"></div>
+  </div>
+</details>
+
+<details class="section" id="details-section-3">
+  <summary>Methods</summary>
+  <div class="content">
+    <p>Our methods involve constructing Ford domains and analyzing their properties...</p>
+    <div class="visualization" id="viz-section-3"></div>
+  </div>
+</details>
+
+<details class="section" id="details-section-4">
+  <summary>Results</summary>
+  <div class="content">
+    <p>The results demonstrate the effectiveness of our approach in several case studies...</p>
+    <div class="visualization" id="viz-section-4"></div>
+  </div>
+</details>
+
+<details class="section" id="details-section-5">
+  <summary>Conclusion</summary>
+  <div class="content">
+    <p>We conclude with a discussion of future directions and potential applications...</p>
+    <div class="visualization" id="viz-section-5"></div>
+  </div>
+</details>
+
+<script>
+function initVisualization(sectionId, container) {
+  switch(sectionId) {
+    case 'details-section-1':
+      // build the first object (e.g., a Ford domain)
+      break;
+    // add cases for other sections
+  }
+}
+</script>
+
+</body>
+</html>
