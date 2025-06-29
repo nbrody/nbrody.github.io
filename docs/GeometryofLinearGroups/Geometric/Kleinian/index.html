@@ -65,6 +65,7 @@
       <button id="limitSetsBtn">Limit Set</button>
       <button id="dirichletBtn">Dirichlet Domain</button>
       <button id="mandelbrotBtn">Mandelbrot Explorer</button>
+      <button id="maskitBtn">Maskit Slice</button>
       
       <!-- (In the future, you could add more buttons here, e.g. “Dirichlet Domain,” “Trace Plot,” etc.) -->
     </div>
@@ -88,6 +89,13 @@
     document.getElementById('mandelbrotBtn').addEventListener('click', () => {
       // Navigate to the Mandelbrot Explorer
       window.location.href = 'Tools/mandelbrot.html';
+    });
+  </script>
+
+  <script>
+    document.getElementById('maskitBtn').addEventListener('click', () => {
+      // Navigate to the Maskit tool
+      window.location.href = 'Tools/maskit.html';
     });
   </script>
 
