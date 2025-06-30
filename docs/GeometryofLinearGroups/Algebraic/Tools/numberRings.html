@@ -4,11 +4,27 @@
   <link rel="stylesheet" href="../../../assets/css/backBtn.css">
   <meta charset="UTF-8">
   <title>Number Ring Tool</title>
-  <script src="https://cdn.jsdelivr.net/npm/core-js-bundle@3.30.0/minified.js"></script>
+  <link rel="icon" href="data:;base64,=">
   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <script src="https://sagecell.sagemath.org/static/embedded_sagecell.js"></script>
+  <script>
+    // Called once embedded_sagecell.js has loaded
+    function initSageCell() {
+      updateSageInput();  // ensure current MathQuill content is pushed
+      sagecell.makeSagecell({
+        inputLocation: '#sage-cell',
+        evalButtonText: 'Compute Gröbner basis',
+        outputLocation: '#sage-output',
+        template: sagecell.templates.minimal,
+        autoeval: false,
+        linked: true
+      });
+      console.log('Sage cell initialized');
+    }
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css" />
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" />
   <style>
     body {
       background-color: #121212;
@@ -45,9 +61,13 @@
       background-color: #1e1e1e !important;
       color: white !important;
     }
-    /* Hide the intermediate MathJax rendering container */
+    /* Visually hide the intermediate MathJax rendering container off-screen */
     #math-output {
-      display: none;
+      position: absolute;
+      left: -9999px;
+      width: 0;
+      height: 0;
+      overflow: hidden;
     }
   </style>
 </head>
@@ -60,6 +80,7 @@
 
   <div id="math-output"></div>
   <div id="sage-cell" style="margin-top: 20px;"></div>
+  <div id="sage-output" style="margin-top: 20px;"></div>
   <div><p>TODO: Output information about the ring. Determine if it remains characteristic zero, and if it is a number ring (embeds in Qbar).</p></div>
 
   <script>
@@ -79,7 +100,7 @@
     function renderMath(latexInput) {
       mathOutput.innerHTML = `\\(${latexInput}\\)`;
       if (window.MathJax && MathJax.typesetPromise) {
-        MathJax.typesetPromise([mathOutput]);
+        MathJax.typesetPromise([mathOutput]).catch(err => console.error('MathJax typeset error:', err));
       }
     }
 
@@ -95,22 +116,26 @@
       const ringVars = Array.from({length: maxSub}, (_, i) => `x_${i + 1}`).join(",");
       const polyList = lines.map(p => p.replace(/\^/g, "**")).join(",\n  ");
       const code = `R = PolynomialRing(ZZ, [${ringVars}])\nI = R.ideal([${polyList}])\nG = I.groebner_basis()\nfor g in G:\n    print(latex(g))`;
-      sagecell.setInputText(document.querySelector("#sage-cell .sagecell_editor"), code);
+      // Replace sagecell.setInputText with direct CodeMirror update
+      const textarea = document.querySelector("#sage-cell textarea");
+      if (textarea) {
+        if (textarea.CodeMirror) {
+          textarea.CodeMirror.setValue(code);
+        } else {
+          // Fallback if CodeMirror isn't available yet
+          textarea.value = code;
+        }
+      } else {
+        console.error("SageCell input textarea not found");
+      }
     }
 
     document.querySelector("#sage-cell").addEventListener("click", updateSageInput);
 
     // Set up SageMathCell
     // Prepopulate the Sage cell with the current polynomials
-    updateSageInput();
-    // Create the Sage cell for computing Gröbner bases in Z[x_i]
-    sagecell.makeSagecell({
-      inputLocation: '#sage-cell',
-      evalButtonText: 'Compute Gröbner basis',
-      template: sagecell.templates.minimal,
-      autoeval: false,
-      linked: true
-    });
+    // updateSageInput(); // Now called in initSageCell
+    // The Sage cell is now initialized in initSageCell (see head)
   </script>
   <script>
     document.getElementById('backButton').addEventListener('click', function() {
@@ -118,4 +143,8 @@
     });
   </script>
 </body>
+<script>
+  // Ensure SageCell initializes after the page is fully loaded
+  window.addEventListener('load', initSageCell);
+</script>
 </html>
