@@ -17,23 +17,55 @@
   </head>
   <body>
   <h1>Embedded Sage Cells</h1>
-
-  <h2>Factorial</h2>
-  Click the “Activate” button below to calculate factorials.
-    <div id="mycell"><script type="text/x-sage">
-@interact
-def _(a=(1, 10)):
-    print(factorial(a))
- </script>
+  
 </div>
 
 <h2>Your own computations</h2>
+<div>
+  <label for="plainTextInput">Enter text:</label>
+  <input type="text" id="plainTextInput" name="plainTextInput" placeholder="Type something here">
+</div>
 Type your own Sage computation below and click “Evaluate”.
-    <div class="compute"><script type="text/x-sage">plot(sin(x), (x, 0, 2*pi))</script></div>
-    <div class="compute"><script type="text/x-sage">
+  <div class="compute">
+    <script type="text/x-sage">
 @interact
-def f(n=(0,10)):
-    print(2^n)
-</script></div>
+def I_info(
+    n = slider(1, 10, 1, default=2, label='Number of variables n'),
+    gens = input_box('x1^2+1, x2^2-2', label='Generators (comma-separated)', type=str)
+):
+    # Define polynomial ring ZZ[x1,...,xn]
+    var_names = ['x{}'.format(i+1) for i in range(n)]
+    R = PolynomialRing(ZZ, var_names)
+    # Parse generators into the ring
+    gens_list = [R(g.strip()) for g in gens.split(',') if g.strip()]
+    I = R.ideal(gens_list)
+    # Lift to QQ for dimension fallback and primality testing
+    RQ = PolynomialRing(QQ, var_names)
+    IQ = RQ.ideal(gens_list)
+    # Compute Groebner basis
+    G = I.groebner_basis()
+    # Compute intersection with Z
+    consts = [ZZ(h) for h in G if h.is_constant()]
+    if consts:
+        d = abs(gcd(consts))
+    else:
+        d = 0
+    # Compute Krull dimension of the quotient (fall back if not implemented)
+    try:
+        dim = R.quotient(I).krull_dimension()
+    except NotImplementedError:
+        dim = IQ.dimension() + 1
+    # Test primality of the ideal (over QQ)
+    isprime = IQ.is_prime()
+    # Output results
+    print("Groebner basis:", G)
+    if d != 0:
+        print("I \u2229 Z = {}Z".format(d))
+    else:
+        print("I \u2229 Z = 0")
+    print("I is prime?", isprime)
+    print("Krull dimension of I:", dim)
+    </script>
+  </div>
   </body>
 </html>
