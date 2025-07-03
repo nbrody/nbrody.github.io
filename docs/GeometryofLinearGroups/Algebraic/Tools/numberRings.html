@@ -164,24 +164,30 @@ def I_info(
     # Parse generators into the ring
     gens_list = [R(g.strip()) for g in gens.split(',') if g.strip()]
     I = R.ideal(gens_list)
+
     # Lift to QQ for dimension fallback and primality testing
     RQ = PolynomialRing(QQ, var_names)
     IQ = RQ.ideal(gens_list)
+
     # Compute Grobner basis
     G = I.groebner_basis()
+
     # Compute intersection with Z
     consts = [ZZ(h) for h in G if h.is_constant()]
     if consts:
         d = abs(gcd(consts))
     else:
         d = 0
-    # Compute Krull dimension of the quotient (fall back if not implemented)
-    try:
-        dim = R.quotient(I).krull_dimension()
-    except NotImplementedError:
-        dim = IQ.dimension() + 1
+
     # Test primality of the ideal (over QQ)
     isprime = IQ.is_prime()
+    # Check if the quotient RQ/IQ is a number field
+
+    # Define number field K determined by the first generator
+
+    K = NumberField(gens_list)
+    print("K is a number field of degree {}".format(K.degree()))
+
     # Output results
     print("Groebner basis:", G)
     if d != 0:
@@ -189,7 +195,10 @@ def I_info(
     else:
         print("I \u2229 Z = 0")
     print("I is prime?", isprime)
-    print("Krull dimension of I:", dim)
+    if dim == 1:
+        print("This is a number ring")
+    else:
+        print("Transcendence degree:", dim-1)
     </script>
   </div>
   <script>
