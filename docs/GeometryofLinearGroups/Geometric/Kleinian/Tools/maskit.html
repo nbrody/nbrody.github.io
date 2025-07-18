@@ -90,6 +90,16 @@
       // complex parameter
       const t = math.complex(u, v);
       const yMax = u + 0.1;
+      const invWidth1  = 1 / (width  - 1);
+      const invHeight1 = 1 / (height - 1);
+      const x0s = new Float64Array(width);
+      for (let i = 0; i < width; i++) {
+        x0s[i] = xMin + i * invWidth1 * (xMax - xMin);
+      }
+      const y0s = new Float64Array(height);
+      for (let i = 0; i < height; i++) {
+        y0s[i] = yMin + ((height - 1 - i) * invHeight1) * (yMax - yMin);
+      }
 
       // precompute half-height cutoff
       const u2 = u / 2;
@@ -99,9 +109,9 @@
 
       // render pixels with raw floats
       for (let py = 0; py < height; py++) {
-        const y0 = yMin + ((height - 1 - py) / (height - 1)) * (yMax - yMin);
+        let y0 = y0s[py];
         for (let px = 0; px < width; px++) {
-          const x0 = xMin + (px / (width - 1)) * (xMax - xMin);
+          let x0 = x0s[px];
           let zRe = x0, zIm = y0;
           let prevRe = 0, prevIm = 0;
           let escapeType = 0; // 1 = above u, -1 = below real axis
@@ -147,15 +157,19 @@
           if (escapeType !== 0) {
             let r = 0, g = 0, b = 0;
             if (escapeType === 1) {
-              // above: red intensity by distance
+              // above: red, warmer and more vivid
               const dist = escapeIm; 
-              const norm = Math.min(dist, 1);
-              r = Math.floor(255 * norm);
+              const norm = -Math.min(-dist / yMax, 1);
+              r = Math.floor(200 + 55 * norm);
+              g = Math.floor(20 * norm);
+              b = Math.floor(20 * norm);
             } else if (escapeType === -1) {
-              // below: blue intensity by distance
+              // below: blue, cooler and more vivid
               const dist = -escapeIm;
               const norm = Math.min(dist / yMax, 1);
-              b = Math.floor(255 * dist);
+              r = Math.floor(20 * norm);
+              g = Math.floor(20 * norm);
+              b = Math.floor(200 + 55 * norm);
             }
             data[idx]   = r;
             data[idx+1] = g;

@@ -1,517 +1,396 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Dirichlet Domain Visualization</title>
-
-
-  <!-- Math.js for complex arithmetic -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.3.2/math.min.js"></script>
-
-
-  <script type="module">
-    import * as math from 'https://cdn.jsdelivr.net/npm/mathjs@11.3.2/+esm';
-    window.math = math;
-  </script>
-
-
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      font-family: sans-serif;
-    }
-    canvas#threeCanvas {
-      width: 100vw;
-      height: 100vh;
-      display: block;
-    }
-    /* Toolbar styling: copy from previous tools */
-    #controlPanel {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(255,255,255,0.9);
-      padding: 12px;
-      border-radius: 6px;
-      z-index: 10;
-    }
-    #controlPanel h2 {
-      margin: 0 0 8px 0;
-      font-size: 16px;
-    }
-    .matrix-container {
-      display: inline-flex;
-      align-items: center;
-      margin-bottom: 8px;
-      font-size: 14px;
-    }
-    .matrix-container .label {
-      margin-right: 6px;
-      font-weight: bold;
-    }
-    .matrix-container .paren {
-      font-size: 32px;
-      line-height: 1;
-      margin: 0 4px;
-    }
-    .matrix-container .grid {
-      display: grid;
-      grid-template-columns: repeat(2, 60px);
-      grid-template-rows: repeat(2, 28px);
-      gap: 4px;
-    }
-    .matrix-container .entry {
-      width: 100%;
-      height: 100%;
-      font-size: 14px;
-      padding: 2px 4px;
-    }
-    #updateButton {
-      margin-top: 8px;
-      padding: 6px 12px;
-      font-size: 14px;
-    }
-</style>
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.module.js"
-    }
-  }
-  </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dirichlet Polyhedron Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; margin: 0; overflow: hidden; }
+        #viewer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
+        .control-panel {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            width: 450px;
+            max-height: calc(100vh - 4rem);
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease-in-out;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+        }
+        #panel-content-wrapper {
+             max-height: 80vh;
+             overflow-y: auto;
+             transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+        .content-hidden {
+            max-height: 0 !important;
+            opacity: 0;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            margin-top: 0 !important;
+        }
+        .matrix-input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; border: 2px solid #e5e7eb; padding: 0.75rem; border-radius: 0.5rem; }
+        .matrix-input { width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #D1D5DB; background-color: #f9fafb; }
+        .matrix-display { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; padding: 0.75rem; border-radius: 0.5rem; background-color: #f3f4f6; border: 1px solid #e5e7eb; font-family: monospace; align-items: center; justify-items: center; }
+    </style>
 </head>
+<body class="bg-gray-900">
+    <div id="viewer"></div>
 
-<body>
-  <button id="backButton" style="position: absolute; top: 10px; left: 10px; z-index: 11;">Back</button>
-  <!-- -------------- INPUT WINDOW (toolbar) -------------- -->
-  <div id="controlPanel">
-    <h2>Dirichlet Domain</h2>
+    <div class="control-panel p-6">
+        <div id="panel-header" class="flex justify-between items-center cursor-pointer">
+            <header>
+                <h1 class="text-2xl font-bold text-gray-900">Controls</h1>
+                <p class="mt-1 text-sm text-gray-600">For SL(2,C) Generators</p>
+            </header>
+            <button id="toggle-panel-btn" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
+                 <svg id="chevron-icon" class="w-6 h-6 text-gray-700 transition-transform duration-300 transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+        </div>
 
-    <!-- Matrix A -->
-    <div class="matrix-container">
-      <span class="label">A =</span>
-      <span class="paren">(</span>
-      <div class="grid" id="matrixA">
-        <!-- Four <input> fields for A[0,0], A[0,1], A[1,0], A[1,1] -->
-        <input type="text" class="entry" id="A00" value="1">
-        <input type="text" class="entry" id="A01" value="(1+sqrt(3)i)/2">
-        <input type="text" class="entry" id="A10" value="0">
-        <input type="text" class="entry" id="A11" value="1">
-      </div>
-      <span class="paren">)</span>
+        <div id="panel-content-wrapper" class="mt-4">
+            <div id="panel-content">
+                <div class="mb-4">
+                    <h3 class="text-lg font-medium mb-3">Add Generator</h3>
+                    <div class="matrix-input-grid">
+                        <input type="text" id="a" placeholder="a" class="matrix-input" value="1">
+                        <input type="text" id="b" placeholder="b" class="matrix-input" value="1+i">
+                        <input type="text" id="c" placeholder="c" class="matrix-input" value="0">
+                        <input type="text" id="d" placeholder="d" class="matrix-input" value="1">
+                    </div>
+                    <button id="addMatrixBtn" class="mt-4 w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">Add Matrix</button>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="wordLength" class="block text-sm font-medium text-gray-700">Word Length</label>
+                    <input type="number" id="wordLength" value="1" min="1" max="5" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium mb-3">Generators</h3>
+                    <div id="matrixListContainer" class="space-y-3 max-h-40 overflow-y-auto p-2 bg-gray-50 rounded-lg"></div>
+                </div>
+
+                <div>
+                    <button id="generateBtn" class="w-full bg-teal-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-600 transition-colors mb-2">Generate Polyhedron</button>
+                    <button id="resetBtn" class="w-full bg-slate-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-slate-700 transition-colors">Reset</button>
+                </div>
+                <div id="message-box" class="mt-4 p-3 text-center text-sm rounded-lg hidden"></div>
+            </div>
+        </div>
+        <div id="loader" class="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-500"></div>
+        </div>
     </div>
 
-    <!-- Matrix B -->
-    <div class="matrix-container">
-      <span class="label">B =</span>
-      <span class="paren">(</span>
-      <div class="grid" id="matrixB">
-        <!-- Four <input> fields for B[0,0], B[0,1], B[1,0], B[1,1] -->
-        <input type="text" class="entry" id="B00" value="0">
-        <input type="text" class="entry" id="B01" value="-1">
-        <input type="text" class="entry" id="B10" value="1">
-        <input type="text" class="entry" id="B11" value="0">
-      </div>
-      <span class="paren">)</span>
-    </div>
+    <script type="module">
+        // --- THREE.js Setup ---
+        let scene, camera, renderer, controls;
+        let polyhedronGroup = new THREE.Group();
+        const viewer = document.getElementById('viewer');
 
-    <!-- Depth control (optional) -->
-    <div style="margin-bottom:8px; font-size:14px;">
-      Word length up to:
-      <input type="number" id="wordDepth" value="6" min="1" max="12" style="width:50px; margin-left:4px;">
-    </div>
-
-    <button id="updateButton">Update Domain</button>
-  </div>
-
-  <!-- -------------- Three.js CANVAS -------------- -->
-  <canvas id="threeCanvas"></canvas>
-
-  <script type="module">
-  import * as THREE from 'three';
-  import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.152.0/examples/jsm/controls/OrbitControls.js';
-    // ================================================
-    // Global variables for Three.js scene, camera, etc.
-    // ================================================
-    let scene, camera, renderer, controls;
-    let clippingPlane;
-    const bisectorMeshes = []; // store hemisphere meshes so we can clear them
-
-    // Initialize the Three.js scene
-    function initThree() {
-      const canvas = document.getElementById('threeCanvas');
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-
-      // Renderer
-      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-      renderer.setSize(width, height);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      // Enable global clipping (so that z > 0 is retained)
-      clippingPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-      renderer.clippingPlanes = [clippingPlane];
-      renderer.localClippingEnabled = true;
-
-      // Scene
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0xf0f0f0);
-
-      // Camera
-      camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-      camera.position.set(0, -5, 2);
-      camera.up.set(0, 0, 1);
-      camera.lookAt(new THREE.Vector3(0, 0, 0));
-
-      // Light
-      const ambient = new THREE.AmbientLight(0x888888);
-      scene.add(ambient);
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      dirLight.position.set(5, -5, 5);
-      scene.add(dirLight);
-
-      // Controls
-      controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.1;
-
-      // Add a grid on the z=0 plane to see boundary
-      const gridHelper = new THREE.GridHelper(10, 20, 0x999999, 0xcccccc);
-      gridHelper.rotation.x = Math.PI / 2; // put grid in xy-plane
-      scene.add(gridHelper);
-      const axesHelper = new THREE.AxesHelper(2);
-      scene.add(axesHelper);
-
-      window.addEventListener('resize', onWindowResize, false);
-      animate();
-    }
-
-    function onWindowResize() {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
-    }
-
-    function animate() {
-      requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    }
-
-    // ================================================
-    // Parse the two matrices A and B from the input fields,
-    // using math.js to allow complex numbers (e.g. "1+2i").
-    // Returns an object { A: [[a00,a01],[a10,a11]], B: [[...]] },
-    // where each entry is a math.complex.
-    // ================================================
-    function parseInputMatrices() {
-      // Helper to parse a single field
-      function parseEntry(id) {
-        const str = document.getElementById(id).value.trim();
-        try {
-          const val = math.evaluate(str);
-          if (typeof val === 'number') {
-            return math.complex(val);
-          } else if (val && val.isComplex) {
-            return val;
-          } else {
-            return math.complex(val);
-          }
-        } catch (e) {
-          console.warn(`Could not parse '${str}' as a valid expression. Defaulting to 0.`);
-          return math.complex(0);
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111827);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 3, 5);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            viewer.appendChild(renderer.domElement);
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 1, 0);
+            const ambientLight = new THREE.AmbientLight(0xcccccc, 1.0);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            directionalLight.position.set(2, 5, 3);
+            scene.add(directionalLight);
+            const planeGeom = new THREE.PlaneGeometry(20, 20);
+            const planeMat = new THREE.MeshStandardMaterial({ color: 0x444444, transparent: true, opacity: 0.3 });
+            const boundaryPlane = new THREE.Mesh(planeGeom, planeMat);
+            boundaryPlane.rotation.x = -Math.PI / 2;
+            scene.add(boundaryPlane);
+            const basepointGeom = new THREE.SphereGeometry(0.1, 16, 16);
+            const basepointMat = new THREE.MeshStandardMaterial({ color: 0xffeb3b });
+            const basepointMesh = new THREE.Mesh(basepointGeom, basepointMat);
+            basepointMesh.position.set(0, 1, 0);
+            scene.add(basepointMesh);
+            scene.add(polyhedronGroup);
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
         }
-      }
 
-      const A00 = parseEntry('A00');
-      const A01 = parseEntry('A01');
-      const A10 = parseEntry('A10');
-      const A11 = parseEntry('A11');
+        function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+        function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
 
-      const B00 = parseEntry('B00');
-      const B01 = parseEntry('B01');
-      const B10 = parseEntry('B10');
-      const B11 = parseEntry('B11');
-
-      return {
-        A: [
-          [A00, A01],
-          [A10, A11]
-        ],
-        B: [
-          [B00, B01],
-          [B10, B11]
-        ]
-      };
-    }
-
-    // ================================================
-    // Multiply two 2x2 matrices over math.js complex numbers.
-    // ================================================
-    function matMult(M, N) {
-      // M, N are arrays [[m00,m01],[m10,m11]] of math.complex
-      return [
-        [
-          math.add(math.multiply(M[0][0], N[0][0]), math.multiply(M[0][1], N[1][0])),
-          math.add(math.multiply(M[0][0], N[0][1]), math.multiply(M[0][1], N[1][1]))
-        ],
-        [
-          math.add(math.multiply(M[1][0], N[0][0]), math.multiply(M[1][1], N[1][0])),
-          math.add(math.multiply(M[1][0], N[0][1]), math.multiply(M[1][1], N[1][1]))
-        ]
-      ];
-    }
-
-    // ================================================
-    // Compute the inverse of a 2x2 matrix (assuming det != 0).
-    // Returns [[d, -b],[-c, a]] / det.
-    // ================================================
-    function matInverse(M) {
-      const a = M[0][0], b = M[0][1], c = M[1][0], d = M[1][1];
-      const det = math.subtract(math.multiply(a, d), math.multiply(b, c));
-      if (math.abs(det) === 0) {
-        console.warn('Matrix is singular or nearly so; cannot invert.');
-        return null;
-      }
-      const invDet = math.divide(1, det);
-      return [
-        [math.multiply(d, invDet), math.multiply(math.unaryMinus(b), invDet)],
-        [math.multiply(math.unaryMinus(c), invDet), math.multiply(a, invDet)]
-      ];
-    }
-
-    // ================================================
-    // Check approximate equality of two matrices (with a small epsilon),
-    // so we can avoid repeats in the group generation.
-    // ================================================
-    function matEquals(M, N, eps = 1e-8) {
-      for (let i = 0; i < 2; i++) {
-        for (let j = 0; j < 2; j++) {
-          if (math.abs(math.subtract(M[i][j], N[i][j])) > eps) {
-            return false;
-          }
-        }
-      }
-      return true;
-    }
-
-    // ================================================
-    // Generate all distinct group elements of ≤ given wordLength
-    // in the free group on {A, B} modulo reduction.
-    // We store each element as {mat: [[...]], word: "A B A^{-1} ..."} for debugging.
-    // ================================================
-    function generateGroupElements(A, B, maxDepth) {
-      // Represent each generator and its inverse
-      const invA = matInverse(A);
-      const invB = matInverse(B);
-
-      // We’ll store a list of objects { mat: M, word: string }.
-      // Start with identity.
-      const idMat = [
-        [math.complex(1), math.complex(0)],
-        [math.complex(0), math.complex(1)]
-      ];
-      const elements = [{ mat: idMat, word: "" }];
-
-      // For easy checking of duplicates, keep an array of mats.
-      // At each depth, we build new elements by appending A, A^{-1}, B, B^{-1},
-      // but we avoid immediately canceling back (e.g., “...A * A^{-1}”).
-      for (let depth = 1; depth <= maxDepth; depth++) {
-        const newElems = [];
-        for (const el of elements.filter((_, idx) => idx >= elements.length - Math.pow(4, depth - 1))) {
-          // Only extend those from the previous “layer”.
-          const lastLetter = el.word.split(" ").pop();
-          const avoid = {
-            "A": "A_inv",
-            "A_inv": "A",
-            "B": "B_inv",
-            "B_inv": "B"
-          }[lastLetter];
-
-          // Try appending each of the four options, unless it cancels
-          const candidates = [
-            { gen: A, name: "A" },
-            { gen: invA, name: "A_inv" },
-            { gen: B, name: "B" },
-            { gen: invB, name: "B_inv" }
-          ];
-          for (const cand of candidates) {
-            if (cand.name !== avoid) {
-              const newMat = matMult(el.mat, cand.gen);
-              // Check if newMat is already present
-              let seen = false;
-              for (const existing of elements.concat(newElems)) {
-                if (matEquals(existing.mat, newMat)) { seen = true; break; }
-              }
-              if (!seen) {
-                newElems.push({
-                  mat: newMat,
-                  word: (el.word ? el.word + " " : "") + cand.name
-                });
-              }
+        // --- Complex Number and Matrix Logic ---
+        class Complex {
+            constructor(re = 0, im = 0) { this.re = re; this.im = im; }
+            add(z) { return new Complex(this.re + z.re, this.im + z.im); }
+            sub(z) { return new Complex(this.re - z.re, this.im - z.im); }
+            mul(z) { return new Complex(this.re * z.re - this.im * z.im, this.re * z.im + this.im * z.re); }
+            div(z) {
+                const denom = z.re * z.re + z.im * z.im;
+                if (denom === 0) return new Complex(Infinity, Infinity);
+                return new Complex((this.re * z.re + this.im * z.im) / denom, (this.im * z.re - this.re * z.im) / denom);
             }
-          }
+            conjugate() { return new Complex(this.re, -this.im); }
+            normSq() { return this.re * this.re + this.im * this.im; }
+            abs() { return Math.sqrt(this.normSq()); }
+            toString() {
+                const reStr = this.re.toFixed(2);
+                const imStr = Math.abs(this.im).toFixed(2);
+                if (Math.abs(this.im) < 1e-6) return reStr;
+                if (Math.abs(this.re) < 1e-6) return `${this.im < 0 ? '-' : ''}${imStr}i`;
+                return `${reStr} ${this.im < 0 ? '-' : '+'} ${imStr}i`;
+            }
         }
-        elements.push(...newElems);
-      }
-      return elements;
-    }
-
-    // ================================================
-    // Given a group element g = [[a,b],[c,d]], compute g · x0,
-    // where x0 = (w=0, t=1).  In upper‐half‐space:
-    //   w' = b / d,   t' = 1 / |d|^2.
-    // Returns { u: complex, t: real }.
-    // ================================================
-    function applyToX0(mat) {
-      const a = mat[0][0], b = mat[0][1], c = mat[1][0], d = mat[1][1];
-      // Check for division by zero
-      if (math.equal(d, 0)) return null;
-      // w' = (a*0 + b) / (c*0 + d) = b / d
-      const wPrime = math.divide(b, d);
-      // t' = 1 / |d|^2
-      const absDsq = math.multiply(d, math.conj(d)); // a real
-      const tPrime = 1 / absDsq.re; // should be purely real
-      return { u: wPrime, t: tPrime };
-    }
-
-    // ================================================
-    // Given an image x = (u, t), compute the Euclidean center
-    // C = ( Cx, Cy, 0 ) and radius R of the hemisphere bisector
-    // equidistant from x0=(0,1) and x.  Derived from:
-    //   t (|w|^2 + (h−1)^2) = |w−u|^2 + (h−t)^2.
-    // One finds:
-    //   Cx = −Re(u) / (t − 1),   Cy = −Im(u) / (t − 1),
-    //   R  = sqrt( t ( |u|^2 + (t−1)^2 ) ) / |t − 1|.
-    // ================================================
-    function computeBisectorHemisphere(u, t) {
-      // If t == 1 (i.e. the same vertical height as x0), the bisector is a vertical plane.
-      // For now, we skip t=1 (that happens only if g ∈ Stab(x0), i.e. g∙(0,1) = (0,1)).
-      if (Math.abs(t - 1) < 1e-8) {
-        return null;
-      }
-      const uRe = u.re;
-      const uIm = u.im;
-      const denom = t - 1;
-
-      // Center in (x,y,0):
-      const Cx = -uRe / denom;
-      const Cy = -uIm / denom;
-
-      // |u|^2:
-      const absUSq = uRe * uRe + uIm * uIm;
-      // Numerator for R^2: t ( |u|^2 + (t−1)^2 )
-      const num = t * (absUSq + (t - 1) * (t - 1));
-      const R = Math.sqrt(num) / Math.abs(denom);
-
-      return { center: new THREE.Vector3(Cx, Cy, 0), radius: R };
-    }
-
-    // ================================================
-    // Build a Three.js hemisphere mesh from (center, radius).
-    // We create only the upper hemisphere (z ≥ 0) using SphereGeometry's phi/theta ranges.
-    // ================================================
-    function makeHemisphereMesh(center, radius, colorHex = 0x3399ff) {
-      // Only upper hemisphere: thetaStart=0, thetaLength=Math.PI
-      const sphereGeo = new THREE.SphereGeometry(
-        radius, 32, 16, 0, Math.PI * 2, 0, Math.PI
-      );
-      const mat = new THREE.MeshPhongMaterial({
-        color: colorHex,
-        opacity: 0.5,
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide
-      });
-      const mesh = new THREE.Mesh(sphereGeo, mat);
-      mesh.position.copy(center);
-      return mesh;
-    }
-
-    // ================================================
-    // Main function: read A, B, generate group up to depth D,
-    // compute all bisector hemispheres, add them to the scene.
-    // ================================================
-    function updateDirichletDomain() {
-      // Clear existing hemisphere meshes
-      for (const m of bisectorMeshes) {
-        scene.remove(m);
-      }
-      bisectorMeshes.length = 0;
-
-      const mats = parseInputMatrices();
-      const A = mats.A, B = mats.B;
-      const depth = parseInt(document.getElementById('wordDepth').value, 10);
-
-      // Generate group elements up to word‐length = depth
-      const groupElems = generateGroupElements(A, B, depth);
-
-      // Iterate over each element (skip identity: word = "")
-      for (const el of groupElems) {
-        if (el.word === "") continue; // identity → same point
-
-        // Find image of x0 under el
-        const img = applyToX0(el.mat);
-        if (!img) {
-          console.warn(`Skipping element ${el.word} due to singular matrix`);
-          continue;
+        function parseComplex(str) {
+            let s = str.trim().replace(/\s/g, '').toLowerCase();
+            if (s.length === 0) return new Complex(0, 0);
+            s = s.replace(/^i$/, '1i').replace(/^-i$/, '-1i').replace(/\+i$/, '+1i').replace(/-i$/, '-1i');
+            let real = 0, imag = 0;
+            const terms = s.match(/[+-]?(?:[^+-]+)/g) || [];
+            for (const term of terms) {
+                if (term.endsWith('i')) {
+                    const coeffStr = term.substring(0, term.length - 1);
+                    imag += parseFloat(coeffStr === '' || coeffStr === '+' ? '1' : (coeffStr === '-' ? '-1' : coeffStr));
+                } else if (term.includes('sqrt')) {
+                    const numMatch = term.match(/sqrt\(([^)]+)\)/);
+                    if (numMatch && numMatch[1]) {
+                        real += (term.startsWith('-') ? -1 : 1) * Math.sqrt(parseFloat(numMatch[1]));
+                    }
+                } else {
+                    real += parseFloat(term);
+                }
+            }
+            return new Complex(real, imag);
         }
-        const u = img.u;
-        const t = img.t;
-
-        // If t ≈ 1: draw perpendicular bisector as a vertical half‐plane
-        if (Math.abs(t - 1) < 1e-6) {
-          const uRe = u.re, uIm = u.im;
-          const absUSq = uRe*uRe + uIm*uIm;
-          if (absUSq < 1e-6) continue;
-          const d0 = absUSq / 2;
-          const normal = new THREE.Vector3(uRe, uIm, 0).normalize();
-          const plane = new THREE.Plane(normal, -d0);
-          const helper = new THREE.PlaneHelper(plane, 20, 0xff6600);
-          scene.add(helper);
-          bisectorMeshes.push(helper);
-          continue;
+        class Matrix2 {
+            constructor(a, b, c, d) { this.a = a; this.b = b; this.c = c; this.d = d; }
+            multiply(m) { return new Matrix2(this.a.mul(m.a).add(this.b.mul(m.c)), this.a.mul(m.b).add(this.b.mul(m.d)), this.c.mul(m.a).add(this.d.mul(m.c)), this.c.mul(m.b).add(this.d.mul(m.d))); }
+            inverse() {
+                const det = this.a.mul(this.d).sub(this.b.mul(this.c));
+                if (det.normSq() === 0) return null;
+                const invDet = new Complex(1, 0).div(det);
+                return new Matrix2(this.d.mul(invDet), this.b.mul(new Complex(-1, 0)).mul(invDet), this.c.mul(new Complex(-1, 0)).mul(invDet), this.a.mul(invDet));
+            }
+            isIdentity() {
+                return Math.abs(this.a.re - 1) < 1e-9 && Math.abs(this.a.im) < 1e-9 &&
+                       Math.abs(this.b.re) < 1e-9 && Math.abs(this.b.im) < 1e-9 &&
+                       Math.abs(this.c.re) < 1e-9 && Math.abs(this.c.im) < 1e-9 &&
+                       Math.abs(this.d.re - 1) < 1e-9 && Math.abs(this.d.im) < 1e-9;
+            }
         }
 
-        // Otherwise: draw the hemisphere bisector
-        const hemi = computeBisectorHemisphere(u, t);
-        if (!hemi) continue;
+        // --- UI Logic ---
+        const generators = [];
+        const matrixListContainer = document.getElementById('matrixListContainer');
+        const loader = document.getElementById('loader');
+        const messageBox = document.getElementById('message-box');
 
-        const mesh = makeHemisphereMesh(hemi.center, hemi.radius, 0xff6600);
-        scene.add(mesh);
-        bisectorMeshes.push(mesh);
-      }
+        const panelHeader = document.getElementById('panel-header');
+        const panelContentWrapper = document.getElementById('panel-content-wrapper');
+        const chevronIcon = document.getElementById('chevron-icon');
+        
+        panelHeader.addEventListener('click', () => {
+            panelContentWrapper.classList.toggle('content-hidden');
+            chevronIcon.classList.toggle('rotate-180');
+        });
 
-      // TODO (next step): Compute the intersections of these hemispheres
-      // to extract the actual Dirichlet domain polyhedron (vertices & faces).
-      // For each triple (or pair) of bisector spheres, solve for intersection points
-      // in ℝ^3.  Then test which intersection points lie inside *every* half‐space.
-      // Once you collect all valid vertices, build faces by grouping points lying
-      // on the same hemisphere.  Finally, construct a Three.js Geometry for the polyhedron.
-      //
-      // That code can be added here once you’re ready. For now, you see the bounding walls.
+        function showMessage(message, isError = false) {
+            messageBox.textContent = message;
+            messageBox.className = `mt-4 p-3 text-center text-sm rounded-lg ${isError ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`;
+            setTimeout(() => { messageBox.classList.add('hidden'); }, 5000);
+        }
+        
+        function updateMatrixList() {
+            matrixListContainer.innerHTML = '';
+            generators.forEach((m) => {
+                const matrixDiv = document.createElement('div');
+                matrixDiv.className = 'matrix-display';
+                matrixDiv.innerHTML = `
+                    <span>${m.a.toString()}</span>
+                    <span>${m.b.toString()}</span>
+                    <span>${m.c.toString()}</span>
+                    <span>${m.d.toString()}</span>
+                `;
+                matrixListContainer.appendChild(matrixDiv);
+            });
+        }
 
-      console.log(`Rendered ${bisectorMeshes.length} bisector spheres (up to word length ${depth}).`);
-    }
+        document.getElementById('addMatrixBtn').addEventListener('click', () => {
+            try {
+                const a = parseComplex(document.getElementById('a').value);
+                const b = parseComplex(document.getElementById('b').value);
+                const c = parseComplex(document.getElementById('c').value);
+                const d = parseComplex(document.getElementById('d').value);
 
-    // ================================================
-    // On page load: initialize Three.js and set up button.
-    // ================================================
-    window.addEventListener('DOMContentLoaded', () => {
-      initThree();
-      updateDirichletDomain(); // initial render with default A, B
+                const det = a.mul(d).sub(b.mul(c));
+                if (Math.abs(det.re - 1) > 1e-4 || Math.abs(det.im) > 1e-4) {
+                    showMessage(`Determinant must be 1. Got: ${det.toString()}`, true);
+                    return;
+                }
 
-      document.getElementById('updateButton').addEventListener('click', () => {
-        updateDirichletDomain(); 
-      });
-    });
-    window.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('backButton').addEventListener('click', () => {
-        window.location.href = '../index.html';
-      });
-    });
-  </script>
+                const matrix = new Matrix2(a, b, c, d);
+                generators.push(matrix);
+                updateMatrixList();
+            } catch (e) {
+                showMessage(`Error parsing matrix values: ${e.message}`, true);
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            generators.length = 0;
+            updateMatrixList();
+            clearPolyhedron();
+            showMessage("Scene reset.", false);
+        });
+
+        document.getElementById('generateBtn').addEventListener('click', () => {
+            if (generators.length === 0) {
+                showMessage("Please add at least one generator matrix.", true);
+                return;
+            }
+            loader.classList.remove('hidden');
+            setTimeout(() => {
+                generateAndDrawPolyhedron();
+                loader.classList.add('hidden');
+                showMessage(`Generated polyhedron for word length ${document.getElementById('wordLength').value}.`, false);
+            }, 50);
+        });
+
+        // --- Hyperbolic Geometry & Drawing ---
+        function clearPolyhedron() {
+            while(polyhedronGroup.children.length > 0){ 
+                const obj = polyhedronGroup.children[0];
+                polyhedronGroup.remove(obj); 
+                if (obj.geometry) obj.geometry.dispose();
+                if (obj.material) obj.material.dispose();
+            }
+        }
+        function generateGroupElements(gens, wordLength) {
+            const elements = new Map();
+            const initialSet = [...gens];
+            gens.forEach(g => {
+                const inv = g.inverse();
+                if (inv) initialSet.push(inv);
+            });
+
+            let queue = [...initialSet];
+            const identityKey = "1;0;0;0;0;0;1;0";
+            elements.set(identityKey, new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0)));
+            
+            queue.forEach(g => {
+                const key = `${g.a.re};${g.a.im};${g.b.re};${g.b.im};${g.c.re};${g.c.im};${g.d.re};${g.d.im}`;
+                elements.set(key, g);
+            });
+
+            for (let l = 1; l < wordLength; l++) {
+                const nextQueue = [];
+                for (const word of queue) {
+                    for (const g of initialSet) {
+                        const newWord = word.multiply(g);
+                        if (newWord.isIdentity()) continue;
+                        const key = `${newWord.a.re};${newWord.a.im};${newWord.b.re};${newWord.b.im};${newWord.c.re};${newWord.c.im};${newWord.d.re};${newWord.d.im}`;
+                        if (!elements.has(key)) {
+                            elements.set(key, newWord);
+                            nextQueue.push(newWord);
+                        }
+                    }
+                }
+                queue = nextQueue;
+            }
+            
+            elements.delete(identityKey);
+            return Array.from(elements.values());
+        }
+        function generateAndDrawPolyhedron() {
+            clearPolyhedron();
+            const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
+            const groupElements = generateGroupElements(generators, wordLength);
+
+            groupElements.forEach((g, i) => {
+                const c = g.c;
+                const color = new THREE.Color().setHSL(i / groupElements.length, 0.7, 0.6);
+                const material = new THREE.MeshStandardMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0.35,
+                    side: THREE.DoubleSide,
+                    metalness: 0.2,
+                    roughness: 0.6
+                });
+
+                if (c.normSq() > 1e-9) {
+                    const centerComplex = g.d.mul(new Complex(-1,0)).div(c);
+                    const radius = 1.0 / c.abs();
+                    const geometry = new THREE.SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+                    const hemisphere = new THREE.Mesh(geometry, material);
+                    hemisphere.position.set(centerComplex.re, 0, -centerComplex.im);
+                    polyhedronGroup.add(hemisphere);
+
+                } else {
+                    const alpha = g.a.div(g.d);
+                    const beta = g.b.div(g.d);
+                    const alphaAbs = alpha.abs();
+
+                    if (Math.abs(alphaAbs - 1.0) < 1e-9) {
+                        const planeGeom = new THREE.PlaneGeometry(20, 20);
+                        const planeMesh = new THREE.Mesh(planeGeom, material);
+                        const normal = new THREE.Vector3(beta.re, 0, -beta.im).normalize();
+                        planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
+                        const pos = new THREE.Vector3(beta.re/2, 1, -beta.im/2);
+                        planeMesh.position.copy(pos);
+                        polyhedronGroup.add(planeMesh);
+                    } else {
+                        const centerComplex = beta.conjugate().mul(new Complex(-1 / (alphaAbs - 1), 0));
+                        const R_sq = (beta.normSq() + Math.pow(alphaAbs, 2) - alphaAbs) / (alphaAbs - 1) + centerComplex.normSq();
+                        if (R_sq > 0) {
+                            const radius = Math.sqrt(R_sq);
+                            const geometry = new THREE.SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+                            const hemisphere = new THREE.Mesh(geometry, material);
+                            hemisphere.position.set(centerComplex.re, 0, -centerComplex.im);
+                            polyhedronGroup.add(hemisphere);
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Init ---
+        init();
+        (function addDefaultMatrices() {
+            const defaults = [
+                { a: '1', b: '1', c: '0', d: '1' },
+                { a: '1', b: 'i', c: '0', d: '1' },
+                { a: '0', b: '-1', c: '1', d: '0' }
+            ];
+            defaults.forEach(m => {
+                document.getElementById('a').value = m.a;
+                document.getElementById('b').value = m.b;
+                document.getElementById('c').value = m.c;
+                document.getElementById('d').value = m.d;
+                document.getElementById('addMatrixBtn').click();
+            });
+            document.getElementById('wordLength').value = 2;
+            document.getElementById('generateBtn').click();
+            
+            panelContentWrapper.classList.add('content-hidden');
+            chevronIcon.classList.add('rotate-180');
+        })();
+
+    </script>
 </body>
-</html>   
+</html>
