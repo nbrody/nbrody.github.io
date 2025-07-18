@@ -49,7 +49,7 @@
         <div id="panel-header" class="flex justify-between items-center cursor-pointer">
             <header>
                 <h1 class="text-2xl font-bold text-gray-900">Controls</h1>
-                <p class="mt-1 text-sm text-gray-600">For SL(2,C) Generators</p>
+                <p class="mt-1 text-sm text-gray-600">Kleinian Groups</p>
             </header>
             <button id="toggle-panel-btn" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
                  <svg id="chevron-icon" class="w-6 h-6 text-gray-700 transition-transform duration-300 transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -149,11 +149,29 @@
             normSq() { return this.re * this.re + this.im * this.im; }
             abs() { return Math.sqrt(this.normSq()); }
             toString() {
-                const reStr = this.re.toFixed(2);
-                const imStr = Math.abs(this.im).toFixed(2);
-                if (Math.abs(this.im) < 1e-6) return reStr;
-                if (Math.abs(this.re) < 1e-6) return `${this.im < 0 ? '-' : ''}${imStr}i`;
-                return `${reStr} ${this.im < 0 ? '-' : '+'} ${imStr}i`;
+                const formatNum = (x) => {
+                    // show integers without decimals, otherwise trim trailing zeros
+                    if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x));
+                    return String(parseFloat(x.toFixed(6)));
+                };
+                const reZero  = Math.abs(this.re) < 1e-9;
+                const imZero  = Math.abs(this.im) < 1e-9;
+
+                // purely real
+                if (imZero) return formatNum(this.re);
+
+                // purely imaginary
+                if (reZero) {
+                    const coeff = this.im === 1 ? '' : this.im === -1 ? '-' : formatNum(this.im);
+                    return `${coeff}i`;
+                }
+
+                // generic complex number
+                const rePart = formatNum(this.re);
+                const imAbs  = Math.abs(this.im);
+                const imPart = imAbs === 1 ? 'i' : `${formatNum(imAbs)}i`;
+                const sign   = this.im < 0 ? '-' : '+';
+                return `${rePart} ${sign} ${imPart}`;
             }
         }
         function parseComplex(str) {
@@ -220,12 +238,7 @@
             generators.forEach((m) => {
                 const matrixDiv = document.createElement('div');
                 matrixDiv.className = 'matrix-display';
-                matrixDiv.innerHTML = `
-                    <span>${m.a.toString()}</span>
-                    <span>${m.b.toString()}</span>
-                    <span>${m.c.toString()}</span>
-                    <span>${m.d.toString()}</span>
-                `;
+                matrixDiv.textContent = `(${m.a.toString()}, ${m.b.toString()}; ${m.c.toString()}, ${m.d.toString()})`;
                 matrixListContainer.appendChild(matrixDiv);
             });
         }
