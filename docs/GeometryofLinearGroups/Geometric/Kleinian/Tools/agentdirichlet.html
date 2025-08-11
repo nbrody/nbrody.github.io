@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kleinian Group Explorer</title>
+    <!-- Tailwind CSS via CDN (use unpkg as fallback) -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.4/dist/tailwind.min.css" rel="stylesheet" onerror="this.onerror=null; this.href='https://unpkg.com/tailwindcss@3.4.4/dist/tailwind.min.css';">
+    <!-- Quill Editor CSS -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <style>
+        body {
+            overflow: hidden;
+        }
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+        #three-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="flex flex-col h-screen">
+        <!-- Header -->
+        <header class="bg-blue-800 text-white p-4 shadow-md">
+            <h1 class="text-xl font-bold">Kleinian Group Dirichlet Domain Explorer</h1>
+        </header>
+        <!-- Main content -->
+        <div class="flex flex-grow overflow-hidden">
+            <!-- Sidebar for input and results -->
+            <aside class="w-96 max-w-full overflow-y-auto bg-white border-r border-gray-300 p-4 flex-shrink-0">
+                <h2 class="text-lg font-semibold mb-2">Generators</h2>
+                <p class="text-sm text-gray-600 mb-2">Enter your 2×2 complex matrices below. Entries may contain algebraic expressions such as <code>sqrt(3)</code> and <code>i</code>.</p>
+                <div id="generator-list" class="space-y-4"></div>
+                <div class="flex justify-between items-center mt-4">
+                    <button id="add-generator" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Add Generator</button>
+                    <button id="compute-button" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">Compute Domain</button>
+                </div>
+                <hr class="my-4">
+                <h2 class="text-lg font-semibold mb-2">Notes</h2>
+                <div id="editor" class="bg-white h-40"></div>
+            </aside>
+            <!-- 3D Canvas area -->
+            <main class="flex-grow relative">
+                <div id="canvas-container">
+                    <!-- Three.js canvas will be inserted here -->
+                </div>
+            </main>
+        </div>
+    </div>
+    <!-- Quill JS -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Three.js and supporting modules (module imports) -->
+    <script type="module">
+        import { OrbitControls } from 'https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js';
+        import { ConvexGeometry } from 'https://unpkg.com/three@0.161.0/examples/jsm/geometries/ConvexGeometry.js';
+        
+
+        // Complex number helper class
+        class Complex {
+            constructor(re = 0, im = 0) {
+                this.re = re;
+                this.im = im;
+            }
+            add(other) {
+                return new Complex(this.re + other.re, this.im + other.im);
+            }
+            sub(other) {
+                return new Complex(this.re - other.re, this.im - other.im);
+            }
+            mul(other) {
+                const re = this.re * other.re - this.im * other.im;
+                const im = this.re * other.im + this.im * other.re;
+                return new Complex(re, im);
+            }
+            div(other) {
+                const denom = other.re * other.re + other.im * other.im;
+                const re = (this.re * other.re + this.im * other.im) / denom;
+                const im = (this.im * other.re - this.re * other.im) / denom;
+                return new Complex(re, im);
+            }
+            conj() {
+                return new Complex(this.re, -this.im);
+            }
+            abs2() {
+                return this.re * this.re + this.im * this.im;
+            }
+            negate() {
+                return new Complex(-this.re, -this.im);
+            }
+            toString() {
+                return `${this.re.toFixed(6)},${this.im.toFixed(6)}`;
+            }
+        }
+
+        // Compute square root of a complex number
+        function sqrtComplex(z) {
+            // z = a + bi
+            const a = z.re;
+            const b = z.im;
+            const r = Math.sqrt(Math.hypot(a, b));
+            // Avoid divide by zero
+            let realPart, imagPart;
+            if (b === 0) {
+                if (a >= 0) {
+                    realPart = Math.sqrt(a);
+                    imagPart = 0;
+                } else {
+                    realPart = 0;
+                    imagPart = Math.sqrt(-a);
+                }
+            } else {
+                const magnitude = Math.sqrt((r + a) / 2);
+                realPart = magnitude;
+                imagPart = (b >= 0 ? 1 : -1) * Math.sqrt((r - a) / 2);
+            }
+            return new Complex(realPart, imagPart);
+        }
+
+        // Simple parser for complex expressions with +, -, *, /, parentheses, sqrt, and i
+        function parseComplexExpression(expr) {
+            const tokens = tokenize(expr);
+            let pos = 0;
+            function peek() { return tokens[pos]; }
+            function consume(expected) {
+                const token = tokens[pos];
+                if (!token || (expected && token.value !== expected)) {
+                    throw new Error('Unexpected token: ' + (token ? token.value : 'EOF') + ', expected ' + expected);
+                }
+                pos++;
+                return token;
+            }
+            function parseExpression() {
+                let node = parseTerm();
+                while (true) {
+                    const token = peek();
+                    if (token && (token.value === '+' || token.value === '-')) {
+                        consume();
+                        const right = parseTerm();
+                        if (token.value === '+') node = node.add(right);
+                        else node = node.sub(right);
+                    } else {
+                        break;
+                    }
+                }
+                return node;
+            }
+            function parseTerm() {
+                let node = parseFactor();
+                while (true) {
+                    const token = peek();
+                    if (token && (token.value === '*' || token.value === '/')) {
+                        consume();
+                        const right = parseFactor();
+                        if (token.value === '*') node = node.mul(right);
+                        else node = node.div(right);
+                    } else {
+                        break;
+                    }
+                }
+                return node;
+            }
+            function parseFactor() {
+                const token = peek();
+                if (!token) throw new Error('Unexpected end of expression');
+                if (token.type === 'op' && (token.value === '+' || token.value === '-')) {
+                    consume();
+                    const operand = parseFactor();
+                    return token.value === '-' ? new Complex(0,0).sub(operand) : operand;
+                }
+                if (token.type === 'number') {
+                    consume();
+                    return new Complex(parseFloat(token.value), 0);
+                }
+                if (token.type === 'identifier' && token.value === 'i') {
+                    consume();
+                    return new Complex(0, 1);
+                }
+                if (token.type === 'identifier' && token.value === 'sqrt') {
+                    consume();
+                    consume('(');
+                    const inside = parseExpression();
+                    consume(')');
+                    return sqrtComplex(inside);
+                }
+                if (token.value === '(') {
+                    consume('(');
+                    const inside = parseExpression();
+                    consume(')');
+                    return inside;
+                }
+                throw new Error('Unexpected token in factor: ' + token.value);
+            }
+            const result = parseExpression();
+            if (pos < tokens.length) {
+                throw new Error('Unexpected token at end: ' + tokens[pos].value);
+            }
+             return result;
+        }
+        function tokenize(str) {
+            const tokens = [];
+            let i = 0;
+            while (i < str.length) {
+                const ch = str[i];
+                if (ch === ' ' || ch === '\t' || ch === '\n') {
+                    i++;
+                    continue;
+                }
+                if (/[0-9.]/.test(ch)) {
+                    let num = ch;
+                    i++;
+                    while (i < str.length && /[0-9.]/.test(str[i])) {
+                        num += str[i];
+                        i++;
+                    }
+                    tokens.push({ type: 'number', value: num });
+                    continue;
+                }
+                if (ch === '+' || ch === '-' || ch === '*' || ch === '/' || ch === '(' || ch === ')') {
+                    tokens.push({ type: 'op', value: ch });
+                    i++;
+                    continue;
+                }
+                // identifiers: sqrt or i
+                if (/[a-zA-Z]/.test(ch)) {
+                    let ident = ch;
+                    i++;
+                    while (i < str.length && /[a-zA-Z]/.test(str[i])) {
+                        ident += str[i];
+                        i++;
+                    }
+                    tokens.push({ type: 'identifier', value: ident });
+                    continue;
+                }
+                throw new Error('Invalid character in expression: ' + ch);
+            }
+            return tokens;
+        }
+
+        // Matrix operations for 2x2 complex matrices
+        function matrixMultiply(m1, m2) {
+            return [
+                [m1[0][0].mul(m2[0][0]).add(m1[0][1].mul(m2[1][0])), m1[0][0].mul(m2[0][1]).add(m1[0][1].mul(m2[1][1]))],
+                [m1[1][0].mul(m2[0][0]).add(m1[1][1].mul(m2[1][0])), m1[1][0].mul(m2[0][1]).add(m1[1][1].mul(m2[1][1]))]
+            ];
+        }
+        function matrixDet(m) {
+            // det = ad - bc
+            return m[0][0].mul(m[1][1]).sub(m[0][1].mul(m[1][0]));
+        }
+        function matrixInverse(m) {
+            const det = matrixDet(m);
+            // Inverse: 1/det * [ [d,-b], [-c,a] ]
+            const invDet = new Complex(1, 0).div(det);
+            return [
+                [m[1][1].mul(invDet), m[0][1].mul(new Complex(-1, 0)).mul(invDet)],
+                [m[1][0].mul(new Complex(-1, 0)).mul(invDet), m[0][0].mul(invDet)]
+            ];
+        }
+
+        // Compute the image of basepoint (0,1) under PSL(2,C) matrix
+        function applyToBasepoint(mat) {
+            const a = mat[0][0];
+            const b = mat[0][1];
+            const c = mat[1][0];
+            const d = mat[1][1];
+            // denom = |c*0 + d|^2 + |c|^2 * 1^2 = |d|^2 + |c|^2
+            const denom = c.abs2() + d.abs2();
+            // Z = (b * conj(d) + a * conj(c)) / denom
+            const numZ = b.mul(d.conj()).add(a.mul(c.conj()));
+            const Z = new Complex(numZ.re / denom, numZ.im / denom);
+            const t = 1.0 / denom;
+            return { Z, t };
+        }
+
+        // Compute hyperbolic distance between basepoint and image
+        function hyperbolicDistanceFromBase(P) {
+            // basepoint = (0,1)
+            const x = P.Z.re;
+            const y = P.Z.im;
+            const t = P.t;
+            const numerator = (x * x + y * y) + (t - 1) * (t - 1);
+            const denom = 2 * t;
+            const cosh = 1 + numerator / denom;
+            // Guard against rounding errors
+            const acosh = Math.acosh(Math.max(cosh, 1));
+            return acosh;
+        }
+
+        // Compute halfspace boundary for P = g(O). Returns object describing sphere or plane
+        function computeHalfspace(P) {
+            const Zp = P.Z;
+            const tp = P.t;
+            if (Math.abs(tp - 1) < 1e-9) {
+                // Plane: 2 Re(z * conj(Zp)) - |Zp|^2 = 0
+                const xp = Zp.re;
+                const yp = Zp.im;
+                const a = 2 * xp;
+                const b = 2 * yp;
+                const d = - (xp * xp + yp * yp);
+                // Orientation: evaluate at basepoint (0,1)
+                const F0 = a * 0 + b * 0 + d;
+                const inside = (F0 <= 0); // We want inequality F <= 0 for inside
+                return { type: 'plane', a, b, d, inside };
+            }
+            // Sphere: center c = -Zp / (tp - 1); radius^2 = tp + |Zp|^2 * tp / (tp - 1)^2
+            const denom = tp - 1;
+            const cx = -Zp.re / denom;
+            const cy = -Zp.im / denom;
+            const r2 = tp + (Zp.abs2() * tp) / (denom * denom);
+            // Orientation: evaluate F at basepoint (0,1): F = |0 - c|^2 + 1^2 - r^2
+            const dx = cx;
+            const dy = cy;
+            const F0 = dx * dx + dy * dy + 1 - r2;
+            // For spheres, inside = (tp > 1) => F0 < 0 else F0 > 0
+            const inside = F0 < 0;
+            return { type: 'sphere', cx, cy, r: Math.sqrt(r2), r2, inside };
+        }
+
+        // Solve intersection points from three boundaries (at least one sphere)
+        function tripleIntersection(h1, h2, h3) {
+            const results = [];
+            const arr = [h1, h2, h3];
+            const planes = arr.filter(h => h.type === 'plane');
+            const spheres = arr.filter(h => h.type === 'sphere');
+            if (planes.length === 3) {
+                // Intersection is a vertical line; ignore
+                return [];
+            }
+            // Helper to solve linear system A u = b (2x2)
+            function solve2(a1, b1, c1, a2, b2, c2) {
+                const det = a1 * b2 - a2 * b1;
+                if (Math.abs(det) < 1e-9) return null;
+                const x = (c1 * b2 - c2 * b1) / det;
+                const y = (a1 * c2 - a2 * c1) / det;
+                return { x, y };
+            }
+            if (planes.length === 2 && spheres.length === 1) {
+                // Two planes and one sphere
+                const p1 = planes[0];
+                const p2 = planes[1];
+                const s = spheres[0];
+                // Solve for intersection line in z-plane
+                const uv = solve2(p1.a, p1.b, -p1.d, p2.a, p2.b, -p2.d);
+                if (!uv) return [];
+                const { x, y } = uv;
+                // Now compute t^2 from sphere
+                const dx = x - s.cx;
+                const dy = y - s.cy;
+                const t2 = s.r2 - (dx * dx + dy * dy);
+                if (t2 < 0) return [];
+                const t = Math.sqrt(t2);
+                if (t > 1e-6) {
+                    results.push({ x, y, t });
+                }
+                return results;
+            }
+            if (planes.length === 1 && spheres.length === 2) {
+                // One plane and two spheres
+                const plane = planes[0];
+                const s1 = spheres[0];
+                const s2 = spheres[1];
+                // Difference of spheres gives plane eq: w_x x + w_y y = C
+                const wx = s1.cx - s2.cx;
+                const wy = s1.cy - s2.cy;
+                const C = (s2.r2 - s1.r2 + (s1.cx * s1.cx + s1.cy * s1.cy) - (s2.cx * s2.cx + s2.cy * s2.cy)) / 2;
+                const uv = solve2(plane.a, plane.b, -plane.d, wx, wy, C);
+                if (!uv) return [];
+                const { x, y } = uv;
+                // Compute t^2 using one sphere
+                const dx = x - s1.cx;
+                const dy = y - s1.cy;
+                const t2 = s1.r2 - (dx * dx + dy * dy);
+                if (t2 < 0) return [];
+                const t = Math.sqrt(t2);
+                if (t > 1e-6) {
+                    results.push({ x, y, t });
+                }
+                return results;
+            }
+            if (spheres.length === 3) {
+                // Intersection of three spheres: solve two difference equations to find x,y
+                const s1 = spheres[0];
+                const s2 = spheres[1];
+                const s3 = spheres[2];
+                const w12x = s1.cx - s2.cx;
+                const w12y = s1.cy - s2.cy;
+                const C12 = (s2.r2 - s1.r2 + (s1.cx * s1.cx + s1.cy * s1.cy) - (s2.cx * s2.cx + s2.cy * s2.cy)) / 2;
+                const w13x = s1.cx - s3.cx;
+                const w13y = s1.cy - s3.cy;
+                const C13 = (s3.r2 - s1.r2 + (s1.cx * s1.cx + s1.cy * s1.cy) - (s3.cx * s3.cx + s3.cy * s3.cy)) / 2;
+                const uv = solve2(w12x, w12y, C12, w13x, w13y, C13);
+                if (!uv) return [];
+                const { x, y } = uv;
+                // Compute t^2 from s1
+                const dx = x - s1.cx;
+                const dy = y - s1.cy;
+                const t2 = s1.r2 - (dx * dx + dy * dy);
+                if (t2 < 0) return [];
+                const t = Math.sqrt(t2);
+                if (t > 1e-6) {
+                    results.push({ x, y, t });
+                }
+                return results;
+            }
+            // 0 planes and 3 spheres case handled above; 1 plane + 2 spheres; 2 planes + 1 sphere; 3 spheres
+            return [];
+        }
+
+        // Evaluate halfspace inequality for point
+        function isInsideHalfspace(h, p) {
+            if (h.type === 'sphere') {
+                const dx = p.x - h.cx;
+                const dy = p.y - h.cy;
+                const val = dx * dx + dy * dy + p.t * p.t - h.r2;
+                return h.inside ? (val <= 1e-6) : (val >= -1e-6);
+            } else {
+                // plane: a x + b y + d = 0
+                const val = h.a * p.x + h.b * p.y + h.d;
+                return h.inside ? (val <= 1e-6) : (val >= -1e-6);
+            }
+        }
+
+        // Main Dirichlet domain computation
+        function computeDirichletDomain(generators) {
+            // Precompute inverses
+            const allGens = [];
+            generators.forEach((g, idx) => {
+                const inv = matrixInverse(g);
+                allGens.push({ mat: g, name: 'g' + idx + '', inv });
+            });
+            // BFS enumeration
+            const maxWord = 4;
+            const maxDist = 4.5;
+            const visited = new Map();
+            const queue = [];
+            // identity element
+            const idMat = [[new Complex(1,0), new Complex(0,0)],[new Complex(0,0), new Complex(1,0)]];
+            queue.push({ mat: idMat, wordLen: 0 });
+            visited.set(keyMatrix(idMat), 0);
+            const halfspaces = [];
+            while (queue.length > 0) {
+                const item = queue.shift();
+                const { mat, wordLen } = item;
+                // compute P_g only if g != identity
+                if (wordLen > 0) {
+                    const P = applyToBasepoint(mat);
+                    const d = hyperbolicDistanceFromBase(P);
+                    if (d < maxDist) {
+                        const half = computeHalfspace(P);
+                        halfspaces.push({ half, mat });
+                    }
+                }
+                if (wordLen >= maxWord) continue;
+                for (const genObj of allGens) {
+                    // multiply current by generator
+                    const nextMat = matrixMultiply(mat, genObj.mat);
+                    const key = keyMatrix(nextMat);
+                    if (!visited.has(key) || visited.get(key) > wordLen + 1) {
+                        visited.set(key, wordLen + 1);
+                        queue.push({ mat: nextMat, wordLen: wordLen + 1 });
+                    }
+                    // multiply current by inverse
+                    const nextInvMat = matrixMultiply(mat, genObj.inv);
+                    const keyInv = keyMatrix(nextInvMat);
+                    if (!visited.has(keyInv) || visited.get(keyInv) > wordLen + 1) {
+                        visited.set(keyInv, wordLen + 1);
+                        queue.push({ mat: nextInvMat, wordLen: wordLen + 1 });
+                    }
+                }
+            }
+            // Remove halfspaces that correspond to identity or duplicates at origin (distance 0)
+            // Compose only unique by mat key
+            // Compute vertices
+            const boundaries = halfspaces.map(obj => obj.half);
+            // Use triple intersections to find vertices
+            const vertices = [];
+            const n = boundaries.length;
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 1; j < n; j++) {
+                    for (let k = j + 1; k < n; k++) {
+                        // At least one sphere among these three
+                        const intersects = tripleIntersection(boundaries[i], boundaries[j], boundaries[k]);
+                        if (!intersects || intersects.length === 0) continue;
+                        for (const pt of intersects) {
+                            // Check if inside all halfspaces
+                            let insideAll = true;
+                            for (let h = 0; h < n; h++) {
+                                if (!isInsideHalfspace(boundaries[h], pt)) {
+                                    insideAll = false;
+                                    break;
+                                }
+                            }
+                            if (insideAll) {
+                                vertices.push(pt);
+                            }
+                        }
+                    }
+                }
+            }
+            // Deduplicate vertices
+            const unique = [];
+            for (const v of vertices) {
+                let found = false;
+                for (const u of unique) {
+                    const dx = v.x - u.x;
+                    const dy = v.y - u.y;
+                    const dz = v.t - u.t;
+                    if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 1e-4) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) unique.push(v);
+            }
+            return { vertices: unique, boundaries };
+        }
+
+        function keyMatrix(mat) {
+            const parts = [];
+            for (const row of mat) {
+                for (const c of row) {
+                    parts.push(c.re.toFixed(6));
+                    parts.push(c.im.toFixed(6));
+                }
+            }
+            return parts.join(',');
+        }
+
+        // Build UI for generator input
+        function createGeneratorInputs(index, defaultValues) {
+            const container = document.createElement('div');
+            container.className = 'flex flex-col bg-gray-50 p-2 rounded shadow-sm border border-gray-200';
+            const label = document.createElement('label');
+            label.textContent = `Generator ${index + 1}`;
+            label.className = 'font-medium mb-1';
+            container.appendChild(label);
+            // 2x2 inputs
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-2 gap-1';
+            for (let r = 0; r < 2; r++) {
+                for (let c = 0; c < 2; c++) {
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.className = 'border border-gray-300 rounded px-1 py-0.5 text-sm';
+                    input.dataset.row = r;
+                    input.dataset.col = c;
+                    if (defaultValues && defaultValues[r][c]) {
+                        input.value = defaultValues[r][c];
+                    }
+                    grid.appendChild(input);
+                }
+            }
+            container.appendChild(grid);
+            return container;
+        }
+
+        // Initialize Quill
+        const quill = new Quill('#editor', {
+            theme: 'snow'
+        });
+
+        // Populate default generators
+        const generatorList = document.getElementById('generator-list');
+        function addGenerator(defaultValues) {
+            const idx = generatorList.children.length;
+            const gen = createGeneratorInputs(idx, defaultValues);
+            generatorList.appendChild(gen);
+        }
+        // Default generators as specified by the problem
+        addGenerator([
+            ['1', '(-1+sqrt(3)*i)/2'],
+            ['0', '1']
+        ]);
+        addGenerator([
+            ['0', '-1'],
+            ['1', '0']
+        ]);
+
+        document.getElementById('add-generator').addEventListener('click', () => {
+            addGenerator([
+                ['1', '0'],
+                ['0', '1']
+            ]);
+        });
+
+        let scene, camera, renderer, controls;
+        let mesh;
+        let clippingPlane;
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(2, 2, 2);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.localClippingEnabled = true;
+            container.appendChild(renderer.domElement);
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.1;
+            controls.target.set(0, 0, 1);
+            controls.update();
+            // Add lights
+            const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambient);
+            const directional = new THREE.DirectionalLight(0xffffff, 0.5);
+            directional.position.set(5, 5, 5);
+            scene.add(directional);
+            // Clipping plane to clip below z=0 (t=0)
+            clippingPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
+            renderer.clippingPlanes = [clippingPlane];
+            // Basepoint marker
+            const baseGeometry = new THREE.SphereGeometry(0.03, 16, 16);
+            const baseMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+            const baseSphere = new THREE.Mesh(baseGeometry, baseMaterial);
+            baseSphere.position.set(0, 0, 1);
+            scene.add(baseSphere);
+            // Axes helper
+            const axes = new THREE.AxesHelper(1);
+            scene.add(axes);
+            animate();
+        }
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Build domain and update geometry
+        async function buildDomain() {
+            // Parse generator matrices
+            const generators = [];
+            const genContainers = Array.from(generatorList.children);
+            for (const gen of genContainers) {
+                const inputs = gen.querySelectorAll('input');
+                const rows = [[], []];
+                inputs.forEach(input => {
+                    const r = parseInt(input.dataset.row);
+                    const c = parseInt(input.dataset.col);
+                    const expr = input.value.trim();
+                    try {
+                        const comp = parseComplexExpression(expr);
+                        rows[r][c]
+                         = comp;
+                    } catch (e) {
+                        console.error('Failed to parse', expr, e);
+                        rows[r][c] = new Complex(0,0);
+                    }
+                });
+                generators.push(rows);
+            }
+            const { vertices, boundaries } = computeDirichletDomain(generators);
+            if (vertices.length === 0) {
+                console.warn('No vertices found for Dirichlet domain. Increase maxWord or adjust threshold.');
+                return;
+            }
+            // Convert vertices to THREE.Vector3 array
+            const pts = vertices.map(v => new THREE.Vector3(v.x, v.y, v.t));
+            // Remove old mesh if exists
+            if (mesh) {
+                scene.remove(mesh);
+            }
+            const geom = new ConvexGeometry(pts);
+            // Compute face colors based on boundaries
+            const faceColors = [];
+            // Create a basic material with vertex colors
+            const materials = [];
+            // We'll compute per-face colors by assigning random colors based on nearest boundary index
+            const colorPalette = [];
+            for (let i = 0; i < boundaries.length; i++) {
+                // Generate random hue but reproducible
+                const hue = (i * 0.61803398875) % 1;
+                const color = new THREE.Color().setHSL(hue, 0.6, 0.5);
+                colorPalette.push(color);
+            }
+            // Build material that supports vertex colors
+            const material = new THREE.MeshStandardMaterial({
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                side: THREE.DoubleSide
+            });
+            // Build geometry with vertex colors per face
+            const position = geom.getAttribute('position');
+            const faces = [];
+            for (let i = 0; i < position.count; i += 3) {
+                faces.push([i, i+1, i+2]);
+            }
+            // Create color attribute
+            const colors = [];
+            for (const face of faces) {
+                // Compute centroid of face
+                const v0 = new THREE.Vector3().fromBufferAttribute(position, face[0]);
+                const v1 = new THREE.Vector3().fromBufferAttribute(position, face[1]);
+                const v2 = new THREE.Vector3().fromBufferAttribute(position, face[2]);
+                const cx = (v0.x + v1.x + v2.x) / 3;
+                const cy = (v0.y + v1.y + v2.y) / 3;
+                const cz = (v0.z + v1.z + v2.z) / 3;
+                // Determine nearest boundary (face's supporting plane) by smallest absolute value of F
+                let minVal = Infinity;
+                let minIdx = 0;
+                for (let i = 0; i < boundaries.length; i++) {
+                    const h = boundaries[i];
+                    let val;
+                    if (h.type === 'sphere') {
+                        const dx = cx - h.cx;
+                        const dy = cy - h.cy;
+                        val = dx * dx + dy * dy + cz * cz - h.r2;
+                    } else {
+                        val = h.a * cx + h.b * cy + h.d;
+                    }
+                    const absVal = Math.abs(val);
+                    if (absVal < minVal) {
+                        minVal = absVal;
+                        minIdx = i;
+                    }
+                }
+                const col = colorPalette[minIdx];
+                colors.push(col.r, col.g, col.b);
+                colors.push(col.r, col.g, col.b);
+                colors.push(col.r, col.g, col.b);
+            }
+            geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            mesh = new THREE.Mesh(geom, material);
+            scene.add(mesh);
+        }
+
+        document.getElementById('compute-button').addEventListener('click', () => {
+            buildDomain();
+        });
+
+        window.addEventListener('resize', () => {
+            const container = document.getElementById('canvas-container');
+            if (renderer && camera) {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        });
+
+        // Initialize 3D scene on load
+        init3D();
+        // Compute initial domain after small delay to ensure UI ready
+        setTimeout(() => {
+            buildDomain();
+        }, 500);
+
+    </script>
+</body>
+</html>

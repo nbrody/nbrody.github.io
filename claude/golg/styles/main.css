@@ -1,0 +1,257 @@
+/* Main CSS for Geometry of Linear Groups */
+:root {
+  /* Color palette - mathematical and elegant */
+  --primary-color: #2c3e50;
+  --secondary-color: #34495e;
+  --accent-color: #3498db;
+  --text-color: #333333;
+  --text-light: #666666;
+  --background: #ffffff;
+  --background-alt: #f8f9fa;
+  --border-color: #e0e0e0;
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --hover-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  line-height: 1.6;
+  color: var(--text-color);
+  background-color: var(--background);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header Styles */
+header {
+  text-align: center;
+  padding: 40px 0;
+  border-bottom: 2px solid var(--border-color);
+  margin-bottom: 40px;
+}
+
+h1 {
+  font-size: 2.5em;
+  color: var(--primary-color);
+  font-weight: normal;
+  letter-spacing: 1px;
+}
+
+/* Breadcrumb Navigation */
+.breadcrumb {
+  text-align: left;
+  margin-bottom: 20px;
+  font-size: 0.9em;
+  color: var(--text-light);
+}
+
+.breadcrumb a {
+  color: var(--accent-color);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+/* Main Content */
+main {
+  flex: 1;
+}
+
+.welcome-section {
+  max-width: 800px;
+  margin: 0 auto 60px;
+  text-align: center;
+}
+
+.welcome-text {
+  font-size: 1.2em;
+  line-height: 1.8;
+  color: var(--text-color);
+  margin-bottom: 20px;
+}
+
+.subtitle {
+  font-style: italic;
+  color: var(--text-light);
+  font-size: 1.1em;
+}
+
+/* Navigation Cards */
+.navigation-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 30px;
+  margin: 40px 0;
+}
+
+.nav-card {
+  background: var(--background-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 30px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.3s ease;
+  box-shadow: var(--card-shadow);
+  display: block;
+  text-align: center;
+}
+
+.nav-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--hover-shadow);
+  border-color: var(--accent-color);
+}
+
+.card-icon {
+  font-size: 3em;
+  color: var(--accent-color);
+  margin-bottom: 15px;
+  display: block;
+  height: 60px;
+  line-height: 60px;
+}
+
+.nav-card h2 {
+  color: var(--primary-color);
+  font-size: 1.5em;
+  margin-bottom: 10px;
+  font-weight: normal;
+}
+
+.nav-card p {
+  color: var(--text-light);
+  font-size: 0.95em;
+  line-height: 1.5;
+}
+
+/* Section Intro */
+.section-intro {
+  max-width: 800px;
+  margin: 0 auto 40px;
+  text-align: center;
+}
+
+.section-intro p {
+  font-size: 1.1em;
+  line-height: 1.7;
+  color: var(--text-color);
+}
+
+/* Tools Grid */
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 25px;
+  margin: 40px 0;
+}
+
+.tool-card {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 25px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.tool-card:hover {
+  box-shadow: var(--hover-shadow);
+  transform: translateY(-3px);
+}
+
+.tool-card h3 {
+  color: var(--primary-color);
+  font-size: 1.2em;
+  margin-bottom: 10px;
+  font-weight: normal;
+}
+
+.tool-card p {
+  color: var(--text-light);
+  font-size: 0.9em;
+  line-height: 1.5;
+  margin-bottom: 15px;
+}
+
+.tool-card.coming-soon {
+  opacity: 0.7;
+  background: var(--background-alt);
+}
+
+.status {
+  display: inline-block;
+  padding: 4px 12px;
+  background: var(--accent-color);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-family: 'Arial', sans-serif;
+}
+
+/* Footer */
+footer {
+  text-align: center;
+  padding: 30px 0;
+  margin-top: 60px;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-light);
+  font-size: 0.9em;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  h1 {
+	font-size: 2em;
+  }
+  .navigation-cards {
+	grid-template-columns: 1fr;
+  }
+  .tools-grid {
+	grid-template-columns: 1fr;
+  }
+  .welcome-text {
+	font-size: 1.1em;
+  }
+}
+
+/* Mathematical Typography */
+sub, sup {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+sup {
+  top: -0.5em;
+}
+
+sub {
+  bottom: -0.25em;
+}
+
+/* Link Styles */
+a {
+  color: var(--accent-color);
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: var(--primary-color);
+}
