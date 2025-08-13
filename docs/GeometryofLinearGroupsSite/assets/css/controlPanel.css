@@ -1,0 +1,63 @@
+#controlPanel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 320px;
+  background: rgba(255,255,255,0.9);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 13px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+#controlPanel h3 {
+  margin: 4px 0 8px;
+  font-size: 15px;
+}
+#controlPanel label {
+  display: block;
+  margin-top: 8px;
+  font-weight: bold;
+  line-height: 1.2;
+}
+.matrix-bracket {
+  display: inline-block;
+  font-size: 48px;
+  font-weight: normal;
+  line-height: 48px;
+  vertical-align: middle;
+  margin: 0 4px;
+}
+.matrix-grid-inline {
+  display: inline-grid;
+  grid-template-columns: repeat(2, 40px);
+  grid-template-rows: repeat(2, 30px);
+  grid-gap: 4px;
+  vertical-align: middle;
+  margin: 0 4px;
+}
+.matrix-grid-inline input {
+  width: 40px;
+  height: 30px;
+  padding: 2px;
+  font-size: 13px;
+  text-align: center;
+}
+#controlPanel input[type="number"] {
+  width: calc(100% - 12px);
+  margin-top: 4px;
+  padding: 4px;
+  font-size: 13px;
+}
+#controlPanel button {
+  margin-top: 12px;
+  width: 100%;
+  padding: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.matrix-block {
+  margin-bottom: 8px;
+}

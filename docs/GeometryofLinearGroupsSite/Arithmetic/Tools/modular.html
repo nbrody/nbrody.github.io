@@ -1,0 +1,183 @@
+<head>
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+  <style>
+    /* Hide number input arrows */
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+  </style>
+</head>
+<body>
+<div id="control-panel" style="position: fixed; top: 10px; right: 10px; z-index: 1000; background: #2e2e2e; color: #f0f0f0; padding: 10px; border: 1px solid #555;">
+  <style>
+    #control-panel input, #control-panel select, #control-panel button {
+      background: #3e3e3e;
+      color: #f0f0f0;
+      border: 1px solid #555;
+    }
+  </style>
+  <label for="group-select">Choose group:</label>
+  <select id="group-select">
+    <option value="Gamma0">&#x0393;&#x2080;</option>
+    <option value="Gamma1">&#x0393;&#x2081;</option>
+  </select>
+  <br><br>
+  <label for="level-input">Enter level n:</label>
+  <input type="number" id="level-input">
+  <br><br>
+  <button onclick="onDrawButtonClick()">Draw Fundamental Domain</button>
+</div>
+<canvas id="fundamental-domain-canvas" 
+        style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:#1e1e1e;"></canvas>
+<script>
+// Get canvas and context
+const canvas = document.getElementById("fundamental-domain-canvas");
+const ctx = canvas.getContext("2d");
+
+// State for pan/zoom
+let width, height;
+let offsetX = 0, offsetY = 0, scale = 80;
+let isDragging = false, startX, startY;
+
+// Resize to fill window
+function resizeCanvas() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+  // center initial view
+  if (offsetX === 0 && offsetY === 0) {
+    offsetX = width / 2;
+    offsetY = height * 0.75; // place origin about 3/4 down
+  }
+}
+window.addEventListener("resize", () => {
+  resizeCanvas();
+  draw();
+});
+resizeCanvas();
+
+// Mouse interactions
+canvas.addEventListener("mousedown", e => {
+  isDragging = true;
+  startX = e.clientX; startY = e.clientY;
+});
+window.addEventListener("mouseup", () => isDragging = false);
+window.addEventListener("mousemove", e => {
+  if (!isDragging) return;
+  offsetX += e.clientX - startX;
+  offsetY += e.clientY - startY;
+  startX = e.clientX; startY = e.clientY;
+  draw();
+});
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const zoom = e.deltaY < 0 ? 1.1 : 0.9;
+  // zoom about cursor
+  const mx = e.clientX, my = e.clientY;
+  offsetX = mx - zoom * (mx - offsetX);
+  offsetY = my - zoom * (my - offsetY);
+  scale *= zoom;
+  draw();
+});
+
+// Convert math coords to canvas
+function toCanvas(x, y) {
+  return {
+    x: offsetX + x * scale,
+    y: offsetY - y * scale
+  };
+}
+
+// Main draw function
+function draw() {
+  // clear background
+  ctx.fillStyle = "#1e1e1e";
+  ctx.fillRect(0, 0, width, height);
+
+  // draw real axis
+  const axisY = toCanvas(0, 0).y;
+  ctx.strokeStyle = "#aaa";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, axisY);
+  ctx.lineTo(width, axisY);
+  ctx.stroke();
+
+  // draw tessellation: verticals and semicircles
+  const extent = 5;
+  ctx.strokeStyle = "#777";
+  ctx.lineWidth = 1;
+  for (let k = -extent; k <= extent; k++) {
+    // verticals at k±½
+    [k - 0.5, k + 0.5].forEach(x => {
+      const p1 = toCanvas(x, 0), p2 = toCanvas(x, extent);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    });
+    // semicircle radius=1 center at (k,0)
+    ctx.beginPath();
+    const center = toCanvas(k, 0);
+    const pixelR = scale;
+    ctx.arc(center.x, center.y, pixelR, Math.PI, 0, false);
+    ctx.stroke();
+  }
+
+  // highlight the standard fundamental domain: |Re(z)| ≤ 1/2 and |z| ≥ 1
+  ctx.save();
+  ctx.beginPath();
+  // vertical left boundary from real axis up to arc start
+  const p0 = toCanvas(-0.5, Math.sqrt(3)/2);
+  const p1 = toCanvas(-0.5, 10);
+  ctx.moveTo(p0.x, p0.y);
+  ctx.lineTo(p1.x, p1.y);
+  // arc from 120° to 60° clockwise
+  const center = toCanvas(0, 0);
+  const rpx = scale;
+  ctx.arc(center.x, center.y, rpx, 4 * Math.PI / 3, 5 * Math.PI / 3, false);
+  // vertical right boundary back down
+  const p2 = toCanvas(0.5, Math.sqrt(3)/2);
+  const p3 = toCanvas(0.5, 10);
+  ctx.lineTo(p2.x, p2.y);
+  ctx.lineTo(p3.x, p3.y);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(0, 200, 200, 0.3)";
+  ctx.fill();
+  ctx.strokeStyle = "#0ff";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+
+  // draw integer labels on real axis
+  ctx.fillStyle = "#ddd";
+  ctx.font = "14px sans-serif";
+  const xMin = Math.floor((0 - offsetX) / scale) - 1;
+  const xMax = Math.ceil((width - offsetX) / scale) + 1;
+  for (let n = xMin; n <= xMax; n++) {
+    const p = toCanvas(n, 0);
+    ctx.fillText(n.toString(), p.x - 5, axisY + 15);
+  }
+}
+
+// initial draw
+draw();
+</script>
+</body>

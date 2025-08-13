@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Euclidean Dirichlet Domain</title>
+  <style>
+    body, html { margin: 0; padding: 0; overflow: hidden; }
+    #canvas { display: block; }
+    .control-panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      border-radius: 6px;
+      font-family: sans-serif;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 100;
+    }
+    .control-panel.hidden {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      overflow: hidden;
+      background: rgba(255,255,255,0.9);
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .toggle-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid #ccc;
+      font-size: 12px;
+      padding: 2px 6px;
+      cursor: pointer;
+      z-index: 101;
+    }
+    .control-panel textarea {
+      width: 200px;
+      height: 80px;
+      font-family: monospace;
+    }
+    .control-panel button {
+      margin-top: 5px;
+      padding: 4px 8px;
+    }
+    .vector-item {
+      margin-bottom: 4px;
+      font-family: monospace;
+    }
+    .vector-item input {
+      margin-right: 4px;
+    }
+    .remove-vector-btn {
+      background: none;
+      border: none;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .column-vector {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      padding: 2px 4px;
+      margin-right: 8px;
+      border-left: none;
+      border-right: none;
+    }
+    .column-vector input {
+      width: 40px;
+      margin: 2px 0;
+      text-align: center;
+    }
+    .column-vector::before {
+      content: "(";
+      position: absolute;
+      left: -0.4em;
+      top: 50%;
+      transform: translateY(-50%);
+      font-weight: bold;
+    }
+    .column-vector::after {
+      content: ")";
+      position: absolute;
+      right: -0.4em;
+      top: 50%;
+      transform: translateY(-50%);
+      font-weight: bold;
+    }
+    /* Hide number input spinner arrows */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      appearance: textfield;
+    }
+    #draw-btn {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div class="control-panel">
+    <button id="toggleControlPanelBtn" class="toggle-btn" aria-label="Hide panel">☰</button>
+    <label>Vectors S:</label><br>
+    <div id="vector-list"></div>
+    <button id="add-vector-btn">Add Vector</button><br>
+    <button id="draw-btn">Draw Dirichlet Domain</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      drawDomain();
+    }
+    window.addEventListener('resize', resize);
+
+    function generateOrbit(vectors, range = 3) {
+      const points = [{x:0,y:0}];
+      const n = vectors.length;
+      const indices = Array(n).fill(0);
+      const rec = (i) => {
+        if (i === n) {
+          const x = indices.reduce((sum, c, j) => sum + c * vectors[j].x, 0);
+          const y = indices.reduce((sum, c, j) => sum + c * vectors[j].y, 0);
+          if (!(x === 0 && y === 0)) points.push({x,y});
+        } else {
+          for (let c = -range; c <= range; c++) {
+            indices[i] = c;
+            rec(i+1);
+          }
+        }
+      };
+      rec(0);
+      return points;
+    }
+
+    // Sutherland–Hodgman polygon clipping by half-plane
+    function clipPolygon(poly, p) {
+      const A = {x: p.x/2, y: p.y/2};
+      const nx = p.x, ny = p.y;
+      const keep = (pt) => (pt.x - A.x)*nx + (pt.y - A.y)*ny <= 0;
+      const res = [];
+      for (let i = 0; i < poly.length; i++) {
+        const P = poly[i], Q = poly[(i+1)%poly.length];
+        const inP = keep(P), inQ = keep(Q);
+        if (inP) res.push(P);
+        if (inP !== inQ) {
+          const t = ((nx*A.x + ny*A.y) - (nx*P.x + ny*P.y)) / (nx*(Q.x - P.x) + ny*(Q.y - P.y));
+          res.push({ x: P.x + t*(Q.x-P.x), y: P.y + t*(Q.y-P.y) });
+        }
+      }
+      return res;
+    }
+
+    function drawDomain() {
+      const vectors = getVectorsFromInputs();
+      if (vectors.length === 0) return;
+      const orbit = generateOrbit(vectors, 8);
+      // Start with a large square polygon
+      let domain = [
+        {x:-1000,y:-1000}, {x:1000,y:-1000},
+        {x:1000,y:1000}, {x:-1000,y:1000}
+      ];
+      for (const p of orbit) {
+        domain = clipPolygon(domain, p);
+      }
+      // Clear and draw
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(canvas.width/2, canvas.height/2);
+      ctx.scale(50, -50); // scale for better visibility
+      // Draw lattice points
+      ctx.fillStyle = 'rgba(200,0,0,0.5)';
+      for (const p of orbit) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 0.05, 0, 2*Math.PI);
+        ctx.fill();
+      }
+      // Draw domain polygon
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 0.02;
+      ctx.beginPath();
+      domain.forEach((pt, i) => {
+        if (i===0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      });
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    document.getElementById('draw-btn').addEventListener('click', drawDomain);
+    // Toggle control panel show/hide
+    const panel = document.querySelector('.control-panel');
+    const toggleBtn = document.getElementById('toggleControlPanelBtn');
+    toggleBtn.addEventListener('click', () => {
+      panel.classList.toggle('hidden');
+      toggleBtn.setAttribute(
+        'aria-label',
+        panel.classList.contains('hidden') ? 'Show panel' : 'Hide panel'
+      );
+    });
+    resize();
+
+    function getVectorsFromInputs() {
+      const list = [];
+      document.querySelectorAll('.vector-item').forEach(item => {
+        const x = parseFloat(item.querySelector('.vec-x').value);
+        const y = parseFloat(item.querySelector('.vec-y').value);
+        list.push({x, y});
+      });
+      return list;
+    }
+
+    function addVectorItem(x = 0, y = 0) {
+      const container = document.getElementById('vector-list');
+      const div = document.createElement('div');
+      div.className = 'vector-item';
+      div.innerHTML = `
+        <div class="column-vector">
+          <input type="number" class="vec-x" value="${x}" step="0.1" placeholder="x" />
+          <input type="number" class="vec-y" value="${y}" step="0.1" placeholder="y" />
+        </div>
+        <button class="remove-vector-btn" title="Remove">&times;</button>
+      `;
+      container.appendChild(div);
+      div.querySelector('.remove-vector-btn').addEventListener('click', () => {
+        container.removeChild(div);
+        drawDomain();
+      });
+      // Redraw when vector inputs change
+      div.querySelectorAll('input').forEach(input =>
+        input.addEventListener('input', drawDomain)
+      );
+    }
+
+    document.getElementById('add-vector-btn').addEventListener('click', () => addVectorItem());
+    // initialize default basis vectors
+    addVectorItem(1, 0);
+    addVectorItem(0, 1);
+    // Initial draw
+    drawDomain();
+  </script>
+</body>
+</html>

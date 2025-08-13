@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Limit Sets</title>
+  <style>
+    html, body {
+      margin: 0;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+      font-family: sans-serif;
+    }
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #222;
+    }
+    #controlPanel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 320px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 13px;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+    #controlPanel h3 {
+      margin: 4px 0 8px;
+      font-size: 15px;
+    }
+    #controlPanel label {
+      display: block;
+      margin-top: 8px;
+      font-weight: bold;
+      line-height: 1.2;
+    }
+    .matrix-bracket {
+      display: inline-block;
+      font-size: 48px;
+      font-weight: normal;
+      line-height: 48px;
+      vertical-align: middle;
+      margin: 0 4px;
+    }
+    .matrix-grid-inline {
+      display: inline-grid;
+      grid-template-columns: repeat(2, 40px);
+      grid-template-rows: repeat(2, 30px);
+      grid-gap: 4px;
+      vertical-align: middle;
+      margin: 0 4px;
+    }
+    .matrix-grid-inline input {
+      width: 40px;
+      height: 30px;
+      padding: 2px;
+      font-size: 13px;
+      text-align: center;
+    }
+    #controlPanel input[type="number"] {
+      width: calc(100% - 12px);
+      margin-top: 4px;
+      padding: 4px;
+      font-size: 13px;
+    }
+    #controlPanel button {
+      margin-top: 12px;
+      width: 100%;
+      padding: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .matrix-block {
+      margin-bottom: 8px;
+    }
+
+    /* Toggle hide/show control panel */
+    #controlPanel.hidden {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      overflow: hidden;
+      background: rgba(255,255,255,0.9);
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    .toggle-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 24px;
+      height: 24px;
+      background: none;
+      border: none;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 12;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.2/math.min.js"></script>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+  <button id="backButton" style="position: absolute; top: 10px; left: 10px; z-index: 11;">Back</button>
+  <button id="toggleControlPanelBtn" class="toggle-btn" aria-label="Hide panel">☰</button>
+
+  <canvas id="canvas"></canvas>
+
+  <div id="controlPanel">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <h3 style="margin: 0;">Isometric Circles</h3>
+      <button id="resetViewBtn" style="padding: 2px 6px; font-size: 11px; width: 100px;">Default view</button>
+    </div>
+
+
+    <div id="matrixInputs"></div>
+    <div style="display: flex; gap: 8px; margin-top: 12px;">
+      <button id="addVectorBtn">Add Vector</button>
+      <button id="updateGroupBtn">Update</button>
+    </div>
+
+    <label for="Lparam" style="display: flex; align-items: center; justify-content: space-between;">
+      Word length:
+      <input id="Lparam" type="number" value="6" min="1" step="1" style="width: 60px; margin-left: 10px;" />
+    </label>
+
+
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
+      <label for="groupSelector" style="margin: 0;">Predefined group:</label>
+      <select id="groupSelector" style="flex-grow: 1; margin: 0 6px;">
+        <option value="">-- Select --</option>
+        <option value="0">Modular group</option>
+        <option value="1">Surface group</option>
+        <option value="2">Figure eight knot group</option>
+        <option value="3">Borromean rings group</option>
+        <option value="3">Random example</option>
+      </select>
+      <button id="newExampleBtn" style="padding: 0px 6px; font-size: 10px; min-width: unset; width: auto; height: 20px; line-height: 20px;">??</button>
+    </div>
+  </div>
+
+  <script type="module">
+(function() {
+  'use strict';
+
+  // Debounce utility
+  function debounce(fn, wait) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn.apply(this, args), wait);
+    };
+  }
+
+  // Complex number formatter
+  function formatComplex(z) {
+    const r = z.re, i = z.im;
+    const rStr = (Math.abs(r) < 1e-4 ? '0' : r.toFixed(4));
+    const iStr = (Math.abs(i) < 1e-4 ? '0' : i.toFixed(4));
+    return `${rStr}${i >= 0 ? '+' : ''}${iStr}i`;
+  }
+
+  // Debounced MathJax
+  const typeset = debounce(() => {
+    if (window.MathJax) MathJax.typeset();
+  }, 200);
+
+  // ===== parseComplex using math.js =====
+  function parseComplex(str) {
+    try {
+      return math.complex(math.evaluate(str));
+    } catch (e) {
+      return math.complex(0);
+    }
+  }
+
+  // ===== Mobius class =====
+  class Mobius {
+    constructor(a, b, c, d) {
+      this.a = a; this.b = b; this.c = c; this.d = d;
+    }
+    compose(other) {
+      const [M1, M2] = [
+        [[this.a, this.b],[this.c, this.d]],
+        [[other.a, other.b],[other.c, other.d]]
+      ];
+      const result = math.multiply(M1, M2);
+      return new Mobius(result[0][0], result[0][1], result[1][0], result[1][1]);
+    }
+    inverse() {
+      const det = math.subtract(math.multiply(this.a, this.d), math.multiply(this.b, this.c));
+      return new Mobius(
+        math.divide(this.d, det),
+        math.unaryMinus(math.divide(this.b, det)),
+        math.unaryMinus(math.divide(this.c, det)),
+        math.divide(this.a, det)
+      );
+    }
+    isoCircle() {
+      if (math.abs(this.c) < 1e-12) return null;
+      const center = math.unaryMinus(math.divide(this.d, this.c));
+      const radius = 1.0 / math.abs(this.c);
+      return { center, radius };
+    }
+  }
+
+  // ===== Canvas & Drawing Globals =====
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  let canvasWidth, canvasHeight;
+  let panX = 0, panY = 0, scale = 1;
+  let isPanning = false, lastMouseX = 0, lastMouseY = 0;
+  let circles = [];
+
+  function resizeCanvas() {
+    canvasWidth = canvas.clientWidth;
+    canvasHeight = canvas.clientHeight;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    scale = Math.min(canvasWidth, canvasHeight) / 5;
+    panX = panY = 0;
+    redraw();
+  }
+
+  function redraw() {
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    ctx.save();
+    ctx.translate(canvasWidth / 2 + panX, canvasHeight / 2 + panY);
+    ctx.scale(scale, -scale);
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1 / scale;
+    ctx.beginPath();
+    ctx.moveTo(-canvasWidth, 0);
+    ctx.lineTo(canvasWidth, 0);
+    ctx.moveTo(0, -canvasHeight);
+    ctx.lineTo(0, canvasHeight);
+    ctx.stroke();
+    circles.forEach(({ center, radius, color }) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(center.re, center.im, radius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  ['resizeCanvas','mousedown','mouseup','mousemove','wheel'].forEach(ev => {
+    const elem = ev==='resizeCanvas'?window:canvas;
+    elem.addEventListener(ev, {
+      resizeCanvas,
+      mousedown(e){ isPanning=true; lastMouseX=e.clientX; lastMouseY=e.clientY; },
+      mouseup(){ isPanning=false; },
+      mousemove(e){ if(!isPanning) return; panX += e.clientX - lastMouseX; panY += e.clientY - lastMouseY; lastMouseX=e.clientX; lastMouseY=e.clientY; redraw(); },
+      wheel(e){ e.preventDefault(); const [mx,my]=[e.clientX-canvasWidth/2-panX,e.clientY-canvasHeight/2-panY]; const old=scale; scale*=e.deltaY>0?0.9:1.1; scale=Math.max(1,Math.min(scale,500)); panX-=mx*(scale/old-1); panY-=my*(scale/old-1); redraw(); },
+    }[ev]);
+  });
+
+  // ===== Group generation =====
+  function generateGroupElements(generators, L) {
+    const gens = {};
+    generators.forEach((g,i) => {
+      const label = String.fromCharCode(65+i);
+      gens[label] = g;
+      gens[label.toLowerCase()] = g.inverse();
+    });
+    let results=[], visited=new Set(), queue=[];
+    Object.keys(gens).filter(c=>c.toUpperCase()===c).forEach(c=>{ queue.push(c); results.push(gens[c]); visited.add(wordSignature(gens[c])); });
+    for (let depth=2; depth<=L; depth++) {
+      const newQueue=[];
+      for (const word of queue) {
+        for (const gen of Object.keys(gens)) {
+          if (gen.toLowerCase()===word.slice(-1).toLowerCase() && gen!==word.slice(-1)) continue;
+          const newWord=word+gen;
+          let M=gens[newWord[0]];
+          for (let j=1;j<newWord.length;j++) M=M.compose(gens[newWord[j]]);
+          const sig=wordSignature(M);
+          if(!visited.has(sig)){ visited.add(sig); results.push(M); newQueue.push(newWord); }
+        }
+      }
+      if(!newQueue.length) break;
+      queue=newQueue;
+    }
+    return results;
+  }
+
+  // ===== Word signature =====
+  function wordSignature(M) {
+    const det=math.subtract(math.multiply(M.a,M.d),math.multiply(M.b,M.c));
+    if(math.abs(det)<1e-12)return 'degenerate';
+    const theta=Math.atan2(det.im,det.re)/2;
+    const sf=1/Math.sqrt(math.abs(det));
+    const scaleEntry=z=>math.multiply(z,math.complex(sf*Math.cos(-theta),sf*Math.sin(-theta)));
+    const [a,b,c,d]=[M.a,M.b,M.c,M.d].map(scaleEntry);
+    return `[${formatComplex(a)},${formatComplex(b)};${formatComplex(c)},${formatComplex(d)}]`;
+  }
+
+  // ===== Rebuild & render circles =====
+  function rebuildIsometricCircles() {
+    const L=parseInt(document.getElementById('Lparam').value,10);
+    const matrices=Array.from(document.querySelectorAll('#matrixInputs .matrix-block')).map(block=>
+      new Mobius(
+        parseComplex(block.querySelectorAll('input')[0].value),
+        parseComplex(block.querySelectorAll('input')[1].value),
+        parseComplex(block.querySelectorAll('input')[2].value),
+        parseComplex(block.querySelectorAll('input')[3].value)
+      )
+    );
+    const rawCircles=generateGroupElements(matrices,L)
+      .map(M=>M.isoCircle())
+      .filter(iso=>iso&&iso.radius>=0.01);
+
+    if(!rawCircles.length){ circles=[]; return redraw(); }
+
+    const [minR,maxR]=rawCircles.reduce(
+      ([min,max], { radius })=>[Math.min(min,radius),Math.max(max,radius)],
+      [rawCircles[0].radius,rawCircles[0].radius]
+    );
+
+    circles=rawCircles.map(({ center, radius })=>{
+      const t=maxR>minR?(radius-minR)/(maxR-minR):0;
+      const idx=Math.floor(t*(palette.length-1));
+      const alpha=(0.2+0.6*(1-t)).toFixed(2);
+      return { center, radius, color: palette[idx].replace('ALPHA',alpha) };
+    });
+    // Draw larger circles first so smaller ones appear on top
+    circles.sort((a, b) => b.radius - a.radius);
+
+    redraw();
+  }
+
+  // ===== Matrix UI =====
+  function addMatrixInput(values=['1','0','0','1']) {
+    const idx=document.querySelectorAll('#matrixInputs .matrix-block').length;
+    const container=document.createElement('div');
+    container.className='matrix-block';
+    container.innerHTML=`
+      <div style="display:flex;align-items:center;">
+        <label style="flex-grow:1;">
+          <span class="matrix-label">\\( g_{${idx+1}} = \\)</span>
+          <span class="matrix-bracket">(</span>
+          <span class="matrix-grid-inline">
+            <input type="text" value="${values[0]}" />
+            <input type="text" value="${values[1]}" />
+            <input type="text" value="${values[2]}" />
+            <input type="text" value="${values[3]}" />
+          </span>
+          <span class="matrix-bracket">)</span>
+        </label>
+        <button class="delete-matrix-btn" style="margin-left:8px;width:26px;height:30px;">✖</button>
+      </div>`;
+    container.querySelector('.delete-matrix-btn').addEventListener('click',()=>{
+      container.remove();
+      document.querySelectorAll('.matrix-label').forEach((lbl,i)=>lbl.innerHTML=`\\( g_{${i+1}} = \\)`);
+      typeset(); rebuildIsometricCircles();
+    });
+    document.getElementById('matrixInputs').appendChild(container);
+    document.querySelectorAll('.matrix-label').forEach((lbl,i)=>lbl.innerHTML=`\\( g_{${i+1}} = \\)`);
+    typeset();
+  }
+
+  // ===== Predefined examples =====
+  function setExample(example) {
+    const keys = Object.keys(example).filter(k => k !== 'name');
+    keys.sort();
+    document.getElementById('matrixInputs').innerHTML = '';
+    keys.forEach(key => {
+      addMatrixInput(example[key]);
+    });
+    rebuildIsometricCircles();
+  }
+
+  // Palette and exampleLibrary
+  const palette = [
+    "rgba(0, 255, 255, ALPHA)",
+    "rgba(0, 230, 255, ALPHA)",
+    "rgba(0, 204, 255, ALPHA)",
+    "rgba(0, 179, 255, ALPHA)",
+    "rgba(0, 153, 255, ALPHA)",
+    "rgba(51, 128, 255, ALPHA)",
+    "rgba(102, 102, 255, ALPHA)",
+    "rgba(128, 102, 204, ALPHA)",
+    "rgba(153, 102, 153, ALPHA)",
+    "rgba(179, 102, 102, ALPHA)",
+    "rgba(204, 102, 102, ALPHA)",
+    "rgba(220, 120, 120, ALPHA)",
+    "rgba(230, 140, 140, ALPHA)",
+    "rgba(240, 160, 160, ALPHA)",
+    "rgba(250, 180, 180, ALPHA)",
+    "rgba(255, 200, 200, ALPHA)"
+  ];
+  const exampleLibrary = [
+    {
+      name: "Modular group",
+      g1: ['1', '1', '0', '1'],
+      g2: ['0', '-1', '1', '0'],
+    },
+    {
+      name: "Surface group",
+      g1: ['2', '-2', '0', '1/2'],
+      g2: ['3', '4', '2', '3']
+    },
+    {
+      name: "Figure eight knot group",
+      g1: ['1', '(-1+sqrt(3)i)/2', '0', '1'],
+      g2: ['1', '0', '1', '1']
+    },
+    {
+      name: "Borromean rings group",
+      g1: ['1', '2', '0', '1'],
+      g2: ['1', 'i', '0', '1'],
+      g3: ['1', '0', '-1-i', '1']
+    },
+    {
+      name: "Triangle group",
+      g1: ['1', '2i', '0', '1'],
+      g2: ['1', '-1', '1', '1']
+    },
+    {
+      name: "Random example",
+      g1: ['2', '-2', '0', '1/2'],
+      g2: ['3', '4', '2', '3']
+    }
+  ];
+
+  // ===== UI setup =====
+  function setupUI() {
+    document.getElementById('Lparam').addEventListener('change', rebuildIsometricCircles);
+    document.getElementById('resetViewBtn').addEventListener('click', () => {
+      scale = Math.min(canvasWidth, canvasHeight) / 5;
+      panX = panY = 0;
+      redraw();
+    });
+    document.getElementById('newExampleBtn').addEventListener('click', () => {
+      const rand = exampleLibrary[Math.floor(Math.random() * exampleLibrary.length)];
+      setExample(rand);
+    });
+    document.getElementById('addVectorBtn').addEventListener('click', () => {
+      addMatrixInput();
+    });
+    document.getElementById('groupSelector').addEventListener('change', (e) => {
+      const idx = parseInt(e.target.value, 10);
+      if (!isNaN(idx)) {
+        setExample(exampleLibrary[idx]);
+      }
+    });
+    document.getElementById('updateGroupBtn').addEventListener('click', rebuildIsometricCircles);
+    const toggleBtn = document.getElementById('toggleControlPanelBtn');
+    const panel = document.getElementById('controlPanel');
+    toggleBtn.addEventListener('click', () => {
+      panel.classList.toggle('hidden');
+      toggleBtn.setAttribute(
+        'aria-label',
+        panel.classList.contains('hidden') ? 'Show panel' : 'Hide panel'
+      );
+    });
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    math.import({ I: math.complex(0, 1) }, { override: true });
+    resizeCanvas();
+    setupUI();
+    addMatrixInput(['1', '2', '0', '1']);
+    addMatrixInput(['0', '-1', '1', '0']);
+    rebuildIsometricCircles();
+    document.getElementById('backButton').addEventListener('click', () => {
+      window.location.href = '../index.html';
+    });
+  });
+
+})();
+  </script>
+</body>
+</html>

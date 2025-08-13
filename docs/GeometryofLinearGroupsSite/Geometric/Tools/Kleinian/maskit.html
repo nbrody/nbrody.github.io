@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Kleinian Escape‐Time Visualization</title>
+  <style>
+    body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #222; }
+    canvas { border: 1px solid #555; }
+  </style>
+</script>
+  <link rel="stylesheet" href="../../../../assets/css/backBtn.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.5.0/math.min.js"></script>
+</head>
+<body>
+  <div id="controls" style="position:absolute; top:10px; right:10px; color:white; z-index:10;">
+    u: <input id="inputU" type="number" step="0.1" value="1.9" style="width:60px;">
+    v: <input id="inputV" type="number" step="0.01" value="0.15" style="width:60px;">
+    <button id="renderBtn">Render</button>
+  </div>
+  <canvas id="canvas" width="800" height="400"></canvas>
+  <script>
+    // ——— Configuration ———
+    const width  = 800;
+    const height = 400;
+    const xMin   = -2.0;
+    const xMax   =  2.0;
+    const yMin   = -0.1;
+    // yMax will be set locally in render()
+    const maxIter = 1000;
+    const eps     = 1e-6;
+
+    // ——— Canvas setup ———
+    const canvas = document.getElementById('canvas');
+    const ctx    = canvas.getContext('2d');
+    // img/data will be created in render()
+
+    // ——— Complex arithmetic helpers ———
+    // math.js handles complex arithmetic
+
+    // ——— “Wrap” step (§2 of Leys) ———
+    function wrap(z, u, v){
+      // shift so strip boundaries become vertical,
+      // then mod‐2 wrap, then shift back
+      const shift   = (v * z.im) / u;
+      const xShift  = z.re + shift;
+      const k       = Math.floor((xShift + 1)/2);
+      const xWrapped= xShift - 2*k;
+      return math.complex(xWrapped - shift, z.im);
+    }
+
+    // ——— Möbius transforms ———
+    function aTransform(z, t){
+      // a(z) = (t*z – i)/(–i*z)
+      const tZ = math.multiply(t, z);
+      const num = math.subtract(tZ, math.complex(0,1));
+      const den = math.multiply(math.complex(0,-1), z);
+      return math.divide(num, den);
+    }
+    function ATransform(z, t){
+      // A(z) = i / (i*z + t)
+      const iz  = math.multiply(math.complex(0,1), z);
+      const den = math.add(iz, t);
+      return math.divide(math.complex(0,1), den);
+    }
+
+    // Convert HSV color to RGB array [r,g,b], h in [0,360], s,v in [0,1]
+    function hsvToRgb(h, s, v) {
+      const c = v * s;
+      const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      const m = v - c;
+      let r1, g1, b1;
+      if (h < 60)      { r1 = c; g1 = x; b1 = 0; }
+      else if (h < 120){ r1 = x; g1 = c; b1 = 0; }
+      else if (h < 180){ r1 = 0; g1 = c; b1 = x; }
+      else if (h < 240){ r1 = 0; g1 = x; b1 = c; }
+      else if (h < 300){ r1 = x; g1 = 0; b1 = c; }
+      else             { r1 = c; g1 = 0; b1 = x; }
+      return [
+        Math.floor((r1 + m) * 255),
+        Math.floor((g1 + m) * 255),
+        Math.floor((b1 + m) * 255)
+      ];
+    }
+
+    // ——— Main rendering function ———
+    function render() {
+      // read parameters
+      const u = parseFloat(document.getElementById('inputU').value);
+      const v = parseFloat(document.getElementById('inputV').value);
+      // complex parameter
+      const t = math.complex(u, v);
+      const yMax = u + 0.1;
+      const invWidth1  = 1 / (width  - 1);
+      const invHeight1 = 1 / (height - 1);
+      const x0s = new Float64Array(width);
+      for (let i = 0; i < width; i++) {
+        x0s[i] = xMin + i * invWidth1 * (xMax - xMin);
+      }
+      const y0s = new Float64Array(height);
+      for (let i = 0; i < height; i++) {
+        y0s[i] = yMin + ((height - 1 - i) * invHeight1) * (yMax - yMin);
+      }
+
+      // precompute half-height cutoff
+      const u2 = u / 2;
+      // re-create image buffer
+      const img = ctx.createImageData(width, height);
+      const data = img.data;
+
+      // render pixels with raw floats
+      for (let py = 0; py < height; py++) {
+        let y0 = y0s[py];
+        for (let px = 0; px < width; px++) {
+          let x0 = x0s[px];
+          let zRe = x0, zIm = y0;
+          let prevRe = 0, prevIm = 0;
+          let escapeType = 0; // 1 = above u, -1 = below real axis
+          let iterCount = maxIter;
+          let escapeIm = 0;
+          let cycleTime = maxIter; // record iterations to two-cycle
+          for (let iter = 0; iter < maxIter; iter++) {
+            // 1) wrap horizontally
+            const shift  = (v * zIm) / u;
+            const xShift = zRe + shift;
+            const k      = Math.floor((xShift + 1) / 2);
+            zRe = (xShift - 2 * k) - shift;
+            // 2) apply Möbius transform
+            if (zIm < u2) {
+              // a-transform
+              const tRe = u*zRe - v*zIm;
+              const tIm = u*zIm + v*zRe;
+              const numRe = tRe, numIm = tIm - 1;
+              const denRe = zIm, denIm = -zRe;
+              const d     = denRe*denRe + denIm*denIm;
+              zRe = (numRe*denRe + numIm*denIm) / d;
+              zIm = (numIm*denRe - numRe*denIm) / d;
+            } else {
+              // A-transform
+              const izRe = -zIm, izIm = zRe;
+              const dRe  = izRe + u, dIm = izIm + v;
+              const d    = dRe*dRe + dIm*dIm;
+              zRe =  dIm / d;
+              zIm =  dRe / d;
+            }
+            // 3) escape check
+            if (zIm > u) { escapeType = 1; escapeIm = zIm; iterCount = iter; break; }
+            if (zIm < 0) { escapeType = -1; escapeIm = zIm; iterCount = iter; break; }
+            // 4) two-cycle check
+            const dr = zRe - prevRe, di = zIm - prevIm;
+            if (iter > 0 && dr*dr + di*di < eps*eps) {
+              cycleTime = iter;
+              break;
+            }
+            prevRe = zRe; prevIm = zIm;
+          }
+          const idx = 4 * (py * width + px);
+          if (escapeType !== 0) {
+            let r = 0, g = 0, b = 0;
+            if (escapeType === 1) {
+              // above: red, warmer and more vivid
+              const dist = escapeIm; 
+              const norm = -Math.min(-dist / yMax, 1);
+              r = Math.floor(200 + 55 * norm);
+              g = Math.floor(20 * norm);
+              b = Math.floor(20 * norm);
+            } else if (escapeType === -1) {
+              // below: blue, cooler and more vivid
+              const dist = -escapeIm;
+              const norm = Math.min(dist / yMax, 1);
+              r = Math.floor(20 * norm);
+              g = Math.floor(20 * norm);
+              b = Math.floor(200 + 55 * norm);
+            }
+            data[idx]   = r;
+            data[idx+1] = g;
+            data[idx+2] = b;
+            data[idx+3] = 255;
+          }
+          else if (cycleTime < maxIter) {
+            // two-cycle: brightness by cycleTime (later cycles are brighter)
+            const brightness = Math.floor(255 * (cycleTime / maxIter));
+            data[idx]   = brightness;
+            data[idx+1] = brightness;
+            data[idx+2] = brightness;
+            data[idx+3] = 255;
+          } else {
+            // neither escape nor cycle: leave black
+            data[idx+3] = 255;
+          }
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    document.getElementById('renderBtn').addEventListener('click', render);
+    render();
+</script>
+<button id="backBtn">Back</button>
+<script>
+  document.getElementById('backBtn').addEventListener('click', () => {
+    window.location.href = '../index.html';
+  });
+</script>
+</body>
+</html>
