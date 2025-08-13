@@ -1,96 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Geometric Groups</title>
-  <link rel="stylesheet" href="../../assets/css/backBtn.css" />
-  <style>
-    html, body {
-      margin: 0;
-      overflow: hidden;
-      width: 100%;
-      height: 100%;
-      font-family: sans-serif;
-      background-color: #111;
-      color: #eee;
-    }
-
-    #welcomeScreen {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-    }
-    #welcomeScreen h1 {
-      font-size: 2.5em;
-      margin-bottom: 0.5em;
-    }
-    #welcomeScreen p {
-      font-size: 1.1em;
-      margin-bottom: 1.2em;
-      max-width: 400px;
-      text-align: center;
-      color: #ccc;
-    }
-    #welcomeScreen .button-group {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    #welcomeScreen button {
-      padding: 0.6em 1.4em;
-      font-size: 1em;
-      background-color: #3399ff;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background-color 0.15s;
-    }
-    #welcomeScreen button:hover {
-      background-color: #2277cc;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geometric Tools - Geometry of Linear Groups</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
 </head>
 <body>
+    <div class="container">
+        <header>
+            <nav class="breadcrumb">
+                <a href="../index.html">Home</a> / Geometric
+            </nav>
+            <h1>Geometric Tools</h1>
+        </header>
+        
+        <main>
+            <div class="section-intro">
+                <p>
+                    Visualize the geometric actions of linear groups on various spaces. 
+                    These tools help understand group actions on trees, buildings, symmetric spaces, and hyperbolic manifolds.
+                </p>
+            </div>
 
-  <div id="welcomeScreen">
-    <h1>Geometric groups</h1>
-    <p>Here you can explore either archimedean or non-archimedean groups</p>
-    <div class="button-group">
-      <button id="kleinianBtn">Kleinian Groups</button>
-      <button id="padicBtn"><em>p</em>-adic Groups</button>
-      <button id="euclideanBtn">Euclidean Groups</button>
-      
-      <!-- (In the future, you could add more buttons here, e.g. “Dirichlet Domain,” “Trace Plot,” etc.) -->
+            <h2> Kleinian </h2>
+            <div class="tools-grid">
+                <div class="tool-card">
+                    <h3>Limit Sets</h3>
+                    <p>Visualize limit sets of Kleinian Groups</p>
+                    <a href="Tools/Kleinian/limitsets.html" class="status">Open Tool</a>
+                </div>
+
+                <div class="tool-card coming-soon">
+                    <h3>Hyperbolic Space</h3>
+                    <p>Visualize discrete subgroups acting on hyperbolic 2- and 3-space</p>
+                    <span class="status">Coming Soon</span>
+                </div>
+
+                <div class="tool-card coming-soon">
+                    <h3>Symmetric Spaces</h3>
+                    <p>Explore symmetric spaces and their geodesics</p>
+                    <span class="status">Coming Soon</span>
+                </div>
+                
+            </div>
+
+            <h2> <i>p</i>-adic </h2>
+            <div class="tools-grid">
+                <div class="tool-card coming-soon">
+                    <h3>Ping-Pong Lemma</h3>
+                    <p>Interactive demonstration of the ping-pong lemma</p>
+                    <span class="status">Coming Soon</span>
+                </div>
+
+                <div class="tool-card coming-soon">
+                    <h3>Bass-Serre Trees</h3>
+                    <p>Visualize group actions on trees and compute fundamental domains</p>
+                    <span class="status">Coming Soon</span>
+                </div>
+                
+                <div class="tool-card coming-soon">
+                    <h3>Bruhat-Tits Buildings</h3>
+                    <p>Explore buildings associated to p-adic groups</p>
+                    <span class="status">Coming Soon</span>
+                </div>
+            </div>
+
+            <h2> Other </h2>
+            <div class="tools-grid">
+                <div class="tool-card coming-soon">
+                    <h3>Cayley Graphs</h3>
+                    <p>Generate and visualize Cayley graphs of finitely generated groups</p>
+                    <span class="status">Coming Soon</span>
+                </div>
+
+                <div class="tool-card coming-soon">
+                    <h3>Ping-Pong Lemma</h3>
+                    <p>Interactive demonstration of the ping-pong lemma</p>
+                    <span class="status">Coming Soon</span>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>Created by Nic Brody, UC Santa Cruz</p>
+        </footer>
     </div>
-  </div>
-
-  <button id="backBtn" onclick="window.location.href = '../index.html';">Back</button>
-
-  <script>
-    document.getElementById('kleinianBtn').addEventListener('click', () => {
-      // Navigate to the Algebraic site
-      window.location.href = 'Kleinian/index.html';
-    });
-  </script>
-
-  <script>
-    document.getElementById('padicBtn').addEventListener('click', () => {
-      // Navigate to the Geometric site
-      window.location.href = 'padicGroups/index.html';
-    });
-  </script>
-
-  <script>
-    document.getElementById('euclideanBtn').addEventListener('click', () => {
-      // Navigate to the Euclidean site
-      window.location.href = 'Euclidean/index.html';
-    });
-  </script>
 </body>
 </html>

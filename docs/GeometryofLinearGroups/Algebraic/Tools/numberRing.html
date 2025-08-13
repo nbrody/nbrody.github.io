@@ -357,7 +357,7 @@
         <div class="main-content">
             <div class="info-box">
                 <h3>📐 About This Tool</h3>
-                <p>Enter polynomials in ℤ[x₁, x₂, ..., xₙ] to analyze the ideal they generate. The tool computes Gröbner bases, checks primality, and calculates Krull dimension. For zero-dimensional ideals over ℚ, it identifies number fields and their dimensions.</p>
+                <p>Enter polynomials in $\mathbb{Z}[x_1,...,x_n]$ to analyze the ideal they generate. The tool computes Gröbner bases, checks primality, and calculates Krull dimension. For zero-dimensional ideals over $\mathbb{Q}$, it identifies number fields and their dimensions.</p>
             </div>
             
             <div class="section">
@@ -375,7 +375,10 @@
                     
                     <div style="margin-top: 25px; display: flex; gap: 15px;">
                         <button class="btn btn-primary" onclick="computeResults()" id="compute-btn">
-                            <span>⚡</span> Compute Analysis
+                            <span>⚡</span> Generate Number Ring
+                        </button>
+                        <button class="btn btn-secondary" onclick="loadRandomSample()">
+                            <span>🎲</span> Sample Ideal
                         </button>
                         <button class="btn btn-secondary" onclick="clearAll()">
                             Clear All
@@ -434,6 +437,40 @@
         const MQ = MathQuill.getInterface(2);
         let mathField;
         let polynomials = [];
+
+        // Library of sample ideals (each entry is an array of LaTeX-like strings)
+        const sampleIdealLibrary = [
+            { label: '{x_1^2-2}', polys: ['x_1^2-2'] },
+            { label: '{x_1^2-x_1-1}', polys: ['x_1^2-x_1-1'] },
+            { label: '{3*x_1-1}', polys: ['3*x_1-1'] },
+            { label: '{x_1^2-2, x_2^2-3}', polys: ['x_1^2-2', 'x_2^2-3'] },
+            { label: '{x_1*x_2-1}', polys: ['x_1*x_2-1'] },
+            { label: '{x_1^2-3, 5*x_1-1}', polys: ['x_1^2-3', '5*x_1-1'] }
+        ];
+
+        function loadRandomSample() {
+            // Pick a random sample
+            const pick = sampleIdealLibrary[Math.floor(Math.random() * sampleIdealLibrary.length)];
+
+            // Reset current state
+            polynomials = [];
+            document.getElementById('results-section').classList.remove('active');
+            if (typeof mathField !== 'undefined') {
+                mathField.latex('');
+            }
+
+            // Add each polynomial from the sample ideal
+            pick.polys.forEach((latexStr, idx) => {
+                polynomials.push({
+                    latex: latexStr,
+                    readable: convertLatexToPolynomial(latexStr),
+                    id: Date.now() + idx
+                });
+            });
+
+            // Update the list display
+            updatePolynomialList();
+        }
         
         $(document).ready(function() {
             // Initialize MathQuill input field
@@ -490,6 +527,12 @@
             
             // Handle fractions
             poly = poly.replace(/frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)');
+
+            // Replace LaTeX exponentiation with Python/Sage exponentiation
+            // Case 1: ^{...} -> **(...)
+            poly = poly.replace(/\^\{([^}]+)\}/g, '**($1)');
+            // Case 2: ^n -> **n (simple numeric or alphanumeric exponents)
+            poly = poly.replace(/\^([A-Za-z0-9_]+)/g, '**$1');
             
             // Clean up spaces
             poly = poly.replace(/\s+/g, ' ').trim();

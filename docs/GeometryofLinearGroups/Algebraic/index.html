@@ -1,85 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Algebraic Groups</title>
-  <style>
-    html, body {
-      margin: 0;
-      overflow: hidden;
-      width: 100%;
-      height: 100%;
-      font-family: sans-serif;
-      background-color: #111;
-      color: #eee;
-    }
-
-    #welcomeScreen {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-    }
-    #welcomeScreen h1 {
-      font-size: 2.5em;
-      margin-bottom: 0.5em;
-    }
-    #welcomeScreen p {
-      font-size: 1.1em;
-      margin-bottom: 1.2em;
-      max-width: 400px;
-      text-align: center;
-      color: #ccc;
-    }
-    #welcomeScreen .button-group {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    #welcomeScreen button {
-      padding: 0.6em 1.4em;
-      font-size: 1em;
-      background-color: #3399ff;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background-color 0.15s;
-    }
-    #welcomeScreen button:hover {
-      background-color: #2277cc;
-    }
-  </style>
-  <link rel="stylesheet" href="../../assets/css/backBtn.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algebraic Tools - Geometry of Linear Groups</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
 </head>
 <body>
+    <div class="container">
+        <header>
+            <nav class="breadcrumb">
+                <a href="../index.html">Home</a> / Algebraic
+            </nav>
+            <h1>Algebraic Tools</h1>
+        </header>
+        
+        <main>
+            <div class="section-intro">
+                <p>
+                    Explore the algebraic structure of linear groups through computational tools and visualizations. 
+                    These tools focus on representation theory, character varieties, and algebraic group actions.
+                </p>
+            </div>
+            
+            <div class="tools-grid">
+                <div class="tool-card">
+                    <h3>Gröbner Bases</h3>
+                    <p>Compute Gröbner bases for polynomial ideals in linear algebraic groups</p>
+                    <a href="Tools/numberRing.html" class="status">Open Tool</a>
+                </div>
 
-  <div id="welcomeScreen">
-    <h1>Algebraic groups</h1>
-    <p>This page has some tools for studying algebraic aspects of linear groups.</p>
-    <div class="button-group">
-      <button id="numberRingBtn">Number rings</button>
-      <button id="zariskiBtn">Zariski closures</button>
-      
-      <!-- More buttons can be added here in the future, e.g., “Dirichlet Domain,” “Trace Plot,” etc. -->
+                <div class="tool-card coming-soon">
+                    <h3>Character Varieties</h3>
+                    <p>Compute and visualize character varieties for fundamental groups</p>
+                    <span class="status">Coming Soon</span>
+                </div>
+                
+                <div class="tool-card coming-soon">
+                    <h3>Representation Spaces</h3>
+                    <p>Explore representations of finitely generated groups into GL<sub>n</sub></p>
+                    <span class="status">Coming Soon</span>
+                </div>
+                
+                <div class="tool-card coming-soon">
+                    <h3>Zariski Closure</h3>
+                    <p>Compute the Zariski closure of finitely generated subgroups</p>
+                    <span class="status">Coming Soon</span>
+                </div>
+                
+                <div class="tool-card coming-soon">
+                    <h3>Algebraic Subgroups</h3>
+                    <p>Classify algebraic subgroups of linear groups</p>
+                    <span class="status">Coming Soon</span>
+                </div>
+                
+                <div class="tool-card coming-soon">
+                    <h3>Word Problem Solver</h3>
+                    <p>Solve word problems in matrix groups</p>
+                    <span class="status">Coming Soon</span>
+                </div>
+                
+                <div class="tool-card coming-soon">
+                    <h3>Invariant Theory</h3>
+                    <p>Compute invariants and covariants of group actions</p>
+                    <span class="status">Coming Soon</span>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>Created by Nic Brody, UC Santa Cruz</p>
+        </footer>
     </div>
-  </div>
-  <button id="backBtn" onclick="window.location.href = '../index.html';">Back</button>
-
-  <script>
-    document.getElementById('numberRingBtn').addEventListener('click', () => {
-      // Open the Number Rings page within the site
-      window.location.href = 'Tools/numberRings.html';
-    });
-
-    document.getElementById('zariskiBtn').addEventListener('click', () => {
-      window.location.href = 'Tools/zariski.html';
-    });
-  </script>
-
 </body>
 </html>
