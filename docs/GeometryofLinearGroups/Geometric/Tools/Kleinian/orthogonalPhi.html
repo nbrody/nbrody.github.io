@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>O[1,1,1,−Φ] — Reflection Toolkit</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    :root {
+      --bg: #0b0d11;           /* near-black */
+      --panel: #11141a;        /* panel background */
+      --muted: #aab3c5;        /* muted text */
+      --fg: #e8ecf3;           /* primary text */
+      --accent: #8fd3ff;       /* cyan */
+      --accent2: #ffd28f;      /* amber */
+      --danger: #ff7a7a;       /* red */
+      --ok: #8bffa6;           /* green */
+      --card: #121722;         /* cards */
+      --border: #1e2533;
+      --radius: 14px;
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: linear-gradient(180deg, #0b0d11, #0e1320 40%, #0b0d11);
+      color: var(--fg); font-family: var(--sans); letter-spacing: .1px; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    }
+    header {
+      position: sticky; top: 0; z-index: 50;
+      display: grid; grid-template-columns: auto 1fr auto;
+      align-items: center; gap: 12px;
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+      background: rgba(11,13,17,0.75); backdrop-filter: blur(8px);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .logo { width: 28px; height: 28px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, var(--accent), #4c83ff 60%, #1c3c7a 100%); box-shadow: 0 0 0 2px #0f1422 inset; }
+    .title { font-weight: 700; font-size: 16px; letter-spacing: .4px; }
+    .subtitle { font-size: 12px; color: var(--muted); }
+
+    .tray-btn { appearance: none; border: none; background: transparent; color: var(--fg); font-size: 18px; padding: 8px 10px; border-radius: 10px; cursor: pointer; }
+    .tray-btn:hover { background: #0e1627; }
+
+    .container {
+      display: grid; grid-template-columns: 320px 1fr; gap: 16px; min-height: calc(100vh - 64px);
+    }
+    @media (max-width: 980px) {
+      .container { grid-template-columns: 1fr; }
+    }
+
+    /* Side panel */
+    .panel {
+      position: relative; padding: 16px; background: var(--panel); border-right: 1px solid var(--border);
+    }
+    .panel.collapsed { width: 54px; padding: 12px 8px; }
+    .panel .collapse-bar { position: absolute; right: 8px; top: 8px; }
+
+    .tribar { width: 22px; height: 16px; display: inline-grid; gap: 3px; }
+    .tribar i { display: block; height: 3px; border-radius: 3px; background: var(--muted); }
+
+    .panel h2 { margin: 6px 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
+    .panel .section { margin-bottom: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: #0f1421; box-shadow: var(--shadow); }
+    .panel .section header { position: relative; display: flex; justify-content: space-between; align-items: center; background: transparent; padding: 10px 12px; border: none; backdrop-filter: none; }
+    .panel .section .body { padding: 12px; border-top: 1px solid var(--border); }
+
+    label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
+    input[type="number"], input[type="text"] { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #0e1422; color: var(--fg); outline: none; font-family: var(--mono); }
+    input::placeholder { color: #69758b; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+    .btn { appearance: none; border: 1px solid var(--border); background: #0f1422; color: var(--fg); border-radius: 12px; padding: 10px 12px; cursor: pointer; font-weight: 600; }
+    .btn:hover { background: #121a2c; }
+    .btn.primary { border-color: #2a518a; background: linear-gradient(180deg, #1b2a49, #13203c); color: #cfe8ff; }
+    .btn.ghost { background: transparent; }
+
+    /* Main */
+    main { padding: 16px; }
+    .cards { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+    .card { grid-column: span 6; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    @media (max-width: 980px){ .card { grid-column: span 12; } }
+    .card header { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0)); }
+    .card .body { padding: 14px; }
+
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: right; }
+    th { color: var(--muted); font-weight: 600; text-align: center; }
+    td:first-child, th:first-child { text-align: left; }
+
+    .muted { color: var(--muted); }
+    .mono { font-family: var(--mono); }
+    .small { font-size: 12px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: #0e1422; color: var(--muted); font-size: 12px; }
+    .row { display: flex; gap: 8px; align-items: center; }
+
+    details { border: 1px solid var(--border); border-radius: 12px; padding: 8px; background: #0f1524; }
+    details summary { cursor: pointer; color: var(--accent); }
+    .kbd { font-family: var(--mono); background: #111b2f; border: 1px solid #1d2b49; padding: 2px 6px; border-radius: 6px; }
+
+    .footer { margin-top: 20px; color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <div class="title">O[1,1,1,−Φ] — Reflection Toolkit</div>
+        <div class="subtitle">Interactive port of the Mathematica notebook <span class="mono">O[1,1,1,−phi].nb</span></div>
+      </div>
+    </div>
+    <div></div>
+    <button class="tray-btn" id="collapseBtn" title="Collapse/expand controls" aria-label="Toggle controls">
+      <span class="tribar" aria-hidden="true"><i></i><i></i><i></i></span>
+    </button>
+  </header>
+
+  <div class="container">
+    <!-- Side Panel -->
+    <aside class="panel" id="panel">
+      <div class="section">
+        <header>
+          <div>
+            <h2>Metric</h2>
+            <div class="small muted">Signature diag(1,1,1,−Φ)</div>
+          </div>
+        </header>
+        <div class="body">
+          <label for="phi">Φ (phi-conjugate) = (√5 − 1) / 2 ≈ 0.618034</label>
+          <input type="number" step="any" id="phi" value="0.6180339887498948" />
+          <div class="small muted" style="margin-top:6px">Use the default to match the notebook.
+            Change to explore other quadratic forms.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <header>
+          <div>
+            <h2>Vectors vᵢ ∈ ℝ⁴</h2>
+            <div class="small muted">Defaults reproduce the notebook’s x[1..4]</div>
+          </div>
+          <div class="row">
+            <button class="btn ghost small" id="addVec">+ Add</button>
+            <button class="btn ghost small" id="resetVecs" title="Reset to notebook defaults">Reset</button>
+          </div>
+        </header>
+        <div class="body" id="vectors"></div>
+      </div>
+
+      <div class="row" style="justify-content:space-between">
+        <button class="btn primary" id="computeBtn">Compute</button>
+        <button class="btn" id="copyJSON">Copy JSON</button>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main>
+      <div class="cards">
+        <section class="card" style="grid-column: span 12">
+          <header>
+            <div>
+              <strong>Form matrix</strong>
+              <span class="pill mono" id="formName">f = diag(1,1,1,−Φ)</span>
+            </div>
+            <div class="row">
+              <button class="btn small" id="copyF">Copy LaTeX</button>
+            </div>
+          </header>
+          <div class="body">
+            <div id="F-matrix" class="mono"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <header>
+            <div><strong>Angle matrix</strong> <span class="pill">θᵢⱼ = arccos(B(vᵢ,vⱼ)/√(qᵢqⱼ))</span></div>
+            <div class="row">
+              <button class="btn small" id="copyAngles">Copy LaTeX</button>
+            </div>
+          </header>
+          <div class="body">
+            <div id="angles"></div>
+            <div class="small muted" style="margin-top:6px">Shown in radians and as rational multiples of π when recognized.</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <header>
+            <div><strong>Gram matrix</strong> <span class="pill">Gᵢⱼ = B(vᵢ,vⱼ)</span></div>
+            <div class="row">
+              <button class="btn small" id="copyGram">Copy LaTeX</button>
+            </div>
+          </header>
+          <div class="body">
+            <div id="gram"></div>
+          </div>
+        </section>
+
+        <section class="card" style="grid-column: span 12">
+          <header>
+            <div><strong>Reflections</strong> <span class="pill">R(v) = I − 2·(v ⊗ (f·v)) / q(v)</span></div>
+          </header>
+          <div class="body" id="reflections"></div>
+        </section>
+
+        <section class="card" style="grid-column: span 12">
+          <header>
+            <div><strong>Word builder</strong> <span class="pill">Multiply reflections</span></div>
+          </header>
+          <div class="body">
+            <div class="grid-2">
+              <div>
+                <label>Word (space-separated indices, e.g., <span class="kbd">1 2 3 2 1</span>)</label>
+                <input type="text" id="wordInput" placeholder="e.g. 1 2 1"/>
+              </div>
+              <div class="row" style="align-items:flex-end; justify-content:flex-start">
+                <button class="btn" id="computeWord">Compute product</button>
+              </div>
+            </div>
+            <div style="margin-top:12px">
+              <details>
+                <summary>Product matrix (4×4)</summary>
+                <div id="wordMatrix" class="mono" style="margin-top:8px"></div>
+              </details>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="footer">Angles assume q(vᵢ)·q(vⱼ) &gt; 0. If not, the cosine may be outside [−1,1] and will be shown as “—”.
+      Reflections use the bilinear form f with signature (3,1). Defaults replicate the notebook’s <span class="mono">x[1..4]</span> and produce the angle matrix with entries 3π/4, π/2, 2π/3, and 4π/5.</div>
+    </main>
+  </div>
+
+  <script>
+    // ========= Linear Algebra Helpers ========= //
+    const eps = 1e-12;
+    const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+    const r = (x, d=6) => Math.abs(x) < eps ? 0 : Number(x.toFixed(d));
+
+    function matMul(A, B) {
+      const n = A.length, m = B[0].length, k = B.length;
+      const C = Array.from({length:n}, _=> Array(m).fill(0));
+      for (let i=0;i<n;i++) for (let j=0;j<m;j++) {
+        let s=0; for (let t=0;t<k;t++) s += A[i][t]*B[t][j];
+        C[i][j] = s;
+      }
+      return C;
+    }
+    function matVec(A, v) { return A.map(row => row.reduce((s, a, j) => s + a*v[j], 0)); }
+    function transpose(A) { return A[0].map((_,i)=>A.map(row=>row[i])); }
+    function eye(n){ const I=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?1:0)); return I; }
+    function outer(u, v) { // u column, v row
+      const m = u.length, n = v.length; const M = Array.from({length:m}, _=> Array(n).fill(0));
+      for (let i=0;i<m;i++) for (let j=0;j<n;j++) M[i][j]=u[i]*v[j];
+      return M;
+    }
+
+    // ========= Form and basic ops ========= //
+    function formMatrix(phi) { return [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,-phi]]; }
+    function B(v, w, f) { // v^T f w
+      let s=0; for (let i=0;i<4;i++){ let t=0; for (let j=0;j<4;j++) t += f[i][j]*w[j]; s += v[i]*t; } return s;
+    }
+    function q(v, f) { return B(v, v, f); }
+    function Mat(v, w, f) { // v ⊗ (f·w)
+      const fw = matVec(f, w); return outer(v, fw);
+    }
+    function reflection(v, f) { // I − 2 Mat(v,v)/q(v)
+      const I = eye(4);
+      const qv = q(v, f); if (Math.abs(qv) < eps) return I.map(row=>row.slice());
+      const M = Mat(v, v, f).map(row => row.map(x => (2*x)/qv));
+      const R = I.map((row,i)=> row.map((val,j)=> val - M[i][j] ));
+      return R;
+    }
+    function angle(v, w, f) { // arccos( B / sqrt(q q) )
+      const qv = q(v,f), qw = q(w,f);
+      if (qv <= 0 || qw <= 0) return NaN;
+      const cos = clamp(B(v,w,f)/Math.sqrt(qv*qw), -1, 1);
+      return Math.acos(cos);
+    }
+
+    // ========= Formatting ========= //
+    function formatMatrix(A, digits=6) {
+      const headers = Array.from({length: A[0].length}, (_, i) => `<th>${i+1}</th>`).join("");
+      const rows = A.map((row, i) => {
+        const cells = row.map(x => `<td class="mono">${Number.isFinite(x) ? r(x, digits) : '—'}</td>`).join("");
+        return `<tr><td class="muted">${i+1}</td>${cells}</tr>`;
+      }).join("");
+      return `<table><thead><tr><th></th>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
+    }
+    function toLatexMatrix(A) {
+      const rows = A.map(row => row.map(x => {
+        if (!Number.isFinite(x)) return '\\text{--}';
+        const s = Math.abs(x) < eps ? '0' : x.toPrecision(8);
+        return s.replace(/e\+?(-?\d+)/, '\\times 10^{\$1}');
+      }).join(' & ')).join(' \\ ');
+      return `\\begin{bmatrix} ${rows} \\end{bmatrix}`;
+    }
+
+    function approxPiMultiple(x) { // return a rational a/b with x ≈ (a π)/b
+      if (!Number.isFinite(x)) return '';
+      const ratio = x / Math.PI; // target ≈ a/b
+      const maxB = 12; let best = null; let bestErr = 1e9;
+      for (let b=1; b<=maxB; b++) {
+        const a = Math.round(ratio * b);
+        const val = a / b; const err = Math.abs(val - ratio);
+        if (err < bestErr + 1e-8) { best = [a,b]; bestErr = err; }
+      }
+      if (!best) return '';
+      const [a,b] = best; if (bestErr > 2e-3) return '';
+      if (a === 0) return '0';
+      const num = (Math.abs(a)===1) ? (a<0?'-':'')+'' : String(a);
+      const den = (b===1) ? '' : `/${b}`;
+      return `${num}π${den}`;
+    }
+
+    function buildAngles(vectors, f) {
+      const n = vectors.length; const M = Array.from({length:n}, _=> Array(n).fill(0));
+      const friendly = Array.from({length:n}, _=> Array(n).fill(''));
+      for (let i=0;i<n;i++) for (let j=0;j<n;j++){
+        const th = angle(vectors[i], vectors[j], f);
+        M[i][j] = Number.isNaN(th) ? NaN : th;
+        friendly[i][j] = Number.isNaN(th) ? '—' : approxPiMultiple(th);
+      }
+      return {raw:M, friendly};
+    }
+
+    function buildGram(vectors, f){
+      const n = vectors.length; const G = Array.from({length:n}, _=> Array(n).fill(0));
+      for (let i=0;i<n;i++) for (let j=0;j<n;j++) G[i][j] = B(vectors[i], vectors[j], f);
+      return G;
+    }
+
+    // ========= UI State ========= //
+    const vectorsEl = document.getElementById('vectors');
+    const phiEl = document.getElementById('phi');
+
+    function vectorRow(i, v){
+      const id = `vec-${i}`;
+      return `<div class="grid-4" style="margin-bottom:8px">
+        <div><label>v${i+1}[0]</label><input type="number" step="any" id="${id}-0" value="${v[0]}"></div>
+        <div><label>v${i+1}[1]</label><input type="number" step="any" id="${id}-1" value="${v[1]}"></div>
+        <div><label>v${i+1}[2]</label><input type="number" step="any" id="${id}-2" value="${v[2]}"></div>
+        <div><label>v${i+1}[3]</label><input type="number" step="any" id="${id}-3" value="${v[3]}"></div>
+      </div>`;
+    }
+
+    let vectors = [ [1,0,0,0], [-1,1,0,0], [0,-1,1,0], [0,0,-1, 0.6180339887498948] ];
+
+    function renderVectorInputs(){
+      vectorsEl.innerHTML = vectors.map((v,i)=> vectorRow(i,v)).join('');
+    }
+
+    function readVectors(){
+      const out = [];
+      for (let i=0;i<vectors.length;i++){
+        const row = [];
+        for (let j=0;j<4;j++) row.push(parseFloat(document.getElementById(`vec-${i}-${j}`).value));
+        out.push(row);
+      }
+      return out;
+    }
+
+    // ========= Renderers ========= //
+    function renderFormMatrix(f) {
+      const latex = toLatexMatrix(f);
+      document.getElementById('F-matrix').innerHTML = `\\( f = ${latex} \\)`;
+      MathJax.typesetPromise();
+    }
+
+    function renderAngles(angles){
+      const {raw, friendly} = angles;
+      const n = raw.length;
+      let html = '<table><thead><tr><th></th>';
+      for (let j=0;j<n;j++) html += `<th>${j+1}</th>`;
+      html += '</tr></thead><tbody>';
+      for (let i=0;i<n;i++){
+        html += `<tr><td class="muted">${i+1}</td>`;
+        for (let j=0;j<n;j++){
+          const th = raw[i][j];
+          if (!Number.isFinite(th)) {
+            html += `<td class="mono">—</td>`;
+          } else {
+            const rad = r(th, 6);
+            const nice = friendly[i][j];
+            const show = nice && i!==j ? `${rad} <span class="muted small">(${nice})</span>` : `${rad}`;
+            html += `<td class="mono">${show}</td>`;
+          }
+        }
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      document.getElementById('angles').innerHTML = html;
+    }
+
+    function renderGram(G){
+      document.getElementById('gram').innerHTML = formatMatrix(G, 6);
+    }
+
+    function renderReflections(vectors, f){
+      const container = document.getElementById('reflections');
+      container.innerHTML = '';
+      vectors.forEach((v,i)=>{
+        const R = reflection(v, f);
+        const html = `
+          <details style="margin-bottom:8px">
+            <summary>R(v${i+1})</summary>
+            <div style="margin-top:8px">\\( ${toLatexMatrix(R)} \\)</div>
+          </details>`;
+        const node = document.createElement('div');
+        node.innerHTML = html;
+        container.appendChild(node);
+      });
+      MathJax.typesetPromise();
+    }
+
+    function computeAll(){
+      const phi = parseFloat(phiEl.value);
+      const f = formMatrix(phi);
+      const v = readVectors();
+      renderFormMatrix(f);
+      renderAngles(buildAngles(v, f));
+      renderGram(buildGram(v, f));
+      renderReflections(v, f);
+    }
+
+    // ========= Word Builder ========= //
+    function multiply(A,B){ return matMul(A,B); }
+    function computeWordMatrix(indices){
+      const phi = parseFloat(phiEl.value); const f = formMatrix(phi);
+      const v = readVectors(); const Rs = v.map(vec => reflection(vec, f));
+      let M = eye(4);
+      for (const idx of indices){
+        const R = Rs[idx];
+        M = multiply(R, M); // left-to-right product: R_k ... R_1
+      }
+      return M;
+    }
+
+    function renderWord(){
+      const raw = document.getElementById('wordInput').value.trim();
+      if (!raw) { document.getElementById('wordMatrix').innerHTML = '<span class="muted small">Enter a word like "1 2 3 2 1".</span>'; return; }
+      const parts = raw.split(/\s+/).map(s => parseInt(s,10)-1).filter(i => Number.isInteger(i) && i>=0 && i<vectors.length);
+      if (!parts.length) { document.getElementById('wordMatrix').innerHTML = '<span class="muted small">No valid indices.</span>'; return; }
+      const M = computeWordMatrix(parts);
+      document.getElementById('wordMatrix').innerHTML = `\\( ${toLatexMatrix(M)} \\)`;
+      MathJax.typesetPromise();
+    }
+
+    // ========= Clipboard ========= //
+    function copy(text){
+      navigator.clipboard.writeText(text).then(()=>{
+        const btn = document.createElement('div');
+        btn.textContent = 'Copied!'; btn.style.position='fixed'; btn.style.bottom='16px'; btn.style.right='16px';
+        btn.style.background='#13203c'; btn.style.border='1px solid #2a518a'; btn.style.padding='8px 10px'; btn.style.borderRadius='10px';
+        btn.style.color='#cfe8ff'; btn.style.boxShadow='var(--shadow)'; btn.style.zIndex='9999';
+        document.body.appendChild(btn); setTimeout(()=>btn.remove(), 1200);
+      });
+    }
+
+    // ========= Wiring ========= //
+    renderVectorInputs();
+    computeAll();
+
+    document.getElementById('computeBtn').addEventListener('click', computeAll);
+    document.getElementById('computeWord').addEventListener('click', renderWord);
+    document.getElementById('addVec').addEventListener('click', ()=>{ vectors.push([0,0,0,0]); renderVectorInputs(); });
+    document.getElementById('resetVecs').addEventListener('click', ()=>{
+      vectors = [ [1,0,0,0], [-1,1,0,0], [0,-1,1,0], [0,0,-1, parseFloat(phiEl.value)] ];
+      renderVectorInputs();
+    });
+
+    document.getElementById('copyF').addEventListener('click', ()=>{
+      const phi = parseFloat(phiEl.value); const f = formMatrix(phi);
+      copy(toLatexMatrix(f));
+    });
+    document.getElementById('copyAngles').addEventListener('click', ()=>{
+      const phi = parseFloat(phiEl.value); const f = formMatrix(phi);
+      const v = readVectors(); const {raw} = buildAngles(v, f);
+      copy(toLatexMatrix(raw));
+    });
+    document.getElementById('copyGram').addEventListener('click', ()=>{
+      const phi = parseFloat(phiEl.value); const f = formMatrix(phi);
+      const v = readVectors(); const G = buildGram(v, f);
+      copy(toLatexMatrix(G));
+    });
+    document.getElementById('copyJSON').addEventListener('click', ()=>{
+      const phi = parseFloat(phiEl.value);
+      const v = readVectors();
+      copy(JSON.stringify({ phi, vectors: v }, null, 2));
+    });
+
+    // Collapse/expand panel
+    const panel = document.getElementById('panel');
+    const collapseBtn = document.getElementById('collapseBtn');
+    collapseBtn.addEventListener('click', ()=>{
+      panel.classList.toggle('collapsed');
+    });
+  </script>
+</body>
+</html>

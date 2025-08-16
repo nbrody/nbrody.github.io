@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Bianchi Planes — Cusps & Totally Geodesic Surfaces</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+  :root{
+    --bg:#0f0f13; --panel:#151821; --ink:#e9edf1; --ink-dim:#aeb6c2;
+    --accent:#68e; --good:#28c281; --warn:#e3b341; --bad:#e35d5d; --mut:#2a2f3a;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --serif: "STIX Two Text", Georgia, "Times New Roman", serif;
+    --sans: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  }
+  html,body{height:100%}
+  body{margin:0;background:linear-gradient(180deg,#0d0f14,#0f1118);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  header{position:sticky;top:0;z-index:9;background:rgba(13,15,20,.7);backdrop-filter:blur(8px);border-bottom:1px solid #1e2330}
+  header .bar{max-width:1200px;margin:auto;padding:12px 16px;display:flex;gap:16px;align-items:center}
+  h1{font-size:20px;font-weight:700;margin:0}
+  main{max-width:1200px;margin:0 auto;padding:18px}
+  .grid{display:grid;grid-template-columns:1.1fr .9fr; gap:16px}
+  .card{background:var(--panel);border:1px solid #1e2330;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+  .card h2{margin:0;padding:14px 16px;border-bottom:1px solid #1e2330;font-size:16px}
+  .card .body{padding:14px 16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  label{display:block;font-size:12px;color:var(--ink-dim);margin-bottom:6px}
+  input,select,button,textarea{background:#11141c;border:1px solid #23293a;color:var(--ink);
+    border-radius:8px;padding:10px 12px;font:14px var(--sans)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:#39425a;box-shadow:0 0 0 2px #39425a80}
+  button{cursor:pointer;background:#1a2030;border-color:#2a3147}
+  button.primary{background:linear-gradient(180deg,#6aa3ff,#578ef0);border-color:#4579d0;color:#081020}
+  .hint{font-size:12px;color:var(--ink-dim)}
+  .mono{font-family:var(--mono)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#1a2030;color:#c9d1e0;border:1px solid #2a3147;font-size:12px}
+  .ok{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+  .results pre{white-space:pre-wrap;word-break:break-word;background:#0f121a;border:1px solid #21283a;padding:12px;border-radius:10px}
+  .tags{display:flex;gap:8px;flex-wrap:wrap}
+  .two{display:grid;grid-template-columns:1fr 1fr; gap:12px}
+  .hr{height:1px;background:#1e2330;margin:12px 0}
+  .small{font-size:12px;color:#adbac7}
+  .table{width:100%;border-collapse:collapse;font-size:14px}
+  .table th,.table td{border-bottom:1px solid #1e2330;padding:8px 6px;text-align:left}
+  details{border:1px solid #1e2330;border-radius:10px;background:#11141a;padding:10px}
+  summary{cursor:pointer;font-weight:600;color:#cdd7e6}
+  .foot{margin-top:18px;color:#9aa6b2;font-size:13px}
+  .code{background:#0f121a;border:1px solid #21283a;padding:6px 8px;border-radius:8px}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <h1>Geometry of Bianchi Groups — Cusps & Planes</h1>
+  <span class="pill">fields: <b>d=1</b> (Gaussian), <b>d=3</b> (Eisenstein)</span>
+</div></header>
+
+<main class="grid">
+
+  <!-- Left: Inputs -->
+  <section class="card">
+    <h2>Field & Congruence Subgroup</h2>
+    <div class="body">
+      <div class="row">
+        <div>
+          <label>Square‑free <span class="mono">d</span> (currently supported: 1 or 3)</label>
+          <input id="d" type="number" min="1" step="1" value="1">
+        </div>
+        <div>
+          <label>Element <span class="mono">n ∈ 𝒪<sub>d</sub></span> (level)</label>
+          <input id="nStr" placeholder='For d=1: "3+2i"  •  For d=3: "2+ω"' value="3">
+          <div class="hint">Bottom‑left entry divisible by <span class="mono">n</span> defines Γ₀(n).</div>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="primary" id="computeCusps">Compute cusps</button>
+        </div>
+      </div>
+      <div class="hr"></div>
+      <div id="cuspSummary" class="results"></div>
+    </div>
+  </section>
+
+  <!-- Right: Hermitian form -->
+  <section class="card">
+    <h2>Totally Geodesic Plane from a Hermitian Form</h2>
+    <div class="body">
+      <div class="row">
+        <div>
+          <label>Coefficient <span class="mono">a ∈ ℤ</span></label>
+          <input id="ha" type="number" step="1" value="1">
+        </div>
+        <div>
+          <label>Coefficient <span class="mono">b ∈ 𝒪<sub>d</sub></span></label>
+          <input id="hb" placeholder='d=1: "1+i" • d=3: "1+ω"' value="0">
+        </div>
+        <div>
+          <label>Coefficient <span class="mono">c ∈ ℤ</span></label>
+          <input id="hc" type="number" step="1" value="-1">
+        </div>
+        <div>
+          <label>Search bound</label>
+          <input id="bound" type="number" min="2" step="1" value="5">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="primary" id="analyze">Analyze S</button>
+        </div>
+      </div>
+      <div class="small">Form: \(q(u,v)=a|u|^2+2\Re(bu\overline v)+c|v|^2\). Requires discriminant \(\Delta=|b|^2-ac>0\).</div>
+      <div class="hr"></div>
+      <div id="planeSummary" class="results"></div>
+    </div>
+  </section>
+
+  <!-- Left: Compare another plane -->
+  <section class="card">
+    <h2>Compare Two Planes / Surfaces</h2>
+    <div class="body two">
+      <div>
+        <label>Second form \(q'(u,v)=a'|u|^2+2\Re(b'u\bar v)+c'|v|^2\)</label>
+        <div class="row">
+          <input id="ha2" type="number" step="1" value="1" title="a'">
+          <input id="hb2" placeholder='b′' value="0" title="b'">
+          <input id="hc2" type="number" step="1" value="-2" title="c'">
+        </div>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="primary" id="compare">Compare S and S′</button>
+      </div>
+    </div>
+    <div class="body">
+      <div id="compareSummary" class="results"></div>
+    </div>
+  </section>
+
+  <!-- Right: Sources & notes -->
+  <section class="card">
+    <h2>Notes & Sources</h2>
+    <div class="body">
+      <ul class="small">
+        <li>Cusps of \(\mathrm{PSL}_2(\mathcal O_d)\) are in bijection with ideal classes; in particular, \(\#\text{cusps}=h_K\). We use this as a sanity check at level \(n=1\).  [oai_citation:9‡MPG.PuRe](https://pure.mpg.de/rest/items/item_3277412_1/component/file_3277413/content?utm_source=chatgpt.com) [oai_citation:10‡Pi Math Cornell](https://pi.math.cornell.edu/~hatcher/Papers/Bianchi.pdf?utm_source=chatgpt.com)</li>
+        <li>Indefinite binary Hermitian forms \(q\) correspond to circles \(C_\infty(q)\), and \(\mathrm{PSU}_q(\mathcal O_d)\) (hence \(\Sigma\)) is an arithmetic Fuchsian **lattice** in \(\mathrm{PSL}_2(\mathbb R)\).  [oai_citation:11‡arXiv](https://arxiv.org/pdf/1004.3211)</li>
+        <li>We detect intersections (embeddedness / disjointness) using the trace criterion from Jung–Reid, Lemma 3.2. Any found intersection is a certificate.  [oai_citation:12‡math.rice.edu](https://math.rice.edu/~ar99/MRL-final%20-revised.pdf)</li>
+      </ul>
+      <details><summary>Implementation scope</summary>
+        <div class="small">
+          Exact ring/ideal arithmetic and cusp classification are implemented for \(d=1,3\) (Euclidean). Other \(d\) would require generic ideal arithmetic or a number‑theory engine (e.g. PARI/Sage) in WASM, which isn’t bundled here.
+        </div>
+      </details>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ======== Basic complex & ring arithmetic for d=1 (Gaussian) and d=3 (Eisenstein) ======== */
+
+const TAU = Math.PI*2;
+const SQ3 = Math.sqrt(3);
+
+function err(s){ throw new Error(s); }
+
+function near(a,b,eps=1e-9){ return Math.abs(a-b) <= eps; }
+
+/* Represent ring elements as pairs (a,b) in basis:
+   d=1:  a + b*i
+   d=3:  a + b*ω where ω = (1 + i√3)/2, with ω^2 = ω - 1 and \bar{ω} = 1 - ω
+*/
+class OElem {
+  constructor(a,b,field){ this.a=a|0; this.b=b|0; this.d=field; }
+  static parse(str, field){
+    // Accept: integers like "5", Gaussian like "3+2i", Eisenstein like "2+ω", "1-3ω"
+    str = String(str).trim();
+    if(!str) return new OElem(0,0,field);
+    if(field===1){ // Gaussian
+      // Normalize: replace spaces, handle "+i", "-i"
+      let s=str.replace(/\s+/g,'').replace(/([+\-])i/g,'$11i');
+      // Pattern a+bi
+      let m = s.match(/^([+\-]?\d+)?([+\-]\d+)i$/) || s.match(/^([+\-]?\d+)$/);
+      if(m && m.length===3) return new OElem(parseInt(m[1]||0), parseInt(m[2]), 1);
+      if(m && m.length===2) return new OElem(parseInt(m[1]), 0, 1);
+      // general parse
+      let a=0,b=0;
+      s=s.replace(/i/g,'*i');
+      // split by +/-
+      let terms = s.match(/[+\-]?[^+\-]+/g);
+      for(let t of terms){
+        t=t.trim();
+        if(!t) continue;
+        if(t.includes('*i')){
+          b += parseInt(t.replace('*i',''))||0;
+        }else{
+          a += parseInt(t)||0;
+        }
+      }
+      return new OElem(a,b,1);
+    }else if(field===3){
+      let s=str.replace(/\s+/g,'').replace(/([+\-])ω/g,'$11ω');
+      // a + b ω
+      let m = s.match(/^([+\-]?\d+)?([+\-]\d+)ω$/) || s.match(/^([+\-]?\d+)$/);
+      if(m && m.length===3) return new OElem(parseInt(m[1]||0), parseInt(m[2]), 3);
+      if(m && m.length===2) return new OElem(parseInt(m[1]), 0, 3);
+      // generic: sum of integers and coeff*ω
+      let a=0,b=0;
+      let terms = s.match(/[+\-]?[^+\-]+/g) || [];
+      for(let t of terms){
+        t=t.trim();
+        if(!t) continue;
+        if(t.includes('ω')){
+          let c = t.replace('ω','');
+          b += parseInt(c)|| (c==='+'?1:(c==='-'?-1:1));
+        }else{
+          a += parseInt(t)||0;
+        }
+      }
+      return new OElem(a,b,3);
+    } else {
+      err("Unsupported field d="+field);
+    }
+  }
+  clone(){ return new OElem(this.a,this.b,this.d); }
+  toString(){
+    if(this.d===1){
+      const ai = this.b;
+      const re = this.a;
+      if(ai===0) return String(re);
+      if(re===0) return (ai===1?'i':ai===-1?'-i':ai+'i');
+      return re + (ai>=0?'+':'') + (Math.abs(ai)===1?'':Math.abs(ai)) + 'i';
+    }else{
+      const re = this.a, be = this.b;
+      if(be===0) return String(re);
+      if(re===0) return (be===1?'ω':be===-1?'-ω':be+'ω');
+      return re + (be>=0?'+':'') + (Math.abs(be)===1?'':Math.abs(be)) + 'ω';
+    }
+  }
+  // complex embedding (for geometry / visualization)
+  toC(){
+    if(this.d===1){
+      return {x:this.a, y:this.b};
+    }else{
+      // a + b ω with ω = 1/2 + i sqrt(3)/2
+      return {x: this.a + 0.5*this.b, y: (SQ3/2)*this.b};
+    }
+  }
+  // conjugation in K (algebraic conjugation)
+  conj(){
+    if(this.d===1) return new OElem(this.a, -this.b, 1);
+    // bar(ω)=1-ω => bar(a+bω)=a+b(1-ω)=(a+b) - b ω
+    return new OElem(this.a + this.b, -this.b, 3);
+  }
+  add(o){ this._chk(o); return new OElem(this.a+o.a, this.b+o.b, this.d); }
+  sub(o){ this._chk(o); return new OElem(this.a-o.a, this.b-o.b, this.d); }
+  neg(){ return new OElem(-this.a,-this.b,this.d); }
+  mul(o){
+    this._chk(o);
+    if(this.d===1){ // (a+bi)(c+di)=(ac-bd)+(ad+bc)i
+      const a=this.a,b=this.b,c=o.a,d=o.b;
+      return new OElem(a*c - b*d, a*d + b*c, 1);
+    }else{ // (a+bω)(c+dω) = (ac - bd) + (ad+bc+bd) ω  since ω^2=ω-1
+      const a=this.a,b=this.b,c=o.a,d=o.b;
+      return new OElem(a*c - b*d, a*d + b*c + b*d, 3);
+    }
+  }
+  eq(o){ return this.d===o.d && this.a===o.a && this.b===o.b; }
+  isZero(){ return this.a===0 && this.b===0; }
+  unitGroup(){
+    if(this.d===1) return [new OElem(1,0,1), new OElem(0,1,1), new OElem(-1,0,1), new OElem(0,-1,1)]; // ±1, ±i
+    return [ // 6th roots: ±1, ±ω, ±ω^2
+      new OElem(1,0,3),
+      new OElem(-1,0,3),
+      new OElem(0,1,3),
+      new OElem(0,-1,3),
+      new OElem(1,-1,3),  // ω^2 = ω-1 => 1-ω is -ω^2 up to sign; include both
+      new OElem(-1,1,3)
+    ];
+  }
+  norm(){ // algebraic norm N(x)=x*conj(x)
+    const z = this.mul(this.conj());
+    // z is in Z for both fields
+    return z.a; // indeed b=0 for z
+  }
+  inv(){ // multiplicative inverse in K (not necessarily integral)
+    const N = this.norm();
+    if(N===0) err("Division by 0");
+    const c = this.conj();
+    // Returns element with rational coefficients — only safe when dividing inside Euclidean algorithm context.
+    return {a: c.a / N, b: c.b / N, d: this.d};
+  }
+  // Euclidean division: returns [q,r] with a = q*b + r and N(r) < N(b)
+  divRem(b){
+    this._chk(b);
+    if(b.isZero()) err("Division by zero");
+    const z = this.toC(), w = b.toC();
+    const denom = w.x*w.x + w.y*w.y;
+    const rqx = (z.x*w.x + z.y*w.y)/denom;
+    const rqy = (z.y*w.x - z.x*w.y)/denom;
+    // Round to nearest lattice point
+    let q;
+    if(this.d===1){
+      q = new OElem(Math.round(rqx), Math.round(rqy), 1);
+    }else{
+      // solve z ≈ a + b ω; imaginaries: b ≈ 2y/√3; then a ≈ x - b/2
+      const bcoef = Math.round( (2*rqy)/SQ3 );
+      const acoef = Math.round( rqx - 0.5*bcoef );
+      q = new OElem(acoef, bcoef, 3);
+    }
+    const r = this.sub( q.mul(b) );
+    return [q,r];
+  }
+  gcd(b){
+    this._chk(b);
+    let a=this.clone(), c=b.clone();
+    // make sure not both zero
+    if(a.isZero()) return c;
+    if(c.isZero()) return a;
+    // Euclidean algorithm
+    while(!c.isZero()){
+      const [,r] = a.divRem(c);
+      a=c; c=r;
+    }
+    // Normalize gcd by making it unique up to units: choose a representative with minimal (a,b) lexicographically over unit multiples
+    const units = a.unitGroup();
+    let best = a;
+    for(const u of units){
+      const cand = a.mul(u);
+      if (cmpEl(cand,best) < 0) best = cand;
+    }
+    return best;
+  }
+  // Mod reduction by an ideal generated by m (principal ideal (m))
+  mod(m){
+    // reduce x modulo m by Euclidean divRem
+    let x=this.clone();
+    if(m.isZero()) return x; // mod 0 is itself (avoid crash)
+    const [q,r] = x.divRem(m);
+    return r;
+  }
+  _chk(o){ if(!(o instanceof OElem) || o.d!==this.d) err("Mismatched ring elements"); }
+}
+
+function cmpEl(x,y){ // tie-break for canonical reps
+  if(x.a!==y.a) return x.a-y.a;
+  return x.b-y.b;
+}
+
+/* ======== Ideals in PID (principal only here), factorization & phi ======== */
+
+function primeFactorElement(alpha){
+  // Factor a nonzero element alpha into prime powers in O_d (d=1,3).
+  // Output: [{p:OElem, e:int}], with canonical choices of primes (up to units).
+  const d=alpha.d;
+  let A = alpha.clone();
+  const factors = [];
+  const units = new OElem(1,0,d).unitGroup();
+  // remove unit
+  // ensure canonical: rotate by a unit so that (a>0) or if a=0 then b>0
+  const canon = (x)=>{
+    let best = x;
+    for(const u of units){
+      const y = x.mul(u);
+      if(cmpEl(y,best)<0) best = y;
+    }
+    return best;
+  };
+  // handle 0
+  if(A.isZero()) err("Cannot factor 0");
+  // trial division using rational primes dividing norm
+  let N = Math.abs(A.norm());
+  const primesQ = factorInt(N);
+  for(const p of primesQ){
+    while(true){
+      // compute gcd(A, p) in O_d to find a prime factor dividing A
+      const P = new OElem(p,0,d);
+      let g = A.gcd(P);
+      if(g.isZero()) break;
+      // if g is a unit, then p does not divide A in O_d
+      const gN = Math.abs(g.norm());
+      if(gN===1){ break; }
+      // refine g to a prime: divide out powers until irreducible
+      g = canon(g);
+      let e=0;
+      while(true){
+        const [q,r] = A.divRem(g);
+        if(!r.isZero()){
+          break;
+        }
+        A = q; e++;
+      }
+      factors.push({p:g, e});
+    }
+  }
+  // if remaining A has norm>1, it is a unit or a remaining prime factor whose rational prime did not divide N due to cancellations (rare). Try brute trial by nearby small elements
+  if(!A.eq(new OElem(1,0,d))){
+    // either a unit or a prime power; ensure canonical and record
+    A = canon(A);
+    factors.push({p:A, e:1});
+    A = new OElem(1,0,d);
+  }
+  // combine same primes
+  const map = new Map();
+  for(const fe of factors){
+    const key = fe.p.a+','+fe.p.b;
+    map.set(key, (map.get(key)||0) + fe.e);
+  }
+  const out=[];
+  for(const [key,e] of map.entries()){
+    const [a,b]=key.split(',').map(Number);
+    out.push({p:new OElem(a,b,d), e});
+  }
+  // sort for determinism
+  out.sort((u,v)=>cmpEl(u.p,v.p));
+  return out;
+}
+
+function factorInt(n){
+  n = Math.abs(n);
+  const out=[];
+  for(let p=2;p*p<=n;p+=(p===2?1:2)){
+    if(n%p===0){
+      out.push(p);
+      while(n%p===0) n/=p;
+    }
+  }
+  if(n>1) out.push(n);
+  return out;
+}
+
+function idealDivisorsFromFactorization(factors){
+  // enumerate all principal divisors of alpha from its factorization ∏ p_i^{e_i}
+  const list=[{fac:[], el:null}];
+  for(const {p,e} of factors){
+    const cur = list.slice();
+    for(const item of cur){
+      let el = item.el?? new OElem(1,0,p.d);
+      for(let k=1;k<=e;k++){
+        el = el.mul(p);
+        list.push({fac:[...(item.fac),{p,e:k}], el});
+      }
+    }
+  }
+  // ensure unique (principal) elements up to associates => canonical rep via unit rotation
+  const uniq = new Map();
+  for(const it of list){
+    if(!it.el){ it.el=new OElem(1,0, factors.length?factors[0].p.d:1); }
+    const key = canonicalAssocKey(it.el);
+    if(!uniq.has(key)) uniq.set(key, it.el);
+  }
+  return [...uniq.values()];
+}
+
+function canonicalAssocKey(x){
+  // canonical associate by rotating by units to smallest lexicographic
+  const units = x.unitGroup();
+  let best=x;
+  for(const u of units){
+    const y=x.mul(u);
+    if(cmpEl(y,best)<0) best=y;
+  }
+  return best.a+','+best.b;
+}
+
+function phiOfIdealFromFactorization(factors){
+  // φ(∏ p_i^{e_i}) = ∏ N(p_i)^{e_i-1} (N(p_i)-1)
+  let res=1;
+  for(const {p,e} of factors){
+    const Np = Math.abs(p.norm());
+    res *= Math.pow(Np, e-1) * (Np-1);
+  }
+  return res|0;
+}
+
+/* ======== Cusps of Γ0(n) over PID O_d (d=1 or 3) ======== */
+
+function cuspsGamma0(d, nElem){
+  // Return {count, reps:[{a:OElem,c:OElem, g:OElem}], detail:{...}}
+  // Using sum over divisors d|n of φ(gcd(d, n/d)). Representatives: for each divisor δ, let g=gcd(δ, n/δ); list a mod g invertible.
+  const factors = primeFactorElement(nElem);
+  const divs = idealDivisorsFromFactorization(factors);
+  // build map gcd factorization quickly
+  const resReps = [];
+  let total=0;
+  for(const delta of divs){
+    // compute beta = n / delta
+    const [q, r] = nElem.divRem(delta);
+    if(!r.isZero()){ continue; } // safety
+    const beta = q;
+    const g = delta.gcd(beta);
+    // factor g for phi
+    const gf = primeFactorElement(g);
+    const phi = phiOfIdealFromFactorization(gf);
+    total += phi;
+    // enumerate a mod g with gcd(a,g)=1; build exactly phi reps (may be large for big g)
+    const repsA = invertibleResiduesMod(g, nElem.d, phi);
+    for(const a of repsA){
+      resReps.push({a, c: delta, g});
+    }
+  }
+  return {count: total, reps: resReps, n: nElem, factors};
+}
+
+function invertibleResiduesMod(g, d, cap){
+  // Enumerate a complete set of invertible residues modulo g, up to 'cap' results
+  // naive enumeration over a bounding box of size ~ Norm(g)
+  const N = Math.max(1, Math.abs(g.norm()));
+  const B = Math.max(1, Math.ceil(Math.sqrt(N))+2);
+  const seen = new Set();
+  const ok = [];
+  for(let A=-B; A<=B && ok.length<cap; A++){
+    for(let B2=-B; B2<=B && ok.length<cap; B2++){
+      const a = new OElem(A,B2,d);
+      // reduce mod g
+      const ar = a.mod(g);
+      const key = ar.a+','+ar.b;
+      if(seen.has(key)) continue;
+      // gcd(a,g)=1?
+      if(ar.gcd(g).norm()===1){
+        seen.add(key);
+        ok.push(ar);
+      }
+    }
+  }
+  return ok;
+}
+
+/* ======== Hermitian form, circle, stabilizer tests ======== */
+
+function parseHermitian(d){
+  const a = parseInt(document.getElementById('ha').value);
+  const b = OElem.parse(document.getElementById('hb').value || '0', d);
+  const c = parseInt(document.getElementById('hc').value);
+  return {a, b, c, d};
+}
+function parseHermitian2(d){
+  const a = parseInt(document.getElementById('ha2').value);
+  const b = OElem.parse(document.getElementById('hb2').value || '0', d);
+  const c = parseInt(document.getElementById('hc2').value);
+  return {a, b, c, d};
+}
+
+function disc(H){ // Δ = |b|^2 - a c
+  const b=H.b, bc=b.conj().mul(b); // b * \bar b is integer in 'a' slot
+  return bc.a - H.a*H.c;
+}
+function circleFromHermitian(H){
+  const Δ = disc(H);
+  if(!(Δ>0)) return null;
+  const a = H.a;
+  const b = H.b;
+  const cenC = b.neg().divRem(new OElem(a,0,H.d))[0]; // approx center as complex division (use float below)
+  const cplx_b = b.toC();
+  const center = a!==0 ? {x: -cplx_b.x/a, y: -cplx_b.y/a} : null;
+  const radius = a!==0 ? Math.sqrt(Δ)/Math.abs(a) : Infinity;
+  return {Δ, a, b, center, radius};
+}
+
+// exact side test: sign of q(u,v) at a cusp [u:v]
+function qValueAt(H, u, v){
+  // a|u|^2 + 2 Re(b u \bar v) + c |v|^2
+  const a=H.a, b=H.b, c=H.c;
+  const uu = u.mul(u.conj()).a;
+  const vv = v.mul(v.conj()).a;
+  const buv = b.mul(u).mul(v.conj()); // b u \bar v
+  const cplx = buv.toC();
+  const real = cplx.x; // since buv + bar(buv) = 2 Re(...)
+  return a*uu + 2*real + c*vv;
+}
+
+// Build a handful of elements of Γ0(n): translations and unit conjugations
+function generateGamma0Elements(d, nElem, bound){
+  const els=[];
+  const Ozero = new OElem(0,0,d);
+  // Translations: [1 t; 0 1] always in Γ0(n)
+  const B = bound;
+  for(let A=-B; A<=B; A++){
+    for(let B2=-B; B2<=B; B2++){
+      const t = new OElem(A,B2,d);
+      els.push({a:new OElem(1,0,d), b:t, c:Ozero, d:new OElem(1,0,d)});
+    }
+  }
+  // Diagonal by units: [u 0; 0 u^{-1}] (still c=0)
+  for(const u of (new OElem(1,0,d)).unitGroup()){
+    // u^{-1} = \bar u since units are roots of unity
+    els.push({a:u, b:Ozero, c:Ozero, d:u.conj()});
+  }
+  // Small “lower-left” elements with c multiple of n: try c = n*k with tiny k and solve for a,d, b from determinant 1: a d - b c = 1
+  const klist=[-1,1,2,-2];
+  for(const k of klist){
+    const c = multiplyScalar(nElem, k);
+    // choose a=d=1, solve b = (a d - 1)/c = 0 -> okay, so b=0 works and determinant is 1 - 0 =1
+    els.push({a:new OElem(1,0,d), b:Ozero, c, d:new OElem(1,0,d)});
+  }
+  return els;
+}
+function multiplyScalar(x, k){ return new OElem(x.a*k, x.b*k, x.d); }
+
+function matApplyToHermitian(A, H){ // H -> A^* H A
+  // A = [[α,β],[γ,δ]], H=[[a,b],[\bar b, c]]
+  const d=H.d;
+  const α=A.a, β=A.b, γ=A.c, δ=A.d;
+  const aH=new OElem(H.a,0,d), bH=H.b, cH=new OElem(H.c,0,d);
+  // Compute A^* H = [[\bar α, \bar γ],[\bar β, \bar δ]] [[a, b],[\bar b, c]]
+  // Accumulate explicitly with ring ops
+  function bar(x){ return (x instanceof OElem)?x.conj():x; }
+  const αb=α.conj(), βb=β.conj(), γb=γ.conj(), δb=δ.conj();
+  const M00 = αb.mul(aH).add( γb.mul(bH.conj()) ); // \bar α * a + \bar γ * \bar b
+  const M01 = αb.mul(bH).add( γb.mul(cH) );        // \bar α * b + \bar γ * c
+  const M10 = βb.mul(aH).add( δb.mul(bH.conj()) );
+  const M11 = βb.mul(bH).add( δb.mul(cH) );
+  // (A^*H)A
+  const N00 = M00.mul(α).add( M01.mul(β.conj().conj()?β:β) ); // careful: β may be OElem; we want regular β
+  const N01 = M00.mul(γ).add( M01.mul(δ) );
+  const N10 = M10.mul(α).add( M11.mul(β) );
+  const N11 = M10.mul(γ).add( M11.mul(δ) );
+  // Enforce Hermitian symmetry: output (a', b', c') with a',c' in Z (a .a), b' as OElem
+  const aP = N00.a;
+  const cP = N11.a;
+  const bP = N01; // should be conjugate of N10
+  return {a:aP, b:bP, c:cP, d};
+}
+
+function traceIntersectionCriterion(H, H2){ // |Tr(A A2^{-1})| < 2 ⇒ circles intersect
+  // Build 2x2 Hermitian matrices A, A2 as complex 2x2 (in C) and compute Tr(A * A2^{-1})
+  // Represent as [[a, b],[conj(b), c]] mapped to complex numbers
+  function toMatX(H){
+    const b=H.b.toC();
+    return [
+      [H.a, 0, b.x, b.y],
+      [b.x, b.y, H.c, 0] // store conj(b) implicitly
+    ];
+  }
+  // We'll compute explicit complex matrix numerically
+  const M = [[H.a, H.b.toC().x + 1j*H.b.toC().y],[ H.b.conj().toC().x + 1j*(-H.b.toC().y), H.c ]];
+  // JS doesn't have complex; instead compute using real 2x2 blocks. Do it explicitly:
+  function matC(H){
+    const bx=H.b.toC().x, by=H.b.toC().y;
+    // complex matrix: [[a, bx+i by],[bx - i by, c]]
+    return [[{x:H.a,y:0},{x:bx,y:by}],
+            [{x:bx,y:-by},{x:H.c,y:0}]];
+  }
+  function cAdd(u,v){return {x:u.x+v.x,y:u.y+v.y}}
+  function cSub(u,v){return {x:u.x-v.x,y:u.y-v.y}}
+  function cMul(u,v){return {x:u.x*v.x-u.y*v.y,y:u.x*v.y+u.y*v.x}}
+  function cInv(u){const t=u.x*u.x+u.y*u.y; return {x:u.x/t,y:-u.y/t}}
+  function det2(M){
+    return cSub( cMul(M[0][0], M[1][1]), cMul(M[0][1],M[1][0]) );
+  }
+  function inv2(M){
+    const d = det2(M);
+    const di = cInv(d);
+    return [
+      [ cMul(di, M[1][1]), cMul(di, {x:-M[0][1].x, y:-M[0][1].y}) ],
+      [ cMul(di, {x:-M[1][0].x, y:-M[1][0].y}), cMul(di, M[0][0]) ]
+    ];
+  }
+  function mul2(A,B){
+    const C=[[{x:0,y:0},{x:0,y:0}],[{x:0,y:0},{x:0,y:0}]];
+    for(let i=0;i<2;i++)for(let j=0;j<2;j++){
+      let s={x:0,y:0};
+      for(let k=0;k<2;k++) s=cAdd(s, cMul(A[i][k], B[k][j]) );
+      C[i][j]=s;
+    }
+    return C;
+  }
+  const A = matC(H), B = matC(H2);
+  const Binv = inv2(B);
+  const P = mul2(A, Binv);
+  const tr = cAdd(P[0][0], P[1][1]);
+  const val = Math.hypot(tr.x, tr.y);
+  return val < 2 - 1e-9;
+}
+
+/* ======== UI glue ======== */
+
+function currentField(){
+  const d = parseInt(document.getElementById('d').value);
+  if(d!==1 && d!==3) throw new Error("This build supports d=1 (Gaussian) and d=3 (Eisenstein).");
+  return d;
+}
+function parseElem(id, d){
+  return OElem.parse(document.getElementById(id).value||'0', d);
+}
+
+function renderCusps(out){
+  const lines=[];
+  lines.push(`<div class="tags"><span class="pill">|n| = ${Math.abs(out.n.norm())}</span><span class="pill">#cusps = <b>${out.count}</b></span></div>`);
+  lines.push(`<div class="hr"></div>`);
+  if(out.count>200){
+    lines.push(`<div class="small">There are ${out.count} cusps. Showing the first 200 reps.</div>`);
+  }
+  const show = out.reps.slice(0,200);
+  lines.push(`<table class="table"><thead><tr><th>#</th><th>c</th><th>a (mod gcd)</th><th>g = gcd(c, n/c)</th></tr></thead><tbody>`);
+  let k=0;
+  for(const r of show){
+    lines.push(`<tr><td>${++k}</td><td class="mono">${r.c.toString()}</td><td class="mono">${r.a.toString()}</td><td class="mono">${r.g.toString()}</td></tr>`);
+  }
+  lines.push(`</tbody></table>`);
+  return lines.join('\n');
+}
+
+function analyzePlane(){
+  const d = currentField();
+  const n = OElem.parse(document.getElementById('nStr').value||'0', d);
+  const H = parseHermitian(d);
+  const bound = Math.max(2, parseInt(document.getElementById('bound').value)||5);
+
+  const S = circleFromHermitian(H);
+  if(!S){ document.getElementById('planeSummary').innerHTML = `<div class="bad">Discriminant must be positive.</div>`; return; }
+
+  // cusps for Γ0(n)
+  const cuspData = cuspsGamma0(d, n);
+
+  // (1) Lattice? Always yes (theory)
+  const ans1 = `<span class="ok">Yes</span> — $begin:math:text$\\Sigma$end:math:text$ is arithmetic Fuchsian (finite coarea).`;
+
+  // (2) Cocompact? iff a cusp lies on the circle (q(u,v)=0)
+  let onCircle = [];
+  for(const rep of cuspData.reps){
+    const u = rep.a, v = rep.c; // cusp [a:c]
+    const val = qValueAt(H, u, v);
+    if(val===0){ onCircle.push(`[${u.toString()}:${v.toString()}]`); }
+  }
+  const ans2 = (onCircle.length===0)
+    ? `<span class="ok">Yes (cocompact)</span> — $begin:math:text$q$end:math:text$ does not vanish on any cusp representative.`
+    : `<span class="warn">No (non‑uniform)</span> — cusp(s) on the circle: ${onCircle.slice(0,6).join(', ')}${onCircle.length>6?' …':''}`;
+
+  // (3) Embedded? heuristic via intersection test against a bunch of Γ0(n) elements
+  const gamma = generateGamma0Elements(d, n, bound);
+  let witnessImmersion = null;
+  const A = H; // Hermitian
+  for(const g of gamma){
+    // skip elements in stabilizer (we don't compute equality—the test below will say "no intersection")
+    const H2 = matApplyToHermitian(g, H);
+    const inter = traceIntersectionCriterion(A, H2);
+    if(inter){
+      witnessImmersion = g; break;
+    }
+  }
+  const ans3 = witnessImmersion
+    ? `<span class="bad">Likely immersed</span> — found an intersection with a Γ‑translate (witness matrix shown below).`
+    : `<span class="ok">No intersections found</span> up to search bound ${bound}.`;
+
+  // (4) Separating? report side of each cusp (inside/outside) via sign of q at (a,c)
+  const sideRows=[];
+  let pos=0,neg=0,zero=0;
+  for(const rep of cuspData.reps.slice(0,200)){
+    const u=rep.a, v=rep.c;
+    const val=qValueAt(H,u,v);
+    let side;
+    if(val>0){side='+';pos++;} else if(val<0){side='−';neg++;} else {side='0';zero++;}
+    sideRows.push({cusp:`[${u.toString()}:${v.toString()}]`, side});
+  }
+  const sidesSummary = `sides among first ${Math.min(200,cuspData.reps.length)} reps: +:${pos}  −:${neg}  0:${zero}.`;
+
+  const lines=[];
+  lines.push(`<div class="tags">
+    <span class="pill">Δ = ${S.Δ}</span>
+    <span class="pill">center ≈ (${S.center?S.center.x.toFixed(4):'∞'}, ${S.center?S.center.y.toFixed(4):'∞'})</span>
+    <span class="pill">radius ${S.radius===Infinity?'∞':S.radius.toFixed(4)}</span>
+  </div>`);
+  lines.push(`<div class="hr"></div>`);
+  lines.push(`<table class="table">
+    <tr><th>(1) Is \u03A3 a lattice in P?</th><td>${ans1}</td></tr>
+    <tr><th>(2) Is \u03A3 cocompact?</th><td>${ans2}</td></tr>
+    <tr><th>(3) Is S embedded?</th><td>${ans3}</td></tr>
+    <tr><th>(4) Separating? (by cusp-side evidence)</th><td>${sidesSummary} ${zero?'<span class="warn">[touching]</span>':''}</td></tr>
+    <tr><th>(5) Which cusps are on which side?</th><td>See list below.</td></tr>
+  </table>`);
+  if(witnessImmersion){
+    lines.push(`<div class="hr"></div><div class="small">Witness Γ‑element causing intersection (columns a,b;c,d):</div>
+<pre class="mono">${matToString(witnessImmersion)}</pre>`);
+  }
+  lines.push(`<div class="hr"></div>`);
+  lines.push(`<details><summary>Cusp sides (first 200)</summary>`);
+  lines.push(`<table class="table"><thead><tr><th>#</th><th>cusp [a:c]</th><th>side</th></tr></thead><tbody>`);
+  sideRows.forEach((r,i)=>{
+    lines.push(`<tr><td>${i+1}</td><td class="mono">${r.cusp}</td><td>${r.side==='+'?'<span class="ok">+</span>':r.side==='-'?'<span class="bad">−</span>':'<span class="warn">0</span>'}</td></tr>`);
+  });
+  lines.push(`</tbody></table></details>`);
+
+  document.getElementById('planeSummary').innerHTML = lines.join('\n');
+  MathJax.typesetPromise();
+}
+
+function matToString(M){
+  const a=M.a.toString(), b=M.b.toString(), c=M.c.toString(), d=M.d.toString();
+  return `[[ ${a} , ${b} ],\n [ ${c} , ${d} ]]`;
+}
+
+function comparePlanes(){
+  const d = currentField();
+  const n = OElem.parse(document.getElementById('nStr').value||'0', d);
+  const H1 = parseHermitian(d);
+  const H2 = parseHermitian2(d);
+  const bound = Math.max(2, parseInt(document.getElementById('bound').value)||5);
+  const S1 = circleFromHermitian(H1), S2 = circleFromHermitian(H2);
+  if(!S1 || !S2){ document.getElementById('compareSummary').innerHTML = `<div class="bad">Both forms need positive discriminant.</div>`; return; }
+
+  const gamma = generateGamma0Elements(d, n, bound);
+  let witnessIntersect = null, conjIsom = null;
+  // Disjointness test: check C(q) vs Γ·C(q′)
+  for(const g of gamma){
+    const Hg = matApplyToHermitian(g, H2);
+    if( traceIntersectionCriterion(H1, Hg) ){
+      witnessIntersect = g; break;
+    }
+  }
+  // Isometry test: try to solve g^* A1 g = λ A2 (λ>0). We test equality up to real scale via numeric comparison.
+  for(const g of gamma){
+    const Hc = matApplyToHermitian(g, H1);
+    const ratio = proportionalHermitian(Hc, H2);
+    if(ratio && ratio>0){ conjIsom = {g, lambda: ratio}; break; }
+  }
+
+  const lines=[];
+  if(witnessIntersect){
+    lines.push(`<div>(6) Disjoint?</div><div><span class="bad">No — found intersection</span> with a Γ‑translate of $begin:math:text$S'$end:math:text$. Witness:</div>
+<pre class="mono">${matToString(witnessIntersect)}</pre>`);
+  }else{
+    lines.push(`<div>(6) Disjoint?</div><div><span class="ok">No intersections found</span> up to bound ${bound}.</div>`);
+  }
+  lines.push(`<div class="hr"></div>`);
+  if(conjIsom){
+    lines.push(`<div>Isometric?</div><div><span class="ok">Yes — found $begin:math:text$g\\\\in\\\\Gamma$end:math:text$</span> with $begin:math:text$g^*A_q g = \\\\lambda A_{q'}\\$end:math:text$ (λ≈${conjIsom.lambda.toFixed(6)}):</div>
+<pre class="mono">${matToString(conjIsom.g)}</pre>`);
+  }else{
+    lines.push(`<div>Isometric?</div><div><span class="warn">No isometry found</span> up to bound ${bound} (search is not exhaustive).</div>`);
+  }
+
+  document.getElementById('compareSummary').innerHTML = lines.join('\n');
+  MathJax.typesetPromise();
+}
+
+function proportionalHermitian(Ha, Hb){
+  // Are Ha and Hb proportional by a positive real scalar? Compare entries numerically via complex embedding
+  // Entries: a, c are integers; b is OElem
+  const ax=Ha.a, cx=Ha.c, bx=Ha.b.toC();
+  const ay=Hb.a, cy=Hb.c, by=Hb.b.toC();
+  // scale from 'a' if possible
+  if(ay!==0){
+    const lam = ax/ay;
+    if(lam<=0) return null;
+    if( near(cx, lam*cy, 1e-6) && near(bx.x, lam*by.x, 1e-6) && near(bx.y, lam*by.y, 1e-6) ) return lam;
+  }
+  return null;
+}
+
+/* ======== Wire up ======== */
+document.getElementById('computeCusps').addEventListener('click', ()=>{
+  try{
+    const d = currentField();
+    const n = OElem.parse(document.getElementById('nStr').value||'0', d);
+    const data = cuspsGamma0(d, n);
+    document.getElementById('cuspSummary').innerHTML = renderCusps(data);
+    MathJax.typesetPromise();
+  }catch(e){
+    document.getElementById('cuspSummary').innerHTML = `<div class="bad">${e.message}</div>`;
+  }
+});
+document.getElementById('analyze').addEventListener('click', ()=>{
+  try{ analyzePlane(); }catch(e){
+    document.getElementById('planeSummary').innerHTML = `<div class="bad">${e.message}</div>`;
+  }
+});
+document.getElementById('compare').addEventListener('click', ()=>{
+  try{ comparePlanes(); }catch(e){
+    document.getElementById('compareSummary').innerHTML = `<div class="bad">${e.message}</div>`;
+  }
+});
+</script>
+</body>
+</html>

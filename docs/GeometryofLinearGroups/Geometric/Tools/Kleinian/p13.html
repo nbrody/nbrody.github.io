@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ford Domain for ⟨T, B⟩ with z=(√7+i)/2 in H^3</title>
+  <style>
+    html, body { height: 100%; margin: 0; background: #0b0e13; color: #e6edf3; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    #app { position: fixed; inset: 0; display: grid; grid-template-columns: 1fr; }
+    #panel { position: absolute; top: 12px; left: 12px; backdrop-filter: blur(6px); background: rgba(20,22,30,.55); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+    #panel h1 { font-size: 16px; margin: 0 0 6px; font-weight: 600; }
+    .small { font-size: 12px; opacity: .9; line-height: 1.35; }
+    .row { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+    .badge { padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); font-size: 12px; }
+    a { color: #9bd2ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    #legend { position: absolute; bottom: 12px; left: 12px; background: rgba(20,22,30,.55); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 8px 10px; font-size: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; margin: 2px 0; }
+    .chip { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(255,255,255,.25); }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+<div id="app"></div>
+<div id="panel">
+  <h1>Ford domain for ⟨T, B⟩ with z=(√7 + i)/2</h1>
+  <div class="small">
+    Matrices: 
+    <span class="badge">T = \(\begin{pmatrix}1 & z\\ 0 & 1\end{pmatrix}\)</span>
+    <span class="badge">B = \(\begin{pmatrix}1 & 0\\ z & 1\end{pmatrix}\)</span>
+    <div class="row"><span class="badge">|z| = √2</span><span class="badge">r = 1/|z| = 1/√2</span><span class="badge">1/z = (√7 − i)/4</span></div>
+    <div class="row small">Vertical strip: Re(w/z) ∈ [0,1] ⇒ planes (√7/2)x + (1/2)\,y<sub>im</sub> = 0, 2.</div>
+  </div>
+</div>
+<div id="legend">
+  <div class="legend-item"><span class="chip" style="background:#2f6fed"></span> Hemispheres for B and B<sup>−1</sup></div>
+  <div class="legend-item"><span class="chip" style="background:#80aaff"></span> T-translates (context)</div>
+  <div class="legend-item"><span class="chip" style="background:#6ee7b7"></span> Vertical planes (strip for ⟨T⟩)</div>
+  <div class="legend-item"><span class="chip" style="background:#e5e7eb"></span> Horosphere (y=ε slice of cusp at ∞)</div>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/controls/OrbitControls.js";
+
+// —— Setup ——
+const root = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
+root.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.01, 1000);
+// Put the camera somewhere nice above the domain
+camera.position.set(3.5, 2.0, 4.0); // (x, y=height, z)
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.5, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+
+// Lights
+scene.add(new THREE.HemisphereLight(0xffffff, 0x202530, 0.9));
+const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+dir.position.set(4, 6, 2);
+scene.add(dir);
+
+// Axes helper (x: red=Re, y: green=height, z: blue=Im)
+const axes = new THREE.AxesHelper(2.2);
+axes.position.y = 0.0001; // avoid z-fighting with boundary plane
+scene.add(axes);
+
+// —— Parameters for z = (√7 + i)/2 ——
+const a = Math.sqrt(7)/2;   // Re(z)
+const b = 1/2;              // Im(z)
+const abs2 = a*a + b*b;     
+const abs = Math.sqrt(abs2); // should be √2
+const r = 1/abs;             // radius of isometric spheres for B, B^{-1}
+
+// 1/z = (a - i b) / (a^2 + b^2)
+const invRe = a/abs2; // √7/4
+const invIm = -b/abs2; // -1/4
+
+// Strip planes: Re(w/z) = (a x + b z) / (a^2+b^2) ∈ [0,1]
+// ⇒ a x + b z = 0 and a x + b z = abs2 = 2
+// We'll draw them as large thin boxes for visual clarity
+function makeStripPlane(constant, color) {
+  // Plane normal (a, 0, b); construct a big rectangle centered along that plane
+  const size = 8; // extent
+  const thickness = 0.01;
+  const geom = new THREE.BoxGeometry(size, size, thickness);
+  const mat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.25, metalness: 0.1, roughness: 0.4 });
+  const mesh = new THREE.Mesh(geom, mat);
+  // Align the rectangle so its normal matches (a, 0, b)
+  const n = new THREE.Vector3(a, 0, b).normalize();
+  // Default box has its normal along +z; rotate from (0,0,1) to n
+  const from = new THREE.Vector3(0, 0, 1);
+  const q = new THREE.Quaternion().setFromUnitVectors(from, n);
+  mesh.quaternion.copy(q);
+  // Position the plane so that a x + b z = constant
+  // Take a point p0 = n * (constant / ||(a,0,b)||)
+  const normLen = Math.sqrt(a*a + b*b);
+  const d = constant / normLen;
+  const p0 = n.clone().multiplyScalar(d);
+  mesh.position.copy(p0);
+  scene.add(mesh);
+  return mesh;
+}
+
+// Two vertical strip walls (pair under T)
+makeStripPlane(0, 0x32d399);
+makeStripPlane(abs2, 0x32d399);
+
+// Boundary plane (y = 0)
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(18, 18),
+  new THREE.MeshStandardMaterial({ color: 0x1a2030, side: THREE.DoubleSide })
+);
+floor.rotation.x = -Math.PI/2; // make it lie in y=0 (x-z plane)
+scene.add(floor);
+
+// Thin horosphere y = eps to indicate cusp at infinity
+const eps = 0.02;
+const horo = new THREE.Mesh(
+  new THREE.PlaneGeometry(18, 18),
+  new THREE.MeshStandardMaterial({ color: 0xe5e7eb, transparent: true, opacity: 0.1, side: THREE.DoubleSide })
+);
+horo.rotation.x = -Math.PI/2;
+horo.position.y = eps;
+scene.add(horo);
+
+// —— Hemispheres (isometric spheres) ——
+// Hemisphere geometry: top half of a sphere (above y=0)
+const hemiGeom = new THREE.SphereGeometry(r, 96, 64, 0, Math.PI * 2, 0, Math.PI/2);
+
+function addHemisphere(cx, cz, color, opacity=0.6) {
+  const mat = new THREE.MeshStandardMaterial({ color, transparent: true, opacity, metalness: 0.15, roughness: 0.35, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(hemiGeom, mat);
+  mesh.position.set(cx, 0, cz); // center at (cx,0,cz)
+  // subtle edge line
+  const edge = new THREE.LineSegments(
+    new THREE.WireframeGeometry(new THREE.SphereGeometry(r, 36, 18, 0, Math.PI * 2, Math.PI/2 - 0.001, 0.001)),
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25 })
+  );
+  edge.position.copy(mesh.position);
+  scene.add(mesh, edge);
+  return mesh;
+}
+
+// Fundamental faces: centers at ±1/z
+addHemisphere(+invRe, +invIm, 0x2f6fed, 0.65); // B^{-1}-sphere center at +1/z
+addHemisphere(-invRe, -invIm, 0x2f6fed, 0.65); // B-sphere   center at -1/z
+
+// Optional: a couple of T-translates (n=±1) for context, centers at n z ± 1/z
+function addTranslate(n) {
+  const cxShift = n * a; // shift in Re direction
+  const czShift = n * b; // shift in Im direction
+  addHemisphere(+invRe + cxShift, +invIm + czShift, 0x80aaff, 0.25);
+  addHemisphere(-invRe + cxShift, -invIm + czShift, 0x80aaff, 0.25);
+}
+addTranslate(+1);
+addTranslate(-1);
+
+// —— Labels (simple CSS2D-ish sprites using canvas textures) ——
+function makeLabel(text) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const pad = 10, fs = 36; // draw larger, we will scale down
+  ctx.font = `bold ${fs}px system-ui, -apple-system, Segoe UI, Roboto`;
+  const tw = ctx.measureText(text).width;
+  canvas.width = tw + pad*2; canvas.height = fs + pad*2;
+  // re-set font after resizing canvas
+  ctx.font = `bold ${fs}px system-ui, -apple-system, Segoe UI, Roboto`;
+  ctx.fillStyle = 'rgba(20,22,30,0.75)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.strokeRect(0.5, 0.5, canvas.width-1, canvas.height-1);
+  ctx.fillStyle = '#e6edf3';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, pad, canvas.height/2);
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(canvas.width/200, canvas.height/200, 1);
+  return sprite;
+}
+
+const lblB = makeLabel('face ↔ B');
+lblB.position.set(-invRe, r*0.85, -invIm);
+scene.add(lblB);
+
+const lblBi = makeLabel('face ↔ B^{-1}');
+lblBi.position.set(+invRe, r*0.85, +invIm);
+scene.add(lblBi);
+
+const lblT = makeLabel('walls ↔ T');
+// place near the first plane
+{
+  const n = new THREE.Vector3(a, 0, b).normalize();
+  const p = n.clone().multiplyScalar(0.2);
+  lblT.position.copy(p.add(new THREE.Vector3(0, 0.8, 0)));
+  scene.add(lblT);
+}
+
+// —— Grid on boundary for orientation ——
+const grid = new THREE.GridHelper(18, 36, 0x334155, 0x1f2937);
+grid.rotation.x = Math.PI/2; // lie in y=0 (x-z)
+scene.add(grid);
+
+// Render loop
+function tick() {
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// Handle resize
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+});
+</script>
+
+<!--
+Mathematical notes (coordinates):
+- We use the upper half-space model: boundary C ≅ {(x,z) with y=0}; height is y≥0.
+- Re mapped to x-axis, Im mapped to z-axis, height to y-axis.
+- For M = [[a,b],[c,d]] with c≠0, the isometric sphere is the hemisphere |c w + d|=1, 
+  center −d/c in boundary, Euclidean radius 1/|c|.
+- Here B = [[1,0],[z,1]], so centers at −1/z + n z for T^n B T^{-n}, radius 1/|z|.
+  Similarly B^{-1} gives +1/z + n z. With z=(√7+i)/2 we have |z|=√2 and 1/z=(√7−i)/4.
+- The vertical strip Re(w/z)∈[0,1] is bounded by the planes (√7/2)·x + (1/2)·z = 0 and =2.
+- This strip modulo T, together with the two hemispheres for B and B^{-1}, forms a Ford fundamental domain.
+-->
+</body>
+</html>

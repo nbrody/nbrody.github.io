@@ -8,90 +8,73 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; margin: 0; overflow: hidden; }
-        #viewer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
-        .control-panel {
-            position: absolute;
-            top: 2rem;
-            right: 2rem;
-            width: 450px;
-            max-height: calc(100vh - 4rem);
-            background-color: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: all 0.3s ease-in-out;
-            border-radius: 0.5rem;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
-        }
-        #panel-content-wrapper {
-             max-height: 80vh;
-             overflow-y: auto;
-             transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
-        }
-        .content-hidden {
-            max-height: 0 !important;
-            opacity: 0;
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
-            margin-top: 0 !important;
-        }
-        .matrix-input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; border: 2px solid #e5e7eb; padding: 0.75rem; border-radius: 0.5rem; }
-        .matrix-input { width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #D1D5DB; background-color: #f9fafb; }
-        .matrix-display { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; padding: 0.75rem; border-radius: 0.5rem; background-color: #f3f4f6; border: 1px solid #e5e7eb; font-family: monospace; align-items: center; justify-items: center; }
+      body { font-family: 'Inter', sans-serif; margin: 0; overflow: hidden; }
+      #viewer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
+      /* Limitsets-style control panel */
+      #controlPanel {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 320px;
+        background: rgba(255,255,255,0.9);
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 13px;
+        z-index: 10;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        max-height: 50vh;
+        overflow-y: auto;
+      }
+      #controlPanel h3 { margin: 4px 0 8px; font-size: 15px; }
+      #controlPanel label { display: block; margin-top: 8px; font-weight: bold; line-height: 1.2; }
+      .matrix-bracket { display: inline-block; font-size: 48px; font-weight: normal; line-height: 48px; vertical-align: middle; margin: 0 4px; }
+      .matrix-grid-inline { display: inline-grid; grid-template-columns: repeat(2, 40px); grid-template-rows: repeat(2, 30px); grid-gap: 4px; vertical-align: middle; margin: 0 4px; }
+      .matrix-grid-inline input { width: 40px; height: 30px; padding: 2px; font-size: 13px; text-align: center; }
+      #controlPanel input[type="number"] { width: calc(100% - 12px); margin-top: 4px; padding: 4px; font-size: 13px; }
+      #controlPanel button { margin-top: 12px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer; }
+      .matrix-block { margin-bottom: 8px; }
+      /* Toggle hide/show control panel */
+      #controlPanel.hidden { width: 40px; height: 40px; padding: 0; overflow: hidden; background: rgba(255,255,255,0.9); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+      .toggle-btn { position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; background: none; border: none; font-size: 18px; line-height: 1; cursor: pointer; z-index: 12; }
+      /* message box */
+      #message-box { position: absolute; left: 50%; transform: translateX(-50%); top: 12px; background: rgba(33, 150, 243, 0.15); color: #0b5394; padding: 6px 10px; border-radius: 6px; font-size: 12px; z-index: 20; display: none; }
+      #message-box.error { background: rgba(244, 67, 54, 0.15); color: #b71c1c; }
     </style>
 </head>
 <body class="bg-gray-900">
     <div id="viewer"></div>
 
-    <div class="control-panel p-6">
-        <div id="panel-header" class="flex justify-between items-center cursor-pointer">
-            <header>
-                <h1 class="text-2xl font-bold text-gray-900">Controls</h1>
-                <p class="mt-1 text-sm text-gray-600">Kleinian Groups</p>
-            </header>
-            <button id="toggle-panel-btn" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
-                 <svg id="chevron-icon" class="w-6 h-6 text-gray-700 transition-transform duration-300 transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-        </div>
-
-        <div id="panel-content-wrapper" class="mt-4">
-            <div id="panel-content">
-                <div class="mb-4">
-                    <h3 class="text-lg font-medium mb-3">Add Generator</h3>
-                    <div class="matrix-input-grid">
-                        <input type="text" id="a" placeholder="a" class="matrix-input" value="1">
-                        <input type="text" id="b" placeholder="b" class="matrix-input" value="1+i">
-                        <input type="text" id="c" placeholder="c" class="matrix-input" value="0">
-                        <input type="text" id="d" placeholder="d" class="matrix-input" value="1">
-                    </div>
-                    <button id="addMatrixBtn" class="mt-4 w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">Add Matrix</button>
-                </div>
-                
-                <div class="mb-4">
-                    <label for="wordLength" class="block text-sm font-medium text-gray-700">Word Length</label>
-                    <input type="number" id="wordLength" value="1" min="1" max="5" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                </div>
-
-                <div class="mb-6">
-                    <h3 class="text-lg font-medium mb-3">Generators</h3>
-                    <div id="matrixListContainer" class="space-y-3 max-h-40 overflow-y-auto p-2 bg-gray-50 rounded-lg"></div>
-                </div>
-
-                <div>
-                    <button id="generateBtn" class="w-full bg-teal-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-600 transition-colors mb-2">Generate Polyhedron</button>
-                    <button id="resetBtn" class="w-full bg-slate-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-slate-700 transition-colors">Reset</button>
-                </div>
-                <div id="message-box" class="mt-4 p-3 text-center text-sm rounded-lg hidden"></div>
-            </div>
-        </div>
-        <div id="loader" class="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center hidden z-50">
-            <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-500"></div>
-        </div>
+    <button id="toggleControlPanelBtn" class="toggle-btn" aria-label="Hide panel">☰</button>
+    <div id="controlPanel">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="margin: 0;">Dirichlet Polyhedron</h3>
+        <button id="resetViewBtn" style="padding: 2px 6px; font-size: 11px; width: 100px;">Default view</button>
+      </div>
+      <div id="matrixInputs"></div>
+      <div style="display: flex; gap: 8px; margin-top: 12px;">
+        <button id="addMatrixBtn">Add Matrix</button>
+        <button id="updateGroupBtn">Update</button>
+      </div>
+      <label for="Lparam" style="display: flex; align-items: center; justify-content: space-between;">
+        Word length:
+        <input id="Lparam" type="number" value="4" min="1" step="1" style="width: 60px; margin-left: 10px;" />
+      </label>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
+        <label for="groupSelector" style="margin: 0;">Predefined group:</label>
+        <select id="groupSelector" style="flex-grow: 1; margin: 0 6px;">
+          <option value="">-- Select --</option>
+          <option value="0">Modular group</option>
+          <option value="1">Triangle group</option>
+          <option value="2">Borromean-like</option>
+          <option value="3">Z[i] congruence</option>
+          <option value="4">Random example</option>
+        </select>
+        <button id="newExampleBtn" style="padding: 0px 6px; font-size: 10px; min-width: unset; width: auto; height: 20px; line-height: 20px;">??</button>
+      </div>
     </div>
+    <div id="message-box"></div>
 
     <script type="module">
         // --- THREE.js Setup ---
@@ -106,6 +89,8 @@
             camera.position.set(0, 3, 5);
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.localClippingEnabled = true;
+            renderer.clippingPlanes = [ new THREE.Plane(new THREE.Vector3(0, 1, 0), 0) ];
             viewer.appendChild(renderer.domElement);
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
@@ -212,77 +197,131 @@
             }
         }
 
-        // --- UI Logic ---
+        // --- UI Logic (Limitsets-style panel) ---
         const generators = [];
-        const matrixListContainer = document.getElementById('matrixListContainer');
-        const loader = document.getElementById('loader');
         const messageBox = document.getElementById('message-box');
-
-        const panelHeader = document.getElementById('panel-header');
-        const panelContentWrapper = document.getElementById('panel-content-wrapper');
-        const chevronIcon = document.getElementById('chevron-icon');
-        
-        panelHeader.addEventListener('click', () => {
-            panelContentWrapper.classList.toggle('content-hidden');
-            chevronIcon.classList.toggle('rotate-180');
-        });
+        function typesetMath() {
+          if (window.MathJax && MathJax.typesetPromise) {
+            // Only typeset the control panel where the math appears
+            MathJax.typesetPromise([document.getElementById('controlPanel')]).catch(() => {});
+          }
+        }
 
         function showMessage(message, isError = false) {
-            messageBox.textContent = message;
-            messageBox.className = `mt-4 p-3 text-center text-sm rounded-lg ${isError ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`;
-            setTimeout(() => { messageBox.classList.add('hidden'); }, 5000);
-        }
-        
-        function updateMatrixList() {
-            matrixListContainer.innerHTML = '';
-            generators.forEach((m) => {
-                const matrixDiv = document.createElement('div');
-                matrixDiv.className = 'matrix-display';
-                matrixDiv.textContent = `(${m.a.toString()}, ${m.b.toString()}; ${m.c.toString()}, ${m.d.toString()})`;
-                matrixListContainer.appendChild(matrixDiv);
-            });
+          messageBox.textContent = message;
+          messageBox.className = isError ? 'error' : '';
+          messageBox.style.display = 'block';
+          clearTimeout(showMessage._t);
+          showMessage._t = setTimeout(() => { messageBox.style.display = 'none'; }, 4000);
         }
 
-        document.getElementById('addMatrixBtn').addEventListener('click', () => {
-            try {
-                const a = parseComplex(document.getElementById('a').value);
-                const b = parseComplex(document.getElementById('b').value);
-                const c = parseComplex(document.getElementById('c').value);
-                const d = parseComplex(document.getElementById('d').value);
+        function addMatrixInput(values=['1','1','0','1']) {
+          const idx = document.querySelectorAll('#matrixInputs .matrix-block').length;
+          const container = document.createElement('div');
+          container.className = 'matrix-block';
+          container.innerHTML = `
+            <div style="display:flex;align-items:center;">
+              <label style="flex-grow:1;">
+                <span class="matrix-label">\\( g_{${idx+1}} = \\)</span>
+                <span class="matrix-bracket">(</span>
+                <span class="matrix-grid-inline">
+                  <input type="text" value="${values[0]}" />
+                  <input type="text" value="${values[1]}" />
+                  <input type="text" value="${values[2]}" />
+                  <input type="text" value="${values[3]}" />
+                </span>
+                <span class="matrix-bracket">)</span>
+              </label>
+              <button class="delete-matrix-btn" style="margin-left:8px;width:26px;height:30px;">✖</button>
+            </div>`;
+          container.querySelector('.delete-matrix-btn').addEventListener('click', () => {
+            container.remove();
+            document.querySelectorAll('#matrixInputs .matrix-label').forEach((lbl,i)=> { lbl.innerHTML = `\\( g_{${i+1}} = \\)`; });
+            typesetMath();
+          });
+          document.getElementById('matrixInputs').appendChild(container);
+          typesetMath();
+          document.querySelectorAll('#matrixInputs .matrix-label').forEach((lbl,i)=> { lbl.innerHTML = `\\( g_{${i+1}} = \\)`; });
+          typesetMath();
+        }
 
-                const det = a.mul(d).sub(b.mul(c));
-                if (Math.abs(det.re - 1) > 1e-4 || Math.abs(det.im) > 1e-4) {
-                    showMessage(`Determinant must be 1. Got: ${det.toString()}`, true);
-                    return;
-                }
-
-                const matrix = new Matrix2(a, b, c, d);
-                generators.push(matrix);
-                updateMatrixList();
-            } catch (e) {
-                showMessage(`Error parsing matrix values: ${e.message}`, true);
+        function rebuildGeneratorsFromUI() {
+          generators.length = 0;
+          const blocks = document.querySelectorAll('#matrixInputs .matrix-block');
+          for (const block of blocks) {
+            const ins = block.querySelectorAll('input');
+            const a = parseComplex(ins[0].value);
+            const b = parseComplex(ins[1].value);
+            const c = parseComplex(ins[2].value);
+            const d = parseComplex(ins[3].value);
+            const det = a.mul(d).sub(b.mul(c));
+            if (Math.abs(det.re - 1) > 1e-4 || Math.abs(det.im) > 1e-4) {
+              showMessage(`Determinant must be 1. Got: ${det.toString()}`, true);
+              continue;
             }
-        });
+            generators.push(new Matrix2(a, b, c, d));
+          }
+        }
 
-        document.getElementById('resetBtn').addEventListener('click', () => {
-            generators.length = 0;
-            updateMatrixList();
-            clearPolyhedron();
-            showMessage("Scene reset.", false);
-        });
+        function setExample(example) {
+          document.getElementById('matrixInputs').innerHTML = '';
+          example.forEach(vals => addMatrixInput(vals));
+          typesetMath();
+        }
 
-        document.getElementById('generateBtn').addEventListener('click', () => {
-            if (generators.length === 0) {
-                showMessage("Please add at least one generator matrix.", true);
-                return;
+        const exampleLibrary = [
+          // Modular group
+          [ ['1','1','0','1'], ['0','-1','1','0'] ],
+          // Triangle-like
+          [ ['1','2i','0','1'], ['1','-1','1','1'] ],
+          // Borromean-like
+          [ ['1','2','0','1'], ['1','i','0','1'], ['1','0','-1-i','1'] ],
+          // Z[i] congruence
+          [ ['1','2','0','1'], ['1','2i','0','1'], ['0','-1','1','0'] ],
+          // Random placeholder (same as triangle)
+          [ ['2','-2','0','1/2'], ['3','4','2','3'] ]
+        ];
+
+        function setupPanelUI() {
+          document.getElementById('addMatrixBtn').addEventListener('click', () => addMatrixInput());
+          document.getElementById('updateGroupBtn').addEventListener('click', () => { 
+            rebuildGeneratorsFromUI(); 
+            generateAndDrawPolyhedron();
+            showMessage(`Generated polyhedron for word length ${document.getElementById('Lparam').value}.`);
+          });
+          document.getElementById('Lparam').addEventListener('change', () => {
+            rebuildGeneratorsFromUI();
+            generateAndDrawPolyhedron();
+          });
+          document.getElementById('groupSelector').addEventListener('change', (e) => {
+            const idx = parseInt(e.target.value, 10);
+            if (!isNaN(idx)) {
+              setExample(exampleLibrary[idx]);
+              rebuildGeneratorsFromUI();
+              generateAndDrawPolyhedron();
+              typesetMath();
             }
-            loader.classList.remove('hidden');
-            setTimeout(() => {
-                generateAndDrawPolyhedron();
-                loader.classList.add('hidden');
-                showMessage(`Generated polyhedron for word length ${document.getElementById('wordLength').value}.`, false);
-            }, 50);
-        });
+          });
+          document.getElementById('newExampleBtn').addEventListener('click', () => {
+            const rand = exampleLibrary[Math.floor(Math.random()*exampleLibrary.length)];
+            setExample(rand);
+            rebuildGeneratorsFromUI();
+            generateAndDrawPolyhedron();
+            typesetMath();
+          });
+          document.getElementById('toggleControlPanelBtn').addEventListener('click', () => {
+            const panel = document.getElementById('controlPanel');
+            panel.classList.toggle('hidden');
+            document.getElementById('toggleControlPanelBtn').setAttribute(
+              'aria-label', panel.classList.contains('hidden') ? 'Show panel' : 'Hide panel'
+            );
+          });
+          document.getElementById('resetViewBtn').addEventListener('click', () => {
+            camera.position.set(0, 3, 5);
+            controls.target.set(0, 1, 0);
+            controls.update();
+          });
+        }
 
         // --- Hyperbolic Geometry & Drawing ---
         function clearPolyhedron() {
@@ -329,16 +368,78 @@
             elements.delete(identityKey);
             return Array.from(elements.values());
         }
+        // Image of the basepoint o=(0,1,0) under m in PSL(2,C)
+        // For m = [a b; c d], we have: m·o = ( (a\bar c + b\bar d) / (|c|^2 + |d|^2),  1 / (|c|^2 + |d|^2) )
+        function imageOfBasepoint(m) {
+            const cAbs2 = m.c.normSq();
+            const dAbs2 = m.d.normSq();
+            const denom = cAbs2 + dAbs2; // real scalar > 0
+            if (denom === 0) return { u: new Complex(0,0), t: Infinity };
+            const a_conj_c = m.a.mul(m.c.conjugate());
+            const b_conj_d = m.b.mul(m.d.conjugate());
+            const u = a_conj_c.add(b_conj_d);
+            // divide complex by real scalar
+            const invDen = 1.0 / denom;
+            const uScaled = new Complex(u.re * invDen, u.im * invDen);
+            const t = invDen;
+            return { u: uScaled, t: t };
+        }
+
+        // Draw the Dirichlet bisector (perpendicular bisector in H^3) between o=(0,1,0) and p=(u,t)
+        // The bisector is a hemisphere (center on t=0) or, in the limiting case t≈1, a vertical plane.
+        function drawBisector(u, t, material) {
+            const eps = 1e-9;
+            // Plane case: t == 1 ⇒ vertical plane with normal parallel to u, passing through (u/2, any height)
+            if (Math.abs(t - 1.0) < eps) {
+                const normal = new THREE.Vector3(u.re, 0, -u.im);
+                if (normal.length() < eps) return; // u = 0 gives no face
+                normal.normalize();
+                const planeGeom = new THREE.PlaneGeometry(40, 40);
+                const planeMesh = new THREE.Mesh(planeGeom, material);
+                planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
+                planeMesh.position.set(u.re / 2, 1, -u.im / 2);
+                polyhedronGroup.add(planeMesh);
+                return;
+            }
+
+            // Hemisphere case: center c = u/(1 - t) on the boundary, radius^2 = t * (1 + |u|^2/(1 - t)^2)
+            const oneMinusT = 1.0 - t;
+            if (Math.abs(oneMinusT) < eps) {
+                // Fallback to plane if numerically too close
+                const normal = new THREE.Vector3(u.re, 0, -u.im);
+                if (normal.length() < eps) return;
+                normal.normalize();
+                const planeGeom = new THREE.PlaneGeometry(40, 40);
+                const planeMesh = new THREE.Mesh(planeGeom, material);
+                planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
+                planeMesh.position.set(u.re / 2, 1, -u.im / 2);
+                polyhedronGroup.add(planeMesh);
+                return;
+            }
+            const uNormSq = u.normSq();
+            const cx = u.re / oneMinusT;
+            const cz = -u.im / oneMinusT; // z-axis in THREE is negative imaginary direction
+            const radiusSq = t * (1.0 + (uNormSq / (oneMinusT * oneMinusT)) );
+            if (radiusSq <= eps) return;
+            const radius = Math.sqrt(radiusSq);
+            const geometry = new THREE.SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+            const hemisphere = new THREE.Mesh(geometry, material);
+            hemisphere.position.set(cx, 0, cz);
+            polyhedronGroup.add(hemisphere);
+        }
+
         function generateAndDrawPolyhedron() {
             clearPolyhedron();
-            const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
+            const wordLength = parseInt((document.getElementById('Lparam') || document.getElementById('wordLength')).value) || 1;
             const groupElements = generateGroupElements(generators, wordLength);
 
+            // For a Dirichlet domain centered at o=(0,1,0), the face associated to g is the bisector between o and g^{-1}·o.
             groupElements.forEach((g, i) => {
-                const c = g.c;
-                const color = new THREE.Color().setHSL(i / groupElements.length, 0.7, 0.6);
+                const inv = g.inverse();
+                if (!inv) return;
+                const col = new THREE.Color().setHSL(i / Math.max(1, groupElements.length), 0.65, 0.58);
                 const material = new THREE.MeshStandardMaterial({
-                    color: color,
+                    color: col,
                     transparent: true,
                     opacity: 0.35,
                     side: THREE.DoubleSide,
@@ -346,63 +447,26 @@
                     roughness: 0.6
                 });
 
-                if (c.normSq() > 1e-9) {
-                    const centerComplex = g.d.mul(new Complex(-1,0)).div(c);
-                    const radius = 1.0 / c.abs();
-                    const geometry = new THREE.SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
-                    const hemisphere = new THREE.Mesh(geometry, material);
-                    hemisphere.position.set(centerComplex.re, 0, -centerComplex.im);
-                    polyhedronGroup.add(hemisphere);
+                const p = imageOfBasepoint(inv); // p = (u,t)
+                // Skip degenerate cases
+                if (!isFinite(p.t) || p.t <= 0) return;
+                // If p coincides with o, ignore (happens only if g is identity, which we filtered)
+                if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) return;
 
-                } else {
-                    const alpha = g.a.div(g.d);
-                    const beta = g.b.div(g.d);
-                    const alphaAbs = alpha.abs();
-
-                    if (Math.abs(alphaAbs - 1.0) < 1e-9) {
-                        const planeGeom = new THREE.PlaneGeometry(20, 20);
-                        const planeMesh = new THREE.Mesh(planeGeom, material);
-                        const normal = new THREE.Vector3(beta.re, 0, -beta.im).normalize();
-                        planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
-                        const pos = new THREE.Vector3(beta.re/2, 1, -beta.im/2);
-                        planeMesh.position.copy(pos);
-                        polyhedronGroup.add(planeMesh);
-                    } else {
-                        const centerComplex = beta.conjugate().mul(new Complex(-1 / (alphaAbs - 1), 0));
-                        const R_sq = (beta.normSq() + Math.pow(alphaAbs, 2) - alphaAbs) / (alphaAbs - 1) + centerComplex.normSq();
-                        if (R_sq > 0) {
-                            const radius = Math.sqrt(R_sq);
-                            const geometry = new THREE.SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
-                            const hemisphere = new THREE.Mesh(geometry, material);
-                            hemisphere.position.set(centerComplex.re, 0, -centerComplex.im);
-                            polyhedronGroup.add(hemisphere);
-                        }
-                    }
-                }
+                drawBisector(p.u, p.t, material);
             });
         }
 
         // --- Init ---
         init();
-        (function addDefaultMatrices() {
-            const defaults = [
-                { a: '1', b: '1', c: '0', d: '1' },
-                { a: '1', b: 'i', c: '0', d: '1' },
-                { a: '0', b: '-1', c: '1', d: '0' }
-            ];
-            defaults.forEach(m => {
-                document.getElementById('a').value = m.a;
-                document.getElementById('b').value = m.b;
-                document.getElementById('c').value = m.c;
-                document.getElementById('d').value = m.d;
-                document.getElementById('addMatrixBtn').click();
-            });
-            document.getElementById('wordLength').value = 2;
-            document.getElementById('generateBtn').click();
-            
-            panelContentWrapper.classList.add('content-hidden');
-            chevronIcon.classList.add('rotate-180');
-        })();
+        // Setup panel and defaults in Limitsets style
+        setupPanelUI();
+        setExample(exampleLibrary[0]); // Modular group by default
+        rebuildGeneratorsFromUI();
+        typesetMath();
+        // Sync initial word length
+        document.getElementById('Lparam').value = 4;
+        generateAndDrawPolyhedron();
 
     </script>
 </body>
