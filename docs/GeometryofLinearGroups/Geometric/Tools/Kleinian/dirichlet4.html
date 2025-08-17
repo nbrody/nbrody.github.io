@@ -65,6 +65,10 @@
           <input id="toggleOrbit" type="checkbox" />
           Show orbit of o
       </label>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+          <input id="toggleWalls" type="checkbox" checked />
+          Show walls
+      </label>
       <label for="Lparam" style="display: flex; align-items: center; justify-content: space-between;">
         Word length:
         <input id="Lparam" type="number" value="4" min="1" step="1" style="width: 60px; margin-left: 10px;" />
@@ -82,9 +86,9 @@
         <button id="newExampleBtn" style="padding: 0px 6px; font-size: 10px; min-width: unset; width: auto; height: 20px; line-height: 20px;">??</button>
       </div>
       <button id="showStabilizerBtn" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Show stabilizer</button>
-      <pre id="stabilizerOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; white-space: pre-wrap; word-break: break-word;"></pre>
+      <div id="stabilizerOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;"></div>
       <button id="printStdGensBtn" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Print standard generators</button>
-      <pre id="stdGensOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; white-space: pre-wrap; word-break: break-word;"></pre>
+      <div id="stdGensOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;"></div>
     </div>
     <div id="message-box"></div>
 
@@ -216,6 +220,18 @@
         function isClose(x, y, tol = 1e-6) { return Math.abs(x - y) < tol; }
         function isZero(z, tol = 1e-6) { return Math.abs(z.re) < tol && Math.abs(z.im) < tol; }
 
+        // --- Global de-duplication helpers ---
+        const KEY_SCALE = 1e6; // tolerance ~1e-6
+        function keyFromNumber(x, scale = KEY_SCALE) { return Math.round(x * scale); }
+        function keyFromVec(vec, scale = KEY_SCALE) {
+          return `${keyFromNumber(vec.x, scale)}:${keyFromNumber(vec.y, scale)}:${keyFromNumber(vec.z, scale)}`;
+        }
+        function keyFromMatrix(m, scale = KEY_SCALE) {
+          const parts = [m.a.re, m.a.im, m.b.re, m.b.im, m.c.re, m.c.im, m.d.re, m.d.im]
+            .map(v => keyFromNumber(v, scale));
+          return parts.join(';');
+        }
+
         // Check if m ∈ SU(2): columns orthonormal and det ≈ 1
         function isUnitary(m, tol = 1e-6) {
           // Column norms
@@ -270,7 +286,7 @@
           showMessage._t = setTimeout(() => { messageBox.style.display = 'none'; }, 4000);
         }
 
-        function addMatrixInput(values=['1','1','0','1']) {
+        function addMatrixInput(values=['1','0','0','1']) {
           const idx = document.querySelectorAll('#matrixInputs .matrix-block').length;
           const container = document.createElement('div');
           container.className = 'matrix-block';
@@ -310,8 +326,8 @@
             const c = parseComplex(ins[2].value);
             const d = parseComplex(ins[3].value);
             const det = a.mul(d).sub(b.mul(c));
-            if (Math.abs(det.re - 1) > 1e-4 || Math.abs(det.im) > 1e-4) {
-              showMessage(`Determinant must be 1. Got: ${det.toString()}`, true);
+            if (Math.abs(det.re) - 1 > 1e-4 || Math.abs(det.im) > 1e-4) {
+              showMessage(`Determinant must not be 0.`, true);
               continue;
             }
             generators.push(new Matrix2(a, b, c, d));
@@ -383,6 +399,15 @@
             const L = parseInt((document.getElementById('Lparam') || { value: 1 }).value) || 1;
             const groupElements = generateGroupElements(generators, L);
             const su2 = groupElements.filter(g => isUnitary(g));
+
+            // Ensure the identity matrix is included in the SU(2) list
+            const I = new Matrix2(
+              new Complex(1, 0), new Complex(0, 0),
+              new Complex(0, 0), new Complex(1, 0)
+            );
+            const hasIdentity = su2.some(m => typeof m.isIdentity === 'function' && m.isIdentity());
+            if (!hasIdentity) su2.unshift(I);
+
             const out = document.getElementById('stabilizerOutput');
             if (!out) return;
             if (su2.length === 0) {
@@ -460,11 +485,12 @@
             });
 
             let queue = [...initialSet];
-            const identityKey = "1;0;0;0;0;0;1;0";
-            elements.set(identityKey, new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0)));
+            const I = new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0));
+            const identityKey = keyFromMatrix(I);
+            elements.set(identityKey, I);
             
             queue.forEach(g => {
-                const key = `${g.a.re};${g.a.im};${g.b.re};${g.b.im};${g.c.re};${g.c.im};${g.d.re};${g.d.im}`;
+                const key = keyFromMatrix(g);
                 elements.set(key, g);
             });
 
@@ -474,7 +500,7 @@
                     for (const g of initialSet) {
                         const newWord = word.multiply(g);
                         if (newWord.isIdentity()) continue;
-                        const key = `${newWord.a.re};${newWord.a.im};${newWord.b.re};${newWord.b.im};${newWord.c.re};${newWord.c.im};${newWord.d.re};${newWord.d.im}`;
+                        const key = keyFromMatrix(newWord);
                         if (!elements.has(key)) {
                             elements.set(key, newWord);
                             nextQueue.push(newWord);
@@ -484,8 +510,10 @@
                 queue = nextQueue;
             }
             
-            elements.delete(identityKey);
-            return Array.from(elements.values());
+            const out = Array.from(elements.entries())
+              .filter(([k, _]) => k !== identityKey)
+              .map(([_, v]) => v);
+            return out;
         }
         // Image of the basepoint o=(0,1,0) under m in PSL(2,C)
         // For m = [a b; c d], we have: m·o = ( (a\bar c + b\bar d) / (|c|^2 + |d|^2),  1 / (|c|^2 + |d|^2) )
@@ -561,90 +589,95 @@
         }
 
         function samplePointsOnBisector(u, t, maxSamples = 160) {
-        const pts = [];
-        const eps = 1e-9;
+          const pts = [];
+          const eps = 1e-9;
 
-        // plane case
-        if (Math.abs(t - 1.0) < eps) {
-            const n = new THREE.Vector3(u.re, 0, -u.im);
-            if (n.length() < eps) return pts;
-            n.normalize();
-            const tmp = Math.abs(n.y) < 0.9 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
-            const b1 = new THREE.Vector3().crossVectors(n, tmp).normalize();
-            const b2 = new THREE.Vector3().crossVectors(n, b1).normalize();
-            const center = new THREE.Vector3(u.re/2, 1, -u.im/2);
-            const R = 2.5, steps = Math.max(4, Math.floor(Math.sqrt(maxSamples)));
-            for (let i = -steps; i <= steps; i++) {
-            for (let j = -steps; j <= steps; j++) {
-                const s = i/steps, t2 = j/steps;
-                const p = new THREE.Vector3().copy(center)
-                .addScaledVector(b1, R*s)
-                .addScaledVector(b2, R*t2);
-                if (p.y > eps) pts.push(p);
-            }
-            }
-            return pts;
-        }
+          // plane case
+          if (Math.abs(t - 1.0) < eps) {
+              const n = new THREE.Vector3(u.re, 0, -u.im);
+              if (n.length() < eps) return pts;
+              n.normalize();
+              const tmp = Math.abs(n.y) < 0.9 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
+              const b1 = new THREE.Vector3().crossVectors(n, tmp).normalize();
+              const b2 = new THREE.Vector3().crossVectors(n, b1).normalize();
+              const center = new THREE.Vector3(u.re/2, 1, -u.im/2);
+              const R = 2.5, steps = Math.max(4, Math.floor(Math.sqrt(maxSamples)));
+              for (let i = -steps; i <= steps; i++) {
+              for (let j = -steps; j <= steps; j++) {
+                  const s = i/steps, t2 = j/steps;
+                  const p = new THREE.Vector3().copy(center)
+                  .addScaledVector(b1, R*s)
+                  .addScaledVector(b2, R*t2);
+                  if (p.y > eps) pts.push(p);
+              }
+              }
+              return pts;
+          }
 
-        // hemisphere case
-        const oneMinusT = 1 - t;
-        if (Math.abs(oneMinusT) < eps) return pts;
-        const cx = u.re / oneMinusT, cz = -u.im / oneMinusT;
-        const r2 = t * (1 + u.normSq() / (oneMinusT*oneMinusT));
-        if (r2 <= eps) return pts;
-        const r = Math.sqrt(r2);
-        const center = new THREE.Vector3(cx, 0, cz);
+          // hemisphere case
+          const oneMinusT = 1 - t;
+          if (Math.abs(oneMinusT) < eps) return pts;
+          const cx = u.re / oneMinusT, cz = -u.im / oneMinusT;
+          const r2 = t * (1 + u.normSq() / (oneMinusT*oneMinusT));
+          if (r2 <= eps) return pts;
+          const r = Math.sqrt(r2);
+          const center = new THREE.Vector3(cx, 0, cz);
 
-        const rings = Math.max(6, Math.floor(Math.sqrt(maxSamples)));
-        const segs  = rings * 2;
-        for (let i = 1; i <= rings; i++) {
-            const phi = (i / (rings+1)) * Math.PI/2;
-            const y   = r * Math.cos(phi);
-            const rho = r * Math.sin(phi);
-            for (let j = 0; j < segs; j++) {
-            const theta = (2*Math.PI * j)/segs;
-            const x = center.x + rho * Math.cos(theta);
-            const z = center.z + rho * Math.sin(theta);
-            const p = new THREE.Vector3(x, y, z);
-            if (p.y > eps) pts.push(p);
-            }
-        }
-        return pts;
+          const rings = Math.max(6, Math.floor(Math.sqrt(maxSamples)));
+          const segs  = rings * 2;
+          for (let i = 1; i <= rings; i++) {
+              const phi = (i / (rings+1)) * Math.PI/2;
+              const y   = r * Math.cos(phi);
+              const rho = r * Math.sin(phi);
+              for (let j = 0; j < segs; j++) {
+              const theta = (2*Math.PI * j)/segs;
+              const x = center.x + rho * Math.cos(theta);
+              const z = center.z + rho * Math.sin(theta);
+              const p = new THREE.Vector3(x, y, z);
+              if (p.y > eps) pts.push(p);
+              }
+          }
+          return pts; 
         }
 
         function computeDelaunayNeighbors(groupElements) {
-        const base = new THREE.Vector3(0,1,0);
-        const orbit = [base];
-        const invs  = [];
+          const base = new THREE.Vector3(0,1,0);
+          const orbit = [base];
+          const invs  = [];
 
-        for (const g of groupElements) {
-            const inv = g.inverse();
-            if (!inv) continue;
-            const p = imageOfBasepoint(inv);
-            if (!isFinite(p.t) || p.t <= 0) continue;
-            const v = new THREE.Vector3(p.u.re, p.t, -p.u.im);
-            orbit.push(v);
-            invs.push({ u: p.u, t: p.t, v , g });
-        }
+          for (const g of groupElements) {
+              const inv = g.inverse();
+              if (!inv) continue;
+              const p = imageOfBasepoint(inv);
+              if (!isFinite(p.t) || p.t <= 0) continue;
+              const v = new THREE.Vector3(p.u.re, p.t, -p.u.im);
+              orbit.push(v);
+              invs.push({ u: p.u, t: p.t, v , g });
+          }
 
-        const neighbors = [];
-        for (const item of invs) {
-            const samples = samplePointsOnBisector(item.u, item.t, 160);
-            let contributes = false;
-            for (const s of samples) {
-            const d0 = hDist(base, s);
-            const d1 = hDist(item.v, s);
-            if (Math.abs(d0 - d1) > 2e-3) continue; // near bisector
-            let ok = true;
-            for (let k = 1; k < orbit.length; k++) {
-                const dk = hDist(orbit[k], s);
-                if (dk < d0 - 2e-3) { ok = false; break; }
-            }
-            if (ok) { contributes = true; break; }
-            }
-            if (contributes) neighbors.push({ v: item.v, g: item.g});
-        }
-        return neighbors;
+          const neighborsMap = new Map();
+          for (const item of invs) {
+              const samples = samplePointsOnBisector(item.u, item.t, 160);
+              let contributes = false;
+              for (const s of samples) {
+                  const d0 = hDist(base, s);
+                  const d1 = hDist(item.v, s);
+                  if (Math.abs(d0 - d1) > 2e-3) continue; // near bisector
+                  let ok = true;
+                  for (let k = 1; k < orbit.length; k++) {
+                      const dk = hDist(orbit[k], s);
+                      if (dk < d0 - 2e-3) { ok = false; break; }
+                  }
+                  if (ok) { contributes = true; break; }
+              }
+              if (contributes) {
+                  const key = keyFromVec(item.v); // global helper
+                  if (!neighborsMap.has(key)) {
+                      neighborsMap.set(key, { v: item.v, g: item.g });
+                  }
+              }
+          }
+          return Array.from(neighborsMap.values());
         }
 
         function drawDelaunayEdges(neighbors) {
@@ -680,31 +713,34 @@
             clearPolyhedron();
             clearDelaunay();
             clearOrbit();
+            const showWalls = document.getElementById('toggleWalls')?.checked ?? true;
             const wordLength = parseInt((document.getElementById('Lparam') || document.getElementById('wordLength')).value) || 1;
             const groupElements = generateGroupElements(generators, wordLength);
 
-            // For a Dirichlet domain centered at o=(0,1,0), the face associated to g is the bisector between o and g^{-1}·o.
-            groupElements.forEach((g, i) => {
-                const inv = g.inverse();
-                if (!inv) return;
-                const col = new THREE.Color().setHSL(i / Math.max(1, groupElements.length), 0.65, 0.58);
-                const material = new THREE.MeshStandardMaterial({
-                    color: col,
-                    transparent: true,
-                    opacity: 0.35,
-                    side: THREE.DoubleSide,
-                    metalness: 0.2,
-                    roughness: 0.6
+            if (showWalls) {
+                // For a Dirichlet domain centered at o=(0,1,0), the face associated to g is the bisector between o and g^{-1}·o.
+                groupElements.forEach((g, i) => {
+                    const inv = g.inverse();
+                    if (!inv) return;
+                    const col = new THREE.Color().setHSL(i / Math.max(1, groupElements.length), 0.65, 0.58);
+                    const material = new THREE.MeshStandardMaterial({
+                        color: col,
+                        transparent: true,
+                        opacity: 0.35,
+                        side: THREE.DoubleSide,
+                        metalness: 0.2,
+                        roughness: 0.6
+                    });
+
+                    const p = imageOfBasepoint(inv); // p = (u,t)
+                    // Skip degenerate cases
+                    if (!isFinite(p.t) || p.t <= 0) return;
+                    // If p coincides with o, ignore (happens only if g is identity, which we filtered)
+                    if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) return;
+
+                    drawBisector(p.u, p.t, material);
                 });
-
-                const p = imageOfBasepoint(inv); // p = (u,t)
-                // Skip degenerate cases
-                if (!isFinite(p.t) || p.t <= 0) return;
-                // If p coincides with o, ignore (happens only if g is identity, which we filtered)
-                if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) return;
-
-                drawBisector(p.u, p.t, material);
-            });
+            }
             const showOrbit = document.getElementById('toggleOrbit')?.checked;
             if (showOrbit) {
                 const orbitPts = computeOrbitPoints(groupElements);
@@ -731,8 +767,13 @@
             rebuildGeneratorsFromUI();
             generateAndDrawPolyhedron();
             });
-        const orbCb2 = document.getElementById('toggleOrbit');
-            if (orbCb2) orbCb2.addEventListener('change', () => {
+        const orbCb = document.getElementById('toggleOrbit');
+            if (orbCb) orbCb.addEventListener('change', () => {
+            rebuildGeneratorsFromUI();
+            generateAndDrawPolyhedron();
+            });
+        const wallsCb = document.getElementById('toggleWalls');
+            if (wallsCb) wallsCb.addEventListener('change', () => {
             rebuildGeneratorsFromUI();
             generateAndDrawPolyhedron();
             });

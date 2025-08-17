@@ -65,6 +65,10 @@
           <input id="toggleOrbit" type="checkbox" />
           Show orbit of o
       </label>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+          <input id="toggleWalls" type="checkbox" checked />
+          Show walls
+      </label>
       <label for="Lparam" style="display: flex; align-items: center; justify-content: space-between;">
         Word length:
         <input id="Lparam" type="number" value="4" min="1" step="1" style="width: 60px; margin-left: 10px;" />
@@ -115,11 +119,6 @@
             const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
             directionalLight.position.set(2, 5, 3);
             scene.add(directionalLight);
-            const planeGeom = new THREE.PlaneGeometry(20, 20);
-            const planeMat = new THREE.MeshStandardMaterial({ color: 0x444444, transparent: true, opacity: 0.3 });
-            const boundaryPlane = new THREE.Mesh(planeGeom, planeMat);
-            boundaryPlane.rotation.x = -Math.PI / 2;
-            scene.add(boundaryPlane);
             const basepointGeom = new THREE.SphereGeometry(0.1, 16, 16);
             const basepointMat = new THREE.MeshStandardMaterial({ color: 0xffeb3b });
             const basepointMesh = new THREE.Mesh(basepointGeom, basepointMat);
@@ -282,7 +281,7 @@
           showMessage._t = setTimeout(() => { messageBox.style.display = 'none'; }, 4000);
         }
 
-        function addMatrixInput(values=['1','1','0','1']) {
+        function addMatrixInput(values=['1','0','0','1']) {
           const idx = document.querySelectorAll('#matrixInputs .matrix-block').length;
           const container = document.createElement('div');
           container.className = 'matrix-block';
@@ -322,8 +321,8 @@
             const c = parseComplex(ins[2].value);
             const d = parseComplex(ins[3].value);
             const det = a.mul(d).sub(b.mul(c));
-            if (Math.abs(det.re - 1) > 1e-4 || Math.abs(det.im) > 1e-4) {
-              showMessage(`Determinant must be 1. Got: ${det.toString()}`, true);
+            if (Math.abs(det.re) - 1 > 1e-4 || Math.abs(det.im) > 1e-4) {
+              showMessage(`Determinant must not be 0.`, true);
               continue;
             }
             generators.push(new Matrix2(a, b, c, d));
@@ -585,55 +584,55 @@
         }
 
         function samplePointsOnBisector(u, t, maxSamples = 160) {
-        const pts = [];
-        const eps = 1e-9;
+          const pts = [];
+          const eps = 1e-9;
 
-        // plane case
-        if (Math.abs(t - 1.0) < eps) {
-            const n = new THREE.Vector3(u.re, 0, -u.im);
-            if (n.length() < eps) return pts;
-            n.normalize();
-            const tmp = Math.abs(n.y) < 0.9 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
-            const b1 = new THREE.Vector3().crossVectors(n, tmp).normalize();
-            const b2 = new THREE.Vector3().crossVectors(n, b1).normalize();
-            const center = new THREE.Vector3(u.re/2, 1, -u.im/2);
-            const R = 2.5, steps = Math.max(4, Math.floor(Math.sqrt(maxSamples)));
-            for (let i = -steps; i <= steps; i++) {
-            for (let j = -steps; j <= steps; j++) {
-                const s = i/steps, t2 = j/steps;
-                const p = new THREE.Vector3().copy(center)
-                .addScaledVector(b1, R*s)
-                .addScaledVector(b2, R*t2);
-                if (p.y > eps) pts.push(p);
-            }
-            }
-            return pts;
-        }
+          // plane case
+          if (Math.abs(t - 1.0) < eps) {
+              const n = new THREE.Vector3(u.re, 0, -u.im);
+              if (n.length() < eps) return pts;
+              n.normalize();
+              const tmp = Math.abs(n.y) < 0.9 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
+              const b1 = new THREE.Vector3().crossVectors(n, tmp).normalize();
+              const b2 = new THREE.Vector3().crossVectors(n, b1).normalize();
+              const center = new THREE.Vector3(u.re/2, 1, -u.im/2);
+              const R = 2.5, steps = Math.max(4, Math.floor(Math.sqrt(maxSamples)));
+              for (let i = -steps; i <= steps; i++) {
+              for (let j = -steps; j <= steps; j++) {
+                  const s = i/steps, t2 = j/steps;
+                  const p = new THREE.Vector3().copy(center)
+                  .addScaledVector(b1, R*s)
+                  .addScaledVector(b2, R*t2);
+                  if (p.y > eps) pts.push(p);
+              }
+              }
+              return pts;
+          }
 
-        // hemisphere case
-        const oneMinusT = 1 - t;
-        if (Math.abs(oneMinusT) < eps) return pts;
-        const cx = u.re / oneMinusT, cz = -u.im / oneMinusT;
-        const r2 = t * (1 + u.normSq() / (oneMinusT*oneMinusT));
-        if (r2 <= eps) return pts;
-        const r = Math.sqrt(r2);
-        const center = new THREE.Vector3(cx, 0, cz);
+          // hemisphere case
+          const oneMinusT = 1 - t;
+          if (Math.abs(oneMinusT) < eps) return pts;
+          const cx = u.re / oneMinusT, cz = -u.im / oneMinusT;
+          const r2 = t * (1 + u.normSq() / (oneMinusT*oneMinusT));
+          if (r2 <= eps) return pts;
+          const r = Math.sqrt(r2);
+          const center = new THREE.Vector3(cx, 0, cz);
 
-        const rings = Math.max(6, Math.floor(Math.sqrt(maxSamples)));
-        const segs  = rings * 2;
-        for (let i = 1; i <= rings; i++) {
-            const phi = (i / (rings+1)) * Math.PI/2;
-            const y   = r * Math.cos(phi);
-            const rho = r * Math.sin(phi);
-            for (let j = 0; j < segs; j++) {
-            const theta = (2*Math.PI * j)/segs;
-            const x = center.x + rho * Math.cos(theta);
-            const z = center.z + rho * Math.sin(theta);
-            const p = new THREE.Vector3(x, y, z);
-            if (p.y > eps) pts.push(p);
-            }
-        }
-        return pts;
+          const rings = Math.max(6, Math.floor(Math.sqrt(maxSamples)));
+          const segs  = rings * 2;
+          for (let i = 1; i <= rings; i++) {
+              const phi = (i / (rings+1)) * Math.PI/2;
+              const y   = r * Math.cos(phi);
+              const rho = r * Math.sin(phi);
+              for (let j = 0; j < segs; j++) {
+              const theta = (2*Math.PI * j)/segs;
+              const x = center.x + rho * Math.cos(theta);
+              const z = center.z + rho * Math.sin(theta);
+              const p = new THREE.Vector3(x, y, z);
+              if (p.y > eps) pts.push(p);
+              }
+          }
+          return pts; 
         }
 
         function computeDelaunayNeighbors(groupElements) {
@@ -709,31 +708,34 @@
             clearPolyhedron();
             clearDelaunay();
             clearOrbit();
+            const showWalls = document.getElementById('toggleWalls')?.checked ?? true;
             const wordLength = parseInt((document.getElementById('Lparam') || document.getElementById('wordLength')).value) || 1;
             const groupElements = generateGroupElements(generators, wordLength);
+            const neighbors = computeDelaunayNeighbors(groupElements);
 
-            // For a Dirichlet domain centered at o=(0,1,0), the face associated to g is the bisector between o and g^{-1}·o.
-            groupElements.forEach((g, i) => {
-                const inv = g.inverse();
-                if (!inv) return;
-                const col = new THREE.Color().setHSL(i / Math.max(1, groupElements.length), 0.65, 0.58);
-                const material = new THREE.MeshStandardMaterial({
-                    color: col,
-                    transparent: true,
-                    opacity: 0.35,
-                    side: THREE.DoubleSide,
-                    metalness: 0.2,
-                    roughness: 0.6
+            if (showWalls) {
+                // Draw walls only for Delaunay neighbors
+                neighbors.forEach((obj, i) => {
+                    const g = obj.g;
+                    const inv = g.inverse();
+                    if (!inv) return;
+                    const col = new THREE.Color().setHSL(i / Math.max(1, neighbors.length), 0.65, 0.58);
+                    const material = new THREE.MeshStandardMaterial({
+                        color: col,
+                        transparent: true,
+                        opacity: 0.35,
+                        side: THREE.DoubleSide,
+                        metalness: 0.2,
+                        roughness: 0.6
+                    });
+
+                    const p = imageOfBasepoint(inv); // p = (u,t)
+                    if (!isFinite(p.t) || p.t <= 0) return;
+                    if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) return;
+
+                    drawBisector(p.u, p.t, material);
                 });
-
-                const p = imageOfBasepoint(inv); // p = (u,t)
-                // Skip degenerate cases
-                if (!isFinite(p.t) || p.t <= 0) return;
-                // If p coincides with o, ignore (happens only if g is identity, which we filtered)
-                if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) return;
-
-                drawBisector(p.u, p.t, material);
-            });
+            }
             const showOrbit = document.getElementById('toggleOrbit')?.checked;
             if (showOrbit) {
                 const orbitPts = computeOrbitPoints(groupElements);
@@ -743,9 +745,8 @@
             }
             const showDel = document.getElementById('toggleDelaunay')?.checked;
             if (showDel) {
-                const neighbors = computeDelaunayNeighbors(groupElements);
                 drawDelaunayEdges(neighbors);
-                } else {
+            } else {
                 clearDelaunay();
             }
         }
@@ -760,8 +761,13 @@
             rebuildGeneratorsFromUI();
             generateAndDrawPolyhedron();
             });
-        const orbCb2 = document.getElementById('toggleOrbit');
-            if (orbCb2) orbCb2.addEventListener('change', () => {
+        const orbCb = document.getElementById('toggleOrbit');
+            if (orbCb) orbCb.addEventListener('change', () => {
+            rebuildGeneratorsFromUI();
+            generateAndDrawPolyhedron();
+            });
+        const wallsCb = document.getElementById('toggleWalls');
+            if (wallsCb) wallsCb.addEventListener('change', () => {
             rebuildGeneratorsFromUI();
             generateAndDrawPolyhedron();
             });
