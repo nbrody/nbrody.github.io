@@ -608,7 +608,7 @@ function matApplyToHermitian(A, H){ // H -> A^* H A
   const M10 = βb.mul(aH).add( δb.mul(bH.conj()) );
   const M11 = βb.mul(bH).add( δb.mul(cH) );
   // (A^*H)A
-  const N00 = M00.mul(α).add( M01.mul(β.conj().conj()?β:β) ); // careful: β may be OElem; we want regular β
+  const N00 = M00.mul(α).add( M01.mul(β) );
   const N01 = M00.mul(γ).add( M01.mul(δ) );
   const N10 = M10.mul(α).add( M11.mul(β) );
   const N11 = M10.mul(γ).add( M11.mul(δ) );
@@ -619,49 +619,37 @@ function matApplyToHermitian(A, H){ // H -> A^* H A
   return {a:aP, b:bP, c:cP, d};
 }
 
-function traceIntersectionCriterion(H, H2){ // |Tr(A A2^{-1})| < 2 ⇒ circles intersect
-  // Build 2x2 Hermitian matrices A, A2 as complex 2x2 (in C) and compute Tr(A * A2^{-1})
-  // Represent as [[a, b],[conj(b), c]] mapped to complex numbers
-  function toMatX(H){
-    const b=H.b.toC();
-    return [
-      [H.a, 0, b.x, b.y],
-      [b.x, b.y, H.c, 0] // store conj(b) implicitly
-    ];
-  }
-  // We'll compute explicit complex matrix numerically
-  const M = [[H.a, H.b.toC().x + 1j*H.b.toC().y],[ H.b.conj().toC().x + 1j*(-H.b.toC().y), H.c ]];
-  // JS doesn't have complex; instead compute using real 2x2 blocks. Do it explicitly:
+function traceIntersectionCriterion(H, H2) {
+  // Build 2×2 complex matrices using real pairs {x,y} for complex numbers.
   function matC(H){
-    const bx=H.b.toC().x, by=H.b.toC().y;
-    // complex matrix: [[a, bx+i by],[bx - i by, c]]
-    return [[{x:H.a,y:0},{x:bx,y:by}],
-            [{x:bx,y:-by},{x:H.c,y:0}]];
+    const bx = H.b.toC().x, by = H.b.toC().y;
+    // Complex matrix [[a, bx + i by], [bx - i by, c]]
+    return [[{x:H.a,y:0},        {x:bx,y:by}],
+            [{x:bx,y:-by},       {x:H.c,y:0}]];
   }
-  function cAdd(u,v){return {x:u.x+v.x,y:u.y+v.y}}
-  function cSub(u,v){return {x:u.x-v.x,y:u.y-v.y}}
-  function cMul(u,v){return {x:u.x*v.x-u.y*v.y,y:u.x*v.y+u.y*v.x}}
-  function cInv(u){const t=u.x*u.x+u.y*u.y; return {x:u.x/t,y:-u.y/t}}
-  function det2(M){
-    return cSub( cMul(M[0][0], M[1][1]), cMul(M[0][1],M[1][0]) );
-  }
+  function cAdd(u,v){return {x:u.x+v.x,y:u.y+v.y};}
+  function cSub(u,v){return {x:u.x-v.x,y:u.y-v.y};}
+  function cMul(u,v){return {x:u.x*v.x - u.y*v.y, y:u.x*v.y + u.y*v.x};}
+  function cInv(u){const t=u.x*u.x+u.y*u.y; return {x:u.x/t,y:-u.y/t};}
+  function det2(M){ return cSub(cMul(M[0][0],M[1][1]), cMul(M[0][1],M[1][0])); }
   function inv2(M){
     const d = det2(M);
     const di = cInv(d);
     return [
-      [ cMul(di, M[1][1]), cMul(di, {x:-M[0][1].x, y:-M[0][1].y}) ],
+      [ cMul(di, M[1][1]),                 cMul(di, {x:-M[0][1].x, y:-M[0][1].y}) ],
       [ cMul(di, {x:-M[1][0].x, y:-M[1][0].y}), cMul(di, M[0][0]) ]
     ];
   }
   function mul2(A,B){
     const C=[[{x:0,y:0},{x:0,y:0}],[{x:0,y:0},{x:0,y:0}]];
-    for(let i=0;i<2;i++)for(let j=0;j<2;j++){
+    for(let i=0;i<2;i++) for(let j=0;j<2;j++){
       let s={x:0,y:0};
-      for(let k=0;k<2;k++) s=cAdd(s, cMul(A[i][k], B[k][j]) );
+      for(let k=0;k<2;k++) s = cAdd(s, cMul(A[i][k], B[k][j]));
       C[i][j]=s;
     }
     return C;
   }
+
   const A = matC(H), B = matC(H2);
   const Binv = inv2(B);
   const P = mul2(A, Binv);
