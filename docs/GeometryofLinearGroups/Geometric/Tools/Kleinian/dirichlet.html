@@ -302,12 +302,13 @@
             </div>`;
           container.querySelector('.delete-matrix-btn').addEventListener('click', () => {
             container.remove();
-            document.querySelectorAll('#matrixInputs .matrix-label').forEach((lbl,i)=> { lbl.innerHTML = `\\( g_{${i+1}} = \\)`; });
+            const labels = document.querySelectorAll('#matrixInputs .matrix-label');
+            labels.forEach((lbl,i)=>{ lbl.innerHTML = `\\( g_{${i+1}} = \\)`; });
             typesetMath();
           });
           document.getElementById('matrixInputs').appendChild(container);
-          typesetMath();
-          document.querySelectorAll('#matrixInputs .matrix-label').forEach((lbl,i)=> { lbl.innerHTML = `\\( g_{${i+1}} = \\)`; });
+          const labels = document.querySelectorAll('#matrixInputs .matrix-label');
+          labels.forEach((lbl,i)=>{ lbl.innerHTML = `\\( g_{${i+1}} = \\)`; });
           typesetMath();
         }
 
@@ -321,8 +322,9 @@
             const c = parseComplex(ins[2].value);
             const d = parseComplex(ins[3].value);
             const det = a.mul(d).sub(b.mul(c));
-            if (Math.abs(det.re) - 1 > 1e-4 || Math.abs(det.im) > 1e-4) {
-              showMessage(`Determinant must not be 0.`, true);
+            // Enforce det ≈ 1 (PSL(2, C))
+            if (Math.abs(det.re - 1) > 1e-4 || Math.abs(det.im) > 1e-4) {
+              showMessage('Determinant should be 1 (up to numerical error).', true);
               continue;
             }
             generators.push(new Matrix2(a, b, c, d));
@@ -436,23 +438,21 @@
         }
 
         // --- Hyperbolic Geometry & Drawing ---
-        function clearDelaunay() {
-        while (delaunayGroup.children.length > 0) {
-            const obj = delaunayGroup.children[0];
-            delaunayGroup.remove(obj);
+        function clearGroup(group){
+          while (group.children.length > 0) {
+            const obj = group.children[0];
+            group.remove(obj);
             if (obj.geometry) obj.geometry.dispose();
-            if (obj.material) obj.material.dispose();
+            if (obj.material) {
+              if (obj.material.dispose) obj.material.dispose();
+              // handle arrays of materials
+              if (Array.isArray(obj.material)) obj.material.forEach(m=>m && m.dispose && m.dispose());
+            }
+          }
         }
-        }
-        
-        function clearOrbit() {
-        while (orbitGroup.children.length > 0) {
-            const obj = orbitGroup.children[0];
-            orbitGroup.remove(obj);
-            if (obj.geometry) obj.geometry.dispose();
-            if (obj.material) obj.material.dispose();
-        }
-        }        
+
+        function clearDelaunay(){ clearGroup(delaunayGroup); }
+        function clearOrbit(){ clearGroup(orbitGroup); }
 
         // Hyperbolic distance in upper half-space H^3 (points as THREE.Vector3, y>0)
         function hDist(p, q) {
@@ -463,14 +463,7 @@
         return Math.acosh(Math.max(1, c));
         }
         
-        function clearPolyhedron() {
-            while(polyhedronGroup.children.length > 0){ 
-                const obj = polyhedronGroup.children[0];
-                polyhedronGroup.remove(obj); 
-                if (obj.geometry) obj.geometry.dispose();
-                if (obj.material) obj.material.dispose();
-            }
-        }
+        function clearPolyhedron(){ clearGroup(polyhedronGroup); }
         function generateGroupElements(gens, wordLength) {
             const elements = new Map();
             const initialSet = [...gens];
@@ -542,42 +535,60 @@
 
         // Draw the Dirichlet bisector (perpendicular bisector in H^3) between o=(0,1,0) and p=(u,t)
         // The bisector is a hemisphere (center on t=0) or, in the limiting case t≈1, a vertical plane.
-        function drawBisector(u, t, material) {
+        function drawBisector(p, q, material) {
+            // p, q are THREE.Vector3 in upper half-space (x,y,z) with y>0
+            // If q is omitted or falsy, use basepoint o=(0,1,0)
+            if (!p) return;
+            const o = new THREE.Vector3(0, 1, 0);
+            q = q || o;
+
+            const xp = p.x, yp = p.y, zp = p.z;
+            const xq = q.x, yq = q.y, zq = q.z;
+
             const eps = 1e-9;
-            // Plane case: t == 1 ⇒ vertical plane with normal parallel to u, passing through (u/2, any height)
-            if (Math.abs(t - 1.0) < eps) {
-                const normal = new THREE.Vector3(u.re, 0, -u.im);
-                if (normal.length() < eps) return; // u = 0 gives no face
-                normal.normalize();
+
+            // If heights are (numerically) equal, the bisector is a vertical plane
+            if (Math.abs(yp - yq) < eps) {
+                // plane normal is horizontal and parallel to q - p in the xz-plane
+                const nx = xq - xp;
+                const nz = zq - zp;
+                const n = new THREE.Vector3(nx, 0, nz);
+                if (n.length() < eps) return; // degenerate
+                n.normalize();
+
+                // Compute a point on the plane using Euclidean midpoint projected with correct offset
+                const Sp = xp*xp + yp*yp + zp*zp;
+                const Sq = xq*xq + yq*yq + zq*zq;
+                const d = (Sq - Sp) / 2; // n_x x + n_z z = d
+                const nlen2 = (xq - xp)*(xq - xp) + (zq - zp)*(zq - zp);
+                const scale = nlen2 < eps ? 0 : d / nlen2;
+                const pointOnPlane = new THREE.Vector3((xq - xp) * scale, (yp + yq) / 2, (zq - zp) * scale);
+
                 const planeGeom = new THREE.PlaneGeometry(40, 40);
                 const planeMesh = new THREE.Mesh(planeGeom, material);
-                planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
-                planeMesh.position.set(u.re / 2, 1, -u.im / 2);
+                // rotate z-axis (0,0,1) to the plane normal n
+                planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+                planeMesh.position.copy(pointOnPlane);
                 polyhedronGroup.add(planeMesh);
                 return;
             }
 
-            // Hemisphere case: center c = u/(1 - t) on the boundary, radius^2 = t * (1 + |u|^2/(1 - t)^2)
-            const oneMinusT = 1.0 - t;
-            if (Math.abs(oneMinusT) < eps) {
-                // Fallback to plane if numerically too close
-                const normal = new THREE.Vector3(u.re, 0, -u.im);
-                if (normal.length() < eps) return;
-                normal.normalize();
-                const planeGeom = new THREE.PlaneGeometry(40, 40);
-                const planeMesh = new THREE.Mesh(planeGeom, material);
-                planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), normal);
-                planeMesh.position.set(u.re / 2, 1, -u.im / 2);
-                polyhedronGroup.add(planeMesh);
-                return;
-            }
-            const uNormSq = u.normSq();
-            const cx = u.re / oneMinusT;
-            const cz = -u.im / oneMinusT; // z-axis in THREE is negative imaginary direction
-            const radiusSq = t * (1.0 + (uNormSq / (oneMinusT * oneMinusT)) );
-            if (radiusSq <= eps) return;
-            const radius = Math.sqrt(radiusSq);
-            const geometry = new THREE.SphereGeometry(radius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+            // Otherwise, the bisector is a hemisphere with center on y=0 (orthogonal to the boundary)
+            // From equality of hyperbolic distances: y_q |x - p|^2 = y_p |x - q|^2
+            const denom = (yq - yp);
+            const cx = (yq * xp - yp * xq) / denom;
+            const cz = (yq * zp - yp * zq) / denom;
+            const cy = 0;
+
+            // Radius^2 = |c|^2 - (y_q |p|^2 - y_p |q|^2) / (y_q - y_p)
+            const Sp = xp*xp + yp*yp + zp*zp;
+            const Sq = xq*xq + yq*yq + zq*zq;
+            const c2 = cx*cx + cy*cy + cz*cz;
+            const r2 = c2 - (yq * Sp - yp * Sq) / denom;
+            if (!(r2 > eps)) return; // invalid/degenerate
+            const r = Math.sqrt(r2);
+
+            const geometry = new THREE.SphereGeometry(r, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
             const hemisphere = new THREE.Mesh(geometry, material);
             hemisphere.position.set(cx, 0, cz);
             polyhedronGroup.add(hemisphere);
@@ -680,7 +691,7 @@
         const base = new THREE.Vector3(0,1,0);
         const material = new THREE.LineBasicMaterial({ linewidth: 2 });
         for (const v of neighbors) {
-            const vv = (v && v.v) ? v.v : v; // supports both formats
+            const vv = (v && v.v) ? v.v : v;
             const geom = new THREE.BufferGeometry().setFromPoints([base, vv]);
             const line = new THREE.Line(geom, material);
             delaunayGroup.add(line);
@@ -709,7 +720,7 @@
             clearDelaunay();
             clearOrbit();
             const showWalls = document.getElementById('toggleWalls')?.checked ?? true;
-            const wordLength = parseInt((document.getElementById('Lparam') || document.getElementById('wordLength')).value) || 1;
+            const wordLength = parseInt(document.getElementById('Lparam').value) || 1;
             const groupElements = generateGroupElements(generators, wordLength);
             const neighbors = computeDelaunayNeighbors(groupElements);
 
@@ -729,11 +740,12 @@
                         roughness: 0.6
                     });
 
-                    const p = imageOfBasepoint(inv); // p = (u,t)
+                    const p = imageOfBasepoint(inv); // p = {u: Complex, t: number}
                     if (!isFinite(p.t) || p.t <= 0) return;
                     if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) return;
 
-                    drawBisector(p.u, p.t, material);
+                    const pVec = new THREE.Vector3(p.u.re, p.t, -p.u.im);
+                    drawBisector(pVec, undefined, material); // q defaults to basepoint (0,1,0)
                 });
             }
             const showOrbit = document.getElementById('toggleOrbit')?.checked;
