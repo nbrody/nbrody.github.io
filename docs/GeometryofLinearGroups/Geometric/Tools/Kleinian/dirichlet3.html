@@ -7,12 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
-      body { font-family: 'Inter', sans-serif; margin: 0; overflow: hidden; }
+      body { margin: 0; overflow: hidden; }
       #viewer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
-      /* Limitsets-style control panel */
+      /* Control panel */
       #controlPanel {
         position: absolute;
         top: 10px;
@@ -50,45 +49,58 @@
     <div id="controlPanel">
       <div style="display: flex; align-items: center; justify-content: space-between;">
         <h3 style="margin: 0;">Dirichlet Polyhedron</h3>
-        <button id="resetViewBtn" style="padding: 2px 6px; font-size: 11px; width: 100px;">Default view</button>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button id="prevPageBtn" title="Previous" style="padding: 2px 6px; font-size: 11px; width: 28px;">◀</button>
+          <button id="nextPageBtn" title="Next" style="padding: 2px 6px; font-size: 11px; width: 28px;">▶</button>
+          <button id="resetViewBtn" style="padding: 2px 6px; font-size: 11px; width: 100px; margin-left:6px;">Default view</button>
+        </div>
       </div>
-      <div id="matrixInputs"></div>
-      <div style="display: flex; gap: 8px; margin-top: 12px;">
-        <button id="addMatrixBtn">Add Matrix</button>
-        <button id="updateGroupBtn">Update</button>
+      <div id="panelPage1">
+        <div id="matrixInputs"></div>
+        <div style="display: flex; gap: 8px; margin-top: 12px;">
+          <button id="addMatrixBtn">Add Matrix</button>
+          <button id="updateGroupBtn">Update</button>
+        </div>
+
+        <label for="Lparam" style="display: flex; align-items: center; justify-content: space-between;">
+          Word length:
+          <input id="Lparam" type="number" value="4" min="1" step="1" style="width: 60px; margin-left: 10px;" />
+        </label>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
+          <label for="groupSelector" style="margin: 0;">Predefined group:</label>
+          <select id="groupSelector" style="flex-grow: 1; margin: 0 6px;">
+            <option value="">-- Select --</option>
+            <option value="0">Modular group</option>
+            <option value="1">Triangle group</option>
+            <option value="2">Borromean-like</option>
+            <option value="3">Z[i] congruence</option>
+            <option value="4">Random example</option>
+          </select>
+          <button id="newExampleBtn" style="padding: 0px 6px; font-size: 10px; min-width: unset; width: auto; height: 20px; line-height: 20px;">??</button>
+        </div>
+
+        <button id="showStabilizerBtn" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Show stabilizer</button>
+        <div id="stabilizerOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;"></div>
+
+        <button id="printStdGensBtn" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Print standard generators</button>
+        <div id="stdGensOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;"></div>
       </div>
-      <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-          <input id="toggleDelaunay" type="checkbox" />
-          Show Delaunay edges (neighbors of o)
-      </label>
-      <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
-          <input id="toggleOrbit" type="checkbox" />
-          Show orbit of o
-      </label>
-      <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
-          <input id="toggleWalls" type="checkbox" checked />
-          Show walls
-      </label>
-      <label for="Lparam" style="display: flex; align-items: center; justify-content: space-between;">
-        Word length:
-        <input id="Lparam" type="number" value="4" min="1" step="1" style="width: 60px; margin-left: 10px;" />
-      </label>
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
-        <label for="groupSelector" style="margin: 0;">Predefined group:</label>
-        <select id="groupSelector" style="flex-grow: 1; margin: 0 6px;">
-          <option value="">-- Select --</option>
-          <option value="0">Modular group</option>
-          <option value="1">Triangle group</option>
-          <option value="2">Borromean-like</option>
-          <option value="3">Z[i] congruence</option>
-          <option value="4">Random example</option>
-        </select>
-        <button id="newExampleBtn" style="padding: 0px 6px; font-size: 10px; min-width: unset; width: auto; height: 20px; line-height: 20px;">??</button>
+      <div id="panelPage2" style="display:none;">
+        <h4 style="margin: 8px 0 6px; font-size: 14px;">Display options</h4>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+            <input id="toggleDelaunay" type="checkbox" />
+            Show Delaunay edges (neighbors of o)
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+            <input id="toggleOrbit" type="checkbox" />
+            Show orbit of o
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+            <input id="toggleWalls" type="checkbox" checked />
+            Show walls
+        </label>
       </div>
-      <button id="showStabilizerBtn" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Show stabilizer</button>
-      <div id="stabilizerOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;"></div>
-      <button id="printStdGensBtn" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Print standard generators</button>
-      <div id="stdGensOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;"></div>
     </div>
     <div id="message-box"></div>
 
@@ -99,30 +111,60 @@
         let delaunayGroup = new THREE.Group();
         let orbitGroup = new THREE.Group();
         const viewer = document.getElementById('viewer');
+        const basepoint = new THREE.Vector3(0, 0, 1);
+        let currentPage = 1;
+        const NUM_PAGES = 2;
+
+        function updatePanelPage() {
+          const p1 = document.getElementById('panelPage1');
+          const p2 = document.getElementById('panelPage2');
+          if (p1 && p2) {
+            p1.style.display = (currentPage === 1) ? '' : 'none';
+            p2.style.display = (currentPage === NUM_PAGES) ? '' : 'none';
+          }
+          // Gray/disable pager arrows at bounds
+          const prevBtn = document.getElementById('prevPageBtn');
+          const nextBtn = document.getElementById('nextPageBtn');
+          if (prevBtn) {
+            const atStart = currentPage === 1;
+            prevBtn.disabled = atStart;
+            prevBtn.style.color = atStart ? '#9ca3af' : '';
+            prevBtn.style.opacity = atStart ? '0.6' : '';
+            prevBtn.style.cursor = atStart ? 'default' : 'pointer';
+          }
+          if (nextBtn) {
+            const atEnd = currentPage === NUM_PAGES;
+            nextBtn.disabled = atEnd;
+            nextBtn.style.color = atEnd ? '#9ca3af' : '';
+            nextBtn.style.opacity = atEnd ? '0.6' : '';
+            nextBtn.style.cursor = atEnd ? 'default' : 'pointer';
+          }
+        }
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x111827);
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 3, 5);
+            camera.position.set(0, -5, 3);
+            camera.up.set(0, 0, 1);
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.localClippingEnabled = true;
-            renderer.clippingPlanes = [ new THREE.Plane(new THREE.Vector3(0, 1, 0), 0) ];
+            renderer.clippingPlanes = [ new THREE.Plane(new THREE.Vector3(0, 0, 1), 0) ];
             viewer.appendChild(renderer.domElement);
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
-            controls.target.set(0, 1, 0);
+            controls.target.copy(basepoint);
             const ambientLight = new THREE.AmbientLight(0xcccccc, 1.0);
             scene.add(ambientLight);
             const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
-            directionalLight.position.set(2, 5, 3);
+            directionalLight.position.set(2, 3, 5);
             scene.add(directionalLight);
             const basepointGeom = new THREE.SphereGeometry(0.1, 16, 16);
             const basepointMat = new THREE.MeshStandardMaterial({ color: 0xffeb3b });
             const basepointMesh = new THREE.Mesh(basepointGeom, basepointMat);
-            basepointMesh.position.set(0, 1, 0);
+            basepointMesh.position.copy(basepoint);
             scene.add(basepointMesh);
             scene.add(polyhedronGroup);
             scene.add(delaunayGroup);
@@ -174,26 +216,181 @@
                 return `${rePart} ${sign} ${imPart}`;
             }
         }
+        // ---- Expression parser for complex inputs ----
+        // Supports: +, -, *, /, ^ (integer powers), parentheses, sqrt(...), and i
+        // Examples: "1/2", "(1+sqrt(2))/2", "-i/3", "((1+sqrt(5))/2)^2", "3 - (1+i)/3"
         function parseComplex(str) {
-            let s = str.trim().replace(/\s/g, '').toLowerCase();
-            if (s.length === 0) return new Complex(0, 0);
-            s = s.replace(/^i$/, '1i').replace(/^-i$/, '-1i').replace(/\+i$/, '+1i').replace(/-i$/, '-1i');
-            let real = 0, imag = 0;
-            const terms = s.match(/[+-]?(?:[^+-]+)/g) || [];
-            for (const term of terms) {
-                if (term.endsWith('i')) {
-                    const coeffStr = term.substring(0, term.length - 1);
-                    imag += parseFloat(coeffStr === '' || coeffStr === '+' ? '1' : (coeffStr === '-' ? '-1' : coeffStr));
-                } else if (term.includes('sqrt')) {
-                    const numMatch = term.match(/sqrt\(([^)]+)\)/);
-                    if (numMatch && numMatch[1]) {
-                        real += (term.startsWith('-') ? -1 : 1) * Math.sqrt(parseFloat(numMatch[1]));
-                    }
-                } else {
-                    real += parseFloat(term);
-                }
+          if (!str || typeof str !== 'string') return new Complex(0, 0);
+          // Normalize & insert implicit multiplications like "2i", ")(", ")i", "2(" or "2sqrt("
+          let s = str.trim();
+          // Replace unicode minus and normalize spaces
+          s = s.replace(/\u2212/g, '-').replace(/\s+/g, ''); 
+          // Canonicalize standalone i variants
+          s = s.replace(/^i$/, '1*i')
+               .replace(/^-i$/, '-1*i')
+               .replace(/\+i/g, '+1*i')
+               .replace(/-i/g, '-1*i');
+          // Insert implicit multiplication between: number/close-paren and (i | sqrt | '(')
+          s = s
+            .replace(/(\d|\))(?=i|\(|sqrt\()/g, '$1*')
+            .replace(/(i|\))(?=\()/g, '$1*'); // e.g., "i(1+1)"
+
+          // Tokenizer
+          const TOK = { NUM:'NUM', I:'I', SQRT:'SQRT', PLUS:'PLUS', MINUS:'MINUS', MUL:'MUL', DIV:'DIV', POW:'POW', LP:'LP', RP:'RP', EOF:'EOF' };
+          const tokens = [];
+          for (let i = 0; i < s.length; ) {
+            const c = s[i];
+            if (/\d/.test(c) || (c === '.' && /\d/.test(s[i+1] || ''))) {
+              let j = i + 1;
+              while (j < s.length && /[\d.]/.test(s[j])) j++;
+              tokens.push({ t: TOK.NUM, v: parseFloat(s.slice(i, j)) });
+              i = j; continue;
             }
-            return new Complex(real, imag);
+            if (c === 'i') { tokens.push({ t: TOK.I }); i++; continue; }
+            if (c === '+') { tokens.push({ t: TOK.PLUS }); i++; continue; }
+            if (c === '-') { tokens.push({ t: TOK.MINUS }); i++; continue; }
+            if (c === '*') { tokens.push({ t: TOK.MUL }); i++; continue; }
+            if (c === '/') { tokens.push({ t: TOK.DIV }); i++; continue; }
+            if (c === '^') { tokens.push({ t: TOK.POW }); i++; continue; }
+            if (c === '(') { tokens.push({ t: TOK.LP }); i++; continue; }
+            if (c === ')') { tokens.push({ t: TOK.RP }); i++; continue; }
+            if (c === 's' && s.slice(i, i+4) === 'sqrt') {
+              tokens.push({ t: TOK.SQRT }); i += 4; continue;
+            }
+            // Unknown character -> error: return NaN complex
+            return new Complex(NaN, NaN);
+          }
+          tokens.push({ t: TOK.EOF });
+
+          // Parser helpers
+          let pos = 0;
+          const peek = () => tokens[pos];
+          const eat = (type) => {
+            if (tokens[pos].t === type) { pos++; return true; }
+            return false;
+          };
+
+          function complex(re, im=0) { return new Complex(re, im); }
+          function cadd(a,b){ return new Complex(a.re+b.re, a.im+b.im); }
+          function csub(a,b){ return new Complex(a.re-b.re, a.im-b.im); }
+          function cmul(a,b){ return a.mul(b); }
+          function cdiv(a,b){ return a.div(b); }
+          function cpowInt(a, n) {
+            if (!Number.isFinite(n) || Math.floor(n) !== n) return new Complex(NaN, NaN);
+            if (n === 0) return new Complex(1,0);
+            if (n < 0) {
+              const inv = a.div(new Complex(1,0)); // ensure Complex
+              const ai = a.inverse ? a.inverse() : null;
+              const denom = a.re*a.re + a.im*a.im;
+              if (denom === 0) return new Complex(Infinity, Infinity);
+              const invc = new Complex(a.re/denom, -a.im/denom);
+              return cpowInt(invc, -n);
+            }
+            let r = new Complex(1,0), base = new Complex(a.re, a.im), k = n;
+            while (k > 0) {
+              if (k & 1) r = cmul(r, base);
+              base = cmul(base, base);
+              k >>= 1;
+            }
+            return r;
+          }
+
+          // Grammar:
+          // expr   := term (('+'|'-') term)*
+          // term   := factor (('*'|'/') factor)*
+          // factor := unary ('^' unary)*  // right-assoc via loop capturing last
+          // unary  := ('+'|'-') unary | primary
+          // primary:= NUM | 'i' | 'sqrt' '(' expr ')' | '(' expr ')'
+
+          function parsePrimary() {
+            if (eat(TOK.NUM)) {
+              return complex(tokens[pos-1].v, 0);
+            }
+            if (eat(TOK.I)) {
+              return complex(0, 1);
+            }
+            if (eat(TOK.SQRT)) {
+              if (!eat(TOK.LP)) return complex(NaN, NaN);
+              const inner = parseExpr();
+              if (!eat(TOK.RP)) return complex(NaN, NaN);
+              // sqrt only for (almost) real nonnegative values
+              if (Math.abs(inner.im) < 1e-12) {
+                const val = inner.re;
+                if (val >= -1e-12) return complex(Math.sqrt(Math.max(0, val)), 0);
+              }
+              // Fallback: principal sqrt of complex
+              const r = Math.hypot(inner.re, inner.im);
+              const theta = Math.atan2(inner.im, inner.re);
+              const rootR = Math.sqrt(r);
+              const half = theta/2;
+              return complex(rootR * Math.cos(half), rootR * Math.sin(half));
+            }
+            if (eat(TOK.LP)) {
+              const e = parseExpr();
+              if (!eat(TOK.RP)) return complex(NaN, NaN);
+              return e;
+            }
+            // Unexpected token
+            return complex(NaN, NaN);
+          }
+
+          function parseUnary() {
+            if (eat(TOK.PLUS)) return parseUnary();
+            if (eat(TOK.MINUS)) {
+              const u = parseUnary();
+              return complex(-u.re, -u.im);
+            }
+            return parsePrimary();
+          }
+
+          function parseFactor() {
+            // Right-associative power
+            let base = parseUnary();
+            while (eat(TOK.POW)) {
+              const exponent = parseUnary();
+              // We only support ^ with integer real exponents
+              if (Math.abs(exponent.im) > 1e-12 || Math.abs(exponent.re - Math.round(exponent.re)) > 1e-12) {
+                // Non-integer or complex exponent -> use principal complex power via exp(log)
+                const r = Math.hypot(base.re, base.im);
+                const theta = Math.atan2(base.im, base.re);
+                const lnz = new Complex(Math.log(r), theta);
+                const expArg = cmul(lnz, exponent);
+                const mag = Math.exp(expArg.re);
+                base = complex(mag * Math.cos(expArg.im), mag * Math.sin(expArg.im));
+              } else {
+                base = cpowInt(base, Math.round(exponent.re));
+              }
+            }
+            return base;
+          }
+
+          function parseTerm() {
+            let v = parseFactor();
+            for (;;) {
+              if (eat(TOK.MUL)) v = cmul(v, parseFactor());
+              else if (eat(TOK.DIV)) v = cdiv(v, parseFactor());
+              else break;
+            }
+            return v;
+          }
+
+          function parseExpr() {
+            let v = parseTerm();
+            for (;;) {
+              if (eat(TOK.PLUS)) v = cadd(v, parseTerm());
+              else if (eat(TOK.MINUS)) v = csub(v, parseTerm());
+              else break;
+            }
+            return v;
+          }
+
+          const result = parseExpr();
+          // If trailing tokens remain before EOF, treat as error
+          if (peek().t !== TOK.EOF) return new Complex(NaN, NaN);
+          // Clean tiny zeros
+          const re = Math.abs(result.re) < 1e-12 ? 0 : result.re;
+          const im = Math.abs(result.im) < 1e-12 ? 0 : result.im;
+          return new Complex(re, im);
         }
         class Matrix2 {
             constructor(a, b, c, d) { this.a = a; this.b = b; this.c = c; this.d = d; }
@@ -338,8 +535,8 @@
         }
 
         const exampleLibrary = [
-          // Modular group
-          [ ['1','1','0','1'], ['0','-1','1','0'] ],
+          // Apollonian Gasket
+          [ ['1','1+i','0','1'], ['0','-1','1','0'] ],
           // Triangle-like
           [ ['1','2i','0','1'], ['1','-1','1','1'] ],
           // Borromean-like
@@ -385,8 +582,8 @@
             );
           });
           document.getElementById('resetViewBtn').addEventListener('click', () => {
-            camera.position.set(0, 3, 5);
-            controls.target.set(0, 1, 0);
+            camera.position.set(0, -5, 3);
+            controls.target.set(0, 0, 1);
             controls.update();
           });
           // --- Show stabilizer button logic ---
@@ -435,6 +632,22 @@
             }
             showMessage(`Printed ${neighbors.length} standard generators (Delaunay neighbors).`);
           });
+          // --- Pager controls ---
+          const prevBtn = document.getElementById('prevPageBtn');
+          const nextBtn = document.getElementById('nextPageBtn');
+          if (prevBtn) prevBtn.addEventListener('click', () => {
+            if (currentPage <= 1) return;
+            currentPage = Math.max(1, currentPage - 1);
+            updatePanelPage();
+            typesetMath();
+          });
+          if (nextBtn) nextBtn.addEventListener('click', () => {
+            if (currentPage >= NUM_PAGES) return;
+            currentPage = Math.min(NUM_PAGES, currentPage + 1);
+            updatePanelPage();
+            typesetMath();
+          });
+          updatePanelPage();
         }
 
         // --- Hyperbolic Geometry & Drawing ---
@@ -454,13 +667,13 @@
         function clearDelaunay(){ clearGroup(delaunayGroup); }
         function clearOrbit(){ clearGroup(orbitGroup); }
 
-        // Hyperbolic distance in upper half-space H^3 (points as THREE.Vector3, y>0)
+        // Hyperbolic distance in upper half-space H^3 with height = z > 0
         function hDist(p, q) {
-        const dx = p.x - q.x, dy = p.y - q.y, dz = p.z - q.z;
-        const num = dx*dx + dy*dy + dz*dz;
-        const den = 2 * p.y * q.y;
-        const c = 1 + num / den;
-        return Math.acosh(Math.max(1, c));
+          const dx = p.x - q.x, dy = p.y - q.y, dz = p.z - q.z;
+          const num = dx*dx + dy*dy + dz*dz;
+          const den = 2 * p.z * q.z;
+          const c = 1 + num / den;
+          return Math.acosh(Math.max(1, c));
         }
         
         function clearPolyhedron(){ clearGroup(polyhedronGroup); }
@@ -503,8 +716,9 @@
               .map(([_, v]) => v);
             return out;
         }
-        // Image of the basepoint o=(0,1,0) under m in PSL(2,C)
+        // Image of the basepoint o=(0,0,1) under m in PSL(2,C)
         // For m = [a b; c d], we have: m·o = ( (a\bar c + b\bar d) / (|c|^2 + |d|^2),  1 / (|c|^2 + |d|^2) )
+        // We map (u, t) to THREE as (x, y, z) = (Re(u), Im(u), t).
         function imageOfBasepoint(m) {
             const cAbs2 = m.c.normSq();
             const dAbs2 = m.d.normSq();
@@ -528,127 +742,126 @@
                 if (!isFinite(p.t) || p.t <= 0) continue;
                 // Skip if numerically equal to the basepoint
                 if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) continue;
-                pts.push(new THREE.Vector3(p.u.re, p.t, -p.u.im));
+                pts.push(new THREE.Vector3(p.u.re, p.u.im, p.t));
             }
             return pts;
         }
 
-        // Draw the Dirichlet bisector (perpendicular bisector in H^3) between o=(0,1,0) and p=(u,t)
+        // Draw the Dirichlet bisector (perpendicular bisector in H^3) between basepoint o=(0,0,1) and p=(u,t)
         // The bisector is a hemisphere (center on t=0) or, in the limiting case t≈1, a vertical plane.
         function drawBisector(p, q, material) {
-            // p, q are THREE.Vector3 in upper half-space (x,y,z) with y>0
-            // If q is omitted or falsy, use basepoint o=(0,1,0)
-            if (!p) return;
-            const o = new THREE.Vector3(0, 1, 0);
-            q = q || o;
+          // p, q are THREE.Vector3 with z>0; default q is the basepoint o=(0,0,1)
+          if (!p) return;
+          q = q || basepoint;
 
-            const xp = p.x, yp = p.y, zp = p.z;
-            const xq = q.x, yq = q.y, zq = q.z;
+          const xp = p.x, yp = p.y, zp = p.z;
+          const xq = q.x, yq = q.y, zq = q.z;
 
-            const eps = 1e-9;
+          const eps = 1e-9;
 
-            // If heights are (numerically) equal, the bisector is a vertical plane
-            if (Math.abs(yp - yq) < eps) {
-                // plane normal is horizontal and parallel to q - p in the xz-plane
-                const nx = xq - xp;
-                const nz = zq - zp;
-                const n = new THREE.Vector3(nx, 0, nz);
-                if (n.length() < eps) return; // degenerate
-                n.normalize();
+          // If heights are equal, the bisector is a vertical plane (normal in xy-plane)
+          if (Math.abs(zp - zq) < eps) {
+            const nx = xq - xp;
+            const ny = yq - yp;
+            const n = new THREE.Vector3(nx, ny, 0);
+            if (n.length() < eps) return; // degenerate
+            n.normalize();
 
-                // Compute a point on the plane using Euclidean midpoint projected with correct offset
-                const Sp = xp*xp + yp*yp + zp*zp;
-                const Sq = xq*xq + yq*yq + zq*zq;
-                const d = (Sq - Sp) / 2; // n_x x + n_z z = d
-                const nlen2 = (xq - xp)*(xq - xp) + (zq - zp)*(zq - zp);
-                const scale = nlen2 < eps ? 0 : d / nlen2;
-                const pointOnPlane = new THREE.Vector3((xq - xp) * scale, (yp + yq) / 2, (zq - zp) * scale);
-
-                const planeGeom = new THREE.PlaneGeometry(40, 40);
-                const planeMesh = new THREE.Mesh(planeGeom, material);
-                // rotate z-axis (0,0,1) to the plane normal n
-                planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
-                planeMesh.position.copy(pointOnPlane);
-                polyhedronGroup.add(planeMesh);
-                return;
-            }
-
-            // Otherwise, the bisector is a hemisphere with center on y=0 (orthogonal to the boundary)
-            // From equality of hyperbolic distances: y_q |x - p|^2 = y_p |x - q|^2
-            const denom = (yq - yp);
-            const cx = (yq * xp - yp * xq) / denom;
-            const cz = (yq * zp - yp * zq) / denom;
-            const cy = 0;
-
-            // Radius^2 = |c|^2 - (y_q |p|^2 - y_p |q|^2) / (y_q - y_p)
+            // Use Euclidean mid-height and solve n_x x + n_y y = d for a point on the plane
             const Sp = xp*xp + yp*yp + zp*zp;
             const Sq = xq*xq + yq*yq + zq*zq;
-            const c2 = cx*cx + cy*cy + cz*cz;
-            const r2 = c2 - (yq * Sp - yp * Sq) / denom;
-            if (!(r2 > eps)) return; // invalid/degenerate
-            const r = Math.sqrt(r2);
+            const d = (Sq - Sp) / 2; // n_x x + n_y y = d
+            const nlen2 = (xq - xp)*(xq - xp) + (yq - yp)*(yq - yp);
+            const scale = nlen2 < eps ? 0 : d / nlen2;
+            const pointOnPlane = new THREE.Vector3((xq - xp) * scale, (yq - yp) * scale, (zp + zq) / 2);
 
-            const geometry = new THREE.SphereGeometry(r, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
-            const hemisphere = new THREE.Mesh(geometry, material);
-            hemisphere.position.set(cx, 0, cz);
-            polyhedronGroup.add(hemisphere);
+            const planeGeom = new THREE.PlaneGeometry(40, 40);
+            const planeMesh = new THREE.Mesh(planeGeom, material);
+            // Start from a plane with normal along +z, rotate it so its normal is n (in xy plane)
+            planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+            planeMesh.position.copy(pointOnPlane);
+            polyhedronGroup.add(planeMesh);
+            return;
+          }
+
+          // Hemisphere orthogonal to boundary (center on z=0)
+          // From equality of hyperbolic distances: z_q |(x,y) - p_xy|^2 = z_p |(x,y) - q_xy|^2
+          const denom = (zq - zp);
+          const cx = (zq * xp - zp * xq) / denom;
+          const cy = (zq * yp - zp * yq) / denom;
+          const cz = 0;
+
+          const Sp = xp*xp + yp*yp + zp*zp;
+          const Sq = xq*xq + yq*yq + zq*zq;
+          const c2 = cx*cx + cy*cy + cz*cz;
+          const r2 = c2 - (zq * Sp - zp * Sq) / denom;
+          if (!(r2 > eps)) return; // invalid/degenerate
+          const r = Math.sqrt(r2);
+
+          // Build a hemisphere whose flat face lies in z=0 and dome extends into z>0.
+          const geometry = new THREE.SphereGeometry(r, 64, 32, 0);
+          const hemisphere = new THREE.Mesh(geometry, material);
+          // Rotate so the hemisphere opens along +z instead of +y
+          hemisphere.rotation.x = -Math.PI / 2;
+          hemisphere.position.set(cx, cy, 0);
+          polyhedronGroup.add(hemisphere);
         }
 
         function samplePointsOnBisector(u, t, maxSamples = 160) {
+          // (x, y, z) = (Re u, Im u, t). Boundary is z=0. Basepoint o=(0,0,1).
           const pts = [];
           const eps = 1e-9;
 
-          // plane case
+          // If t ≈ 1, the bisector between o and p is a vertical plane in z, with normal in the xy-plane
           if (Math.abs(t - 1.0) < eps) {
-              const n = new THREE.Vector3(u.re, 0, -u.im);
-              if (n.length() < eps) return pts;
-              n.normalize();
-              const tmp = Math.abs(n.y) < 0.9 ? new THREE.Vector3(0,1,0) : new THREE.Vector3(1,0,0);
-              const b1 = new THREE.Vector3().crossVectors(n, tmp).normalize();
-              const b2 = new THREE.Vector3().crossVectors(n, b1).normalize();
-              const center = new THREE.Vector3(u.re/2, 1, -u.im/2);
-              const R = 2.5, steps = Math.max(4, Math.floor(Math.sqrt(maxSamples)));
-              for (let i = -steps; i <= steps; i++) {
+            const n = new THREE.Vector3(u.re, u.im, 0);
+            if (n.length() < eps) return pts;
+            n.normalize();
+            const tmp = Math.abs(n.z) < 0.9 ? new THREE.Vector3(0,0,1) : new THREE.Vector3(1,0,0);
+            const b1 = new THREE.Vector3().crossVectors(n, tmp).normalize();
+            const b2 = new THREE.Vector3().crossVectors(n, b1).normalize();
+            const center = new THREE.Vector3(u.re/2, u.im/2, 1);
+            const R = 2.5, steps = Math.max(4, Math.floor(Math.sqrt(maxSamples)));
+            for (let i = -steps; i <= steps; i++) {
               for (let j = -steps; j <= steps; j++) {
-                  const s = i/steps, t2 = j/steps;
-                  const p = new THREE.Vector3().copy(center)
+                const s = i/steps, t2 = j/steps;
+                const p = new THREE.Vector3().copy(center)
                   .addScaledVector(b1, R*s)
                   .addScaledVector(b2, R*t2);
-                  if (p.y > eps) pts.push(p);
+                if (p.z > eps) pts.push(p);
               }
-              }
-              return pts;
+            }
+            return pts;
           }
 
-          // hemisphere case
+          // Hemisphere case (center on z=0, orthogonal to boundary)
           const oneMinusT = 1 - t;
           if (Math.abs(oneMinusT) < eps) return pts;
-          const cx = u.re / oneMinusT, cz = -u.im / oneMinusT;
-          const r2 = t * (1 + u.normSq() / (oneMinusT*oneMinusT));
+          const cx = u.re / oneMinusT, cy = u.im / oneMinusT;
+          const r2 = t * (1 + (u.re*u.re + u.im*u.im) / (oneMinusT*oneMinusT));
           if (r2 <= eps) return pts;
           const r = Math.sqrt(r2);
-          const center = new THREE.Vector3(cx, 0, cz);
+          const center = new THREE.Vector3(cx, cy, 0);
 
           const rings = Math.max(6, Math.floor(Math.sqrt(maxSamples)));
           const segs  = rings * 2;
           for (let i = 1; i <= rings; i++) {
-              const phi = (i / (rings+1)) * Math.PI/2;
-              const y   = r * Math.cos(phi);
-              const rho = r * Math.sin(phi);
-              for (let j = 0; j < segs; j++) {
+            const phi = (i / (rings+1)) * Math.PI/2; // cap at z>=0
+            const z   = r * Math.cos(phi);
+            const rho = r * Math.sin(phi);
+            for (let j = 0; j < segs; j++) {
               const theta = (2*Math.PI * j)/segs;
               const x = center.x + rho * Math.cos(theta);
-              const z = center.z + rho * Math.sin(theta);
+              const y = center.y + rho * Math.sin(theta);
               const p = new THREE.Vector3(x, y, z);
-              if (p.y > eps) pts.push(p);
-              }
+              if (p.z > eps) pts.push(p);
+            }
           }
-          return pts; 
+          return pts;
         }
 
         function computeDelaunayNeighbors(groupElements) {
-          const base = new THREE.Vector3(0,1,0);
-          const orbit = [base];
+          const orbit = [basepoint];
           const invs  = [];
 
           for (const g of groupElements) {
@@ -656,7 +869,7 @@
               if (!inv) continue;
               const p = imageOfBasepoint(inv);
               if (!isFinite(p.t) || p.t <= 0) continue;
-              const v = new THREE.Vector3(p.u.re, p.t, -p.u.im);
+              const v = new THREE.Vector3(p.u.re, p.u.im, p.t);
               orbit.push(v);
               invs.push({ u: p.u, t: p.t, v , g });
           }
@@ -666,7 +879,7 @@
               const samples = samplePointsOnBisector(item.u, item.t, 160);
               let contributes = false;
               for (const s of samples) {
-                  const d0 = hDist(base, s);
+                  const d0 = hDist(basepoint, s);
                   const d1 = hDist(item.v, s);
                   if (Math.abs(d0 - d1) > 2e-3) continue; // near bisector
                   let ok = true;
@@ -687,15 +900,14 @@
         }
 
         function drawDelaunayEdges(neighbors) {
-        clearDelaunay();
-        const base = new THREE.Vector3(0,1,0);
-        const material = new THREE.LineBasicMaterial({ linewidth: 2 });
-        for (const v of neighbors) {
-            const vv = (v && v.v) ? v.v : v;
-            const geom = new THREE.BufferGeometry().setFromPoints([base, vv]);
-            const line = new THREE.Line(geom, material);
-            delaunayGroup.add(line);
-            }
+          clearDelaunay();
+          const material = new THREE.LineBasicMaterial({ linewidth: 2 });
+          for (const v of neighbors) {
+              const vv = (v && v.v) ? v.v : v;
+              const geom = new THREE.BufferGeometry().setFromPoints([basepoint, vv]);
+              const line = new THREE.Line(geom, material);
+              delaunayGroup.add(line);
+          }
         }
 
         function drawOrbitPoints(points) {
@@ -744,8 +956,8 @@
                     if (!isFinite(p.t) || p.t <= 0) return;
                     if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) return;
 
-                    const pVec = new THREE.Vector3(p.u.re, p.t, -p.u.im);
-                    drawBisector(pVec, undefined, material); // q defaults to basepoint (0,1,0)
+                    const pVec = new THREE.Vector3(p.u.re, p.u.im, p.t);
+                    drawBisector(pVec, undefined, material); // q defaults to basepoint (0,0,1)
                 });
             }
             const showOrbit = document.getElementById('toggleOrbit')?.checked;
@@ -766,7 +978,7 @@
 
         // --- Init ---
         init();
-        // Setup panel and defaults in Limitsets style
+        // Setup panel and defaults
         setupPanelUI();
         const delCb = document.getElementById('toggleDelaunay');
             if (delCb) delCb.addEventListener('change', () => {

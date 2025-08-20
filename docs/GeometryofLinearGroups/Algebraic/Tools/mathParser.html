@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathQuill Complex Parser with Variables</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- jQuery (a dependency for mathQuill) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    
+    <!-- mathQuill Library (CSS and JS) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.js"></script>
+    
+    <!-- math.js Library for parsing and evaluation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+
+    <style>
+        /* Custom styles for better presentation */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Style the mathquill input box */
+        .mq-editable-field, .mq-static-math {
+            border: 1px solid #cbd5e1; /* slate-300 */
+            border-radius: 0.375rem; /* rounded-md */
+            padding: 0.75rem;
+            font-size: 1.25rem; /* text-xl */
+            transition: border-color 0.2s;
+        }
+        .mq-editable-field.mq-focused {
+            border-color: #4f46e5; /* indigo-600 */
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
+        /* Style for the variable name labels */
+        .variable-label .mq-static-math {
+            border: none;
+            padding: 0;
+            font-size: 1.125rem; /* text-lg */
+        }
+        /* highlight invalid variable input */
+        .variable-row input.border-rose-400 { box-shadow: 0 0 0 1px rgba(244,63,94,0.6) inset; }
+    </style>
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen py-12">
+    <div class="w-full max-w-2xl mx-auto p-6 md:p-8">
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            <header class="mb-6 text-center">
+                <h1 class="text-3xl font-bold text-slate-800">Advanced Math Parser</h1>
+                <p class="text-slate-500 mt-2">Enter an expression and define custom variables.</p>
+            </header>
+
+            <!-- Custom Variables Section -->
+            <div class="mb-4">
+                <div id="variables-container" class="space-y-3">
+                    <!-- Variable inputs will be dynamically added here -->
+                </div>
+                <button id="add-variable-btn" class="mt-4 px-4 py-2 bg-indigo-100 text-sm text-indigo-700 hover:bg-indigo-200 font-medium rounded-md transition-colors duration-200">+ Add Variable</button>
+            </div>
+
+            <!-- MathQuill Input Area -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Math Expression:</label>
+                <span id="math-input" class="w-full"></span>
+            </div>
+
+            <!-- Result Display Area -->
+            <div>
+                <h2 class="text-lg font-semibold text-slate-800">Result:</h2>
+                <div id="result-container" class="mt-2 p-4 bg-slate-50 rounded-lg min-h-[60px] flex items-center justify-center">
+                    <p id="result" class="text-2xl font-mono text-indigo-600 break-all"></p>
+                </div>
+            </div>
+        </div>
+        <footer class="text-center mt-6 text-slate-400 text-sm">
+            <p>Powered by mathQuill & math.js</p>
+        </footer>
+    </div>
+
+    <script>
+        // DOM Element References
+        const mathInputSpan = document.getElementById('math-input');
+        const resultDiv = document.getElementById('result');
+        const variablesContainer = document.getElementById('variables-container');
+        const addVariableBtn = document.getElementById('add-variable-btn');
+
+        // State Management
+        let variableScope = {}; // Stores variable values, e.g., { x1: 5, x2: 10 }
+        let variableCounter = 0;
+
+        // Initialize MathQuill
+        const MQ = MathQuill.getInterface(2);
+        const mathField = MQ.MathField(mathInputSpan, {
+            handlers: {
+                edit: () => parseAndEvaluate(mathField.latex())
+            }
+        });
+
+        function latexToParserFormat(latex) {
+            let parserString = latex;
+
+            // The order of these replacements is important.
+            parserString = parserString.replace(/\\frac\{(.+?)\}\{(.+?)\}/g, '($1)/($2)');
+            parserString = parserString.replace(/\\sqrt\[(.+?)\]\{(.+?)\}/g, 'nthRoot($2, $1)');
+            parserString = parserString.replace(/\\sqrt\{(.+?)\}/g, 'sqrt($1)');
+            // Convert x_{...} to x... and x_... to x... for variable names
+            parserString = parserString.replace(/x_\{(.+?)\}/g, 'x$1');
+            parserString = parserString.replace(/x_(\d+)/g, 'x$1');
+            parserString = parserString.replace(/\\(sin|cos|tan|csc|sec|cot|sinh|cosh|tanh)h?\((.*?)\)/g, '$1($2)');
+            parserString = parserString.replace(/\\log_\{(.+?)\}\((.+?)\)/g, 'log($2, $1)');
+            parserString = parserString.replace(/\\ln\((.+?)\)/g, 'log($1)');
+            parserString = parserString.replace(/\\pi/g, 'pi');
+            parserString = parserString.replace(/\\times/g, '*');
+            parserString = parserString.replace(/\\div/g, '/');
+            parserString = parserString.replace(/e\^\{(.+?)\}/g, 'exp($1)');
+            parserString = parserString.replace(/\\left\|(.+?)\\right\|/g, 'abs($1)');
+            parserString = parserString.replace(/\^\{(.+?)\}/g, '^($1)');
+            parserString = parserString.replace(/\\left\(/g, '(');
+            parserString = parserString.replace(/\\right\)/g, ')');
+            // Allow ** as exponent operator
+            parserString = parserString.replace(/\*\*/g, '^');
+
+            return parserString;
+        }
+
+        function parseAndEvaluate(latex) {
+            if (latex.trim() === '') {
+                resultDiv.textContent = '';
+                resultDiv.classList.remove('text-red-500');
+                return;
+            }
+
+            const parserReadyString = latexToParserFormat(latex);
+
+            try {
+                const result = math.evaluate(parserReadyString, variableScope);
+                const formattedResult = math.format(result, { precision: 14 });
+
+                resultDiv.textContent = formattedResult;
+                resultDiv.classList.remove('text-red-500');
+                resultDiv.classList.add('text-indigo-600');
+            } catch (error) {
+                resultDiv.textContent = 'Invalid Expression';
+                resultDiv.classList.add('text-red-500');
+                resultDiv.classList.remove('text-indigo-600');
+                console.error('Parsing Error:', error.message, 'Input:', parserReadyString);
+            }
+        }
+
+        function addVariableInput() {
+            variableCounter++;
+            const varName = `x${variableCounter}`;
+            const latexVarName = `x_{${variableCounter}}`;
+
+            const container = document.createElement('div');
+            container.className = 'variable-row flex items-center space-x-4';
+
+            // Label container with MathQuill-rendered variable name
+            const labelContainer = document.createElement('div');
+            labelContainer.className = 'variable-label flex-shrink-0';
+            const labelSpan = document.createElement('span');
+            labelContainer.appendChild(labelSpan);
+            const staticMathField = MQ.StaticMath(labelSpan);
+            staticMathField.latex(latexVarName);
+
+            // Render equals sign with MathQuill to match formatting
+            const equalsSignContainer = document.createElement('div');
+            equalsSignContainer.className = 'variable-equals flex-shrink-0';
+            const equalsSpan = document.createElement('span');
+            equalsSignContainer.appendChild(equalsSpan);
+            const equalsMathField = MQ.StaticMath(equalsSpan);
+            equalsMathField.latex('=');
+
+            // Input field
+            const input = document.createElement('input');
+            input.id = varName;
+            input.name = varName;
+            input.className = 'w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500';
+            input.addEventListener('input', () => {
+                evaluateAllVariables();
+                parseAndEvaluate(mathField.latex());
+            });
+
+            // Delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'px-2 py-1 text-sm ml-2 bg-rose-100 text-rose-700 hover:bg-rose-200 rounded-md transition-colors duration-200';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.setAttribute('aria-label', `Delete variable ${latexVarName}`);
+            deleteBtn.addEventListener('click', () => {
+                delete variableScope[varName];
+                container.remove();
+                reindexVariables();
+            });
+
+            container.appendChild(labelContainer);
+            container.appendChild(equalsSignContainer);
+            container.appendChild(input);
+            container.appendChild(deleteBtn);
+            variablesContainer.appendChild(container);
+
+            evaluateAllVariables();
+            parseAndEvaluate(mathField.latex());
+        }
+
+        // Evaluate every variable input as an expression using math.js
+        function evaluateAllVariables() {
+            const rows = Array.from(variablesContainer.querySelectorAll('.variable-row'));
+            // Build a fresh scope so we don't keep stale values on errors
+            const newScope = {};
+
+            // Helper to preprocess a raw string: allow **, and pass through latexToParserFormat
+            const preprocess = (s) => {
+                if (typeof s !== 'string') return '';
+                // If user entered plain math, this is harmless; if they entered some LaTeX-y bits, we convert
+                let t = s.trim();
+                // Allow ** for exponentiation
+                t = t.replace(/\*\*/g, '^');
+                // Try to run through latexToParserFormat to pick up things like \pi, \sqrt{}
+                try { t = latexToParserFormat(t); } catch (_) {}
+                return t;
+            };
+
+            // One pass in DOM order lets later variables depend on earlier ones
+            rows.forEach((row) => {
+                const input = row.querySelector('input');
+                if (!input) return;
+                const name = input.name || input.id;
+                const raw = input.value || '';
+                const expr = preprocess(raw);
+
+                // reset error state first
+                input.classList.remove('border-rose-400', 'focus:border-rose-500');
+                input.removeAttribute('title');
+
+                // Empty means 0
+                if (expr === '') {
+                    newScope[name] = 0;
+                    return;
+                }
+                try {
+                    const val = math.evaluate(expr, newScope);
+                    newScope[name] = val;
+                } catch (e) {
+                    // mark error on this input, keep previous value if existed else 0
+                    input.classList.add('border-rose-400');
+                    input.setAttribute('title', e.message || 'Invalid variable expression');
+                    newScope[name] = (typeof variableScope[name] !== 'undefined') ? variableScope[name] : 0;
+                }
+            });
+
+            // Commit the new scope
+            variableScope = newScope;
+        }
+
+        // --- Initial Setup ---
+        
+        addVariableBtn.addEventListener('click', addVariableInput);
+
+        // Set an initial expression
+        const initialLatex = '\\sin(\\frac{\\pi}{2})';
+        mathField.latex(initialLatex);
+
+        evaluateAllVariables();
+        parseAndEvaluate(initialLatex);
+
+    </script>
+</body>
+</html>

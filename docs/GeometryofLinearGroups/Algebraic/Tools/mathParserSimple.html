@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathQuill Complex Parser with Variables</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- jQuery (a dependency for mathQuill) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    
+    <!-- mathQuill Library (CSS and JS) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.js"></script>
+    
+    <!-- math.js Library for parsing and evaluation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+
+    <style>
+        /* Custom styles for better presentation */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Style the mathquill input box */
+        .mq-editable-field, .mq-static-math {
+            border: 1px solid #cbd5e1; /* slate-300 */
+            border-radius: 0.375rem; /* rounded-md */
+            padding: 0.75rem;
+            font-size: 1.25rem; /* text-xl */
+            transition: border-color 0.2s;
+        }
+        .mq-editable-field.mq-focused {
+            border-color: #4f46e5; /* indigo-600 */
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
+        /* Style for the variable name labels */
+        .variable-label .mq-static-math {
+            border: none;
+            padding: 0;
+            font-size: 1.125rem; /* text-lg */
+        }
+    </style>
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen py-12">
+    <div class="w-full max-w-2xl mx-auto p-6 md:p-8">
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            <header class="mb-6 text-center">
+                <h1 class="text-3xl font-bold text-slate-800">Math Parser</h1>
+                <p class="text-slate-500 mt-2">Enter an expression.</p>
+            </header>
+
+            <!-- MathQuill Input Area -->
+            <div class="mb-6">
+                <span id="math-input" class="w-full"></span>
+            </div>
+
+            <!-- Result Display Area -->
+            <div>
+                <h2 class="text-lg font-semibold text-slate-800">Result:</h2>
+                <div id="result-container" class="mt-2 p-4 bg-slate-50 rounded-lg min-h-[60px] flex items-center justify-center">
+                    <p id="result" class="text-2xl font-mono text-indigo-600 break-all"></p>
+                </div>
+            </div>
+        </div>
+        <footer class="text-center mt-6 text-slate-400 text-sm">
+            <p>Powered by mathQuill & math.js</p>
+        </footer>
+    </div>
+
+    <script>
+        // DOM Element References
+        const mathInputSpan = document.getElementById('math-input');
+        const resultDiv = document.getElementById('result');
+        const variablesContainer = document.getElementById('variables-container');
+        const addVariableBtn = document.getElementById('add-variable-btn');
+
+        // State Management
+        let variableScope = {}; // Stores variable values, e.g., { x1: 5, x2: 10 }
+        let variableCounter = 0;
+
+        // Initialize MathQuill
+        const MQ = MathQuill.getInterface(2);
+        const mathField = MQ.MathField(mathInputSpan, {
+            handlers: {
+                edit: () => parseAndEvaluate(mathField.latex())
+            }
+        });
+
+        function latexToParserFormat(latex) {
+            let parserString = latex;
+
+            // The order of these replacements is important.
+            parserString = parserString.replace(/\\frac\{(.+?)\}\{(.+?)\}/g, '($1)/($2)');
+            parserString = parserString.replace(/\\sqrt\[(.+?)\]\{(.+?)\}/g, 'nthRoot($2, $1)');
+            parserString = parserString.replace(/\\sqrt\{(.+?)\}/g, 'sqrt($1)');
+            // Convert x_{...} to x... and x_... to x... for variable names
+            parserString = parserString.replace(/x_\{(.+?)\}/g, 'x$1');
+            parserString = parserString.replace(/x_(\d+)/g, 'x$1');
+            parserString = parserString.replace(/\\(sin|cos|tan|csc|sec|cot|sinh|cosh|tanh)h?\((.*?)\)/g, '$1($2)');
+            parserString = parserString.replace(/\\log_\{(.+?)\}\((.+?)\)/g, 'log($2, $1)');
+            parserString = parserString.replace(/\\ln\((.+?)\)/g, 'log($1)');
+            parserString = parserString.replace(/\\pi/g, 'pi');
+            parserString = parserString.replace(/\\times/g, '*');
+            parserString = parserString.replace(/\\div/g, '/');
+            parserString = parserString.replace(/e\^\{(.+?)\}/g, 'exp($1)');
+            parserString = parserString.replace(/\\left\|(.+?)\\right\|/g, 'abs($1)');
+            parserString = parserString.replace(/\^\{(.+?)\}/g, '^($1)');
+            parserString = parserString.replace(/\\left\(/g, '(');
+            parserString = parserString.replace(/\\right\)/g, ')');
+            // Allow ** as exponent operator
+            parserString = parserString.replace(/\*\*/g, '^');
+
+            return parserString;
+        }
+
+        function parseAndEvaluate(latex) {
+            if (latex.trim() === '') {
+                resultDiv.textContent = '';
+                resultDiv.classList.remove('text-red-500');
+                return;
+            }
+
+            const parserReadyString = latexToParserFormat(latex);
+
+            try {
+                const result = math.evaluate(parserReadyString, variableScope);
+                const formattedResult = math.format(result, { precision: 14 });
+
+                resultDiv.textContent = formattedResult;
+                resultDiv.classList.remove('text-red-500');
+                resultDiv.classList.add('text-indigo-600');
+            } catch (error) {
+                resultDiv.textContent = 'Invalid Expression';
+                resultDiv.classList.add('text-red-500');
+                resultDiv.classList.remove('text-indigo-600');
+                console.error('Parsing Error:', error.message, 'Input:', parserReadyString);
+            }
+        }
+
+        // Set an initial expression
+        const initialLatex = '\\sin(\\frac{\\pi}{2})';
+        mathField.latex(initialLatex);
+
+        // Evaluate the initial expression on page load
+        parseAndEvaluate(initialLatex);
+
+    </script>
+</body>
+</html>

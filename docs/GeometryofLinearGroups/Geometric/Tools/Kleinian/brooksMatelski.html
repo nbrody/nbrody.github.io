@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Shimizu-Leutbecher Elements Visualization in H^3 (UHS Model)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { margin: 0; display: flex; font-family: Arial, sans-serif; }
+        #controls { width: 320px; padding: 20px; background-color: #f0f0f0; height: 100vh; box-sizing: border-box; overflow-y: auto; position: relative; z-index: 2; }
+        #viewer { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 1; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="number"] { width: 100%; padding: 5px; margin-bottom: 5px; box-sizing: border-box; }
+        button { padding: 10px 20px; width: 100%; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 5px;}
+        button:hover { background-color: #0056b3; }
+        h2 { margin-top: 0; }
+    </style>
+</head>
+<body>
+
+<div id="controls">
+    <h2>Parameters (Traces)</h2>
+    <p>Define the group &lt;A, B&gt; where A=[[1,1],[0,1]].</p>
+
+    <div class="input-group">
+        <label>Tau (τ = Tr(B))</label>
+        <label>Real Part:</label>
+        <!-- Example values for a discrete group -->
+        <input type="number" id="tau_re" value="2.5" step="0.1">
+        <label>Imaginary Part:</label>
+        <input type="number" id="tau_im" value="0.0" step="0.1">
+    </div>
+
+    <div class="input-group">
+        <label>Beta (β = Tr(AB))</label>
+        <label>Real Part:</label>
+        <input type="number" id="beta_re" value="1.0" step="0.1">
+        <label>Imaginary Part:</label>
+        <input type="number" id="beta_im" value="1.8" step="0.1">
+    </div>
+
+    <div class="input-group">
+        <label>Iterations (N):</label>
+        <input type="number" id="iterations" value="12" min="1" max="30">
+    </div>
+
+    <button onclick="runVisualization()">Visualize</button>
+
+    <h3>Legend</h3>
+    <p>H³ Upper Half-Space Model.</p>
+    <p><span style="color: red;">Red (i=0) to Violet (i=N):</span> Axes of the sequence G₀=B, Gᵢ₊₁ = Gᵢ A Gᵢ⁻¹.</p>
+    <p><i>Drag to rotate, scroll to zoom.</i></p>
+</div>
+
+<div id="viewer"></div>
+
+<script>
+    // ====================================================================
+    // --- Complex Number Implementation ---
+    // ====================================================================
+    class Complex {
+        constructor(re = 0, im = 0) {
+            this.re = re;
+            this.im = im;
+        }
+
+        static from(val) {
+            if (val instanceof Complex) return val;
+            return new Complex(val, 0);
+        }
+
+        add(other) {
+            const o = Complex.from(other);
+            return new Complex(this.re + o.re, this.im + o.im);
+        }
+
+        sub(other) {
+            const o = Complex.from(other);
+            return new Complex(this.re - o.re, this.im - o.im);
+        }
+
+        mul(other) {
+            const o = Complex.from(other);
+            const re = this.re * o.re - this.im * o.im;
+            const im = this.re * o.im + this.im * o.re;
+            return new Complex(re, im);
+        }
+
+        div(other) {
+            const o = Complex.from(other);
+            const denom = o.re * o.re + o.im * o.im;
+            if (denom < 1e-15) {
+                 return Complex.Infinity();
+            }
+            const re = (this.re * o.re + this.im * o.im) / denom;
+            const im = (this.im * o.re - this.re * o.im) / denom;
+            return new Complex(re, im);
+        }
+
+        absSq() {
+            return this.re * this.re + this.im * this.im;
+        }
+
+        abs() {
+            return Math.sqrt(this.absSq());
+        }
+
+        sqrt() {
+            const r = this.abs();
+            const theta = Math.atan2(this.im, this.re);
+            const sqrtR = Math.sqrt(r);
+            return new Complex(sqrtR * Math.cos(theta / 2), sqrtR * Math.sin(theta / 2));
+        }
+
+        isFinite() {
+            return Number.isFinite(this.re) && Number.isFinite(this.im);
+        }
+
+        static Infinity() {
+            // Representation of the point at infinity
+            return new Complex(Infinity, Infinity);
+        }
+    }
+
+    // ====================================================================
+    // --- SL(2, C) Matrix Implementation ---
+    // ====================================================================
+    class SL2C {
+        // [[a, b], [c, d]]
+        constructor(a, b, c, d) {
+            this.a = Complex.from(a);
+            this.b = Complex.from(b);
+            this.c = Complex.from(c);
+            this.d = Complex.from(d);
+        }
+
+        mul(other) {
+            const a = this.a.mul(other.a).add(this.b.mul(other.c));
+            const b = this.a.mul(other.b).add(this.b.mul(other.d));
+            const c = this.c.mul(other.a).add(this.d.mul(other.c));
+            const d = this.c.mul(other.b).add(this.d.mul(other.d));
+            return new SL2C(a, b, c, d);
+        }
+
+        // Assumes determinant is 1
+        inv() {
+            return new SL2C(this.d, this.b.mul(-1), this.c.mul(-1), this.a);
+        }
+
+        trace() {
+            return this.a.add(this.d);
+        }
+
+        // Classification based on Trace (approximate)
+        classification() {
+            const tr = this.trace();
+            const epsilon = 1e-9;
+            // Check if the trace is close to 2 or -2
+            if (tr.sub(2).absSq() < epsilon || tr.add(2).absSq() < epsilon) {
+                // Check if it's the identity matrix (approximate check)
+                if (this.b.absSq() < epsilon && this.c.absSq() < epsilon &&
+                    (this.a.sub(1).absSq() < epsilon || this.a.add(1).absSq() < epsilon)) {
+                    return 'identity';
+                }
+                return 'parabolic';
+            }
+            // Otherwise, it is loxodromic (including elliptic)
+            return 'loxodromic';
+        }
+
+        // Calculate fixed points in C u {inf}
+        // Solves cz^2 + (a-d)z - b = 0
+        fixedPoints() {
+            const a = this.a;
+            const b = this.b;
+            const c = this.c;
+            const d = this.d;
+
+            const epsilon = 1e-9;
+
+            if (c.absSq() < epsilon) {
+                // If c=0. One fixed point is infinity.
+                if (a.sub(d).absSq() < epsilon) {
+                    // Parabolic fixing infinity (or Identity)
+                    return [Complex.Infinity(), Complex.Infinity()];
+                } else {
+                    // Loxodromic/Elliptic fixing infinity
+                    // z = b/(a-d)
+                    const fp = b.div(a.sub(d));
+                    return [fp, Complex.Infinity()];
+                }
+            }
+
+            // General case: Quadratic formula
+            // z = ((d-a) +/- sqrt((a+d)^2 - 4)) / 2c
+            const discriminant = this.trace().mul(this.trace()).sub(4);
+            const sqrtDiscriminant = discriminant.sqrt();
+
+            const numerator1 = d.sub(a).add(sqrtDiscriminant);
+            const numerator2 = d.sub(a).sub(sqrtDiscriminant);
+            const denominator = c.mul(2);
+
+            const fp1 = numerator1.div(denominator);
+            const fp2 = numerator2.div(denominator);
+
+            return [fp1, fp2];
+        }
+    }
+
+    // ====================================================================
+    // --- Three.js Visualization Setup ---
+    // ====================================================================
+    let scene, camera, renderer, controls;
+    let visualizationGroup;
+    const MAX_HEIGHT = 15; // Height for vertical geodesics
+
+    function initThreeJS() {
+        const container = document.getElementById('viewer');
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+
+        camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+        // Position the camera to look down slightly at the plane
+        camera.position.set(5, 5, 5);
+        camera.up.set(0, 1, 0); // Standard Y-up for UHS
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        // Removed: renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        sizeRenderer();
+
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        // Set the target slightly above the plane
+        controls.target.set(0, 1, 0);
+        controls.update();
+
+        // Ground Plane (Boundary of H^3 - The Complex Plane)
+        // Y is UP (height in H^3), X and Z form the complex plane (Re, Im).
+        const planeGeometry = new THREE.PlaneGeometry(100, 100);
+        const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xdddddd, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+        const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.y = 0;
+        scene.add(plane);
+
+        // Grid Helper
+        const gridHelper = new THREE.GridHelper(100, 100);
+        gridHelper.position.y = 0.01; // Slightly above the plane
+        scene.add(gridHelper);
+
+        visualizationGroup = new THREE.Group();
+        scene.add(visualizationGroup);
+
+        animate();
+    }
+
+    function sizeRenderer() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        if (renderer) {
+            renderer.setSize(width, height, false);
+        }
+        if (camera) {
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    // Mapping Complex number (on the boundary) to Three.js Vector3
+    function complexToVector(c) {
+        // Maps C (re, im) to the ground plane (x=re, z=im, y=0)
+        return new THREE.Vector3(c.re, 0, c.im);
+    }
+
+    // Draws the axis of an SL(2, C) element M in the UHS model
+    function drawAxis(M, color = 0x000000) {
+        const classification = M.classification();
+        if (classification === 'identity') return;
+
+        const [fp1, fp2] = M.fixedPoints();
+        // Guard: if both fixed points are non-finite, skip drawing
+        if (!fp1.isFinite() && !fp2.isFinite()) {
+            return;
+        }
+        const material = new THREE.LineBasicMaterial({ color: color, linewidth: 2.5 });
+
+        // Case 1: Parabolic (One fixed point, or two very close points)
+        // In this sequence, G_i (i>=1) are always parabolic. G_0 might be.
+        if (classification === 'parabolic') {
+            let fixedPoint;
+            if (fp1.isFinite()) fixedPoint = fp1;
+            else if (fp2.isFinite()) fixedPoint = fp2;
+            else fixedPoint = Complex.Infinity();
+
+            if (fixedPoint.isFinite()) {
+                // Vertical line from the fixed point
+                const start = complexToVector(fixedPoint);
+                const end = start.clone().add(new THREE.Vector3(0, MAX_HEIGHT, 0));
+                const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+                const line = new THREE.Line(geometry, material);
+                visualizationGroup.add(line);
+            }
+            // If fixed at infinity, we don't draw it (this is the axis of A, which we omit here)
+            return;
+        }
+
+        // Case 2: Loxodromic/Elliptic (Two distinct fixed points)
+
+        // Case 2a: One fixed point is infinity (Vertical axis)
+        if (!fp1.isFinite() || !fp2.isFinite()) {
+            const finitePoint = fp1.isFinite() ? fp1 : (fp2.isFinite() ? fp2 : null);
+            if (!finitePoint) return; // both invalid
+            const start = complexToVector(finitePoint);
+            if (!Number.isFinite(start.x) || !Number.isFinite(start.y) || !Number.isFinite(start.z)) return;
+            const end = start.clone().add(new THREE.Vector3(0, MAX_HEIGHT, 0));
+            const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+            const line = new THREE.Line(geometry, material);
+            visualizationGroup.add(line);
+            return;
+        }
+
+        // Case 2b: Both fixed points are finite (Semi-circle)
+        const p1 = complexToVector(fp1);
+        const p2 = complexToVector(fp2);
+        if (![p1.x, p1.y, p1.z, p2.x, p2.y, p2.z].every(Number.isFinite)) return;
+
+        // Center and Radius
+        const center = p1.clone().add(p2).multiplyScalar(0.5);
+        const radius = p1.distanceTo(p2) / 2;
+
+        if (!Number.isFinite(radius) || radius < 1e-9) return; // Safety check
+
+        // Create the semi-circle curve in the local XY plane
+        // Start angle 0, End angle PI gives the top half (positive Y).
+        const curve = new THREE.EllipseCurve(
+            0, 0,            // ax, aY
+            radius, radius,  // xRadius, yRadius
+            0, Math.PI,      // aStartAngle, aEndAngle
+            false,           // aClockwise
+            0                // aRotation
+        );
+
+        const points = curve.getPoints(64);
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const arc = new THREE.Line(geometry, material);
+
+        // Position the arc at the center
+        arc.position.copy(center);
+
+        // Rotate the arc to align with the fixed points.
+        // The curve starts at local +X. We align local +X with the direction from center to one of the points (e.g., p1).
+        const direction = p1.clone().sub(center).normalize();
+        const angle = Math.atan2(direction.z, direction.x);
+        if (!Number.isFinite(angle)) return;
+        arc.rotation.y = angle;
+
+        visualizationGroup.add(arc);
+    }
+
+    // ====================================================================
+    // --- Main Logic and Parametrization ---
+    // ====================================================================
+
+    function calculateGenerators(tau, beta) {
+        // A is the fixed parabolic element
+        const A = new SL2C(1, 1, 0, 1);
+
+        // B is parameterized by tau (Tr(B)) and beta (Tr(AB)).
+        // Normalization: B = [[mu, (mu^2-1)/gamma], [gamma, mu]]
+        // where mu = tau/2 and gamma = beta - tau.
+
+        const mu = tau.div(2);
+        let gamma = beta.sub(tau);
+
+        // Handle the elementary case where gamma (c) is zero
+        if (gamma.absSq() < 1e-12) {
+            console.warn("Gamma (beta-tau) is close to zero. Group is elementary.");
+            // If gamma is 0, B fixes infinity. The formula for 'b' involves division by zero.
+            // For visualization stability, we perturb gamma slightly if it's exactly 0.
+            if (gamma.absSq() === 0) {
+                 gamma = new Complex(1e-6, 0);
+            }
+        }
+
+        const muSq_minus_1 = mu.mul(mu).sub(1);
+        const b_element = muSq_minus_1.div(gamma);
+
+        const B = new SL2C(mu, b_element, gamma, mu);
+
+        return { A, B };
+    }
+
+    function runVisualization() {
+        // Clear previous visualization
+        while(visualizationGroup.children.length > 0){
+            visualizationGroup.remove(visualizationGroup.children[0]);
+        }
+
+        // Get inputs
+        const tau_re = parseFloat(document.getElementById('tau_re').value);
+        const tau_im = parseFloat(document.getElementById('tau_im').value);
+        const beta_re = parseFloat(document.getElementById('beta_re').value);
+        const beta_im = parseFloat(document.getElementById('beta_im').value);
+        const iterations = parseInt(document.getElementById('iterations').value);
+
+        const tau = new Complex(tau_re, tau_im);
+        const beta = new Complex(beta_re, beta_im);
+
+        // Calculate Generators
+        const { A, B } = calculateGenerators(tau, beta);
+
+        // Calculate and Visualize the Shimizu-Leutbecher sequence
+        // G_0 = B
+        // G_{i+1} = G_i A G_i^{-1}
+
+        let G = B;
+        
+        for (let i = 0; i <= iterations; i++) {
+            // Visualize the axis of G_i
+
+            // Generate a color: Start Red (hue 0) fading towards Violet (hue 0.7)
+            const hue = (i / iterations) * 0.7;
+            const color = new THREE.Color().setHSL(hue, 1.0, 0.5);
+
+            drawAxis(G, color.getHex());
+
+            // Calculate G_{i+1} for the next iteration
+            // Stop if G becomes numerically unstable or identity-like
+            if (G.classification() === 'identity') {
+                console.log(`Sequence stabilized at iteration ${i}.`);
+                break;
+            }
+
+            const G_inv = G.inv();
+            G = G.mul(A).mul(G_inv);
+        }
+        
+        // Adjust camera focus
+        readjustCamera(visualizationGroup);
+    }
+
+    function readjustCamera(group) {
+        const bbox = new THREE.Box3().setFromObject(group);
+        if (!bbox.isEmpty() && bbox.isIntersectionBox(bbox)) { // Check if the bbox is valid
+            const center = new THREE.Vector3();
+            bbox.getCenter(center);
+            const size = new THREE.Vector3();
+            bbox.getSize(size);
+
+            const maxDim = Math.max(size.x, size.y, size.z);
+            // Limit zoom if the structure is very large
+            const distance = Math.min(maxDim * 1.5, 50); 
+
+            // Ensure a minimum distance
+            const finalDistance = Math.max(distance, 3);
+
+            // Move camera slightly above the center
+            const cameraTarget = center.clone();
+            
+            controls.target.copy(cameraTarget);
+            // Position camera dynamically relative to the target
+            const direction = camera.position.clone().sub(controls.target).normalize();
+            camera.position.copy(cameraTarget).add(direction.multiplyScalar(finalDistance));
+            
+            controls.update();
+        }
+    }
+
+
+    // Initialize and run the visualization on load
+    window.onload = () => {
+        initThreeJS();
+        runVisualization();
+    };
+
+    // Handle window resizing
+    window.addEventListener('resize', () => {
+        sizeRenderer();
+    });
+</script>
+</body>
+</html>
