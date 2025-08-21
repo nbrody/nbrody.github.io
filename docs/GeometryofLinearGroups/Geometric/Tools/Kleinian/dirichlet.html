@@ -106,9 +106,10 @@
     <div id="viewer"></div>
 
     <button id="toggleControlPanelBtn" class="toggle-btn" aria-label="Hide panel">☰</button>
+    <button id="updateGroupBtn" class="toggle-btn" aria-label="Update" title="Update group" style="right: 44px; font-size:14px;">↻</button>
     <div id="controlPanel">
       <div style="display: flex; align-items: center; justify-content: space-between;">
-        <h3 style="margin: 0;">Dirichlet Polyhedron</h3>
+        <h3 style="margin: 0;">Kleinian</h3>
         <div style="display:flex; align-items:center; gap:6px;">
           <button id="prevPageBtn" title="Previous" style="padding: 2px 6px; font-size: 11px; width: 28px;">◀</button>
           <button id="nextPageBtn" title="Next" style="padding: 2px 6px; font-size: 11px; width: 28px;">▶</button>
@@ -117,15 +118,13 @@
       </div>
       <div id="panelPage1">
         <div id="matrixInputs"></div>
-        <div style="display: flex; gap: 8px; margin-top: 12px;">
-          <button id="addMatrixBtn">Add Matrix</button>
-          <button id="updateGroupBtn">Update</button>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
+          <label for="wordLength" style="display:flex; align-items:center; margin:0;">
+            <span style="margin-right:6px;">Word length:</span>
+            <input id="wordLength" type="number" value="4" min="1" step="1" style="width:60px;" />
+          </label>
+          <button id="addMatrixBtn" style="width:32px; height:32px; padding:0; font-size:22px; line-height:1; font-weight:bold;">+</button>
         </div>
-
-        <label for="wordLength" style="display: flex; align-items: center; justify-content: space-between;">
-          Word length:
-          <input id="wordLength" type="number" value="4" min="1" step="1" style="width: 60px; margin-left: 10px;" />
-        </label>
 
         <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
           <label for="groupSelector" style="margin: 0;">Predefined group:</label>
@@ -186,6 +185,9 @@
     <div id="message-box"></div>
 
     <script type="module">
+        import * as ThreeCSGModule from 'https://esm.run/three-csg-ts';
+        const CSG = ThreeCSGModule.CSG || ThreeCSGModule.default || ThreeCSGModule;
+        window.CSG = CSG; // make available globally
         // --- THREE.js Setup ---
         let scene, camera, renderer, controls;
         let polyhedronGroup = new THREE.Group();
@@ -510,6 +512,16 @@
                        Math.abs(this.c.re) < 1e-9 && Math.abs(this.c.im) < 1e-9 &&
                        Math.abs(this.d.re - 1) < 1e-9 && Math.abs(this.d.im) < 1e-9;
             }
+            trace() {
+                return this.a.add(this.d);
+            }
+            neg() {
+                const minus = new Complex(-1, 0);
+                return new Matrix2(
+                    this.a.mul(minus), this.b.mul(minus),
+                    this.c.mul(minus), this.d.mul(minus)
+                );
+            }
         }
 
         function isClose(x, y, tol = 1e-6) { return Math.abs(x - y) < tol; }
@@ -521,8 +533,28 @@
         function keyFromVec(vec, scale = KEY_SCALE) {
           return `${keyFromNumber(vec.x, scale)}:${keyFromNumber(vec.y, scale)}:${keyFromNumber(vec.z, scale)}`;
         }
+        // --- PSL(2, C) canonicalization helpers ---
+        // Identify matrices up to overall sign via a deterministic tie-break
+        function canonicalizePSL(m) {
+          // Use first nonzero among [a.re, a.im, b.re, b.im, c.re, c.im, d.re, d.im]
+          const arr = [m.a.re, m.a.im, m.b.re, m.b.im, m.c.re, m.c.im, m.d.re, m.d.im];
+          let flip = false;
+          for (const v of arr) {
+            if (Math.abs(v) > 1e-12) { if (v < 0) flip = true; break; }
+          }
+          return flip ? m.neg() : m;
+        }
+
+        // Prefer a representative whose trace is (numerically) real and ≥ 0
+        function repWithNonnegativeRealTrace(m, tol = 1e-9) {
+          const tr = m.trace();
+          if (Math.abs(tr.im) < tol && tr.re < -tol) return m.neg();
+          return m;
+        }
         function keyFromMatrix(m, scale = KEY_SCALE) {
-          const parts = [m.a.re, m.a.im, m.b.re, m.b.im, m.c.re, m.c.im, m.d.re, m.d.im]
+          // Canonicalize up to ±I so m and -m dedupe to the same key
+          const mc = canonicalizePSL(m);
+          const parts = [mc.a.re, mc.a.im, mc.b.re, mc.b.im, mc.c.re, mc.c.im, mc.d.re, mc.d.im]
             .map(v => keyFromNumber(v, scale));
           return parts.join(';');
         }
@@ -657,11 +689,12 @@
           { name: 'Z[i] congruence', mats: [ ['1','2','0','1'], ['1','2i','0','1'], ['0','-1','1','0'] ] },
           { name: 'Surface group', mats: [ ['2','-2','0','1/2'], ['3','4','2','3'] ] },
           { name: 'Figure eight knot group', mats: [ ['1','\\frac{-1+ \\sqrt{3} i}{2}','0','1'], ['1','0','1','1'] ] },
-          { name: 'Triangle group', mats: [ ['1','2i','0','1'], ['1','-1','1','1'] ] },
+          { name: 'Dense circles', mats: [ ['1','2i','0','1'], ['\\frac{1}{\\sqrt{2}}','\\frac{-1}{\\sqrt{2}}','\\frac{1}{\\sqrt{2}}','\\frac{1}{\\sqrt{2}}'] ] },
           { name: 'P(1/3)', mats: [ ['1','\\frac{\\sqrt{7}+i}{2}','0','1'], ['0','-1','1','0'] ] },
           { name: 'P(1/4)', mats: [ ['1','\\sqrt{1+\\sqrt{1+2i}}','0','1'], ['0','-1','1','0'] ] },
           { name: 'P(2/5)', mats: [ ['1','1.1028+0.6655i','0','1'], ['0','-1','1','0'] ] },
-          { name: 'Hecke group', mats: [ ['1','2\\cos(\\frac{\\pi}{n})','0','1'], ['0','-1','1','0'] ] }
+          { name: 'Hecke group', mats: [ ['1','2\\cos(\\frac{\\pi}{n})','0','1'], ['0','-1','1','0'] ] },
+          { name: 'Figure eight fiber', mats: [ ['1', '-1', '\\frac{1-\\sqrt{3}i}{2}', '\\frac{1+\\sqrt{3}i}{2}'], [ '\\frac{3+\\sqrt{3}i}{2}', '\\frac{1-\\sqrt{3}i}{2}', '\\frac{-1-\\sqrt{3}i}{2}', '0'] ] }
         ];
 
         function refreshExampleDropdown() {
@@ -766,7 +799,10 @@
             if (!neighbors || neighbors.length === 0) {
               out.textContent = 'No Delaunay neighbors found. Increase word length or adjust generators.';
             } else {
-              const items = neighbors.map((obj, i) => `${i+1}. ${matrixToLatex(obj.g)}`);
+              const items = neighbors.map((obj, i) => {
+                const g = obj && obj.g ? repWithNonnegativeRealTrace(obj.g) : obj;
+                return `${i+1}. ${matrixToLatex(g)}`;
+              });
               out.innerHTML = items.join('<br/><br/>');
               if (window.MathJax && MathJax.typesetPromise) {
                 MathJax.typesetPromise([document.getElementById('controlPanel')]).catch(() => {});
@@ -779,19 +815,26 @@
           if (computeBtn) computeBtn.addEventListener('click', () => {
             rebuildGeneratorsFromUI();
             const L = parseInt((document.getElementById('wordLength') || { value: 1 }).value) || 1;
-            const stdGensL = computeStandardGenerators(generators, L);
+            const result = computeStandardGenerators(generators, L);
+
+            const gensArr   = Array.isArray(result) ? result : (result && result.gens) ? result.gens : [];
+            const level     = (result && typeof result.level === 'number') ? result.level : L;
+            const converged = !!(result && result.converged);
+
             const out = document.getElementById('computeStdGensOutput');
             if (!out) return;
-            if (!stdGensL || stdGensL.length === 0) {
+
+            if (!gensArr || gensArr.length === 0) {
               out.textContent = 'No standard generators found.';
             } else {
-              const items = stdGensL.map((m, i) => `${i+1}. ${matrixToLatex(m)}`);
-              out.innerHTML = items.join('<br/><br/>');
+              const items = gensArr.map((m, i) => `${i+1}. ${matrixToLatex(m)}`);
+              out.innerHTML = items.join('<br/><br/>')
+                + `<div style="margin-top:8px;color:#374151;font-size:12px;">(Returned level: ${level}${converged ? ' — converged' : ''})</div>`;
               if (window.MathJax && MathJax.typesetPromise) {
                 MathJax.typesetPromise([document.getElementById('controlPanel')]).catch(() => {});
               }
             }
-            showMessage(`Computed ${stdGensL.length} standard generators at level ${L}.`);
+            showMessage(`Computed ${gensArr.length} standard generators at level ${level}${converged ? ' (converged)' : ''}.`);
           });
           // --- Pager controls ---
           const prevBtn = document.getElementById('prevPageBtn');
@@ -1117,47 +1160,75 @@
           return Array.from(neighborsMap.values());
         }
 
+        // Compare two arrays of matrices up to PSL(2,C) sign/canonicalization
+        function matrixSetsEqual(A = [], B = []) {
+          if (!Array.isArray(A) || !Array.isArray(B)) return false;
+          if (A.length !== B.length) return false;
+          const setA = new Set(A.map(m => keyFromMatrix(repWithNonnegativeRealTrace(m))));
+          const setB = new Set(B.map(m => keyFromMatrix(repWithNonnegativeRealTrace(m))));
+          if (setA.size !== setB.size) return false;
+          for (const k of setA) if (!setB.has(k)) return false;
+          return true;
+        }
+
         function computeStandardGenerators(gens, L) {
-        // Symmetrize gens as gens ∪ gens^{-1}, then dedupe canonically
-        const gensSym = symmetrizeGroupElements([
+          // Symmetrize gens as gens ∪ gens^{-1}, then dedupe canonically
+          const gensSym = symmetrizeGroupElements([
             ...gens,
             ...gens.map(g => g && typeof g.inverse === 'function' ? g.inverse() : null).filter(Boolean)
-        ]);
+          ]);
 
-        // Initialize stdGens(0) = stdGens(1) = gensSym
-        const stdGens = [];
-        stdGens[0] = gensSym;
-        stdGens[1] = gensSym;
+          // Initialize stdGens(0) = stdGens(1) = gensSym
+          const stdGens = [];
+          stdGens[0] = gensSym;
+          stdGens[1] = gensSym;
 
-        // If L is 0 or 1, return the base set
-        if (L <= 1) return stdGens[L] || gensSym;
+          // If L is 0 or 1, return the base set
+          if (L <= 1) {
+            const chosen = (stdGens[L] || gensSym).map(repWithNonnegativeRealTrace);
+            return { gens: symmetrizeGroupElements(chosen), level: Math.max(0, L), converged: L <= 1 };
+          }
 
-        // Iterate: stdGens(i+1) = computeDelaunayNeighbors( stdGens(i) * stdGens(i-1) )
-        for (let i = 1; i < L; i++) {
-            // Build product set { g * h : g in stdGens[i], h in stdGens[i-1] }
+          // Iterate: stdGens(i+1) = computeDelaunayNeighbors( stdGens(i) * (I ∪ stdGens(i-1)) )
+          for (let i = 1; i < L; i++) {
+            // Build product set { g * h : g in stdGens[i], h in I U stdGens[i-1] }
             const products = [];
             const Gi = stdGens[i] || [];
             const Gim1 = stdGens[i - 1] || [];
+            const I = new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0));
+
             for (const g of Gi) {
-            for (const h of Gim1) {
+              for (const h of [I, ...Gim1]) {
                 if (g && h && typeof g.multiply === 'function') {
-                products.push(g.multiply(h));
+                  products.push(g.multiply(h));
                 }
+              }
             }
-            }
+
             // Deduplicate products before neighbor computation
             const productsSym = symmetrizeGroupElements(products);
+
             // Compute Delaunay neighbors from the product set
             const neighbors = computeDelaunayNeighbors(productsSym) || [];
+
             // Extract matrices (n.g if object), then symmetrize/dedupe
             const nextSet = symmetrizeGroupElements(
-            neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean)
+              neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean)
             );
             stdGens[i + 1] = nextSet;
+
+            // --- Convergence check: if stdGens[i+1] == stdGens[i], stop and return with index i ---
+            if (matrixSetsEqual(stdGens[i + 1], stdGens[i])) {
+              const chosen = stdGens[i].map(repWithNonnegativeRealTrace);
+              return { gens: symmetrizeGroupElements(chosen), level: i, converged: true };
+            }
+          }
+
+          // No early convergence: return level L
+          const chosen = (stdGens[L] || gensSym).map(repWithNonnegativeRealTrace);
+          return { gens: symmetrizeGroupElements(chosen), level: L, converged: false };
         }
-        // Return stdGens(L)
-        return stdGens[L] || gensSym;
-        }
+        
 
         // Draws a hyperbolic geodesic arc (as a circle orthogonal to the boundary, center in xy-plane)
         function drawGeodesicArc(p, q, material) {
