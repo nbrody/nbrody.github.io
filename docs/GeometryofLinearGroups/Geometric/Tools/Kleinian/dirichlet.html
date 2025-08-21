@@ -8,6 +8,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
     <style>
       body { margin: 0; overflow: hidden; }
       #viewer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
@@ -29,8 +32,41 @@
       #controlPanel h3 { margin: 4px 0 8px; font-size: 15px; }
       #controlPanel label { display: block; margin-top: 8px; font-weight: bold; line-height: 1.2; }
       .matrix-bracket { display: inline-block; font-size: 48px; font-weight: normal; line-height: 48px; vertical-align: middle; margin: 0 4px; }
-      .matrix-grid-inline { display: inline-grid; grid-template-columns: repeat(2, 40px); grid-template-rows: repeat(2, 30px); grid-gap: 4px; vertical-align: middle; margin: 0 4px; }
-      .matrix-grid-inline input { width: 40px; height: 30px; padding: 2px; font-size: 13px; text-align: center; }
+      .matrix-grid-inline {
+        display: inline-grid;
+        grid-template-columns: repeat(2, minmax(40px, max-content));
+        grid-auto-rows: minmax(30px, max-content);
+        grid-gap: 4px;
+        vertical-align: middle;
+        margin: 0 4px;
+        align-items: start;
+      }
+      .matrix-grid-inline .mq-editable-field {
+        min-width: 40px;
+        min-height: 30px;
+        padding: 2px 4px;
+        font-size: 16px;
+        width: auto;
+        display: inline-block;
+        white-space: nowrap;
+        max-width: none;
+        overflow: visible;
+      }
+      .mq-matrix-input {
+        display: inline-block;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        background: white;
+        padding: 2px 4px;
+        width: auto;
+        white-space: nowrap;
+        max-width: none;
+        overflow: visible;
+      }
+      .mq-matrix-input .mq-root-block {
+        display: inline-block;
+        overflow: visible;
+      }
       #controlPanel input[type="number"] { width: calc(100% - 12px); margin-top: 4px; padding: 4px; font-size: 13px; }
       #controlPanel button { margin-top: 12px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer; }
       .matrix-block { margin-bottom: 8px; }
@@ -40,6 +76,30 @@
       /* message box */
       #message-box { position: absolute; left: 50%; transform: translateX(-50%); top: 12px; background: rgba(33, 150, 243, 0.15); color: #0b5394; padding: 6px 10px; border-radius: 6px; font-size: 12px; z-index: 20; display: none; }
       #message-box.error { background: rgba(244, 67, 54, 0.15); color: #b71c1c; }
+
+      /* --- Resizable control panel (bottom-left handle) --- */
+      #controlPanel.resizable { max-height: none; }
+      #controlPanel.resizing { user-select: none; }
+      #controlPanel .resize-handle-bl {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 14px;
+        height: 14px;
+        cursor: nesw-resize;
+        background: transparent;
+      }
+      /* Add a subtle visual cue for the handle */
+      #controlPanel .resize-handle-bl::after {
+        content: '';
+        position: absolute;
+        right: 2px;
+        top: -2px;
+        width: 0;
+        height: 0;
+        border-left: 10px solid transparent;
+        border-top: 10px solid rgba(0,0,0,0.15);
+      }
     </style>
 </head>
 <body class="bg-gray-900">
@@ -62,20 +122,15 @@
           <button id="updateGroupBtn">Update</button>
         </div>
 
-        <label for="Lparam" style="display: flex; align-items: center; justify-content: space-between;">
+        <label for="wordLength" style="display: flex; align-items: center; justify-content: space-between;">
           Word length:
-          <input id="Lparam" type="number" value="4" min="1" step="1" style="width: 60px; margin-left: 10px;" />
+          <input id="wordLength" type="number" value="4" min="1" step="1" style="width: 60px; margin-left: 10px;" />
         </label>
 
         <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
           <label for="groupSelector" style="margin: 0;">Predefined group:</label>
           <select id="groupSelector" style="flex-grow: 1; margin: 0 6px;">
             <option value="">-- Select --</option>
-            <option value="0">Modular group</option>
-            <option value="1">Triangle group</option>
-            <option value="2">Borromean-like</option>
-            <option value="3">Z[i] congruence</option>
-            <option value="4">Random example</option>
           </select>
           <button id="newExampleBtn" style="padding: 0px 6px; font-size: 10px; min-width: unset; width: auto; height: 20px; line-height: 20px;">??</button>
         </div>
@@ -85,20 +140,46 @@
 
         <button id="printStdGensBtn" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Print standard generators</button>
         <div id="stdGensOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;"></div>
+        <button id="computeStdGensBtn" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Compute standard generators</button>
+        <div id="computeStdGensOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;"></div>
       </div>
       <div id="panelPage2" style="display:none;">
         <h4 style="margin: 8px 0 6px; font-size: 14px;">Display options</h4>
         <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
             <input id="toggleDelaunay" type="checkbox" />
-            Show Delaunay edges (neighbors of o)
+            Show Cayley graph
         </label>
         <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
             <input id="toggleOrbit" type="checkbox" />
             Show orbit of o
         </label>
         <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
-            <input id="toggleWalls" type="checkbox" checked />
-            Show walls
+            <input id="toggleBasepoint" type="checkbox" checked />
+            Show basepoint
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+          <span>Walls:</span>
+          <div style="display:flex; gap:10px; margin-left:8px;">
+            <label><input type="radio" name="wallsMode" value="all" checked> All</label>
+            <label><input type="radio" name="wallsMode" value="dirichlet"> Dirichlet</label>
+            <label><input type="radio" name="wallsMode" value="off"> None</label>
+          </div>
+        </label>
+      </div>
+      <div id="panelPage3" style="display:none;">
+        <h4 style="margin: 8px 0 6px; font-size: 14px;">Appearance</h4>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+            Wall opacity:
+            <input id="wallOpacitySlider" type="range" min="0" max="1" step="0.05" value="0.4" style="flex-grow:1;">
+            <span id="wallOpacityValue">0.40</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+          Color palette:
+          <select id="colorPalette" style="flex-grow:1;">
+            <option value="harmonic" selected>Harmonic (current)</option>
+            <option value="monochrome">Monochrome (skyblue)</option>
+            <option value="random">Random colors</option>
+          </select>
         </label>
       </div>
     </div>
@@ -113,15 +194,83 @@
         const viewer = document.getElementById('viewer');
         const basepoint = new THREE.Vector3(0, 0, 1);
         let currentPage = 1;
-        const NUM_PAGES = 2;
+        const NUM_PAGES = 3;
+        let wallOpacity = 0.4;
+        let colorPalette = 'harmonic';
+
+        // --- Enable bottom-left resize of the control panel ---
+        function enableControlPanelResize() {
+          const panel = document.getElementById('controlPanel');
+          if (!panel) return;
+          // Allow height to grow beyond the old max-height while resizing
+          panel.classList.add('resizable');
+
+          // Create the handle if it does not exist
+          let handle = panel.querySelector('.resize-handle-bl');
+          if (!handle) {
+            handle = document.createElement('div');
+            handle.className = 'resize-handle-bl';
+            panel.appendChild(handle);
+          }
+
+          let startX = 0, startY = 0, startW = 0, startH = 0, resizing = false;
+          const MIN_W = 220, MAX_W = 640;
+          const MIN_H = 160;
+
+          function maxHeight() {
+            return Math.max(240, Math.floor(window.innerHeight * 0.9));
+          }
+
+          function onMouseMove(e) {
+            if (!resizing) return;
+            const dx = e.clientX - startX; // leftward drag => negative
+            const dy = e.clientY - startY; // downward drag => positive
+
+            // Panel is positioned with right:10px, so increasing width expands to the left
+            const newW = Math.min(MAX_W, Math.max(MIN_W, startW - dx));
+            const newH = Math.min(maxHeight(), Math.max(MIN_H, startH + dy));
+
+            panel.style.width = newW + 'px';
+            panel.style.height = newH + 'px';
+          }
+
+          function stopResize() {
+            if (!resizing) return;
+            resizing = false;
+            panel.classList.remove('resizing');
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', stopResize);
+          }
+
+          handle.addEventListener('mousedown', (e) => {
+            // Ignore when panel is in compact hidden state
+            if (panel.classList.contains('hidden')) return;
+            e.preventDefault();
+            const rect = panel.getBoundingClientRect();
+            startX = e.clientX;
+            startY = e.clientY;
+            startW = rect.width;
+            startH = rect.height;
+            resizing = true;
+            panel.classList.add('resizing');
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', stopResize);
+          });
+
+          window.addEventListener('resize', () => {
+            // Keep height within viewport bounds if the window gets smaller
+            const h = parseInt(panel.style.height || '0', 10);
+            if (h && h > maxHeight()) panel.style.height = maxHeight() + 'px';
+          });
+        }
 
         function updatePanelPage() {
           const p1 = document.getElementById('panelPage1');
           const p2 = document.getElementById('panelPage2');
-          if (p1 && p2) {
-            p1.style.display = (currentPage === 1) ? '' : 'none';
-            p2.style.display = (currentPage === NUM_PAGES) ? '' : 'none';
-          }
+          const p3 = document.getElementById('panelPage3');
+          if (p1) p1.style.display = (currentPage === 1) ? '' : 'none';
+          if (p2) p2.style.display = (currentPage === 2) ? '' : 'none';
+          if (p3) p3.style.display = (currentPage === 3) ? '' : 'none';
           // Gray/disable pager arrows at bounds
           const prevBtn = document.getElementById('prevPageBtn');
           const nextBtn = document.getElementById('nextPageBtn');
@@ -166,6 +315,7 @@
             const basepointMesh = new THREE.Mesh(basepointGeom, basepointMat);
             basepointMesh.position.copy(basepoint);
             scene.add(basepointMesh);
+            window.basepointMesh = basepointMesh;
             scene.add(polyhedronGroup);
             scene.add(delaunayGroup);
             scene.add(orbitGroup);
@@ -216,6 +366,7 @@
                 return `${rePart} ${sign} ${imPart}`;
             }
         }
+
         function parseComplex(str) {
             let s = str.trim().replace(/\s/g, '').toLowerCase();
             if (s.length === 0) return new Complex(0, 0);
@@ -237,6 +388,113 @@
             }
             return new Complex(real, imag);
         }
+        
+        function latexToExpr(latex) {
+          if (!latex || typeof latex !== 'string') return '0';
+          let s = latex.replace(/\\left|\\right/g, '');
+
+          // Normalize LaTeX fraction commands to a common token first
+          s = s.replace(/\\dfrac/g, '\\frac').replace(/\\tfrac/g, '\\frac');
+
+          // Expand nested \frac{A}{B} → (A)/(B) repeatedly until none remain
+          const FRAC_RE = /\\frac\s*\{([^{}]|\{[^}]*\})*\}\s*\{([^{}]|\{[^}]*\})*\}/g;
+          // Use a loop with a safety cap to avoid pathological cases
+          let guard = 0;
+          while (/\\frac\s*\{/.test(s) && guard++ < 20) {
+            s = s.replace(FRAC_RE, (m) => {
+              return m
+                .replace(/^\\frac\s*\{/, '(')
+                .replace(/\}\s*\{/, ')/(')
+                .replace(/\}$/, ')');
+            });
+          }
+
+          // Support "a \\over b" (rare in MathQuill but valid LaTeX)
+          // Replace the last occurrence of \\over in a simple group with parentheses
+          if (/\\over/.test(s)) {
+            s = s.replace(/([^{}\s]+)\s*\\over\s*([^{}\s]+)/g, '($1)/($2)');
+          }
+
+          // Replace roots and common functions
+          s = s.replace(/\\sqrt\{([^}]*)\}/g, 'sqrt($1)')
+               .replace(/\\sin/g,'sin').replace(/\\cos/g,'cos').replace(/\\tan/g,'tan')
+               .replace(/\\sinh/g,'sinh').replace(/\\cosh/g,'cosh').replace(/\\tanh/g,'tanh')
+               .replace(/\\exp/g,'exp').replace(/\\ln/g,'log')
+               .replace(/\\pi/g,'pi').replace(/\\cdot/g,'*');
+
+          // Remove remaining braces (after fraction expansion)
+          s = s.replace(/[{}]/g,'');
+
+          // Insert implicit multiplication: )x, )i, )e, )pi, number(, i(, e(, pi(, number*symbol
+          s = s.replace(/(\d|\)|i|e|pi)(?=(\(|[a-zA-Z]))/g, '$1*');
+
+          return s.trim();
+        }
+        const CONSTS = { pi:new Complex(355/113,0), e:new Complex(271828/100000,0), i:new Complex(0,1) };
+        function isAlpha(ch){ return /[a-zA-Z]/.test(ch); }
+        function isDigit(ch){ return /[0-9]/.test(ch); }
+        function tokenizeExpr(s){ const toks=[]; let i=0; while(i<s.length){ const ch=s[i];
+        if(/\s/.test(ch)){i++; continue;}
+        if('()+-*/^,'.includes(ch)){ toks.push(ch); i++; continue; }
+        if(isDigit(ch)||(ch==='.'&&isDigit(s[i+1]||''))){ let j=i+1; while(j<s.length&&(isDigit(s[j])||s[j]==='.')) j++; toks.push(s.slice(i,j)); i=j; continue; }
+        if(isAlpha(ch)){ let j=i+1; while(j<s.length&&/[a-zA-Z_]/.test(s[j])) j++; toks.push(s.slice(i,j)); i=j; continue; }
+        i++;
+        } return toks; }
+        const PRECEDENCE={'+':1,'-':1,'*':2,'/':2,'^':3};
+        const RIGHT_ASSOC={ '^': true };
+        const FUNCTIONS=new Set(['sin','cos','tan','sinh','cosh','tanh','sqrt','exp','log']);
+        function isOperator(t){ return ['+','-','*','/','^','u-'].includes(t); }
+        function isNumberToken(t){ return /^(\d+(\.\d*)?|\.\d+)$/.test(t); }
+        function isConstToken(t){ return t in CONSTS; }
+        function toRPN(tokens){ const out=[], op=[]; let prev=null; for(const t of tokens){
+        if(t===',') continue;
+        if(isNumberToken(t)||isConstToken(t)) out.push(t);
+        else if(FUNCTIONS.has(t)) op.push(t);
+        else if(t==='(') op.push(t);
+        else if(t===')'){ while(op.length&&op[op.length-1]!=='(') out.push(op.pop()); if(op.length&&op[op.length-1]==='(') op.pop(); if(op.length&&FUNCTIONS.has(op[op.length-1])) out.push(op.pop()); }
+        else if(['+','-','*','/','^'].includes(t)){
+            const isUnary=(t==='-'&&(prev===null||isOperator(prev)||prev==='('));
+            const cur=isUnary?'u-':t;
+            if(isUnary){ op.push(cur); }
+            else { while(op.length){ const top=op[op.length-1];
+            if(isOperator(top)&&((RIGHT_ASSOC[cur]&&PRECEDENCE[cur]<PRECEDENCE[top])||(!RIGHT_ASSOC[cur]&&PRECEDENCE[cur]<=PRECEDENCE[top]))) out.push(op.pop());
+            else break; }
+            op.push(cur);
+            }
+        } else { out.push(t); }
+        prev=t;
+        }
+        while(op.length) out.push(op.pop());
+        return out; }
+        function cAdd(a,b){ return new Complex(a.re+b.re, a.im+b.im); }
+        function cSub(a,b){ return new Complex(a.re-b.re, a.im-b.im); }
+        function cMul(a,b){ return new Complex(a.re*b.re - a.im*b.im, a.re*b.im + a.im*b.re); }
+        function cDiv(a,b){ const den=b.re*b.re+b.im*b.im; return new Complex((a.re*b.re+a.im*b.im)/den, (a.im*b.re-a.re*b.im)/den); }
+        function cExp(a){ const ex=Math.exp(a.re); return new Complex(ex*Math.cos(a.im), ex*Math.sin(a.im)); }
+        function cLog(a){ const r=Math.hypot(a.re,a.im); const th=Math.atan2(a.im,a.re); return new Complex(Math.log(r), th); }
+        function cPow(a,b){ if(Math.abs(a.re)<1e-15&&Math.abs(a.im)<1e-15) return new Complex(0,0); const ln=cLog(a); const bln=cMul(b,ln); return cExp(bln); }
+        function cSin(a){ return new Complex(Math.sin(a.re)*Math.cosh(a.im), Math.cos(a.re)*Math.sinh(a.im)); }
+        function cCos(a){ return new Complex(Math.cos(a.re)*Math.cosh(a.im), -Math.sin(a.re)*Math.sinh(a.im)); }
+        function cTan(a){ const s=cSin(a), c=cCos(a); return cDiv(s,c); }
+        function cSinh(a){ return new Complex(Math.sinh(a.re)*Math.cos(a.im), Math.cosh(a.re)*Math.sin(a.im)); }
+        function cCosh(a){ return new Complex(Math.cosh(a.re)*Math.cos(a.im), Math.sinh(a.re)*Math.sin(a.im)); }
+        function cTanh(a){ const s=cSinh(a), c=cCosh(a); return cDiv(s,c); }
+        function cSqrt(a){ return cPow(a,new Complex(0.5,0)); }
+        function evalRPN(rpn){ const st=[]; for(const t of rpn){
+        if(isNumberToken(t)) st.push(new Complex(parseFloat(t),0));
+        else if(isConstToken(t)) st.push(CONSTS[t]);
+        else if(FUNCTIONS.has(t)){ const a=st.pop()||new Complex(0,0); switch(t){
+            case 'sin': st.push(cSin(a)); break; case 'cos': st.push(cCos(a)); break; case 'tan': st.push(cTan(a)); break;
+            case 'sinh': st.push(cSinh(a)); break; case 'cosh': st.push(cCosh(a)); break; case 'tanh': st.push(cTanh(a)); break;
+            case 'sqrt': st.push(cSqrt(a)); break; case 'exp': st.push(cExp(a)); break; case 'log': st.push(cLog(a)); break; } }
+        else if(isOperator(t)){ if(t==='u-'){ const a=st.pop()||new Complex(0,0); st.push(new Complex(-a.re,-a.im)); }
+            else { const b=st.pop()||new Complex(0,0); const a=st.pop()||new Complex(0,0);
+            switch(t){ case '+': st.push(cAdd(a,b)); break; case '-': st.push(cSub(a,b)); break; case '*': st.push(cMul(a,b)); break; case '/': st.push(cDiv(a,b)); break; case '^': st.push(cPow(a,b)); break; } } }
+        else { if(t in CONSTS) st.push(CONSTS[t]); else st.push(new Complex(0,0)); }
+        }
+        return st.pop()||new Complex(0,0); }
+        function evalComplexExpression(expr){ try { const tokens=tokenizeExpr(expr); const rpn=toRPN(tokens); return evalRPN(rpn); } catch(e) { return new Complex(NaN,NaN); } }
+        
         class Matrix2 {
             constructor(a, b, c, d) { this.a = a; this.b = b; this.c = c; this.d = d; }
             multiply(m) { return new Matrix2(this.a.mul(m.a).add(this.b.mul(m.c)), this.a.mul(m.b).add(this.b.mul(m.d)), this.c.mul(m.a).add(this.d.mul(m.c)), this.c.mul(m.b).add(this.d.mul(m.d))); }
@@ -333,10 +591,10 @@
                 <span class="matrix-label">\\( g_{${idx+1}} = \\)</span>
                 <span class="matrix-bracket">(</span>
                 <span class="matrix-grid-inline">
-                  <input type="text" value="${values[0]}" />
-                  <input type="text" value="${values[1]}" />
-                  <input type="text" value="${values[2]}" />
-                  <input type="text" value="${values[3]}" />
+                    <span class="mq-matrix-input" data-initial="${values[0]}"></span>
+                    <span class="mq-matrix-input" data-initial="${values[1]}"></span>
+                    <span class="mq-matrix-input" data-initial="${values[2]}"></span>
+                    <span class="mq-matrix-input" data-initial="${values[3]}"></span>
                 </span>
                 <span class="matrix-bracket">)</span>
               </label>
@@ -349,6 +607,17 @@
             typesetMath();
           });
           document.getElementById('matrixInputs').appendChild(container);
+          const MQ = window.MathQuill ? window.MathQuill.getInterface(2) : null;
+            if (MQ) {
+            const spans = container.querySelectorAll('.mq-matrix-input');
+            spans.forEach(span => {
+                const mf = MQ.MathField(span, { spaceBehavesLikeTab: true, handlers: { edit: () => {} } });
+                const init = span.getAttribute('data-initial') || '0';
+                const normalized = String(init).replace(/\*\*/g, '^');
+                mf.latex(normalized);
+                span.MathQuill = () => mf; // store accessor for rebuild step
+            });
+            }
           const labels = document.querySelectorAll('#matrixInputs .matrix-label');
           labels.forEach((lbl,i)=>{ lbl.innerHTML = `\\( g_{${i+1}} = \\)`; });
           typesetMath();
@@ -358,15 +627,17 @@
           generators.length = 0;
           const blocks = document.querySelectorAll('#matrixInputs .matrix-block');
           for (const block of blocks) {
-            const ins = block.querySelectorAll('input');
-            const a = parseComplex(ins[0].value);
-            const b = parseComplex(ins[1].value);
-            const c = parseComplex(ins[2].value);
-            const d = parseComplex(ins[3].value);
+            const spans = block.querySelectorAll('.mq-matrix-input');
+            const getLatex = (el) => { try { const api = el && typeof el.MathQuill === 'function' ? el.MathQuill() : null; return api && typeof api.latex === 'function' ? api.latex() : (el ? el.textContent : '0'); } catch { return '0'; } };
+            const toC = (latex) => evalComplexExpression(latexToExpr(String(latex||'0')));
+            const a = toC(getLatex(spans[0]));
+            const b = toC(getLatex(spans[1]));
+            const c = toC(getLatex(spans[2]));
+            const d = toC(getLatex(spans[3]));
             const det = a.mul(d).sub(b.mul(c));
-            // Enforce det ≈ 1 (PSL(2, C))
-            if (Math.abs(det.re - 1) > 1e-4 || Math.abs(det.im) > 1e-4) {
-              showMessage('Determinant should be 1 (up to numerical error).', true);
+            // Allow arbitrary determinant; only require invertibility (det ≠ 0)
+            if (det.normSq() < 1e-12) {
+              showMessage('Matrix skipped: determinant is 0 (not invertible).', true);
               continue;
             }
             generators.push(new Matrix2(a, b, c, d));
@@ -375,38 +646,60 @@
 
         function setExample(example) {
           document.getElementById('matrixInputs').innerHTML = '';
-          example.forEach(vals => addMatrixInput(vals));
+          example.forEach(vals => addMatrixInput(vals.map(v => String(v).replace(/\*\*/g,'^'))));
           typesetMath();
         }
 
         const exampleLibrary = [
-          // Apollonian Gasket
-          [ ['1','1+i','0','1'], ['0','-1','1','0'] ],
-          // Triangle-like
-          [ ['1','2i','0','1'], ['1','-1','1','1'] ],
-          // Borromean-like
-          [ ['1','2','0','1'], ['1','i','0','1'], ['1','0','-1-i','1'] ],
-          // Z[i] congruence
-          [ ['1','2','0','1'], ['1','2i','0','1'], ['0','-1','1','0'] ],
-          // Random placeholder (same as triangle)
-          [ ['2','-2','0','1/2'], ['3','4','2','3'] ]
+          { name: 'Apollonian Gasket', mats: [ ['1','1+i','0','1'], ['0','-1','1','0'] ] },
+          { name: 'Modular group', mats: [ ['1','1','0','1'], ['0','-1','1','0'] ] },
+          { name: 'Borromean rings group', mats: [ ['1','2','0','1'], ['1','i','0','1'], ['1','0','-1-i','1'] ] },
+          { name: 'Z[i] congruence', mats: [ ['1','2','0','1'], ['1','2i','0','1'], ['0','-1','1','0'] ] },
+          { name: 'Surface group', mats: [ ['2','-2','0','1/2'], ['3','4','2','3'] ] },
+          { name: 'Figure eight knot group', mats: [ ['1','\\frac{-1+ \\sqrt{3} i}{2}','0','1'], ['1','0','1','1'] ] },
+          { name: 'Triangle group', mats: [ ['1','2i','0','1'], ['1','-1','1','1'] ] },
+          { name: 'P(1/3)', mats: [ ['1','\\frac{\\sqrt{7}+i}{2}','0','1'], ['0','-1','1','0'] ] },
+          { name: 'P(1/4)', mats: [ ['1','\\sqrt{1+\\sqrt{1+2i}}','0','1'], ['0','-1','1','0'] ] },
+          { name: 'P(2/5)', mats: [ ['1','1.1028+0.6655i','0','1'], ['0','-1','1','0'] ] },
+          { name: 'Hecke group', mats: [ ['1','2\\cos(\\frac{\\pi}{n})','0','1'], ['0','-1','1','0'] ] }
         ];
 
+        function refreshExampleDropdown() {
+          const sel = document.getElementById('groupSelector');
+          if (!sel) return;
+          // preserve current selection name if possible
+          const prev = sel.value;
+          // Clear all except the first placeholder option
+          while (sel.options.length > 1) sel.remove(1);
+          exampleLibrary.forEach((ex, idx) => {
+            const opt = document.createElement('option');
+            opt.value = String(idx);
+            opt.textContent = ex.name || `Example ${idx+1}`;
+            sel.appendChild(opt);
+          });
+          if (prev && Number(prev) < exampleLibrary.length) sel.value = prev; // try to preserve selection
+        }
+        // Optional: expose for console use if the library is edited at runtime
+        window.refreshExampleDropdown = refreshExampleDropdown;
+
         function setupPanelUI() {
+          enableControlPanelResize();
           document.getElementById('addMatrixBtn').addEventListener('click', () => addMatrixInput());
           document.getElementById('updateGroupBtn').addEventListener('click', () => { 
             rebuildGeneratorsFromUI(); 
             generateAndDrawPolyhedron();
-            showMessage(`Generated polyhedron for word length ${document.getElementById('Lparam').value}.`);
+            showMessage(`Generated polyhedron for word length ${document.getElementById('wordLength').value}.`);
           });
-          document.getElementById('Lparam').addEventListener('change', () => {
+          document.getElementById('wordLength').addEventListener('change', () => {
             rebuildGeneratorsFromUI();
             generateAndDrawPolyhedron();
           });
-          document.getElementById('groupSelector').addEventListener('change', (e) => {
+          refreshExampleDropdown();
+          const groupSel = document.getElementById('groupSelector');
+          if (groupSel) groupSel.addEventListener('change', (e) => {
             const idx = parseInt(e.target.value, 10);
-            if (!isNaN(idx)) {
-              setExample(exampleLibrary[idx]);
+            if (!isNaN(idx) && exampleLibrary[idx]) {
+              setExample(exampleLibrary[idx].mats);
               rebuildGeneratorsFromUI();
               generateAndDrawPolyhedron();
               typesetMath();
@@ -414,7 +707,7 @@
           });
           document.getElementById('newExampleBtn').addEventListener('click', () => {
             const rand = exampleLibrary[Math.floor(Math.random()*exampleLibrary.length)];
-            setExample(rand);
+            setExample(rand.mats);
             rebuildGeneratorsFromUI();
             generateAndDrawPolyhedron();
             typesetMath();
@@ -435,7 +728,7 @@
           const stabBtn = document.getElementById('showStabilizerBtn');
           if (stabBtn) stabBtn.addEventListener('click', () => {
             rebuildGeneratorsFromUI();
-            const L = parseInt((document.getElementById('Lparam') || { value: 1 }).value) || 1;
+            const L = parseInt((document.getElementById('wordLength') || { value: 1 }).value) || 1;
             const groupElements = generateGroupElements(generators, L);
             const su2 = groupElements.filter(g => isUnitary(g));
 
@@ -452,7 +745,11 @@
             if (su2.length === 0) {
               out.textContent = 'No SU(2) elements found among generated words.';
             } else {
-              out.textContent = su2.map((m, i) => `g_${i+1} ∈ SU(2):\n${matrixToString(m)}`).join('\n\n');
+              const items = su2.map((m, i) => `${i+1}. ${matrixToLatex(m)}`);
+              out.innerHTML = items.join('<br/><br/>');
+              if (window.MathJax && MathJax.typesetPromise) {
+                MathJax.typesetPromise([document.getElementById('controlPanel')]).catch(() => {});
+              }
             }
             showMessage(`Stabilizer elements found: ${su2.length}.`);
           });
@@ -461,7 +758,7 @@
           const stdBtn = document.getElementById('printStdGensBtn');
           if (stdBtn) stdBtn.addEventListener('click', () => {
             rebuildGeneratorsFromUI();
-            const L = parseInt((document.getElementById('Lparam') || { value: 1 }).value) || 1;
+            const L = parseInt((document.getElementById('wordLength') || { value: 1 }).value) || 1;
             const groupElements = generateGroupElements(generators, L);
             const neighbors = computeDelaunayNeighbors(groupElements);
             const out = document.getElementById('stdGensOutput');
@@ -476,6 +773,25 @@
               }
             }
             showMessage(`Printed ${neighbors.length} standard generators (Delaunay neighbors).`);
+          });
+          // --- Compute standard generators ---
+          const computeBtn = document.getElementById('computeStdGensBtn');
+          if (computeBtn) computeBtn.addEventListener('click', () => {
+            rebuildGeneratorsFromUI();
+            const L = parseInt((document.getElementById('wordLength') || { value: 1 }).value) || 1;
+            const stdGensL = computeStandardGenerators(generators, L);
+            const out = document.getElementById('computeStdGensOutput');
+            if (!out) return;
+            if (!stdGensL || stdGensL.length === 0) {
+              out.textContent = 'No standard generators found.';
+            } else {
+              const items = stdGensL.map((m, i) => `${i+1}. ${matrixToLatex(m)}`);
+              out.innerHTML = items.join('<br/><br/>');
+              if (window.MathJax && MathJax.typesetPromise) {
+                MathJax.typesetPromise([document.getElementById('controlPanel')]).catch(() => {});
+              }
+            }
+            showMessage(`Computed ${stdGensL.length} standard generators at level ${L}.`);
           });
           // --- Pager controls ---
           const prevBtn = document.getElementById('prevPageBtn');
@@ -522,13 +838,24 @@
         }
         
         function clearPolyhedron(){ clearGroup(polyhedronGroup); }
+
+        function symmetrizeGroupElements(elements) {
+            const symElements = new Map();
+            elements.forEach(m => {
+                const key = keyFromMatrix(m);
+                if (!symElements.has(key)) {
+                    symElements.set(key, m);
+                }
+            });
+            return Array.from(symElements.values());
+        }
+
         function generateGroupElements(gens, wordLength) {
             const elements = new Map();
-            const initialSet = [...gens];
-            gens.forEach(g => {
-                const inv = g.inverse();
-                if (inv) initialSet.push(inv);
-            });
+            const initialSet = symmetrizeGroupElements([
+                ...gens,
+                ...gens.map(g => g.inverse()).filter(Boolean)
+            ]);
 
             let queue = [...initialSet];
             const I = new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0));
@@ -590,6 +917,52 @@
                 pts.push(new THREE.Vector3(p.u.re, p.u.im, p.t));
             }
             return pts;
+        }
+
+        // --- Deduplication: canonical key for the bisector between two points ---
+        function bisectorKeyFromPoints(p, q) {
+          const eps = 1e-9;
+          const xp = p.x, yp = p.y, zp = p.z;
+          const xq = q.x, yq = q.y, zq = q.z;
+
+          // Heights equal -> vertical plane with normal in xy-plane
+          if (Math.abs(zp - zq) < eps) {
+            const nx = xq - xp;
+            const ny = yq - yp;
+            const nlen = Math.hypot(nx, ny);
+            if (nlen < eps) return null; // degenerate
+            let n0x = nx / nlen, n0y = ny / nlen;
+
+            // Compute a point on the plane as in drawBisector
+            const Sp = xp*xp + yp*yp + zp*zp;
+            const Sq = xq*xq + yq*yq + zq*zq;
+            const nlen2 = (xq - xp)*(xq - xp) + (yq - yp)*(yq - yp);
+            const d = nlen2 < eps ? 0 : ( (Sq - Sp) / 2 ) / nlen2; // n·(x) = d in xy
+
+            // Canonical orientation for (n, d): ensure (n0x, n0y) has a nonnegative lexicographic sign
+            if (n0x < -eps || (Math.abs(n0x) <= eps && n0y < 0)) {
+              n0x = -n0x; n0y = -n0y;
+            }
+            const kx = keyFromNumber(n0x);
+            const ky = keyFromNumber(n0y);
+            const kd = keyFromNumber(d);
+            return `V:${kx}:${ky}:${kd}`;
+          }
+
+          // Hemisphere orthogonal to boundary: key by (center.x, center.y, radius)
+          const denom = (zq - zp);
+          const cx = (zq * xp - zp * xq) / denom;
+          const cy = (zq * yp - zp * yq) / denom;
+          const Sp = xp*xp + yp*yp + zp*zp;
+          const Sq = xq*xq + yq*yq + zq*zq;
+          const c2 = cx*cx + cy*cy;
+          const r2 = c2 - (zq * Sp - zp * Sq) / denom;
+          if (!(r2 > eps)) return null;
+          const r = Math.sqrt(r2);
+          const kcx = keyFromNumber(cx);
+          const kcy = keyFromNumber(cy);
+          const kr  = keyFromNumber(r);
+          return `H:${kcx}:${kcy}:${kr}`;
         }
 
         // Draw the Dirichlet bisector (perpendicular bisector in H^3) between basepoint o=(0,0,1) and p=(u,t)
@@ -730,7 +1103,7 @@
                   let ok = true;
                   for (let k = 1; k < orbit.length; k++) {
                       const dk = hDist(orbit[k], s);
-                      if (dk < d0 - 2e-3) { ok = false; break; }
+                      if (dk < d0) { ok = false; break; }
                   }
                   if (ok) { contributes = true; break; }
               }
@@ -744,14 +1117,138 @@
           return Array.from(neighborsMap.values());
         }
 
+        function computeStandardGenerators(gens, L) {
+        // Symmetrize gens as gens ∪ gens^{-1}, then dedupe canonically
+        const gensSym = symmetrizeGroupElements([
+            ...gens,
+            ...gens.map(g => g && typeof g.inverse === 'function' ? g.inverse() : null).filter(Boolean)
+        ]);
+
+        // Initialize stdGens(0) = stdGens(1) = gensSym
+        const stdGens = [];
+        stdGens[0] = gensSym;
+        stdGens[1] = gensSym;
+
+        // If L is 0 or 1, return the base set
+        if (L <= 1) return stdGens[L] || gensSym;
+
+        // Iterate: stdGens(i+1) = computeDelaunayNeighbors( stdGens(i) * stdGens(i-1) )
+        for (let i = 1; i < L; i++) {
+            // Build product set { g * h : g in stdGens[i], h in stdGens[i-1] }
+            const products = [];
+            const Gi = stdGens[i] || [];
+            const Gim1 = stdGens[i - 1] || [];
+            for (const g of Gi) {
+            for (const h of Gim1) {
+                if (g && h && typeof g.multiply === 'function') {
+                products.push(g.multiply(h));
+                }
+            }
+            }
+            // Deduplicate products before neighbor computation
+            const productsSym = symmetrizeGroupElements(products);
+            // Compute Delaunay neighbors from the product set
+            const neighbors = computeDelaunayNeighbors(productsSym) || [];
+            // Extract matrices (n.g if object), then symmetrize/dedupe
+            const nextSet = symmetrizeGroupElements(
+            neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean)
+            );
+            stdGens[i + 1] = nextSet;
+        }
+        // Return stdGens(L)
+        return stdGens[L] || gensSym;
+        }
+
+        // Draws a hyperbolic geodesic arc (as a circle orthogonal to the boundary, center in xy-plane)
+        function drawGeodesicArc(p, q, material) {
+          // If nearly vertical alignment (same x,y), draw a vertical segment
+          const eps = 1e-9;
+          if (Math.hypot(p.x - q.x, p.y - q.y) < eps) {
+            const geom = new THREE.BufferGeometry().setFromPoints([p, q]);
+            const line = new THREE.Line(geom, material);
+            delaunayGroup.add(line);
+            return;
+          }
+
+          // Normal of the unique vertical plane containing p and q
+          const k = new THREE.Vector3(0,0,1);
+          const n = new THREE.Vector3().subVectors(p, q).cross(k); // lies in xy-plane
+          const nlen = n.length();
+          if (nlen < eps) {
+            // Fallback to straight segment if degenerate
+            const geom = new THREE.BufferGeometry().setFromPoints([p, q]);
+            const line = new THREE.Line(geom, material);
+            delaunayGroup.add(line);
+            return;
+          }
+          n.divideScalar(nlen);
+
+          // Intersection line L = plane(p, n) ∩ {z=0}
+          // Direction of L is d = k × n (lies in xy-plane)
+          const d = new THREE.Vector3().crossVectors(k, n);
+          // A point C0 on L: project p to z=0 along the plane normal's perpendicular direction
+          // Choose any point with z=0 lying in plane: take C0 = (p.x, p.y, 0) adjusted so that n·(C0 - p) = 0
+          let C0 = new THREE.Vector3(p.x, p.y, 0);
+          const alpha = n.dot(new THREE.Vector3().subVectors(p, C0));
+          // Move along direction u in xy so that n·(C0 - p) = 0. Use u perpendicular to k and parallel to xy.
+          // Since n lies in xy, moving along any vector orthogonal to n in xy changes dot; use d (already orthogonal to n).
+          C0.addScaledVector(d, alpha / Math.max(d.lengthSq(), eps));
+
+          // Parameterize centers on L: C(t) = C0 + t d
+          // Solve |C(t)-p|^2 = |C(t)-q|^2 for t (linear)
+          const px = p.x, py = p.y, pz = p.z;
+          const qx = q.x, qy = q.y, qz = q.z;
+          const A = d.x*(qx - px) + d.y*(qy - py);
+          const B = ( (qx*qx - px*px) + (qy*qy - py*py) + (qz*qz - pz*pz) ) * 0.5
+                    - (C0.x*(qx - px) + C0.y*(qy - py));
+          const denom = A;
+          let t = 0;
+          if (Math.abs(denom) > eps) {
+            t = B / denom;
+          }
+          const C = new THREE.Vector3(C0.x + t*d.x, C0.y + t*d.y, 0);
+
+          // Radius and orthonormal basis in the circle plane
+          const r = C.distanceTo(p);
+          if (!(r > eps)) {
+            const geom = new THREE.BufferGeometry().setFromPoints([p, q]);
+            const line = new THREE.Line(geom, material);
+            delaunayGroup.add(line);
+            return;
+          }
+          const e1 = new THREE.Vector3().subVectors(p, C).divideScalar(r); // from center to p
+          const e2 = new THREE.Vector3().crossVectors(n, e1).normalize();  // lies in the plane, orthonormal
+
+          // Angle from p to q around the circle in the plane (right-handed w.r.t. n)
+          const qp = new THREE.Vector3().subVectors(q, C);
+          const cosTh = THREE.MathUtils.clamp(qp.dot(e1) / r, -1, 1);
+          const sinTh = THREE.MathUtils.clamp(qp.dot(e2) / r, -1, 1);
+          let theta = Math.atan2(sinTh, cosTh);
+
+          // Sample the arc from 0 → theta (choose the shorter arc)
+          if (theta > Math.PI) theta -= 2*Math.PI;
+          if (theta < -Math.PI) theta += 2*Math.PI;
+
+          const segments = Math.max(16, Math.ceil(48 * Math.abs(theta) / Math.PI));
+          const pts = [];
+          for (let i = 0; i <= segments; i++) {
+            const tA = (i/segments) * theta;
+            const pt = new THREE.Vector3().copy(C)
+              .addScaledVector(e1, Math.cos(tA) * r)
+              .addScaledVector(e2, Math.sin(tA) * r);
+            pts.push(pt);
+          }
+          const geom = new THREE.BufferGeometry().setFromPoints(pts);
+          const line = new THREE.Line(geom, material);
+          delaunayGroup.add(line);
+        }
+
         function drawDelaunayEdges(neighbors) {
           clearDelaunay();
           const material = new THREE.LineBasicMaterial({ linewidth: 2 });
           for (const v of neighbors) {
               const vv = (v && v.v) ? v.v : v;
-              const geom = new THREE.BufferGeometry().setFromPoints([basepoint, vv]);
-              const line = new THREE.Line(geom, material);
-              delaunayGroup.add(line);
+              drawGeodesicArc(basepoint, vv, material);
           }
         }
 
@@ -776,34 +1273,89 @@
             clearPolyhedron();
             clearDelaunay();
             clearOrbit();
-            const showWalls = document.getElementById('toggleWalls')?.checked ?? true;
-            const wordLength = parseInt(document.getElementById('Lparam').value) || 1;
+
+            const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
             const groupElements = generateGroupElements(generators, wordLength);
             const neighbors = computeDelaunayNeighbors(groupElements);
 
-            if (showWalls) {
-                // Draw walls only for Delaunay neighbors
-                neighbors.forEach((obj, i) => {
-                    const g = obj.g;
-                    const inv = g.inverse();
-                    if (!inv) return;
-                    const col = new THREE.Color().setHSL(i / Math.max(1, neighbors.length), 0.65, 0.58);
-                    const material = new THREE.MeshStandardMaterial({
-                        color: col,
+            const selectedRadio = document.querySelector('input[name="wallsMode"]:checked');
+            const wallsMode = selectedRadio ? selectedRadio.value : 'all';
+
+            if (wallsMode === 'dirichlet') {
+              // Draw exactly one wall per Dirichlet neighbor (between o and s·o)
+              const I = new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0));
+              const o = imageOfBasepoint(I);
+              const vO = new THREE.Vector3(o.u.re, o.u.im, o.t);
+
+              const wallKeys = new Set();
+              neighbors
+                .map(n => (n && n.g) ? n.g : n)
+                .filter(Boolean)
+                .forEach(s => {
+                  const p2 = imageOfBasepoint(s);
+                  if (!isFinite(p2.t) || p2.t <= 0) return;
+                  const vS = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
+                  const key = bisectorKeyFromPoints(vO, vS);
+                  if (!key || wallKeys.has(key)) return;
+                  wallKeys.add(key);
+                  const color = colorForIndex(wallKeys.size, neighbors.length);
+                  const material = new THREE.MeshStandardMaterial({
+                    color,
+                    transparent: true,
+                    opacity: wallOpacity,
+                    side: THREE.DoubleSide,
+                    metalness: 0.15,
+                    roughness: 0.6
+                  });
+                  drawBisector(vO, vS, material);
+                });
+            } else if (wallsMode === 'all') {
+              // Draw walls for all generated pairs (g, gs) across the tiling
+              const I = new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0));
+              const allG = [I, ...groupElements];
+              const sList = neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean);
+
+              const wallKeys = new Set();
+              sList.forEach((s, si) => {
+                // For non-random palettes, reuse one material per neighbor (old behavior).
+                // For random palette, we will create a new material per individual wall below.
+                const baseCol = (colorPalette === 'random') ? null : colorForIndex(si, sList.length);
+                const perNeighborMaterial = (colorPalette === 'random') ? null : new THREE.MeshStandardMaterial({
+                  color: baseCol,
+                  transparent: true,
+                  opacity: wallOpacity,
+                  side: THREE.DoubleSide,
+                  metalness: 0.2,
+                  roughness: 0.6
+                });
+
+                allG.forEach(g => {
+                  const p1 = imageOfBasepoint(g);
+                  const p2 = imageOfBasepoint(g.multiply(s));
+                  if (!isFinite(p1.t) || p1.t <= 0 || !isFinite(p2.t) || p2.t <= 0) return;
+                  if (Math.abs(p1.u.re - p2.u.re) < 1e-12 && Math.abs(p1.u.im - p2.u.im) < 1e-12 && Math.abs(p1.t - p2.t) < 1e-12) return;
+                  const v1 = new THREE.Vector3(p1.u.re, p1.u.im, p1.t);
+                  const v2 = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
+                  const key = bisectorKeyFromPoints(v1, v2);
+                  if (!key || wallKeys.has(key)) return;
+                  wallKeys.add(key);
+
+                  const material = (colorPalette === 'random')
+                    ? new THREE.MeshStandardMaterial({
+                        color: colorForIndex(Math.random(), 1), // brand new random color per wall
                         transparent: true,
-                        opacity: 0.35,
+                        opacity: wallOpacity,
                         side: THREE.DoubleSide,
                         metalness: 0.2,
                         roughness: 0.6
-                    });
+                      })
+                    : perNeighborMaterial;
 
-                    const p = imageOfBasepoint(inv); // p = {u: Complex, t: number}
-                    if (!isFinite(p.t) || p.t <= 0) return;
-                    if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) return;
-
-                    const pVec = new THREE.Vector3(p.u.re, p.u.im, p.t);
-                    drawBisector(pVec, undefined, material); // q defaults to basepoint (0,0,1)
+                  drawBisector(v1, v2, material);
                 });
+              });
+            } else {
+              // wallsMode === 'off' -> no walls drawn
             }
             const showOrbit = document.getElementById('toggleOrbit')?.checked;
             if (showOrbit) {
@@ -814,12 +1366,48 @@
             }
             const showDel = document.getElementById('toggleDelaunay')?.checked;
             if (showDel) {
-                drawDelaunayEdges(neighbors);
+              clearDelaunay();
+              // Build list of base group elements including identity
+              const allG = [...groupElements];
+              const I = new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0));
+              allG.unshift(I);
+
+              // Extract Delaunay neighbor matrices (handle either {g,v} objects or bare matrices)
+              const sList = neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean);
+
+              sList.forEach((s, si) => {
+                const col = colorForIndex(si, sList.length);
+                const material = new THREE.LineBasicMaterial({ color: col });
+
+                allG.forEach(g => {
+                  const p1 = imageOfBasepoint(g);
+                  const p2 = imageOfBasepoint(g.multiply(s));
+                  if (!isFinite(p1.t) || p1.t <= 0 || !isFinite(p2.t) || p2.t <= 0) return;
+                  if (Math.abs(p1.u.re - p2.u.re) < 1e-12 && Math.abs(p1.u.im - p2.u.im) < 1e-12 && Math.abs(p1.t - p2.t) < 1e-12) return;
+
+                  const v1 = new THREE.Vector3(p1.u.re, p1.u.im, p1.t);
+                  const v2 = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
+                  drawGeodesicArc(v1, v2, material);
+                });
+              });
             } else {
-                clearDelaunay();
+              clearDelaunay();
             }
         }
         
+        function colorForIndex(si, total) {
+          if (colorPalette === 'monochrome') {
+            return new THREE.Color('skyblue');
+          }
+          if (colorPalette === 'random') {
+            // completely random on each render
+            return new THREE.Color(Math.random() * 0xffffff);
+          }
+          // default: previous behavior
+          const c = new THREE.Color();
+          c.setHSL(si / Math.max(1, total), 0.65, 0.58);
+          return c;
+        }
 
         // --- Init ---
         init();
@@ -835,16 +1423,43 @@
             rebuildGeneratorsFromUI();
             generateAndDrawPolyhedron();
             });
-        const wallsCb = document.getElementById('toggleWalls');
-            if (wallsCb) wallsCb.addEventListener('change', () => {
+        const wallsRadios = document.querySelectorAll('input[name="wallsMode"]');
+        wallsRadios.forEach(radio => {
+          radio.addEventListener('change', () => {
             rebuildGeneratorsFromUI();
             generateAndDrawPolyhedron();
+          });
+        });
+        const wallOpacitySlider = document.getElementById('wallOpacitySlider');
+        if (wallOpacitySlider) {
+            wallOpacitySlider.addEventListener('input', () => {
+                wallOpacity = parseFloat(wallOpacitySlider.value);
+                document.getElementById('wallOpacityValue').textContent = wallOpacity.toFixed(2);
+                rebuildGeneratorsFromUI();
+                generateAndDrawPolyhedron();
             });
-        setExample(exampleLibrary[0]); // Modular group by default
+        }
+        const paletteSel = document.getElementById('colorPalette');
+        if (paletteSel) {
+          paletteSel.addEventListener('change', () => {
+            colorPalette = paletteSel.value || 'harmonic';
+            rebuildGeneratorsFromUI();
+            generateAndDrawPolyhedron();
+          });
+        }
+        // --- Basepoint toggle ---
+        const bpCb = document.getElementById('toggleBasepoint');
+        if (bpCb) bpCb.addEventListener('change', () => {
+          if (window.basepointMesh) {
+            window.basepointMesh.visible = bpCb.checked;
+          }
+        });
+        refreshExampleDropdown();
+        setExample(exampleLibrary[0].mats); // first example by default
         rebuildGeneratorsFromUI();
         typesetMath();
         // Sync initial word length
-        document.getElementById('Lparam').value = 4;
+        document.getElementById('wordLength').value = 4;
         generateAndDrawPolyhedron();
  
     </script>
