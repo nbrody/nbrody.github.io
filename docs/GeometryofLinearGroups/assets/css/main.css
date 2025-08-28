@@ -250,6 +250,40 @@ sub {
   bottom: -0.25em;
 }
 
+/* Inline list of subgroup definitions */
+.subgroup-list {
+  text-align: left;
+  display: inline-block; /* so it doesn't stretch full width inside a centered container */
+  margin-left: 2rem;     /* indent */
+}
+.subgroup-list > div {
+  margin-bottom: 0.5rem;
+}
+
+/* Learn More card: centered and smaller than nav cards */
+.learn-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+.learn-more-card {
+  max-width: 260px;        /* smaller than typical nav-card column */
+  padding: 18px;           /* reduce padding from .nav-card (30px) */
+}
+.learn-more-card .card-icon {
+  font-size: 2em;          /* smaller icon than standard nav-cards (3em) */
+  height: 40px;
+  line-height: 40px;
+  margin-bottom: 10px;
+}
+.learn-more-card h2 {
+  font-size: 1.25em;       /* slightly smaller heading */
+  margin-bottom: 8px;
+}
+.learn-more-card p {
+  font-size: 0.9em;
+}
+
 /* Link Styles */
 a {
   color: var(--accent-color);

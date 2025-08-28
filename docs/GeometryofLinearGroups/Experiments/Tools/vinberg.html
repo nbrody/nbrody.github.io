@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vinberg's Algorithm — Minimal HTML/JS Implementation</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121933;
+      --ink: #e9ecf1;
+      --muted: #aab3c7;
+      --accent: #6ee7ff;
+      --accent2: #ffb703;
+      --danger: #ff6b6b;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+        "Apple Color Emoji", "Segoe UI Emoji";
+      line-height: 1.4;
+    }
+    header {
+      padding: 14px 18px;
+      border-bottom: 1px solid #233058;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    header h1 { font-size: 18px; margin: 0; }
+    .wrap {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      height: calc(100% - 58px);
+    }
+    aside {
+      border-right: 1px solid #233058;
+      padding: 14px;
+      overflow: auto;
+      background: var(--panel);
+    }
+    main { padding: 16px; overflow: auto; }
+    h2 { font-size: 16px; margin: 18px 0 8px; color: var(--accent); }
+    label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
+    textarea, input, select, button {
+      width: 100%;
+      background: #0e1430;
+      color: var(--ink);
+      border: 1px solid #22335f;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+    textarea { resize: vertical; min-height: 84px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    button { cursor: pointer; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .muted { color: var(--muted); }
+    .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; background:#1a2347; border:1px solid #26376b; font-size: 12px; }
+    .btn {
+      background: linear-gradient(180deg,#28468b,#1a2f63);
+      border: 1px solid #2b4f9b;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset;
+    }
+    .btn.alt { background: linear-gradient(180deg,#36597c,#253d57); border-color:#3a6ea7; }
+    .btn.warn { background: linear-gradient(180deg,#7c2c2c,#4d1b1b); border-color:#a63a3a; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #233058; padding: 6px 8px; font-size: 12px; }
+    th { background: #0e1430; position: sticky; top: 0; z-index: 1; }
+    .flex { display:flex; gap:8px; align-items:center; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .small { font-size: 12px; }
+    canvas { width: 100%; height: 380px; background:#081022; border:1px solid #203055; border-radius: 12px; }
+    .note { font-size: 12px; color: var(--muted); }
+    details { border:1px solid #233058; border-radius:12px; background:#0e1430; padding:10px 12px; }
+    details summary { cursor:pointer; }
+    code.kbd { background:#0a132b; padding:2px 6px; border-radius:6px; border:1px solid #1d2f57; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Vinberg's Algorithm <span class="pill">HTML/JS</span></h1>
+    <span class="muted small">Acute-angled fundamental polyhedron via simple roots for a Lorentzian form (signature (n,1)). Integer-lattice search.</span>
+  </header>
+  <div class="wrap">
+    <aside>
+      <h2>1) Quadratic form (Gram matrix B)</h2>
+      <label>Enter a symmetric (n+1)×(n+1) matrix. Default is diag(1,1,1,-1).</label>
+      <textarea id="matrixB">1 0 0 0
+0 1 0 0
+0 0 1 0
+0 0 0 -1</textarea>
+
+      <h2>2) Basepoint vector v<sub>0</sub></h2>
+      <label>Timelike (inside the future cone). Default b = (0,0,0,1).</label>
+      <input id="basepoint" value="0 0 0 1" />
+
+      <h2>3) Lattice & search</h2>
+      <div class="row">
+        <div>
+          <label>Integer search bound (|r<sub>i</sub>| ≤)</label>
+          <input id="bound" type="number" value="2" min="1" />
+        </div>
+        <div>
+          <label>Max r·r (filter)</label>
+          <input id="maxNorm" type="number" value="20" min="1" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Max candidates kept</label>
+          <input id="maxCands" type="number" value="5000" min="10" />
+        </div>
+        <div>
+          <label>Height tolerance ε</label>
+          <input id="eps" type="number" value="1e-9" step="any" />
+        </div>
+      </div>
+
+      <div class="row3" style="margin-top:10px;">
+        <button class="btn" id="btnInit">Initialize</button>
+        <button class="btn alt" id="btnStep">Step</button>
+        <button class="btn alt" id="btnRun">Run until stuck</button>
+      </div>
+      <div class="row3" style="margin-top:8px;">
+        <button class="btn" id="btnExpand">Expand search (+1)</button>
+        <button class="btn" id="btnExport">Export JSON</button>
+        <button class="btn warn" id="btnReset">Reset</button>
+      </div>
+
+      <details style="margin-top:12px;">
+        <summary>Notes on this implementation</summary>
+        <div class="small">
+          <p><strong>Scope.</strong> This is a practical, integer-lattice oriented version of Vinberg's algorithm. It searches primitive integer roots <code class="kbd">r ∈ ℤ^{n+1}</code> with <code>⟨r,r⟩ = rᵀ B r &gt; 0</code> and <code>⟨r,v₀⟩ = rᵀ B v₀ &lt; 0</code>, ordered by the <em>height</em> <code>h(r) = ⟨r,r⟩ / ⟨r,v₀⟩²</code>. At each step we add the minimal-height root subject to <code>⟨r, s⟩ ≤ 0</code> for all already chosen simple roots <code>s</code> (acute-angled condition).</p>
+          <p><strong>Termination.</strong> In general termination and completeness need arithmetic input. Here we stop when no new admissible roots exist within the current search window. Use “Expand search” as needed.</p>
+          <p><strong>Diagram.</strong> The Coxeter diagram is computed from cosines <code>c<sub>ij</sub> = −⟨s<sub>i</sub>, s<sub>j</sub>⟩ / √(⟨s<sub>i</sub>,s<sub>i</sub>⟩⟨s<sub>j</sub>,s<sub>j</sub>⟩)</code>. If <code>0 ≤ c ≤ 1</code> we place an edge labeled by <code>m = π/acos(c)</code> (rounded when very close to an integer ≥ 2). If <code>c &gt; 1</code> we mark with <code>∞</code>.</p>
+          <p><strong>Defaults.</strong> Example uses the standard Lorentz form diag(1,1,1,−1) with basepoint (0,0,0,1).</p>
+        </div>
+      </details>
+    </aside>
+    <main>
+      <section>
+        <h2>Simple roots (Vinberg order)</h2>
+        <div id="status" class="note">Ready.</div>
+        <div style="max-height: 40vh; overflow:auto; margin-top:8px; border:1px solid #233058; border-radius:12px;">
+          <table id="rootsTable">
+            <thead>
+              <tr><th>#</th><th>r (primitive)</th><th>r·r</th><th>r·v₀</th><th>height</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section style="margin-top:18px;">
+        <h2>Coxeter matrix & diagram</h2>
+        <div class="row">
+          <div style="overflow:auto; border:1px solid #233058; border-radius:12px; max-height: 38vh;">
+            <table id="coxTable"><thead></thead><tbody></tbody></table>
+          </div>
+          <div>
+            <canvas id="diagram" width="800" height="380"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section style="margin-top:18px;">
+        <h2>Candidates (pre-filtered by norms & sign)</h2>
+        <div id="candInfo" class="note">—</div>
+        <div style="max-height: 30vh; overflow:auto; border:1px solid #233058; border-radius:12px;">
+          <table id="candTable">
+            <thead><tr><th>#</th><th>r</th><th>r·r</th><th>r·v₀</th><th>height</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script type="module">
+// ========================= Utility linear algebra =========================
+function parseMatrix(text) {
+  const rows = text.trim().split(/\n+/).map(line => line.trim().split(/\s+/).map(Number));
+  const n = rows.length;
+  rows.forEach(r => { if (r.length !== n) throw new Error("Matrix must be square (n+1)×(n+1)"); });
+  return rows;
+}
+
+function parseVector(text) {
+  return text.trim().split(/\s+/).map(Number);
+}
+
+function dotB(B, u, v) {
+  // u^T B v
+  const n = u.length; let s = 0;
+  for (let i=0;i<n;i++) for (let j=0;j<n;j++) s += u[i]*B[i][j]*v[j];
+  return s;
+}
+
+function normB(B, u) { return dotB(B, u, u); }
+
+function add(u,v){ return u.map((x,i)=>x+v[i]); }
+function sub(u,v){ return u.map((x,i)=>x-v[i]); }
+function scale(u,k){ return u.map(x=>x*k); }
+
+function gcd2(a,b){ a=Math.abs(Math.round(a)); b=Math.abs(Math.round(b)); while(b){ const t=a%b; a=b; b=t; } return a; }
+function gcdVec(v){ return v.reduce((g,x)=>gcd2(g,x),0); }
+
+function approxEq(a,b,eps=1e-9){ return Math.abs(a-b) <= eps*(1+Math.max(1,Math.abs(a),Math.abs(b))); }
+
+function canonicalRoot(r, B, v0){
+  // Ensure r is primitive (integer) and oriented with r·v0 < 0 (so the half-space contains v0)
+  // If components are not all close to integers, we skip gcd reduction.
+  const ri = r.map(x=>Math.round(x));
+  const allInt = r.every((x,i)=>approxEq(x,ri[i]));
+  let rr = r.slice();
+  if(allInt){
+    const g = Math.max(1, gcdVec(ri));
+    rr = ri.map(x=>x/g);
+  }
+  const sgn = dotB(B, rr, v0) >= 0 ? -1 : 1; // want < 0
+  return scale(rr, sgn);
+}
+
+function keyOfVec(v){
+  return v.map(x=>Number.isInteger(x)? String(x) : x.toFixed(9)).join(",");
+}
+
+// ========================= Vinberg machinery =========================
+class Vinberg {
+  constructor(B, v0, bound=2, maxNorm=20, eps=1e-9, maxCands=5000){
+    this.B = B;
+    this.v0 = v0;
+    this.d = v0.length;
+    this.bound = bound;
+    this.maxNorm = maxNorm;
+    this.eps = eps;
+    this.maxCands = maxCands;
+
+    this.simple = []; // list of roots (arrays)
+    this.simpleKeys = new Set();
+    this.candidates = []; // array of {r, rr, rv0, h}
+  }
+
+  height(r){
+    const rr = normB(this.B, r);
+    const rv = dotB(this.B, r, this.v0);
+    if (rv >= 0) return Infinity; // we require r·v0 < 0 for inward halfspace
+    return rr / (rv*rv);
+  }
+
+  admissibleAgainstCurrent(r){
+    // Must satisfy ⟨r, s⟩ ≤ 0 for all chosen simple roots s
+    for (const s of this.simple){
+      if (dotB(this.B, r, s) > this.eps) return false;
+    }
+    return true;
+  }
+
+  enumerateCandidates(){
+    const n = this.d;
+    const bound = this.bound;
+    const maxNorm = this.maxNorm;
+    const list = [];
+    const vec = new Array(n).fill(0);
+
+    // Depth-first enumeration of integer vectors in [-b, b]^n, excluding 0.
+    const dfs = (i)=>{
+      if (i===n){
+        // Skip zero vector
+        let allZero = true; for (let k=0;k<n;k++) if (vec[k]!==0){ allZero=false; break; }
+        if (allZero) return;
+        const can = canonicalRoot(vec, this.B, this.v0);
+        const rr = normB(this.B, can);
+        const rv = dotB(this.B, can, this.v0);
+        if (rr<=0) return;          // need spacelike normal (mirror)
+        if (!(rv < 0)) return;      // inward pointing
+        if (rr > maxNorm+this.eps) return;
+        const h = rr / (rv*rv);
+        list.push({ r: can.slice(), rr, rv, h });
+        return;
+      }
+      for (let v=-bound; v<=bound; v++){
+        vec[i]=v;
+        dfs(i+1);
+      }
+    };
+    dfs(0);
+
+    // Unique by canonical key
+    const seen = new Set();
+    const uniq = [];
+    for (const c of list){
+      const key = keyOfVec(c.r);
+      if (seen.has(key)) continue;
+      seen.add(key); uniq.push(c);
+    }
+
+    // Sort by height h, then by rr ascending magnitude, then lexicographically
+    uniq.sort((a,b)=> a.h===b.h ? (a.rr===b.rr ? keyOfVec(a.r).localeCompare(keyOfVec(b.r)) : a.rr-b.rr ) : a.h-b.h);
+
+    // Keep at most maxCands
+    this.candidates = uniq.slice(0, this.maxCands);
+  }
+
+  step(){
+    // pick minimal height r that is admissible vs current simple set
+    for (const c of this.candidates){
+      const key = keyOfVec(c.r);
+      if (this.simpleKeys.has(key)) continue;
+      if (!this.admissibleAgainstCurrent(c.r)) continue;
+      // Add it
+      this.simple.push(c.r.slice());
+      this.simpleKeys.add(key);
+      return { added: c.r.slice(), h: c.h };
+    }
+    return null; // stuck under current candidate set
+  }
+
+  gram(){
+    const m = this.simple.length; const G = Array.from({length:m},()=>Array(m).fill(0));
+    for (let i=0;i<m;i++){
+      for (let j=0;j<m;j++){
+        G[i][j] = dotB(this.B, this.simple[i], this.simple[j]);
+      }
+    }
+    return G;
+  }
+
+  coxeterMatrix(){
+    const S = this.simple; const m=S.length;
+    const M = Array.from({length:m},()=>Array(m).fill(1));
+    const N = S.map(s=>normB(this.B, s));
+    for (let i=0;i<m;i++){
+      for (let j=i+1;j<m;j++){
+        const ip = dotB(this.B, S[i], S[j]); // ≤ 0 by construction
+        const c = -ip / Math.sqrt(N[i]*N[j]); // ≥ 0
+        let label;
+        if (c>1+1e-8){ label = Infinity; }
+        else if (c>=1-1e-8){ label = Infinity; }
+        else if (c<=1 && c>=0){
+          const theta = Math.acos(Math.min(1,Math.max(0,c)));
+          const mval = Math.PI/theta; // desired m
+          const rounded = Math.round(mval);
+          if (Math.abs(mval-rounded) < 0.05 && rounded>=2) label = rounded; else label = +mval.toFixed(3);
+        } else {
+          label = '?';
+        }
+        M[i][j]=M[j][i]=label;
+      }
+    }
+    return M;
+  }
+}
+
+// ========================= UI & wiring =========================
+const els = {
+  matrixB: document.getElementById('matrixB'),
+  basepoint: document.getElementById('basepoint'),
+  bound: document.getElementById('bound'),
+  maxNorm: document.getElementById('maxNorm'),
+  maxCands: document.getElementById('maxCands'),
+  eps: document.getElementById('eps'),
+  btnInit: document.getElementById('btnInit'),
+  btnStep: document.getElementById('btnStep'),
+  btnRun: document.getElementById('btnRun'),
+  btnExpand: document.getElementById('btnExpand'),
+  btnExport: document.getElementById('btnExport'),
+  btnReset: document.getElementById('btnReset'),
+  rootsTable: document.getElementById('rootsTable').querySelector('tbody'),
+  candTable: document.getElementById('candTable').querySelector('tbody'),
+  coxHead: document.getElementById('coxTable').querySelector('thead'),
+  coxBody: document.getElementById('coxTable').querySelector('tbody'),
+  status: document.getElementById('status'),
+  candInfo: document.getElementById('candInfo'),
+  diagram: document.getElementById('diagram'),
+};
+
+let V = null; // Vinberg instance
+
+function setStatus(msg){ els.status.textContent = msg; }
+
+function renderRoots(){
+  const tbody = els.rootsTable; tbody.innerHTML = '';
+  if (!V) return;
+  V.simple.forEach((r,idx)=>{
+    const rr = normB(V.B, r);
+    const rv = dotB(V.B, r, V.v0);
+    const h = rr/(rv*rv);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${idx+1}</td><td class="mono">[${r.join(', ')}]</td><td>${rr.toFixed(6)}</td><td>${rv.toFixed(6)}</td><td>${h.toExponential(6)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderCandidates(){
+  const tbody = els.candTable; tbody.innerHTML = '';
+  if (!V) return;
+  els.candInfo.textContent = `${V.candidates.length} candidates in window (bound=${V.bound}, maxNorm=${V.maxNorm}).`;
+  V.candidates.slice(0,400).forEach((c,idx)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${idx+1}</td><td class="mono">[${c.r.join(', ')}]</td><td>${c.rr.toFixed(6)}</td><td>${c.rv.toFixed(6)}</td><td>${c.h.toExponential(6)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderCoxeter(){
+  if (!V) return;
+  const M = V.coxeterMatrix();
+  const m = M.length;
+  els.coxHead.innerHTML = '';
+  els.coxBody.innerHTML = '';
+  if (m===0) return;
+  const trh = document.createElement('tr');
+  trh.innerHTML = `<th></th>` + Array.from({length:m},(_,j)=>`<th>s${j+1}</th>`).join('');
+  els.coxHead.appendChild(trh);
+  for (let i=0;i<m;i++){
+    const tr = document.createElement('tr');
+    let tds = `<td><strong>s${i+1}</strong></td>`;
+    for (let j=0;j<m;j++){
+      let val = (i===j)?1:M[i][j];
+      tds += `<td>${val===Infinity? '&infin;' : val}</td>`;
+    }
+    tr.innerHTML = tds; els.coxBody.appendChild(tr);
+  }
+  drawDiagram(M);
+}
+
+function drawDiagram(M){
+  const canvas = els.diagram; const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const n = M.length; if (!n) return;
+  const cx = canvas.width/2, cy = canvas.height/2, R = Math.min(cx,cy)-40;
+  const pts = [];
+  for (let i=0;i<n;i++){
+    const ang = (2*Math.PI*i)/n - Math.PI/2;
+    pts.push({ x: cx + R*Math.cos(ang), y: cy + R*Math.sin(ang) });
+  }
+  // edges
+  ctx.lineWidth = 1.5;
+  for (let i=0;i<n;i++){
+    for (let j=i+1;j<n;j++){
+      const label = M[i][j];
+      if (label===1 || label===undefined) continue; // no edge for m=1 (orthogonal)
+      ctx.beginPath();
+      ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.strokeStyle = '#2e4f9e'; ctx.stroke();
+      // label
+      const mx = (pts[i].x+pts[j].x)/2, my=(pts[i].y+pts[j].y)/2;
+      ctx.fillStyle = '#b9c6e6'; ctx.font = '12px ui-sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const lab = (label===Infinity? '∞' : String(label));
+      if (lab !== '2') ctx.fillText(lab, mx, my); // by convention, omit 2
+    }
+  }
+  // vertices
+  for (let i=0;i<n;i++){
+    ctx.beginPath(); ctx.arc(pts[i].x, pts[i].y, 12, 0, 2*Math.PI);
+    ctx.fillStyle = '#0f1b3b'; ctx.fill();
+    ctx.strokeStyle = '#6ee7ff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#e9ecf1'; ctx.font = '12px ui-sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(i+1), pts[i].x, pts[i].y);
+  }
+}
+
+function currentInputs(){
+  const B = parseMatrix(els.matrixB.value);
+  const v0 = parseVector(els.basepoint.value);
+  if (B.length !== v0.length) throw new Error(`Matrix is ${B.length}×${B.length}, but v0 has length ${v0.length}.`);
+  const bound = parseInt(els.bound.value,10);
+  const maxNorm = parseFloat(els.maxNorm.value);
+  const maxCands = parseInt(els.maxCands.value,10);
+  const eps = parseFloat(els.eps.value);
+  return {B,v0,bound,maxNorm,maxCands,eps};
+}
+
+function initialize(){
+  try{
+    const {B,v0,bound,maxNorm,maxCands,eps} = currentInputs();
+    V = new Vinberg(B, v0, bound, maxNorm, eps, maxCands);
+    V.enumerateCandidates();
+    setStatus(`Initialized with dimension ${V.d-1} hyperbolic space. ${V.candidates.length} candidates found.`);
+    renderCandidates();
+    renderRoots();
+    renderCoxeter();
+  }catch(e){
+    setStatus('Error: '+e.message);
+  }
+}
+
+function stepOnce(){
+  if (!V){ setStatus('Initialize first.'); return; }
+  const res = V.step();
+  if (!res){ setStatus('No admissible new root under current candidate window. Try expanding search.'); }
+  else { setStatus(`Added simple root #${V.simple.length} with height ${res.h.toExponential(6)}.`); }
+  renderRoots(); renderCoxeter();
+}
+
+function runUntilStuck(maxSteps=200){
+  if (!V){ setStatus('Initialize first.'); return; }
+  let added=0; for (let k=0;k<maxSteps;k++){ const r = V.step(); if (!r) break; added++; }
+  setStatus(added? `Added ${added} roots. Stopped (stuck or reached step cap).` : 'Stuck — no admissible root.');
+  renderRoots(); renderCoxeter();
+}
+
+function expandSearch(){
+  if (!V){ setStatus('Initialize first.'); return; }
+  V.bound += 1; V.enumerateCandidates();
+  setStatus(`Expanded search: bound=${V.bound}. Candidates: ${V.candidates.length}.`);
+  renderCandidates();
+}
+
+function exportJSON(){
+  if (!V){ setStatus('Initialize first.'); return; }
+  const data = {
+    B: V.B,
+    v0: V.v0,
+    simpleRoots: V.simple,
+    gram: V.gram(),
+    coxeter: V.coxeterMatrix(),
+    meta: { bound: V.bound, maxNorm: V.maxNorm }
+  };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download='vinberg_output.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function resetAll(){ V=null; els.rootsTable.innerHTML=''; els.candTable.innerHTML=''; els.coxHead.innerHTML=''; els.coxBody.innerHTML=''; setStatus('Reset.'); drawDiagram([]); }
+
+// Wire buttons
+els.btnInit.addEventListener('click', initialize);
+els.btnStep.addEventListener('click', stepOnce);
+els.btnRun.addEventListener('click', ()=>runUntilStuck(200));
+els.btnExpand.addEventListener('click', expandSearch);
+els.btnExport.addEventListener('click', exportJSON);
+els.btnReset.addEventListener('click', resetAll);
+
+// Auto-init for the default example
+initialize();
+</script>
+</body>
+</html>

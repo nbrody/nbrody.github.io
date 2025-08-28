@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Apollonian Circle Packing — Ray-Marched DE (GLSL)</title>
+<style>
+  html, body { margin:0; height:100%; background:#0b0b10; color:#e8e8ef; font:14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;}
+  #wrap { position:fixed; inset:0; display:grid; grid-template-rows:auto 1fr; }
+  header {
+    display:flex; gap:.75rem; align-items:center; padding:.5rem .75rem; background:#0f0f16; border-bottom:1px solid #1b1b24;
+    position:relative; z-index:1;
+  }
+  header h1 { font-size:14px; font-weight:600; margin:0; color:#b9c2ff; letter-spacing:.2px;}
+  .spacer { flex:1; }
+  .ctrl { display:flex; align-items:center; gap:.4rem; color:#cfcfe8;}
+  .ctrl label { opacity:.85; }
+  .ctrl input[type="range"] { width:160px; }
+  .btn {
+    background:#1b1b28; border:1px solid #29293a; color:#e8e8ef; border-radius:8px; padding:.45rem .7rem; cursor:pointer;
+  }
+  .btn:hover { background:#222235; }
+  #canvas { width:100%; height:100%; display:block; cursor: grab; }
+  #canvas.dragging { cursor: grabbing; }
+  .hint { opacity:.7; font-size:12px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <h1>Apollonian packing</h1>
+    <div class="spacer"></div>
+    <div class="ctrl"><label>Iter:</label><input id="iter" type="range" min="4" max="100" value="28"></div>
+    <div class="ctrl"><label>Line:</label><input id="thick" type="range" min="1" max="40" value="16"></div>
+    <div class="ctrl"><label>Unit inv:</label><input id="unitInv" type="checkbox" checked></div>
+    <div class="ctrl"><label>R inv:</label><input id="rInvEnable" type="checkbox" checked><input id="rInv" type="number" value="3.7320508075688772" step="0.1" min="0.05" style="width:72px;"></div>
+    <button id="reset" class="btn">Reset view</button>
+    <button id="save"  class="btn" title="Save PNG">Save</button>
+  </header>
+  <canvas id="canvas"></canvas>
+</div>
+
+<script>
+// ——— WebGL2 setup ————————————————————————————————————————————————————————
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl2', {antialias:true, preserveDrawingBuffer:true});
+if(!gl){ alert('WebGL2 not available'); throw new Error('WebGL2 required'); }
+
+const DPR = Math.max(1, window.devicePixelRatio || 1);
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width  = Math.round(w * DPR);
+  canvas.height = Math.round(h * DPR);
+  gl.viewport(0,0,canvas.width, canvas.height);
+}
+new ResizeObserver(resize).observe(canvas);
+
+// ——— Shaders ————————————————————————————————————————————————————————————————
+const vertSrc = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 a_pos;
+void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }`;
+
+const fragSrc = `#version 300 es
+precision highp float;
+out vec4 fragColor;
+
+uniform vec2  uRes;
+uniform float uTime;
+uniform float uZoom;         // world units per screen unit (smaller => zoom in)
+uniform vec2  uCenter;       // world center
+uniform int   uIters;        // max inversion-fold steps
+uniform float uThickness;    // line thickness knob (in screen px-ish)
+uniform int   uUseUnitInv; // 1 = enable inversion in circle of radius 1
+uniform int   uUseRInv;    // 1 = enable inversion in circle of radius uRInv
+uniform float uRInv;       // radius for the additional inversion (center 0)
+
+////////////////////////////////////////////////////////////////////////////////
+// Geometry: 3 equal tangent circles inside outer unit circle
+// Outer circle: center (0,0), radius R=1
+// Three equal inner circles: radius r, centers at distance d from origin,
+// at angles 90°, -30°, 210°. These satisfy: d + r = R and distance between
+// inner centers = 2r = d * sqrt(3)  => r = (sqrt(3)/2) * d.
+////////////////////////////////////////////////////////////////////////////////
+const float R = 1.0;               // outer radius
+const float SQ3 = 1.7320508075688772;
+const float HALF_SQ3 = 0.8660254037844386; // sqrt(3)/2
+// Solve d + HALF_SQ3*d = 1  => d = 1 / (1 + sqrt(3)/2)
+const float d = 1.0 / (1.0 + HALF_SQ3);
+const float r = HALF_SQ3 * d;
+
+// Precompute inner centers
+const vec2 c0 = vec2(0.0, d);                        // 90°
+const vec2 c1 = d * vec2( 0.8660254037844386, -0.5);// -30°
+const vec2 c2 = d * vec2(-0.8660254037844386, -0.5);// 210°
+
+struct DEOut { float dist; float shade; };
+
+vec2 invertCircle(vec2 z, vec2 c, float rad) {
+    vec2 v = z - c;
+    float vv = dot(v,v);
+    // Avoid division by 0 at the exact center (rare):
+    return c + (rad*rad) * v / max(vv, 1e-18);
+}
+
+// Distance estimator for the Apollonian gasket boundary.
+// Algorithm:
+//   - Repeatedly invert across any circle whose "domain rule" is broken,
+//     i.e., if inside an inner circle -> invert across it; if outside outer
+//     circle -> invert across outer. Accumulate the local scale (Jacobian).
+//   - When stabilized, compute local distance to the outer circle boundary,
+//     then back-scale by the cumulative factor to get a world-space DE.
+// Notes:
+//   - This is a *lower bound* (good for sphere tracing / anti-aliased lines).
+DEOut apollonianDE(vec2 z0, int maxSteps)
+{
+    vec2 z = z0;
+    float scale = 1.0;     // cumulative |dw/dz| product across inversions
+    float shade = 0.0;     // simple orbit counter for coloration
+
+    for (int i = 0; i < 128; ++i) {
+        if (i >= maxSteps) break;
+        bool did = false;
+
+        // Invert outside->inside circle of radius uRInv (center at origin) when enabled
+        float dC = length(z);
+        if (uUseRInv == 1 && dC > uRInv) {
+            float s = (uRInv*uRInv) / (dC*dC);
+            z = z * s;
+            scale *= s;
+            shade += 0.25; // subtle tint for this inversion
+            did = true;
+        }
+        else {
+            // Invert outside->inside circle of radius 1 (outer circle) when enabled
+            if (uUseUnitInv == 1 && dC > R) {
+                float s = (R*R) / (dC*dC);
+                z = z * s;          // inv at center 0
+                scale *= s;
+                shade += 0.4;
+                did = true;
+            }
+        }
+
+        // Invert inside->outside the three inner circles
+        vec2 v0 = z - c0; float d0 = length(v0);
+        if (d0 < r) {
+            float s = (r*r) / (d0*d0);
+            z = c0 + v0 * s;
+            scale *= s;
+            shade += 1.0;
+            did = true;
+        }
+        vec2 v1 = z - c1; float d1 = length(v1);
+        if (d1 < r) {
+            float s = (r*r) / (d1*d1);
+            z = c1 + v1 * s;
+            scale *= s;
+            shade += 1.0;
+            did = true;
+        }
+        vec2 v2 = z - c2; float d2 = length(v2);
+        if (d2 < r) {
+            float s = (r*r) / (d2*d2);
+            z = c2 + v2 * s;
+            scale *= s;
+            shade += 1.0;
+            did = true;
+        }
+
+        if (!did) break;
+    }
+
+    // Local distance to "trap" boundary (outer circle) in the folded domain
+    float local = abs(length(z) - R);
+    float dist = local / max(scale, 1e-18);
+    return DEOut(dist, shade);
+}
+
+vec3 palette(float t) {
+    // A subtle cool palette; t in [0, ~uIters]
+    vec3 a = vec3(0.17, 0.12, 0.30);
+    vec3 b = vec3(0.45, 0.55, 0.95);
+    vec3 c = vec3(0.80, 0.20, 0.40);
+    vec3 d = vec3(0.00, 0.85, 0.75);
+    return a + b*cos(6.28318*(c*t + d));
+}
+
+void main() {
+    // Pixel -> world coordinates (center + zoom)
+    vec2 uv = (gl_FragCoord.xy - 0.5*uRes) / uRes.y;    // keep aspect
+    vec2 z  = uv / uZoom + uCenter;
+
+    // Distance estimator:
+    DEOut de = apollonianDE(z, uIters);
+
+    // Convert a "thickness" slider (in px) into a world-space AA width.
+    // Base pixel size in world units:
+    float px = 1.0 / (uRes.y * uZoom);
+    float thickness = (uThickness * 0.03) * px;  // tweak factor
+    float aa = fwidth(de.dist) + 0.75*px;
+
+    // Line mask (0..1), brighter near boundary:
+    float line = 1.0 - smoothstep(thickness, thickness + aa, de.dist);
+
+    // Background vignette
+    float r2 = dot(uv, uv);
+    vec3 bg = mix(vec3(0.04,0.05,0.07), vec3(0.015,0.018,0.030), smoothstep(0.0, 0.9, r2));
+
+    // Color modulation by "orbit counter":
+    vec3 ink = palette(0.07*de.shade + 0.02*uTime);
+    ink = mix(ink, vec3(0.98), 0.15); // lift whites a touch
+
+    // Combine:
+    vec3 col = mix(bg, ink, line);
+
+    // Optional: subtle glow bloom based on distance:
+    float glow = exp(-30.0 * max(de.dist - thickness, 0.0) / px);
+    col += 0.02 * glow * ink;
+
+    fragColor = vec4(col, 1.0);
+}
+`;
+
+// ——— Program & VAO ————————————————————————————————————————————————————————
+function compile(gl, type, src) {
+  const sh = gl.createShader(type);
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    const info = gl.getShaderInfoLog(sh);
+    console.error(info);
+    throw new Error('Shader compile failed');
+  }
+  return sh;
+}
+const vs = compile(gl, gl.VERTEX_SHADER,   vertSrc);
+const fs = compile(gl, gl.FRAGMENT_SHADER, fragSrc);
+
+const prog = gl.createProgram();
+gl.attachShader(prog, vs);
+gl.attachShader(prog, fs);
+gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+  const info = gl.getProgramInfoLog(prog);
+  console.error(info);
+  throw new Error('Program link failed');
+}
+gl.useProgram(prog);
+
+// Fullscreen triangle
+const vao = gl.createVertexArray();
+gl.bindVertexArray(vao);
+const vbo = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+  -1,-1,  3,-1,  -1,3
+]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0);
+gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+// Uniform locations
+const uRes   = gl.getUniformLocation(prog, 'uRes');
+const uTime  = gl.getUniformLocation(prog, 'uTime');
+const uZoom  = gl.getUniformLocation(prog, 'uZoom');
+const uCenter= gl.getUniformLocation(prog, 'uCenter');
+const uIters = gl.getUniformLocation(prog, 'uIters');
+const uThick = gl.getUniformLocation(prog, 'uThickness');
+const uUseUnitInv = gl.getUniformLocation(prog, 'uUseUnitInv');
+const uUseRInv    = gl.getUniformLocation(prog, 'uUseRInv');
+const uRInv       = gl.getUniformLocation(prog, 'uRInv');
+
+// ——— Interaction: pan/zoom, controls ————————————————————————————————
+let zoom = 1.0;
+let center = {x:0.0, y:0.0};
+let t0 = performance.now();
+
+const iterEl   = document.getElementById('iter');
+const thickEl  = document.getElementById('thick');
+const resetBtn = document.getElementById('reset');
+const saveBtn  = document.getElementById('save');
+const unitInvEl = document.getElementById('unitInv');
+const rInvEnableEl = document.getElementById('rInvEnable');
+const rInvEl       = document.getElementById('rInv');
+
+resetBtn.onclick = () => { zoom = 0.95; center.x = 0.0; center.y = 0.0; };
+saveBtn.onclick = () => {
+  const link = document.createElement('a');
+  link.download = 'apollonian.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+};
+
+let dragging = false, lastX = 0, lastY = 0;
+canvas.addEventListener('pointerdown', (e) => {
+  dragging = true;
+  lastX = e.clientX; lastY = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+  canvas.classList.add('dragging');
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  // Convert CSS pixel delta -> device pixels -> world units
+  const dxDev = (e.clientX - lastX) * DPR;
+  const dyDev = (e.clientY - lastY) * DPR;
+  const worldDX = dxDev / (canvas.height * zoom);
+  const worldDY = dyDev / (canvas.height * zoom);
+  center.x -= worldDX;
+  center.y += worldDY;
+  lastX = e.clientX; lastY = e.clientY;
+});
+
+function endDrag(e){
+  dragging = false;
+  canvas.classList.remove('dragging');
+  try { canvas.releasePointerCapture(e.pointerId); } catch(_) {}
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  // Zoom around mouse position
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * DPR;
+  const my = (e.clientY - rect.top)  * DPR;
+  const uvx = (mx - 0.5*canvas.width)  / canvas.height;
+  const uvy = (my - 0.5*canvas.height) / canvas.height;
+
+  const worldBefore = { x: uvx/zoom + center.x, y: uvy/zoom + center.y };
+  const factor = Math.exp(-e.deltaY * 0.0015);
+  const newZoom = zoom * factor;
+  // Prevent collapse to 0; keep huge range but enforce a tiny floor
+  zoom = Math.max(1e-8, newZoom);
+  const worldAfter  = { x: uvx/zoom + center.x, y: uvy/zoom + center.y };
+  center.x += (worldBefore.x - worldAfter.x);
+  center.y += (worldBefore.y - worldAfter.y);
+}, {passive:false});
+
+// ——— Render loop ————————————————————————————————————————————————————————
+function draw() {
+  resize();
+  gl.useProgram(prog);
+  gl.uniform2f(uRes, canvas.width, canvas.height);
+  gl.uniform1f(uTime, (performance.now() - t0) * 0.001);
+  gl.uniform1f(uZoom, zoom);
+  gl.uniform2f(uCenter, center.x, center.y);
+  gl.uniform1i(uIters, parseInt(iterEl.value,10));
+  gl.uniform1f(uThick, parseFloat(thickEl.value));
+  gl.uniform1i(uUseUnitInv, unitInvEl.checked ? 1 : 0);
+  gl.uniform1i(uUseRInv,    rInvEnableEl.checked ? 1 : 0);
+  gl.uniform1f(uRInv,       Math.max(0.0001, parseFloat(rInvEl.value) || 0.0));
+
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  requestAnimationFrame(draw);
+}
+resetBtn.click(); // set a nice default view
+draw();
+</script>
+</body>
+</html>

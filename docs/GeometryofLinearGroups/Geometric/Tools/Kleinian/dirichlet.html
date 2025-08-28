@@ -11,11 +11,12 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
     <style>
       body { margin: 0; overflow: hidden; }
       #viewer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
       /* Control panel */
-      #controlPanel {
+      #controlPanel { 
         position: absolute;
         top: 10px;
         right: 10px;
@@ -106,10 +107,11 @@
     <div id="viewer"></div>
 
     <button id="toggleControlPanelBtn" class="toggle-btn" aria-label="Hide panel">☰</button>
+    <button id="saveImageBtn" class="toggle-btn" aria-label="Save image" title="Save image" style="right: 78px; font-size:14px;">📷</button>
     <button id="updateGroupBtn" class="toggle-btn" aria-label="Update" title="Update group" style="right: 44px; font-size:14px;">↻</button>
     <div id="controlPanel">
       <div style="display: flex; align-items: center; justify-content: space-between;">
-        <h3 style="margin: 0;">Kleinian</h3>
+        <h3 style="margin: 0;">Dirichlet</h3>
         <div style="display:flex; align-items:center; gap:6px;">
           <button id="prevPageBtn" title="Previous" style="padding: 2px 6px; font-size: 11px; width: 28px;">◀</button>
           <button id="nextPageBtn" title="Next" style="padding: 2px 6px; font-size: 11px; width: 28px;">▶</button>
@@ -153,8 +155,12 @@
             Show orbit of o
         </label>
         <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
-            <input id="toggleBasepoint" type="checkbox" checked />
+            <input id="toggleBasepoint" type="checkbox" />
             Show basepoint
+        </label>
+        <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+            <input id="toggleFloor" type="checkbox" />
+            Show floor (z = 0.05)
         </label>
         <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
           <span>Walls:</span>
@@ -175,7 +181,10 @@
         <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
           Color palette:
           <select id="colorPalette" style="flex-grow:1;">
-            <option value="harmonic" selected>Harmonic (current)</option>
+            <option value="bluegold" selected>UC (gradient)</option>
+            <option value="ucpure">UC (pure)</option>
+            <option value="tealfuchsia">Teal-Fuchsia Gradient</option>
+            <option value="harmonic">Harmonic</option>
             <option value="monochrome">Monochrome (skyblue)</option>
             <option value="random">Random colors</option>
           </select>
@@ -193,12 +202,14 @@
         let polyhedronGroup = new THREE.Group();
         let delaunayGroup = new THREE.Group();
         let orbitGroup = new THREE.Group();
+        let dirichletGroup = new THREE.Group();
+        let floor; // opaque white plane toggleable from the control panel
         const viewer = document.getElementById('viewer');
         const basepoint = new THREE.Vector3(0, 0, 1);
         let currentPage = 1;
         const NUM_PAGES = 3;
         let wallOpacity = 0.4;
-        let colorPalette = 'harmonic';
+        let colorPalette = 'bluegold';
 
         // --- Enable bottom-left resize of the control panel ---
         function enableControlPanelResize() {
@@ -298,7 +309,7 @@
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.set(0, -5, 3);
             camera.up.set(0, 0, 1);
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.localClippingEnabled = true;
             renderer.clippingPlanes = [ new THREE.Plane(new THREE.Vector3(0, 0, 1), 0) ];
@@ -312,15 +323,31 @@
             const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
             directionalLight.position.set(2, 3, 5);
             scene.add(directionalLight);
+            // Fixed-position light source
+            const fixedLight = new THREE.PointLight(0xffffff, 0.8);
+            fixedLight.position.set(-3, 4, 10);
+            scene.add(fixedLight);
             const basepointGeom = new THREE.SphereGeometry(0.1, 16, 16);
             const basepointMat = new THREE.MeshStandardMaterial({ color: 0xffeb3b });
             const basepointMesh = new THREE.Mesh(basepointGeom, basepointMat);
             basepointMesh.position.copy(basepoint);
             scene.add(basepointMesh);
             window.basepointMesh = basepointMesh;
+            // --- Sync basepoint sphere visibility with checkbox ---
+            const bpCb = document.getElementById('toggleBasepoint');
+            basepointMesh.visible = bpCb ? bpCb.checked : false;
+            // Opaque white plane slightly above the boundary (z = 0.05)
+            const floorGeom = new THREE.PlaneGeometry(200, 200);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+            floor = new THREE.Mesh(floorGeom, floorMat);
+            floor.position.set(0, 0, 0.05);
+            scene.add(floor);
+            const floorCb = document.getElementById('toggleFloor');
+            floor.visible = floorCb ? floorCb.checked : false;
             scene.add(polyhedronGroup);
             scene.add(delaunayGroup);
             scene.add(orbitGroup);
+            scene.add(dirichletGroup);
             window.addEventListener('resize', onWindowResize, false);
             animate();
         }
@@ -393,109 +420,82 @@
         
         function latexToExpr(latex) {
           if (!latex || typeof latex !== 'string') return '0';
-          let s = latex.replace(/\\left|\\right/g, '');
+          // Start from the input LaTeX
+          let parserString = String(latex);
 
-          // Normalize LaTeX fraction commands to a common token first
-          s = s.replace(/\\dfrac/g, '\\frac').replace(/\\tfrac/g, '\\frac');
+          // Normalize common wrappers / symbols
+          parserString = parserString.replace(/\\left|\\right/g, '');
+          // Normalize Unicode minus (U+2212) to ASCII '-'
+          parserString = parserString.replace(/\u2212/g, '-');
+          // Normalize common LaTeX forms of i to plain 'i'
+          parserString = parserString.replace(/\\mathrm\{?i\}?/g, 'i');
+          parserString = parserString.replace(/\\operatorname\{?i\}?/g, 'i');
 
-          // Expand nested \frac{A}{B} → (A)/(B) repeatedly until none remain
-          const FRAC_RE = /\\frac\s*\{([^{}]|\{[^}]*\})*\}\s*\{([^{}]|\{[^}]*\})*\}/g;
-          // Use a loop with a safety cap to avoid pathological cases
-          let guard = 0;
-          while (/\\frac\s*\{/.test(s) && guard++ < 20) {
-            s = s.replace(FRAC_RE, (m) => {
-              return m
-                .replace(/^\\frac\s*\{/, '(')
-                .replace(/\}\s*\{/, ')/(')
-                .replace(/\}$/, ')');
-            });
-          }
+          // The order of these replacements is important (from mathParserSimple.html)
+          parserString = parserString.replace(/\\frac\{(.+?)\}\{(.+?)\}/g, '($1)/($2)');
+          parserString = parserString.replace(/\\sqrt\[(.+?)\]\{(.+?)\}/g, 'nthRoot($2, $1)');
+          parserString = parserString.replace(/\\sqrt\{(.+?)\}/g, 'sqrt($1)');
+          // Convert x_{...} and x_... to x... (variable names)
+          parserString = parserString.replace(/x_\{(.+?)\}/g, 'x$1');
+          parserString = parserString.replace(/x_(\d+)/g, 'x$1');
+          // Trig and hyperbolic functions
+          parserString = parserString.replace(/\\(sin|cos|tan|csc|sec|cot|sinh|cosh|tanh)h?\((.*?)\)/g, '$1($2)');
+          // Logs
+          parserString = parserString.replace(/\\log_\{(.+?)\}\((.+?)\)/g, 'log($2, $1)');
+          parserString = parserString.replace(/\\ln\((.+?)\)/g, 'log($1)');
+          // Constants and operators
+          parserString = parserString.replace(/\\pi/g, 'pi');
+          parserString = parserString.replace(/\\times/g, '*');
+          parserString = parserString.replace(/\\div/g, '/');
+          // Exponentials e^{...}
+          parserString = parserString.replace(/e\^\{(.+?)\}/g, 'exp($1)');
+          // Absolute value \left|...\right|
+          parserString = parserString.replace(/\\left\|(.+?)\\right\|/g, 'abs($1)');
+          // Superscripts ^{...}
+          parserString = parserString.replace(/\^\{(.+?)\}/g, '^($1)');
+          // Parentheses cleanup
+          parserString = parserString.replace(/\\left\(/g, '(');
+          parserString = parserString.replace(/\\right\)/g, ')');
+          // Allow ** as exponent operator
+          parserString = parserString.replace(/\*\*/g, '^');
 
-          // Support "a \\over b" (rare in MathQuill but valid LaTeX)
-          // Replace the last occurrence of \\over in a simple group with parentheses
-          if (/\\over/.test(s)) {
-            s = s.replace(/([^{}\s]+)\s*\\over\s*([^{}\s]+)/g, '($1)/($2)');
-          }
-
-          // Replace roots and common functions
-          s = s.replace(/\\sqrt\{([^}]*)\}/g, 'sqrt($1)')
-               .replace(/\\sin/g,'sin').replace(/\\cos/g,'cos').replace(/\\tan/g,'tan')
-               .replace(/\\sinh/g,'sinh').replace(/\\cosh/g,'cosh').replace(/\\tanh/g,'tanh')
-               .replace(/\\exp/g,'exp').replace(/\\ln/g,'log')
-               .replace(/\\pi/g,'pi').replace(/\\cdot/g,'*');
-
-          // Remove remaining braces (after fraction expansion)
-          s = s.replace(/[{}]/g,'');
-
-          // Insert implicit multiplication: )x, )i, )e, )pi, number(, i(, e(, pi(, number*symbol
-          s = s.replace(/(\d|\)|i|e|pi)(?=(\(|[a-zA-Z]))/g, '$1*');
-
-          return s.trim();
+          return parserString.trim();
         }
-        const CONSTS = { pi:new Complex(355/113,0), e:new Complex(271828/100000,0), i:new Complex(0,1) };
-        function isAlpha(ch){ return /[a-zA-Z]/.test(ch); }
-        function isDigit(ch){ return /[0-9]/.test(ch); }
-        function tokenizeExpr(s){ const toks=[]; let i=0; while(i<s.length){ const ch=s[i];
-        if(/\s/.test(ch)){i++; continue;}
-        if('()+-*/^,'.includes(ch)){ toks.push(ch); i++; continue; }
-        if(isDigit(ch)||(ch==='.'&&isDigit(s[i+1]||''))){ let j=i+1; while(j<s.length&&(isDigit(s[j])||s[j]==='.')) j++; toks.push(s.slice(i,j)); i=j; continue; }
-        if(isAlpha(ch)){ let j=i+1; while(j<s.length&&/[a-zA-Z_]/.test(s[j])) j++; toks.push(s.slice(i,j)); i=j; continue; }
-        i++;
-        } return toks; }
-        const PRECEDENCE={'+':1,'-':1,'*':2,'/':2,'^':3};
-        const RIGHT_ASSOC={ '^': true };
-        const FUNCTIONS=new Set(['sin','cos','tan','sinh','cosh','tanh','sqrt','exp','log']);
-        function isOperator(t){ return ['+','-','*','/','^','u-'].includes(t); }
-        function isNumberToken(t){ return /^(\d+(\.\d*)?|\.\d+)$/.test(t); }
-        function isConstToken(t){ return t in CONSTS; }
-        function toRPN(tokens){ const out=[], op=[]; let prev=null; for(const t of tokens){
-        if(t===',') continue;
-        if(isNumberToken(t)||isConstToken(t)) out.push(t);
-        else if(FUNCTIONS.has(t)) op.push(t);
-        else if(t==='(') op.push(t);
-        else if(t===')'){ while(op.length&&op[op.length-1]!=='(') out.push(op.pop()); if(op.length&&op[op.length-1]==='(') op.pop(); if(op.length&&FUNCTIONS.has(op[op.length-1])) out.push(op.pop()); }
-        else if(['+','-','*','/','^'].includes(t)){
-            const isUnary=(t==='-'&&(prev===null||isOperator(prev)||prev==='('));
-            const cur=isUnary?'u-':t;
-            if(isUnary){ op.push(cur); }
-            else { while(op.length){ const top=op[op.length-1];
-            if(isOperator(top)&&((RIGHT_ASSOC[cur]&&PRECEDENCE[cur]<PRECEDENCE[top])||(!RIGHT_ASSOC[cur]&&PRECEDENCE[cur]<=PRECEDENCE[top]))) out.push(op.pop());
-            else break; }
-            op.push(cur);
+        function evalComplexExpression(expr) {
+          try {
+            if (typeof expr !== 'string') expr = String(expr || '0');
+            // Normalize Unicode minus just in case
+            expr = expr.replace(/\u2212/g, '-');
+            const val = math.evaluate(expr);
+
+            // Convert math.js values to local Complex
+            function toComplex(v) {
+              if (v == null) return new Complex(0, 0);
+              // math.js Complex has .re and .im
+              if (typeof v === 'object' && typeof v.re === 'number' && typeof v.im === 'number') {
+                return new Complex(v.re, v.im);
+              }
+              // BigNumber, Fraction, etc. -> number
+              if (typeof v === 'object' && typeof v.valueOf === 'function') {
+                const num = Number(v.valueOf());
+                if (!Number.isNaN(num)) return new Complex(num, 0);
+              }
+              // plain number
+              if (typeof v === 'number') return new Complex(v, 0);
+              // string (fallback: try to parse)
+              if (typeof v === 'string') {
+                const n = Number(v);
+                if (!Number.isNaN(n)) return new Complex(n, 0);
+              }
+              // Unhandled -> NaN
+              return new Complex(NaN, NaN);
             }
-        } else { out.push(t); }
-        prev=t;
+
+            return toComplex(val);
+          } catch (e) {
+            return new Complex(NaN, NaN);
+          }
         }
-        while(op.length) out.push(op.pop());
-        return out; }
-        function cAdd(a,b){ return new Complex(a.re+b.re, a.im+b.im); }
-        function cSub(a,b){ return new Complex(a.re-b.re, a.im-b.im); }
-        function cMul(a,b){ return new Complex(a.re*b.re - a.im*b.im, a.re*b.im + a.im*b.re); }
-        function cDiv(a,b){ const den=b.re*b.re+b.im*b.im; return new Complex((a.re*b.re+a.im*b.im)/den, (a.im*b.re-a.re*b.im)/den); }
-        function cExp(a){ const ex=Math.exp(a.re); return new Complex(ex*Math.cos(a.im), ex*Math.sin(a.im)); }
-        function cLog(a){ const r=Math.hypot(a.re,a.im); const th=Math.atan2(a.im,a.re); return new Complex(Math.log(r), th); }
-        function cPow(a,b){ if(Math.abs(a.re)<1e-15&&Math.abs(a.im)<1e-15) return new Complex(0,0); const ln=cLog(a); const bln=cMul(b,ln); return cExp(bln); }
-        function cSin(a){ return new Complex(Math.sin(a.re)*Math.cosh(a.im), Math.cos(a.re)*Math.sinh(a.im)); }
-        function cCos(a){ return new Complex(Math.cos(a.re)*Math.cosh(a.im), -Math.sin(a.re)*Math.sinh(a.im)); }
-        function cTan(a){ const s=cSin(a), c=cCos(a); return cDiv(s,c); }
-        function cSinh(a){ return new Complex(Math.sinh(a.re)*Math.cos(a.im), Math.cosh(a.re)*Math.sin(a.im)); }
-        function cCosh(a){ return new Complex(Math.cosh(a.re)*Math.cos(a.im), Math.sinh(a.re)*Math.sin(a.im)); }
-        function cTanh(a){ const s=cSinh(a), c=cCosh(a); return cDiv(s,c); }
-        function cSqrt(a){ return cPow(a,new Complex(0.5,0)); }
-        function evalRPN(rpn){ const st=[]; for(const t of rpn){
-        if(isNumberToken(t)) st.push(new Complex(parseFloat(t),0));
-        else if(isConstToken(t)) st.push(CONSTS[t]);
-        else if(FUNCTIONS.has(t)){ const a=st.pop()||new Complex(0,0); switch(t){
-            case 'sin': st.push(cSin(a)); break; case 'cos': st.push(cCos(a)); break; case 'tan': st.push(cTan(a)); break;
-            case 'sinh': st.push(cSinh(a)); break; case 'cosh': st.push(cCosh(a)); break; case 'tanh': st.push(cTanh(a)); break;
-            case 'sqrt': st.push(cSqrt(a)); break; case 'exp': st.push(cExp(a)); break; case 'log': st.push(cLog(a)); break; } }
-        else if(isOperator(t)){ if(t==='u-'){ const a=st.pop()||new Complex(0,0); st.push(new Complex(-a.re,-a.im)); }
-            else { const b=st.pop()||new Complex(0,0); const a=st.pop()||new Complex(0,0);
-            switch(t){ case '+': st.push(cAdd(a,b)); break; case '-': st.push(cSub(a,b)); break; case '*': st.push(cMul(a,b)); break; case '/': st.push(cDiv(a,b)); break; case '^': st.push(cPow(a,b)); break; } } }
-        else { if(t in CONSTS) st.push(CONSTS[t]); else st.push(new Complex(0,0)); }
-        }
-        return st.pop()||new Complex(0,0); }
-        function evalComplexExpression(expr){ try { const tokens=tokenizeExpr(expr); const rpn=toRPN(tokens); return evalRPN(rpn); } catch(e) { return new Complex(NaN,NaN); } }
         
         class Matrix2 {
             constructor(a, b, c, d) { this.a = a; this.b = b; this.c = c; this.d = d; }
@@ -694,7 +694,7 @@
           { name: 'P(1/4)', mats: [ ['1','\\sqrt{1+\\sqrt{1+2i}}','0','1'], ['0','-1','1','0'] ] },
           { name: 'P(2/5)', mats: [ ['1','1.1028+0.6655i','0','1'], ['0','-1','1','0'] ] },
           { name: 'Hecke group', mats: [ ['1','2\\cos(\\frac{\\pi}{n})','0','1'], ['0','-1','1','0'] ] },
-          { name: 'Figure eight fiber', mats: [ ['1', '-1', '\\frac{1-\\sqrt{3}i}{2}', '\\frac{1+\\sqrt{3}i}{2}'], [ '\\frac{3+\\sqrt{3}i}{2}', '\\frac{1-\\sqrt{3}i}{2}', '\\frac{-1-\\sqrt{3}i}{2}', '0'] ] }
+          { name: 'Figure eight fiber', mats: [ ['1', '-1', '\\frac{1-\\sqrt{3}i}{2}', '\\frac{1+\\sqrt{3}i}{2}'], [ '\\frac{1+\\sqrt{3}i}{2}', '\\frac{1-\\sqrt{3}i}{2}', '\\frac{1+\\sqrt{3}i}{2}', '1-\\sqrt{3}i'] ] }
         ];
 
         function refreshExampleDropdown() {
@@ -716,6 +716,11 @@
         window.refreshExampleDropdown = refreshExampleDropdown;
 
         function setupPanelUI() {
+          // --- Floor toggle ---
+          const floorCb = document.getElementById('toggleFloor');
+          if (floorCb) floorCb.addEventListener('change', () => {
+            if (floor) floor.visible = floorCb.checked;
+          });
           enableControlPanelResize();
           document.getElementById('addMatrixBtn').addEventListener('click', () => addMatrixInput());
           document.getElementById('updateGroupBtn').addEventListener('click', () => { 
@@ -756,6 +761,33 @@
             camera.position.set(0, -5, 3);
             controls.target.set(0, 0, 1);
             controls.update();
+          });
+          // --- Save image button logic ---
+          const saveBtn = document.getElementById('saveImageBtn');
+          if (saveBtn) saveBtn.addEventListener('click', () => {
+            try {
+              // Render once to make sure the frame is up-to-date
+              if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+              }
+              const dataURL = renderer && renderer.domElement ? renderer.domElement.toDataURL('image/png') : null;
+              if (!dataURL) return;
+
+              // Build a filename like dirichlet-YYYYMMDD-HHMMSS.png
+              const pad = (n) => String(n).padStart(2, '0');
+              const now = new Date();
+              const fname = `dirichlet-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.png`;
+
+              const a = document.createElement('a');
+              a.href = dataURL;
+              a.download = fname;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            } catch (e) {
+              // Fallback message if something goes wrong
+              showMessage('Could not save image. Try again after interacting with the scene.', true);
+            }
           });
           // --- Show stabilizer button logic ---
           const stabBtn = document.getElementById('showStabilizerBtn');
@@ -1466,6 +1498,14 @@
             }
         }
         
+        function lerpColorHex(hex1, hex2, t) {
+          const c1 = new THREE.Color(hex1);
+          const c2 = new THREE.Color(hex2);
+          // clamp t to [0,1]
+          const u = Math.min(1, Math.max(0, t || 0));
+          return c1.lerp(c2, u);
+        }
+
         function colorForIndex(si, total) {
           if (colorPalette === 'monochrome') {
             return new THREE.Color('skyblue');
@@ -1473,6 +1513,29 @@
           if (colorPalette === 'random') {
             // completely random on each render
             return new THREE.Color(Math.random() * 0xffffff);
+          }
+          if (colorPalette === 'bluegold') {
+            // Smooth interpolation between UC blue and gold
+            const start = 0x003660; // #003660
+            const end   = 0xFEBC11; // #FEBC11
+            const denom = Math.max(1, (total || 1) - 1);
+            const t = (typeof si === 'number') ? (si / denom) : 0.5;
+            return lerpColorHex(start, end, t);
+          }
+          if (colorPalette === 'tealfuchsia') {
+            const stops = [0x23bbad, 0x25d9c8, 0x2abed9, 0xff6da2, 0xf92672];
+            const denom = Math.max(1, (total || 1) - 1);
+            let t = (typeof si === 'number') ? (si / denom) : 0.5;
+            // Bias toward the end color (fuchsia) — exponent < 1 pushes values toward 1
+            t = Math.pow(t, 0.65);
+            const seg = 1 / (stops.length - 1);
+            const idx = Math.min(stops.length - 2, Math.floor(t / seg));
+            const localT = (t - idx * seg) / seg;
+            return lerpColorHex(stops[idx], stops[idx + 1], localT);
+          }
+          if (colorPalette === 'ucpure') {
+            // Alternate between UC blue and gold
+            return (si % 2 === 0) ? new THREE.Color(0x003660) : new THREE.Color(0xFEBC11);
           }
           // default: previous behavior
           const c = new THREE.Color();
@@ -1525,6 +1588,11 @@
             window.basepointMesh.visible = bpCb.checked;
           }
         });
+        // --- Floor initial visibility sync ---
+        const floorCb = document.getElementById('toggleFloor');
+        if (floorCb && floor) {
+          floor.visible = floorCb.checked;
+        }
         refreshExampleDropdown();
         setExample(exampleLibrary[0].mats); // first example by default
         rebuildGeneratorsFromUI();

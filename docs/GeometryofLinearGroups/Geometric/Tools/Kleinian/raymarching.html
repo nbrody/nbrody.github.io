@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>3D Torus Room — Raymarched with Three.js</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0a0a0a; font-family: ui-sans-serif, system-ui, -apple-system; }
+    #ui { position: fixed; top: 12px; left: 12px; display: flex; gap: 8px; align-items: center; z-index: 10; color: #e5e7eb; }
+    #panel { background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); display:flex; align-items:center; gap:10px; }
+    #panel label { font-size: 12px; color: #cbd5e1; margin-right: 6px; }
+    #panel input[type="range"] { width: 180px; }
+    #hint { font-size: 12px; opacity: 0.85; padding: 8px 10px; border-radius: 10px; border: 1px dashed rgba(255,255,255,0.12); }
+    canvas { display: block; }
+    #lock { position: fixed; inset: 0; display: grid; place-items: center; color: #e5e7eb; background: radial-gradient(1200px 600px at 50% 30%, rgba(30,41,59,.55), rgba(2,6,23,.95)); cursor: pointer; }
+    #lock .card { text-align: center; padding: 24px 28px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(15,23,42,0.5); backdrop-filter: blur(8px); box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
+    #lock h1 { margin: 0 0 8px; font-weight: 700; letter-spacing: .3px; }
+    #lock p { margin: 0; opacity: .9; }
+    #lock kbd { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); padding: 2px 6px; border-radius: 6px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <div id="panel">
+      <label>Haze</label>
+      <input id="haze" type="range" min="0" max=".05" step="0.001" value="0.01" />
+      <label>Light</label>
+      <input id="light" type="range" min="0" max="2" step="0.001" value="1.0" />
+      <label>Shear XY</label>
+      <input id="shearXY" type="range" min="-4" max="4" step="0.01" value="2.5" />
+      <label>Shear XZ</label>
+      <input id="shearXZ" type="range" min="-4" max="4" step="0.01" value="1.0" />
+    </div>
+    <div id="hint">Click to lock pointer • Move: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> • Up/Down: <kbd>Space</kbd>/<kbd>Ctrl</kbd></div>
+  </div>
+  <div id="lock">
+    <div class="card">
+      <h1>Torus Room</h1>
+      <p>Click to enter • Use mouse + WASD to explore the identified cube (3‑torus).<br/>Slight volumetric haze is enabled by default.</p>
+    </div>
+  </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+  // === Basic THREE setup ===
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1); // full-screen quad camera
+
+  // Fullscreen quad with a raymarching shader
+  const geom = new THREE.PlaneGeometry(2, 2);
+
+  const uniforms = {
+    u_time: { value: 0 },
+    u_resolution: { value: new THREE.Vector2(innerWidth, innerHeight) },
+    u_camPos: { value: new THREE.Vector3(1.5, 2.0, 3.5) },
+    u_camMat: { value: new THREE.Matrix3() },
+    u_cell: { value: new THREE.Vector3(16.0, 10.0, 14.0) }, // base lengths for lattice column magnitudes
+    u_L: { value: new THREE.Matrix3() },        // lattice matrix (columns = basis vectors)
+    u_L_inv: { value: new THREE.Matrix3() },    // inverse lattice matrix
+    u_haze: { value: 0.12 },
+    u_light: { value: 1.0 },
+  };
+
+  const vert = /* glsl */`
+  varying vec2 vUv;
+  void main(){
+    vUv = uv;
+    gl_Position = vec4(position, 1.0);
+  }
+  `;
+
+  const frag = /* glsl */`
+  precision highp float;
+  varying vec2 vUv;
+  uniform vec2 u_resolution;
+  uniform float u_time;
+  uniform vec3 u_camPos;
+  uniform mat3 u_camMat;
+  uniform vec3 u_cell;
+  uniform mat3 u_L;
+  uniform mat3 u_L_inv;
+  uniform float u_haze;
+  uniform float u_light;
+
+  // Hash & noise helpers
+  float hash11(float p){ p = fract(p*0.1031); p *= p + 33.33; p *= p + p; return fract(p); }
+
+  // Fold a point into the fundamental parallelepiped defined by columns of u_L
+  vec3 foldToCell(vec3 p){
+    // lattice coords
+    vec3 t = u_L_inv * p;
+    // wrap to (-0.5, 0.5]
+    t = t - floor(t + 0.5);
+    // back to world
+    return u_L * t;
+  }
+
+  // Signed Distance Functions (in folded space)
+  float sdSphere(vec3 p, float r){ return length(p) - r; }
+  float sdBox(vec3 p, vec3 b){ vec3 q = abs(p) - b; return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0); }
+  float sdCapsule(vec3 p, vec3 a, vec3 b, float r){ vec3 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba)/dot(ba,ba), 0.0, 1.0); return length(pa - ba*h) - r; }
+
+  // Scene distance in torus domain
+  float map(vec3 p, out int matId){
+    // Evaluate SDFs in the folded cell
+    vec3 q = foldToCell(p);
+    float d = 1e9; matId = -1;
+
+    // Objects — tweak positions within the cell
+    float d1 = sdSphere(q - vec3(-3.0, -1.0,  2.0), 1.2);
+    if(d1 < d){ d = d1; matId = 1; }
+
+    float d2 = sdBox(q - vec3(2.5, -2.5, -3.0), vec3(1.2, 0.8, 1.6));
+    if(d2 < d){ d = d2; matId = 2; }
+
+    float d3 = sdCapsule(q, vec3(-1.5, 2.0, -2.0), vec3(3.0, 1.0, 2.5), 0.4);
+    if(d3 < d){ d = d3; matId = 3; }
+
+    // Decorative small spheres sprinkled
+    for(int i=0;i<4;i++){
+      float fi = float(i);
+      // random point in fractional coords in [-0.2, 0.2]^3, mapped through lattice
+      vec3 r = vec3(hash11(10.0+fi), hash11(20.0+fi), hash11(30.0+fi));
+      vec3 tf = (r - 0.5) * 0.4; // range [-0.2, 0.2]
+      vec3 off = u_L * tf;
+      float di = sdSphere(q - off, 0.35 + 0.1*hash11(40.0+fi));
+      if(di < d){ d = di; matId = 4; }
+    }
+
+    return d;
+  }
+
+  vec3 calcNormal(vec3 p){
+    int m; float e = 0.001;
+    vec2 h = vec2(1.0, -1.0) * 0.5773;
+    return normalize(h.xyy * map(p + h.xyy*e, m) +
+                     h.yyx * map(p + h.yyx*e, m) +
+                     h.yxy * map(p + h.yxy*e, m) +
+                     h.xxx * map(p + h.xxx*e, m));
+  }
+
+  // Soft shadow via simple occlusion sampling
+  float softShadow(vec3 ro, vec3 rd){
+    float res = 1.0;
+    float t = 0.02;
+    for(int i=0;i<40;i++){
+      int m; float h = map(ro + rd*t, m);
+      res = min(res, 12.0*h / t);
+      t += clamp(h, 0.02, 0.5);
+      if(res < 0.001) break;
+    }
+    return clamp(res, 0.0, 1.0);
+  }
+
+  // Distance to the cell walls (for subtle edge hinting)
+  float wallEdgeFactor(vec3 p){
+    // Use distance in fractional lattice coords to nearest face
+    vec3 t = u_L_inv * p;
+    vec3 a = 0.5 - abs(t);
+    float m = min(min(a.x, a.y), a.z);
+    return smoothstep(0.08, 0.0, m);
+  }
+
+  void main(){
+    vec2 uv = (gl_FragCoord.xy - 0.5*u_resolution) / u_resolution.y;
+
+    // Build ray in world from camera basis
+    vec3 ro = u_camPos;
+    vec3 rd = normalize(u_camMat * normalize(vec3(uv, 1.5)));
+
+    // Raymarch
+    float t = 0.0;
+    float fog = 0.0; // exponential haze integral (very simple)
+    vec3 col = vec3(0.0);
+    int matId = -1;
+
+    for(int i=0;i<160;i++){
+      vec3 pos = ro + rd * t;
+      int m; float dist = map(pos, m);
+
+      // Accumulate simple exponential extinction for haze
+      float stepLen = clamp(dist, 0.02, 0.6);
+      fog += stepLen * u_haze;
+
+      if(dist < 0.001){
+        matId = m;
+        vec3 n = calcNormal(pos);
+        // Lighting
+        vec3 lightDir = normalize(vec3(0.5, 0.8, 0.2));
+        float diff = max(dot(n, lightDir), 0.0);
+        float sh = softShadow(pos + n*0.01, lightDir);
+        float spec = pow(max(dot(reflect(-lightDir, n), -rd), 0.0), 32.0);
+
+        vec3 baseColor = (matId==1)? vec3(0.90,0.55,0.50) :
+                         (matId==2)? vec3(0.55,0.75,0.95) :
+                         (matId==3)? vec3(0.85,0.85,0.55) : vec3(0.75,0.65,0.9);
+
+        // subtle wall edges hint
+        float edge = wallEdgeFactor(foldToCell(pos));
+        baseColor = mix(baseColor, vec3(0.95,0.98,1.0), edge*0.35);
+
+        vec3 ambient = 0.22*vec3(0.8,0.9,1.0);
+        vec3 lightCol = vec3(1.0,0.97,0.92) * u_light;
+        col = ambient*baseColor + lightCol * (0.9*diff*sh*baseColor + 0.6*spec);
+        break;
+      }
+      t += stepLen;
+      if(t > 100.0) break;
+    }
+
+    // Background / haze
+    vec3 bg = vec3(0.02, 0.03, 0.05);
+    col = mix(col, bg, 1.0 - exp(-fog));
+
+    // Subtle filmic tone mapping
+    col = col / (col + vec3(1.0));
+    col = pow(col, vec3(1.0/2.2));
+
+    gl_FragColor = vec4(col, 1.0);
+  }
+  `;
+
+  const mat = new THREE.ShaderMaterial({ vertexShader: vert, fragmentShader: frag, uniforms });
+  const quad = new THREE.Mesh(geom, mat);
+  scene.add(quad);
+
+  // === Camera control (pointer lock + WASD in torus) ===
+  let yaw = 0.0, pitch = 0.0;
+  const speed = 4.0; // units per second
+  const keys = new Set();
+
+  function updateCameraBasis(){
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    // Forward, right, up (right-handed)
+    const forward = new THREE.Vector3(sy*cp, sp, cy*cp);
+    const right = new THREE.Vector3(cy, 0, -sy);
+    const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+    // Build 3x3 from columns [right, up, forward]
+    uniforms.u_camMat.value.set(
+      right.x, up.x, forward.x,
+      right.y, up.y, forward.y,
+      right.z, up.z, forward.z
+    );
+  }
+  updateCameraBasis();
+
+  // === Lattice (skew torus) ===
+  // L columns are the lattice generators v1, v2, v3; default is a sheared box
+  const L = new THREE.Matrix3();
+  const L_inv = new THREE.Matrix3();
+
+  const cell = uniforms.u_cell.value; // (Lx, Ly, Lz)
+  let shearXY = 2.5; // how much v2 leans in +x
+  let shearXZ = 1.0; // how much v3 leans in +x
+
+  function setLattice() {
+    // Columns:
+    // v1 = (Lx, 0, 0)
+    // v2 = (shearXY, Ly, 0)
+    // v3 = (shearXZ, 0, Lz)
+    const Lx = cell.x, Ly = cell.y, Lz = cell.z;
+    const a = Lx, b = 0,  c = 0;
+    const d = shearXY, e = Ly, f = 0;
+    const g = shearXZ, h = 0,  k = Lz;
+    // Set by columns in a Matrix3: elements are column-major in THREE
+    L.set(
+      a, d, g,
+      b, e, h,
+      c, f, k
+    );
+    // Compute inverse of 3x3 manually
+    const m = L.elements;
+    const A = m[0], D = m[3], G = m[6];
+    const B = m[1], E = m[4], H = m[7];
+    const C = m[2], F = m[5], K = m[8];
+    const det = A*(E*K - F*H) - B*(D*K - F*G) + C*(D*H - E*G);
+    const invDet = 1.0/det;
+    L_inv.set(
+      (E*K - F*H)*invDet, (C*H - B*K)*invDet, (B*F - C*E)*invDet,
+      (F*G - D*K)*invDet, (A*K - C*G)*invDet, (C*D - A*F)*invDet,
+      (D*H - E*G)*invDet, (B*G - A*H)*invDet, (A*E - B*D)*invDet
+    );
+    // Push to uniforms (copy values)
+    uniforms.u_L.value.copy(L);
+    uniforms.u_L_inv.value.copy(L_inv);
+  }
+  setLattice();
+
+  function wrapPosition(v){
+    // Convert to lattice coordinates t, wrap into (-0.5, 0.5], then return to world
+    const m = L_inv.elements; // column-major
+    const tx = m[0]*v.x + m[3]*v.y + m[6]*v.z;
+    const ty = m[1]*v.x + m[4]*v.y + m[7]*v.z;
+    const tz = m[2]*v.x + m[5]*v.y + m[8]*v.z;
+
+    const wx = tx - Math.floor(tx + 0.5);
+    const wy = ty - Math.floor(ty + 0.5);
+    const wz = tz - Math.floor(tz + 0.5);
+
+    const n = L.elements;
+    v.set(
+      n[0]*wx + n[3]*wy + n[6]*wz,
+      n[1]*wx + n[4]*wy + n[7]*wz,
+      n[2]*wx + n[5]*wy + n[8]*wz
+    );
+  }
+
+  const lock = document.getElementById('lock');
+  lock.addEventListener('click', ()=>{
+    renderer.domElement.requestPointerLock();
+  });
+
+  document.addEventListener('pointerlockchange', ()=>{
+    if(document.pointerLockElement === renderer.domElement){ lock.style.display = 'none'; }
+    else { lock.style.display = 'grid'; }
+  });
+
+  document.addEventListener('mousemove', (e)=>{
+    if(document.pointerLockElement !== renderer.domElement) return;
+    const sens = 0.0025;
+    yaw += e.movementX * sens;
+    pitch += e.movementY * sens;
+    const lim = Math.PI/2 * 0.98;
+    pitch = Math.max(-lim, Math.min(lim, pitch));
+    updateCameraBasis();
+  });
+
+  document.addEventListener('keydown', (e)=>{ keys.add(e.code); });
+  document.addEventListener('keyup',   (e)=>{ keys.delete(e.code); });
+
+  // UI bindings
+  const hazeEl = document.getElementById('haze');
+  const lightEl = document.getElementById('light');
+  hazeEl.addEventListener('input', ()=> uniforms.u_haze.value = parseFloat(hazeEl.value));
+  lightEl.addEventListener('input', ()=> uniforms.u_light.value = parseFloat(lightEl.value));
+
+  const shearXYEl = document.getElementById('shearXY');
+  const shearXZEl = document.getElementById('shearXZ');
+  shearXYEl.addEventListener('input', ()=>{ shearXY = parseFloat(shearXYEl.value); setLattice(); });
+  shearXZEl.addEventListener('input', ()=>{ shearXZ = parseFloat(shearXZEl.value); setLattice(); });
+
+  // Animate
+  let last = performance.now();
+  function tick(now){
+    const dt = Math.min((now - last)/1000, 0.1); last = now;
+    uniforms.u_time.value = now * 0.001;
+
+    // Move camera in torus
+    const mat3 = uniforms.u_camMat.value;
+    const forward = new THREE.Vector3(mat3.elements[2], mat3.elements[5], mat3.elements[8]);
+    const right   = new THREE.Vector3(mat3.elements[0], mat3.elements[3], mat3.elements[6]);
+    const up      = new THREE.Vector3(mat3.elements[1], mat3.elements[4], mat3.elements[7]);
+
+    let vel = new THREE.Vector3();
+    if(keys.has('KeyW')) vel.add(forward);
+    if(keys.has('KeyS')) vel.sub(forward);
+    if(keys.has('KeyA')) vel.sub(right);
+    if(keys.has('KeyD')) vel.add(right);
+    if(keys.has('Space')) vel.add(up);
+    if(keys.has('ControlLeft') || keys.has('ControlRight')) vel.sub(up);
+    if(vel.lengthSq()>0){ vel.normalize().multiplyScalar(speed*dt); uniforms.u_camPos.value.add(vel); wrapPosition(uniforms.u_camPos.value); }
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  addEventListener('resize', ()=>{
+    renderer.setSize(innerWidth, innerHeight);
+    uniforms.u_resolution.value.set(innerWidth, innerHeight);
+  });
+  </script>
+</body>
+</html>
