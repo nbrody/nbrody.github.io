@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Presentation Calculator - Geometry of Linear Groups</title>
+  <link rel="stylesheet" href="../assets/css/main.css" />
+
+  <!-- jQuery (dependency for MathQuill) -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <!-- MathQuill -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.js"></script>
+
+  <!-- MathJax -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <style>
+    /* Light enhancements for MathQuill fields to match card aesthetic */
+    .mq-editable-field, .mq-static-math {
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 18px;
+      min-height: 44px;
+      background: #fff;
+    }
+    .mq-editable-field.mq-focused {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+    }
+    .section-card {
+      background: var(--background-alt);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: var(--card-shadow);
+      margin-bottom: 24px;
+    }
+    .section-card h3 { color: var(--primary-color); font-weight: normal; margin-bottom: 10px; }
+    .section-card p { color: var(--text-light); margin-bottom: 12px; }
+    .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn {
+      display: inline-block;
+      padding: 10px 14px;
+      background: var(--accent-color);
+      color: #fff;
+      border: 1px solid var(--accent-color);
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+    }
+    .btn:hover { filter: brightness(0.95); }
+    .btn-secondary {
+      background: #eef6fd;
+      color: var(--accent-color);
+      border-color: var(--accent-color);
+    }
+    .matrix-item { margin-bottom: 12px; }
+    .help { font-size: 0.9em; color: var(--text-light); }
+    #output { min-height: 120px; }
+    .visually-hidden { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip: rect(1px, 1px, 1px, 1px); white-space: nowrap; }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <nav class="breadcrumb">
+        <a href="../index.html">Home</a> / Calculate a presentation
+      </nav>
+      <h1>Presentation Calculator</h1>
+    </header>
+
+    <main>
+      <div class="section-intro">
+        <p>
+          Define a number ring \(A\) by specifying algebraic numbers \(x_i\), then enter generators as
+          matrices in \(\mathsf{PGL}_2(A)\). We will compute a presentation and provide interactive
+          visualizations in future iterations.
+        </p>
+      </div>
+
+      <!-- Number ring definition -->
+      <section class="section-card" aria-labelledby="ring-label">
+        <h3 id="ring-label">Number ring \(A\)</h3>
+        <p class="help">Describe \(A\), e.g. \(A = \mathbb{Z}[x_1,x_2]/(x_1^2-2,\; x_2^3-x_1-1)\).</p>
+        <div class="row">
+          <label for="ringField" class="visually-hidden">Ring definition</label>
+          <span id="ringField"></span>
+        </div>
+      </section>
+
+      <!-- Matrices input -->
+      <section class="section-card" aria-labelledby="matrices-label">
+        <h3 id="matrices-label">Generators in \(\mathsf{PGL}_2(A)\)</h3>
+        <p class="help">Enter each generator</p>
+        <div id="matrices"></div>
+        <div class="controls">
+          <button id="addMatrix" class="btn btn-secondary" type="button">+ Add Matrix</button>
+        </div>
+      </section>
+
+      <!-- Actions -->
+      <section class="section-card" aria-labelledby="actions-label">
+        <h3 id="actions-label">Compute</h3>
+        <div class="controls">
+          <button id="computeBtn" class="btn" type="button">Compute Presentation</button>
+        </div>
+        <div id="output" class="section-intro"></div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Created by Nic Brody, UC Santa Cruz</p>
+    </footer>
+  </div>
+
+  <script>
+    // Initialize MathQuill
+    const MQ = MathQuill.getInterface(2);
+
+    // Render any static math examples in help text
+    document.querySelectorAll('.mq-static-math').forEach(span => {
+      try { MQ.StaticMath(span); } catch (_) {}
+    });
+
+    // Ring field
+    const ringSpan = document.getElementById('ringField');
+    const ringField = MQ.MathField(ringSpan, { spaceBehavesLikeTab: true });
+    ringField.latex('A = \\mathbb{Z}[x_1]/(x_1^2-2)');
+
+    // Matrices list (default two entries)
+    const matricesWrap = document.getElementById('matrices');
+    const addMatrixBtn = document.getElementById('addMatrix');
+    const computeBtn = document.getElementById('computeBtn');
+    const output = document.getElementById('output');
+
+    function addMatrix(initialLatex = '\\begin{pmatrix}1 & 0 \\\\ 0 & 1\\end{pmatrix}') {
+      const container = document.createElement('div');
+      container.className = 'matrix-item';
+
+      const fieldSpan = document.createElement('span');
+      container.appendChild(fieldSpan);
+      matricesWrap.appendChild(container);
+
+      const mf = MQ.MathField(fieldSpan, { spaceBehavesLikeTab: true });
+      mf.latex(initialLatex);
+      container._mf = mf;
+
+      // Attach a small remove control
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'btn btn-secondary';
+      remove.textContent = 'Remove';
+      remove.style.marginLeft = '10px';
+      remove.addEventListener('click', () => container.remove());
+      container.appendChild(remove);
+    }
+
+    // Seed two matrices by default
+    addMatrix('\\begin{pmatrix}0 & -1 \\\\ 1 & x_1\\end{pmatrix}');
+    addMatrix('\\begin{pmatrix}1 & 1 \\\\ 0 & 1\\end{pmatrix}');
+
+    addMatrixBtn.addEventListener('click', () => addMatrix());
+
+    // Compute (stub): collect LaTeX and log for now
+    computeBtn.addEventListener('click', () => {
+      const ringLatex = ringField.latex();
+      const matrixLatex = Array.from(matricesWrap.children)
+        .map(c => c._mf && typeof c._mf.latex === 'function' ? c._mf.latex() : '')
+        .filter(s => s && s.trim().length > 0);
+
+      // For now, leave output area blank as requested; just log.
+      console.log('Ring:', ringLatex);
+      console.log('Generators:', matrixLatex);
+
+      if (window.MathJax) {
+        MathJax.typesetPromise([output]);
+      }
+    });
+  </script>
+</body>
+</html>

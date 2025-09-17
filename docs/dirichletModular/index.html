@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dirichlet Polyhedron Viewer</title>
+
+    <!-- External Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+
+    <!-- Local Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body class="bg-gray-900">
+    <div id="viewer"></div>
+
+    <button id="toggleControlPanelBtn" class="toggle-btn" aria-label="Hide panel">☰</button>
+    <button id="saveImageBtn" class="toggle-btn" aria-label="Save image" title="Save image"
+        style="right: 78px; font-size:14px;">📷</button>
+    <button id="updateGroupBtn" class="toggle-btn" aria-label="Update" title="Update group"
+        style="right: 44px; font-size:14px;">↻</button>
+
+    <div id="controlPanel">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <h3 style="margin: 0;">Dirichlet</h3>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <button id="prevPageBtn" title="Previous"
+                    style="padding: 2px 6px; font-size: 11px; width: 28px;">◀</button>
+                <button id="nextPageBtn" title="Next" style="padding: 2px 6px; font-size: 11px; width: 28px;">▶</button>
+                <button id="resetViewBtn"
+                    style="padding: 2px 6px; font-size: 11px; width: 100px; margin-left:6px;">Default view</button>
+            </div>
+        </div>
+
+        <div id="panelPage1">
+            <div id="matrixInputs"></div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
+                <label for="wordLength" style="display:flex; align-items:center; margin:0;">
+                    <span style="margin-right:6px;">Word length:</span>
+                    <input id="wordLength" type="number" value="4" min="1" step="1" style="width:60px;" />
+                </label>
+                <button id="addMatrixBtn"
+                    style="width:32px; height:32px; padding:0; font-size:22px; line-height:1; font-weight:bold;">+</button>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
+                <label for="groupSelector" style="margin: 0;">Predefined group:</label>
+                <select id="groupSelector" style="flex-grow: 1; margin: 0 6px;">
+                    <option value="">-- Select --</option>
+                </select>
+                <button id="newExampleBtn"
+                    style="padding: 0px 6px; font-size: 10px; min-width: unset; width: auto; height: 20px; line-height: 20px;">??</button>
+            </div>
+
+            <button id="showStabilizerBtn"
+                style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Show
+                stabilizer</button>
+            <div id="stabilizerOutput"
+                style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;">
+            </div>
+
+            <button id="printStdGensBtn"
+                style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Print standard
+                generators</button>
+            <div id="stdGensOutput"
+                style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;">
+            </div>
+
+            <button id="computeStdGensBtn"
+                style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Compute standard
+                generators</button>
+            <div id="computeStdGensOutput"
+                style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;">
+            </div>
+        </div>
+
+        <div id="panelPage2" style="display:none;">
+            <h4 style="margin: 8px 0 6px; font-size: 14px;">Display options</h4>
+            <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+                <input id="toggleDelaunay" type="checkbox" />
+                Show Cayley graph
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                <input id="toggleOrbit" type="checkbox" />
+                Show orbit of o
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                <input id="toggleBasepoint" type="checkbox" />
+                Show basepoint
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                <input id="toggleFloor" type="checkbox" />
+                Show floor (z = 0.05)
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                <span>Walls:</span>
+                <div style="display:flex; gap:10px; margin-left:8px;">
+                    <label><input type="radio" name="wallsMode" value="all" checked> All</label>
+                    <label><input type="radio" name="wallsMode" value="dirichlet"> Dirichlet</label>
+                    <label><input type="radio" name="wallsMode" value="off"> None</label>
+                </div>
+            </label>
+        </div>
+
+        <div id="panelPage3" style="display:none;">
+            <h4 style="margin: 8px 0 6px; font-size: 14px;">Appearance</h4>
+            <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+                Wall opacity:
+                <input id="wallOpacitySlider" type="range" min="0" max="1" step="0.05" value="0.4" style="flex-grow:1;">
+                <span id="wallOpacityValue">0.40</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+                Color palette:
+                <select id="colorPalette" style="flex-grow:1;">
+                    <option value="bluegold" selected>UC (gradient)</option>
+                    <option value="ucpure">UC (pure)</option>
+                    <option value="tealfuchsia">Teal-Fuchsia Gradient</option>
+                    <option value="harmonic">Harmonic</option>
+                    <option value="monochrome">Monochrome (skyblue)</option>
+                    <option value="random">Random colors</option>
+                </select>
+            </label>
+        </div>
+    </div>
+
+    <div id="message-box"></div>
+
+    <!-- Module Scripts -->
+    <script type="module">
+        import * as ThreeCSGModule from 'https://esm.run/three-csg-ts';
+        const CSG = ThreeCSGModule.CSG || ThreeCSGModule.default || ThreeCSGModule;
+        window.CSG = CSG;
+    </script>
+
+    <script src="js/mathHelper.js"></script>
+    <script src="js/hypGeom.js"></script>
+    <script src="js/visualization.js"></script>
+    <script src="js/controlPanel.js"></script>
+    <script src="js/exampleLibrary.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>

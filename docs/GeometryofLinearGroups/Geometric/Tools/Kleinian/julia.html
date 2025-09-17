@@ -1,0 +1,400 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Polynomial Escape-Time (|z|>2)</title>
+<style>
+  html,
+  body {
+    margin: 0;
+    height: 100%;
+    background: #0b0b0b;
+    color: #ddd;
+    font: 14px/1.3 system-ui
+  }
+
+  #topbar {
+    position: fixed;
+    inset: auto 0 0 0;
+    background: #111a;
+    border-top: 1px solid #222;
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    padding: .6rem 1rem;
+    z-index: 10
+  }
+
+  #topbar input[type=text] {
+    flex: 1;
+    min-width: 220px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #eee;
+    padding: .45rem .6rem;
+    border-radius: .6rem
+  }
+
+  #topbar button,
+  #topbar input[type=range] {
+    accent-color: #7dd3fc
+  }
+
+  #topbar button {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #e5e7eb;
+    padding: .45rem .7rem;
+    border-radius: .6rem;
+    cursor: pointer
+  }
+
+  #topbar button:hover {
+    background: #0f172a
+  }
+
+  #msg {
+    font-size: 12px;
+    color: #9cf;
+    margin-left: .4rem
+  }
+
+  #help {
+    font-size: 12px;
+    color: #aaa
+  }
+
+  canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh
+  }
+
+  #hud {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: #111c;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid #222;
+    font-size: 12px
+  }
+</style>
+
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div><b>Escape threshold:</b> |z| > 2</div>
+  <div><b>Pan:</b> drag • <b>Zoom:</b> wheel • <b>Reset:</b> double-click</div>
+</div>
+
+<div id="topbar">
+  <label for="poly">f(z) =</label>
+  <input id="poly" type="text" spellcheck="false" value="(z-1)*(z+1)*(z+0.3i) + 0.2" />
+  <button id="render">Render</button>
+  <label>Max iter:
+    <input id="iters" type="range" min="20" max="1000" value="200" />
+    <span id="itersV">200</span>
+  </label>
+  <label>Scale:
+    <input id="scale" type="range" min="0.1" max="6" step="0.01" value="3.0" />
+    <span id="scaleV">3.0</span>
+  </label>
+  <button id="reset">Reset view</button>
+  <span id="msg"></span>
+  <span id="help">Examples: <code>z^2-0.75</code>, <code>(z^2-1)(z-2)</code>, <code>z^3-0.8+0.156i</code></span>
+</div>
+
+<script>
+  /* ---------- Complex & Polynomial utilities ---------- */
+  class C {
+    constructor(re = 0, im = 0) { this.re = re; this.im = im; }
+    static from(x) { return x instanceof C ? x : new C(x, 0); }
+    add(b) { return new C(this.re + b.re, this.im + b.im); }
+    sub(b) { return new C(this.re - b.re, this.im - b.im); }
+    mul(b) { return new C(this.re * b.re - this.im * b.im, this.re * b.im + this.im * b.re); }
+    scale(k) { return new C(this.re * k, this.im * k); }
+    abs2() { return this.re * this.re + this.im * this.im; }
+  }
+  const C0 = new C(0, 0), C1 = new C(1, 0), CI = new C(0, 1);
+
+  // Polynomial is array of Complex coeffs: coeffs[n] = a_n for z^n
+  function polAdd(a, b) {
+    const n = Math.max(a.length, b.length), out = new Array(n).fill(0).map(_ => new C());
+    for (let i = 0; i < n; i++) {
+      const ai = i < a.length ? a[i] : C0, bi = i < b.length ? b[i] : C0;
+      out[i] = ai.add(bi);
+    }
+    return trimZeros(out);
+  }
+  function polSub(a, b) {
+    const n = Math.max(a.length, b.length), out = new Array(n).fill(0).map(_ => new C());
+    for (let i = 0; i < n; i++) {
+      const ai = i < a.length ? a[i] : C0, bi = i < b.length ? b[i] : C0;
+      out[i] = ai.sub(bi);
+    }
+    return trimZeros(out);
+  }
+  function polMul(a, b) {
+    const out = new Array(a.length + b.length - 1).fill(0).map(_ => new C());
+    for (let i = 0; i < a.length; i++) for (let j = 0; j < b.length; j++) {
+      const cur = out[i + j];
+      const prod = a[i].mul(b[j]);
+      out[i + j] = new C(cur.re + prod.re, cur.im + prod.im);
+    }
+    return trimZeros(out);
+  }
+  function polPow(a, n) {
+    if (n < 0) throw Error("Negative powers not supported");
+    let res = [C1], base = a.slice();
+    while (n > 0) {
+      if (n & 1) res = polMul(res, base);
+      base = polMul(base, base);
+      n >>= 1;
+    }
+    return res;
+  }
+  function trimZeros(a) {
+    let k = a.length - 1;
+    while (k > 0 && Math.abs(a[k].re) < 1e-15 && Math.abs(a[k].im) < 1e-15) k--;
+    return a.slice(0, k + 1);
+  }
+  function polEval(coeffs, z) {
+    // Horner: (((a_n z + a_{n-1}) z + ...) z + a_0)
+    let w = C0;
+    for (let i = coeffs.length - 1; i >= 0; i--) {
+      w = w.mul(z).add(coeffs[i]);
+    }
+    return w;
+  }
+
+  /* ---------- Polynomial parser (supports + - * ^ ( ) z numbers, i) ---------- */
+  function parsePolynomial(src) {
+    const s = src.replace(/\s+/g, '').replace(/\u2212/g, '-'); // strip spaces, normalize minus
+    let p = 0;
+    function peek() { return s[p] || ''; }
+    function eat(c) { if (s[p] === c) { p++; return true; } return false; }
+    function atEnd() { return p >= s.length; }
+    function isDigit(c) { return c >= '0' && c <= '9'; }
+    function startsPrimary(c) { return c === 'z' || c === 'i' || c === '(' || c === '+' || c === '-' || isDigit(c) || c === '.'; }
+
+    function parseNumber() {
+      // [sign] digits [.] digits [eE][sign]digits
+      let start = p;
+      if (eat('+') || eat('-')) { } // sign handled by caller; we leave it for unary
+      p = start; // don't consume sign here
+      let str = ''; // collect number characters
+      // integral/decimal
+      if (eat('.')) { str += '0.'; while (isDigit(peek())) { str += s[p++]; } }
+      else {
+        while (isDigit(peek())) { str += s[p++]; }
+        if (eat('.')) { str += '.'; while (isDigit(peek())) { str += s[p++]; } }
+      }
+      if (str === '' || str === '.') throw err("number expected");
+      // exponent part
+      if (peek() === 'e' || peek() === 'E') {
+        str += s[p++]; if (peek() === '+' || peek() === '-') str += s[p++];
+        if (!isDigit(peek())) throw err("invalid exponent");
+        while (isDigit(peek())) str += s[p++];
+      }
+      return parseFloat(str);
+    }
+
+    function parsePrimary() {
+      if (eat('(')) {
+        const e = parseExpr();
+        if (!eat(')')) throw err("missing ')'");
+        return e;
+      }
+      if (eat('z')) return [C0, C1];            // z
+      if (eat('i')) return [CI];                // i
+      // number or number*i like 2i
+      // allow leading sign here as unary in factor
+      const num = parseNumber();
+      if (eat('i')) return [new C(0, num)];     // 2i
+      return [new C(num, 0)];                    // real number
+    }
+
+    function parseFactor() {
+      // unary +/-
+      let sign = 1;
+      while (true) {
+        if (eat('+')) { }
+        else if (eat('-')) sign = -sign;
+        else break;
+      }
+      let base = parsePrimary();
+      // exponent
+      if (eat('^')) {
+        // integer power only
+        let neg = false;
+        if (eat('+')) { } else if (eat('-')) neg = true;
+        const n = parseInt(readInt(), 10);
+        if (isNaN(n)) throw err("integer exponent expected");
+        if (neg) throw err("negative exponents not supported");
+        base = polPow(base, n);
+      }
+      if (sign === -1) base = base.map(c => c.scale(-1));
+      return base;
+    }
+
+    function readInt() {
+      let q = ''; while (isDigit(peek())) q += s[p++]; return q;
+    }
+
+    function parseTerm() {
+      let node = parseFactor();
+      // explicit * or implicit multiplication: factor after factor/parenthesis/variable/number
+      while (true) {
+        if (eat('*')) {
+          node = polMul(node, parseFactor());
+          continue;
+        }
+        const c = peek();
+        if (startsPrimary(c)) { // implicit multiplication like 2z or (z+1)(z-1)
+          node = polMul(node, parseFactor());
+          continue;
+        }
+        break;
+      }
+      return node;
+    }
+
+    function parseExpr() {
+      let node = parseTerm();
+      while (true) {
+        if (eat('+')) node = polAdd(node, parseTerm());
+        else if (eat('-')) node = polSub(node, parseTerm());
+        else break;
+      }
+      return node;
+    }
+
+    function err(msg) { return new Error(`Parse error at ${p}: ${msg}`); }
+
+    const poly = parseExpr();
+    if (!atEnd()) throw new Error(`Unexpected token '${peek()}' at ${p}`);
+    return trimZeros(poly);
+  }
+
+  /* ---------- View + Interaction + Renderer ---------- */
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  let W = 0, H = 0, img = null;
+
+  let center = { x: 0, y: 0 };
+  let viewW = 3.0;          // width in complex-plane units
+  let maxIter = 200;
+
+  function resize() {
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    W = canvas.width = Math.floor(innerWidth * dpr);
+    H = canvas.height = Math.floor(innerHeight * dpr);
+    canvas.style.width = innerWidth + 'px';
+    canvas.style.height = innerHeight + 'px';
+    img = ctx.createImageData(W, H);
+    draw();
+  }
+  addEventListener('resize', resize);
+
+  /* Pan & zoom */
+  let dragging = false, lastX = 0, lastY = 0;
+  canvas.addEventListener('mousedown', e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+  addEventListener('mouseup', () => dragging = false);
+  addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    center.x -= dx * (viewW / canvas.clientWidth);
+    center.y += dy * (viewW * H / W / canvas.clientHeight);
+    draw();
+  });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const zoom = Math.exp(-e.deltaY * 0.0015);
+    const px = (e.clientX / canvas.clientWidth - 0.5) * viewW + center.x;
+    const py = (0.5 - e.clientY / canvas.clientHeight) * (viewW * H / W) + center.y;
+    viewW /= zoom;
+    const nx = (e.clientX / canvas.clientWidth - 0.5) * viewW + center.x;
+    const ny = (0.5 - e.clientY / canvas.clientHeight) * (viewW * H / W) + center.y;
+    center.x += px - nx; center.y += py - ny;
+    scaleSlider.value = viewW.toFixed(2); scaleValue.textContent = viewW.toFixed(2);
+    draw();
+  }, { passive: false });
+  canvas.addEventListener('dblclick', () => resetView());
+
+  /* UI wiring */
+  const polyInput = document.getElementById('poly');
+  const renderBtn = document.getElementById('render');
+  const itersSlider = document.getElementById('iters');
+  const itersValue = document.getElementById('itersV');
+  const scaleSlider = document.getElementById('scale');
+  const scaleValue = document.getElementById('scaleV');
+  const resetBtn = document.getElementById('reset');
+  const msg = document.getElementById('msg');
+
+  itersSlider.addEventListener('input', () => { maxIter = +itersSlider.value; itersValue.textContent = maxIter; draw(); });
+  scaleSlider.addEventListener('input', () => { viewW = +scaleSlider.value; scaleValue.textContent = viewW.toFixed(2); draw(); });
+  renderBtn.addEventListener('click', () => draw());
+  polyInput.addEventListener('keydown', e => { if (e.key === 'Enter') draw(); });
+  resetBtn.addEventListener('click', () => resetView());
+
+  function resetView() { center.x = 0; center.y = 0; viewW = 3.0; scaleSlider.value = '3.0'; scaleValue.textContent = '3.0'; draw(); }
+
+  /* Color map (smooth escape-time) */
+  function colorFromIter(iter, zAbs2) {
+    if (iter >= maxIter) return [0, 0, 0]; // inside/slow: black
+    // Continuous coloring with |z| at escape (bailout=2 -> 4 in abs^2)
+    const mu = iter + 1 - Math.log(Math.log(Math.max(Math.sqrt(zAbs2), 2))) / Math.log(2);
+    const t = Math.max(0, Math.min(1, mu / maxIter));
+    // Simple pleasant ramp: blue -> cyan -> yellow -> white
+    const r = 255 * (0.5 + 0.5 * t);
+    const g = 255 * (t);
+    const b = 255 * (1 - 0.5 * t);
+    return [r | 0, g | 0, b | 0];
+  }
+
+  /* Current polynomial coefficients */
+  let coeffs = [C0, C1]; // default f(z)=z
+  function compilePolynomial() {
+    try {
+      coeffs = parsePolynomial(polyInput.value);
+      msg.textContent = `deg = ${coeffs.length - 1}`;
+      msg.style.color = '#9cf';
+    } catch (e) {
+      msg.textContent = e.message;
+      msg.style.color = '#f99';
+      throw e;
+    }
+  }
+
+  function draw() {
+    try { compilePolynomial(); } catch { return; }
+    if (!img) return;
+    const data = img.data;
+    const aspect = H / W;
+    const viewH = viewW * aspect;
+    const bailout2 = 4.0; // |z|^2 > 4 <=> |z|>2
+    let k = 0;
+    for (let j = 0; j < H; j++) {
+      const y0 = (0.5 - j / H) * viewH + center.y;
+      for (let i = 0; i < W; i++) {
+        const x0 = (i / W - 0.5) * viewW + center.x;
+        let zx = x0, zy = y0; // z = x + i y
+        let iter = 0, r2 = zx * zx + zy * zy;
+        while (iter < maxIter && r2 <= bailout2) {
+          // z <- f(z) using Horner polynomial evaluation
+          const z = new C(zx, zy);
+          const w = polEval(coeffs, z);
+          zx = w.re; zy = w.im; r2 = zx * zx + zy * zy;
+          iter++;
+        }
+        const [r, g, b] = colorFromIter(iter, r2);
+        data[k++] = r; data[k++] = g; data[k++] = b; data[k++] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  resetView();
+  resize(); // initial render
+</script>

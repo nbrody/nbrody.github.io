@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Mandelbrot (WGSL) — Zoom & Pan</title>
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: #0a0a0a;
+            color: #ddd;
+            font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        }
+
+        #wrap {
+            position: fixed;
+            inset: 0;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .hud {
+            position: fixed;
+            left: 12px;
+            top: 12px;
+            padding: 8px 10px;
+            background: rgba(0, 0, 0, .45);
+            backdrop-filter: blur(2px);
+            border: 1px solid rgba(255, 255, 255, .15);
+            border-radius: 10px;
+            user-select: none;
+            pointer-events: none;
+            white-space: nowrap;
+            font-size: 12px;
+        }
+
+        .hud b {
+            color: #fff
+        }
+    </style>
+</head>
+
+<body>
+    <div id="wrap"><canvas id="gfx"></canvas></div>
+    <div class="hud" id="hud">center=<b>(-0.5,0.0)</b> scale=<b>2.6</b> iters=<b>300</b></div>
+
+    <script type="module">
+        const canvas = document.getElementById('gfx');
+        const hud = document.getElementById('hud');
+
+        if (!('gpu' in navigator)) {
+            document.body.innerHTML = '<p style="padding:20px;font-size:16px;color:#fff">Your browser does not support WebGPU. Try recent Chrome/Edge/Firefox Nightly with WebGPU enabled.</p>';
+            throw new Error('WebGPU not supported');
+        }
+
+        const adapter = await navigator.gpu.requestAdapter();
+        const device = await adapter.requestDevice();
+        const ctx = canvas.getContext('webgpu');
+        const format = navigator.gpu.getPreferredCanvasFormat();
+        ctx.configure({ device, format, alphaMode: 'premultiplied' });
+
+        const shaderCode = /* wgsl */`
+            struct Params {
+            center : vec2<f32>,  // complex plane center
+            scale  : f32,        // height of view in complex units
+            aspect : f32,        // width/height
+            maxIter: u32,        // iteration cap
+            _pad0  : u32,        // padding for 16B alignment
+            _pad1  : u32,
+            _pad2  : u32,
+            };
+
+            @group(0) @binding(0) var<uniform> params : Params;
+
+            /* Cosine palette: t in [0,1] -> rgb */
+            fn palette(t: f32) -> vec3<f32> {
+            let a = vec3<f32>(0.5, 0.5, 0.5);
+            let b = vec3<f32>(0.5, 0.5, 0.5);
+            let c = vec3<f32>(1.0, 1.0, 1.0);
+            let d = vec3<f32>(0.0, 0.33, 0.67);
+            return a + b * cos(6.2831853 * (c * t + d));
+            }
+
+            struct VSOut {
+            @builtin(position) pos : vec4<f32>,
+            @location(0) uv : vec2<f32>,  // in [-1, 1]
+            };
+
+            @vertex
+            fn vs_main(@builtin(vertex_index) vid: u32) -> VSOut {
+            // Fullscreen quad (two triangles), positions & UV in [-1,1]
+            var P = array<vec2<f32>, 6>(
+                vec2<f32>(-1.0, -1.0),
+                vec2<f32>( 1.0, -1.0),
+                vec2<f32>(-1.0,  1.0),
+                vec2<f32>(-1.0,  1.0),
+                vec2<f32>( 1.0, -1.0),
+                vec2<f32>( 1.0,  1.0)
+            );
+            var out: VSOut;
+            let p = P[vid];
+            out.pos = vec4<f32>(p, 0.0, 1.0);
+            out.uv  = p; // reuse as normalized screen coord in [-1,1]
+            return out;
+            }
+
+            @fragment
+            fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+            // Map screen -> complex plane with correct aspect
+            let c = vec2<f32>(
+                params.center.x + uv.x * params.aspect * params.scale * 0.5,
+                params.center.y + uv.y * params.scale * 0.5
+            );
+
+            // Mandelbrot iteration: z_{n+1} = z_n^2 + c
+            var z = vec2<f32>(0.0, 0.0);
+            var i: u32 = 0u;
+
+            // Iterate with early escape at radius 2
+            for (; i < params.maxIter; i = i + 1u) {
+                // z^2 = (x^2 - y^2, 2xy)
+                let x2 = z.x*z.x;
+                let y2 = z.y*z.y;
+                let xy = z.x*z.y;
+                z = vec2<f32>(x2 - y2, 2.0*xy) + c;
+
+                if (dot(z, z) > 4.0) { break; }
+            }
+
+            // Escape-time coloring (smooth)
+            var color: vec3<f32>;
+            if (i >= params.maxIter) {
+                color = vec3<f32>(0.0, 0.0, 0.0); // inside set
+            } else {
+                // Smooth iteration count:
+                // nu = i + 1 - log2(log(|z|))  (with |z| = sqrt(dot(z,z)))
+                let mag = sqrt(dot(z, z));
+                let nu  = f32(i) + 1.0 - log2(max(1e-8, log(max(1.0000001, mag))));
+                let t   = clamp(nu / f32(params.maxIter), 0.0, 1.0);
+                color   = palette(t);
+            }
+            return vec4<f32>(color, 1.0);
+            }
+            `;
+
+        const module = device.createShaderModule({ code: shaderCode });
+
+        const pipeline = device.createRenderPipeline({
+            layout: 'auto',
+            vertex: { module, entryPoint: 'vs_main' },
+            fragment: {
+                module, entryPoint: 'fs_main',
+                targets: [{ format }]
+            },
+            primitive: { topology: 'triangle-list' }
+        });
+
+        // --- Uniform buffer (Params) ---
+        const U32_SIZE = 4;
+        const F32_SIZE = 4;
+        const UNIFORM_SIZE = 32; // 2*f32 + 1*f32 + 1*f32 + 4*u32 padding = 32 bytes (aligned)
+        const uniformBuffer = device.createBuffer({
+            size: UNIFORM_SIZE,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+
+        const bindGroup = device.createBindGroup({
+            layout: pipeline.getBindGroupLayout(0),
+            entries: [{ binding: 0, resource: { buffer: uniformBuffer } }]
+        });
+
+        // View state
+        let center = { x: -0.5, y: 0.0 };   // complex plane center
+        let scale = 2.6;                   // full vertical span in complex units
+        let maxIter = 300;
+
+        // DPI-aware resize
+        function resize() {
+            const dpr = Math.max(1, window.devicePixelRatio || 1);
+            const w = Math.floor(window.innerWidth * dpr);
+            const h = Math.floor(window.innerHeight * dpr);
+            canvas.width = w;
+            canvas.height = h;
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+        }
+        window.addEventListener('resize', resize, { passive: true });
+        resize();
+
+        // Update uniforms
+        const uBuf = new ArrayBuffer(UNIFORM_SIZE);
+        const u32 = new Uint32Array(uBuf);
+        const f32 = new Float32Array(uBuf);
+        function writeUniforms() {
+            const aspect = canvas.width / canvas.height;
+
+            f32[0] = center.x;   // offset 0
+            f32[1] = center.y;   // offset 4
+            f32[2] = scale;      // offset 8
+            f32[3] = aspect;     // offset 12
+            u32[4] = maxIter;    // offset 16 as u32
+            u32[5] = 0;          // padding
+            u32[6] = 0;
+            u32[7] = 0;
+
+            device.queue.writeBuffer(uniformBuffer, 0, uBuf);
+            hud.innerHTML = `center=<b>(${center.x.toFixed(9)}, ${center.y.toFixed(9)})</b> ` +
+                `scale=<b>${scale.toExponential(3)}</b> ` +
+                `iters=<b>${maxIter}</b>`;
+        }
+
+        // Render
+        function frame() {
+            writeUniforms();
+
+            const encoder = device.createCommandEncoder();
+            const textureView = ctx.getCurrentTexture().createView();
+            const pass = encoder.beginRenderPass({
+                colorAttachments: [{
+                    view: textureView,
+                    clearValue: { r: 0, g: 0, b: 0, a: 1 },
+                    loadOp: 'clear',
+                    storeOp: 'store'
+                }]
+            });
+            pass.setPipeline(pipeline);
+            pass.setBindGroup(0, bindGroup);
+            pass.draw(6, 1, 0, 0);
+            pass.end();
+            device.queue.submit([encoder.finish()]);
+            requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+
+        // --- Interaction (pan + zoom-to-cursor) ---
+        let isPanning = false;
+        let last = { x: 0, y: 0 };
+
+        canvas.addEventListener('pointerdown', (e) => {
+            isPanning = true;
+            last.x = e.clientX; last.y = e.clientY;
+            canvas.setPointerCapture(e.pointerId);
+        });
+        canvas.addEventListener('pointerup', (e) => {
+            isPanning = false;
+            canvas.releasePointerCapture(e.pointerId);
+        });
+        canvas.addEventListener('pointerleave', () => { isPanning = false; });
+        canvas.addEventListener('pointermove', (e) => {
+            if (!isPanning) return;
+            const dx = e.clientX - last.x;
+            const dy = e.clientY - last.y;
+            last.x = e.clientX; last.y = e.clientY;
+
+            const aspect = canvas.width / canvas.height;
+            const ndc_dx = (dx / canvas.width) * 2.0;
+            const ndc_dy = -(dy / canvas.height) * 2.0; // screen y -> NDC y
+
+            // Move center opposite to drag (grab-and-move)
+            center.x -= ndc_dx * aspect * (scale * 0.5);
+            center.y -= ndc_dy * (scale * 0.5);
+        }, { passive: true });
+
+        function screenToPlane(px, py, s) {
+            const aspect = canvas.width / canvas.height;
+            const u = (px / canvas.width) * 2.0 - 1.0;
+            const v = 1.0 - (py / canvas.height) * 2.0;
+            return { x: u * aspect * (s * 0.5), y: v * (s * 0.5) };
+        }
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoom = Math.exp(-e.deltaY * 0.0015); // >1 zoom in, <1 zoom out
+            const before = screenToPlane(e.clientX * (window.devicePixelRatio || 1),
+                e.clientY * (window.devicePixelRatio || 1), scale);
+            const newScale = scale / zoom;
+            const after = screenToPlane(e.clientX * (window.devicePixelRatio || 1),
+                e.clientY * (window.devicePixelRatio || 1), newScale);
+
+            // Re-center so the hovered point stays fixed during zoom
+            center.x += before.x - after.x;
+            center.y += before.y - after.y;
+
+            scale = newScale;
+
+            // Adaptive iterations (optional): raise as you zoom in
+            const targetIters = Math.min(5000, Math.floor(300 * Math.max(1, 1.0 / scale)));
+            maxIter = Math.max(maxIter, targetIters);
+        }, { passive: false });
+
+        // Keyboard helpers
+        window.addEventListener('keydown', (e) => {
+            const k = e.key;
+            if (k === '+' || k === '=') {
+                // Zoom in to screen center
+                const cx = canvas.width * 0.5, cy = canvas.height * 0.5;
+                const zoom = 1.1;
+                const before = screenToPlane(cx, cy, scale);
+                const newScale = scale / zoom;
+                const after = screenToPlane(cx, cy, newScale);
+                center.x += before.x - after.x;
+                center.y += before.y - after.y;
+                scale = newScale;
+            } else if (k === '-') {
+                const cx = canvas.width * 0.5, cy = canvas.height * 0.5;
+                const zoom = 1 / 1.1;
+                const before = screenToPlane(cx, cy, scale);
+                const newScale = scale / zoom;
+                const after = screenToPlane(cx, cy, newScale);
+                center.x += before.x - after.x;
+                center.y += before.y - after.y;
+                scale = newScale;
+            } else if (k === '[') {
+                maxIter = Math.max(10, maxIter - 50);
+            } else if (k === ']') {
+                maxIter = Math.min(20000, maxIter + 50);
+            } else if (k === '0') {
+                // reset view
+                center = { x: -0.5, y: 0.0 };
+                scale = 2.6;
+                maxIter = 300;
+            } else if (k === 'ArrowUp') { center.y -= 0.05 * scale; }
+            else if (k === 'ArrowDown') { center.y += 0.05 * scale; }
+            else if (k === 'ArrowLeft') { center.x -= 0.05 * scale; }
+            else if (k === 'ArrowRight') { center.x += 0.05 * scale; }
+        });
+    </script>
+</body>
+
+</html>

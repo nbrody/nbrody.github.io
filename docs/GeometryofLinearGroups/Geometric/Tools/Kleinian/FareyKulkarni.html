@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farey Sequence in Hyperbolic Plane</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            padding: 40px;
+            max-width: 1200px;
+            width: 100%;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        input[type="number"] {
+            padding: 10px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            width: 100px;
+            transition: all 0.3s ease;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .visualization {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .canvas-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            cursor: grab;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        .info-panel {
+            flex: 1;
+            min-width: 300px;
+            max-width: 400px;
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .info-section h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .sequence-display {
+            font-family: 'Courier New', monospace;
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            background: #f7fafc;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+        }
+
+        .legend {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Farey Sequence Visualization</h1>
+        <p class="subtitle">Hyperbolic Plane Representation (Poincaré Disk Model)</p>
+
+        <div class="error" id="error"></div>
+
+        <div class="controls">
+            <div class="input-group">
+                <label for="primeInput">Prime p:</label>
+                <input type="number" id="primeInput" min="2" max="97" value="7">
+            </div>
+            <button onclick="generate()">Generate Farey Sequence</button>
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showLabels" checked onchange="redraw()">
+                    <label for="showLabels">Show Labels</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showGeodesics" checked onchange="redraw()">
+                    <label for="showGeodesics">Show Geodesics</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showTessellation" onchange="redraw()">
+                    <label for="showTessellation">Show Tessellation</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="visualization">
+            <div class="canvas-container">
+                <canvas id="hyperbolicCanvas" width="600" height="600"></canvas>
+            </div>
+
+            <div class="info-panel">
+                <div class="info-section">
+                    <h3>Farey Sequence F<sub>p</sub></h3>
+                    <div class="sequence-display" id="sequenceDisplay">
+                        Click "Generate" to create the Farey sequence
+                    </div>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="termCount">-</div>
+                            <div class="stat-label">Terms</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="primeValue">-</div>
+                            <div class="stat-label">Prime p</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3>Geometric Properties</h3>
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #4299e1;"></div>
+                            <span>Hyperbolic geodesics connecting consecutive Farey terms</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #f56565;"></div>
+                            <span>Farey sequence points on boundary circle</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #48bb78;"></div>
+                            <span>Special geodesics (denominators = 1)</span>
+                        </div>
+                    </div>
+                    <p style="margin-top: 15px; color: #718096; font-size: 14px;">
+                        The visualization shows how the Farey sequence F<sub>p</sub> creates a tessellation
+                        in the hyperbolic plane. Consecutive terms satisfy |ad - bc| = 1, forming the
+                        fundamental property described in Kulkarni's paper.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let fareySequence = [];
+        let canvas, ctx;
+        let centerX, centerY, radius;
+
+        function isPrime(n) {
+            if (n < 2) return false;
+            for (let i = 2; i <= Math.sqrt(n); i++) {
+                if (n % i === 0) return false;
+            }
+            return true;
+        }
+
+        function gcd(a, b) {
+            return b === 0 ? a : gcd(b, a % b);
+        }
+
+        function generateFareySequence(p) {
+            const sequence = [];
+            const fractions = new Set();
+
+            // Add 0/1 and 1/1
+            sequence.push({ num: 0, den: 1, value: 0 });
+            fractions.add('0/1');
+
+            // Generate all fractions with denominator <= p
+            for (let den = 1; den <= p; den++) {
+                for (let num = 1; num <= den; num++) {
+                    if (gcd(num, den) === 1) {
+                        const key = `${num}/${den}`;
+                        if (!fractions.has(key)) {
+                            sequence.push({
+                                num: num,
+                                den: den,
+                                value: num / den
+                            });
+                            fractions.add(key);
+                        }
+                    }
+                }
+            }
+
+            // Sort by value
+            sequence.sort((a, b) => a.value - b.value);
+
+            // Add infinity (represented as 1/0 for the extended sequence)
+            sequence.push({ num: 1, den: 0, value: Infinity });
+
+            return sequence;
+        }
+
+        function toPoincareCoordinates(fraction) {
+            // Map fraction to angle on boundary circle
+            let angle;
+            if (fraction.den === 0) {
+                angle = Math.PI / 2; // Infinity at top
+            } else {
+                // Map [0, 1] to [-π, 0] for better visualization
+                angle = -Math.PI + Math.PI * fraction.value;
+            }
+
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY + radius * Math.sin(angle);
+
+            return { x, y, angle };
+        }
+
+        function drawHyperbolicGeodesic(p1, p2, color = '#4299e1', width = 2) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.globalAlpha = 0.7;
+
+            // Handle special case when one point is infinity
+            if (p1.angle === Math.PI / 2 || p2.angle === Math.PI / 2) {
+                // Draw a straight line through center (diameter)
+                ctx.beginPath();
+                if (p1.angle === Math.PI / 2) {
+                    ctx.moveTo(centerX, centerY - radius);
+                    ctx.lineTo(p2.x, p2.y);
+                } else {
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(centerX, centerY - radius);
+                }
+                ctx.stroke();
+                return;
+            }
+
+            // Calculate the center and radius of the circular arc
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < 0.01) return; // Points too close
+
+            // Midpoint
+            const mx = (p1.x + p2.x) / 2;
+            const my = (p1.y + p2.y) / 2;
+
+            // Calculate the center of the orthogonal circle
+            const h = (radius * radius - (mx - centerX) * (mx - centerX) - (my - centerY) * (my - centerY)) /
+                (2 * ((mx - centerX) * (-dy / dist) + (my - centerY) * (dx / dist)));
+
+            const cx = mx + h * (-dy / dist);
+            const cy = my + h * (dx / dist);
+
+            const arcRadius = Math.sqrt((p1.x - cx) * (p1.x - cx) + (p1.y - cy) * (p1.y - cy));
+
+            // Draw the arc
+            const angle1 = Math.atan2(p1.y - cy, p1.x - cx);
+            const angle2 = Math.atan2(p2.y - cy, p2.x - cx);
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, arcRadius, angle1, angle2, false);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+
+        function drawTessellation() {
+            // Draw additional geodesics to show tessellation structure
+            for (let i = 0; i < fareySequence.length - 1; i++) {
+                for (let j = i + 2; j < fareySequence.length; j++) {
+                    const f1 = fareySequence[i];
+                    const f2 = fareySequence[j];
+
+                    // Check if these form a Farey neighbor relation
+                    if (Math.abs(f1.num * f2.den - f2.num * f1.den) === 1) {
+                        const p1 = toPoincareCoordinates(f1);
+                        const p2 = toPoincareCoordinates(f2);
+                        drawHyperbolicGeodesic(p1, p2, '#cbd5e0', 1);
+                    }
+                }
+            }
+        }
+
+        function redraw() {
+            if (!canvas || !ctx || fareySequence.length === 0) return;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Poincaré disk
+            ctx.strokeStyle = '#2d3748';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            // Fill disk with gradient
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+            gradient.addColorStop(0, '#f7fafc');
+            gradient.addColorStop(1, '#e2e8f0');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Draw tessellation if enabled
+            if (document.getElementById('showTessellation').checked) {
+                drawTessellation();
+            }
+
+            // Draw hyperbolic geodesics between consecutive Farey terms
+            if (document.getElementById('showGeodesics').checked) {
+                for (let i = 0; i < fareySequence.length - 1; i++) {
+                    const p1 = toPoincareCoordinates(fareySequence[i]);
+                    const p2 = toPoincareCoordinates(fareySequence[i + 1]);
+
+                    // Special coloring for geodesics with denominator 1
+                    const color = (fareySequence[i].den === 1 || fareySequence[i + 1].den === 1)
+                        ? '#48bb78' : '#4299e1';
+                    drawHyperbolicGeodesic(p1, p2, color);
+                }
+            }
+
+            // Draw Farey points on boundary
+            fareySequence.forEach((fraction, index) => {
+                const point = toPoincareCoordinates(fraction);
+
+                // Draw point
+                ctx.fillStyle = '#f56565';
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Draw label if enabled
+                if (document.getElementById('showLabels').checked) {
+                    ctx.fillStyle = '#2d3748';
+                    ctx.font = '12px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+
+                    let label;
+                    if (fraction.den === 0) {
+                        label = '∞';
+                    } else if (fraction.den === 1) {
+                        label = fraction.num.toString();
+                    } else {
+                        label = `${fraction.num}/${fraction.den}`;
+                    }
+
+                    // Position label outside the circle
+                    const labelRadius = radius + 20;
+                    const lx = centerX + labelRadius * Math.cos(point.angle);
+                    const ly = centerY + labelRadius * Math.sin(point.angle);
+
+                    // Draw background for better readability
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    const metrics = ctx.measureText(label);
+                    ctx.fillRect(lx - metrics.width / 2 - 2, ly - 8, metrics.width + 4, 16);
+
+                    ctx.fillStyle = '#2d3748';
+                    ctx.fillText(label, lx, ly);
+                }
+            });
+        }
+
+        function generate() {
+            const p = parseInt(document.getElementById('primeInput').value);
+            const errorDiv = document.getElementById('error');
+
+            // Validate input
+            if (!isPrime(p)) {
+                errorDiv.textContent = `Error: ${p} is not a prime number. Please enter a prime.`;
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (p > 97) {
+                errorDiv.textContent = 'Please enter a prime ≤ 97 for better visualization.';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            errorDiv.style.display = 'none';
+
+            // Generate Farey sequence
+            fareySequence = generateFareySequence(p);
+
+            // Update display
+            const sequenceText = fareySequence.map(f => {
+                if (f.den === 0) return '∞';
+                if (f.den === 1) return f.num.toString();
+                return `${f.num}/${f.den}`;
+            }).join(', ');
+
+            document.getElementById('sequenceDisplay').textContent = sequenceText;
+            document.getElementById('termCount').textContent = fareySequence.length;
+            document.getElementById('primeValue').textContent = p;
+
+            // Draw visualization
+            redraw();
+        }
+
+        // Initialize
+        window.onload = function () {
+            canvas = document.getElementById('hyperbolicCanvas');
+            ctx = canvas.getContext('2d');
+
+            centerX = canvas.width / 2;
+            centerY = canvas.height / 2;
+            radius = Math.min(canvas.width, canvas.height) / 2 - 40;
+
+            // Generate initial visualization
+            generate();
+        };
+    </script>
+</body>
+
+</html>
