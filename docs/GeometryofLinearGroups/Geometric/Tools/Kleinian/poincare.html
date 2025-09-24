@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyperbolic Polyhedra Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* gray-900 */
+            color: #d1d5db; /* gray-300 */
+        }
+        #container canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .info-panel a {
+            color: #60a5fa; /* blue-400 */
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen antialiased">
+
+    <!-- Controls and Info Panel -->
+    <div class="w-full md:w-96 p-6 bg-gray-800 shadow-lg flex flex-col space-y-4 overflow-y-auto">
+        <div>
+            <h1 class="text-2xl font-bold text-white">Hyperbolic Polyhedra Viewer</h1>
+            <p class="text-sm text-gray-400 mt-1">Poincaré Ball Model Visualization</p>
+        </div>
+
+        <div>
+            <label for="vectors" class="block text-sm font-medium text-gray-300 mb-2">Input Vectors S = {v₁, v₂, ...}</label>
+            <textarea id="vectors" rows="8" class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono"></textarea>
+            <p id="error-message" class="text-red-400 text-sm mt-2 h-4"></p>
+        </div>
+
+        <div>
+            <select id="example-select" class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                <option value="">-- Select an Example --</option>
+                
+            </select>
+        </div>
+
+        <button id="render-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+            Render Polyhedron
+        </button>
+
+        <div class="flex items-center space-x-2">
+            <input id="auto-rotate" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+            <label for="auto-rotate" class="text-sm text-gray-300">Auto‑rotate scene</label>
+        </div>
+        <div class="flex items-center space-x-2">
+            <input id="toggle-boundary" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500" checked>
+            <label for="toggle-boundary" class="text-sm text-gray-300">Toggle boundary</label>
+        </div>
+
+                <div class="info-panel text-sm text-gray-400 bg-gray-900/50 p-4 rounded-lg">
+                    <h2 class="font-semibold text-white mb-2">How it Works</h2>
+                    <p>This tool visualizes a polyhedron in the Poincaré ball model of hyperbolic 3-space.</p>
+                    <ol class="list-decimal list-inside mt-2 space-y-1">
+                        <li>Enter a set of 4D vectors <code>[x, y, z, t]</code> above.</li>
+                        <li>Each vector <code>v</code> must be <strong>spacelike</strong> (i.e., x²+y²+z² > t²).</li>
+                        <li>The final coordinate <strong>t must be nonpositive (<= 0)</strong>.</li>
+                    </ol>
+                    <p class="mt-2">The point (0,0,0,1) in Minkowski space corresponds to the center of the ball.</p>
+                </div>
+
+        <div class="text-xs text-gray-500 pt-4 border-t border-gray-700">
+            <p><strong>Controls:</strong> Drag to rotate, scroll to zoom, right-drag to pan.</p>
+        </div>
+    </div>
+
+    <!-- 3D Scene Container -->
+    <div id="container" class="flex-grow h-full w-full"></div>
+
+    <!-- Shaders -->
+    <script id="vertexShader" type="x-shader/x-vertex">
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = vec4(position, 1.0);
+        }
+    </script>
+
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        varying vec2 vUv;
+        
+        // --- Uniforms
+        uniform vec2 u_resolution;
+        uniform mat4 u_inverseViewProjectionMatrix;
+        uniform vec3 u_cameraPosition;
+        
+        const int MAX_PLANES = 32;
+        
+        // --- Spherical Boundaries (from vectors with w < 0)
+        uniform int u_num_sphere_planes;
+        uniform vec3 u_sphere_centers[MAX_PLANES];
+        uniform float u_sphere_radii[MAX_PLANES];
+        
+        // --- Euclidean Planar Boundaries (from vectors with w = 0)
+        uniform int u_num_euclidean_planes;
+        uniform vec3 u_plane_normals[MAX_PLANES]; // Pre-oriented to point "inward"
+
+        // --- Ray Marching Settings
+        const int MAX_STEPS = 100;
+        const float MAX_DIST = 10.0;
+        const float HIT_THRESHOLD = 0.001;
+
+        // Signed Distance Function for the intersection of all half-spaces.
+        float sceneSDF(vec3 p) {
+            float max_dist = -MAX_DIST; 
+            
+            // 1. Intersect with spherical boundaries
+            for (int i = 0; i < MAX_PLANES; i++) {
+                if (i >= u_num_sphere_planes) break;
+                float dist_to_sphere = length(p - u_sphere_centers[i]) - u_sphere_radii[i];
+                // For w < 0, the valid region is outside the sphere, so we must be > 0 distance from center.
+                // Our SDF convention is that "inside" is negative, so we flip the sign.
+                max_dist = max(max_dist, -dist_to_sphere);
+            }
+            
+            // 2. Intersect with Euclidean planar boundaries
+            for (int i = 0; i < MAX_PLANES; i++) {
+                if (i >= u_num_euclidean_planes) break;
+                // The normal is pre-calculated so dot(p,n) gives the signed distance.
+                // A positive value means we are outside the valid half-space.
+                float dist_to_plane = dot(p, u_plane_normals[i]);
+                max_dist = max(max_dist, dist_to_plane);
+            }
+
+            return max_dist;
+        }
+
+        vec3 getNormal(vec3 p) {
+            vec2 e = vec2(HIT_THRESHOLD, 0.0);
+            float d = sceneSDF(p);
+            vec3 n = d - vec3(
+                sceneSDF(p - e.xyy),
+                sceneSDF(p - e.yxy),
+                sceneSDF(p - e.yyx)
+            );
+            return normalize(n);
+        }
+        
+        vec3 applyLighting(vec3 color, vec3 normal, vec3 p) {
+            vec3 lightPos = u_cameraPosition + vec3(0.5, 0.5, 0.5);
+            vec3 lightDir = normalize(lightPos - p);
+            float diff = max(dot(normal, lightDir), 0.0);
+            vec3 diffuse = diff * color;
+            vec3 ambient = 0.2 * color;
+            return ambient + diffuse;
+        }
+        
+        vec2 raySphereIntersect(vec3 ro, vec3 rd, float r) {
+            float b = dot(ro, rd);
+            float c = dot(ro, ro) - r * r;
+            float h = b*b - c;
+            if (h < 0.0) return vec2(-1.0);
+            h = sqrt(h);
+            return vec2(-b - h, -b + h);
+        }
+
+        void main() {
+            vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / u_resolution.y;
+            vec3 ro = u_cameraPosition;
+            vec4 target = u_inverseViewProjectionMatrix * vec4(uv, -1.0, 1.0);
+            vec3 rd = normalize(target.xyz / target.w - ro);
+
+            vec2 t_ball = raySphereIntersect(ro, rd, 1.0);
+            if (t_ball.x < 0.0 && t_ball.y < 0.0) discard;
+
+            float t = max(0.0, t_ball.x);
+            vec3 p = ro + rd * t;
+            bool hit = false;
+            
+            for (int i = 0; i < MAX_STEPS; i++) {
+                if ((t_ball.y > 0.0 && t > t_ball.y) || t > MAX_DIST) break;
+                float dist = sceneSDF(p);
+                if (abs(dist) < HIT_THRESHOLD) {
+                    hit = true;
+                    break;
+                }
+                t += dist;
+                p = ro + rd * t;
+            }
+            
+            if (hit) {
+                vec3 normal = getNormal(p);
+                vec3 baseColor = vec3(0.6, 0.7, 1.0);
+                vec3 litColor = applyLighting(baseColor, normal, p);
+                gl_FragColor = vec4(litColor, 1.0);
+            } else {
+                discard;
+            }
+        }
+    </script>
+    
+    <!-- Main three.js Script -->
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
+        import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls.js';
+        import POLYHEDRA_LIBRARY from './assets/polyhedronLibrary.js';
+
+        let scene, camera, renderer, controls, material, uniforms, boundarySphere;
+        const MAX_PLANES_CONST = 32;
+        
+        const defaultVectors = [
+            "2, 0, 0, -1",
+            "-2, 0, 0, -1",
+            "0, 2, 0, -1",
+            "0, -2, 0, -1",
+            "0, 0, 2, -1",
+            "0, 0, -2, -1",
+        ].join('\n');
+
+        function vectorsToTextarea(vectors) {
+            return vectors.map(v => v.join(', ')).join('\n');
+        }
+
+        function init() {
+            const container = document.getElementById('container');
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(0, 0, 1.8);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = false; // default unchecked
+            controls.autoRotateSpeed = 0.6; // tune as desired
+
+            // Boundary of the Poincare Ball (a transparent sphere)
+            const boundaryGeom = new THREE.SphereGeometry(1, 64, 64);
+            const boundaryMat = new THREE.MeshBasicMaterial({ color: 0x88aaff, transparent: true, opacity: 0.2, wireframe: true });
+            boundarySphere = new THREE.Mesh(boundaryGeom, boundaryMat);
+            boundarySphere.renderOrder = 0; // FIX: Render the boundary sphere first.
+            
+            const initialSphereCenters = Array.from({ length: MAX_PLANES_CONST }, () => new THREE.Vector3());
+            const initialSphereRadii = new Float32Array(MAX_PLANES_CONST);
+            const initialPlaneNormals = Array.from({ length: MAX_PLANES_CONST }, () => new THREE.Vector3());
+
+            uniforms = {
+                u_resolution: { value: new THREE.Vector2(container.clientWidth, container.clientHeight) },
+                u_cameraPosition: { value: camera.position },
+                u_inverseViewProjectionMatrix: { value: new THREE.Matrix4() },
+                u_num_sphere_planes: { value: 0 },
+                u_sphere_centers: { value: initialSphereCenters },
+                u_sphere_radii: { value: initialSphereRadii },
+                u_num_euclidean_planes: { value: 0 },
+                u_plane_normals: { value: initialPlaneNormals },
+            };
+            material = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('vertexShader').textContent,
+                fragmentShader: document.getElementById('fragmentShader').textContent,
+                uniforms: uniforms,
+                transparent: true,    // FIX: Allow transparency for fragments that are discarded.
+                depthWrite: false,    // FIX: Don't let the quad block the wireframe behind it.
+            });
+
+            // Add boundary and quad to a group, center at origin, set camera/controls target
+            const hyperbolicGroup = new THREE.Group();
+            hyperbolicGroup.add(boundarySphere);
+
+            const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+            quad.renderOrder = 1; // Render after boundary
+            hyperbolicGroup.add(quad);
+
+            // Center group at origin
+            hyperbolicGroup.position.set(0, 0, 0);
+            scene.add(hyperbolicGroup);
+
+            // Add axes helper to scene (length 1 units)
+            const axesHelper = new THREE.AxesHelper(1);
+            scene.add(axesHelper);
+
+            // Ensure camera and controls are centered at origin
+            camera.lookAt(0, 0, 0);
+            controls.target.set(0, 0, 0);
+
+            window.addEventListener('resize', onWindowResize, false);
+            document.getElementById('render-btn').addEventListener('click', updateFromInput);
+            document.getElementById('vectors').value = defaultVectors;
+
+            const autoRotateCheckbox = document.getElementById('auto-rotate');
+            if (autoRotateCheckbox) {
+                // Keep checkbox in sync with controls
+                autoRotateCheckbox.checked = controls.autoRotate;
+                autoRotateCheckbox.addEventListener('change', (e) => {
+                    controls.autoRotate = e.target.checked;
+                });
+            }
+
+            // Boundary visibility toggle
+            const boundaryToggle = document.getElementById('toggle-boundary');
+            if (boundaryToggle) {
+                // Initialize state
+                boundarySphere.visible = boundaryToggle.checked;
+                boundaryToggle.addEventListener('change', (e) => {
+                    boundarySphere.visible = e.target.checked;
+                });
+            }
+
+            // Populate examples dropdown
+            const select = document.getElementById('example-select');
+            if (POLYHEDRA_LIBRARY && Array.isArray(POLYHEDRA_LIBRARY.polyhedra)) {
+                POLYHEDRA_LIBRARY.polyhedra.forEach((item, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = String(idx);
+                    opt.textContent = item.name || `Example ${idx+1}`;
+                    select.appendChild(opt);
+                });
+            }
+
+            // When an example is chosen, update the textarea and render
+            select.addEventListener('change', (e) => {
+                const i = parseInt(e.target.value, 10);
+                if (Number.isInteger(i) && POLYHEDRA_LIBRARY.polyhedra[i]) {
+                    const { vectors } = POLYHEDRA_LIBRARY.polyhedra[i];
+                    document.getElementById('vectors').value = vectorsToTextarea(vectors);
+                    updateFromInput();
+                }
+            });
+
+            updateFromInput();
+            animate();
+        }
+
+        function updateFromInput() {
+            const vectorText = document.getElementById('vectors').value.trim();
+            const lines = vectorText.split('\n').filter(line => line.trim() !== '');
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.textContent = '';
+
+            if (lines.length > MAX_PLANES_CONST) {
+                errorMessage.textContent = `Error: Max ${MAX_PLANES_CONST} vectors allowed.`;
+                return;
+            }
+
+            const sphereCenters = [];
+            const sphereRadii = [];
+            const planeNormals = [];
+
+            for (const line of lines) {
+                const parts = line.split(',').map(s => parseFloat(s.trim()));
+                if (parts.length !== 4 || parts.some(isNaN)) {
+                    errorMessage.textContent = `Invalid format: "${line}"`; return;
+                }
+
+                const v = new THREE.Vector4(...parts);
+                if (v.w > 0) {
+                    errorMessage.textContent = `Final coordinate must be nonpositive (w <= 0).`; return;
+                }
+                
+                const n = new THREE.Vector3(v.x, v.y, v.z);
+                const nSq = n.lengthSq();
+                const wSq = v.w * v.w;
+
+                if (nSq <= wSq) {
+                    errorMessage.textContent = `Vector is not spacelike.`; return;
+                }
+
+                if (Math.abs(v.w) < 1e-6) { // Case: w = 0 (Euclidean plane)
+                    if (n.lengthSq() < 1e-6) {
+                        errorMessage.textContent = `Vector [0,0,0,0] is invalid.`; return;
+                    }
+                    // The half-space is dot(n,p) >= 0. For our SDF, we need dot(p, N) <= 0.
+                    // So we set N = -normalize(n).
+                    planeNormals.push(n.clone().normalize().negate());
+                } else { // Case: w < 0 (Spherical plane)
+                    sphereCenters.push(n.clone().divideScalar(v.w));
+                    sphereRadii.push(Math.sqrt(nSq / wSq - 1));
+                }
+            }
+            
+            uniforms.u_num_sphere_planes.value = sphereCenters.length;
+            for (let i = 0; i < MAX_PLANES_CONST; i++) {
+                uniforms.u_sphere_centers.value[i].set(0,0,0); // Clear old data
+                if (i < sphereCenters.length) {
+                    uniforms.u_sphere_centers.value[i].copy(sphereCenters[i]);
+                    uniforms.u_sphere_radii.value[i] = sphereRadii[i];
+                }
+            }
+
+            uniforms.u_num_euclidean_planes.value = planeNormals.length;
+             for (let i = 0; i < MAX_PLANES_CONST; i++) {
+                uniforms.u_plane_normals.value[i].set(0,0,0); // Clear old data
+                if (i < planeNormals.length) {
+                    uniforms.u_plane_normals.value[i].copy(planeNormals[i]);
+                }
+            }
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            uniforms.u_resolution.value.set(renderer.domElement.width, renderer.domElement.height);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            camera.updateMatrixWorld();
+            const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(camera.matrixWorld, camera.projectionMatrixInverse);
+            uniforms.u_inverseViewProjectionMatrix.value.copy(inverseViewProjectionMatrix);
+            uniforms.u_cameraPosition.value.copy(camera.position);
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
