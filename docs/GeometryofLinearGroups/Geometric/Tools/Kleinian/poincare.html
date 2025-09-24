@@ -109,38 +109,48 @@
         const float MAX_DIST = 10.0;
         const float HIT_THRESHOLD = 0.001;
 
-        // Signed Distance Function for the intersection of all half-spaces.
-        float sceneSDF(vec3 p) {
-            float max_dist = -MAX_DIST; 
-            
-            // 1. Intersect with spherical boundaries
+        // --- Utilities for per-face colors
+        vec3 hsv2rgb(vec3 c) {
+            vec3 rgb = clamp( abs(mod(c.x*6.0 + vec3(0.0,4.0,2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0 );
+            return c.z * mix(vec3(1.0), rgb, c.y);
+        }
+
+        vec3 faceColor(float id) {
+            // Golden-ratio hue stepping for distinct colors
+            float h = fract(id * 0.61803398875);
+            return hsv2rgb(vec3(h, 0.6, 0.9));
+        }
+
+        // Signed Distance Function with face ID reporting.
+        vec2 sceneSDFWithId(vec3 p) {
+            float max_dist = -MAX_DIST;
+            float face_id  = -1.0;
+
+            // 1) Spherical boundaries (IDs 0 .. u_num_sphere_planes-1)
             for (int i = 0; i < MAX_PLANES; i++) {
                 if (i >= u_num_sphere_planes) break;
                 float dist_to_sphere = length(p - u_sphere_centers[i]) - u_sphere_radii[i];
-                // For w < 0, the valid region is outside the sphere, so we must be > 0 distance from center.
-                // Our SDF convention is that "inside" is negative, so we flip the sign.
-                max_dist = max(max_dist, -dist_to_sphere);
-            }
-            
-            // 2. Intersect with Euclidean planar boundaries
-            for (int i = 0; i < MAX_PLANES; i++) {
-                if (i >= u_num_euclidean_planes) break;
-                // The normal is pre-calculated so dot(p,n) gives the signed distance.
-                // A positive value means we are outside the valid half-space.
-                float dist_to_plane = dot(p, u_plane_normals[i]);
-                max_dist = max(max_dist, dist_to_plane);
+                float sdf = -dist_to_sphere; // inside = negative, we flip to match intersection convention used
+                if (sdf > max_dist) { max_dist = sdf; face_id = float(i); }
             }
 
-            return max_dist;
+            // 2) Euclidean planar boundaries (IDs offset after spheres)
+            for (int i = 0; i < MAX_PLANES; i++) {
+                if (i >= u_num_euclidean_planes) break;
+                float sdf = dot(p, u_plane_normals[i]);
+                if (sdf > max_dist) { max_dist = sdf; face_id = float(u_num_sphere_planes + i); }
+            }
+
+            return vec2(max_dist, face_id);
         }
 
         vec3 getNormal(vec3 p) {
             vec2 e = vec2(HIT_THRESHOLD, 0.0);
-            float d = sceneSDF(p);
+            float d = sceneSDFWithId(p).x;
             vec3 n = d - vec3(
-                sceneSDF(p - e.xyy),
-                sceneSDF(p - e.yxy),
-                sceneSDF(p - e.yyx)
+                sceneSDFWithId(p - e.xyy).x,
+                sceneSDFWithId(p - e.yxy).x,
+                sceneSDFWithId(p - e.yyx).x
             );
             return normalize(n);
         }
@@ -164,10 +174,11 @@
         }
 
         void main() {
-            vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / u_resolution.y;
+            vec2 uv = (gl_FragCoord.xy / u_resolution.xy) * 2.0 - 1.0;
+            vec4 pNear = u_inverseViewProjectionMatrix * vec4(uv, -1.0, 1.0);
+            vec4 pFar  = u_inverseViewProjectionMatrix * vec4(uv,  1.0, 1.0);
             vec3 ro = u_cameraPosition;
-            vec4 target = u_inverseViewProjectionMatrix * vec4(uv, -1.0, 1.0);
-            vec3 rd = normalize(target.xyz / target.w - ro);
+            vec3 rd = normalize(pFar.xyz / pFar.w - ro);
 
             vec2 t_ball = raySphereIntersect(ro, rd, 1.0);
             if (t_ball.x < 0.0 && t_ball.y < 0.0) discard;
@@ -178,7 +189,7 @@
             
             for (int i = 0; i < MAX_STEPS; i++) {
                 if ((t_ball.y > 0.0 && t > t_ball.y) || t > MAX_DIST) break;
-                float dist = sceneSDF(p);
+                float dist = sceneSDFWithId(p).x;
                 if (abs(dist) < HIT_THRESHOLD) {
                     hit = true;
                     break;
@@ -188,8 +199,9 @@
             }
             
             if (hit) {
+                float faceId = sceneSDFWithId(p).y;
+                vec3 baseColor = faceColor(faceId);
                 vec3 normal = getNormal(p);
-                vec3 baseColor = vec3(0.6, 0.7, 1.0);
                 vec3 litColor = applyLighting(baseColor, normal, p);
                 gl_FragColor = vec4(litColor, 1.0);
             } else {
@@ -226,8 +238,8 @@
             camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 100);
             camera.position.set(0, 0, 1.8);
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(container.clientWidth, container.clientHeight);
             container.appendChild(renderer.domElement);
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
@@ -245,7 +257,7 @@
             const initialPlaneNormals = Array.from({ length: MAX_PLANES_CONST }, () => new THREE.Vector3());
 
             uniforms = {
-                u_resolution: { value: new THREE.Vector2(container.clientWidth, container.clientHeight) },
+                u_resolution: { value: new THREE.Vector2(renderer.domElement.width, renderer.domElement.height) },
                 u_cameraPosition: { value: camera.position },
                 u_inverseViewProjectionMatrix: { value: new THREE.Matrix4() },
                 u_num_sphere_planes: { value: 0 },
@@ -273,10 +285,6 @@
             // Center group at origin
             hyperbolicGroup.position.set(0, 0, 0);
             scene.add(hyperbolicGroup);
-
-            // Add axes helper to scene (length 1 units)
-            const axesHelper = new THREE.AxesHelper(1);
-            scene.add(axesHelper);
 
             // Ensure camera and controls are centered at origin
             camera.lookAt(0, 0, 0);
