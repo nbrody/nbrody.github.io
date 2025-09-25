@@ -24,53 +24,57 @@
 </head>
 <body class="flex flex-col md:flex-row h-screen antialiased">
 
+    <!-- Panel Toggle Button -->
+<button id="toggle-panel-btn"
+    class="fixed top-4 right-4 rounded-full w-8 h-8 flex items-center justify-center z-50 border border-gray-400 text-gray-300 hover:bg-gray-700"
+    style="transform: translateX(-110%);">☰</button>
     <!-- Controls and Info Panel -->
-    <div class="w-full md:w-96 p-6 bg-gray-800 shadow-lg flex flex-col space-y-4 overflow-y-auto">
-        <div>
-            <h1 class="text-2xl font-bold text-white">Hyperbolic Polyhedra Viewer</h1>
-            <p class="text-sm text-gray-400 mt-1">Poincaré Ball Model Visualization</p>
-        </div>
+    <div id="control-panel" class="absolute top-4 right-4 w-96 max-h-[90vh] p-6 bg-gray-800 shadow-lg flex flex-col space-y-4 overflow-y-auto rounded-lg z-40 transition-transform transform" style="transform: translateX(0);">
+      <div>
+          <h1 class="text-2xl font-bold text-white">Hyperbolic Polyhedra Viewer</h1>
+          <p class="text-sm text-gray-400 mt-1">Poincaré Ball Model Visualization</p>
+      </div>
 
-        <div>
-            <label for="vectors" class="block text-sm font-medium text-gray-300 mb-2">Input Vectors S = {v₁, v₂, ...}</label>
-            <textarea id="vectors" rows="8" class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono"></textarea>
-            <p id="error-message" class="text-red-400 text-sm mt-2 h-4"></p>
-        </div>
+      <div>
+          <label for="vectors" class="block text-sm font-medium text-gray-300 mb-2">Input Vectors S = {v₁, v₂, ...}</label>
+          <textarea id="vectors" rows="8" class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono"></textarea>
+          <p id="error-message" class="text-red-400 text-sm mt-2 h-4"></p>
+      </div>
 
-        <div>
-            <select id="example-select" class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                <option value="">-- Select an Example --</option>
-                
-            </select>
-        </div>
+      <div>
+          <select id="example-select" class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+              <option value="">-- Select an Example --</option>
+              
+          </select>
+      </div>
 
-        <button id="render-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
-            Render Polyhedron
-        </button>
+      <button id="render-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+          Render Polyhedron
+      </button>
 
-        <div class="flex items-center space-x-2">
-            <input id="auto-rotate" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
-            <label for="auto-rotate" class="text-sm text-gray-300">Auto‑rotate scene</label>
-        </div>
-        <div class="flex items-center space-x-2">
-            <input id="toggle-boundary" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500" checked>
-            <label for="toggle-boundary" class="text-sm text-gray-300">Toggle boundary</label>
-        </div>
+      <div class="flex items-center space-x-2">
+          <input id="auto-rotate" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+          <label for="auto-rotate" class="text-sm text-gray-300">Auto‑rotate scene</label>
+      </div>
+      <div class="flex items-center space-x-2">
+          <input id="toggle-boundary" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500" checked>
+          <label for="toggle-boundary" class="text-sm text-gray-300">Toggle boundary</label>
+      </div>
 
-                <div class="info-panel text-sm text-gray-400 bg-gray-900/50 p-4 rounded-lg">
-                    <h2 class="font-semibold text-white mb-2">How it Works</h2>
-                    <p>This tool visualizes a polyhedron in the Poincaré ball model of hyperbolic 3-space.</p>
-                    <ol class="list-decimal list-inside mt-2 space-y-1">
-                        <li>Enter a set of 4D vectors <code>[x, y, z, t]</code> above.</li>
-                        <li>Each vector <code>v</code> must be <strong>spacelike</strong> (i.e., x²+y²+z² > t²).</li>
-                        <li>The final coordinate <strong>t must be nonpositive (<= 0)</strong>.</li>
-                    </ol>
-                    <p class="mt-2">The point (0,0,0,1) in Minkowski space corresponds to the center of the ball.</p>
-                </div>
+      <div class="info-panel text-sm text-gray-400 bg-gray-900/50 p-4 rounded-lg">
+          <h2 class="font-semibold text-white mb-2">How it Works</h2>
+          <p>This tool visualizes a polyhedron in the Poincaré ball model of hyperbolic 3-space.</p>
+          <ol class="list-decimal list-inside mt-2 space-y-1">
+              <li>Enter a set of 4D vectors <code>[x, y, z, t]</code> above.</li>
+              <li>Each vector <code>v</code> must be <strong>spacelike</strong> (i.e., x²+y²+z² > t²).</li>
+              <li>The final coordinate <strong>t must be nonpositive (<= 0)</strong>.</li>
+          </ol>
+          <p class="mt-2">The point (0,0,0,1) in Minkowski space corresponds to the center of the ball.</p>
+      </div>
 
-        <div class="text-xs text-gray-500 pt-4 border-t border-gray-700">
-            <p><strong>Controls:</strong> Drag to rotate, scroll to zoom, right-drag to pan.</p>
-        </div>
+      <div class="text-xs text-gray-500 pt-4 border-t border-gray-700">
+          <p><strong>Controls:</strong> Drag to rotate, scroll to zoom, right-drag to pan.</p>
+      </div>
     </div>
 
     <!-- 3D Scene Container -->
@@ -434,6 +438,19 @@
             uniforms.u_cameraPosition.value.copy(camera.position);
             renderer.render(scene, camera);
         }
+
+        // --- Panel collapse/expand logic ---
+        const panel = document.getElementById('control-panel');
+        const toggleBtn = document.getElementById('toggle-panel-btn');
+        let panelVisible = true;
+        toggleBtn.addEventListener('click', () => {
+            panelVisible = !panelVisible;
+            if (panelVisible) {
+                panel.style.transform = 'translateX(0)';
+            } else {
+                panel.style.transform = 'translateX(110%)';
+            }
+        });
 
         init();
     </script>
