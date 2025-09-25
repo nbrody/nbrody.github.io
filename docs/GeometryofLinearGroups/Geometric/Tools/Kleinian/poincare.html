@@ -220,12 +220,12 @@
         const MAX_PLANES_CONST = 32;
         
         const defaultVectors = [
-            "2, 0, 0, -1",
+            " 2, 0, 0, -1",
             "-2, 0, 0, -1",
-            "0, 2, 0, -1",
-            "0, -2, 0, -1",
-            "0, 0, 2, -1",
-            "0, 0, -2, -1",
+            " 0, 2, 0, -1",
+            " 0,-2, 0, -1",
+            " 0, 0, 2, -1",
+            " 0, 0,-2, -1",
         ].join('\n');
 
         function vectorsToTextarea(vectors) {
@@ -246,11 +246,25 @@
             controls.autoRotate = false; // default unchecked
             controls.autoRotateSpeed = 0.6; // tune as desired
 
-            // Boundary of the Poincare Ball (a transparent sphere)
+            // Lighting for glossy boundary sphere
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x222233, 0.8);
+            scene.add(hemiLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+            dirLight.position.set(3, 3, 5);
+            scene.add(dirLight);
+
+            // Boundary of the Poincare Ball (a glossy, transparent sphere)
             const boundaryGeom = new THREE.SphereGeometry(1, 64, 64);
-            const boundaryMat = new THREE.MeshBasicMaterial({ color: 0x88aaff, transparent: true, opacity: 0.2, wireframe: true });
+            const boundaryMat = new THREE.MeshPhongMaterial({
+                color: 0x88aaff,
+                transparent: true,
+                opacity: 0.4,
+                shininess: 120,
+                specular: 0xffffff
+            });
             boundarySphere = new THREE.Mesh(boundaryGeom, boundaryMat);
             boundarySphere.renderOrder = 0; // FIX: Render the boundary sphere first.
+            boundarySphere.material.side = THREE.DoubleSide; // visible from inside/outside
             
             const initialSphereCenters = Array.from({ length: MAX_PLANES_CONST }, () => new THREE.Vector3());
             const initialSphereRadii = new Float32Array(MAX_PLANES_CONST);
