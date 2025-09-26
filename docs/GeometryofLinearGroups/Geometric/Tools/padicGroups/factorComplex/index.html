@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factor Complex Visualizer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <h1>Factor Complex Visualizer</h1>
+    <p class="description">
+        Enter an integer to see its lattice of divisors. Edges connect divisors that differ by a prime factor. <br>
+        <strong>Click and drag any edge</strong> to rearrange the graph. All edges of the same color will remain
+        parallel.
+    </p>
+
+    <div class="controls">
+        <label for="number-input">Integer n:</label>
+        <input type="number" id="number-input" value="60" min="2">
+        <button id="generate-btn">Generate Graph</button>
+    </div>
+
+    <div id="graph-container">
+        <svg id="main-svg"></svg>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="main.js"></script>
+
+</body>
+
+</html>

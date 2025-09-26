@@ -1,0 +1,102 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    text-align: center;
+    color: #333;
+    background-color: #f8f9fa;
+    margin: 0;
+    padding: 20px;
+}
+
+h1 {
+    color: #000;
+}
+
+.description {
+    max-width: 600px;
+    margin: 0 auto 20px auto;
+    color: #555;
+    line-height: 1.5;
+}
+
+.controls {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+#number-input {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 100px;
+    font-size: 16px;
+}
+
+#generate-btn {
+    padding: 8px 16px;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.2s;
+}
+
+#generate-btn:hover {
+    background-color: #0056b3;
+}
+
+#graph-container {
+    width: 95vw;
+    max-width: 1200px;
+    height: 80vh;
+    margin: auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #fff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Graph Element Styling */
+.node circle {
+    stroke: #333;
+    stroke-width: 1.5px;
+    fill: #eef;
+}
+
+.node text {
+    font-size: 14px;
+    font-weight: bold;
+    pointer-events: none;
+    text-anchor: middle;
+    fill: #222;
+    dy: 5px;
+}
+
+.edge-group {
+    cursor: grab;
+}
+
+.edge-group:active {
+    cursor: grabbing;
+}
+
+.edge-casing {
+    stroke-width: 7px;
+    stroke: #fff;
+    /* Match background color for 3D effect */
+    stroke-linecap: round;
+}
+
+.edge-line {
+    stroke-width: 3px;
+    stroke-linecap: round;
+}

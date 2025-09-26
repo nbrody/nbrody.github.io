@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Continued Fraction Algorithm</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css"
+        integrity="sha384-sN/gIe3oOyAYXuZRvNBfGBpTCZeP83fMwvP1jscjPby+xEBSRrYJMaj2zF8LftgA" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"
+        integrity="sha384-hIoBPJpTUs74ddlMizLDIYKUGALtSspLAabZqwSPOCpGVE3vanLufRLAcnWOFqfs"
+        crossorigin="anonymous"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fraction.js/4.3.7/fraction.min.js"></script>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f8f9fa;
+            color: #343a40;
+            margin: 0;
+            padding: 2rem;
+        }
+
+        #app-container {
+            max-width: 800px;
+            width: 100%;
+            background: #ffffff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        h1,
+        h2 {
+            color: #212529;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 0;
+        }
+
+        #controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            align-items: center;
+        }
+
+        #numberInput {
+            flex-grow: 1;
+            padding: 0.75rem;
+            font-size: 1.1rem;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+        }
+
+        #startButton {
+            padding: 0.75rem 1.5rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        #startButton:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        #startButton:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+
+        #canvas-container {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 1rem;
+            height: 120px;
+            position: relative;
+        }
+
+        #status-display {
+            margin-top: 1rem;
+            font-size: 1.2rem;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            background: #e9ecef;
+            padding: 1rem;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        #results {
+            margin-top: 1.5rem;
+        }
+
+        #latex-output {
+            font-size: 1.5rem;
+            padding: 1rem;
+            text-align: center;
+            overflow-x: auto;
+        }
+
+        #coeffs-list {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            font-weight: bold;
+            color: #dc3545;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app-container">
+        <h1>Continued Fraction Visualizer</h1>
+        <p>Enter a rational number (e.g., "42/29" or "1.44827") to see the continued fraction algorithm in action. The
+            animation shows the two key steps: subtracting the integer part and inverting the fractional part.</p>
+
+        <div id="controls">
+            <input type="text" id="numberInput" value="42/29">
+            <button id="startButton">Visualize</button>
+        </div>
+
+        <div id="visualization">
+            <div id="canvas-container"></div>
+            <div id="status-display">Current Value: <span id="current-value">N/A</span></div>
+        </div>
+
+        <div id="results">
+            <h2>Coefficients: <span id="coeffs-list">[ ]</span></h2>
+            <h2>Result</h2>
+            <div id="latex-output"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIG ---
+        const ANIMATION_STEP_DELAY = 1500; // ms between algorithm steps
+        const TRANSLATION_FRAMES = 60; // Frames for the translation animation
+
+        // --- DOM ELEMENTS ---
+        const numberInput = document.getElementById('numberInput');
+        const startButton = document.getElementById('startButton');
+        const currentValueSpan = document.getElementById('current-value');
+        const coeffsListSpan = document.getElementById('coeffs-list');
+        const latexOutputDiv = document.getElementById('latex-output');
+
+        // --- GLOBAL STATE ---
+        let p5_sketch;
+        let isAnimating = false;
+        let algorithmState = {
+            originalFraction: null,
+            currentFraction: null,
+            coefficients: [],
+        };
+
+        // --- P5.JS SKETCH ---
+        const sketch = (p) => {
+            let point = {
+                current: 0,
+                target: 0,
+                isTranslating: false,
+                translationFrame: 0,
+                start: 0,
+            };
+
+            p.setup = () => {
+                const canvasContainer = document.getElementById('canvas-container');
+                const cnv = p.createCanvas(canvasContainer.offsetWidth, canvasContainer.offsetHeight);
+                cnv.parent('canvas-container');
+                p.windowResized = () => p.resizeCanvas(canvasContainer.offsetWidth, canvasContainer.offsetHeight);
+            };
+
+            p.draw = () => {
+                p.background(255);
+                drawNumberLine();
+
+                if (point.isTranslating) {
+                    updateTranslation();
+                }
+
+                drawPoint();
+            };
+
+            function drawNumberLine() {
+                p.stroke(200);
+                p.strokeWeight(1);
+                p.line(0, p.height / 2, p.width, p.height / 2);
+
+                const maxVal = Math.max(1, Math.ceil(Math.abs(point.current)), Math.ceil(Math.abs(point.target)), 5);
+                const ticks = Math.min(20, maxVal * 2);
+
+                for (let i = -ticks; i <= ticks; i++) {
+                    const x = p.map(i, -maxVal, maxVal, 0, p.width);
+                    if (x > 0 && x < p.width) {
+                        p.stroke(200);
+                        p.line(x, p.height / 2 - 5, x, p.height / 2 + 5);
+                        if (i % 2 === 0 || maxVal <= 5) {
+                            p.noStroke();
+                            p.fill(150);
+                            p.textAlign(p.CENTER, p.TOP);
+                            p.text(i, x, p.height / 2 + 10);
+                        }
+                    }
+                }
+            }
+
+            function updateTranslation() {
+                point.translationFrame++;
+                const easedProgress = easeInOutCubic(point.translationFrame / TRANSLATION_FRAMES);
+                point.current = p.lerp(point.start, point.target, easedProgress);
+
+                if (point.translationFrame >= TRANSLATION_FRAMES) {
+                    point.isTranslating = false;
+                    point.current = point.target;
+                }
+            }
+
+            function drawPoint() {
+                const maxVal = Math.max(1, Math.ceil(Math.abs(point.current)), Math.ceil(Math.abs(point.target)), 5);
+                const pointX = p.map(point.current, -maxVal, maxVal, 0, p.width);
+
+                p.noStroke();
+                p.fill(220, 53, 69, 200);
+                p.ellipse(pointX, p.height / 2, 15, 15);
+            }
+
+            // --- External Controls ---
+            p.startTranslation = (from, to) => {
+                point.start = from;
+                point.target = to;
+                point.current = from;
+                point.isTranslating = true;
+                point.translationFrame = 0;
+            };
+
+            p.jumpTo = (value) => {
+                point.target = value;
+                point.current = value;
+                point.isTranslating = false;
+            };
+
+            function easeInOutCubic(x) {
+                return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+            }
+        };
+
+        // --- INPUT PARSER (robust against spaces, unicode slashes, mixed numbers) ---
+        function parseFractionInput(raw) {
+            let s = String(raw || '').trim();
+
+            // Normalize common unicode variants for minus and slash
+            s = s
+                .replace(/[–—−]/g, "-")   // en dash, em dash, unicode minus -> hyphen-minus
+                .replace(/[⁄∕]/g, "/");   // fraction slash, division slash -> "/"
+            
+            // Remove surrounding spaces around slash
+            s = s.replace(/\s*\/\s*/g, "/");
+            
+            // If it's a simple a/b form
+            if (/^-?\d+\/\d+$/.test(s)) {
+                const [a, b] = s.split("/").map(v => parseInt(v, 10));
+                if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) {
+                    throw new Error("Invalid fraction");
+                }
+                return new Fraction(a, b);
+            }
+
+            // Mixed number form like "3 1/2" or "-2 3/7"
+            const mixed = s.match(/^(-?\d+)\s+(\d+)\/(\d+)$/);
+            if (mixed) {
+                const whole = parseInt(mixed[1], 10);
+                const num = parseInt(mixed[2], 10);
+                const den = parseInt(mixed[3], 10);
+                if (!Number.isFinite(whole) || !Number.isFinite(num) || !Number.isFinite(den) || den === 0) {
+                    throw new Error("Invalid fraction");
+                }
+                const sign = whole < 0 ? -1 : 1;
+                return new Fraction(whole + sign * num / den);
+            }
+
+            // Plain decimal or integer
+            const x = Number(s);
+            if (Number.isFinite(x)) {
+                return new Fraction(x);
+            }
+
+            // Last resort: let Fraction try (may support additional formats); will throw on failure
+            return new Fraction(s);
+        }
+
+        // --- ALGORITHM LOGIC ---
+        function startAlgorithm() {
+            if (isAnimating) return;
+            isAnimating = true;
+            startButton.disabled = true;
+
+            // 1. Reset State & UI
+            coeffsListSpan.textContent = '[ ]';
+            latexOutputDiv.innerHTML = '';
+
+            try {
+                const f = parseFractionInput(numberInput.value);
+                algorithmState = {
+                    originalFraction: f,
+                    currentFraction: f,
+                    coefficients: [],
+                };
+            } catch (err) {
+                alert("Invalid input. Try formats like '42/29', '1.448', or a mixed number '3 1/2'. You can also paste values with unicode slashes — I'll normalize them.");
+                isAnimating = false;
+                startButton.disabled = false;
+                return;
+            }
+
+            p5_sketch.jumpTo(algorithmState.currentFraction.valueOf());
+            updateStatusDisplay();
+
+            // 2. Start the process
+            setTimeout(runNextStep, 500);
+        }
+
+        function runNextStep() {
+            const current = algorithmState.currentFraction;
+
+            // Termination condition: stop when current is an integer
+            // Fraction.js keeps integers with d === 1
+            if (current && (current.d === 1 || Number.isInteger(current.valueOf()))) {
+                finishAlgorithm();
+                return;
+            }
+
+            // 1. Get integer part (use JS floor on the numeric value)
+            const integerPart = Math.floor(current.valueOf());
+            algorithmState.coefficients.push(integerPart);
+            updateCoeffsDisplay();
+
+            // 2. Animate translation to fractional part
+            const fractionalPart = current.sub(integerPart);
+            p5_sketch.startTranslation(current.valueOf(), fractionalPart.valueOf());
+
+            // 3. After animation, invert and prepare for next step
+            setTimeout(() => {
+                algorithmState.currentFraction = fractionalPart;
+                updateStatusDisplay();
+
+                // If fractional part is basically zero, we are done
+                if (fractionalPart.valueOf() < epsilon) {
+                    finishAlgorithm();
+                    return;
+                }
+
+                // Invert for the next step
+                algorithmState.currentFraction = fractionalPart.inverse();
+                p5_sketch.jumpTo(algorithmState.currentFraction.valueOf());
+                updateStatusDisplay();
+
+                setTimeout(runNextStep, ANIMATION_STEP_DELAY / 2);
+
+            }, (TRANSLATION_FRAMES / 60) * 1000 + 200); // Wait for translation to finish
+        }
+
+        function finishAlgorithm() {
+            const cur = algorithmState.currentFraction;
+            // If current is an integer, append it as the final coefficient
+            if (cur && (cur.d === 1 || Number.isInteger(cur.valueOf()))) {
+                algorithmState.coefficients.push(cur.valueOf());
+            }
+
+            updateCoeffsDisplay();
+            renderLatex();
+            isAnimating = false;
+            startButton.disabled = false;
+        }
+
+        // --- UI UPDATERS ---
+        function updateStatusDisplay() {
+            const f = algorithmState.currentFraction;
+            currentValueSpan.textContent = `${f.toFraction()} ≈ ${f.valueOf().toFixed(5)}`;
+        }
+
+        function updateCoeffsDisplay() {
+            coeffsListSpan.textContent = `[${algorithmState.coefficients.join(', ')}]`;
+        }
+
+        function renderLatex() {
+            const coeffs = algorithmState.coefficients;
+            if (coeffs.length === 0) return;
+
+            const originalLatex = algorithmState.originalFraction.toLatex();
+            const compactLatex = `${originalLatex} = [${coeffs[0]}; ${coeffs.slice(1).join(', ')}]`;
+
+            let expandedLatex = coeffs[0].toString();
+            if (coeffs.length > 1) {
+                let nested = `\\frac{1}{${coeffs[coeffs.length - 1]}}`;
+                for (let i = coeffs.length - 2; i > 0; i--) {
+                    nested = `\\frac{1}{${coeffs[i]} + ${nested}}`;
+                }
+                expandedLatex = `${coeffs[0]} + ${nested}`;
+            }
+
+            try {
+                latexOutputDiv.innerHTML = ""; // Clear previous
+                const compactDiv = document.createElement('div');
+                const expandedDiv = document.createElement('div');
+
+                latexOutputDiv.appendChild(compactDiv);
+                latexOutputDiv.appendChild(expandedDiv);
+
+                katex.render(compactLatex, compactDiv);
+                if (coeffs.length > 1) {
+                    katex.render(`${originalLatex} = ${expandedLatex}`, expandedDiv, {
+                        displayMode: true
+                    });
+                }
+            } catch (e) {
+                latexOutputDiv.textContent = `Error rendering LaTeX: ${e.message}`;
+            }
+        }
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            p5_sketch = new p5(sketch);
+            startButton.addEventListener('click', startAlgorithm);
+            // Trigger a default visualization on load
+            startAlgorithm();
+        };
+
+    </script>
+</body>
+
+</html>

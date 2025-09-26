@@ -165,14 +165,13 @@
         {
             "imports": {
                 "three": "https://unpkg.com/three@0.163.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/",
-                "globe.gl": "https://unpkg.com/globe.gl@3.8.10/dist/globe.gl.js"
+                "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/"
             }
         }
     </script>
     <script type="module">
         import * as THREE from 'three';
-        import Globe from 'globe.gl';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         // === Exact rational arithmetic (BigInt) and 3x3 matrix utilities ===
         const BI = (x) => BigInt(x);
@@ -228,23 +227,17 @@
         // Panel state
         let panelOpen = false;
 
-        // 1. Scene Setup via globe.gl
-        const globe = Globe()(canvasWrapper)
-          .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-          .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
-          .globeResolution(256) // higher-res sphere geometry
-          .backgroundColor('rgba(0,0,0,0)');
-
-        // Access three.js internals managed by globe.gl
-        const renderer = globe.renderer();
-        const scene = globe.scene();
-        const camera = globe.camera();
-        const controls = globe.controls();
-
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        // 1. Scene Setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        canvasWrapper.appendChild(renderer.domElement);
 
         camera.position.z = 20;
+
+        const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
 
@@ -260,8 +253,14 @@
         backLight.position.set(-20, -10, -25);
         scene.add(backLight);
 
-        // 3. Reference the Earth from globe.gl (higher-res by globeResolution + textures above)
-        const earthMesh = globe.globeMesh();
+        // 3. Create the Earth
+        const textureLoader = new THREE.TextureLoader();
+        const earthTexture = textureLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+        earthTexture.colorSpace = THREE.SRGBColorSpace;
+        const earthMaterial = new THREE.MeshBasicMaterial({ map: earthTexture });
+        const earthGeometry = new THREE.SphereGeometry(10, 64, 64);
+        const earthMesh = new THREE.Mesh(earthGeometry, earthMaterial);
+        scene.add(earthMesh);
 
         // 3.5 Keyboard-driven globe moves (animated)
         let targetQuaternion = new THREE.Quaternion(); // Target orientation
