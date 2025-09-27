@@ -72,6 +72,23 @@
             -webkit-backdrop-filter: blur(4px);
             pointer-events: none;
         }
+        /* Distance badge */
+        #distance-box {
+            position: absolute;
+            top: 80px; /* just below legend */
+            left: 20px;
+            z-index: 1000;
+            background: rgba(0,0,0,0.55);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            pointer-events: none;
+        }
 
         #side-panel {
             width: 0;
@@ -198,6 +215,7 @@
 <body>
     <div id="container">
         <div id="legend-box"></div>
+        <div id="distance-box">Distance to Target: — miles</div>
         <div id="canvas-wrapper"></div>
         <button id="plus-button">+</button>
         <!-- On-screen arrow controls for mobile -->
@@ -247,6 +265,7 @@
 
         // === Legend: show exact rotation angles for arrow keys ===
         const legendEl = document.getElementById('legend-box');
+        const distanceEl = document.getElementById('distance-box');
         const round4 = (n) => Math.round(n * 1e4) / 1e4;
         // L is a rotation about Y with cos=3/5, sin=4/5; U is about X with cos=5/13, sin=12/13
         const xDeg = round4(Math.atan2(4/5, 3/5) * 180 / Math.PI);   // Left/Right
@@ -601,6 +620,25 @@
         bindButton(btnLeft, 'L');
         bindButton(btnRight, 'R');
 
+        // === Great-circle distance (geodesic on sphere) from character's subpoint to NashBeacon ===
+        function computeGeodesicMiles() {
+            // Earth mean radius in miles
+            const R_miles = 3958.7613;
+            // Center of Earth in world coords
+            const center = new THREE.Vector3();
+            earthMesh.getWorldPosition(center);
+            // Unit direction from center to the character's subpoint (project character to sphere)
+            const uChar = character.position.clone().sub(center).normalize();
+            // Unit direction from center to the NashBeacon base point
+            const pTargetWorld = new THREE.Vector3();
+            NashBeacon.getWorldPosition(pTargetWorld);
+            const uTarget = pTargetWorld.sub(center).normalize();
+            // Central angle and arc length
+            const dot = THREE.MathUtils.clamp(uChar.dot(uTarget), -1, 1);
+            const angle = Math.acos(dot); // radians
+            return R_miles * angle;
+        }
+
         // Plus button click handler
         plusButton.addEventListener('click', () => {
             panelOpen = !panelOpen;
@@ -627,6 +665,12 @@
             const animationStep = 0.08; // Adjust for faster/slower animation
             if (!earthMesh.quaternion.equals(targetQuaternion)) {
                 earthMesh.quaternion.slerp(targetQuaternion, animationStep);
+            }
+
+            // Update distance-to-target UI
+            if (distanceEl) {
+                const miles = computeGeodesicMiles();
+                distanceEl.textContent = `Distance to Target: ${miles.toFixed(1)} miles`;
             }
 
             controls.update();

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Matrix Action on a Bruhat-Tits Tree</title>
+    <script>
+        MathJax = {
+            _mjxQueue: [],
+            typeset: function (elements) { (window._mjxQueue || (window._mjxQueue = [])).push(elements); },
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' },
+            startup: {
+                ready: () => {
+                    MathJax.startup.defaultReady();
+                    if (typeof MathJax.typesetPromise === 'function') {
+                        MathJax.typeset = (elements) => MathJax.typesetPromise(elements ? [elements].flat() : undefined);
+                    }
+                    if (window._mjxQueue && window._mjxQueue.length) {
+                        window._mjxQueue.forEach((els) => { try { MathJax.typeset(els); } catch (_) { } });
+                        window._mjxQueue.length = 0;
+                    }
+                }
+            }
+        };
+    </script>
+    <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2em;
+            background-color: #f4f4f9;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: white;
+            padding: 2em;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h1,
+        h2 {
+            color: #2c3e50;
+        }
+
+        .main-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2em;
+        }
+
+        .controls-container {
+            flex: 1;
+            min-width: 350px;
+        }
+
+        .vis-container {
+            flex: 2;
+            min-height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            display: flex;
+        }
+
+        #tree-vis {
+            width: 100%;
+            height: 100%;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1em;
+            margin-bottom: 1em;
+        }
+
+        .matrix-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5em;
+            max-width: 200px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5em;
+            font-weight: bold;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        #output {
+            margin-top: 1.5em;
+            padding: 1em;
+            border: 1px solid #ddd;
+            background-color: #fafafa;
+            border-radius: 4px;
+            min-height: 50px;
+        }
+
+        /* D3 Styles */
+        .node circle {
+            cursor: pointer;
+        }
+
+        .node text {
+            font: 12px sans-serif;
+        }
+
+        .link {
+            fill: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Matrix Action on $T_p$</h1>
+        <p>This tool analyzes the action of a $PGL_2(\mathbb{Q})$ matrix on the vertices of the Bruhat-Tits tree for
+            $PGL_2(\mathbb{Q}_p)$. A vertex is denoted by $\lfloor q \rfloor_k$, representing the pair $(p^k, q
+            \pmod{p^k})$.</p>
+
+        <div class="main-container">
+            <div class="controls-container">
+                <div>
+                    <label for="prime">Prime $p$</label>
+                    <input id="prime" value="3">
+                </div>
+                <h2>Inputs</h2>
+                <div class="input-grid">
+                    <div>
+                        <label for="vertex_k">Vertex $k$</label>
+                        <input id="vertex_k" value="0">
+                    </div>
+                    <div>
+                        <label for="vertex_q">Vertex $q$</label>
+                        <input type="text" id="vertex_q" value="0">
+                    </div>
+                </div>
+
+                <div>
+                    <label>Matrix $a$</label>
+                    <div class="matrix-grid">
+                        <input type="text" id="a11" value="3"> <input type="text" id="a12" value="1">
+                        <input type="text" id="a21" value="0"> <input type="text" id="a22" value="1">
+                    </div>
+                </div>
+
+                <br>
+                <button id="calculateBtn">Calculate</button>
+
+                <h2>Results</h2>
+                <div id="output">Results will be displayed here.</div>
+            </div>
+
+            <div class="vis-container">
+                <svg id="tree-vis"></svg>
+            </div>
+        </div>
+    </div>
+
+    <script src="pAdic.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const calculateBtn = document.getElementById('calculateBtn');
+            const primeInput = document.getElementById('prime');
+
+            const runCalculation = () => {
+                const primeVal = parseInt(primeInput.value, 10);
+                function isPrime(n) {
+                    if (n < 2) return false;
+                    for (let i = 2; i * i <= n; i++) {
+                        if (n % i === 0) return false;
+                    }
+                    return true;
+                }
+                if (!isPrime(primeVal)) {
+                    document.getElementById('output').textContent = `Error: ${primeVal} is not prime. Please enter a prime number.`;
+                    return;
+                }
+                // The main calculate function is in pAdic.js
+                calculate();
+            };
+
+            calculateBtn.addEventListener('click', runCalculation);
+        });
+    </script>
+</body>
+
+</html>
