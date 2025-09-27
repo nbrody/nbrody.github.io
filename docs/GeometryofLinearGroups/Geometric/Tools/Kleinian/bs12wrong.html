@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Cayley Complex of BS(1,2) - Upper Half-Plane Style</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            font-family: sans-serif;
+            background-color: #111;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 5px;
+        }
+
+        a {
+            color: #08f;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">
+        Cayley Complex for $BS(1,2) = \langle a, b \mid bab^{-1} = a^2 \rangle$ (Upper Half-Plane Embedding)<br />
+        Blue Edges: Generator 'a' | Red Edges: Generator 'b'
+    </div>
+    <div id="container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.163.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+
+        // --- Parameters ---
+        const MAX_DEPTH = 5;      // BFS depth for graph generation
+        const MAX_K = 4;          // Horizontal range for 'a' generator [-MAX_K, MAX_K]
+        const A_SCALE = 1.5;      // Horizontal distance for 'a' steps
+        const SPREAD_FACTOR = 0.6;// How much the tree branches horizontally
+
+        // --- Data Structures ---
+        const vertices = new Map(); // Key: "vId:k" -> Value: { pos: Vector3 }
+        const edges = new Set();    // Key: "v1:k1,v2:k2" (sorted)
+        const treeNodes = new Map(); // Key: vId -> Value: { id, pos, level, parentId, neighbors: [] }
+        let nextNodeId = 1;
+
+        // --- Materials and Geometries ---
+        const vertexGeo = new THREE.SphereGeometry(0.15, 16, 8);
+        const vertexMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+        const edgeMatA = new THREE.MeshLambertMaterial({ color: 0x0077ff }); // Blue for 'a'
+        const edgeMatB = new THREE.MeshLambertMaterial({ color: 0xff4422 }); // Red for 'b'
+        const faceMat = new THREE.MeshPhongMaterial({
+            color: 0xffff00,
+            opacity: 0.35,
+            transparent: true,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+        });
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111111);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.set(10, 8, 18);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            scene.add(new THREE.AmbientLight(0x999999));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.target.set(0, 4, 0);
+
+            createCayleyComplex();
+
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function createCayleyComplex() {
+            const queue = [{ vId: 0, k: 0, depth: 0 }];
+
+            treeNodes.set(0, {
+                id: 0,
+                pos: new THREE.Vector3(0, 1, 0),
+                level: 0,
+                parentId: null,
+                neighbors: []
+            });
+            addVertex(0, 0);
+
+            const visitedInQueue = new Set(['0:0']);
+
+            while (queue.length > 0) {
+                const { vId, k, depth } = queue.shift();
+                if (depth >= MAX_DEPTH) continue;
+
+                // --- 1. 'a' generator neighbors ---
+                for (const dk of [-1, 1]) {
+                    const nextK = k + dk;
+                    if (Math.abs(nextK) <= MAX_K) {
+                        const queueKey = `${vId}:${nextK}`;
+                        if (!visitedInQueue.has(queueKey)) {
+                            addVertex(vId, nextK);
+                            queue.push({ vId, k: nextK, depth: depth + 1 });
+                            visitedInQueue.add(queueKey);
+                        }
+                        addEdge(vId, k, vId, nextK, 'a');
+                    }
+                }
+
+                // --- 2. 'b' generator (tree) neighbors ---
+                ensureTreeNeighbors(vId);
+                const currentNode = treeNodes.get(vId);
+
+                for (const neighborId of currentNode.neighbors) {
+                    // b edge: (v, k) -> (neighbor, 2k)
+                    const nextKb = 2 * k;
+                    if (Math.abs(nextKb) <= MAX_K) {
+                        const queueKey = `${neighborId}:${nextKb}`;
+                        if (!visitedInQueue.has(queueKey)) {
+                            addVertex(neighborId, nextKb);
+                            queue.push({ vId: neighborId, k: nextKb, depth: depth + 1 });
+                            visitedInQueue.add(queueKey);
+                        }
+                        addEdge(vId, k, neighborId, nextKb, 'b');
+                    }
+                    // b^-1 edge: (v, k) -> (neighbor, k/2)
+                    if (k % 2 === 0) {
+                        const nextKbinv = k / 2;
+                        if (Math.abs(nextKbinv) <= MAX_K) {
+                            const queueKey = `${neighborId}:${nextKbinv}`;
+                            if (!visitedInQueue.has(queueKey)) {
+                                addVertex(neighborId, nextKbinv);
+                                queue.push({ vId: neighborId, k: nextKbinv, depth: depth + 1 });
+                                visitedInQueue.add(queueKey);
+                            }
+                            addEdge(vId, k, neighborId, nextKbinv, 'b');
+                        }
+                    }
+                }
+            }
+
+            // --- 3. Create Pentagon Faces ---
+            for (const key of vertices.keys()) {
+                const [vIdStr, kStr] = key.split(':');
+                const vId = parseInt(vIdStr), k = parseInt(kStr);
+
+                if (k % 2 === 0) {
+                    const node = treeNodes.get(vId);
+                    if (!node || !node.neighbors) continue;
+                    for (const neighborId of node.neighbors) {
+                        createPentagonFace(vId, neighborId, k);
+                    }
+                }
+            }
+        }
+
+        function ensureTreeNeighbors(vId) {
+            const pNode = treeNodes.get(vId);
+            if (pNode.neighbors.length === 3) return;
+
+            // Check what neighbors are missing
+            let hasUp = false;
+            let downCount = 0;
+            pNode.neighbors.forEach(nId => {
+                const nNode = treeNodes.get(nId);
+                if (nNode.level > pNode.level) hasUp = true;
+                else downCount++;
+            });
+
+            // Create UP neighbor if needed
+            if (!hasUp) {
+                const childId = nextNodeId++;
+                const childLevel = pNode.level + 1;
+                const childPos = new THREE.Vector3(pNode.pos.x, Math.pow(2, childLevel), pNode.pos.z);
+                treeNodes.set(childId, { id: childId, pos: childPos, level: childLevel, parentId: vId, neighbors: [vId] });
+                pNode.neighbors.push(childId);
+            }
+
+            // Create DOWN neighbors if needed
+            const gpId = pNode.parentId;
+            const branchVec = new THREE.Vector3(1, 0, 0);
+            if (gpId !== null) {
+                const gpNode = treeNodes.get(gpId);
+                const dir = new THREE.Vector3().subVectors(pNode.pos, gpNode.pos).normalize();
+                branchVec.set(-dir.z, 0, dir.x); // Orthogonal vector in XZ plane
+            }
+
+            while (downCount < 2) {
+                const childId = nextNodeId++;
+                const childLevel = pNode.level - 1;
+                const spread = SPREAD_FACTOR * pNode.pos.y;
+                const offset = branchVec.clone().multiplyScalar(spread * (downCount === 0 ? 1 : -1));
+                if (pNode.id === 0) { // Special case for root's first down branch
+                    const angle = Math.PI * (2 / 3) * (downCount + 1);
+                    offset.set(spread * Math.cos(angle), 0, spread * Math.sin(angle));
+                }
+
+                const childPos = new THREE.Vector3(pNode.pos.x, Math.pow(2, childLevel), pNode.pos.z).add(offset);
+                treeNodes.set(childId, { id: childId, pos: childPos, level: childLevel, parentId: vId, neighbors: [vId] });
+                pNode.neighbors.push(childId);
+                downCount++;
+            }
+        }
+
+        function addVertex(vId, k) {
+            const key = `${vId}:${k}`;
+            if (vertices.has(key)) return;
+
+            const node = treeNodes.get(vId);
+            const pos = new THREE.Vector3(node.pos.x + k * A_SCALE, node.pos.y, node.pos.z);
+            vertices.set(key, { pos });
+
+            const vertexMesh = new THREE.Mesh(vertexGeo, vertexMat);
+            vertexMesh.position.copy(pos);
+            scene.add(vertexMesh);
+        }
+
+        function addEdge(v1, k1, v2, k2, type) {
+            const key1 = `${v1}:${k1},${v2}:${k2}`, key2 = `${v2}:${k2},${v1}:${k1}`;
+            if (edges.has(key1) || edges.has(key2)) return;
+            edges.add(key1);
+
+            const p1 = vertices.get(`${v1}:${k1}`).pos;
+            const p2 = vertices.get(`${v2}:${k2}`).pos;
+
+            const edgeVec = new THREE.Vector3().subVectors(p2, p1);
+            const length = edgeVec.length();
+            const edgeGeo = new THREE.CylinderGeometry(0.05, 0.05, length, 8);
+
+            const material = (type === 'a') ? edgeMatA : edgeMatB;
+            const edgeMesh = new THREE.Mesh(edgeGeo, material);
+
+            edgeMesh.position.copy(p1).add(edgeVec.multiplyScalar(0.5));
+            edgeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), edgeVec.normalize());
+            scene.add(edgeMesh);
+        }
+
+        function createPentagonFace(v1, v2, k) {
+            const p_g = vertices.get(`${v1}:${k + 1}`);     // g*a
+            const p_ga = vertices.get(`${v1}:${k + 2}`);     // g*a^2
+            const p_gba_inv = vertices.get(`${v2}:${2 * k + 2}`); // g*a*b, which is g*b*a^2
+            const p_gb = vertices.get(`${v2}:${2 * k}`);      // g*b
+            const p_g_base = vertices.get(`${v1}:${k}`);         // g
+
+            if (!p_g || !p_ga || !p_gba_inv || !p_gb || !p_g_base) return;
+
+            const points = [p_g_base.pos, p_gb.pos, p_gba_inv.pos, p_ga.pos, p_g.pos];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            geometry.setIndex([0, 1, 4, 1, 2, 4, 2, 3, 4]);
+            geometry.computeVertexNormals();
+
+            const faceMesh = new THREE.Mesh(geometry, faceMat);
+            scene.add(faceMesh);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

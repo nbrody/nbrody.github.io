@@ -56,6 +56,23 @@
             transform: rotate(45deg);
         }
 
+        #legend-box {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(0,0,0,0.55);
+            color: #fff;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            pointer-events: none;
+        }
+
         #side-panel {
             width: 0;
             height: 100vh;
@@ -125,6 +142,49 @@
             font-size: 14px;
             color: #b0b0b0;
         }
+
+        /* === On-screen controls for mobile === */
+        #touch-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1100;
+            width: 160px;
+            height: 160px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            gap: 8px;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        #touch-controls .spacer { pointer-events: none; }
+        .arrow-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            background: rgba(255,255,255,0.9);
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: transform 0.05s ease, background 0.2s ease;
+        }
+        .arrow-btn:active { transform: scale(0.98); }
+        .arrow-btn:focus { outline: none; }
+
+        /* Slightly larger hit area on very small screens */
+        @media (max-width: 768px) {
+            #touch-controls { width: 200px; height: 200px; gap: 10px; }
+            .arrow-btn { font-size: 26px; }
+        }
+
+        /* Hide on-screen arrows on wide screens (desktop) */
+        @media (min-width: 1025px) {
+            #touch-controls { display: none; }
+        }
     </style>
     <script>
       window.MathJax = {
@@ -137,13 +197,25 @@
 
 <body>
     <div id="container">
+        <div id="legend-box"></div>
         <div id="canvas-wrapper"></div>
         <button id="plus-button">+</button>
+        <!-- On-screen arrow controls for mobile -->
+        <div id="touch-controls">
+            <div class="spacer"></div>
+            <button id="btn-up" class="arrow-btn" aria-label="Move Up">▲</button>
+            <div class="spacer"></div>
+            <button id="btn-left" class="arrow-btn" aria-label="Move Left">◀</button>
+            <div class="spacer"></div>
+            <button id="btn-right" class="arrow-btn" aria-label="Move Right">▶</button>
+            <div class="spacer"></div>
+            <button id="btn-down" class="arrow-btn" aria-label="Move Down">▼</button>
+            <div class="spacer"></div>
+        </div>
         <div id="side-panel">
             <h2>Globe Navigation Game</h2>
             <div class="goal-text">
-                <strong>Goal:</strong> Navigate the globe using the arrow keys. Try to move the character from
-                the green beacon (Santa Cruz, CA) to the orange beacon (Nashville, TN).
+                <strong>Goal:</strong> Navigate the globe using the arrow keys. Try to move the character from the green beacon to the orange beacon.
             </div>
 
             <h3>Move Sequence</h3>
@@ -172,6 +244,14 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // === Legend: show exact rotation angles for arrow keys ===
+        const legendEl = document.getElementById('legend-box');
+        const round4 = (n) => Math.round(n * 1e4) / 1e4;
+        // L is a rotation about Y with cos=3/5, sin=4/5; U is about X with cos=5/13, sin=12/13
+        const xDeg = round4(Math.atan2(4/5, 3/5) * 180 / Math.PI);   // Left/Right
+        const yDeg = round4(Math.atan2(12/13, 5/13) * 180 / Math.PI); // Up/Down
+        legendEl.innerHTML = `Left/Right: rotate by ${xDeg}&deg;.<br>Up/Down: rotate by ${yDeg}&deg;.`;
 
         // === Exact rational arithmetic (BigInt) and 3x3 matrix utilities ===
         const BI = (x) => BigInt(x);
@@ -326,22 +406,61 @@
             return g;
         }
 
-        const scBeacon = addBeaconAtLatLon(36.9741, -122.0308, 0x00ff66);
-        const nashBeacon = addBeaconAtLatLon(36.1627, -86.7816, 0xff8800);
+        function addBeaconAtXYZ(vec3, colorHex) {
+            // Normalize the input vector to ensure placement on the sphere surface
+            const n = vec3.clone().normalize();
 
-        // === Little character perched above Santa Cruz (fixed in world space) ===
+            // Group that rides with the Earth
+            const g = new THREE.Group();
+            earthMesh.add(g);
+            g.position.copy(n.clone().multiplyScalar(earthRadius + beaconOffset));
+            g.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n));
+
+            // Materials (match style used in addBeaconAtLatLon)
+            const poleMat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.6, metalness: 0.1, roughness: 0.4 });
+            const bulbMat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 1.2, metalness: 0.0, roughness: 0.2 });
+
+            // Pole + bulb
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.7, 16), poleMat);
+            pole.position.y = 0.35;
+            g.add(pole);
+            const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), bulbMat);
+            bulb.position.y = 0.7;
+            g.add(bulb);
+
+            // Light glow
+            const light = new THREE.PointLight(colorHex, 2.5, 20, 2.0);
+            light.position.set(0, 0.8, 0);
+            g.add(light);
+            return g;
+        }
+
+        function addBeaconAtABC(a, b, c, colorHex, den = 105625) {
+            // Map (a,b,c) to globe coords via (x,y,z) = (a, c, -b), then scale by denominator
+            const x = a / den;
+            const y = c / den;
+            const z = (-b) / den;
+            return addBeaconAtXYZ(new THREE.Vector3(x, y, z), colorHex);
+        }
+
+
+        // === User-specified beacons using (a,b,c) with (x,y,z)=(a,c,-b) and denominator 105625 ===
+        const SCBeacon = addBeaconAtABC(-44568, -71676, 63505, 0x00ff66, 105625);
+        const NashBeacon = addBeaconAtABC(4788, -85141, 62327, 0xff8800, 105625);
+
+        // === Little character perched above the RED beacon (fixed in world space) ===
         const character = new THREE.Group();
         scene.add(character); // keep in world space so the world rotates under him
 
-        // Place him at the top of the Santa Cruz beacon in *world* coordinates, then leave him there
-        scBeacon.updateWorldMatrix(true, true);
-        const charLocal = new THREE.Vector3(0, 1.05, 0); // same offset as before, relative to beacon
-        const charWorld = scBeacon.localToWorld(charLocal.clone());
+        // Place him at the top of the red beacon in *world* coordinates, then leave him there
+        SCBeacon.updateWorldMatrix(true, true);
+        const charLocal = new THREE.Vector3(0, 1.05, 0); // offset above beacon base (matches beacon geometry)
+        const charWorld = SCBeacon.localToWorld(charLocal.clone());
         character.position.copy(charWorld);
 
-        // Match initial orientation, then remain fixed
+        // Match initial orientation so +Y points along the outward normal at the beacon
         const charQuat = new THREE.Quaternion();
-        scBeacon.getWorldQuaternion(charQuat);
+        SCBeacon.getWorldQuaternion(charQuat);
         character.quaternion.copy(charQuat);
 
         // Simple stylized figure: body (capsule-ish) + head
@@ -423,49 +542,64 @@
         // Initialize displays
         updateDisplays();
 
-        window.addEventListener('keydown', (e) => {
+        // Helper: apply a single move (L, R, U, D) used by both keyboard and touch
+        function applyMove(moveChar) {
             let moveMatrix = null;
-            let moveChar = '';
             let moveExact = null;
-
-            // Instead of applying the matrix directly, update the target quaternion
-            switch (e.key) {
-                case 'ArrowLeft':
+            switch (moveChar) {
+                case 'L':
                     targetQuaternion.premultiply(qL);
-                    moveMatrix = L.clone();
-                    moveExact = Lx;
-                    moveChar = 'L';
-                    break;
-                case 'ArrowRight':
+                    moveMatrix = L;     moveExact = Lx;     break;
+                case 'R':
                     targetQuaternion.premultiply(qLinv);
-                    moveMatrix = Linv.clone();
-                    moveExact = Linvx;
-                    moveChar = 'R';
-                    break;
-                case 'ArrowUp':
+                    moveMatrix = Linv;  moveExact = Linvx;  break;
+                case 'U':
                     targetQuaternion.premultiply(qU);
-                    moveMatrix = U.clone();
-                    moveExact = Ux;
-                    moveChar = 'U';
-                    break;
-                case 'ArrowDown':
+                    moveMatrix = U;     moveExact = Ux;     break;
+                case 'D':
                     targetQuaternion.premultiply(qUinv);
-                    moveMatrix = Uinv.clone();
-                    moveExact = Uinvx;
-                    moveChar = 'D';
-                    break;
+                    moveMatrix = Uinv;  moveExact = Uinvx;  break;
                 default:
-                    return;
+                    return; // ignore unknown
             }
-            e.preventDefault();
-
-            // Update moves and cumulative matrix
-            if (moveMatrix && moveChar && moveExact) {
+            // Update exact display math
+            if (moveMatrix && moveExact) {
                 moves.push(moveChar);
                 cumulativeMatrixExact = matMul3(moveExact, cumulativeMatrixExact);
                 updateDisplays();
             }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            let move = null;
+            switch (e.key) {
+                case 'ArrowLeft':  move = 'L'; break;
+                case 'ArrowRight': move = 'R'; break;
+                case 'ArrowUp':    move = 'U'; break;
+                case 'ArrowDown':  move = 'D'; break;
+                default: return;
+            }
+            e.preventDefault();
+            applyMove(move);
         });
+
+        // === Touch/mobile controls ===
+        const btnUp = document.getElementById('btn-up');
+        const btnDown = document.getElementById('btn-down');
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+
+        function bindButton(btn, moveChar) {
+            if (!btn) return;
+            const fire = (ev) => { ev.preventDefault(); ev.stopPropagation(); applyMove(moveChar); };
+            btn.addEventListener('pointerdown', fire);
+            btn.addEventListener('click', fire);
+        }
+
+        bindButton(btnUp, 'U');
+        bindButton(btnDown, 'D');
+        bindButton(btnLeft, 'L');
+        bindButton(btnRight, 'R');
 
         // Plus button click handler
         plusButton.addEventListener('click', () => {
