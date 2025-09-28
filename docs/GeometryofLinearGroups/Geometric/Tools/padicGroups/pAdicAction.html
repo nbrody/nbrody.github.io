@@ -106,6 +106,15 @@
             border: 1px solid #ccc;
         }
 
+        /* Shrink specific input fields */
+        #prime {
+            width: 80px;
+        }
+        #vertex_k,
+        #vertex_q {
+            width: 100px;
+        }
+
         button {
             background-color: #3498db;
             color: white;
@@ -141,15 +150,27 @@
         .link {
             fill: none;
         }
+        .formula-box {
+            margin: 0.75em 0 1.25em 0;
+            padding: 0.75em 1em;
+            background: #f7f9fc;
+            border: 1px solid #e3e8f0;
+            border-radius: 6px;
+            color: #2c3e50;
+        }
+        .formula-box .caption {
+            font-weight: 600;
+            margin-bottom: 0.25em;
+            color: #34495e;
+        }
     </style>
 </head>
 
 <body>
     <div class="container">
         <h1>Matrix Action on $T_p$</h1>
-        <p>This tool analyzes the action of a $PGL_2(\mathbb{Q})$ matrix on the vertices of the Bruhat-Tits tree for
-            $PGL_2(\mathbb{Q}_p)$. A vertex is denoted by $\lfloor q \rfloor_k$, representing the pair $(p^k, q
-            \pmod{p^k})$.</p>
+        <p>This tool analyzes the action of $\mathsf{PGL}_2(\mathbb{Q})$ on the Bruhat-Tits tree $T_p$. A vertex is denoted 
+            by $\lfloor q \rfloor_k$, where $k\in \mathbb{Z}$ and $q\in \mathbb{Z}[1/p]/p^k\mathbb{Z}$.</p>
 
         <div class="main-container">
             <div class="controls-container">
@@ -158,22 +179,22 @@
                     <input id="prime" value="3">
                 </div>
                 <h2>Inputs</h2>
-                <div class="input-grid">
-                    <div>
-                        <label for="vertex_k">Vertex $k$</label>
-                        <input id="vertex_k" value="0">
+                <div>
+                    <label>Matrix</label>
+                    <div class="matrix-grid">
+                        <input type="text" id="a11" value="3"> <input type="text" id="a12" value="1">
+                        <input type="text" id="a21" value="0"> <input type="text" id="a22" value="1">
                     </div>
+                </div>
+
+                <div class="input-grid">
                     <div>
                         <label for="vertex_q">Vertex $q$</label>
                         <input type="text" id="vertex_q" value="0">
                     </div>
-                </div>
-
-                <div>
-                    <label>Matrix $a$</label>
-                    <div class="matrix-grid">
-                        <input type="text" id="a11" value="3"> <input type="text" id="a12" value="1">
-                        <input type="text" id="a21" value="0"> <input type="text" id="a22" value="1">
+                    <div>
+                        <label for="vertex_k">Vertex $k$</label>
+                        <input id="vertex_k" value="0">
                     </div>
                 </div>
 
@@ -182,6 +203,18 @@
 
                 <h2>Results</h2>
                 <div id="output">Results will be displayed here.</div>
+
+                                <div class="formula-box">
+                                    <div class="caption">Action formula</div>
+                                    <div>
+                                        If $g = \begin{pmatrix} a & b \\ c & d \end{pmatrix}$ and $v = \lfloor q \rfloor_k$, then
+                                        $$
+                                        g\cdot v \;=\; \Big\lfloor \frac{a\,q + b}{c\,q + d} \Big\rfloor_{\,k'}\,.
+                                        $$
+                                        Here $k'$ and the residue are determined by the $p$-adic valuation (as implemented below): we compute
+                                        the level $k'$ from valuations and then canonicalize the fraction at level $k$.
+                                    </div>
+                                </div>
             </div>
 
             <div class="vis-container">

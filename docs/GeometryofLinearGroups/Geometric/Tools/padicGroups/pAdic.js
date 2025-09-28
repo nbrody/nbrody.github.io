@@ -39,35 +39,75 @@ const integerExponent = (n, p) => {
     while (n > 0n && n % p === 0n) { count++; n /= p; } return count;
 };
 const val = (q, p) => integerExponent(q.num, p) - integerExponent(q.den, p);
+// p-adic truncation modulo p^n for any rational q
+// pn must be p^n. This matches the original Mathematica intent:
+// If[n < val[q,p], 0, QInt[q p^{-val}]_1 * (QInt[q p^{-val}]_2)^{-1} mod p^{n-val}, then * p^{val} mod p^n]
 const pApprox = (q, p, pn) => {
-    if (val(q, p) < 0) throw new Error("pApprox requires a p-adic integer (val >= 0).");
-    return (q.num * modInverse(q.den, pn) % pn + pn) % pn;
+    const n = integerExponent(pn, p); // pn = p^n
+    const t = val(q, p);
+    if (n < t) return 0n;
+
+    // Factor out p-adic valuations from numerator/denominator
+    const vNum = integerExponent(q.num, p);
+    const vDen = integerExponent(q.den, p);
+    const pPowNum = p ** BigInt(vNum);
+    const pPowDen = p ** BigInt(vDen);
+
+    // Units (coprime to p). Keep signs; modInverse handles negatives via (x % m + m) % m
+    const u = q.num / pPowNum;
+    const v = q.den / pPowDen;
+
+    // Work at modulus p^{n - t}
+    const mExp = n - t; // may be > n if t < 0
+    const modUV = p ** BigInt(mExp);
+
+    // Inverse exists because v is coprime to p
+    const uNorm = (u % modUV + modUV) % modUV;
+    const vNorm = (v % modUV + modUV) % modUV;
+    const vInv = modInverse(vNorm, modUV);
+
+    const unitPart = (uNorm * vInv) % modUV; // this corresponds to QInt[..]_1 * inv(QInt[..]_2) mod p^{n-t}
+
+    if (t >= 0) {
+        // Multiply back by p^t and reduce mod p^n
+        const pPowT = p ** BigInt(t);
+        return (unitPart * pPowT) % pn;
+    } else {
+        // For t < 0 (non p-adic integers), the p-adic "integer part" up to p^{n-1} has no nonnegative powers,
+        // so its truncation in Z / p^n Z is 0.
+        // (Mathematica's rational Mod can yield a value, but in Z/p^nZ there is no class equal to q when t<0.)
+        return 0n;
+    }
 };
+// Vert: compute the vertex level k (possibly negative) and its canonical residue q at that level.
+// For all k, q is canonicalized using canonicalizeQ(frac, k, p).
 const Vert = (x, p) => {
     const [a, b, c, d] = [x[0][0], x[0][1], x[1][0], x[1][1]];
     const det = a.mul(d).sub(b.mul(c));
+    // Decide which chart to use
     if (val(c, p) < val(d, p)) {
-        const n_val = val(det.div(c.mul(c)), p);
-        const pn = p ** BigInt(n_val);
-        return { pk: pn, q: new Rational(pApprox(a.div(c), p, pn)) };
+        const k = val(det.div(c.mul(c)), p); // may be negative
+        const frac = a.div(c);               // Rational
+        return { k, q: canonicalizeQ(frac, k, p) };
     } else {
-        const n_val = val(det.div(d.mul(d)), p);
-        const pn = p ** BigInt(n_val);
-        return { pk: pn, q: new Rational(pApprox(b.div(d), p, pn)) };
+        const k = val(det.div(d.mul(d)), p);
+        const frac = b.div(d);
+        return { k, q: canonicalizeQ(frac, k, p) };
     }
 };
 const ReduceVert = (v, p) => {
-    const k = integerExponent(v.pk, p);
-    const r_int = pApprox(v.q, p, v.pk);
-    return { pk: v.pk, q: new Rational(r_int), k: k };
+    const k = ('k' in v) ? v.k : integerExponent(v.pk, p); 
+    const qCanon = (v.q instanceof Rational) ? canonicalizeQ(v.q, k, p) : canonicalizeQ(new Rational(v.q), k, p);
+    return { k, q: qCanon };
 };
 const Act = (a, v, p) => {
+    const pkRat = stepRational(p, v.k); // Rational step size at level k
     const x = [
-        [a[0][0].mul(new Rational(v.pk)), a[0][0].mul(v.q).add(a[0][1])],
-        [a[1][0].mul(new Rational(v.pk)), a[1][0].mul(v.q).add(a[1][1])]
+        [ a[0][0].mul(pkRat), a[0][0].mul(v.q).add(a[0][1]) ],
+        [ a[1][0].mul(pkRat), a[1][0].mul(v.q).add(a[1][1]) ]
     ];
-    const acted_vert_raw = Vert(x, p);
-    return { ...acted_vert_raw, k: integerExponent(acted_vert_raw.pk, p) };
+    const acted = Vert(x, p); // returns {k,q}
+    return acted;
 };
 const TDist = (v1, v2, p) => {
     const val_q_diff = val(v2.q.sub(v1.q), p);
@@ -78,23 +118,67 @@ const TDist = (v1, v2, p) => {
     }
 };
 
-// --- D3 Visualization Logic ---
+// Node id helper: allow rationals (including negative-k levels)
+const getNodeID = (k, q) => {
+    const asStr = (q instanceof Rational) ? q.toString() : String(q);
+    return `${k}-${asStr}`;
+};
 
-const getNodeID = (k, q) => `${k}-${q.toString()}`;
+// --- Rational helpers for negative/positive k levels ---
+const powBig = (p, eAbs) => (p ** BigInt(eAbs));
+const stepRational = (p, k) => (k >= 0 ? new Rational(powBig(p, k), 1n) : new Rational(1n, powBig(p, -k)));
+
+// floor( a / b ) for non-negative rationals a,b (BigInt-safe)
+const floorDivRational = (a, b) => {
+    // a = a.num/a.den, b = b.num/b.den
+    // floor( a/b ) = floor( a.num * b.den / (a.den * b.num) )
+    const num = a.num * b.den;
+    const den = a.den * b.num;
+    // assume non-negative; BigInt division truncates toward zero
+    return num / den;
+};
+
+// a mod b for non-negative rationals
+const modRational = (a, b) => {
+    const t = floorDivRational(a, b); // BigInt
+    return a.sub(new Rational(t).mul(b));
+};
+
+// Reduce q into the canonical residue for level k (0 <= q < step)
+const canonicalizeQ = (q, k, p) => {
+    const step = stepRational(p, k);
+    // Ensure non-negative representation
+    let r = q;
+    if (r.num < 0n) {
+        // Bring into [0, step) by adding multiples of step
+        const t = ((-r.num) * step.den + (r.den * step.num) - 1n) / (r.den * step.num); // ceil((-r)/step)
+        r = r.add(new Rational(t).mul(step));
+    }
+    return modRational(r, step);
+};
 
 function generateSubtree(p, k, q, currentDepth, maxDepth, nodeMap) {
     if (currentDepth > maxDepth) return null;
-    const pk = p ** BigInt(k);
-    const canonical_q = (q % pk + pk) % pk;
-    const id = getNodeID(k, canonical_q);
+    // Canonicalize q at level k
+    const qCanon = (q instanceof Rational) ? canonicalizeQ(q, k, p) : canonicalizeQ(new Rational(q), k, p);
+    const id = getNodeID(k, qCanon);
     if (nodeMap.has(id)) return nodeMap.get(id);
 
-    const node = { name: `⌊${canonical_q}⌋<sub>${k}</sub>`, id: id, k: k, q: canonical_q, children: [] };
+    const node = {
+        name: `⌊${qCanon.toString()}⌋<sub>${k}</sub>`,
+        id,
+        k,
+        q_num: qCanon.num,
+        q_den: qCanon.den,
+        children: []
+    };
     nodeMap.set(id, node);
 
     if (currentDepth < maxDepth) {
+        const step = stepRational(p, k); // distance between siblings at level k
         for (let i = 0n; i < p; i++) {
-            const childNode = generateSubtree(p, k + 1, canonical_q + i * pk, currentDepth + 1, maxDepth, nodeMap);
+            const childQ = qCanon.add(step.mul(new Rational(i)));
+            const childNode = generateSubtree(p, k + 1, childQ, currentDepth + 1, maxDepth, nodeMap);
             if (childNode) node.children.push(childNode);
         }
     }
@@ -118,11 +202,22 @@ function drawTree(rootData, v_reduced, v_acted) {
     const root = d3.hierarchy(rootData, d => d.children);
     treemap(root);
 
-    // Build a map from level k to the y position for that row, then render labels at the left
+    // Vertical shrink per depth: the gap between layers decreases with depth
+    const BASE_Y = 120;   // base gap between root and first layer (px)
+    const SHRINK_Y = 0.82; // each subsequent gap is multiplied by this (0<SHRINK_Y<1)
+    const depthToY = (depth) => {
+        // geometric sum of gaps: sum_{i=0}^{depth-1} BASE_Y * SHRINK_Y^i
+        let s = 0;
+        let step = BASE_Y;
+        for (let i = 0; i < depth; i++) { s += step; step *= SHRINK_Y; }
+        return s;
+    };
+    const scaledY = d => depthToY(d.depth);
+
     const kToY = new Map();
     root.descendants().forEach(d => {
         if (!kToY.has(d.data.k)) {
-            kToY.set(d.data.k, d.y);
+            kToY.set(d.data.k, scaledY(d));
         }
     });
     // Clear any previous k-labels (in case of redraws)
@@ -143,45 +238,100 @@ function drawTree(rootData, v_reduced, v_acted) {
         .style('font-size', '13px')
         .text(d => d[0]);
 
-    const v1_id = getNodeID(v_reduced.k, v_reduced.q.num);
-    const v2_id = getNodeID(v_acted.k, v_acted.q.num);
+    const v1_id = getNodeID(v_reduced.k, v_reduced.q);
+    const v2_id = getNodeID(v_acted.k, v_acted.q);
+
+    // Compute only the simple path between n1 and n2 using LCA
     const pathNodes = new Set();
+    const pathEdges = new Set(); // store edges as 'parentId->childId'
+
+    function collectAncestors(node) {
+        const set = new Set();
+        for (let curr = node; curr; curr = curr.parent) set.add(curr);
+        return set;
+    }
+
+    function addPathUp(from, toExclusive) {
+        // add nodes and edges from 'from' up to (but not including) 'toExclusive'
+        for (let curr = from; curr && curr !== toExclusive; curr = curr.parent) {
+            pathNodes.add(curr.data.id);
+            if (curr.parent) {
+                const key = `${curr.parent.data.id}->${curr.data.id}`;
+                pathEdges.add(key);
+            }
+        }
+        if (toExclusive) pathNodes.add(toExclusive.data.id);
+    }
+
     const n1 = root.find(node => node.data.id === v1_id);
     const n2 = root.find(node => node.data.id === v2_id);
-    if (n1) { for (let curr = n1; curr; curr = curr.parent) pathNodes.add(curr.data.id); }
-    if (n2) { for (let curr = n2; curr; curr = curr.parent) pathNodes.add(curr.data.id); }
+    if (n1 && n2) {
+        const anc1 = collectAncestors(n1);
+        let lca = n2;
+        while (lca && !anc1.has(lca)) lca = lca.parent;
+        // Path is n1 -> ... -> LCA and n2 -> ... -> LCA
+        addPathUp(n1, lca);
+        // For the n2 branch, we add edges upward; these edges are oriented parent->child in the tree links
+        addPathUp(n2, lca);
+    }
 
-    g.selectAll(".link").data(root.links()).enter().append("path").attr("class", "link")
-        .attr("d", d3.linkVertical().x(d => d.x).y(d => d.y))
-        .style("stroke", d => (pathNodes.has(d.source.data.id) && pathNodes.has(d.target.data.id)) ? "red" : "#ccc")
-        .style("stroke-width", d => (pathNodes.has(d.source.data.id) && pathNodes.has(d.target.data.id)) ? "3px" : "1.5px");
+    g.selectAll(".link")
+        .data(root.links())
+        .enter()
+        .append("line")
+        .attr("class", "link")
+        .attr("x1", d => d.source.x)
+        .attr("y1", d => scaledY(d.source))
+        .attr("x2", d => d.target.x)
+        .attr("y2", d => scaledY(d.target))
+        .style("stroke", d => pathEdges.has(`${d.source.data.id}->${d.target.data.id}`) ? "red" : "#ccc")
+        .style("stroke-width", d => pathEdges.has(`${d.source.data.id}->${d.target.data.id}`) ? "3px" : "1.5px");
 
     const node = g.selectAll(".node").data(root.descendants()).enter().append("g")
-        .attr("class", "node").attr("transform", d => `translate(${d.x},${d.y})`);
+        .attr("class", "node").attr("transform", d => `translate(${d.x},${scaledY(d)})`);
 
-    // Helper: when a node is clicked, populate the vertex inputs from (k,q)
-    function populateInputsFromNode(k, qInt) {
+    // Draw a half-length partial edge from the very top rendered vertex, going up-right
+    // "Half-length" is BASE_Y/2 measured along a 45° diagonal
+    const topMost = root.descendants().reduce((best, d) => {
+        const y = scaledY(d);
+        if (!best || y < best.y) return { node: d, y };
+        return best;
+    }, null);
+    if (topMost) {
+        const xTop = topMost.node.x;
+        const yTop = topMost.y;
+        const stubLen = BASE_Y * 0.8; // half of the first vertical gap
+        const dx = stubLen / Math.SQRT2; // 45° diagonal components
+        const dy = stubLen / Math.SQRT2;
+        g.append("line")
+            .attr("class", "top-stub")
+            .attr("x1", xTop)
+            .attr("y1", yTop)
+            .attr("x2", xTop + dx)
+            .attr("y2", yTop - dy)
+            .style("stroke", "#ccc")
+            .style("stroke-width", "1.5px");
+    }
+
+    // Helper: when a node is clicked, populate the vertex inputs from (k,qNum,qDen)
+    function populateInputsFromNode(k, qNum, qDen) {
         try {
             const pEl = document.getElementById('prime');
             const kEl = document.getElementById('vertex_k');
             const qEl = document.getElementById('vertex_q');
             if (!pEl || !kEl || !qEl) return;
             const pVal = BigInt(parseInt(pEl.value, 10));
-            // Build q/p^k and reduce
-            const den = pVal ** BigInt(k);
-            let num = BigInt(qInt);
-            if (den === 0n) return;
-            let g = gcd(num, den);
-            if (g === 0n) g = 1n;
-            num /= g; const denRed = den / g;
-            const qStr = denRed === 1n ? `${num.toString()}` : `${num.toString()}/${denRed.toString()}`;
+            // Construct Rational and simplify
+            const qRat = new Rational(BigInt(qNum), BigInt(qDen));
+            // Write k and q back
             kEl.value = String(k);
-            qEl.value = qStr;
+            qEl.value = qRat.toString();
         } catch (_) { /* no-op */ }
+        calculate(); // trigger recalculation
     }
 
     node.style("cursor", "pointer")
-        .on("click", (event, d) => populateInputsFromNode(Number(d.data.k), BigInt(d.data.q)) );
+        .on("click", (event, d) => populateInputsFromNode(Number(d.data.k), d.data.q_num, d.data.q_den) );
 
     node.append("circle")
         .attr("r", d => (d.data.id === v1_id || d.data.id === v2_id) ? 8 : 5)
@@ -192,43 +342,48 @@ function drawTree(rootData, v_reduced, v_acted) {
         })
         .style("stroke", d => (pathNodes.has(d.data.id) ? "red" : "steelblue")).style("stroke-width", "2px")
         .style("cursor", "pointer")
-        .on("click", (event, d) => populateInputsFromNode(Number(d.data.k), BigInt(d.data.q)) );
+        .on("click", (event, d) => populateInputsFromNode(Number(d.data.k), d.data.q_num, d.data.q_den) );
 
-    node.append("foreignObject")
+    const labeled = node.filter(d => pathNodes.has(d.data.id));
+    labeled.append("foreignObject")
         .attr("x", -30)
         .attr("y", d => d.children ? -28 : 8)
         .attr("width", 60)
         .attr("height", 30)
         .append("xhtml:div")
-        .style("font-family", "'Segoe UI', 'Helvetica Neue', Arial, sans-serif")
+        .style("font-family", "'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif")
         .style("font-size", "14px")
         .style("text-align", "center")
         .style("cursor", "pointer")
         .style("pointer-events", "auto")
         .html(d => d.data.name)
-        .on("click", (event, d) => populateInputsFromNode(Number(d.data.k), BigInt(d.data.q)) );
+        .on("click", (event, d) => populateInputsFromNode(Number(d.data.k), d.data.q_num, d.data.q_den) );
 
     svg.call(d3.zoom().scaleExtent([0.1, 4]).on("zoom", ({ transform }) => g.attr("transform", transform)));
 }
 
+
+
 function updateVisualization(p, v_reduced, v_acted) {
-    let v1 = { k: v_reduced.k, q: v_reduced.q.num }, v2 = { k: v_acted.k, q: v_acted.q.num };
-    const ancestors1 = new Map();
-    for (let k = v1.k; k >= 0; k--) {
-        const pk = p ** BigInt(k);
-        const q_mod = (v1.q % pk + pk) % pk;
-        ancestors1.set(getNodeID(k, q_mod), { k, q: q_mod });
-    }
-    let meet = { k: 0, q: 0n };
-    for (let k = v2.k; k >= 0; k--) {
-        const pk = p ** BigInt(k);
-        const q_mod = (v2.q % pk + pk) % pk;
-        const id = getNodeID(k, q_mod);
-        if (ancestors1.has(id)) { meet = ancestors1.get(id); break; }
-    }
-    const max_k = Math.max(v1.k, v2.k);
-    const depth = max_k - meet.k + 2;
-    const treeData = generateSubtree(p, meet.k, meet.q, 0, depth, new Map());
+    // Choose a start level high enough (possibly very negative) so that
+    // all denominators appearing at the levels we show are representable from the root q=0.
+    // If q has denominator p^e, we must start at k <= -e so that 1/p^e is generated.
+    const ordp = (N) => integerExponent(BigInt(N), p);
+    const denExp1 = integerExponent(v_reduced.q.den, p);
+    const denExp2 = integerExponent(v_acted.q.den, p);
+
+    const neededNeg = Math.max(0, denExp1, denExp2); // how far negative we need to go for denominators
+    const minK = Math.min(v_reduced.k, v_acted.k);
+    const maxK = Math.max(v_reduced.k, v_acted.k);
+
+    // Start at least one level above the minimum k (to show a parent), and at or above -neededNeg
+    const startK = Math.min(minK - 1, -neededNeg);
+
+    // Depth so we include down to the deepest target + some padding
+    const depth = (maxK - startK) + 1; // +1 for a little padding
+
+    const startQ = new Rational(0n, 1n);
+    const treeData = generateSubtree(p, startK, startQ, 0, depth, new Map());
     if (treeData) {
         drawTree(treeData, v_reduced, v_acted);
     }
@@ -246,7 +401,7 @@ function calculate() {
             [new Rational(document.getElementById('a21').value), new Rational(document.getElementById('a22').value)]
         ];
 
-        const v_reduced = ReduceVert({ pk: p ** BigInt(k_in), q: q_in }, p);
+        const v_reduced = ReduceVert({ k: k_in, q: q_in }, p);
         const v_acted = Act(a, v_reduced, p);
         const dist = TDist(v_reduced, v_acted, p);
 
