@@ -82,6 +82,29 @@
     <!-- MathJax for rendering LaTeX -->
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+    <!-- Seed snapshots from contractionShots.js if localStorage is empty -->
+    <script type="module">
+      (async () => {
+        const KEY = 'ifsSnapshots';
+        try {
+          const current = localStorage.getItem(KEY);
+          if (!current || current === '[]') {
+            const mod = await import('./contractionShots.js');
+            const shots = (mod && Array.isArray(mod.contractionShots)) ? mod.contractionShots : [];
+            if (shots.length) {
+              localStorage.setItem(KEY, JSON.stringify(shots));
+              console.log('[IFS] Seeded snapshots from contractionShots.js');
+            } else {
+              console.log('[IFS] contractionShots.js present but empty; not seeding');
+            }
+          }
+        } catch (e) {
+          // File might not exist; that's fine for first-time users
+          console.debug('[IFS] No contractionShots.js found to seed (ok on first run).');
+        }
+      })();
+    </script>
+
     <script>
         // --- DOM ELEMENT REFERENCES ---
         const canvas = document.getElementById('fractal-canvas');
