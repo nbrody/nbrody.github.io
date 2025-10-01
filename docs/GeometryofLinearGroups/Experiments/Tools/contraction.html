@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive IFS Explorer</title>
+    <script src="https://cdn-tailwindcss.vercel.app/"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="bg-gray-900 text-white flex flex-col md:flex-row h-screen overflow-hidden">
+
+    <!-- Controls Panel -->
+     
+    <div id="controls-panel" class="w-full md:w-80 bg-gray-800 p-6 overflow-y-auto flex-shrink-0">
+        <div class="space-y-6">
+            <h1 class="text-2xl font-bold text-white">Interactive Explorer</h1>
+            <p class="text-sm text-gray-400">Drag the colored points on the canvas to change the parameters $a, b, c,$
+                and $d$ and generate new fractals.</p>
+
+            <div>
+                <label for="depth" class="block text-sm font-medium text-gray-300 mb-1">Iteration Depth: <span
+                        id="depth-value" class="font-semibold text-indigo-400">12</span></label>
+                <input type="range" id="depth" min="1" max="20" value="12"
+                    class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+            <div class="mt-4 space-y-2">
+    <label class="inline-flex items-center gap-2 text-sm text-gray-300">
+      <input id="wander-toggle" type="checkbox" class="h-4 w-4">
+      <span>Random wander</span>
+    </label>
+    <div class="flex items-center gap-3">
+      <label for="wander-speed" class="text-xs text-gray-400 w-28">Wander speed</label>
+      <input id="wander-speed" type="range" min="0" max="100" value="25" class="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+      <span id="wander-speed-value" class="text-xs text-indigo-400 w-8 text-right">25</span>
+    </div>
+  </div>
+
+            <div class="mt-4">
+              <a href="https://youtube.com/shorts/nAMQWJv7BZI" target="_blank" class="block text-indigo-400 hover:text-indigo-300 underline text-sm">
+                Watch related video
+              </a>
+            </div>
+            <div class="space-y-3">
+                <div class="p-3 bg-gray-900/70 rounded-lg border border-gray-700">
+                    <p class="text-sm font-bold" style="color: #ef4444;">$a$ (Red)</p>
+                    <p id="a-value" class="text-sm text-gray-400 font-mono">0.50 + 0.50i</p>
+                </div>
+                <div class="p-3 bg-gray-900/70 rounded-lg border border-gray-700">
+                    <p class="text-sm font-bold" style="color: #fca5a5;">$b$ (Light Red)</p>
+                    <p id="b-value" class="text-sm text-gray-400 font-mono">0.00 + 0.00i</p>
+                </div>
+                <div class="p-3 bg-gray-900/70 rounded-lg border border-gray-700">
+                    <p class="text-sm font-bold" style="color: #3b82f6;">$c$ (Blue)</p>
+                    <p id="c-value" class="text-sm text-gray-400 font-mono">0.50 - 0.50i</p>
+                </div>
+                <div class="p-3 bg-gray-900/70 rounded-lg border border-gray-700">
+                    <p class="text-sm font-bold" style="color: #93c5fd;">$d$ (Light Blue)</p>
+                    <p id="d-value" class="text-sm text-gray-400 font-mono">1.00 + 0.00i</p>
+                </div>
+            </div>
+            <div id="status" class="text-center text-gray-400 h-5"></div>
+        </div>
+    </div>
+
+    <!-- Canvas Container -->
+    <div class="flex-grow bg-gray-900 relative cursor-grab" id="canvas-container">
+        <canvas id="fractal-canvas"></canvas>
+    </div>
+
+    <!-- MathJax for rendering LaTeX -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <script>
+        // --- DOM ELEMENT REFERENCES ---
+        const canvas = document.getElementById('fractal-canvas');
+        const canvasContainer = document.getElementById('canvas-container');
+        const ctx = canvas.getContext('2d');
+        const depthSlider = document.getElementById('depth');
+        const depthValueSpan = document.getElementById('depth-value');
+        const statusEl = document.getElementById('status');
+        const valueDisplays = {
+            a: document.getElementById('a-value'),
+            b: document.getElementById('b-value'),
+            c: document.getElementById('c-value'),
+            d: document.getElementById('d-value'),
+        };
+        const wanderToggle = document.getElementById('wander-toggle');
+        const wanderSpeed = document.getElementById('wander-speed');
+        const wanderSpeedValue = document.getElementById('wander-speed-value');
+
+        // --- STATE & CONFIGURATION ---
+        const state = {
+            params: {
+                a: { re: 0.5, im: 0.5, color: '#ef4444' },
+                b: { re: 0, im: 0, color: '#fca5a5' },
+                c: { re: 0.5, im: -0.5, color: '#3b82f6' },
+                d: { re: 1, im: 0, color: '#93c5fd' },
+            },
+            view: {
+                reMin: -2.0, reMax: 2.0,
+                imMin: -2.0, imMax: 2.0,
+            },
+            dragTarget: null,
+            isDirty: true, // Flag to trigger redraw
+            wander: {
+                enabled: false,
+                // speed in view units per frame at 60fps approx (scaled by slider 0..100)
+                baseSpeed: 0.004,
+                // per-parameter velocity vectors in view coords
+                vel: {
+                    a: { re: 0.003, im: -0.002 },
+                    b: { re: -0.002, im: 0.003 },
+                    c: { re: 0.0025, im: 0.002 },
+                    d: { re: -0.003, im: -0.0025 },
+                },
+            },
+        };
+
+        const DRAG_RADIUS = 15;
+
+        // --- COMPLEX NUMBER UTILITIES ---
+        const complex = {
+            add: (z1, z2) => ({ re: z1.re + z2.re, im: z1.im + z2.im }),
+            multiply: (z1, z2) => ({
+                re: z1.re * z2.re - z1.im * z2.im,
+                im: z1.re * z2.im + z1.im * z2.re,
+            }),
+        };
+
+        // --- COORDINATE MAPPING ---
+        function mapCanvasToView(px, py) {
+            const viewWidth = state.view.reMax - state.view.reMin;
+            const viewHeight = state.view.imMax - state.view.imMin;
+            return {
+                re: state.view.reMin + (px / canvas.width) * viewWidth,
+                im: state.view.imMax - (py / canvas.height) * viewHeight, // Y is inverted
+            };
+        }
+
+        function mapViewToCanvas(z) {
+            const viewWidth = state.view.reMax - state.view.reMin;
+            const viewHeight = state.view.imMax - state.view.imMin;
+            return {
+                px: ((z.re - state.view.reMin) / viewWidth) * canvas.width,
+                py: ((state.view.imMax - z.im) / viewHeight) * canvas.height,
+            };
+        }
+
+        function stepWander() {
+            if (!state.wander.enabled || state.dragTarget) return;
+            const speedScale = Number(wanderSpeed.value) / 50; // 0..2
+            const margin = 0.02;
+            const { reMin, reMax, imMin, imMax } = state.view;
+            const bounds = {
+                reMin: reMin + margin,
+                reMax: reMax - margin,
+                imMin: imMin + margin,
+                imMax: imMax - margin,
+            };
+            // jitter helps keep motion organic
+            const jitter = () => (Math.random() - 0.5) * state.wander.baseSpeed * 0.2;
+            for (const key of ['a','b','c','d']) {
+                const p = state.params[key];
+                const v = state.wander.vel[key];
+                // small random perturbation of velocity
+                v.re += jitter();
+                v.im += jitter();
+                // cap velocity magnitude
+                const maxV = state.wander.baseSpeed * 1.5;
+                const mag = Math.hypot(v.re, v.im) || 1e-6;
+                if (mag > maxV) { v.re = (v.re / mag) * maxV; v.im = (v.im / mag) * maxV; }
+                // integrate position
+                p.re += v.re * speedScale;
+                p.im += v.im * speedScale;
+                // reflect at bounds
+                if (p.re < bounds.reMin) { p.re = bounds.reMin; v.re = Math.abs(v.re); }
+                if (p.re > bounds.reMax) { p.re = bounds.reMax; v.re = -Math.abs(v.re); }
+                if (p.im < bounds.imMin) { p.im = bounds.imMin; v.im = Math.abs(v.im); }
+                if (p.im > bounds.imMax) { p.im = bounds.imMax; v.im = -Math.abs(v.im); }
+            }
+            state.isDirty = true;
+        }
+
+        // --- CORE FRACTAL LOGIC ---
+        function calculateOrbit(depth, a, b, c, d) {
+            const f0 = (z) => complex.add(complex.multiply(a, z), b);
+            const f1 = (z) => complex.add(complex.multiply(c, z), d);
+            const z0 = { re: 0, im: 0 };
+
+            let lastGeneration = [z0];
+            for (let i = 1; i < depth; i++) {
+                const nextGeneration = [];
+                for (const z of lastGeneration) {
+                    nextGeneration.push(f0(z));
+                    nextGeneration.push(f1(z));
+                }
+                lastGeneration = nextGeneration;
+            }
+            return lastGeneration;
+        }
+
+        // --- DRAWING FUNCTIONS ---
+        function drawAll() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const depth = parseInt(depthSlider.value, 10);
+            const points = calculateOrbit(depth, state.params.a, state.params.b, state.params.c, state.params.d);
+
+            drawFractal(points);
+            drawControlHandles();
+            updateValueDisplays();
+
+            statusEl.textContent = `Plotted ${points.length} points.`;
+            state.isDirty = false;
+        }
+
+        function drawFractal(points) {
+            if (points.length === 0) return;
+
+            let minRe = Infinity, maxRe = -Infinity, minIm = Infinity, maxIm = -Infinity;
+            points.forEach(p => {
+                minRe = Math.min(minRe, p.re); maxRe = Math.max(maxRe, p.re);
+                minIm = Math.min(minIm, p.im); maxIm = Math.max(maxIm, p.im);
+            });
+
+            const padding = 0.1;
+            const rangeRe = maxRe - minRe || 1;
+            const rangeIm = maxIm - minIm || 1;
+
+            minRe -= rangeRe * padding; maxRe += rangeRe * padding;
+            minIm -= rangeIm * padding; maxIm += rangeIm * padding;
+
+            const effectiveRangeRe = maxRe - minRe;
+            const effectiveRangeIm = maxIm - minIm;
+
+            const scale = Math.min(canvas.width / effectiveRangeRe, canvas.height / effectiveRangeIm);
+            const centerX = (minRe + maxRe) / 2;
+            const centerY = (minIm + maxIm) / 2;
+            const canvasCenterX = canvas.width / 2;
+            const canvasCenterY = canvas.height / 2;
+
+            const mapToCanvas = (z) => ({
+                x: canvasCenterX + (z.re - centerX) * scale,
+                y: canvasCenterY - (z.im - centerY) * scale,
+            });
+
+            // Draw a light unit circle centered at 0 with radius 1 (fixed to view, not auto-fit)
+            const scaleX = canvas.width / (state.view.reMax - state.view.reMin);
+            const scaleY = canvas.height / (state.view.imMax - state.view.imMin);
+            const center = mapViewToCanvas({ re: 0, im: 0 });
+            ctx.beginPath();
+            ctx.ellipse(center.px, center.py, scaleX * 1, scaleY * 1, 0, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = `rgba(236, 239, 241, 0.7)`;
+            const pointSize = Math.max(1, 3 / Math.log10(points.length + 1));
+
+            for (const p of points) {
+                const canvasP = mapToCanvas(p);
+                ctx.beginPath();
+                ctx.arc(canvasP.x, canvasP.y, pointSize / 2, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        }
+
+        function drawControlHandles() {
+            // Draw Axes
+            const origin = mapViewToCanvas({ re: 0, im: 0 });
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, origin.py); ctx.lineTo(canvas.width, origin.py);
+            ctx.moveTo(origin.px, 0); ctx.lineTo(origin.px, canvas.height);
+            ctx.stroke();
+
+            // Draw handles
+            for (const key in state.params) {
+                const param = state.params[key];
+                const pos = mapViewToCanvas(param);
+
+                ctx.beginPath();
+                ctx.arc(pos.px, pos.py, DRAG_RADIUS / 2, 0, 2 * Math.PI);
+                ctx.fillStyle = param.color;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(pos.px, pos.py, DRAG_RADIUS / 2, 0, 2 * Math.PI);
+                ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function updateValueDisplays() {
+            for (const key in state.params) {
+                const param = state.params[key];
+                const reStr = param.re.toFixed(2);
+                const imStr = `${param.im < 0 ? '-' : '+'} ${Math.abs(param.im).toFixed(2)}i`;
+                valueDisplays[key].textContent = `${reStr} ${imStr}`;
+            }
+        }
+
+        // --- EVENT LISTENERS & ANIMATION LOOP ---
+        function getEventCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            return { x, y };
+        }
+
+        function handleDown(e) {
+            e.preventDefault();
+            const { x, y } = getEventCoords(e.touches ? e.touches[0] : e);
+            const clickPos = mapCanvasToView(x, y);
+
+            let targetFound = null;
+            for (const key in state.params) {
+                const param = state.params[key];
+                const distSq = (clickPos.re - param.re) ** 2 + (clickPos.im - param.im) ** 2;
+                const viewDragRadius = (DRAG_RADIUS / canvas.width) * (state.view.reMax - state.view.reMin);
+                if (distSq < viewDragRadius ** 2) {
+                    targetFound = key;
+                    break;
+                }
+            }
+            if (targetFound) {
+                state.dragTarget = targetFound;
+                canvasContainer.style.cursor = 'grabbing';
+                if (targetFound) state.wander.enabledDuringDrag = state.wander.enabled;
+                state.wander.enabled = false;
+            }
+        }
+
+        function handleMove(e) {
+            if (!state.dragTarget) return;
+            e.preventDefault();
+            const { x, y } = getEventCoords(e.touches ? e.touches[0] : e);
+            const newPos = mapCanvasToView(x, y);
+            state.params[state.dragTarget].re = newPos.re;
+            state.params[state.dragTarget].im = newPos.im;
+            state.isDirty = true;
+        }
+
+        function handleUp(e) {
+            state.dragTarget = null;
+            canvasContainer.style.cursor = 'grab';
+            if (state.wander.enabledDuringDrag !== undefined) { state.wander.enabled = state.wander.enabledDuringDrag; delete state.wander.enabledDuringDrag; }
+            state.isDirty = true; // Trigger one final high-quality redraw
+        }
+
+        function handleResize() {
+            canvas.width = canvasContainer.clientWidth;
+            canvas.height = canvasContainer.clientHeight;
+            state.isDirty = true;
+        }
+
+        depthSlider.addEventListener('input', () => {
+            depthValueSpan.textContent = depthSlider.value;
+            state.isDirty = true;
+        });
+        wanderToggle.addEventListener('change', () => {
+            state.wander.enabled = wanderToggle.checked;
+            state.isDirty = true;
+        });
+        wanderSpeed.addEventListener('input', () => {
+            wanderSpeedValue.textContent = wanderSpeed.value;
+        });
+
+        function animationLoop() {
+            if (state.isDirty) {
+                drawAll();
+            }
+            stepWander();
+            requestAnimationFrame(animationLoop);
+        }
+
+        // --- INITIALIZATION ---
+        canvas.addEventListener('mousedown', handleDown);
+        canvas.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleUp);
+        canvas.addEventListener('touchstart', handleDown, { passive: false });
+        canvas.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('touchend', handleUp);
+
+        window.addEventListener('resize', handleResize);
+
+        handleResize();
+        animationLoop();
+    </script>
+</body>
+
+</html>

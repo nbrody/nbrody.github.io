@@ -207,12 +207,9 @@
                                 <div class="formula-box">
                                     <div class="caption">Action formula</div>
                                     <div>
-                                        If $g = \begin{pmatrix} a & b \\ c & d \end{pmatrix}$ and $v = \lfloor q \rfloor_k$, then
                                         $$
-                                        g\cdot v \;=\; \Big\lfloor \frac{a\,q + b}{c\,q + d} \Big\rfloor_{\,k'}\,.
+                                        \begin{pmatrix} a & b \\ c & d \end{pmatrix}\cdot \lfloor q \rfloor_k \;=\; \begin{cases} \Big\lfloor \frac{a\,q + b}{c\,q + d} \Big\rfloor_{\,k-2v_p(cq+d)+v_p(det(g))} & \text{if }v_p(cq+d)-v_p(c)\leq k \\ \Big\lfloor \frac{a}{c} \Big\rfloor_{\,k-2v_p(c)+v_p(det(g))} & \text{if }v_p(cq+d)-v_p(c)> k \end{cases}\,.
                                         $$
-                                        Here $k'$ and the residue are determined by the $p$-adic valuation (as implemented below): we compute
-                                        the level $k'$ from valuations and then canonicalize the fraction at level $k$.
                                     </div>
                                 </div>
             </div>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zonotopal Tiling Explorer</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #444;
+        }
+
+        p {
+            color: #666;
+            max-width: 600px;
+            margin: 10px auto 20px auto;
+        }
+
+        #canvas-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Zonotopal Tiling Explorer</h1>
+    <p>Click on a yellow circle (a vertex where 3 rhombi meet) to flip the corresponding 'cube'.</p>
+    <div id="canvas-container">
+        <canvas id="tilingCanvas" width="800" height="800"></canvas>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('tilingCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // --- HiDPI crisp rendering ---
+            const DPR = Math.max(1, window.devicePixelRatio || 1);
+            const CSS_W = canvas.width;
+            const CSS_H = canvas.height;
+            canvas.style.width = CSS_W + 'px';
+            canvas.style.height = CSS_H + 'px';
+            canvas.width = Math.floor(CSS_W * DPR);
+            canvas.height = Math.floor(CSS_H * DPR);
+
+            // Drawing parameters
+            const N = 6;               // number of generators
+            const SCALE = 70;          // base world->pixel scale at DPR=1
+            const LINE_W = 0.7;        // stroke width in CSS pixels
+
+            // Vectors v_i (evenly around the semicircle suffices since -v is implicit in subset sums)
+            // Using a slight irrational twist to avoid accidental collinearities
+            const vectors = [];
+            for (let i = 0; i < N; i++) {
+                const angle = (i * Math.PI) / N + 0.013 * i; // perturb to avoid coincident vertices
+                vectors.push({ x: Math.cos(angle), y: Math.sin(angle) });
+            }
+
+            // Build vertices exactly by bitmask S in [0, 2^N)
+            const VCOUNT = 1 << N;
+            const vertices = new Array(VCOUNT);
+            for (let S = 0; S < VCOUNT; S++) {
+                let x = 0, y = 0;
+                for (let b = 0; b < N; b++) if ((S >> b) & 1) { x += vectors[b].x; y += vectors[b].y; }
+                vertices[S] = { x, y };
+            }
+
+            // Center the zonotope at the origin
+            // The average of all subset sums is (1/2) * sum v_i
+            const sumV = vectors.reduce((acc, v) => ({ x: acc.x + v.x, y: acc.y + v.y }), { x: 0, y: 0 });
+            const centerOffset = { x: -0.5 * sumV.x, y: -0.5 * sumV.y };
+            for (let i = 0; i < VCOUNT; i++) { vertices[i].x += centerOffset.x; vertices[i].y += centerOffset.y; }
+
+            // Faces: For each pair i<j, and each S with bits i,j = 0, add rhombus
+            const faces = [];
+            for (let i = 0; i < N; i++) {
+                for (let j = i + 1; j < N; j++) {
+                    for (let S = 0; S < VCOUNT; S++) {
+                        if (((S >> i) & 1) || ((S >> j) & 1)) continue;
+                        const S0 = S;
+                        const S1 = S | (1 << i);
+                        const S2 = S | (1 << i) | (1 << j);
+                        const S3 = S | (1 << j);
+                        faces.push({ type: [i, j], verts: [S0, S1, S2, S3] });
+                    }
+                }
+            }
+
+            // Colors per (i,j)
+            const COLORS = ['#ffadad','#ffd6a5','#fdffb6','#caffbf','#9bf6ff','#a0c4ff','#bdb2ff','#ffc6ff'];
+            const rhombusColors = {};
+            let ck = 0;
+            for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) rhombusColors[`${i}-${j}`] = COLORS[ck++ % COLORS.length];
+
+            // Build adjacency: count faces incident to each vertex and also track boundary by edge usage
+            const incidentFaces = Array.from({ length: VCOUNT }, () => []);
+            const edgeUse = new Map(); // key as small-big int pair "a-b"
+            for (let fIdx = 0; fIdx < faces.length; fIdx++) {
+                const f = faces[fIdx];
+                const vs = f.verts;
+                vs.forEach(v => incidentFaces[v].push(fIdx));
+                for (let k = 0; k < 4; k++) {
+                    const a = vs[k], b = vs[(k + 1) % 4];
+                    const key = (a < b) ? `${a}-${b}` : `${b}-${a}`;
+                    edgeUse.set(key, (edgeUse.get(key) || 0) + 1);
+                }
+            }
+
+            const isBoundaryVertex = new Array(VCOUNT).fill(false);
+            edgeUse.forEach((count, key) => {
+                if (count === 1) {
+                    const [a, b] = key.split('-').map(Number);
+                    isBoundaryVertex[a] = true;
+                    isBoundaryVertex[b] = true;
+                }
+            });
+
+            // Flippable vertex heuristic: interior vertex participating in exactly 3 faces (a 3D cube corner)
+            const flippableVertices = [];
+            for (let v = 0; v < VCOUNT; v++) {
+                if (!isBoundaryVertex[v] && incidentFaces[v].length === 3) flippableVertices.push(v);
+            }
+
+            // Geometry helpers
+            const CENTER = { x: canvas.width / 2, y: canvas.height / 2 };
+            function toScreen(p) { return { x: CENTER.x + p.x * SCALE * DPR, y: CENTER.y + p.y * SCALE * DPR }; }
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.save();
+                ctx.lineWidth = LINE_W * DPR;
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+
+                // Draw faces
+                for (const face of faces) {
+                    const [a,b,c,d] = face.verts.map(vi => toScreen(vertices[vi]));
+                    const path = new Path2D();
+                    path.moveTo(a.x, a.y);
+                    path.lineTo(b.x, b.y);
+                    path.lineTo(c.x, c.y);
+                    path.lineTo(d.x, d.y);
+                    path.closePath();
+                    ctx.fillStyle = rhombusColors[`${face.type[0]}-${face.type[1]}`] || '#ddd';
+                    ctx.fill(path);
+                    ctx.strokeStyle = '#333';
+                    ctx.stroke(path);
+                }
+
+                // Draw flippable handles
+                for (const v of flippableVertices) {
+                    const s = toScreen(vertices[v]);
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, 6 * DPR, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'rgba(255,255,0,0.95)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            // Flip operation: reflect vertex across the centroid of its 3 neighbors in the incident faces
+            function flip(vIdx) {
+                const incident = incidentFaces[vIdx];
+                if (incident.length !== 3) return;
+                // Collect neighbors connected by an edge in those faces
+                const nbr = new Set();
+                for (const fIdx of incident) {
+                    const vs = faces[fIdx].verts;
+                    const i = vs.indexOf(vIdx);
+                    const vA = vs[(i + 3) % 4];
+                    const vB = vs[(i + 1) % 4];
+                    nbr.add(vA); nbr.add(vB);
+                }
+                if (nbr.size !== 3) return;
+                const pts = [...nbr].map(i => vertices[i]);
+                const c = { x: (pts[0].x + pts[1].x + pts[2].x) / 3, y: (pts[0].y + pts[1].y + pts[2].y) / 3 };
+                vertices[vIdx].x = 2 * c.x - vertices[vIdx].x;
+                vertices[vIdx].y = 2 * c.y - vertices[vIdx].y;
+                draw();
+            }
+
+            function handleCanvasClick(event) {
+                const rect = canvas.getBoundingClientRect();
+                const mx = (event.clientX - rect.left) * DPR;
+                const my = (event.clientY - rect.top) * DPR;
+
+                // Find closest flippable vertex within radius
+                let closest = -1, best = Infinity;
+                const R2 = (10 * DPR) * (10 * DPR);
+                for (const v of flippableVertices) {
+                    const s = toScreen(vertices[v]);
+                    const dx = s.x - mx, dy = s.y - my;
+                    const d2 = dx*dx + dy*dy;
+                    if (d2 < R2 && d2 < best) { best = d2; closest = v; }
+                }
+                if (closest !== -1) flip(closest);
+            }
+
+            draw();
+            canvas.addEventListener('click', handleCanvasClick);
+        });
+    </script>
+</body>
+
+</html>

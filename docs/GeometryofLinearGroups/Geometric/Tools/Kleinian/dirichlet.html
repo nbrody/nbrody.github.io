@@ -1,626 +1,734 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dirichlet Polyhedron Viewer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
-    <style>
-      body { margin: 0; overflow: hidden; }
-      #viewer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
-      /* Control panel */
-      #controlPanel { 
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        width: 320px;
-        background: rgba(255,255,255,0.9);
-        border-radius: 6px;
-        padding: 12px;
-        font-size: 13px;
-        z-index: 10;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        max-height: 50vh;
-        overflow-y: auto;
-      }
-      #controlPanel h3 { margin: 4px 0 8px; font-size: 15px; }
-      #controlPanel label { display: block; margin-top: 8px; font-weight: bold; line-height: 1.2; }
-      .matrix-bracket { display: inline-block; font-size: 48px; font-weight: normal; line-height: 48px; vertical-align: middle; margin: 0 4px; }
-      .matrix-grid-inline {
-        display: inline-grid;
-        grid-template-columns: repeat(2, minmax(40px, max-content));
-        grid-auto-rows: minmax(30px, max-content);
-        grid-gap: 4px;
-        vertical-align: middle;
-        margin: 0 4px;
-        align-items: start;
-      }
-      .matrix-grid-inline .mq-editable-field {
-        min-width: 40px;
-        min-height: 30px;
-        padding: 2px 4px;
-        font-size: 16px;
-        width: auto;
-        display: inline-block;
-        white-space: nowrap;
-        max-width: none;
-        overflow: visible;
-      }
-      .mq-matrix-input {
-        display: inline-block;
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        background: white;
-        padding: 2px 4px;
-        width: auto;
-        white-space: nowrap;
-        max-width: none;
-        overflow: visible;
-      }
-      .mq-matrix-input .mq-root-block {
-        display: inline-block;
-        overflow: visible;
-      }
-      #controlPanel input[type="number"] { width: calc(100% - 12px); margin-top: 4px; padding: 4px; font-size: 13px; }
-      #controlPanel button { margin-top: 12px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer; }
-      .matrix-block { margin-bottom: 8px; }
-      /* Toggle hide/show control panel */
-      #controlPanel.hidden { width: 40px; height: 40px; padding: 0; overflow: hidden; background: rgba(255,255,255,0.9); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-      .toggle-btn { position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; background: none; border: none; font-size: 18px; line-height: 1; cursor: pointer; z-index: 12; }
-      /* message box */
-      #message-box { position: absolute; left: 50%; transform: translateX(-50%); top: 12px; background: rgba(33, 150, 243, 0.15); color: #0b5394; padding: 6px 10px; border-radius: 6px; font-size: 12px; z-index: 20; display: none; }
-      #message-box.error { background: rgba(244, 67, 54, 0.15); color: #b71c1c; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dirichlet Polyhedron Viewer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
 
-      /* --- Resizable control panel (bottom-left handle) --- */
-      #controlPanel.resizable { max-height: none; }
-      #controlPanel.resizing { user-select: none; }
-      #controlPanel .resize-handle-bl {
-        position: absolute;
-        left: 0;
-        bottom: 0;
-        width: 14px;
-        height: 14px;
-        cursor: nesw-resize;
-        background: transparent;
-      }
-      /* Add a subtle visual cue for the handle */
-      #controlPanel .resize-handle-bl::after {
-        content: '';
-        position: absolute;
-        right: 2px;
-        top: -2px;
-        width: 0;
-        height: 0;
-        border-left: 10px solid transparent;
-        border-top: 10px solid rgba(0,0,0,0.15);
-      }
-    </style>
+    #viewer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Control panel */
+    #controlPanel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 320px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 13px;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+
+    #controlPanel h3 {
+      margin: 4px 0 8px;
+      font-size: 15px;
+    }
+
+    #controlPanel label {
+      display: block;
+      margin-top: 8px;
+      font-weight: bold;
+      line-height: 1.2;
+    }
+
+    .matrix-bracket {
+      display: inline-block;
+      font-size: 48px;
+      font-weight: normal;
+      line-height: 48px;
+      vertical-align: middle;
+      margin: 0 4px;
+    }
+
+    .matrix-grid-inline {
+      display: inline-grid;
+      grid-template-columns: repeat(2, minmax(40px, max-content));
+      grid-auto-rows: minmax(30px, max-content);
+      grid-gap: 4px;
+      vertical-align: middle;
+      margin: 0 4px;
+      align-items: start;
+    }
+
+    .matrix-grid-inline .mq-editable-field {
+      min-width: 40px;
+      min-height: 30px;
+      padding: 2px 4px;
+      font-size: 16px;
+      width: auto;
+      display: inline-block;
+      white-space: nowrap;
+      max-width: none;
+      overflow: visible;
+    }
+
+    .mq-matrix-input {
+      display: inline-block;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      background: white;
+      padding: 2px 4px;
+      width: auto;
+      white-space: nowrap;
+      max-width: none;
+      overflow: visible;
+    }
+
+    .mq-matrix-input .mq-root-block {
+      display: inline-block;
+      overflow: visible;
+    }
+
+    #controlPanel input[type="number"] {
+      width: calc(100% - 12px);
+      margin-top: 4px;
+      padding: 4px;
+      font-size: 13px;
+    }
+
+    #controlPanel button {
+      margin-top: 12px;
+      width: 100%;
+      padding: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .matrix-block {
+      margin-bottom: 8px;
+    }
+
+    /* Toggle hide/show control panel */
+    #controlPanel.hidden {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .toggle-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 24px;
+      height: 24px;
+      background: none;
+      border: none;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 12;
+    }
+
+    /* message box */
+    #message-box {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 12px;
+      background: rgba(33, 150, 243, 0.15);
+      color: #0b5394;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      z-index: 20;
+      display: none;
+    }
+
+    #message-box.error {
+      background: rgba(244, 67, 54, 0.15);
+      color: #b71c1c;
+    }
+
+    /* --- Resizable control panel (bottom-left handle) --- */
+    #controlPanel.resizable {
+      max-height: none;
+    }
+
+    #controlPanel.resizing {
+      user-select: none;
+    }
+
+    #controlPanel .resize-handle-bl {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 14px;
+      height: 14px;
+      cursor: nesw-resize;
+      background: transparent;
+    }
+
+    /* Add a subtle visual cue for the handle */
+    #controlPanel .resize-handle-bl::after {
+      content: '';
+      position: absolute;
+      right: 2px;
+      top: -2px;
+      width: 0;
+      height: 0;
+      border-left: 10px solid transparent;
+      border-top: 10px solid rgba(0, 0, 0, 0.15);
+    }
+  </style>
 </head>
+
 <body class="bg-gray-900">
-    <div id="viewer"></div>
+  <div id="viewer"></div>
 
-    <button id="toggleControlPanelBtn" class="toggle-btn" aria-label="Hide panel">☰</button>
-    <button id="saveImageBtn" class="toggle-btn" aria-label="Save image" title="Save image" style="right: 78px; font-size:14px;">📷</button>
-    <button id="updateGroupBtn" class="toggle-btn" aria-label="Update" title="Update group" style="right: 44px; font-size:14px;">↻</button>
-    <div id="controlPanel">
-      <div style="display: flex; align-items: center; justify-content: space-between;">
-        <h3 style="margin: 0;">Dirichlet</h3>
-        <div style="display:flex; align-items:center; gap:6px;">
-          <button id="prevPageBtn" title="Previous" style="padding: 2px 6px; font-size: 11px; width: 28px;">◀</button>
-          <button id="nextPageBtn" title="Next" style="padding: 2px 6px; font-size: 11px; width: 28px;">▶</button>
-          <button id="resetViewBtn" style="padding: 2px 6px; font-size: 11px; width: 100px; margin-left:6px;">Default view</button>
-        </div>
-      </div>
-      <div id="panelPage1">
-        <div id="matrixInputs"></div>
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
-          <label for="wordLength" style="display:flex; align-items:center; margin:0;">
-            <span style="margin-right:6px;">Word length:</span>
-            <input id="wordLength" type="number" value="4" min="1" step="1" style="width:60px;" />
-          </label>
-          <button id="addMatrixBtn" style="width:32px; height:32px; padding:0; font-size:22px; line-height:1; font-weight:bold;">+</button>
-        </div>
-
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
-          <label for="groupSelector" style="margin: 0;">Predefined group:</label>
-          <select id="groupSelector" style="flex-grow: 1; margin: 0 6px;">
-            <option value="">-- Select --</option>
-          </select>
-          <button id="newExampleBtn" style="padding: 0px 6px; font-size: 10px; min-width: unset; width: auto; height: 20px; line-height: 20px;">??</button>
-        </div>
-
-        <button id="showStabilizerBtn" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Show stabilizer</button>
-        <div id="stabilizerOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;"></div>
-
-        <button id="printStdGensBtn" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Print standard generators</button>
-        <div id="stdGensOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;"></div>
-        <button id="computeStdGensBtn" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Compute standard generators</button>
-        <div id="computeStdGensOutput" style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;"></div>
-      </div>
-      <div id="panelPage2" style="display:none;">
-        <h4 style="margin: 8px 0 6px; font-size: 14px;">Display options</h4>
-        <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-            <input id="toggleDelaunay" type="checkbox" />
-            Show Cayley graph
-        </label>
-        <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
-            <input id="toggleOrbit" type="checkbox" />
-            Show orbit of o
-        </label>
-        <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
-            <input id="toggleBasepoint" type="checkbox" />
-            Show basepoint
-        </label>
-        <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
-            <input id="toggleFloor" type="checkbox" />
-            Show floor (z = 0.05)
-        </label>
-        <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
-          <span>Walls:</span>
-          <div style="display:flex; gap:10px; margin-left:8px;">
-            <label><input type="radio" name="wallsMode" value="all" checked> All</label>
-            <label><input type="radio" name="wallsMode" value="dirichlet"> Dirichlet</label>
-            <label><input type="radio" name="wallsMode" value="off"> None</label>
-          </div>
-        </label>
-      </div>
-      <div id="panelPage3" style="display:none;">
-        <h4 style="margin: 8px 0 6px; font-size: 14px;">Appearance</h4>
-        <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-            Wall opacity:
-            <input id="wallOpacitySlider" type="range" min="0" max="1" step="0.05" value="0.4" style="flex-grow:1;">
-            <span id="wallOpacityValue">0.40</span>
-        </label>
-        <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-          Color palette:
-          <select id="colorPalette" style="flex-grow:1;">
-            <option value="bluegold" selected>UC (gradient)</option>
-            <option value="ucpure">UC (pure)</option>
-            <option value="tealfuchsia">Teal-Fuchsia Gradient</option>
-            <option value="harmonic">Harmonic</option>
-            <option value="monochrome">Monochrome (skyblue)</option>
-            <option value="random">Random colors</option>
-          </select>
-        </label>
+  <button id="toggleControlPanelBtn" class="toggle-btn" aria-label="Hide panel">☰</button>
+  <button id="saveImageBtn" class="toggle-btn" aria-label="Save image" title="Save image"
+    style="right: 78px; font-size:14px;">📷</button>
+  <button id="updateGroupBtn" class="toggle-btn" aria-label="Update" title="Update group"
+    style="right: 44px; font-size:14px;">↻</button>
+  <div id="controlPanel">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <h3 style="margin: 0;">Dirichlet</h3>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button id="prevPageBtn" title="Previous" style="padding: 2px 6px; font-size: 11px; width: 28px;">◀</button>
+        <button id="nextPageBtn" title="Next" style="padding: 2px 6px; font-size: 11px; width: 28px;">▶</button>
+        <button id="resetViewBtn" style="padding: 2px 6px; font-size: 11px; width: 100px; margin-left:6px;">Default
+          view</button>
       </div>
     </div>
-    <div id="message-box"></div>
+    <div id="panelPage1">
+      <div id="matrixInputs"></div>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
+        <label for="wordLength" style="display:flex; align-items:center; margin:0;">
+          <span style="margin-right:6px;">Word length:</span>
+          <input id="wordLength" type="number" value="4" min="1" step="1" style="width:60px;" />
+        </label>
+        <button id="addMatrixBtn"
+          style="width:32px; height:32px; padding:0; font-size:22px; line-height:1; font-weight:bold;">+</button>
+      </div>
 
-    <script type="module">
-        import * as ThreeCSGModule from 'https://esm.run/three-csg-ts';
-        const CSG = ThreeCSGModule.CSG || ThreeCSGModule.default || ThreeCSGModule;
-        window.CSG = CSG; // make available globally
-        // --- THREE.js Setup ---
-        let scene, camera, renderer, controls;
-        let polyhedronGroup = new THREE.Group();
-        let delaunayGroup = new THREE.Group();
-        let orbitGroup = new THREE.Group();
-        let dirichletGroup = new THREE.Group();
-        let floor; // opaque white plane toggleable from the control panel
-        const viewer = document.getElementById('viewer');
-        const basepoint = new THREE.Vector3(0, 0, 1);
-        let currentPage = 1;
-        const NUM_PAGES = 3;
-        let wallOpacity = 0.4;
-        let colorPalette = 'bluegold';
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 12px;">
+        <label for="groupSelector" style="margin: 0;">Predefined group:</label>
+        <select id="groupSelector" style="flex-grow: 1; margin: 0 6px;">
+          <option value="">-- Select --</option>
+        </select>
+        <button id="newExampleBtn"
+          style="padding: 0px 6px; font-size: 10px; min-width: unset; width: auto; height: 20px; line-height: 20px;">??</button>
+      </div>
 
-        // --- Enable bottom-left resize of the control panel ---
-        function enableControlPanelResize() {
-          const panel = document.getElementById('controlPanel');
-          if (!panel) return;
-          // Allow height to grow beyond the old max-height while resizing
-          panel.classList.add('resizable');
+      <button id="showStabilizerBtn"
+        style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Show
+        stabilizer</button>
+      <div id="stabilizerOutput"
+        style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;">
+      </div>
 
-          // Create the handle if it does not exist
-          let handle = panel.querySelector('.resize-handle-bl');
-          if (!handle) {
-            handle = document.createElement('div');
-            handle.className = 'resize-handle-bl';
-            panel.appendChild(handle);
+      <button id="printStdGensBtn"
+        style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Print standard
+        generators</button>
+      <div id="stdGensOutput"
+        style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;">
+      </div>
+    </div>
+    <div id="panelPage2" style="display:none;">
+      <h4 style="margin: 8px 0 6px; font-size: 14px;">Display options</h4>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+        <input id="toggleDelaunay" type="checkbox" />
+        Show Cayley graph
+      </label>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+        <input id="toggleOrbit" type="checkbox" />
+        Show orbit of o
+      </label>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+        <input id="toggleBasepoint" type="checkbox" />
+        Show basepoint
+      </label>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+        <input id="toggleFloor" type="checkbox" />
+        Show floor (z = 0.05)
+      </label>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+        <span>Walls:</span>
+        <div style="display:flex; gap:10px; margin-left:8px;">
+          <label><input type="radio" name="wallsMode" value="all" checked> All</label>
+          <label><input type="radio" name="wallsMode" value="dirichlet"> Dirichlet</label>
+          <label><input type="radio" name="wallsMode" value="off"> None</label>
+        </div>
+      </label>
+    </div>
+    <div id="panelPage3" style="display:none;">
+      <h4 style="margin: 8px 0 6px; font-size: 14px;">Appearance</h4>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+        Wall opacity:
+        <input id="wallOpacitySlider" type="range" min="0" max="1" step="0.05" value="0.4" style="flex-grow:1;">
+        <span id="wallOpacityValue">0.40</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+        Color palette:
+        <select id="colorPalette" style="flex-grow:1;">
+          <option value="bluegold" selected>UC (gradient)</option>
+          <option value="ucpure">UC (pure)</option>
+          <option value="tealfuchsia">Teal-Fuchsia Gradient</option>
+          <option value="harmonic">Harmonic</option>
+          <option value="monochrome">Monochrome (skyblue)</option>
+          <option value="random">Random colors</option>
+        </select>
+      </label>
+    </div>
+  </div>
+  <div id="message-box"></div>
+
+  <script type="module">
+    import * as ThreeCSGModule from 'https://esm.run/three-csg-ts';
+    const CSG = ThreeCSGModule.CSG || ThreeCSGModule.default || ThreeCSGModule;
+    window.CSG = CSG; // make available globally
+    // --- THREE.js Setup ---
+    let scene, camera, renderer, controls;
+    let polyhedronGroup = new THREE.Group();
+    let delaunayGroup = new THREE.Group();
+    let orbitGroup = new THREE.Group();
+    let dirichletGroup = new THREE.Group();
+    let floor; // opaque white plane toggleable from the control panel
+    const viewer = document.getElementById('viewer');
+    const basepoint = new THREE.Vector3(0, 0, 1);
+    let currentPage = 1;
+    const NUM_PAGES = 3;
+    let wallOpacity = 0.4;
+    let colorPalette = 'bluegold';
+
+    // --- Enable bottom-left resize of the control panel ---
+    function enableControlPanelResize() {
+      const panel = document.getElementById('controlPanel');
+      if (!panel) return;
+      // Allow height to grow beyond the old max-height while resizing
+      panel.classList.add('resizable');
+
+      // Create the handle if it does not exist
+      let handle = panel.querySelector('.resize-handle-bl');
+      if (!handle) {
+        handle = document.createElement('div');
+        handle.className = 'resize-handle-bl';
+        panel.appendChild(handle);
+      }
+
+      let startX = 0, startY = 0, startW = 0, startH = 0, resizing = false;
+      const MIN_W = 220, MAX_W = 640;
+      const MIN_H = 160;
+
+      function maxHeight() {
+        return Math.max(240, Math.floor(window.innerHeight * 0.9));
+      }
+
+      function onMouseMove(e) {
+        if (!resizing) return;
+        const dx = e.clientX - startX; // leftward drag => negative
+        const dy = e.clientY - startY; // downward drag => positive
+
+        // Panel is positioned with right:10px, so increasing width expands to the left
+        const newW = Math.min(MAX_W, Math.max(MIN_W, startW - dx));
+        const newH = Math.min(maxHeight(), Math.max(MIN_H, startH + dy));
+
+        panel.style.width = newW + 'px';
+        panel.style.height = newH + 'px';
+      }
+
+      function stopResize() {
+        if (!resizing) return;
+        resizing = false;
+        panel.classList.remove('resizing');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', stopResize);
+      }
+
+      handle.addEventListener('mousedown', (e) => {
+        // Ignore when panel is in compact hidden state
+        if (panel.classList.contains('hidden')) return;
+        e.preventDefault();
+        const rect = panel.getBoundingClientRect();
+        startX = e.clientX;
+        startY = e.clientY;
+        startW = rect.width;
+        startH = rect.height;
+        resizing = true;
+        panel.classList.add('resizing');
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', stopResize);
+      });
+
+      window.addEventListener('resize', () => {
+        // Keep height within viewport bounds if the window gets smaller
+        const h = parseInt(panel.style.height || '0', 10);
+        if (h && h > maxHeight()) panel.style.height = maxHeight() + 'px';
+      });
+    }
+
+    function updatePanelPage() {
+      const p1 = document.getElementById('panelPage1');
+      const p2 = document.getElementById('panelPage2');
+      const p3 = document.getElementById('panelPage3');
+      if (p1) p1.style.display = (currentPage === 1) ? '' : 'none';
+      if (p2) p2.style.display = (currentPage === 2) ? '' : 'none';
+      if (p3) p3.style.display = (currentPage === 3) ? '' : 'none';
+      // Gray/disable pager arrows at bounds
+      const prevBtn = document.getElementById('prevPageBtn');
+      const nextBtn = document.getElementById('nextPageBtn');
+      if (prevBtn) {
+        const atStart = currentPage === 1;
+        prevBtn.disabled = atStart;
+        prevBtn.style.color = atStart ? '#9ca3af' : '';
+        prevBtn.style.opacity = atStart ? '0.6' : '';
+        prevBtn.style.cursor = atStart ? 'default' : 'pointer';
+      }
+      if (nextBtn) {
+        const atEnd = currentPage === NUM_PAGES;
+        nextBtn.disabled = atEnd;
+        nextBtn.style.color = atEnd ? '#9ca3af' : '';
+        nextBtn.style.opacity = atEnd ? '0.6' : '';
+        nextBtn.style.cursor = atEnd ? 'default' : 'pointer';
+      }
+    }
+
+    function init() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x111827);
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, -5, 3);
+      camera.up.set(0, 0, 1);
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.localClippingEnabled = true;
+      renderer.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)];
+      viewer.appendChild(renderer.domElement);
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.target.copy(basepoint);
+      const ambientLight = new THREE.AmbientLight(0xcccccc, 1.0);
+      scene.add(ambientLight);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      directionalLight.position.set(2, 3, 5);
+      scene.add(directionalLight);
+      // Fixed-position light source
+      const fixedLight = new THREE.PointLight(0xffffff, 0.8);
+      fixedLight.position.set(-3, 4, 10);
+      scene.add(fixedLight);
+      const basepointGeom = new THREE.SphereGeometry(0.1, 16, 16);
+      const basepointMat = new THREE.MeshStandardMaterial({ color: 0xffeb3b });
+      const basepointMesh = new THREE.Mesh(basepointGeom, basepointMat);
+      basepointMesh.position.copy(basepoint);
+      scene.add(basepointMesh);
+      window.basepointMesh = basepointMesh;
+      // --- Sync basepoint sphere visibility with checkbox ---
+      const bpCb = document.getElementById('toggleBasepoint');
+      basepointMesh.visible = bpCb ? bpCb.checked : false;
+      // Opaque white plane slightly above the boundary (z = 0.05)
+      const floorGeom = new THREE.PlaneGeometry(200, 200);
+      const floorMat = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+      floor = new THREE.Mesh(floorGeom, floorMat);
+      floor.position.set(0, 0, 0.05);
+      scene.add(floor);
+      const floorCb = document.getElementById('toggleFloor');
+      floor.visible = floorCb ? floorCb.checked : false;
+      scene.add(polyhedronGroup);
+      scene.add(delaunayGroup);
+      scene.add(orbitGroup);
+      scene.add(dirichletGroup);
+      window.addEventListener('resize', onWindowResize, false);
+      animate();
+    }
+
+    function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+    function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+
+    // --- Complex Number and Matrix Logic ---
+    class Complex {
+      constructor(re = 0, im = 0) { this.re = re; this.im = im; }
+      add(z) { return new Complex(this.re + z.re, this.im + z.im); }
+      sub(z) { return new Complex(this.re - z.re, this.im - z.im); }
+      mul(z) { return new Complex(this.re * z.re - this.im * z.im, this.re * z.im + this.im * z.re); }
+      div(z) {
+        const denom = z.re * z.re + z.im * z.im;
+        if (denom === 0) return new Complex(Infinity, Infinity);
+        return new Complex((this.re * z.re + this.im * z.im) / denom, (this.im * z.re - this.re * z.im) / denom);
+      }
+      conjugate() { return new Complex(this.re, -this.im); }
+      normSq() { return this.re * this.re + this.im * this.im; }
+      abs() { return Math.sqrt(this.normSq()); }
+      toString() {
+        const formatNum = (x) => {
+          // show integers without decimals, otherwise trim trailing zeros
+          if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x));
+          return String(parseFloat(x.toFixed(6)));
+        };
+        const reZero = Math.abs(this.re) < 1e-9;
+        const imZero = Math.abs(this.im) < 1e-9;
+
+        // purely real
+        if (imZero) return formatNum(this.re);
+
+        // purely imaginary
+        if (reZero) {
+          const coeff = this.im === 1 ? '' : this.im === -1 ? '-' : formatNum(this.im);
+          return `${coeff}i`;
+        }
+
+        // generic complex number
+        const rePart = formatNum(this.re);
+        const imAbs = Math.abs(this.im);
+        const imPart = imAbs === 1 ? 'i' : `${formatNum(imAbs)}i`;
+        const sign = this.im < 0 ? '-' : '+';
+        return `${rePart} ${sign} ${imPart}`;
+      }
+    }
+
+    function parseComplex(str) {
+      let s = str.trim().replace(/\s/g, '').toLowerCase();
+      if (s.length === 0) return new Complex(0, 0);
+      s = s.replace(/^i$/, '1i').replace(/^-i$/, '-1i').replace(/\+i$/, '+1i').replace(/-i$/, '-1i');
+      let real = 0, imag = 0;
+      const terms = s.match(/[+-]?(?:[^+-]+)/g) || [];
+      for (const term of terms) {
+        if (term.endsWith('i')) {
+          const coeffStr = term.substring(0, term.length - 1);
+          imag += parseFloat(coeffStr === '' || coeffStr === '+' ? '1' : (coeffStr === '-' ? '-1' : coeffStr));
+        } else if (term.includes('sqrt')) {
+          const numMatch = term.match(/sqrt\(([^)]+)\)/);
+          if (numMatch && numMatch[1]) {
+            real += (term.startsWith('-') ? -1 : 1) * Math.sqrt(parseFloat(numMatch[1]));
           }
+        } else {
+          real += parseFloat(term);
+        }
+      }
+      return new Complex(real, imag);
+    }
 
-          let startX = 0, startY = 0, startW = 0, startH = 0, resizing = false;
-          const MIN_W = 220, MAX_W = 640;
-          const MIN_H = 160;
+    function latexToExpr(latex) {
+      if (!latex || typeof latex !== 'string') return '0';
+      // Start from the input LaTeX
+      let parserString = String(latex);
 
-          function maxHeight() {
-            return Math.max(240, Math.floor(window.innerHeight * 0.9));
+      // Normalize common wrappers / symbols
+      parserString = parserString.replace(/\\left|\\right/g, '');
+      // Normalize Unicode minus (U+2212) to ASCII '-'
+      parserString = parserString.replace(/\u2212/g, '-');
+      // Normalize common LaTeX forms of i to plain 'i'
+      parserString = parserString.replace(/\\mathrm\{?i\}?/g, 'i');
+      parserString = parserString.replace(/\\operatorname\{?i\}?/g, 'i');
+
+      // The order of these replacements is important (from mathParserSimple.html)
+      parserString = parserString.replace(/\\frac\{(.+?)\}\{(.+?)\}/g, '($1)/($2)');
+      parserString = parserString.replace(/\\sqrt\[(.+?)\]\{(.+?)\}/g, 'nthRoot($2, $1)');
+      parserString = parserString.replace(/\\sqrt\{(.+?)\}/g, 'sqrt($1)');
+      // Convert x_{...} and x_... to x... (variable names)
+      parserString = parserString.replace(/x_\{(.+?)\}/g, 'x$1');
+      parserString = parserString.replace(/x_(\d+)/g, 'x$1');
+      // Trig and hyperbolic functions
+      parserString = parserString.replace(/\\(sin|cos|tan|csc|sec|cot|sinh|cosh|tanh)h?\((.*?)\)/g, '$1($2)');
+      // Logs
+      parserString = parserString.replace(/\\log_\{(.+?)\}\((.+?)\)/g, 'log($2, $1)');
+      parserString = parserString.replace(/\\ln\((.+?)\)/g, 'log($1)');
+      // Constants and operators
+      parserString = parserString.replace(/\\pi/g, 'pi');
+      parserString = parserString.replace(/\\times/g, '*');
+      parserString = parserString.replace(/\\div/g, '/');
+      // Exponentials e^{...}
+      parserString = parserString.replace(/e\^\{(.+?)\}/g, 'exp($1)');
+      // Absolute value \left|...\right|
+      parserString = parserString.replace(/\\left\|(.+?)\\right\|/g, 'abs($1)');
+      // Superscripts ^{...}
+      parserString = parserString.replace(/\^\{(.+?)\}/g, '^($1)');
+      // Parentheses cleanup
+      parserString = parserString.replace(/\\left\(/g, '(');
+      parserString = parserString.replace(/\\right\)/g, ')');
+      // Allow ** as exponent operator
+      parserString = parserString.replace(/\*\*/g, '^');
+
+      return parserString.trim();
+    }
+    function evalComplexExpression(expr) {
+      try {
+        if (typeof expr !== 'string') expr = String(expr || '0');
+        // Normalize Unicode minus just in case
+        expr = expr.replace(/\u2212/g, '-');
+        const val = math.evaluate(expr);
+
+        // Convert math.js values to local Complex
+        function toComplex(v) {
+          if (v == null) return new Complex(0, 0);
+          // math.js Complex has .re and .im
+          if (typeof v === 'object' && typeof v.re === 'number' && typeof v.im === 'number') {
+            return new Complex(v.re, v.im);
           }
-
-          function onMouseMove(e) {
-            if (!resizing) return;
-            const dx = e.clientX - startX; // leftward drag => negative
-            const dy = e.clientY - startY; // downward drag => positive
-
-            // Panel is positioned with right:10px, so increasing width expands to the left
-            const newW = Math.min(MAX_W, Math.max(MIN_W, startW - dx));
-            const newH = Math.min(maxHeight(), Math.max(MIN_H, startH + dy));
-
-            panel.style.width = newW + 'px';
-            panel.style.height = newH + 'px';
+          // BigNumber, Fraction, etc. -> number
+          if (typeof v === 'object' && typeof v.valueOf === 'function') {
+            const num = Number(v.valueOf());
+            if (!Number.isNaN(num)) return new Complex(num, 0);
           }
-
-          function stopResize() {
-            if (!resizing) return;
-            resizing = false;
-            panel.classList.remove('resizing');
-            document.removeEventListener('mousemove', onMouseMove);
-            document.removeEventListener('mouseup', stopResize);
+          // plain number
+          if (typeof v === 'number') return new Complex(v, 0);
+          // string (fallback: try to parse)
+          if (typeof v === 'string') {
+            const n = Number(v);
+            if (!Number.isNaN(n)) return new Complex(n, 0);
           }
-
-          handle.addEventListener('mousedown', (e) => {
-            // Ignore when panel is in compact hidden state
-            if (panel.classList.contains('hidden')) return;
-            e.preventDefault();
-            const rect = panel.getBoundingClientRect();
-            startX = e.clientX;
-            startY = e.clientY;
-            startW = rect.width;
-            startH = rect.height;
-            resizing = true;
-            panel.classList.add('resizing');
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', stopResize);
-          });
-
-          window.addEventListener('resize', () => {
-            // Keep height within viewport bounds if the window gets smaller
-            const h = parseInt(panel.style.height || '0', 10);
-            if (h && h > maxHeight()) panel.style.height = maxHeight() + 'px';
-          });
+          // Unhandled -> NaN
+          return new Complex(NaN, NaN);
         }
 
-        function updatePanelPage() {
-          const p1 = document.getElementById('panelPage1');
-          const p2 = document.getElementById('panelPage2');
-          const p3 = document.getElementById('panelPage3');
-          if (p1) p1.style.display = (currentPage === 1) ? '' : 'none';
-          if (p2) p2.style.display = (currentPage === 2) ? '' : 'none';
-          if (p3) p3.style.display = (currentPage === 3) ? '' : 'none';
-          // Gray/disable pager arrows at bounds
-          const prevBtn = document.getElementById('prevPageBtn');
-          const nextBtn = document.getElementById('nextPageBtn');
-          if (prevBtn) {
-            const atStart = currentPage === 1;
-            prevBtn.disabled = atStart;
-            prevBtn.style.color = atStart ? '#9ca3af' : '';
-            prevBtn.style.opacity = atStart ? '0.6' : '';
-            prevBtn.style.cursor = atStart ? 'default' : 'pointer';
-          }
-          if (nextBtn) {
-            const atEnd = currentPage === NUM_PAGES;
-            nextBtn.disabled = atEnd;
-            nextBtn.style.color = atEnd ? '#9ca3af' : '';
-            nextBtn.style.opacity = atEnd ? '0.6' : '';
-            nextBtn.style.cursor = atEnd ? 'default' : 'pointer';
-          }
-        }
+        return toComplex(val);
+      } catch (e) {
+        return new Complex(NaN, NaN);
+      }
+    }
 
-        function init() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x111827);
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, -5, 3);
-            camera.up.set(0, 0, 1);
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.localClippingEnabled = true;
-            renderer.clippingPlanes = [ new THREE.Plane(new THREE.Vector3(0, 0, 1), 0) ];
-            viewer.appendChild(renderer.domElement);
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            controls.target.copy(basepoint);
-            const ambientLight = new THREE.AmbientLight(0xcccccc, 1.0);
-            scene.add(ambientLight);
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
-            directionalLight.position.set(2, 3, 5);
-            scene.add(directionalLight);
-            // Fixed-position light source
-            const fixedLight = new THREE.PointLight(0xffffff, 0.8);
-            fixedLight.position.set(-3, 4, 10);
-            scene.add(fixedLight);
-            const basepointGeom = new THREE.SphereGeometry(0.1, 16, 16);
-            const basepointMat = new THREE.MeshStandardMaterial({ color: 0xffeb3b });
-            const basepointMesh = new THREE.Mesh(basepointGeom, basepointMat);
-            basepointMesh.position.copy(basepoint);
-            scene.add(basepointMesh);
-            window.basepointMesh = basepointMesh;
-            // --- Sync basepoint sphere visibility with checkbox ---
-            const bpCb = document.getElementById('toggleBasepoint');
-            basepointMesh.visible = bpCb ? bpCb.checked : false;
-            // Opaque white plane slightly above the boundary (z = 0.05)
-            const floorGeom = new THREE.PlaneGeometry(200, 200);
-            const floorMat = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide });
-            floor = new THREE.Mesh(floorGeom, floorMat);
-            floor.position.set(0, 0, 0.05);
-            scene.add(floor);
-            const floorCb = document.getElementById('toggleFloor');
-            floor.visible = floorCb ? floorCb.checked : false;
-            scene.add(polyhedronGroup);
-            scene.add(delaunayGroup);
-            scene.add(orbitGroup);
-            scene.add(dirichletGroup);
-            window.addEventListener('resize', onWindowResize, false);
-            animate();
-        }
+    class Matrix2 {
+      constructor(a, b, c, d) { this.a = a; this.b = b; this.c = c; this.d = d; }
+      multiply(m) { return new Matrix2(this.a.mul(m.a).add(this.b.mul(m.c)), this.a.mul(m.b).add(this.b.mul(m.d)), this.c.mul(m.a).add(this.d.mul(m.c)), this.c.mul(m.b).add(this.d.mul(m.d))); }
+      inverse() {
+        const det = this.a.mul(this.d).sub(this.b.mul(this.c));
+        if (det.normSq() === 0) return null;
+        const invDet = new Complex(1, 0).div(det);
+        return new Matrix2(this.d.mul(invDet), this.b.mul(new Complex(-1, 0)).mul(invDet), this.c.mul(new Complex(-1, 0)).mul(invDet), this.a.mul(invDet));
+      }
+      isIdentity() {
+        return Math.abs(this.a.re - 1) < 1e-9 && Math.abs(this.a.im) < 1e-9 &&
+          Math.abs(this.b.re) < 1e-9 && Math.abs(this.b.im) < 1e-9 &&
+          Math.abs(this.c.re) < 1e-9 && Math.abs(this.c.im) < 1e-9 &&
+          Math.abs(this.d.re - 1) < 1e-9 && Math.abs(this.d.im) < 1e-9;
+      }
+      trace() {
+        return this.a.add(this.d);
+      }
+      neg() {
+        const minus = new Complex(-1, 0);
+        return new Matrix2(
+          this.a.mul(minus), this.b.mul(minus),
+          this.c.mul(minus), this.d.mul(minus)
+        );
+      }
+    }
 
-        function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
-        function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
+    function isClose(x, y, tol = 1e-6) { return Math.abs(x - y) < tol; }
+    function isZero(z, tol = 1e-6) { return Math.abs(z.re) < tol && Math.abs(z.im) < tol; }
 
-        // --- Complex Number and Matrix Logic ---
-        class Complex {
-            constructor(re = 0, im = 0) { this.re = re; this.im = im; }
-            add(z) { return new Complex(this.re + z.re, this.im + z.im); }
-            sub(z) { return new Complex(this.re - z.re, this.im - z.im); }
-            mul(z) { return new Complex(this.re * z.re - this.im * z.im, this.re * z.im + this.im * z.re); }
-            div(z) {
-                const denom = z.re * z.re + z.im * z.im;
-                if (denom === 0) return new Complex(Infinity, Infinity);
-                return new Complex((this.re * z.re + this.im * z.im) / denom, (this.im * z.re - this.re * z.im) / denom);
-            }
-            conjugate() { return new Complex(this.re, -this.im); }
-            normSq() { return this.re * this.re + this.im * this.im; }
-            abs() { return Math.sqrt(this.normSq()); }
-            toString() {
-                const formatNum = (x) => {
-                    // show integers without decimals, otherwise trim trailing zeros
-                    if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x));
-                    return String(parseFloat(x.toFixed(6)));
-                };
-                const reZero  = Math.abs(this.re) < 1e-9;
-                const imZero  = Math.abs(this.im) < 1e-9;
+    // --- Global de-duplication helpers ---
+    const KEY_SCALE = 1e6; // tolerance ~1e-6
+    function keyFromNumber(x, scale = KEY_SCALE) { return Math.round(x * scale); }
+    function keyFromVec(vec, scale = KEY_SCALE) {
+      return `${keyFromNumber(vec.x, scale)}:${keyFromNumber(vec.y, scale)}:${keyFromNumber(vec.z, scale)}`;
+    }
+    // --- PSL(2, C) canonicalization helpers ---
+    // Identify matrices up to overall sign via a deterministic tie-break
+    function canonicalizePSL(m) {
+      // Use first nonzero among [a.re, a.im, b.re, b.im, c.re, c.im, d.re, d.im]
+      const arr = [m.a.re, m.a.im, m.b.re, m.b.im, m.c.re, m.c.im, m.d.re, m.d.im];
+      let flip = false;
+      for (const v of arr) {
+        if (Math.abs(v) > 1e-12) { if (v < 0) flip = true; break; }
+      }
+      return flip ? m.neg() : m;
+    }
 
-                // purely real
-                if (imZero) return formatNum(this.re);
+    // Prefer a representative whose trace is (numerically) real and ≥ 0
+    function repWithNonnegativeRealTrace(m, tol = 1e-9) {
+      const tr = m.trace();
+      if (Math.abs(tr.im) < tol && tr.re < -tol) return m.neg();
+      return m;
+    }
+    function keyFromMatrix(m, scale = KEY_SCALE) {
+      // Canonicalize up to ±I so m and -m dedupe to the same key
+      const mc = canonicalizePSL(m);
+      const parts = [mc.a.re, mc.a.im, mc.b.re, mc.b.im, mc.c.re, mc.c.im, mc.d.re, mc.d.im]
+        .map(v => keyFromNumber(v, scale));
+      return parts.join(';');
+    }
 
-                // purely imaginary
-                if (reZero) {
-                    const coeff = this.im === 1 ? '' : this.im === -1 ? '-' : formatNum(this.im);
-                    return `${coeff}i`;
-                }
+    // Check if m ∈ SU(2): columns orthonormal and det ≈ 1
+    function isUnitary(m, tol = 1e-6) {
+      // Column norms
+      const n1 = m.a.normSq() + m.c.normSq();
+      const n2 = m.b.normSq() + m.d.normSq();
+      // Column orthogonality: a\bar b + c\bar d ≈ 0
+      const ab = m.a.mul(m.b.conjugate());
+      const cd = m.c.mul(m.d.conjugate());
+      const ip = new Complex(ab.re + cd.re, ab.im + cd.im); // a\bar b + c\bar d
+      // det ≈ 1 (real)
+      const det = m.a.mul(m.d).sub(m.b.mul(m.c));
+      return isClose(n1, 1, tol) && isClose(n2, 1, tol) && isZero(ip, tol) && isClose(det.re, 1, tol) && Math.abs(det.im) < tol;
+    }
 
-                // generic complex number
-                const rePart = formatNum(this.re);
-                const imAbs  = Math.abs(this.im);
-                const imPart = imAbs === 1 ? 'i' : `${formatNum(imAbs)}i`;
-                const sign   = this.im < 0 ? '-' : '+';
-                return `${rePart} ${sign} ${imPart}`;
-            }
-        }
+    function matrixToString(m) {
+      const a = m.a.toString(), b = m.b.toString(), c = m.c.toString(), d = m.d.toString();
+      return `[[${a}, ${b}],\n [${c}, ${d}]]`;
+    }
 
-        function parseComplex(str) {
-            let s = str.trim().replace(/\s/g, '').toLowerCase();
-            if (s.length === 0) return new Complex(0, 0);
-            s = s.replace(/^i$/, '1i').replace(/^-i$/, '-1i').replace(/\+i$/, '+1i').replace(/-i$/, '-1i');
-            let real = 0, imag = 0;
-            const terms = s.match(/[+-]?(?:[^+-]+)/g) || [];
-            for (const term of terms) {
-                if (term.endsWith('i')) {
-                    const coeffStr = term.substring(0, term.length - 1);
-                    imag += parseFloat(coeffStr === '' || coeffStr === '+' ? '1' : (coeffStr === '-' ? '-1' : coeffStr));
-                } else if (term.includes('sqrt')) {
-                    const numMatch = term.match(/sqrt\(([^)]+)\)/);
-                    if (numMatch && numMatch[1]) {
-                        real += (term.startsWith('-') ? -1 : 1) * Math.sqrt(parseFloat(numMatch[1]));
-                    }
-                } else {
-                    real += parseFloat(term);
-                }
-            }
-            return new Complex(real, imag);
-        }
-        
-        function latexToExpr(latex) {
-          if (!latex || typeof latex !== 'string') return '0';
-          // Start from the input LaTeX
-          let parserString = String(latex);
+    // Complex/Matrix → LaTeX
+    function complexToLatex(z) {
+      const re = Math.abs(z.re) < 1e-9 ? 0 : z.re;
+      const im = Math.abs(z.im) < 1e-9 ? 0 : z.im;
+      const fmt = (v) => (Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v)) : String(parseFloat(v.toFixed(6))));
+      if (im === 0) return fmt(re);
+      if (re === 0) return im === 1 ? 'i' : (im === -1 ? '-i' : fmt(im) + 'i');
+      const sign = im < 0 ? ' - ' : ' + ';
+      const iabs = Math.abs(im);
+      const imag = iabs === 1 ? 'i' : fmt(iabs) + 'i';
+      return fmt(re) + sign + imag;
+    }
 
-          // Normalize common wrappers / symbols
-          parserString = parserString.replace(/\\left|\\right/g, '');
-          // Normalize Unicode minus (U+2212) to ASCII '-'
-          parserString = parserString.replace(/\u2212/g, '-');
-          // Normalize common LaTeX forms of i to plain 'i'
-          parserString = parserString.replace(/\\mathrm\{?i\}?/g, 'i');
-          parserString = parserString.replace(/\\operatorname\{?i\}?/g, 'i');
+    function matrixToLatex(m) {
+      return `\\( \\begin{pmatrix} ${complexToLatex(m.a)} & ${complexToLatex(m.b)} \\\\ ${complexToLatex(m.c)} & ${complexToLatex(m.d)} \\end{pmatrix} \\)`;
+    }
 
-          // The order of these replacements is important (from mathParserSimple.html)
-          parserString = parserString.replace(/\\frac\{(.+?)\}\{(.+?)\}/g, '($1)/($2)');
-          parserString = parserString.replace(/\\sqrt\[(.+?)\]\{(.+?)\}/g, 'nthRoot($2, $1)');
-          parserString = parserString.replace(/\\sqrt\{(.+?)\}/g, 'sqrt($1)');
-          // Convert x_{...} and x_... to x... (variable names)
-          parserString = parserString.replace(/x_\{(.+?)\}/g, 'x$1');
-          parserString = parserString.replace(/x_(\d+)/g, 'x$1');
-          // Trig and hyperbolic functions
-          parserString = parserString.replace(/\\(sin|cos|tan|csc|sec|cot|sinh|cosh|tanh)h?\((.*?)\)/g, '$1($2)');
-          // Logs
-          parserString = parserString.replace(/\\log_\{(.+?)\}\((.+?)\)/g, 'log($2, $1)');
-          parserString = parserString.replace(/\\ln\((.+?)\)/g, 'log($1)');
-          // Constants and operators
-          parserString = parserString.replace(/\\pi/g, 'pi');
-          parserString = parserString.replace(/\\times/g, '*');
-          parserString = parserString.replace(/\\div/g, '/');
-          // Exponentials e^{...}
-          parserString = parserString.replace(/e\^\{(.+?)\}/g, 'exp($1)');
-          // Absolute value \left|...\right|
-          parserString = parserString.replace(/\\left\|(.+?)\\right\|/g, 'abs($1)');
-          // Superscripts ^{...}
-          parserString = parserString.replace(/\^\{(.+?)\}/g, '^($1)');
-          // Parentheses cleanup
-          parserString = parserString.replace(/\\left\(/g, '(');
-          parserString = parserString.replace(/\\right\)/g, ')');
-          // Allow ** as exponent operator
-          parserString = parserString.replace(/\*\*/g, '^');
+    // --- UI Logic (Limitsets-style panel) ---
+    const generators = [];
+    const messageBox = document.getElementById('message-box');
+    function typesetMath() {
+      if (window.MathJax && MathJax.typesetPromise) {
+        // Only typeset the control panel where the math appears
+        MathJax.typesetPromise([document.getElementById('controlPanel')]).catch(() => { });
+      }
+    }
 
-          return parserString.trim();
-        }
-        function evalComplexExpression(expr) {
-          try {
-            if (typeof expr !== 'string') expr = String(expr || '0');
-            // Normalize Unicode minus just in case
-            expr = expr.replace(/\u2212/g, '-');
-            const val = math.evaluate(expr);
+    function showMessage(message, isError = false) {
+      messageBox.textContent = message;
+      messageBox.className = isError ? 'error' : '';
+      messageBox.style.display = 'block';
+      clearTimeout(showMessage._t);
+      showMessage._t = setTimeout(() => { messageBox.style.display = 'none'; }, 4000);
+    }
 
-            // Convert math.js values to local Complex
-            function toComplex(v) {
-              if (v == null) return new Complex(0, 0);
-              // math.js Complex has .re and .im
-              if (typeof v === 'object' && typeof v.re === 'number' && typeof v.im === 'number') {
-                return new Complex(v.re, v.im);
-              }
-              // BigNumber, Fraction, etc. -> number
-              if (typeof v === 'object' && typeof v.valueOf === 'function') {
-                const num = Number(v.valueOf());
-                if (!Number.isNaN(num)) return new Complex(num, 0);
-              }
-              // plain number
-              if (typeof v === 'number') return new Complex(v, 0);
-              // string (fallback: try to parse)
-              if (typeof v === 'string') {
-                const n = Number(v);
-                if (!Number.isNaN(n)) return new Complex(n, 0);
-              }
-              // Unhandled -> NaN
-              return new Complex(NaN, NaN);
-            }
-
-            return toComplex(val);
-          } catch (e) {
-            return new Complex(NaN, NaN);
-          }
-        }
-        
-        class Matrix2 {
-            constructor(a, b, c, d) { this.a = a; this.b = b; this.c = c; this.d = d; }
-            multiply(m) { return new Matrix2(this.a.mul(m.a).add(this.b.mul(m.c)), this.a.mul(m.b).add(this.b.mul(m.d)), this.c.mul(m.a).add(this.d.mul(m.c)), this.c.mul(m.b).add(this.d.mul(m.d))); }
-            inverse() {
-                const det = this.a.mul(this.d).sub(this.b.mul(this.c));
-                if (det.normSq() === 0) return null;
-                const invDet = new Complex(1, 0).div(det);
-                return new Matrix2(this.d.mul(invDet), this.b.mul(new Complex(-1, 0)).mul(invDet), this.c.mul(new Complex(-1, 0)).mul(invDet), this.a.mul(invDet));
-            }
-            isIdentity() {
-                return Math.abs(this.a.re - 1) < 1e-9 && Math.abs(this.a.im) < 1e-9 &&
-                       Math.abs(this.b.re) < 1e-9 && Math.abs(this.b.im) < 1e-9 &&
-                       Math.abs(this.c.re) < 1e-9 && Math.abs(this.c.im) < 1e-9 &&
-                       Math.abs(this.d.re - 1) < 1e-9 && Math.abs(this.d.im) < 1e-9;
-            }
-            trace() {
-                return this.a.add(this.d);
-            }
-            neg() {
-                const minus = new Complex(-1, 0);
-                return new Matrix2(
-                    this.a.mul(minus), this.b.mul(minus),
-                    this.c.mul(minus), this.d.mul(minus)
-                );
-            }
-        }
-
-        function isClose(x, y, tol = 1e-6) { return Math.abs(x - y) < tol; }
-        function isZero(z, tol = 1e-6) { return Math.abs(z.re) < tol && Math.abs(z.im) < tol; }
-
-        // --- Global de-duplication helpers ---
-        const KEY_SCALE = 1e6; // tolerance ~1e-6
-        function keyFromNumber(x, scale = KEY_SCALE) { return Math.round(x * scale); }
-        function keyFromVec(vec, scale = KEY_SCALE) {
-          return `${keyFromNumber(vec.x, scale)}:${keyFromNumber(vec.y, scale)}:${keyFromNumber(vec.z, scale)}`;
-        }
-        // --- PSL(2, C) canonicalization helpers ---
-        // Identify matrices up to overall sign via a deterministic tie-break
-        function canonicalizePSL(m) {
-          // Use first nonzero among [a.re, a.im, b.re, b.im, c.re, c.im, d.re, d.im]
-          const arr = [m.a.re, m.a.im, m.b.re, m.b.im, m.c.re, m.c.im, m.d.re, m.d.im];
-          let flip = false;
-          for (const v of arr) {
-            if (Math.abs(v) > 1e-12) { if (v < 0) flip = true; break; }
-          }
-          return flip ? m.neg() : m;
-        }
-
-        // Prefer a representative whose trace is (numerically) real and ≥ 0
-        function repWithNonnegativeRealTrace(m, tol = 1e-9) {
-          const tr = m.trace();
-          if (Math.abs(tr.im) < tol && tr.re < -tol) return m.neg();
-          return m;
-        }
-        function keyFromMatrix(m, scale = KEY_SCALE) {
-          // Canonicalize up to ±I so m and -m dedupe to the same key
-          const mc = canonicalizePSL(m);
-          const parts = [mc.a.re, mc.a.im, mc.b.re, mc.b.im, mc.c.re, mc.c.im, mc.d.re, mc.d.im]
-            .map(v => keyFromNumber(v, scale));
-          return parts.join(';');
-        }
-
-        // Check if m ∈ SU(2): columns orthonormal and det ≈ 1
-        function isUnitary(m, tol = 1e-6) {
-          // Column norms
-          const n1 = m.a.normSq() + m.c.normSq();
-          const n2 = m.b.normSq() + m.d.normSq();
-          // Column orthogonality: a\bar b + c\bar d ≈ 0
-          const ab = m.a.mul(m.b.conjugate());
-          const cd = m.c.mul(m.d.conjugate());
-          const ip = new Complex(ab.re + cd.re, ab.im + cd.im); // a\bar b + c\bar d
-          // det ≈ 1 (real)
-          const det = m.a.mul(m.d).sub(m.b.mul(m.c));
-          return isClose(n1, 1, tol) && isClose(n2, 1, tol) && isZero(ip, tol) && isClose(det.re, 1, tol) && Math.abs(det.im) < tol;
-        }
-
-        function matrixToString(m) {
-          const a = m.a.toString(), b = m.b.toString(), c = m.c.toString(), d = m.d.toString();
-          return `[[${a}, ${b}],\n [${c}, ${d}]]`;
-        }
-
-        // Complex/Matrix → LaTeX
-        function complexToLatex(z) {
-          const re = Math.abs(z.re) < 1e-9 ? 0 : z.re;
-          const im = Math.abs(z.im) < 1e-9 ? 0 : z.im;
-          const fmt = (v) => (Math.abs(v - Math.round(v)) < 1e-9 ? String(Math.round(v)) : String(parseFloat(v.toFixed(6))));
-          if (im === 0) return fmt(re);
-          if (re === 0) return im === 1 ? 'i' : (im === -1 ? '-i' : fmt(im) + 'i');
-          const sign = im < 0 ? ' - ' : ' + ';
-          const iabs = Math.abs(im);
-          const imag = iabs === 1 ? 'i' : fmt(iabs) + 'i';
-          return fmt(re) + sign + imag;
-        }
-
-        function matrixToLatex(m) {
-          return `\\( \\begin{pmatrix} ${complexToLatex(m.a)} & ${complexToLatex(m.b)} \\\\ ${complexToLatex(m.c)} & ${complexToLatex(m.d)} \\end{pmatrix} \\)`;
-        }
-
-        // --- UI Logic (Limitsets-style panel) ---
-        const generators = [];
-        const messageBox = document.getElementById('message-box');
-        function typesetMath() {
-          if (window.MathJax && MathJax.typesetPromise) {
-            // Only typeset the control panel where the math appears
-            MathJax.typesetPromise([document.getElementById('controlPanel')]).catch(() => {});
-          }
-        }
-
-        function showMessage(message, isError = false) {
-          messageBox.textContent = message;
-          messageBox.className = isError ? 'error' : '';
-          messageBox.style.display = 'block';
-          clearTimeout(showMessage._t);
-          showMessage._t = setTimeout(() => { messageBox.style.display = 'none'; }, 4000);
-        }
-
-        function addMatrixInput(values=['1','0','0','1']) {
-          const idx = document.querySelectorAll('#matrixInputs .matrix-block').length;
-          const container = document.createElement('div');
-          container.className = 'matrix-block';
-          container.innerHTML = `
+    function addMatrixInput(values = ['1', '0', '0', '1']) {
+      const idx = document.querySelectorAll('#matrixInputs .matrix-block').length;
+      const container = document.createElement('div');
+      container.className = 'matrix-block';
+      container.innerHTML = `
             <div style="display:flex;align-items:center;">
               <label style="flex-grow:1;">
-                <span class="matrix-label">\\( g_{${idx+1}} = \\)</span>
+                <span class="matrix-label">\\( g_{${idx + 1}} = \\)</span>
                 <span class="matrix-bracket">(</span>
                 <span class="matrix-grid-inline">
                     <span class="mq-matrix-input" data-initial="${values[0]}"></span>
@@ -632,976 +740,893 @@
               </label>
               <button class="delete-matrix-btn" style="margin-left:8px;width:26px;height:30px;">✖</button>
             </div>`;
-          container.querySelector('.delete-matrix-btn').addEventListener('click', () => {
-            container.remove();
-            const labels = document.querySelectorAll('#matrixInputs .matrix-label');
-            labels.forEach((lbl,i)=>{ lbl.innerHTML = `\\( g_{${i+1}} = \\)`; });
-            typesetMath();
-          });
-          document.getElementById('matrixInputs').appendChild(container);
-          const MQ = window.MathQuill ? window.MathQuill.getInterface(2) : null;
-            if (MQ) {
-            const spans = container.querySelectorAll('.mq-matrix-input');
-            spans.forEach(span => {
-                const mf = MQ.MathField(span, { spaceBehavesLikeTab: true, handlers: { edit: () => {} } });
-                const init = span.getAttribute('data-initial') || '0';
-                const normalized = String(init).replace(/\*\*/g, '^');
-                mf.latex(normalized);
-                span.MathQuill = () => mf; // store accessor for rebuild step
-            });
-            }
-          const labels = document.querySelectorAll('#matrixInputs .matrix-label');
-          labels.forEach((lbl,i)=>{ lbl.innerHTML = `\\( g_{${i+1}} = \\)`; });
-          typesetMath();
-        }
-
-        function rebuildGeneratorsFromUI() {
-          generators.length = 0;
-          const blocks = document.querySelectorAll('#matrixInputs .matrix-block');
-          for (const block of blocks) {
-            const spans = block.querySelectorAll('.mq-matrix-input');
-            const getLatex = (el) => { try { const api = el && typeof el.MathQuill === 'function' ? el.MathQuill() : null; return api && typeof api.latex === 'function' ? api.latex() : (el ? el.textContent : '0'); } catch { return '0'; } };
-            const toC = (latex) => evalComplexExpression(latexToExpr(String(latex||'0')));
-            const a = toC(getLatex(spans[0]));
-            const b = toC(getLatex(spans[1]));
-            const c = toC(getLatex(spans[2]));
-            const d = toC(getLatex(spans[3]));
-            const det = a.mul(d).sub(b.mul(c));
-            // Allow arbitrary determinant; only require invertibility (det ≠ 0)
-            if (det.normSq() < 1e-12) {
-              showMessage('Matrix skipped: determinant is 0 (not invertible).', true);
-              continue;
-            }
-            generators.push(new Matrix2(a, b, c, d));
-          }
-        }
-
-        function setExample(example) {
-          document.getElementById('matrixInputs').innerHTML = '';
-          example.forEach(vals => addMatrixInput(vals.map(v => String(v).replace(/\*\*/g,'^'))));
-          typesetMath();
-        }
-
-        const exampleLibrary = [
-          { name: 'Apollonian Gasket', mats: [ ['1','1+i','0','1'], ['0','-1','1','0'] ] },
-          { name: 'Modular group', mats: [ ['1','1','0','1'], ['0','-1','1','0'] ] },
-          { name: 'Borromean rings group', mats: [ ['1','2','0','1'], ['1','i','0','1'], ['1','0','-1-i','1'] ] },
-          { name: 'Z[i] congruence', mats: [ ['1','2','0','1'], ['1','2i','0','1'], ['0','-1','1','0'] ] },
-          { name: 'Surface group', mats: [ ['2','-2','0','1/2'], ['3','4','2','3'] ] },
-          { name: 'Surface group 2', mats: [['\\sqrt{2}', '0', '0', '\\sqrt{\\frac{1}{2}}'], ['0', '-1', '1', '0'], ['1', '2', '2', '5']] },
-          { name: 'Figure eight knot group', mats: [ ['1','\\frac{-1+ \\sqrt{3} i}{2}','0','1'], ['1','0','1','1'] ] },
-          { name: 'Dense circles', mats: [ ['1','2i','0','1'], ['\\frac{1}{\\sqrt{2}}','\\frac{-1}{\\sqrt{2}}','\\frac{1}{\\sqrt{2}}','\\frac{1}{\\sqrt{2}}'] ] },
-          { name: 'P(1/3)', mats: [ ['1','\\frac{\\sqrt{7}+i}{2}','0','1'], ['0','-1','1','0'] ] },
-          { name: 'P(1/4)', mats: [ ['1','\\sqrt{1+\\sqrt{1+2i}}','0','1'], ['0','-1','1','0'] ] },
-          { name: 'P(2/5)', mats: [ ['1','1.1028+0.6655i','0','1'], ['0','-1','1','0'] ] },
-          { name: 'Hecke group', mats: [ ['1','2\\cos(\\frac{\\pi}{n})','0','1'], ['0','-1','1','0'] ] },
-          { name: 'Figure eight fiber', mats: [ ['\\frac{1+\\sqrt{3}i}{2}', '1', '\\frac{-1+\\sqrt{3}i}{2}', '1'], [ '\\frac{1+\\sqrt{3}i}{2}', '-1', '\\frac{1-\\sqrt{3}i}{2}', '1'] ] }
-        ];
-
-        function refreshExampleDropdown() {
-          const sel = document.getElementById('groupSelector');
-          if (!sel) return;
-          // preserve current selection name if possible
-          const prev = sel.value;
-          // Clear all except the first placeholder option
-          while (sel.options.length > 1) sel.remove(1);
-          exampleLibrary.forEach((ex, idx) => {
-            const opt = document.createElement('option');
-            opt.value = String(idx);
-            opt.textContent = ex.name || `Example ${idx+1}`;
-            sel.appendChild(opt);
-          });
-          if (prev && Number(prev) < exampleLibrary.length) sel.value = prev; // try to preserve selection
-        }
-        // Optional: expose for console use if the library is edited at runtime
-        window.refreshExampleDropdown = refreshExampleDropdown;
-
-        function setupPanelUI() {
-          // --- Floor toggle ---
-          const floorCb = document.getElementById('toggleFloor');
-          if (floorCb) floorCb.addEventListener('change', () => {
-            if (floor) floor.visible = floorCb.checked;
-          });
-          enableControlPanelResize();
-          document.getElementById('addMatrixBtn').addEventListener('click', () => addMatrixInput());
-          document.getElementById('updateGroupBtn').addEventListener('click', () => { 
-            rebuildGeneratorsFromUI(); 
-            generateAndDrawPolyhedron();
-            showMessage(`Generated polyhedron for word length ${document.getElementById('wordLength').value}.`);
-          });
-          document.getElementById('wordLength').addEventListener('change', () => {
-            rebuildGeneratorsFromUI();
-            generateAndDrawPolyhedron();
-          });
-          refreshExampleDropdown();
-          const groupSel = document.getElementById('groupSelector');
-          if (groupSel) groupSel.addEventListener('change', (e) => {
-            const idx = parseInt(e.target.value, 10);
-            if (!isNaN(idx) && exampleLibrary[idx]) {
-              setExample(exampleLibrary[idx].mats);
-              rebuildGeneratorsFromUI();
-              generateAndDrawPolyhedron();
-              typesetMath();
-            }
-          });
-          document.getElementById('newExampleBtn').addEventListener('click', () => {
-            const rand = exampleLibrary[Math.floor(Math.random()*exampleLibrary.length)];
-            setExample(rand.mats);
-            rebuildGeneratorsFromUI();
-            generateAndDrawPolyhedron();
-            typesetMath();
-          });
-          document.getElementById('toggleControlPanelBtn').addEventListener('click', () => {
-            const panel = document.getElementById('controlPanel');
-            panel.classList.toggle('hidden');
-            document.getElementById('toggleControlPanelBtn').setAttribute(
-              'aria-label', panel.classList.contains('hidden') ? 'Show panel' : 'Hide panel'
-            );
-          });
-          document.getElementById('resetViewBtn').addEventListener('click', () => {
-            camera.position.set(0, -5, 3);
-            controls.target.set(0, 0, 1);
-            controls.update();
-          });
-          // --- Save image button logic ---
-          const saveBtn = document.getElementById('saveImageBtn');
-          if (saveBtn) saveBtn.addEventListener('click', () => {
-            try {
-              // Render once to make sure the frame is up-to-date
-              if (renderer && scene && camera) {
-                renderer.render(scene, camera);
-              }
-              const dataURL = renderer && renderer.domElement ? renderer.domElement.toDataURL('image/png') : null;
-              if (!dataURL) return;
-
-              // Build a filename like dirichlet-YYYYMMDD-HHMMSS.png
-              const pad = (n) => String(n).padStart(2, '0');
-              const now = new Date();
-              const fname = `dirichlet-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.png`;
-
-              const a = document.createElement('a');
-              a.href = dataURL;
-              a.download = fname;
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-            } catch (e) {
-              // Fallback message if something goes wrong
-              showMessage('Could not save image. Try again after interacting with the scene.', true);
-            }
-          });
-          // --- Show stabilizer button logic ---
-          const stabBtn = document.getElementById('showStabilizerBtn');
-          if (stabBtn) stabBtn.addEventListener('click', () => {
-            rebuildGeneratorsFromUI();
-            const L = parseInt((document.getElementById('wordLength') || { value: 1 }).value) || 1;
-            const groupElements = generateGroupElements(generators, L);
-            const su2 = groupElements.filter(g => isUnitary(g));
-
-            // Ensure the identity matrix is included in the SU(2) list
-            const I = new Matrix2(
-              new Complex(1, 0), new Complex(0, 0),
-              new Complex(0, 0), new Complex(1, 0)
-            );
-            const hasIdentity = su2.some(m => typeof m.isIdentity === 'function' && m.isIdentity());
-            if (!hasIdentity) su2.unshift(I);
-
-            const out = document.getElementById('stabilizerOutput');
-            if (!out) return;
-            if (su2.length === 0) {
-              out.textContent = 'No SU(2) elements found among generated words.';
-            } else {
-              const items = su2.map((m, i) => `${i+1}. ${matrixToLatex(m)}`);
-              out.innerHTML = items.join('<br/><br/>');
-              if (window.MathJax && MathJax.typesetPromise) {
-                MathJax.typesetPromise([document.getElementById('controlPanel')]).catch(() => {});
-              }
-            }
-            showMessage(`Stabilizer elements found: ${su2.length}.`);
-          });
-
-          // --- Print standard generators (Delaunay neighbors) ---
-          const stdBtn = document.getElementById('printStdGensBtn');
-          if (stdBtn) stdBtn.addEventListener('click', () => {
-            rebuildGeneratorsFromUI();
-            const L = parseInt((document.getElementById('wordLength') || { value: 1 }).value) || 1;
-            const groupElements = generateGroupElements(generators, L);
-            const neighbors = computeDelaunayNeighbors(groupElements);
-            const out = document.getElementById('stdGensOutput');
-            if (!out) return;
-            if (!neighbors || neighbors.length === 0) {
-              out.textContent = 'No Delaunay neighbors found. Increase word length or adjust generators.';
-            } else {
-              const items = neighbors.map((obj, i) => {
-                const g = obj && obj.g ? repWithNonnegativeRealTrace(obj.g) : obj;
-                return `${i+1}. ${matrixToLatex(g)}`;
-              });
-              out.innerHTML = items.join('<br/><br/>');
-              if (window.MathJax && MathJax.typesetPromise) {
-                MathJax.typesetPromise([document.getElementById('controlPanel')]).catch(() => {});
-              }
-            }
-            showMessage(`Printed ${neighbors.length} standard generators (Delaunay neighbors).`);
-          });
-          // --- Compute standard generators ---
-          const computeBtn = document.getElementById('computeStdGensBtn');
-          if (computeBtn) computeBtn.addEventListener('click', () => {
-            rebuildGeneratorsFromUI();
-            const L = parseInt((document.getElementById('wordLength') || { value: 1 }).value) || 1;
-            const result = computeStandardGenerators(generators, L);
-
-            const gensArr   = Array.isArray(result) ? result : (result && result.gens) ? result.gens : [];
-            const level     = (result && typeof result.level === 'number') ? result.level : L;
-            const converged = !!(result && result.converged);
-
-            const out = document.getElementById('computeStdGensOutput');
-            if (!out) return;
-
-            if (!gensArr || gensArr.length === 0) {
-              out.textContent = 'No standard generators found.';
-            } else {
-              const items = gensArr.map((m, i) => `${i+1}. ${matrixToLatex(m)}`);
-              out.innerHTML = items.join('<br/><br/>')
-                + `<div style="margin-top:8px;color:#374151;font-size:12px;">(Returned level: ${level}${converged ? ' — converged' : ''})</div>`;
-              if (window.MathJax && MathJax.typesetPromise) {
-                MathJax.typesetPromise([document.getElementById('controlPanel')]).catch(() => {});
-              }
-            }
-            showMessage(`Computed ${gensArr.length} standard generators at level ${level}${converged ? ' (converged)' : ''}.`);
-          });
-          // --- Pager controls ---
-          const prevBtn = document.getElementById('prevPageBtn');
-          const nextBtn = document.getElementById('nextPageBtn');
-          if (prevBtn) prevBtn.addEventListener('click', () => {
-            if (currentPage <= 1) return;
-            currentPage = Math.max(1, currentPage - 1);
-            updatePanelPage();
-            typesetMath();
-          });
-          if (nextBtn) nextBtn.addEventListener('click', () => {
-            if (currentPage >= NUM_PAGES) return;
-            currentPage = Math.min(NUM_PAGES, currentPage + 1);
-            updatePanelPage();
-            typesetMath();
-          });
-          updatePanelPage();
-        }
-
-        // --- Hyperbolic Geometry & Drawing ---
-        function clearGroup(group){
-          while (group.children.length > 0) {
-            const obj = group.children[0];
-            group.remove(obj);
-            if (obj.geometry) obj.geometry.dispose();
-            if (obj.material) {
-              if (obj.material.dispose) obj.material.dispose();
-              // handle arrays of materials
-              if (Array.isArray(obj.material)) obj.material.forEach(m=>m && m.dispose && m.dispose());
-            }
-          }
-        }
-
-        function clearDelaunay(){ clearGroup(delaunayGroup); }
-        function clearOrbit(){ clearGroup(orbitGroup); }
-
-        // Hyperbolic distance in upper half-space H^3 with height = z > 0
-        function hDist(p, q) {
-          const dx = p.x - q.x, dy = p.y - q.y, dz = p.z - q.z;
-          const num = dx*dx + dy*dy + dz*dz;
-          const den = 2 * p.z * q.z;
-          const c = 1 + num / den;
-          return Math.acosh(Math.max(1, c));
-        }
-        
-        function clearPolyhedron(){ clearGroup(polyhedronGroup); }
-
-        function symmetrizeGroupElements(elements) {
-            const symElements = new Map();
-            elements.forEach(m => {
-                const key = keyFromMatrix(m);
-                if (!symElements.has(key)) {
-                    symElements.set(key, m);
-                }
-            });
-            return Array.from(symElements.values());
-        }
-
-        function generateGroupElements(gens, wordLength) {
-            const elements = new Map();
-            const initialSet = symmetrizeGroupElements([
-                ...gens,
-                ...gens.map(g => g.inverse()).filter(Boolean)
-            ]);
-
-            let queue = [...initialSet];
-            const I = new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0));
-            const identityKey = keyFromMatrix(I);
-            elements.set(identityKey, I);
-            
-            queue.forEach(g => {
-                const key = keyFromMatrix(g);
-                elements.set(key, g);
-            });
-
-            for (let l = 1; l < wordLength; l++) {
-                const nextQueue = [];
-                for (const word of queue) {
-                    for (const g of initialSet) {
-                        const newWord = word.multiply(g);
-                        if (newWord.isIdentity()) continue;
-                        const key = keyFromMatrix(newWord);
-                        if (!elements.has(key)) {
-                            elements.set(key, newWord);
-                            nextQueue.push(newWord);
-                        }
-                    }
-                }
-                queue = nextQueue;
-            }
-            
-            const out = Array.from(elements.entries())
-              .filter(([k, _]) => k !== identityKey)
-              .map(([_, v]) => v);
-            return out;
-        }
-        // Image of the basepoint o=(0,0,1) under m in PSL(2,C)
-        // For m = [a b; c d], we have: m·o = ( (a\bar c + b\bar d) / (|c|^2 + |d|^2),  1 / (|c|^2 + |d|^2) )
-        // We map (u, t) to THREE as (x, y, z) = (Re(u), Im(u), t).
-        function imageOfBasepoint(m) {
-            const cAbs2 = m.c.normSq();
-            const dAbs2 = m.d.normSq();
-            const denom = cAbs2 + dAbs2; // real scalar > 0
-            if (denom === 0) return { u: new Complex(0,0), t: Infinity };
-            const a_conj_c = m.a.mul(m.c.conjugate());
-            const b_conj_d = m.b.mul(m.d.conjugate());
-            const u = a_conj_c.add(b_conj_d);
-            // divide complex by real scalar
-            const invDen = 1.0 / denom;
-            const uScaled = new Complex(u.re * invDen, u.im * invDen);
-            const t = invDen;
-            return { u: uScaled, t: t };
-        }
-
-        function computeOrbitPoints(groupElements) {
-            // return only images g·o (exclude the original basepoint which is already drawn)
-            const pts = [];
-            for (const g of groupElements) {
-                const p = imageOfBasepoint(g); // orbit uses g·o (not g^{-1}·o)
-                if (!isFinite(p.t) || p.t <= 0) continue;
-                // Skip if numerically equal to the basepoint
-                if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) continue;
-                pts.push(new THREE.Vector3(p.u.re, p.u.im, p.t));
-            }
-            return pts;
-        }
-
-        // --- Deduplication: canonical key for the bisector between two points ---
-        function bisectorKeyFromPoints(p, q) {
-          const eps = 1e-9;
-          const xp = p.x, yp = p.y, zp = p.z;
-          const xq = q.x, yq = q.y, zq = q.z;
-
-          // Heights equal -> vertical plane with normal in xy-plane
-          if (Math.abs(zp - zq) < eps) {
-            const nx = xq - xp;
-            const ny = yq - yp;
-            const nlen = Math.hypot(nx, ny);
-            if (nlen < eps) return null; // degenerate
-            let n0x = nx / nlen, n0y = ny / nlen;
-
-            // Compute a point on the plane as in drawBisector
-            const Sp = xp*xp + yp*yp + zp*zp;
-            const Sq = xq*xq + yq*yq + zq*zq;
-            const nlen2 = (xq - xp)*(xq - xp) + (yq - yp)*(yq - yp);
-            const d = nlen2 < eps ? 0 : ( (Sq - Sp) / 2 ) / nlen2; // n·(x) = d in xy
-
-            // Canonical orientation for (n, d): ensure (n0x, n0y) has a nonnegative lexicographic sign
-            if (n0x < -eps || (Math.abs(n0x) <= eps && n0y < 0)) {
-              n0x = -n0x; n0y = -n0y;
-            }
-            const kx = keyFromNumber(n0x);
-            const ky = keyFromNumber(n0y);
-            const kd = keyFromNumber(d);
-            return `V:${kx}:${ky}:${kd}`;
-          }
-
-          // Hemisphere orthogonal to boundary: key by (center.x, center.y, radius)
-          const denom = (zq - zp);
-          const cx = (zq * xp - zp * xq) / denom;
-          const cy = (zq * yp - zp * yq) / denom;
-          const Sp = xp*xp + yp*yp + zp*zp;
-          const Sq = xq*xq + yq*yq + zq*zq;
-          const c2 = cx*cx + cy*cy;
-          const r2 = c2 - (zq * Sp - zp * Sq) / denom;
-          if (!(r2 > eps)) return null;
-          const r = Math.sqrt(r2);
-          const kcx = keyFromNumber(cx);
-          const kcy = keyFromNumber(cy);
-          const kr  = keyFromNumber(r);
-          return `H:${kcx}:${kcy}:${kr}`;
-        }
-
-        // Draw the Dirichlet bisector (perpendicular bisector in H^3) between basepoint o=(0,0,1) and p=(u,t)
-        // The bisector is a hemisphere (center on t=0) or, in the limiting case t≈1, a vertical plane.
-        function drawBisector(p, q, material) {
-          // p, q are THREE.Vector3 with z>0; default q is the basepoint o=(0,0,1)
-          if (!p) return;
-          q = q || basepoint;
-
-          const xp = p.x, yp = p.y, zp = p.z;
-          const xq = q.x, yq = q.y, zq = q.z;
-
-          const eps = 1e-9;
-
-          // If heights are equal, the bisector is a vertical plane (normal in xy-plane)
-          if (Math.abs(zp - zq) < eps) {
-            const nx = xq - xp;
-            const ny = yq - yp;
-            const n = new THREE.Vector3(nx, ny, 0);
-            if (n.length() < eps) return; // degenerate
-            n.normalize();
-
-            // Use Euclidean mid-height and solve n_x x + n_y y = d for a point on the plane
-            const Sp = xp*xp + yp*yp + zp*zp;
-            const Sq = xq*xq + yq*yq + zq*zq;
-            const d = (Sq - Sp) / 2; // n_x x + n_y y = d
-            const nlen2 = (xq - xp)*(xq - xp) + (yq - yp)*(yq - yp);
-            const scale = nlen2 < eps ? 0 : d / nlen2;
-            const pointOnPlane = new THREE.Vector3((xq - xp) * scale, (yq - yp) * scale, (zp + zq) / 2);
-
-            const planeGeom = new THREE.PlaneGeometry(40, 40);
-            const planeMesh = new THREE.Mesh(planeGeom, material);
-            // Start from a plane with normal along +z, rotate it so its normal is n (in xy plane)
-            planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
-            planeMesh.position.copy(pointOnPlane);
-            polyhedronGroup.add(planeMesh);
-            return;
-          }
-
-          // Hemisphere orthogonal to boundary (center on z=0)
-          // From equality of hyperbolic distances: z_q |(x,y) - p_xy|^2 = z_p |(x,y) - q_xy|^2
-          const denom = (zq - zp);
-          const cx = (zq * xp - zp * xq) / denom;
-          const cy = (zq * yp - zp * yq) / denom;
-          const cz = 0;
-
-          const Sp = xp*xp + yp*yp + zp*zp;
-          const Sq = xq*xq + yq*yq + zq*zq;
-          const c2 = cx*cx + cy*cy + cz*cz;
-          const r2 = c2 - (zq * Sp - zp * Sq) / denom;
-          if (!(r2 > eps)) return; // invalid/degenerate
-          const r = Math.sqrt(r2);
-
-          // Build a hemisphere whose flat face lies in z=0 and dome extends into z>0.
-          const geometry = new THREE.SphereGeometry(r, 64, 32, 0);
-          const hemisphere = new THREE.Mesh(geometry, material);
-          // Rotate so the hemisphere opens along +z instead of +y
-          hemisphere.rotation.x = -Math.PI / 2;
-          hemisphere.position.set(cx, cy, 0);
-          polyhedronGroup.add(hemisphere);
-        }
-
-        function samplePointsOnBisector(u, t, maxSamples = 160) {
-          // (x, y, z) = (Re u, Im u, t). Boundary is z=0. Basepoint o=(0,0,1).
-          const pts = [];
-          const eps = 1e-9;
-
-          // If t ≈ 1, the bisector between o and p is a vertical plane in z, with normal in the xy-plane
-          if (Math.abs(t - 1.0) < eps) {
-            const n = new THREE.Vector3(u.re, u.im, 0);
-            if (n.length() < eps) return pts;
-            n.normalize();
-            const tmp = Math.abs(n.z) < 0.9 ? new THREE.Vector3(0,0,1) : new THREE.Vector3(1,0,0);
-            const b1 = new THREE.Vector3().crossVectors(n, tmp).normalize();
-            const b2 = new THREE.Vector3().crossVectors(n, b1).normalize();
-            const center = new THREE.Vector3(u.re/2, u.im/2, 1);
-            const R = 2.5, steps = Math.max(4, Math.floor(Math.sqrt(maxSamples)));
-            for (let i = -steps; i <= steps; i++) {
-              for (let j = -steps; j <= steps; j++) {
-                const s = i/steps, t2 = j/steps;
-                const p = new THREE.Vector3().copy(center)
-                  .addScaledVector(b1, R*s)
-                  .addScaledVector(b2, R*t2);
-                if (p.z > eps) pts.push(p);
-              }
-            }
-            return pts;
-          }
-
-          // Hemisphere case (center on z=0, orthogonal to boundary)
-          const oneMinusT = 1 - t;
-          if (Math.abs(oneMinusT) < eps) return pts;
-          const cx = u.re / oneMinusT, cy = u.im / oneMinusT;
-          const r2 = t * (1 + (u.re*u.re + u.im*u.im) / (oneMinusT*oneMinusT));
-          if (r2 <= eps) return pts;
-          const r = Math.sqrt(r2);
-          const center = new THREE.Vector3(cx, cy, 0);
-
-          const rings = Math.max(6, Math.floor(Math.sqrt(maxSamples)));
-          const segs  = rings * 2;
-          for (let i = 1; i <= rings; i++) {
-            const phi = (i / (rings+1)) * Math.PI/2; // cap at z>=0
-            const z   = r * Math.cos(phi);
-            const rho = r * Math.sin(phi);
-            for (let j = 0; j < segs; j++) {
-              const theta = (2*Math.PI * j)/segs;
-              const x = center.x + rho * Math.cos(theta);
-              const y = center.y + rho * Math.sin(theta);
-              const p = new THREE.Vector3(x, y, z);
-              if (p.z > eps) pts.push(p);
-            }
-          }
-          return pts;
-        }
-
-        function computeDelaunayNeighbors(groupElements) {
-          const orbit = [basepoint];
-          const invs  = [];
-
-          for (const g of groupElements) {
-              const inv = g.inverse();
-              if (!inv) continue;
-              const p = imageOfBasepoint(inv);
-              if (!isFinite(p.t) || p.t <= 0) continue;
-              const v = new THREE.Vector3(p.u.re, p.u.im, p.t);
-              orbit.push(v);
-              invs.push({ u: p.u, t: p.t, v , g });
-          }
-
-          const neighborsMap = new Map();
-          for (const item of invs) {
-              const samples = samplePointsOnBisector(item.u, item.t, 160);
-              let contributes = false;
-              for (const s of samples) {
-                  const d0 = hDist(basepoint, s);
-                  const d1 = hDist(item.v, s);
-                  if (Math.abs(d0 - d1) > 2e-3) continue; // near bisector
-                  let ok = true;
-                  for (let k = 1; k < orbit.length; k++) {
-                      const dk = hDist(orbit[k], s);
-                      if (dk < d0) { ok = false; break; }
-                  }
-                  if (ok) { contributes = true; break; }
-              }
-              if (contributes) {
-                  const key = keyFromVec(item.v); // global helper
-                  if (!neighborsMap.has(key)) {
-                      neighborsMap.set(key, { v: item.v, g: item.g });
-                  }
-              }
-          }
-          return Array.from(neighborsMap.values());
-        }
-
-        // Compare two arrays of matrices up to PSL(2,C) sign/canonicalization
-        function matrixSetsEqual(A = [], B = []) {
-          if (!Array.isArray(A) || !Array.isArray(B)) return false;
-          if (A.length !== B.length) return false;
-          const setA = new Set(A.map(m => keyFromMatrix(repWithNonnegativeRealTrace(m))));
-          const setB = new Set(B.map(m => keyFromMatrix(repWithNonnegativeRealTrace(m))));
-          if (setA.size !== setB.size) return false;
-          for (const k of setA) if (!setB.has(k)) return false;
-          return true;
-        }
-
-        function computeStandardGenerators(gens, L) {
-          // Symmetrize gens as gens ∪ gens^{-1}, then dedupe canonically
-          const gensSym = symmetrizeGroupElements([
-            ...gens,
-            ...gens.map(g => g && typeof g.inverse === 'function' ? g.inverse() : null).filter(Boolean)
-          ]);
-
-          // Initialize stdGens(0) = stdGens(1) = gensSym
-          const stdGens = [];
-          stdGens[0] = gensSym;
-          stdGens[1] = gensSym;
-
-          // If L is 0 or 1, return the base set
-          if (L <= 1) {
-            const chosen = (stdGens[L] || gensSym).map(repWithNonnegativeRealTrace);
-            return { gens: symmetrizeGroupElements(chosen), level: Math.max(0, L), converged: L <= 1 };
-          }
-
-          // Iterate: stdGens(i+1) = computeDelaunayNeighbors( stdGens(i) * (I ∪ stdGens(i-1)) )
-          for (let i = 1; i < L; i++) {
-            // Build product set { g * h : g in stdGens[i], h in I U stdGens[i-1] }
-            const products = [];
-            const Gi = stdGens[i] || [];
-            const Gim1 = stdGens[i - 1] || [];
-            const I = new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0));
-
-            for (const g of Gi) {
-              for (const h of [I, ...Gim1]) {
-                if (g && h && typeof g.multiply === 'function') {
-                  products.push(g.multiply(h));
-                }
-              }
-            }
-
-            // Deduplicate products before neighbor computation
-            const productsSym = symmetrizeGroupElements(products);
-
-            // Compute Delaunay neighbors from the product set
-            const neighbors = computeDelaunayNeighbors(productsSym) || [];
-
-            // Extract matrices (n.g if object), then symmetrize/dedupe
-            const nextSet = symmetrizeGroupElements(
-              neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean)
-            );
-            stdGens[i + 1] = nextSet;
-
-            // --- Convergence check: if stdGens[i+1] == stdGens[i], stop and return with index i ---
-            if (matrixSetsEqual(stdGens[i + 1], stdGens[i])) {
-              const chosen = stdGens[i].map(repWithNonnegativeRealTrace);
-              return { gens: symmetrizeGroupElements(chosen), level: i, converged: true };
-            }
-          }
-
-          // No early convergence: return level L
-          const chosen = (stdGens[L] || gensSym).map(repWithNonnegativeRealTrace);
-          return { gens: symmetrizeGroupElements(chosen), level: L, converged: false };
-        }
-        
-
-        // Draws a hyperbolic geodesic arc (as a circle orthogonal to the boundary, center in xy-plane)
-        function drawGeodesicArc(p, q, material) {
-          // If nearly vertical alignment (same x,y), draw a vertical segment
-          const eps = 1e-9;
-          if (Math.hypot(p.x - q.x, p.y - q.y) < eps) {
-            const geom = new THREE.BufferGeometry().setFromPoints([p, q]);
-            const line = new THREE.Line(geom, material);
-            delaunayGroup.add(line);
-            return;
-          }
-
-          // Normal of the unique vertical plane containing p and q
-          const k = new THREE.Vector3(0,0,1);
-          const n = new THREE.Vector3().subVectors(p, q).cross(k); // lies in xy-plane
-          const nlen = n.length();
-          if (nlen < eps) {
-            // Fallback to straight segment if degenerate
-            const geom = new THREE.BufferGeometry().setFromPoints([p, q]);
-            const line = new THREE.Line(geom, material);
-            delaunayGroup.add(line);
-            return;
-          }
-          n.divideScalar(nlen);
-
-          // Intersection line L = plane(p, n) ∩ {z=0}
-          // Direction of L is d = k × n (lies in xy-plane)
-          const d = new THREE.Vector3().crossVectors(k, n);
-          // A point C0 on L: project p to z=0 along the plane normal's perpendicular direction
-          // Choose any point with z=0 lying in plane: take C0 = (p.x, p.y, 0) adjusted so that n·(C0 - p) = 0
-          let C0 = new THREE.Vector3(p.x, p.y, 0);
-          const alpha = n.dot(new THREE.Vector3().subVectors(p, C0));
-          // Move along direction u in xy so that n·(C0 - p) = 0. Use u perpendicular to k and parallel to xy.
-          // Since n lies in xy, moving along any vector orthogonal to n in xy changes dot; use d (already orthogonal to n).
-          C0.addScaledVector(d, alpha / Math.max(d.lengthSq(), eps));
-
-          // Parameterize centers on L: C(t) = C0 + t d
-          // Solve |C(t)-p|^2 = |C(t)-q|^2 for t (linear)
-          const px = p.x, py = p.y, pz = p.z;
-          const qx = q.x, qy = q.y, qz = q.z;
-          const A = d.x*(qx - px) + d.y*(qy - py);
-          const B = ( (qx*qx - px*px) + (qy*qy - py*py) + (qz*qz - pz*pz) ) * 0.5
-                    - (C0.x*(qx - px) + C0.y*(qy - py));
-          const denom = A;
-          let t = 0;
-          if (Math.abs(denom) > eps) {
-            t = B / denom;
-          }
-          const C = new THREE.Vector3(C0.x + t*d.x, C0.y + t*d.y, 0);
-
-          // Radius and orthonormal basis in the circle plane
-          const r = C.distanceTo(p);
-          if (!(r > eps)) {
-            const geom = new THREE.BufferGeometry().setFromPoints([p, q]);
-            const line = new THREE.Line(geom, material);
-            delaunayGroup.add(line);
-            return;
-          }
-          const e1 = new THREE.Vector3().subVectors(p, C).divideScalar(r); // from center to p
-          const e2 = new THREE.Vector3().crossVectors(n, e1).normalize();  // lies in the plane, orthonormal
-
-          // Angle from p to q around the circle in the plane (right-handed w.r.t. n)
-          const qp = new THREE.Vector3().subVectors(q, C);
-          const cosTh = THREE.MathUtils.clamp(qp.dot(e1) / r, -1, 1);
-          const sinTh = THREE.MathUtils.clamp(qp.dot(e2) / r, -1, 1);
-          let theta = Math.atan2(sinTh, cosTh);
-
-          // Sample the arc from 0 → theta (choose the shorter arc)
-          if (theta > Math.PI) theta -= 2*Math.PI;
-          if (theta < -Math.PI) theta += 2*Math.PI;
-
-          const segments = Math.max(16, Math.ceil(48 * Math.abs(theta) / Math.PI));
-          const pts = [];
-          for (let i = 0; i <= segments; i++) {
-            const tA = (i/segments) * theta;
-            const pt = new THREE.Vector3().copy(C)
-              .addScaledVector(e1, Math.cos(tA) * r)
-              .addScaledVector(e2, Math.sin(tA) * r);
-            pts.push(pt);
-          }
-          const geom = new THREE.BufferGeometry().setFromPoints(pts);
-          const line = new THREE.Line(geom, material);
-          delaunayGroup.add(line);
-        }
-
-        function drawDelaunayEdges(neighbors) {
-          clearDelaunay();
-          const material = new THREE.LineBasicMaterial({ linewidth: 2 });
-          for (const v of neighbors) {
-              const vv = (v && v.v) ? v.v : v;
-              drawGeodesicArc(basepoint, vv, material);
-          }
-        }
-
-        function drawOrbitPoints(points) {
-            clearOrbit();
-            if (!points || points.length === 0) return;
-
-            // Render orbit as copies of the yellow basepoint sphere
-            const sphereGeom = new THREE.SphereGeometry(0.02, 16, 16);
-            const sphereMat  = new THREE.MeshStandardMaterial({ color: 0xffebab });
-            const mesh = new THREE.InstancedMesh(sphereGeom, sphereMat, points.length);
-            const m = new THREE.Matrix4();
-            for (let i = 0; i < points.length; i++) {
-                m.makeTranslation(points[i].x, points[i].y, points[i].z);
-                mesh.setMatrixAt(i, m);
-            }
-            mesh.instanceMatrix.needsUpdate = true;
-            orbitGroup.add(mesh);
-        }
-
-        function generateAndDrawPolyhedron() {
-            clearPolyhedron();
-            clearDelaunay();
-            clearOrbit();
-
-            const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
-            const groupElements = generateGroupElements(generators, wordLength);
-            const neighbors = computeDelaunayNeighbors(groupElements);
-
-            const selectedRadio = document.querySelector('input[name="wallsMode"]:checked');
-            const wallsMode = selectedRadio ? selectedRadio.value : 'all';
-
-            if (wallsMode === 'dirichlet') {
-              // Draw exactly one wall per Dirichlet neighbor (between o and s·o)
-              const I = new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0));
-              const o = imageOfBasepoint(I);
-              const vO = new THREE.Vector3(o.u.re, o.u.im, o.t);
-
-              const wallKeys = new Set();
-              neighbors
-                .map(n => (n && n.g) ? n.g : n)
-                .filter(Boolean)
-                .forEach(s => {
-                  const p2 = imageOfBasepoint(s);
-                  if (!isFinite(p2.t) || p2.t <= 0) return;
-                  const vS = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
-                  const key = bisectorKeyFromPoints(vO, vS);
-                  if (!key || wallKeys.has(key)) return;
-                  wallKeys.add(key);
-                  const color = colorForIndex(wallKeys.size, neighbors.length);
-                  const material = new THREE.MeshStandardMaterial({
-                    color,
-                    transparent: true,
-                    opacity: wallOpacity,
-                    side: THREE.DoubleSide,
-                    metalness: 0.15,
-                    roughness: 0.6
-                  });
-                  drawBisector(vO, vS, material);
-                });
-            } else if (wallsMode === 'all') {
-              // Draw walls for all generated pairs (g, gs) across the tiling
-              const I = new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0));
-              const allG = [I, ...groupElements];
-              const sList = neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean);
-
-              const wallKeys = new Set();
-              sList.forEach((s, si) => {
-                // For non-random palettes, reuse one material per neighbor (old behavior).
-                // For random palette, we will create a new material per individual wall below.
-                const baseCol = (colorPalette === 'random') ? null : colorForIndex(si, sList.length);
-                const perNeighborMaterial = (colorPalette === 'random') ? null : new THREE.MeshStandardMaterial({
-                  color: baseCol,
-                  transparent: true,
-                  opacity: wallOpacity,
-                  side: THREE.DoubleSide,
-                  metalness: 0.2,
-                  roughness: 0.6
-                });
-
-                allG.forEach(g => {
-                  const p1 = imageOfBasepoint(g);
-                  const p2 = imageOfBasepoint(g.multiply(s));
-                  if (!isFinite(p1.t) || p1.t <= 0 || !isFinite(p2.t) || p2.t <= 0) return;
-                  if (Math.abs(p1.u.re - p2.u.re) < 1e-12 && Math.abs(p1.u.im - p2.u.im) < 1e-12 && Math.abs(p1.t - p2.t) < 1e-12) return;
-                  const v1 = new THREE.Vector3(p1.u.re, p1.u.im, p1.t);
-                  const v2 = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
-                  const key = bisectorKeyFromPoints(v1, v2);
-                  if (!key || wallKeys.has(key)) return;
-                  wallKeys.add(key);
-
-                  const material = (colorPalette === 'random')
-                    ? new THREE.MeshStandardMaterial({
-                        color: colorForIndex(Math.random(), 1), // brand new random color per wall
-                        transparent: true,
-                        opacity: wallOpacity,
-                        side: THREE.DoubleSide,
-                        metalness: 0.2,
-                        roughness: 0.6
-                      })
-                    : perNeighborMaterial;
-
-                  drawBisector(v1, v2, material);
-                });
-              });
-            } else {
-              // wallsMode === 'off' -> no walls drawn
-            }
-            const showOrbit = document.getElementById('toggleOrbit')?.checked;
-            if (showOrbit) {
-                const orbitPts = computeOrbitPoints(groupElements);
-                drawOrbitPoints(orbitPts);
-                } else {
-                clearOrbit();
-            }
-            const showDel = document.getElementById('toggleDelaunay')?.checked;
-            if (showDel) {
-              clearDelaunay();
-              // Build list of base group elements including identity
-              const allG = [...groupElements];
-              const I = new Matrix2(new Complex(1,0), new Complex(0,0), new Complex(0,0), new Complex(1,0));
-              allG.unshift(I);
-
-              // Extract Delaunay neighbor matrices (handle either {g,v} objects or bare matrices)
-              const sList = neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean);
-
-              sList.forEach((s, si) => {
-                const col = colorForIndex(si, sList.length);
-                const material = new THREE.LineBasicMaterial({ color: col });
-
-                allG.forEach(g => {
-                  const p1 = imageOfBasepoint(g);
-                  const p2 = imageOfBasepoint(g.multiply(s));
-                  if (!isFinite(p1.t) || p1.t <= 0 || !isFinite(p2.t) || p2.t <= 0) return;
-                  if (Math.abs(p1.u.re - p2.u.re) < 1e-12 && Math.abs(p1.u.im - p2.u.im) < 1e-12 && Math.abs(p1.t - p2.t) < 1e-12) return;
-
-                  const v1 = new THREE.Vector3(p1.u.re, p1.u.im, p1.t);
-                  const v2 = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
-                  drawGeodesicArc(v1, v2, material);
-                });
-              });
-            } else {
-              clearDelaunay();
-            }
-        }
-        
-        function lerpColorHex(hex1, hex2, t) {
-          const c1 = new THREE.Color(hex1);
-          const c2 = new THREE.Color(hex2);
-          // clamp t to [0,1]
-          const u = Math.min(1, Math.max(0, t || 0));
-          return c1.lerp(c2, u);
-        }
-
-        function colorForIndex(si, total) {
-          if (colorPalette === 'monochrome') {
-            return new THREE.Color('skyblue');
-          }
-          if (colorPalette === 'random') {
-            // completely random on each render
-            return new THREE.Color(Math.random() * 0xffffff);
-          }
-          if (colorPalette === 'bluegold') {
-            // Smooth interpolation between UC blue and gold
-            const start = 0x003660; // #003660
-            const end   = 0xFEBC11; // #FEBC11
-            const denom = Math.max(1, (total || 1) - 1);
-            const t = (typeof si === 'number') ? (si / denom) : 0.5;
-            return lerpColorHex(start, end, t);
-          }
-          if (colorPalette === 'tealfuchsia') {
-            const stops = [0x23bbad, 0x25d9c8, 0x2abed9, 0xff6da2, 0xf92672];
-            const denom = Math.max(1, (total || 1) - 1);
-            let t = (typeof si === 'number') ? (si / denom) : 0.5;
-            // Bias toward the end color (fuchsia) — exponent < 1 pushes values toward 1
-            t = Math.pow(t, 0.65);
-            const seg = 1 / (stops.length - 1);
-            const idx = Math.min(stops.length - 2, Math.floor(t / seg));
-            const localT = (t - idx * seg) / seg;
-            return lerpColorHex(stops[idx], stops[idx + 1], localT);
-          }
-          if (colorPalette === 'ucpure') {
-            // Alternate between UC blue and gold
-            return (si % 2 === 0) ? new THREE.Color(0x003660) : new THREE.Color(0xFEBC11);
-          }
-          // default: previous behavior
-          const c = new THREE.Color();
-          c.setHSL(si / Math.max(1, total), 0.65, 0.58);
-          return c;
-        }
-
-        // --- Init ---
-        init();
-        // Setup panel and defaults
-        setupPanelUI();
-        const delCb = document.getElementById('toggleDelaunay');
-            if (delCb) delCb.addEventListener('change', () => {
-            rebuildGeneratorsFromUI();
-            generateAndDrawPolyhedron();
-            });
-        const orbCb = document.getElementById('toggleOrbit');
-            if (orbCb) orbCb.addEventListener('change', () => {
-            rebuildGeneratorsFromUI();
-            generateAndDrawPolyhedron();
-            });
-        const wallsRadios = document.querySelectorAll('input[name="wallsMode"]');
-        wallsRadios.forEach(radio => {
-          radio.addEventListener('change', () => {
-            rebuildGeneratorsFromUI();
-            generateAndDrawPolyhedron();
-          });
-        });
-        const wallOpacitySlider = document.getElementById('wallOpacitySlider');
-        if (wallOpacitySlider) {
-            wallOpacitySlider.addEventListener('input', () => {
-                wallOpacity = parseFloat(wallOpacitySlider.value);
-                document.getElementById('wallOpacityValue').textContent = wallOpacity.toFixed(2);
-                rebuildGeneratorsFromUI();
-                generateAndDrawPolyhedron();
-            });
-        }
-        const paletteSel = document.getElementById('colorPalette');
-        if (paletteSel) {
-          paletteSel.addEventListener('change', () => {
-            colorPalette = paletteSel.value || 'harmonic';
-            rebuildGeneratorsFromUI();
-            generateAndDrawPolyhedron();
-          });
-        }
-        // --- Basepoint toggle ---
-        const bpCb = document.getElementById('toggleBasepoint');
-        if (bpCb) bpCb.addEventListener('change', () => {
-          if (window.basepointMesh) {
-            window.basepointMesh.visible = bpCb.checked;
-          }
-        });
-        // --- Floor initial visibility sync ---
-        const floorCb = document.getElementById('toggleFloor');
-        if (floorCb && floor) {
-          floor.visible = floorCb.checked;
-        }
-        refreshExampleDropdown();
-        setExample(exampleLibrary[0].mats); // first example by default
-        rebuildGeneratorsFromUI();
+      container.querySelector('.delete-matrix-btn').addEventListener('click', () => {
+        container.remove();
+        const labels = document.querySelectorAll('#matrixInputs .matrix-label');
+        labels.forEach((lbl, i) => { lbl.innerHTML = `\\( g_{${i + 1}} = \\)`; });
         typesetMath();
-        // Sync initial word length
-        document.getElementById('wordLength').value = 4;
+      });
+      document.getElementById('matrixInputs').appendChild(container);
+      const MQ = window.MathQuill ? window.MathQuill.getInterface(2) : null;
+      if (MQ) {
+        const spans = container.querySelectorAll('.mq-matrix-input');
+        spans.forEach(span => {
+          const mf = MQ.MathField(span, { spaceBehavesLikeTab: true, handlers: { edit: () => { } } });
+          const init = span.getAttribute('data-initial') || '0';
+          const normalized = String(init).replace(/\*\*/g, '^');
+          mf.latex(normalized);
+          span.MathQuill = () => mf; // store accessor for rebuild step
+        });
+      }
+      const labels = document.querySelectorAll('#matrixInputs .matrix-label');
+      labels.forEach((lbl, i) => { lbl.innerHTML = `\\( g_{${i + 1}} = \\)`; });
+      typesetMath();
+    }
+
+    function rebuildGeneratorsFromUI() {
+      generators.length = 0;
+      const blocks = document.querySelectorAll('#matrixInputs .matrix-block');
+      for (const block of blocks) {
+        const spans = block.querySelectorAll('.mq-matrix-input');
+        const getLatex = (el) => { try { const api = el && typeof el.MathQuill === 'function' ? el.MathQuill() : null; return api && typeof api.latex === 'function' ? api.latex() : (el ? el.textContent : '0'); } catch { return '0'; } };
+        const toC = (latex) => evalComplexExpression(latexToExpr(String(latex || '0')));
+        const a = toC(getLatex(spans[0]));
+        const b = toC(getLatex(spans[1]));
+        const c = toC(getLatex(spans[2]));
+        const d = toC(getLatex(spans[3]));
+        const det = a.mul(d).sub(b.mul(c));
+        // Allow arbitrary determinant; only require invertibility (det ≠ 0)
+        if (det.normSq() < 1e-12) {
+          showMessage('Matrix skipped: determinant is 0 (not invertible).', true);
+          continue;
+        }
+        generators.push(new Matrix2(a, b, c, d));
+      }
+    }
+
+    function setExample(example) {
+      document.getElementById('matrixInputs').innerHTML = '';
+      example.forEach(vals => addMatrixInput(vals.map(v => String(v).replace(/\*\*/g, '^'))));
+      typesetMath();
+    }
+
+    const exampleLibrary = [
+      { name: 'Apollonian Gasket', mats: [['1', '1+i', '0', '1'], ['0', '-1', '1', '0']] },
+      { name: 'Modular group', mats: [['1', '1', '0', '1'], ['0', '-1', '1', '0']] },
+      { name: 'Borromean rings group', mats: [['1', '2', '0', '1'], ['1', 'i', '0', '1'], ['1', '0', '-1-i', '1']] },
+      { name: 'Z[i] congruence', mats: [['1', '2', '0', '1'], ['1', '2i', '0', '1'], ['0', '-1', '1', '0']] },
+      { name: 'Surface group', mats: [['2', '-2', '0', '1/2'], ['3', '4', '2', '3']] },
+      { name: 'Surface group 2', mats: [['\\sqrt{2}', '0', '0', '\\sqrt{\\frac{1}{2}}'], ['0', '-1', '1', '0'], ['1', '2', '2', '5']] },
+      { name: 'Figure eight knot group', mats: [['1', '\\frac{-1+ \\sqrt{3} i}{2}', '0', '1'], ['1', '0', '1', '1']] },
+      { name: 'Dense circles', mats: [['1', '2i', '0', '1'], ['\\frac{1}{\\sqrt{2}}', '\\frac{-1}{\\sqrt{2}}', '\\frac{1}{\\sqrt{2}}', '\\frac{1}{\\sqrt{2}}']] },
+      { name: 'P(1/3)', mats: [['1', '\\frac{\\sqrt{7}+i}{2}', '0', '1'], ['0', '-1', '1', '0']] },
+      { name: 'P(1/4)', mats: [['1', '\\sqrt{1+\\sqrt{1+2i}}', '0', '1'], ['0', '-1', '1', '0']] },
+      { name: 'P(2/5)', mats: [['1', '1.1028+0.6655i', '0', '1'], ['0', '-1', '1', '0']] },
+      { name: 'Hecke group', mats: [['1', '2\\cos(\\frac{\\pi}{n})', '0', '1'], ['0', '-1', '1', '0']] },
+      { name: 'Figure eight fiber', mats: [['\\frac{1+\\sqrt{3}i}{2}', '1', '\\frac{-1+\\sqrt{3}i}{2}', '1'], ['\\frac{1+\\sqrt{3}i}{2}', '-1', '\\frac{1-\\sqrt{3}i}{2}', '1']] }
+    ];
+
+    function refreshExampleDropdown() {
+      const sel = document.getElementById('groupSelector');
+      if (!sel) return;
+      // preserve current selection name if possible
+      const prev = sel.value;
+      // Clear all except the first placeholder option
+      while (sel.options.length > 1) sel.remove(1);
+      exampleLibrary.forEach((ex, idx) => {
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = ex.name || `Example ${idx + 1}`;
+        sel.appendChild(opt);
+      });
+      if (prev && Number(prev) < exampleLibrary.length) sel.value = prev; // try to preserve selection
+    }
+    // Optional: expose for console use if the library is edited at runtime
+    window.refreshExampleDropdown = refreshExampleDropdown;
+
+    function setupPanelUI() {
+      // --- Floor toggle ---
+      const floorCb = document.getElementById('toggleFloor');
+      if (floorCb) floorCb.addEventListener('change', () => {
+        if (floor) floor.visible = floorCb.checked;
+      });
+      enableControlPanelResize();
+      document.getElementById('addMatrixBtn').addEventListener('click', () => addMatrixInput());
+      document.getElementById('updateGroupBtn').addEventListener('click', () => {
+        rebuildGeneratorsFromUI();
         generateAndDrawPolyhedron();
- 
-    </script>
+        showMessage(`Generated polyhedron for word length ${document.getElementById('wordLength').value}.`);
+      });
+      document.getElementById('wordLength').addEventListener('change', () => {
+        rebuildGeneratorsFromUI();
+        generateAndDrawPolyhedron();
+      });
+      refreshExampleDropdown();
+      const groupSel = document.getElementById('groupSelector');
+      if (groupSel) groupSel.addEventListener('change', (e) => {
+        const idx = parseInt(e.target.value, 10);
+        if (!isNaN(idx) && exampleLibrary[idx]) {
+          setExample(exampleLibrary[idx].mats);
+          rebuildGeneratorsFromUI();
+          generateAndDrawPolyhedron();
+          typesetMath();
+        }
+      });
+      document.getElementById('newExampleBtn').addEventListener('click', () => {
+        const rand = exampleLibrary[Math.floor(Math.random() * exampleLibrary.length)];
+        setExample(rand.mats);
+        rebuildGeneratorsFromUI();
+        generateAndDrawPolyhedron();
+        typesetMath();
+      });
+      document.getElementById('toggleControlPanelBtn').addEventListener('click', () => {
+        const panel = document.getElementById('controlPanel');
+        panel.classList.toggle('hidden');
+        document.getElementById('toggleControlPanelBtn').setAttribute(
+          'aria-label', panel.classList.contains('hidden') ? 'Show panel' : 'Hide panel'
+        );
+      });
+      document.getElementById('resetViewBtn').addEventListener('click', () => {
+        camera.position.set(0, -5, 3);
+        controls.target.set(0, 0, 1);
+        controls.update();
+      });
+      // --- Save image button logic ---
+      const saveBtn = document.getElementById('saveImageBtn');
+      if (saveBtn) saveBtn.addEventListener('click', () => {
+        try {
+          // Render once to make sure the frame is up-to-date
+          if (renderer && scene && camera) {
+            renderer.render(scene, camera);
+          }
+          const dataURL = renderer && renderer.domElement ? renderer.domElement.toDataURL('image/png') : null;
+          if (!dataURL) return;
+
+          // Build a filename like dirichlet-YYYYMMDD-HHMMSS.png
+          const pad = (n) => String(n).padStart(2, '0');
+          const now = new Date();
+          const fname = `dirichlet-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.png`;
+
+          const a = document.createElement('a');
+          a.href = dataURL;
+          a.download = fname;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } catch (e) {
+          // Fallback message if something goes wrong
+          showMessage('Could not save image. Try again after interacting with the scene.', true);
+        }
+      });
+      // --- Show stabilizer button logic ---
+      const stabBtn = document.getElementById('showStabilizerBtn');
+      if (stabBtn) stabBtn.addEventListener('click', () => {
+        rebuildGeneratorsFromUI();
+        const L = parseInt((document.getElementById('wordLength') || { value: 1 }).value) || 1;
+        const groupElements = generateGroupElements(generators, L);
+        const su2 = groupElements.filter(g => isUnitary(g));
+
+        // Ensure the identity matrix is included in the SU(2) list
+        const I = new Matrix2(
+          new Complex(1, 0), new Complex(0, 0),
+          new Complex(0, 0), new Complex(1, 0)
+        );
+        const hasIdentity = su2.some(m => typeof m.isIdentity === 'function' && m.isIdentity());
+        if (!hasIdentity) su2.unshift(I);
+
+        const out = document.getElementById('stabilizerOutput');
+        if (!out) return;
+        if (su2.length === 0) {
+          out.textContent = 'No SU(2) elements found among generated words.';
+        } else {
+          const items = su2.map((m, i) => `${i + 1}. ${matrixToLatex(m)}`);
+          out.innerHTML = items.join('<br/><br/>');
+          if (window.MathJax && MathJax.typesetPromise) {
+            MathJax.typesetPromise([document.getElementById('controlPanel')]).catch(() => { });
+          }
+        }
+        showMessage(`Stabilizer elements found: ${su2.length}.`);
+      });
+
+      // --- Print standard generators (Delaunay neighbors) ---
+      const stdBtn = document.getElementById('printStdGensBtn');
+      if (stdBtn) stdBtn.addEventListener('click', () => {
+        rebuildGeneratorsFromUI();
+        const L = parseInt((document.getElementById('wordLength') || { value: 1 }).value) || 1;
+        const groupElements = generateGroupElements(generators, L);
+        const neighbors = computeDelaunayNeighbors(groupElements);
+        const out = document.getElementById('stdGensOutput');
+        if (!out) return;
+        if (!neighbors || neighbors.length === 0) {
+          out.textContent = 'No Delaunay neighbors found. Increase word length or adjust generators.';
+        } else {
+          const items = neighbors.map((obj, i) => {
+            const g = obj && obj.g ? repWithNonnegativeRealTrace(obj.g) : obj;
+            return `${i + 1}. ${matrixToLatex(g)}`;
+          });
+          out.innerHTML = items.join('<br/><br/>');
+          if (window.MathJax && MathJax.typesetPromise) {
+            MathJax.typesetPromise([document.getElementById('controlPanel')]).catch(() => { });
+          }
+        }
+        showMessage(`Printed ${neighbors.length} standard generators (Delaunay neighbors).`);
+      });
+
+      // --- Pager controls ---
+      const prevBtn = document.getElementById('prevPageBtn');
+      const nextBtn = document.getElementById('nextPageBtn');
+      if (prevBtn) prevBtn.addEventListener('click', () => {
+        if (currentPage <= 1) return;
+        currentPage = Math.max(1, currentPage - 1);
+        updatePanelPage();
+        typesetMath();
+      });
+      if (nextBtn) nextBtn.addEventListener('click', () => {
+        if (currentPage >= NUM_PAGES) return;
+        currentPage = Math.min(NUM_PAGES, currentPage + 1);
+        updatePanelPage();
+        typesetMath();
+      });
+      updatePanelPage();
+    }
+
+    // --- Hyperbolic Geometry & Drawing ---
+    function clearGroup(group) {
+      while (group.children.length > 0) {
+        const obj = group.children[0];
+        group.remove(obj);
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (obj.material.dispose) obj.material.dispose();
+          // handle arrays of materials
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m && m.dispose && m.dispose());
+        }
+      }
+    }
+
+    function clearDelaunay() { clearGroup(delaunayGroup); }
+    function clearOrbit() { clearGroup(orbitGroup); }
+
+    // Hyperbolic distance in upper half-space H^3 with height = z > 0
+    function hDist(p, q) {
+      const dx = p.x - q.x, dy = p.y - q.y, dz = p.z - q.z;
+      const num = dx * dx + dy * dy + dz * dz;
+      const den = 2 * p.z * q.z;
+      const c = 1 + num / den;
+      return Math.acosh(Math.max(1, c));
+    }
+
+    function clearPolyhedron() { clearGroup(polyhedronGroup); }
+
+    function symmetrizeGroupElements(elements) {
+      const symElements = new Map();
+      elements.forEach(m => {
+        const key = keyFromMatrix(m);
+        if (!symElements.has(key)) {
+          symElements.set(key, m);
+        }
+      });
+      return Array.from(symElements.values());
+    }
+
+    function generateGroupElements(gens, wordLength) {
+      const elements = new Map();
+      const initialSet = symmetrizeGroupElements([
+        ...gens,
+        ...gens.map(g => g.inverse()).filter(Boolean)
+      ]);
+
+      let queue = [...initialSet];
+      const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
+      const identityKey = keyFromMatrix(I);
+      elements.set(identityKey, I);
+
+      queue.forEach(g => {
+        const key = keyFromMatrix(g);
+        elements.set(key, g);
+      });
+
+      for (let l = 1; l < wordLength; l++) {
+        const nextQueue = [];
+        for (const word of queue) {
+          for (const g of initialSet) {
+            const newWord = word.multiply(g);
+            if (newWord.isIdentity()) continue;
+            const key = keyFromMatrix(newWord);
+            if (!elements.has(key)) {
+              elements.set(key, newWord);
+              nextQueue.push(newWord);
+            }
+          }
+        }
+        queue = nextQueue;
+      }
+
+      const out = Array.from(elements.entries())
+        .filter(([k, _]) => k !== identityKey)
+        .map(([_, v]) => v);
+      return out;
+    }
+    // Image of the basepoint o=(0,0,1) under m in PSL(2,C)
+    // For m = [a b; c d], we have: m·o = ( (a\bar c + b\bar d) / (|c|^2 + |d|^2),  1 / (|c|^2 + |d|^2) )
+    // We map (u, t) to THREE as (x, y, z) = (Re(u), Im(u), t).
+    function imageOfBasepoint(m) {
+      const cAbs2 = m.c.normSq();
+      const dAbs2 = m.d.normSq();
+      const denom = cAbs2 + dAbs2; // real scalar > 0
+      if (denom === 0) return { u: new Complex(0, 0), t: Infinity };
+      const a_conj_c = m.a.mul(m.c.conjugate());
+      const b_conj_d = m.b.mul(m.d.conjugate());
+      const u = a_conj_c.add(b_conj_d);
+      // divide complex by real scalar
+      const invDen = 1.0 / denom;
+      const uScaled = new Complex(u.re * invDen, u.im * invDen);
+      const t = invDen;
+      return { u: uScaled, t: t };
+    }
+
+    function computeOrbitPoints(groupElements) {
+      // return only images g·o (exclude the original basepoint which is already drawn)
+      const pts = [];
+      for (const g of groupElements) {
+        const p = imageOfBasepoint(g); // orbit uses g·o (not g^{-1}·o)
+        if (!isFinite(p.t) || p.t <= 0) continue;
+        // Skip if numerically equal to the basepoint
+        if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) continue;
+        pts.push(new THREE.Vector3(p.u.re, p.u.im, p.t));
+      }
+      return pts;
+    }
+
+    // --- Deduplication: canonical key for the bisector between two points ---
+    function bisectorKeyFromPoints(p, q) {
+      const eps = 1e-9;
+      const xp = p.x, yp = p.y, zp = p.z;
+      const xq = q.x, yq = q.y, zq = q.z;
+
+      // Heights equal -> vertical plane with normal in xy-plane
+      if (Math.abs(zp - zq) < eps) {
+        const nx = xq - xp;
+        const ny = yq - yp;
+        const nlen = Math.hypot(nx, ny);
+        if (nlen < eps) return null; // degenerate
+        let n0x = nx / nlen, n0y = ny / nlen;
+
+        // Compute a point on the plane as in drawBisector
+        const Sp = xp * xp + yp * yp + zp * zp;
+        const Sq = xq * xq + yq * yq + zq * zq;
+        const nlen2 = (xq - xp) * (xq - xp) + (yq - yp) * (yq - yp);
+        const d = nlen2 < eps ? 0 : ((Sq - Sp) / 2) / nlen2; // n·(x) = d in xy
+
+        // Canonical orientation for (n, d): ensure (n0x, n0y) has a nonnegative lexicographic sign
+        if (n0x < -eps || (Math.abs(n0x) <= eps && n0y < 0)) {
+          n0x = -n0x; n0y = -n0y;
+        }
+        const kx = keyFromNumber(n0x);
+        const ky = keyFromNumber(n0y);
+        const kd = keyFromNumber(d);
+        return `V:${kx}:${ky}:${kd}`;
+      }
+
+      // Hemisphere orthogonal to boundary: key by (center.x, center.y, radius)
+      const denom = (zq - zp);
+      const cx = (zq * xp - zp * xq) / denom;
+      const cy = (zq * yp - zp * yq) / denom;
+      const Sp = xp * xp + yp * yp + zp * zp;
+      const Sq = xq * xq + yq * yq + zq * zq;
+      const c2 = cx * cx + cy * cy;
+      const r2 = c2 - (zq * Sp - zp * Sq) / denom;
+      if (!(r2 > eps)) return null;
+      const r = Math.sqrt(r2);
+      const kcx = keyFromNumber(cx);
+      const kcy = keyFromNumber(cy);
+      const kr = keyFromNumber(r);
+      return `H:${kcx}:${kcy}:${kr}`;
+    }
+
+    // Draw the Dirichlet bisector (perpendicular bisector in H^3) between basepoint o=(0,0,1) and p=(u,t)
+    // The bisector is a hemisphere (center on t=0) or, in the limiting case t≈1, a vertical plane.
+    function drawBisector(p, q, material) {
+      // p, q are THREE.Vector3 with z>0; default q is the basepoint o=(0,0,1)
+      if (!p) return;
+      q = q || basepoint;
+
+      const xp = p.x, yp = p.y, zp = p.z;
+      const xq = q.x, yq = q.y, zq = q.z;
+
+      const eps = 1e-9;
+
+      // If heights are equal, the bisector is a vertical plane (normal in xy-plane)
+      if (Math.abs(zp - zq) < eps) {
+        const nx = xq - xp;
+        const ny = yq - yp;
+        const n = new THREE.Vector3(nx, ny, 0);
+        if (n.length() < eps) return; // degenerate
+        n.normalize();
+
+        // Use Euclidean mid-height and solve n_x x + n_y y = d for a point on the plane
+        const Sp = xp * xp + yp * yp + zp * zp;
+        const Sq = xq * xq + yq * yq + zq * zq;
+        const d = (Sq - Sp) / 2; // n_x x + n_y y = d
+        const nlen2 = (xq - xp) * (xq - xp) + (yq - yp) * (yq - yp);
+        const scale = nlen2 < eps ? 0 : d / nlen2;
+        const pointOnPlane = new THREE.Vector3((xq - xp) * scale, (yq - yp) * scale, (zp + zq) / 2);
+
+        const planeGeom = new THREE.PlaneGeometry(40, 40);
+        const planeMesh = new THREE.Mesh(planeGeom, material);
+        // Start from a plane with normal along +z, rotate it so its normal is n (in xy plane)
+        planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+        planeMesh.position.copy(pointOnPlane);
+        polyhedronGroup.add(planeMesh);
+        return;
+      }
+
+      // Hemisphere orthogonal to boundary (center on z=0)
+      // From equality of hyperbolic distances: z_q |(x,y) - p_xy|^2 = z_p |(x,y) - q_xy|^2
+      const denom = (zq - zp);
+      const cx = (zq * xp - zp * xq) / denom;
+      const cy = (zq * yp - zp * yq) / denom;
+      const cz = 0;
+
+      const Sp = xp * xp + yp * yp + zp * zp;
+      const Sq = xq * xq + yq * yq + zq * zq;
+      const c2 = cx * cx + cy * cy + cz * cz;
+      const r2 = c2 - (zq * Sp - zp * Sq) / denom;
+      if (!(r2 > eps)) return; // invalid/degenerate
+      const r = Math.sqrt(r2);
+
+      // Build a hemisphere whose flat face lies in z=0 and dome extends into z>0.
+      const geometry = new THREE.SphereGeometry(r, 64, 32, 0);
+      const hemisphere = new THREE.Mesh(geometry, material);
+      // Rotate so the hemisphere opens along +z instead of +y
+      hemisphere.rotation.x = -Math.PI / 2;
+      hemisphere.position.set(cx, cy, 0);
+      polyhedronGroup.add(hemisphere);
+    }
+
+    function samplePointsOnBisector(u, t, maxSamples = 160) {
+      // (x, y, z) = (Re u, Im u, t). Boundary is z=0. Basepoint o=(0,0,1).
+      const pts = [];
+      const eps = 1e-9;
+
+      // If t ≈ 1, the bisector between o and p is a vertical plane in z, with normal in the xy-plane
+      if (Math.abs(t - 1.0) < eps) {
+        const n = new THREE.Vector3(u.re, u.im, 0);
+        if (n.length() < eps) return pts;
+        n.normalize();
+        const tmp = Math.abs(n.z) < 0.9 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0);
+        const b1 = new THREE.Vector3().crossVectors(n, tmp).normalize();
+        const b2 = new THREE.Vector3().crossVectors(n, b1).normalize();
+        const center = new THREE.Vector3(u.re / 2, u.im / 2, 1);
+        const R = 2.5, steps = Math.max(4, Math.floor(Math.sqrt(maxSamples)));
+        for (let i = -steps; i <= steps; i++) {
+          for (let j = -steps; j <= steps; j++) {
+            const s = i / steps, t2 = j / steps;
+            const p = new THREE.Vector3().copy(center)
+              .addScaledVector(b1, R * s)
+              .addScaledVector(b2, R * t2);
+            if (p.z > eps) pts.push(p);
+          }
+        }
+        return pts;
+      }
+
+      // Hemisphere case (center on z=0, orthogonal to boundary)
+      const oneMinusT = 1 - t;
+      if (Math.abs(oneMinusT) < eps) return pts;
+      const cx = u.re / oneMinusT, cy = u.im / oneMinusT;
+      const r2 = t * (1 + (u.re * u.re + u.im * u.im) / (oneMinusT * oneMinusT));
+      if (r2 <= eps) return pts;
+      const r = Math.sqrt(r2);
+      const center = new THREE.Vector3(cx, cy, 0);
+
+      const rings = Math.max(6, Math.floor(Math.sqrt(maxSamples)));
+      const segs = rings * 2;
+      for (let i = 1; i <= rings; i++) {
+        const phi = (i / (rings + 1)) * Math.PI / 2; // cap at z>=0
+        const z = r * Math.cos(phi);
+        const rho = r * Math.sin(phi);
+        for (let j = 0; j < segs; j++) {
+          const theta = (2 * Math.PI * j) / segs;
+          const x = center.x + rho * Math.cos(theta);
+          const y = center.y + rho * Math.sin(theta);
+          const p = new THREE.Vector3(x, y, z);
+          if (p.z > eps) pts.push(p);
+        }
+      }
+      return pts;
+    }
+
+    function computeDelaunayNeighbors(groupElements) {
+      const orbit = [basepoint];
+      const invs = [];
+
+      for (const g of groupElements) {
+        const inv = g.inverse();
+        if (!inv) continue;
+        const p = imageOfBasepoint(inv);
+        if (!isFinite(p.t) || p.t <= 0) continue;
+        const v = new THREE.Vector3(p.u.re, p.u.im, p.t);
+        orbit.push(v);
+        invs.push({ u: p.u, t: p.t, v, g });
+      }
+
+      const neighborsMap = new Map();
+      for (const item of invs) {
+        const samples = samplePointsOnBisector(item.u, item.t, 160);
+        let contributes = false;
+        for (const s of samples) {
+          const d0 = hDist(basepoint, s);
+          const d1 = hDist(item.v, s);
+          if (Math.abs(d0 - d1) > 2e-3) continue; // near bisector
+          let ok = true;
+          for (let k = 1; k < orbit.length; k++) {
+            const dk = hDist(orbit[k], s);
+            if (dk < d0) { ok = false; break; }
+          }
+          if (ok) { contributes = true; break; }
+        }
+        if (contributes) {
+          const key = keyFromVec(item.v); // global helper
+          if (!neighborsMap.has(key)) {
+            neighborsMap.set(key, { v: item.v, g: item.g });
+          }
+        }
+      }
+      return Array.from(neighborsMap.values());
+    }
+
+    // Compare two arrays of matrices up to PSL(2,C) sign/canonicalization
+    function matrixSetsEqual(A = [], B = []) {
+      if (!Array.isArray(A) || !Array.isArray(B)) return false;
+      if (A.length !== B.length) return false;
+      const setA = new Set(A.map(m => keyFromMatrix(repWithNonnegativeRealTrace(m))));
+      const setB = new Set(B.map(m => keyFromMatrix(repWithNonnegativeRealTrace(m))));
+      if (setA.size !== setB.size) return false;
+      for (const k of setA) if (!setB.has(k)) return false;
+      return true;
+    }
+
+    // Draws a hyperbolic geodesic arc (as a circle orthogonal to the boundary, center in xy-plane)
+    function drawGeodesicArc(p, q, material) {
+      // If nearly vertical alignment (same x,y), draw a vertical segment
+      const eps = 1e-9;
+      if (Math.hypot(p.x - q.x, p.y - q.y) < eps) {
+        const geom = new THREE.BufferGeometry().setFromPoints([p, q]);
+        const line = new THREE.Line(geom, material);
+        delaunayGroup.add(line);
+        return;
+      }
+
+      // Normal of the unique vertical plane containing p and q
+      const k = new THREE.Vector3(0, 0, 1);
+      const n = new THREE.Vector3().subVectors(p, q).cross(k); // lies in xy-plane
+      const nlen = n.length();
+      if (nlen < eps) {
+        // Fallback to straight segment if degenerate
+        const geom = new THREE.BufferGeometry().setFromPoints([p, q]);
+        const line = new THREE.Line(geom, material);
+        delaunayGroup.add(line);
+        return;
+      }
+      n.divideScalar(nlen);
+
+      // Intersection line L = plane(p, n) ∩ {z=0}
+      // Direction of L is d = k × n (lies in xy-plane)
+      const d = new THREE.Vector3().crossVectors(k, n);
+      // A point C0 on L: project p to z=0 along the plane normal's perpendicular direction
+      // Choose any point with z=0 lying in plane: take C0 = (p.x, p.y, 0) adjusted so that n·(C0 - p) = 0
+      let C0 = new THREE.Vector3(p.x, p.y, 0);
+      const alpha = n.dot(new THREE.Vector3().subVectors(p, C0));
+      // Move along direction u in xy so that n·(C0 - p) = 0. Use u perpendicular to k and parallel to xy.
+      // Since n lies in xy, moving along any vector orthogonal to n in xy changes dot; use d (already orthogonal to n).
+      C0.addScaledVector(d, alpha / Math.max(d.lengthSq(), eps));
+
+      // Parameterize centers on L: C(t) = C0 + t d
+      // Solve |C(t)-p|^2 = |C(t)-q|^2 for t (linear)
+      const px = p.x, py = p.y, pz = p.z;
+      const qx = q.x, qy = q.y, qz = q.z;
+      const A = d.x * (qx - px) + d.y * (qy - py);
+      const B = ((qx * qx - px * px) + (qy * qy - py * py) + (qz * qz - pz * pz)) * 0.5
+        - (C0.x * (qx - px) + C0.y * (qy - py));
+      const denom = A;
+      let t = 0;
+      if (Math.abs(denom) > eps) {
+        t = B / denom;
+      }
+      const C = new THREE.Vector3(C0.x + t * d.x, C0.y + t * d.y, 0);
+
+      // Radius and orthonormal basis in the circle plane
+      const r = C.distanceTo(p);
+      if (!(r > eps)) {
+        const geom = new THREE.BufferGeometry().setFromPoints([p, q]);
+        const line = new THREE.Line(geom, material);
+        delaunayGroup.add(line);
+        return;
+      }
+      const e1 = new THREE.Vector3().subVectors(p, C).divideScalar(r); // from center to p
+      const e2 = new THREE.Vector3().crossVectors(n, e1).normalize();  // lies in the plane, orthonormal
+
+      // Angle from p to q around the circle in the plane (right-handed w.r.t. n)
+      const qp = new THREE.Vector3().subVectors(q, C);
+      const cosTh = THREE.MathUtils.clamp(qp.dot(e1) / r, -1, 1);
+      const sinTh = THREE.MathUtils.clamp(qp.dot(e2) / r, -1, 1);
+      let theta = Math.atan2(sinTh, cosTh);
+
+      // Sample the arc from 0 → theta (choose the shorter arc)
+      if (theta > Math.PI) theta -= 2 * Math.PI;
+      if (theta < -Math.PI) theta += 2 * Math.PI;
+
+      const segments = Math.max(16, Math.ceil(48 * Math.abs(theta) / Math.PI));
+      const pts = [];
+      for (let i = 0; i <= segments; i++) {
+        const tA = (i / segments) * theta;
+        const pt = new THREE.Vector3().copy(C)
+          .addScaledVector(e1, Math.cos(tA) * r)
+          .addScaledVector(e2, Math.sin(tA) * r);
+        pts.push(pt);
+      }
+      const geom = new THREE.BufferGeometry().setFromPoints(pts);
+      const line = new THREE.Line(geom, material);
+      delaunayGroup.add(line);
+    }
+
+    function drawDelaunayEdges(neighbors) {
+      clearDelaunay();
+      const material = new THREE.LineBasicMaterial({ linewidth: 2 });
+      for (const v of neighbors) {
+        const vv = (v && v.v) ? v.v : v;
+        drawGeodesicArc(basepoint, vv, material);
+      }
+    }
+
+    function drawOrbitPoints(points) {
+      clearOrbit();
+      if (!points || points.length === 0) return;
+
+      // Render orbit as copies of the yellow basepoint sphere
+      const sphereGeom = new THREE.SphereGeometry(0.02, 16, 16);
+      const sphereMat = new THREE.MeshStandardMaterial({ color: 0xffebab });
+      const mesh = new THREE.InstancedMesh(sphereGeom, sphereMat, points.length);
+      const m = new THREE.Matrix4();
+      for (let i = 0; i < points.length; i++) {
+        m.makeTranslation(points[i].x, points[i].y, points[i].z);
+        mesh.setMatrixAt(i, m);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      orbitGroup.add(mesh);
+    }
+
+    function generateAndDrawPolyhedron() {
+      clearPolyhedron();
+      clearDelaunay();
+      clearOrbit();
+
+      const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
+      const groupElements = generateGroupElements(generators, wordLength);
+      const neighbors = computeDelaunayNeighbors(groupElements);
+
+      const selectedRadio = document.querySelector('input[name="wallsMode"]:checked');
+      const wallsMode = selectedRadio ? selectedRadio.value : 'all';
+
+      if (wallsMode === 'dirichlet') {
+        // Draw exactly one wall per Dirichlet neighbor (between o and s·o)
+        const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
+        const o = imageOfBasepoint(I);
+        const vO = new THREE.Vector3(o.u.re, o.u.im, o.t);
+
+        const wallKeys = new Set();
+        neighbors
+          .map(n => (n && n.g) ? n.g : n)
+          .filter(Boolean)
+          .forEach(s => {
+            const p2 = imageOfBasepoint(s);
+            if (!isFinite(p2.t) || p2.t <= 0) return;
+            const vS = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
+            const key = bisectorKeyFromPoints(vO, vS);
+            if (!key || wallKeys.has(key)) return;
+            wallKeys.add(key);
+            const color = colorForIndex(wallKeys.size, neighbors.length);
+            const material = new THREE.MeshStandardMaterial({
+              color,
+              transparent: true,
+              opacity: wallOpacity,
+              side: THREE.DoubleSide,
+              metalness: 0.15,
+              roughness: 0.6
+            });
+            drawBisector(vO, vS, material);
+          });
+      } else if (wallsMode === 'all') {
+        // Draw walls for all generated pairs (g, gs) across the tiling
+        const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
+        const allG = [I, ...groupElements];
+        const sList = neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean);
+
+        const wallKeys = new Set();
+        sList.forEach((s, si) => {
+          // For non-random palettes, reuse one material per neighbor (old behavior).
+          // For random palette, we will create a new material per individual wall below.
+          const baseCol = (colorPalette === 'random') ? null : colorForIndex(si, sList.length);
+          const perNeighborMaterial = (colorPalette === 'random') ? null : new THREE.MeshStandardMaterial({
+            color: baseCol,
+            transparent: true,
+            opacity: wallOpacity,
+            side: THREE.DoubleSide,
+            metalness: 0.2,
+            roughness: 0.6
+          });
+
+          allG.forEach(g => {
+            const p1 = imageOfBasepoint(g);
+            const p2 = imageOfBasepoint(g.multiply(s));
+            if (!isFinite(p1.t) || p1.t <= 0 || !isFinite(p2.t) || p2.t <= 0) return;
+            if (Math.abs(p1.u.re - p2.u.re) < 1e-12 && Math.abs(p1.u.im - p2.u.im) < 1e-12 && Math.abs(p1.t - p2.t) < 1e-12) return;
+            const v1 = new THREE.Vector3(p1.u.re, p1.u.im, p1.t);
+            const v2 = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
+            const key = bisectorKeyFromPoints(v1, v2);
+            if (!key || wallKeys.has(key)) return;
+            wallKeys.add(key);
+
+            const material = (colorPalette === 'random')
+              ? new THREE.MeshStandardMaterial({
+                color: colorForIndex(Math.random(), 1), // brand new random color per wall
+                transparent: true,
+                opacity: wallOpacity,
+                side: THREE.DoubleSide,
+                metalness: 0.2,
+                roughness: 0.6
+              })
+              : perNeighborMaterial;
+
+            drawBisector(v1, v2, material);
+          });
+        });
+      } else {
+        // wallsMode === 'off' -> no walls drawn
+      }
+      const showOrbit = document.getElementById('toggleOrbit')?.checked;
+      if (showOrbit) {
+        const orbitPts = computeOrbitPoints(groupElements);
+        drawOrbitPoints(orbitPts);
+      } else {
+        clearOrbit();
+      }
+      const showDel = document.getElementById('toggleDelaunay')?.checked;
+      if (showDel) {
+        clearDelaunay();
+        // Build list of base group elements including identity
+        const allG = [...groupElements];
+        const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
+        allG.unshift(I);
+
+        // Extract Delaunay neighbor matrices (handle either {g,v} objects or bare matrices)
+        const sList = neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean);
+
+        sList.forEach((s, si) => {
+          const col = colorForIndex(si, sList.length);
+          const material = new THREE.LineBasicMaterial({ color: col });
+
+          allG.forEach(g => {
+            const p1 = imageOfBasepoint(g);
+            const p2 = imageOfBasepoint(g.multiply(s));
+            if (!isFinite(p1.t) || p1.t <= 0 || !isFinite(p2.t) || p2.t <= 0) return;
+            if (Math.abs(p1.u.re - p2.u.re) < 1e-12 && Math.abs(p1.u.im - p2.u.im) < 1e-12 && Math.abs(p1.t - p2.t) < 1e-12) return;
+
+            const v1 = new THREE.Vector3(p1.u.re, p1.u.im, p1.t);
+            const v2 = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
+            drawGeodesicArc(v1, v2, material);
+          });
+        });
+      } else {
+        clearDelaunay();
+      }
+    }
+
+    function lerpColorHex(hex1, hex2, t) {
+      const c1 = new THREE.Color(hex1);
+      const c2 = new THREE.Color(hex2);
+      // clamp t to [0,1]
+      const u = Math.min(1, Math.max(0, t || 0));
+      return c1.lerp(c2, u);
+    }
+
+    function colorForIndex(si, total) {
+      if (colorPalette === 'monochrome') {
+        return new THREE.Color('skyblue');
+      }
+      if (colorPalette === 'random') {
+        // completely random on each render
+        return new THREE.Color(Math.random() * 0xffffff);
+      }
+      if (colorPalette === 'bluegold') {
+        // Smooth interpolation between UC blue and gold
+        const start = 0x003660; // #003660
+        const end = 0xFEBC11; // #FEBC11
+        const denom = Math.max(1, (total || 1) - 1);
+        const t = (typeof si === 'number') ? (si / denom) : 0.5;
+        return lerpColorHex(start, end, t);
+      }
+      if (colorPalette === 'tealfuchsia') {
+        const stops = [0x23bbad, 0x25d9c8, 0x2abed9, 0xff6da2, 0xf92672];
+        const denom = Math.max(1, (total || 1) - 1);
+        let t = (typeof si === 'number') ? (si / denom) : 0.5;
+        // Bias toward the end color (fuchsia) — exponent < 1 pushes values toward 1
+        t = Math.pow(t, 0.65);
+        const seg = 1 / (stops.length - 1);
+        const idx = Math.min(stops.length - 2, Math.floor(t / seg));
+        const localT = (t - idx * seg) / seg;
+        return lerpColorHex(stops[idx], stops[idx + 1], localT);
+      }
+      if (colorPalette === 'ucpure') {
+        // Alternate between UC blue and gold
+        return (si % 2 === 0) ? new THREE.Color(0x003660) : new THREE.Color(0xFEBC11);
+      }
+      // default: previous behavior
+      const c = new THREE.Color();
+      c.setHSL(si / Math.max(1, total), 0.65, 0.58);
+      return c;
+    }
+
+    // --- Init ---
+    init();
+    // Setup panel and defaults
+    setupPanelUI();
+    const delCb = document.getElementById('toggleDelaunay');
+    if (delCb) delCb.addEventListener('change', () => {
+      rebuildGeneratorsFromUI();
+      generateAndDrawPolyhedron();
+    });
+    const orbCb = document.getElementById('toggleOrbit');
+    if (orbCb) orbCb.addEventListener('change', () => {
+      rebuildGeneratorsFromUI();
+      generateAndDrawPolyhedron();
+    });
+    const wallsRadios = document.querySelectorAll('input[name="wallsMode"]');
+    wallsRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        rebuildGeneratorsFromUI();
+        generateAndDrawPolyhedron();
+      });
+    });
+    const wallOpacitySlider = document.getElementById('wallOpacitySlider');
+    if (wallOpacitySlider) {
+      wallOpacitySlider.addEventListener('input', () => {
+        wallOpacity = parseFloat(wallOpacitySlider.value);
+        document.getElementById('wallOpacityValue').textContent = wallOpacity.toFixed(2);
+        rebuildGeneratorsFromUI();
+        generateAndDrawPolyhedron();
+      });
+    }
+    const paletteSel = document.getElementById('colorPalette');
+    if (paletteSel) {
+      paletteSel.addEventListener('change', () => {
+        colorPalette = paletteSel.value || 'harmonic';
+        rebuildGeneratorsFromUI();
+        generateAndDrawPolyhedron();
+      });
+    }
+    // --- Basepoint toggle ---
+    const bpCb = document.getElementById('toggleBasepoint');
+    if (bpCb) bpCb.addEventListener('change', () => {
+      if (window.basepointMesh) {
+        window.basepointMesh.visible = bpCb.checked;
+      }
+    });
+    // --- Floor initial visibility sync ---
+    const floorCb = document.getElementById('toggleFloor');
+    if (floorCb && floor) {
+      floor.visible = floorCb.checked;
+    }
+    refreshExampleDropdown();
+    setExample(exampleLibrary[0].mats); // first example by default
+    rebuildGeneratorsFromUI();
+    typesetMath();
+    // Sync initial word length
+    document.getElementById('wordLength').value = 4;
+    generateAndDrawPolyhedron();
+
+  </script>
 </body>
+
 </html>

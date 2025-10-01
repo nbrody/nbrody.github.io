@@ -144,13 +144,30 @@ const modRational = (a, b) => {
     return a.sub(new Rational(t).mul(b));
 };
 
-// Reduce q into the canonical residue for level k (0 <= q < step)
+// Reduce q into the canonical residue for level k (0 <= q < step), using true p-adic reduction for k >= 0 and v_p(q) >= 0
 const canonicalizeQ = (q, k, p) => {
+    // Normalize input to Rational
+    const asRat = (q instanceof Rational) ? q : new Rational(q);
+
+    // For nonnegative levels k, if q is a p-adic integer (v_p(q) >= 0),
+    // use p-adic truncation modulo p^k (an element of Z/p^k Z)
+    if (k >= 0) {
+        const t = val(asRat, p); // v_p(q)
+        if (t >= 0) {
+            const pk = p ** BigInt(k); // modulus p^k
+            const residue = pApprox(asRat, p, pk); // BigInt in [0, p^k)
+            return new Rational(residue, 1n);
+        }
+        // If v_p(q) < 0, q is not a p-adic integer; fall through to rational modulo logic
+        // to produce a canonical representative in [0, p^k) as a Rational.
+    }
+
+    // Existing rational canonicalization for general k (including negative k)
     const step = stepRational(p, k);
     // Ensure non-negative representation
-    let r = q;
+    let r = asRat;
     if (r.num < 0n) {
-        // Bring into [0, step) by adding multiples of step
+        // Bring into [0, step) by adding the smallest nonnegative multiple of `step`
         const t = ((-r.num) * step.den + (r.den * step.num) - 1n) / (r.den * step.num); // ceil((-r)/step)
         r = r.add(new Rational(t).mul(step));
     }

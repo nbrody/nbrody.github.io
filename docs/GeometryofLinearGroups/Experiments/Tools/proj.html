@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Camera Projector Feedback</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-family: monospace;
+            font-size: 1.2em;
+            text-shadow: 0 0 5px black;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">Drag to rotate. Scroll to zoom.</div>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module">
+        // Use full URLs for the imports
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // 1. SCENE AND RENDERER SETUP
+        // ===================================
+        const scene = new THREE.Scene();
+        const userCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(userCamera, renderer.domElement);
+        userCamera.position.set(0, 1.5, 5);
+        controls.target.set(0, 1, 0);
+        controls.update();
+
+        scene.add(new THREE.AmbientLight(0x101010));
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x222233, 0.4));
+        // Use two render targets to avoid feedback loop (ping-pong)
+        const rtA = new THREE.WebGLRenderTarget(1024, 1024, { depthBuffer: false, stencilBuffer: false });
+        const rtB = new THREE.WebGLRenderTarget(1024, 1024, { depthBuffer: false, stencilBuffer: false });
+        rtA.texture.generateMipmaps = false;
+        rtB.texture.generateMipmaps = false;
+        rtA.texture.minFilter = THREE.LinearFilter;
+        rtB.texture.minFilter = THREE.LinearFilter;
+        let useA = true; // toggles each frame
+
+
+        // 2. CREATING THE OBJECTS
+        // ===================================
+        const wallGeometry = new THREE.PlaneGeometry(10, 10);
+        const wallMaterial = new THREE.MeshPhongMaterial({ color: 0xdddddd });
+        const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+        wall.position.z = -5;
+        scene.add(wall);
+
+        // --- Center object in the scene (at the canvas center) ---
+        const centerMat = new THREE.MeshStandardMaterial({ color: 0x3399ff, metalness: 0.2, roughness: 0.4 });
+        const centerObj = new THREE.Mesh(new THREE.TorusKnotGeometry(0.5, 0.16, 160, 32), centerMat);
+        centerObj.position.set(0, 1, 2.2); // moved closer to camera; wall is at z=-5, camera ~ z=5
+        scene.add(centerObj);
+
+        const feedbackCamera = new THREE.PerspectiveCamera(50, 1, 0.2, 20);
+        feedbackCamera.position.set(0, 1.5, 0);
+
+        const cameraGroup = new THREE.Group();
+        const cameraBody = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.3), new THREE.MeshPhongMaterial({ color: 0x222222 }));
+        const cameraLens = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.2, 32), new THREE.MeshPhongMaterial({ color: 0x111111 }));
+        cameraLens.rotation.x = Math.PI / 2;
+        cameraLens.position.z = -0.15;
+        cameraGroup.add(cameraBody, cameraLens);
+        cameraGroup.position.copy(feedbackCamera.position);
+        cameraGroup.lookAt(wall.position);
+        scene.add(cameraGroup);
+
+        const createProjector = (position) => {
+            const projectorLight = new THREE.SpotLight(0xffffff, 60.0);
+            projectorLight.position.copy(position);
+            projectorLight.target.position.copy(wall.position);
+            projectorLight.angle = Math.PI / 7;
+            projectorLight.penumbra = 0.2;
+            projectorLight.distance = 20;
+            projectorLight.decay = 1.5;
+            // projectorLight.map = renderTarget.texture;  // Removed per instructions
+
+            scene.add(projectorLight);
+            scene.add(projectorLight.target);
+
+            const projectorGroup = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.6), new THREE.MeshPhongMaterial({ color: 0x333333 }));
+            const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.3, 32), new THREE.MeshPhongMaterial({ color: 0x111111 }));
+            lens.rotation.x = Math.PI / 2;
+            lens.position.z = -0.3;
+            projectorGroup.add(body, lens);
+            projectorGroup.position.copy(position);
+            projectorGroup.lookAt(wall.position);
+
+            return { light: projectorLight, visual: projectorGroup };
+        };
+
+        const projector1 = createProjector(new THREE.Vector3(-1.2, 1.5, 0));
+        const projector2 = createProjector(new THREE.Vector3(1.2, 1.5, 0));
+        scene.add(projector1.visual);
+        scene.add(projector2.visual);
+
+        // Initialize projector maps to the "read" target so the first frame has a valid texture
+        projector1.light.map = rtB.texture;
+        projector2.light.map = rtB.texture;
+
+        // --- Dragging setup for projectors ---
+        // Link visuals to their lights for easy lookup
+        projector1.visual.userData.light = projector1.light;
+        projector2.visual.userData.light = projector2.light;
+
+        const draggable = [projector1.visual, projector2.visual];
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+        let dragging = null;          // the visual being dragged
+        let dragOffset = new THREE.Vector3();
+        const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0); // plane z = const
+        const planeHit = new THREE.Vector3();
+
+        function setPointerFromEvent(event) {
+          const rect = renderer.domElement.getBoundingClientRect();
+          pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+          pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        }
+
+        function onPointerDown(event) {
+          setPointerFromEvent(event);
+          raycaster.setFromCamera(pointer, userCamera);
+          const intersects = raycaster.intersectObjects(draggable, true);
+          if (intersects.length > 0) {
+            // Find the top-level projector group for whatever child was hit
+            let obj = intersects[0].object;
+            while (obj && !draggable.includes(obj)) obj = obj.parent;
+            if (!obj) return;
+            dragging = obj;
+            // Drag on a plane parallel to the screen at the current z of the projector
+            dragPlane.set(new THREE.Vector3(0, 0, 1), -dragging.position.z);
+            if (raycaster.ray.intersectPlane(dragPlane, planeHit)) {
+              dragOffset.copy(dragging.position).sub(planeHit);
+            } else {
+              dragOffset.set(0, 0, 0);
+            }
+            renderer.domElement.style.cursor = 'grabbing';
+          }
+        }
+
+        function onPointerMove(event) {
+          if (!dragging) return;
+          setPointerFromEvent(event);
+          raycaster.setFromCamera(pointer, userCamera);
+          if (raycaster.ray.intersectPlane(dragPlane, planeHit)) {
+            const newPos = planeHit.add(dragOffset);
+            // Update projector visual and light positions
+            dragging.position.copy(newPos);
+            const light = dragging.userData.light;
+            light.position.copy(newPos);
+            // Keep it focused on the same target point
+            dragging.lookAt(light.target.position);
+          }
+        }
+
+        function onPointerUp() {
+          if (dragging) {
+            dragging = null;
+            renderer.domElement.style.cursor = 'auto';
+          }
+        }
+
+        renderer.domElement.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+
+        // 3. ANIMATION LOOP
+        // ===================================
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            centerObj.rotation.y += 0.01;
+            centerObj.rotation.x += 0.005;
+
+            // --- FEEDBACK RENDER PASS (write to one RT, read from the other) ---
+            const writeRT = useA ? rtA : rtB;
+            const readRT  = useA ? rtB : rtA;
+
+            // Ensure projectors read from the texture that is NOT currently being written
+            if (projector1.light.map !== readRT.texture) projector1.light.map = readRT.texture;
+            if (projector2.light.map !== readRT.texture) projector2.light.map = readRT.texture;
+
+            // Sync feedback camera so it renders exactly what the user camera sees
+            feedbackCamera.position.copy(userCamera.position);
+            feedbackCamera.quaternion.copy(userCamera.quaternion);
+            feedbackCamera.fov = userCamera.fov;
+            feedbackCamera.near = userCamera.near;
+            feedbackCamera.far = userCamera.far;
+            feedbackCamera.updateProjectionMatrix();
+
+            // Hide only the visual meshes of the devices so they don't appear in the captured texture
+            cameraGroup.visible = false;
+            projector1.visual.visible = false;
+            projector2.visual.visible = false;
+
+            renderer.setRenderTarget(writeRT);
+            renderer.render(scene, feedbackCamera);
+
+            // --- MAIN RENDER PASS ---
+            renderer.setRenderTarget(null);
+
+            cameraGroup.visible = true;
+            projector1.visual.visible = true;
+            projector2.visual.visible = true;
+
+            renderer.render(scene, userCamera);
+
+            // Swap buffers for next frame
+            useA = !useA;
+        }
+
+        window.addEventListener('resize', () => {
+            userCamera.aspect = window.innerWidth / window.innerHeight;
+            userCamera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+
+</html>

@@ -193,11 +193,15 @@
                         let term = '';
                         const coeff = this.coeffs[i];
                         if (i === 0) {
-                            term = coeff.toFixed(3);
+                            term = coeff.toFixed(0);
                         } else if (i === 1) {
-                            term = `${coeff.toFixed(3)}x`;
+                            term = `${coeff.toFixed(0)}x`;
+                        } else if (coeff == 1) {   
+                            term = `x^${i}`;
+                        } else if (coeff == -1) {
+                            term = `-x^${i}`;
                         } else {
-                            term = `${coeff.toFixed(3)}x^${i}`;
+                            term = `${coeff.toFixed(0)}x^${i}`;
                         }
                         if (coeff > 0 && terms.length > 0) {
                             term = '+' + term;
