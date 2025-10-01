@@ -39,24 +39,31 @@
 
             <div class="mt-4">
               <a href="https://youtube.com/shorts/nAMQWJv7BZI" target="_blank" class="block text-indigo-400 hover:text-indigo-300 underline text-sm">
-                Watch related video
+                Analog IFS
               </a>
+            </div>
+            <div class="mt-4 space-y-2">
+              <button id="save-btn" class="w-full px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold">Save current coordinates</button>
+              <div>
+                <h2 class="text-sm font-semibold text-gray-300 mb-1">Saved snapshots</h2>
+                <div id="saved-list" class="space-y-1"></div>
+              </div>
             </div>
             <div class="space-y-3">
                 <div class="p-3 bg-gray-900/70 rounded-lg border border-gray-700">
-                    <p class="text-sm font-bold" style="color: #ef4444;">$a$ (Red)</p>
+                    <p class="text-sm font-bold" style="color: #ef4444;">a</p>
                     <p id="a-value" class="text-sm text-gray-400 font-mono">0.50 + 0.50i</p>
                 </div>
                 <div class="p-3 bg-gray-900/70 rounded-lg border border-gray-700">
-                    <p class="text-sm font-bold" style="color: #fca5a5;">$b$ (Light Red)</p>
+                    <p class="text-sm font-bold" style="color: #fca5a5;">b</p>
                     <p id="b-value" class="text-sm text-gray-400 font-mono">0.00 + 0.00i</p>
                 </div>
                 <div class="p-3 bg-gray-900/70 rounded-lg border border-gray-700">
-                    <p class="text-sm font-bold" style="color: #3b82f6;">$c$ (Blue)</p>
+                    <p class="text-sm font-bold" style="color: #3b82f6;">c</p>
                     <p id="c-value" class="text-sm text-gray-400 font-mono">0.50 - 0.50i</p>
                 </div>
                 <div class="p-3 bg-gray-900/70 rounded-lg border border-gray-700">
-                    <p class="text-sm font-bold" style="color: #93c5fd;">$d$ (Light Blue)</p>
+                    <p class="text-sm font-bold" style="color: #93c5fd;">d</p>
                     <p id="d-value" class="text-sm text-gray-400 font-mono">1.00 + 0.00i</p>
                 </div>
             </div>
@@ -90,6 +97,9 @@
         const wanderSpeed = document.getElementById('wander-speed');
         const wanderSpeedValue = document.getElementById('wander-speed-value');
 
+        const saveBtn = document.getElementById('save-btn');
+        const savedList = document.getElementById('saved-list');
+
         // --- STATE & CONFIGURATION ---
         const state = {
             params: {
@@ -119,6 +129,122 @@
         };
 
         const DRAG_RADIUS = 15;
+
+        // --- SNAPSHOT STORAGE UTILITIES ---
+        const STORAGE_KEY = 'ifsSnapshots';
+        function loadSnapshots() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                console.warn('Failed to parse snapshots from storage', e);
+                return [];
+            }
+        }
+        function saveSnapshots(list) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+        }
+        function currentParamsSnapshot() {
+            // Deep copy params + depth
+            return {
+                ts: new Date().toISOString(),
+                name: null, // optional user-defined label
+                depth: parseInt(depthSlider.value, 10),
+                params: {
+                    a: { ...state.params.a },
+                    b: { ...state.params.b },
+                    c: { ...state.params.c },
+                    d: { ...state.params.d },
+                },
+            };
+        }
+        function renderSavedList() {
+            const snaps = loadSnapshots();
+            savedList.innerHTML = '';
+            if (!snaps.length) {
+                const empty = document.createElement('p');
+                empty.className = 'text-xs text-gray-500';
+                empty.textContent = 'No snapshots yet.';
+                savedList.appendChild(empty);
+                return;
+            }
+            // newest first
+            [...snaps].reverse().forEach(s => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2';
+
+                // Main restore button (label)
+                const restoreBtn = document.createElement('button');
+                restoreBtn.className = 'flex-1 text-left text-xs px-2 py-1 rounded bg-gray-900/60 hover:bg-gray-800 border border-gray-700';
+                const label = s.name && s.name.trim() ? s.name : new Date(s.ts).toLocaleString();
+                restoreBtn.textContent = label;
+                restoreBtn.title = `Restore snapshot (${new Date(s.ts).toLocaleString()})`;
+                restoreBtn.addEventListener('click', () => restoreSnapshot(s.ts));
+
+                // Rename button
+                const renameBtn = document.createElement('button');
+                renameBtn.className = 'text-xs px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 border border-gray-700';
+                renameBtn.setAttribute('aria-label', 'Rename snapshot');
+                renameBtn.textContent = '✎';
+                renameBtn.title = 'Rename';
+                renameBtn.addEventListener('click', (ev) => { ev.stopPropagation(); renameSnapshot(s.ts); });
+
+                // Delete button
+                const delBtn = document.createElement('button');
+                delBtn.className = 'text-xs px-2 py-1 rounded bg-gray-800 hover:bg-rose-800 border border-gray-700';
+                delBtn.setAttribute('aria-label', 'Delete snapshot');
+                delBtn.textContent = '🗑';
+                delBtn.title = 'Delete';
+                delBtn.addEventListener('click', (ev) => { ev.stopPropagation(); deleteSnapshot(s.ts); });
+
+                row.appendChild(restoreBtn);
+                row.appendChild(renameBtn);
+                row.appendChild(delBtn);
+                savedList.appendChild(row);
+            });
+        }
+        function restoreSnapshot(ts) {
+            const snaps = loadSnapshots();
+            const s = snaps.find(x => x.ts === ts);
+            if (!s) return;
+            state.params.a.re = s.params.a.re; state.params.a.im = s.params.a.im;
+            state.params.b.re = s.params.b.re; state.params.b.im = s.params.b.im;
+            state.params.c.re = s.params.c.re; state.params.c.im = s.params.c.im;
+            state.params.d.re = s.params.d.re; state.params.d.im = s.params.d.im;
+            // restore depth as well
+            if (typeof s.depth === 'number') {
+                depthSlider.value = String(s.depth);
+                depthValueSpan.textContent = String(s.depth);
+            }
+            updateValueDisplays();
+            state.isDirty = true;
+            statusEl.textContent = `Restored snapshot ${new Date(ts).toLocaleString()}`;
+        }
+
+        function renameSnapshot(ts) {
+            const snaps = loadSnapshots();
+            const s = snaps.find(x => x.ts === ts);
+            if (!s) return;
+            const defaultLabel = s.name && s.name.trim() ? s.name : new Date(s.ts).toLocaleString();
+            const newName = prompt('Rename snapshot:', defaultLabel);
+            if (newName === null) return; // user cancelled
+            s.name = newName.trim();
+            saveSnapshots(snaps);
+            renderSavedList();
+            statusEl.textContent = `Renamed snapshot to "${s.name || new Date(s.ts).toLocaleString()}"`;
+        }
+
+        function deleteSnapshot(ts) {
+            const snaps = loadSnapshots();
+            const s = snaps.find(x => x.ts === ts);
+            if (!s) return;
+            const label = s.name && s.name.trim() ? s.name : new Date(s.ts).toLocaleString();
+            if (!confirm(`Delete snapshot \n${label}?`)) return;
+            const remaining = snaps.filter(x => x.ts !== ts);
+            saveSnapshots(remaining);
+            renderSavedList();
+            statusEl.textContent = 'Snapshot deleted.';
+        }
 
         // --- COMPLEX NUMBER UTILITIES ---
         const complex = {
@@ -370,6 +496,17 @@
             wanderSpeedValue.textContent = wanderSpeed.value;
         });
 
+        saveBtn.addEventListener('click', () => {
+            const snaps = loadSnapshots();
+            const snap = currentParamsSnapshot();
+            // Keep last 200 snapshots to avoid unbounded growth
+            snaps.push(snap);
+            if (snaps.length > 200) snaps.splice(0, snaps.length - 200);
+            saveSnapshots(snaps);
+            renderSavedList();
+            statusEl.textContent = `Saved at ${new Date(snap.ts).toLocaleString()}`;
+        });
+
         function animationLoop() {
             if (state.isDirty) {
                 drawAll();
@@ -388,6 +525,7 @@
 
         window.addEventListener('resize', handleResize);
 
+        renderSavedList();
         handleResize();
         animationLoop();
     </script>
