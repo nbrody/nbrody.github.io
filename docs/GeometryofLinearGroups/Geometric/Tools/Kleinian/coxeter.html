@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coxeter Graphs</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden; /* no scrollbars; canvas fills screen */
+            background-color: #f0f0f0;
+            color: #333;
+        }
+
+        h1 { display: none; }
+
+        #graphCanvas {
+            background-color: white;
+            border: none;
+            border-radius: 0;
+            cursor: default;
+            box-shadow: none;
+            width: 100vw;   /* full viewport width */
+            height: 100vh;  /* full viewport height */
+            display: block;
+        }
+
+        .controls {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 320px;
+            height: 100vh;
+            background: rgba(255,255,255,0.96);
+            box-shadow: -4px 0 12px rgba(0,0,0,0.15);
+            padding: 14px 14px 20px 14px;
+            overflow-y: auto;
+            gap: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        p {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px 0;
+        }
+        #stage {
+            position: fixed; /* cover the whole screen */
+            inset: 0;        /* top:0; right:0; bottom:0; left:0 */
+        }
+        #labelLayer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* let mouse pass through to canvas */
+        }
+        .v-label {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+            font-size: 14px; /* MathJax will scale SVG appropriately */
+        }
+        #results { margin-top: 6px; }
+        .controls h2 {
+            margin: 6px 0 4px 0;
+            font-size: 18px;
+        }
+        .controls p { margin: 4px 0; }
+    </style>
+<script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" defer></script>
+</head>
+
+<body>
+
+    <h1>Interactive Graph Builder</h1>
+    <div id="stage">
+        <canvas id="graphCanvas" width="800" height="600" tabindex="0"></canvas>
+        <div id="labelLayer"></div>
+    </div>
+    <div class="controls">
+        <h2>Coxeter Group Tools</h2>
+        <p><strong>Cmd/Ctrl + Click</strong> on blank space to add vertex.</p>
+        <p><strong>Click</strong> on a vertex to select.</p>
+        <p><strong>Shift + Click</strong> on second vertex to draw edge.</p>
+        <p><strong>Click</strong> on an edge to label it (≥3).</p>
+        <button id="clearBtn">Clear Graph</button>
+        <button id="gramBtn">Compute Gram & Eigenvalues</button>
+        <div id="results" style="max-width:800px; background:#fff; border:1px solid #ccc; border-radius:6px; padding:12px; line-height:1.4"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+        // --- HiDPI / Retina scaling ---
+        let currentDPR = 0;
+
+        function resizeCanvasForDPR() {
+            const dpr = Math.max(1, window.devicePixelRatio || 1);
+            const cssWidth = Math.max(1, window.innerWidth);
+            const cssHeight = Math.max(1, window.innerHeight);
+
+            if (dpr === currentDPR && canvas.width === Math.round(cssWidth * dpr) && canvas.height === Math.round(cssHeight * dpr)) {
+                return; // no change
+            }
+            currentDPR = dpr;
+
+            // Ensure the CSS size fills the viewport
+            canvas.style.width = cssWidth + 'px';
+            canvas.style.height = cssHeight + 'px';
+
+            // Backing store size in device pixels
+            canvas.width = Math.round(cssWidth * dpr);
+            canvas.height = Math.round(cssHeight * dpr);
+
+            // Scale the context so drawing uses CSS pixel units
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        // Ensure crisp rendering on DPR changes / window resizes
+        window.addEventListener('resize', () => { resizeCanvasForDPR(); redraw(); });
+        // Some browsers change DPR on zoom; listen periodically
+        let _dprCheck = setInterval(() => { if ((window.devicePixelRatio||1) !== currentDPR) { resizeCanvasForDPR(); redraw(); } }, 500);
+
+        const clearBtn = document.getElementById('clearBtn');
+        const labelLayer = document.getElementById('labelLayer');
+
+        // --- Graph Data Structures ---
+        let vertices = []; // [{ id: 'v1', x: 50, y: 50 }]
+        let edges = [];    // [{ id: 'e1', v1: 'v1', v2: 'v2', label: null }]
+        let nextVertexId = 1;
+        let nextEdgeId = 0;
+
+        // --- UI State ---
+        let selectedVertex = null; // Stores the id of the currently selected vertex
+        let selectedEdge = null;
+
+        // --- Drag State ---
+        let isDragging = false;
+        let dragVertex = null;
+        let didDrag = false; // used to suppress click-triggered actions after a drag
+
+        // --- Constants ---
+        const VERTEX_RADIUS = 20;
+        const VERTEX_COLOR = '#4CAF50';
+        const SELECTED_VERTEX_COLOR = '#007bff';
+        const EDGE_COLOR = '#555';
+        const EDGE_WIDTH = 3;
+        const LABEL_FONT = '14px Arial';
+        const LABEL_COLOR = '#000';
+        const CLICK_TOLERANCE = 10; // For edge clicking
+        const NUM_PREC = 6; // display precision for numbers
+
+
+        // --- Event Listeners ---
+        canvas.addEventListener('click', handleClick);
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        window.addEventListener('keydown', handleKeyDown);
+        clearBtn.addEventListener('click', clearGraph);
+        const gramBtn = document.getElementById('gramBtn');
+        gramBtn.addEventListener('click', computeAndShowGram);
+
+        // --- Functions ---
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function findVertexAtPos(pos) {
+            for (const vertex of vertices) {
+                const dist = Math.sqrt(Math.pow(vertex.x - pos.x, 2) + Math.pow(vertex.y - pos.y, 2));
+                if (dist <= VERTEX_RADIUS) {
+                    return vertex;
+                }
+            }
+            return null;
+        }
+
+        function findEdgeAtPos(pos) {
+            for (const edge of edges) {
+                const v1 = vertices.find(v => v.id === edge.v1);
+                const v2 = vertices.find(v => v.id === edge.v2);
+
+                if (!v1 || !v2) continue; // Should not happen with current logic
+
+                // Check distance from point to line segment
+                const line = { p1: { x: v1.x, y: v1.y }, p2: { x: v2.x, y: v2.y } };
+                const dist = distToSegmentSquared(pos, line.p1, line.p2);
+                const threshold = (EDGE_WIDTH / 2 + CLICK_TOLERANCE) * (EDGE_WIDTH / 2 + CLICK_TOLERANCE);
+
+                if (dist < threshold) {
+                    return edge;
+                }
+            }
+            return null;
+        }
+
+        function handleClick(e) {
+            const pos = getMousePos(e);
+            // If a drag just happened, ignore this click event
+            if (didDrag || isDragging) {
+                return;
+            }
+            const clickedVertex = findVertexAtPos(pos);
+            const clickedEdge = findEdgeAtPos(pos);
+
+            if (e.metaKey || e.ctrlKey) { // Command/Ctrl + Click to add vertex
+                if (!clickedVertex) {
+                    addVertex(pos.x, pos.y);
+                }
+            } else if (e.shiftKey) { // Shift + Click to draw edge
+                if (selectedVertex && clickedVertex && selectedVertex.id !== clickedVertex.id) {
+                    addEdge(selectedVertex.id, clickedVertex.id);
+                    selectedVertex = null; // Deselect after drawing edge
+                    selectedEdge = null;
+                } else if (clickedVertex) { // If shift-clicking without a selected vertex, just select it
+                    selectedVertex = clickedVertex;
+                    selectedEdge = null;
+                }
+            } else if (clickedVertex) { // Click on vertex to select
+                selectedVertex = clickedVertex;
+                selectedEdge = null;
+            } else if (clickedEdge) { // Click on edge to select; click again to label
+                if (selectedEdge && selectedEdge.id === clickedEdge.id) {
+                    labelEdge(clickedEdge);
+                } else {
+                    selectedEdge = clickedEdge;
+                }
+                selectedVertex = null; // deselect any vertex when selecting an edge
+            } else { // Click on empty space
+                selectedVertex = null; // Deselect vertex
+                selectedEdge = null;
+            }
+            redraw();
+        }
+
+        function handleMouseDown(e) {
+            const pos = getMousePos(e);
+            const clickedVertex = findVertexAtPos(pos);
+
+            if (clickedVertex && !(e.metaKey || e.ctrlKey) && !e.shiftKey) {
+                // Select and start dragging
+                selectedVertex = clickedVertex;
+                selectedEdge = null;
+                isDragging = true;
+                dragVertex = clickedVertex;
+                didDrag = false;
+            }
+        }
+
+        function handleMouseMove(e) {
+            if (!isDragging || !dragVertex) return;
+            const pos = getMousePos(e);
+            // Move vertex to cursor
+            dragVertex.x = pos.x;
+            dragVertex.y = pos.y;
+            didDrag = true;
+            redraw();
+        }
+
+        function handleMouseUp(e) {
+            if (isDragging) {
+                isDragging = false;
+                dragVertex = null;
+                // Suppress the immediate click event after a drag
+                setTimeout(() => { didDrag = false; }, 0);
+            }
+        }
+
+        function handleKeyDown(e) {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selectedVertex) {
+                    e.preventDefault();
+                    deleteSelectedVertex();
+                } else if (selectedEdge) {
+                    e.preventDefault();
+                    deleteSelectedEdge();
+                }
+            }
+        }
+
+        function deleteSelectedVertex() {
+            if (!selectedVertex) return;
+            const id = selectedVertex.id;
+            // Remove incident edges
+            edges = edges.filter(edge => edge.v1 !== id && edge.v2 !== id);
+            // Remove the vertex
+            vertices = vertices.filter(v => v.id !== id);
+            // Clear selection and redraw
+            selectedVertex = null;
+            redraw();
+        }
+
+        function deleteSelectedEdge() {
+            if (!selectedEdge) return;
+            const id = selectedEdge.id;
+            edges = edges.filter(edge => edge.id !== id);
+            selectedEdge = null;
+            redraw();
+        }
+
+        function addVertex(x, y) {
+            const id = 'v' + nextVertexId++;
+            vertices.push({ id, x, y });
+            redraw();
+        }
+
+        function addEdge(v1Id, v2Id) {
+            // Prevent duplicate edges (undirected graph, so v1-v2 is same as v2-v1)
+            const exists = edges.some(edge =>
+                (edge.v1 === v1Id && edge.v2 === v2Id) ||
+                (edge.v1 === v2Id && edge.v2 === v1Id)
+            );
+            if (!exists) {
+                const id = 'e' + nextEdgeId++;
+                edges.push({ id, v1: v1Id, v2: v2Id, label: null });
+                redraw();
+            }
+        }
+
+        async function labelEdge(edge) {
+            let label = null;
+            let isValid = false;
+            while (!isValid) {
+                const input = prompt(`Enter a positive integer at least 3 for the edge between ${edge.v1} and ${edge.v2}:`, edge.label || '');
+                if (input === null) { // User cancelled
+                    break;
+                }
+                label = parseInt(input, 10);
+                if (isNaN(label) || label < 3) {
+                    alert('Invalid input. Please enter a positive integer greater than or equal to 3.');
+                } else {
+                    isValid = true;
+                }
+            }
+            if (isValid) {
+                edge.label = label;
+                redraw();
+            }
+        }
+
+        function clearGraph() {
+            vertices = [];
+            edges = [];
+            selectedVertex = null;
+            selectedEdge = null;
+            nextVertexId = 1;
+            nextEdgeId = 0;
+            redraw();
+        }
+
+        function redraw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            labelLayer.innerHTML = '';
+
+            // Draw Edges
+            for (const edge of edges) {
+                const v1 = vertices.find(v => v.id === edge.v1);
+                const v2 = vertices.find(v => v.id === edge.v2);
+
+                if (v1 && v2) {
+                    ctx.beginPath();
+                    ctx.moveTo(v1.x, v1.y);
+                    ctx.lineTo(v2.x, v2.y);
+                    ctx.strokeStyle = (selectedEdge && selectedEdge.id === edge.id) ? '#007bff' : EDGE_COLOR;
+                    ctx.lineWidth = (selectedEdge && selectedEdge.id === edge.id) ? EDGE_WIDTH + 1.5 : EDGE_WIDTH;
+                    ctx.stroke();
+
+                    // Draw Edge Label
+                    if (edge.label !== null && edge.label !== 3) {
+                        const midX = (v1.x + v2.x) / 2;
+                        const midY = (v1.y + v2.y) / 2;
+
+                        // Angle of the edge
+                        let angle = Math.atan2(v2.y - v1.y, v2.x - v1.x);
+                        // Keep text upright: if pointing left-ish, flip by π
+                        if (Math.cos(angle) < 0) angle += Math.PI;
+
+                        ctx.save();
+                        ctx.translate(midX, midY);
+                        ctx.rotate(angle);
+
+                        // Text styling
+                        ctx.font = LABEL_FONT;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+
+                        // Measure text and draw a white background box for readability
+                        const text = String(edge.label);
+                        const metrics = ctx.measureText(text);
+                        const textWidth = metrics.width;
+                        const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+                        const padding = 4;
+
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(-textWidth / 2 - padding, -textHeight / 2 - padding, textWidth + 2 * padding, textHeight + 2 * padding);
+
+                        // Draw the text
+                        ctx.fillStyle = LABEL_COLOR;
+                        ctx.fillText(text, 0, 0);
+
+                        ctx.restore();
+                    }
+                }
+            }
+
+            // Draw Vertices
+            for (const vertex of vertices) {
+                ctx.beginPath();
+                ctx.arc(vertex.x, vertex.y, VERTEX_RADIUS, 0, Math.PI * 2);
+                ctx.fillStyle = (selectedVertex && selectedVertex.id === vertex.id) ? SELECTED_VERTEX_COLOR : VERTEX_COLOR;
+                ctx.fill();
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // HTML LaTeX vertex label with subscript
+                const span = document.createElement('span');
+                span.className = 'v-label';
+                span.style.left = `${vertex.x}px`;
+                span.style.top = `${vertex.y}px`;
+                // Convert id like 'v12' -> v_{12}
+                const sub = (vertex.id || '').replace(/^v/, '');
+                span.innerHTML = `\\(s_{${sub}}\\)`;
+                labelLayer.appendChild(span);
+            }
+
+            if (window.MathJax && MathJax.typesetPromise) {
+                MathJax.typesetPromise([labelLayer]).catch(() => {});
+            }
+        }
+
+        // Utility function to calculate distance from point to line segment (squared for performance)
+        // From: https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment-in-c-sharp
+        function dist2(v, w) {
+            return Math.pow(v.x - w.x, 2) + Math.pow(v.y - w.y, 2);
+        }
+        function distToSegmentSquared(p, v, w) {
+            const l2 = dist2(v, w);
+            if (l2 == 0) return dist2(p, v);
+            let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+            t = Math.max(0, Math.min(1, t));
+            return dist2(p, {
+                x: v.x + t * (w.x - v.x),
+                y: v.y + t * (w.y - v.y)
+            });
+        }
+
+
+        // --- Coxeter / Gram matrix computation ---
+        function buildEdgeMap() {
+            const map = new Map();
+            for (const e of edges) {
+                const a = e.v1 < e.v2 ? e.v1 + '|' + e.v2 : e.v2 + '|' + e.v1;
+                map.set(a, e.label);
+            }
+            return map;
+        }
+
+        function buildGramMatrix() {
+            const n = vertices.length;
+            const idIndex = new Map(vertices.map((v, i) => [v.id, i]));
+            const G = Array.from({ length: n }, () => Array(n).fill(0));
+            const edgeMap = buildEdgeMap();
+            for (let i = 0; i < n; i++) {
+                G[i][i] = 2; // convention: diagonal entries 2
+            }
+            for (const e of edges) {
+                const i = idIndex.get(e.v1);
+                const j = idIndex.get(e.v2);
+                // If unlabeled, treat as m=2 (right angle), which gives 0 off-diagonal
+                const m = (e.label == null ? 3 : e.label);
+                const val = -2 * Math.cos(Math.PI / m);
+                G[i][j] = val;
+                G[j][i] = val;
+            }
+            return G;
+        }
+
+        function formatMatrixLatex(M, prec = NUM_PREC) {
+            const rows = M.map(row => row.map(x => Number(x).toFixed(prec)).join(' & '));
+            return `\\bigl[ \\begin{array}{${'c'.repeat(M.length)}} ${rows.map(r => r + ' \\\\ ').join('')} \\end{array} \\bigr]`;
+        }
+
+        // --- Symmetric Jacobi eigenvalue algorithm ---
+        function jacobiEigenvalues(A, tol = 1e-10, maxSweeps = 100) {
+            const n = A.length;
+            // Deep copy to avoid mutating input
+            const a = A.map(row => row.slice());
+            for (let sweep = 0; sweep < maxSweeps; sweep++) {
+                let maxOff = 0;
+                let p = 0, q = 1;
+                for (let i = 0; i < n; i++) {
+                    for (let j = i + 1; j < n; j++) {
+                        const val = Math.abs(a[i][j]);
+                        if (val > maxOff) { maxOff = val; p = i; q = j; }
+                    }
+                }
+                if (maxOff < tol) break; // converged
+
+                const app = a[p][p], aqq = a[q][q], apq = a[p][q];
+                // Compute rotation
+                const phi = 0.5 * Math.atan2(2 * apq, aqq - app);
+                const c = Math.cos(phi), s = Math.sin(phi);
+
+                // Apply rotation to rows/cols p and q
+                for (let k = 0; k < n; k++) {
+                    const aik = a[p][k];
+                    const aqk = a[q][k];
+                    a[p][k] = c * aik - s * aqk;
+                    a[q][k] = s * aik + c * aqk;
+                }
+                for (let k = 0; k < n; k++) {
+                    const kip = a[k][p];
+                    const kiq = a[k][q];
+                    a[k][p] = c * kip - s * kiq;
+                    a[k][q] = s * kip + c * kiq;
+                }
+                // enforce exact symmetry on numerical noise
+                for (let i = 0; i < n; i++) {
+                    for (let j = i + 1; j < n; j++) {
+                        const avg = 0.5 * (a[i][j] + a[j][i]);
+                        a[i][j] = a[j][i] = avg;
+                    }
+                }
+            }
+            // Diagonal now approximately eigenvalues
+            const evals = [];
+            for (let i = 0; i < a.length; i++) evals.push(a[i][i]);
+            // Sort ascending for readability
+            evals.sort((x, y) => x - y);
+            return evals;
+        }
+
+        function computeAndShowGram() {
+            const resultsDiv = document.getElementById('results');
+            if (vertices.length === 0) {
+                resultsDiv.innerHTML = '<em>No vertices yet. Build a graph first.</em>';
+                return;
+            }
+            const G = buildGramMatrix();
+            const evals = jacobiEigenvalues(G);
+
+            // Build LaTeX output
+            const header = `\\(\\text{Gram matrix } G_{ii}=2,\\; G_{ij}=-2\\cos(\\frac{\\pi}{m_{ij}})\\text{)}\\)`;
+            const matTex = formatMatrixLatex(G);
+            const evalTex = evals.map(x => Number(x).toFixed(NUM_PREC)).join(', ');
+
+            resultsDiv.innerHTML = `
+                <div style="margin-bottom:8px">${header}</div>
+                <div>\\( G = ${matTex} \\)</div>
+                <div style="margin-top:8px"><strong>Eigenvalues (numeric):</strong> \\(${evalTex}\\)</div>
+            `;
+            if (window.MathJax && MathJax.typesetPromise) {
+                MathJax.typesetPromise([resultsDiv]).catch(() => {});
+            }
+        }
+
+        // Initialize HiDPI scaling before first draw
+        resizeCanvasForDPR();
+
+        // Initial draw (after HiDPI setup)
+        redraw();
+
+    </script>
+</body>
+
+</html>

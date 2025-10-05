@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en" class="min-h-screen">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSL(2,C) to SO(3,1) Calculator</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for better typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code&display=swap"
+        rel="stylesheet">
+    <script>
+        // Configuration for Tailwind CSS dark mode
+        tailwind.config = {
+            darkMode: 'class', // or 'media'
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Basic styling for dark mode and layout */
+        html {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+    </style>
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$','$$'], ['\\[','\\]']],
+          processEscapes: true
+        },
+        options: { skipHtmlTags: ['script','noscript','style','textarea','pre','code'] },
+        svg: { fontCache: 'global' }
+      };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+</head>
+
+<body
+    class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans flex items-start justify-center p-4 overflow-y-auto">
+
+    <div id="app-container" class="w-full max-w-screen-2xl mx-auto">
+        <!-- The user interface will be generated and injected here by the script -->
+    </div>
+
+    <script>
+        // --- START: Code from PSL2CtoSO31.js (exports removed) ---
+
+        // Given g = [[a,b],[c,d]] in SL2(C), compute the corresponding element of SO^+(3,1)
+        // via the standard action on 2x2 Hermitian matrices: H -> g H g^†.
+        // We identify Minkowski vectors (t,x,y,z) with Hermitian matrices
+        //   H(t,x,y,z) = [[t+z, x - i y], [x + i y, t - z]]
+        // so that det(H) = t^2 - x^2 - y^2 - z^2.
+        // The resulting 4x4 real matrix Λ satisfies v' = Λ v for v ∈ R^{3,1}.
+
+        // ------------------ Complex helpers ------------------
+        function toC(z) {
+            if (typeof z === 'number') return { re: z, im: 0 };
+            if (z && typeof z.re === 'number' && typeof z.im === 'number') return { re: z.re, im: z.im };
+            throw new Error('Complex inputs must be numbers or {re,im} objects');
+        }
+        function C(re, im) { return { re, im }; }
+        function cAdd(z, w) { return C(z.re + w.re, z.im + w.im); }
+        function cSub(z, w) { return C(z.re - w.re, z.im - w.im); }
+        function cMul(z, w) { return C(z.re * w.re - z.im * w.im, z.re * w.im + z.im * w.re); }
+        function cConj(z) { return C(z.re, -z.im); }
+
+        // 2x2 complex matrix helpers
+        function cMatMul2(A, B) {
+            return [
+                [cAdd(cMul(A[0][0], B[0][0]), cMul(A[0][1], B[1][0])),
+                cAdd(cMul(A[0][0], B[0][1]), cMul(A[0][1], B[1][1]))],
+                [cAdd(cMul(A[1][0], B[0][0]), cMul(A[1][1], B[1][0])),
+                cAdd(cMul(A[1][0], B[0][1]), cMul(A[1][1], B[1][1]))]
+            ];
+        }
+        function cMatAdjoint2(A) {
+            return [
+                [cConj(A[0][0]), cConj(A[1][0])],
+                [cConj(A[0][1]), cConj(A[1][1])]
+            ];
+        }
+
+        // ------------------ Minkowski <-> Hermitian ------------------
+        function hermitianFromVec(v) {
+            const [t, x, y, z] = v;
+            return [
+                [C(t + z, 0), C(x, -y)],
+                [C(x, y), C(t - z, 0)]
+            ];
+        }
+        function vecFromHermitian(H) {
+            const t = (H[0][0].re + H[1][1].re) / 2;
+            const z = (H[0][0].re - H[1][1].re) / 2;
+            const x = H[0][1].re;
+            const y = -H[0][1].im;
+            return [t, x, y, z];
+        }
+
+        // ------------------ Main map ------------------
+        function PSL2CtoSO31(a, b, c, d) {
+            const A = toC(a), B = toC(b), Cc = toC(c), D = toC(d);
+            const g = [[A, B], [Cc, D]];
+            const gAdj = cMatAdjoint2(g);
+            const basis = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
+
+            const columns = basis.map(v => {
+                const H = hermitianFromVec(v);
+                const gHgAdj = cMatMul2(cMatMul2(g, H), gAdj);
+                return vecFromHermitian(gHgAdj);
+            });
+
+            const Lambda = Array.from({ length: 4 }, (_, r) =>
+                columns.map(col => {
+                    const val = col[r];
+                    const eps = 1e-14;
+                    return Math.abs(val) < eps ? 0 : val;
+                })
+            );
+            return Lambda;
+        }
+
+        // ------------------ sDF utilities ------------------
+        const __ETA = [1, -1, -1, -1];
+        function __etaApply(v) { return [v[0], -v[1], -v[2], -v[3]]; }
+        function __stdBasis(j) {
+            return [0, 0, 0, 0].map((_, k) => (k === j ? 1 : 0));
+        }
+        function __ginv_ej(g, j) {
+            const s = (j === 0) ? 1 : -1;
+            const r = g[j];
+            return [s * r[0], -s * r[1], -s * r[2], -s * r[3]];
+        }
+
+        function sDF_autoFromSO31(g) {
+            if (!Array.isArray(g) || g.length !== 4 || g.some(r => !Array.isArray(r) || r.length !== 4)) {
+                throw new Error('sDF_autoFromSO31 expects a 4x4 matrix');
+            }
+            const eps = 1e-14;
+            for (let j = 0; j < 4; j++) {
+                const s = (j === 0) ? 1 : -1;
+                const w = __ginv_ej(g, j);
+                const denom = s * (w[j] - 1);
+                if (Math.abs(denom) < eps) {
+                    continue;
+                }
+                const e = __stdBasis(j);
+                const u = [w[0] - e[0], w[1] - e[1], w[2] - e[2], w[3] - e[3]];
+                const eta_u = __etaApply(u);
+                const row = eta_u.map(x => x / denom);
+                return { row, pivot: j };
+            }
+            throw new Error('sDF undefined: g fixes all basis vectors e₀, e₁, e₂, e₃');
+        }
+
+        // ------------------ UI-specific helpers ------------------
+        function __parseComplex(s) {
+            if (typeof s === 'number') return { re: s, im: 0 };
+            // Sanitize input: trim whitespace, convert to lower case, remove internal spaces
+            s = (s || '').toString().trim().toLowerCase().replace(/\s/g, '');
+            if (s === '') return { re: 0, im: 0 };
+
+            // Handle special cases for 'i' and '-i'
+            if (s === 'i') return { re: 0, im: 1 };
+            if (s === '-i') return { re: 0, im: -1 };
+
+            if (s.endsWith('i')) {
+                const core = s.slice(0, -1);
+                // Find the sign that splits real and imaginary parts.
+                // We search from the right, but ignore a potential leading sign.
+                const signIndex = Math.max(core.lastIndexOf('+'), core.lastIndexOf('-'));
+
+                if (signIndex > 0) { // A sign is found in the middle (e.g., in "1+2" or "-3-4")
+                    const reStr = core.substring(0, signIndex);
+                    let imStr = core.substring(signIndex);
+
+                    // Handle cases where the imaginary part is just 'i' (e.g., "1+i")
+                    if (imStr === '+') imStr = '1';
+                    if (imStr === '-') imStr = '-1';
+
+                    const re = parseFloat(reStr);
+                    const im = parseFloat(imStr);
+                    if (!isNaN(re) && !isNaN(im)) return { re, im };
+
+                } else { // No middle sign, so it's a pure imaginary number (e.g., "2i" or "-3.5i")
+                    // Handle case of just 'i' e.g. '1+i' -> imStr will be '+', need to handle that
+                    if (core === '+' || core === '') return { re: 0, im: 1 };
+                    if (core === '-') return { re: 0, im: -1 };
+
+                    const im = parseFloat(core);
+                    if (!isNaN(im)) return { re: 0, im };
+                }
+            } else { // No 'i' at the end, so it must be a pure real number
+                const re = parseFloat(s);
+                if (!isNaN(re)) return { re, im: 0 };
+            }
+
+            // If none of the above worked, the format is invalid
+            throw new Error(`Cannot parse complex: "${s}"`);
+        }
+
+        function __formatMatrix4(M) {
+            return M.map(row => row.map(x => Math.abs(x) < 1e-12 ? "0" : +x.toFixed(6)));
+        }
+
+        function __formatRow(v) {
+            return v.map(x => Math.abs(x) < 1e-12 ? "0" : +x.toFixed(6));
+        }
+
+        // --- END: Code from PSL2CtoSO31.js ---
+
+
+        // --- START: UI Generation and Event Handling (Enhanced) ---
+
+        // --- Auto-detect payload of matrices from other tools/pages ---
+        function getExternalMatricesPayload() {
+            // Prefer explicit URL param ?matrices= (Base64-encoded text with lines "a b c d")
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const mParam = params.get('matrices');
+                if (mParam) {
+                    try {
+                        const decoded = atob(decodeURIComponent(mParam));
+                        if (decoded && decoded.trim().length > 0) return decoded;
+                    } catch (e) {
+                        console.warn('Failed to decode matrices param:', e);
+                    }
+                }
+            } catch (e) {
+                console.warn('URL parsing failed:', e);
+            }
+            // Fallback: localStorage key written by other pages
+            try {
+                const ls = localStorage.getItem('psl2c_matrices');
+                if (ls && ls.trim().length > 0) return ls;
+            } catch (e) {
+                // ignore storage access errors
+            }
+            return null;
+        }
+
+        /**
+         * Attaches a modern UI to the specified container.
+         * @param {string|HTMLElement} containerSelector - The DOM element or selector to attach the UI to.
+         */
+        function attachPSL2CtoSO31Tester(containerSelector) {
+            const root = (typeof containerSelector === 'string') ? document.querySelector(containerSelector) : containerSelector;
+            if (!root) throw new Error('attachPSL2CtoSO31Tester: container not found');
+            root.innerHTML = '';
+
+            const card = document.createElement('div');
+            card.className = "bg-white dark:bg-gray-800/50 dark:backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-lg w-full max-w-none border border-gray-200 dark:border-gray-700";
+
+            card.innerHTML = `
+                <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">\\(\\mathrm{PSL}_2(\\mathbb{C}) \\to \\mathrm{SO}^{+}(3,1)\\) Calculator</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">Add matrices to the list. The calculation is performed for each matrix individually.</p>
+                
+                <div id="psl-matrix-list" class="flex flex-wrap gap-4 mb-4">
+                    <!-- Matrix input forms will be injected here -->
+                </div>
+
+                <div class="flex flex-wrap items-center justify-start gap-4 mb-6">
+                    <div class="flex flex-wrap gap-3">
+                        <button id="psl-add" class="px-5 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500 shadow-sm hover:shadow-md">Add Matrix</button>
+                        <button id="psl-S" class="px-4 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">Add S</button>
+                        <button id="psl-T" class="px-4 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">Add T</button>
+                        <button id="psl-import" title="Import matrices from other tools"
+                            class="px-4 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50">Import</button>
+                    </div>
+                </div>
+
+                <div id="psl-out" class="space-y-6 bg-gray-100 dark:bg-gray-900/50 p-4 sm:p-6 rounded-xl border border-gray-200 dark:border-gray-700/50 min-h-[200px]"></div>
+            `;
+            root.appendChild(card);
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                MathJax.typesetPromise([card]).catch(() => {});
+            }
+
+            const el = id => card.querySelector(id);
+            const out = el('#psl-out');
+            const matrixList = el('#psl-matrix-list');
+
+            // Load external matrices if present (each line: a b c d)
+            function loadExternalMatricesIfAny() {
+                const payload = getExternalMatricesPayload();
+                if (!payload) return false;
+                // Clear any existing forms
+                matrixList.innerHTML = '';
+                const lines = payload.split('\n').map(s => s.trim()).filter(Boolean);
+                let loaded = 0;
+                for (const line of lines) {
+                    let toks;
+                    if (line.includes(',')) {
+                        toks = line.split(',').map(s => s.trim());
+                    } else {
+                        // Fallback: whitespace‑separated ONLY if exactly 4 tokens appear (to avoid splitting inside complex literals like "1 + 2i")
+                        const ws = line.trim().split(/\s+/);
+                        toks = (ws.length === 4) ? ws : null;
+                    }
+                    if (!toks || toks.length !== 4) continue;
+                    addMatrixForm({ a: toks[0], b: toks[1], c: toks[2], d: toks[3] });
+                    loaded++;
+                }
+                // If loaded via localStorage handoff, clear it once
+                try {
+                    const srcHash = (window.location.hash || '');
+                    if (srcHash.includes('source=psl2c_matrices')) {
+                        localStorage.removeItem('psl2c_matrices');
+                    }
+                } catch (e) {}
+                return loaded > 0;
+            }
+
+            function addMatrixForm(values = {}) {
+                const formWrapper = document.createElement('div');
+                formWrapper.className = "matrix-form p-4 border dark:border-gray-600 rounded-xl relative bg-gray-50 dark:bg-gray-800/50 transition-all duration-300";
+
+                const defaultValues = { a: '1', b: '1', c: '0', d: '1', ...values };
+
+                formWrapper.innerHTML = `
+                    <button class="remove-matrix absolute -top-2 -right-2 h-7 w-7 flex items-center justify-center bg-red-500 text-white rounded-full hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 text-sm font-bold" aria-label="Remove Matrix">&times;</button>
+                    <div class="flex justify-center">
+                        <div class="relative inline-block">
+                            <div class="grid grid-cols-2 gap-1 font-mono w-full max-w-xs">
+                                ${Object.keys(defaultValues).map(label => `
+                                <div>
+                                    <input data-entry="${label}" type="text" value="${defaultValues[label]}" class="w-full px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white text-sm">
+                                </div>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                matrixList.appendChild(formWrapper);
+                render();
+            }
+
+            function readInputs() {
+                const forms = matrixList.querySelectorAll('.matrix-form');
+                return Array.from(forms).map(form => {
+                    const a = __parseComplex(form.querySelector('[data-entry="a"]').value);
+                    const b = __parseComplex(form.querySelector('[data-entry="b"]').value);
+                    const c = __parseComplex(form.querySelector('[data-entry="c"]').value);
+                    const d = __parseComplex(form.querySelector('[data-entry="d"]').value);
+                    return [[a, b], [c, d]];
+                });
+            }
+
+            function render() {
+                try {
+                    const matrices = readInputs();
+                    if (matrices.length === 0) {
+                        out.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400 py-8">Add a matrix to see the calculation.</p>`;
+                        return;
+                    }
+
+                    // 1) Declare accumulator array before building resultsHTML
+                    const allCovectorLines = [];
+                    const allCovectorLinesXYZT = [];
+
+                    const resultsHTML = matrices.map((g, index) => {
+                        const [a, b, c, d] = [g[0][0], g[0][1], g[1][0], g[1][1]];
+
+                        const ad = cMul(a, d);
+                        const bc = cMul(b, c);
+                        const det = cSub(ad, bc);
+                        const detMagSq = det.re * det.re + det.im * det.im;
+
+                        const detString = `det = ${det.re.toFixed(4)} ${det.im < 0 ? '-' : '+'} ${Math.abs(det.im).toFixed(4)}i`;
+                        const detClass = Math.abs(detMagSq - 1) > 0.01 ? 'text-red-500 dark:text-red-400' : 'text-green-600 dark:text-green-400';
+
+                        const M = PSL2CtoSO31(a, b, c, d);
+                        const auto = sDF_autoFromSO31(M);
+                        const sdf = auto.row;
+                        const pivot = auto.pivot;
+                        const Mfmt = __formatMatrix4(M);
+                        const sdfFmt = __formatRow(sdf);
+
+                        // 2) Push covector line to accumulator array (plain text, no brackets)
+                        allCovectorLines.push(sdfFmt.join(', '));
+                        // Reorder covector components from (t,x,y,z) to (x,y,z,t)
+                        let sdfXYZT = [sdf[1], sdf[2], sdf[3], sdf[0]];
+                        // Ensure last coordinate (t) is nonpositive; if positive, flip the whole vector
+                        if (sdfXYZT[3] > 0) {
+                            sdfXYZT = sdfXYZT.map(v => -v);
+                        }
+                        const sdfXYZTFmt = __formatRow(sdfXYZT);
+                        allCovectorLinesXYZT.push(sdfXYZTFmt.join(', '));
+
+                        return `
+                        <div class="p-4 rounded-xl bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/80">
+                            <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Matrix ${index + 1}</h3>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">SO⁺(3,1) Matrix</h4>
+                                    <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                                        <table class="min-w-full text-right text-sm font-mono">
+                                            <tbody class="bg-gray-50 dark:bg-gray-900/50 divide-y divide-gray-200 dark:divide-gray-700">
+                                                ${Mfmt.map(r => `
+                                                    <tr class="dark:hover:bg-gray-700/50 hover:bg-gray-100">${r.map(x => `
+                                                        <td class="px-4 py-3 whitespace-nowrap">${x}</td>`).join('')}
+                                                    </tr>`).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">Covector</h4>
+                                    <div class="bg-gray-100 dark:bg-gray-900/70 rounded-lg p-3">
+                                        <span class="text-base text-gray-800 dark:text-gray-200">\\([ ${sdfFmt.join(',\\; ')} ]\\)</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Calculated using pivot vector \\(e_{${pivot}}\\).</p>
+                                </div>
+                            </div>
+                        </div>
+                        `;
+                    }).join('');
+
+                    // 3) Append summary section after resultsHTML and before MathJax typeset
+                    const summaryHTML = `
+                        <div class="mt-6">
+                            <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">All covectors</h4>
+                            <div class="bg-gray-100 dark:bg-gray-900/70 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                <pre class="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">${allCovectorLines.join('\n')}</pre>
+                            </div>
+                        </div>
+                    `;
+                    const summaryHTML_XYZT = `
+                        <div class="mt-4">
+                            <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">All covectors (x, y, z, t order)</h4>
+                            <div class="bg-gray-100 dark:bg-gray-900/70 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                <pre class="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">${allCovectorLinesXYZT.join('\n')}</pre>
+                            </div>
+                        </div>
+                    `;
+                    // Build "Open polyhedron in Poincare" button (uses the x,y,z,t box content)
+                    const openBtnHTML = `
+                        <div class="mt-4">
+                            <button id="open-poincare"
+                                class="px-4 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500 shadow-sm hover:shadow-md">
+                                Open polyhedron in Poincare
+                            </button>
+                        </div>
+                    `;
+                    out.innerHTML = resultsHTML + summaryHTML + summaryHTML_XYZT + openBtnHTML;
+                    const openBtn = out.querySelector('#open-poincare');
+                    if (openBtn) {
+                        openBtn.addEventListener('click', () => {
+                            // Use the x,y, z, t order content as the payload
+                            const payload = allCovectorLinesXYZT.join('\n');
+                            try {
+                                // Save to localStorage for robust transfer
+                                localStorage.setItem('poincare_input', payload);
+                            } catch (e) {
+                                // ignore storage errors (e.g., private mode)
+                            }
+                            // Also include a URL parameter with a base64-encoded copy
+                            const b64 = btoa(payload);
+                            const url = `poincare.html?vectors=${encodeURIComponent(b64)}#source=poincare_input`;
+                            window.location.href = url;
+                        });
+                    }
+                    if (window.MathJax && window.MathJax.typesetPromise) {
+                        MathJax.typesetPromise([out]).catch(() => {});
+                    }
+
+                } catch (e) {
+                    out.innerHTML = `<div class="text-red-500 dark:text-red-400 p-4 bg-red-100 dark:bg-red-900/50 rounded-lg">${e.message}</div>`;
+                }
+            }
+
+            // Event Listeners
+            el('#psl-add').onclick = () => addMatrixForm();
+            el('#psl-S').onclick = () => addMatrixForm({ a: '0', b: '-1', c: '1', d: '0' });
+            el('#psl-T').onclick = () => addMatrixForm({ a: '1', b: '1', c: '0', d: '1' });
+
+            matrixList.addEventListener('click', e => {
+                if (e.target.closest('.remove-matrix')) {
+                    e.target.closest('.matrix-form').remove();
+                    render();
+                }
+            });
+
+            matrixList.addEventListener('input', render);
+
+            // Import button handler
+            const importBtn = el('#psl-import');
+            if (importBtn) importBtn.onclick = () => {
+                if (!loadExternalMatricesIfAny()) {
+                    alert('No external matrices found. Another page can set localStorage key "psl2c_matrices" or pass ?matrices=...');
+                }
+            };
+
+            // Initial state: try to load from external payload; otherwise add a default form
+            if (!loadExternalMatricesIfAny()) {
+                addMatrixForm({ a: '1', b: '0', c: '0', d: '1' });
+            }
+        }
+
+        // --- END: UI Generation and Event Handling ---
+
+
+        // --- Initialize the application ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check for system dark mode preference
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+            }
+            attachPSL2CtoSO31Tester('#app-container');
+        });
+
+    </script>
+</body>
+
+</html>

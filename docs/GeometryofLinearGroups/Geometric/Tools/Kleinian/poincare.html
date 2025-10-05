@@ -323,6 +323,33 @@
         import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls.js';
         import POLYHEDRA_LIBRARY from './assets/polyhedronLibrary.js';
 
+        // --- Auto-detect payload from other tools/pages ---
+        function getExternalVectorsPayload() {
+          // Prefer explicit URL param ?vectors= (Base64-encoded text)
+          try {
+            const params = new URLSearchParams(window.location.search);
+            const vParam = params.get('vectors');
+            if (vParam) {
+              try {
+                const decoded = atob(decodeURIComponent(vParam));
+                if (decoded && decoded.trim().length > 0) return decoded;
+              } catch (e) {
+                console.warn('Failed to decode vectors param:', e);
+              }
+            }
+          } catch (e) {
+            console.warn('URL parsing failed:', e);
+          }
+          // Fallback: localStorage key written by other pages
+          try {
+            const ls = localStorage.getItem('poincare_input');
+            if (ls && ls.trim().length > 0) return ls;
+          } catch (e) {
+            // ignore storage access errors
+          }
+          return null;
+        }
+
         // --- UI helpers: match fragment shader colors ---
         function hsv2rgbJS(h, s, v) {
           const k = (n) => (n + h * 6) % 6;
@@ -529,7 +556,14 @@
 
             window.addEventListener('resize', onWindowResize, false);
             document.getElementById('render-btn').addEventListener('click', updateFromInput);
-            document.getElementById('vectors').value = defaultVectors;
+            // Auto-load external payload if available; otherwise use defaults
+            const externalPayload = getExternalVectorsPayload();
+            const vectorsEl = document.getElementById('vectors');
+            if (externalPayload) {
+                vectorsEl.value = externalPayload;
+            } else {
+                vectorsEl.value = defaultVectors;
+            }
 
             const vectorsTA = document.getElementById('vectors');
             const gutterDiv = document.getElementById('vector-gutter');
@@ -544,8 +578,8 @@
                 renderGutter(lines.filter(l => l.trim() !== '').length);
               });
             }
-            // Initial gutter
-            renderGutter(defaultVectors.split('\n').length);
+            // Initial gutter based on actual textarea content
+            renderGutter((vectorsEl.value || '').split('\n').filter(l => l.trim() !== '').length);
 
             // Click-to-focus: when a gutter box is clicked, move camera to look head-on at that face
             if (gutterDiv) {
@@ -755,6 +789,15 @@
                 if (i < planeNormals.length) {
                     uniforms.u_plane_normals.value[i].copy(planeNormals[i]);
                 }
+            }
+            // If this session was opened with an external payload via localStorage, clear it after applying once
+            try {
+                const srcHash = (window.location.hash || '');
+                if (srcHash.includes('source=poincare_input')) {
+                    localStorage.removeItem('poincare_input');
+                }
+            } catch (e) {
+                // ignore storage errors
             }
         }
 

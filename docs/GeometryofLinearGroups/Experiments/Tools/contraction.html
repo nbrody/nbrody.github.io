@@ -10,22 +10,12 @@
 </head>
 
 <body class="bg-gray-900 text-white flex flex-col md:flex-row h-screen overflow-hidden">
-    <img
-      src="./contractionQR.png"
-      alt="QR code for Interactive IFS Explorer"
-      id="qr-badge"
-      class="fixed top-2 left-2 w-20 h-20 md:w-24 md:h-24 rounded shadow-lg border border-white/20"
-      style="pointer-events: none; z-index: 50;"
-      loading="lazy"
-    />
 
     <!-- Controls Panel -->
-     
     <div id="controls-panel" class="w-full md:w-80 bg-gray-800 p-6 overflow-y-auto flex-shrink-0">
         <div class="space-y-6">
             <h1 class="text-2xl font-bold text-white">Interactive Explorer</h1>
-            <p class="text-sm text-gray-400">Drag the colored points on the canvas to change the parameters $a, b, c,$
-                and $d$ and generate new fractals.</p>
+            <p class="text-sm text-gray-400">Drag the colored points on the canvas to change the parameters in f(z)=az+b, g(z)=cz+d. The display plots the orbit of 0 under iterates of f and g.</p>
 
             <div>
                 <label for="depth" class="block text-sm font-medium text-gray-300 mb-1">Iteration Depth: <span
@@ -386,46 +376,17 @@
 
             const depth = parseInt(depthSlider.value, 10);
             const points = calculateOrbit(depth, state.params.a, state.params.b, state.params.c, state.params.d);
-
-            drawFractal(points);
+            const maxAbs = drawFractal(points); // draw using a fixed view; returns max |z|
             drawControlHandles();
             updateValueDisplays();
-
-            statusEl.textContent = `Plotted ${points.length} points.`;
+            statusEl.textContent = `Plotted ${points.length} points. max|z| \u2248 ${maxAbs.toExponential(2)}`;
             state.isDirty = false;
         }
 
         function drawFractal(points) {
-            if (points.length === 0) return;
+            if (points.length === 0) return 0;
 
-            let minRe = Infinity, maxRe = -Infinity, minIm = Infinity, maxIm = -Infinity;
-            points.forEach(p => {
-                minRe = Math.min(minRe, p.re); maxRe = Math.max(maxRe, p.re);
-                minIm = Math.min(minIm, p.im); maxIm = Math.max(maxIm, p.im);
-            });
-
-            const padding = 0.1;
-            const rangeRe = maxRe - minRe || 1;
-            const rangeIm = maxIm - minIm || 1;
-
-            minRe -= rangeRe * padding; maxRe += rangeRe * padding;
-            minIm -= rangeIm * padding; maxIm += rangeIm * padding;
-
-            const effectiveRangeRe = maxRe - minRe;
-            const effectiveRangeIm = maxIm - minIm;
-
-            const scale = Math.min(canvas.width / effectiveRangeRe, canvas.height / effectiveRangeIm);
-            const centerX = (minRe + maxRe) / 2;
-            const centerY = (minIm + maxIm) / 2;
-            const canvasCenterX = canvas.width / 2;
-            const canvasCenterY = canvas.height / 2;
-
-            const mapToCanvas = (z) => ({
-                x: canvasCenterX + (z.re - centerX) * scale,
-                y: canvasCenterY - (z.im - centerY) * scale,
-            });
-
-            // Draw a light unit circle centered at 0 with radius 1 (fixed to view, not auto-fit)
+            // Draw a light unit circle centered at 0 with radius 1 (fixed to view)
             const scaleX = canvas.width / (state.view.reMax - state.view.reMin);
             const scaleY = canvas.height / (state.view.imMax - state.view.imMin);
             const center = mapViewToCanvas({ re: 0, im: 0 });
@@ -435,15 +396,21 @@
             ctx.lineWidth = 1;
             ctx.stroke();
 
+            // Plot points using fixed view mapping
             ctx.fillStyle = `rgba(236, 239, 241, 0.7)`;
             const pointSize = Math.max(1, 3 / Math.log10(points.length + 1));
-
+            let maxAbs = 0;
             for (const p of points) {
-                const canvasP = mapToCanvas(p);
-                ctx.beginPath();
-                ctx.arc(canvasP.x, canvasP.y, pointSize / 2, 0, 2 * Math.PI);
-                ctx.fill();
+                const { px, py } = mapViewToCanvas(p);
+                const r = Math.hypot(p.re, p.im);
+                if (r > maxAbs) maxAbs = r;
+                if (px >= 0 && px <= canvas.width && py >= 0 && py <= canvas.height) {
+                    ctx.beginPath();
+                    ctx.arc(px, py, pointSize / 2, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
             }
+            return maxAbs;
         }
 
         function drawControlHandles() {

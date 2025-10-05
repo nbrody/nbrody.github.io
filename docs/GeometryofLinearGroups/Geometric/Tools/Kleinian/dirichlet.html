@@ -251,6 +251,10 @@
       <div id="stdGensOutput"
         style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;">
       </div>
+      <button id="exportSO31Btn"
+        style="margin-top: 8px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer; background:#10b981; color:white; border: none; border-radius: 4px;">
+        Map to SO(3,1)
+      </button>
     </div>
     <div id="panelPage2" style="display:none;">
       <h4 style="margin: 8px 0 6px; font-size: 14px;">Display options</h4>
@@ -318,6 +322,46 @@
     const NUM_PAGES = 3;
     let wallOpacity = 0.4;
     let colorPalette = 'bluegold';
+
+    // --- Picking (raycasting) for clickable hyperplanes ---
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    function showLatexInMessageBox(latexStr) {
+      const box = document.getElementById('message-box');
+      if (!box) return;
+      box.innerHTML = latexStr || '';
+      box.className = '';
+      box.style.display = 'block';
+      if (window.MathJax && MathJax.typesetPromise) {
+        MathJax.typesetPromise([box]).catch(() => { });
+      }
+      clearTimeout(showLatexInMessageBox._t);
+      showLatexInMessageBox._t = setTimeout(() => { box.style.display = 'none'; }, 4000);
+    }
+
+    function onCanvasClick(event) {
+      if (!renderer || !camera) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+
+      // Intersect against all meshes inside the Dirichlet/walls group
+      const intersects = raycaster.intersectObjects(polyhedronGroup.children, true);
+      if (!intersects || intersects.length === 0) return;
+
+      // Walk up to the first ancestor that has a label
+      let hit = intersects[0].object;
+      let node = hit;
+      while (node && node !== polyhedronGroup && !(node.userData && (node.userData.latex || node.userData.labelMatrix))) {
+        node = node.parent;
+      }
+      const latex = node && node.userData && (node.userData.latex || (node.userData.labelMatrix && matrixToLatex(node.userData.labelMatrix)));
+      if (latex) {
+        showLatexInMessageBox(latex);
+      }
+    }
 
     // --- Enable bottom-left resize of the control panel ---
     function enableControlPanelResize() {
@@ -422,6 +466,8 @@
       renderer.localClippingEnabled = true;
       renderer.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)];
       viewer.appendChild(renderer.domElement);
+      // Enable clicking on hyperplanes
+      renderer.domElement.addEventListener('click', onCanvasClick);
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
@@ -952,6 +998,43 @@
         showMessage(`Printed ${neighbors.length} standard generators (Delaunay neighbors).`);
       });
 
+      // --- Export SO(3,1) button logic ---
+      function collectStandardGeneratorsPayload() {
+        rebuildGeneratorsFromUI();
+        const L = parseInt((document.getElementById('wordLength') || { value: 1 }).value) || 1;
+        const groupElements = generateGroupElements(generators, L);
+        const neighbors = computeDelaunayNeighbors(groupElements);
+        // Convert to lines "a b c d" using canonical representative for readability
+        const lines = neighbors.map(obj => {
+          const g = obj && obj.g ? repWithNonnegativeRealTrace(obj.g) : repWithNonnegativeRealTrace(obj);
+          const a = g.a.toString();
+          const b = g.b.toString();
+          const c = g.c.toString();
+          const d = g.d.toString();
+          return `${a} ${b} ${c} ${d}`;
+        });
+        return lines.join('\n');
+      }
+
+      const exportBtn = document.getElementById('exportSO31Btn');
+      if (exportBtn) exportBtn.addEventListener('click', () => {
+        try {
+          const payload = collectStandardGeneratorsPayload();
+          if (!payload || !payload.trim()) {
+            showMessage('No standard generators to export. Try increasing word length.', true);
+            return;
+          }
+          // Persist for receiver and include in URL as Base64
+          try { localStorage.setItem('psl2c_matrices', payload); } catch (e) { }
+          const b64 = btoa(payload);
+          const url = `PSL2CtoSO31.html?matrices=${encodeURIComponent(b64)}#source=psl2c_matrices`;
+          window.location.href = url;
+        } catch (e) {
+          showMessage('Failed to export standard generators.', true);
+          console.error(e);
+        }
+      });
+
       // --- Pager controls ---
       const prevBtn = document.getElementById('prevPageBtn');
       const nextBtn = document.getElementById('nextPageBtn');
@@ -1158,7 +1241,7 @@
         planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
         planeMesh.position.copy(pointOnPlane);
         polyhedronGroup.add(planeMesh);
-        return;
+        return planeMesh;
       }
 
       // Hemisphere orthogonal to boundary (center on z=0)
@@ -1182,6 +1265,7 @@
       hemisphere.rotation.x = -Math.PI / 2;
       hemisphere.position.set(cx, cy, 0);
       polyhedronGroup.add(hemisphere);
+      return hemisphere;
     }
 
     function samplePointsOnBisector(u, t, maxSamples = 160) {
@@ -1239,20 +1323,19 @@
 
     function computeDelaunayNeighbors(groupElements) {
       const orbit = [basepoint];
-      const invs = [];
+      const imgs = [];
 
+      // Use forward images g·o so faces correspond to bisectors between o and g·o
       for (const g of groupElements) {
-        const inv = g.inverse();
-        if (!inv) continue;
-        const p = imageOfBasepoint(inv);
+        const p = imageOfBasepoint(g);
         if (!isFinite(p.t) || p.t <= 0) continue;
         const v = new THREE.Vector3(p.u.re, p.u.im, p.t);
         orbit.push(v);
-        invs.push({ u: p.u, t: p.t, v, g });
+        imgs.push({ u: p.u, t: p.t, v, g });
       }
 
       const neighborsMap = new Map();
-      for (const item of invs) {
+      for (const item of imgs) {
         const samples = samplePointsOnBisector(item.u, item.t, 160);
         let contributes = false;
         for (const s of samples) {
@@ -1267,7 +1350,7 @@
           if (ok) { contributes = true; break; }
         }
         if (contributes) {
-          const key = keyFromVec(item.v); // global helper
+          const key = keyFromVec(item.v);
           if (!neighborsMap.has(key)) {
             neighborsMap.set(key, { v: item.v, g: item.g });
           }
@@ -1435,7 +1518,13 @@
               metalness: 0.15,
               roughness: 0.6
             });
-            drawBisector(vO, vS, material);
+            const mesh = drawBisector(vO, vS, material);
+            if (mesh) {
+              // Label the wall by the Dirichlet neighbor s (canonical representative for readability)
+              const labelM = repWithNonnegativeRealTrace(s);
+              mesh.userData.labelMatrix = labelM;
+              mesh.userData.latex = matrixToLatex(labelM);
+            }
           });
       } else if (wallsMode === 'all') {
         // Draw walls for all generated pairs (g, gs) across the tiling
@@ -1479,7 +1568,13 @@
               })
               : perNeighborMaterial;
 
-            drawBisector(v1, v2, material);
+            const mesh = drawBisector(v1, v2, material);
+            if (mesh) {
+              // Label every translated wall by the same neighbor s
+              const labelM = repWithNonnegativeRealTrace(s);
+              mesh.userData.labelMatrix = labelM;
+              mesh.userData.latex = matrixToLatex(labelM);
+            }
           });
         });
       } else {

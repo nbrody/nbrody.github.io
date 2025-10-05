@@ -6,6 +6,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Globe Game</title>
     <style>
+        /* Saved rotation rows + editable words */
+        .saved-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            align-items: center;
+        }
+        .saved-word {
+            width: 100%;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.25);
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .saved-word.invalid {
+            border-color: #ff5a5a;
+            box-shadow: 0 0 0 2px rgba(255,90,90,0.2);
+        }
         body {
             margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -202,6 +223,41 @@
         @media (min-width: 1025px) {
             #touch-controls { display: none; }
         }
+        /* Saved rotations UI */
+        #saved-list {
+            display: grid;
+            grid-template-columns: 1fr; /* one saved item per line */
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .saved-rot-btn {
+            padding: 8px 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s ease, transform 0.05s ease;
+        }
+        .saved-rot-btn:hover { background: rgba(255,255,255,0.2); }
+        .saved-rot-btn:active { transform: scale(0.98); }
+        #save-rotation-btn {
+            padding: 10px 12px;
+            border: none;
+            border-radius: 8px;
+            background: #2a9d8f;
+            color: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+        #save-rotation-btn:hover { background: #2fb3a4; }
+        .saved-help {
+            font-size: 12px;
+            color: #9ad3c9;
+            margin-top: 6px;
+        }
     </style>
     <script>
       window.MathJax = {
@@ -241,6 +297,11 @@
 
             <h3>Matrix from word</h3>
             <div id="matrix-display"></div>
+
+            <h3>Saved Rotations</h3>
+            <button id="save-rotation-btn" title="Save the current rotation as a new generator">Save current as g</button>
+            <div class="saved-help">Click to apply. Hold <kbd>Shift</kbd> to apply the inverse.</div>
+            <div id="saved-list"></div>
 
             <div class="instructions">
                 <strong>Controls:</strong><br>
@@ -311,17 +372,28 @@
           }
           return C;
         };
+        const cloneFrac = (f) => new Frac(f.n, f.d);
+            const cloneMat3 = (M) => M.map(row => row.map(cloneFrac));
+            const transpose3 = (M) => [
+                [cloneFrac(M[0][0]), cloneFrac(M[1][0]), cloneFrac(M[2][0])],
+                [cloneFrac(M[0][1]), cloneFrac(M[1][1]), cloneFrac(M[2][1])],
+                [cloneFrac(M[0][2]), cloneFrac(M[1][2]), cloneFrac(M[2][2])]
+            ];
 
         // Get DOM elements
         const canvasWrapper = document.getElementById('canvas-wrapper');
         const plusButton = document.getElementById('plus-button');
         const sidePanel = document.getElementById('side-panel');
         const movesDisplay = document.getElementById('moves-display');
-        const matrixDisplay = document.getElementById('matrix-display');
+        const matrixDisplay = document.getElementById('matrix-display'); 
+        const saveBtn = document.getElementById('save-rotation-btn');
+        const savedListEl = document.getElementById('saved-list');
 
         // Track moves and cumulative matrix (exact for display)
         let moves = [];
         let cumulativeMatrixExact = I3();
+        // Saved generators: each item = { name, q (Quaternion), exact (Frac[3][3]) }
+            const savedGens = [];
 
         // Panel state
         let panelOpen = false;
@@ -537,6 +609,58 @@
         const qU = new THREE.Quaternion().setFromRotationMatrix(U);
         const qUinv = new THREE.Quaternion().setFromRotationMatrix(Uinv);
 
+        // Check if two tokens are inverses (handles L/R, U/D, and generator names like g1 ↔ g1⁻¹)
+        function areInverseTokens(a, b) {
+            // Letter generators
+            if ((a === 'L' && b === 'R') || (a === 'R' && b === 'L')) return true;
+            if ((a === 'U' && b === 'D') || (a === 'D' && b === 'U')) return true;
+            // Saved generator names: exact string equality with a \u207B\u00B9 suffix (⁻¹)
+            const INV = '⁻¹';
+            if (typeof a === 'string' && typeof b === 'string') {
+                if (a.endsWith(INV)) return b === a.slice(0, -INV.length);
+                return b === a + INV;
+            }
+            return false;
+        }
+
+        // Reduce a word array by canceling adjacent inverses (letters and saved generators)
+        function reduceWordArray(wordArr) {
+            let changed = true;
+            while (changed) {
+                changed = false;
+                for (let i = 0; i < wordArr.length - 1; i++) {
+                    if (areInverseTokens(wordArr[i], wordArr[i+1])) {
+                        wordArr.splice(i, 2);
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            return wordArr;
+        }
+
+        // Simplify the live moves buffer in place
+        function simplifyMovesInPlace() {
+            moves = reduceWordArray([...moves]);
+        }
+
+        // Parse a word like "LURRD" into a quaternion and exact 3x3 matrix
+        function parseWordToRotation(wordStr) {
+            const clean = (wordStr || '').toUpperCase().replace(/[^LRUD]/g, '');
+            let q = new THREE.Quaternion(); // identity
+            let M = I3();
+            for (const ch of clean) {
+                switch (ch) {
+                    case 'L': q.premultiply(qL);   M = matMul3(Lx,    M); break;
+                    case 'R': q.premultiply(qLinv);M = matMul3(Linvx, M); break;
+                    case 'U': q.premultiply(qU);   M = matMul3(Ux,    M); break;
+                    case 'D': q.premultiply(qUinv);M = matMul3(Uinvx, M); break;
+                    default: break;
+                }
+            }
+            return { q, exact: M, word: clean };
+        }
+
         // Function to update the displays
         function updateDisplays() {
             // Update moves display with reduced word (canceling adjacent inverses, no spaces)
@@ -555,7 +679,7 @@
                 }
                 return wordArr;
             }
-            const reduced = reduceWord([...moves]);
+            const reduced = reduceWordArray([...moves]);
             movesDisplay.textContent = reduced.length > 0 ? reduced.join('') : '(no moves yet)';
 
             // Update matrix display (LaTeX via MathJax)
@@ -566,8 +690,76 @@
             if (window.MathJax && window.MathJax.typesetPromise) { window.MathJax.typesetPromise([matrixDisplay]); }
         }
 
+        function renderSavedList() {
+            if (!savedListEl) return;
+            savedListEl.innerHTML = '';
+            savedGens.forEach((g) => {
+                const row = document.createElement('div');
+                row.className = 'saved-item';
+
+                const btn = document.createElement('button');
+                btn.className = 'saved-rot-btn';
+                btn.textContent = g.name;
+                btn.title = 'Click to apply; Shift-click for inverse';
+                btn.addEventListener('click', (ev) => {
+                    const inverse = ev.shiftKey === true;
+                    if (inverse) {
+                        const qInv = g.q.clone().invert();
+                        targetQuaternion.premultiply(qInv);
+                        cumulativeMatrixExact = matMul3(transpose3(g.exact), cumulativeMatrixExact);
+                        moves.push(g.name + '⁻¹');
+                        simplifyMovesInPlace();
+                    } else {
+                        targetQuaternion.premultiply(g.q);
+                        cumulativeMatrixExact = matMul3(g.exact, cumulativeMatrixExact);
+                        moves.push(g.name);
+                        simplifyMovesInPlace();
+                    }
+                    updateDisplays();
+                });
+
+                const input = document.createElement('input');
+                input.className = 'saved-word';
+                input.placeholder = 'Word (e.g., LURRD)';
+                input.value = g.word || '';
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') { e.currentTarget.blur(); }
+                });
+                input.addEventListener('blur', () => {
+                    const proposal = (input.value || '').toUpperCase();
+                    if (/^[LRUD]*$/.test(proposal)) {
+                        const { q, exact, word } = parseWordToRotation(proposal);
+                        g.q = q;
+                        g.exact = exact;
+                        g.word = word;
+                        input.classList.remove('invalid');
+                    } else {
+                        input.classList.add('invalid');
+                    }
+                });
+
+                row.appendChild(btn);
+                row.appendChild(input);
+                savedListEl.appendChild(row);
+            });
+        }
+
+        function handleSaveCurrentRotation() {
+            const name = `g${savedGens.length + 1}`;
+            const qSnap = targetQuaternion.clone();        // quaternion for animation
+            const exactSnap = cloneMat3(cumulativeMatrixExact); // exact 3×3 for display
+            const currentWord = reduceWordArray([...moves]).join('');
+            savedGens.push({ name, q: qSnap, exact: exactSnap, word: currentWord });
+            renderSavedList();
+        }
+
+            if (saveBtn) {
+                saveBtn.addEventListener('click', handleSaveCurrentRotation);
+            }
+
         // Initialize displays
         updateDisplays();
+        renderSavedList();
 
         // Helper: apply a single move (L, R, U, D) used by both keyboard and touch
         function applyMove(moveChar) {
@@ -592,6 +784,7 @@
             // Update exact display math
             if (moveMatrix && moveExact) {
                 moves.push(moveChar);
+                simplifyMovesInPlace();
                 cumulativeMatrixExact = matMul3(moveExact, cumulativeMatrixExact);
                 updateDisplays();
             }
