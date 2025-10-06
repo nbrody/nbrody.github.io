@@ -239,14 +239,14 @@
       </div>
 
       <button id="showStabilizerBtn"
-        style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Show
+        style="margin-top: 8px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer; background:#10b981; color:white; border: none; border-radius: 4px;">Show
         stabilizer</button>
       <div id="stabilizerOutput"
         style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;">
       </div>
 
       <button id="printStdGensBtn"
-        style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer;">Print standard
+        style="margin-top: 8px; width: 100%; padding: 6px; font-size: 13px; cursor: pointer; background:#10b981; color:white; border: none; border-radius: 4px;">Print standard
         generators</button>
       <div id="stdGensOutput"
         style="margin-top:8px; max-height: 160px; overflow: auto; background: #f8fafc; border: 1px solid #e5e7eb; padding: 6px; border-radius: 4px; word-break: break-word;">
@@ -998,6 +998,21 @@
         showMessage(`Printed ${neighbors.length} standard generators (Delaunay neighbors).`);
       });
 
+      // Emit complex numbers without internal spaces so the receiver can tokenize by spaces safely.
+      function compactComplex(z) {
+        const tol = 1e-12;
+        const roundish = (x) => Math.abs(x - Math.round(x)) < tol ? Math.round(x) : parseFloat(x.toFixed(12));
+        const trim = (s) => String(s).replace(/(\.\d*?[1-9])0+$/,'$1').replace(/\.0+$/,'');
+        let re = Math.abs(z.re) < tol ? 0 : z.re;
+        let im = Math.abs(z.im) < tol ? 0 : z.im;
+        if (im === 0) return trim(roundish(re));
+        const sign = im < 0 ? '-' : '+';
+        const iabs = Math.abs(im);
+        const imag = (Math.abs(iabs - 1) < tol) ? 'i' : trim(roundish(iabs)) + 'i';
+        if (re === 0) return (im < 0 ? '-' : '') + imag;
+        return trim(roundish(re)) + sign + imag;
+      }
+
       // --- Export SO(3,1) button logic ---
       function collectStandardGeneratorsPayload() {
         rebuildGeneratorsFromUI();
@@ -1007,10 +1022,10 @@
         // Convert to lines "a b c d" using canonical representative for readability
         const lines = neighbors.map(obj => {
           const g = obj && obj.g ? repWithNonnegativeRealTrace(obj.g) : repWithNonnegativeRealTrace(obj);
-          const a = g.a.toString();
-          const b = g.b.toString();
-          const c = g.c.toString();
-          const d = g.d.toString();
+          const a = compactComplex(g.a);
+          const b = compactComplex(g.b);
+          const c = compactComplex(g.c);
+          const d = compactComplex(g.d);
           return `${a} ${b} ${c} ${d}`;
         });
         return lines.join('\n');
@@ -1493,39 +1508,34 @@
       const wallsMode = selectedRadio ? selectedRadio.value : 'all';
 
       if (wallsMode === 'dirichlet') {
-        // Draw exactly one wall per Dirichlet neighbor (between o and s·o)
+        // Draw exactly one wall per Dirichlet neighbor (between o and s·o), with no dedup,
+        // so it matches the list shown in "Print standard generators".
         const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
         const o = imageOfBasepoint(I);
         const vO = new THREE.Vector3(o.u.re, o.u.im, o.t);
-
-        const wallKeys = new Set();
-        neighbors
-          .map(n => (n && n.g) ? n.g : n)
-          .filter(Boolean)
-          .forEach(s => {
-            const p2 = imageOfBasepoint(s);
-            if (!isFinite(p2.t) || p2.t <= 0) return;
-            const vS = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
-            const key = bisectorKeyFromPoints(vO, vS);
-            if (!key || wallKeys.has(key)) return;
-            wallKeys.add(key);
-            const color = colorForIndex(wallKeys.size, neighbors.length);
-            const material = new THREE.MeshStandardMaterial({
-              color,
-              transparent: true,
-              opacity: wallOpacity,
-              side: THREE.DoubleSide,
-              metalness: 0.15,
-              roughness: 0.6
-            });
-            const mesh = drawBisector(vO, vS, material);
-            if (mesh) {
-              // Label the wall by the Dirichlet neighbor s (canonical representative for readability)
-              const labelM = repWithNonnegativeRealTrace(s);
-              mesh.userData.labelMatrix = labelM;
-              mesh.userData.latex = matrixToLatex(labelM);
-            }
+        // Extract the neighbor matrices in a fixed order
+        const sList = neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean);
+        sList.forEach((s, si) => {
+          const p2 = imageOfBasepoint(s);
+          if (!isFinite(p2.t) || p2.t <= 0) return;
+          const vS = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
+          const color = colorForIndex(si, sList.length);
+          const material = new THREE.MeshStandardMaterial({
+            color,
+            transparent: true,
+            opacity: wallOpacity,
+            side: THREE.DoubleSide,
+            metalness: 0.15,
+            roughness: 0.6
           });
+          const mesh = drawBisector(vO, vS, material);
+          if (mesh) {
+            // Label the wall by the Dirichlet neighbor s (canonical representative for readability)
+            const labelM = repWithNonnegativeRealTrace(s);
+            mesh.userData.labelMatrix = labelM;
+            mesh.userData.latex = matrixToLatex(labelM);
+          }
+        });
       } else if (wallsMode === 'all') {
         // Draw walls for all generated pairs (g, gs) across the tiling
         const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));

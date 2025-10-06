@@ -59,13 +59,12 @@
     </div>
 
     <script>
-        // --- START: Code from PSL2CtoSO31.js (exports removed) ---
 
         // Given g = [[a,b],[c,d]] in SL2(C), compute the corresponding element of SO^+(3,1)
         // via the standard action on 2x2 Hermitian matrices: H -> g H g^†.
-        // We identify Minkowski vectors (t,x,y,z) with Hermitian matrices
-        //   H(t,x,y,z) = [[t+z, x - i y], [x + i y, t - z]]
-        // so that det(H) = t^2 - x^2 - y^2 - z^2.
+        // We identify Minkowski vectors (x,y,z,t) with Hermitian matrices
+        //   H(t,x,y,z) = [[t + z, x + i y], [x - i y, t - z]]
+        // so that det(H) = - x^2 - y^2 - z^2 + t^2.
         // The resulting 4x4 real matrix Λ satisfies v' = Λ v for v ∈ R^{3,1}.
 
         // ------------------ Complex helpers ------------------
@@ -98,18 +97,18 @@
 
         // ------------------ Minkowski <-> Hermitian ------------------
         function hermitianFromVec(v) {
-            const [t, x, y, z] = v;
+            const [x, y, z, t] = v;
             return [
-                [C(t + z, 0), C(x, -y)],
-                [C(x, y), C(t - z, 0)]
+                [C(t + z, 0), C(x, y)],
+                [C(x, -y), C(t - z, 0)]
             ];
         }
         function vecFromHermitian(H) {
-            const t = (H[0][0].re + H[1][1].re) / 2;
-            const z = (H[0][0].re - H[1][1].re) / 2;
             const x = H[0][1].re;
-            const y = -H[0][1].im;
-            return [t, x, y, z];
+            const y = H[0][1].im;
+            const z = (H[0][0].re - H[1][1].re) / 2;
+            const t = (H[0][0].re + H[1][1].re) / 2;
+            return [x, y, z, t];
         }
 
         // ------------------ Main map ------------------
@@ -136,15 +135,22 @@
         }
 
         // ------------------ sDF utilities ------------------
-        const __ETA = [1, -1, -1, -1];
-        function __etaApply(v) { return [v[0], -v[1], -v[2], -v[3]]; }
+        const __ETA = [-1, -1, -1, +1];
+        function __etaApply(v) { return [-v[0], -v[1], -v[2], v[3]]; }
         function __stdBasis(j) {
             return [0, 0, 0, 0].map((_, k) => (k === j ? 1 : 0));
         }
         function __ginv_ej(g, j) {
-            const s = (j === 0) ? 1 : -1;
-            const r = g[j];
-            return [s * r[0], -s * r[1], -s * r[2], -s * r[3]];
+            // Using g^{-1} = η g^T η with η = diag(-1,-1,-1,+1).
+            // Column j of g^{-1} equals: w_i = η_{ii} * g_{j i} * η_{jj}.
+            const r = g[j];                 // row j of g
+            const sj = (j === 3) ? 1 : -1;  // η_{jj}
+            return [
+                (-1) * r[0] * sj,           // η_{00} = -1
+                (-1) * r[1] * sj,           // η_{11} = -1
+                (-1) * r[2] * sj,           // η_{22} = -1
+                (+1) * r[3] * sj            // η_{33} = +1
+            ];
         }
 
         function sDF_autoFromSO31(g) {
@@ -152,8 +158,8 @@
                 throw new Error('sDF_autoFromSO31 expects a 4x4 matrix');
             }
             const eps = 1e-14;
-            for (let j = 0; j < 4; j++) {
-                const s = (j === 0) ? 1 : -1;
+            for (let j = 3; j >= 0; j--) {
+                const s = __ETA[j];
                 const w = __ginv_ej(g, j);
                 const denom = s * (w[j] - 1);
                 if (Math.abs(denom) < eps) {
@@ -222,7 +228,6 @@
             return v.map(x => Math.abs(x) < 1e-12 ? "0" : +x.toFixed(6));
         }
 
-        // --- END: Code from PSL2CtoSO31.js ---
 
 
         // --- START: UI Generation and Event Handling (Enhanced) ---
@@ -299,10 +304,10 @@
             function loadExternalMatricesIfAny() {
                 const payload = getExternalMatricesPayload();
                 if (!payload) return false;
+                let loaded = 0;
                 // Clear any existing forms
                 matrixList.innerHTML = '';
                 const lines = payload.split('\n').map(s => s.trim()).filter(Boolean);
-                let loaded = 0;
                 for (const line of lines) {
                     let toks;
                     if (line.includes(',')) {
@@ -370,7 +375,6 @@
 
                     // 1) Declare accumulator array before building resultsHTML
                     const allCovectorLines = [];
-                    const allCovectorLinesXYZT = [];
 
                     const resultsHTML = matrices.map((g, index) => {
                         const [a, b, c, d] = [g[0][0], g[0][1], g[1][0], g[1][1]];
@@ -384,22 +388,31 @@
                         const detClass = Math.abs(detMagSq - 1) > 0.01 ? 'text-red-500 dark:text-red-400' : 'text-green-600 dark:text-green-400';
 
                         const M = PSL2CtoSO31(a, b, c, d);
-                        const auto = sDF_autoFromSO31(M);
-                        const sdf = auto.row;
-                        const pivot = auto.pivot;
                         const Mfmt = __formatMatrix4(M);
-                        const sdfFmt = __formatRow(sdf);
-
-                        // 2) Push covector line to accumulator array (plain text, no brackets)
-                        allCovectorLines.push(sdfFmt.join(', '));
-                        // Reorder covector components from (t,x,y,z) to (x,y,z,t)
-                        let sdfXYZT = [sdf[1], sdf[2], sdf[3], sdf[0]];
-                        // Ensure last coordinate (t) is nonpositive; if positive, flip the whole vector
-                        if (sdfXYZT[3] > 0) {
-                            sdfXYZT = sdfXYZT.map(v => -v);
+                        let covectorSection = '';
+                        try {
+                            const auto = sDF_autoFromSO31(M);
+                            const sdf = auto.row;
+                            const pivot = auto.pivot;
+                            const sdfFmt = __formatRow(sdf);
+                            allCovectorLines.push(sdfFmt.join(', '));
+                            covectorSection = `
+                                <div>
+                                    <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">Covector</h4>
+                                    <div class="bg-gray-100 dark:bg-gray-900/70 rounded-lg p-3">
+                                        <span class="text-base text-gray-800 dark:text-gray-200">\\([ ${sdfFmt.join(',\\; ')} ]\\)</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Calculated using pivot vector \\(e_{${pivot}}\\).</p>
+                                </div>`;
+                        } catch (e) {
+                            covectorSection = `
+                                <div>
+                                    <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">Covector</h4>
+                                    <div class="bg-gray-100 dark:bg-gray-900/70 rounded-lg p-3">
+                                        <span class="text-sm text-gray-700 dark:text-gray-300">No covector (g fixes all basis vectors).</span>
+                                    </div>
+                                </div>`;
                         }
-                        const sdfXYZTFmt = __formatRow(sdfXYZT);
-                        allCovectorLinesXYZT.push(sdfXYZTFmt.join(', '));
 
                         return `
                         <div class="p-4 rounded-xl bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/80">
@@ -420,13 +433,7 @@
                                         </table>
                                     </div>
                                 </div>
-                                <div>
-                                    <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">Covector</h4>
-                                    <div class="bg-gray-100 dark:bg-gray-900/70 rounded-lg p-3">
-                                        <span class="text-base text-gray-800 dark:text-gray-200">\\([ ${sdfFmt.join(',\\; ')} ]\\)</span>
-                                    </div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Calculated using pivot vector \\(e_{${pivot}}\\).</p>
-                                </div>
+                                ${covectorSection}
                             </div>
                         </div>
                         `;
@@ -441,14 +448,7 @@
                             </div>
                         </div>
                     `;
-                    const summaryHTML_XYZT = `
-                        <div class="mt-4">
-                            <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">All covectors (x, y, z, t order)</h4>
-                            <div class="bg-gray-100 dark:bg-gray-900/70 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                                <pre class="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">${allCovectorLinesXYZT.join('\n')}</pre>
-                            </div>
-                        </div>
-                    `;
+
                     // Build "Open polyhedron in Poincare" button (uses the x,y,z,t box content)
                     const openBtnHTML = `
                         <div class="mt-4">
@@ -458,12 +458,12 @@
                             </button>
                         </div>
                     `;
-                    out.innerHTML = resultsHTML + summaryHTML + summaryHTML_XYZT + openBtnHTML;
+                    out.innerHTML = resultsHTML + summaryHTML + openBtnHTML;
                     const openBtn = out.querySelector('#open-poincare');
                     if (openBtn) {
                         openBtn.addEventListener('click', () => {
                             // Use the x,y, z, t order content as the payload
-                            const payload = allCovectorLinesXYZT.join('\n');
+                            const payload = allCovectorLines.join('\n');
                             try {
                                 // Save to localStorage for robust transfer
                                 localStorage.setItem('poincare_input', payload);
