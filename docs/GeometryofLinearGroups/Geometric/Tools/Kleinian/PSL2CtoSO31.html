@@ -127,7 +127,7 @@
             const Lambda = Array.from({ length: 4 }, (_, r) =>
                 columns.map(col => {
                     const val = col[r];
-                    const eps = 1e-14;
+                    const eps = 1e-8;
                     return Math.abs(val) < eps ? 0 : val;
                 })
             );
@@ -157,7 +157,7 @@
             if (!Array.isArray(g) || g.length !== 4 || g.some(r => !Array.isArray(r) || r.length !== 4)) {
                 throw new Error('sDF_autoFromSO31 expects a 4x4 matrix');
             }
-            const eps = 1e-14;
+            const eps = 1e-8;
             for (let j = 3; j >= 0; j--) {
                 const s = __ETA[j];
                 const w = __ginv_ej(g, j);
@@ -169,6 +169,15 @@
                 const u = [w[0] - e[0], w[1] - e[1], w[2] - e[2], w[3] - e[3]];
                 const eta_u = __etaApply(u);
                 const row = eta_u.map(x => x / denom);
+                // Normalize sign: ensure the last nonzero coordinate is negative
+                const epsSign = 1e-12;
+                let lastIdx = -1;
+                for (let k = 3; k >= 0; k--) {
+                    if (Math.abs(row[k]) > epsSign) { lastIdx = k; break; }
+                }
+                if (lastIdx !== -1 && row[lastIdx] > 0) {
+                    for (let k = 0; k < 4; k++) row[k] = -row[k];
+                }
                 return { row, pivot: j };
             }
             throw new Error('sDF undefined: g fixes all basis vectors e₀, e₁, e₂, e₃');
@@ -278,7 +287,7 @@
                 <div id="psl-matrix-list" class="flex flex-wrap gap-4 mb-4">
                     <!-- Matrix input forms will be injected here -->
                 </div>
-
+                <div id="psl-summary" class="mb-4"></div>
                 <div class="flex flex-wrap items-center justify-start gap-4 mb-6">
                     <div class="flex flex-wrap gap-3">
                         <button id="psl-add" class="px-5 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500 shadow-sm hover:shadow-md">Add Matrix</button>
@@ -288,7 +297,6 @@
                             class="px-4 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50">Import</button>
                     </div>
                 </div>
-
                 <div id="psl-out" class="space-y-6 bg-gray-100 dark:bg-gray-900/50 p-4 sm:p-6 rounded-xl border border-gray-200 dark:border-gray-700/50 min-h-[200px]"></div>
             `;
             root.appendChild(card);
@@ -298,6 +306,7 @@
 
             const el = id => card.querySelector(id);
             const out = el('#psl-out');
+            const summary = el('#psl-summary');
             const matrixList = el('#psl-matrix-list');
 
             // Load external matrices if present (each line: a b c d)
@@ -370,6 +379,7 @@
                     const matrices = readInputs();
                     if (matrices.length === 0) {
                         out.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400 py-8">Add a matrix to see the calculation.</p>`;
+                        summary.innerHTML = '';
                         return;
                     }
 
@@ -458,8 +468,9 @@
                             </button>
                         </div>
                     `;
-                    out.innerHTML = resultsHTML + summaryHTML + openBtnHTML;
-                    const openBtn = out.querySelector('#open-poincare');
+                    summary.innerHTML = summaryHTML + openBtnHTML;
+                    out.innerHTML = resultsHTML;
+                    const openBtn = summary.querySelector('#open-poincare');
                     if (openBtn) {
                         openBtn.addEventListener('click', () => {
                             // Use the x,y, z, t order content as the payload
@@ -477,10 +488,11 @@
                         });
                     }
                     if (window.MathJax && window.MathJax.typesetPromise) {
-                        MathJax.typesetPromise([out]).catch(() => {});
+                        MathJax.typesetPromise([summary, out]).catch(() => {});
                     }
 
                 } catch (e) {
+                    summary.innerHTML = '';
                     out.innerHTML = `<div class="text-red-500 dark:text-red-400 p-4 bg-red-100 dark:bg-red-900/50 rounded-lg">${e.message}</div>`;
                 }
             }
