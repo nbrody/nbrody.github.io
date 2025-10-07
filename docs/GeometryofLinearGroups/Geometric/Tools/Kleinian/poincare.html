@@ -162,7 +162,7 @@
         uniform vec3 u_plane_normals[MAX_PLANES]; // Pre-oriented to point "inward"
 
         // --- Ray Marching Settings
-        const int MAX_STEPS = 100;
+        const int MAX_STEPS = 150;
         const float MAX_DIST = 10.0;
         const float HIT_THRESHOLD = 0.001;
 
@@ -301,7 +301,9 @@
                     hit = true;
                     break;
                 }
-                t += dist;
+                // Always move forward: outside region (dist<0) would step backwards; use abs() with a small floor.
+                float step = max(abs(dist), 0.001);
+                t += step;
                 p = ro + rd * t;
             }
             
@@ -309,6 +311,8 @@
                 float faceId = sceneSDFWithId(p).y;
                 vec3 baseColor = faceColor(faceId);
                 vec3 normal = getNormal(p);
+                // Two-sided shading: ensure the normal faces the viewer
+                if (dot(normal, -rd) < 0.0) normal = -normal;
                 vec3 litColor = applyLighting(baseColor, normal, p);
                 gl_FragColor = vec4(litColor, 1.0);
             } else {

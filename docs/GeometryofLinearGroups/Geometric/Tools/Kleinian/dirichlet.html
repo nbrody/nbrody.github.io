@@ -838,6 +838,7 @@
 
     const exampleLibrary = [
       { name: 'Apollonian Gasket', mats: [['1', '1+i', '0', '1'], ['0', '-1', '1', '0']] },
+      { name: 'quasiSchottky', mats: [['\\sqrt{2}', '1', '1', '\\sqrt{2}'], ['\\sqrt{2}', 'i', '-i', '\\sqrt{2}']] },
       { name: 'Modular group', mats: [['1', '1', '0', '1'], ['0', '-1', '1', '0']] },
       { name: 'Borromean rings group', mats: [['1', '2', '0', '1'], ['1', 'i', '0', '1'], ['1', '0', '-1-i', '1']] },
       { name: 'Z[i] congruence', mats: [['1', '2', '0', '1'], ['1', '2i', '0', '1'], ['0', '-1', '1', '0']] },
@@ -988,7 +989,9 @@
         } else {
           const items = neighbors.map((obj, i) => {
             const g = obj && obj.g ? repWithNonnegativeRealTrace(obj.g) : obj;
-            return `${i + 1}. ${matrixToLatex(g)}`;
+            const w = (obj && obj.word) ? obj.word : '';
+            const wordLine = w ? `<div style="color:#6b7280; font-size:12px; margin-top:2px;">word: ${w}</div>` : '';
+            return `${i + 1}. ${matrixToLatex(g)}${wordLine}`;
           });
           out.innerHTML = items.join('<br/><br/>');
           if (window.MathJax && MathJax.typesetPromise) {
@@ -1108,43 +1111,62 @@
     }
 
     function generateGroupElements(gens, wordLength) {
-      const elements = new Map();
-      const initialSet = symmetrizeGroupElements([
-        ...gens,
-        ...gens.map(g => g.inverse()).filter(Boolean)
-      ]);
+        // Return [{ m: Matrix2, word: string }], excluding identity
+        const elements = new Map();
 
-      let queue = [...initialSet];
-      const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
-      const identityKey = keyFromMatrix(I);
-      elements.set(identityKey, I);
+        // Identity
+        const I = new Matrix2(
+          new Complex(1, 0), new Complex(0, 0),
+          new Complex(0, 0), new Complex(1, 0)
+        );
+        const identityKey = keyFromMatrix(I);
+        elements.set(identityKey, { m: I, word: 'e' });
 
-      queue.forEach(g => {
-        const key = keyFromMatrix(g);
-        elements.set(key, g);
-      });
+        // Initial set: g_i and g_i^{-1}
+        const initialSet = [];
+        gens.forEach((g, i) => {
+          const name = `g${i + 1}`;
+          initialSet.push({ m: g, word: name });
+          const inv = g && g.inverse ? g.inverse() : null;
+          if (inv) initialSet.push({ m: inv, word: `${name}^{-1}` });
+        });
 
-      for (let l = 1; l < wordLength; l++) {
-        const nextQueue = [];
-        for (const word of queue) {
-          for (const g of initialSet) {
-            const newWord = word.multiply(g);
-            if (newWord.isIdentity()) continue;
-            const key = keyFromMatrix(newWord);
-            if (!elements.has(key)) {
-              elements.set(key, newWord);
-              nextQueue.push(newWord);
+        // Seed queue + map
+        let queue = [];
+        initialSet.forEach(obj => {
+          if (!obj || !obj.m) return;
+          const key = keyFromMatrix(obj.m);
+          if (!elements.has(key)) {
+            elements.set(key, obj);
+            queue.push(obj);
+          }
+        });
+
+        // BFS up to the requested word length
+        for (let l = 1; l < (parseInt(wordLength) || 1); l++) {
+          const nextQueue = [];
+          for (const wobj of queue) {
+            for (const s of initialSet) {
+              const newM = wobj.m.multiply(s.m);
+              if (newM.isIdentity && newM.isIdentity()) continue;
+              const key = keyFromMatrix(newM);
+              if (!elements.has(key)) {
+                const newObj = { m: newM, word: wobj.word + s.word };
+                elements.set(key, newObj);
+                nextQueue.push(newObj);
+              }
             }
           }
+          queue = nextQueue;
         }
-        queue = nextQueue;
-      }
 
-      const out = Array.from(elements.entries())
-        .filter(([k, _]) => k !== identityKey)
-        .map(([_, v]) => v);
-      return out;
-    }
+        // Exclude identity
+        const out = [];
+        for (const [k, v] of elements.entries()) {
+          if (k !== identityKey) out.push(v);
+        }
+        return out;
+      }
     // Image of the basepoint o=(0,0,1) under m in PSL(2,C)
     // For m = [a b; c d], we have: m·o = ( (a\bar c + b\bar d) / (|c|^2 + |d|^2),  1 / (|c|^2 + |d|^2) )
     // We map (u, t) to THREE as (x, y, z) = (Re(u), Im(u), t).
@@ -1163,18 +1185,19 @@
       return { u: uScaled, t: t };
     }
 
-    function computeOrbitPoints(groupElements) {
-      // return only images g·o (exclude the original basepoint which is already drawn)
-      const pts = [];
-      for (const g of groupElements) {
-        const p = imageOfBasepoint(g); // orbit uses g·o (not g^{-1}·o)
-        if (!isFinite(p.t) || p.t <= 0) continue;
-        // Skip if numerically equal to the basepoint
-        if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) continue;
-        pts.push(new THREE.Vector3(p.u.re, p.u.im, p.t));
-      }
-      return pts;
+  function computeOrbitPoints(groupElements) {
+    const pts = [];
+    const arr = Array.isArray(groupElements) ? groupElements : [];
+    for (const item of arr) {
+      const g = (item && item.m) ? item.m : item; // accept Matrix2 or {m,word}
+      if (!g) continue;
+      const p = imageOfBasepoint(g);
+      if (!isFinite(p.t) || p.t <= 0) continue;
+      if (Math.abs(p.u.re) < 1e-12 && Math.abs(p.u.im) < 1e-12 && Math.abs(p.t - 1) < 1e-12) continue;
+      pts.push(new THREE.Vector3(p.u.re, p.u.im, p.t));
     }
+    return pts;
+  }
 
     // --- Deduplication: canonical key for the bisector between two points ---
     function bisectorKeyFromPoints(p, q) {
@@ -1336,43 +1359,45 @@
       return pts;
     }
 
-    function computeDelaunayNeighbors(groupElements) {
-      const orbit = [basepoint];
-      const imgs = [];
+  function computeDelaunayNeighbors(groupElements) {
+    const orbit = [basepoint];
+    const imgs = [];
 
-      // Use forward images g·o so faces correspond to bisectors between o and g·o
-      for (const g of groupElements) {
-        const p = imageOfBasepoint(g);
-        if (!isFinite(p.t) || p.t <= 0) continue;
-        const v = new THREE.Vector3(p.u.re, p.u.im, p.t);
-        orbit.push(v);
-        imgs.push({ u: p.u, t: p.t, v, g });
-      }
-
-      const neighborsMap = new Map();
-      for (const item of imgs) {
-        const samples = samplePointsOnBisector(item.u, item.t, 160);
-        let contributes = false;
-        for (const s of samples) {
-          const d0 = hDist(basepoint, s);
-          const d1 = hDist(item.v, s);
-          if (Math.abs(d0 - d1) > 2e-3) continue; // near bisector
-          let ok = true;
-          for (let k = 1; k < orbit.length; k++) {
-            const dk = hDist(orbit[k], s);
-            if (dk < d0) { ok = false; break; }
-          }
-          if (ok) { contributes = true; break; }
-        }
-        if (contributes) {
-          const key = keyFromVec(item.v);
-          if (!neighborsMap.has(key)) {
-            neighborsMap.set(key, { v: item.v, g: item.g });
-          }
-        }
-      }
-      return Array.from(neighborsMap.values());
+    // groupElements may be Matrix2 or {m, word}
+    for (const item of groupElements) {
+      const g = (item && item.m) ? item.m : item;
+      const w = (item && item.word) ? item.word : undefined;
+      const p = imageOfBasepoint(g);
+      if (!isFinite(p.t) || p.t <= 0) continue;
+      const v = new THREE.Vector3(p.u.re, p.u.im, p.t);
+      orbit.push(v);
+      imgs.push({ u: p.u, t: p.t, v, g, word: w });
     }
+
+    const neighborsMap = new Map();
+    for (const item of imgs) {
+      const samples = samplePointsOnBisector(item.u, item.t, 160);
+      let contributes = false;
+      for (const s of samples) {
+        const d0 = hDist(basepoint, s);
+        const d1 = hDist(item.v, s);
+        if (Math.abs(d0 - d1) > 2e-3) continue;
+        let ok = true;
+        for (let k = 1; k < orbit.length; k++) {
+          const dk = hDist(orbit[k], s);
+          if (dk < d0) { ok = false; break; }
+        }
+        if (ok) { contributes = true; break; }
+      }
+      if (contributes) {
+        const key = keyFromVec(item.v);
+        if (!neighborsMap.has(key)) {
+          neighborsMap.set(key, { v: item.v, g: item.g, word: item.word });
+        }
+      }
+    }
+    return Array.from(neighborsMap.values());
+  }
 
     // Compare two arrays of matrices up to PSL(2,C) sign/canonicalization
     function matrixSetsEqual(A = [], B = []) {
@@ -1514,8 +1539,11 @@
         const o = imageOfBasepoint(I);
         const vO = new THREE.Vector3(o.u.re, o.u.im, o.t);
         // Extract the neighbor matrices in a fixed order
-        const sList = neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean);
-        sList.forEach((s, si) => {
+        const sList = neighbors
+          .map(n => ({ g: (n && n.g) ? n.g : n, word: n && n.word ? n.word : undefined }))
+          .filter(x => x.g);
+        sList.forEach((sObj, si) => {
+          const s = sObj.g;
           const p2 = imageOfBasepoint(s);
           if (!isFinite(p2.t) || p2.t <= 0) return;
           const vS = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
@@ -1530,16 +1558,16 @@
           });
           const mesh = drawBisector(vO, vS, material);
           if (mesh) {
-            // Label the wall by the Dirichlet neighbor s (canonical representative for readability)
             const labelM = repWithNonnegativeRealTrace(s);
             mesh.userData.labelMatrix = labelM;
             mesh.userData.latex = matrixToLatex(labelM);
+            mesh.userData.word = sObj.word;
           }
         });
       } else if (wallsMode === 'all') {
         // Draw walls for all generated pairs (g, gs) across the tiling
         const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
-        const allG = [I, ...groupElements];
+        const allG = [I, ...groupElements.map(o => (o && o.m) ? o.m : o)];
         const sList = neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean);
 
         const wallKeys = new Set();
@@ -1601,9 +1629,8 @@
       if (showDel) {
         clearDelaunay();
         // Build list of base group elements including identity
-        const allG = [...groupElements];
         const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
-        allG.unshift(I);
+        const allG = [I, ...groupElements.map(o => (o && o.m) ? o.m : o)];
 
         // Extract Delaunay neighbor matrices (handle either {g,v} objects or bare matrices)
         const sList = neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean);
