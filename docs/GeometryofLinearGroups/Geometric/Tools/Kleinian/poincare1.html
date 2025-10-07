@@ -96,7 +96,6 @@
 
         <div class="text-xs text-gray-500 pt-4 border-t border-gray-700">
             <p><strong>Controls:</strong> Drag to rotate, scroll to zoom, right-drag to pan.</p>
-            <p><strong>Selection:</strong> Click a face to select it. <kbd>Shift</kbd>+Click near an edge to select the edge (highlights both faces in the gutter).</p>
         </div>
       </div> <!-- end page-1 -->
 
@@ -158,13 +157,10 @@
         uniform vec3 u_cameraPosition;
         uniform int u_palette_mode; // 0=colorful, 1=vaporwave, 2=uc
         uniform int u_selected_face_id; // -1 for none
-        uniform float u_pop_strength;   // 0..1, animated pop
+        uniform float u_pop_strength;   // 0..1, animated pop (already present if you added earlier step)
         uniform float u_hover_offset;   // persistent offset distance for the selected face
-        uniform float u_edge_width;        // edge highlight width in SDF-difference space
-        uniform float u_edge_boost;        // extra brightness along edges for the selected face
-        uniform float u_edge_global;       // global edge strength for all faces
-uniform float u_edge_select_boost; // multiplicative boost when the selected face participates in the edge
-uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected edge (-1, -1 if none)
+        uniform float u_edge_width;     // edge highlight width in SDF-difference space
+        uniform float u_edge_boost;     // brightness boost along edges
         
         const int MAX_PLANES = 64;
         
@@ -220,27 +216,27 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
             } else if (u_palette_mode == 5) {
                 // sunset palette (16 colors, id wraps mod 16) -- randomized
                 int k = int(floor(fract(sin(id * 12.9898) * 43758.5453) * 16.0));
-                if (k == 0)  return vec3(0.965, 0.843, 0.647);
-                if (k == 1)  return vec3(0.933, 0.831, 0.671);
-                if (k == 2)  return vec3(0.933, 0.686, 0.380);
-                if (k == 3)  return vec3(0.941, 0.627, 0.431);
-                if (k == 4)  return vec3(0.984, 0.565, 0.384);
-                if (k == 5)  return vec3(0.980, 0.482, 0.369);
-                if (k == 6)  return vec3(0.949, 0.416, 0.400);
-                if (k == 7)  return vec3(0.933, 0.365, 0.424);
-                if (k == 8)  return vec3(0.847, 0.329, 0.529);
-                if (k == 9)  return vec3(0.808, 0.286, 0.576);
-                if (k == 10) return vec3(0.714, 0.224, 0.663);
-                if (k == 11) return vec3(0.561, 0.122, 0.643);
-                if (k == 12) return vec3(0.416, 0.051, 0.514);
-                if (k == 13) return vec3(0.310, 0.008, 0.439);
-                if (k == 14) return vec3(0.227, 0.000, 0.357);
-                return vec3(0.118, 0.000, 0.247);
+                if (k == 0)  return vec3(0.965, 0.843, 0.647); // #f6d7a5
+                if (k == 1)  return vec3(0.933, 0.831, 0.671); // #eed4ab
+                if (k == 2)  return vec3(0.933, 0.686, 0.380); // #eeaf61
+                if (k == 3)  return vec3(0.941, 0.627, 0.431); // #f0a06e
+                if (k == 4)  return vec3(0.984, 0.565, 0.384); // #fb9062
+                if (k == 5)  return vec3(0.980, 0.482, 0.369); // #fa7b5e
+                if (k == 6)  return vec3(0.949, 0.416, 0.400); // #f26a66
+                if (k == 7)  return vec3(0.933, 0.365, 0.424); // #ee5d6c
+                if (k == 8)  return vec3(0.847, 0.329, 0.529); // #d85487
+                if (k == 9)  return vec3(0.808, 0.286, 0.576); // #ce4993
+                if (k == 10) return vec3(0.714, 0.224, 0.663); // #b639a9
+                if (k == 11) return vec3(0.561, 0.122, 0.643); // #8f1fa4
+                if (k == 12) return vec3(0.416, 0.051, 0.514); // #6a0d83
+                if (k == 13) return vec3(0.310, 0.008, 0.439); // #4f0270
+                if (k == 14) return vec3(0.227, 0.000, 0.357); // #3a005b
+                return vec3(0.118, 0.000, 0.247);             // #1e003f
             } else {
                 // uc colors: alternate UC blue & gold
                 int k = int(mod(id, 2.0));
-                if (k == 0) return vec3(0.000, 0.200, 0.400); // UC Blue
-                return vec3(1.000, 0.737,  0.000);             // UC Gold
+                if (k == 0) return vec3(0.000, 0.200, 0.400); // UC Blue (#003660)
+                return vec3(1.000, 0.737,  0.000);             // UC Gold (#FEBC11)
             }
         }
 
@@ -254,9 +250,11 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                 if (i >= u_num_sphere_planes) break;
                 float dist_to_sphere = length(p - u_sphere_centers[i]) - u_sphere_radii[i];
                 float sdf = -dist_to_sphere; // inside = negative, we flip to match intersection convention used
-                // For selected face, keep main geometry fixed — no SDF offset.
+                // Apply persistent hover and transient pop to the selected face's SDF so the surface actually moves
                 if (u_selected_face_id >= 0 && i == u_selected_face_id) {
-                    // Keep main geometry fixed — no SDF offset.
+                    float pop = 0.02 * clamp(u_pop_strength, 0.0, 1.0);
+                    float hover = max(0.0, u_hover_offset);
+                    sdf += (hover + pop);
                 }
                 if (sdf > max_dist) { max_dist = sdf; face_id = float(i); }
             }
@@ -266,9 +264,10 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                 if (i >= u_num_euclidean_planes) break;
                 float sdf = dot(p, u_plane_normals[i]);
                 int fid_i = u_num_sphere_planes + i;
-                // For selected face, keep main geometry fixed — no SDF offset.
                 if (u_selected_face_id >= 0 && fid_i == u_selected_face_id) {
-                    // Keep main geometry fixed — no SDF offset.
+                    float pop = 0.02 * clamp(u_pop_strength, 0.0, 1.0);
+                    float hover = max(0.0, u_hover_offset);
+                    sdf += (hover + pop);
                 }
                 if (sdf > max_dist) { max_dist = sdf; face_id = float(fid_i); }
             }
@@ -372,58 +371,20 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                 // Two-sided shading: ensure the normal faces the viewer
                 if (dot(normal, -rd) < 0.0) normal = -normal;
                 vec3 litColor = applyLighting(baseColor, normal, p);
-                // --- Edge highlighting (global + edge-specific) ---
-                // Compute proximity to an edge: small gap between the top-2 SDFs
-                vec4 top2 = sceneSDFTop2(p);
-                float bestVal = top2.x;
-                float secondVal = top2.z;
-                float gap = max(0.0, bestVal - secondVal);
-                // Edge factor peaks when gap → 0, fades out by ~u_edge_width
-                float edgeFactor = 1.0 - smoothstep(0.0, u_edge_width, gap);
-                // Always draw a subtle global edge line
-                litColor += edgeFactor * u_edge_global;
-
-                // Highlight only the selected edge when set
-                if (u_selected_edge_faces.x >= 0 && u_selected_edge_faces.y >= 0) {
-                    bool isSelectedEdge =
-                        ( (int(top2.y) == u_selected_edge_faces.x && int(top2.w) == u_selected_edge_faces.y) ||
-                          (int(top2.y) == u_selected_edge_faces.y && int(top2.w) == u_selected_edge_faces.x) );
-                    if (isSelectedEdge) {
-                        float popK = (0.6 * clamp(u_pop_strength, 0.0, 1.0));
-                        litColor += edgeFactor * (u_edge_boost + u_edge_select_boost * (1.0 + popK));
-                    }
-                } else if (u_selected_face_id >= 0) {
-                    // Fallback: highlight edges around the selected face if no edge is selected
-                    bool selectedInvolved = (int(top2.y) == u_selected_face_id) || (int(top2.w) == u_selected_face_id);
-                    if (selectedInvolved) {
-                        float popK = (0.6 * clamp(u_pop_strength, 0.0, 1.0));
-                        litColor += edgeFactor * (u_edge_boost + u_edge_select_boost * (1.0 + popK));
-                    }
-                }
-                // Additionally, brighten the selected face overall when hovered/popped
+                // Edge highlighting for the selected face:
                 if (int(faceId) == u_selected_face_id) {
+                    // Boost overall brightness while hovering
                     litColor *= (1.0 + 0.25 + 0.4 * clamp(u_pop_strength, 0.0, 1.0));
-                }
-
-                // --- Phantom hovering face overlay (safe additive version) ---
-                if (u_selected_face_id >= 0) {
-                    float faceIdMain = sceneSDFWithId(p).y;
-                    if (int(faceIdMain) == u_selected_face_id) {
-                        // Compute normal and displaced point
-                        vec3 n = getNormal(p);
-                        vec3 pHover = p + n * (0.04 + 0.04 * clamp(u_pop_strength, 0.0, 1.0));
-                        // Only add phantom if still inside the ball and not occluded
-                        if (length(pHover) < 0.98) {
-                            vec2 phantom = sceneSDFWithId(pHover);
-                            if (int(phantom.y) == u_selected_face_id) {
-                                vec3 phantomColor = faceColor(float(u_selected_face_id));
-                                phantomColor = mix(phantomColor, vec3(1.0), 0.2);
-                                float glow = 0.3 + 0.7 * clamp(u_pop_strength, 0.0, 1.0);
-                                // Blend phantom softly above the real face
-                                litColor = mix(litColor, litColor + phantomColor * glow * 0.5, 0.6);
-                            }
-                        }
-                    }
+                    // Compute proximity to an edge: small gap between top-2 SDFs
+                    vec4 top2 = sceneSDFTop2(p);
+                    float bestVal = top2.x;
+                    float bestIdF = top2.y;
+                    float secondVal = top2.z;
+                    // Edge factor: stronger when best and second are close
+                    float d = max(0.0, u_edge_width - (bestVal - secondVal));
+                    float edgeFactor = smoothstep(0.0, u_edge_width, d);
+                    // Apply edge highlight as an additive brighten
+                    litColor += edgeFactor * u_edge_boost;
                 }
                 gl_FragColor = vec4(litColor, 1.0);
             } else {
@@ -489,10 +450,10 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
             return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
           } else if (_paletteMode === 3) {
             const pal = [
-              [255,110,0],
-              [92,0,157],
-              [143,212,0],
-              [26,26,31],
+              [255,110,0],   // pumpkin orange
+              [92,0,157],    // deep purple
+              [143,212,0],   // slime green
+              [26,26,31],    // charcoal
             ];
             const c = pal[id % pal.length];
             return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
@@ -508,13 +469,15 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
               [216, 84,135], [206, 73,147], [182, 57,169], [143, 31,164],
               [106, 13,131], [ 79,  2,112], [ 58,  0, 91], [ 30,  0, 63]
             ];
+            // Randomize sunset palette index for visual consistency with shader
             const fract = (x) => x - Math.floor(x);
             const k = Math.floor(fract(Math.sin(id * 12.9898) * 43758.5453) * pal.length);
             const c = pal[k];
             return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
           } else {
-            const blue = [0,51,98];
-            const gold = [253,181,21];
+            // UC colors alternate
+            const blue = [0,51,98];    // #003262
+            const gold = [253,181,21]; // #FDB515
             const c = (id % 2 === 0) ? blue : gold;
             return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
           }
@@ -558,19 +521,18 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
         }
 
         function highlightGutterFaces(faceIdsArray) {
-          const gutter = document.getElementById('vector-gutter');
-          if (!gutter) return;
-          // Clear all
-          [...gutter.children].forEach(ch => ch.style.outline = 'none');
-          if (!Array.isArray(faceIdsArray) || faceIdsArray.length === 0) return;
-          // Map face IDs to input line indices and outline them
-          faceIdsArray.forEach(fid => {
-            const lineIndex = _currentFaceIdsByLine.findIndex(x => x === fid);
-            if (lineIndex !== -1 && gutter.children[lineIndex]) {
-              gutter.children[lineIndex].style.outline = '2px solid white';
-            }
-          });
-        }
+            const gutter = document.getElementById('vector-gutter');
+            if (!gutter) return;
+            // clear all
+            [...gutter.children].forEach(ch => ch.style.outline = 'none');
+            if (!Array.isArray(faceIdsArray) || faceIdsArray.length === 0) return;
+            faceIdsArray.forEach(fid => {
+              const lineIndex = _currentFaceIdsByLine.findIndex(x => x === fid);
+              if (lineIndex !== -1 && gutter.children[lineIndex]) {
+                gutter.children[lineIndex].style.outline = '2px solid white';
+              }
+            });
+          }
 
         let scene, camera, renderer, controls, material, uniforms, boundarySphere;
         // Keep latest parsed geometry for interactivity
@@ -652,37 +614,39 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
         }
 
         function sceneSDFTop2CPU(p) {
-          // returns {bestVal, bestId, secondVal, secondId}
-          let bestVal = -CPU_MAX_DIST, bestId = -1;
-          let secondVal = -CPU_MAX_DIST, secondId = -1;
-          // spheres
-          for (let i = 0; i < _currentSphereCenters.length; i++) {
-            const c = _currentSphereCenters[i];
-            const r = _currentSphereRadii[i];
-            const dist_to_sphere = p.clone().sub(c).length() - r;
-            const sdf = -dist_to_sphere;
-            if (sdf > bestVal) {
-              secondVal = bestVal; secondId = bestId;
-              bestVal = sdf; bestId = i;
-            } else if (sdf > secondVal) {
-              secondVal = sdf; secondId = i;
+            // returns {bestVal, bestId, secondVal, secondId}
+            let bestVal = -CPU_MAX_DIST, bestId = -1;
+            let secondVal = -CPU_MAX_DIST, secondId = -1;
+
+            // spheres
+            for (let i = 0; i < _currentSphereCenters.length; i++) {
+              const c = _currentSphereCenters[i];
+              const r = _currentSphereRadii[i];
+              const dist_to_sphere = p.clone().sub(c).length() - r;
+              const sdf = -dist_to_sphere; // inside > 0
+              if (sdf > bestVal) {
+                secondVal = bestVal; secondId = bestId;
+                bestVal = sdf; bestId = i;
+              } else if (sdf > secondVal) {
+                secondVal = sdf; secondId = i;
+              }
             }
-          }
-          // planes (IDs offset by spheres count)
-          const offset = _currentSphereCenters.length;
-          for (let j = 0; j < _currentPlaneNormals.length; j++) {
-            const n = _currentPlaneNormals[j];
-            const sdf = p.dot(n);
-            const fid = offset + j;
-            if (sdf > bestVal) {
-              secondVal = bestVal; secondId = bestId;
-              bestVal = sdf; bestId = fid;
-            } else if (sdf > secondVal) {
-              secondVal = sdf; secondId = fid;
+
+            // planes (IDs offset by spheres count)
+            const offset = _currentSphereCenters.length;
+            for (let j = 0; j < _currentPlaneNormals.length; j++) {
+              const n = _currentPlaneNormals[j];
+              const sdf = p.dot(n);
+              const fid = offset + j;
+              if (sdf > bestVal) {
+                secondVal = bestVal; secondId = bestId;
+                bestVal = sdf; bestId = fid;
+              } else if (sdf > secondVal) {
+                secondVal = sdf; secondId = fid;
+              }
             }
+            return { bestVal, bestId, secondVal, secondId };
           }
-          return { bestVal, bestId, secondVal, secondId };
-        }
 
         function getNormalCPU(p) {
           // central differences on the SDF
@@ -725,19 +689,6 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
             return vectors.map(v => v.join(', ')).join('\n');
         }
 
-        // Pop animation state
-        let _popActive = false;
-        let _popStart = 0;
-        const _popDurationMs = 600;
-
-        function triggerPop(faceId){
-          if (!Number.isFinite(faceId)) return;
-          uniforms.u_selected_face_id.value = Math.floor(faceId);
-          uniforms.u_pop_strength.value = 1.0;
-          _popActive = true;
-          _popStart = performance.now();
-        }
-
         function init() {
             const container = document.getElementById('container');
             scene = new THREE.Scene();
@@ -769,7 +720,7 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                 specular: 0xffffff
             });
             boundarySphere = new THREE.Mesh(boundaryGeom, boundaryMat);
-            boundarySphere.renderOrder = 0; // Render the boundary sphere first.
+            boundarySphere.renderOrder = 0; // FIX: Render the boundary sphere first.
             boundarySphere.material.side = THREE.DoubleSide; // visible from inside/outside
             
             const initialSphereCenters = Array.from({ length: MAX_PLANES_CONST }, () => new THREE.Vector3());
@@ -789,18 +740,15 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                 u_selected_face_id: { value: -1 },
                 u_pop_strength: { value: 0.0 },
                 u_hover_offset: { value: 0.0 },      // default off until a face is clicked
-                u_edge_width: { value: 0.015 },       // tweak for your SDF scale
-                u_edge_boost: { value: 0.6 },         // extra brightness when selected edge participates
-                u_edge_global: { value: 0.20 },       // subtle global edge line on all faces
-                u_edge_select_boost: { value: 0.45 }, // multiplicative boost when the selected face is part of the edge
-                u_selected_edge_faces: { value: new THREE.Vector2(-1, -1) },
+                u_edge_width: { value: 0.015 },      // tweak for your SDF scale
+                u_edge_boost: { value: 0.6 },
             };
             material = new THREE.ShaderMaterial({
                 vertexShader: document.getElementById('vertexShader').textContent,
                 fragmentShader: document.getElementById('fragmentShader').textContent,
                 uniforms: uniforms,
-                transparent: true,    // Allow transparency for fragments that are discarded.
-                depthWrite: false,    // Don't let the quad block the wireframe behind it.
+                transparent: true,    // FIX: Allow transparency for fragments that are discarded.
+                depthWrite: false,    // FIX: Don't let the quad block the wireframe behind it.
             });
 
             // Add boundary and quad to a group, center at origin, set camera/controls target
@@ -821,9 +769,10 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
 
             window.addEventListener('resize', onWindowResize, false);
             window.addEventListener('resize', () => {
-              const lines = (document.getElementById('vectors').value || '').split('\n').filter(l => l.trim() !== '');
-              renderGutter(lines.length, _currentFaceIdsByLine);
-            });
+            // Re-render gutter with current line count and face IDs
+            const lines = (document.getElementById('vectors').value || '').split('\n').filter(l => l.trim() !== '');
+            renderGutter(lines.length, _currentFaceIdsByLine);
+          });
             document.getElementById('render-btn').addEventListener('click', updateFromInput);
             // Auto-load external payload if available; otherwise use defaults
             const externalPayload = getExternalVectorsPayload();
@@ -850,45 +799,8 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
             // Initial gutter based on actual textarea content
             renderGutter((vectorsEl.value || '').split('\n').filter(l => l.trim() !== '').length);
 
-            // Click-to-focus: when a gutter box is clicked, move camera & select, with Shift-click edge support
+            // Click-to-focus: when a gutter box is clicked, move camera to look head-on at that face
             if (gutterDiv) {
-              // Static variable to remember last clicked face id for Shift-click edge selection
-              let _lastClickedFaceId = null;
-
-              // --- Hyperbolic dihedral angle computation (replaces old dihedral) ---
-              function computeDihedralAngle(faceA, faceB) {
-                // Minkowski inner product with signature (+,+,+,-)
-                function minkowskiDot(v1, v2) {
-                  return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z - v1.w * v2.w;
-                }
-
-                const numSpheres = _currentSphereCenters.length;
-                function hyperbolicVector(fid) {
-                  if (fid < numSpheres) {
-                    const c = _currentSphereCenters[fid];
-                    const r = _currentSphereRadii[fid];
-                    const t = Math.sqrt(c.lengthSq() - r * r);
-                    return new THREE.Vector4(c.x, c.y, c.z, t);
-                  } else {
-                    const j = fid - numSpheres;
-                    const n = _currentPlaneNormals[j];
-                    return new THREE.Vector4(n.x, n.y, n.z, 0);
-                  }
-                }
-
-                const v1 = hyperbolicVector(faceA);
-                const v2 = hyperbolicVector(faceB);
-
-                const g11 = minkowskiDot(v1, v1);
-                const g22 = minkowskiDot(v2, v2);
-                const g12 = minkowskiDot(v1, v2);
-
-                // Hyperbolic dihedral angle formula:
-                const cosTheta = -g12 / Math.sqrt(Math.abs(g11 * g22));
-                const clamped = Math.min(1.0, Math.max(-1.0, cosTheta));
-                return Math.acos(clamped); // radians
-              }
-
               gutterDiv.addEventListener('click', (e) => {
                 const box = e.target.closest('.box');
                 if (!box) return;
@@ -896,35 +808,20 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                 if (!Number.isInteger(line)) return;
                 const faceId = _currentFaceIdsByLine[line];
                 if (faceId === undefined) return;
-
-                const edgeOut = document.getElementById('selected-edge');
-                if (e.shiftKey && _lastClickedFaceId !== null && _lastClickedFaceId !== faceId) {
-                  // Shift-click: highlight the edge between last and current
-                  highlightGutterFaces([_lastClickedFaceId, faceId]);
-                  // Show hyperbolic dihedral angle in degrees
-                  const theta = computeDihedralAngle(_lastClickedFaceId, faceId);
-                  if (edgeOut)
-                    edgeOut.textContent = `Edge: faces ${_lastClickedFaceId} & ${faceId} — hyperbolic dihedral angle ≈ ${(theta * 180 / Math.PI).toFixed(2)}°`;
-                  // Set edge selection uniform
-                  uniforms.u_selected_edge_faces.value.set(_lastClickedFaceId, faceId);
-                  _lastClickedFaceId = null;
-                } else {
-                  // Normal single-face click
-                  _lastClickedFaceId = faceId;
-                  uniforms.u_selected_face_id.value = Math.floor(faceId);
-                  uniforms.u_hover_offset.value = 0.035;
-                  lookHeadOnAtFaceId(faceId);
-                  triggerPop(faceId);
-                  highlightGutterFaces([faceId]);
-                  if (edgeOut) edgeOut.textContent = '';
-                  // Reset edge selection uniform
-                  uniforms.u_selected_edge_faces.value.set(-1, -1);
-                }
+                uniforms.u_selected_face_id.value = Math.floor(faceId);
+                uniforms.u_hover_offset.value = 0.035;
+                lookHeadOnAtFaceId(faceId);
+                // Optionally trigger pop on gutter click as well
+                if (typeof triggerPop === "function") triggerPop(faceId);
+                highlightGutterFaces([faceId]);
+                const edgeOut2 = document.getElementById('selected-edge');
+                if (edgeOut2) edgeOut2.textContent = '';
               });
             }
 
             const autoRotateCheckbox = document.getElementById('auto-rotate');
             if (autoRotateCheckbox) {
+                // Keep checkbox in sync with controls
                 autoRotateCheckbox.checked = controls.autoRotate;
                 autoRotateCheckbox.addEventListener('change', (e) => {
                     controls.autoRotate = e.target.checked;
@@ -934,6 +831,7 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
             // Boundary visibility toggle
             const boundaryToggle = document.getElementById('toggle-boundary');
             if (boundaryToggle) {
+                // Initialize state
                 boundarySphere.visible = boundaryToggle.checked;
                 boundaryToggle.addEventListener('change', (e) => {
                     boundarySphere.visible = e.target.checked;
@@ -969,6 +867,7 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                 const map = { 'colorful': 0, 'vaporwave': 1, 'uc': 2, 'halloween': 3, 'tie-dye': 4, 'sunset': 5 };
                 _paletteMode = map[v] ?? 0;
                 uniforms.u_palette_mode.value = _paletteMode;
+                // Re-render gutter with new colors
                 const lines = (document.getElementById('vectors').value || '').split('\n').filter(l=>l.trim()!=='');
                 renderGutter(lines.length, _currentFaceIdsByLine);
               });
@@ -996,44 +895,8 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
             updateFromInput();
             animate();
 
-            // --- Click-to-identify face and optional edge (Shift or Shift-click two faces) ---
+            // --- Click-to-identify-face normal vector (reports original 4D vector line) ---
             const normalOut = document.getElementById('selected-face-normal');
-            // Static variable to remember last clicked face id for Shift-click edge selection in canvas
-            let _lastClickedFaceIdCanvas = null;
-            // --- Hyperbolic dihedral angle computation for canvas edge selection ---
-            function computeDihedralAngle(faceA, faceB) {
-              // Minkowski inner product with signature (+,+,+,-)
-              function minkowskiDot(v1, v2) {
-                return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z - v1.w * v2.w;
-              }
-
-              const numSpheres = _currentSphereCenters.length;
-              function hyperbolicVector(fid) {
-                if (fid < numSpheres) {
-                  const c = _currentSphereCenters[fid];
-                  const r = _currentSphereRadii[fid];
-                  const t = Math.sqrt(c.lengthSq() - r * r);
-                  return new THREE.Vector4(c.x, c.y, c.z, t);
-                } else {
-                  const j = fid - numSpheres;
-                  const n = _currentPlaneNormals[j];
-                  return new THREE.Vector4(n.x, n.y, n.z, 0);
-                }
-              }
-
-              const v1 = hyperbolicVector(faceA);
-              const v2 = hyperbolicVector(faceB);
-
-              const g11 = minkowskiDot(v1, v1);
-              const g22 = minkowskiDot(v2, v2);
-              const g12 = minkowskiDot(v1, v2);
-
-              // Hyperbolic dihedral angle formula:
-              const cosTheta = -g12 / Math.sqrt(Math.abs(g11 * g22));
-              const clamped = Math.min(1.0, Math.max(-1.0, cosTheta));
-              return Math.acos(clamped); // radians
-            }
-
             renderer.domElement.addEventListener('click', (ev) => {
               if (!_currentSphereCenters.length && !_currentPlaneNormals.length) return;
 
@@ -1043,11 +906,6 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                 if (normalOut) normalOut.textContent = "";
                 uniforms.u_selected_face_id.value = -1;
                 uniforms.u_hover_offset.value = 0.0;
-                const edgeOut0 = document.getElementById('selected-edge');
-                if (edgeOut0) edgeOut0.textContent = '';
-                highlightGutterFaces([]);
-                // Reset edge selection state
-                _lastClickedFaceIdCanvas = null;
                 return;
               }
 
@@ -1073,10 +931,6 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                 if (normalOut) normalOut.textContent = "";
                 uniforms.u_selected_face_id.value = -1;
                 uniforms.u_hover_offset.value = 0.0;
-                const edgeOut1 = document.getElementById('selected-edge');
-                if (edgeOut1) edgeOut1.textContent = '';
-                highlightGutterFaces([]);
-                _lastClickedFaceIdCanvas = null;
                 return;
               }
 
@@ -1095,53 +949,42 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
 
               if (normalOut) {
                 if (vecText) {
-                  normalOut.textContent = `Face: [${vecText}]`;
+                  normalOut.textContent = `Face: [${vecText}] `;
                 } else {
                   normalOut.textContent = `3D unit normal ≈ (${n.x.toFixed(4)}, ${n.y.toFixed(4)}, ${n.z.toFixed(4)})`;
                 }
               }
 
-              // Shift-click edge selection between two faces
               const edgeOut = document.getElementById('selected-edge');
-              if (ev.shiftKey && _lastClickedFaceIdCanvas !== null && _lastClickedFaceIdCanvas !== hitId) {
-                // Shift-click: highlight the edge between last and current
-                highlightGutterFaces([_lastClickedFaceIdCanvas, hitId]);
-                // Show hyperbolic dihedral angle in degrees
-                const theta = computeDihedralAngle(_lastClickedFaceIdCanvas, hitId);
-                if (edgeOut)
-                  edgeOut.textContent = `Edge: faces ${_lastClickedFaceIdCanvas} & ${hitId} — hyperbolic dihedral angle ≈ ${(theta * 180 / Math.PI).toFixed(2)}°`;
-                // Set edge selection uniform
-                uniforms.u_selected_edge_faces.value.set(_lastClickedFaceIdCanvas, hitId);
-                _lastClickedFaceIdCanvas = null;
-                // Do not update face selection or pop here (edge selection only)
-                return;
-              } else {
-                _lastClickedFaceIdCanvas = hitId;
-                // Reset edge selection uniform (single face click)
-                uniforms.u_selected_edge_faces.value.set(-1, -1);
-              }
-
-              // Persistently hover the selected face and trigger a pop
-              uniforms.u_selected_face_id.value = Math.floor(hitId);
-              uniforms.u_hover_offset.value = 0.035;
-              triggerPop(hitId);
-
-              // Edge selection with Shift (legacy: highlight top-2 faces at edge, but now overridden by Shift-click two faces)
               if (ev.shiftKey) {
                 const { bestVal, bestId, secondVal, secondId } = sceneSDFTop2CPU(p);
-                const EDGE_GAP = uniforms.u_edge_width.value * 1.1; // mirror shader's width with slight slack
+                const EDGE_GAP = 0.010; // tighten/loosen as you like
                 if (bestId !== -1 && secondId !== -1 && (bestVal - secondVal) < EDGE_GAP) {
                   highlightGutterFaces([bestId, secondId]);
-                  if (edgeOut) edgeOut.textContent = '';
+                  if (edgeOut) edgeOut.textContent = `Edge: faces ${bestId} & ${secondId}`;
                 } else {
                   highlightGutterFaces([hitId]);
                   if (edgeOut) edgeOut.textContent = '';
                 }
               } else {
-                // Face-only selection (no edge)
                 highlightGutterFaces([hitId]);
                 if (edgeOut) edgeOut.textContent = '';
               }
+
+              // in: if (!span) { ... before return; }
+              const edgeOut0 = document.getElementById('selected-edge');
+              if (edgeOut0) edgeOut0.textContent = '';
+              highlightGutterFaces([]);
+
+              // in: if (!hit) { ... before return; }
+              const edgeOut1 = document.getElementById('selected-edge');
+              if (edgeOut1) edgeOut1.textContent = '';
+              highlightGutterFaces([]);
+
+              // Persistently hover the selected face and trigger a pop
+              uniforms.u_selected_face_id.value = Math.floor(hitId);
+              uniforms.u_hover_offset.value = 0.035; // visible but subtle separation
+              if (typeof triggerPop === "function") triggerPop(hitId);
             });
         }
 
@@ -1290,19 +1133,6 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
             const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(camera.matrixWorld, camera.projectionMatrixInverse);
             uniforms.u_inverseViewProjectionMatrix.value.copy(inverseViewProjectionMatrix);
             uniforms.u_cameraPosition.value.copy(camera.position);
-
-            // Drive pop decay
-            if (_popActive) {
-              const now = performance.now();
-              const t = Math.min(1, (now - _popStart) / _popDurationMs);
-              const strength = 1.0 - t; // linear ease-out
-              uniforms.u_pop_strength.value = Math.max(0, strength);
-              if (t >= 1) {
-                _popActive = false;
-                uniforms.u_pop_strength.value = 0.0;
-              }
-            }
-
             renderer.render(scene, camera);
         }
 
