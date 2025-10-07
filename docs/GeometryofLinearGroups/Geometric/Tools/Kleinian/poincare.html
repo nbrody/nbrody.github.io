@@ -903,8 +903,8 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                   highlightGutterFaces([_lastClickedFaceId, faceId]);
                   // Show hyperbolic dihedral angle in degrees
                   const theta = computeDihedralAngle(_lastClickedFaceId, faceId);
-                  if (edgeOut)
-                    edgeOut.textContent = `Edge: faces ${_lastClickedFaceId} & ${faceId} — hyperbolic dihedral angle ≈ ${(theta * 180 / Math.PI).toFixed(2)}°`;
+                if (edgeOut)
+                  edgeOut.textContent = `Edge: faces ${_lastClickedFaceId} & ${faceId} — hyperbolic dihedral angle ≈ ${(theta / Math.PI).toFixed(4)}π radians`;
                   // Set edge selection uniform
                   uniforms.u_selected_edge_faces.value.set(_lastClickedFaceId, faceId);
                   _lastClickedFaceId = null;
@@ -1109,7 +1109,7 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                 // Show hyperbolic dihedral angle in degrees
                 const theta = computeDihedralAngle(_lastClickedFaceIdCanvas, hitId);
                 if (edgeOut)
-                  edgeOut.textContent = `Edge: faces ${_lastClickedFaceIdCanvas} & ${hitId} — hyperbolic dihedral angle ≈ ${(theta * 180 / Math.PI).toFixed(2)}°`;
+                  edgeOut.textContent = `Edge: faces ${_lastClickedFaceIdCanvas} & ${hitId} — hyperbolic dihedral angle ≈ ${(theta / Math.PI).toFixed(4)}π radians`;
                 // Set edge selection uniform
                 uniforms.u_selected_edge_faces.value.set(_lastClickedFaceIdCanvas, hitId);
                 _lastClickedFaceIdCanvas = null;
