@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Helvetica', sans-serif;
             background-color: #111827; /* gray-900 */
             color: #d1d5db; /* gray-300 */
         }
@@ -889,6 +889,41 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                 return Math.acos(clamped); // radians
               }
 
+              // --- Helper: Format angle as reduced fraction of π, or degrees if not close ---
+              function formatAngle(theta) {
+                const ratio = theta / Math.PI;
+                // Candidate denominators commonly appearing in hyperbolic/polyhedral angles
+                const dens = [1,2,3,4,5,6,8,10,12,15,16,18,20,24,30,36,48,60];
+                const EPS = 2e-3; // tolerance in ratio-space
+                let best = null;
+
+                for (const d of dens) {
+                  const nFloat = Math.round(ratio * d);
+                  const approx = nFloat / d;
+                  if (Math.abs(approx - ratio) < EPS) {
+                    // Reduce fraction n/d
+                    const n = Math.abs(nFloat);
+                    const g = (a,b) => (b ? g(b, a % b) : a);
+                    const gcd = g(n, d);
+                    const rn = (nFloat < 0 ? -1 : 1) * (n / gcd);
+                    const rd = d / gcd;
+                    // If denominator is 1, just return "π" or "0"
+                    if (rd === 1) {
+                      if (rn === 0) return "0 radians";
+                      if (rn === 1) return "π radians";
+                      if (rn === -1) return "-π radians";
+                      return `${rn} π radians`;
+                    }
+                    // pπ/q form, omit p=1
+                    return `${rn === 1 ? '' : rn}π/${rd} radians`;
+                  }
+                }
+
+                // Fallback: degrees
+                const deg = theta * 180 / Math.PI;
+                return `${deg.toFixed(2)}°`;
+              }
+
               gutterDiv.addEventListener('click', (e) => {
                 const box = e.target.closest('.box');
                 if (!box) return;
@@ -901,10 +936,12 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
                 if (e.shiftKey && _lastClickedFaceId !== null && _lastClickedFaceId !== faceId) {
                   // Shift-click: highlight the edge between last and current
                   highlightGutterFaces([_lastClickedFaceId, faceId]);
-                  // Show hyperbolic dihedral angle in degrees
+                  // Show hyperbolic dihedral angle as reduced fraction of π or degrees
                   const theta = computeDihedralAngle(_lastClickedFaceId, faceId);
-                if (edgeOut)
-                  edgeOut.textContent = `Edge: faces ${_lastClickedFaceId} & ${faceId} — hyperbolic dihedral angle ≈ ${(theta / Math.PI).toFixed(4)}π radians`;
+                  if (edgeOut) {
+                    const nice = formatAngle(theta);
+                    edgeOut.textContent = `Edge: faces ${_lastClickedFaceId} & ${faceId} — hyperbolic dihedral angle ≈ ${nice}`;
+                  }
                   // Set edge selection uniform
                   uniforms.u_selected_edge_faces.value.set(_lastClickedFaceId, faceId);
                   _lastClickedFaceId = null;
@@ -1034,6 +1071,41 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
               return Math.acos(clamped); // radians
             }
 
+            // --- Helper: Format angle as reduced fraction of π, or degrees if not close ---
+            function formatAngle(theta) {
+              const ratio = theta / Math.PI;
+              // Candidate denominators commonly appearing in hyperbolic/polyhedral angles
+              const dens = [1,2,3,4,5,6,8,10,12,15,16,18,20,24,30,36,48,60];
+              const EPS = 2e-3; // tolerance in ratio-space
+              let best = null;
+
+              for (const d of dens) {
+                const nFloat = Math.round(ratio * d);
+                const approx = nFloat / d;
+                if (Math.abs(approx - ratio) < EPS) {
+                  // Reduce fraction n/d
+                  const n = Math.abs(nFloat);
+                  const g = (a,b) => (b ? g(b, a % b) : a);
+                  const gcd = g(n, d);
+                  const rn = (nFloat < 0 ? -1 : 1) * (n / gcd);
+                  const rd = d / gcd;
+                  // If denominator is 1, just return "π" or "0"
+                  if (rd === 1) {
+                    if (rn === 0) return "0 radians";
+                    if (rn === 1) return "π radians";
+                    if (rn === -1) return "-π radians";
+                    return `${rn} π radians`;
+                  }
+                  // pπ/q form, omit p=1
+                  return `${rn === 1 ? '' : rn}π/${rd} radians`;
+                }
+              }
+
+              // Fallback: degrees
+              const deg = theta * 180 / Math.PI;
+              return `${deg.toFixed(2)}°`;
+            }
+
             renderer.domElement.addEventListener('click', (ev) => {
               if (!_currentSphereCenters.length && !_currentPlaneNormals.length) return;
 
@@ -1106,10 +1178,12 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
               if (ev.shiftKey && _lastClickedFaceIdCanvas !== null && _lastClickedFaceIdCanvas !== hitId) {
                 // Shift-click: highlight the edge between last and current
                 highlightGutterFaces([_lastClickedFaceIdCanvas, hitId]);
-                // Show hyperbolic dihedral angle in degrees
+                // Show hyperbolic dihedral angle as reduced fraction of π or degrees
                 const theta = computeDihedralAngle(_lastClickedFaceIdCanvas, hitId);
-                if (edgeOut)
-                  edgeOut.textContent = `Edge: faces ${_lastClickedFaceIdCanvas} & ${hitId} — hyperbolic dihedral angle ≈ ${(theta / Math.PI).toFixed(4)}π radians`;
+                if (edgeOut) {
+                  const nice = formatAngle(theta);
+                  edgeOut.textContent = `Edge: faces ${_lastClickedFaceIdCanvas} & ${hitId} — hyperbolic dihedral angle ≈ ${nice}`;
+                }
                 // Set edge selection uniform
                 uniforms.u_selected_edge_faces.value.set(_lastClickedFaceIdCanvas, hitId);
                 _lastClickedFaceIdCanvas = null;
