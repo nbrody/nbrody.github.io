@@ -120,3 +120,35 @@ function sDF_autoFromSO31(g) {
     }
     throw new Error('sDF undefined: g fixes all basis vectors e₀, e₁, e₂, e₃');
 }
+
+// ------------------ Public API / Cross-page access ------------------
+// Create a small namespace object so other pages can access these utilities
+// whether loaded as a classic <script>, via CommonJS (Node/webpack), or attached
+// on globalThis in module-friendly environments.
+(function attachPSL2CtoSDFNamespace(){
+  try {
+    var API = {
+      PSL2CtoSO31: PSL2CtoSO31,
+      sDF_autoFromSO31: sDF_autoFromSO31,
+      // Expose a couple of helpers that are often useful downstream
+      toC: toC,
+      C: C,
+      hermitianFromVec: hermitianFromVec,
+      vecFromHermitian: vecFromHermitian
+    };
+
+    // Avoid clobbering if included twice
+    var nsName = 'PSL2CtoSDF';
+    var root = (typeof globalThis !== 'undefined') ? globalThis : (typeof window !== 'undefined' ? window : this);
+    if (root && !root[nsName]) {
+      root[nsName] = API;
+    }
+
+    // CommonJS / Node-style export (safe in browsers that ignore module)
+    if (typeof module !== 'undefined' && module.exports) {
+      module.exports = API;
+    }
+  } catch (e) {
+    // no-op: namespace attach is best-effort
+  }
+})();
