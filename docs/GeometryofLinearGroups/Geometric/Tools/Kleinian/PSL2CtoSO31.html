@@ -339,98 +339,206 @@
             ];
         }
 
-        // Given a list of sDFs (rows [a,b,c,d]), determine which define faces.
-        // Heuristic/constructive test: for each normal n, take the Minkowski-orthogonal projection of e3 onto {⟨n,·⟩=0},
-        // normalize it to the forward sheet (⟨x,x⟩=1, t>0), and check that all other planes strictly separate it.
-        // Returns { indices, margins, witnesses }
-        function sDFsupport(rows, opts={}) {
-            const eps = opts.eps ?? 1e-9;
-            const tol = opts.tol ?? 1e-8;
-            const e3 = [0,0,0,1];
-            const N = rows.length;
-            const survivors = [];
-            const margins = [];
-            const witnesses = [];
-
-            // Pre-sanitize normals: enforce last nonzero coord negative (as elsewhere), and drop obvious zeros
-            const normals = rows.map(r => {
-                const v = r.slice(0,4).map(x => +x);
-                // If last nonzero positive, flip sign
-                let lastIdx=-1; for (let k=3;k>=0;k--) if (Math.abs(v[k])>1e-14){ lastIdx=k; break; }
-                if (lastIdx!==-1 && v[lastIdx]>0){ for (let k=0;k<4;k++) v[k] = -v[k]; }
-                return v;
-            });
-
-            for (let i=0;i<N;i++) {
-                const n = normals[i];
-                // Require spacelike normal (⟨n,n⟩<0) for a proper wall in H^3
-                const nn = __minkowskiDot(n,n);
-                if (!(nn < -eps)) { continue; }
-
-                // Project basepoint e3 to the wall and normalize
-                let x0 = __projectToHyperplane(e3, n);
-                if (!x0) continue;
-                let x = __normalizeTimelike(x0, eps);
-                if (!x) {
-                    // Nudge e3 slightly forward if projection is lightlike
-                    x0 = __projectToHyperplane([0,0,0,1.0001], n);
-                    x = __normalizeTimelike(x0, eps);
-                    if (!x) continue;
-                }
-
-                // Check strict separation by all other planes
-                let ok = true;
-                let minMargin = +Infinity;
-                for (let j=0;j<N;j++) if (j!==i) {
-                    const m = __minkowskiDot(normals[j], x);
-                    if (m <= tol) { ok = false; break; }
-                    if (m < minMargin) minMargin = m;
-                }
-                // Also ensure we are actually on the i-th wall (≈0)
-                const onWall = Math.abs(__minkowskiDot(n, x)) <= 10*tol;
-                if (ok && onWall) {
-                    survivors.push(i);
-                    margins.push(minMargin);
-                    witnesses.push(x);
-                }
-            }
-            return { indices: survivors, margins, witnesses };
+        // --- Half-space normalization & dedup helpers (positive-scale equivalence) ---
+        function __hsNormalize(v, EPS=1e-12){
+          // Flip so d >= 0; then prefer d=1 normalization when possible.
+          let a=v[0], b=v[1], c=v[2], d=v[3];
+          if (d < -EPS){ a=-a; b=-b; c=-c; d=-d; }
+          if (Math.abs(d) > EPS){
+            const s = 1/d;
+            return [a*s, b*s, c*s, 1];
+          } else {
+            // Fallback: unit Euclidean length for (a,b,c), keep d=0.
+            const n = Math.hypot(a,b,c) || 1;
+            return [a/n, b/n, c/n, 0];
+          }
+        }
+        function __hsKey(v){
+          // Stable key with rounding to avoid duplicates
+          return __hsNormalize(v).map(x => +x.toFixed(9)).join(',');
+        }
+        function __dedupeHalfspaces(rows, EPS=1e-9){
+          const out = [];
+          const seen = new Set();
+          for (const r of rows){
+            const key = __hsKey(r);
+            if (!seen.has(key)){ seen.add(key); out.push(r); }
+          }
+          return out;
+        }
+        function __cosBetween(a, b){
+          const ax=a[0], ay=a[1], az=a[2], bx=b[0], by=b[1], bz=b[2];
+          const da = Math.hypot(ax,ay,az), db = Math.hypot(bx,by,bz);
+          if (da===0 || db===0) return 1;
+          return (ax*bx + ay*by + az*bz)/(da*db);
         }
 
-        // Given a list of PSL2(C) elements as { m: Matrix2 or 2x2 array, word?: string },
-        // return only those whose sDFs define faces, including their words and covectors.
-        function stdGenerators(wordObjs, opts={}) {
-            const eps = opts.eps ?? 1e-9; const tol = opts.tol ?? 1e-8;
-            const mats = []; const words = []; const sdfs = [];
+        // --- New: Cone-based face-defining covector filter for sDFs [a,b,c,d] with t=1 ---
+        function filterFaceDefiningCovectorsCone(rows, opts = {}) {
+                // rows: [[a,b,c,d], ...] define half-spaces a x + b y + c z + d >= 0 with t fixed to 1
+                // A covector v defines a face if ∃ (x,y,z) with all inequalities >= 0 and v·(x,y,z,1) = 0.
+                const EPS = opts.eps ?? 1e-5;      // numeric epsilon
+                const R = opts.initBox ?? 1e6;   // initial bounding box for clipping in (s,t)
+                const STRICT = opts.strict_margin ?? 1e-9;  // require v·x >= STRICT for other planes
 
-            function toPlain2x2(M2) {
-                // Accept Matrix2 or [[a,b],[c,d]] with Complex-like entries
-                if (M2 && M2.a11 !== undefined) {
-                    const a = M2.a11, b = M2.a12, c = M2.a21, d = M2.a22;
-                    return [[a, b], [c, d]];
+                // Pre-deduplicate by positive scaling to cut spurious copies of the same wall
+                rows = __dedupeHalfspaces(rows, EPS);
+
+                // Use covectors as given; rely on Minkowski evaluation for inequalities
+                const rowsOriented = rows.map(r => [ +r[0], +r[1], +r[2], -r[3] ]);
+
+                // Minkowski-evaluated affine and directional forms on t=1 slice
+                // ⟨(a,b,c,d), (x,y,z,1)⟩ = -(a x + b y + c z) + d
+                function minkowskiAffine3(aVec, xVec, d){
+                  // aVec: [a,b,c], xVec: [x,y,z]
+                  return -(aVec[0]*xVec[0] + aVec[1]*xVec[1] + aVec[2]*xVec[2]) + d;
                 }
-                return M2;
+                function minkowskiDir3(aVec, uVec){
+                  // directional coefficient along u with t fixed (Δt = 0)
+                  return -(aVec[0]*uVec[0] + aVec[1]*uVec[1] + aVec[2]*uVec[2]);
+                }
+                function dot3(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+                function norm2(a) { return Math.hypot(a[0], a[1], a[2]); }
+                function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+                function scale(v, s) { return [v[0] * s, v[1] * s, v[2] * s]; }
+
+                function orthonormalBasisPerp(a) {
+                    let helper = Math.abs(a[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+                    let u1 = cross(a, helper);
+                    let n1 = norm2(u1);
+                    if (n1 < 1e-12) { helper = [0, 0, 1]; u1 = cross(a, helper); n1 = norm2(u1); }
+                    if (n1 < 1e-12) return null;
+                    u1 = scale(u1, 1 / n1);
+                    let u2 = cross(a, u1);
+                    const n2 = norm2(u2);
+                    if (n2 < 1e-12) return null;
+                    u2 = scale(u2, 1 / n2);
+                    return [u1, u2];
+                }
+
+                function clipHalfPlane(poly, A, B, C) {
+                    if (!poly || poly.length === 0) return [];
+                    const out = [];
+                    const evalPt = p => A * p[0] + B * p[1] + (C - STRICT);
+                    for (let i = 0; i < poly.length; i++) {
+                        const P = poly[i], Q = poly[(i + 1) % poly.length];
+                        const fP = evalPt(P), fQ = evalPt(Q);
+                        const inP = fP >= -EPS, inQ = fQ >= -EPS;
+                        if (inP && inQ) {
+                            out.push(Q);
+                        } else if (inP && !inQ) {
+                            const denom = (A * (Q[0] - P[0]) + B * (Q[1] - P[1]));
+                            if (Math.abs(denom) > 1e-18) {
+                                const t = - (A * P[0] + B * P[1] + (C - STRICT)) / denom;
+                                out.push([P[0] + t * (Q[0] - P[0]), P[1] + t * (Q[1] - P[1])]);
+                            }
+                        } else if (!inP && inQ) {
+                            const denom = (A * (Q[0] - P[0]) + B * (Q[1] - P[1]));
+                            if (Math.abs(denom) > 1e-18) {
+                                const t = - (A * P[0] + B * P[1] + (C - STRICT)) / denom;
+                                out.push([P[0] + t * (Q[0] - P[0]), P[1] + t * (Q[1] - P[1])]);
+                            }
+                            out.push(Q);
+                        }
+                    }
+                    return out;
+                }
+
+                // Helper: polygon centroid
+                function polyCentroid(poly){
+                  if (!poly || poly.length === 0) return [0,0];
+                  let sx=0, sy=0;
+                  for (const p of poly){ sx += p[0]; sy += p[1]; }
+                  const n = poly.length || 1;
+                  return [sx/n, sy/n];
+                }
+
+                const N = rowsOriented.length;
+                const survivors = [];
+                const A = rowsOriented.map(r => [r[0], r[1], r[2]]);
+                const D = rowsOriented.map(r => r[3]);
+
+                for (let i = 0; i < N; i++) {
+                    const ai = A[i];
+                    const di = D[i];
+                    const aNorm2 = norm2(ai);
+                    if (!(aNorm2 > EPS)) continue; // degenerate
+
+                    // Solve a·x0 = d with minimal-norm choice x0 = (d/||a||^2) a
+                    const x0 = scale(ai, di / (aNorm2 * aNorm2));
+
+                    const basis = orthonormalBasisPerp(ai);
+                    if (!basis) continue;
+                    const [u1, u2] = basis;
+
+                    let poly = [[-R, -R], [R, -R], [R, R], [-R, R]];
+
+                    let infeasible = false;
+                    for (let j = 0; j < N; j++) if (j !== i) {
+                        const aj = A[j];
+                        const dj = D[j];
+                        const alpha = minkowskiDir3(aj, u1);   // = -(aj·u1)
+                        const beta  = minkowskiDir3(aj, u2);   // = -(aj·u2)
+                        const gamma = minkowskiAffine3(aj, x0, dj); // = -(aj·x0) + dj
+                        if (Math.abs(alpha) < 1e-5 && Math.abs(beta) < 1e-5) {
+                            if (gamma < -EPS) { infeasible = true; break; }
+                            else continue;
+                        }
+                        poly = clipHalfPlane(poly, alpha, beta, gamma);
+                        if (!poly || poly.length === 0) { infeasible = true; break; }
+                    }
+                    // Area check (keep as-is)
+                    if (!infeasible && poly && poly.length) {
+                        // Witness validation: use centroid of polygon as (s,t), map to 3D point, check strict inequalities
+                        const [cs, ct] = polyCentroid(poly);
+                        // Map centroid (cs,ct) back to 3D point on the candidate wall: x = x0 + cs*u1 + ct*u2
+                        const xw = [
+                          x0[0] + cs*u1[0] + ct*u2[0],
+                          x0[1] + cs*u1[1] + ct*u2[1],
+                          x0[2] + cs*u1[2] + ct*u2[2]
+                        ];
+                        // Candidate should be on its wall (≈0)
+                        const onWall = Math.abs(minkowskiAffine3(ai, xw, di)) <= 10*EPS;
+                        if (!onWall) { infeasible = true; }
+                        // All other covectors must be strictly positive at the witness
+                        if (!infeasible){
+                          for (let j=0; j<N; j++) if (j !== i){
+                            const val = minkowskiAffine3(A[j], xw, D[j]);
+                            if (!(val >= STRICT)) { infeasible = true; break; }
+                          }
+                        }
+                    }
+                    if (!infeasible && poly && poly.length) {
+                        survivors.push(i);
+                    }
+                }
+                // Post-filter: merge faces with (nearly) identical normals, keep smallest offset (most restrictive)
+                const keep = [];
+                const used = new Array(survivors.length).fill(false);
+                for (let ii=0; ii<survivors.length; ii++){
+                  if (used[ii]) continue;
+                  const i = survivors[ii];
+                  const ni = A[i], di = D[i];
+                  let bestIdx = i, bestD = di;
+                  for (let jj=ii+1; jj<survivors.length; jj++){
+                    if (used[jj]) continue;
+                    const j = survivors[jj];
+                    const nj = A[j], dj = D[j];
+                    if (__cosBetween(ni,nj) > 1 - 1e-4){
+                      // Same direction; pick tighter plane (smaller d after d>=0 orientation)
+                      if (dj < bestD - 1e-9){ bestD = dj; bestIdx = j; }
+                      used[jj] = true;
+                    }
+                  }
+                  used[ii] = true;
+                  keep.push(bestIdx);
+                }
+                // Sort & unique just in case
+                keep.sort((x,y)=>x-y);
+                return Array.from(new Set(keep));
             }
 
-            for (const w of wordObjs || []) {
-                try {
-                    const A = toPlain2x2(w.m);
-                    const M = PSL2CtoSO31(A[0][0], A[0][1], A[1][0], A[1][1]);
-                    const { row } = sDF_autoFromSO31(M);
-                    mats.push(A); words.push(w.word ?? ''); sdfs.push(row);
-                } catch (_) { /* skip ill-defined */ }
-            }
-            const support = sDFsupport(sdfs, { eps, tol });
-            const out = support.indices.map((idx, k) => ({
-                index: idx,
-                word: words[idx],
-                matrix2x2: mats[idx],
-                sdf: sdfs[idx],
-                margin: support.margins[k],
-                witness: support.witnesses[k],
-            }));
-            return { faces: out, sdfsAll: sdfs };
-        }
+        try { window.filterFaceDefiningCovectorsCone = filterFaceDefiningCovectorsCone; } catch(_){}
 
         // ------------------ UI-specific helpers ------------------
         function __parseComplex(s) {
@@ -533,13 +641,15 @@
                 <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">\\(\\mathrm{PSL}_2(\\mathbb{C}) \\to \\mathrm{SO}^{+}(3,1)\\) Calculator</h2>
                 <p class="text-gray-600 dark:text-gray-400 mb-6">Add matrices to the list. The calculation is performed for each matrix individually.</p>
                 
-                <div id="psl-matrix-list" class="flex flex-wrap gap-4 mb-4">
-                    <!-- Matrix input forms will be injected here -->
+                <div class="flex flex-wrap items-start gap-4 mb-4">
+                    <div id="psl-matrix-list" class="flex flex-wrap gap-4 items-start">
+                        <!-- Matrix input forms will be injected here -->
+                    </div>
+                    <button id="psl-add" class="h-fit px-5 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500 shadow-sm hover:shadow-md self-start">Add Matrix</button>
                 </div>
                 <div id="psl-summary" class="mb-4"></div>
                 <div class="flex flex-wrap items-center justify-start gap-4 mb-6">
                     <div class="flex flex-wrap gap-3">
-                        <button id="psl-add" class="px-5 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500 shadow-sm hover:shadow-md">Add Matrix</button>
                         <button id="psl-import" title="Import matrices from other tools"
                             class="px-4 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50">Import</button>
                     </div>
@@ -725,9 +835,11 @@
                                 const M = PSL2CtoSO31(A[0][0], A[0][1], A[1][0], A[1][1]);
                                 const { row } = sDF_autoFromSO31(M);
                                 const sdfFmt = __formatRow(row).join(', ');
-                                return { word: w.word, sdf: `[ ${sdfFmt} ]` };
+                                // Include a compact one-line display of the 2x2 complex matrix for the "matrix" column
+                                const matStr = __formatMat2LineSimple(A);
+                                return { word: w.word, sdf: `[ ${sdfFmt} ]`, matStr };
                             } catch (_) {
-                                return { word: w.word, sdf: '—' }; // no sDF (e.g., fixes all basis vectors)
+                                return { word: w.word, sdf: '—', matStr: __formatMat2LineSimple(w.m) }; // keep matrix for display even if sDF missing
                             }
                         });
 
@@ -738,21 +850,21 @@
                         const covectorsBoxHTML = `
                             <div class="mt-4">
                               <div class="flex items-center justify-between mb-2">
-                                <h4 class="text-md font-medium text-gray-700 dark:text-gray-300">Covectors for words (copy‑paste)</h4>
+                                <h4 class="text-md font-medium text-gray-700 dark:text-gray-300">Covectors for words</h4>
                                 <button id="copy-words-covectors" class="px-2 py-1 text-xs rounded bg-indigo-600 text-white hover:bg-indigo-700">Copy</button>
                               </div>
-                              <div class="bg-gray-100 dark:bg-gray-900/70 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                              <div id="covectors-scroll" class="bg-gray-100 dark:bg-gray-900/70 rounded-lg p-3 border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
                                 <pre class="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap" id="words-covectors-pre">${covectorLinesConsidered.join('\n')}</pre>
                               </div>
                             </div>`;
 
                         const wordListHTML = wordWithSdf.map((w,i)=>
-                            `<div class='font-mono text-xs sm:text-sm'>${i+1}. ${w.word}  \u2192  ${w.sdf}</div>`
+                            `<div class='font-mono text-xs sm:text-sm'>${i+1}. ${w.word}  </div>`
                         ).join('');
                         const wordsConsideredHTML = `
                             <div class="mt-4">
                               <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">Words considered (≤ ${L})</h4>
-                              <div class="max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+                              <div id="words-list-scroll" class="max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-2">
                                 ${wordListHTML}
                               </div>
                             </div>`;
@@ -766,28 +878,75 @@
                             const rowStr = w.sdf.replace(/^\s*\[\s*|\s*\]\s*$/g, '');
                             const toks = rowStr.split(',').map(s => parseFloat(s.trim()));
                             if (toks.length !== 4 || toks.some(v => !Number.isFinite(v))) return null;
-                            return { word: w.word, row: toks };
+                            return { word: w.word, row: toks, matStr: w.matStr };
                           })
                           .filter(Boolean);
 
                         // Input rows for sDFsupport
                         const rowsForSupport = pairs.map(p => p.row);
-                        const supportFromCovectors = sDFsupport(rowsForSupport, { eps: 1e-9, tol: 1e-8 });
-                        const facesFromCovectors = (supportFromCovectors.indices || []).map((idx, k) => ({
-                          index: idx,
-                          word: pairs[idx].word,
-                          sdf: rowsForSupport[idx],
-                          margin: supportFromCovectors.margins[k],
-                        }));
+                        const idxs = filterFaceDefiningCovectorsCone(rowsForSupport, { eps: 1e-9, initBox: 1e6 });
+                        // Build candidate faces
+                        const rawFaces = idxs.map((idx) => ({ index: idx, word: pairs[idx].word, sdf: rowsForSupport[idx], matStr: pairs[idx].matStr }));
+
+                        // Helper: normalize half-space key (uses global __hsKey)
+                        function hsKeyFromRow(row){ return __hsKey([row[0], row[1], row[2], row[3]]); }
+
+                        // Helper: word cost = number of generator symbols (favor shorter words);
+                        // prefer base generators in ties
+                        function wordCost(w){
+                          if (!w) return 1e9;
+                          // tokens are joined by \u22C5, so count them; base words like g1, g2 have no dot
+                          const dots = (w.match(/\u22C5/g)||[]).length;
+                          const baseBonus = (/^(g1|g2|g1\^\{-1\}|g2\^\{-1\})$/).test(w) ? -0.5 : 0; // prefer S,T,T^{-1} style
+                          return dots + 1 + baseBonus; // length ~ number of factors
+                        }
+
+                        // Group by normalized wall and pick best representative per group
+                        const groupMap = new Map();
+                        for (const f of rawFaces){
+                          const key = hsKeyFromRow(f.sdf);
+                          const prev = groupMap.get(key);
+                          if (!prev) { groupMap.set(key, f); continue; }
+                          const cNew = wordCost(f.word), cOld = wordCost(prev.word);
+                          if (cNew < cOld) groupMap.set(key, f);
+                        }
+                        const facesFromCovectors = Array.from(groupMap.values());
+
+                        // --- New: Face-defining covectors output box ---
+                        const facesOutputLines = facesFromCovectors.map(f => __formatRow(f.sdf).join(', '));
+                        const facesOutputHTML = `
+                          <div class="mt-4">
+                            <div class="flex items-center justify-between mb-2">
+                              <h5 class="text-sm font-medium text-gray-700 dark:text-gray-300">Face‑defining covectors (output)</h5>
+                              <button id="copy-faces-output" class="px-2 py-1 text-xs rounded bg-indigo-600 text-white hover:bg-indigo-700">Copy</button>
+                            </div>
+                            <div class="bg-gray-100 dark:bg-gray-900/70 rounded-lg p-3 border border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto">
+                              <pre class="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap" id="faces-output-pre">${facesOutputLines.join('\n')}</pre>
+                            </div>
+                          </div>
+                        `;
 
                         const rows = facesFromCovectors.map((f, i)=>{
                           const sdfFmt = __formatRow(f.sdf).join(', ');
+                          let matHTML = '';
+                          if (f.matStr) {
+                            const vals = f.matStr.replace(/[()]/g, '').trim().split(/\s+/);
+                            if (vals.length === 4) {
+                              matHTML = `
+                                <table class="text-xs font-mono border-collapse" style="display:inline-table;">
+                                  <tr><td class="px-1">${vals[0]}</td><td class="px-1">${vals[1]}</td></tr>
+                                  <tr><td class="px-1">${vals[2]}</td><td class="px-1">${vals[3]}</td></tr>
+                                </table>`;
+                            } else {
+                              matHTML = `<span class="font-mono text-xs">${f.matStr}</span>`;
+                            }
+                          }
                           return `
                               <tr class="border-b border-gray-200 dark:border-gray-700">
                                 <td class="px-3 py-2 font-mono text-xs sm:text-sm">${i+1}</td>
                                 <td class="px-3 py-2 font-mono text-xs sm:text-sm whitespace-pre">${f.word || ''}</td>
-                                <td class="px-3 py-2 font-mono text-xs sm:text-sm">[ ${sdfFmt} ]</td>
-                                <td class="px-3 py-2 font-mono text-xs sm:text-sm">${(f.margin!==undefined? f.margin.toFixed(6):'')}</td>
+                                <td class="px-3 py-2 font-mono text-xs sm:text-sm">( ${sdfFmt} )</td>
+                                <td class="px-3 py-2">${matHTML}</td>
                               </tr>`;
                         }).join('');
 
@@ -807,8 +966,8 @@
                                   <tr>
                                     <th class="px-3 py-2">#</th>
                                     <th class="px-3 py-2">word</th>
-                                    <th class="px-3 py-2">sDF [a,b,c,d]</th>
-                                    <th class="px-3 py-2">margin</th>
+                                    <th class="px-3 py-2">sDF (a,b,c,d)</th>
+                                    <th class="px-3 py-2">matrix</th>
                                   </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800/40">
@@ -816,6 +975,10 @@
                                 </tbody>
                               </table>
                             </div>
+                            <div class="text-xs text-gray-600 dark:text-gray-400 mt-2 mb-1">
+                              Face-defining covectors (<span class="font-mono">${facesOutputLines.length}</span>):
+                            </div>
+                            ${facesOutputHTML}
                           </div>`;
                     } catch (e) {
                         wordsSectionHTML = `<div class="mt-6 text-sm text-red-600 dark:text-red-400">Word enumeration failed: ${e.message}</div>`;
@@ -845,15 +1008,16 @@
                     const openBtn = summary.querySelector('#open-poincare');
                     if (openBtn) {
                         openBtn.addEventListener('click', () => {
-                            // Use the x,y, z, t order content as the payload
-                            const payload = allCovectorLines.join('\n');
-                            try {
-                                // Save to localStorage for robust transfer
-                                localStorage.setItem('poincare_input', payload);
-                            } catch (e) {
-                                // ignore storage errors (e.g., private mode)
+                            // Prefer the face-defining covectors (one per line) from the output box
+                            const facesText = (summary.querySelector('#faces-output-pre')?.textContent || '').trim();
+                            let payload = facesText;
+                            // Fallback to all covectors if faces are unavailable/empty
+                            if (!payload) {
+                              payload = (Array.isArray(allCovectorLines) ? allCovectorLines.join('\n') : '').trim();
                             }
-                            // Also include a URL parameter with a base64-encoded copy
+                            try {
+                                localStorage.setItem('poincare_input', payload);
+                            } catch (e) { /* ignore storage errors */ }
                             const b64 = btoa(payload);
                             const url = `poincare.html?vectors=${encodeURIComponent(b64)}#source=poincare_input`;
                             window.location.href = url;
@@ -869,6 +1033,31 @@
                             setTimeout(() => (copyCovBtn2.textContent = 'Copy'), 1200);
                         } catch (_) {}
                     });
+                    // Attach copy handler for face-defining covectors output
+                    const copyFacesBtn = summary.querySelector('#copy-faces-output');
+                    if (copyFacesBtn) copyFacesBtn.addEventListener('click', async () => {
+                        try {
+                            const text = (summary.querySelector('#faces-output-pre')?.textContent || '').trim();
+                            await navigator.clipboard.writeText(text);
+                            copyFacesBtn.textContent = 'Copied!';
+                            setTimeout(() => (copyFacesBtn.textContent = 'Copy'), 1200);
+                        } catch (_) {}
+                    });
+                    // Sync scrolling between the two boxes
+                    (function(){
+                      const a = summary.querySelector('#covectors-scroll');
+                      const b = summary.querySelector('#words-list-scroll');
+                      if (!a || !b) return;
+                      let syncing = false;
+                      const sync = (src, dst) => {
+                        if (syncing) return;
+                        syncing = true;
+                        dst.scrollTop = src.scrollTop;
+                        syncing = false;
+                      };
+                      a.addEventListener('scroll', () => sync(a, b), { passive: true });
+                      b.addEventListener('scroll', () => sync(b, a), { passive: true });
+                    })();
                     if (window.MathJax && window.MathJax.typesetPromise) {
                         MathJax.typesetPromise([summary, out]).catch(() => {});
                     }
