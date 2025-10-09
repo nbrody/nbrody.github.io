@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,172 +9,135 @@
     <style>
         body {
             font-family: 'Helvetica', sans-serif;
-            background-color: #111827;
-            /* gray-900 */
-            color: #d1d5db;
-            /* gray-300 */
+            background-color: #111827; /* gray-900 */
+            color: #d1d5db; /* gray-300 */
         }
-
         #container canvas {
             display: block;
             width: 100%;
             height: 100%;
         }
-
         .info-panel a {
-            color: #60a5fa;
-            /* blue-400 */
+            color: #60a5fa; /* blue-400 */
             text-decoration: underline;
         }
-
         /* Gutter boxes for vector lines */
         #vector-gutter {
-            /* allow clicking on gutter boxes */
+          /* allow clicking on gutter boxes */
             pointer-events: auto;
         }
-
         #vector-gutter .box {
-            width: 12px;
-            height: 24px;
-            /* fallback; will be overridden by JS with the exact computed line-height */
-            cursor: pointer;
-            box-sizing: content-box;
-            /* ensure height matches content, not border/padding */
+          width: 12px;
+          height: 24px; /* fallback; will be overridden by JS with the exact computed line-height */
+          cursor: pointer;
+          box-sizing: content-box; /* ensure height matches content, not border/padding */
         }
-
         /* Keep gutter padding aligned with the textarea's top padding (set in JS) */
         #vector-gutter {
-            padding-top: 0;
-            /* will be set dynamically */
+          padding-top: 0; /* will be set dynamically */
         }
-
         /* Pager */
         .pager-btn[disabled] {
-            opacity: 0.4;
-            cursor: default;
+          opacity: 0.4;
+          cursor: default;
         }
-
-        .panel-page {
-            display: none;
-        }
-
-        .panel-page.active {
-            display: block;
-        }
+        .panel-page { display: none; }
+        .panel-page.active { display: block; }
     </style>
 </head>
-
 <body class="flex flex-col md:flex-row h-screen antialiased">
 
-
+    
     <!-- Controls and Info Panel -->
-    <div id="control-panel"
-        class="absolute top-4 right-4 w-96 max-h-[90vh] p-6 bg-gray-800 shadow-lg flex flex-col space-y-4 overflow-y-auto rounded-lg z-40 transition-transform transform"
-        style="transform: translateX(0);">
-        <!-- Panel Header: Pager + Collapse -->
-        <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-                <button id="page-left"
-                    class="pager-btn w-7 h-7 rounded border border-gray-500 text-gray-200 text-xs flex items-center justify-center"
-                    disabled>◀</button>
-                <button id="page-right"
-                    class="pager-btn w-7 h-7 rounded border border-gray-500 text-gray-200 text-xs flex items-center justify-center">▶</button>
-            </div>
+    <div id="control-panel" class="absolute top-4 right-4 w-96 max-h-[90vh] p-6 bg-gray-800 shadow-lg flex flex-col space-y-4 overflow-y-auto rounded-lg z-40 transition-transform transform" style="transform: translateX(0);">
+      <!-- Panel Header: Pager + Collapse -->
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <button id="page-left" class="pager-btn w-7 h-7 rounded border border-gray-500 text-gray-200 text-xs flex items-center justify-center" disabled>◀</button>
+          <button id="page-right" class="pager-btn w-7 h-7 rounded border border-gray-500 text-gray-200 text-xs flex items-center justify-center">▶</button>
         </div>
-        <div id="page-1" class="panel-page active">
-            <div>
-                <h1 class="text-2xl font-bold text-white">Hyperbolic Polyhedron</h1>
-                <p class="text-sm text-gray-400 mt-1">Poincaré Ball Model Visualization</p>
-            </div>
-
-            <div>
-                <label for="vectors" class="block text-sm font-medium text-gray-300 mb-2">Input Vectors S = {v₁, v₂,
-                    ...}</label>
-                <div id="vector-input" class="relative">
-                    <div id="vector-gutter"
-                        class="absolute left-0 top-0 bottom-0 w-4 bg-gray-800/60 border-r border-gray-700 overflow-hidden rounded-l-md">
-                    </div>
-                    <textarea id="vectors" rows="8"
-                        class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono pl-6 leading-6"></textarea>
-                </div>
-                <p id="error-message" class="text-red-400 text-sm mt-2 h-4"></p>
-                <p id="selected-face-normal" class="text-xs text-gray-300 mt-1 h-4"></p>
-                <p id="selected-edge" class="text-xs text-gray-300 mt-1 h-4"></p>
-            </div>
-
-            <div>
-                <select id="example-select"
-                    class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="">-- Select an Example --</option>
-
-                </select>
-            </div>
-
-            <button id="render-btn"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
-                Render Polyhedron
-            </button>
-
-            <div class="flex items-center space-x-2">
-                <input id="auto-rotate" type="checkbox"
-                    class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
-                <label for="auto-rotate" class="text-sm text-gray-300">Auto‑rotate scene</label>
-            </div>
-            <div class="flex items-center space-x-2">
-                <input id="toggle-boundary" type="checkbox"
-                    class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500" checked>
-                <label for="toggle-boundary" class="text-sm text-gray-300">Toggle boundary</label>
-            </div>
-
-
-            <div class="text-xs text-gray-500 pt-4 border-t border-gray-700">
-                <p><strong>Controls:</strong> Drag to rotate, scroll to zoom, right-drag to pan.</p>
-                <p><strong>Selection:</strong> Click a face to select it. <kbd>Shift</kbd>+Click near an edge to select
-                    the edge (highlights both faces in the gutter).</p>
-            </div>
-        </div> <!-- end page-1 -->
-
-        <!-- Page 2: Color Palette -->
-        <div id="page-2" class="panel-page">
-            <div>
-                <h2 class="text-xl font-semibold text-white mb-2">Color Palette</h2>
-                <p class="text-sm text-gray-400 mb-3">Choose how faces are colored. This affects both the rendering and
-                    the gutter.</p>
-                <label for="palette-select" class="block text-sm font-medium text-gray-300 mb-1">Palette</label>
-                <select id="palette-select"
-                    class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="colorful" selected>colorful</option>
-                    <option value="vaporwave">vaporwave</option>
-                    <option value="uc">UC colors (blue & gold)</option>
-                    <option value="halloween">halloween</option>
-                    <option value="tie-dye">tie-dye</option>
-                    <option value="sunset">sunset</option>
-                </select>
-            </div>
+      </div>
+      <div id="page-1" class="panel-page active">
+        <div>
+            <h1 class="text-2xl font-bold text-white">Hyperbolic Polyhedron</h1>
+            <p class="text-sm text-gray-400 mt-1">Poincaré Ball Model Visualization</p>
         </div>
 
-        <!-- Page 3: How it Works -->
-        <div id="page-3" class="panel-page">
-            <div class="info-panel text-sm text-gray-400 bg-gray-900/50 p-4 rounded-lg">
-                <h2 class="font-semibold text-white mb-2">How it Works</h2>
-                <p>This tool visualizes a polyhedron in the Poincaré ball model of hyperbolic 3-space.</p>
-                <ol class="list-decimal list-inside mt-2 space-y-1">
-                    <li>Enter a set of 4D vectors <code>[x, y, z, t]</code> above.</li>
-                    <li>Each vector <code>v</code> must be <strong>spacelike</strong> (i.e., x²+y²+z² > t²).</li>
-                    <li>You may also enter lines like <code>(a, b, c, d)</code>. These are interpreted as 2×2 matrices
-                        <code>\begin{pmatrix}a & b \\ c & d\end{pmatrix}</code>; we map them to SO(3,1) and compute
-                        their sDF hyperplanes automatically.</li>
-                    <li>The final coordinate <strong>t must be nonpositive (<= 0)</strong>.</li>
-                </ol>
-                <p class="mt-2">The point (0,0,0,1) in Minkowski space corresponds to the center of the ball.</p>
+        <div>
+            <label for="vectors" class="block text-sm font-medium text-gray-300 mb-2">Input Vectors S = {v₁, v₂, ...}</label>
+            <div id="vector-input" class="relative">
+              <div id="vector-gutter" class="absolute left-0 top-0 bottom-0 w-4 bg-gray-800/60 border-r border-gray-700 overflow-hidden rounded-l-md"></div>
+              <textarea id="vectors" rows="8" class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono pl-6 leading-6"></textarea>
             </div>
+            <p id="error-message" class="text-red-400 text-sm mt-2 h-4"></p>
+            <p id="selected-face-normal" class="text-xs text-gray-300 mt-1 h-4"></p>
+            <p id="selected-edge" class="text-xs text-gray-300 mt-1 h-4"></p>
         </div>
+
+        <div>
+            <select id="example-select" class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                <option value="">-- Select an Example --</option>
+                
+            </select>
+        </div>
+
+        <button id="render-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+            Render Polyhedron
+        </button>
+
+        <div class="flex items-center space-x-2">
+            <input id="auto-rotate" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+            <label for="auto-rotate" class="text-sm text-gray-300">Auto‑rotate scene</label>
+        </div>
+        <div class="flex items-center space-x-2">
+            <input id="toggle-boundary" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500" checked>
+            <label for="toggle-boundary" class="text-sm text-gray-300">Toggle boundary</label>
+        </div>
+
+
+        <div class="text-xs text-gray-500 pt-4 border-t border-gray-700">
+            <p><strong>Controls:</strong> Drag to rotate, scroll to zoom, right-drag to pan.</p>
+            <p><strong>Selection:</strong> Click a face to select it. <kbd>Shift</kbd>+Click near an edge to select the edge (highlights both faces in the gutter).</p>
+        </div>
+      </div> <!-- end page-1 -->
+
+      <!-- Page 2: Color Palette -->
+      <div id="page-2" class="panel-page">
+        <div>
+          <h2 class="text-xl font-semibold text-white mb-2">Color Palette</h2>
+          <p class="text-sm text-gray-400 mb-3">Choose how faces are colored. This affects both the rendering and the gutter.</p>
+          <label for="palette-select" class="block text-sm font-medium text-gray-300 mb-1">Palette</label>
+          <select id="palette-select" class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+            <option value="colorful" selected>colorful</option>
+            <option value="vaporwave">vaporwave</option>
+            <option value="uc">UC colors (blue & gold)</option>
+            <option value="halloween">halloween</option>
+            <option value="tie-dye">tie-dye</option>
+            <option value="sunset">sunset</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Page 3: How it Works -->
+      <div id="page-3" class="panel-page">
+        <div class="info-panel text-sm text-gray-400 bg-gray-900/50 p-4 rounded-lg">
+            <h2 class="font-semibold text-white mb-2">How it Works</h2>
+            <p>This tool visualizes a polyhedron in the Poincaré ball model of hyperbolic 3-space.</p>
+            <ol class="list-decimal list-inside mt-2 space-y-1">
+                <li>Enter a set of 4D vectors <code>[x, y, z, t]</code> above.</li>
+                <li>Each vector <code>v</code> must be <strong>spacelike</strong> (i.e., x²+y²+z² > t²).</li>
+                <li>You may also enter lines like <code>(a, b, c, d)</code>. These are interpreted as 2×2 matrices <code>\begin{pmatrix}a & b \\ c & d\end{pmatrix}</code>; we map them to SO(3,1) and compute their sDF hyperplanes automatically.</li>
+                <li>The final coordinate <strong>t must be nonpositive (<= 0)</strong>.</li>
+            </ol>
+            <p class="mt-2">The point (0,0,0,1) in Minkowski space corresponds to the center of the ball.</p>
+        </div>
+      </div>
     </div>
 
     <!-- Panel Toggle Button (kept visible even when panel is collapsed) -->
     <button id="toggle-panel-btn"
-        class="fixed top-4 right-4 rounded-full w-8 h-8 flex items-center justify-center z-50 border border-gray-400 text-gray-300 hover:bg-gray-700"
-        title="Collapse/Expand control panel">☰</button>
+            class="fixed top-4 right-4 rounded-full w-8 h-8 flex items-center justify-center z-50 border border-gray-400 text-gray-300 hover:bg-gray-700"
+            title="Collapse/Expand control panel">☰</button>
 
     <!-- 3D Scene Container -->
     <div id="container" class="flex-grow h-full w-full"></div>
@@ -471,7 +433,7 @@
             }
         }
     </script>
-
+    
     <!-- Main three.js Script -->
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
@@ -480,84 +442,84 @@
 
         // --- Auto-detect payload from other tools/pages ---
         function getExternalVectorsPayload() {
-            // Prefer explicit URL param ?vectors= (Base64-encoded text)
-            try {
-                const params = new URLSearchParams(window.location.search);
-                const vParam = params.get('vectors');
-                if (vParam) {
-                    try {
-                        const decoded = atob(decodeURIComponent(vParam));
-                        if (decoded && decoded.trim().length > 0) return decoded;
-                    } catch (e) {
-                        console.warn('Failed to decode vectors param:', e);
-                    }
-                }
-            } catch (e) {
-                console.warn('URL parsing failed:', e);
+          // Prefer explicit URL param ?vectors= (Base64-encoded text)
+          try {
+            const params = new URLSearchParams(window.location.search);
+            const vParam = params.get('vectors');
+            if (vParam) {
+              try {
+                const decoded = atob(decodeURIComponent(vParam));
+                if (decoded && decoded.trim().length > 0) return decoded;
+              } catch (e) {
+                console.warn('Failed to decode vectors param:', e);
+              }
             }
-            // Fallback: localStorage key written by other pages
-            try {
-                const ls = localStorage.getItem('poincare_input');
-                if (ls && ls.trim().length > 0) return ls;
-            } catch (e) {
-                // ignore storage access errors
-            }
-            return null;
+          } catch (e) {
+            console.warn('URL parsing failed:', e);
+          }
+          // Fallback: localStorage key written by other pages
+          try {
+            const ls = localStorage.getItem('poincare_input');
+            if (ls && ls.trim().length > 0) return ls;
+          } catch (e) {
+            // ignore storage access errors
+          }
+          return null;
         }
 
         // --- UI helpers: match fragment shader colors ---
         function hsv2rgbJS(h, s, v) {
-            const k = (n) => (n + h * 6) % 6;
-            const f = (n) => v - v * s * Math.max(Math.min(k(n), 4 - k(n), 1), 0);
-            const r = Math.round(f(5) * 255);
-            const g = Math.round(f(3) * 255);
-            const b = Math.round(f(1) * 255);
-            return `rgb(${r}, ${g}, ${b})`;
+          const k = (n) => (n + h * 6) % 6;
+          const f = (n) => v - v * s * Math.max(Math.min(k(n), 4 - k(n), 1), 0);
+          const r = Math.round(f(5) * 255);
+          const g = Math.round(f(3) * 255);
+          const b = Math.round(f(1) * 255);
+          return `rgb(${r}, ${g}, ${b})`;
         }
         let _paletteMode = 0; // 0=colorful, 1=vaporwave, 2=uc
         function faceColorJS(id) {
-            if (_paletteMode === 0) {
-                const golden = 0.61803398875;
-                const hue = (id * golden) % 1;
-                return hsv2rgbJS(hue, 0.6, 0.9);
-            } else if (_paletteMode === 1) {
-                const pal = [
-                    [252, 189, 245], [198, 180, 252], [153, 204, 252], [134, 229, 214],
-                    [252, 215, 153], [242, 153, 189], [173, 173, 252], [131, 221, 252]
-                ];
-                const c = pal[id % pal.length];
-                return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
-            } else if (_paletteMode === 3) {
-                const pal = [
-                    [255, 110, 0],
-                    [92, 0, 157],
-                    [143, 212, 0],
-                    [26, 26, 31],
-                ];
-                const c = pal[id % pal.length];
-                return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
-            } else if (_paletteMode === 4) {
-                const h = (0.5 + 0.5 * Math.sin(id * 2.399)) % 1;
-                const s = Math.min(1, Math.max(0, 0.70 + 0.30 * Math.sin(id * 1.113 + 1.0)));
-                const v = Math.min(1, Math.max(0, 0.90 + 0.10 * Math.sin(id * 0.713 + 2.0)));
-                return hsv2rgbJS((h + 1) % 1, s, v);
-            } else if (_paletteMode === 5) {
-                const pal = [
-                    [246, 215, 165], [238, 212, 171], [238, 175, 97], [240, 160, 110],
-                    [251, 144, 98], [250, 123, 94], [242, 106, 102], [238, 93, 108],
-                    [216, 84, 135], [206, 73, 147], [182, 57, 169], [143, 31, 164],
-                    [106, 13, 131], [79, 2, 112], [58, 0, 91], [30, 0, 63]
-                ];
-                const fract = (x) => x - Math.floor(x);
-                const k = Math.floor(fract(Math.sin(id * 12.9898) * 43758.5453) * pal.length);
-                const c = pal[k];
-                return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
-            } else {
-                const blue = [0, 51, 98];
-                const gold = [253, 181, 21];
-                const c = (id % 2 === 0) ? blue : gold;
-                return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
-            }
+          if (_paletteMode === 0) {
+            const golden = 0.61803398875;
+            const hue = (id * golden) % 1;
+            return hsv2rgbJS(hue, 0.6, 0.9);
+          } else if (_paletteMode === 1) {
+            const pal = [
+              [252,189,245], [198,180,252], [153,204,252], [134,229,214],
+              [252,215,153], [242,153,189], [173,173,252], [131,221,252]
+            ];
+            const c = pal[id % pal.length];
+            return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+          } else if (_paletteMode === 3) {
+            const pal = [
+              [255,110,0],
+              [92,0,157],
+              [143,212,0],
+              [26,26,31],
+            ];
+            const c = pal[id % pal.length];
+            return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+          } else if (_paletteMode === 4) {
+            const h = (0.5 + 0.5 * Math.sin(id * 2.399)) % 1;
+            const s = Math.min(1, Math.max(0, 0.70 + 0.30 * Math.sin(id * 1.113 + 1.0)));
+            const v = Math.min(1, Math.max(0, 0.90 + 0.10 * Math.sin(id * 0.713 + 2.0)));
+            return hsv2rgbJS((h + 1) % 1, s, v);
+          } else if (_paletteMode === 5) {
+            const pal = [
+              [246,215,165], [238,212,171], [238,175, 97], [240,160,110],
+              [251,144, 98], [250,123, 94], [242,106,102], [238, 93,108],
+              [216, 84,135], [206, 73,147], [182, 57,169], [143, 31,164],
+              [106, 13,131], [ 79,  2,112], [ 58,  0, 91], [ 30,  0, 63]
+            ];
+            const fract = (x) => x - Math.floor(x);
+            const k = Math.floor(fract(Math.sin(id * 12.9898) * 43758.5453) * pal.length);
+            const c = pal[k];
+            return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+          } else {
+            const blue = [0,51,98];
+            const gold = [253,181,21];
+            const c = (id % 2 === 0) ? blue : gold;
+            return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+          }
         }
 
         function getTextareaMetrics() {
@@ -566,50 +528,55 @@
             // Computed line height (in px). If 'normal', approximate from font-size.
             let lh = parseFloat(cs.lineHeight);
             if (isNaN(lh)) {
-                const fs = parseFloat(cs.fontSize) || 16;
-                // Tailwind leading-6 ≈ 1.5
-                lh = 1.5 * fs;
+              const fs = parseFloat(cs.fontSize) || 16;
+              // Tailwind leading-6 ≈ 1.5
+              lh = 1.5 * fs;
             }
             const padTop = parseFloat(cs.paddingTop) || 0;
             return { lineHeight: lh, paddingTop: padTop };
-        }
+          }
 
         function renderGutter(lineCount, faceIds) {
-            const gutter = document.getElementById('vector-gutter');
-            if (!gutter) return;
-            const { lineHeight, paddingTop } = getTextareaMetrics();
-            gutter.style.paddingTop = paddingTop + 'px';
-            gutter.innerHTML = '';
-            for (let i = 0; i < lineCount; i++) {
-                const div = document.createElement('div');
-                div.className = 'box';
-                div.style.height = lineHeight + 'px';
-                div.dataset.line = String(i);
-                const fid = (faceIds && Number.isFinite(faceIds[i])) ? faceIds[i] : null;
-                if (fid === null) {
-                    div.style.background = 'transparent';
-                    div.title = `Line ${i + 1}`;
-                } else {
-                    div.style.background = faceColorJS(fid);
-                    div.title = `Line ${i + 1} → face ${fid}`;
-                }
-                gutter.appendChild(div);
+          const gutter = document.getElementById('vector-gutter');
+          if (!gutter) return;
+          const { lineHeight, paddingTop } = getTextareaMetrics();
+          gutter.style.paddingTop = paddingTop + 'px';
+          gutter.innerHTML = '';
+          // Gather the set of face IDs that actually exist in the current polyhedron.
+          // Use _currentFaceIdsByLine as the source of valid face IDs.
+          const validFaceIds = (_appearingFaceIds instanceof Set) ? _appearingFaceIds : new Set(); 
+          for (let i = 0; i < lineCount; i++) {
+            const div = document.createElement('div');
+            div.className = 'box';
+            div.style.height = lineHeight + 'px';
+            div.dataset.line = String(i);
+            const fid = (faceIds && Number.isFinite(faceIds[i])) ? faceIds[i] : null;
+            // Determine if this face actually appears in the polyhedron
+            const missing = !(fid !== null && validFaceIds.has(fid));
+            if (fid === null || missing) {
+              div.style.background = '#4b5563'; // Tailwind gray-600 for missing or invalid faces
+              div.title = `Line ${i + 1}${fid !== null ? ' (missing face)' : ''}`;
+            } else {
+              div.style.background = faceColorJS(fid);
+              div.title = `Line ${i + 1} → face ${fid}`;
             }
+            gutter.appendChild(div);
+          }
         }
 
         function highlightGutterFaces(faceIdsArray) {
-            const gutter = document.getElementById('vector-gutter');
-            if (!gutter) return;
-            // Clear all
-            [...gutter.children].forEach(ch => ch.style.outline = 'none');
-            if (!Array.isArray(faceIdsArray) || faceIdsArray.length === 0) return;
-            // Map face IDs to input line indices and outline them
-            faceIdsArray.forEach(fid => {
-                const lineIndex = _currentFaceIdsByLine.findIndex(x => x === fid);
-                if (lineIndex !== -1 && gutter.children[lineIndex]) {
-                    gutter.children[lineIndex].style.outline = '2px solid white';
-                }
-            });
+          const gutter = document.getElementById('vector-gutter');
+          if (!gutter) return;
+          // Clear all
+          [...gutter.children].forEach(ch => ch.style.outline = 'none');
+          if (!Array.isArray(faceIdsArray) || faceIdsArray.length === 0) return;
+          // Map face IDs to input line indices and outline them
+          faceIdsArray.forEach(fid => {
+            const lineIndex = _currentFaceIdsByLine.findIndex(x => x === fid);
+            if (lineIndex !== -1 && gutter.children[lineIndex]) {
+              gutter.children[lineIndex].style.outline = '2px solid white';
+            }
+          });
         }
 
         let scene, camera, renderer, controls, material, uniforms, boundarySphere;
@@ -618,38 +585,48 @@
         let _currentSphereRadii = [];
         let _currentPlaneNormals = [];
         let _currentFaceIdsByLine = [];
-        function easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
-        function flyCameraToDirection(dir, durationMs = 450) {
-            const start = performance.now();
-            const startPos = camera.position.clone();
-            const endPos = dir.clone().normalize().multiplyScalar(1.8); // just outside unit ball
-            const target = new THREE.Vector3(0, 0, 0);
-            controls.enabled = false;
-            controls.target.copy(target);
-            function step(now) {
-                const t = Math.min(1, (now - start) / durationMs);
-                const k = easeInOutQuad(t);
-                camera.position.lerpVectors(startPos, endPos, k);
-                camera.lookAt(target);
-                renderer.render(scene, camera);
-                if (t < 1) requestAnimationFrame(step); else { controls.enabled = true; }
-            }
-            requestAnimationFrame(step);
+        let _appearingFaceIds = new Set();
+
+          let _updateTimer = null;
+          function debounceUpdateFromInput(delay = 300) {
+            if (_updateTimer) clearTimeout(_updateTimer);
+            _updateTimer = setTimeout(() => {
+              updateFromInput();
+              _updateTimer = null;
+            }, delay);
+          }
+        function easeInOutQuad(t){ return t<0.5 ? 2*t*t : -1+(4-2*t)*t; }
+        function flyCameraToDirection(dir, durationMs=450){
+          const start = performance.now();
+          const startPos = camera.position.clone();
+          const endPos = dir.clone().normalize().multiplyScalar(1.8); // just outside unit ball
+          const target = new THREE.Vector3(0,0,0);
+          controls.enabled = false;
+          controls.target.copy(target);
+          function step(now){
+            const t = Math.min(1, (now - start)/durationMs);
+            const k = easeInOutQuad(t);
+            camera.position.lerpVectors(startPos, endPos, k);
+            camera.lookAt(target);
+            renderer.render(scene, camera);
+            if (t < 1) requestAnimationFrame(step); else { controls.enabled = true; }
+          }
+          requestAnimationFrame(step);
         }
 
-        function lookHeadOnAtFaceId(faceId) {
-            if (!Number.isFinite(faceId)) return;
-            const numSpheres = _currentSphereCenters.length;
-            let dir;
-            if (faceId < numSpheres) {
-                dir = _currentSphereCenters[faceId]?.clone();
-            } else {
-                const i = faceId - numSpheres;
-                dir = _currentPlaneNormals[i]?.clone();
-            }
-            if (!dir) return;
-            if (dir.lengthSq() < 1e-9) return;
-            flyCameraToDirection(dir);
+        function lookHeadOnAtFaceId(faceId){
+          if (!Number.isFinite(faceId)) return;
+          const numSpheres = _currentSphereCenters.length;
+          let dir;
+          if (faceId < numSpheres) {
+            dir = _currentSphereCenters[faceId]?.clone();
+          } else {
+            const i = faceId - numSpheres;
+            dir = _currentPlaneNormals[i]?.clone();
+          }
+          if (!dir) return;
+          if (dir.lengthSq() < 1e-9) return;
+          flyCameraToDirection(dir);
         }
         const MAX_PLANES_CONST = 256;
 
@@ -659,99 +636,136 @@
         const CPU_HIT_THRESHOLD = 0.001;
         const CPU_EPS = 0.00075;
 
-        function raySphereIntersectCPU(ro, rd, r = 1.0) {
-            const b = ro.dot(rd);
-            const c = ro.dot(ro) - r * r;
-            const h = b * b - c;
-            if (h < 0) return null;
-            const s = Math.sqrt(h);
-            // return entry/exit distances
-            return { t0: -b - s, t1: -b + s };
+        function raySphereIntersectCPU(ro, rd, r=1.0) {
+          const b = ro.dot(rd);
+          const c = ro.dot(ro) - r*r;
+          const h = b*b - c;
+          if (h < 0) return null;
+          const s = Math.sqrt(h);
+          // return entry/exit distances
+          return { t0: -b - s, t1: -b + s };
         }
 
         function sceneSDFWithIdCPU(p) {
-            // returns {sdf: max_value, id: face_id}
-            let maxVal = -CPU_MAX_DIST;
-            let faceId = -1;
+          // returns {sdf: max_value, id: face_id}
+          let maxVal = -CPU_MAX_DIST;
+          let faceId = -1;
 
-            // 1) spheres
-            for (let i = 0; i < _currentSphereCenters.length; i++) {
-                const c = _currentSphereCenters[i];
-                const r = _currentSphereRadii[i];
-                const dist_to_sphere = p.clone().sub(c).length() - r;
-                const sdf = -dist_to_sphere; // inside > 0
-                if (sdf > maxVal) { maxVal = sdf; faceId = i; }
-            }
-            // 2) planes
-            for (let j = 0; j < _currentPlaneNormals.length; j++) {
-                const n = _currentPlaneNormals[j];
-                const sdf = p.dot(n);
-                if (sdf > maxVal) { maxVal = sdf; faceId = _currentSphereCenters.length + j; }
-            }
-            return { sdf: maxVal, id: faceId };
+          // 1) spheres
+          for (let i = 0; i < _currentSphereCenters.length; i++) {
+            const c = _currentSphereCenters[i];
+            const r = _currentSphereRadii[i];
+            const dist_to_sphere = p.clone().sub(c).length() - r;
+            const sdf = -dist_to_sphere; // inside > 0
+            if (sdf > maxVal) { maxVal = sdf; faceId = i; }
+          }
+          // 2) planes
+          for (let j = 0; j < _currentPlaneNormals.length; j++) {
+            const n = _currentPlaneNormals[j];
+            const sdf = p.dot(n);
+            if (sdf > maxVal) { maxVal = sdf; faceId = _currentSphereCenters.length + j; }
+          }
+          return { sdf: maxVal, id: faceId };
         }
 
         function sceneSDFTop2CPU(p) {
-            // returns {bestVal, bestId, secondVal, secondId}
-            let bestVal = -CPU_MAX_DIST, bestId = -1;
-            let secondVal = -CPU_MAX_DIST, secondId = -1;
-            // spheres
-            for (let i = 0; i < _currentSphereCenters.length; i++) {
-                const c = _currentSphereCenters[i];
-                const r = _currentSphereRadii[i];
-                const dist_to_sphere = p.clone().sub(c).length() - r;
-                const sdf = -dist_to_sphere;
-                if (sdf > bestVal) {
-                    secondVal = bestVal; secondId = bestId;
-                    bestVal = sdf; bestId = i;
-                } else if (sdf > secondVal) {
-                    secondVal = sdf; secondId = i;
-                }
+          // returns {bestVal, bestId, secondVal, secondId}
+          let bestVal = -CPU_MAX_DIST, bestId = -1;
+          let secondVal = -CPU_MAX_DIST, secondId = -1;
+          // spheres
+          for (let i = 0; i < _currentSphereCenters.length; i++) {
+            const c = _currentSphereCenters[i];
+            const r = _currentSphereRadii[i];
+            const dist_to_sphere = p.clone().sub(c).length() - r;
+            const sdf = -dist_to_sphere;
+            if (sdf > bestVal) {
+              secondVal = bestVal; secondId = bestId;
+              bestVal = sdf; bestId = i;
+            } else if (sdf > secondVal) {
+              secondVal = sdf; secondId = i;
             }
-            // planes (IDs offset by spheres count)
-            const offset = _currentSphereCenters.length;
-            for (let j = 0; j < _currentPlaneNormals.length; j++) {
-                const n = _currentPlaneNormals[j];
-                const sdf = p.dot(n);
-                const fid = offset + j;
-                if (sdf > bestVal) {
-                    secondVal = bestVal; secondId = bestId;
-                    bestVal = sdf; bestId = fid;
-                } else if (sdf > secondVal) {
-                    secondVal = sdf; secondId = fid;
-                }
+          }
+          // planes (IDs offset by spheres count)
+          const offset = _currentSphereCenters.length;
+          for (let j = 0; j < _currentPlaneNormals.length; j++) {
+            const n = _currentPlaneNormals[j];
+            const sdf = p.dot(n);
+            const fid = offset + j;
+            if (sdf > bestVal) {
+              secondVal = bestVal; secondId = bestId;
+              bestVal = sdf; bestId = fid;
+            } else if (sdf > secondVal) {
+              secondVal = sdf; secondId = fid;
             }
-            return { bestVal, bestId, secondVal, secondId };
+          }
+          return { bestVal, bestId, secondVal, secondId };
         }
 
         function getNormalCPU(p) {
-            // central differences on the SDF
-            const ex = new THREE.Vector3(CPU_HIT_THRESHOLD, 0, 0);
-            const ey = new THREE.Vector3(0, CPU_HIT_THRESHOLD, 0);
-            const ez = new THREE.Vector3(0, 0, CPU_HIT_THRESHOLD);
-            const d = sceneSDFWithIdCPU(p).sdf;
-            const nx = d - sceneSDFWithIdCPU(p.clone().sub(ex)).sdf;
-            const ny = d - sceneSDFWithIdCPU(p.clone().sub(ey)).sdf;
-            const nz = d - sceneSDFWithIdCPU(p.clone().sub(ez)).sdf;
-            const n = new THREE.Vector3(nx, ny, nz).normalize();
-            return n;
+          // central differences on the SDF
+          const ex = new THREE.Vector3(CPU_HIT_THRESHOLD, 0, 0);
+          const ey = new THREE.Vector3(0, CPU_HIT_THRESHOLD, 0);
+          const ez = new THREE.Vector3(0, 0, CPU_HIT_THRESHOLD);
+          const d = sceneSDFWithIdCPU(p).sdf;
+          const nx = d - sceneSDFWithIdCPU(p.clone().sub(ex)).sdf;
+          const ny = d - sceneSDFWithIdCPU(p.clone().sub(ey)).sdf;
+          const nz = d - sceneSDFWithIdCPU(p.clone().sub(ez)).sdf;
+          const n = new THREE.Vector3(nx, ny, nz).normalize();
+          return n;
         }
+        
+        function computeAppearingFaces3D(sampleCount = 800, maxIters = 45) {
+            const hits = new Set();
+            if ((!_currentSphereCenters.length) && (!_currentPlaneNormals.length)) {
+              _appearingFaceIds = hits;
+              return;
+            }
+            function randInBall() {
+              let v;
+              do {
+                v = new THREE.Vector3(
+                  Math.random() * 2 - 1,
+                  Math.random() * 2 - 1,
+                  Math.random() * 2 - 1
+                );
+              } while (v.lengthSq() > 1.0);
+              const L = v.length();
+              if (L > 0.98) v.multiplyScalar(0.98 / L);
+              return v;
+            }
+            for (let s = 0; s < sampleCount; s++) {
+              let p = randInBall();
+              for (let k = 0; k < maxIters; k++) {
+                const { sdf, id } = sceneSDFWithIdCPU(p);
+                if (!Number.isFinite(id)) break;
+                if (Math.abs(sdf) <= CPU_HIT_THRESHOLD * 2) {
+                  hits.add(id);
+                  break;
+                }
+                const n = getNormalCPU(p);
+                p.addScaledVector(n, -sdf * 0.6);
+                const L = p.length();
+                if (L > 0.995) p.multiplyScalar(0.99 / L);
+              }
+            }
+            _appearingFaceIds = hits;
+          }
 
         function computeRayFromMouse(clientX, clientY) {
-            const rect = renderer.domElement.getBoundingClientRect();
-            const x = ((clientX - rect.left) / rect.width) * 2 - 1;
-            const y = -((clientY - rect.top) / rect.height) * 2 + 1;
-            // replicate shader math: get world-space near/far points then rd
-            const invViewProj = new THREE.Matrix4().multiplyMatrices(camera.matrixWorld, camera.projectionMatrixInverse);
-            const pNear4 = new THREE.Vector4(x, y, -1, 1).applyMatrix4(invViewProj);
-            const pFar4 = new THREE.Vector4(x, y, 1, 1).applyMatrix4(invViewProj);
-            const pNear = new THREE.Vector3(pNear4.x / pNear4.w, pNear4.y / pNear4.w, pNear4.z / pNear4.w);
-            const pFar = new THREE.Vector3(pFar4.x / pFar4.w, pFar4.y / pFar4.w, pFar4.z / pFar4.w);
-            const ro = camera.position.clone();
-            const rd = pFar.clone().sub(ro).normalize();
-            return { ro, rd };
+          const rect = renderer.domElement.getBoundingClientRect();
+          const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+          const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+          // replicate shader math: get world-space near/far points then rd
+          const invViewProj = new THREE.Matrix4().multiplyMatrices(camera.matrixWorld, camera.projectionMatrixInverse);
+          const pNear4 = new THREE.Vector4(x, y, -1, 1).applyMatrix4(invViewProj);
+          const pFar4  = new THREE.Vector4(x, y,  1, 1).applyMatrix4(invViewProj);
+          const pNear = new THREE.Vector3(pNear4.x/pNear4.w, pNear4.y/pNear4.w, pNear4.z/pNear4.w);
+          const pFar  = new THREE.Vector3(pFar4.x/pFar4.w,  pFar4.y/pFar4.w,  pFar4.z/pFar4.w);
+          const ro = camera.position.clone();
+          const rd = pFar.clone().sub(ro).normalize();
+          return { ro, rd };
         }
-
+        
         const defaultVectors = [
             " 2, 0, 0, -1",
             "-2, 0, 0, -1",
@@ -770,12 +784,12 @@
         let _popStart = 0;
         const _popDurationMs = 600;
 
-        function triggerPop(faceId) {
-            if (!Number.isFinite(faceId)) return;
-            uniforms.u_selected_face_id.value = Math.floor(faceId);
-            uniforms.u_pop_strength.value = 1.0;
-            _popActive = true;
-            _popStart = performance.now();
+        function triggerPop(faceId){
+          if (!Number.isFinite(faceId)) return;
+          uniforms.u_selected_face_id.value = Math.floor(faceId);
+          uniforms.u_pop_strength.value = 1.0;
+          _popActive = true;
+          _popStart = performance.now();
         }
 
         function init() {
@@ -811,7 +825,7 @@
             boundarySphere = new THREE.Mesh(boundaryGeom, boundaryMat);
             boundarySphere.renderOrder = 0; // Render the boundary sphere first.
             boundarySphere.material.side = THREE.DoubleSide; // visible from inside/outside
-
+            
             const initialSphereCenters = Array.from({ length: MAX_PLANES_CONST }, () => new THREE.Vector3());
             const initialSphereRadii = new Float32Array(MAX_PLANES_CONST);
             const initialPlaneNormals = Array.from({ length: MAX_PLANES_CONST }, () => new THREE.Vector3());
@@ -861,8 +875,8 @@
 
             window.addEventListener('resize', onWindowResize, false);
             window.addEventListener('resize', () => {
-                const lines = (document.getElementById('vectors').value || '').split('\n').filter(l => l.trim() !== '');
-                renderGutter(lines.length, _currentFaceIdsByLine);
+              const lines = (document.getElementById('vectors').value || '').split('\n').filter(l => l.trim() !== '');
+              renderGutter(lines.length, _currentFaceIdsByLine);
             });
             document.getElementById('render-btn').addEventListener('click', updateFromInput);
             // Auto-load external payload if available; otherwise use defaults
@@ -877,127 +891,147 @@
             const vectorsTA = document.getElementById('vectors');
             const gutterDiv = document.getElementById('vector-gutter');
             if (vectorsTA && gutterDiv) {
-                // Sync gutter scroll with textarea
-                vectorsTA.addEventListener('scroll', () => {
-                    gutterDiv.scrollTop = vectorsTA.scrollTop;
-                });
-                // Rebuild gutter on input (temporary neutral color until parsed)
-                vectorsTA.addEventListener('input', () => {
-                    const lines = vectorsTA.value.split('\n').filter(l => l.trim() !== '');
-                    renderGutter(lines.length, _currentFaceIdsByLine);
-                });
+              // Sync gutter scroll with textarea
+              vectorsTA.addEventListener('scroll', () => {
+                gutterDiv.scrollTop = vectorsTA.scrollTop;
+              });
+              // Rebuild gutter on input (temporary neutral color until parsed)
+              vectorsTA.addEventListener('input', () => {
+                // Immediate visual sync with current mapping
+                const lines = vectorsTA.value.split('\n').filter(l => l.trim() !== '');
+                renderGutter(lines.length, _currentFaceIdsByLine);
+                // Debounced full re-parse + appearing-face scan to correct colors
+                debounceUpdateFromInput(300);
+              });
             }
             // Initial gutter based on actual textarea content
             renderGutter((vectorsEl.value || '').split('\n').filter(l => l.trim() !== '').length);
 
             // Click-to-focus: when a gutter box is clicked, move camera & select, with Shift-click edge support
             if (gutterDiv) {
-                // Static variable to remember last clicked face id for Shift-click edge selection
-                let _lastClickedFaceId = null;
+              // Static variable to remember last clicked face id for Shift-click edge selection
+              let _lastClickedFaceId = null;
 
-                // --- Hyperbolic dihedral angle computation (replaces old dihedral) ---
-                function computeDihedralAngle(faceA, faceB) {
-                    // Minkowski inner product with signature (+,+,+,-)
-                    function minkowskiDot(v1, v2) {
-                        return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z - v1.w * v2.w;
+              // --- Hyperbolic dihedral angle computation (replaces old dihedral) ---
+              function computeDihedralAngle(faceA, faceB) {
+                // Guard invalid/identical IDs
+                if (!Number.isFinite(faceA) || !Number.isFinite(faceB) || faceA === -1 || faceB === -1 || faceA === faceB) {
+                  return NaN;
+                }
+                // Minkowski inner product with signature (+,+,+,-)
+                function minkowskiDot(v1, v2) {
+                  return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z - v1.w * v2.w;
+                }
+                const numSpheres = _currentSphereCenters.length;
+                function hyperbolicVector(fid) {
+                  if (fid < numSpheres) {
+                    const c = _currentSphereCenters[fid];
+                    const r = _currentSphereRadii[fid];
+                    // t^2 = |c|^2 - r^2; clamp to avoid tiny negative due to FP error
+                    const tSq = Math.max(0, c.lengthSq() - r * r);
+                    const t = Math.sqrt(tSq);
+                    return new THREE.Vector4(c.x, c.y, c.z, t);
+                  } else {
+                    const j = fid - numSpheres;
+                    const n = _currentPlaneNormals[j];
+                    if (!n || !isFinite(n.x + n.y + n.z)) return null;
+                    return new THREE.Vector4(n.x, n.y, n.z, 0);
+                  }
+                }
+                const v1 = hyperbolicVector(faceA);
+                const v2 = hyperbolicVector(faceB);
+                if (!v1 || !v2) return NaN;
+
+                // Quadratic forms
+                let g11 = minkowskiDot(v1, v1);
+                let g22 = minkowskiDot(v2, v2);
+                let g12 = minkowskiDot(v1, v2);
+
+                // Numerical guards: these should be > 0 for spacelike normals, but clamp just in case
+                const EPS = 1e-12;
+                if (!(isFinite(g11) && isFinite(g22) && isFinite(g12))) return NaN;
+                if (g11 < EPS || g22 < EPS) return NaN;
+
+                // cos(theta) = -<v1,v2> / sqrt(<v1,v1><v2,v2>)
+                let cosTheta = -g12 / Math.sqrt(g11 * g22);
+                // Clamp to valid range to avoid NaNs from acos
+                cosTheta = Math.max(-1, Math.min(1, cosTheta));
+                return Math.acos(cosTheta); // radians
+              }
+
+              // --- Helper: Format angle as reduced fraction of π, or degrees if not close ---
+              function formatAngle(theta) {
+                const ratio = theta / Math.PI;
+                // Candidate denominators commonly appearing in hyperbolic/polyhedral angles
+                const dens = [1,2,3,4,5,6,8,10,12,15,16,18,20,24,30,36,48,60];
+                const EPS = 2e-3; // tolerance in ratio-space
+                let best = null;
+
+                for (const d of dens) {
+                  const nFloat = Math.round(ratio * d);
+                  const approx = nFloat / d;
+                  if (Math.abs(approx - ratio) < EPS) {
+                    // Reduce fraction n/d
+                    const n = Math.abs(nFloat);
+                    const g = (a,b) => (b ? g(b, a % b) : a);
+                    const gcd = g(n, d);
+                    const rn = (nFloat < 0 ? -1 : 1) * (n / gcd);
+                    const rd = d / gcd;
+                    // If denominator is 1, just return "π" or "0"
+                    if (rd === 1) {
+                      if (rn === 0) return "0 radians";
+                      if (rn === 1) return "π radians";
+                      if (rn === -1) return "-π radians";
+                      return `${rn} π radians`;
                     }
-
-                    const numSpheres = _currentSphereCenters.length;
-                    function hyperbolicVector(fid) {
-                        if (fid < numSpheres) {
-                            const c = _currentSphereCenters[fid];
-                            const r = _currentSphereRadii[fid];
-                            const t = Math.sqrt(c.lengthSq() - r * r);
-                            return new THREE.Vector4(c.x, c.y, c.z, t);
-                        } else {
-                            const j = fid - numSpheres;
-                            const n = _currentPlaneNormals[j];
-                            return new THREE.Vector4(n.x, n.y, n.z, 0);
-                        }
-                    }
-
-                    const v1 = hyperbolicVector(faceA);
-                    const v2 = hyperbolicVector(faceB);
-
-                    const g11 = minkowskiDot(v1, v1);
-                    const g22 = minkowskiDot(v2, v2);
-                    const g12 = minkowskiDot(v1, v2);
-
-                    // Hyperbolic dihedral angle formula:
-                    const cosTheta = -g12 / Math.sqrt(Math.abs(g11 * g22));
-                    const clamped = Math.min(1.0, Math.max(-1.0, cosTheta));
-                    return Math.acos(clamped); // radians
+                    // pπ/q form, omit p=1
+                    return `${rn === 1 ? '' : rn}π/${rd} radians`;
+                  }
                 }
 
-                // --- Helper: Format angle as reduced fraction of π, or degrees if not close ---
-                function formatAngle(theta) {
-                    const ratio = theta / Math.PI;
-                    // Candidate denominators commonly appearing in hyperbolic/polyhedral angles
-                    const dens = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 16, 18, 20, 24, 30, 36, 48, 60];
-                    const EPS = 2e-3; // tolerance in ratio-space
-                    let best = null;
+                // Fallback: degrees
+                const deg = theta * 180 / Math.PI;
+                return `${deg.toFixed(2)}°`;
+              }
 
-                    for (const d of dens) {
-                        const nFloat = Math.round(ratio * d);
-                        const approx = nFloat / d;
-                        if (Math.abs(approx - ratio) < EPS) {
-                            // Reduce fraction n/d
-                            const n = Math.abs(nFloat);
-                            const g = (a, b) => (b ? g(b, a % b) : a);
-                            const gcd = g(n, d);
-                            const rn = (nFloat < 0 ? -1 : 1) * (n / gcd);
-                            const rd = d / gcd;
-                            // If denominator is 1, just return "π" or "0"
-                            if (rd === 1) {
-                                if (rn === 0) return "0 radians";
-                                if (rn === 1) return "π radians";
-                                if (rn === -1) return "-π radians";
-                                return `${rn} π radians`;
-                            }
-                            // pπ/q form, omit p=1
-                            return `${rn === 1 ? '' : rn}π/${rd} radians`;
-                        }
-                    }
+              gutterDiv.addEventListener('click', (e) => {
+                const box = e.target.closest('.box');
+                if (!box) return;
+                const line = parseInt(box.dataset.line, 10);
+                if (!Number.isInteger(line)) return;
+                const faceId = _currentFaceIdsByLine[line];
+                if (faceId === undefined) return;
 
-                    // Fallback: degrees
-                    const deg = theta * 180 / Math.PI;
-                    return `${deg.toFixed(2)}°`;
-                }
-
-                gutterDiv.addEventListener('click', (e) => {
-                    const box = e.target.closest('.box');
-                    if (!box) return;
-                    const line = parseInt(box.dataset.line, 10);
-                    if (!Number.isInteger(line)) return;
-                    const faceId = _currentFaceIdsByLine[line];
-                    if (faceId === undefined) return;
-
-                    const edgeOut = document.getElementById('selected-edge');
-                    if (e.shiftKey && _lastClickedFaceId !== null && _lastClickedFaceId !== faceId) {
-                        // Shift-click: highlight the edge between last and current
-                        highlightGutterFaces([_lastClickedFaceId, faceId]);
-                        // Show hyperbolic dihedral angle as reduced fraction of π or degrees
-                        const theta = computeDihedralAngle(_lastClickedFaceId, faceId);
-                        if (edgeOut) {
-                            const nice = formatAngle(theta);
-                            edgeOut.textContent = `Edge: faces ${_lastClickedFaceId} & ${faceId} — hyperbolic dihedral angle ≈ ${nice}`;
-                        }
-                        // Set edge selection uniform
-                        uniforms.u_selected_edge_faces.value.set(_lastClickedFaceId, faceId);
-                        _lastClickedFaceId = null;
+                const edgeOut = document.getElementById('selected-edge');
+                if (e.shiftKey && _lastClickedFaceId !== null && _lastClickedFaceId !== faceId) {
+                  // Shift-click: highlight the edge between last and current
+                  highlightGutterFaces([_lastClickedFaceId, faceId]);
+                  // Show hyperbolic dihedral angle as reduced fraction of π or degrees
+                  const theta = computeDihedralAngle(_lastClickedFaceId, faceId);
+                  if (edgeOut) {
+                    if (!isFinite(theta)) {
+                      edgeOut.textContent = `Edge: faces ${_lastClickedFaceId} & ${faceId} — angle unavailable`;
                     } else {
-                        // Normal single-face click
-                        _lastClickedFaceId = faceId;
-                        uniforms.u_selected_face_id.value = Math.floor(faceId);
-                        uniforms.u_hover_offset.value = 0.035;
-                        lookHeadOnAtFaceId(faceId);
-                        triggerPop(faceId);
-                        highlightGutterFaces([faceId]);
-                        if (edgeOut) edgeOut.textContent = '';
-                        // Reset edge selection uniform
-                        uniforms.u_selected_edge_faces.value.set(-1, -1);
+                      const nice = formatAngle(theta);
+                      edgeOut.textContent = `Edge: faces ${_lastClickedFaceId} & ${faceId} — hyperbolic dihedral angle ≈ ${nice}`;
                     }
-                });
+                  }
+                  // Set edge selection uniform
+                  uniforms.u_selected_edge_faces.value.set(_lastClickedFaceId, faceId);
+                  _lastClickedFaceId = null;
+                } else {
+                  // Normal single-face click
+                  _lastClickedFaceId = faceId;
+                  uniforms.u_selected_face_id.value = Math.floor(faceId);
+                  uniforms.u_hover_offset.value = 0.035;
+                  lookHeadOnAtFaceId(faceId);
+                  triggerPop(faceId);
+                  highlightGutterFaces([faceId]);
+                  if (edgeOut) edgeOut.textContent = '';
+                  // Reset edge selection uniform
+                  uniforms.u_selected_edge_faces.value.set(-1, -1);
+                }
+              });
             }
 
             const autoRotateCheckbox = document.getElementById('auto-rotate');
@@ -1023,7 +1057,7 @@
                 POLYHEDRA_LIBRARY.polyhedra.forEach((item, idx) => {
                     const opt = document.createElement('option');
                     opt.value = String(idx);
-                    opt.textContent = item.name || `Example ${idx + 1}`;
+                    opt.textContent = item.name || `Example ${idx+1}`;
                     select.appendChild(opt);
                 });
             }
@@ -1041,33 +1075,33 @@
             // Palette selector on Page 2
             const paletteSelect = document.getElementById('palette-select');
             if (paletteSelect) {
-                paletteSelect.addEventListener('change', () => {
-                    const v = paletteSelect.value;
-                    const map = { 'colorful': 0, 'vaporwave': 1, 'uc': 2, 'halloween': 3, 'tie-dye': 4, 'sunset': 5 };
-                    _paletteMode = map[v] ?? 0;
-                    uniforms.u_palette_mode.value = _paletteMode;
-                    const lines = (document.getElementById('vectors').value || '').split('\n').filter(l => l.trim() !== '');
-                    renderGutter(lines.length, _currentFaceIdsByLine);
-                });
+              paletteSelect.addEventListener('change', () => {
+                const v = paletteSelect.value;
+                const map = { 'colorful': 0, 'vaporwave': 1, 'uc': 2, 'halloween': 3, 'tie-dye': 4, 'sunset': 5 };
+                _paletteMode = map[v] ?? 0;
+                uniforms.u_palette_mode.value = _paletteMode;
+                const lines = (document.getElementById('vectors').value || '').split('\n').filter(l=>l.trim()!=='');
+                renderGutter(lines.length, _currentFaceIdsByLine);
+              });
             }
 
             // Simple 3-page pager
             let _pageIndex = 0; // 0..2
             const pages = [
-                document.getElementById('page-1'),
-                document.getElementById('page-2'),
-                document.getElementById('page-3')
+              document.getElementById('page-1'),
+              document.getElementById('page-2'),
+              document.getElementById('page-3')
             ];
             const leftBtn = document.getElementById('page-left');
             const rightBtn = document.getElementById('page-right');
-            function showPage(i) {
-                _pageIndex = Math.max(0, Math.min(2, i));
-                pages.forEach((p, idx) => { if (p) p.classList.toggle('active', idx === _pageIndex); });
-                if (leftBtn) leftBtn.disabled = (_pageIndex === 0);
-                if (rightBtn) rightBtn.disabled = (_pageIndex === 2);
+            function showPage(i){
+              _pageIndex = Math.max(0, Math.min(2, i));
+              pages.forEach((p, idx)=>{ if(p) p.classList.toggle('active', idx===_pageIndex); });
+              if (leftBtn) leftBtn.disabled = (_pageIndex === 0);
+              if (rightBtn) rightBtn.disabled = (_pageIndex === 2);
             }
-            if (leftBtn) leftBtn.addEventListener('click', () => showPage(_pageIndex - 1));
-            if (rightBtn) rightBtn.addEventListener('click', () => showPage(_pageIndex + 1));
+            if (leftBtn) leftBtn.addEventListener('click', ()=> showPage(_pageIndex-1));
+            if (rightBtn) rightBtn.addEventListener('click', ()=> showPage(_pageIndex+1));
             showPage(0);
 
             updateFromInput();
@@ -1079,183 +1113,200 @@
             let _lastClickedFaceIdCanvas = null;
             // --- Hyperbolic dihedral angle computation for canvas edge selection ---
             function computeDihedralAngle(faceA, faceB) {
-                // Minkowski inner product with signature (+,+,+,-)
-                function minkowskiDot(v1, v2) {
-                    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z - v1.w * v2.w;
+              // Guard invalid/identical IDs
+              if (!Number.isFinite(faceA) || !Number.isFinite(faceB) || faceA === -1 || faceB === -1 || faceA === faceB) {
+                return NaN;
+              }
+              // Minkowski inner product with signature (+,+,+,-)
+              function minkowskiDot(v1, v2) {
+                return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z - v1.w * v2.w;
+              }
+              const numSpheres = _currentSphereCenters.length;
+              function hyperbolicVector(fid) {
+                if (fid < numSpheres) {
+                  const c = _currentSphereCenters[fid];
+                  const r = _currentSphereRadii[fid];
+                  // t^2 = |c|^2 - r^2; clamp to avoid tiny negative due to FP error
+                  const tSq = Math.max(0, c.lengthSq() - r * r);
+                  const t = Math.sqrt(tSq);
+                  return new THREE.Vector4(c.x, c.y, c.z, t);
+                } else {
+                  const j = fid - numSpheres;
+                  const n = _currentPlaneNormals[j];
+                  if (!n || !isFinite(n.x + n.y + n.z)) return null;
+                  return new THREE.Vector4(n.x, n.y, n.z, 0);
                 }
+              }
+              const v1 = hyperbolicVector(faceA);
+              const v2 = hyperbolicVector(faceB);
+              if (!v1 || !v2) return NaN;
 
-                const numSpheres = _currentSphereCenters.length;
-                function hyperbolicVector(fid) {
-                    if (fid < numSpheres) {
-                        const c = _currentSphereCenters[fid];
-                        const r = _currentSphereRadii[fid];
-                        const t = Math.sqrt(c.lengthSq() - r * r);
-                        return new THREE.Vector4(c.x, c.y, c.z, t);
-                    } else {
-                        const j = fid - numSpheres;
-                        const n = _currentPlaneNormals[j];
-                        return new THREE.Vector4(n.x, n.y, n.z, 0);
-                    }
-                }
+              // Quadratic forms
+              let g11 = minkowskiDot(v1, v1);
+              let g22 = minkowskiDot(v2, v2);
+              let g12 = minkowskiDot(v1, v2);
 
-                const v1 = hyperbolicVector(faceA);
-                const v2 = hyperbolicVector(faceB);
+              // Numerical guards: these should be > 0 for spacelike normals, but clamp just in case
+              const EPS = 1e-12;
+              if (!(isFinite(g11) && isFinite(g22) && isFinite(g12))) return NaN;
+              if (g11 < EPS || g22 < EPS) return NaN;
 
-                const g11 = minkowskiDot(v1, v1);
-                const g22 = minkowskiDot(v2, v2);
-                const g12 = minkowskiDot(v1, v2);
-
-                // Hyperbolic dihedral angle formula:
-                const cosTheta = -g12 / Math.sqrt(Math.abs(g11 * g22));
-                const clamped = Math.min(1.0, Math.max(-1.0, cosTheta));
-                return Math.acos(clamped); // radians
+              // cos(theta) = -<v1,v2> / sqrt(<v1,v1><v2,v2>)
+              let cosTheta = -g12 / Math.sqrt(g11 * g22);
+              // Clamp to valid range to avoid NaNs from acos
+              cosTheta = Math.max(-1, Math.min(1, cosTheta));
+              return Math.acos(cosTheta); // radians
             }
 
             // --- Helper: Format angle as reduced fraction of π, or degrees if not close ---
             function formatAngle(theta) {
-                const ratio = theta / Math.PI;
-                // Candidate denominators commonly appearing in hyperbolic/polyhedral angles
-                const dens = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 16, 18, 20, 24, 30, 36, 48, 60];
-                const EPS = 2e-3; // tolerance in ratio-space
-                let best = null;
+              const ratio = theta / Math.PI;
+              // Candidate denominators commonly appearing in hyperbolic/polyhedral angles
+              const dens = [1,2,3,4,5,6,8,10,12,15,16,18,20,24,30,36,48,60];
+              const EPS = 2e-3; // tolerance in ratio-space
+              let best = null;
 
-                for (const d of dens) {
-                    const nFloat = Math.round(ratio * d);
-                    const approx = nFloat / d;
-                    if (Math.abs(approx - ratio) < EPS) {
-                        // Reduce fraction n/d
-                        const n = Math.abs(nFloat);
-                        const g = (a, b) => (b ? g(b, a % b) : a);
-                        const gcd = g(n, d);
-                        const rn = (nFloat < 0 ? -1 : 1) * (n / gcd);
-                        const rd = d / gcd;
-                        // If denominator is 1, just return "π" or "0"
-                        if (rd === 1) {
-                            if (rn === 0) return "0 radians";
-                            if (rn === 1) return "π radians";
-                            if (rn === -1) return "-π radians";
-                            return `${rn} π radians`;
-                        }
-                        // pπ/q form, omit p=1
-                        return `${rn === 1 ? '' : rn}π/${rd} radians`;
-                    }
+              for (const d of dens) {
+                const nFloat = Math.round(ratio * d);
+                const approx = nFloat / d;
+                if (Math.abs(approx - ratio) < EPS) {
+                  // Reduce fraction n/d
+                  const n = Math.abs(nFloat);
+                  const g = (a,b) => (b ? g(b, a % b) : a);
+                  const gcd = g(n, d);
+                  const rn = (nFloat < 0 ? -1 : 1) * (n / gcd);
+                  const rd = d / gcd;
+                  // If denominator is 1, just return "π" or "0"
+                  if (rd === 1) {
+                    if (rn === 0) return "0 radians";
+                    if (rn === 1) return "π radians";
+                    if (rn === -1) return "-π radians";
+                    return `${rn} π radians`;
+                  }
+                  // pπ/q form, omit p=1
+                  return `${rn === 1 ? '' : rn}π/${rd} radians`;
                 }
+              }
 
-                // Fallback: degrees
-                const deg = theta * 180 / Math.PI;
-                return `${deg.toFixed(2)}°`;
+              // Fallback: degrees
+              const deg = theta * 180 / Math.PI;
+              return `${deg.toFixed(2)}°`;
             }
 
             renderer.domElement.addEventListener('click', (ev) => {
-                if (!_currentSphereCenters.length && !_currentPlaneNormals.length) return;
+              if (!_currentSphereCenters.length && !_currentPlaneNormals.length) return;
 
-                const { ro, rd } = computeRayFromMouse(ev.clientX, ev.clientY);
-                const span = raySphereIntersectCPU(ro, rd, 1.0);
-                if (!span) {
-                    if (normalOut) normalOut.textContent = "";
-                    uniforms.u_selected_face_id.value = -1;
-                    uniforms.u_hover_offset.value = 0.0;
-                    const edgeOut0 = document.getElementById('selected-edge');
-                    if (edgeOut0) edgeOut0.textContent = '';
-                    highlightGutterFaces([]);
-                    // Reset edge selection state
-                    _lastClickedFaceIdCanvas = null;
-                    return;
+              const { ro, rd } = computeRayFromMouse(ev.clientX, ev.clientY);
+              const span = raySphereIntersectCPU(ro, rd, 1.0);
+              if (!span) {
+                if (normalOut) normalOut.textContent = "";
+                uniforms.u_selected_face_id.value = -1;
+                uniforms.u_hover_offset.value = 0.0;
+                const edgeOut0 = document.getElementById('selected-edge');
+                if (edgeOut0) edgeOut0.textContent = '';
+                highlightGutterFaces([]);
+                // Reset edge selection state
+                _lastClickedFaceIdCanvas = null;
+                return;
+              }
+
+              let t = Math.max(0, span.t0);
+              let p = ro.clone().addScaledVector(rd, t);
+              let hit = false;
+              let hitId = -1;
+
+              for (let i = 0; i < CPU_MAX_STEPS; i++) {
+                if ((span.t1 > 0 && t > span.t1) || t > CPU_MAX_DIST) break;
+                const { sdf, id } = sceneSDFWithIdCPU(p);
+                if (Math.abs(sdf) < CPU_HIT_THRESHOLD) {
+                  hit = true;
+                  hitId = id;
+                  break;
                 }
+                const step = Math.max(Math.abs(sdf), 0.001);
+                t += step;
+                p.addScaledVector(rd, step);
+              }
 
-                let t = Math.max(0, span.t0);
-                let p = ro.clone().addScaledVector(rd, t);
-                let hit = false;
-                let hitId = -1;
+              if (!hit) {
+                if (normalOut) normalOut.textContent = "";
+                uniforms.u_selected_face_id.value = -1;
+                uniforms.u_hover_offset.value = 0.0;
+                const edgeOut1 = document.getElementById('selected-edge');
+                if (edgeOut1) edgeOut1.textContent = '';
+                highlightGutterFaces([]);
+                _lastClickedFaceIdCanvas = null;
+                return;
+              }
 
-                for (let i = 0; i < CPU_MAX_STEPS; i++) {
-                    if ((span.t1 > 0 && t > span.t1) || t > CPU_MAX_DIST) break;
-                    const { sdf, id } = sceneSDFWithIdCPU(p);
-                    if (Math.abs(sdf) < CPU_HIT_THRESHOLD) {
-                        hit = true;
-                        hitId = id;
-                        break;
-                    }
-                    const step = Math.max(Math.abs(sdf), 0.001);
-                    t += step;
-                    p.addScaledVector(rd, step);
-                }
+              // Determine which input line produced this faceId
+              const lineIndex = _currentFaceIdsByLine.findIndex(fid => fid === hitId);
+              let vecText = "";
+              if (lineIndex !== -1) {
+                // Pull the original 4D vector directly from the textarea line
+                const lines = (document.getElementById('vectors').value || "").split('\n').filter(l => l.trim() !== "");
+                vecText = lines[lineIndex].trim();
+              }
 
-                if (!hit) {
-                    if (normalOut) normalOut.textContent = "";
-                    uniforms.u_selected_face_id.value = -1;
-                    uniforms.u_hover_offset.value = 0.0;
-                    const edgeOut1 = document.getElementById('selected-edge');
-                    if (edgeOut1) edgeOut1.textContent = '';
-                    highlightGutterFaces([]);
-                    _lastClickedFaceIdCanvas = null;
-                    return;
-                }
+              // Also compute/display the Euclidean 3D unit normal at the clicked point (two-sided)
+              let n = getNormalCPU(p);
+              if (n.dot(rd.clone().negate()) < 0) n.negate(); // face toward camera (do not mutate rd)
 
-                // Determine which input line produced this faceId
-                const lineIndex = _currentFaceIdsByLine.findIndex(fid => fid === hitId);
-                let vecText = "";
-                if (lineIndex !== -1) {
-                    // Pull the original 4D vector directly from the textarea line
-                    const lines = (document.getElementById('vectors').value || "").split('\n').filter(l => l.trim() !== "");
-                    vecText = lines[lineIndex].trim();
-                }
-
-                // Also compute/display the Euclidean 3D unit normal at the clicked point (two-sided)
-                let n = getNormalCPU(p);
-                if (n.dot(rd.negate()) < 0) n = n.negate(); // face toward camera
-
-                if (normalOut) {
-                    if (vecText) {
-                        normalOut.textContent = `Face: [${vecText}]`;
-                    } else {
-                        normalOut.textContent = `3D unit normal ≈ (${n.x.toFixed(4)}, ${n.y.toFixed(4)}, ${n.z.toFixed(4)})`;
-                    }
-                }
-
-                // Shift-click edge selection between two faces
-                const edgeOut = document.getElementById('selected-edge');
-                if (ev.shiftKey && _lastClickedFaceIdCanvas !== null && _lastClickedFaceIdCanvas !== hitId) {
-                    // Shift-click: highlight the edge between last and current
-                    highlightGutterFaces([_lastClickedFaceIdCanvas, hitId]);
-                    // Show hyperbolic dihedral angle as reduced fraction of π or degrees
-                    const theta = computeDihedralAngle(_lastClickedFaceIdCanvas, hitId);
-                    if (edgeOut) {
-                        const nice = formatAngle(theta);
-                        edgeOut.textContent = `Edge: faces ${_lastClickedFaceIdCanvas} & ${hitId} — hyperbolic dihedral angle ≈ ${nice}`;
-                    }
-                    // Set edge selection uniform
-                    uniforms.u_selected_edge_faces.value.set(_lastClickedFaceIdCanvas, hitId);
-                    _lastClickedFaceIdCanvas = null;
-                    // Do not update face selection or pop here (edge selection only)
-                    return;
+              if (normalOut) {
+                if (vecText) {
+                  normalOut.textContent = `Face: [${vecText}]`;
                 } else {
-                    _lastClickedFaceIdCanvas = hitId;
-                    // Reset edge selection uniform (single face click)
-                    uniforms.u_selected_edge_faces.value.set(-1, -1);
+                  normalOut.textContent = `3D unit normal ≈ (${n.x.toFixed(4)}, ${n.y.toFixed(4)}, ${n.z.toFixed(4)})`;
                 }
+              }
 
-                // Persistently hover the selected face and trigger a pop
-                uniforms.u_selected_face_id.value = Math.floor(hitId);
-                uniforms.u_hover_offset.value = 0.035;
-                triggerPop(hitId);
+              // Shift-click edge selection between two faces
+              const edgeOut = document.getElementById('selected-edge');
+              if (ev.shiftKey && _lastClickedFaceIdCanvas !== null && _lastClickedFaceIdCanvas !== hitId) {
+                // Shift-click: highlight the edge between last and current
+                highlightGutterFaces([_lastClickedFaceIdCanvas, hitId]);
+                // Show hyperbolic dihedral angle as reduced fraction of π or degrees
+                const theta = computeDihedralAngle(_lastClickedFaceIdCanvas, hitId);
+                if (edgeOut) {
+                  if (!isFinite(theta)) {
+                    edgeOut.textContent = `Edge: faces ${_lastClickedFaceIdCanvas} & ${hitId} — angle unavailable`;
+                  } else {
+                    const nice = formatAngle(theta);
+                    edgeOut.textContent = `Edge: faces ${_lastClickedFaceIdCanvas} & ${hitId} — hyperbolic dihedral angle ≈ ${nice}`;
+                  }
+                }
+                // Set edge selection uniform
+                uniforms.u_selected_edge_faces.value.set(_lastClickedFaceIdCanvas, hitId);
+                _lastClickedFaceIdCanvas = null;
+                // Do not update face selection or pop here (edge selection only)
+                return;
+              } else {
+                _lastClickedFaceIdCanvas = hitId;
+                // Reset edge selection uniform (single face click)
+                uniforms.u_selected_edge_faces.value.set(-1, -1);
+              }
 
-                // Edge selection with Shift (legacy: highlight top-2 faces at edge, but now overridden by Shift-click two faces)
-                if (ev.shiftKey) {
-                    const { bestVal, bestId, secondVal, secondId } = sceneSDFTop2CPU(p);
-                    const EDGE_GAP = uniforms.u_edge_width.value * 1.1; // mirror shader's width with slight slack
-                    if (bestId !== -1 && secondId !== -1 && (bestVal - secondVal) < EDGE_GAP) {
-                        highlightGutterFaces([bestId, secondId]);
-                        if (edgeOut) edgeOut.textContent = '';
-                    } else {
-                        highlightGutterFaces([hitId]);
-                        if (edgeOut) edgeOut.textContent = '';
-                    }
+              // Persistently hover the selected face and trigger a pop
+              uniforms.u_selected_face_id.value = Math.floor(hitId);
+              uniforms.u_hover_offset.value = 0.035;
+              triggerPop(hitId);
+
+              // Edge selection with Shift (legacy: highlight top-2 faces at edge, but now overridden by Shift-click two faces)
+              if (ev.shiftKey) {
+                const { bestVal, bestId, secondVal, secondId } = sceneSDFTop2CPU(p);
+                const EDGE_GAP = uniforms.u_edge_width.value * 1.1; // mirror shader's width with slight slack
+                if (bestId !== -1 && secondId !== -1 && (bestVal - secondVal) < EDGE_GAP) {
+                  highlightGutterFaces([bestId, secondId]);
+                  if (edgeOut) edgeOut.textContent = '';
                 } else {
-                    // Face-only selection (no edge)
-                    highlightGutterFaces([hitId]);
-                    if (edgeOut) edgeOut.textContent = '';
+                  highlightGutterFaces([hitId]);
+                  if (edgeOut) edgeOut.textContent = '';
                 }
+              } else {
+                // Face-only selection (no edge)
+                highlightGutterFaces([hitId]);
+                if (edgeOut) edgeOut.textContent = '';
+              }
             });
         }
 
@@ -1300,7 +1351,7 @@
                     const b = parseFloat(parenMatch[2]);
                     const c = parseFloat(parenMatch[3]);
                     const d = parseFloat(parenMatch[4]);
-                    if ([a, b, c, d].some(x => Number.isNaN(x))) {
+                    if ([a,b,c,d].some(x => Number.isNaN(x))) {
                         errorMessage.textContent = `Invalid matrix coefficients in line: "${line}"`;
                         renderGutter(lines.length);
                         _currentSphereCenters = [];
@@ -1328,7 +1379,7 @@
                             try {
                                 // Multiply so31 by o = (0,0,0,1)^T to get y = g·o
                                 // Accept either nested arrays [[..],[..],[..],[..]] or flat 16-length array.
-                                let yx = 0, yy = 0, yz = 0, yw = 1; // default to o in case parsing fails
+                                let yx=0, yy=0, yz=0, yw=1; // default to o in case parsing fails
                                 if (Array.isArray(so31)) {
                                     if (so31.length === 4 && Array.isArray(so31[0])) {
                                         // 4x4 nested arrays, row-major
@@ -1338,10 +1389,10 @@
                                         yw = so31[3][3];
                                     } else if (so31.length === 16) {
                                         // flat row-major
-                                        yx = so31[0 * 4 + 3];
-                                        yy = so31[1 * 4 + 3];
-                                        yz = so31[2 * 4 + 3];
-                                        yw = so31[3 * 4 + 3];
+                                        yx = so31[0*4+3];
+                                        yy = so31[1*4+3];
+                                        yz = so31[2*4+3];
+                                        yw = so31[3*4+3];
                                     }
                                 } else if (so31 && typeof so31 === 'object' && 'elements' in so31 && Array.isArray(so31.elements) && so31.elements.length === 16) {
                                     // THREE.Matrix4-like
@@ -1439,7 +1490,7 @@
                     _currentFaceIdsByLine = [];
                     return;
                 }
-
+                
                 const n = new THREE.Vector3(v.x, v.y, v.z);
                 const nSq = n.lengthSq();
                 const wSq = v.w * v.w;
@@ -1476,18 +1527,18 @@
                     lineLocalIdx.push(sphereCenters.length - 1);
                 }
             }
-
+            
             // Map each original input line to its actual faceId in the shader
             const faceIdsByLine = [];
             const numSpheres = sphereCenters.length;
             for (let i = 0; i < lineKinds.length; i++) {
-                if (lineKinds[i] === 'sphere') {
-                    faceIdsByLine[i] = lineLocalIdx[i];
-                } else if (lineKinds[i] === 'plane') {
-                    faceIdsByLine[i] = numSpheres + lineLocalIdx[i];
-                } else {
-                    faceIdsByLine[i] = undefined;
-                }
+              if (lineKinds[i] === 'sphere') {
+                faceIdsByLine[i] = lineLocalIdx[i];
+              } else if (lineKinds[i] === 'plane') {
+                faceIdsByLine[i] = numSpheres + lineLocalIdx[i];
+              } else {
+                faceIdsByLine[i] = undefined;
+              }
             }
             // Update gutter colors to match face ordering in the shader
             renderGutter(lines.length, faceIdsByLine);
@@ -1499,7 +1550,7 @@
 
             uniforms.u_num_sphere_planes.value = sphereCenters.length;
             for (let i = 0; i < MAX_PLANES_CONST; i++) {
-                uniforms.u_sphere_centers.value[i].set(0, 0, 0); // Clear old data
+                uniforms.u_sphere_centers.value[i].set(0,0,0); // Clear old data
                 if (i < sphereCenters.length) {
                     uniforms.u_sphere_centers.value[i].copy(sphereCenters[i]);
                     uniforms.u_sphere_radii.value[i] = sphereRadii[i];
@@ -1507,8 +1558,8 @@
             }
 
             uniforms.u_num_euclidean_planes.value = planeNormals.length;
-            for (let i = 0; i < MAX_PLANES_CONST; i++) {
-                uniforms.u_plane_normals.value[i].set(0, 0, 0); // Clear old data
+             for (let i = 0; i < MAX_PLANES_CONST; i++) {
+                uniforms.u_plane_normals.value[i].set(0,0,0); // Clear old data
                 if (i < planeNormals.length) {
                     uniforms.u_plane_normals.value[i].copy(planeNormals[i]);
                 }
@@ -1522,6 +1573,10 @@
             } catch (e) {
                 // ignore storage errors
             }
+
+            // Scan for faces that actually appear on the boundary and repaint the gutter
+            computeAppearingFaces3D();
+            renderGutter(lines.length, _currentFaceIdsByLine);
         }
 
         function onWindowResize() {
@@ -1542,14 +1597,14 @@
 
             // Drive pop decay
             if (_popActive) {
-                const now = performance.now();
-                const t = Math.min(1, (now - _popStart) / _popDurationMs);
-                const strength = 1.0 - t; // linear ease-out
-                uniforms.u_pop_strength.value = Math.max(0, strength);
-                if (t >= 1) {
-                    _popActive = false;
-                    uniforms.u_pop_strength.value = 0.0;
-                }
+              const now = performance.now();
+              const t = Math.min(1, (now - _popStart) / _popDurationMs);
+              const strength = 1.0 - t; // linear ease-out
+              uniforms.u_pop_strength.value = Math.max(0, strength);
+              if (t >= 1) {
+                _popActive = false;
+                uniforms.u_pop_strength.value = 0.0;
+              }
             }
 
             renderer.render(scene, camera);
@@ -1573,5 +1628,4 @@
         init();
     </script>
 </body>
-
 </html>

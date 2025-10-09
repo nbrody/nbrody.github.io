@@ -95,6 +95,131 @@
             ];
         }
 
+        // -------- Additional Complex & 2x2 helpers (for word enumeration) --------
+        function cNeg(z){ return C(-z.re, -z.im); }
+        function cAbs(z){ return Math.hypot(z.re, z.im); }
+        function cDiv(z,w){
+            const den = w.re*w.re + w.im*w.im; if (den===0) throw new Error('Divide by zero');
+            return C((z.re*w.re + z.im*w.im)/den, (z.im*w.re - z.re*w.im)/den);
+        }
+        function cEq(z,w, tol=1e-9){ return Math.abs(z.re-w.re)<=tol && Math.abs(z.im-w.im)<=tol; }
+        function cToStr(z){
+            const r = +z.re.toFixed(6), i = +z.im.toFixed(6);
+            if (Math.abs(i)<1e-12) return `${r}`;
+            if (Math.abs(r)<1e-12) return `${i}i`;
+            return `${r}${i<0?'' : '+'}${i}i`;
+        }
+
+        function cDet2(A){ return cSub(cMul(A[0][0],A[1][1]), cMul(A[0][1],A[1][0])); }
+        function cInv2(A){
+            const det = cDet2(A);
+            const invDet = cDiv(C(1,0), det);
+            return [
+                [ cMul(A[1][1],invDet), cMul(cNeg(A[0][1]),invDet) ],
+                [ cMul(cNeg(A[1][0]),invDet), cMul(A[0][0],invDet) ]
+            ];
+        }
+
+        function matEq2(A,B,tol=1e-9){
+            for(let i=0;i<2;i++) for(let j=0;j<2;j++) if(!cEq(A[i][j],B[i][j],tol)) return false; return true;
+        }
+        function matKey2(A){
+            // stable key for dedupe: round to 1e-9
+            const f = z=>`${(+z.re.toFixed(9))}:${(+z.im.toFixed(9))}`;
+            return `${f(A[0][0])}|${f(A[0][1])}|${f(A[1][0])}|${f(A[1][1])}`;
+        }
+
+        // Generate words up to length L from generators and their inverses (on 2x2 complex matrices)
+        function generateWords2x2Complex(gens2x2, L){
+            const initial = [];
+            gens2x2.forEach((G,i)=>{
+                initial.push({ m:G, word:`g${i+1}` });
+                try{ initial.push({ m:cInv2(G), word:`g${i+1}^{-1}` }); }catch(_){ /* skip non-invertible */ }
+            });
+            const seen = new Map();
+            const out = [];
+            const I = [[C(1,0),C(0,0)],[C(0,0),C(1,0)]];
+            const Ikey = matKey2(I);
+            function pushObj(o){ const k=matKey2(o.m); if(!seen.has(k)){ seen.set(k,o); if(k!==Ikey) out.push(o);} }
+            initial.forEach(pushObj);
+            let frontier = initial.slice();
+            for(let l=1;l<L; l++){
+                const next=[];
+                for(const w of frontier){
+                    for(const s of initial){
+                        const m = cMatMul2(w.m, s.m);
+                        const obj = { m, word: `${w.word}\u22C5${s.word}` };
+                        const k = matKey2(m);
+                        if(!seen.has(k) && !matEq2(m,I)) { seen.set(k,obj); out.push(obj); next.push(obj);} }
+                }
+                frontier = next;
+            }
+            return out;
+        }
+
+        function __formatMat2LineSimple(A){
+            return `(${cToStr(A[0][0])} ${cToStr(A[0][1])} ${cToStr(A[1][0])} ${cToStr(A[1][1])})`;
+        }
+
+
+        function generateGroupElements(gens, wordLength) {
+                // Return [{ m: Matrix2, word: string }], excluding identity
+                const elements = new Map();
+
+                // Identity
+                const I = new Matrix2(
+                    new Complex(1, 0), new Complex(0, 0),
+                    new Complex(0, 0), new Complex(1, 0)
+                );
+                const identityKey = keyFromMatrix(I);
+                elements.set(identityKey, { m: I, word: 'e' });
+
+                // Initial set: g_i and g_i^{-1}
+                const initialSet = [];
+                gens.forEach((g, i) => {
+                    const name = `g${i + 1}`;
+                    initialSet.push({ m: g, word: name });
+                    const inv = g && g.inverse ? g.inverse() : null;
+                    if (inv) initialSet.push({ m: inv, word: `${name}^{-1}` });
+                });
+
+                // Seed queue + map
+                let queue = [];
+                initialSet.forEach(obj => {
+                    if (!obj || !obj.m) return;
+                    const key = keyFromMatrix(obj.m);
+                    if (!elements.has(key)) {
+                        elements.set(key, obj);
+                        queue.push(obj);
+                    }
+                });
+
+                // BFS up to the requested word length
+                for (let l = 1; l < (parseInt(wordLength) || 1); l++) {
+                    const nextQueue = [];
+                    for (const wobj of queue) {
+                        for (const s of initialSet) {
+                            const newM = wobj.m.multiply(s.m);
+                            if (newM.isIdentity && newM.isIdentity()) continue;
+                            const key = keyFromMatrix(newM);
+                            if (!elements.has(key)) {
+                                const newObj = { m: newM, word: wobj.word + s.word };
+                                elements.set(key, newObj);
+                                nextQueue.push(newObj);
+                            }
+                        }
+                    }
+                    queue = nextQueue;
+                }
+
+                // Exclude identity
+                const out = [];
+                for (const [k, v] of elements.entries()) {
+                    if (k !== identityKey) out.push(v);
+                }
+                return out;
+            }
+
         // ------------------ Minkowski <-> Hermitian ------------------
         function hermitianFromVec(v) {
             const [x, y, z, t] = v;
@@ -181,6 +306,130 @@
                 return { row, pivot: j };
             }
             throw new Error('sDF undefined: g fixes all basis vectors e₀, e₁, e₂, e₃');
+        }
+
+        // Minkowski helpers (signature + + + - becomes ⟨u,v⟩ = -u_x v_x - u_y v_y - u_z v_z + u_t v_t)
+        function __minkowskiDot(u, v) {
+            return -(u[0]*v[0] + u[1]*v[1] + u[2]*v[2]) + u[3]*v[3];
+        }
+        function __etaVec(v) { return [-v[0], -v[1], -v[2], v[3]]; } // η·v
+        function __norm2M(u) { return __minkowskiDot(u, u); }
+        function __normalizeTimelike(u, eps=1e-12) {
+            // Scale u so that ⟨u,u⟩ = +1 and t > 0 (forward sheet)
+            let n2 = __norm2M(u);
+            if (n2 <= eps) return null; // not timelike
+            let s = 1/Math.sqrt(n2);
+            let w = [u[0]*s, u[1]*s, u[2]*s, u[3]*s];
+            if (w[3] < 0) w = [-w[0], -w[1], -w[2], -w[3]];
+            return w;
+        }
+        function __projectToHyperplane(x, n) {
+            // Orthogonal projection (Lorentzian metric):
+            // Hyperplane H_n = { y : ⟨n, y⟩ = 0 }. For a spacelike normal n (⟨n,n⟩<0),
+            // the Lorentzian orthogonal projection is x' = x - (⟨n,x⟩ / ⟨n,n⟩) * n.
+            const nn = __minkowskiDot(n, n);
+            if (Math.abs(nn) < 1e-16) return null; // degenerate normal
+            const nx = __minkowskiDot(n, x);
+            const scale = nx / nn;
+            return [
+                x[0] - scale * n[0],
+                x[1] - scale * n[1],
+                x[2] - scale * n[2],
+                x[3] - scale * n[3],
+            ];
+        }
+
+        // Given a list of sDFs (rows [a,b,c,d]), determine which define faces.
+        // Heuristic/constructive test: for each normal n, take the Minkowski-orthogonal projection of e3 onto {⟨n,·⟩=0},
+        // normalize it to the forward sheet (⟨x,x⟩=1, t>0), and check that all other planes strictly separate it.
+        // Returns { indices, margins, witnesses }
+        function sDFsupport(rows, opts={}) {
+            const eps = opts.eps ?? 1e-9;
+            const tol = opts.tol ?? 1e-8;
+            const e3 = [0,0,0,1];
+            const N = rows.length;
+            const survivors = [];
+            const margins = [];
+            const witnesses = [];
+
+            // Pre-sanitize normals: enforce last nonzero coord negative (as elsewhere), and drop obvious zeros
+            const normals = rows.map(r => {
+                const v = r.slice(0,4).map(x => +x);
+                // If last nonzero positive, flip sign
+                let lastIdx=-1; for (let k=3;k>=0;k--) if (Math.abs(v[k])>1e-14){ lastIdx=k; break; }
+                if (lastIdx!==-1 && v[lastIdx]>0){ for (let k=0;k<4;k++) v[k] = -v[k]; }
+                return v;
+            });
+
+            for (let i=0;i<N;i++) {
+                const n = normals[i];
+                // Require spacelike normal (⟨n,n⟩<0) for a proper wall in H^3
+                const nn = __minkowskiDot(n,n);
+                if (!(nn < -eps)) { continue; }
+
+                // Project basepoint e3 to the wall and normalize
+                let x0 = __projectToHyperplane(e3, n);
+                if (!x0) continue;
+                let x = __normalizeTimelike(x0, eps);
+                if (!x) {
+                    // Nudge e3 slightly forward if projection is lightlike
+                    x0 = __projectToHyperplane([0,0,0,1.0001], n);
+                    x = __normalizeTimelike(x0, eps);
+                    if (!x) continue;
+                }
+
+                // Check strict separation by all other planes
+                let ok = true;
+                let minMargin = +Infinity;
+                for (let j=0;j<N;j++) if (j!==i) {
+                    const m = __minkowskiDot(normals[j], x);
+                    if (m <= tol) { ok = false; break; }
+                    if (m < minMargin) minMargin = m;
+                }
+                // Also ensure we are actually on the i-th wall (≈0)
+                const onWall = Math.abs(__minkowskiDot(n, x)) <= 10*tol;
+                if (ok && onWall) {
+                    survivors.push(i);
+                    margins.push(minMargin);
+                    witnesses.push(x);
+                }
+            }
+            return { indices: survivors, margins, witnesses };
+        }
+
+        // Given a list of PSL2(C) elements as { m: Matrix2 or 2x2 array, word?: string },
+        // return only those whose sDFs define faces, including their words and covectors.
+        function stdGenerators(wordObjs, opts={}) {
+            const eps = opts.eps ?? 1e-9; const tol = opts.tol ?? 1e-8;
+            const mats = []; const words = []; const sdfs = [];
+
+            function toPlain2x2(M2) {
+                // Accept Matrix2 or [[a,b],[c,d]] with Complex-like entries
+                if (M2 && M2.a11 !== undefined) {
+                    const a = M2.a11, b = M2.a12, c = M2.a21, d = M2.a22;
+                    return [[a, b], [c, d]];
+                }
+                return M2;
+            }
+
+            for (const w of wordObjs || []) {
+                try {
+                    const A = toPlain2x2(w.m);
+                    const M = PSL2CtoSO31(A[0][0], A[0][1], A[1][0], A[1][1]);
+                    const { row } = sDF_autoFromSO31(M);
+                    mats.push(A); words.push(w.word ?? ''); sdfs.push(row);
+                } catch (_) { /* skip ill-defined */ }
+            }
+            const support = sDFsupport(sdfs, { eps, tol });
+            const out = support.indices.map((idx, k) => ({
+                index: idx,
+                word: words[idx],
+                matrix2x2: mats[idx],
+                sdf: sdfs[idx],
+                margin: support.margins[k],
+                witness: support.witnesses[k],
+            }));
+            return { faces: out, sdfsAll: sdfs };
         }
 
         // ------------------ UI-specific helpers ------------------
@@ -291,10 +540,12 @@
                 <div class="flex flex-wrap items-center justify-start gap-4 mb-6">
                     <div class="flex flex-wrap gap-3">
                         <button id="psl-add" class="px-5 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500 shadow-sm hover:shadow-md">Add Matrix</button>
-                        <button id="psl-S" class="px-4 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">Add S</button>
-                        <button id="psl-T" class="px-4 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">Add T</button>
                         <button id="psl-import" title="Import matrices from other tools"
                             class="px-4 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50">Import</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="psl-wordlen" class="text-sm text-gray-600 dark:text-gray-400">Word length</label>
+                        <input id="psl-wordlen" type="number" min="1" value="4" class="w-20 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm">
                     </div>
                 </div>
                 <div id="psl-out" class="space-y-6 bg-gray-100 dark:bg-gray-900/50 p-4 sm:p-6 rounded-xl border border-gray-200 dark:border-gray-700/50 min-h-[200px]"></div>
@@ -353,13 +604,26 @@
                             <div class="grid grid-cols-2 gap-1 font-mono w-full max-w-xs">
                                 ${Object.keys(defaultValues).map(label => `
                                 <div>
-                                    <input data-entry="${label}" type="text" value="${defaultValues[label]}" class="w-full px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white text-sm">
+                                    <input data-entry="${label}" type="text" value="${defaultValues[label]}" class="auto-ch w-auto min-w-[9ch] max-w-full px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white text-sm transition-[width]">
                                 </div>`).join('')}
                             </div>
                         </div>
                     </div>
                 `;
                 matrixList.appendChild(formWrapper);
+                // Auto-size inputs based on content length (grow with text)
+                const chMin = 9, chMax = 40;
+                const inputs = formWrapper.querySelectorAll('input[data-entry]');
+                inputs.forEach(inp => {
+                  function resize() {
+                    const len = Math.max(inp.value.length, inp.placeholder ? inp.placeholder.length : 0, chMin);
+                    const clamped = Math.min(Math.max(len, chMin), chMax);
+                    inp.style.width = clamped + 'ch';
+                  }
+                  inp.addEventListener('input', resize);
+                  // Initial sizing
+                  resize();
+                });
                 render();
             }
 
@@ -449,6 +713,114 @@
                         `;
                     }).join('');
 
+                    // --- Words ≤ L and stdGenerators output ---
+                    let wordsSectionHTML = '';
+                    try {
+                        const L = Math.max(1, parseInt(card.querySelector('#psl-wordlen')?.value || '4', 10));
+                        const wordObjs = generateWords2x2Complex(matrices, L);
+                        // Compute sDF for each enumerated word (if defined)
+                        const wordWithSdf = wordObjs.map((w) => {
+                            try {
+                                const A = w.m; // [[a,b],[c,d]] complex entries
+                                const M = PSL2CtoSO31(A[0][0], A[0][1], A[1][0], A[1][1]);
+                                const { row } = sDF_autoFromSO31(M);
+                                const sdfFmt = __formatRow(row).join(', ');
+                                return { word: w.word, sdf: `[ ${sdfFmt} ]` };
+                            } catch (_) {
+                                return { word: w.word, sdf: '—' }; // no sDF (e.g., fixes all basis vectors)
+                            }
+                        });
+
+                        // Covector lines for copy-paste (remove brackets)
+                        const covectorLinesConsidered = wordWithSdf
+                            .map(w => (w.sdf && w.sdf !== '—') ? w.sdf.replace(/^\[\s*|\s*\]$/g,'') : null)
+                            .filter(Boolean);
+                        const covectorsBoxHTML = `
+                            <div class="mt-4">
+                              <div class="flex items-center justify-between mb-2">
+                                <h4 class="text-md font-medium text-gray-700 dark:text-gray-300">Covectors for words (copy‑paste)</h4>
+                                <button id="copy-words-covectors" class="px-2 py-1 text-xs rounded bg-indigo-600 text-white hover:bg-indigo-700">Copy</button>
+                              </div>
+                              <div class="bg-gray-100 dark:bg-gray-900/70 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                                <pre class="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap" id="words-covectors-pre">${covectorLinesConsidered.join('\n')}</pre>
+                              </div>
+                            </div>`;
+
+                        const wordListHTML = wordWithSdf.map((w,i)=>
+                            `<div class='font-mono text-xs sm:text-sm'>${i+1}. ${w.word}  \u2192  ${w.sdf}</div>`
+                        ).join('');
+                        const wordsConsideredHTML = `
+                            <div class="mt-4">
+                              <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">Words considered (≤ ${L})</h4>
+                              <div class="max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+                                ${wordListHTML}
+                              </div>
+                            </div>`;
+
+                        // --- NEW: Determine face‑defining words by scanning the computed covectors ---
+                        // Build (word, row[4]) pairs only for words that produced an sDF
+                        const pairs = wordWithSdf
+                          .filter(w => w.sdf && w.sdf !== '—')
+                          .map(w => {
+                            // w.sdf looks like "[ a, b, c, d ]"; strip brackets then parse
+                            const rowStr = w.sdf.replace(/^\s*\[\s*|\s*\]\s*$/g, '');
+                            const toks = rowStr.split(',').map(s => parseFloat(s.trim()));
+                            if (toks.length !== 4 || toks.some(v => !Number.isFinite(v))) return null;
+                            return { word: w.word, row: toks };
+                          })
+                          .filter(Boolean);
+
+                        // Input rows for sDFsupport
+                        const rowsForSupport = pairs.map(p => p.row);
+                        const supportFromCovectors = sDFsupport(rowsForSupport, { eps: 1e-9, tol: 1e-8 });
+                        const facesFromCovectors = (supportFromCovectors.indices || []).map((idx, k) => ({
+                          index: idx,
+                          word: pairs[idx].word,
+                          sdf: rowsForSupport[idx],
+                          margin: supportFromCovectors.margins[k],
+                        }));
+
+                        const rows = facesFromCovectors.map((f, i)=>{
+                          const sdfFmt = __formatRow(f.sdf).join(', ');
+                          return `
+                              <tr class="border-b border-gray-200 dark:border-gray-700">
+                                <td class="px-3 py-2 font-mono text-xs sm:text-sm">${i+1}</td>
+                                <td class="px-3 py-2 font-mono text-xs sm:text-sm whitespace-pre">${f.word || ''}</td>
+                                <td class="px-3 py-2 font-mono text-xs sm:text-sm">[ ${sdfFmt} ]</td>
+                                <td class="px-3 py-2 font-mono text-xs sm:text-sm">${(f.margin!==undefined? f.margin.toFixed(6):'')}</td>
+                              </tr>`;
+                        }).join('');
+
+                        wordsSectionHTML = `
+                          <div class="mt-6">
+                            <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">Face‑defining words (≤ ${L})</h4>
+                            <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                              Covectors computed: <span class="font-mono">${pairs.length}</span>; Faces: <span class="font-mono">${facesFromCovectors.length}</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              ${wordsConsideredHTML}
+                              ${covectorsBoxHTML}
+                            </div>
+                            <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 mt-3">
+                              <table class="min-w-full text-left text-sm">
+                                <thead class="bg-gray-100 dark:bg-gray-900/60">
+                                  <tr>
+                                    <th class="px-3 py-2">#</th>
+                                    <th class="px-3 py-2">word</th>
+                                    <th class="px-3 py-2">sDF [a,b,c,d]</th>
+                                    <th class="px-3 py-2">margin</th>
+                                  </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800/40">
+                                  ${rows || '<tr><td class="px-3 py-2" colspan="4">No faces detected.</td></tr>'}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>`;
+                    } catch (e) {
+                        wordsSectionHTML = `<div class="mt-6 text-sm text-red-600 dark:text-red-400">Word enumeration failed: ${e.message}</div>`;
+                    }
+
                     // 3) Append summary section after resultsHTML and before MathJax typeset
                     const summaryHTML = `
                         <div class="mt-6">
@@ -457,7 +829,7 @@
                                 <pre class="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">${allCovectorLines.join('\n')}</pre>
                             </div>
                         </div>
-                    `;
+                    ` + wordsSectionHTML;
 
                     // Build "Open polyhedron in Poincare" button (uses the x,y,z,t box content)
                     const openBtnHTML = `
@@ -487,6 +859,16 @@
                             window.location.href = url;
                         });
                     }
+                    // Attach copy handler for covectors for words
+                    const copyCovBtn2 = summary.querySelector('#copy-words-covectors');
+                    if (copyCovBtn2) copyCovBtn2.addEventListener('click', async () => {
+                        try {
+                            const text = (summary.querySelector('#words-covectors-pre')?.textContent || '').trim();
+                            await navigator.clipboard.writeText(text);
+                            copyCovBtn2.textContent = 'Copied!';
+                            setTimeout(() => (copyCovBtn2.textContent = 'Copy'), 1200);
+                        } catch (_) {}
+                    });
                     if (window.MathJax && window.MathJax.typesetPromise) {
                         MathJax.typesetPromise([summary, out]).catch(() => {});
                     }
@@ -499,9 +881,7 @@
 
             // Event Listeners
             el('#psl-add').onclick = () => addMatrixForm();
-            el('#psl-S').onclick = () => addMatrixForm({ a: '0', b: '-1', c: '1', d: '0' });
-            el('#psl-T').onclick = () => addMatrixForm({ a: '1', b: '1', c: '0', d: '1' });
-
+            
             matrixList.addEventListener('click', e => {
                 if (e.target.closest('.remove-matrix')) {
                     e.target.closest('.matrix-form').remove();
@@ -510,6 +890,10 @@
             });
 
             matrixList.addEventListener('input', render);
+
+            card.addEventListener('input', (e)=>{
+                if (e.target && e.target.id === 'psl-wordlen') render();
+            });
 
             // Import button handler
             const importBtn = el('#psl-import');
@@ -521,7 +905,8 @@
 
             // Initial state: try to load from external payload; otherwise add a default form
             if (!loadExternalMatricesIfAny()) {
-                addMatrixForm({ a: '1', b: '0', c: '0', d: '1' });
+                addMatrixForm({ a: '1', b: '1', c: '0', d: '1' });
+                addMatrixForm({ a: '0', b: '-1', c: '1', d: '0' });
             }
         }
 

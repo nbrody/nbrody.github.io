@@ -202,7 +202,7 @@
 uniform float u_edge_select_boost; // multiplicative boost when the selected face participates in the edge
 uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected edge (-1, -1 if none)
         
-        const int MAX_PLANES = 64;
+        const int MAX_PLANES = 128;
         
         // --- Spherical Boundaries (from vectors with w < 0)
         uniform int u_num_sphere_planes;
@@ -647,7 +647,7 @@ uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected 
             if (dir.lengthSq() < 1e-9) return;
             flyCameraToDirection(dir);
         }
-        const MAX_PLANES_CONST = 64;
+        const MAX_PLANES_CONST = 128;
 
         // ---- CPU-side SDF & picking utilities (mirror of shader logic) ----
         const CPU_MAX_STEPS = 200;

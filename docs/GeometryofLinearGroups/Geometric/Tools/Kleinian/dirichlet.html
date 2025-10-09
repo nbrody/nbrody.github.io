@@ -699,10 +699,10 @@
       return flip ? m.neg() : m;
     }
 
-    // Prefer a representative whose trace is (numerically) real and ≥ 0
+    // Prefer a representative whose real part of trace is ≥ 0
     function repWithNonnegativeRealTrace(m, tol = 1e-9) {
       const tr = m.trace();
-      if (Math.abs(tr.im) < tol && tr.re < -tol) return m.neg();
+      if (tr.re < -tol) return m.neg();
       return m;
     }
     function keyFromMatrix(m, scale = KEY_SCALE) {
