@@ -647,6 +647,12 @@
                     </div>
                     <button id="psl-add" class="h-fit px-5 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500 shadow-sm hover:shadow-md self-start">Add Matrix</button>
                 </div>
+                <div class="mt-2">
+                    <button id="psl-compute" class="px-5 py-2 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 shadow-sm">Compute</button>
+                </div>
+                <div id="psl-words-table" class="mb-3"></div>
+                <div id="psl-open" class="mb-6"></div>
+                <div id="psl-words" class="mb-4"></div>
                 <div id="psl-summary" class="mb-4"></div>
                 <div class="flex flex-wrap items-center justify-start gap-4 mb-6">
                     <div class="flex flex-wrap gap-3">
@@ -669,6 +675,9 @@
             const out = el('#psl-out');
             const summary = el('#psl-summary');
             const matrixList = el('#psl-matrix-list');
+            const wordsTableEl = el('#psl-words-table');
+            const openEl = el('#psl-open');
+            const wordsEl = el('#psl-words');
 
             // Load external matrices if present (each line: a b c d)
             function loadExternalMatricesIfAny() {
@@ -734,7 +743,6 @@
                   // Initial sizing
                   resize();
                 });
-                render();
             }
 
             function readInputs() {
@@ -754,6 +762,9 @@
                     if (matrices.length === 0) {
                         out.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400 py-8">Add a matrix to see the calculation.</p>`;
                         summary.innerHTML = '';
+                        if (wordsTableEl) wordsTableEl.innerHTML = '';
+                        if (openEl) openEl.innerHTML = '';
+                        if (wordsEl) wordsEl.innerHTML = '';
                         return;
                     }
 
@@ -825,6 +836,7 @@
 
                     // --- Words ≤ L and stdGenerators output ---
                     let wordsSectionHTML = '';
+                    let wordsTableOnlyHTML = '';
                     try {
                         const L = Math.max(1, parseInt(card.querySelector('#psl-wordlen')?.value || '4', 10));
                         const wordObjs = generateWords2x2Complex(matrices, L);
@@ -950,17 +962,10 @@
                               </tr>`;
                         }).join('');
 
-                        wordsSectionHTML = `
-                          <div class="mt-6">
+                        wordsTableOnlyHTML = `
+                          <div class="mt-2">
                             <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">Face‑defining words (≤ ${L})</h4>
-                            <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              Covectors computed: <span class="font-mono">${pairs.length}</span>; Faces: <span class="font-mono">${facesFromCovectors.length}</span>
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              ${wordsConsideredHTML}
-                              ${covectorsBoxHTML}
-                            </div>
-                            <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 mt-3">
+                            <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
                               <table class="min-w-full text-left text-sm">
                                 <thead class="bg-gray-100 dark:bg-gray-900/60">
                                   <tr>
@@ -975,16 +980,27 @@
                                 </tbody>
                               </table>
                             </div>
+                          </div>`;
+
+                        wordsSectionHTML = `
+                            <div class="text-sm text-gray-600 dark:text-gray-400 mb-2 mt-2">
+                              Covectors computed: <span class="font-mono">${pairs.length}</span>; Faces: <span class="font-mono">${facesFromCovectors.length}</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              ${wordsConsideredHTML}
+                              ${covectorsBoxHTML}
+                            </div>
                             <div class="text-xs text-gray-600 dark:text-gray-400 mt-2 mb-1">
                               Face-defining covectors (<span class="font-mono">${facesOutputLines.length}</span>):
                             </div>
                             ${facesOutputHTML}
-                          </div>`;
+                        `;
                     } catch (e) {
+                        wordsTableOnlyHTML = '';
                         wordsSectionHTML = `<div class="mt-6 text-sm text-red-600 dark:text-red-400">Word enumeration failed: ${e.message}</div>`;
                     }
 
-                    // 3) Append summary section after resultsHTML and before MathJax typeset
+                    // 3) Summary section: only "All covectors"
                     const summaryHTML = `
                         <div class="mt-6">
                             <h4 class="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">All covectors</h4>
@@ -992,24 +1008,31 @@
                                 <pre class="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">${allCovectorLines.join('\n')}</pre>
                             </div>
                         </div>
-                    ` + wordsSectionHTML;
+                    `;
 
-                    // Build "Open polyhedron in Poincare" button (uses the x,y,z,t box content)
+                    // Open polyhedron button goes in #psl-open
                     const openBtnHTML = `
-                        <div class="mt-4">
+                        <div class="mt-2">
                             <button id="open-poincare"
                                 class="px-4 py-2 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-all duration-200 bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500 shadow-sm hover:shadow-md">
                                 Open polyhedron in Poincare
                             </button>
                         </div>
                     `;
-                    summary.innerHTML = summaryHTML + openBtnHTML;
+
+                    // Set all output containers
+                    summary.innerHTML = summaryHTML;
                     out.innerHTML = resultsHTML;
-                    const openBtn = summary.querySelector('#open-poincare');
+                    if (wordsTableEl) wordsTableEl.innerHTML = wordsTableOnlyHTML;
+                    if (openEl) openEl.innerHTML = openBtnHTML;
+                    if (wordsEl) wordsEl.innerHTML = wordsSectionHTML;
+
+                    // Open polyhedron button event
+                    const openBtn = card.querySelector('#open-poincare');
                     if (openBtn) {
                         openBtn.addEventListener('click', () => {
                             // Prefer the face-defining covectors (one per line) from the output box
-                            const facesText = (summary.querySelector('#faces-output-pre')?.textContent || '').trim();
+                            const facesText = (card.querySelector('#faces-output-pre')?.textContent || '').trim();
                             let payload = facesText;
                             // Fallback to all covectors if faces are unavailable/empty
                             if (!payload) {
@@ -1024,20 +1047,20 @@
                         });
                     }
                     // Attach copy handler for covectors for words
-                    const copyCovBtn2 = summary.querySelector('#copy-words-covectors');
+                    const copyCovBtn2 = card.querySelector('#copy-words-covectors');
                     if (copyCovBtn2) copyCovBtn2.addEventListener('click', async () => {
                         try {
-                            const text = (summary.querySelector('#words-covectors-pre')?.textContent || '').trim();
+                            const text = (card.querySelector('#words-covectors-pre')?.textContent || '').trim();
                             await navigator.clipboard.writeText(text);
                             copyCovBtn2.textContent = 'Copied!';
                             setTimeout(() => (copyCovBtn2.textContent = 'Copy'), 1200);
                         } catch (_) {}
                     });
                     // Attach copy handler for face-defining covectors output
-                    const copyFacesBtn = summary.querySelector('#copy-faces-output');
+                    const copyFacesBtn = card.querySelector('#copy-faces-output');
                     if (copyFacesBtn) copyFacesBtn.addEventListener('click', async () => {
                         try {
-                            const text = (summary.querySelector('#faces-output-pre')?.textContent || '').trim();
+                            const text = (card.querySelector('#faces-output-pre')?.textContent || '').trim();
                             await navigator.clipboard.writeText(text);
                             copyFacesBtn.textContent = 'Copied!';
                             setTimeout(() => (copyFacesBtn.textContent = 'Copy'), 1200);
@@ -1045,8 +1068,8 @@
                     });
                     // Sync scrolling between the two boxes
                     (function(){
-                      const a = summary.querySelector('#covectors-scroll');
-                      const b = summary.querySelector('#words-list-scroll');
+                      const a = card.querySelector('#covectors-scroll');
+                      const b = card.querySelector('#words-list-scroll');
                       if (!a || !b) return;
                       let syncing = false;
                       const sync = (src, dst) => {
@@ -1059,12 +1082,21 @@
                       b.addEventListener('scroll', () => sync(b, a), { passive: true });
                     })();
                     if (window.MathJax && window.MathJax.typesetPromise) {
-                        MathJax.typesetPromise([summary, out]).catch(() => {});
+                        MathJax.typesetPromise([
+                          wordsTableEl,
+                          card.querySelector('#psl-open'),
+                          wordsEl,
+                          summary,
+                          out
+                        ]).catch(() => {});
                     }
 
                 } catch (e) {
                     summary.innerHTML = '';
                     out.innerHTML = `<div class="text-red-500 dark:text-red-400 p-4 bg-red-100 dark:bg-red-900/50 rounded-lg">${e.message}</div>`;
+                    if (wordsTableEl) wordsTableEl.innerHTML = '';
+                    if (openEl) openEl.innerHTML = '';
+                    if (wordsEl) wordsEl.innerHTML = '';
                 }
             }
 
@@ -1074,15 +1106,18 @@
             matrixList.addEventListener('click', e => {
                 if (e.target.closest('.remove-matrix')) {
                     e.target.closest('.matrix-form').remove();
-                    render();
                 }
             });
 
-            matrixList.addEventListener('input', render);
+            // Disable automatic computation on input or matrix add/remove
+            // matrixList.addEventListener('input', render);
+            // card.addEventListener('input', (e)=>{
+            //     if (e.target && e.target.id === 'psl-wordlen') render();
+            // });
 
-            card.addEventListener('input', (e)=>{
-                if (e.target && e.target.id === 'psl-wordlen') render();
-            });
+            // Only compute when "Compute" button is clicked
+            const computeBtn = el('#psl-compute');
+            if (computeBtn) computeBtn.addEventListener('click', render);
 
             // Import button handler
             const importBtn = el('#psl-import');
