@@ -678,6 +678,7 @@
             const wordsTableEl = el('#psl-words-table');
             const openEl = el('#psl-open');
             const wordsEl = el('#psl-words');
+            let __facesExportData = [];
 
             // Load external matrices if present (each line: a b c d)
             function loadExternalMatricesIfAny() {
@@ -923,6 +924,7 @@
                           if (cNew < cOld) groupMap.set(key, f);
                         }
                         const facesFromCovectors = Array.from(groupMap.values());
+                        __facesExportData = facesFromCovectors.map(f => ({ sdf: f.sdf, word: f.word, matStr: f.matStr }));
 
                         // --- New: Face-defining covectors output box ---
                         const facesOutputLines = facesFromCovectors.map(f => __formatRow(f.sdf).join(', '));
@@ -1031,18 +1033,42 @@
                     const openBtn = card.querySelector('#open-poincare');
                     if (openBtn) {
                         openBtn.addEventListener('click', () => {
-                            // Prefer the face-defining covectors (one per line) from the output box
+                            // Legacy payload: prefer the face-defining covectors (one per line); fallback to all covectors
                             const facesText = (card.querySelector('#faces-output-pre')?.textContent || '').trim();
                             let payload = facesText;
-                            // Fallback to all covectors if faces are unavailable/empty
                             if (!payload) {
                               payload = (Array.isArray(allCovectorLines) ? allCovectorLines.join('\n') : '').trim();
                             }
+                            // Store legacy text for backward compatibility
                             try {
                                 localStorage.setItem('poincare_input', payload);
                             } catch (e) { /* ignore storage errors */ }
-                            const b64 = btoa(payload);
-                            const url = `poincare.html?vectors=${encodeURIComponent(b64)}#source=poincare_input`;
+
+                            // New: include per-face metadata for poincare.html (word and 2x2 group element)
+                            // We export to both localStorage and a URL parameter ?faces=
+                            const facesData = (__facesExportData || []).map((f, i) => ({
+                                index: i + 1,
+                                sdf: Array.isArray(f.sdf) ? f.sdf : [],
+                                word: f.word || '',
+                                matrix: f.matStr || ''
+                            }));
+                            const facesJson = JSON.stringify({
+                                faces: facesData,
+                                schema: "PSL2CtoSO31.export.v1",
+                                note: "sDF=(a,b,c,d). matrix is the 2x2 complex element as a compact string; word uses \\u22C5 as a separator."
+                            });
+
+                            try { localStorage.setItem('poincare_faces', facesJson); } catch (e) { /* ignore */ }
+
+                            const b64Vectors = btoa(payload);
+                            let url = `poincare.html?vectors=${encodeURIComponent(b64Vectors)}#source=poincare_input`;
+                            try {
+                                const b64Faces = btoa(facesJson);
+                                url = `poincare.html?vectors=${encodeURIComponent(b64Vectors)}&faces=${encodeURIComponent(b64Faces)}#source=poincare_input`;
+                            } catch (e) {
+                                // If base64 of faces fails for any reason, fall back to vectors-only URL
+                            }
+
                             window.location.href = url;
                         });
                     }

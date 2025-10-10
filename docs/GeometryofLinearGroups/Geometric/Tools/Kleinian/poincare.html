@@ -101,6 +101,7 @@
                 <p id="error-message" class="text-red-400 text-sm mt-2 h-4"></p>
                 <p id="selected-face-normal" class="text-xs text-gray-300 mt-1 h-4"></p>
                 <p id="selected-edge" class="text-xs text-gray-300 mt-1 h-4"></p>
+                <p id="selected-face-meta" class="text-xs text-gray-300 mt-1 whitespace-pre-wrap"></p>
             </div>
 
             <div>
@@ -205,6 +206,8 @@
         uniform float u_edge_global;       // global edge strength for all faces
         uniform float u_edge_select_boost; // multiplicative boost when the selected face participates in the edge
         uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected edge (-1, -1 if none)
+        uniform vec3 u_selected_vertex_pos; // position of selected vertex (inside ball)
+        uniform float u_selected_vertex_radius; // small radius for the highlight sphere
         
         const int MAX_PLANES = 256;
         
@@ -313,6 +316,13 @@
                 if (sdf > max_dist) { max_dist = sdf; face_id = float(fid_i); }
             }
 
+            // --- Optional vertex highlight sphere (rendered as a surface) ---
+            if (u_selected_vertex_radius > 0.0) {
+                float vSDF = -(length(p - u_selected_vertex_pos) - u_selected_vertex_radius);
+                // Use a large special face id that won't collide with regular faces
+                if (vSDF > max_dist) { max_dist = vSDF; face_id = 10000.0; }
+            }
+
             return vec2(max_dist, face_id);
         }
 
@@ -407,7 +417,12 @@
             
             if (hit) {
                 float faceId = sceneSDFWithId(p).y;
-                vec3 baseColor = faceColor(faceId);
+                vec3 baseColor;
+                if (faceId == 10000.0) {
+                    baseColor = vec3(1.0); // white for vertex sphere
+                } else {
+                    baseColor = faceColor(faceId);
+                }
                 vec3 normal = getNormal(p);
                 // Two-sided shading: ensure the normal faces the viewer
                 if (dot(normal, -rd) < 0.0) normal = -normal;
@@ -503,6 +518,154 @@
                 // ignore storage access errors
             }
             return null;
+        }
+
+        // --- Auto-detect faces metadata (words + group elements) exported by PSL2CtoSO31 ---
+        function getExternalFacesPayload() {
+            // Prefer explicit URL param ?faces= (Base64-encoded JSON)
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const fParam = params.get('faces');
+                if (fParam) {
+                    try {
+                        const decoded = atob(decodeURIComponent(fParam));
+                        const obj = JSON.parse(decoded);
+                        if (obj && typeof obj === 'object') return obj;
+                    } catch (e) {
+                        console.warn('Failed to decode faces param:', e);
+                    }
+                }
+            } catch (e) {
+                console.warn('URL parsing failed (faces):', e);
+            }
+            // Fallback: localStorage key written by PSL2CtoSO31.html
+            try {
+                const ls = localStorage.getItem('poincare_faces');
+                if (ls && ls.trim().length > 0) {
+                    const obj = JSON.parse(ls);
+                    if (obj && typeof obj === 'object') return obj;
+                }
+            } catch (e) { /* ignore storage errors */ }
+            return null;
+        }
+        function normalizeFacesMeta(obj) {
+            if (!obj || !Array.isArray(obj.faces)) return [];
+            const byId = [];
+            obj.faces.forEach((f, i) => {
+                const id = (typeof f.index === 'number' ? (f.index - 1) : i);
+                byId[id] = {
+                    word: (typeof f.word === 'string' ? f.word : ''),
+                    matrix: (typeof f.matrix === 'string' ? f.matrix : ''),
+                    sdf: Array.isArray(f.sdf) ? f.sdf : null
+                };
+            });
+            return byId;
+        }
+
+        // --- Complex & 2x2 helpers for PSL2(C) matrices encoded in face metadata ---
+        function parseComplexToken(tok) {
+            // Accept forms like: "a", "a+b*i", "a-bi", "bi", "-bi"
+            if (!tok && tok !== 0) return null;
+            const s = String(tok).trim().replace(/\s+/g, '');
+            // Handle pure imaginary like "bi" or "-bi"
+            if (/^[+-]?\d*\.?\d*(?:e[+-]?\d+)?i$/i.test(s)) {
+                const c = s.replace(/i$/i, '');
+                const im = (c === '' || c === '+' ? 1 : (c === '-' ? -1 : parseFloat(c)));
+                return { re: 0, im };
+            }
+            // a + b i  OR  a - b i  OR just a
+            const m = s.match(/^([+-]?\d*\.?\d*(?:e[+-]?\d+)?)?(?:([+-]\d*\.?\d*(?:e[+-]?\d+)?)i)?$/i);
+            if (m) {
+                const re = (m[1] && m[1] !== '' ? parseFloat(m[1]) : 0);
+                const im = (m[2] && m[2] !== '' ? parseFloat(m[2]) : 0);
+                return { re, im };
+            }
+            // Fallback simple real number
+            const re = parseFloat(s);
+            if (!Number.isNaN(re)) return { re, im: 0 };
+            return null;
+        }
+        function parseMatrixFromMetaString(s) {
+            // Expect something like "(a11 a12 a21 a22)" or "a11 a12 a21 a22" or comma-separated
+            if (!s || typeof s !== 'string') return null;
+            const inner = s.trim().replace(/[()\[\]]/g, ' ').trim();
+            const parts = inner.split(/[\s,]+/).filter(Boolean);
+            if (parts.length !== 4) return null;
+            const c = parts.map(parseComplexToken);
+            if (c.some(x => !x)) return null;
+            return [ [c[0], c[1]], [c[2], c[3]] ];
+        }
+        function cAdd(a, b) { return { re: a.re + b.re, im: a.im + b.im }; }
+        function cSub(a, b) { return { re: a.re - b.re, im: a.im - b.im }; }
+        function cMul(a, b) { return { re: a.re * b.re - a.im * b.im, im: a.re * b.im + a.im * b.re }; }
+        function cAbs(a) { return Math.hypot(a.re, a.im); }
+        function matMul2(A, B) {
+            return [
+                [ cAdd(cMul(A[0][0], B[0][0]), cMul(A[0][1], B[1][0])), cAdd(cMul(A[0][0], B[0][1]), cMul(A[0][1], B[1][1])) ],
+                [ cAdd(cMul(A[1][0], B[0][0]), cMul(A[1][1], B[1][0])), cAdd(cMul(A[1][0], B[0][1]), cMul(A[1][1], B[1][1])) ]
+            ];
+        }
+        function matInv2(A) {
+            const a=A[0][0], b=A[0][1], c=A[1][0], d=A[1][1];
+            const det = cSub(cMul(a,d), cMul(b,c));
+            const det2 = det.re*det.re + det.im*det.im;
+            if (det2 === 0) return null;
+            const invDet = { re: det.re/det2, im: -det.im/det2 };
+            return [
+                [ cMul( d, invDet), cMul({re:-b.re, im:-b.im}, invDet) ],
+                [ cMul({re:-c.re, im:-c.im}, invDet), cMul( a, invDet) ]
+            ];
+        }
+        function isIdentity2(A, eps=1e-6) {
+            // Projective normalization by a11 if possible
+            const a11 = A[0][0];
+            const s = cAbs(a11);
+            let B = A;
+            if (s > eps) {
+                const inv = { re: a11.re/(s*s), im: -a11.im/(s*s) };
+                B = [
+                    [ cMul(A[0][0], inv), cMul(A[0][1], inv) ],
+                    [ cMul(A[1][0], inv), cMul(A[1][1], inv) ]
+                ];
+            }
+            const id = [ [{re:1,im:0},{re:0,im:0}], [{re:0,im:0},{re:1,im:0}] ];
+            return cAbs(cSub(B[0][0], id[0][0]))<eps && cAbs(cSub(B[0][1], id[0][1]))<eps &&
+                   cAbs(cSub(B[1][0], id[1][0]))<eps && cAbs(cSub(B[1][1], id[1][1]))<eps;
+        }
+
+        // --- Edge cycle via alternating side pairings ---
+        function computeEdgeCycleByPairings(faceA, faceB) {
+            const metaA = (_facesMetaById && _facesMetaById[faceA]) ? _facesMetaById[faceA] : null;
+            const metaB = (_facesMetaById && _facesMetaById[faceB]) ? _facesMetaById[faceB] : null;
+            if (!metaA || !metaB || !metaA.matrix || !metaB.matrix) {
+                return { length: 1, ok: false, reason: 'missing matrices' };
+            }
+            const gA = parseMatrixFromMetaString(metaA.matrix);
+            const gB = parseMatrixFromMetaString(metaB.matrix);
+            if (!gA || !gB) return { length: 1, ok: false, reason: 'parse failed' };
+
+            const MAX_STEPS = 200;
+            function findLen(G1, G2) {
+                let prod = [ [{re:1,im:0},{re:0,im:0}], [{re:0,im:0},{re:1,im:0}] ];
+                for (let k=1; k<=MAX_STEPS; k++) {
+                    const M = (k % 2 === 1) ? G1 : G2;
+                    prod = matMul2(prod, M);
+                    // check projective identity
+                    if (isIdentity2([ [ {...prod[0][0] }, { ...prod[0][1] } ], [ { ...prod[1][0] }, { ...prod[1][1] } ] ])) {
+                        return k;
+                    }
+                }
+                return null;
+            }
+            const invA = matInv2(gA), invB = matInv2(gB);
+            const combos = [ [gA,gB], [gA,invB], [invA,gB], [invA,invB] ].filter(x => x[0] && x[1]);
+            const lens = [];
+            for (const [G1,G2] of combos) {
+                const L = findLen(G1, G2);
+                if (L) lens.push(L);
+            }
+            if (!lens.length) return { length: 1, ok: false, reason: 'no return ≤200' };
+            return { length: Math.min(...lens), ok: true };
         }
 
         // --- UI helpers: match fragment shader colors ---
@@ -618,6 +781,30 @@
         let _currentSphereRadii = [];
         let _currentPlaneNormals = [];
         let _currentFaceIdsByLine = [];
+        let _currentVertices = [];
+        let _facesMetaById = [];
+        function sceneSDFTop3CPU(p) {
+            // returns {bestVal, bestId, secondVal, secondId, thirdVal, thirdId}
+            const vals = [];
+            for (let i = 0; i < _currentSphereCenters.length; i++) {
+                const c = _currentSphereCenters[i];
+                const r = _currentSphereRadii[i];
+                const dist_to_sphere = p.clone().sub(c).length() - r;
+                const sdf = -dist_to_sphere;
+                vals.push({val:sdf, id:i});
+            }
+            const offset = _currentSphereCenters.length;
+            for (let j = 0; j < _currentPlaneNormals.length; j++) {
+                const n = _currentPlaneNormals[j];
+                const sdf = p.dot(n);
+                vals.push({val:sdf, id:offset + j});
+            }
+            vals.sort((a,b) => b.val - a.val);
+            const a = vals[0] || {val:-1e9, id:-1};
+            const b = vals[1] || {val:-1e9, id:-1};
+            const c = vals[2] || {val:-1e9, id:-1};
+            return {bestVal:a.val, bestId:a.id, secondVal:b.val, secondId:b.id, thirdVal:c.val, thirdId:c.id};
+        }
         function easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
         function flyCameraToDirection(dir, durationMs = 450) {
             const start = performance.now();
@@ -834,6 +1021,8 @@
                 u_edge_global: { value: 0.20 },       // subtle global edge line on all faces
                 u_edge_select_boost: { value: 0.45 }, // multiplicative boost when the selected face is part of the edge
                 u_selected_edge_faces: { value: new THREE.Vector2(-1, -1) },
+                u_selected_vertex_pos: { value: new THREE.Vector3(0,0,0) },
+                u_selected_vertex_radius: { value: 0.0 },
             };
             material = new THREE.ShaderMaterial({
                 vertexShader: document.getElementById('vertexShader').textContent,
@@ -873,6 +1062,8 @@
             } else {
                 vectorsEl.value = defaultVectors;
             }
+            // Load faces metadata (words + group elements) if present
+            _facesMetaById = normalizeFacesMeta(getExternalFacesPayload());
 
             const vectorsTA = document.getElementById('vectors');
             const gutterDiv = document.getElementById('vector-gutter');
@@ -982,6 +1173,32 @@
                             const nice = formatAngle(theta);
                             edgeOut.textContent = `Edge: faces ${_lastClickedFaceId} & ${faceId} — hyperbolic dihedral angle ≈ ${nice}`;
                         }
+                        // Compute algebraic edge cycle length and report angles list & total
+                        const cyc = computeEdgeCycleByPairings(_lastClickedFaceId, faceId);
+                        const theta0 = theta; // base dihedral in radians
+                        if (cyc && cyc.length && isFinite(theta0)) {
+                            const list = Array.from({length: cyc.length}, () => formatAngle(theta0));
+                            const total = cyc.length * theta0;
+                            const niceTotal = formatAngle(total);
+                            edgeOut.textContent += ` — cycle length ${cyc.length}; angles: [${list.join(', ')}]; total = ${niceTotal}`;
+                        }
+                        // Gentle visual hint for glued edges: pulse outlines
+                        if (cyc && cyc.ok && cyc.length>1) {
+                            const gutter = document.getElementById('vector-gutter');
+                            const i1 = _currentFaceIdsByLine.findIndex(x => x === _lastClickedFaceId);
+                            const i2 = _currentFaceIdsByLine.findIndex(x => x === faceId);
+                            const boxes = [];
+                            if (gutter) {
+                                if (i1>=0 && gutter.children[i1]) boxes.push(gutter.children[i1]);
+                                if (i2>=0 && gutter.children[i2]) boxes.push(gutter.children[i2]);
+                            }
+                            let t=0, pulses=Math.min(cyc.length,6);
+                            const iv = setInterval(()=>{
+                                boxes.forEach(b => { if (b) b.style.outline = (t%2? '2px solid #fff' : '2px dashed #aaa'); });
+                                t++;
+                                if (t>2*pulses){ clearInterval(iv); boxes.forEach(b=>{ if (b) b.style.outline='2px solid white'; }); }
+                            }, 180);
+                        }
                         // Set edge selection uniform
                         uniforms.u_selected_edge_faces.value.set(_lastClickedFaceId, faceId);
                         _lastClickedFaceId = null;
@@ -996,6 +1213,7 @@
                         if (edgeOut) edgeOut.textContent = '';
                         // Reset edge selection uniform
                         uniforms.u_selected_edge_faces.value.set(-1, -1);
+                        showFaceMeta(faceId, line);
                     }
                 });
             }
@@ -1160,7 +1378,45 @@
                     highlightGutterFaces([]);
                     // Reset edge selection state
                     _lastClickedFaceIdCanvas = null;
+                    const metaEl0 = document.getElementById('selected-face-meta');
+                    if (metaEl0) metaEl0.textContent = '';
                     return;
+                }
+
+                // If Alt is held, attempt vertex pick near the clicked location
+                if (ev.altKey) {
+                    // Ensure we have a surface hit point first (reuse marching below). We will run the standard march here quickly.
+                    let tV = Math.max(0, span ? span.t0 : 0);
+                    let pV = ro.clone().addScaledVector(rd, tV);
+                    let hitV = false;
+                    for (let i = 0; i < CPU_MAX_STEPS; i++) {
+                        if ((span && span.t1 > 0 && tV > span.t1) || tV > CPU_MAX_DIST) break;
+                        const { sdf } = sceneSDFWithIdCPU(pV);
+                        if (Math.abs(sdf) < CPU_HIT_THRESHOLD) { hitV = true; break; }
+                        const step = Math.max(Math.abs(sdf), 0.001);
+                        tV += step; pV.addScaledVector(rd, step);
+                    }
+                    if (!hitV) return; // nothing under cursor within ball
+
+                    // Inspect top-3 faces at pV; near a vertex the gaps shrink
+                    const { bestVal, bestId, secondVal, secondId, thirdVal, thirdId } = sceneSDFTop3CPU(pV);
+                    const gap1 = Math.max(0, bestVal - secondVal);
+                    const gap2 = Math.max(0, secondVal - thirdVal);
+                    const EDGE_EPS = uniforms.u_edge_width.value * 1.2; // heuristic threshold
+
+                    if (bestId >= 0 && secondId >= 0 && thirdId >= 0 && gap1 < EDGE_EPS && gap2 < EDGE_EPS) {
+                        // Consider pV a vertex; place a small highlight sphere here
+                        uniforms.u_selected_vertex_pos.value.copy(pV);
+                        uniforms.u_selected_vertex_radius.value = 0.03; // small sphere
+                        highlightGutterFaces([bestId, secondId, thirdId]);
+                        const out = document.getElementById('selected-face-normal');
+                        if (out) out.textContent = `Vertex ≈ (${pV.x.toFixed(3)}, ${pV.y.toFixed(3)}, ${pV.z.toFixed(3)})`;
+                        // Clear any edge selection
+                        uniforms.u_selected_edge_faces.value.set(-1, -1);
+                        // Keep the face pop but do not override with single-face selection
+                        return; // stop normal face/edge click handling
+                    }
+                    // If not near a vertex, fall through to regular handling
                 }
 
                 let t = Math.max(0, span.t0);
@@ -1189,6 +1445,8 @@
                     if (edgeOut1) edgeOut1.textContent = '';
                     highlightGutterFaces([]);
                     _lastClickedFaceIdCanvas = null;
+                    const metaEl0 = document.getElementById('selected-face-meta');
+                    if (metaEl0) metaEl0.textContent = '';
                     return;
                 }
 
@@ -1224,10 +1482,36 @@
                         const nice = formatAngle(theta);
                         edgeOut.textContent = `Edge: faces ${_lastClickedFaceIdCanvas} & ${hitId} — hyperbolic dihedral angle ≈ ${nice}`;
                     }
+                    const cyc = computeEdgeCycleByPairings(_lastClickedFaceIdCanvas, hitId);
+                    const theta0 = theta;
+                    if (cyc && cyc.length && isFinite(theta0)) {
+                        const list = Array.from({length: cyc.length}, () => formatAngle(theta0));
+                        const total = cyc.length * theta0;
+                        const niceTotal = formatAngle(total);
+                        edgeOut.textContent += ` — cycle length ${cyc.length}; angles: [${list.join(', ')}]; total = ${niceTotal}`;
+                    }
+                    if (cyc && cyc.ok && cyc.length>1) {
+                        const gutter = document.getElementById('vector-gutter');
+                        const i1 = _currentFaceIdsByLine.findIndex(x => x === _lastClickedFaceIdCanvas);
+                        const i2 = _currentFaceIdsByLine.findIndex(x => x === hitId);
+                        const boxes = [];
+                        if (gutter) {
+                            if (i1>=0 && gutter.children[i1]) boxes.push(gutter.children[i1]);
+                            if (i2>=0 && gutter.children[i2]) boxes.push(gutter.children[i2]);
+                        }
+                        let t=0, pulses=Math.min(cyc.length,6);
+                        const iv = setInterval(()=>{
+                            boxes.forEach(b => { if (b) b.style.outline = (t%2? '2px solid #fff' : '2px dashed #aaa'); });
+                            t++;
+                            if (t>2*pulses){ clearInterval(iv); boxes.forEach(b=>{ if (b) b.style.outline='2px solid white'; }); }
+                        }, 180);
+                    }
                     // Set edge selection uniform
                     uniforms.u_selected_edge_faces.value.set(_lastClickedFaceIdCanvas, hitId);
                     _lastClickedFaceIdCanvas = null;
                     // Do not update face selection or pop here (edge selection only)
+                    const metaEl0 = document.getElementById('selected-face-meta');
+                    if (metaEl0) metaEl0.textContent = '';
                     return;
                 } else {
                     _lastClickedFaceIdCanvas = hitId;
@@ -1235,10 +1519,14 @@
                     uniforms.u_selected_edge_faces.value.set(-1, -1);
                 }
 
+                // Hide vertex sphere when selecting a single face
+                uniforms.u_selected_vertex_radius.value = 0.0;
+
                 // Persistently hover the selected face and trigger a pop
                 uniforms.u_selected_face_id.value = Math.floor(hitId);
                 uniforms.u_hover_offset.value = 0.035;
                 triggerPop(hitId);
+                showFaceMeta(hitId, lineIndex);
 
                 // Edge selection with Shift (legacy: highlight top-2 faces at edge, but now overridden by Shift-click two faces)
                 if (ev.shiftKey) {
@@ -1257,6 +1545,31 @@
                     if (edgeOut) edgeOut.textContent = '';
                 }
             });
+        }
+
+        function showFaceMeta(faceId, lineIndexHint = null) {
+            const metaEl = document.getElementById('selected-face-meta');
+            if (!metaEl) return;
+            const fid = Number(faceId);
+            if (!Number.isFinite(fid) || fid < 0) { metaEl.textContent = ''; return; }
+            const meta = (_facesMetaById && _facesMetaById[fid]) ? _facesMetaById[fid] : null;
+
+            let lineTxt = '';
+            if (lineIndexHint !== null && lineIndexHint >= 0) {
+                const lines = (document.getElementById('vectors').value || '').split('\n').filter(l => l.trim() !== '');
+                if (lines[lineIndexHint]) lineTxt = lines[lineIndexHint].trim();
+            }
+
+            const parts = [];
+            parts.push(`Face ${fid}`);
+            if (lineTxt) parts.push(`from line: ${lineTxt}`);
+            if (meta) {
+                if (meta.word) parts.push(`word: ${meta.word}`);
+                if (meta.matrix) parts.push(`matrix: ${meta.matrix}`);
+            } else {
+                parts.push('(no metadata)');
+            }
+            metaEl.textContent = parts.join('\n');
         }
 
         function updateFromInput() {
@@ -1489,6 +1802,14 @@
                     faceIdsByLine[i] = undefined;
                 }
             }
+            // Align faces metadata array length to the number of faces
+            const totalFaces = sphereCenters.length + planeNormals.length;
+            if (!_facesMetaById || !Array.isArray(_facesMetaById)) _facesMetaById = [];
+            if (_facesMetaById.length < totalFaces) {
+                for (let k = _facesMetaById.length; k < totalFaces; k++) {
+                    _facesMetaById[k] = { word: '', matrix: '', sdf: null };
+                }
+            }
             // Update gutter colors to match face ordering in the shader
             renderGutter(lines.length, faceIdsByLine);
             // Persist latest parse for interactivity
@@ -1513,6 +1834,9 @@
                     uniforms.u_plane_normals.value[i].copy(planeNormals[i]);
                 }
             }
+            // Clear stale meta panel on re-parse
+            const metaElR = document.getElementById('selected-face-meta');
+            if (metaElR) metaElR.textContent = '';
             // If this session was opened with an external payload via localStorage, clear it after applying once
             try {
                 const srcHash = (window.location.hash || '');
