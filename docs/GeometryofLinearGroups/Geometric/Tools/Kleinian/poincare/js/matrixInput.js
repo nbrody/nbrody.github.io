@@ -89,6 +89,40 @@ export class Matrix2 {
         return this.a.mul(this.d).sub(this.b.mul(this.c));
     }
 
+    inverse() {
+        const det = this.determinant();
+        if (det.normSq() === 0) return null;
+        const invDet = new Complex(1, 0).div(det);
+        return new Matrix2(
+            this.d.mul(invDet),
+            this.b.mul(new Complex(-1, 0)).mul(invDet),
+            this.c.mul(new Complex(-1, 0)).mul(invDet),
+            this.a.mul(invDet)
+        );
+    }
+
+    isIdentity() {
+        const eps = 1e-9;
+        return Math.abs(this.a.re - 1) < eps && Math.abs(this.a.im) < eps &&
+               Math.abs(this.b.re) < eps && Math.abs(this.b.im) < eps &&
+               Math.abs(this.c.re) < eps && Math.abs(this.c.im) < eps &&
+               Math.abs(this.d.re - 1) < eps && Math.abs(this.d.im) < eps;
+    }
+
+    neg() {
+        const minus = new Complex(-1, 0);
+        return new Matrix2(
+            this.a.mul(minus),
+            this.b.mul(minus),
+            this.c.mul(minus),
+            this.d.mul(minus)
+        );
+    }
+
+    trace() {
+        return this.a.add(this.d);
+    }
+
     toString() {
         return `[[${this.a}, ${this.b}], [${this.c}, ${this.d}]]`;
     }
@@ -152,23 +186,9 @@ export function evalComplexExpression(expr) {
     }
 }
 
-// Example library
-const exampleLibrary = [
-    { name: 'Apollonian Gasket', mats: [['1', '1+i', '0', '1'], ['0', '-1', '1', '0']] },
-    { name: 'quasiSchottky', mats: [['\\sqrt{2}', '1', '1', '\\sqrt{2}'], ['\\sqrt{2}', 'i', '-i', '\\sqrt{2}']] },
-    { name: 'Modular group', mats: [['1', '1', '0', '1'], ['0', '-1', '1', '0']] },
-    { name: 'Borromean rings group', mats: [['1', '2', '0', '1'], ['1', 'i', '0', '1'], ['1', '0', '-1-i', '1']] },
-    { name: 'Z[i] congruence', mats: [['1', '2', '0', '1'], ['1', '2i', '0', '1'], ['0', '-1', '1', '0']] },
-    { name: 'Surface group', mats: [['2', '-2', '0', '1/2'], ['3', '4', '2', '3']] },
-    { name: 'Surface group 2', mats: [['\\sqrt{2}', '0', '0', '\\sqrt{\\frac{1}{2}}'], ['0', '-1', '1', '0'], ['1', '2', '2', '5']] },
-    { name: 'Figure eight knot group', mats: [['1', '\\frac{-1+ \\sqrt{3} i}{2}', '0', '1'], ['1', '0', '1', '1']] },
-    { name: 'Dense circles', mats: [['1', '2i', '0', '1'], ['\\frac{1}{\\sqrt{2}}', '\\frac{-1}{\\sqrt{2}}', '\\frac{1}{\\sqrt{2}}', '\\frac{1}{\\sqrt{2}}']] },
-    { name: 'P(1/3)', mats: [['1', '\\frac{\\sqrt{7}+i}{2}', '0', '1'], ['0', '-1', '1', '0']] },
-    { name: 'P(1/4)', mats: [['1', '\\sqrt{1+\\sqrt{1+2i}}', '0', '1'], ['0', '-1', '1', '0']] },
-    { name: 'P(2/5)', mats: [['1', '1.1028+0.6655i', '0', '1'], ['0', '-1', '1', '0']] },
-    { name: 'Hecke group', mats: [['1', '2\\cos(\\frac{\\pi}{n})', '0', '1'], ['0', '-1', '1', '0']] },
-    { name: 'Figure eight fiber', mats: [['\\frac{1+\\sqrt{3}i}{2}', '1', '\\frac{-1+\\sqrt{3}i}{2}', '1'], ['\\frac{1+\\sqrt{3}i}{2}', '-1', '\\frac{1-\\sqrt{3}i}{2}', '1']] }
-];
+// Group library
+import { exampleLibrary } from '../../assets/examplelibrary.js';
+
 
 // Add a matrix input UI element
 export function addMatrixInput(values = ['1', '0', '0', '1']) {
@@ -224,8 +244,13 @@ export function addMatrixInput(values = ['1', '0', '0', '1']) {
 function updateMatrixLabels() {
     const labels = document.querySelectorAll('#matrixInputs .matrix-label');
     labels.forEach((lbl, i) => {
-        lbl.innerHTML = `g<sub>${i + 1}</sub> = `;
+        lbl.innerHTML = `$g_${i + 1} = $`;
     });
+
+    // Render LaTeX with MathJax if available
+    if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+        MathJax.typesetPromise(labels).catch(err => console.warn('MathJax typeset error:', err));
+    }
 }
 
 // Get LaTeX from MathQuill field

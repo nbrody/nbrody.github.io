@@ -17,8 +17,8 @@ export function getTextareaMetrics() {
     return { lineHeight: lh, paddingTop: padTop };
 }
 
-// Render gutter with color-coded face IDs
-export function renderGutter(lineCount, faceIds, paletteMode) {
+// Render gutter with color-coded face IDs and LaTeX words
+export function renderGutter(lineCount, faceIds, wordsByLine, paletteMode) {
     const gutter = document.getElementById('vector-gutter');
     if (!gutter) return;
     const { lineHeight, paddingTop } = getTextareaMetrics();
@@ -27,9 +27,11 @@ export function renderGutter(lineCount, faceIds, paletteMode) {
     for (let i = 0; i < lineCount; i++) {
         const div = document.createElement('div');
         div.className = 'box';
-        div.style.height = lineHeight + 'px';
+        div.style.cssText = `position:relative; height:${lineHeight}px; width:100%; cursor:pointer;`;
         div.dataset.line = String(i);
         const fid = (faceIds && Number.isFinite(faceIds[i])) ? faceIds[i] : null;
+        const word = (wordsByLine && wordsByLine[i]) ? wordsByLine[i] : '';
+
         if (fid === null) {
             div.style.background = 'transparent';
             div.title = `Line ${i + 1}`;
@@ -37,7 +39,23 @@ export function renderGutter(lineCount, faceIds, paletteMode) {
             div.style.background = faceColorJS(fid, paletteMode);
             div.title = `Line ${i + 1} → face ${fid}`;
         }
+
+        // Add word display if present
+        if (word) {
+            const wordSpan = document.createElement('span');
+            wordSpan.className = 'gutter-word';
+            wordSpan.style.cssText = 'position:absolute; left:4px; top:50%; transform:translateY(-50%); font-size:11px; color:#000000; pointer-events:none; white-space:nowrap; max-width:72px; overflow:hidden; text-overflow:ellipsis;';
+            // Wrap word in $ delimiters for LaTeX rendering via MathJax
+            wordSpan.textContent = `$${word}$`;
+            div.appendChild(wordSpan);
+        }
+
         gutter.appendChild(div);
+    }
+
+    // Render LaTeX if MathJax is available
+    if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+        MathJax.typesetPromise([gutter]).catch(err => console.warn('MathJax typeset error:', err));
     }
 }
 

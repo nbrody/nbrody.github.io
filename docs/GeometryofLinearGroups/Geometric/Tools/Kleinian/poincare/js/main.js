@@ -24,6 +24,7 @@ import {
 } from './geometry.js';
 import { renderGutter, highlightGutterFaces, showFaceMeta, setupPager, setupPanelToggle } from './ui.js';
 import { setupMatrixInput, getMatricesFromUI, Complex } from './matrixInput.js';
+import { generateGroupElements, computeDelaunayNeighbors } from './dirichletUtils.js';
 
 // Constants
 const MAX_PLANES_CONST = 256;
@@ -47,6 +48,8 @@ let _currentSphereCenters = [];
 let _currentSphereRadii = [];
 let _currentPlaneNormals = [];
 let _currentFaceIdsByLine = [];
+let _currentWordsByLine = []; // Store word metadata for each line
+let _generatedWords = []; // Store words from matrix generation (not displayed in textarea)
 let _facesMetaById = [];
 let _paletteMode = 0;
 let _popActive = false;
@@ -96,15 +99,20 @@ function lookHeadOnAtFaceId(faceId) {
 }
 
 // Parse input and update uniforms
-async function updateFromInput() {
+async function updateFromInput(clearGeneratedWords = true) {
     const vectorText = document.getElementById('vectors').value.trim();
     const lines = vectorText.split('\n').filter(line => line.trim() !== '');
     const errorMessage = document.getElementById('error-message');
     errorMessage.textContent = '';
 
+    // Clear generated words if this is a manual update
+    if (clearGeneratedWords) {
+        _generatedWords = [];
+    }
+
     if (lines.length > MAX_PLANES_CONST) {
         errorMessage.textContent = `Error: Max ${MAX_PLANES_CONST} vectors allowed.`;
-        renderGutter(lines.length, null, _paletteMode);
+        renderGutter(lines.length, null, null, _paletteMode);
         _currentSphereCenters = [];
         _currentSphereRadii = [];
         _currentPlaneNormals = [];
@@ -117,14 +125,26 @@ async function updateFromInput() {
     const planeNormals = [];
     const lineKinds = [];
     const lineLocalIdx = [];
+    const wordsByLine = [];
 
-    for (const line of lines) {
+    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+        const line = lines[lineIdx];
+        // Extract word from comment (anything after #) or from generated words
+        const parts = line.split('#');
+        const cleanLine = parts[0].trim();
+        let word = parts.length > 1 ? parts[1].trim() : '';
+        // If no comment found, check if we have a generated word for this line
+        if (!word && _generatedWords && _generatedWords[lineIdx]) {
+            word = _generatedWords[lineIdx];
+        }
+        if (!cleanLine) continue;
+
         // Check for matrix input: (a, b, c, d)
-        const parenMatch = line.match(/^\s*\(\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*\)\s*$/);
+        const parenMatch = cleanLine.match(/^\s*\(\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*\)\s*$/);
         if (parenMatch) {
             if (!(typeof PSL2CtoSDF !== 'undefined' && PSL2CtoSDF)) {
                 errorMessage.textContent = `Matrix input requires PSL2CtoSDF.js to be loaded.`;
-                renderGutter(lines.length, null, _paletteMode);
+                renderGutter(lines.length, null, null, _paletteMode);
                 return;
             }
             const a = parseFloat(parenMatch[1]);
@@ -132,8 +152,8 @@ async function updateFromInput() {
             const c = parseFloat(parenMatch[3]);
             const d = parseFloat(parenMatch[4]);
             if ([a, b, c, d].some(x => Number.isNaN(x))) {
-                errorMessage.textContent = `Invalid matrix coefficients in line: "${line}"`;
-                renderGutter(lines.length, null, _paletteMode);
+                errorMessage.textContent = `Invalid matrix coefficients in line: "${cleanLine}"`;
+                renderGutter(lines.length, null, null, _paletteMode);
                 return;
             }
             try {
@@ -168,46 +188,48 @@ async function updateFromInput() {
                 const wSq = v.w * v.w;
                 if (nSq <= wSq) {
                     errorMessage.textContent = `Matrix-derived vector is not spacelike.`;
-                    renderGutter(lines.length, null, _paletteMode);
+                    renderGutter(lines.length, null, null, _paletteMode);
                     return;
                 }
                 if (Math.abs(v.w) < 1e-6) {
                     if (n.lengthSq() < 1e-6) {
                         errorMessage.textContent = `Matrix-derived zero vector is invalid.`;
-                        renderGutter(lines.length, null, _paletteMode);
+                        renderGutter(lines.length, null, null, _paletteMode);
                         return;
                     }
                     planeNormals.push(n.clone().normalize().negate());
                     lineKinds.push('plane');
                     lineLocalIdx.push(planeNormals.length - 1);
+                    wordsByLine.push(word);
                     continue;
                 } else {
                     sphereCenters.push(n.clone().divideScalar(v.w));
                     sphereRadii.push(Math.sqrt(nSq / wSq - 1));
                     lineKinds.push('sphere');
                     lineLocalIdx.push(sphereCenters.length - 1);
+                    wordsByLine.push(word);
                     continue;
                 }
             } catch (e) {
                 console.warn(e);
-                errorMessage.textContent = `Failed to convert matrix to sDF in line: "${line}"`;
-                renderGutter(lines.length, null, _paletteMode);
+                errorMessage.textContent = `Failed to convert matrix to sDF in line: "${cleanLine}"`;
+                renderGutter(lines.length, null, null, _paletteMode);
                 return;
             }
         }
 
         // Default: parse as [x, y, z, t]
-        const parts = line.split(',').map(s => parseFloat(s.trim()));
-        if (parts.length !== 4 || parts.some(isNaN)) {
-            errorMessage.textContent = `Invalid format: "${line}"`;
-            renderGutter(lines.length, null, _paletteMode);
+        const coords = cleanLine.split(',').map(s => parseFloat(s.trim()));
+        if (coords.length !== 4 || coords.some(isNaN)) {
+            errorMessage.textContent = `Invalid format: "${cleanLine}"`;
+            renderGutter(lines.length, null, null, _paletteMode);
             return;
         }
 
-        const v = new THREE.Vector4(...parts);
+        const v = new THREE.Vector4(...coords);
         if (v.w > 0) {
             errorMessage.textContent = `Final coordinate must be nonpositive (w <= 0).`;
-            renderGutter(lines.length, null, _paletteMode);
+            renderGutter(lines.length, null, null, _paletteMode);
             return;
         }
 
@@ -217,24 +239,26 @@ async function updateFromInput() {
 
         if (nSq <= wSq) {
             errorMessage.textContent = `Vector is not spacelike.`;
-            renderGutter(lines.length, null, _paletteMode);
+            renderGutter(lines.length, null, null, _paletteMode);
             return;
         }
 
         if (Math.abs(v.w) < 1e-6) {
             if (n.lengthSq() < 1e-6) {
                 errorMessage.textContent = `Vector [0,0,0,0] is invalid.`;
-                renderGutter(lines.length, null, _paletteMode);
+                renderGutter(lines.length, null, null, _paletteMode);
                 return;
             }
             planeNormals.push(n.clone().normalize().negate());
             lineKinds.push('plane');
             lineLocalIdx.push(planeNormals.length - 1);
+            wordsByLine.push(word);
         } else {
             sphereCenters.push(n.clone().divideScalar(v.w));
             sphereRadii.push(Math.sqrt(nSq / wSq - 1));
             lineKinds.push('sphere');
             lineLocalIdx.push(sphereCenters.length - 1);
+            wordsByLine.push(word);
         }
     }
 
@@ -256,6 +280,7 @@ async function updateFromInput() {
     _currentSphereRadii = sphereRadii.slice();
     _currentPlaneNormals = planeNormals.map(v => v.clone());
     _currentFaceIdsByLine = faceIdsByLine.slice();
+    _currentWordsByLine = wordsByLine.slice();
 
     // Update uniforms
     uniforms.u_num_sphere_planes.value = sphereCenters.length;
@@ -275,12 +300,12 @@ async function updateFromInput() {
         }
     }
 
-    renderGutter(lines.length, faceIdsByLine, _paletteMode);
+    renderGutter(lines.length, faceIdsByLine, wordsByLine, _paletteMode);
     const metaElR = document.getElementById('selected-face-meta');
     if (metaElR) metaElR.textContent = '';
 }
 
-// Convert matrices to vector format and update display
+// Convert matrices to vector format and update display using full Dirichlet algorithm
 async function updateFromMatrices() {
     const errorMessage = document.getElementById('matrix-error-message');
     if (errorMessage) errorMessage.textContent = '';
@@ -292,14 +317,37 @@ async function updateFromMatrices() {
             return;
         }
 
-        // Convert matrices to vector format using PSL2CtoSDF
+        // Check if PSL2CtoSDF is available
         if (typeof PSL2CtoSDF === 'undefined' || !PSL2CtoSDF) {
             if (errorMessage) errorMessage.textContent = 'PSL2CtoSDF.js is required for matrix conversion.';
             return;
         }
 
-        const vectors = [];
-        for (const mat of matrices) {
+        const wordLength = parseInt(document.getElementById('wordLength')?.value) || 4;
+
+        // Step 1: Generate all group elements up to word length
+        console.log(`Generating group elements up to word length ${wordLength}...`);
+        const groupElements = generateGroupElements(matrices, wordLength);
+        console.log(`Generated ${groupElements.length} group elements`);
+
+        // Step 2: Compute Dirichlet neighbors (faces that contribute to the domain)
+        console.log('Computing Dirichlet domain...');
+        const neighbors = computeDelaunayNeighbors(groupElements);
+        console.log(`Found ${neighbors.length} Dirichlet neighbors`);
+
+        if (neighbors.length === 0) {
+            if (errorMessage) {
+                errorMessage.textContent = 'No Dirichlet neighbors found. Try increasing word length.';
+            }
+            return;
+        }
+
+        // Step 3: Convert each neighbor matrix to covector using PSL2CtoSDF
+        const vectorsWithMeta = [];
+        for (const neighbor of neighbors) {
+            const mat = neighbor.g;
+            const word = neighbor.word || '';
+
             const A = PSL2CtoSDF.C(mat.a.re, mat.a.im);
             const B = PSL2CtoSDF.C(mat.b.re, mat.b.im);
             const C = PSL2CtoSDF.C(mat.c.re, mat.c.im);
@@ -327,21 +375,36 @@ async function updateFromMatrices() {
             }
 
             if (!cov || cov.length !== 4 || cov.some(v => !Number.isFinite(v))) {
-                throw new Error('Invalid sDF from matrix conversion');
+                console.warn('Invalid sDF for neighbor', word);
+                continue;
             }
 
             let [vx, vy, vz, vw] = cov;
             if (vw > 0) { vx = -vx; vy = -vy; vz = -vz; vw = -vw; }
 
-            vectors.push(`${vx}, ${vy}, ${vz}, ${vw}`);
+            vectorsWithMeta.push({
+                vector: [vx, vy, vz, vw],
+                word: word,
+                matrix: mat
+            });
         }
 
-        // Update the vectors textarea on page 2
+        // Step 4: Format and populate page 2 with vectors (store words separately)
         const vectorsEl = document.getElementById('vectors');
         if (vectorsEl) {
-            vectorsEl.value = vectors.join('\n');
-            await updateFromInput();
+            const lines = vectorsWithMeta.map(item => {
+                const [vx, vy, vz, vw] = item.vector;
+                return `${vx.toFixed(6)}, ${vy.toFixed(6)}, ${vz.toFixed(6)}, ${vw.toFixed(6)}`;
+            });
+            vectorsEl.value = lines.join('\n');
+
+            // Store words separately (not in textarea)
+            _generatedWords = vectorsWithMeta.map(item => item.word);
+
+            await updateFromInput(false);
         }
+
+        console.log(`Successfully generated ${vectorsWithMeta.length} vectors with metadata`);
 
     } catch (e) {
         console.error(e);
@@ -447,7 +510,7 @@ function setupEventHandlers() {
     window.addEventListener('resize', onWindowResize, false);
     window.addEventListener('resize', () => {
         const lines = (document.getElementById('vectors').value || '').split('\n').filter(l => l.trim() !== '');
-        renderGutter(lines.length, _currentFaceIdsByLine, _paletteMode);
+        renderGutter(lines.length, _currentFaceIdsByLine, _currentWordsByLine, _paletteMode);
     });
 
     document.getElementById('render-btn').addEventListener('click', updateFromInput);
@@ -479,7 +542,7 @@ function setupEventHandlers() {
             _paletteMode = map[v] ?? 0;
             uniforms.u_palette_mode.value = _paletteMode;
             const lines = (document.getElementById('vectors').value || '').split('\n').filter(l => l.trim() !== '');
-            renderGutter(lines.length, _currentFaceIdsByLine, _paletteMode);
+            renderGutter(lines.length, _currentFaceIdsByLine, _currentWordsByLine, _paletteMode);
         });
     }
 
@@ -676,10 +739,10 @@ function setupUI() {
         });
         vectorsTA.addEventListener('input', () => {
             const lines = vectorsTA.value.split('\n').filter(l => l.trim() !== '');
-            renderGutter(lines.length, _currentFaceIdsByLine, _paletteMode);
+            renderGutter(lines.length, _currentFaceIdsByLine, _currentWordsByLine, _paletteMode);
         });
     }
-    renderGutter((vectorsEl.value || '').split('\n').filter(l => l.trim() !== '').length, null, _paletteMode);
+    renderGutter((vectorsEl.value || '').split('\n').filter(l => l.trim() !== '').length, null, null, _paletteMode);
 
     // Populate examples dropdown
     const select = document.getElementById('example-select');

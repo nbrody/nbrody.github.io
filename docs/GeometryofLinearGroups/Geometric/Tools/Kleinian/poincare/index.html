@@ -12,6 +12,20 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady();
+                }
+            }
+        };
+    </script>
     <link rel="stylesheet" href="./css/styles.css">
 </head>
 
@@ -52,6 +66,12 @@
                 </select>
             </div>
 
+            <div class="mt-4">
+                <label for="wordLength" class="block text-sm font-medium text-gray-300 mb-2">Word Length</label>
+                <input id="wordLength" type="number" value="4" min="1" step="1"
+                    class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2">
+            </div>
+
             <button id="render-from-matrices-btn"
                 class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-4">
                 Generate from Matrices
@@ -72,10 +92,10 @@
                     ...}</label>
                 <div id="vector-input" class="relative">
                     <div id="vector-gutter"
-                        class="absolute left-0 top-0 bottom-0 w-4 bg-gray-800/60 border-r border-gray-700 overflow-hidden rounded-l-md">
+                        class="absolute left-0 top-0 bottom-0 w-20 bg-gray-800/60 border-r border-gray-700 overflow-hidden rounded-l-md">
                     </div>
                     <textarea id="vectors" rows="8"
-                        class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono pl-6 leading-6"></textarea>
+                        class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono pl-24 leading-6"></textarea>
                 </div>
                 <p id="error-message" class="text-red-400 text-sm mt-2 h-4"></p>
                 <p id="selected-face-normal" class="text-xs text-gray-300 mt-1 h-4"></p>

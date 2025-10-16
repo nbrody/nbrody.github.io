@@ -1,4 +1,4 @@
-const exampleLibrary = [
+export const exampleLibrary = [
     { name: 'Apollonian Gasket', 
         mats: [['1', '1+i', '0', '1'], ['0', '-1', '1', '0']] },
     { name: 'quasiSchottky', 
@@ -6,7 +6,7 @@ const exampleLibrary = [
     { name: 'Modular group', 
         mats: [['1', '1', '0', '1'], ['0', '-1', '1', '0']] },
     { name: 'Borromean rings group', 
-        mats: [['1', '2', '0', '1'], ['1', 'i', '0', '1'], ['1', '0', '-1-i', '1']] },
+        mats: [['1', '2', '0', '1'], ['1', 'i', '0', '1'], ['1', '0', '-1-i', '1'], ['1', '0', '1-i', '1']] },
     { name: 'Z[i] congruence', 
         mats: [['1', '2', '0', '1'], ['1', '2i', '0', '1'], ['0', '-1', '1', '0']] },
     { name: 'Surface group', 
