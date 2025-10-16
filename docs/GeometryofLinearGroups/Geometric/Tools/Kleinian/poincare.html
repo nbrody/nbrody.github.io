@@ -100,7 +100,7 @@
                 </div>
                 <p id="error-message" class="text-red-400 text-sm mt-2 h-4"></p>
                 <p id="selected-face-normal" class="text-xs text-gray-300 mt-1 h-4"></p>
-                <p id="selected-edge" class="text-xs text-gray-300 mt-1 h-4"></p>
+                <p id="selected-edge" class="text-sm text-gray-200 mt-2 mb-2 min-h-[3rem] whitespace-pre-wrap"></p>
                 <p id="selected-face-meta" class="text-xs text-gray-300 mt-1 whitespace-pre-wrap"></p>
             </div>
 
@@ -492,7 +492,7 @@
         import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
         import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls.js';
         import POLYHEDRA_LIBRARY from './assets/polyhedronLibrary.js';
-
+        
         // --- Auto-detect payload from other tools/pages ---
         function getExternalVectorsPayload() {
             // Prefer explicit URL param ?vectors= (Base64-encoded text)

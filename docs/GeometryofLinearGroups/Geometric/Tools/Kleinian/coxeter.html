@@ -107,6 +107,15 @@
     </div>
     <div class="controls">
         <h2>Coxeter Group Tools</h2>
+        <div style="margin-bottom:10px; padding:8px; background:#e9ecef; border-radius:5px;">
+            <label style="display:flex; align-items:center; cursor:pointer;">
+                <input type="checkbox" id="definingGraphMode" style="margin-right:8px; width:18px; height:18px; cursor:pointer;">
+                <strong>Use Defining Graph Convention</strong>
+            </label>
+            <p style="margin:4px 0 0 26px; font-size:12px; color:#555;">
+                <span id="conventionText">Coxeter: unlabeled = 3, no edge = 2</span>
+            </p>
+        </div>
         <p><strong>Cmd/Ctrl + Click</strong> on blank space to add vertex.</p>
         <p><strong>Click</strong> on a vertex to select.</p>
         <p><strong>Shift + Click</strong> on second vertex to draw edge.</p>
@@ -188,6 +197,21 @@
         clearBtn.addEventListener('click', clearGraph);
         const gramBtn = document.getElementById('gramBtn');
         gramBtn.addEventListener('click', computeAndShowGram);
+
+        const definingModeCheckbox = document.getElementById('definingGraphMode');
+        const conventionText = document.getElementById('conventionText');
+        const edgeInstruction = document.getElementById('edgeInstruction');
+
+        definingModeCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                conventionText.textContent = 'Defining: unlabeled = 2, no edge = ∞';
+                edgeInstruction.innerHTML = '<strong>Click</strong> on an edge to label it (≥2).';
+            } else {
+                conventionText.textContent = 'Coxeter: unlabeled = 3, no edge = 2';
+                edgeInstruction.innerHTML = '<strong>Click</strong> on an edge to label it (≥3).';
+            }
+            redraw(); // Redraw to update edge labels visibility
+        });
 
         // --- Functions ---
         function getMousePos(e) {
@@ -351,22 +375,74 @@
         }
 
         async function labelEdge(edge) {
+            const definingMode = document.getElementById('definingGraphMode').checked;
+            const minLabel = definingMode ? 2 : 3;
             let label = null;
+            let customValue = null;
             let isValid = false;
+
             while (!isValid) {
-                const input = prompt(`Enter a positive integer at least 3 for the edge between ${edge.v1} and ${edge.v2}:`, edge.label || '');
+                const currentLabel = edge.label === Infinity ? '∞' : (edge.label || '');
+                const input = prompt(
+                    `Enter a label for the edge between ${edge.v1} and ${edge.v2}:\n` +
+                    `• Integer ≥ ${minLabel}, or\n` +
+                    `• "inf" or "∞" for infinity`,
+                    currentLabel
+                );
+
                 if (input === null) { // User cancelled
                     break;
                 }
-                label = parseInt(input, 10);
-                if (isNaN(label) || label < 3) {
-                    alert('Invalid input. Please enter a positive integer greater than or equal to 3.');
+
+                const trimmed = input.trim().toLowerCase();
+
+                // Check if input is infinity
+                if (trimmed === 'inf' || trimmed === 'infinity' || trimmed === '∞') {
+                    label = Infinity;
+
+                    // Prompt for custom value
+                    let customIsValid = false;
+                    while (!customIsValid) {
+                        const customInput = prompt(
+                            `Enter a custom Gram matrix value for this edge (must be ≤ -2):`,
+                            edge.customValue !== undefined ? edge.customValue : '-2'
+                        );
+
+                        if (customInput === null) {
+                            // User cancelled custom value input
+                            break;
+                        }
+
+                        const customNum = parseFloat(customInput);
+                        if (isNaN(customNum)) {
+                            alert('Invalid input. Please enter a number.');
+                        } else if (customNum > -2) {
+                            alert('Value must be ≤ -2.');
+                        } else {
+                            customValue = customNum;
+                            customIsValid = true;
+                            isValid = true;
+                        }
+                    }
+
+                    if (!customIsValid) {
+                        // User cancelled, reset
+                        break;
+                    }
                 } else {
-                    isValid = true;
+                    // Try parsing as integer
+                    label = parseInt(input, 10);
+                    if (isNaN(label) || label < minLabel) {
+                        alert(`Invalid input. Please enter an integer ≥ ${minLabel}, or "inf" for infinity.`);
+                    } else {
+                        isValid = true;
+                    }
                 }
             }
+
             if (isValid) {
                 edge.label = label;
+                edge.customValue = customValue;
                 redraw();
             }
         }
@@ -382,6 +458,7 @@
         }
 
         function redraw() {
+            const definingMode = document.getElementById('definingGraphMode').checked;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             labelLayer.innerHTML = '';
 
@@ -399,7 +476,20 @@
                     ctx.stroke();
 
                     // Draw Edge Label
-                    if (edge.label !== null && edge.label !== 3) {
+                    // In Coxeter mode: show label if not null and not 3 (default)
+                    // In defining mode: always show label (including implicit 2)
+                    const shouldShowLabel = definingMode
+                        ? true  // Always show in defining mode
+                        : (edge.label !== null && edge.label !== 3); // In Coxeter mode, hide default 3
+
+                    let displayLabel;
+                    if (edge.label === Infinity) {
+                        displayLabel = '∞';
+                    } else {
+                        displayLabel = edge.label !== null ? edge.label : (definingMode ? 2 : 3);
+                    }
+
+                    if (shouldShowLabel) {
                         const midX = (v1.x + v2.x) / 2;
                         const midY = (v1.y + v2.y) / 2;
 
@@ -418,7 +508,7 @@
                         ctx.textBaseline = 'middle';
 
                         // Measure text and draw a white background box for readability
-                        const text = String(edge.label);
+                        const text = String(displayLabel);
                         const metrics = ctx.measureText(text);
                         const textWidth = metrics.width;
                         const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
@@ -489,22 +579,143 @@
             return map;
         }
 
+        // Convert m value to exact LaTeX form for special cases
+        function getExactForm(m, customValue = null) {
+            if (customValue !== null) {
+                return { latex: customValue.toFixed(NUM_PREC), numeric: customValue };
+            }
+
+            const val = -2 * Math.cos(Math.PI / m);
+            let latex;
+
+            switch(m) {
+                case 2:
+                    latex = '0';
+                    break;
+                case 3:
+                    latex = '-1';
+                    break;
+                case 4:
+                    latex = '-\\sqrt{2}';
+                    break;
+                case 5:
+                    latex = '\\frac{-1-\\sqrt{5}}{2}';
+                    break;
+                case 6:
+                    latex = '-\\sqrt{3}';
+                    break;
+                case Infinity:
+                    latex = '-2';
+                    break;
+                default:
+                    latex = `-2\\cos\\left(\\frac{\\pi}{${m}}\\right)`;
+                    break;
+            }
+
+            return { latex, numeric: val };
+        }
+
         function buildGramMatrix() {
+            const definingMode = document.getElementById('definingGraphMode').checked;
             const n = vertices.length;
             const idIndex = new Map(vertices.map((v, i) => [v.id, i]));
             const G = Array.from({ length: n }, () => Array(n).fill(0));
             const edgeMap = buildEdgeMap();
+
             for (let i = 0; i < n; i++) {
                 G[i][i] = 2; // convention: diagonal entries 2
             }
-            for (const e of edges) {
-                const i = idIndex.get(e.v1);
-                const j = idIndex.get(e.v2);
-                // If unlabeled, treat as m=2 (right angle), which gives 0 off-diagonal
-                const m = (e.label == null ? 3 : e.label);
-                const val = -2 * Math.cos(Math.PI / m);
-                G[i][j] = val;
-                G[j][i] = val;
+
+            if (definingMode) {
+                // Defining graph: no edge = m=∞, unlabeled edge = m=2
+                // Initialize off-diagonal to -2 (m=∞)
+                for (let i = 0; i < n; i++) {
+                    for (let j = 0; j < n; j++) {
+                        if (i !== j) G[i][j] = -2;
+                    }
+                }
+                // Then set edges to their specific values
+                for (const e of edges) {
+                    const i = idIndex.get(e.v1);
+                    const j = idIndex.get(e.v2);
+
+                    let val;
+                    if (e.customValue !== undefined && e.customValue !== null) {
+                        val = e.customValue;
+                    } else {
+                        const m = (e.label == null ? 2 : e.label);
+                        val = -2 * Math.cos(Math.PI / m);
+                    }
+
+                    G[i][j] = val;
+                    G[j][i] = val;
+                }
+            } else {
+                // Coxeter graph: no edge = m=2, unlabeled edge = m=3
+                // Off-diagonal starts at 0 (m=2 / right angle)
+                for (const e of edges) {
+                    const i = idIndex.get(e.v1);
+                    const j = idIndex.get(e.v2);
+
+                    let val;
+                    if (e.customValue !== undefined && e.customValue !== null) {
+                        val = e.customValue;
+                    } else {
+                        const m = (e.label == null ? 3 : e.label);
+                        val = -2 * Math.cos(Math.PI / m);
+                    }
+
+                    G[i][j] = val;
+                    G[j][i] = val;
+                }
+            }
+            return G;
+        }
+
+        // Build a matrix of exact LaTeX forms for display
+        function buildGramMatrixExact() {
+            const definingMode = document.getElementById('definingGraphMode').checked;
+            const n = vertices.length;
+            const idIndex = new Map(vertices.map((v, i) => [v.id, i]));
+            const G = Array.from({ length: n }, () => Array(n).fill(null));
+
+            for (let i = 0; i < n; i++) {
+                G[i][i] = '2'; // diagonal entries
+            }
+
+            if (definingMode) {
+                // Defining graph: no edge = m=∞, unlabeled edge = m=2
+                // Initialize off-diagonal to -2 (m=∞)
+                for (let i = 0; i < n; i++) {
+                    for (let j = 0; j < n; j++) {
+                        if (i !== j) G[i][j] = '-2';
+                    }
+                }
+                // Then set edges to their specific values
+                for (const e of edges) {
+                    const i = idIndex.get(e.v1);
+                    const j = idIndex.get(e.v2);
+                    const m = (e.label == null ? 2 : e.label);
+                    const exactForm = getExactForm(m, e.customValue);
+                    G[i][j] = exactForm.latex;
+                    G[j][i] = exactForm.latex;
+                }
+            } else {
+                // Coxeter graph: no edge = m=2, unlabeled edge = m=3
+                // Off-diagonal starts at 0 (m=2)
+                for (let i = 0; i < n; i++) {
+                    for (let j = 0; j < n; j++) {
+                        if (i !== j) G[i][j] = '0';
+                    }
+                }
+                for (const e of edges) {
+                    const i = idIndex.get(e.v1);
+                    const j = idIndex.get(e.v2);
+                    const m = (e.label == null ? 3 : e.label);
+                    const exactForm = getExactForm(m, e.customValue);
+                    G[i][j] = exactForm.latex;
+                    G[j][i] = exactForm.latex;
+                }
             }
             return G;
         }
@@ -512,6 +723,11 @@
         function formatMatrixLatex(M, prec = NUM_PREC) {
             const rows = M.map(row => row.map(x => Number(x).toFixed(prec)).join(' & '));
             return `\\bigl[ \\begin{array}{${'c'.repeat(M.length)}} ${rows.map(r => r + ' \\\\ ').join('')} \\end{array} \\bigr]`;
+        }
+
+        function formatMatrixLatexExact(M) {
+            const rows = M.map(row => row.join(' & '));
+            return `\\begin{bmatrix} ${rows.join(' \\\\ ')} \\end{bmatrix}`;
         }
 
         // --- Symmetric Jacobi eigenvalue algorithm ---
@@ -565,21 +781,29 @@
         }
 
         function computeAndShowGram() {
+            const definingMode = document.getElementById('definingGraphMode').checked;
             const resultsDiv = document.getElementById('results');
             if (vertices.length === 0) {
                 resultsDiv.innerHTML = '<em>No vertices yet. Build a graph first.</em>';
                 return;
             }
-            const G = buildGramMatrix();
+            const G = buildGramMatrix(); // numeric for eigenvalues
+            const GExact = buildGramMatrixExact(); // exact forms for display
             const evals = jacobiEigenvalues(G);
 
             // Build LaTeX output
-            const header = `\\(\\text{Gram matrix } G_{ii}=2,\\; G_{ij}=-2\\cos(\\frac{\\pi}{m_{ij}})\\text{)}\\)`;
-            const matTex = formatMatrixLatex(G);
+            const mode = definingMode ? 'Defining Graph' : 'Coxeter Graph';
+            const convention = definingMode
+                ? '(unlabeled = 2, no edge = ∞)'
+                : '(unlabeled = 3, no edge = 2)';
+            const header = `\\(\\textbf{${mode} ${convention}}\\)`;
+            const gramFormula = `\\(\\text{Gram matrix: } G_{ii}=2,\\; G_{ij}=-2\\cos(\\frac{\\pi}{m_{ij}})\\)`;
+            const matTex = formatMatrixLatexExact(GExact);
             const evalTex = evals.map(x => Number(x).toFixed(NUM_PREC)).join(', ');
 
             resultsDiv.innerHTML = `
-                <div style="margin-bottom:8px">${header}</div>
+                <div style="margin-bottom:4px">${header}</div>
+                <div style="margin-bottom:8px; font-size:14px;">${gramFormula}</div>
                 <div>\\( G = ${matTex} \\)</div>
                 <div style="margin-top:8px"><strong>Eigenvalues (numeric):</strong> \\(${evalTex}\\)</div>
             `;

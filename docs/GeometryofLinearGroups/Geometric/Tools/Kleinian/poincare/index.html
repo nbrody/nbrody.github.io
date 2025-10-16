@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyperbolic Polyhedron Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../assets/js/PSL2CtoSDF.js"></script>
+    <script src="../assets/polyhedronLibrary.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <link rel="stylesheet" href="./css/styles.css">
+</head>
+
+<body class="flex flex-col md:flex-row h-screen antialiased">
+    <!-- Controls and Info Panel -->
+    <div id="control-panel"
+        class="absolute top-4 right-4 w-96 max-h-[90vh] p-6 bg-gray-800 shadow-lg flex flex-col space-y-4 overflow-y-auto rounded-lg z-40 transition-transform transform"
+        style="transform: translateX(0);">
+        <!-- Panel Header: Pager + Collapse -->
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+                <button id="page-left"
+                    class="pager-btn w-7 h-7 rounded border border-gray-500 text-gray-200 text-xs flex items-center justify-center"
+                    disabled>◀</button>
+                <button id="page-right"
+                    class="pager-btn w-7 h-7 rounded border border-gray-500 text-gray-200 text-xs flex items-center justify-center">▶</button>
+            </div>
+        </div>
+        <div id="page-1" class="panel-page active">
+            <div>
+                <h2 class="text-xl font-semibold text-white mb-2">Matrix Input</h2>
+                <p class="text-sm text-gray-400 mb-3">Input generators as 2×2 matrices with complex entries.</p>
+            </div>
+
+            <div>
+                <div id="matrixInputs"></div>
+                <button id="addMatrixBtn"
+                    class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-2">
+                    + Add Matrix
+                </button>
+            </div>
+
+            <div class="mt-4">
+                <label for="matrix-example-select" class="block text-sm font-medium text-gray-300 mb-2">Examples</label>
+                <select id="matrix-example-select"
+                    class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <option value="">-- Select an Example --</option>
+                </select>
+            </div>
+
+            <button id="render-from-matrices-btn"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-4">
+                Generate from Matrices
+            </button>
+
+            <p id="matrix-error-message" class="text-red-400 text-sm mt-2 h-4"></p>
+        </div> <!-- end page-1 -->
+
+        <!-- Page 2: Vector Input (previously page 1) -->
+        <div id="page-2" class="panel-page">
+            <div>
+                <h1 class="text-2xl font-bold text-white">Hyperbolic Polyhedron</h1>
+                <p class="text-sm text-gray-400 mt-1">Poincaré Ball Model Visualization</p>
+            </div>
+
+            <div>
+                <label for="vectors" class="block text-sm font-medium text-gray-300 mb-2">Input Vectors S = {v₁, v₂,
+                    ...}</label>
+                <div id="vector-input" class="relative">
+                    <div id="vector-gutter"
+                        class="absolute left-0 top-0 bottom-0 w-4 bg-gray-800/60 border-r border-gray-700 overflow-hidden rounded-l-md">
+                    </div>
+                    <textarea id="vectors" rows="8"
+                        class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono pl-6 leading-6"></textarea>
+                </div>
+                <p id="error-message" class="text-red-400 text-sm mt-2 h-4"></p>
+                <p id="selected-face-normal" class="text-xs text-gray-300 mt-1 h-4"></p>
+                <p id="selected-edge" class="text-sm text-gray-200 mt-2 mb-2 min-h-[3rem] whitespace-pre-wrap"></p>
+                <p id="selected-face-meta" class="text-xs text-gray-300 mt-1 whitespace-pre-wrap"></p>
+            </div>
+
+            <div>
+                <select id="example-select"
+                    class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <option value="">-- Select an Example --</option>
+                </select>
+            </div>
+
+            <button id="render-btn"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                Render Polyhedron
+            </button>
+
+            <div class="flex items-center space-x-2">
+                <input id="auto-rotate" type="checkbox"
+                    class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+                <label for="auto-rotate" class="text-sm text-gray-300">Auto‑rotate scene</label>
+            </div>
+            <div class="flex items-center space-x-2">
+                <input id="toggle-boundary" type="checkbox"
+                    class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500" checked>
+                <label for="toggle-boundary" class="text-sm text-gray-300">Toggle boundary</label>
+            </div>
+
+            <div class="text-xs text-gray-500 pt-4 border-t border-gray-700">
+                <p><strong>Controls:</strong> Drag to rotate, scroll to zoom, right-drag to pan.</p>
+                <p><strong>Selection:</strong> Click a face to select it. <kbd>Shift</kbd>+Click near an edge to select
+                    the edge (highlights both faces in the gutter).</p>
+            </div>
+        </div> <!-- end page-2 -->
+
+        <!-- Page 3: Color Palette (previously page 2) -->
+        <div id="page-3" class="panel-page">
+            <div>
+                <h2 class="text-xl font-semibold text-white mb-2">Color Palette</h2>
+                <p class="text-sm text-gray-400 mb-3">Choose how faces are colored. This affects both the rendering and
+                    the gutter.</p>
+                <label for="palette-select" class="block text-sm font-medium text-gray-300 mb-1">Palette</label>
+                <select id="palette-select"
+                    class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <option value="colorful" selected>colorful</option>
+                    <option value="vaporwave">vaporwave</option>
+                    <option value="uc">UC colors (blue & gold)</option>
+                    <option value="halloween">halloween</option>
+                    <option value="tie-dye">tie-dye</option>
+                    <option value="sunset">sunset</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Page 4: How it Works (previously page 3) -->
+        <div id="page-4" class="panel-page">
+            <div class="info-panel text-sm text-gray-400 bg-gray-900/50 p-4 rounded-lg">
+                <h2 class="font-semibold text-white mb-2">How it Works</h2>
+                <p>This tool visualizes a polyhedron in the Poincaré ball model of hyperbolic 3-space.</p>
+                <ol class="list-decimal list-inside mt-2 space-y-1">
+                    <li>Enter a set of 4D vectors <code>[x, y, z, t]</code> above.</li>
+                    <li>Each vector <code>v</code> must be <strong>spacelike</strong> (i.e., x²+y²+z² > t²).</li>
+                    <li>You may also enter lines like <code>(a, b, c, d)</code>. These are interpreted as 2×2 matrices
+                        <code>\begin{pmatrix}a & b \\ c & d\end{pmatrix}</code>; we map them to SO(3,1) and compute
+                        their sDF hyperplanes automatically.</li>
+                    <li>The final coordinate <strong>t must be nonpositive (<= 0)</strong>.</li>
+                </ol>
+                <p class="mt-2">The point (0,0,0,1) in Minkowski space corresponds to the center of the ball.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Toggle Button (kept visible even when panel is collapsed) -->
+    <button id="toggle-panel-btn"
+        class="fixed top-4 right-4 rounded-full w-8 h-8 flex items-center justify-center z-50 border border-gray-400 text-gray-300 hover:bg-gray-700"
+        title="Collapse/Expand control panel">☰</button>
+
+    <!-- 3D Scene Container -->
+    <div id="container" class="flex-grow h-full w-full"></div>
+
+    <!-- Main Application Module -->
+    <script type="module" src="./js/main.js"></script>
+</body>
+
+</html>

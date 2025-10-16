@@ -1,0 +1,126 @@
+body {
+    font-family: 'Helvetica', sans-serif;
+    background-color: #111827;
+    /* gray-900 */
+    color: #d1d5db;
+    /* gray-300 */
+}
+
+#container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.info-panel a {
+    color: #60a5fa;
+    /* blue-400 */
+    text-decoration: underline;
+}
+
+/* Gutter boxes for vector lines */
+#vector-gutter {
+    /* allow clicking on gutter boxes */
+    pointer-events: auto;
+}
+
+#vector-gutter .box {
+    width: 12px;
+    height: 24px;
+    /* fallback; will be overridden by JS with the exact computed line-height */
+    cursor: pointer;
+    box-sizing: content-box;
+    /* ensure height matches content, not border/padding */
+}
+
+/* Keep gutter padding aligned with the textarea's top padding (set in JS) */
+#vector-gutter {
+    padding-top: 0;
+    /* will be set dynamically */
+}
+
+/* Pager */
+.pager-btn[disabled] {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.panel-page {
+    display: none;
+}
+
+.panel-page.active {
+    display: block;
+}
+
+/* Matrix input styles */
+.matrix-bracket {
+    display: inline-block;
+    font-size: 48px;
+    font-weight: normal;
+    line-height: 48px;
+    vertical-align: middle;
+    margin: 0 4px;
+    color: #d1d5db;
+}
+
+.matrix-grid-inline {
+    display: inline-grid;
+    grid-template-columns: repeat(2, minmax(40px, max-content));
+    grid-auto-rows: minmax(30px, max-content);
+    grid-gap: 4px;
+    vertical-align: middle;
+    margin: 0 4px;
+    align-items: start;
+}
+
+.matrix-grid-inline .mq-editable-field {
+    min-width: 40px;
+    min-height: 30px;
+    padding: 2px 4px;
+    font-size: 16px;
+    width: auto;
+    display: inline-block;
+    white-space: nowrap;
+    max-width: none;
+    overflow: visible;
+}
+
+.mq-matrix-input {
+    display: inline-block;
+    border: 1px solid #4b5563;
+    border-radius: 4px;
+    background: #374151;
+    padding: 2px 4px;
+    width: auto;
+    white-space: nowrap;
+    max-width: none;
+    overflow: visible;
+}
+
+.mq-matrix-input .mq-root-block {
+    display: inline-block;
+    overflow: visible;
+}
+
+.matrix-block {
+    margin-bottom: 8px;
+}
+
+.delete-matrix-btn {
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: background 0.2s;
+}
+
+.delete-matrix-btn:hover {
+    background: #dc2626;
+}
+
+.matrix-label {
+    color: #d1d5db;
+}
