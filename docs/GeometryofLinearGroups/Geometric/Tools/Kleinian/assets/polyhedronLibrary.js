@@ -1,4 +1,4 @@
-export const POLYHEDRA_LIBRARY = {
+export const polyhedronLibrary = {
   polyhedra: [
     {
       name: "Cube",
@@ -556,7 +556,7 @@ export const POLYHEDRA_LIBRARY = {
   ]
 };
 
-export default POLYHEDRA_LIBRARY;
+export default polyhedronLibrary;
 
 // Pretty but indiscrete: 
 // -1, -1, 0, -1

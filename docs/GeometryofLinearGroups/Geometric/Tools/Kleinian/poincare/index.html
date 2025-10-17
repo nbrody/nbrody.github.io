@@ -6,8 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hyperbolic Polyhedron Viewer</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="../assets/js/PSL2CtoSDF.js"></script>
-    <script src="../assets/polyhedronLibrary.js"></script>
+    <script src="js/PSL2CtoSDF.js"></script>
+    <script src="js/faceFilter.js"></script>
+    <script src="polyhedronLibrary.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
@@ -177,6 +178,13 @@
 
     <!-- 3D Scene Container -->
     <div id="container" class="flex-grow h-full w-full"></div>
+
+    <!-- 3D Label Overlay for face metadata -->
+    <div id="face-label-overlay"
+         class="absolute pointer-events-none bg-gray-900/90 text-white px-3 py-2 rounded-lg shadow-lg border border-gray-600 hidden"
+         style="z-index: 30; max-width: 300px;">
+        <div id="face-label-content"></div>
+    </div>
 
     <!-- Main Application Module -->
     <script type="module" src="./js/main.js"></script>

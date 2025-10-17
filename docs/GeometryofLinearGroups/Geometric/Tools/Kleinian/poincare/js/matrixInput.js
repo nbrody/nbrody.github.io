@@ -187,8 +187,10 @@ export function evalComplexExpression(expr) {
 }
 
 // Group library
-import { exampleLibrary } from '../../assets/examplelibrary.js';
+import { exampleLibrary } from '../../assets/grouplibrary.js';
 
+// Re-export for use in other modules
+export { exampleLibrary };
 
 // Add a matrix input UI element
 export function addMatrixInput(values = ['1', '0', '0', '1']) {

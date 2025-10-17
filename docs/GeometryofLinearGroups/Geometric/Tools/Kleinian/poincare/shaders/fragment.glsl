@@ -211,6 +211,7 @@ void main() {
 
     for (int i = 0; i < MAX_STEPS; i++) {
         if ((t_ball.y > 0.0 && t > t_ball.y) || t > MAX_DIST) break;
+
         float dist = sceneSDFWithId(p).x;
         if (abs(dist) < HIT_THRESHOLD) {
             hit = true;
