@@ -39,18 +39,94 @@ body {
     /* will be set dynamically */
 }
 
-/* Pager */
-.pager-btn[disabled] {
-    opacity: 0.4;
-    cursor: default;
+/* Tab System - light glass styling */
+.tab-btn {
+    flex: 1;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.panel-page {
+.tab-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.tab-btn.active {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
+
+.tab-content {
     display: none;
 }
 
-.panel-page.active {
+.tab-content.active {
     display: block;
+}
+
+/* Collapse Button - glass styling */
+.collapse-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.collapse-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
+}
+
+.collapse-icon {
+    display: inline-block;
+    transition: transform 0.3s ease;
+    font-weight: 300;
+    line-height: 1;
+}
+
+/* Collapsed state - instant, no animation */
+#control-panel.collapsed .collapse-icon {
+    transform: rotate(45deg);
+}
+
+#control-panel.collapsed .tab-btn {
+    display: none;
+}
+
+#control-panel.collapsed .tab-content {
+    display: none !important;
+}
+
+#control-panel.collapsed {
+    width: auto !important;
+    padding: 6px;
+    min-width: 0;
+}
+
+#control-panel.collapsed .flex.gap-2 {
+    gap: 0;
+    margin-bottom: 0;
 }
 
 /* Matrix input styles */
@@ -123,4 +199,87 @@ body {
 
 .matrix-label {
     color: #d1d5db;
+}
+
+/* Lightweight glass effect - minimal blur for performance */
+#control-panel {
+    /* Light glassmorphism with minimal 4px blur */
+    background: rgba(15, 15, 25, 0.85) !important;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Control groups - subtle glass styling */
+.control-group {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: background 0.2s ease;
+}
+
+.control-group:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Input styling - subtle glass effect */
+input[type="number"],
+input[type="text"],
+textarea,
+select {
+    background: rgba(31, 41, 55, 0.8) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    transition: all 0.2s ease;
+}
+
+input[type="number"]:focus,
+input[type="text"]:focus,
+textarea:focus,
+select:focus {
+    background: rgba(31, 41, 55, 0.95) !important;
+    border-color: rgba(99, 102, 241, 0.6) !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+    outline: none;
+}
+
+/* Button enhancements - subtle glass effects */
+button {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+/* Info sections - glass background */
+.info,
+.info-panel {
+    background: rgba(17, 24, 39, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+}
+
+/* Optimized scrollbar */
+#control-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+#control-panel::-webkit-scrollbar-track {
+    background: rgb(10, 10, 15);
+}
+
+#control-panel::-webkit-scrollbar-thumb {
+    background: rgb(60, 60, 70);
+}
+
+#control-panel::-webkit-scrollbar-thumb:hover {
+    background: rgb(80, 80, 90);
 }

@@ -58,6 +58,9 @@ let _popActive = false;
 let _popStart = 0;
 const _popDurationMs = 600;
 
+// Reusable objects to avoid GC overhead
+const _inverseViewProjectionMatrix = new THREE.Matrix4();
+
 // Animation helpers
 function triggerPop(faceId) {
     if (!Number.isFinite(faceId)) return;
@@ -519,8 +522,9 @@ async function init() {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 100);
     camera.position.set(0, 0, 1.8);
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
+    // Use pixelRatio=1 for much better performance (4x speedup on Retina displays)
+    renderer.setPixelRatio(1);
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
 
@@ -950,8 +954,9 @@ function animate() {
     requestAnimationFrame(animate);
     controls.update();
     camera.updateMatrixWorld();
-    const inverseViewProjectionMatrix = new THREE.Matrix4().multiplyMatrices(camera.matrixWorld, camera.projectionMatrixInverse);
-    uniforms.u_inverseViewProjectionMatrix.value.copy(inverseViewProjectionMatrix);
+    // Reuse existing matrix to avoid GC overhead
+    _inverseViewProjectionMatrix.multiplyMatrices(camera.matrixWorld, camera.projectionMatrixInverse);
+    uniforms.u_inverseViewProjectionMatrix.value.copy(_inverseViewProjectionMatrix);
     uniforms.u_cameraPosition.value.copy(camera.position);
 
     if (_popActive) {

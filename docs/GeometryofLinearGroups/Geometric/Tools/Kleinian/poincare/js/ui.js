@@ -156,44 +156,52 @@ function formatMatrixLatex(matrix) {
     return `\\begin{pmatrix} ${a} & ${b} \\\\ ${c} & ${d} \\end{pmatrix}`;
 }
 
-// Setup panel pager
+// Setup tab navigation
 export function setupPager() {
-    let pageIndex = 0; // 0..3
-    const pages = [
-        document.getElementById('page-1'),
-        document.getElementById('page-2'),
-        document.getElementById('page-3'),
-        document.getElementById('page-4')
-    ];
-    const leftBtn = document.getElementById('page-left');
-    const rightBtn = document.getElementById('page-right');
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
 
-    function showPage(i) {
-        pageIndex = Math.max(0, Math.min(3, i));
-        pages.forEach((p, idx) => { if (p) p.classList.toggle('active', idx === pageIndex); });
-        if (leftBtn) leftBtn.disabled = (pageIndex === 0);
-        if (rightBtn) rightBtn.disabled = (pageIndex === 3);
+    function showTab(tabName) {
+        // Update buttons
+        tabButtons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabName);
+        });
+
+        // Update content
+        tabContents.forEach(content => {
+            content.classList.toggle('active', content.id === `tab-${tabName}`);
+        });
     }
 
-    if (leftBtn) leftBtn.addEventListener('click', () => showPage(pageIndex - 1));
-    if (rightBtn) rightBtn.addEventListener('click', () => showPage(pageIndex + 1));
-    showPage(0);
+    // Add click handlers to tab buttons
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            showTab(btn.dataset.tab);
+        });
+    });
+
+    // Show first tab by default
+    showTab('group');
 }
 
 // Setup panel collapse/expand
 export function setupPanelToggle() {
     const panel = document.getElementById('control-panel');
-    const toggleBtn = document.getElementById('toggle-panel-btn');
-    let panelVisible = true;
+    const collapseBtn = document.getElementById('collapse-btn');
 
-    toggleBtn.addEventListener('click', () => {
-        panelVisible = !panelVisible;
-        if (panelVisible) {
-            panel.style.transform = 'translateX(0)';
-            toggleBtn.title = 'Collapse control panel';
+    if (!panel || !collapseBtn) return;
+
+    collapseBtn.addEventListener('click', () => {
+        const isCollapsed = panel.classList.contains('collapsed');
+
+        if (isCollapsed) {
+            // Expand
+            panel.classList.remove('collapsed');
+            collapseBtn.title = 'Collapse panel';
         } else {
-            panel.style.transform = 'translateX(110%)';
-            toggleBtn.title = 'Expand control panel';
+            // Collapse
+            panel.classList.add('collapsed');
+            collapseBtn.title = 'Expand panel';
         }
     });
 }
