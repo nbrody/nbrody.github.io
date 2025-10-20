@@ -1,0 +1,277 @@
+/**
+ * UI module: Gutter rendering, event handlers, and interaction logic
+ */
+
+import { faceColorJS } from './palette.js';
+
+// Get textarea metrics for gutter alignment
+export function getTextareaMetrics() {
+    const ta = document.getElementById('vectors');
+    const cs = window.getComputedStyle(ta);
+    let lh = parseFloat(cs.lineHeight);
+    if (isNaN(lh)) {
+        const fs = parseFloat(cs.fontSize) || 16;
+        lh = 1.5 * fs; // Tailwind leading-6 ≈ 1.5
+    }
+    const padTop = parseFloat(cs.paddingTop) || 0;
+    return { lineHeight: lh, paddingTop: padTop };
+}
+
+// Render gutter with color-coded face IDs and LaTeX words
+export function renderGutter(lineCount, faceIds, wordsByLine, paletteMode) {
+    const gutter = document.getElementById('vector-gutter');
+    if (!gutter) return;
+    const { lineHeight, paddingTop } = getTextareaMetrics();
+    gutter.style.paddingTop = paddingTop + 'px';
+    gutter.innerHTML = '';
+    for (let i = 0; i < lineCount; i++) {
+        const div = document.createElement('div');
+        div.className = 'box';
+        div.style.cssText = `position:relative; height:${lineHeight}px; width:100%; cursor:pointer;`;
+        div.dataset.line = String(i);
+        const fid = (faceIds && Number.isFinite(faceIds[i])) ? faceIds[i] : null;
+        const word = (wordsByLine && wordsByLine[i]) ? wordsByLine[i] : '';
+
+        if (fid === null) {
+            div.style.background = 'transparent';
+            div.title = `Line ${i + 1}`;
+        } else {
+            div.style.background = faceColorJS(fid, paletteMode);
+            div.title = `Line ${i + 1} → face ${fid}`;
+        }
+
+        // Add word display if present
+        if (word) {
+            const wordSpan = document.createElement('span');
+            wordSpan.className = 'gutter-word';
+            wordSpan.style.cssText = 'position:absolute; left:4px; top:50%; transform:translateY(-50%); font-size:11px; color:#000000; pointer-events:none; white-space:nowrap; max-width:72px; overflow:hidden; text-overflow:ellipsis;';
+            // Wrap word in \(...\) delimiters for inline LaTeX rendering via MathJax
+            wordSpan.textContent = `\\(${word}\\)`;
+            div.appendChild(wordSpan);
+        }
+
+        gutter.appendChild(div);
+    }
+
+    // Render LaTeX if MathJax is available
+    if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+        MathJax.typesetPromise([gutter]).catch(err => console.warn('MathJax typeset error:', err));
+    }
+}
+
+// Highlight specific faces in the gutter
+export function highlightGutterFaces(faceIdsArray, currentFaceIdsByLine) {
+    const gutter = document.getElementById('vector-gutter');
+    if (!gutter) return;
+    // Clear all
+    [...gutter.children].forEach(ch => ch.style.outline = 'none');
+    if (!Array.isArray(faceIdsArray) || faceIdsArray.length === 0) return;
+    // Map face IDs to input line indices and outline them
+    faceIdsArray.forEach(fid => {
+        const lineIndex = currentFaceIdsByLine.findIndex(x => x === fid);
+        if (lineIndex !== -1 && gutter.children[lineIndex]) {
+            gutter.children[lineIndex].style.outline = '2px solid white';
+        }
+    });
+}
+
+// Display face metadata
+export function showFaceMeta(faceId, lineIndexHint, facesMetaById) {
+    const metaEl = document.getElementById('selected-face-meta');
+    if (!metaEl) return;
+    const fid = Number(faceId);
+    if (!Number.isFinite(fid) || fid < 0) {
+        metaEl.innerHTML = '';
+        return;
+    }
+    const meta = (facesMetaById && facesMetaById[fid]) ? facesMetaById[fid] : null;
+
+    let lineTxt = '';
+    if (lineIndexHint !== null && lineIndexHint >= 0) {
+        const lines = (document.getElementById('vectors').value || '').split('\n').filter(l => l.trim() !== '');
+        if (lines[lineIndexHint]) lineTxt = lines[lineIndexHint].trim();
+    }
+
+    const parts = [];
+    parts.push(`<div><strong>Face ${fid}</strong></div>`);
+
+    if (lineTxt) {
+        parts.push(`<div class="text-xs mt-1">Vector: <code>${lineTxt}</code></div>`);
+    }
+
+    if (meta) {
+        if (meta.word) {
+            parts.push(`<div class="mt-2">Word: \\(${meta.word}\\)</div>`);
+        }
+        if (meta.matrix) {
+            // Format matrix in LaTeX
+            const matrixLatex = formatMatrixLatex(meta.matrix);
+            parts.push(`<div class="mt-2">Matrix: \\[${matrixLatex}\\]</div>`);
+        }
+    } else {
+        parts.push('<div class="text-xs text-gray-400 mt-1">(no metadata)</div>');
+    }
+
+    metaEl.innerHTML = parts.join('');
+
+    // Render LaTeX with MathJax if available
+    if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+        MathJax.typesetPromise([metaEl]).catch(err => console.warn('MathJax typeset error:', err));
+    }
+}
+
+// Helper function to format matrix object as LaTeX
+function formatMatrixLatex(matrix) {
+    if (!matrix) return '';
+
+    // Format complex number for LaTeX
+    const formatComplex = (c) => {
+        if (!c) return '0';
+        const re = c.re || 0;
+        const im = c.im || 0;
+
+        // Helper to format a single number
+        const fmt = (x) => {
+            if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x));
+            return x.toFixed(3);
+        };
+
+        if (Math.abs(im) < 1e-9) return fmt(re);
+        if (Math.abs(re) < 1e-9) {
+            if (Math.abs(im - 1) < 1e-9) return 'i';
+            if (Math.abs(im + 1) < 1e-9) return '-i';
+            return `${fmt(im)}i`;
+        }
+
+        const imPart = Math.abs(im - 1) < 1e-9 ? 'i' : Math.abs(im + 1) < 1e-9 ? 'i' : `${fmt(Math.abs(im))}i`;
+        const sign = im > 0 ? '+' : '-';
+        return `${fmt(re)}${sign}${imPart}`;
+    };
+
+    const a = formatComplex(matrix.a);
+    const b = formatComplex(matrix.b);
+    const c = formatComplex(matrix.c);
+    const d = formatComplex(matrix.d);
+
+    return `\\begin{pmatrix} ${a} & ${b} \\\\ ${c} & ${d} \\end{pmatrix}`;
+}
+
+// Setup panel pager
+export function setupPager() {
+    let pageIndex = 0; // 0..3
+    const pages = [
+        document.getElementById('page-1'),
+        document.getElementById('page-2'),
+        document.getElementById('page-3'),
+        document.getElementById('page-4')
+    ];
+    const leftBtn = document.getElementById('page-left');
+    const rightBtn = document.getElementById('page-right');
+
+    function showPage(i) {
+        pageIndex = Math.max(0, Math.min(3, i));
+        pages.forEach((p, idx) => { if (p) p.classList.toggle('active', idx === pageIndex); });
+        if (leftBtn) leftBtn.disabled = (pageIndex === 0);
+        if (rightBtn) rightBtn.disabled = (pageIndex === 3);
+    }
+
+    if (leftBtn) leftBtn.addEventListener('click', () => showPage(pageIndex - 1));
+    if (rightBtn) rightBtn.addEventListener('click', () => showPage(pageIndex + 1));
+    showPage(0);
+}
+
+// Setup panel collapse/expand
+export function setupPanelToggle() {
+    const panel = document.getElementById('control-panel');
+    const toggleBtn = document.getElementById('toggle-panel-btn');
+    let panelVisible = true;
+
+    toggleBtn.addEventListener('click', () => {
+        panelVisible = !panelVisible;
+        if (panelVisible) {
+            panel.style.transform = 'translateX(0)';
+            toggleBtn.title = 'Collapse control panel';
+        } else {
+            panel.style.transform = 'translateX(110%)';
+            toggleBtn.title = 'Expand control panel';
+        }
+    });
+}
+
+// 3D Label Overlay Management
+let _currentLabelFaceId = -1;
+let _currentLabelMeta = null;
+
+export function showFaceLabel3D(faceId, facesMetaById, position3D, camera, renderer) {
+    const overlay = document.getElementById('face-label-overlay');
+    const content = document.getElementById('face-label-content');
+    if (!overlay || !content) return;
+
+    const fid = Number(faceId);
+    if (!Number.isFinite(fid) || fid < 0) {
+        hideFaceLabel3D();
+        return;
+    }
+
+    _currentLabelFaceId = fid;
+    const meta = (facesMetaById && facesMetaById[fid]) ? facesMetaById[fid] : null;
+    _currentLabelMeta = meta;
+
+    // Build label content
+    const parts = [];
+    parts.push(`<div class="text-sm font-semibold">Face ${fid}</div>`);
+
+    if (meta) {
+        if (meta.word) {
+            parts.push(`<div class="mt-1 text-xs">\\(${meta.word}\\)</div>`);
+        }
+        if (meta.matrix) {
+            const matrixLatex = formatMatrixLatex(meta.matrix);
+            parts.push(`<div class="mt-1 text-xs">\\(${matrixLatex}\\)</div>`);
+        }
+    }
+
+    content.innerHTML = parts.join('');
+
+    // Position the overlay
+    updateFaceLabelPosition(position3D, camera, renderer);
+    overlay.classList.remove('hidden');
+
+    // Render LaTeX
+    if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+        MathJax.typesetPromise([content]).catch(err => console.warn('MathJax typeset error:', err));
+    }
+}
+
+export function updateFaceLabelPosition(position3D, camera, renderer) {
+    const overlay = document.getElementById('face-label-overlay');
+    if (!overlay || _currentLabelFaceId < 0) return;
+
+    // Project 3D position to screen coordinates
+    const vector = position3D.clone();
+    vector.project(camera);
+
+    const canvas = renderer.domElement;
+    const widthHalf = canvas.clientWidth / 2;
+    const heightHalf = canvas.clientHeight / 2;
+
+    const x = (vector.x * widthHalf) + widthHalf;
+    const y = -(vector.y * heightHalf) + heightHalf;
+
+    // Position with offset so it doesn't cover the face
+    overlay.style.left = `${x + 20}px`;
+    overlay.style.top = `${y - 30}px`;
+}
+
+export function hideFaceLabel3D() {
+    const overlay = document.getElementById('face-label-overlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+    }
+    _currentLabelFaceId = -1;
+    _currentLabelMeta = null;
+}
+
+export function getCurrentLabelFaceId() {
+    return _currentLabelFaceId;
+}

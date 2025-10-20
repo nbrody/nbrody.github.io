@@ -1,0 +1,241 @@
+/*
+ * Liquid Glass Styling
+ * Glassmorphism effects for UI elements
+ */
+
+:root {
+    /* Glass effect variables */
+    --glass-blur: 16px;
+    --glass-tint: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --shadow-color: rgba(0, 0, 0, 0.25);
+}
+
+/* Main Control Panel Glass Effect */
+.controls {
+    /* Glassmorphism effect */
+    background: rgba(15, 15, 25, 0.35);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    box-shadow:
+        0 8px 32px var(--shadow-color),
+        inset 0 0 40px rgba(255, 255, 255, 0.02);
+}
+
+.controls.minimized {
+    transform: scale(0.98);
+}
+
+.controls.minimized:hover {
+    background: rgba(15, 15, 25, 0.5);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1);
+    box-shadow:
+        0 12px 48px rgba(0, 0, 0, 0.35),
+        inset 0 0 60px rgba(255, 255, 255, 0.04);
+}
+
+.controls.minimized h2::after {
+    content: '◢◣';
+    display: block;
+    font-size: 10px;
+    margin-top: 4px;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: -2px;
+}
+
+/* Control Groups */
+.control-group {
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.03),
+        0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.2s ease;
+}
+
+.control-group:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Input Elements Glass */
+input[type="number"] {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: all 0.2s;
+}
+
+input[type="number"]:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+input[type="range"] {
+    accent-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Select Elements Glass */
+select {
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.2s;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+select:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+select:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+select option {
+    background: rgba(20, 20, 30, 0.95);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Button Glass Styling */
+button {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: rgba(255, 255, 255, 0.95);
+    transition: all 0.25s ease;
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.06),
+        0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.1),
+        0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+button:active {
+    transform: translateY(0);
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.03),
+        0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+button.secondary {
+    background: rgba(124, 58, 237, 0.1);
+    border-color: rgba(124, 58, 237, 0.2);
+}
+
+button.secondary:hover {
+    background: rgba(124, 58, 237, 0.18);
+    border-color: rgba(124, 58, 237, 0.3);
+}
+
+/* Info Box Glass */
+.info {
+    background: rgba(255, 255, 255, 0.015);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.info strong {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Stats Display Glass */
+#stats {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    color: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.05),
+        0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Custom Scrollbar Glass */
+.controls::-webkit-scrollbar {
+    width: 8px;
+}
+
+.controls::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+.controls::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.controls::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Firefox scrollbar */
+.controls {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.2);
+}
+
+/* Checkbox Glass */
+.checkbox-group input[type="checkbox"] {
+    accent-color: rgba(255, 255, 255, 0.7);
+}
+
+/* Sphere Item Glass */
+.sphere-item {
+    background: rgba(255, 255, 255, 0.025);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.2s ease;
+}
+
+.sphere-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.coord-input {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: all 0.2s;
+}
+
+.coord-input:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.08);
+}

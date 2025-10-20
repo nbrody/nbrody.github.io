@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4D Kleinian Group Visualizer</title>
+    <link rel="stylesheet" href="liquidGlass.css">
+    <style>
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #0a0a0f;
+            color: #e0e0e0;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 340px;
+            max-height: calc(100vh - 40px);
+            padding: 16px;
+            overflow-y: auto;
+            gap: 12px;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: move;
+            touch-action: none;
+        }
+
+        .controls.minimized {
+            width: 90px;
+            height: 70px;
+            min-height: 70px;
+            max-height: 70px;
+            overflow: hidden;
+            cursor: pointer;
+            padding: 12px;
+        }
+
+        .controls.minimized > *:not(h2) {
+            display: none;
+        }
+
+        .controls.minimized h2 {
+            margin: 0;
+            text-align: center;
+            font-size: 13px;
+            cursor: pointer;
+            line-height: 1.4;
+            font-weight: 300;
+        }
+
+        .controls.dragging {
+            transition: none;
+        }
+
+        .controls h2 {
+            margin: 0 0 12px 0;
+            font-size: 20px;
+            color: #fff;
+            font-weight: 300;
+            text-shadow: 0 2px 8px rgba(0, 212, 255, 0.4);
+            letter-spacing: 0.5px;
+        }
+
+        .controls h3 {
+            margin: 16px 0 8px 0;
+            font-size: 15px;
+            color: rgba(255, 255, 255, 0.85);
+            font-weight: 400;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 12px;
+        }
+
+        .control-group {
+            padding: 10px 12px;
+            margin: 6px 0;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 300;
+            margin-bottom: 6px;
+            color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 6px 0;
+            cursor: pointer;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            font-size: 13px;
+            margin: 2px 0;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .value-display {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            text-align: right;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+            font-weight: 400;
+        }
+
+        button {
+            padding: 11px 18px;
+            font-size: 13px;
+            cursor: pointer;
+            width: 100%;
+            margin: 6px 0;
+            font-weight: 300;
+            letter-spacing: 0.3px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 0;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .info {
+            padding: 10px 12px;
+            font-size: 12px;
+            margin: 8px 0;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.5;
+        }
+
+        .controls * {
+            cursor: default;
+        }
+
+        .controls input,
+        .controls select,
+        .controls button {
+            cursor: pointer;
+        }
+
+        .sphere-control {
+            background-color: #fff;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 6px 0;
+            border: 1px solid #dee2e6;
+        }
+
+        .sphere-control h4 {
+            margin: 0 0 6px 0;
+            font-size: 13px;
+            color: #007bff;
+        }
+
+        .coord-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 4px;
+        }
+
+        .coord-inputs input {
+            font-size: 11px;
+            padding: 4px;
+        }
+
+        #stats {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 10px 14px;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+            font-size: 11px;
+            z-index: 50;
+            letter-spacing: 0.5px;
+            font-weight: 400;
+        }
+
+        .sphere-item {
+            padding: 8px 10px;
+            margin: 6px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .sphere-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .sphere-coords {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+
+        .coord-input-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .coord-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        .coord-input {
+            width: 5em;
+            padding: 6px;
+            font-size: 12px;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+        }
+
+        .remove-sphere-btn {
+            width: 80px;
+            padding: 4px 10px;
+            font-size: 11px;
+            margin: 0;
+            background: rgba(255, 60, 60, 0.15);
+            border-color: rgba(255, 60, 60, 0.3);
+        }
+
+        .remove-sphere-btn:hover {
+            background: rgba(255, 60, 60, 0.25);
+            border-color: rgba(255, 60, 60, 0.5);
+        }
+
+        /* --- Tabbed control panel --- */
+        .tabbar {
+            display: flex;
+            gap: 8px;
+            margin: 8px 0 12px 0;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 8px 10px;
+            font-size: 12px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.85);
+            cursor: pointer;
+        }
+        .tab-btn.active {
+            background: rgba(0, 212, 255, 0.18);
+            border-color: rgba(0, 212, 255, 0.45);
+            color: #fff;
+        }
+        .panel-page { display: none; }
+        .panel-page.active { display: block; }
+    </style>
+</head>
+
+<body>
+    <div id="container"></div>
+    <div id="stats">FPS: 0</div>
+
+    <div class="controls" id="controlPanel">
+        <h2>4D Kleinian Group</h2>
+
+        <div class="tabbar">
+            <button class="tab-btn active" data-page="spheres">Spheres</button>
+            <button class="tab-btn" data-page="render">Render</button>
+            <button class="tab-btn" data-page="camera">Camera &amp; Presets</button>
+        </div>
+
+        <div class="panel-page active" id="page-render">
+        <div class="info">
+            <strong>Drag panel</strong> to move, <strong>double-click</strong> to minimize.<br>
+            <strong>Drag fractal</strong> to rotate, <strong>scroll</strong> to zoom, <strong>right-click drag</strong> to pan.
+        </div>
+
+        <h3>Rendering</h3>
+
+        <div class="control-group">
+            <label>Max Iterations: <span id="maxIterValue" class="value-display">50</span></label>
+            <input type="range" id="maxIterations" min="1" max="200" value="50" step="1">
+        </div>
+
+        <div class="control-group">
+            <label>Max March Steps: <span id="maxMarchValue" class="value-display">800</span></label>
+            <input type="range" id="maxMarchSteps" min="100" max="2000" value="800" step="50">
+        </div>
+
+        <h3>Colors</h3>
+
+        <div class="control-group">
+            <label>Color Palette</label>
+            <select id="colorPalette">
+                <!-- Options will be populated dynamically -->
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Coloring Scheme</label>
+            <select id="colorScheme">
+                <!-- Options will be populated dynamically -->
+            </select>
+        </div>
+
+        <div class="control-group" id="modulusControl" style="display: none;">
+            <label>Modulus Value: <span id="modulusValue" class="value-display">2</span></label>
+            <input type="range" id="modulus" min="2" max="20" value="2" step="1">
+        </div>
+        </div>
+
+        <div class="panel-page" id="page-spheres">
+            <h3>Sphere Configuration</h3>
+
+            <div class="control-group">
+                <label>Preset</label>
+                <select id="spherePreset">
+                    <!-- Options will be populated dynamically -->
+                </select>
+            </div>
+
+            <div class="info">
+                <strong>Spheres:</strong> <span id="sphereCount">8</span>
+            </div>
+
+            <div id="sphereList" style="max-height: 300px; overflow-y: auto;"></div>
+
+            <button id="addSphere">+ Add Sphere</button>
+
+            <h3>Geometry Parameters</h3>
+            <div class="control-group">
+                <label>Sphere Radius: <span id="sphereRValue" class="value-display">300.0</span></label>
+                <input type="range" id="sphereRadius" min="50" max="500" value="300" step="10">
+            </div>
+            <div class="control-group">
+                <label>Klein Sphere Radius: <span id="kleinRValue" class="value-display">125.0</span></label>
+                <input type="range" id="kleinSphereRadius" min="50" max="400" value="125" step="5">
+            </div>
+            <div class="control-group">
+                <label>Scaling Factor: <span id="scalingValue" class="value-display">0.08</span></label>
+                <input type="range" id="scalingFactor" min="0.01" max="0.2" value="0.08" step="0.01">
+            </div>
+        </div>
+
+        <div class="panel-page" id="page-camera">
+        <h3>Camera</h3>
+
+        <div class="control-group">
+            <label>FOV: <span id="fovValue" class="value-display">60°</span></label>
+            <input type="range" id="fov" min="30" max="120" value="60" step="5">
+        </div>
+
+        <button id="resetCamera">Reset Camera</button>
+
+        <h3>Presets</h3>
+        <button id="preset1">Default (Cyan/Purple)</button>
+        <button id="preset2" class="secondary">Tight + Fire Bands</button>
+        <button id="preset3" class="secondary">Wide + Ocean Flow</button>
+
+        <div class="info" style="margin-top: 12px;">
+            <strong>Credit:</strong> Shader by soma_arc (2016)<br>
+            Licensed under CC BY-NC-SA 3.0
+        </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import {
+            colorPalettes,
+            colorSchemes,
+            generatePaletteShaderCode,
+            generateColorSchemeShaderCode,
+            getPaletteOptions,
+            getColorSchemeOptions
+        } from './colorPalettes.js';
+        import {
+            spherePresets,
+            getPresetOptions,
+            getPresetSpheres,
+            getPresetNames
+        } from './4DexampleLibrary.js';
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 0, 2);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // OrbitControls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 0.5;
+        controls.maxDistance = 10;
+
+        // Uniforms for the shader
+        const uniforms = {
+            iResolution: { value: new THREE.Vector3(window.innerWidth, window.innerHeight, 1) },
+            sphereRadius: { value: 300.0 },
+            kleinSphereR: { value: 125.0 },
+            maxIterations: { value: 50 },
+            maxMarchSteps: { value: 800 },
+            scalingFactor: { value: 0.08 },
+            eye: { value: new THREE.Vector3(0, 0, 700) },
+            target: { value: new THREE.Vector3(0, 0, 0) },
+            up: { value: new THREE.Vector3(0, 1, 0) },
+            fovRadians: { value: Math.PI / 3 },
+            colorPalette: { value: 0 },
+            colorScheme: { value: 0 },
+            modulus: { value: 2 },
+            numSpheres: { value: 8 },
+            spherePositions: { value: [] },
+            sphereRadii: { value: [] }
+        };
+
+        // Initialize sphere positions and radii arrays with 20 empty values
+        for (let i = 0; i < 20; i++) {
+            uniforms.spherePositions.value.push(new THREE.Vector3(0, 0, 0));
+            uniforms.sphereRadii.value.push(300.0);
+        }
+
+        // Vertex shader (simple, keep inline)
+        const vertexShader = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = vec4(position, 1.0);
+            }
+        `;
+
+        // Load fragment shader from file
+        async function loadShader() {
+            const response = await fetch('./kleinian.frag');
+            let fragmentShader = await response.text();
+
+            // Generate and inject palette/color scheme code
+            const paletteShaderCode = generatePaletteShaderCode();
+            const colorSchemeCode = generateColorSchemeShaderCode();
+
+            // Replace palette code (including stub between START and END markers)
+            fragmentShader = fragmentShader.replace(
+                /\/\/ PALETTE_SHADER_CODE_INJECTION_POINT_START[\s\S]*?\/\/ PALETTE_SHADER_CODE_INJECTION_POINT_END/,
+                paletteShaderCode
+            );
+
+            // Replace color scheme code (including stub between START and END markers)
+            fragmentShader = fragmentShader.replace(
+                /\/\/ COLOR_SCHEME_CODE_INJECTION_POINT_START[\s\S]*?\/\/ COLOR_SCHEME_CODE_INJECTION_POINT_END/,
+                colorSchemeCode
+            );
+
+            return fragmentShader;
+        }
+
+        // Initialize scene async
+        loadShader().then(fragmentShader => {
+            // Create fullscreen quad with shader material
+            const material = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: vertexShader,
+                fragmentShader: fragmentShader
+            });
+
+            const geometry = new THREE.PlaneGeometry(2, 2);
+            const mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+
+            // Start animation loop
+            animate();
+        });
+
+        // Populate color palette dropdown
+        const paletteSelect = document.getElementById('colorPalette');
+        getPaletteOptions().forEach(option => {
+            const optionEl = document.createElement('option');
+            optionEl.value = option.value;
+            optionEl.textContent = option.name;
+            optionEl.title = option.description;
+            paletteSelect.appendChild(optionEl);
+        });
+
+        // Populate color scheme dropdown
+        const schemeSelect = document.getElementById('colorScheme');
+        getColorSchemeOptions().forEach(option => {
+            const optionEl = document.createElement('option');
+            optionEl.value = option.value;
+            optionEl.textContent = option.name;
+            optionEl.title = option.description;
+            schemeSelect.appendChild(optionEl);
+        });
+
+        // Populate sphere preset dropdown
+        const presetSelect = document.getElementById('spherePreset');
+        presetSelect.innerHTML = ''; // Clear existing options
+        getPresetOptions().forEach(option => {
+            const optionEl = document.createElement('option');
+            optionEl.value = option.value;
+            optionEl.textContent = option.name;
+            optionEl.title = option.description;
+            presetSelect.appendChild(optionEl);
+        });
+
+        // Current sphere state
+        let currentSpheres = getPresetSpheres('default');
+        let currentPreset = 'default';
+
+        // Update spheres in uniforms
+        function updateSphereUniforms() {
+            uniforms.numSpheres.value = currentSpheres.length;
+            for (let i = 0; i < 20; i++) {
+                if (i < currentSpheres.length) {
+                    uniforms.spherePositions.value[i].set(
+                        currentSpheres[i].x,
+                        currentSpheres[i].y,
+                        currentSpheres[i].z
+                    );
+                    uniforms.sphereRadii.value[i] = currentSpheres[i].r || 300.0;
+                } else {
+                    uniforms.spherePositions.value[i].set(0, 0, 0);
+                    uniforms.sphereRadii.value[i] = 300.0;
+                }
+            }
+            document.getElementById('sphereCount').textContent = currentSpheres.length;
+        }
+
+        // Render sphere list UI
+        function renderSphereList() {
+            const sphereList = document.getElementById('sphereList');
+            sphereList.innerHTML = '';
+
+            currentSpheres.forEach((sphere, index) => {
+                const item = document.createElement('div');
+                item.className = 'sphere-item control-group';
+                item.innerHTML = `
+                    <div class="sphere-item-header">
+                        <span>Sphere ${index + 1}</span>
+                        <button class="remove-sphere-btn" data-index="${index}">Remove</button>
+                    </div>
+                    <div class="sphere-coords">
+                        <div class="coord-input-wrapper">
+                            <span class="coord-label">X</span>
+                            <input class="coord-input" data-index="${index}" data-coord="x"
+                                   value="${sphere.x.toFixed(2)}" step="10">
+                        </div>
+                        <div class="coord-input-wrapper">
+                            <span class="coord-label">Y</span>
+                            <input class="coord-input" data-index="${index}" data-coord="y"
+                                   value="${sphere.y.toFixed(2)}" step="10">
+                        </div>
+                        <div class="coord-input-wrapper">
+                            <span class="coord-label">Z</span>
+                            <input class="coord-input" data-index="${index}" data-coord="z"
+                                   value="${sphere.z.toFixed(2)}" step="10">
+                        </div>
+                        <div class="coord-input-wrapper">
+                            <span class="coord-label">R</span>
+                            <input class="coord-input" data-index="${index}" data-coord="r"
+                                   value="${(sphere.r || 300).toFixed(2)}" step="10">
+                        </div>
+                    </div>
+                `;
+                sphereList.appendChild(item);
+            });
+
+            // Attach event listeners to coordinate inputs
+            document.querySelectorAll('.coord-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    const coord = e.target.dataset.coord;
+                    const value = parseFloat(e.target.value) || 0;
+                    currentSpheres[index][coord] = value;
+                    updateSphereUniforms();
+                    currentPreset = 'custom';
+                    document.getElementById('spherePreset').value = 'custom';
+                });
+            });
+
+            // Attach event listeners to remove buttons
+            document.querySelectorAll('.remove-sphere-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    currentSpheres.splice(index, 1);
+                    renderSphereList();
+                    updateSphereUniforms();
+                    currentPreset = 'custom';
+                    document.getElementById('spherePreset').value = 'custom';
+                });
+            });
+        }
+
+        // Load preset
+        function loadPreset(presetName) {
+            if (presetName === 'custom') {
+                // Keep current spheres
+                return;
+            }
+            currentSpheres = getPresetSpheres(presetName);
+            currentPreset = presetName;
+            renderSphereList();
+            updateSphereUniforms();
+        }
+
+        // Add sphere button
+        document.getElementById('addSphere').addEventListener('click', () => {
+            if (currentSpheres.length >= 20) {
+                alert('Maximum 20 spheres allowed');
+                return;
+            }
+            currentSpheres.push({ x: 0, y: 0, z: 0, r: 300 });
+            renderSphereList();
+            updateSphereUniforms();
+            currentPreset = 'custom';
+            document.getElementById('spherePreset').value = 'custom';
+        });
+
+        // Preset selector
+        document.getElementById('spherePreset').addEventListener('change', (e) => {
+            loadPreset(e.target.value);
+        });
+
+        // Initialize with default preset
+        loadPreset('default');
+
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            uniforms.iResolution.value.set(window.innerWidth, window.innerHeight, 1);
+        }
+        window.addEventListener('resize', onWindowResize);
+
+        // Panel drag and minimize functionality
+        const controlPanel = document.getElementById('controlPanel');
+        let isDraggingPanel = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let panelStartX = 0;
+        let panelStartY = 0;
+        let lastClickTime = 0;
+        const DOUBLE_CLICK_DELAY = 300; // ms
+
+        controlPanel.addEventListener('pointerdown', (e) => {
+            // Don't drag if clicking on interactive elements or scrollbar
+            if (e.target.matches('input, select, button, label')) {
+                return;
+            }
+
+            // Check if clicking on scrollbar area
+            const rect = controlPanel.getBoundingClientRect();
+            const scrollbarWidth = controlPanel.offsetWidth - controlPanel.clientWidth;
+            if (e.clientX > rect.right - scrollbarWidth) {
+                return;
+            }
+
+            // Check for double-click to minimize
+            const currentTime = Date.now();
+            if (currentTime - lastClickTime < DOUBLE_CLICK_DELAY) {
+                e.preventDefault();
+                controlPanel.classList.toggle('minimized');
+                lastClickTime = 0;
+                return;
+            }
+            lastClickTime = currentTime;
+
+            // Start dragging
+            e.preventDefault();
+            e.stopPropagation();
+            isDraggingPanel = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+
+            const panelRect = controlPanel.getBoundingClientRect();
+            panelStartX = panelRect.left;
+            panelStartY = panelRect.top;
+
+            controlPanel.classList.add('dragging');
+            document.addEventListener('pointermove', onPanelMove);
+            document.addEventListener('pointerup', onPanelUp, { once: true });
+        });
+
+        function onPanelMove(e) {
+            if (!isDraggingPanel) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            const dx = e.clientX - dragStartX;
+            const dy = e.clientY - dragStartY;
+
+            const newX = panelStartX + dx;
+            const newY = panelStartY + dy;
+
+            // Keep panel within viewport bounds
+            const maxX = window.innerWidth - controlPanel.offsetWidth;
+            const maxY = window.innerHeight - controlPanel.offsetHeight;
+
+            controlPanel.style.left = Math.max(0, Math.min(newX, maxX)) + 'px';
+            controlPanel.style.top = Math.max(0, Math.min(newY, maxY)) + 'px';
+            controlPanel.style.right = 'auto';
+        }
+
+        function onPanelUp() {
+            isDraggingPanel = false;
+            controlPanel.classList.remove('dragging');
+            document.removeEventListener('pointermove', onPanelMove);
+        }
+
+        // Ensure panel stays within bounds on window resize
+        window.addEventListener('resize', () => {
+            const rect = controlPanel.getBoundingClientRect();
+            const maxX = window.innerWidth - controlPanel.offsetWidth;
+            const maxY = window.innerHeight - controlPanel.offsetHeight;
+
+            if (rect.left > maxX || rect.top > maxY) {
+                controlPanel.style.left = Math.max(0, Math.min(rect.left, maxX)) + 'px';
+                controlPanel.style.top = Math.max(0, Math.min(rect.top, maxY)) + 'px';
+            }
+        });
+
+        // Parameter controls
+        const controls_ui = {
+            maxIterations: document.getElementById('maxIterations'),
+            maxMarchSteps: document.getElementById('maxMarchSteps'),
+            sphereRadius: document.getElementById('sphereRadius'),
+            kleinSphereRadius: document.getElementById('kleinSphereRadius'),
+            scalingFactor: document.getElementById('scalingFactor'),
+            fov: document.getElementById('fov')
+        };
+
+        // Update value displays
+        controls_ui.maxIterations.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            uniforms.maxIterations.value = val;
+            document.getElementById('maxIterValue').textContent = val;
+        });
+
+        controls_ui.maxMarchSteps.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            uniforms.maxMarchSteps.value = val;
+            document.getElementById('maxMarchValue').textContent = val;
+        });
+
+        controls_ui.sphereRadius.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            uniforms.sphereRadius.value = val;
+            document.getElementById('sphereRValue').textContent = val.toFixed(1);
+        });
+
+        controls_ui.kleinSphereRadius.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            uniforms.kleinSphereR.value = val;
+            document.getElementById('kleinRValue').textContent = val.toFixed(1);
+        });
+
+        controls_ui.scalingFactor.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            uniforms.scalingFactor.value = val;
+            document.getElementById('scalingValue').textContent = val.toFixed(2);
+        });
+
+        controls_ui.fov.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            uniforms.fovRadians.value = val * Math.PI / 180;
+            document.getElementById('fovValue').textContent = val + '°';
+        });
+
+        // Color controls
+        document.getElementById('colorPalette').addEventListener('change', (e) => {
+            uniforms.colorPalette.value = parseInt(e.target.value);
+        });
+
+        document.getElementById('colorScheme').addEventListener('change', (e) => {
+            const scheme = parseInt(e.target.value);
+            uniforms.colorScheme.value = scheme;
+
+            // Show/hide modulus control based on scheme (1 = Iteration Modulus)
+            const modulusControl = document.getElementById('modulusControl');
+            if (scheme === 1) {
+                modulusControl.style.display = 'block';
+            } else {
+                modulusControl.style.display = 'none';
+            }
+        });
+
+        document.getElementById('modulus').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            uniforms.modulus.value = val;
+            document.getElementById('modulusValue').textContent = val;
+        });
+
+        // Reset camera
+        document.getElementById('resetCamera').addEventListener('click', () => {
+            camera.position.set(0, 0, 2);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        });
+
+        // Presets
+        document.getElementById('preset1').addEventListener('click', () => {
+            controls_ui.sphereRadius.value = 300;
+            controls_ui.kleinSphereRadius.value = 125;
+            controls_ui.scalingFactor.value = 0.08;
+            controls_ui.maxIterations.value = 50;
+
+            uniforms.sphereRadius.value = 300;
+            uniforms.kleinSphereR.value = 125;
+            uniforms.scalingFactor.value = 0.08;
+            uniforms.maxIterations.value = 50;
+
+            // Default Cyan/Purple with Iteration Count
+            document.getElementById('colorPalette').value = '0';
+            document.getElementById('colorScheme').value = '0';
+            uniforms.colorPalette.value = 0;
+            uniforms.colorScheme.value = 0;
+            document.getElementById('modulusControl').style.display = 'none';
+
+            updateDisplays();
+        });
+
+        document.getElementById('preset2').addEventListener('click', () => {
+            controls_ui.sphereRadius.value = 200;
+            controls_ui.kleinSphereRadius.value = 100;
+            controls_ui.scalingFactor.value = 0.1;
+            controls_ui.maxIterations.value = 75;
+
+            uniforms.sphereRadius.value = 200;
+            uniforms.kleinSphereR.value = 100;
+            uniforms.scalingFactor.value = 0.1;
+            uniforms.maxIterations.value = 75;
+
+            // Fire palette with Modulus coloring
+            document.getElementById('colorPalette').value = '1';
+            document.getElementById('colorScheme').value = '1';
+            document.getElementById('modulus').value = '5';
+            uniforms.colorPalette.value = 1;
+            uniforms.colorScheme.value = 1;
+            uniforms.modulus.value = 5;
+            document.getElementById('modulusValue').textContent = '5';
+            document.getElementById('modulusControl').style.display = 'block';
+
+            updateDisplays();
+        });
+
+        document.getElementById('preset3').addEventListener('click', () => {
+            controls_ui.sphereRadius.value = 400;
+            controls_ui.kleinSphereRadius.value = 150;
+            controls_ui.scalingFactor.value = 0.06;
+            controls_ui.maxIterations.value = 40;
+
+            uniforms.sphereRadius.value = 400;
+            uniforms.kleinSphereR.value = 150;
+            uniforms.scalingFactor.value = 0.06;
+            uniforms.maxIterations.value = 40;
+
+            // Ocean palette with Position-Based coloring
+            document.getElementById('colorPalette').value = '2';
+            document.getElementById('colorScheme').value = '3';
+            uniforms.colorPalette.value = 2;
+            uniforms.colorScheme.value = 3;
+            document.getElementById('modulusControl').style.display = 'none';
+
+            updateDisplays();
+        });
+
+        function updateDisplays() {
+            document.getElementById('maxIterValue').textContent = uniforms.maxIterations.value;
+            document.getElementById('maxMarchValue').textContent = uniforms.maxMarchSteps.value;
+            document.getElementById('sphereRValue').textContent = uniforms.sphereRadius.value.toFixed(1);
+            document.getElementById('kleinRValue').textContent = uniforms.kleinSphereR.value.toFixed(1);
+            document.getElementById('scalingValue').textContent = uniforms.scalingFactor.value.toFixed(2);
+        }
+
+        // FPS counter
+        let lastTime = performance.now();
+        let frames = 0;
+        let fps = 0;
+
+        function updateFPS() {
+            const currentTime = performance.now();
+            frames++;
+            if (currentTime >= lastTime + 1000) {
+                fps = Math.round((frames * 1000) / (currentTime - lastTime));
+                document.getElementById('stats').textContent = `FPS: ${fps}`;
+                frames = 0;
+                lastTime = currentTime;
+            }
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            controls.update();
+
+            // Update shader camera uniforms from OrbitControls camera
+            // Scale to match shader coordinate system (shader uses ~700 units)
+            const scale = 350; // Scale factor to match shader's coordinate system
+            uniforms.eye.value.copy(camera.position).multiplyScalar(scale);
+            uniforms.target.value.copy(controls.target).multiplyScalar(scale);
+            uniforms.up.value.copy(camera.up);
+
+            renderer.render(scene, camera);
+            updateFPS();
+        }
+
+        animate();
+
+        // ---- Tabbed pages logic ----
+        const pages = {
+            render: document.getElementById('page-render'),
+            spheres: document.getElementById('page-spheres'),
+            camera: document.getElementById('page-camera')
+        };
+
+        function showPage(name) {
+            Object.values(pages).forEach(p => p.classList.remove('active'));
+            pages[name].classList.add('active');
+
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            const btn = document.querySelector(`.tab-btn[data-page="${name}"]`);
+            if (btn) btn.classList.add('active');
+        }
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => showPage(btn.dataset.page));
+        });
+
+        // Default page
+        showPage('spheres');
+    </script>
+</body>
+
+</html>
