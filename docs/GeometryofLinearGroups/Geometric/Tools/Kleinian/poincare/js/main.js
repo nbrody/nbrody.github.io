@@ -22,7 +22,7 @@ import {
     computeRayFromMouse,
     computeDihedralAngle
 } from './geometry.js';
-import { renderGutter, highlightGutterFaces, showFaceMeta, setupPager, setupPanelToggle, showFaceLabel3D, updateFaceLabelPosition, hideFaceLabel3D, getCurrentLabelFaceId } from './ui.js';
+import { renderGutter, highlightGutterFaces, showFaceMeta, setupPager, setupPanelToggle, showFaceLabel3D, updateFaceLabelPosition, hideFaceLabel3D, getCurrentLabelFaceId, showEdgeLabel3D, updateEdgeLabelPosition, hideEdgeLabel3D, getCurrentEdgeLabelPosition } from './ui.js';
 import { setupMatrixInput, getMatricesFromUI, Complex } from './matrixInput.js';
 import { generateGroupElements, computeDelaunayNeighbors } from './dirichletUtils.js';
 import { polyhedronLibrary } from '../../assets/polyhedronLibrary.js';
@@ -121,6 +121,64 @@ function getFaceCenter(faceId) {
         // The plane passes through origin with given normal, so we just use the normal direction
         return normal.clone().multiplyScalar(0.3);
     }
+}
+
+// Find a point on the edge between two faces
+// The edge is where both SDFs are approximately 0
+function findEdgePoint(faceId1, faceId2, initialGuess = null) {
+    if (!Number.isFinite(faceId1) || !Number.isFinite(faceId2)) return null;
+
+    // Start from initial guess or origin
+    let p = initialGuess ? initialGuess.clone() : new THREE.Vector3(0, 0, 0);
+
+    // Use gradient descent to find a point where both SDFs are close to 0
+    // and all other SDFs are >= 0
+    const maxIterations = 50;
+    const stepSize = 0.05;
+
+    for (let iter = 0; iter < maxIterations; iter++) {
+        const { sdf: sdf1 } = sceneSDFWithIdCPU(p, _currentSphereCenters, _currentSphereRadii, _currentPlaneNormals);
+
+        // Get normals for both faces
+        const eps = 0.001;
+        const px = p.clone().add(new THREE.Vector3(eps, 0, 0));
+        const py = p.clone().add(new THREE.Vector3(0, eps, 0));
+        const pz = p.clone().add(new THREE.Vector3(0, 0, eps));
+
+        const { bestId, bestVal } = sceneSDFTop2CPU(p, _currentSphereCenters, _currentSphereRadii, _currentPlaneNormals);
+        const { bestVal: vx } = sceneSDFTop2CPU(px, _currentSphereCenters, _currentSphereRadii, _currentPlaneNormals);
+        const { bestVal: vy } = sceneSDFTop2CPU(py, _currentSphereCenters, _currentSphereRadii, _currentPlaneNormals);
+        const { bestVal: vz } = sceneSDFTop2CPU(pz, _currentSphereCenters, _currentSphereRadii, _currentPlaneNormals);
+
+        const grad = new THREE.Vector3(
+            (vx - bestVal) / eps,
+            (vy - bestVal) / eps,
+            (vz - bestVal) / eps
+        );
+
+        // Move towards the inside of the polyhedron (negative gradient)
+        if (grad.lengthSq() > 1e-6) {
+            p.addScaledVector(grad.normalize(), -stepSize * Math.abs(bestVal));
+        }
+
+        // Check if we found a good edge point
+        const { bestId: id1, secondId: id2, bestVal: d1, secondVal: d2 } = sceneSDFTop2CPU(p, _currentSphereCenters, _currentSphereRadii, _currentPlaneNormals);
+
+        if ((id1 === faceId1 && id2 === faceId2) || (id1 === faceId2 && id2 === faceId1)) {
+            if (Math.abs(d1) < 0.02 && Math.abs(d2) < 0.02) {
+                return p;
+            }
+        }
+    }
+
+    // Fallback: return a point roughly between the face centers
+    const center1 = getFaceCenter(faceId1);
+    const center2 = getFaceCenter(faceId2);
+    if (center1 && center2) {
+        return center1.clone().add(center2).multiplyScalar(0.5).normalize().multiplyScalar(0.5);
+    }
+
+    return p;
 }
 
 // Parse input and update uniforms
@@ -266,7 +324,7 @@ async function updateFromInput(clearGeneratedWords = true) {
         wordsByLine.push(word);
     }
 
-    // === New: Filter covectors by strict support (keep only faces with a witness point) ===
+    // === Filter covectors by strict support (keep ONLY faces with a witness point) ===
     let survivorsIdx = [];
     const filterFn = (typeof window !== 'undefined' && typeof window.filterFaceDefiningCovectorsCone === 'function')
         ? window.filterFaceDefiningCovectorsCone
@@ -275,13 +333,16 @@ async function updateFromInput(clearGeneratedWords = true) {
     if (covRowsByLine.length > 0) {
         if (filterFn) {
             try {
-                survivorsIdx = filterFn(covRowsByLine.slice(), { eps: 1e-9, initBox: 1e6, strict_margin: 1e-9 });
+                // Use strict margin to ensure only faces with witness points are kept
+                survivorsIdx = filterFn(covRowsByLine.slice(), { eps: 1e-9, initBox: 1e6, strict_margin: 1e-6 });
+                console.log(`Filtered to ${survivorsIdx.length} faces with witness points (from ${covRowsByLine.length} total)`);
             } catch (e) {
                 console.warn('filterFaceDefiningCovectorsCone failed, falling back to keeping all:', e);
                 survivorsIdx = covRowsByLine.map((_, i) => i);
             }
         } else {
             // Fallback: keep all if filter utility is not available
+            console.warn('filterFaceDefiningCovectorsCone not available - keeping all covectors');
             survivorsIdx = covRowsByLine.map((_, i) => i);
         }
     }
@@ -360,6 +421,53 @@ async function updateFromInput(clearGeneratedWords = true) {
     if (metaElR) metaElR.textContent = '';
 }
 
+// Helper function to deduplicate covectors
+function deduplicateCovectors(covectors, words, matrices) {
+    const uniqueCovectors = [];
+    const uniqueWords = [];
+    const uniqueMatrices = [];
+
+    for (let i = 0; i < covectors.length; i++) {
+        const cov = covectors[i];
+        const [vx, vy, vz, vw] = cov;
+        const norm = Math.sqrt(vx*vx + vy*vy + vz*vz + vw*vw);
+        if (norm < 1e-12) continue; // skip degenerate
+
+        // Normalize: unit vector with w <= 0
+        let [nx, ny, nz, nw] = [vx/norm, vy/norm, vz/norm, vw/norm];
+        if (nw > 0) { nx = -nx; ny = -ny; nz = -nz; nw = -nw; }
+
+        // Check if this normalized covector already exists
+        let isDuplicate = false;
+        for (let j = 0; j < uniqueCovectors.length; j++) {
+            const [ux, uy, uz, uw] = uniqueCovectors[j];
+            const unorm = Math.sqrt(ux*ux + uy*uy + uz*uz + uw*uw);
+            const [unx, uny, unz, unw] = [ux/unorm, uy/unorm, uz/unorm, uw/unorm];
+
+            // Check if they're the same (allowing for numerical tolerance)
+            const diff = Math.sqrt(
+                Math.pow(nx - unx, 2) +
+                Math.pow(ny - uny, 2) +
+                Math.pow(nz - unz, 2) +
+                Math.pow(nw - unw, 2)
+            );
+
+            if (diff < 1e-6) {
+                isDuplicate = true;
+                break;
+            }
+        }
+
+        if (!isDuplicate) {
+            uniqueCovectors.push(cov);
+            uniqueWords.push(words[i]);
+            uniqueMatrices.push(matrices[i]);
+        }
+    }
+
+    return { uniqueCovectors, uniqueWords, uniqueMatrices };
+}
+
 // Convert matrices to vector format using direct covector filtering
 async function updateFromMatrices() {
     const errorMessage = document.getElementById('matrix-error-message');
@@ -392,8 +500,8 @@ async function updateFromMatrices() {
             return;
         }
 
-        // Step 2: Convert ALL group elements to covectors (including stabilizers!)
-        console.log('Converting all group elements to covectors...');
+        // Step 2: Convert all group elements to covectors
+        console.log('Converting group elements to covectors...');
         const allCovectors = [];
         const allWords = [];
         const allMatrices = [];
@@ -443,26 +551,44 @@ async function updateFromMatrices() {
 
         console.log(`Converted ${allCovectors.length} group elements to covectors`);
 
-        // Step 3: Filter covectors to keep only face-defining ones
-        console.log('Filtering face-defining covectors (including stabilizers)...');
+        // Step 3: Deduplicate covectors
+        console.log('Deduplicating covectors...');
+        const { uniqueCovectors, uniqueWords, uniqueMatrices } = deduplicateCovectors(
+            allCovectors, allWords, allMatrices
+        );
+        console.log(`Deduplicated to ${uniqueCovectors.length} unique covectors`);
+
+        // Step 4: Filter to keep ONLY covectors with witness points (faces that actually appear)
+        console.log('Filtering for faces with witness points (strict)...');
         let faceIndices = [];
 
         if (typeof window.filterFaceDefiningCovectorsCone === 'function') {
             try {
-                faceIndices = window.filterFaceDefiningCovectorsCone(allCovectors, {
+                // Use very strict filtering to ensure each face has a witness point
+                faceIndices = window.filterFaceDefiningCovectorsCone(uniqueCovectors, {
                     eps: 1e-9,
-                    strict_margin: 1e-9
+                    strict_margin: 1e-6  // Stricter margin to ensure witness point exists
                 });
+                console.log(`Strict filtering found ${faceIndices.length} faces with witness points`);
             } catch (e) {
-                console.warn('Face filtering failed, keeping all covectors:', e);
-                faceIndices = allCovectors.map((_, i) => i);
+                console.warn('Strict face filtering failed, trying lenient filter:', e);
+                try {
+                    faceIndices = window.filterFaceDefiningCovectorsCone(uniqueCovectors, {
+                        eps: 1e-9,
+                        strict_margin: 1e-9
+                    });
+                } catch (e2) {
+                    console.warn('All filtering failed, keeping all covectors:', e2);
+                    faceIndices = uniqueCovectors.map((_, i) => i);
+                }
             }
         } else {
-            console.warn('filterFaceDefiningCovectorsCone not available, keeping all covectors');
-            faceIndices = allCovectors.map((_, i) => i);
+            console.warn('filterFaceDefiningCovectorsCone not available - cannot verify witness points!');
+            console.warn('Keeping all covectors (may include non-face-defining ones)');
+            faceIndices = uniqueCovectors.map((_, i) => i);
         }
 
-        console.log(`Found ${faceIndices.length} face-defining covectors out of ${allCovectors.length}`);
+        console.log(`Final: ${faceIndices.length} faces with verified witness points`);
 
         if (faceIndices.length === 0) {
             if (errorMessage) {
@@ -471,14 +597,14 @@ async function updateFromMatrices() {
             return;
         }
 
-        // Step 4: Build vectorsWithMeta from face-defining covectors only
+        // Step 5: Build vectorsWithMeta from face-defining covectors only
         const vectorsWithMeta = faceIndices.map(idx => ({
-            vector: allCovectors[idx],
-            word: allWords[idx],
-            matrix: allMatrices[idx]
+            vector: uniqueCovectors[idx],
+            word: uniqueWords[idx],
+            matrix: uniqueMatrices[idx]
         }));
 
-        // Step 5: Format and populate page 2 with vectors (store words and metadata separately)
+        // Step 6: Format and populate textarea with vectors (store words and metadata separately)
         const vectorsEl = document.getElementById('vectors');
         if (vectorsEl) {
             const lines = vectorsWithMeta.map(item => {
@@ -668,6 +794,7 @@ function setupCanvasClickHandlers() {
             uniforms.u_hover_offset.value = 0.0;
             highlightGutterFaces([], _currentFaceIdsByLine);
             hideFaceLabel3D();
+            hideEdgeLabel3D();
             lastClickedFaceIdCanvas = null;
             return;
         }
@@ -696,6 +823,7 @@ function setupCanvasClickHandlers() {
                     if (normalOut) normalOut.textContent = `Vertex ≈ (${pV.x.toFixed(3)}, ${pV.y.toFixed(3)}, ${pV.z.toFixed(3)})`;
                     uniforms.u_selected_edge_faces.value.set(-1, -1);
                     hideFaceLabel3D();
+                    hideEdgeLabel3D();
                     return;
                 }
             }
@@ -724,6 +852,8 @@ function setupCanvasClickHandlers() {
             uniforms.u_selected_face_id.value = -1;
             uniforms.u_hover_offset.value = 0.0;
             highlightGutterFaces([], _currentFaceIdsByLine);
+            hideFaceLabel3D();
+            hideEdgeLabel3D();
             lastClickedFaceIdCanvas = null;
             return;
         }
@@ -750,19 +880,34 @@ function setupCanvasClickHandlers() {
         if (ev.shiftKey && lastClickedFaceIdCanvas !== null && lastClickedFaceIdCanvas !== hitId) {
             highlightGutterFaces([lastClickedFaceIdCanvas, hitId], _currentFaceIdsByLine);
             const theta = computeDihedralAngle(lastClickedFaceIdCanvas, hitId, _currentSphereCenters, _currentSphereRadii, _currentPlaneNormals);
+            const nice = formatAngle(theta);
+
             if (edgeOut) {
-                const nice = formatAngle(theta);
                 edgeOut.textContent = `Edge: faces ${lastClickedFaceIdCanvas} & ${hitId} — hyperbolic dihedral angle ≈ ${nice}`;
             }
+
+            let cycleInfo = null;
             const cyc = computeEdgeCycleByPairings(lastClickedFaceIdCanvas, hitId, _facesMetaById);
             if (cyc && cyc.length && isFinite(theta)) {
                 const list = Array.from({length: cyc.length}, () => formatAngle(theta));
                 const total = cyc.length * theta;
                 const niceTotal = formatAngle(total);
-                edgeOut.textContent += ` — cycle length ${cyc.length}; angles: [${list.join(', ')}]; total = ${niceTotal}`;
+                const cycleText = `Cycle length ${cyc.length}; total = ${niceTotal}`;
+                cycleInfo = cycleText;
+                if (edgeOut) {
+                    edgeOut.textContent += ` — ${cycleText}`;
+                }
             }
+
             uniforms.u_selected_edge_faces.value.set(lastClickedFaceIdCanvas, hitId);
             hideFaceLabel3D();
+
+            // Show 3D edge label on the edge
+            const edgePoint = findEdgePoint(lastClickedFaceIdCanvas, hitId, p);
+            if (edgePoint) {
+                showEdgeLabel3D(lastClickedFaceIdCanvas, hitId, nice, cycleInfo, edgePoint, camera, renderer);
+            }
+
             lastClickedFaceIdCanvas = null;
             return;
         } else {
@@ -778,11 +923,9 @@ function setupCanvasClickHandlers() {
         highlightGutterFaces([hitId], _currentFaceIdsByLine);
         if (edgeOut) edgeOut.textContent = '';
 
-        // Show 3D label on polyhedron
-        const faceCenter = getFaceCenter(hitId);
-        if (faceCenter) {
-            showFaceLabel3D(hitId, _facesMetaById, faceCenter, camera, renderer);
-        }
+        // Show 3D label on polyhedron - use actual hit point from click
+        hideEdgeLabel3D();
+        showFaceLabel3D(hitId, _facesMetaById, p, camera, renderer);
     });
 }
 
@@ -804,19 +947,34 @@ function setupGutterClickHandlers() {
         if (e.shiftKey && lastClickedFaceId !== null && lastClickedFaceId !== faceId) {
             highlightGutterFaces([lastClickedFaceId, faceId], _currentFaceIdsByLine);
             const theta = computeDihedralAngle(lastClickedFaceId, faceId, _currentSphereCenters, _currentSphereRadii, _currentPlaneNormals);
+            const nice = formatAngle(theta);
+
             if (edgeOut) {
-                const nice = formatAngle(theta);
                 edgeOut.textContent = `Edge: faces ${lastClickedFaceId} & ${faceId} — hyperbolic dihedral angle ≈ ${nice}`;
             }
+
+            let cycleInfo = null;
             const cyc = computeEdgeCycleByPairings(lastClickedFaceId, faceId, _facesMetaById);
             if (cyc && cyc.length && isFinite(theta)) {
                 const list = Array.from({length: cyc.length}, () => formatAngle(theta));
                 const total = cyc.length * theta;
                 const niceTotal = formatAngle(total);
-                edgeOut.textContent += ` — cycle length ${cyc.length}; angles: [${list.join(', ')}]; total = ${niceTotal}`;
+                const cycleText = `Cycle length ${cyc.length}; total = ${niceTotal}`;
+                cycleInfo = cycleText;
+                if (edgeOut) {
+                    edgeOut.textContent += ` — ${cycleText}`;
+                }
             }
+
             uniforms.u_selected_edge_faces.value.set(lastClickedFaceId, faceId);
             hideFaceLabel3D();
+
+            // Show 3D edge label on the edge
+            const edgePoint = findEdgePoint(lastClickedFaceId, faceId);
+            if (edgePoint) {
+                showEdgeLabel3D(lastClickedFaceId, faceId, nice, cycleInfo, edgePoint, camera, renderer);
+            }
+
             lastClickedFaceId = null;
         } else {
             lastClickedFaceId = faceId;
@@ -830,6 +988,7 @@ function setupGutterClickHandlers() {
             showFaceMeta(faceId, line, _facesMetaById);
 
             // Show 3D label on polyhedron
+            hideEdgeLabel3D();
             const faceCenter = getFaceCenter(faceId);
             if (faceCenter) {
                 showFaceLabel3D(faceId, _facesMetaById, faceCenter, camera, renderer);
@@ -970,13 +1129,18 @@ function animate() {
         }
     }
 
-    // Update 3D label position if visible
+    // Update 3D label positions if visible
     const currentLabelId = getCurrentLabelFaceId();
     if (currentLabelId >= 0) {
         const faceCenter = getFaceCenter(currentLabelId);
         if (faceCenter) {
             updateFaceLabelPosition(faceCenter, camera, renderer);
         }
+    }
+
+    const currentEdgePos = getCurrentEdgeLabelPosition();
+    if (currentEdgePos) {
+        updateEdgeLabelPosition(currentEdgePos, camera, renderer);
     }
 
     renderer.render(scene, camera);

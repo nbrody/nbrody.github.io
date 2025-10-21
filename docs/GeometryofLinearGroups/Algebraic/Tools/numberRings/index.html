@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Rings - Polynomial Ideal Analysis</title>
+    
+    <!-- MathQuill CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
+    
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.95;
+            font-weight: 300;
+        }
+        
+        .main-content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 1.4em;
+            color: #667eea;
+            margin-bottom: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+        }
+        
+        .input-area {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .polynomial-input {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        #math-input {
+            flex: 1;
+            font-size: 1.3em;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            background: white;
+            min-height: 50px;
+        }
+        
+        #math-input.mq-editable-field {
+            border: 2px solid #dee2e6;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        #math-input.mq-editable-field.mq-focused {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .polynomial-list {
+            margin-top: 25px;
+        }
+        
+        .polynomial-item {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #dee2e6;
+            transition: all 0.3s ease;
+        }
+        
+        .polynomial-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transform: translateX(5px);
+        }
+        
+        .polynomial-math {
+            font-size: 1.2em;
+            flex: 1;
+        }
+        
+        .btn-remove {
+            background: #dc3545;
+            color: white;
+            padding: 6px 12px;
+            font-size: 0.9em;
+        }
+        
+        .btn-remove:hover {
+            background: #c82333;
+        }
+        
+        .results-section {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 30px;
+            margin-top: 30px;
+            display: none;
+        }
+        
+        .results-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .result-box {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        /* Collapsible styling for the SageMath Code box */
+        .result-box.collapsible details > summary {
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        /* Remove default marker in WebKit */
+        .result-box.collapsible summary::-webkit-details-marker { 
+            display: none; 
+        }
+        .result-box.collapsible details > summary::after {
+            content: '▸'; /* caret */
+            font-size: 0.9em;
+            margin-left: auto;
+            opacity: 0.7;
+            transition: transform 0.2s ease;
+        }
+        .result-box.collapsible details[open] > summary::after {
+            content: '▾';
+        }
+        
+        .result-title {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+        }
+        
+        .result-content {
+            font-size: 1.05em;
+            line-height: 1.6;
+        }
+        
+        #sagecell {
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+        }
+        
+        .sage-output {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .info-box {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+        
+        .info-box h3 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .info-box p {
+            opacity: 0.95;
+            line-height: 1.6;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background: #dc3545;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .error-message.active {
+            display: block;
+        }
+        
+        .help-text {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-top: 10px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Number Rings</h1>
+            <p class="subtitle">Explore ℤ-Algebras, Valuations & Algebraic Number Fields</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="info-box">
+                <h3>📐 About This Tool</h3>
+                <p>Explore number rings and polynomial ideals over ℤ. For single variables: analyze number fields $\mathbb{Q}[x]/(f(x))$ with discriminants and valuations. For multiple variables: compute <strong>Gröbner bases over ℤ</strong> using integer arithmetic - perfect for studying ideal theory, elimination, and solving polynomial systems.</p>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Input Polynomials</h2>
+                <div class="input-area">
+                    <div class="polynomial-input">
+                        <span id="math-input"></span>
+                        <button class="btn btn-primary" onclick="addPolynomial()">
+                            <span>+</span> Add Polynomial
+                        </button>
+                    </div>
+                    <p class="help-text">Enter polynomials using x_1, x_2, etc. Example: x_1^2 + 2*x_2 - 3</p>
+                    
+                    <div class="polynomial-list" id="polynomial-list"></div>
+                    
+                    <div style="margin-top: 25px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="computeResults()" id="compute-btn">
+                            Generate Number Ring
+                        </button>
+                        <button class="btn btn-secondary" onclick="loadRandomSample()">
+                            Sample Ideal
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearAll()">
+                            Clear All
+                        </button>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <label for="ordering-select" style="font-weight: 500;">Monomial Ordering:</label>
+                            <select id="ordering-select" style="padding: 8px 12px; border-radius: 6px; border: 2px solid #dee2e6; background: white; font-size: 1em; cursor: pointer;">
+                                <option value="lex">Lexicographic (lex)</option>
+                                <option value="grlex">Graded Lexicographic (grlex)</option>
+                                <option value="grevlex" selected>Graded Reverse Lex (grevlex)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="results-section" id="results-section">
+                <h2 class="section-title">Analysis Results</h2>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Computing number ring properties and valuations...</p>
+                </div>
+                
+                <div id="results-content">
+                    <div class="result-box">
+                        <div class="result-title">Number Ring</div>
+                        <div class="result-content" id="ring-info"></div>
+                    </div>
+
+                    <div class="result-box">
+                        <div class="result-title">Ring Properties</div>
+                        <div class="result-content" id="properties-info"></div>
+                    </div>
+
+                    <div class="result-box">
+                        <div class="result-title">Valuations</div>
+                        <div class="result-content" id="valuations-info"></div>
+                    </div>
+
+                    <div class="result-box">
+                        <div class="result-title">Analysis Details</div>
+                        <div class="result-content" id="analysis-info"></div>
+                    </div>
+
+                    <div class="error-message" id="error-message"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- jQuery (required for MathQuill) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    
+    <!-- MathQuill JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+
+    <!-- Number Ring Library -->
+    <script src="numberRing.js"></script>
+
+    <!-- Grobner Bases Library -->
+    <script src="grobnerBases.js"></script>
+
+    <script>
+        // Initialize MathQuill
+        const MQ = MathQuill.getInterface(2);
+        let mathField;
+        let polynomials = [];
+
+        // Library of sample ideals (each entry is an array of LaTeX-like strings)
+        const sampleIdealLibrary = [
+            { label: 'ℚ(√2)', polys: ['x_1^2-2'] },
+            { label: 'ℚ(√3)', polys: ['x_1^2-3'] },
+            { label: 'ℚ(√-1)', polys: ['x_1^2+1'] },
+            { label: 'Golden ratio field', polys: ['x_1^2-x_1-1'] },
+            { label: 'ℤ[1/65]', polys: ['65*x_1-1'] },
+            { label: 'ℤ[1/6]', polys: ['6*x_1-1'] },
+            { label: 'Cubic', polys: ['x_1^3-2'] },
+            { label: 'Multivariate 1', polys: ['x_1^2-2', 'x_2^2-3'] },
+            { label: 'Multivariate 2', polys: ['x_1^2-1', 'x_1*x_2-x_2', 'x_2^2-x_2'] },
+            { label: 'Circle intersection', polys: ['x_1^2+x_2^2-1', 'x_1-x_2'] },
+            { label: 'Twisted cubic', polys: ['x_2-x_1^2', 'x_3-x_1^3'] }
+        ];
+
+        function loadRandomSample() {
+            // Pick a random sample
+            const pick = sampleIdealLibrary[Math.floor(Math.random() * sampleIdealLibrary.length)];
+
+            // Reset current state
+            polynomials = [];
+            document.getElementById('results-section').classList.remove('active');
+            if (typeof mathField !== 'undefined') {
+                mathField.latex('');
+            }
+
+            // Add each polynomial from the sample ideal
+            pick.polys.forEach((latexStr, idx) => {
+                polynomials.push({
+                    latex: latexStr,
+                    readable: convertLatexToPolynomial(latexStr),
+                    id: Date.now() + idx
+                });
+            });
+
+            // Update the list display
+            updatePolynomialList();
+        }
+        
+        $(document).ready(function() {
+            // Initialize MathQuill input field
+            const mathFieldSpan = document.getElementById('math-input');
+            mathField = MQ.MathField(mathFieldSpan, {
+                spaceBehavesLikeTab: true,
+                handlers: {
+                    enter: function() {
+                        addPolynomial();
+                    }
+                }
+            });
+            
+            // Focus on input field
+            mathField.focus();
+        });
+        
+        function addPolynomial() {
+            const latex = mathField.latex();
+            if (!latex.trim()) return;
+            
+            // Convert LaTeX to readable format
+            const polynomial = convertLatexToPolynomial(latex);
+            if (!polynomial) {
+                showError('Invalid polynomial format. Please use x_1, x_2, etc.');
+                return;
+            }
+            
+            polynomials.push({
+                latex: latex,
+                readable: polynomial,
+                id: Date.now()
+            });
+            
+            updatePolynomialList();
+            mathField.latex('');
+            mathField.focus();
+        }
+        
+        function convertLatexToPolynomial(latex) {
+            // Convert LaTeX to a format suitable for SageMath
+            let poly = latex;
+            
+            // Replace x_n with x_n format
+            poly = poly.replace(/x_\{(\d+)\}/g, 'x_$1');
+            poly = poly.replace(/x_(\d+)/g, 'x_$1');
+            
+            // Replace LaTeX operations
+            poly = poly.replace(/\\cdot/g, '*');
+            poly = poly.replace(/\\times/g, '*');
+            poly = poly.replace(/\\left/g, '');
+            poly = poly.replace(/\\right/g, '');
+            poly = poly.replace(/\\/g, '');
+            
+            // Handle fractions
+            poly = poly.replace(/frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)');
+
+            // Replace LaTeX exponentiation with Python/Sage exponentiation
+            // Case 1: ^{...} -> **(...)
+            poly = poly.replace(/\^\{([^}]+)\}/g, '**($1)');
+            // Case 2: ^n -> **n (simple numeric or alphanumeric exponents)
+            poly = poly.replace(/\^([A-Za-z0-9_]+)/g, '**$1');
+            
+            // Clean up spaces
+            poly = poly.replace(/\s+/g, ' ').trim();
+            
+            return poly;
+        }
+        
+        function updatePolynomialList() {
+            const listEl = document.getElementById('polynomial-list');
+            listEl.innerHTML = '';
+            
+            polynomials.forEach((poly, index) => {
+                const item = document.createElement('div');
+                item.className = 'polynomial-item';
+                item.innerHTML = `
+                    <div class="polynomial-math">
+                        $$p_{${index + 1}} = ${poly.latex}$$
+                    </div>
+                    <button class="btn btn-remove" onclick="removePolynomial(${poly.id})">
+                        Remove
+                    </button>
+                `;
+                listEl.appendChild(item);
+            });
+            
+            // Re-render MathJax
+            if (window.MathJax) {
+                MathJax.typesetPromise();
+            }
+        }
+        
+        function removePolynomial(id) {
+            polynomials = polynomials.filter(p => p.id !== id);
+            updatePolynomialList();
+        }
+        
+        function clearAll() {
+            polynomials = [];
+            updatePolynomialList();
+            document.getElementById('results-section').classList.remove('active');
+            mathField.latex('');
+            mathField.focus();
+        }
+        
+        function computeResults() {
+            if (polynomials.length === 0) {
+                showError('Please add at least one polynomial.');
+                return;
+            }
+
+            // Show results section
+            const resultsSection = document.getElementById('results-section');
+            resultsSection.classList.add('active');
+
+            // Show loading
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('results-content').style.display = 'none';
+
+            // Compute using NumberRing library
+            setTimeout(() => {
+                try {
+                    const variables = extractVariables();
+                    const n = variables.length;
+
+                    // For single variable polynomial, create a number ring
+                    let ring, poly;
+
+                    if (n === 1 && polynomials.length === 1) {
+                        // Single polynomial in one variable - create Q[α]/(poly)
+                        poly = parsePolynomial(polynomials[0].readable, 'x_1', 'Q');
+                        ring = NumberRing.fromPolynomial(poly);
+
+                        displayResults(ring, poly, variables);
+                    } else if (n === 1 && polynomials.length > 1) {
+                        // Multiple polynomials - compute GCD-like analysis
+                        const polys = polynomials.map(p => parsePolynomial(p.readable, 'x_1', 'Q'));
+
+                        // For now, use the first non-zero polynomial
+                        poly = polys.find(p => p.degree() > 0);
+                        if (!poly) {
+                            showError('No non-zero polynomials found');
+                            return;
+                        }
+
+                        ring = NumberRing.fromPolynomial(poly);
+                        displayResults(ring, poly, variables);
+                    } else {
+                        // Multiple variables - show analysis
+                        displayMultivariateAnalysis(variables);
+                    }
+
+                } catch (error) {
+                    document.getElementById('loading').classList.remove('active');
+                    document.getElementById('results-content').style.display = 'block';
+                    showError(`Error: ${error.message}`);
+                    console.error(error);
+                }
+            }, 500);
+        }
+
+        function displayResults(ring, poly, variables) {
+            document.getElementById('loading').classList.remove('active');
+            document.getElementById('results-content').style.display = 'block';
+
+            const info = ring.getInfo();
+
+            // Display ring information
+            document.getElementById('ring-info').innerHTML = `
+                <p><strong>Ring Structure:</strong> ${ring.toString()}</p>
+                <p><strong>Minimal Polynomial:</strong> $${poly.toString().replace(/x_1/g, '\\alpha')}$</p>
+                <p><strong>Degree:</strong> ${poly.degree()}</p>
+            `;
+
+            // Display properties
+            const disc = ring.discriminant();
+            document.getElementById('properties-info').innerHTML = `
+                <p><strong>Rank as ℤ-module:</strong> ${info.rank}</p>
+                <p><strong>Dimension over ℚ:</strong> ${info.dimension}</p>
+                <p><strong>Discriminant:</strong> $\\Delta = ${disc.toString()}$</p>
+                <p><strong>Is Maximal Order:</strong> ${info.isMaximal ? 'Yes' : 'Unknown'}</p>
+            `;
+
+            // Display valuations
+            const valuations = ring.getValuations();
+            if (valuations.length > 0) {
+                // Separate archimedean and non-archimedean
+                const archimedean = valuations.filter(v => v.type === 'archimedean');
+                const nonArchimedean = valuations.filter(v => v.type === 'non-archimedean');
+
+                let valHTML = `<p><strong>Total non-trivial valuations:</strong> ${valuations.length}</p>`;
+
+                if (archimedean.length > 0) {
+                    valHTML += '<p><strong>Archimedean Valuations (Infinite Places):</strong></p><ul>';
+                    archimedean.forEach(v => {
+                        const symbol = v.isReal ? 'ℝ' : 'ℂ';
+                        valHTML += `<li>${v.description} → ${symbol}</li>`;
+                    });
+                    valHTML += '</ul>';
+                }
+
+                if (nonArchimedean.length > 0) {
+                    valHTML += '<p><strong>Non-Archimedean Valuations (Finite Places):</strong></p><ul>';
+                    nonArchimedean.forEach(v => {
+                        valHTML += `<li>${v.description} (ℚ<sub>${v.prime}</sub>)</li>`;
+                    });
+                    valHTML += '</ul>';
+                }
+
+                if (ring.isLocalization) {
+                    valHTML += `<p class="help-text">This ring is ℤ[1/${ring.localizationDenominator}], a localization of ℤ.</p>`;
+                } else if (ring.signature) {
+                    valHTML += `<p class="help-text">Signature: (${ring.signature.realEmbeddings}, ${ring.signature.complexPairs})</p>`;
+                }
+
+                document.getElementById('valuations-info').innerHTML = valHTML;
+            } else {
+                document.getElementById('valuations-info').innerHTML = `
+                    <p>No valuations computed.</p>
+                `;
+            }
+
+            // Analysis details
+            let analysisHTML = '<p><strong>Ring Classification:</strong></p>';
+
+            if (ring.isLocalization) {
+                // Localization ring Z[1/n]
+                analysisHTML += `<p>This is the <strong>localization</strong> $\\mathbb{Z}[1/${ring.localizationDenominator}]$.</p>`;
+                analysisHTML += `<p>It consists of all fractions $a/b$ where $a \\in \\mathbb{Z}$ and $b$ is a power of ${ring.localizationDenominator}.</p>`;
+
+                const primes = [...new Set(primeFactorization(ring.localizationDenominator))];
+                analysisHTML += `<p><strong>Primes in denominator:</strong> ${primes.join(', ')}</p>`;
+                analysisHTML += `<p>This ring has ${valuations.length} non-trivial valuations:</p>`;
+                analysisHTML += '<ul>';
+                analysisHTML += '<li>1 archimedean (standard embedding in ℝ)</li>';
+                primes.forEach(p => {
+                    analysisHTML += `<li>1 non-archimedean (${p}-adic valuation)</li>`;
+                });
+                analysisHTML += '</ul>';
+
+            } else if (poly.degree() === 2) {
+                analysisHTML += '<p>This is a <strong>quadratic number field</strong> $\\mathbb{Q}(\\sqrt{d})$ for some square-free $d$.</p>';
+
+                // Extract d from polynomial x^2 + bx + c
+                const c = poly.coeffs[0];
+                const b = poly.coeffs[1];
+
+                if (b.isZero()) {
+                    const d = c.negate();
+                    analysisHTML += `<p>In this case, $d = ${d.toString()}$</p>`;
+
+                    if (d.toNumber() > 0) {
+                        analysisHTML += '<p>This is a <strong>real quadratic field</strong> (d > 0).</p>';
+                        analysisHTML += '<p>The field has exactly <strong>2 real embeddings</strong> into ℝ.</p>';
+                        analysisHTML += '<p>Both embeddings give archimedean valuations (infinite places).</p>';
+                    } else {
+                        analysisHTML += '<p>This is an <strong>imaginary quadratic field</strong> (d < 0).</p>';
+                        analysisHTML += '<p>The field has exactly <strong>1 complex conjugate pair</strong> of embeddings into ℂ.</p>';
+                        analysisHTML += '<p>This gives 1 archimedean valuation (infinite place).</p>';
+                    }
+                }
+            } else if (poly.degree() === 1) {
+                analysisHTML += '<p>This is just $\\mathbb{Q}$ (degree 1 extension).</p>';
+            } else {
+                analysisHTML += `<p>This is a <strong>degree ${poly.degree()} number field</strong>.</p>`;
+                if (ring.signature) {
+                    analysisHTML += `<p>Signature (r, s) = (${ring.signature.realEmbeddings}, ${ring.signature.complexPairs})</p>`;
+                    analysisHTML += `<p>The field has ${ring.signature.realEmbeddings} real embedding(s) and ${ring.signature.complexPairs} complex conjugate pair(s).</p>`;
+                    analysisHTML += `<p>Total archimedean valuations: ${valuations.filter(v => v.type === 'archimedean').length}</p>`;
+                }
+            }
+
+            // Add factorization info (only for number fields, not localizations)
+            if (!ring.isLocalization) {
+                const discValue = disc.toNumber();
+                if (Math.abs(discValue) < 1000 && Math.abs(discValue) > 1) {
+                    const factors = primeFactorization(Math.abs(Math.round(discValue)));
+                    if (factors.length > 0) {
+                        analysisHTML += `<p><strong>Primes dividing discriminant:</strong> ${[...new Set(factors)].join(', ')}</p>`;
+                        analysisHTML += '<p class="help-text">These primes may ramify in the extension.</p>';
+                    }
+                }
+            }
+
+            document.getElementById('analysis-info').innerHTML = analysisHTML;
+
+            // Re-render MathJax
+            if (window.MathJax) {
+                MathJax.typesetPromise();
+            }
+        }
+
+        function displayMultivariateAnalysis(variables) {
+            document.getElementById('loading').classList.remove('active');
+            document.getElementById('results-content').style.display = 'block';
+
+            const n = variables.length;
+            const ordering = document.getElementById('ordering-select').value;
+
+            document.getElementById('ring-info').innerHTML = `
+                <p><strong>Polynomial Ring:</strong> $\\mathbb{Z}[${variables.join(', ')}]$</p>
+                <p><strong>Number of variables:</strong> ${n}</p>
+                <p><strong>Number of generators:</strong> ${polynomials.length}</p>
+            `;
+
+            // Parse polynomials into multivariate polynomials
+            try {
+                const mvPolys = polynomials.map(p => MultivariatePolynomial.parse(p.readable));
+
+                // Compute Grobner basis
+                const result = buchberger(mvPolys, ordering, { maxIterations: 1000, verbose: false });
+                const grobnerBasis = result.basis;
+
+                const idealLatex = polynomials.map((p, i) => `p_{${i + 1}}`).join(', ');
+                let propertiesHTML = `
+                    <p><strong>Ideal:</strong> $I = \\langle ${idealLatex} \\rangle \\subseteq \\mathbb{Z}[${variables.join(', ')}]$</p>
+                    <p><strong>Monomial Ordering:</strong> ${getOrderingName(ordering)}</p>
+                    <p><strong>Gröbner Basis Size:</strong> ${grobnerBasis.length} polynomials</p>
+                    <p style="color: #667eea; font-weight: 500;">✓ Z-Basis computed using integer arithmetic</p>
+                    <p class="help-text">Buchberger's algorithm: ${result.stats.iterations} iterations, ${result.stats.primitivizationsPerformed} primitivizations</p>
+                `;
+
+                document.getElementById('properties-info').innerHTML = propertiesHTML;
+
+                // Display Grobner basis
+                let grobnerHTML = '<p><strong>Gröbner Basis:</strong></p>';
+                grobnerHTML += '<div style="background: white; padding: 15px; border-radius: 8px; margin-top: 10px;">';
+
+                if (grobnerBasis.length > 0) {
+                    grobnerBasis.forEach((gb, i) => {
+                        const varNames = variables;
+                        grobnerHTML += `<p style="margin: 8px 0;">$g_{${i + 1}} = ${formatPolynomialToLatex(gb, varNames)}$</p>`;
+                    });
+                } else {
+                    grobnerHTML += '<p>Empty basis (ideal is zero)</p>';
+                }
+
+                grobnerHTML += '</div>';
+
+                document.getElementById('valuations-info').innerHTML = grobnerHTML;
+
+                // Analysis details
+                let analysisHTML = '<p><strong>Computation Statistics:</strong></p>';
+                analysisHTML += '<ul>';
+                analysisHTML += `<li>Algorithm iterations: ${result.stats.iterations}</li>`;
+                analysisHTML += `<li>S-polynomials computed: ${result.stats.sPolynomialsComputed}</li>`;
+                analysisHTML += `<li>Polynomial reductions: ${result.stats.reductionsPerformed}</li>`;
+                analysisHTML += `<li>Primitivizations: ${result.stats.primitivizationsPerformed}</li>`;
+                analysisHTML += '</ul>';
+
+                // Add content (GCD) information
+                const contents = grobnerBasis.map(gb => gb.content());
+                const allPrimitive = contents.every(c => c === 1);
+                if (allPrimitive) {
+                    analysisHTML += '<p style="color: #28a745; margin-top: 10px;">✓ All polynomials in basis are primitive (content = 1)</p>';
+                }
+
+                analysisHTML += '<p style="margin-top: 15px;"><strong>About Gröbner Bases over ℤ:</strong></p>';
+                analysisHTML += '<p>A Gröbner basis is a special generating set for a polynomial ideal that makes many ideal-theoretic computations algorithmic. ';
+                analysisHTML += 'This implementation uses <strong>integer arithmetic</strong> to compute a ℤ-basis (all coefficients remain integers). ';
+                analysisHTML += 'Each polynomial is kept in primitive form (GCD of coefficients = 1) to prevent coefficient growth.</p>';
+
+                // Check if basis contains a constant
+                const hasConstant = grobnerBasis.some(gb => {
+                    return gb.terms.length === 1 && gb.terms[0].exponents.every(e => e === 0) && gb.terms[0].coeff !== 0;
+                });
+
+                if (hasConstant) {
+                    analysisHTML += '<p style="color: #dc3545; font-weight: bold; margin-top: 10px;">⚠ The ideal contains a non-zero constant, so it equals the entire ring!</p>';
+                }
+
+                document.getElementById('analysis-info').innerHTML = analysisHTML;
+
+            } catch (error) {
+                document.getElementById('properties-info').innerHTML = `
+                    <p><strong>Error computing Gröbner basis:</strong> ${error.message}</p>
+                    <p class="help-text">Make sure all polynomials are properly formatted.</p>
+                `;
+
+                document.getElementById('valuations-info').innerHTML = '';
+                document.getElementById('analysis-info').innerHTML = '';
+            }
+
+            // Re-render MathJax
+            if (window.MathJax) {
+                MathJax.typesetPromise();
+            }
+        }
+
+        function getOrderingName(ordering) {
+            switch(ordering) {
+                case 'lex': return 'Lexicographic';
+                case 'grlex': return 'Graded Lexicographic';
+                case 'grevlex': return 'Graded Reverse Lexicographic';
+                default: return ordering;
+            }
+        }
+
+        function formatPolynomialToLatex(poly, varNames) {
+            if (poly.isZero()) return '0';
+
+            const sortedTerms = poly._sortTerms('lex');
+            const termStrings = [];
+
+            for (let i = 0; i < sortedTerms.length; i++) {
+                const term = sortedTerms[i];
+                const coeffStr = term.coeff.toString();
+                const absCoeff = Math.abs(term.coeff.toNumber());
+                const isNegative = term.coeff.num < 0;
+                const isConstant = term.exponents.every(e => e === 0);
+
+                let termStr = '';
+
+                // Build variable part
+                let varPart = '';
+                for (let j = 0; j < term.exponents.length; j++) {
+                    if (term.exponents[j] > 0) {
+                        const varName = varNames && varNames[j] ? varNames[j] : `x_{${j + 1}}`;
+                        if (term.exponents[j] === 1) {
+                            varPart += varName;
+                        } else {
+                            varPart += `${varName}^{${term.exponents[j]}}`;
+                        }
+                    }
+                }
+
+                // Combine coefficient and variables
+                if (isConstant) {
+                    termStr = Math.abs(term.coeff.toNumber()).toString();
+                } else {
+                    if (absCoeff === 1) {
+                        termStr = varPart;
+                    } else {
+                        termStr = `${Math.abs(term.coeff.toNumber())}${varPart}`;
+                    }
+                }
+
+                // Add sign
+                if (i === 0) {
+                    termStrings.push(isNegative ? '-' + termStr : termStr);
+                } else {
+                    termStrings.push(isNegative ? '- ' + termStr : '+ ' + termStr);
+                }
+            }
+
+            return termStrings.join(' ');
+        }
+        
+        function extractVariables() {
+            const varSet = new Set();
+            polynomials.forEach(poly => {
+                const matches = poly.readable.match(/x_\d+/g) || [];
+                matches.forEach(v => varSet.add(v));
+            });
+            
+            const vars = Array.from(varSet).sort((a, b) => {
+                const numA = parseInt(a.match(/\d+/)[0]);
+                const numB = parseInt(b.match(/\d+/)[0]);
+                return numA - numB;
+            });
+            
+            return vars.length > 0 ? vars : ['x_1'];
+        }
+        
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = message;
+            errorEl.classList.add('active');
+            setTimeout(() => {
+                errorEl.classList.remove('active');
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

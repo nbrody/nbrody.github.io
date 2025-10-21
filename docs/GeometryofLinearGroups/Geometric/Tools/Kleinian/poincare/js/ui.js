@@ -266,9 +266,13 @@ export function updateFaceLabelPosition(position3D, camera, renderer) {
     const x = (vector.x * widthHalf) + widthHalf;
     const y = -(vector.y * heightHalf) + heightHalf;
 
-    // Position with offset so it doesn't cover the face
-    overlay.style.left = `${x + 20}px`;
-    overlay.style.top = `${y - 30}px`;
+    // Position centered on the face
+    // Account for the label's own dimensions to center it properly
+    const labelWidth = overlay.offsetWidth;
+    const labelHeight = overlay.offsetHeight;
+
+    overlay.style.left = `${x - labelWidth / 2}px`;
+    overlay.style.top = `${y - labelHeight / 2}px`;
 }
 
 export function hideFaceLabel3D() {
@@ -282,4 +286,70 @@ export function hideFaceLabel3D() {
 
 export function getCurrentLabelFaceId() {
     return _currentLabelFaceId;
+}
+
+// 3D Edge Label Overlay Management
+let _currentEdgeLabelPosition = null;
+
+export function showEdgeLabel3D(faceId1, faceId2, angleText, cycleInfo, position3D, camera, renderer) {
+    const overlay = document.getElementById('edge-label-overlay');
+    const content = document.getElementById('edge-label-content');
+    if (!overlay || !content) return;
+
+    _currentEdgeLabelPosition = position3D.clone();
+
+    // Build label content
+    const parts = [];
+    parts.push(`<div class="text-sm font-semibold">Edge: Face ${faceId1} ∩ Face ${faceId2}</div>`);
+    parts.push(`<div class="mt-1 text-xs">Dihedral angle: ${angleText}</div>`);
+
+    if (cycleInfo) {
+        parts.push(`<div class="mt-1 text-xs">${cycleInfo}</div>`);
+    }
+
+    content.innerHTML = parts.join('');
+
+    // Position the overlay
+    updateEdgeLabelPosition(position3D, camera, renderer);
+    overlay.classList.remove('hidden');
+
+    // Render LaTeX if needed
+    if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+        MathJax.typesetPromise([content]).catch(err => console.warn('MathJax typeset error:', err));
+    }
+}
+
+export function updateEdgeLabelPosition(position3D, camera, renderer) {
+    const overlay = document.getElementById('edge-label-overlay');
+    if (!overlay || !_currentEdgeLabelPosition) return;
+
+    // Project 3D position to screen coordinates
+    const vector = position3D.clone();
+    vector.project(camera);
+
+    const canvas = renderer.domElement;
+    const widthHalf = canvas.clientWidth / 2;
+    const heightHalf = canvas.clientHeight / 2;
+
+    const x = (vector.x * widthHalf) + widthHalf;
+    const y = -(vector.y * heightHalf) + heightHalf;
+
+    // Position centered on the edge
+    const labelWidth = overlay.offsetWidth;
+    const labelHeight = overlay.offsetHeight;
+
+    overlay.style.left = `${x - labelWidth / 2}px`;
+    overlay.style.top = `${y - labelHeight / 2}px`;
+}
+
+export function hideEdgeLabel3D() {
+    const overlay = document.getElementById('edge-label-overlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+    }
+    _currentEdgeLabelPosition = null;
+}
+
+export function getCurrentEdgeLabelPosition() {
+    return _currentEdgeLabelPosition;
 }

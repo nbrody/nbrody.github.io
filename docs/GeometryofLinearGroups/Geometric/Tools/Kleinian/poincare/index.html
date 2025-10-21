@@ -10,7 +10,7 @@
     <script src="js/faceFilter.js"></script>
     <script src="polyhedronLibrary.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
@@ -89,8 +89,6 @@
             </div>
 
             <div class="control-group p-4">
-                <label for="vectors" class="block text-sm font-medium text-gray-300 mb-2">Input Vectors S = {v₁, v₂,
-                    ...}</label>
                 <div id="vector-input" class="relative">
                     <div id="vector-gutter"
                         class="absolute left-0 top-0 bottom-0 w-20 bg-gray-800/60 border-r border-gray-700 overflow-hidden rounded-l-md">
@@ -181,6 +179,13 @@
          class="absolute pointer-events-none bg-gray-900/90 text-white px-3 py-2 rounded-lg shadow-lg border border-gray-600 hidden"
          style="z-index: 30; max-width: 300px;">
         <div id="face-label-content"></div>
+    </div>
+
+    <!-- 3D Label Overlay for edge angle information -->
+    <div id="edge-label-overlay"
+         class="absolute pointer-events-none bg-indigo-900/90 text-white px-3 py-2 rounded-lg shadow-lg border border-indigo-500 hidden"
+         style="z-index: 30; max-width: 400px;">
+        <div id="edge-label-content"></div>
     </div>
 
     <!-- Main Application Module -->
