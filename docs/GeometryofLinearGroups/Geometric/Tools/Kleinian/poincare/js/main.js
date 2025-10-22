@@ -353,30 +353,60 @@ async function updateFromInput(clearGeneratedWords = true) {
         wordsByLine.push(word);
     }
 
-    // === Filter covectors by strict support (keep ONLY faces with a witness point) ===
+    // === Filter covectors by strict support, but ALWAYS keep elliptic elements ===
     let survivorsIdx = [];
     const filterFn = (typeof window !== 'undefined' && typeof window.filterFaceDefiningCovectorsCone === 'function')
         ? window.filterFaceDefiningCovectorsCone
         : null;
 
     if (covRowsByLine.length > 0) {
-        if (filterFn) {
+        // Separate elliptic (|w| ≈ 0) from non-elliptic covectors
+        const ellipticIdx = [];
+        const nonEllipticIdx = [];
+        const nonEllipticCovs = [];
+
+        for (let i = 0; i < covRowsByLine.length; i++) {
+            const [vx, vy, vz, vw] = covRowsByLine[i];
+            // Elliptic elements have w ≈ 0 (planes through origin)
+            if (Math.abs(vw) < 1e-6) {
+                ellipticIdx.push(i);
+            } else {
+                nonEllipticIdx.push(i);
+                nonEllipticCovs.push(covRowsByLine[i]);
+            }
+        }
+
+        console.log(`Found ${ellipticIdx.length} elliptic elements (always kept) and ${nonEllipticIdx.length} non-elliptic elements`);
+
+        // Always keep all elliptic elements
+        survivorsIdx = [...ellipticIdx];
+
+        // Filter non-elliptic elements strictly
+        if (nonEllipticCovs.length > 0 && filterFn) {
             try {
                 // Use strict margin to ensure only faces with witness points are kept
-                survivorsIdx = filterFn(covRowsByLine.slice(), { eps: 1e-9, initBox: 1e6, strict_margin: 1e-6 });
-                console.log(`Filtered to ${survivorsIdx.length} faces with witness points (from ${covRowsByLine.length} total)`);
+                const filteredNonElliptic = filterFn(nonEllipticCovs, { eps: 1e-9, initBox: 1e6, strict_margin: 1e-6 });
+                // Map back to original indices
+                for (const localIdx of filteredNonElliptic) {
+                    survivorsIdx.push(nonEllipticIdx[localIdx]);
+                }
+                console.log(`Filtered non-elliptic to ${filteredNonElliptic.length} faces with witness points`);
             } catch (e) {
-                console.warn('filterFaceDefiningCovectorsCone failed, falling back to keeping all:', e);
-                survivorsIdx = covRowsByLine.map((_, i) => i);
+                console.warn('filterFaceDefiningCovectorsCone failed for non-elliptic, keeping all:', e);
+                survivorsIdx = survivorsIdx.concat(nonEllipticIdx);
             }
-        } else {
-            // Fallback: keep all if filter utility is not available
-            console.warn('filterFaceDefiningCovectorsCone not available - keeping all covectors');
-            survivorsIdx = covRowsByLine.map((_, i) => i);
+        } else if (nonEllipticCovs.length > 0) {
+            // Fallback: keep all non-elliptic if filter not available
+            console.warn('filterFaceDefiningCovectorsCone not available - keeping all non-elliptic covectors');
+            survivorsIdx = survivorsIdx.concat(nonEllipticIdx);
         }
+
+        console.log(`Total: ${survivorsIdx.length} faces (${ellipticIdx.length} elliptic + ${survivorsIdx.length - ellipticIdx.length} non-elliptic)`);
     }
 
     // Rebuild sphere/plane arrays from survivors only, and map line -> face id
+    // IMPORTANT: Process spheres first, then planes, to ensure correct face ID numbering
+    // (Spheres get IDs 0..N-1, planes get IDs N..N+M-1)
     const sphereCentersFiltered = [];
     const sphereRadiiFiltered = [];
     const planeNormalsFiltered = [];
@@ -384,6 +414,8 @@ async function updateFromInput(clearGeneratedWords = true) {
 
     const idxSet = new Set(survivorsIdx);
     const rawIndexToFaceId = new Map();
+
+    // First pass: process all spheres (w ≠ 0)
     for (const iRaw of survivorsIdx) {
         const row = covRowsByLine[iRaw];
         let [ax, ay, az, aw] = row;
@@ -391,21 +423,31 @@ async function updateFromInput(clearGeneratedWords = true) {
         const n = new THREE.Vector3(ax, ay, az);
         const nSq = n.lengthSq();
         const wSq = aw * aw;
-        if (Math.abs(aw) < 1e-6) {
-            // Plane through origin: store unit normal
-            if (n.lengthSq() < 1e-12) continue; // skip degenerate
-            const fid = sphereCentersFiltered.length + planeNormalsFiltered.length;
-            rawIndexToFaceId.set(iRaw, fid);
-            planeNormalsFiltered.push(n.clone().normalize());
-        } else {
+
+        if (Math.abs(aw) >= 1e-6 && nSq > wSq) {
             // Sphere: center = n/aw, radius = sqrt(n^2/w^2 - 1)
-            if (nSq <= wSq) continue; // skip non-spacelike (safety)
             const center = n.clone().divideScalar(aw);
             const r = Math.sqrt(nSq / wSq - 1);
             const fid = sphereCentersFiltered.length;
             rawIndexToFaceId.set(iRaw, fid);
             sphereCentersFiltered.push(center);
             sphereRadiiFiltered.push(r);
+        }
+    }
+
+    // Second pass: process all planes (w ≈ 0)
+    for (const iRaw of survivorsIdx) {
+        const row = covRowsByLine[iRaw];
+        let [ax, ay, az, aw] = row;
+        if (aw > 0) { ax = -ax; ay = -ay; az = -az; aw = -aw; }
+        const n = new THREE.Vector3(ax, ay, az);
+
+        if (Math.abs(aw) < 1e-6) {
+            // Plane through origin: store unit normal
+            if (n.lengthSq() < 1e-12) continue; // skip degenerate
+            const fid = sphereCentersFiltered.length + planeNormalsFiltered.length;
+            rawIndexToFaceId.set(iRaw, fid);
+            planeNormalsFiltered.push(n.clone().normalize());
         }
     }
 
@@ -588,37 +630,65 @@ async function updateFromMatrices() {
         );
         console.log(`Deduplicated to ${uniqueCovectors.length} unique covectors`);
 
-        // Step 4: Filter to keep ONLY covectors with witness points (faces that actually appear)
-        console.log('Filtering for faces with witness points (strict)...');
+        // Step 4: Filter to keep covectors with witness points, but ALWAYS keep elliptic elements
+        console.log('Filtering for faces with witness points, keeping all elliptics...');
         let faceIndices = [];
 
-        if (typeof window.filterFaceDefiningCovectorsCone === 'function') {
+        // Separate elliptic (|w| ≈ 0) from non-elliptic covectors
+        const ellipticIndices = [];
+        const nonEllipticIndices = [];
+        const nonEllipticCovectors = [];
+
+        for (let i = 0; i < uniqueCovectors.length; i++) {
+            const [vx, vy, vz, vw] = uniqueCovectors[i];
+            // Elliptic elements have w ≈ 0 (planes through origin)
+            if (Math.abs(vw) < 1e-6) {
+                ellipticIndices.push(i);
+            } else {
+                nonEllipticIndices.push(i);
+                nonEllipticCovectors.push(uniqueCovectors[i]);
+            }
+        }
+
+        console.log(`Found ${ellipticIndices.length} elliptic elements (always kept) and ${nonEllipticIndices.length} non-elliptic elements`);
+
+        // Always keep all elliptic elements
+        faceIndices = [...ellipticIndices];
+
+        // Filter non-elliptic elements
+        if (nonEllipticCovectors.length > 0 && typeof window.filterFaceDefiningCovectorsCone === 'function') {
             try {
                 // Use very strict filtering to ensure each face has a witness point
-                faceIndices = window.filterFaceDefiningCovectorsCone(uniqueCovectors, {
+                const filteredNonElliptic = window.filterFaceDefiningCovectorsCone(nonEllipticCovectors, {
                     eps: 1e-9,
                     strict_margin: 1e-6  // Stricter margin to ensure witness point exists
                 });
-                console.log(`Strict filtering found ${faceIndices.length} faces with witness points`);
+                // Map back to original indices
+                for (const localIdx of filteredNonElliptic) {
+                    faceIndices.push(nonEllipticIndices[localIdx]);
+                }
+                console.log(`Strict filtering found ${filteredNonElliptic.length} non-elliptic faces with witness points`);
             } catch (e) {
                 console.warn('Strict face filtering failed, trying lenient filter:', e);
                 try {
-                    faceIndices = window.filterFaceDefiningCovectorsCone(uniqueCovectors, {
+                    const filteredNonElliptic = window.filterFaceDefiningCovectorsCone(nonEllipticCovectors, {
                         eps: 1e-9,
                         strict_margin: 1e-9
                     });
+                    for (const localIdx of filteredNonElliptic) {
+                        faceIndices.push(nonEllipticIndices[localIdx]);
+                    }
                 } catch (e2) {
-                    console.warn('All filtering failed, keeping all covectors:', e2);
-                    faceIndices = uniqueCovectors.map((_, i) => i);
+                    console.warn('All filtering failed, keeping all non-elliptic covectors:', e2);
+                    faceIndices = faceIndices.concat(nonEllipticIndices);
                 }
             }
-        } else {
-            console.warn('filterFaceDefiningCovectorsCone not available - cannot verify witness points!');
-            console.warn('Keeping all covectors (may include non-face-defining ones)');
-            faceIndices = uniqueCovectors.map((_, i) => i);
+        } else if (nonEllipticCovectors.length > 0) {
+            console.warn('filterFaceDefiningCovectorsCone not available - keeping all non-elliptic covectors');
+            faceIndices = faceIndices.concat(nonEllipticIndices);
         }
 
-        console.log(`Final: ${faceIndices.length} faces with verified witness points`);
+        console.log(`Total: ${faceIndices.length} faces (${ellipticIndices.length} elliptic + ${faceIndices.length - ellipticIndices.length} non-elliptic)`);
 
         if (faceIndices.length === 0) {
             if (errorMessage) {

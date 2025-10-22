@@ -5,6 +5,7 @@
 
 import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 import { generateGroupElements } from './dirichletUtils.js';
+import { computeHyperbolicGeodesic } from './hypGeom.js';
 
 // Global state for Cayley graph visualization
 let cayleyGraphGroup = null;
@@ -275,10 +276,9 @@ export function buildCayleyGraph(matrices, wordLength, scene, PSL2CtoSDF, facesM
                         depthWrite: true
                     });
 
-                    const edgeGeometry = new THREE.BufferGeometry().setFromPoints([
-                        data.point,
-                        targetData.point
-                    ]);
+                    // Compute hyperbolic geodesic between the two points
+                    const geodesicPoints = computeHyperbolicGeodesic(data.point, targetData.point, 32);
+                    const edgeGeometry = new THREE.BufferGeometry().setFromPoints(geodesicPoints);
                     const edge = new THREE.Line(edgeGeometry, edgeMaterial);
                     edge.renderOrder = 9; // Render edges before vertices
                     cayleyGraphGroup.add(edge);
