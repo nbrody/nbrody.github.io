@@ -210,6 +210,45 @@ body {
     -webkit-backdrop-filter: none;
 }
 
+/* Constant input styles */
+.constant-block {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.constant-label-input,
+.constant-expr-input {
+    display: inline-block;
+    border: 1px solid #4b5563;
+    border-radius: 4px;
+    background: #374151;
+    padding: 4px 8px;
+    min-width: 60px;
+}
+
+.constant-equals {
+    color: #d1d5db;
+    font-size: 16px;
+}
+
+.delete-constant-btn {
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: background 0.2s;
+    min-width: 26px;
+    height: 30px;
+}
+
+.delete-constant-btn:hover {
+    background: #dc2626;
+}
+
 /* Matrix input styles */
 .matrix-bracket {
     display: inline-block;
