@@ -255,8 +255,14 @@ export function buildCayleyGraph(matrices, wordLength, scene, PSL2CtoSDF, facesM
                     const targetData = vertexMap.get(newWord);
 
                     // Determine edge color based on the face corresponding to this generator
+                    // For inverse generators g_{i}^{-1}, use the same face as g_{i}
                     let edgeColor = 0xffffff; // default white
-                    const faceId = generatorToFaceId.get(genLabel);
+                    let faceId = generatorToFaceId.get(genLabel);
+                    if (faceId === undefined) {
+                        // Try the forward generator (strip the ^{-1})
+                        const forwardGenLabel = genLabels[genIdx];
+                        faceId = generatorToFaceId.get(forwardGenLabel);
+                    }
                     if (faceId !== undefined) {
                         edgeColor = getFaceColor(faceId, paletteMode || 0);
                     }

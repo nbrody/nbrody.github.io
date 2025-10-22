@@ -904,6 +904,62 @@ function setupEventHandlers() {
         });
     }
 
+    // View model toggle buttons (3-way toggle)
+    const viewPoincareBtn = document.getElementById('view-poincare');
+    const viewUpperHalfspaceBtn = document.getElementById('view-upper-halfspace');
+    const viewInsideBtn = document.getElementById('view-inside');
+
+    if (viewPoincareBtn && viewUpperHalfspaceBtn && viewInsideBtn) {
+        const viewButtons = [viewPoincareBtn, viewUpperHalfspaceBtn, viewInsideBtn];
+
+        viewPoincareBtn.addEventListener('click', () => {
+            // Remove active from all buttons
+            viewButtons.forEach(btn => btn.classList.remove('active'));
+            // Set this one active
+            viewPoincareBtn.classList.add('active');
+
+            // TODO: Implement Poincaré ball view
+            // - This is the default view (already implemented)
+            // - Camera looks at the unit ball from outside
+            // - Geometry is rendered using the ball model
+            console.log('Poincaré ball view selected');
+        });
+
+        viewUpperHalfspaceBtn.addEventListener('click', () => {
+            // Remove active from all buttons
+            viewButtons.forEach(btn => btn.classList.remove('active'));
+            // Set this one active
+            viewUpperHalfspaceBtn.classList.add('active');
+
+            // TODO: Implement upper half-space view
+            // - Apply the Cayley transform to convert ball → half-space
+            // - Map sphere boundary at z=0 to horizontal plane
+            // - Interior of ball → upper half-space (z > 0)
+            // - Transform all geometry (vertices, faces) using:
+            //   (x,y,z) in ball → (x',y',z') in half-space where
+            //   x' = 2x/(1-z), y' = 2y/(1-z), z' = (1+z)/(1-z)
+            // - Update camera position to look down at half-space
+            // - Modify shader to use half-space distance functions
+            console.log('Upper half-space view selected (not yet implemented)');
+        });
+
+        viewInsideBtn.addEventListener('click', () => {
+            // Remove active from all buttons
+            viewButtons.forEach(btn => btn.classList.remove('active'));
+            // Set this one active
+            viewInsideBtn.classList.add('active');
+
+            // TODO: Implement inside view
+            // - Move camera inside the Poincaré ball (near center)
+            // - Enable first-person navigation controls
+            // - Reverse face culling so we see inside of polyhedron
+            // - Optionally: use VR-style stereoscopic rendering
+            // - Faces appear as "walls" from inside
+            // - May need to adjust fog/depth settings for immersive feel
+            console.log('Inside view selected (not yet implemented)');
+        });
+    }
+
     setupCanvasClickHandlers();
     setupGutterClickHandlers();
 }
