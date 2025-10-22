@@ -153,6 +153,10 @@ export function latexToExpr(latex) {
     parserString = parserString.replace(/\\div/g, '/');
     parserString = parserString.replace(/e\^\{(.+?)\}/g, 'exp($1)');
 
+    // Handle cases like sqrt(5)i -> sqrt(5)*i (implicit multiplication with i)
+    parserString = parserString.replace(/\)i(?![a-z])/g, ')*i');
+    parserString = parserString.replace(/(\d)i(?![a-z])/g, '$1*i');
+
     return parserString;
 }
 
@@ -201,8 +205,8 @@ export function addMatrixInput(values = ['1', '0', '0', '1']) {
     const matrixBlock = document.createElement('div');
     matrixBlock.className = 'matrix-block';
     matrixBlock.innerHTML = `
-        <div style="display:flex;align-items:center;">
-            <label style="flex-grow:1;">
+        <div style="position:relative;padding-right:34px;">
+            <label style="display:block;">
                 <span class="matrix-label">g₍${idx + 1}₎ = </span>
                 <span class="matrix-bracket">(</span>
                 <span class="matrix-grid-inline">
@@ -213,7 +217,7 @@ export function addMatrixInput(values = ['1', '0', '0', '1']) {
                 </span>
                 <span class="matrix-bracket">)</span>
             </label>
-            <button class="delete-matrix-btn" style="margin-left:8px;width:26px;height:30px;">✖</button>
+            <button class="delete-matrix-btn" style="position:absolute;right:0;top:50%;transform:translateY(-50%);width:26px;height:30px;">✖</button>
         </div>`;
 
     matrixBlock.querySelector('.delete-matrix-btn').addEventListener('click', () => {

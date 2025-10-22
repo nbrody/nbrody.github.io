@@ -1,0 +1,296 @@
+/**
+ * 4D Kleinian Group Visualizer - Main Styles
+ * Custom styles for the 4D Kleinian group visualization interface
+ */
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    height: 100vh;
+    overflow: hidden;
+    background-color: #0a0a0f;
+    color: #e0e0e0;
+}
+
+#container {
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+
+.controls {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 340px;
+    max-height: calc(100vh - 40px);
+    padding: 16px;
+    overflow-y: auto;
+    gap: 12px;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: move;
+    touch-action: none;
+}
+
+.controls.minimized {
+    width: 90px;
+    height: 70px;
+    min-height: 70px;
+    max-height: 70px;
+    overflow: hidden;
+    cursor: pointer;
+    padding: 12px;
+}
+
+.controls.minimized > *:not(h2) {
+    display: none;
+}
+
+.controls.minimized h2 {
+    margin: 0;
+    text-align: center;
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1.4;
+    font-weight: 300;
+}
+
+.controls.dragging {
+    transition: none;
+}
+
+.controls h2 {
+    margin: 0 0 12px 0;
+    font-size: 20px;
+    color: #fff;
+    font-weight: 300;
+    text-shadow: 0 2px 8px rgba(0, 212, 255, 0.4);
+    letter-spacing: 0.5px;
+}
+
+.controls h3 {
+    margin: 16px 0 8px 0;
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 400;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 12px;
+}
+
+.control-group {
+    padding: 10px 12px;
+    margin: 6px 0;
+}
+
+label {
+    display: block;
+    font-size: 13px;
+    font-weight: 300;
+    margin-bottom: 6px;
+    color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+input[type="range"] {
+    width: 100%;
+    margin: 6px 0;
+    cursor: pointer;
+}
+
+input[type="number"] {
+    width: 100%;
+    padding: 8px;
+    font-size: 13px;
+    margin: 2px 0;
+}
+
+select {
+    width: 100%;
+    padding: 8px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.value-display {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: right;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+    font-weight: 400;
+}
+
+button {
+    padding: 11px 18px;
+    font-size: 13px;
+    cursor: pointer;
+    width: 100%;
+    margin: 6px 0;
+    font-weight: 300;
+    letter-spacing: 0.3px;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.info {
+    padding: 10px 12px;
+    font-size: 12px;
+    margin: 8px 0;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.5;
+}
+
+.controls * {
+    cursor: default;
+}
+
+.controls input,
+.controls select,
+.controls button {
+    cursor: pointer;
+}
+
+.sphere-control {
+    background-color: #fff;
+    padding: 8px;
+    border-radius: 4px;
+    margin: 6px 0;
+    border: 1px solid #dee2e6;
+}
+
+.sphere-control h4 {
+    margin: 0 0 6px 0;
+    font-size: 13px;
+    color: #007bff;
+}
+
+.coord-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+}
+
+.coord-inputs input {
+    font-size: 11px;
+    padding: 4px;
+}
+
+#stats {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    padding: 10px 14px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+    font-size: 11px;
+    z-index: 50;
+    letter-spacing: 0.5px;
+    font-weight: 400;
+}
+
+.sphere-item {
+    padding: 8px 10px;
+    margin: 6px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sphere-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.sphere-coords {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+
+.coord-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.coord-label {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.coord-input {
+    width: 5em;
+    padding: 6px;
+    font-size: 12px;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+}
+
+.remove-sphere-btn {
+    width: 80px;
+    padding: 4px 10px;
+    font-size: 11px;
+    margin: 0;
+    background: rgba(255, 60, 60, 0.15);
+    border-color: rgba(255, 60, 60, 0.3);
+}
+
+.remove-sphere-btn:hover {
+    background: rgba(255, 60, 60, 0.25);
+    border-color: rgba(255, 60, 60, 0.5);
+}
+
+/* --- Tabbed control panel --- */
+.tabbar {
+    display: flex;
+    gap: 8px;
+    margin: 8px 0 12px 0;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.85);
+    cursor: pointer;
+}
+
+.tab-btn.active {
+    background: rgba(0, 212, 255, 0.18);
+    border-color: rgba(0, 212, 255, 0.45);
+    color: #fff;
+}
+
+.panel-page {
+    display: none;
+}
+
+.panel-page.active {
+    display: block;
+}

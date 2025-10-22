@@ -1,9 +1,9 @@
 export const exampleLibrary = [
-    { name: 'Apollonian Gasket', 
+    { name: 'Apollonian Gasket',
         mats: [['1', '1+i', '0', '1'], ['0', '-1', '1', '0']] },
-    { name: 'quasiSchottky', 
+    { name: 'quasiSchottky',
         mats: [['\\sqrt{2}', '1', '1', '\\sqrt{2}'], ['\\sqrt{2}', 'i', '-i', '\\sqrt{2}']] },
-    { name: 'Modular group', 
+    { name: 'Modular group',
         mats: [['1', '1', '0', '1'], ['0', '-1', '1', '0']] },
     { name: 'Borromean rings group', 
         mats: [['1', '2', '0', '1'], ['1', 'i', '0', '1'], ['1', '0', '-1-i', '1'], ['1', '0', '1-i', '1']] },
@@ -29,7 +29,7 @@ export const exampleLibrary = [
         mats: [['1', '1.1028+0.6655i', '0', '1'], ['0', '-1', '1', '0']] }, // A root of z^4 - 4z^3 + 2z^2 + 4z + 1
     { name: 'Hecke group', 
         mats: [['1', '2\\cos(\\frac{\\pi}{n})', '0', '1'], ['0', '-1', '1', '0']] },
-    { name: 'Figure eight fiber', 
+    { name: 'Figure eight fiber',
         mats: [['\\frac{1+\\sqrt{3}i}{2}', '1', '\\frac{-1+\\sqrt{3}i}{2}', '1'],
         ['\\frac{1+\\sqrt{3}i}{2}', '-1', '\\frac{1-\\sqrt{3}i}{2}', '1']] },
     { name: 'PSL(2,Z[w])',

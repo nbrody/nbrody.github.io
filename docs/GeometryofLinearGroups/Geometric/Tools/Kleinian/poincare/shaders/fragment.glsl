@@ -3,6 +3,7 @@ varying vec2 vUv;
 // --- Uniforms
 uniform vec2 u_resolution;
 uniform mat4 u_inverseViewProjectionMatrix;
+uniform mat4 u_viewProjectionMatrix;
 uniform vec3 u_cameraPosition;
 uniform int u_palette_mode; // 0=colorful, 1=vaporwave, 2=uc
 uniform int u_selected_face_id; // -1 for none
@@ -196,6 +197,14 @@ vec2 raySphereIntersect(vec3 ro, vec3 rd, float r) {
     return vec2(-b - h, -b + h);
 }
 
+// Compute depth value for gl_FragDepth from world position
+float computeDepth(vec3 worldPos) {
+    vec4 clipPos = u_viewProjectionMatrix * vec4(worldPos, 1.0);
+    float ndc_depth = clipPos.z / clipPos.w;
+    // Convert from NDC [-1, 1] to depth range [0, 1] and clamp
+    return clamp(ndc_depth * 0.5 + 0.5, 0.0, 1.0);
+}
+
 void main() {
     vec2 uv = (gl_FragCoord.xy / u_resolution.xy) * 2.0 - 1.0;
     vec4 pNear = u_inverseViewProjectionMatrix * vec4(uv, -1.0, 1.0);
@@ -289,6 +298,9 @@ void main() {
                 }
             }
         }
+
+        // Write depth for proper occlusion with Cayley graph
+        gl_FragDepth = computeDepth(p);
         gl_FragColor = vec4(litColor, 1.0);
     } else {
         discard;

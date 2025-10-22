@@ -2,7 +2,7 @@
 Created by soma_arc - 2016
 This work is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported.
 */
-precision mediump float;
+precision highp float;
 
 uniform vec3 iResolution;
 uniform float sphereRadius;
@@ -24,7 +24,9 @@ uniform float sphereRadii[20];
 varying vec2 vUv;
 
 vec3 sphereInvert(vec3 pos, vec3 circlePos, float circleR){
-    return ((pos - circlePos) * circleR * circleR)/(distance(pos, circlePos) * distance(pos, circlePos) ) + circlePos;
+    vec3 diff = pos - circlePos;
+    float dist2 = dot(diff, diff); // More efficient than distance squared
+    return (diff * circleR * circleR) / dist2 + circlePos;
 }
 
 float loopNum = 0.;
@@ -43,13 +45,14 @@ float distKlein(vec3 pos){
         for(int j = 0; j < 20; j++){
             if(j >= numSpheres) break;
 
+            vec3 diff = pos - spherePositions[j];
+            float dist2 = dot(diff, diff); // Cache distance squared
             float SPHERE_R = sphereRadii[j];
             float SPHERE_R2 = SPHERE_R * SPHERE_R;
 
-            if(distance(pos, spherePositions[j]) < SPHERE_R){
-                vec3 diff = (pos - spherePositions[j]);
-                dr *= SPHERE_R2 / dot(diff, diff);
-                pos = sphereInvert(pos, spherePositions[j], SPHERE_R);
+            if(dist2 < SPHERE_R2){
+                dr *= SPHERE_R2 / dist2;
+                pos = (diff * SPHERE_R2) / dist2 + spherePositions[j];
                 loopEnd = false;
                 loopNum++;
                 break; // Only invert once per iteration
@@ -125,12 +128,18 @@ vec2 march(const vec3 origin, const  vec3 ray, const float threshold){
     vec3 rayPos = origin;
     float dist;
     float rayLength = 0.;
+    const float maxDist = 2000.0; // Early exit for rays going nowhere
     for(int i = 0 ; i < 2000 ; i++){
         if(i >= maxMarchSteps) break;
         dist = distFunc(rayPos);
-        rayLength += dist;
-        rayPos = origin + ray * rayLength ;
+
+        // Early exit conditions
         if(dist < threshold) break;
+        if(rayLength > maxDist) break;
+
+        // Adaptive step size with slight overstep for faster convergence
+        rayLength += dist * 0.9;
+        rayPos = origin + ray * rayLength;
     }
     return vec2(dist, rayLength);
 }

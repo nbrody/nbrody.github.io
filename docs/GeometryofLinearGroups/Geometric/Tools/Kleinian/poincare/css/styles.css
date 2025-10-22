@@ -39,18 +39,46 @@ body {
     /* will be set dynamically */
 }
 
+/* Panel content wrapper */
+.panel-content {
+    padding: 0 16px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: opacity 0.3s ease;
+}
+
+/* Tab Navigation - sticky header */
+.tab-navigation {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(15, 15, 25, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 12px;
+    padding-right: 56px; /* Space for absolutely positioned collapse button */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 56px;
+    box-sizing: border-box;
+    transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                margin 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                background 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                border-bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Tab System - light glass styling */
 .tab-btn {
     flex: 1;
-    padding: 8px 16px;
+    padding: 6px 12px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 6px;
     color: rgba(255, 255, 255, 0.7);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s ease, opacity 0.3s ease;
 }
 
 .tab-btn:hover {
@@ -65,12 +93,40 @@ body {
     box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
 }
 
+/* Toggle button - same styling as tabs but independent */
+.toggle-btn {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.toggle-btn.active {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
+
 .tab-content {
     display: none;
 }
 
 .tab-content.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: opacity 0.3s ease;
 }
 
 /* Collapse Button - glass styling */
@@ -89,7 +145,14 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#collapse-btn {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    z-index: 20;
 }
 
 .collapse-btn:hover {
@@ -99,34 +162,52 @@ body {
 }
 
 .collapse-icon {
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: transform 0.3s ease;
     font-weight: 300;
     line-height: 1;
+    transform: translate(1px, -1px);
 }
 
-/* Collapsed state - instant, no animation */
+/* Collapsed state - with smooth animation */
+#control-panel {
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.collapse-icon {
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 #control-panel.collapsed .collapse-icon {
-    transform: rotate(45deg);
+    transform: translate(1px, -1px) rotate(45deg);
 }
 
-#control-panel.collapsed .tab-btn {
+#control-panel.collapsed .tab-btn,
+#control-panel.collapsed #refresh-btn,
+#control-panel.collapsed .panel-content,
+#control-panel.collapsed .tab-content {
     display: none;
 }
 
-#control-panel.collapsed .tab-content {
-    display: none !important;
-}
-
 #control-panel.collapsed {
-    width: auto !important;
-    padding: 6px;
+    width: 56px !important;
     min-width: 0;
+    padding: 0;
+    height: 56px !important;
+    min-height: 56px;
 }
 
-#control-panel.collapsed .flex.gap-2 {
-    gap: 0;
-    margin-bottom: 0;
+#control-panel.collapsed .tab-navigation {
+    padding: 0;
+    padding-right: 0;
+    border-bottom: none;
+    margin: 0;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 /* Matrix input styles */
@@ -209,6 +290,20 @@ body {
     -webkit-backdrop-filter: blur(4px);
     border: 1px solid rgba(255, 255, 255, 0.15);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    /* Hide scrollbar but allow scrolling */
+    overflow-y: auto;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+#control-panel::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+/* Hide error messages when empty */
+#matrix-error-message:empty,
+#error-message:empty {
+    display: none;
 }
 
 /* Control groups - subtle glass styling */
@@ -267,19 +362,3 @@ button:active {
     border-radius: 6px;
 }
 
-/* Optimized scrollbar */
-#control-panel::-webkit-scrollbar {
-    width: 8px;
-}
-
-#control-panel::-webkit-scrollbar-track {
-    background: rgb(10, 10, 15);
-}
-
-#control-panel::-webkit-scrollbar-thumb {
-    background: rgb(60, 60, 70);
-}
-
-#control-panel::-webkit-scrollbar-thumb:hover {
-    background: rgb(80, 80, 90);
-}

@@ -27,6 +27,7 @@ import { setupMatrixInput, getMatricesFromUI, Complex } from './matrixInput.js';
 import { generateGroupElements, computeDelaunayNeighbors } from './dirichletUtils.js';
 import { polyhedronLibrary } from '../../assets/polyhedronLibrary.js';
 import { exportPolyhedronAs3MF } from './export3mf.js';
+import { buildCayleyGraph, toggleCayleyGraph, clearCayleyGraph } from './cayleyGraph.js';
 
 // Constants
 const MAX_PLANES_CONST = 256;
@@ -47,6 +48,7 @@ const defaultVectors = [
 // Global state
 let scene, camera, renderer, controls, material, uniforms;
 let boundarySphere;
+let polyhedronQuad;
 let _currentSphereCenters = [];
 let _currentSphereRadii = [];
 let _currentPlaneNormals = [];
@@ -55,12 +57,14 @@ let _currentWordsByLine = []; // Store word metadata for each line
 let _generatedWords = []; // Store words from matrix generation (not displayed in textarea)
 let _facesMetaById = [];
 let _paletteMode = 0;
+let _currentMatrices = [];
 let _popActive = false;
 let _popStart = 0;
 const _popDurationMs = 600;
 
 // Reusable objects to avoid GC overhead
 const _inverseViewProjectionMatrix = new THREE.Matrix4();
+const _viewProjectionMatrix = new THREE.Matrix4();
 
 // Animation helpers
 function triggerPop(faceId) {
@@ -110,8 +114,32 @@ function getFaceCenter(faceId) {
     const numSpheres = _currentSphereCenters.length;
 
     if (faceId < numSpheres) {
-        // For spherical faces, use the sphere center
-        return _currentSphereCenters[faceId]?.clone();
+        // For spherical faces, find a point on the sphere surface inside the ball
+        const center = _currentSphereCenters[faceId];
+        const radius = _currentSphereRadii[faceId];
+        if (!center || !radius) return null;
+
+        // The sphere equation is |p - center| = radius
+        // We want a point on this sphere that's also inside the ball
+        // Find the closest point on the sphere to the origin
+        const centerDist = center.length();
+
+        if (centerDist < radius) {
+            // Origin is inside the sphere - take point toward origin
+            const dir = center.clone().normalize();
+            return dir.multiplyScalar(Math.max(0.3, centerDist - radius + 0.1));
+        } else {
+            // Origin is outside sphere - take the closest point on sphere to origin
+            const dir = center.clone().normalize();
+            const closestPoint = dir.multiplyScalar(centerDist - radius);
+            // Ensure it's inside the ball
+            if (closestPoint.length() < 0.95) {
+                return closestPoint;
+            } else {
+                // Fallback: use a point scaled down toward origin
+                return dir.multiplyScalar(0.5);
+            }
+        }
     } else {
         // For planar faces, use a point on the plane close to origin
         const i = faceId - numSpheres;
@@ -476,6 +504,7 @@ async function updateFromMatrices() {
 
     try {
         const matrices = getMatricesFromUI();
+        _currentMatrices = matrices; // Store for later use
         if (matrices.length === 0) {
             if (errorMessage) errorMessage.textContent = 'Please add at least one matrix.';
             return;
@@ -635,6 +664,15 @@ async function updateFromMatrices() {
 
         console.log(`Successfully generated ${vectorsWithMeta.length} vectors with metadata`);
 
+        // Rebuild Cayley graph if it's currently visible
+        const cayleyGraphBtn = document.getElementById('show-cayley-graph');
+        if (cayleyGraphBtn && cayleyGraphBtn.classList.contains('active')) {
+            const wordLength = parseInt(document.getElementById('wordLength')?.value) || 4;
+            console.log('Rebuilding Cayley graph after matrix generation...');
+            buildCayleyGraph(matrices, wordLength, scene, PSL2CtoSDF, _facesMetaById, _paletteMode);
+            console.log('Cayley graph rebuilt');
+        }
+
     } catch (e) {
         console.error(e);
         if (errorMessage) {
@@ -672,7 +710,8 @@ async function init() {
         opacity: 0.4,
         shininess: 120,
         specular: 0xffffff,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        depthWrite: false  // Don't block Cayley graph
     });
 
     const sphereGeom = new THREE.SphereGeometry(1, 64, 64);
@@ -693,6 +732,7 @@ async function init() {
         u_resolution: { value: new THREE.Vector2(renderer.domElement.width, renderer.domElement.height) },
         u_cameraPosition: { value: camera.position },
         u_inverseViewProjectionMatrix: { value: new THREE.Matrix4() },
+        u_viewProjectionMatrix: { value: new THREE.Matrix4() },
         u_num_sphere_planes: { value: 0 },
         u_sphere_centers: { value: initialSphereCenters },
         u_sphere_radii: { value: initialSphereRadii },
@@ -716,14 +756,15 @@ async function init() {
         fragmentShader,
         uniforms,
         transparent: true,
-        depthWrite: false,
+        depthWrite: true,  // Enable depth writing for proper occlusion
+        depthTest: true,
     });
 
     const hyperbolicGroup = new THREE.Group();
     hyperbolicGroup.add(boundarySphere);
-    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
-    quad.renderOrder = 1;
-    hyperbolicGroup.add(quad);
+    polyhedronQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+    polyhedronQuad.renderOrder = 1;
+    hyperbolicGroup.add(polyhedronQuad);
     hyperbolicGroup.position.set(0, 0, 0);
     scene.add(hyperbolicGroup);
 
@@ -742,7 +783,28 @@ function setupEventHandlers() {
         renderGutter(lines.length, _currentFaceIdsByLine, _currentWordsByLine, _paletteMode);
     });
 
-    document.getElementById('render-btn').addEventListener('click', updateFromInput);
+    // Refresh button - calls appropriate render function based on active tab
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            const groupTab = document.getElementById('tab-group');
+            const polyhedronTab = document.getElementById('tab-polyhedron');
+
+            if (groupTab && groupTab.classList.contains('active')) {
+                // Group tab - generate from matrices
+                updateFromMatrices();
+            } else if (polyhedronTab && polyhedronTab.classList.contains('active')) {
+                // Polyhedron tab - render from vectors
+                updateFromInput();
+            }
+        });
+    }
+
+    // Keep old button handlers for backward compatibility
+    const renderBtn = document.getElementById('render-btn');
+    if (renderBtn) {
+        renderBtn.addEventListener('click', updateFromInput);
+    }
 
     // Export .3MF button
     const export3mfBtn = document.getElementById('export-3mf-btn');
@@ -756,21 +818,34 @@ function setupEventHandlers() {
         });
     }
 
-    // Auto-rotate checkbox
-    const autoRotateCheckbox = document.getElementById('auto-rotate');
-    if (autoRotateCheckbox) {
-        autoRotateCheckbox.checked = controls.autoRotate;
-        autoRotateCheckbox.addEventListener('change', (e) => {
-            controls.autoRotate = e.target.checked;
+    // Show polyhedron button
+    const showPolyhedronBtn = document.getElementById('show-polyhedron');
+    if (showPolyhedronBtn) {
+        // Start with polyhedron visible (has 'active' class in HTML)
+        polyhedronQuad.visible = showPolyhedronBtn.classList.contains('active');
+        showPolyhedronBtn.addEventListener('click', () => {
+            showPolyhedronBtn.classList.toggle('active');
+            polyhedronQuad.visible = showPolyhedronBtn.classList.contains('active');
         });
     }
 
-    // Boundary toggle
-    const boundaryToggle = document.getElementById('toggle-boundary');
-    if (boundaryToggle) {
-        boundarySphere.visible = boundaryToggle.checked;
-        boundaryToggle.addEventListener('change', (e) => {
-            boundarySphere.visible = e.target.checked;
+    // Auto-rotate button
+    const autoRotateBtn = document.getElementById('auto-rotate');
+    if (autoRotateBtn) {
+        autoRotateBtn.addEventListener('click', () => {
+            autoRotateBtn.classList.toggle('active');
+            controls.autoRotate = autoRotateBtn.classList.contains('active');
+        });
+    }
+
+    // Boundary toggle button
+    const boundaryToggleBtn = document.getElementById('toggle-boundary');
+    if (boundaryToggleBtn) {
+        // Start with boundary visible (has 'active' class in HTML)
+        boundarySphere.visible = boundaryToggleBtn.classList.contains('active');
+        boundaryToggleBtn.addEventListener('click', () => {
+            boundaryToggleBtn.classList.toggle('active');
+            boundarySphere.visible = boundaryToggleBtn.classList.contains('active');
         });
     }
 
@@ -784,6 +859,48 @@ function setupEventHandlers() {
             uniforms.u_palette_mode.value = _paletteMode;
             const lines = (document.getElementById('vectors').value || '').split('\n').filter(l => l.trim() !== '');
             renderGutter(lines.length, _currentFaceIdsByLine, _currentWordsByLine, _paletteMode);
+
+            // Rebuild Cayley graph with new colors if visible
+            const cayleyGraphBtn = document.getElementById('show-cayley-graph');
+            if (cayleyGraphBtn && cayleyGraphBtn.classList.contains('active') && _currentMatrices.length > 0) {
+                const wordLength = parseInt(document.getElementById('wordLength')?.value) || 4;
+                console.log('Rebuilding Cayley graph with new palette...');
+                buildCayleyGraph(_currentMatrices, wordLength, scene, PSL2CtoSDF, _facesMetaById, _paletteMode);
+            }
+        });
+    }
+
+    // Cayley graph toggle button
+    const cayleyGraphBtn = document.getElementById('show-cayley-graph');
+    if (cayleyGraphBtn) {
+        cayleyGraphBtn.addEventListener('click', () => {
+            cayleyGraphBtn.classList.toggle('active');
+            const isActive = cayleyGraphBtn.classList.contains('active');
+
+            if (isActive) {
+                // Build and show Cayley graph
+                const matrices = getMatricesFromUI();
+                if (matrices.length === 0) {
+                    alert('Please add matrices first before showing the Cayley graph.');
+                    cayleyGraphBtn.classList.remove('active');
+                    return;
+                }
+
+                if (typeof PSL2CtoSDF === 'undefined' || !PSL2CtoSDF) {
+                    alert('PSL2CtoSDF.js is required for Cayley graph visualization.');
+                    cayleyGraphBtn.classList.remove('active');
+                    return;
+                }
+
+                const wordLength = parseInt(document.getElementById('wordLength')?.value) || 4;
+                console.log('Building Cayley graph with word length:', wordLength);
+                buildCayleyGraph(matrices, wordLength, scene, PSL2CtoSDF, _facesMetaById, _paletteMode);
+                console.log('Cayley graph build complete');
+            } else {
+                // Hide Cayley graph
+                toggleCayleyGraph(false);
+                console.log('Cayley graph hidden');
+            }
         });
     }
 
@@ -1126,9 +1243,12 @@ function animate() {
     requestAnimationFrame(animate);
     controls.update();
     camera.updateMatrixWorld();
-    // Reuse existing matrix to avoid GC overhead
+    // Reuse existing matrices to avoid GC overhead
     _inverseViewProjectionMatrix.multiplyMatrices(camera.matrixWorld, camera.projectionMatrixInverse);
     uniforms.u_inverseViewProjectionMatrix.value.copy(_inverseViewProjectionMatrix);
+    // Compute viewProjectionMatrix for depth writing
+    _viewProjectionMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    uniforms.u_viewProjectionMatrix.value.copy(_viewProjectionMatrix);
     uniforms.u_cameraPosition.value.copy(camera.position);
 
     if (_popActive) {
