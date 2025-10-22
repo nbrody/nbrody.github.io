@@ -26,6 +26,7 @@ import { renderGutter, highlightGutterFaces, showFaceMeta, setupPager, setupPane
 import { setupMatrixInput, getMatricesFromUI, Complex } from './matrixInput.js';
 import { generateGroupElements, computeDelaunayNeighbors } from './dirichletUtils.js';
 import { polyhedronLibrary } from '../../assets/polyhedronLibrary.js';
+import { exportPolyhedronAs3MF } from './export3mf.js';
 
 // Constants
 const MAX_PLANES_CONST = 256;
@@ -742,6 +743,18 @@ function setupEventHandlers() {
     });
 
     document.getElementById('render-btn').addEventListener('click', updateFromInput);
+
+    // Export .3MF button
+    const export3mfBtn = document.getElementById('export-3mf-btn');
+    if (export3mfBtn) {
+        export3mfBtn.addEventListener('click', () => {
+            if (_currentSphereCenters.length === 0 && _currentPlaneNormals.length === 0) {
+                alert('Please render a polyhedron first before exporting.');
+                return;
+            }
+            exportPolyhedronAs3MF(_currentSphereCenters, _currentSphereRadii, _currentPlaneNormals);
+        });
+    }
 
     // Auto-rotate checkbox
     const autoRotateCheckbox = document.getElementById('auto-rotate');

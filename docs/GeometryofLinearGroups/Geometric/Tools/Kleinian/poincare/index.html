@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hyperbolic Polyhedron Viewer</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="js/PSL2CtoSDF.js"></script>
     <script src="js/faceFilter.js"></script>
     <script src="polyhedronLibrary.js"></script>
@@ -112,6 +113,11 @@
             <button id="render-btn"
                 class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
                 Render Polyhedron
+            </button>
+
+            <button id="export-3mf-btn"
+                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-2">
+                Export polyhedron as .3MF
             </button>
 
             <div class="control-group p-4">
