@@ -95,25 +95,36 @@ function sDF_autoFromSO31(g) {
     if (!Array.isArray(g) || g.length !== 4 || g.some(r => !Array.isArray(r) || r.length !== 4)) {
         throw new Error('sDF_autoFromSO31 expects a 4x4 matrix');
     }
-    const eps = 1e-8;
+    const eps = 1e-9;
+
+    // Try basis vectors in order: e_3 (basepoint), e_2, e_1, e_0
+    // If g fixes e_3, use e_2; if it also fixes e_2, use e_1; etc.
+    // This ensures every non-identity group element defines an SDF
     for (let j = 3; j >= 0; j--) {
         const s = __ETA[j];
-        const w = __ginv_ej(g, j);
+        const w = __ginv_ej(g, j);  // j-th column of g^{-1}
         const denom = s * (w[j] - 1);
+
+        // Check if g fixes e_j (i.e., g^{-1}(e_j) = e_j)
         if (Math.abs(denom) < eps) {
+            // g fixes e_j, try next basis vector
             continue;
         }
+
+        // Compute bisector between e_j and g^{-1}(e_j)
         const e = __stdBasis(j);
         const u = [w[0] - e[0], w[1] - e[1], w[2] - e[2], w[3] - e[3]];
         const eta_u = __etaApply(u);
-        const row = eta_u;
-        if (j === 3) {
-            for (let i = 0; i < row.length; i++) row[i] = -row[i];
-        }
+
+        // For Dirichlet domain: normal points from e_j toward g^{-1}(e_j)
+        // Sign convention: negate to get correct orientation
+        const row = [-eta_u[0], -eta_u[1], -eta_u[2], -eta_u[3]];
 
         return { row, pivot: j };
     }
-    throw new Error('sDF undefined: g fixes all basis vectors e₀, e₁, e₂, e₃');
+
+    // Only the identity element should reach here
+    throw new Error('sDF undefined: element is the identity (fixes all basis vectors)');
 }
 
 // ------------------ Public API / Cross-page access ------------------

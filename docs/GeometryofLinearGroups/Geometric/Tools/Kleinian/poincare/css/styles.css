@@ -401,3 +401,43 @@ button:active {
     border-radius: 6px;
 }
 
+/* Polyhedron slider - draggable opacity control */
+.polyhedron-slider {
+    position: relative;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: ew-resize;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    overflow: hidden;
+    user-select: none;
+    text-align: center;
+}
+
+.polyhedron-slider:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.polyhedron-slider-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.3), rgba(99, 102, 241, 0.2));
+    border-radius: 6px;
+    pointer-events: none;
+}
+
+.polyhedron-slider-text {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+    display: block;
+}
+

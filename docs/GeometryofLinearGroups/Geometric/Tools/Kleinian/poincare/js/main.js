@@ -749,6 +749,7 @@ async function init() {
         u_selected_edge_faces: { value: new THREE.Vector2(-1, -1) },
         u_selected_vertex_pos: { value: new THREE.Vector3(0,0,0) },
         u_selected_vertex_radius: { value: 0.0 },
+        u_polyhedron_opacity: { value: 1.0 },
     };
 
     material = new THREE.ShaderMaterial({
@@ -818,14 +819,47 @@ function setupEventHandlers() {
         });
     }
 
-    // Show polyhedron button
-    const showPolyhedronBtn = document.getElementById('show-polyhedron');
-    if (showPolyhedronBtn) {
-        // Start with polyhedron visible (has 'active' class in HTML)
-        polyhedronQuad.visible = showPolyhedronBtn.classList.contains('active');
-        showPolyhedronBtn.addEventListener('click', () => {
-            showPolyhedronBtn.classList.toggle('active');
-            polyhedronQuad.visible = showPolyhedronBtn.classList.contains('active');
+    // Polyhedron slider (draggable opacity control)
+    const polyhedronSlider = document.getElementById('show-polyhedron');
+    if (polyhedronSlider) {
+        const fill = polyhedronSlider.querySelector('.polyhedron-slider-fill');
+        let isDragging = false;
+
+        function updateOpacity(clientX) {
+            const rect = polyhedronSlider.getBoundingClientRect();
+            const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+            let opacity = x / rect.width;
+
+            // Snap to 0 or 1 at edges
+            if (opacity < 0.05) opacity = 0;
+            if (opacity > 0.95) opacity = 1;
+
+            fill.style.width = (opacity * 100) + '%';
+            uniforms.u_polyhedron_opacity.value = opacity;
+            polyhedronQuad.visible = opacity > 0;
+        }
+
+        // Initialize
+        const initialOpacity = parseFloat(polyhedronSlider.getAttribute('data-opacity')) || 1;
+        fill.style.width = (initialOpacity * 100) + '%';
+        uniforms.u_polyhedron_opacity.value = initialOpacity;
+        polyhedronQuad.visible = initialOpacity > 0;
+
+        polyhedronSlider.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            updateOpacity(e.clientX);
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                updateOpacity(e.clientX);
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
         });
     }
 

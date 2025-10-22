@@ -16,6 +16,7 @@ uniform float u_edge_select_boost; // multiplicative boost when the selected fac
 uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected edge (-1, -1 if none)
 uniform vec3 u_selected_vertex_pos; // position of selected vertex (inside ball)
 uniform float u_selected_vertex_radius; // small radius for the highlight sphere
+uniform float u_polyhedron_opacity; // opacity of the polyhedron (0.0 to 1.0)
 
 const int MAX_PLANES = 256;
 
@@ -301,7 +302,7 @@ void main() {
 
         // Write depth for proper occlusion with Cayley graph
         gl_FragDepth = computeDepth(p);
-        gl_FragColor = vec4(litColor, 1.0);
+        gl_FragColor = vec4(litColor, u_polyhedron_opacity);
     } else {
         discard;
     }

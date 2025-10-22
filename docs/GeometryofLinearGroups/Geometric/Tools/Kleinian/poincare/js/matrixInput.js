@@ -403,11 +403,23 @@ export function getMatricesFromUI() {
 }
 
 // Load an example
-function setExample(example) {
-    const container = document.getElementById('matrixInputs');
-    if (!container) return;
+function setExample(example, exampleName = '') {
+    const matrixContainer = document.getElementById('matrixInputs');
+    const constantsContainer = document.getElementById('constantsInputs');
+    if (!matrixContainer) return;
 
-    container.innerHTML = '';
+    // Clear matrices and constants
+    matrixContainer.innerHTML = '';
+    if (constantsContainer) {
+        constantsContainer.innerHTML = '';
+    }
+
+    // Special handling for Hecke group - add random n constant
+    if (exampleName === 'Hecke group') {
+        const randomN = Math.floor(Math.random() * 8) + 3; // Random integer from 3 to 10
+        addConstantInput('n', String(randomN));
+    }
+
     example.forEach(vals => addMatrixInput(vals.map(v => String(v).replace(/\*\*/g, '^'))));
 }
 
@@ -426,7 +438,8 @@ function populateExampleDropdown() {
     sel.addEventListener('change', () => {
         const idx = parseInt(sel.value, 10);
         if (idx >= 0 && idx < exampleLibrary.length) {
-            setExample(exampleLibrary[idx].mats);
+            const example = exampleLibrary[idx];
+            setExample(example.mats, example.name);
         }
     });
 }
