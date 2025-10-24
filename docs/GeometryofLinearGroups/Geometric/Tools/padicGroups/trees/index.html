@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bruhat-Tits Tree Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <script>
+        MathJax = {
+            _mjxQueue: [],
+            typeset: function (elements) { (window._mjxQueue || (window._mjxQueue = [])).push(elements); },
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' },
+            startup: {
+                ready: () => {
+                    MathJax.startup.defaultReady();
+                    if (typeof MathJax.typesetPromise === 'function') {
+                        MathJax.typeset = (elements) => MathJax.typesetPromise(elements ? [elements].flat() : undefined);
+                    }
+                    if (window._mjxQueue && window._mjxQueue.length) {
+                        window._mjxQueue.forEach((els) => { try { MathJax.typeset(els); } catch (_) { } });
+                        window._mjxQueue.length = 0;
+                    }
+                }
+            }
+        };
+    </script>
+    <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <link rel="stylesheet" href="./css/styles.css">
+</head>
+
+<body class="flex flex-col md:flex-row h-screen antialiased">
+    <!-- Controls and Info Panel -->
+    <div id="control-panel"
+        class="absolute top-4 right-4 w-96 max-h-[90vh] shadow-lg flex flex-col overflow-x-hidden rounded-lg z-40 transition-transform transform"
+        style="transform: translateX(0);">
+        <!-- Tab Navigation -->
+        <div class="tab-navigation flex gap-2 items-center">
+            <button class="tab-btn active" data-tab="action">Action</button>
+            <button class="tab-btn" data-tab="tree">Tree</button>
+            <button class="tab-btn" data-tab="info">Info</button>
+            <button id="refresh-btn" class="collapse-btn" title="Recalculate">
+                <span class="collapse-icon">⟳</span>
+            </button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- Action Tab -->
+            <div id="tab-action" class="tab-content active">
+                <div>
+                    <h2 class="text-xl font-semibold text-white mb-2">The <input id="prime" type="text" value="3"
+                        class="w-8 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2">-adic tree</h2>
+                </div>
+
+                <div class="control-group p-3">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Matrix Input</label>
+                    <div id="matrixInputs"></div>
+                    <button id="addMatrixBtn"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-2">
+                        + Add Matrix
+                    </button>
+                </div>
+
+                <div class="control-group p-3">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        Constants <span class="text-gray-500 text-xs">(optional)</span>
+                    </label>
+                    <div id="constantsInputs"></div>
+                    <button id="addConstantBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-2">
+                        + Add Constant
+                    </button>
+                </div>
+
+                <div class="control-group p-3">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Vertex</label>
+                        <span>⌊</span>
+                        <input type="text" id="vertex_q" value="0"
+                          class="w-16 text-center bg-gray-800 text-white rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-1 py-1">
+                        <span>⌋</span>
+                        <sub>
+                          <input type="text" id="vertex_k" value="0"
+                            class="w-10 text-center bg-gray-800 text-white rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-xs px-1 py-1 align-baseline">
+                        </sub>
+                </div>
+
+                <div class="control-group p-3">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Word Length</label>
+                    <input type="number" id="wordLength" value="3" min="0" max="10" step="1"
+                        class="w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2">
+                    <p class="text-xs text-gray-400 mt-1">Generate orbit up to this word length</p>
+                </div>
+
+                <button id="calculateBtn"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                    Calculate
+                </button>
+
+                <div class="control-group p-3">
+                    <h3 class="text-sm font-semibold text-white mb-2">Results</h3>
+                    <div id="output" class="text-sm text-gray-300">
+                        Results will be displayed here.
+                    </div>
+                </div>
+
+                <div class="control-group p-3">
+                    <h3 class="text-sm font-semibold text-white mb-2">Selected Vertex</h3>
+                    <div id="selected-vertex" class="text-sm text-gray-300">
+                        Click a vertex to see details.
+                    </div>
+                </div>
+
+                <div class="control-group p-3">
+                    <h3 class="text-sm font-semibold text-white mb-2">Orbit Information</h3>
+                    <div id="orbit-info" class="text-sm text-gray-300">
+                        Orbit will be displayed here.
+                    </div>
+                </div>
+
+                <div class="control-group p-3">
+                    <button id="toggle-stabilizer" class="toggle-btn w-full">
+                        Show Stabilizer Elements
+                    </button>
+                    <div id="stabilizer-info" class="text-sm text-gray-300 mt-3 hidden">
+                        <h3 class="text-sm font-semibold text-white mb-2">Elements Fixing Base Vertex</h3>
+                        <div id="stabilizer-elements" class="text-xs max-h-40 overflow-y-auto">
+                            Stabilizer elements will be displayed here.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="formula-box">
+                    <div class="caption">Action formula</div>
+                    <div class="text-xs">
+                        $$
+                        \begin{pmatrix} a & b \\ c & d \end{pmatrix}\cdot \lfloor q \rfloor_k \;=\; \begin{cases}
+                        \Big\lfloor \frac{a\,q + b}{c\,q + d} \Big\rfloor_{\,k-2v_p(cq+d)+v_p(\det(g))} & \text{if
+                        }v_p(cq+d)-v_p(c)\leq k \\
+                        \Big\lfloor \frac{a}{c} \Big\rfloor_{\,k-2v_p(c)+v_p(\det(g))} & \text{if }v_p(cq+d)-v_p(c)> k
+                        \end{cases}\,.
+                        $$
+                    </div>
+                </div>
+            </div> <!-- end tab-action -->
+
+            <!-- Tree Tab -->
+            <div id="tab-tree" class="tab-content">
+                <div>
+                    <h2 class="text-xl font-semibold text-white mb-2">Tree Settings</h2>
+                    <p class="text-sm text-gray-400 mb-3">Control the visualization of the Bruhat-Tits tree.</p>
+                </div>
+
+                <div class="control-group p-3">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Max Distance</label>
+                    <input type="number" id="maxDistance" value="2" min="0" max="10" step="1"
+                        class="w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2">
+                    <p class="text-xs text-gray-400 mt-1">Show vertices within this distance of orbit</p>
+                </div>
+
+                <div class="control-group p-3">
+                    <button id="reset-zoom" class="toggle-btn w-full">
+                        Reset Zoom
+                    </button>
+                </div>
+
+                <div class="control-group p-3">
+                    <h3 class="text-sm font-semibold text-white mb-2">Vertex Colors</h3>
+                    <div class="text-xs text-gray-300 space-y-1">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full" style="background-color: #1d4ed8; border: 2px solid #2563eb;"></div>
+                            <span>Base vertex</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full" style="background-color: #059669; border: 2px solid #34d399;"></div>
+                            <span>$g_1 \cdot v$</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full" style="background-color: #10b981; border: 2px solid #34d399;"></div>
+                            <span>Orbit vertices</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full" style="background-color: #93c5fd; border: 2px solid #bfdbfe;"></div>
+                            <span>Convex hull (non-orbit)</span>
+                        </div>
+                    </div>
+                    <h3 class="text-sm font-semibold text-white mb-2 mt-3">Edge Colors</h3>
+                    <div class="text-xs text-gray-300 space-y-1">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-0.5" style="background-color: #60a5fa;"></div>
+                            <span>Convex hull edges</span>
+                        </div>
+                    </div>
+                    <h3 class="text-sm font-semibold text-white mb-2 mt-3">Voronoi Cell of $[0]_0$</h3>
+                    <div class="text-xs text-gray-300 space-y-1">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full" style="background-color: #fbbf24; opacity: 0.3; border: 2px solid #fbbf24;"></div>
+                            <span>Vertices in Voronoi cell</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-0.5" style="background-color: #fbbf24; opacity: 0.6; height: 3px;"></div>
+                            <span>Full edges (interior)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-0.5" style="background-color: #fbbf24; opacity: 0.5; height: 2.5px;"></div>
+                            <span>Half-edges (boundary)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info text-xs text-gray-400 p-3">
+                    <p><strong>Controls:</strong> Drag to pan, scroll to zoom.</p>
+                    <p><strong>Selection:</strong> Click a vertex to view details and set it as the input vertex.</p>
+                    <p class="mt-2"><strong>Vertex Info:</strong> When you click a vertex, the "Selected Vertex" section shows its coordinates and (if in the orbit) all group elements that reach it.</p>
+                    <p class="mt-2"><strong>Note:</strong> Adjust "Max Distance" to control how much of the tree around the orbit is displayed.</p>
+                </div>
+            </div> <!-- end tab-tree -->
+
+            <!-- Info Tab -->
+            <div id="tab-info" class="tab-content">
+                <div>
+                    <h1 class="text-2xl font-bold text-white">Bruhat-Tits Tree</h1>
+                    <p class="text-sm text-gray-400 mt-1">$p$-adic Visualization</p>
+                </div>
+
+                <div class="info text-sm text-gray-400 p-3">
+                    <h2 class="font-semibold text-white mb-2">About</h2>
+                    <p class="mb-3">This tool visualizes the Bruhat-Tits tree $T_p$ associated to
+                        $\mathsf{PGL}_2(\mathbb{Q}_p)$ and the action of $\mathsf{PGL}_2(\mathbb{Q})$ on it.</p>
+
+                    <h3 class="font-semibold text-white text-xs mb-1 mt-3">Vertices:</h3>
+                    <p class="mb-2">A vertex is denoted by $\lfloor q \rfloor_k$, where $k\in \mathbb{Z}$ and $q\in
+                        \mathbb{Z}[1/p]/p^k\mathbb{Z}$.</p>
+
+                    <h3 class="font-semibold text-white text-xs mb-1 mt-3">Group Action:</h3>
+                    <p class="mb-2">The group $\mathsf{PGL}_2(\mathbb{Q})$ acts on $T_p$ via the formula shown in the
+                        Action tab. The tree distance between vertices measures the minimal number of edges in the path
+                        connecting them.</p>
+
+                    <h3 class="font-semibold text-white text-xs mb-1 mt-3">Orbit Computation:</h3>
+                    <p class="mb-2">The tool computes the orbit of the base vertex under the group generated by your
+                        input matrices, up to the specified word length. All orbit vertices are highlighted in green.</p>
+
+                    <h3 class="font-semibold text-white text-xs mb-1 mt-3">Convex Hull:</h3>
+                    <p class="mb-2">The convex hull in a tree is the minimal subtree containing all orbit vertices.
+                        Vertices in the hull (but not in the orbit) are shown in light blue, and hull edges are gently highlighted.
+                        This reveals the geometric structure of how the group orbit spreads through the tree.</p>
+
+                    <h3 class="font-semibold text-white text-xs mb-1 mt-3">Stabilizer Subgroup:</h3>
+                    <p class="mb-2">The stabilizer of the base vertex consists of all group elements $g$ (up to the word length)
+                        such that $g \cdot v = v$. This forms a subgroup that reveals symmetries fixing the basepoint.
+                        Use the toggle button in the Action tab to view these elements.</p>
+
+                    <h3 class="font-semibold text-white text-xs mb-1 mt-3">Voronoi Cell (Fundamental Domain):</h3>
+                    <p class="mb-2">The Voronoi cell of $[0]_0$ consists of all vertices closer to $[0]_0$ than to any other point
+                        in its orbit. This forms a fundamental domain for the group action. Vertices in the cell are highlighted with
+                        a yellow halo. Full edges (both endpoints in the cell) are shown with thicker yellow lines, while half-edges
+                        at the boundary (where the cell meets its translates) are shown with slightly thinner yellow lines.</p>
+
+                    <h3 class="font-semibold text-white text-xs mb-1 mt-3">Technical Notes:</h3>
+                    <ul class="list-disc list-inside space-y-1 ml-2">
+                        <li>Tree is $(p+1)$-regular: each vertex has $p+1$ neighbors</li>
+                        <li>Max Distance parameter controls neighborhood shown around orbit</li>
+                        <li>Only reduced words are generated (no cancellations like $g_i \cdot g_i^{-1}$)</li>
+                        <li>Visualization uses D3.js for interactive exploration</li>
+                        <li>Click vertices to select them as input</li>
+                        <li>Word length controls orbit size (exponential growth)</li>
+                    </ul>
+                </div>
+            </div> <!-- end tab-info -->
+        </div> <!-- end panel-content -->
+    </div>
+
+    <!-- Tree Container -->
+    <div id="container" class="flex-grow h-full w-full">
+        <svg id="tree-vis" class="w-full h-full"></svg>
+    </div>
+
+    <!-- Main Application Module -->
+    <script type="module" src="./js/main.js"></script>
+</body>
+
+</html>

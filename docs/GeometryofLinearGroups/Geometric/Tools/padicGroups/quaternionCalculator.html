@@ -551,11 +551,97 @@
             const depth = parseInt(document.getElementById('depth-slider').value);
             const genX_key = document.getElementById('gen-x').value;
             const genY_key = document.getElementById('gen-y').value;
-            const findRelation = (a, b) => RELATIONS.find(r => r.a === a && r.b === b);
-            const rel = findRelation(genX_key, genY_key);
             const squareSize = 900 / (2 * depth + 1);
             const transform = (i, j) => [500 + i * squareSize, 500 - j * squareSize];
 
+            // Edge storage: "i,j->i+1,j" -> generator key
+            const horzEdges = new Map(); // horizontal edges
+            const vertEdges = new Map(); // vertical edges
+
+            const getHorzEdge = (i, j) => horzEdges.get(`${i},${j}`);
+            const getVertEdge = (i, j) => vertEdges.get(`${i},${j}`);
+            const setHorzEdge = (i, j, gen) => horzEdges.set(`${i},${j}`, gen);
+            const setVertEdge = (i, j, gen) => vertEdges.set(`${i},${j}`, gen);
+
+            // Initialize axes - all edges point in same direction
+            for (let i = -depth; i < depth; i++) {
+                setHorzEdge(i, 0, genX_key);  // All x-axis edges point right
+            }
+            for (let j = -depth; j < depth; j++) {
+                setVertEdge(0, j, genY_key);  // All y-axis edges point up
+            }
+
+            // Try to fill a square at position (i, j) (bottom-left corner)
+            const tryFillSquare = (i, j) => {
+                const bottom = getHorzEdge(i, j);     // (i,j) -> (i+1,j)
+                const left = getVertEdge(i, j);       // (i,j) -> (i,j+1)
+                const top = getHorzEdge(i, j + 1);    // (i,j+1) -> (i+1,j+1)
+                const right = getVertEdge(i + 1, j);  // (i+1,j) -> (i+1,j+1)
+
+                // Count how many edges we have
+                const edgeCount = [bottom, left, top, right].filter(e => e != null).length;
+                if (edgeCount === 4) return false; // Already filled
+
+                let filled = false;
+
+                // Case 1: If we have bottom and left, find relation to get top and right
+                if (bottom && left && (!top || !right)) {
+                    const rel = RELATIONS.find(r => r.a === bottom && r.bp === left);
+                    if (rel) {
+                        if (!top) { setHorzEdge(i, j + 1, rel.ap); filled = true; }
+                        if (!right) { setVertEdge(i + 1, j, rel.b); filled = true; }
+                    }
+                }
+
+                // Case 2: If we have top and right, work backwards
+                if (top && right && (!bottom || !left)) {
+                    const rel = RELATIONS.find(r => r.ap === top && r.b === right);
+                    if (rel) {
+                        if (!bottom) { setHorzEdge(i, j, rel.a); filled = true; }
+                        if (!left) { setVertEdge(i, j, rel.bp); filled = true; }
+                    }
+                }
+
+                // Case 3: If we have bottom and right
+                if (bottom && right && (!top || !left)) {
+                    const rel = RELATIONS.find(r => r.a === bottom && r.b === right);
+                    if (rel) {
+                        if (!top) { setHorzEdge(i, j + 1, rel.ap); filled = true; }
+                        if (!left) { setVertEdge(i, j, rel.bp); filled = true; }
+                    }
+                }
+
+                // Case 4: If we have top and left
+                if (top && left && (!bottom || !right)) {
+                    const rel = RELATIONS.find(r => r.ap === top && r.bp === left);
+                    if (rel) {
+                        if (!bottom) { setHorzEdge(i, j, rel.a); filled = true; }
+                        if (!right) { setVertEdge(i + 1, j, rel.b); filled = true; }
+                    }
+                }
+
+                return filled;
+            };
+
+            // Iterate until no more squares can be filled
+            let changed = true;
+            let iterations = 0;
+            const maxIterations = 100;
+
+            while (changed && iterations < maxIterations) {
+                changed = false;
+                iterations++;
+
+                for (let i = -depth; i < depth; i++) {
+                    for (let j = -depth; j < depth; j++) {
+                        if (tryFillSquare(i, j)) {
+                            changed = true;
+                        }
+                    }
+                }
+            }
+
+            // Draw all edges
             const drawEdge = (x1, y1, x2, y2, genKey) => {
                 if (!genKey) return;
                 const gen = GENERATORS[genKey];
@@ -571,25 +657,23 @@
                 });
                 svg.appendChild(pathEl);
             };
-            const aLo = genX_key;
-            const bLo = genY_key;
-            const aHi = rel ? rel.ap : genX_key;
-            const bHi = rel ? rel.bp : genY_key;
-            for (let i = -depth; i <= depth; i++) {
+
+            // Draw all horizontal edges
+            for (let i = -depth; i < depth; i++) {
                 for (let j = -depth; j <= depth; j++) {
-                    if (i < depth) {
-                        // Horizontal edge from (i,j) -> (i+1,j): alternate a/a' by row parity
-                        const keyH = ((j & 1) === 0) ? aLo : aHi;
-                        drawEdge(i, j, i + 1, j, keyH);
-                    }
-                    if (j < depth) {
-                        // Vertical edge from (i,j) -> (i,j+1): alternate b/b' by column parity
-                        const keyV = ((i & 1) === 0) ? bLo : bHi;
-                        drawEdge(i, j, i, j + 1, keyV);
-                    }
+                    const gen = getHorzEdge(i, j);
+                    if (gen) drawEdge(i, j, i + 1, j, gen);
                 }
             }
-            
+
+            // Draw all vertical edges
+            for (let i = -depth; i <= depth; i++) {
+                for (let j = -depth; j < depth; j++) {
+                    const gen = getVertEdge(i, j);
+                    if (gen) drawEdge(i, j, i, j + 1, gen);
+                }
+            }
+
             // Draw origin marker as a gold disk
             const [cx, cy] = transform(0, 0);
             const originR = Math.max(5, Math.min(14, squareSize * 0.22));

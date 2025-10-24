@@ -1,0 +1,263 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    padding: 40px;
+}
+
+h1 {
+    color: #2d3748;
+    margin-bottom: 30px;
+    text-align: center;
+    font-size: 2em;
+}
+
+h2 {
+    color: #4a5568;
+    margin-bottom: 20px;
+    font-size: 1.5em;
+}
+
+h3 {
+    color: #4a5568;
+    margin-bottom: 15px;
+    font-size: 1.2em;
+}
+
+.section {
+    margin-bottom: 40px;
+    padding: 25px;
+    background: #f7fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.ring-definition {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.math-prefix {
+    font-size: 1.3em;
+    font-weight: 500;
+    color: #2d3748;
+}
+
+.mathquill-input {
+    display: inline-block;
+    min-width: 300px;
+    padding: 10px 15px;
+    background: white;
+    border: 2px solid #cbd5e0;
+    border-radius: 6px;
+    font-size: 1.2em;
+    transition: border-color 0.3s;
+}
+
+.mathquill-input:focus-within {
+    border-color: #667eea;
+    outline: none;
+}
+
+.mathquill-input.small {
+    min-width: 150px;
+    font-size: 1.1em;
+}
+
+.help-text {
+    color: #718096;
+    font-size: 0.9em;
+    margin-top: 10px;
+    font-style: italic;
+}
+
+.hilbert-symbol {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin: 20px 0;
+    font-size: 1.5em;
+}
+
+.symbol-bracket {
+    font-size: 3em;
+    font-weight: 300;
+    color: #2d3748;
+}
+
+.symbol-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 20px;
+}
+
+.symbol-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.comma {
+    font-size: 1.2em;
+    color: #2d3748;
+}
+
+.symbol-divider {
+    width: 100%;
+    height: 2px;
+    background: #2d3748;
+    margin: 5px 0;
+}
+
+.symbol-base {
+    font-size: 1.2em;
+    font-weight: 600;
+    color: #2d3748;
+    margin-top: 5px;
+}
+
+.compute-button {
+    display: block;
+    width: 100%;
+    max-width: 400px;
+    margin: 30px auto;
+    padding: 15px 30px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.compute-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
+}
+
+.compute-button:active {
+    transform: translateY(0);
+}
+
+.output-section {
+    display: none;
+    background: #edf2f7;
+}
+
+.output-section.visible {
+    display: block;
+}
+
+.output {
+    background: white;
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e0;
+    min-height: 100px;
+}
+
+.generator {
+    margin: 15px 0;
+    padding: 15px;
+    background: #f7fafc;
+    border-left: 4px solid #667eea;
+    border-radius: 4px;
+}
+
+.generator-title {
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 8px;
+}
+
+.generator-value {
+    font-family: 'Courier New', monospace;
+    color: #4a5568;
+    font-size: 1.1em;
+}
+
+.info-section {
+    background: #ebf4ff;
+    border-color: #bee3f8;
+}
+
+.info-section ul {
+    margin-left: 20px;
+    margin-top: 10px;
+}
+
+.info-section li {
+    margin: 5px 0;
+    color: #2d3748;
+}
+
+.info-section p {
+    margin: 10px 0;
+    color: #2d3748;
+    line-height: 1.6;
+}
+
+.error {
+    color: #e53e3e;
+    background: #fff5f5;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #fc8181;
+    margin: 10px 0;
+}
+
+.mq-editable-field {
+    border: none !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .container {
+        padding: 20px;
+    }
+
+    h1 {
+        font-size: 1.5em;
+    }
+
+    .ring-definition {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .mathquill-input {
+        width: 100%;
+    }
+
+    .hilbert-symbol {
+        font-size: 1.2em;
+    }
+
+    .symbol-bracket {
+        font-size: 2em;
+    }
+}

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quaternion Algebra Unit Group Explorer</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js"
+    ></script>
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="hero__content">
+          <h1>Quaternion Algebra Unit Group Explorer</h1>
+          <p>
+            Describe a quaternion algebra \(B = \left(\frac{a, b}{K}\right)\)
+            over your favourite number field and send it to SageMath Cell for a
+            unit group computation.
+          </p>
+        </div>
+        <div class="hero__accent">
+          <span class="hero__badge">Powered by SageMath</span>
+          <span class="hero__formula">\(i^2 = a,\quad j^2 = b,\quad ij = -ji\)</span>
+        </div>
+      </header>
+
+      <section class="card form-card">
+        <h2 class="card__title">Define the algebra</h2>
+        <form id="algebra-form" class="form">
+          <div class="field field--math">
+            <label class="field__label" for="field-polynomial-hidden">
+              Number field polynomial \(\,f(x)\)
+            </label>
+            <div class="mq-shell">
+              <span class="mq-prefix">\(f(x) =\)</span>
+              <div class="mq-editor" id="mq-field-polynomial"></div>
+            </div>
+            <input
+              type="hidden"
+              id="field-polynomial-hidden"
+              name="fieldPolynomial"
+              value="x^3 - 2"
+            />
+            <p class="hint">
+              Enter a monic irreducible polynomial, e.g. \(\,x^3 - 2\).
+            </p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="field-generator">
+              Field generator symbol
+            </label>
+            <input
+              id="field-generator"
+              name="fieldGenerator"
+              type="text"
+              required
+              value="theta"
+              pattern="^[A-Za-z][A-Za-z0-9_]*$"
+              class="text-input"
+            />
+            <p class="hint">
+              Name for the root of \(f(x)\). Letters, digits, and underscores
+              only; must start with a letter.
+            </p>
+          </div>
+
+          <div class="grid-two">
+            <div class="field field--math">
+              <label class="field__label" for="param-a-hidden">
+                Parameter \(a\) (so \(i^2 = a\))
+              </label>
+              <div class="mq-shell">
+                <span class="mq-prefix">\(a =\)</span>
+                <div class="mq-editor" id="mq-param-a"></div>
+              </div>
+              <input
+                type="hidden"
+                id="param-a-hidden"
+                name="paramA"
+                value="-1"
+              />
+              <p class="hint">
+                Expression inside \(K\). You can reference the generator, e.g.
+                \(-1\) or \(\theta\).
+              </p>
+            </div>
+
+            <div class="field field--math">
+              <label class="field__label" for="param-b-hidden">
+                Parameter \(b\) (so \(j^2 = b\))
+              </label>
+              <div class="mq-shell">
+                <span class="mq-prefix">\(b =\)</span>
+                <div class="mq-editor" id="mq-param-b"></div>
+              </div>
+              <input
+                type="hidden"
+                id="param-b-hidden"
+                name="paramB"
+                value="-1"
+              />
+              <p class="hint">
+                Expression inside \(K\). Fractions like \(\frac{1}{2}\) are
+                supported.
+              </p>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="sage-prelude">
+              Extra Sage code (optional)
+            </label>
+            <textarea
+              id="sage-prelude"
+              name="sagePrelude"
+              rows="3"
+              placeholder="# e.g. print(B.ramified_places())"
+              class="text-area"
+            ></textarea>
+            <p class="hint">
+              This snippet runs before the unit group calculation. Use it for
+              sanity checks or additional diagnostics.
+            </p>
+          </div>
+
+          <div class="actions">
+            <button type="submit" id="submit-button" class="button button--primary">
+              Compute unit group
+            </button>
+            <button type="button" id="cancel-button" class="button button--ghost">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">Status</h2>
+        <div id="status-message" class="status idle">
+          Fill out the form and click "Compute unit group".
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__header">
+          <h2 class="card__title">Sage code</h2>
+          <button type="button" id="copy-code" class="button button--tiny">
+            Copy
+          </button>
+        </div>
+        <pre id="sage-code" class="code-block">// Code will appear here once generated.</pre>
+      </section>
+
+      <section class="card">
+        <div class="card__header">
+          <h2 class="card__title">Results</h2>
+          <button type="button" id="clear-output" class="button button--tiny">
+            Clear
+          </button>
+        </div>
+        <pre id="output" class="code-block">// Output from SageMath Cell will appear here.</pre>
+      </section>
+
+      <footer class="footer">
+        <p>
+          Remote computations courtesy of
+          <a href="https://sagecell.sagemath.org/" target="_blank" rel="noreferrer"
+            >SageMath Cell</a
+          >. Results depend on remote availability and may take a moment.
+        </p>
+      </footer>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

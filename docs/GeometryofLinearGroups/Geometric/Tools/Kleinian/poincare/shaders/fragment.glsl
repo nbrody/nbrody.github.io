@@ -14,9 +14,8 @@ uniform float u_edge_boost;        // extra brightness along edges for the selec
 uniform float u_edge_global;       // global edge strength for all faces
 uniform float u_edge_select_boost; // multiplicative boost when the selected face participates in the edge
 uniform ivec2 u_selected_edge_faces; // stores the two face IDs of the selected edge (-1, -1 if none)
-uniform vec3 u_selected_vertex_pos; // position of selected vertex (inside ball)
-uniform float u_selected_vertex_radius; // small radius for the highlight sphere
 uniform float u_polyhedron_opacity; // opacity of the polyhedron (0.0 to 1.0)
+uniform int u_view_mode; // 0 = Poincaré ball, 1 = upper half-space
 
 const int MAX_PLANES = 256;
 
@@ -125,13 +124,6 @@ vec2 sceneSDFWithId(vec3 p) {
         if (sdf > max_dist) { max_dist = sdf; face_id = float(fid_i); }
     }
 
-    // --- Optional vertex highlight sphere (rendered as a surface) ---
-    if (u_selected_vertex_radius > 0.0) {
-        float vSDF = -(length(p - u_selected_vertex_pos) - u_selected_vertex_radius);
-        // Use a large special face id that won't collide with regular faces
-        if (vSDF > max_dist) { max_dist = vSDF; face_id = 10000.0; }
-    }
-
     return vec2(max_dist, face_id);
 }
 
@@ -213,25 +205,74 @@ void main() {
     vec3 ro = u_cameraPosition;
     vec3 rd = normalize(pFar.xyz / pFar.w - ro);
 
-    vec2 t_ball = raySphereIntersect(ro, rd, 1.0);
-    if (t_ball.x < 0.0 && t_ball.y < 0.0) discard;
-
-    float t = max(0.0, t_ball.x);
-    vec3 p = ro + rd * t;
+    float t;
+    vec3 p;
     bool hit = false;
 
-    for (int i = 0; i < MAX_STEPS; i++) {
-        if ((t_ball.y > 0.0 && t > t_ball.y) || t > MAX_DIST) break;
-
-        float dist = sceneSDFWithId(p).x;
-        if (abs(dist) < HIT_THRESHOLD) {
-            hit = true;
-            break;
+    if (u_view_mode == 1) {
+        // Upper half-space mode: march through z > 0 region
+        // Find where ray enters half-space (z = 0 plane)
+        if (ro.z < 0.0 && rd.z <= 0.0) {
+            discard; // Below ground plane and not going up
         }
-        // Always move forward: outside region (dist<0) would step backwards; use abs() with a small floor.
-        float step = max(abs(dist), 0.001);
-        t += step;
+
+        if (ro.z < 0.0) {
+            // Start from ground plane intersection
+            t = -ro.z / rd.z;
+        } else {
+            // Already in half-space
+            t = 0.001;
+        }
+
         p = ro + rd * t;
+
+        // Raymarch through half-space
+        for (int i = 0; i < MAX_STEPS; i++) {
+            if (p.z < 0.0 || t > MAX_DIST) break; // Exited half-space or too far
+
+            float dist = sceneSDFWithId(p).x;
+            if (abs(dist) < HIT_THRESHOLD) {
+                hit = true;
+                break;
+            }
+            float step = max(abs(dist), 0.001);
+            t += step;
+            p = ro + rd * t;
+        }
+    } else {
+        // Poincaré ball mode: original logic
+        // Check if camera is inside the ball
+        bool cameraInsideBall = length(ro) < 1.0;
+
+        vec2 t_ball = raySphereIntersect(ro, rd, 1.0);
+
+        // If camera is outside and ray misses ball entirely, discard
+        if (!cameraInsideBall && t_ball.x < 0.0 && t_ball.y < 0.0) discard;
+
+        // Start raymarching
+        if (cameraInsideBall) {
+            // Inside view: start from camera, march until we exit ball
+            t = 0.001; // Small offset to avoid self-intersection
+        } else {
+            // Outside view: start from ball entry point
+            t = max(0.0, t_ball.x);
+        }
+
+        p = ro + rd * t;
+
+        for (int i = 0; i < MAX_STEPS; i++) {
+            if ((t_ball.y > 0.0 && t > t_ball.y) || t > MAX_DIST) break;
+
+            float dist = sceneSDFWithId(p).x;
+            if (abs(dist) < HIT_THRESHOLD) {
+                hit = true;
+                break;
+            }
+            // Always move forward: outside region (dist<0) would step backwards; use abs() with a small floor.
+            float step = max(abs(dist), 0.001);
+            t += step;
+            p = ro + rd * t;
+        }
     }
 
     if (hit) {

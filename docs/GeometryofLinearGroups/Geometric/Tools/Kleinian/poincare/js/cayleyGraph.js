@@ -10,6 +10,7 @@ import { computeHyperbolicGeodesic } from './hypGeom.js';
 // Global state for Cayley graph visualization
 let cayleyGraphGroup = null;
 let cayleyGraphVisible = false;
+let originalVertexPositions = []; // Store original ball coordinates for restoration
 
 /**
  * Apply a PSL(2,C) matrix to a point in the Poincaré ball model
@@ -207,22 +208,33 @@ export function buildCayleyGraph(matrices, wordLength, scene, PSL2CtoSDF, facesM
 
     console.log(`Generator to face ID map:`, Array.from(generatorToFaceId.entries()));
 
-    // Add vertices (spheres that shrink toward boundary)
+    // Add vertices (spheres with constant hyperbolic radius)
     for (const [word, data] of vertexMap) {
-        // Calculate distance from origin (center of ball)
-        const distanceFromCenter = data.point.length();
+        // Calculate Euclidean distance from origin (center of ball)
+        const r = data.point.length();
 
-        // Scale factor: 1.0 at center, shrinks to 0.2 at boundary (r=1)
-        // Using (1 - r^2) gives a smooth transition
-        const scaleFactor = 1.0 - (distanceFromCenter * distanceFromCenter * 0.8);
-        const vertexRadius = 0.03 * Math.max(0.2, scaleFactor);
+        // Hyperbolic metric in Poincaré ball: ds² = 4/(1-r²)² dx²
+        // Conformal factor: λ(r) = 2/(1-r²)
+        // To maintain constant hyperbolic radius R_h, Euclidean radius should be:
+        // R_e(r) = R_h * (1-r²) / 2
+
+        const hyperbolicRadius = 0.06; // Constant hyperbolic size
+        const r2 = r * r;
+        const conformalFactor = (1 - r2) / 2;
+        const euclideanRadius = hyperbolicRadius * conformalFactor;
+
+        // Clamp to prevent vertices from becoming invisibly small near boundary
+        const vertexRadius = Math.max(0.002, euclideanRadius);
 
         const vertexGeometry = new THREE.SphereGeometry(vertexRadius, 16, 16);
         const vertex = new THREE.Mesh(vertexGeometry, vertexMaterial);
         vertex.position.copy(data.point);
         vertex.renderOrder = 10; // Render after polyhedron
         cayleyGraphGroup.add(vertex);
-        console.log(`Vertex "${word}" at (${data.point.x.toFixed(3)}, ${data.point.y.toFixed(3)}, ${data.point.z.toFixed(3)}), r=${distanceFromCenter.toFixed(3)}, scale=${scaleFactor.toFixed(3)}`);
+
+        if (word.length <= 10) { // Log first few for debugging
+            console.log(`Vertex "${word}" at r=${r.toFixed(3)}, conformal=${conformalFactor.toFixed(3)}, euclidean_radius=${vertexRadius.toFixed(4)}`);
+        }
     }
 
     // Add edges using word structure
@@ -328,5 +340,145 @@ export function clearCayleyGraph(scene) {
     if (cayleyGraphGroup) {
         scene.remove(cayleyGraphGroup);
         cayleyGraphGroup = null;
+        originalVertexPositions = [];
     }
+}
+
+/**
+ * Cayley transform: Ball → Upper Half-Space
+ * Maps (x,y,z) with x²+y²+z²<1 to (x',y',z') with z'>0
+ */
+function cayleyTransform(p) {
+    const x = p.x, y = p.y, z = p.z;
+    const denom = 1 - z;
+
+    // Handle singularity at south pole (z=1)
+    if (Math.abs(denom) < 1e-10) {
+        return new THREE.Vector3(0, 0, 1e6);
+    }
+
+    return new THREE.Vector3(
+        2 * x / denom,
+        2 * y / denom,
+        (1 + z) / denom
+    );
+}
+
+/**
+ * Inverse Cayley transform: Upper Half-Space → Ball
+ */
+function inverseCayleyTransform(p) {
+    const x = p.x, y = p.y, z = p.z;
+    const rSq = x*x + y*y + z*z;
+    const denom = 1 + rSq;
+
+    return new THREE.Vector3(
+        2 * x / denom,
+        2 * y / denom,
+        (rSq - 1) / denom
+    );
+}
+
+/**
+ * Transform Cayley graph to upper half-space coordinates
+ */
+export function transformCayleyGraphToHalfSpace() {
+    if (!cayleyGraphGroup) return;
+
+    console.log('Transforming Cayley graph to upper half-space...');
+
+    // Save original positions if not already saved
+    if (originalVertexPositions.length === 0) {
+        cayleyGraphGroup.children.forEach(child => {
+            if (child instanceof THREE.Mesh) {
+                originalVertexPositions.push(child.position.clone());
+            }
+        });
+        console.log(`Saved ${originalVertexPositions.length} original vertex positions`);
+    }
+
+    // Transform all vertices and scale according to half-space metric
+    let vertexIndex = 0;
+    const hyperbolicRadius = 0.06; // Same constant hyperbolic size
+    cayleyGraphGroup.children.forEach(child => {
+        if (child instanceof THREE.Mesh) {
+            const ballPos = originalVertexPositions[vertexIndex];
+            const halfSpacePos = cayleyTransform(ballPos);
+            child.position.copy(halfSpacePos);
+
+            // Upper half-space metric: ds² = (dx² + dy² + dz²) / z²
+            // Conformal factor: λ(z) = 1/z
+            // To maintain constant hyperbolic radius R_h, Euclidean radius should be:
+            // R_e(z) = R_h * z
+            const euclideanRadius = hyperbolicRadius * halfSpacePos.z;
+            const vertexRadius = Math.max(0.002, euclideanRadius);
+
+            // Update sphere geometry by rescaling
+            child.scale.setScalar(vertexRadius / child.geometry.parameters.radius);
+
+            vertexIndex++;
+        } else if (child instanceof THREE.Line) {
+            // Transform edge geometry points
+            const positions = child.geometry.attributes.position;
+            for (let i = 0; i < positions.count; i++) {
+                const ballPos = new THREE.Vector3(
+                    positions.getX(i),
+                    positions.getY(i),
+                    positions.getZ(i)
+                );
+                const halfSpacePos = cayleyTransform(ballPos);
+                positions.setXYZ(i, halfSpacePos.x, halfSpacePos.y, halfSpacePos.z);
+            }
+            positions.needsUpdate = true;
+        }
+    });
+
+    console.log(`Transformed ${vertexIndex} vertices to half-space`);
+}
+
+/**
+ * Restore Cayley graph to ball coordinates
+ */
+export function restoreCayleyGraphToBall() {
+    if (!cayleyGraphGroup || originalVertexPositions.length === 0) return;
+
+    console.log('Restoring Cayley graph to ball coordinates...');
+
+    // Restore vertex positions and scaling
+    let vertexIndex = 0;
+    const hyperbolicRadius = 0.06; // Same constant hyperbolic size
+    cayleyGraphGroup.children.forEach(child => {
+        if (child instanceof THREE.Mesh && vertexIndex < originalVertexPositions.length) {
+            const ballPos = originalVertexPositions[vertexIndex];
+            child.position.copy(ballPos);
+
+            // Restore ball model scaling
+            const r = ballPos.length();
+            const r2 = r * r;
+            const conformalFactor = (1 - r2) / 2;
+            const euclideanRadius = hyperbolicRadius * conformalFactor;
+            const vertexRadius = Math.max(0.002, euclideanRadius);
+
+            // Restore scale
+            child.scale.setScalar(vertexRadius / child.geometry.parameters.radius);
+
+            vertexIndex++;
+        } else if (child instanceof THREE.Line) {
+            // For edges, we need to recompute geodesics or transform back
+            // For simplicity, just transform the points back using inverse Cayley
+            const positions = child.geometry.attributes.position;
+            for (let i = 0; i < positions.count; i++) {
+                const halfSpacePos = new THREE.Vector3(
+                    positions.getX(i),
+                    positions.getY(i),
+                    positions.getZ(i)
+                );
+                const ballPos = inverseCayleyTransform(halfSpacePos);
+                positions.setXYZ(i, ballPos.x, ballPos.y, ballPos.z);
+            }
+            positions.needsUpdate = true;
+        }
+    });
+
+    console.log(`Restored ${vertexIndex} vertices to ball coordinates`);
 }

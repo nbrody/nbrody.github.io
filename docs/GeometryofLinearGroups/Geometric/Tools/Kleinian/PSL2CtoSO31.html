@@ -308,11 +308,10 @@
             throw new Error('sDF undefined: g fixes all basis vectors e₀, e₁, e₂, e₃');
         }
 
-        // Minkowski helpers (signature + + + - becomes ⟨u,v⟩ = -u_x v_x - u_y v_y - u_z v_z + u_t v_t)
+        // Minkowski dot product with signature (+++−): ⟨u,v⟩ = u_x v_x + u_y v_y + u_z v_z - u_t v_t
         function __minkowskiDot(u, v) {
-            return -(u[0]*v[0] + u[1]*v[1] + u[2]*v[2]) + u[3]*v[3];
+            return u[0]*v[0] + u[1]*v[1] + u[2]*v[2] - u[3]*v[3];
         }
-        function __etaVec(v) { return [-v[0], -v[1], -v[2], v[3]]; } // η·v
         function __norm2M(u) { return __minkowskiDot(u, u); }
         function __normalizeTimelike(u, eps=1e-12) {
             // Scale u so that ⟨u,u⟩ = +1 and t > 0 (forward sheet)
@@ -385,19 +384,16 @@
                 rows = __dedupeHalfspaces(rows, EPS);
 
                 // Use covectors as given; rely on Minkowski evaluation for inequalities
-                const rowsOriented = rows.map(r => [ +r[0], +r[1], +r[2], -r[3] ]);
+                const rowsOriented = rows.map(r => [ +r[0], +r[1], +r[2], +r[3] ]);
 
-                // Minkowski-evaluated affine and directional forms on t=1 slice
-                // ⟨(a,b,c,d), (x,y,z,1)⟩ = -(a x + b y + c z) + d
+                // Minkowski dot product with signature (+++−) on t=1 slice
+                // ⟨(a,b,c,d), (x,y,z,1)⟩ = ax + by + cz - d
+                // For directional evaluation (spatial part only), call with d=0
                 function minkowskiAffine3(aVec, xVec, d){
-                  // aVec: [a,b,c], xVec: [x,y,z]
-                  return -(aVec[0]*xVec[0] + aVec[1]*xVec[1] + aVec[2]*xVec[2]) + d;
+                  // aVec: [a,b,c], xVec: [x,y,z], d: offset
+                  // Returns: a·x - d (Minkowski product on t=1 slice)
+                  return aVec[0]*xVec[0] + aVec[1]*xVec[1] + aVec[2]*xVec[2] - d;
                 }
-                function minkowskiDir3(aVec, uVec){
-                  // directional coefficient along u with t fixed (Δt = 0)
-                  return -(aVec[0]*uVec[0] + aVec[1]*uVec[1] + aVec[2]*uVec[2]);
-                }
-                function dot3(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
                 function norm2(a) { return Math.hypot(a[0], a[1], a[2]); }
                 function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
                 function scale(v, s) { return [v[0] * s, v[1] * s, v[2] * s]; }
@@ -477,9 +473,9 @@
                     for (let j = 0; j < N; j++) if (j !== i) {
                         const aj = A[j];
                         const dj = D[j];
-                        const alpha = minkowskiDir3(aj, u1);   // = -(aj·u1)
-                        const beta  = minkowskiDir3(aj, u2);   // = -(aj·u2)
-                        const gamma = minkowskiAffine3(aj, x0, dj); // = -(aj·x0) + dj
+                        const alpha = minkowskiAffine3(aj, u1, 0);   // = aj·u1
+                        const beta  = minkowskiAffine3(aj, u2, 0);   // = aj·u2
+                        const gamma = minkowskiAffine3(aj, x0, dj); // = aj·x0 - dj
                         if (Math.abs(alpha) < 1e-5 && Math.abs(beta) < 1e-5) {
                             if (gamma < -EPS) { infeasible = true; break; }
                             else continue;
@@ -1061,10 +1057,10 @@
                             try { localStorage.setItem('poincare_faces', facesJson); } catch (e) { /* ignore */ }
 
                             const b64Vectors = btoa(payload);
-                            let url = `poincare.html?vectors=${encodeURIComponent(b64Vectors)}#source=poincare_input`;
+                            let url = `poincare/index.html?vectors=${encodeURIComponent(b64Vectors)}#source=poincare_input`;
                             try {
                                 const b64Faces = btoa(facesJson);
-                                url = `poincare.html?vectors=${encodeURIComponent(b64Vectors)}&faces=${encodeURIComponent(b64Faces)}#source=poincare_input`;
+                                url = `poincare/index.html?vectors=${encodeURIComponent(b64Vectors)}&faces=${encodeURIComponent(b64Faces)}#source=poincare_input`;
                             } catch (e) {
                                 // If base64 of faces fails for any reason, fall back to vectors-only URL
                             }

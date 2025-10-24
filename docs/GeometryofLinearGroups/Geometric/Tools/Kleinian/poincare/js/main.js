@@ -1344,6 +1344,7 @@ async function setupUI() {
     } else {
         vectorsEl.value = externalPayload;
         renderGutter((vectorsEl.value || '').split('\n').filter(l => l.trim() !== '').length, null, null, _paletteMode);
+        updateFromInput();
     }
 }
 
