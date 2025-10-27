@@ -6,12 +6,26 @@ import { ProjectiveQuaternion } from './projectiveQuaternion.js';
 
 /**
  * Find a solution (x, y) to x² + y² ≡ -1 (mod p)
+ * When p ≡ 1 (mod 4), we use y = 0 and find x² ≡ -1 (mod p)
  * This solution establishes a bijection between F_p P¹ and quaternions of norm p
  */
 export function findXYSolution(p) {
+    // When p ≡ 1 (mod 4), use y = 0
+    if (p % 4 === 1) {
+        for (let x = 1; x < p; x++) {
+            if ((x * x) % p === (p - 1)) {
+                console.log(`p=${p} ≡ 1 (mod 4): Using y=0, found x=${x} where x² ≡ -1 (mod ${p})`);
+                console.log(`  Verification: ${x}² = ${x*x} ≡ ${(x*x) % p} (mod ${p})`);
+                return { x, y: 0 };
+            }
+        }
+    }
+
+    // Otherwise, find general solution
     for (let x = 0; x < p; x++) {
-        for (let y = 0; y < p; y++) {
+        for (let y = 1; y < p; y++) {  // Start y from 1 to prefer non-zero y
             if ((x * x + y * y) % p === (p - 1)) {
+                console.log(`Found solution for p=${p}: (x,y) = (${x},${y}), verification: ${x}² + ${y}² = ${x*x + y*y} ≡ ${(x*x + y*y) % p} (mod ${p})`);
                 return { x, y };
             }
         }
@@ -32,16 +46,24 @@ export function findXYSolution(p) {
 /**
  * Compute the 2×2 matrix representation of a quaternion modulo p
  * using the solution (x₀, y₀) to x² + y² ≡ -1 (mod p)
+ *
+ * Matrix basis:
+ *   1 → [[1, 0], [0, 1]]
+ *   i → [[x, y], [y, -x]]
+ *   j → [[-y, x], [x, y]]
+ *   k = ij → [[0, -1], [1, 0]]
+ *
+ * So q = a + bi + cj + dk maps to:
+ *   [[a + bx - cy,  by + cx - d],
+ *    [by + cx + d,  a - bx + cy]]
  */
 function quaternionToMatrix(q, x0, y0, p) {
     const [a, b, c, d] = q;
 
-    // Standard matrix representation using the solution to x²+y²=-1
-    // This gives an isomorphism to M_2(F_p)
-    const m11 = ((a + b * x0 + c * y0) % p + p) % p;
-    const m12 = ((-c + b * y0 - a * x0) % p + p) % p;
-    const m21 = ((c + b * y0 + a * x0) % p + p) % p;
-    const m22 = ((a - b * x0 - c * y0) % p + p) % p;
+    const m11 = ((a + b * x0 - c * y0) % p + p) % p;
+    const m12 = ((b * y0 + c * x0 - d) % p + p) % p;
+    const m21 = ((b * y0 + c * x0 + d) % p + p) % p;
+    const m22 = ((a - b * x0 + c * y0) % p + p) % p;
 
     return [[m11, m12], [m21, m22]];
 }
@@ -181,12 +203,12 @@ export async function findAllQuaternions(p, progressCallback = null) {
  * Following primeQuaternions.html approach:
  * - a > 0 (positive real part)
  * - a is odd
- * - b is even
+ * - d is even
  * This removes Q8 orbit equivalents
  */
 export function filterByQ8Orbit(quaternions) {
     return quaternions.filter(([a, b, c, d]) => {
-        return a > 0 && (a & 1) === 1 && (b & 1) === 0;
+        return a > 0 && (a & 1) === 1 && (d & 1) === 0;
     });
 }
 
@@ -257,7 +279,7 @@ export function matchQuaternionToP1(q, x0, y0, p) {
 /**
  * Generate canonical generators for a prime p
  * This is the main function that implements the primeQuaternions.html approach
- * Returns (p+1)/2 generators with P¹ labels
+ * Returns p+1 generators with P¹ labels (conjugate pairs both included)
  */
 export async function generateCanonicalGenerators(p, progressCallback = null) {
     console.log(`Generating canonical generators for prime ${p}...`);
@@ -274,38 +296,88 @@ export async function generateCanonicalGenerators(p, progressCallback = null) {
     const allQuats = await findAllQuaternions(p, progressCallback);
     console.log(`  Found ${allQuats.length} total quaternions (expected: ${8 * (p + 1)})`);
 
-    // Step 4: Filter by Q8 orbit
-    const filtered = filterByQ8Orbit(allQuats);
-    console.log(`  After Q8 orbit filter: ${filtered.length} quaternions`);
+    // Step 4: Label all quaternions with P¹ coordinates
+    const labeled = allQuats.map(q => ({
+        quaternion: q,
+        p1Label: matchQuaternionToP1(q, bijection.x0, bijection.y0, p),
+        prime: p
+    }));
 
-    // Step 5: Remove conjugate pairs
-    const canonical = removeConjugatePairs(filtered);
-    console.log(`  After removing conjugate pairs: ${canonical.length} generators (expected: ${(p + 1) / 2})`);
-
-    // Step 6: Add P¹ labels to canonical generators
-    const labeledGenerators = canonical.map(q => {
-        const p1Label = matchQuaternionToP1(q, bijection.x0, bijection.y0, p);
-        return {
-            quaternion: q,
-            p1Label: p1Label,
-            prime: p
-        };
+    // Step 5: Group by P¹ label
+    const labelGroups = new Map();
+    labeled.forEach(gen => {
+        if (!labelGroups.has(gen.p1Label)) {
+            labelGroups.set(gen.p1Label, []);
+        }
+        labelGroups.get(gen.p1Label).push(gen);
     });
 
-    return labeledGenerators;
+    console.log(`  Found ${labelGroups.size} distinct P¹ labels (expected: ${p + 1})`);
+
+    // Step 6: Select one canonical representative per P¹ label
+    // Prefer quaternions satisfying Q8 orbit criteria when possible
+    const canonical = [];
+    labelGroups.forEach((gens, label) => {
+        // Try to find one that passes Q8 filter: a > 0, a odd, d even
+        let chosen = gens.find(g => {
+            const [a, b, c, d] = g.quaternion;
+            return a > 0 && (a & 1) === 1 && (d & 1) === 0;
+        });
+
+        // If none pass, prefer a > 0
+        if (!chosen) {
+            chosen = gens.find(g => g.quaternion[0] > 0);
+        }
+
+        // Otherwise take first
+        if (!chosen) {
+            chosen = gens[0];
+        }
+
+        canonical.push(chosen);
+    });
+
+    console.log(`  Final canonical generators: ${canonical.length} generators (expected: ${p + 1})`);
+    const sortedLabels = Array.from(labelGroups.keys()).sort((a, b) => {
+        if (a === '∞') return 1;
+        if (b === '∞') return -1;
+        return parseInt(a) - parseInt(b);
+    });
+    console.log(`  P¹ labels covered: ${sortedLabels.join(', ')}`);
+
+    return canonical;
 }
 
 /**
  * Format a quaternion as a string (e.g., "1+2i+3j+4k")
+ * Omits coefficient 1 for i,j,k (e.g., "i" instead of "1i")
  */
 export function formatQuaternion(q) {
     const [a, b, c, d] = q;
     const parts = [];
 
     if (a !== 0) parts.push(`${a}`);
-    if (b !== 0) parts.push(`${b > 0 && parts.length > 0 ? '+' : ''}${b}i`);
-    if (c !== 0) parts.push(`${c > 0 && parts.length > 0 ? '+' : ''}${c}j`);
-    if (d !== 0) parts.push(`${d > 0 && parts.length > 0 ? '+' : ''}${d}k`);
+
+    if (b !== 0) {
+        const sign = b > 0 && parts.length > 0 ? '+' : '';
+        const coeff = Math.abs(b) === 1 ? '' : Math.abs(b);
+        const neg = b < 0 ? '-' : '';
+        parts.push(`${sign}${neg}${coeff}i`);
+    }
+
+    if (c !== 0) {
+        const sign = c > 0 && parts.length > 0 ? '+' : '';
+        const coeff = Math.abs(c) === 1 ? '' : Math.abs(c);
+        const neg = c < 0 ? '-' : '';
+        parts.push(`${sign}${neg}${coeff}j`);
+    }
+
+    if (d !== 0) {
+        const sign = d > 0 && parts.length > 0 ? '+' : '';
+        const coeff = Math.abs(d) === 1 ? '' : Math.abs(d);
+        const neg = d < 0 ? '-' : '';
+        parts.push(`${sign}${neg}${coeff}k`);
+    }
 
     return parts.length > 0 ? parts.join('') : '0';
 }

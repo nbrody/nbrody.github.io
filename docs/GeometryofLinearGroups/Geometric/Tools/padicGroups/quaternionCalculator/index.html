@@ -281,6 +281,13 @@
             color: #2c3e50;
         }
 
+        .pq-relation-table-container {
+            max-width: 100%;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 800px;
+        }
+
         .pq-relation-table {
             width: 100%;
             border-collapse: collapse;
@@ -308,8 +315,37 @@
         }
 
         .pq-relation-table .row-header {
-            background-color: #3498db;
+            background-color: #27ae60;
             color: white;
+            font-weight: bold;
+            width: 50px;
+            min-width: 50px;
+            max-width: 50px;
+        }
+
+        .pq-relation-table .corner-cell {
+            background: linear-gradient(to bottom left, #2980b9 50%, #27ae60 50%);
+            position: relative;
+            padding: 8px;
+            width: 50px;
+            min-width: 50px;
+            max-width: 50px;
+            min-height: 100px;
+        }
+
+        .pq-relation-table .corner-cell .corner-label-top {
+            position: absolute;
+            top: 4px;
+            right: 10px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .pq-relation-table .corner-cell .corner-label-bottom {
+            position: absolute;
+            bottom: 4px;
+            left: 10px;
+            font-size: 14px;
             font-weight: bold;
         }
 
@@ -379,18 +415,6 @@
                     <div id="generator-vis-container"></div>
                 </div>
                 <div class="generator-info-panel">
-                    <div class="generator-filter">
-                        <label for="prime-filter">Filter by Prime:</label>
-                        <select id="prime-filter">
-                            <option value="all">All Primes</option>
-                        </select>
-                    </div>
-                    <div id="xy-solution-display" style="display: none; margin-bottom: 10px; padding: 10px; background-color: #e8f4f8; border-radius: 8px; text-align: center;">
-                        <p style="margin: 0; font-size: 0.9em; color: #2c3e50;">
-                            <strong>x² + y² ≡ -1 (mod p)</strong><br>
-                            <span id="xy-solution-text"></span>
-                        </p>
-                    </div>
                     <div id="generators-container">
                         <p style="text-align: center; color: #7f8c8d;">Compute generators first.</p>
                     </div>
@@ -509,10 +533,35 @@
             return id;
         };
 
-        const isStar = (k) => k.endsWith('*');
+        // Check if a generator is a conjugate (has negative second nonzero coordinate)
+        const isConjugate = (genKey) => {
+            if (!GENERATORS[genKey]) return false;
+            const q = GENERATORS[genKey].q;
+            // Find second non-zero coordinate
+            let count = 0;
+            for (const x of q) {
+                if (x !== 0) {
+                    count++;
+                    if (count === 2) return x < 0;
+                }
+            }
+            return false;
+        };
 
-        function getContrastColor(hex) {
-            const clean = hex.replace('#', '');
+        // For backwards compatibility with existing code
+        const isStar = isConjugate;
+
+        function getContrastColor(color) {
+            // Handle HSL colors
+            if (color.startsWith('hsl')) {
+                const match = color.match(/hsl\(\s*\d+\s*,\s*\d+%\s*,\s*(\d+)%\s*\)/);
+                if (match) {
+                    const lightness = parseInt(match[1]);
+                    return lightness > 60 ? '#000000' : '#ffffff';
+                }
+            }
+            // Handle hex colors
+            const clean = color.replace('#', '');
             const r = parseInt(clean.substr(0, 2), 16);
             const g = parseInt(clean.substr(2, 2), 16);
             const b = parseInt(clean.substr(4, 2), 16);
@@ -545,21 +594,46 @@
                 });
 
                 // Create generators object with colors
+                // allCanonical now contains p+1 generators per prime (including conjugate pairs)
                 const totalGenerators = allCanonical.reduce((sum, item) => sum + item.generators.length, 0);
-                const colors = generateColors(totalGenerators);
-                let colorIndex = 0;
 
+                // Assign colors: conjugate pairs get the same color
                 GENERATORS = {};
                 let genIndex = 1;
 
-                allCanonical.forEach(({ prime, generators }) => {
+                allCanonical.forEach(({ prime, generators }, primeIndex) => {
+                    // Group generators by conjugate pairs
+                    const processed = new Set();
+
+                    // Generate unique color palette for this prime
+                    const numColors = Math.ceil(generators.length / 2);
+                    const baseHue = (primeIndex * 137.5) % 360; // Golden angle for good distribution
+                    const colors = [];
+                    for (let i = 0; i < numColors; i++) {
+                        const hue = (baseHue + (i * 360 / numColors)) % 360;
+                        // Vary saturation and lightness slightly for variation within palette
+                        const saturation = 65 + (i * 5) % 15;
+                        const lightness = 55 + (i * 3) % 10;
+                        colors.push(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
+                    }
+                    let colorIndex = 0;
+
                     generators.forEach(genObj => {
                         const q = genObj.quaternion;
-                        const p1Label = genObj.p1Label;
+                        const qKey = q.join(',');
 
+                        if (processed.has(qKey)) return;
+
+                        const p1Label = genObj.p1Label;
                         const key = `g${genIndex}`;
-                        const keyConj = `g${genIndex}*`;
-                        const color = colors[colorIndex];
+
+                        // Find conjugate in the generator list
+                        const conj = [q[0], -q[1], -q[2], -q[3]];
+                        const conjKey = conj.join(',');
+                        const conjGenObj = generators.find(g => g.quaternion.join(',') === conjKey);
+
+                        // Assign same color to conjugate pairs
+                        const color = colors[colorIndex % colors.length];
 
                         GENERATORS[key] = {
                             q: q,
@@ -570,27 +644,37 @@
                             label: `(${prime}, ${p1Label || '?'})`
                         };
 
-                        const conj = [q[0], -q[1], -q[2], -q[3]];
-                        // Compute P¹ label for conjugate separately
-                        const xy = XY_SOLUTIONS[prime];
-                        const p1LabelConj = xy ? matchQuaternionToP1(conj, xy.x, xy.y, prime) : null;
+                        processed.add(qKey);
+                        genIndex++;
 
-                        GENERATORS[keyConj] = {
-                            q: conj,
-                            color: color,
-                            prime: prime,
-                            formatted: formatQuaternion(conj),
-                            p1Label: p1LabelConj,
-                            label: `(${prime}, ${p1LabelConj || '?'})*`
-                        };
+                        // If conjugate exists in the list, add it too
+                        if (conjGenObj) {
+                            const keyConj = `g${genIndex}`;
+                            GENERATORS[keyConj] = {
+                                q: conj,
+                                color: color,
+                                prime: prime,
+                                formatted: formatQuaternion(conj),
+                                p1Label: conjGenObj.p1Label,
+                                label: `(${prime}, ${conjGenObj.p1Label || '?'})`
+                            };
+                            processed.add(conjKey);
+                            genIndex++;
+                        }
 
                         colorIndex++;
-                        genIndex++;
                     });
                 });
 
-                const totalGens = Object.keys(GENERATORS).length / 2;
-                console.log(`Generated ${totalGens} canonical generators`);
+                const totalGens = Object.keys(GENERATORS).length;
+                console.log(`Generated ${totalGens} generators`);
+
+                // Log generator counts per prime for debugging
+                allCanonical.forEach(({ prime, generators }) => {
+                    const genKeys = Object.keys(GENERATORS).filter(k => GENERATORS[k].prime === prime);
+                    console.log(`Prime ${prime}: ${generators.length} input generators -> ${genKeys.length} stored generators`);
+                    console.log(`  Expected: ${prime + 1} generators`);
+                });
 
                 // Log generators for debugging (including P¹ labels)
                 Object.keys(GENERATORS).forEach(key => {
@@ -610,7 +694,6 @@
                     `✓ Generated ${totalGens} canonical generators, ${RELATIONS.length} relations`;
 
                 // Refresh all visualizations
-                populatePrimeFilter(primes);
                 drawGenerators();
                 drawRelationSquares();
                 computeAndDrawPQRelations();
@@ -626,21 +709,6 @@
         });
 
         // --- GENERATOR DISPLAY ---
-        function populatePrimeFilter(primes) {
-            const primeFilter = document.getElementById('prime-filter');
-            primeFilter.innerHTML = '<option value="all">All Primes</option>';
-
-            primes.forEach(p => {
-                const option = document.createElement('option');
-                option.value = p;
-                option.textContent = `Prime ${p}`;
-                primeFilter.appendChild(option);
-            });
-
-            // Add event listener for filter changes
-            primeFilter.onchange = () => drawGenerators();
-        }
-
         function drawGenerators() {
             const container = document.getElementById('generators-container');
             container.innerHTML = '';
@@ -650,81 +718,172 @@
                 return;
             }
 
-            const selectedPrime = document.getElementById('prime-filter').value;
+            // Get all generators
+            const genKeys = Object.keys(GENERATORS);
 
-            // Show/hide XY solution display
-            const xyDisplay = document.getElementById('xy-solution-display');
-            const xyText = document.getElementById('xy-solution-text');
-            if (selectedPrime !== 'all' && XY_SOLUTIONS[selectedPrime]) {
-                const xy = XY_SOLUTIONS[selectedPrime];
-                xyText.textContent = `Solution for p = ${selectedPrime}: (x, y) = (${xy.x}, ${xy.y})`;
-                xyDisplay.style.display = 'block';
-            } else {
-                xyDisplay.style.display = 'none';
-            }
-
-            // Get generators to display (filter by prime if needed)
-            const genKeys = Object.keys(GENERATORS).filter(k => !k.endsWith('*'));
-            const filteredKeys = selectedPrime === 'all'
-                ? genKeys
-                : genKeys.filter(k => GENERATORS[k].prime === parseInt(selectedPrime));
-
-            if (filteredKeys.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #7f8c8d;">No generators for selected prime.</p>';
+            if (genKeys.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #7f8c8d;">No generators found.</p>';
                 return;
             }
 
-            // Sort generators by P¹ label for consistent display
+            // Sort generators by P¹ label: ∞ first, then 0 to p-1
             const sortByP1Label = (keys) => {
                 return keys.sort((a, b) => {
                     const labelA = GENERATORS[a].p1Label;
                     const labelB = GENERATORS[b].p1Label;
-                    if (labelA === '∞') return 1;
-                    if (labelB === '∞') return -1;
+                    if (labelA === '∞') return -1;
+                    if (labelB === '∞') return 1;
                     return parseInt(labelA) - parseInt(labelB);
                 });
             };
 
-            // Group generators by prime if showing all
-            if (selectedPrime === 'all') {
-                const genByPrime = {};
-                filteredKeys.forEach(key => {
-                    const prime = GENERATORS[key].prime;
-                    if (!genByPrime[prime]) genByPrime[prime] = [];
-                    genByPrime[prime].push(key);
+            // Create pinwheel visualization for each prime
+            const createPinwheel = (prime, genKeys) => {
+                const sortedKeys = sortByP1Label(genKeys);
+                const numGens = sortedKeys.length;
+                const size = 400;
+                const centerX = size / 2;
+                const centerY = size / 2;
+                const innerRadius = 40;
+                const outerRadius = 160;
+                const badgeRadius = 25;
+
+                const pinwheelDiv = H('div', {
+                    style: {
+                        display: 'inline-block',
+                        margin: '20px',
+                        textAlign: 'center'
+                    }
                 });
 
-                Object.keys(genByPrime).sort((a, b) => a - b).forEach(prime => {
-                    const sortedKeys = sortByP1Label(genByPrime[prime]);
-                    const row = H('div', { className: 'generators-row' }, sortedKeys.map(key => {
-                        const gen = GENERATORS[key];
-                        const color = gen.color;
-                        const label = formatQuaternion(gen.q);
-                        const span = H('span', { text: label });
-                        span.style.backgroundColor = color;
-                        span.style.color = getContrastColor(color);
-                        // Show P¹ label on hover
-                        span.title = `${formatQuaternion(gen.q)}\nP¹ label: ${gen.p1Label || '?'}`;
-                        return span;
-                    }));
-                    container.appendChild(row);
+                // Add x²+y²≡-1 solution display
+                if (XY_SOLUTIONS[prime]) {
+                    const xy = XY_SOLUTIONS[prime];
+                    const solutionText = H('div', {
+                        style: {
+                            fontSize: '12px',
+                            color: '#7f8c8d',
+                            marginBottom: '10px',
+                            fontWeight: 'bold'
+                        }
+                    });
+                    solutionText.innerHTML = `x² + y² ≡ -1 (mod ${prime}): (${xy.x}, ${xy.y})`;
+                    pinwheelDiv.appendChild(solutionText);
+                }
+
+                const svg = S('svg', { width: size, height: size, viewBox: `0 0 ${size} ${size}` });
+
+                // Draw center circle with prime label
+                const centerCircle = S('circle', {
+                    cx: centerX,
+                    cy: centerY,
+                    r: innerRadius,
+                    fill: '#3498db',
+                    stroke: '#2c3e50',
+                    'stroke-width': 3
                 });
-            } else {
-                // Single row for one prime
-                const sortedKeys = sortByP1Label(filteredKeys);
-                const row = H('div', { className: 'generators-row' }, sortedKeys.map(key => {
+                svg.appendChild(centerCircle);
+
+                const centerText = S('text', {
+                    x: centerX,
+                    y: centerY,
+                    'text-anchor': 'middle',
+                    'dominant-baseline': 'middle',
+                    fill: 'white',
+                    'font-size': '24',
+                    'font-weight': 'bold'
+                });
+                centerText.textContent = `${prime}`;
+                svg.appendChild(centerText);
+
+                // Draw spokes and generator badges
+                sortedKeys.forEach((key, i) => {
                     const gen = GENERATORS[key];
-                    const color = gen.color;
-                    const label = formatQuaternion(gen.q);
-                    const span = H('span', { text: label });
-                    span.style.backgroundColor = color;
-                    span.style.color = getContrastColor(color);
-                    // Show P¹ label on hover
-                    span.title = `${formatQuaternion(gen.q)}\nP¹ label: ${gen.p1Label || '?'}`;
-                    return span;
-                }));
-                container.appendChild(row);
-            }
+                    const angle = -Math.PI / 2 - (2 * Math.PI * i) / numGens; // Start from top (∞), go counterclockwise
+
+                    const innerX = centerX + innerRadius * Math.cos(angle);
+                    const innerY = centerY + innerRadius * Math.sin(angle);
+                    const outerX = centerX + outerRadius * Math.cos(angle);
+                    const outerY = centerY + outerRadius * Math.sin(angle);
+
+                    // Draw spoke line
+                    const spoke = S('line', {
+                        x1: innerX,
+                        y1: innerY,
+                        x2: outerX,
+                        y2: outerY,
+                        stroke: '#bdc3c7',
+                        'stroke-width': 2
+                    });
+                    svg.appendChild(spoke);
+
+                    // Draw P¹ label near the spoke (midway)
+                    const midX = centerX + (innerRadius + outerRadius) / 2 * Math.cos(angle);
+                    const midY = centerY + (innerRadius + outerRadius) / 2 * Math.sin(angle);
+                    const p1Text = S('text', {
+                        x: midX,
+                        y: midY,
+                        'text-anchor': 'middle',
+                        'dominant-baseline': 'middle',
+                        fill: '#7f8c8d',
+                        'font-size': '14',
+                        'font-weight': 'bold'
+                    });
+                    p1Text.textContent = gen.p1Label || '?';
+                    svg.appendChild(p1Text);
+
+                    // Draw generator badge at the tip using foreignObject to embed HTML
+                    const badgeWidth = 80;
+                    const badgeHeight = 30;
+                    const foreignObj = S('foreignObject', {
+                        x: outerX - badgeWidth / 2,
+                        y: outerY - badgeHeight / 2,
+                        width: badgeWidth,
+                        height: badgeHeight
+                    });
+
+                    // Create the pill/bubble span element
+                    const pillContainer = document.createElement('div');
+                    pillContainer.style.width = '100%';
+                    pillContainer.style.height = '100%';
+                    pillContainer.style.display = 'flex';
+                    pillContainer.style.alignItems = 'center';
+                    pillContainer.style.justifyContent = 'center';
+
+                    const pill = document.createElement('span');
+                    pill.textContent = formatQuaternion(gen.q);
+                    pill.style.backgroundColor = gen.color;
+                    pill.style.color = getContrastColor(gen.color);
+                    pill.style.padding = '4px 10px';
+                    pill.style.borderRadius = '999px';
+                    pill.style.fontWeight = '600';
+                    pill.style.fontSize = '11px';
+                    pill.style.whiteSpace = 'nowrap';
+                    pill.style.border = '2px solid #2c3e50';
+                    pill.title = `P¹ label: ${gen.p1Label}\nQuaternion: ${formatQuaternion(gen.q)}`;
+
+                    pillContainer.appendChild(pill);
+                    foreignObj.appendChild(pillContainer);
+                    svg.appendChild(foreignObj);
+                });
+
+                pinwheelDiv.appendChild(svg);
+                return pinwheelDiv;
+            };
+
+            // Group generators by prime
+            const genByPrime = {};
+            genKeys.forEach(key => {
+                const prime = GENERATORS[key].prime;
+                if (!genByPrime[prime]) genByPrime[prime] = [];
+                genByPrime[prime].push(key);
+            });
+
+            // Create pinwheel for each prime
+            Object.keys(genByPrime).sort((a, b) => a - b).forEach(prime => {
+                const pinwheel = createPinwheel(parseInt(prime), genByPrime[prime]);
+                container.appendChild(pinwheel);
+            });
 
             // Update 3D visualization
             visualizeGenerators();
@@ -778,20 +937,13 @@
 
             if (Object.keys(GENERATORS).length === 0) return;
 
-            const selectedPrime = document.getElementById('prime-filter').value;
-
             // Get all quaternions to visualize
             const allQuaternions = [];
-            const genKeys = Object.keys(GENERATORS).filter(k => !k.endsWith('*'));
+            const genKeys = Object.keys(GENERATORS);
 
             genKeys.forEach(key => {
                 const gen = GENERATORS[key];
-                if (selectedPrime === 'all' || gen.prime === parseInt(selectedPrime)) {
-                    // Add both the generator and its conjugate
-                    allQuaternions.push({ q: gen.q, color: gen.color });
-                    const genConj = GENERATORS[key + '*'];
-                    allQuaternions.push({ q: genConj.q, color: genConj.color });
-                }
+                allQuaternions.push({ q: gen.q, color: gen.color });
             });
 
             if (allQuaternions.length === 0) return;
@@ -855,7 +1007,10 @@
             ];
 
             edges.forEach((e) => {
-                if (!e.key || !GENERATORS[e.key]) return;
+                if (!e.key || !GENERATORS[e.key]) {
+                    console.warn(`Missing generator for key: ${e.key}`, e);
+                    return;
+                }
 
                 let { x1, y1, x2, y2 } = e;
                 const color = GENERATORS[e.key].color;
@@ -905,11 +1060,11 @@
                     const pLabels = [...new Set(pGens.map(k => GENERATORS[k].p1Label))].filter(l => l !== undefined);
                     const qLabels = [...new Set(qGens.map(k => GENERATORS[k].p1Label))].filter(l => l !== undefined);
 
-                    // Sort labels (numbers first, then ∞)
+                    // Sort labels (∞ first, then numbers 0 to p-1)
                     const sortP1Labels = (labels) => {
                         return labels.sort((a, b) => {
-                            if (a === '∞') return 1;
-                            if (b === '∞') return -1;
+                            if (a === '∞') return -1;
+                            if (b === '∞') return 1;
                             return parseInt(a) - parseInt(b);
                         });
                     };
@@ -927,13 +1082,21 @@
                     const title = H('h3', { text: `Norm ${p}×${q} Relations: $\\mathbb{F}_{${p}}\\mathbb{P}^1 \\times \\mathbb{F}_{${q}}\\mathbb{P}^1$` });
                     tableWrapper.appendChild(title);
 
+                    // Create scrollable container
+                    const tableContainer = H('div', { className: 'pq-relation-table-container' });
+
                     const table = document.createElement('table');
                     table.className = 'pq-relation-table';
 
                     // Header row
                     const headerRow = document.createElement('tr');
-                    const cornerCell = H('th');
-                    cornerCell.innerHTML = `$p=${p} \\backslash q=${q}$`;
+                    const cornerCell = H('th', { className: 'corner-cell' });
+                    const topLabel = H('span', { className: 'corner-label-top' });
+                    topLabel.innerHTML = `$${q}$`;
+                    const bottomLabel = H('span', { className: 'corner-label-bottom' });
+                    bottomLabel.innerHTML = `$${p}$`;
+                    cornerCell.appendChild(topLabel);
+                    cornerCell.appendChild(bottomLabel);
                     headerRow.appendChild(cornerCell);
                     sortedQLabels.forEach(qLabel => {
                         const th = H('th');
@@ -985,7 +1148,7 @@
                                         const squareSVG = createRelationSquareSVG(pGenKey, qGenKey, qkKey, plKey);
 
                                         const sign = QMath.areEqual(pq, qp) ? '' : '-';
-                                        cell.title = `${formatQuaternion(pGen.q)} × ${formatQuaternion(qGen.q)} = ${sign}${formatQuaternion(qk.q)} × ${formatQuaternion(pl.q)}`;
+                                        cell.title = `(${formatQuaternion(pGen.q)})(${formatQuaternion(qGen.q)}) = ${sign}(${formatQuaternion(qk.q)})(${formatQuaternion(pl.q)})`;
                                         cell.appendChild(squareSVG);
                                         row.appendChild(cell);
                                         found = true;
@@ -995,6 +1158,7 @@
                             }
 
                             if (!found) {
+                                console.warn(`No relation found for p=${p} (label ${pLabel}), q=${q} (label ${qLabel})`);
                                 row.appendChild(H('td', { text: '?' }));
                             }
                         });
@@ -1002,7 +1166,8 @@
                         table.appendChild(row);
                     });
 
-                    tableWrapper.appendChild(table);
+                    tableContainer.appendChild(table);
+                    tableWrapper.appendChild(tableContainer);
                     container.appendChild(tableWrapper);
                 }
             }
@@ -1033,7 +1198,7 @@
 
             // Group generators by prime for legend
             const genByPrime = {};
-            Object.keys(GENERATORS).filter(k => !k.endsWith('*')).forEach(key => {
+            Object.keys(GENERATORS).forEach(key => {
                 const prime = GENERATORS[key].prime;
                 if (!genByPrime[prime]) genByPrime[prime] = [];
                 genByPrime[prime].push(key);
@@ -1111,7 +1276,7 @@
             selX.innerHTML = '';
             selY.innerHTML = '';
 
-            const genKeys = Object.keys(GENERATORS).filter(k => !k.endsWith('*'));
+            const genKeys = Object.keys(GENERATORS);
 
             genKeys.forEach(key => {
                 const labelText = formatQuaternion(GENERATORS[key].q);
@@ -1120,8 +1285,27 @@
             });
 
             if (genKeys.length >= 2) {
-                selX.value = genKeys[0];
-                selY.value = genKeys[1];
+                // Try to find generators matching 1+2i and 3+2j
+                const target1 = [1, 2, 0, 0]; // 1+2i
+                const target2 = [3, 0, 2, 0]; // 3+2j
+
+                const matchesQuaternion = (q1, q2) => {
+                    // Check if equal (up to sign)
+                    const equal = q1.every((v, i) => Math.abs(v - q2[i]) < 1e-10);
+                    const negEqual = q1.every((v, i) => Math.abs(v + q2[i]) < 1e-10);
+                    return equal || negEqual;
+                };
+
+                let key1 = null, key2 = null;
+                for (const key of genKeys) {
+                    const q = GENERATORS[key].q;
+                    if (matchesQuaternion(q, target1)) key1 = key;
+                    if (matchesQuaternion(q, target2)) key2 = key;
+                }
+
+                // Set defaults: use specific quaternions if found, otherwise use first two
+                selX.value = key1 || genKeys[0];
+                selY.value = key2 || genKeys[1];
             }
         }
 
@@ -1200,10 +1384,19 @@
 
             const q_x = GENERATORS[genX_key];
             const q_y = GENERATORS[genY_key];
-            const q_x_inv_key = genX_key.endsWith('*') ? genX_key.slice(0, -1) : genX_key + '*';
-            const q_y_inv_key = genY_key.endsWith('*') ? genY_key.slice(0, -1) : genY_key + '*';
-            const q_x_inv = GENERATORS[q_x_inv_key];
-            const q_y_inv = GENERATORS[q_y_inv_key];
+
+            // Find inverses by looking for conjugate quaternions
+            const findConjugate = (q) => {
+                const conj = [q[0], -q[1], -q[2], -q[3]];
+                const conjKey = conj.join(',');
+                const conjGen = Object.entries(GENERATORS).find(([k, g]) =>
+                    g.q.join(',') === conjKey
+                );
+                return conjGen ? GENERATORS[conjGen[0]] : null;
+            };
+
+            const q_x_inv = findConjugate(q_x.q);
+            const q_y_inv = findConjugate(q_y.q);
 
             const gens = [
                 { q: q_x.q, color: q_x.color },
@@ -1212,7 +1405,7 @@
                 { q: q_y_inv.q, color: q_y.color }
             ];
 
-            const basePointVec = new THREE.Vector3(0, 1, 0);
+            const basePointVec = new THREE.Vector3(0, 0, 1);
             const basePointPureQ = QMath.vecToPure(basePointVec);
             const queue = [{ q: [1, 0, 0, 0], pos: basePointVec, level: 0 }];
             const visited = new Map();

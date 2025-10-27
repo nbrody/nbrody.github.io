@@ -45,29 +45,30 @@ For each odd prime `p`, we find canonical generators using a three-step filterin
 2. **Remove Q8 orbit equivalents**: Filter to only quaternions where:
    - `a > 0` (positive real part)
    - `a` is odd
-   - `b` is even
+   - `d` is even
 
    This removes equivalences under the action of Q8 = {±1, ±i, ±j, ±k}.
 
-3. **Remove conjugate pairs**: For each quaternion and its conjugate, keep only one based on the sign of the second non-zero coordinate.
+3. **Keep conjugate pairs**: Both a quaternion and its conjugate are kept as distinct generators (they are group inverses).
 
-4. **Label with P¹(F_p)**: Each canonical generator is labeled with an element of P¹(F_p) = {0, 1, ..., p-1, ∞}:
+4. **Label with P¹(F_p)**: Each generator is labeled with an element of P¹(F_p) = {0, 1, ..., p-1, ∞}:
    - Find a solution (x₀, y₀) to x²+y²≡-1 (mod p)
    - This solution determines an isomorphism from the F_p quaternion algebra to M_2(F_p)
    - Quaternions of norm p correspond to rank 1 matrices (trace p, determinant 0)
    - Each rank 1 matrix annihilates a 1-dimensional subspace of F_p², giving a point in P¹(F_p)
    - Convert projective coordinates [x:y] to labels: [1:0]→∞, [x:y]→x·y⁻¹ mod p
+   - A quaternion and its conjugate correspond to **distinct** points in P¹(F_p)
 
-**Result**: Exactly `(p+1)/2` canonical generators for each prime `p`, each labeled with a unique element of P¹(F_p).
+**Result**: Exactly `p+1` canonical generators for each prime `p`. Each is labeled with a unique element of P¹(F_p). Conjugate pairs are group inverses but have different P¹ labels.
 
 ### Example: Prime 5
 
 - All solutions: 40 quaternions (8 × 6)
-- After Q8 filtering: 6 quaternions
-- After conjugate removal: 3 generators
-  - `1+2i` and `1-2i`
-  - `1+2j` and `1-2j`
-  - `1+2k` and `1-2k`
+- After Q8 filtering: 6 quaternions (= p+1 = 6 generators)
+- Final generators (6 total, forming 3 conjugate pairs):
+  - `1+2i` and `1-2i` (conjugate pair, distinct P¹ labels)
+  - `1+2j` and `1-2j` (conjugate pair, distinct P¹ labels)
+  - `1+2k` and `1-2k` (conjugate pair, distinct P¹ labels)
 
 ### Relation Computation
 
