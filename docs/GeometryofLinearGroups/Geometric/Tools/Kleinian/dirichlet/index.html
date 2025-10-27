@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dirichlet Polyhedron Viewer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js",
+        "three/": "https://cdn.jsdelivr.net/npm/three@0.171.0/"
+      }
+    }
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body class="bg-gray-900">
+  <div id="viewer"></div>
+
+  <div id="control-panel" class="absolute top-4 right-4 w-96 max-h-[90vh] shadow-lg flex flex-col overflow-x-hidden rounded-lg z-40 transition-transform transform">
+    <!-- Tab Navigation -->
+    <div class="tab-navigation flex gap-2 items-center">
+      <button class="tab-btn active" data-tab="generators">Generators</button>
+      <button class="tab-btn" data-tab="display">Display</button>
+      <button class="tab-btn" data-tab="appearance">Appearance</button>
+      <button id="refresh-btn" class="collapse-btn" title="Update group">
+        <span class="collapse-icon">⟳</span>
+      </button>
+      <button id="collapse-btn" class="collapse-btn" title="Collapse panel">
+        <span class="collapse-icon">×</span>
+      </button>
+    </div>
+
+    <div class="panel-content">
+      <!-- Generators Tab -->
+      <div id="tab-generators" class="tab-content active">
+        <div class="control-group p-3">
+          <div id="matrixInputs"></div>
+          <div class="flex items-center gap-2 mt-3">
+            <label for="wordLength" class="text-sm font-medium text-gray-300">Word Length</label>
+            <input id="wordLength" type="number" value="4" min="1" step="1"
+              class="flex-1 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2">
+            <button id="addMatrixBtn"
+              class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+              +
+            </button>
+          </div>
+        </div>
+
+        <div class="control-group p-3">
+          <label for="groupSelector" class="block text-sm font-medium text-gray-300 mb-2">Predefined group</label>
+          <select id="groupSelector" class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+            <option value="">-- Select --</option>
+          </select>
+        </div>
+
+        <button id="showStabilizerBtn"
+          class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+          Show stabilizer
+        </button>
+        <div id="stabilizerOutput"
+          class="mt-2 max-h-40 overflow-auto bg-gray-800/50 border border-gray-700 p-3 rounded-md text-gray-300 text-sm">
+        </div>
+
+        <button id="printStdGensBtn"
+          class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+          Print standard generators
+        </button>
+        <div id="stdGensOutput"
+          class="mt-2 max-h-40 overflow-auto bg-gray-800/50 border border-gray-700 p-3 rounded-md text-gray-300 text-sm">
+        </div>
+
+        <button id="exportSO31Btn"
+          class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+          Map to SO(3,1)
+        </button>
+      </div>
+
+      <!-- Display Tab -->
+      <div id="tab-display" class="tab-content">
+        <div class="control-group p-3">
+          <h4 class="text-md font-semibold text-white mb-3">Display options</h4>
+          <label class="flex items-center gap-2 mb-2">
+            <input id="toggleDelaunay" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+            <span class="text-sm text-gray-300">Show Cayley graph</span>
+          </label>
+          <label class="flex items-center gap-2 mb-2">
+            <input id="toggleOrbit" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+            <span class="text-sm text-gray-300">Show orbit of o</span>
+          </label>
+          <label class="flex items-center gap-2 mb-2">
+            <input id="toggleBasepoint" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+            <span class="text-sm text-gray-300">Show basepoint</span>
+          </label>
+          <label class="flex items-center gap-2 mb-2">
+            <input id="toggleFloor" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+            <span class="text-sm text-gray-300">Show floor (z = 0.05)</span>
+          </label>
+        </div>
+
+        <div class="control-group p-3">
+          <label class="block text-sm font-medium text-gray-300 mb-2">Walls</label>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-2">
+              <input type="radio" name="wallsMode" value="all" checked class="h-4 w-4 border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+              <span class="text-sm text-gray-300">All</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="radio" name="wallsMode" value="dirichlet" class="h-4 w-4 border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+              <span class="text-sm text-gray-300">Dirichlet</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="radio" name="wallsMode" value="off" class="h-4 w-4 border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
+              <span class="text-sm text-gray-300">None</span>
+            </label>
+          </div>
+        </div>
+
+        <button id="resetViewBtn"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+          Reset View
+        </button>
+        <button id="saveImageBtn"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+          Save Image
+        </button>
+      </div>
+
+      <!-- Appearance Tab -->
+      <div id="tab-appearance" class="tab-content">
+        <div class="control-group p-3">
+          <h4 class="text-md font-semibold text-white mb-3">Appearance</h4>
+          <label class="block mb-3">
+            <span class="text-sm font-medium text-gray-300 mb-2 block">Wall opacity</span>
+            <div class="flex items-center gap-3">
+              <input id="wallOpacitySlider" type="range" min="0" max="1" step="0.05" value="0.4" class="flex-1">
+              <span id="wallOpacityValue" class="text-sm text-gray-300 min-w-[3rem]">0.40</span>
+            </div>
+          </label>
+
+          <label class="block">
+            <span class="text-sm font-medium text-gray-300 mb-2 block">Color palette</span>
+            <select id="colorPalette" class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+              <option value="bluegold" selected>UC (gradient)</option>
+              <option value="ucpure">UC (pure)</option>
+              <option value="tealfuchsia">Teal-Fuchsia Gradient</option>
+              <option value="harmonic">Harmonic</option>
+              <option value="monochrome">Monochrome (skyblue)</option>
+              <option value="random">Random colors</option>
+              <option value="b4l">B4L</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="message-box"></div>
+
+  <!-- Main application module -->
+  <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

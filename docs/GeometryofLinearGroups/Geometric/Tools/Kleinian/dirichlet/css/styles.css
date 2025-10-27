@@ -1,0 +1,339 @@
+body {
+  font-family: 'Helvetica', sans-serif;
+  background-color: #111827;
+  color: #d1d5db;
+}
+
+#viewer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Panel content wrapper */
+.panel-content {
+  padding: 0 16px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: opacity 0.3s ease;
+}
+
+/* Tab Navigation - sticky header */
+.tab-navigation {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(15, 15, 25, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 12px;
+  padding-right: 96px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  min-height: 56px;
+  box-sizing: border-box;
+  transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              margin 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              background 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              border-bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Tab System - light glass styling */
+.tab-btn {
+  flex: 1;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease, opacity 0.3s ease;
+}
+
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.tab-btn.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: opacity 0.3s ease;
+}
+
+/* Collapse Button - glass styling */
+.collapse-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#collapse-btn {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 20;
+}
+
+#refresh-btn {
+  position: absolute;
+  right: 52px;
+  top: 12px;
+}
+
+.collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
+}
+
+.collapse-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+  font-weight: 300;
+  line-height: 1;
+  transform: translate(1px, -1px);
+}
+
+/* Collapsed state - with smooth animation */
+#control-panel {
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(15, 15, 25, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#control-panel::-webkit-scrollbar {
+  display: none;
+}
+
+.collapse-icon {
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#control-panel.collapsed .collapse-icon {
+  transform: translate(1px, -1px) rotate(45deg);
+}
+
+#control-panel.collapsed .tab-btn,
+#control-panel.collapsed #refresh-btn,
+#control-panel.collapsed .panel-content,
+#control-panel.collapsed .tab-content {
+  display: none;
+}
+
+#control-panel.collapsed {
+  width: 56px !important;
+  min-width: 0;
+  padding: 0;
+  height: 56px !important;
+  min-height: 56px;
+}
+
+#control-panel.collapsed .tab-navigation {
+  padding: 0;
+  padding-right: 0;
+  border-bottom: none;
+  margin: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Control groups - subtle glass styling */
+.control-group {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background 0.2s ease;
+}
+
+.control-group:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Input styling - subtle glass effect */
+input[type="number"],
+input[type="text"],
+textarea,
+select {
+  background: rgba(31, 41, 55, 0.8) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #d1d5db !important;
+  transition: all 0.2s ease;
+}
+
+input[type="number"]:focus,
+input[type="text"]:focus,
+textarea:focus,
+select:focus {
+  background: rgba(31, 41, 55, 0.95) !important;
+  border-color: rgba(99, 102, 241, 0.6) !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+  outline: none;
+}
+
+/* Button enhancements - subtle glass effects */
+button {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Matrix input styles */
+.matrix-bracket {
+  display: inline-block;
+  font-size: 48px;
+  font-weight: normal;
+  line-height: 48px;
+  vertical-align: middle;
+  margin: 0 4px;
+  color: #d1d5db;
+}
+
+.matrix-grid-inline {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(40px, max-content));
+  grid-auto-rows: minmax(30px, max-content);
+  grid-gap: 4px;
+  vertical-align: middle;
+  margin: 0 4px;
+  align-items: start;
+}
+
+.matrix-grid-inline .mq-editable-field {
+  min-width: 40px;
+  min-height: 30px;
+  padding: 2px 4px;
+  font-size: 16px;
+  width: auto;
+  display: inline-block;
+  white-space: nowrap;
+  max-width: none;
+  overflow: visible;
+}
+
+.mq-matrix-input {
+  display: inline-block;
+  border: 1px solid #4b5563;
+  border-radius: 4px;
+  background: #374151;
+  padding: 2px 4px;
+  width: auto;
+  white-space: nowrap;
+  max-width: none;
+  overflow: visible;
+}
+
+.mq-matrix-input .mq-root-block {
+  display: inline-block;
+  overflow: visible;
+}
+
+.matrix-block {
+  margin-bottom: 8px;
+}
+
+.delete-matrix-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: background 0.2s;
+}
+
+.delete-matrix-btn:hover {
+  background: #dc2626;
+}
+
+.matrix-label {
+  color: #d1d5db;
+}
+
+/* message box */
+#message-box {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 12px;
+  background: rgba(33, 150, 243, 0.15);
+  color: #60a5fa;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  z-index: 20;
+  display: none;
+}
+
+#message-box.error {
+  background: rgba(244, 67, 54, 0.15);
+  color: #f87171;
+}
+
+/* Resizable control panel */
+#controlPanel .resize-handle-bl {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+  background: transparent;
+}
+
+#controlPanel .resize-handle-bl::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  top: -2px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-top: 10px solid rgba(0, 0, 0, 0.15);
+}

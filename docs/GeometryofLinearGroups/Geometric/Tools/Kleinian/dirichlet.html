@@ -6,8 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dirichlet Polyhedron Viewer</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r171/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.171.0/examples/js/controls/OrbitControls.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js",
+        "three/": "https://cdn.jsdelivr.net/npm/three@0.171.0/"
+      }
+    }
+  </script>
   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -299,6 +305,7 @@
           <option value="harmonic">Harmonic</option>
           <option value="monochrome">Monochrome (skyblue)</option>
           <option value="random">Random colors</option>
+          <option value="b4l">B4L</option>
         </select>
       </label>
     </div>
@@ -306,9 +313,13 @@
   <div id="message-box"></div>
 
   <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
     import * as ThreeCSGModule from 'https://esm.run/three-csg-ts';
     const CSG = ThreeCSGModule.CSG || ThreeCSGModule.default || ThreeCSGModule;
     window.CSG = CSG; // make available globally
+    window.THREE = THREE; // make THREE available globally for other scripts
+    window.OrbitControls = OrbitControls;
     // --- THREE.js Setup ---
     let scene, camera, renderer, controls;
     let polyhedronGroup = new THREE.Group();
@@ -468,7 +479,7 @@
       viewer.appendChild(renderer.domElement);
       // Enable clicking on hyperplanes
       renderer.domElement.addEventListener('click', onCanvasClick);
-      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
       controls.target.copy(basepoint);
@@ -1547,15 +1558,7 @@
           const p2 = imageOfBasepoint(s);
           if (!isFinite(p2.t) || p2.t <= 0) return;
           const vS = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
-          const color = colorForIndex(si, sList.length);
-          const material = new THREE.MeshStandardMaterial({
-            color,
-            transparent: true,
-            opacity: wallOpacity,
-            side: THREE.DoubleSide,
-            metalness: 0.15,
-            roughness: 0.6
-          });
+          const material = createWallMaterial(si, sList.length);
           const mesh = drawBisector(vO, vS, material);
           if (mesh) {
             const labelM = repWithNonnegativeRealTrace(s);
@@ -1574,15 +1577,7 @@
         sList.forEach((s, si) => {
           // For non-random palettes, reuse one material per neighbor (old behavior).
           // For random palette, we will create a new material per individual wall below.
-          const baseCol = (colorPalette === 'random') ? null : colorForIndex(si, sList.length);
-          const perNeighborMaterial = (colorPalette === 'random') ? null : new THREE.MeshStandardMaterial({
-            color: baseCol,
-            transparent: true,
-            opacity: wallOpacity,
-            side: THREE.DoubleSide,
-            metalness: 0.2,
-            roughness: 0.6
-          });
+          const perNeighborMaterial = (colorPalette === 'random') ? null : createWallMaterial(si, sList.length);
 
           allG.forEach(g => {
             const p1 = imageOfBasepoint(g);
@@ -1596,14 +1591,7 @@
             wallKeys.add(key);
 
             const material = (colorPalette === 'random')
-              ? new THREE.MeshStandardMaterial({
-                color: colorForIndex(Math.random(), 1), // brand new random color per wall
-                transparent: true,
-                opacity: wallOpacity,
-                side: THREE.DoubleSide,
-                metalness: 0.2,
-                roughness: 0.6
-              })
+              ? createWallMaterial(Math.random(), 1)
               : perNeighborMaterial;
 
             const mesh = drawBisector(v1, v2, material);
@@ -1663,6 +1651,77 @@
       return c1.lerp(c2, u);
     }
 
+    let b4lTexture = null;
+
+    function createB4LTexture() {
+      // Create a canvas with the B4L logo pattern (quartered circle)
+      const size = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      const centerX = size / 2;
+      const centerY = size / 2;
+      const radius = size * 0.45;
+
+      // Fill background
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, size, size);
+
+      // Draw the 4 quadrants of the circle
+      // Top-left quadrant - WHITE
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, Math.PI, Math.PI * 1.5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Top-right quadrant - BLACK (skip, already black from background)
+
+      // Bottom-right quadrant - WHITE
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 0.5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Bottom-left quadrant - BLACK (skip, already black from background)
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      return texture;
+    }
+
+    function createWallMaterial(si, total) {
+      const color = colorForIndex(si, total);
+      const materialProps = {
+        transparent: true,
+        opacity: wallOpacity,
+        side: THREE.DoubleSide,
+        metalness: 0.2,
+        roughness: 0.6
+      };
+
+      if (colorPalette === 'b4l') {
+        if (!b4lTexture) {
+          b4lTexture = createB4LTexture();
+        }
+        return new THREE.MeshStandardMaterial({
+          ...materialProps,
+          map: b4lTexture,
+          color: 0xFFFFFF // Use white to show texture properly
+        });
+      } else {
+        return new THREE.MeshStandardMaterial({
+          ...materialProps,
+          color
+        });
+      }
+    }
+
     function colorForIndex(si, total) {
       if (colorPalette === 'monochrome') {
         return new THREE.Color('skyblue');
@@ -1693,6 +1752,10 @@
       if (colorPalette === 'ucpure') {
         // Alternate between UC blue and gold
         return (si % 2 === 0) ? new THREE.Color(0x003660) : new THREE.Color(0xFEBC11);
+      }
+      if (colorPalette === 'b4l') {
+        // B4L logo pattern: alternating black and white quadrants
+        return (si % 2 === 0) ? new THREE.Color(0x000000) : new THREE.Color(0xFFFFFF);
       }
       // default: previous behavior
       const c = new THREE.Color();
