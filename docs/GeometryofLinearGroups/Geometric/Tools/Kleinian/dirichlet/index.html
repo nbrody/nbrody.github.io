@@ -88,39 +88,26 @@
       <div id="tab-display" class="tab-content">
         <div class="control-group p-3">
           <h4 class="text-md font-semibold text-white mb-3">Display options</h4>
-          <label class="flex items-center gap-2 mb-2">
-            <input id="toggleDelaunay" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
-            <span class="text-sm text-gray-300">Show Cayley graph</span>
-          </label>
-          <label class="flex items-center gap-2 mb-2">
-            <input id="toggleOrbit" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
-            <span class="text-sm text-gray-300">Show orbit of o</span>
-          </label>
-          <label class="flex items-center gap-2 mb-2">
-            <input id="toggleBasepoint" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
-            <span class="text-sm text-gray-300">Show basepoint</span>
-          </label>
-          <label class="flex items-center gap-2 mb-2">
-            <input id="toggleFloor" type="checkbox" class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
-            <span class="text-sm text-gray-300">Show floor (z = 0.05)</span>
-          </label>
+          <button id="toggleDelaunay" class="toggle-btn w-full mb-2">
+            Show Cayley graph
+          </button>
+          <button id="toggleOrbit" class="toggle-btn w-full mb-2">
+            Show orbit of o
+          </button>
+          <button id="toggleBasepoint" class="toggle-btn w-full mb-2">
+            Show basepoint
+          </button>
+          <button id="toggleFloor" class="toggle-btn w-full mb-2">
+            Show floor (z = 0.05)
+          </button>
         </div>
 
         <div class="control-group p-3">
           <label class="block text-sm font-medium text-gray-300 mb-2">Walls</label>
-          <div class="flex gap-3">
-            <label class="flex items-center gap-2">
-              <input type="radio" name="wallsMode" value="all" checked class="h-4 w-4 border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
-              <span class="text-sm text-gray-300">All</span>
-            </label>
-            <label class="flex items-center gap-2">
-              <input type="radio" name="wallsMode" value="dirichlet" class="h-4 w-4 border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
-              <span class="text-sm text-gray-300">Dirichlet</span>
-            </label>
-            <label class="flex items-center gap-2">
-              <input type="radio" name="wallsMode" value="off" class="h-4 w-4 border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
-              <span class="text-sm text-gray-300">None</span>
-            </label>
+          <div class="flex gap-2">
+            <button class="tab-btn active" data-walls-mode="all">All</button>
+            <button class="tab-btn" data-walls-mode="dirichlet">Dirichlet</button>
+            <button class="tab-btn" data-walls-mode="off">None</button>
           </div>
         </div>
 
@@ -138,26 +125,116 @@
       <div id="tab-appearance" class="tab-content">
         <div class="control-group p-3">
           <h4 class="text-md font-semibold text-white mb-3">Appearance</h4>
-          <label class="block mb-3">
-            <span class="text-sm font-medium text-gray-300 mb-2 block">Wall opacity</span>
-            <div class="flex items-center gap-3">
-              <input id="wallOpacitySlider" type="range" min="0" max="1" step="0.05" value="0.4" class="flex-1">
-              <span id="wallOpacityValue" class="text-sm text-gray-300 min-w-[3rem]">0.40</span>
-            </div>
-          </label>
+          <div id="wallOpacitySlider" class="polyhedron-slider w-full mb-3" data-opacity="0.4">
+            <div class="polyhedron-slider-fill"></div>
+            <span class="polyhedron-slider-text">Wall opacity</span>
+          </div>
 
-          <label class="block">
+          <div class="block">
             <span class="text-sm font-medium text-gray-300 mb-2 block">Color palette</span>
-            <select id="colorPalette" class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-              <option value="bluegold" selected>UC (gradient)</option>
-              <option value="ucpure">UC (pure)</option>
-              <option value="tealfuchsia">Teal-Fuchsia Gradient</option>
-              <option value="harmonic">Harmonic</option>
-              <option value="monochrome">Monochrome (skyblue)</option>
-              <option value="random">Random colors</option>
-              <option value="b4l">B4L</option>
-            </select>
-          </label>
+            <div class="palette-dropdown">
+              <button class="palette-option active" data-palette="bluegold">
+                <span class="palette-name">UC (gradient)</span>
+                <div class="palette-preview">
+                  <span style="background: #003660;"></span>
+                  <span style="background: #3F574C;"></span>
+                  <span style="background: #7F7939;"></span>
+                  <span style="background: #BF9A25;"></span>
+                  <span style="background: #FEBC11;"></span>
+                </div>
+              </button>
+              <button class="palette-option" data-palette="ucpure">
+                <span class="palette-name">UC (pure)</span>
+                <div class="palette-preview">
+                  <span style="background: #003660;"></span>
+                  <span style="background: #FEBC11;"></span>
+                  <span style="background: #003660;"></span>
+                  <span style="background: #FEBC11;"></span>
+                  <span style="background: #003660;"></span>
+                </div>
+              </button>
+              <button class="palette-option" data-palette="tealfuchsia">
+                <span class="palette-name">Teal-Fuchsia Gradient</span>
+                <div class="palette-preview">
+                  <span style="background: #23bbad;"></span>
+                  <span style="background: #25d9c8;"></span>
+                  <span style="background: #2abed9;"></span>
+                  <span style="background: #ff6da2;"></span>
+                  <span style="background: #f92672;"></span>
+                </div>
+              </button>
+              <button class="palette-option" data-palette="harmonic">
+                <span class="palette-name">Harmonic</span>
+                <div class="palette-preview">
+                  <span style="background: hsl(0, 65%, 58%);"></span>
+                  <span style="background: hsl(90, 65%, 58%);"></span>
+                  <span style="background: hsl(180, 65%, 58%);"></span>
+                  <span style="background: hsl(270, 65%, 58%);"></span>
+                  <span style="background: hsl(330, 65%, 58%);"></span>
+                </div>
+              </button>
+              <button class="palette-option" data-palette="monochrome">
+                <span class="palette-name">Monochrome (skyblue)</span>
+                <div class="palette-preview">
+                  <span style="background: skyblue;"></span>
+                  <span style="background: skyblue;"></span>
+                  <span style="background: skyblue;"></span>
+                  <span style="background: skyblue;"></span>
+                  <span style="background: skyblue;"></span>
+                </div>
+              </button>
+              <button class="palette-option" data-palette="random">
+                <span class="palette-name">Random colors</span>
+                <div class="palette-preview">
+                  <span style="background: #ff0000;"></span>
+                  <span style="background: #00ff00;"></span>
+                  <span style="background: #0000ff;"></span>
+                  <span style="background: #ffff00;"></span>
+                  <span style="background: #ff00ff;"></span>
+                </div>
+              </button>
+              <button class="palette-option" data-palette="b4l">
+                <span class="palette-name">B4L</span>
+                <div class="palette-preview">
+                  <span style="background: #000000;"></span>
+                  <span style="background: #FFFFFF;"></span>
+                  <span style="background: #000000;"></span>
+                  <span style="background: #FFFFFF;"></span>
+                  <span style="background: #000000;"></span>
+                </div>
+              </button>
+              <button class="palette-option" data-palette="luna">
+                <span class="palette-name">Luna</span>
+                <div class="palette-preview">
+                  <span style="background: #3A2A2A;"></span>
+                  <span style="background: #A9A9A9;"></span>
+                  <span style="background: #F5DEB3;"></span>
+                  <span style="background: #87CEEB;"></span>
+                  <span style="background: #FFFFFF;"></span>
+                </div>
+              </button>
+              <button class="palette-option" data-palette="leo">
+                <span class="palette-name">Leo</span>
+                <div class="palette-preview">
+                  <span style="background: #3B2E26;"></span>
+                  <span style="background: #A97E54;"></span>
+                  <span style="background: #C18C7E;"></span>
+                  <span style="background: #587C5A;"></span>
+                  <span style="background: #F3F3F3;"></span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div class="block mt-3">
+            <span class="text-sm font-medium text-gray-300 mb-2 block">Coloring mode</span>
+            <div class="flex gap-2 flex-wrap">
+              <button class="tab-btn active" data-coloring-mode="index">By index</button>
+              <button class="tab-btn" data-coloring-mode="alternating">Alternating</button>
+              <button class="tab-btn" data-coloring-mode="generator">By generator</button>
+              <button class="tab-btn" data-coloring-mode="random">Random</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -79,8 +79,38 @@ export function lerpColorHex(hex1, hex2, t) {
   return c1.lerp(c2, u);
 }
 
-// Get color for an index based on the selected palette
-export function colorForIndex(si, total, colorPalette = 'bluegold') {
+// Get color for an index based on the selected palette and coloring mode
+export function colorForIndex(si, total, colorPalette = 'bluegold', coloringMode = 'index', word = '') {
+  // First determine the effective index based on coloring mode
+  let effectiveIndex = si;
+
+  if (coloringMode === 'alternating') {
+    // Alternate between first and last colors in palette
+    effectiveIndex = (si % 2 === 0) ? 0 : total - 1;
+  } else if (coloringMode === 'generator') {
+    // Color based on last letter of word (which generator was used)
+    if (word && word.length > 0) {
+      const lastChar = word[word.length - 1];
+      // Extract number from subscript (e.g., 'g₁' -> 1, 'g₂' -> 2)
+      const match = lastChar.match(/[₀-₉]/);
+      if (match) {
+        const subscriptMap = {'₀':0,'₁':1,'₂':2,'₃':3,'₄':4,'₅':5,'₆':6,'₇':7,'₈':8,'₉':9};
+        effectiveIndex = subscriptMap[match[0]] || 0;
+      } else {
+        // If no subscript, hash the last character
+        effectiveIndex = lastChar.charCodeAt(0) % total;
+      }
+    }
+  } else if (coloringMode === 'random') {
+    // Each wall gets a random position in the palette (but consistent per si)
+    // Use si as seed for pseudo-random
+    const seed = si * 2654435761; // Knuth's multiplicative hash
+    effectiveIndex = Math.abs(seed % total);
+  }
+  // else coloringMode === 'index' uses si as-is
+
+  si = effectiveIndex;
+
   if (colorPalette === 'monochrome') {
     return new THREE.Color('skyblue');
   }
@@ -115,6 +145,26 @@ export function colorForIndex(si, total, colorPalette = 'bluegold') {
     // B4L logo pattern: alternating black and white quadrants
     return (si % 2 === 0) ? new THREE.Color(0x000000) : new THREE.Color(0xFFFFFF);
   }
+  if (colorPalette === 'luna') {
+    // Luna palette: dark brown to white through grays and sky blue
+    const stops = [0x3A2A2A, 0xA9A9A9, 0xF5DEB3, 0x87CEEB, 0xFFFFFF];
+    const denom = Math.max(1, (total || 1) - 1);
+    const t = (typeof si === 'number') ? (si / denom) : 0.5;
+    const seg = 1 / (stops.length - 1);
+    const idx = Math.min(stops.length - 2, Math.floor(t / seg));
+    const localT = (t - idx * seg) / seg;
+    return lerpColorHex(stops[idx], stops[idx + 1], localT);
+  }
+  if (colorPalette === 'leo') {
+    // Leo palette: earthy browns, cream, dusty rose, and sage green
+    const stops = [0x3B2E26, 0xA97E54, 0xF3F3F3, 0xC18C7E, 0x587C5A];
+    const denom = Math.max(1, (total || 1) - 1);
+    const t = (typeof si === 'number') ? (si / denom) : 0.5;
+    const seg = 1 / (stops.length - 1);
+    const idx = Math.min(stops.length - 2, Math.floor(t / seg));
+    const localT = (t - idx * seg) / seg;
+    return lerpColorHex(stops[idx], stops[idx + 1], localT);
+  }
   // default: harmonic palette
   const c = new THREE.Color();
   c.setHSL(si / Math.max(1, total), 0.65, 0.58);
@@ -122,14 +172,16 @@ export function colorForIndex(si, total, colorPalette = 'bluegold') {
 }
 
 // Create wall material with appropriate color/texture
-export function createWallMaterial(si, total, wallOpacity = 0.4, colorPalette = 'bluegold') {
-  const color = colorForIndex(si, total, colorPalette);
+export function createWallMaterial(si, total, wallOpacity = 0.4, colorPalette = 'bluegold', coloringMode = 'index', word = '') {
+  const color = colorForIndex(si, total, colorPalette, coloringMode, word);
   const materialProps = {
     transparent: true,
     opacity: wallOpacity,
     side: THREE.DoubleSide,
     metalness: 0.2,
-    roughness: 0.6
+    roughness: 0.6,
+    depthWrite: false,
+    depthTest: true
   };
 
   if (colorPalette === 'b4l') {

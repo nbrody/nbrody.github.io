@@ -28,6 +28,7 @@ export const exampleLibrary = [
 let generators = [];
 let wallOpacity = 0.4;
 let colorPalette = 'bluegold';
+let coloringMode = 'index';
 
 // Message handling
 const messageBox = document.getElementById('message-box');
@@ -259,10 +260,11 @@ function collectStandardGeneratorsPayload() {
 
 // Setup all panel UI event handlers
 export function setupPanelUI() {
-  const floorCb = document.getElementById('toggleFloor');
-  if (floorCb) floorCb.addEventListener('change', () => {
+  const floorBtn = document.getElementById('toggleFloor');
+  if (floorBtn) floorBtn.addEventListener('click', () => {
+    floorBtn.classList.toggle('active');
     const floor = window.floor;
-    if (floor) floor.visible = floorCb.checked;
+    if (floor) floor.visible = floorBtn.classList.contains('active');
   });
 
   enableControlPanelResize();
@@ -274,7 +276,7 @@ export function setupPanelUI() {
     refreshBtn.addEventListener('click', () => {
       rebuildGeneratorsFromUI();
       const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
-      generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette);
+      generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette, coloringMode);
       showMessage(`Generated polyhedron for word length ${wordLength}.`);
     });
   }
@@ -282,7 +284,7 @@ export function setupPanelUI() {
   document.getElementById('wordLength').addEventListener('change', () => {
     rebuildGeneratorsFromUI();
     const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
-    generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette);
+    generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette, coloringMode);
   });
 
   refreshExampleDropdown();
@@ -293,7 +295,7 @@ export function setupPanelUI() {
       setExample(exampleLibrary[idx].mats);
       rebuildGeneratorsFromUI();
       const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
-      generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette);
+      generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette, coloringMode);
       typesetMath();
     }
   });
@@ -417,54 +419,118 @@ export function setupPanelUI() {
     });
   }
 
-  const delCb = document.getElementById('toggleDelaunay');
-  if (delCb) delCb.addEventListener('change', () => {
+  const delBtn = document.getElementById('toggleDelaunay');
+  if (delBtn) delBtn.addEventListener('click', () => {
+    delBtn.classList.toggle('active');
     rebuildGeneratorsFromUI();
     const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
-    generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette);
+    generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette, coloringMode);
   });
 
-  const orbCb = document.getElementById('toggleOrbit');
-  if (orbCb) orbCb.addEventListener('change', () => {
+  const orbBtn = document.getElementById('toggleOrbit');
+  if (orbBtn) orbBtn.addEventListener('click', () => {
+    orbBtn.classList.toggle('active');
     rebuildGeneratorsFromUI();
     const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
-    generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette);
+    generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette, coloringMode);
   });
 
-  const wallsRadios = document.querySelectorAll('input[name="wallsMode"]');
-  wallsRadios.forEach(radio => {
-    radio.addEventListener('change', () => {
+  const wallsBtns = document.querySelectorAll('button[data-walls-mode]');
+  wallsBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      // Remove active class from all walls buttons
+      wallsBtns.forEach(b => b.classList.remove('active'));
+      // Add active class to clicked button
+      btn.classList.add('active');
       rebuildGeneratorsFromUI();
       const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
-      generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette);
+      generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette, coloringMode);
     });
   });
 
+  // Wall opacity slider (draggable)
   const wallOpacitySlider = document.getElementById('wallOpacitySlider');
   if (wallOpacitySlider) {
-    wallOpacitySlider.addEventListener('input', () => {
-      wallOpacity = parseFloat(wallOpacitySlider.value);
-      document.getElementById('wallOpacityValue').textContent = wallOpacity.toFixed(2);
+    const fill = wallOpacitySlider.querySelector('.polyhedron-slider-fill');
+    let isDragging = false;
+
+    function updateOpacity(clientX) {
+      const rect = wallOpacitySlider.getBoundingClientRect();
+      const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+      let opacity = x / rect.width;
+
+      // Snap to 0 or 1 at edges
+      if (opacity < 0.05) opacity = 0;
+      if (opacity > 0.95) opacity = 1;
+
+      fill.style.width = (opacity * 100) + '%';
+      wallOpacity = opacity;
+
       rebuildGeneratorsFromUI();
       const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
-      generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette);
+      generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette, coloringMode);
+    }
+
+    // Initialize
+    const initialOpacity = parseFloat(wallOpacitySlider.getAttribute('data-opacity')) || 0.4;
+    fill.style.width = (initialOpacity * 100) + '%';
+    wallOpacity = initialOpacity;
+
+    wallOpacitySlider.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      updateOpacity(e.clientX);
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        updateOpacity(e.clientX);
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
     });
   }
 
-  const paletteSel = document.getElementById('colorPalette');
-  if (paletteSel) {
-    paletteSel.addEventListener('change', () => {
-      colorPalette = paletteSel.value || 'harmonic';
+  // Palette option buttons
+  const paletteOptions = document.querySelectorAll('.palette-option');
+  paletteOptions.forEach(btn => {
+    btn.addEventListener('click', () => {
+      // Remove active from all palette options
+      paletteOptions.forEach(b => b.classList.remove('active'));
+      // Add active to clicked button
+      btn.classList.add('active');
+      // Update palette
+      colorPalette = btn.getAttribute('data-palette') || 'bluegold';
       rebuildGeneratorsFromUI();
       const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
-      generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette);
+      generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette, coloringMode);
     });
-  }
+  });
 
-  const bpCb = document.getElementById('toggleBasepoint');
-  if (bpCb) bpCb.addEventListener('change', () => {
+  // Coloring mode buttons
+  const coloringModeOptions = document.querySelectorAll('button[data-coloring-mode]');
+  coloringModeOptions.forEach(btn => {
+    btn.addEventListener('click', () => {
+      // Remove active from all coloring mode options
+      coloringModeOptions.forEach(b => b.classList.remove('active'));
+      // Add active to clicked button
+      btn.classList.add('active');
+      // Update coloring mode
+      coloringMode = btn.getAttribute('data-coloring-mode') || 'index';
+      rebuildGeneratorsFromUI();
+      const wordLength = parseInt(document.getElementById('wordLength').value) || 1;
+      generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette, coloringMode);
+    });
+  });
+
+  const bpBtn = document.getElementById('toggleBasepoint');
+  if (bpBtn) bpBtn.addEventListener('click', () => {
+    bpBtn.classList.toggle('active');
     if (window.basepointMesh) {
-      window.basepointMesh.visible = bpCb.checked;
+      window.basepointMesh.visible = bpBtn.classList.contains('active');
     }
   });
 
@@ -473,10 +539,11 @@ export function setupPanelUI() {
   rebuildGeneratorsFromUI();
   typesetMath();
   document.getElementById('wordLength').value = 4;
-  generateAndDrawPolyhedron(generators, 4, wallOpacity, colorPalette);
+  generateAndDrawPolyhedron(generators, 4, wallOpacity, colorPalette, coloringMode);
 }
 
 // Export state getters
 export function getGenerators() { return generators; }
 export function getWallOpacity() { return wallOpacity; }
 export function getColorPalette() { return colorPalette; }
+export function getColoringMode() { return coloringMode; }

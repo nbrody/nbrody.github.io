@@ -60,10 +60,18 @@ body {
 }
 
 .tab-btn.active {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.4);
-  color: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+  background: rgba(99, 102, 241, 0.2) !important;
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2) !important;
+}
+
+/* Ensure walls buttons show active state */
+button[data-walls-mode].active {
+  background: rgba(99, 102, 241, 0.2) !important;
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2) !important;
 }
 
 .tab-content {
@@ -175,12 +183,39 @@ body {
   -webkit-backdrop-filter: none;
 }
 
+/* Toggle button styling - same as tabs but for standalone buttons */
+.toggle-btn {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.toggle-btn.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
+
 /* Control groups - subtle glass styling */
 .control-group {
   background: rgba(255, 255, 255, 0.04);
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   transition: background 0.2s ease;
+  margin: 12px 0;
 }
 
 .control-group:hover {
@@ -294,6 +329,101 @@ button:active {
 
 .matrix-label {
   color: #d1d5db;
+}
+
+/* Palette dropdown */
+.palette-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.palette-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.palette-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.palette-option.active {
+  background: rgba(99, 102, 241, 0.2) !important;
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.2) !important;
+}
+
+.palette-name {
+  flex: 1;
+}
+
+.palette-preview {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.palette-preview span {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Custom draggable slider (for wall opacity) */
+.polyhedron-slider {
+  position: relative;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: ew-resize;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  overflow: hidden;
+  user-select: none;
+  text-align: center;
+}
+
+.polyhedron-slider:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.polyhedron-slider-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.3), rgba(99, 102, 241, 0.2));
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.polyhedron-slider-text {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  display: block;
 }
 
 /* message box */

@@ -12,7 +12,6 @@ let scene, camera, renderer, controls;
 let polyhedronGroup = new THREE.Group();
 let delaunayGroup = new THREE.Group();
 let orbitGroup = new THREE.Group();
-let dirichletGroup = new THREE.Group();
 let floor;
 const basepoint = new THREE.Vector3(0, 0, 1);
 
@@ -54,8 +53,8 @@ export function initScene(viewer) {
   scene.add(basepointMesh);
   window.basepointMesh = basepointMesh;
 
-  const bpCb = document.getElementById('toggleBasepoint');
-  basepointMesh.visible = bpCb ? bpCb.checked : false;
+  const bpBtn = document.getElementById('toggleBasepoint');
+  basepointMesh.visible = bpBtn ? bpBtn.classList.contains('active') : false;
 
   // Opaque white plane slightly above the boundary (z = 0.05)
   const floorGeom = new THREE.PlaneGeometry(200, 200);
@@ -63,13 +62,12 @@ export function initScene(viewer) {
   floor = new THREE.Mesh(floorGeom, floorMat);
   floor.position.set(0, 0, 0.05);
   scene.add(floor);
-  const floorCb = document.getElementById('toggleFloor');
-  floor.visible = floorCb ? floorCb.checked : false;
+  const floorBtn = document.getElementById('toggleFloor');
+  floor.visible = floorBtn ? floorBtn.classList.contains('active') : false;
 
   scene.add(polyhedronGroup);
   scene.add(delaunayGroup);
   scene.add(orbitGroup);
-  scene.add(dirichletGroup);
 
   window.addEventListener('resize', onWindowResize, false);
 }
@@ -77,6 +75,32 @@ export function initScene(viewer) {
 export function animate() {
   requestAnimationFrame(animate);
   controls.update();
+
+  // Sort transparent walls back-to-front from camera to fix rendering artifacts
+  if (polyhedronGroup && polyhedronGroup.children.length > 0) {
+    polyhedronGroup.children.forEach(child => {
+      if (child.isMesh) {
+        child.renderOrder = 0;
+      }
+    });
+
+    // Calculate distance from camera for each wall
+    const cameraPos = camera.position;
+    polyhedronGroup.children.forEach(child => {
+      if (child.isMesh) {
+        const worldPos = new THREE.Vector3();
+        child.getWorldPosition(worldPos);
+        child._distanceToCamera = worldPos.distanceToSquared(cameraPos);
+      }
+    });
+
+    // Sort back-to-front (farthest first)
+    polyhedronGroup.children.sort((a, b) => {
+      if (!a.isMesh || !b.isMesh) return 0;
+      return (b._distanceToCamera || 0) - (a._distanceToCamera || 0);
+    });
+  }
+
   renderer.render(scene, camera);
 }
 
@@ -299,7 +323,7 @@ export function drawOrbitPoints(points) {
 }
 
 // Main function to generate and draw the polyhedron
-export function generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette) {
+export function generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette, coloringMode = 'index') {
   clearPolyhedron();
   clearDelaunay();
   clearOrbit();
@@ -307,8 +331,8 @@ export function generateAndDrawPolyhedron(generators, wordLength, wallOpacity, c
   const groupElements = generateGroupElements(generators, wordLength);
   const neighbors = computeDelaunayNeighbors(groupElements, basepoint);
 
-  const selectedRadio = document.querySelector('input[name="wallsMode"]:checked');
-  const wallsMode = selectedRadio ? selectedRadio.value : 'all';
+  const selectedBtn = document.querySelector('button[data-walls-mode].active');
+  const wallsMode = selectedBtn ? selectedBtn.getAttribute('data-walls-mode') : 'all';
 
   if (wallsMode === 'dirichlet') {
     // Draw exactly one wall per Dirichlet neighbor
@@ -323,7 +347,7 @@ export function generateAndDrawPolyhedron(generators, wordLength, wallOpacity, c
       const p2 = imageOfBasepoint(s);
       if (!isFinite(p2.t) || p2.t <= 0) return;
       const vS = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
-      const material = createWallMaterial(si, sList.length, wallOpacity, colorPalette);
+      const material = createWallMaterial(si, sList.length, wallOpacity, colorPalette, coloringMode, sObj.word || '');
       const mesh = drawBisector(vO, vS, material);
       if (mesh) {
         const labelM = repWithNonnegativeRealTrace(s);
@@ -336,11 +360,12 @@ export function generateAndDrawPolyhedron(generators, wordLength, wallOpacity, c
     // Draw walls for all generated pairs (g, gs)
     const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
     const allG = [I, ...groupElements.map(o => (o && o.m) ? o.m : o)];
-    const sList = neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean);
+    const neighborsWithWords = neighbors.map(n => ({ g: (n && n.g) ? n.g : n, word: n && n.word ? n.word : '' })).filter(x => x.g);
 
     const wallKeys = new Set();
-    sList.forEach((s, si) => {
-      const perNeighborMaterial = (colorPalette === 'random') ? null : createWallMaterial(si, sList.length, wallOpacity, colorPalette);
+    neighborsWithWords.forEach((sObj, si) => {
+      const s = sObj.g;
+      const perNeighborMaterial = (colorPalette === 'random') ? null : createWallMaterial(si, neighborsWithWords.length, wallOpacity, colorPalette, coloringMode, sObj.word);
 
       allG.forEach(g => {
         const p1 = imageOfBasepoint(g);
@@ -354,7 +379,7 @@ export function generateAndDrawPolyhedron(generators, wordLength, wallOpacity, c
         wallKeys.add(key);
 
         const material = (colorPalette === 'random')
-          ? createWallMaterial(Math.random(), 1, wallOpacity, colorPalette)
+          ? createWallMaterial(Math.random(), 1, wallOpacity, colorPalette, coloringMode, sObj.word)
           : perNeighborMaterial;
 
         const mesh = drawBisector(v1, v2, material);
@@ -367,7 +392,7 @@ export function generateAndDrawPolyhedron(generators, wordLength, wallOpacity, c
     });
   }
 
-  const showOrbit = document.getElementById('toggleOrbit')?.checked;
+  const showOrbit = document.getElementById('toggleOrbit')?.classList.contains('active');
   if (showOrbit) {
     const orbitPts = computeOrbitPoints(groupElements);
     drawOrbitPoints(orbitPts);
@@ -375,7 +400,7 @@ export function generateAndDrawPolyhedron(generators, wordLength, wallOpacity, c
     clearOrbit();
   }
 
-  const showDel = document.getElementById('toggleDelaunay')?.checked;
+  const showDel = document.getElementById('toggleDelaunay')?.classList.contains('active');
   if (showDel) {
     clearDelaunay();
     const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
@@ -452,5 +477,5 @@ export function saveImage() {
 
 // Export scene objects for external access
 export function getSceneObjects() {
-  return { scene, camera, renderer, controls, polyhedronGroup, delaunayGroup, orbitGroup, dirichletGroup, floor, basepoint };
+  return { scene, camera, renderer, controls, polyhedronGroup, delaunayGroup, orbitGroup, floor, basepoint };
 }
