@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Globe Game</title>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+        chtml: { scale: 2 }
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" defer></script>
+</head>
+
+<body>
+    <div id="container">
+        <div id="legend-box"></div>
+        <div id="distance-box">Distance to Target: — miles</div>
+        <div id="canvas-wrapper"></div>
+        <button id="plus-button">+</button>
+        <!-- On-screen arrow controls for mobile -->
+        <div id="touch-controls">
+            <div class="spacer"></div>
+            <button id="btn-up" class="arrow-btn" aria-label="Move Up">▲</button>
+            <div class="spacer"></div>
+            <button id="btn-left" class="arrow-btn" aria-label="Move Left">◀</button>
+            <div class="spacer"></div>
+            <button id="btn-right" class="arrow-btn" aria-label="Move Right">▶</button>
+            <div class="spacer"></div>
+            <button id="btn-down" class="arrow-btn" aria-label="Move Down">▼</button>
+            <div class="spacer"></div>
+        </div>
+        <div id="side-panel">
+            <h2>Globe Navigation Game</h2>
+            <div class="goal-text">
+                <strong>Goal:</strong> Navigate the globe using the arrow keys. Try to move the character from the green beacon to the orange beacon.
+            </div>
+
+            <h3>Move Sequence</h3>
+            <div id="moves-display"></div>
+
+            <h3>Matrix from word</h3>
+            <div id="matrix-display"></div>
+
+            <h3>Saved Rotations</h3>
+            <button id="save-rotation-btn" title="Save the current rotation as a new generator">Save current as g</button>
+            <div class="saved-help">Click to apply. Hold <kbd>Shift</kbd> to apply the inverse.</div>
+            <div id="saved-list"></div>
+
+            <div class="instructions">
+                <strong>Controls:</strong><br>
+                • Arrow Keys: Rotate globe<br>
+                • Mouse: Drag to orbit view<br>
+                • Scroll: Zoom in/out
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.171.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.171.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import { init } from './main.js';
+        init();
+    </script>
+</body>
+
+</html>
