@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knot Drawing Tool</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="container">
+        <div id="toolbar">
+            <div class="toolbar-section">
+                <button id="drawBtn" class="active">Draw</button>
+                <button id="eraseBtn">Erase</button>
+            </div>
+            <div class="toolbar-section">
+                <label>Brush Size:</label>
+                <input type="range" id="brushSize" min="1" max="10" value="3">
+                <span id="brushSizeValue">3</span>
+            </div>
+            <div class="toolbar-section">
+                <label>Color:</label>
+                <input type="color" id="strokeColor" value="#000000">
+            </div>
+            <div class="toolbar-section">
+                <button id="clearBtn">Clear Canvas</button>
+                <button id="undoBtn">Undo</button>
+            </div>
+            <div class="toolbar-section">
+                <button id="exportBtn">Export PNG</button>
+            </div>
+        </div>
+        <div id="canvas-container">
+            <canvas id="canvas" width="1200" height="800"></canvas>
+            <div id="data-panel">
+                <h3>Knot Diagram Data</h3>
+                <div class="stat">
+                    <span class="stat-label">Crossings:</span>
+                    <span class="stat-value" id="crossingCount">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Arcs:</span>
+                    <span class="stat-value" id="arcCount">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Components:</span>
+                    <span class="stat-value" id="componentCount">0</span>
+                </div>
+                <div class="divider"></div>
+                <button id="toggleOrientation" style="width: 100%; margin-top: 4px;">Show Orientations</button>
+            </div>
+            <div class="info">
+                Click and drag to draw knots and links
+            </div>
+        </div>
+    </div>
+
+    <script src="knot-drawer.js"></script>
+</body>
+</html>

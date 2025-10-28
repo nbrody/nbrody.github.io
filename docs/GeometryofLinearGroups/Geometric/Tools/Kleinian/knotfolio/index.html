@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KnotFolio - Knot Drawing Tool</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="src/main.js"></script>
+  </head>
+  <body>
+    <div id="editor"></div>
+
+    <div id="control-panel">
+      <div id="panel-header">
+        <div id="project-name">KnotFolio</div>
+        <button id="panel-toggle" title="Toggle Panel">▼</button>
+      </div>
+
+      <div id="panel-content">
+        <div id="undo-controls">
+          <button class="action-undo" title="Undo">↶</button>
+          <span class="undo-state">1/10</span>
+          <button class="action-redo" title="Redo">↷</button>
+          <button class="action-clear" title="Clear">✕</button>
+        </div>
+
+        <div id="mode-info">
+          <strong>Mode:</strong> <span class="modename"></span>
+        </div>
+
+        <div id="tools"></div>
+      </div>
+    </div>
+
+    <div id="drop-area">
+      <div class="drop-border">
+        Drop images here
+      </div>
+    </div>
+  </body>
+</html>

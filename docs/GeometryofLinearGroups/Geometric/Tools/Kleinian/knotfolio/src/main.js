@@ -1,0 +1,233 @@
+import {assert} from "./util.js";
+import {KnotImageImportView} from "./KnotImageImportView.js";
+import {KnotRasterView} from "./KnotRasterView.js";
+import {UndoStack} from "./undostack.js";
+import {Point} from "./geom2d.js";
+import Q from "./kq.js";
+
+Q(function () {
+  // Panel toggle functionality
+  Q("#panel-toggle").on("click", (e) => {
+    e.stopPropagation();
+    let $panel = Q("#control-panel");
+    let $toggle = Q("#panel-toggle");
+    if ($panel.hasClass("collapsed")) {
+      $panel.removeClass("collapsed");
+      $toggle.empty().append("▼");
+    } else {
+      $panel.addClass("collapsed");
+      $toggle.empty().append("▲");
+    }
+  });
+
+  Q("#panel-header").on("click", (e) => {
+    if (e.target.id === "panel-toggle") return;
+    Q("#panel-toggle")[0].click();
+  });
+
+  window.addEventListener('error', function (e) {
+    let close = Q.create("input", {type:"button", className:"program-error-close"}).value("X");
+    let $box = Q.create("div", {className:"program-error"},
+                        close,
+                        Q.create("h1", "Unhandled error"),
+                        Q.create("p", "Message: " + e.message),
+                        Q.create("p", "in " + e.filename + ":" + e.lineno + ":" + e.colno),
+                        Q.create("p", "Error object: " + JSON.stringify(e.error)));
+    Q("body").append($box);
+    close.on("click", e => $box.remove());
+  });
+
+  var undo_stack = new UndoStack();
+
+  undo_stack.listeners.push(undo_stack => {
+    Q(".undo-state").empty().append(`${undo_stack.i + 1}/${undo_stack.length}`);
+    Q("button.action-undo").prop("disabled", undo_stack.i <= 0);
+    Q("button.action-redo").prop("disabled", undo_stack.i + 1 >= undo_stack.length);
+  });
+  Q("button.action-undo").on("click", () => {
+    undo_stack.undo();
+  });
+  Q("button.action-redo").on("click", () => {
+    undo_stack.redo();
+  });
+  Q("button.action-clear").on("click", () => {
+    undo_stack.push(new KnotRasterView(window.innerWidth, window.innerHeight));
+  });
+
+  var canvas = Q.create("canvas").appendTo(Q("#editor"));
+
+  // Set canvas to full window size
+  function resizeCanvas() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // Set canvas resolution to match display size exactly
+    canvas.prop("width", width);
+    canvas.prop("height", height);
+
+    // Repaint if we have a current view
+    if (undo_stack.length > 0) {
+      const ctxt = canvas[0].getContext('2d', {willReadFrequently: true});
+      undo_stack.get().paint(ctxt);
+    }
+  }
+
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  var ctxt = canvas[0].getContext('2d', {willReadFrequently: true});
+  undo_stack.listeners.push(undo_stack => {
+    Q(".modename").empty().append(undo_stack.get().mode_name);
+    undo_stack.get().paint(ctxt);
+
+    let $tools = Q("#tools").empty();
+    $tools.append(undo_stack.get().toolbox(undo_stack, ctxt));
+  });
+
+  undo_stack.push(new KnotRasterView(window.innerWidth, window.innerHeight));
+
+  function mousePos(e) {
+    let rect = canvas[0].getBoundingClientRect();
+    return new Point(Math.floor(e.clientX - rect.left-1), Math.floor(e.clientY - rect.top-1));
+  }
+
+  var color = null;
+  var mouseHandler = null;
+
+  canvas.on("mousedown", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    undo_stack.get().mousedown(mousePos(e), e, undo_stack, ctxt);
+  });
+  canvas.on("mousemove", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    undo_stack.get().mousemove(mousePos(e), e, undo_stack, ctxt);
+  });
+  canvas.on("mouseup", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    undo_stack.get().mouseup(mousePos(e), e, undo_stack, ctxt);
+  });
+  canvas.on("contextmenu", function (e) {
+    e.preventDefault();
+  });
+  canvas.on("wheel", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    let view = undo_stack.get();
+    if (view.mousewheel) {
+      view.mousewheel(mousePos(e), e, undo_stack, ctxt);
+    }
+  });
+
+  canvas.on("touchstart", function (e) {
+    if (e.touches.length > 1) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    e.button = 0;
+    e.buttons = 1;
+    undo_stack.get().mousedown(mousePos(e.changedTouches[0]), e, undo_stack, ctxt);
+  });
+  canvas.on("touchmove", function (e) {
+    if (e.touches.length > 1) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    e.button = 0;
+    e.buttons = 1;
+    undo_stack.get().mousemove(mousePos(e.changedTouches[0]), e, undo_stack, ctxt);
+  });
+  canvas.on("touchend", function (e) {
+    if (e.touches.length > 0) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    e.button = 0;
+    e.buttons = 0;
+    undo_stack.get().mouseup(mousePos(e.changedTouches[0]), e, undo_stack, ctxt);
+  });
+
+
+  function process_img_upload() {
+    let img = this;
+    undo_stack.push(new KnotImageImportView(window.innerWidth, window.innerHeight, img));
+  }
+
+  function show_drop_area(shown) {
+    Q("#drop-area").css("display", shown ? "block" : "none");
+  }
+
+  let drag_enter_counter = 0;
+  document.addEventListener("dragenter", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    drag_enter_counter++;
+    show_drop_area(drag_enter_counter > 0);
+  }, true);
+  document.addEventListener("dragleave", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    drag_enter_counter--;
+    show_drop_area(drag_enter_counter > 0);
+  }, true);
+  document.addEventListener("dragover", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    show_drop_area(true);
+  }, true);
+  document.addEventListener("drop", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    drag_enter_counter = 0;
+    show_drop_area(false);
+
+    let uri = e.dataTransfer.getData('text/uri-list');
+    if (uri) {
+      let uris = uri.split("\n");
+      for (let i = 0; i < uris.length; i++) {
+        if (uris[i][0] !== "#") {
+          let img = document.createElement("img");
+          img.crossOrigin = "Anonymous"; // just in case the site allows it (CORS prevents most things)
+          img.onload = process_img_upload;
+          img.src = uris[i];
+          return;
+        }
+      }
+    }
+
+    let files = e.dataTransfer.files;
+    if (files.length > 0) {
+      let file = files[0];
+      let reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = () => {
+        let img = document.createElement("img");
+        img.onload = process_img_upload;
+        img.src = reader.result;
+      };
+      return;
+    }
+  }, true);
+
+  document.addEventListener('paste', e => {
+    let items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith("image/")) {
+        let file = items[i].getAsFile();
+        let reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onloadend = () => {
+          let img = document.createElement("img");
+          img.onload = process_img_upload;
+          img.src = reader.result;
+        };
+        return;
+      }
+    }
+  }, false);
+});

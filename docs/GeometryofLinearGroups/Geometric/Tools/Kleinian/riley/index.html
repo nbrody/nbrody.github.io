@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riley Slice Explorer</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+            background-color: #fdfdfd;
+        }
+
+        h1,
+        h2 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            color: #1a1a1a;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+        }
+
+        .image-container {
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #dee2e6;
+        }
+
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+
+        .placeholder-text {
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .info-box {
+            background-color: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .info-box h3 {
+            margin-top: 0;
+            color: #004085;
+        }
+
+        .matrix {
+            display: inline-block;
+            vertical-align: middle;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            min-width: 120px;
+        }
+
+        .rational-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rational-input input {
+            width: 80px;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .fraction-bar {
+            font-size: 24px;
+            color: #666;
+        }
+
+        #calculateButton {
+            padding: 10px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        #calculateButton:hover {
+            background-color: #0056b3;
+        }
+
+        #results {
+            margin-top: 20px;
+        }
+
+        .polynomial-display {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            margin: 15px 0;
+        }
+
+        .polynomial-display h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+
+        .polynomial {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 18px;
+            color: #212529;
+            padding: 10px;
+            background-color: white;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        code {
+            background-color: #f0f0f0;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        }
+
+        .error {
+            color: #d9534f;
+            font-weight: bold;
+            padding: 10px;
+            background-color: #f8d7da;
+            border-radius: 4px;
+        }
+
+        .computation-steps {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f1f3f5;
+            border-radius: 4px;
+        }
+
+        .computation-steps h4 {
+            margin-top: 0;
+        }
+
+        .step {
+            margin: 10px 0;
+            padding-left: 15px;
+            border-left: 3px solid #007bff;
+        }
+
+        canvas {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            display: block;
+            margin: 20px auto;
+            background-color: #fff;
+            cursor: crosshair;
+        }
+
+        .canvas-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .canvas-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .canvas-controls label {
+            font-size: 14px;
+            color: #495057;
+        }
+
+        .canvas-controls input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .legend {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Riley Slice Explorer</h1>
+
+        <div class="info-box">
+            <h3>Convention</h3>
+            <p>This tool explores the Riley slice using the generators:</p>
+            <ul>
+                <li><strong>A</strong> = <span class="matrix">[[1, z], [0, 1]]</span> (parabolic element)</li>
+                <li><strong>B</strong> = <span class="matrix">[[0, -1], [1, 0]]</span> (elliptic element of order 4)</li>
+            </ul>
+            <p>For each rational number <strong>p/q</strong>, we compute the associated Riley polynomial <strong>Q(p/q)</strong>.</p>
+        </div>
+
+        <div class="image-container">
+            <p class="placeholder-text">Riley Slice Visualization</p>
+            <p class="placeholder-text" style="font-size: 14px;">(Place your Riley slice image here: riley_slice.png)</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Polynomial Calculator</h2>
+        <p>Enter a rational number to compute its corresponding Riley polynomial:</p>
+
+        <div class="input-group">
+            <label for="numerator">Rational Number:</label>
+            <div class="rational-input">
+                <input type="number" id="numerator" value="1" min="0">
+                <span class="fraction-bar">/</span>
+                <input type="number" id="denominator" value="2" min="1">
+            </div>
+            <button id="calculateButton">Calculate Polynomial</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <div class="container">
+        <h2>Real Locus Visualization</h2>
+        <p>The plot below shows the set of complex numbers z where Q(p/q)(z) is real (i.e., Im(Q(p/q)(z)) = 0).</p>
+
+        <div class="canvas-controls">
+            <div>
+                <label>Re(z) range: </label>
+                <input type="number" id="xMin" value="-3" step="0.5">
+                <label> to </label>
+                <input type="number" id="xMax" value="3" step="0.5">
+            </div>
+            <div>
+                <label>Im(z) range: </label>
+                <input type="number" id="yMin" value="-3" step="0.5">
+                <label> to </label>
+                <input type="number" id="yMax" value="3" step="0.5">
+            </div>
+            <button id="plotButton" style="padding: 5px 15px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Plot</button>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="rileyCanvas" width="600" height="600"></canvas>
+        </div>
+
+        <div class="legend">
+            <strong>Legend:</strong> Blue curves show where Q(p/q)(z) is real.
+            The axes show the real and imaginary parts of z.
+        </div>
+    </div>
+
+    <script>
+        // Polynomial class for operations
+        class Polynomial {
+            constructor(coeffs) {
+                // coeffs[i] is coefficient of z^i
+                this.coeffs = coeffs.slice();
+                this.trim();
+            }
+
+            trim() {
+                while (this.coeffs.length > 1 && Math.abs(this.coeffs[this.coeffs.length - 1]) < 1e-10) {
+                    this.coeffs.pop();
+                }
+                if (this.coeffs.length === 0) {
+                    this.coeffs = [0];
+                }
+            }
+
+            static fromConstant(c) {
+                return new Polynomial([c]);
+            }
+
+            add(other) {
+                const maxLen = Math.max(this.coeffs.length, other.coeffs.length);
+                const result = new Array(maxLen).fill(0);
+                for (let i = 0; i < this.coeffs.length; i++) {
+                    result[i] += this.coeffs[i];
+                }
+                for (let i = 0; i < other.coeffs.length; i++) {
+                    result[i] += other.coeffs[i];
+                }
+                return new Polynomial(result);
+            }
+
+            subtract(other) {
+                const maxLen = Math.max(this.coeffs.length, other.coeffs.length);
+                const result = new Array(maxLen).fill(0);
+                for (let i = 0; i < this.coeffs.length; i++) {
+                    result[i] += this.coeffs[i];
+                }
+                for (let i = 0; i < other.coeffs.length; i++) {
+                    result[i] -= other.coeffs[i];
+                }
+                return new Polynomial(result);
+            }
+
+            multiply(other) {
+                const result = new Array(this.coeffs.length + other.coeffs.length - 1).fill(0);
+                for (let i = 0; i < this.coeffs.length; i++) {
+                    for (let j = 0; j < other.coeffs.length; j++) {
+                        result[i + j] += this.coeffs[i] * other.coeffs[j];
+                    }
+                }
+                return new Polynomial(result);
+            }
+
+            toString() {
+                const terms = [];
+                for (let i = this.coeffs.length - 1; i >= 0; i--) {
+                    const coeff = this.coeffs[i];
+                    if (Math.abs(coeff) < 1e-10) continue;
+
+                    let term = '';
+                    const absCoeff = Math.abs(coeff);
+
+                    if (i === 0) {
+                        term = absCoeff.toString();
+                    } else if (i === 1) {
+                        if (absCoeff === 1) {
+                            term = 'z';
+                        } else {
+                            term = `${absCoeff}z`;
+                        }
+                    } else {
+                        if (absCoeff === 1) {
+                            term = `z^${i}`;
+                        } else {
+                            term = `${absCoeff}z^${i}`;
+                        }
+                    }
+
+                    if (coeff < 0) {
+                        term = terms.length > 0 ? `- ${term}` : `-${term}`;
+                    } else if (terms.length > 0) {
+                        term = `+ ${term}`;
+                    }
+
+                    terms.push(term);
+                }
+                return terms.length > 0 ? terms.join(' ') : '0';
+            }
+        }
+
+        // GCD function
+        function gcd(a, b) {
+            a = Math.abs(a);
+            b = Math.abs(b);
+            while (b) {
+                const t = b;
+                b = a % b;
+                a = t;
+            }
+            return a;
+        }
+
+        // Reduce fraction to lowest terms
+        function reduceFraction(p, q) {
+            const g = gcd(p, q);
+            return { p: p / g, q: q / g };
+        }
+
+        // Check if two fractions are Farey neighbors
+        function areFareyNeighbors(p1, q1, p2, q2) {
+            return Math.abs(p2 * q1 - p1 * q2) === 1;
+        }
+
+        // Riley polynomial computation using Farey tree recursion
+        const polynomialCache = new Map();
+
+        function getRileyPolynomial(p, q) {
+            const key = `${p}/${q}`;
+            if (polynomialCache.has(key)) {
+                return polynomialCache.get(key);
+            }
+
+            // Base cases
+            if (p === 0 && q === 1) {
+                const poly = new Polynomial([2, 0, -1]); // 2 - z^2
+                polynomialCache.set(key, poly);
+                return poly;
+            }
+            if (p === 1 && q === 1) {
+                const poly = new Polynomial([2, 0, 1]); // 2 + z^2
+                polynomialCache.set(key, poly);
+                return poly;
+            }
+            if (p === 1 && q === 2) {
+                const poly = new Polynomial([2, 0, 0, 0, 1]); // 2 + z^4
+                polynomialCache.set(key, poly);
+                return poly;
+            }
+
+            // Try to find Farey neighbors and compute using recursion
+            // Generate fractions with smaller denominators
+            const fractions = [];
+            for (let denom = 1; denom < q; denom++) {
+                for (let num = 0; num <= denom; num++) {
+                    if (gcd(num, denom) === 1) {
+                        fractions.push({ p: num, q: denom });
+                    }
+                }
+            }
+
+            // Look for Farey neighbors whose mediant is p/q
+            for (let i = 0; i < fractions.length; i++) {
+                for (let j = i + 1; j < fractions.length; j++) {
+                    const f1 = fractions[i];
+                    const f2 = fractions[j];
+
+                    // Check if they are Farey neighbors
+                    if (!areFareyNeighbors(f1.p, f1.q, f2.p, f2.q)) continue;
+
+                    // Check if mediant equals our target
+                    const mp = f1.p + f2.p;
+                    const mq = f1.q + f2.q;
+                    const reduced = reduceFraction(mp, mq);
+
+                    if (reduced.p === p && reduced.q === q) {
+                        // Found the right pair! Use recursion formula:
+                        // Q(p/q) = 8 - Q(a/c) * Q(b/d) - Q((b-a)/(d-c))
+                        const Q1 = getRileyPolynomial(f1.p, f1.q);
+                        const Q2 = getRileyPolynomial(f2.p, f2.q);
+
+                        const diffP = Math.abs(f2.p - f1.p);
+                        const diffQ = Math.abs(f2.q - f1.q);
+                        const diffReduced = reduceFraction(diffP, diffQ);
+                        const Q3 = getRileyPolynomial(diffReduced.p, diffReduced.q);
+
+                        const product = Q1.multiply(Q2);
+                        const sum = product.add(Q3);
+                        const result = Polynomial.fromConstant(8).subtract(sum);
+
+                        polynomialCache.set(key, result);
+                        return result;
+                    }
+                }
+            }
+
+            // If we couldn't compute it, return null
+            return null;
+        }
+
+        // Event handlers
+        document.getElementById('calculateButton').addEventListener('click', () => {
+            const p = parseInt(document.getElementById('numerator').value);
+            const q = parseInt(document.getElementById('denominator').value);
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+
+            if (isNaN(p) || isNaN(q) || q <= 0 || p < 0) {
+                resultsDiv.innerHTML = '<p class="error">Please enter valid non-negative integers with q > 0.</p>';
+                return;
+            }
+
+            const reduced = reduceFraction(p, q);
+            const poly = getRileyPolynomial(reduced.p, reduced.q);
+
+            if (poly === null) {
+                resultsDiv.innerHTML = `<p class="error">Could not compute polynomial for ${reduced.p}/${reduced.q}. The recursion may require additional base cases or a higher iteration limit.</p>`;
+                return;
+            }
+
+            let html = '<div class="polynomial-display">';
+            html += `<h3>Riley Polynomial Q(${reduced.p}/${reduced.q})</h3>`;
+            html += `<div class="polynomial">${poly.toString()}</div>`;
+
+            if (p !== reduced.p || q !== reduced.q) {
+                html += `<p style="margin-top: 10px; color: #6c757d; font-size: 14px;">Note: Reduced from ${p}/${q} to ${reduced.p}/${reduced.q}</p>`;
+            }
+
+            html += '</div>';
+
+            // Show degree and coefficients
+            html += '<div class="computation-steps">';
+            html += '<h4>Polynomial Details</h4>';
+            html += `<p><strong>Degree:</strong> ${poly.coeffs.length - 1}</p>`;
+            html += '<p><strong>Coefficients</strong> (from z^0 to z^' + (poly.coeffs.length - 1) + '):</p>';
+            html += '<p style="font-family: monospace;">[' + poly.coeffs.join(', ') + ']</p>';
+            html += '</div>';
+
+            resultsDiv.innerHTML = html;
+        });
+
+        // Trigger calculation on Enter key
+        document.getElementById('numerator').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') document.getElementById('calculateButton').click();
+        });
+        document.getElementById('denominator').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') document.getElementById('calculateButton').click();
+        });
+
+        // Initial calculation on load
+        document.getElementById('calculateButton').click();
+    </script>
+</body>
+
+</html>
