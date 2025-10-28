@@ -379,6 +379,28 @@
                 }
                 return terms.length > 0 ? terms.join(' ') : '0';
             }
+
+            // Evaluate polynomial at complex number z = re + im*i
+            evaluateComplex(re, im) {
+                let resultRe = 0;
+                let resultIm = 0;
+                let powerRe = 1;
+                let powerIm = 0;
+
+                for (let i = 0; i < this.coeffs.length; i++) {
+                    // Add coeff * power to result
+                    resultRe += this.coeffs[i] * powerRe;
+                    resultIm += this.coeffs[i] * powerIm;
+
+                    // Multiply power by z
+                    const newPowerRe = powerRe * re - powerIm * im;
+                    const newPowerIm = powerRe * im + powerIm * re;
+                    powerRe = newPowerRe;
+                    powerIm = newPowerIm;
+                }
+
+                return { re: resultRe, im: resultIm };
+            }
         }
 
         // GCD function
@@ -531,6 +553,187 @@
 
         // Initial calculation on load
         document.getElementById('calculateButton').click();
+
+        // ============ Canvas Plotting Code ============
+
+        const canvas = document.getElementById('rileyCanvas');
+        const ctx = canvas.getContext('2d');
+        let currentPolynomial = null;
+
+        function plotRealLocus() {
+            const p = parseInt(document.getElementById('numerator').value);
+            const q = parseInt(document.getElementById('denominator').value);
+            const xMin = parseFloat(document.getElementById('xMin').value);
+            const xMax = parseFloat(document.getElementById('xMax').value);
+            const yMin = parseFloat(document.getElementById('yMin').value);
+            const yMax = parseFloat(document.getElementById('yMax').value);
+
+            if (isNaN(p) || isNaN(q) || q <= 0 || p < 0) {
+                alert('Please calculate a valid polynomial first!');
+                return;
+            }
+
+            const reduced = reduceFraction(p, q);
+            currentPolynomial = getRileyPolynomial(reduced.p, reduced.q);
+
+            if (!currentPolynomial) {
+                alert('Could not compute polynomial for this fraction.');
+                return;
+            }
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw axes
+            drawAxes(xMin, xMax, yMin, yMax);
+
+            // Plot the real locus (where Im(Q(z)) = 0)
+            plotImplicitCurve(currentPolynomial, xMin, xMax, yMin, yMax);
+        }
+
+        function drawAxes(xMin, xMax, yMin, yMax) {
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 1;
+
+            // X-axis
+            const yZero = mapY(0, yMin, yMax);
+            ctx.beginPath();
+            ctx.moveTo(0, yZero);
+            ctx.lineTo(canvas.width, yZero);
+            ctx.stroke();
+
+            // Y-axis
+            const xZero = mapX(0, xMin, xMax);
+            ctx.beginPath();
+            ctx.moveTo(xZero, 0);
+            ctx.lineTo(xZero, canvas.height);
+            ctx.stroke();
+
+            // Add labels
+            ctx.fillStyle = '#666';
+            ctx.font = '12px Arial';
+            ctx.fillText('Re(z)', canvas.width - 40, yZero - 5);
+            ctx.fillText('Im(z)', xZero + 5, 15);
+
+            // Draw tick marks
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 0.5;
+            for (let x = Math.ceil(xMin); x <= Math.floor(xMax); x++) {
+                if (x === 0) continue;
+                const px = mapX(x, xMin, xMax);
+                ctx.beginPath();
+                ctx.moveTo(px, 0);
+                ctx.lineTo(px, canvas.height);
+                ctx.stroke();
+                ctx.fillText(x.toString(), px - 5, yZero + 15);
+            }
+            for (let y = Math.ceil(yMin); y <= Math.floor(yMax); y++) {
+                if (y === 0) continue;
+                const py = mapY(y, yMin, yMax);
+                ctx.beginPath();
+                ctx.moveTo(0, py);
+                ctx.lineTo(canvas.width, py);
+                ctx.stroke();
+                ctx.fillText(y.toString(), xZero + 5, py + 5);
+            }
+        }
+
+        function mapX(x, xMin, xMax) {
+            return ((x - xMin) / (xMax - xMin)) * canvas.width;
+        }
+
+        function mapY(y, yMin, yMax) {
+            return canvas.height - ((y - yMin) / (yMax - yMin)) * canvas.height;
+        }
+
+        function plotImplicitCurve(poly, xMin, xMax, yMin, yMax) {
+            // Use marching squares algorithm to find contours
+            const resolution = 200;
+            const dx = (xMax - xMin) / resolution;
+            const dy = (yMax - yMin) / resolution;
+
+            // Create grid of values (imaginary part of Q(z))
+            const grid = [];
+            for (let i = 0; i <= resolution; i++) {
+                grid[i] = [];
+                for (let j = 0; j <= resolution; j++) {
+                    const x = xMin + i * dx;
+                    const y = yMin + j * dy;
+                    const result = poly.evaluateComplex(x, y);
+                    grid[i][j] = result.im; // Store imaginary part
+                }
+            }
+
+            // Draw contour where Im(Q(z)) = 0
+            ctx.strokeStyle = '#007bff';
+            ctx.lineWidth = 2;
+
+            for (let i = 0; i < resolution; i++) {
+                for (let j = 0; j < resolution; j++) {
+                    const x0 = xMin + i * dx;
+                    const y0 = yMin + j * dy;
+                    const x1 = x0 + dx;
+                    const y1 = y0 + dy;
+
+                    const v00 = grid[i][j];
+                    const v10 = grid[i + 1][j];
+                    const v01 = grid[i][j + 1];
+                    const v11 = grid[i + 1][j + 1];
+
+                    // Check if zero crossing occurs
+                    drawContourSegment(x0, y0, x1, y1, v00, v10, v01, v11, xMin, xMax, yMin, yMax);
+                }
+            }
+        }
+
+        function drawContourSegment(x0, y0, x1, y1, v00, v10, v01, v11, xMin, xMax, yMin, yMax) {
+            const threshold = 0;
+            const points = [];
+
+            // Check each edge for zero crossing
+            // Bottom edge
+            if ((v00 < threshold && v10 > threshold) || (v00 > threshold && v10 < threshold)) {
+                const t = (threshold - v00) / (v10 - v00);
+                points.push({ x: x0 + t * (x1 - x0), y: y0 });
+            }
+            // Right edge
+            if ((v10 < threshold && v11 > threshold) || (v10 > threshold && v11 < threshold)) {
+                const t = (threshold - v10) / (v11 - v10);
+                points.push({ x: x1, y: y0 + t * (y1 - y0) });
+            }
+            // Top edge
+            if ((v01 < threshold && v11 > threshold) || (v01 > threshold && v11 < threshold)) {
+                const t = (threshold - v01) / (v11 - v01);
+                points.push({ x: x0 + t * (x1 - x0), y: y1 });
+            }
+            // Left edge
+            if ((v00 < threshold && v01 > threshold) || (v00 > threshold && v01 < threshold)) {
+                const t = (threshold - v00) / (v01 - v00);
+                points.push({ x: x0, y: y0 + t * (y1 - y0) });
+            }
+
+            // Draw line segment between points
+            if (points.length >= 2) {
+                ctx.beginPath();
+                ctx.moveTo(mapX(points[0].x, xMin, xMax), mapY(points[0].y, yMin, yMax));
+                ctx.lineTo(mapX(points[1].x, xMin, xMax), mapY(points[1].y, yMin, yMax));
+                ctx.stroke();
+            }
+        }
+
+        // Event handlers for plotting
+        document.getElementById('plotButton').addEventListener('click', plotRealLocus);
+
+        // Plot when calculate is clicked
+        const originalCalculateHandler = document.getElementById('calculateButton').onclick;
+        document.getElementById('calculateButton').addEventListener('click', () => {
+            setTimeout(plotRealLocus, 100); // Plot after polynomial is calculated
+        });
+
+        // Initial plot
+        setTimeout(() => {
+            plotRealLocus();
+        }, 200);
     </script>
 </body>
 
