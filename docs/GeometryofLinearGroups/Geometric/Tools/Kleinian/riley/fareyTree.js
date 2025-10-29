@@ -13,8 +13,11 @@ function buildFareyPath(p, q) {
     // Build path by recursively finding ancestors
     // Returns array of {node, leftParent, rightParent}
     function findPath(target_p, target_q, left, right, depth = 0) {
-        // Prevent infinite recursion
-        if (depth > 20) return null;
+        // Prevent infinite recursion (increased limit for larger fractions)
+        if (depth > 50) {
+            console.warn(`Farey path: depth limit reached for ${target_p}/${target_q}`);
+            return null;
+        }
 
         // Compute mediant
         const med_p = left.p + right.p;
@@ -56,18 +59,18 @@ function buildFareyPath(p, q) {
     }
 
     const ancestors = findPath(p, q, left, right);
-    if (!ancestors) return [left, right];
-
-    // Build the full path showing construction from left to right
-    // Start with the two base fractions
-    const fullPath = [left, right];
-
-    // Add all ancestors in reverse order (from earliest to latest)
-    for (let i = ancestors.length - 1; i >= 0; i--) {
-        fullPath.push(ancestors[i]);
+    if (!ancestors) {
+        console.warn(`Farey path: Could not find path for ${p}/${q}`);
+        return [left];
     }
 
-    return fullPath;
+    // Return all nodes on the path (for tree highlighting)
+    const pathNodes = [left, right];
+    for (const node of ancestors) {
+        pathNodes.push(node);
+    }
+
+    return pathNodes;
 }
 
 // Generate Stern-Brocot tree with highlighted path
@@ -88,7 +91,7 @@ function generateSternBrocotTree(p, q) {
         pathSet.add(`${node.p}/${node.q}`);
     });
 
-    let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="max-width: 100%; height: auto; background: #fafafa; border-radius: 8px;">`;
+    let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="max-width: 100%; height: auto; background: rgba(17, 24, 39, 0.6); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08);">`;
 
     // Build tree recursively
     function buildTreeStructure(leftBound, rightBound, depth) {
@@ -137,8 +140,11 @@ function generateSternBrocotTree(p, q) {
         if (node.left) {
             const childX = x - xSpan;
             const childY = y + levelHeight;
-            const edgeColor = onPath ? '#007bff' : '#ddd';
-            const edgeWidth = onPath ? 3 : 1;
+            const childKey = `${node.left.p}/${node.left.q}`;
+            const childOnPath = pathSet.has(childKey);
+            // Edge is highlighted only if both parent and child are on path
+            const edgeColor = (onPath && childOnPath) ? '#007bff' : '#ddd';
+            const edgeWidth = (onPath && childOnPath) ? 3 : 1;
             svg += `<line x1="${x}" y1="${y + nodeRadius}" x2="${childX}" y2="${childY - nodeRadius}" stroke="${edgeColor}" stroke-width="${edgeWidth}"/>`;
             drawNode(node.left, childX, childY, xSpan / 2, depth + 1);
         }
@@ -146,8 +152,11 @@ function generateSternBrocotTree(p, q) {
         if (node.right) {
             const childX = x + xSpan;
             const childY = y + levelHeight;
-            const edgeColor = onPath ? '#007bff' : '#ddd';
-            const edgeWidth = onPath ? 3 : 1;
+            const childKey = `${node.right.p}/${node.right.q}`;
+            const childOnPath = pathSet.has(childKey);
+            // Edge is highlighted only if both parent and child are on path
+            const edgeColor = (onPath && childOnPath) ? '#007bff' : '#ddd';
+            const edgeWidth = (onPath && childOnPath) ? 3 : 1;
             svg += `<line x1="${x}" y1="${y + nodeRadius}" x2="${childX}" y2="${childY - nodeRadius}" stroke="${edgeColor}" stroke-width="${edgeWidth}"/>`;
             drawNode(node.right, childX, childY, xSpan / 2, depth + 1);
         }
@@ -172,12 +181,16 @@ function generateSternBrocotTree(p, q) {
             strokeWidth = 1;
         }
 
-        svg += `<circle cx="${x}" cy="${y}" r="${nodeRadius}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>`;
+        // Add click handler for interactive nodes
+        const clickHandler = `onclick="updateFraction(${node.p}, ${node.q})"`;
+        const cursorStyle = 'cursor: pointer;';
+
+        svg += `<circle cx="${x}" cy="${y}" r="${nodeRadius}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" ${clickHandler} style="${cursorStyle}"/>`;
 
         // Text color based on node type
         const textColor = (isTarget || onPath || isBase) ? 'white' : '#495057';
         const fontSize = (isTarget || onPath) ? 13 : 11;
-        svg += `<text x="${x}" y="${y + 4}" text-anchor="middle" fill="${textColor}" font-size="${fontSize}" font-weight="bold">${node.p}/${node.q}</text>`;
+        svg += `<text x="${x}" y="${y + 4}" text-anchor="middle" fill="${textColor}" font-size="${fontSize}" font-weight="bold" ${clickHandler} style="${cursorStyle} pointer-events: none;">${node.p}/${node.q}</text>`;
     }
 
     // Draw base nodes at top level
@@ -190,18 +203,31 @@ function generateSternBrocotTree(p, q) {
 
     // Draw edge between base nodes to root
     if (tree) {
-        svg += `<line x1="${baseLeftX}" y1="${baseY + nodeRadius}" x2="${width/2}" y2="${baseY + levelHeight - nodeRadius}" stroke="#007bff" stroke-width="3"/>`;
-        svg += `<line x1="${baseRightX}" y1="${baseY + nodeRadius}" x2="${width/2}" y2="${baseY + levelHeight - nodeRadius}" stroke="#007bff" stroke-width="3"/>`;
+        const treeKey = `${tree.p}/${tree.q}`;
+        const treeOnPath = pathSet.has(treeKey);
+        const baseLeftOnPath = pathSet.has('0/1');
+        const baseRightOnPath = pathSet.has('1/1');
+
+        // Left edge highlighted if both 0/1 and tree root are on path
+        const leftEdgeColor = (baseLeftOnPath && treeOnPath) ? '#007bff' : '#ddd';
+        const leftEdgeWidth = (baseLeftOnPath && treeOnPath) ? 3 : 1;
+        svg += `<line x1="${baseLeftX}" y1="${baseY + nodeRadius}" x2="${width/2}" y2="${baseY + levelHeight - nodeRadius}" stroke="${leftEdgeColor}" stroke-width="${leftEdgeWidth}"/>`;
+
+        // Right edge highlighted if both 1/1 and tree root are on path
+        const rightEdgeColor = (baseRightOnPath && treeOnPath) ? '#007bff' : '#ddd';
+        const rightEdgeWidth = (baseRightOnPath && treeOnPath) ? 3 : 1;
+        svg += `<line x1="${baseRightX}" y1="${baseY + nodeRadius}" x2="${width/2}" y2="${baseY + levelHeight - nodeRadius}" stroke="${rightEdgeColor}" stroke-width="${rightEdgeWidth}"/>`;
+
         drawNode(tree, width / 2, baseY + levelHeight, width / 6, 1);
     }
 
     // Draw base nodes
     const baseOnPath = pathSet.has('0/1') || pathSet.has('1/1');
-    svg += `<circle cx="${baseLeftX}" cy="${baseY}" r="${nodeRadius}" fill="#28a745" stroke="#155724" stroke-width="2"/>`;
-    svg += `<text x="${baseLeftX}" y="${baseY + 4}" text-anchor="middle" fill="white" font-size="13" font-weight="bold">0/1</text>`;
+    svg += `<circle cx="${baseLeftX}" cy="${baseY}" r="${nodeRadius}" fill="#28a745" stroke="#155724" stroke-width="2" onclick="updateFraction(0, 1)" style="cursor: pointer;"/>`;
+    svg += `<text x="${baseLeftX}" y="${baseY + 4}" text-anchor="middle" fill="white" font-size="13" font-weight="bold" onclick="updateFraction(0, 1)" style="cursor: pointer; pointer-events: none;">0/1</text>`;
 
-    svg += `<circle cx="${baseRightX}" cy="${baseY}" r="${nodeRadius}" fill="#28a745" stroke="#155724" stroke-width="2"/>`;
-    svg += `<text x="${baseRightX}" y="${baseY + 4}" text-anchor="middle" fill="white" font-size="13" font-weight="bold">1/1</text>`;
+    svg += `<circle cx="${baseRightX}" cy="${baseY}" r="${nodeRadius}" fill="#28a745" stroke="#155724" stroke-width="2" onclick="updateFraction(1, 1)" style="cursor: pointer;"/>`;
+    svg += `<text x="${baseRightX}" y="${baseY + 4}" text-anchor="middle" fill="white" font-size="13" font-weight="bold" onclick="updateFraction(1, 1)" style="cursor: pointer; pointer-events: none;">1/1</text>`;
 
     svg += '</svg>';
 
@@ -219,119 +245,3 @@ function generateSternBrocotTree(p, q) {
     return html;
 }
 
-// Simpler linear path diagram
-function generateFareyPathDiagram(p, q) {
-    const reduced = reduceFraction(p, q);
-
-    // Build the full path through the Farey tree
-    const path = buildFareyPath(reduced.p, reduced.q);
-
-    if (!path || path.length === 0) {
-        return '<p>Could not build Farey tree path.</p>';
-    }
-
-    // Create a linear diagram showing the construction
-    const width = 800;
-    const height = 150;
-    const nodeRadius = 30;
-    const spacing = path.length === 1 ? 0 : Math.min(180, (width - 100) / (path.length - 1));
-
-    let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="max-width: 100%; height: auto; background: #f8f9fa; border-radius: 8px;">`;
-
-    // Define arrowhead marker
-    svg += `<defs><marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><polygon points="0 0, 10 3, 0 6" fill="#666"/></marker></defs>`;
-
-    // Calculate starting x position to center the diagram
-    const totalWidth = (path.length - 1) * spacing;
-    const startX = (width - totalWidth) / 2;
-
-    // Draw path
-    for (let i = 0; i < path.length; i++) {
-        const x = startX + i * spacing;
-        const y = height / 2;
-        const node = path[i];
-
-        // Draw arrow to next node
-        if (i < path.length - 1) {
-            const nextX = startX + (i + 1) * spacing;
-            svg += `<line x1="${x + nodeRadius}" y1="${y}" x2="${nextX - nodeRadius}" y2="${y}" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)"/>`;
-
-            // Add operation label
-            if (i === path.length - 2 && path.length > 2) {
-                svg += `<text x="${(x + nextX) / 2}" y="${y - 20}" text-anchor="middle" fill="#dc3545" font-size="12" font-weight="bold">mediant</text>`;
-            }
-        }
-
-        // Draw node
-        const isTarget = (i === path.length - 1);
-        const isBase = (i === 0 || i === 1) && path.length > 1;
-        const fillColor = isTarget ? '#dc3545' : (isBase ? '#28a745' : '#007bff');
-        const strokeColor = isTarget ? '#721c24' : (isBase ? '#155724' : '#0056b3');
-
-        svg += `<circle cx="${x}" cy="${y}" r="${nodeRadius}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="3"/>`;
-        svg += `<text x="${x}" y="${y + 5}" text-anchor="middle" fill="white" font-size="16" font-weight="bold">${node.p}/${node.q}</text>`;
-
-        // Add word label
-        if (node.word) {
-            svg += `<text x="${x}" y="${y + nodeRadius + 20}" text-anchor="middle" fill="#333" font-size="13" font-family="monospace" font-weight="bold">${node.word}</text>`;
-        }
-    }
-
-    svg += '</svg>';
-
-    // Add legend and explanation
-    let html = '<div style="margin: 20px 0;">';
-    html += svg;
-    if (path.length > 1) {
-        html += '<div style="margin-top: 15px; display: flex; justify-content: center; gap: 30px; font-size: 14px;">';
-        html += '<span><span style="display: inline-block; width: 15px; height: 15px; background: #28a745; border-radius: 50%; margin-right: 5px;"></span>Base fractions (0/1 = L, 1/1 = R)</span>';
-        if (path.length > 2) {
-            html += '<span><span style="display: inline-block; width: 15px; height: 15px; background: #dc3545; border-radius: 50%; margin-right: 5px;"></span>Target fraction</span>';
-        }
-        html += '</div>';
-
-        // Add mediant explanation for non-base fractions
-        if (path.length >= 3) {
-            html += '<div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 8px; border-left: 4px solid #007bff;">';
-            html += `<p style="margin: 0 0 10px 0; font-size: 14px; color: #004085;">`;
-            html += `The <strong>mediant</strong> of two fractions \\(\\frac{a}{c}\\) and \\(\\frac{b}{d}\\) is \\(\\frac{a+b}{c+d}\\).`;
-            html += `</p>`;
-
-            // Show each step of the construction
-            html += `<p style="margin: 0; font-size: 13px; color: #004085;"><strong>Construction steps:</strong></p>`;
-            html += `<ul style="margin: 5px 0; padding-left: 20px; font-size: 13px; color: #004085;">`;
-
-            for (let i = 2; i < path.length; i++) {
-                const node = path[i];
-
-                // Use the parent information if available
-                let parent1, parent2;
-                if (node.leftParent && node.rightParent) {
-                    parent1 = node.leftParent;
-                    parent2 = node.rightParent;
-                } else {
-                    // Fallback: use previous two
-                    parent1 = path[i - 2];
-                    parent2 = path[i - 1];
-                }
-
-                const sum_p = parent1.p + parent2.p;
-                const sum_q = parent1.q + parent2.q;
-
-                html += `<li>\\(\\frac{${parent1.p}}{${parent1.q}} \\oplus \\frac{${parent2.p}}{${parent2.q}} = \\frac{${sum_p}}{${sum_q}}`;
-
-                // Show reduction if needed
-                const g = gcd(sum_p, sum_q);
-                if (g > 1) {
-                    html += ` = \\frac{${node.p}}{${node.q}}`;
-                }
-                html += `\\)</li>`;
-            }
-
-            html += `</ul></div>`;
-        }
-    }
-    html += '</div>';
-
-    return html;
-}

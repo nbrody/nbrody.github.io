@@ -26,8 +26,9 @@ class RileyVisualization {
             return;
         }
 
-        // Clear canvas
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        // Clear canvas and fill with dark background
+        this.ctx.fillStyle = '#1f2937'; // gray-800
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         // Draw axes
         this.drawAxes(xMin, xMax, yMin, yMax);
@@ -38,12 +39,23 @@ class RileyVisualization {
         // Find and plot roots of Q + 2
         const polyPlus2 = this.currentPolynomial.add(Polynomial.fromConstant(2));
         const roots = polyPlus2.findRoots();
+
+        // Verify roots are correct
+        console.log(`Visualization: Found ${roots.length} roots for ${p}/${q}`);
+        for (let i = 0; i < Math.min(3, roots.length); i++) {
+            const evalResult = polyPlus2.evaluateComplex(roots[i].re, roots[i].im);
+            const qEvalResult = this.currentPolynomial.evaluateComplex(roots[i].re, roots[i].im);
+            console.log(`Root ${i}: z = ${roots[i].re.toFixed(4)} + ${roots[i].im.toFixed(4)}i`);
+            console.log(`  P(z) = ${evalResult.re.toFixed(6)} + ${evalResult.im.toFixed(6)}i`);
+            console.log(`  Q(z) = ${qEvalResult.re.toFixed(6)} + ${qEvalResult.im.toFixed(6)}i`);
+        }
+
         this.plotRoots(roots, xMin, xMax, yMin, yMax);
     }
 
     drawAxes(xMin, xMax, yMin, yMax) {
-        this.ctx.strokeStyle = '#ccc';
-        this.ctx.lineWidth = 1;
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        this.ctx.lineWidth = 1.5;
 
         // X-axis
         const yZero = this.mapY(0, yMin, yMax);
@@ -60,13 +72,13 @@ class RileyVisualization {
         this.ctx.stroke();
 
         // Add labels
-        this.ctx.fillStyle = '#666';
+        this.ctx.fillStyle = '#9ca3af'; // gray-400
         this.ctx.font = '12px Arial';
         this.ctx.fillText('Re(z)', this.canvas.width - 40, yZero - 5);
         this.ctx.fillText('Im(z)', xZero + 5, 15);
 
         // Draw tick marks
-        this.ctx.strokeStyle = '#ddd';
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
         this.ctx.lineWidth = 0.5;
         for (let x = Math.ceil(xMin); x <= Math.floor(xMax); x++) {
             if (x === 0) continue;
@@ -75,6 +87,7 @@ class RileyVisualization {
             this.ctx.moveTo(px, 0);
             this.ctx.lineTo(px, this.canvas.height);
             this.ctx.stroke();
+            this.ctx.fillStyle = '#6b7280'; // gray-500
             this.ctx.fillText(x.toString(), px - 5, yZero + 15);
         }
         for (let y = Math.ceil(yMin); y <= Math.floor(yMax); y++) {
@@ -84,6 +97,7 @@ class RileyVisualization {
             this.ctx.moveTo(0, py);
             this.ctx.lineTo(this.canvas.width, py);
             this.ctx.stroke();
+            this.ctx.fillStyle = '#6b7280'; // gray-500
             this.ctx.fillText(y.toString(), xZero + 5, py + 5);
         }
     }

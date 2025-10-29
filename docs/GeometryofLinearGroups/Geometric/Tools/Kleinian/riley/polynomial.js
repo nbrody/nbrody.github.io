@@ -165,8 +165,8 @@ class Polynomial {
         }
         if (degree === 2) {
             const a = 1;
-            const b = p[0];
-            const c = p[1];
+            const b = p[1];  // linear coefficient
+            const c = p[0];  // constant term
             const discriminant = b * b - 4 * a * c;
             if (discriminant >= 0) {
                 return [
@@ -184,17 +184,18 @@ class Polynomial {
 
         // Durand-Kerner method for higher degrees
         let roots = [];
-        const r = 0.4 + 0.9;
+        // Better initial guesses - spread on a circle with radius based on coefficients
+        const radius = 1 + Math.abs(p[0]);
         for (let i = 0; i < degree; i++) {
-            const angle = (2 * Math.PI * i) / degree;
+            const angle = (2 * Math.PI * i) / degree + 0.4;
             roots.push({
-                re: Math.cos(angle),
-                im: Math.sin(angle)
+                re: radius * Math.cos(angle),
+                im: radius * Math.sin(angle)
             });
         }
 
-        const MAX_ITER = 100;
-        const TOLERANCE = 1e-9;
+        const MAX_ITER = 200;
+        const TOLERANCE = 1e-10;
 
         for (let iter = 0; iter < MAX_ITER; iter++) {
             let maxChange = 0;
@@ -239,6 +240,18 @@ class Polynomial {
             if (Math.sqrt(maxChange) < TOLERANCE) break;
         }
 
-        return roots;
+        // Filter out roots that don't actually satisfy p(z) ≈ 0
+        const validRoots = [];
+        const ERROR_THRESHOLD = 1e-3; // More lenient for high-degree polynomials
+
+        for (const root of roots) {
+            const val = this.evaluateComplex(root.re, root.im);
+            const magnitude = Math.sqrt(val.re * val.re + val.im * val.im);
+            if (magnitude < ERROR_THRESHOLD) {
+                validRoots.push(root);
+            }
+        }
+
+        return validRoots;
     }
 }

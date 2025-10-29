@@ -5,18 +5,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Riley Slice Explorer</title>
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
+    <!-- Floating Calculator Panel -->
+    <div id="floatingCalculator">
+        <div class="rational-input">
+            <input type="number" id="numerator" value="3" min="0">
+            <input type="number" id="denominator" value="5" min="1">
+        </div>
+    </div>
+
     <div class="container">
         <h1>Riley Slice Explorer</h1>
 
         <div class="info-box">
-            <h3>Convention</h3>
+            <h3>Introduction</h3>
             <p> Consider the group \(\Gamma_t=\langle S,T_t\rangle \leq \mathsf{SL}_2(\mathbb{Z}[t])\), where \(S=\begin{pmatrix}0 & -1 \\ 1 & 0\end{pmatrix}\), and \(T=\begin{pmatrix}1 & t \\ 0 & 1\end{pmatrix}\)</p>
             <p> When \(z\) is a complex number, we obtain an evaluation map \(\mathbb{Z}[t]\to\mathbb{C}\), where we replace \(t\) with \(z\). </p>
             <p> This map determines a map \(\mathsf{SL}_2(\mathbb{Z}[t])\to\mathsf{SL}_2(\mathbb{C})\), and we let \(\Gamma_z\) denote the image of \(\Gamma_t\) under this evaluation map. </p>  
@@ -25,28 +33,16 @@
 
         <div class="image-container">
             <div style="text-align: center; margin: 20px 0;">
-                <h3 style="margin-bottom: 10px;">Riley Slice Visualization</h3>
-                <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
-                    Roots of \(P(p/q) = Q(p/q) + 2\) for fractions with denominator \(\leq 30\)
+                <h3 style="margin-bottom: 10px; color: #f9fafb; font-weight: 600;">Riley Slice Visualization</h3>
+                <p style="font-size: 14px; color: #d1d5db; margin-bottom: 15px;">
+                    Roots of \(P(p/q) = Q(p/q) + 2\) for fractions with denominator \(\leq 30\). Click a root to select it.
                 </p>
-                <canvas id="rileySliceCanvas" width="600" height="600" style="border: 2px solid #ddd; background: white; border-radius: 8px;"></canvas>
+                <canvas id="rileySliceCanvas" width="600" height="600" style="border: 1px solid rgba(255, 255, 255, 0.15); background: #1f2937; border-radius: 8px; cursor: crosshair;"></canvas>
             </div>
         </div>
     </div>
 
     <div class="container">
-        <h2>Polynomial Calculator</h2>
-        <p>Enter a rational number to compute its corresponding Riley polynomial:</p>
-
-        <div class="input-group">
-            <label for="numerator">Rational Number:</label>
-            <div class="rational-input">
-                <input type="number" id="numerator" value="3" min="0">
-                <input type="number" id="denominator" value="5" min="1">
-            </div>
-            <button id="calculateButton">Calculate Polynomial</button>
-        </div>
-
         <div id="results"></div>
     </div>
 
@@ -66,11 +62,32 @@
         </div>
     </div>
 
+    <div class="container">
+        <h2>Fraction Explorer</h2>
+        <p style="color: #9ca3af; margin-bottom: 20px;">Enter a fraction to explore its properties (independent of the main visualization above).</p>
+
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+            <label style="color: #d1d5db; font-weight: 600;">Fraction:</label>
+            <div class="rational-input">
+                <input type="number" id="explorerNumerator" value="5" min="0">
+                <input type="number" id="explorerDenominator" value="7" min="1">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="color: #d1d5db; font-size: 14px;">Max Steps:</label>
+                <input type="number" id="explorerMaxSteps" value="5000" min="10" max="100000" style="width: 80px; padding: 8px; font-size: 14px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(31, 41, 55, 0.8); color: #d1d5db; text-align: center; border-radius: 4px;">
+            </div>
+            <button id="explorerCalculate" style="padding: 8px 20px; background: rgba(59, 130, 246, 0.8); color: white; border: 1px solid rgba(59, 130, 246, 0.6); border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.2s;">Calculate</button>
+        </div>
+
+        <div id="explorerResults" style="margin-top: 20px;"></div>
+    </div>
+
     <script src="polynomial.js"></script>
     <script src="rileyPolynomials.js"></script>
     <script src="fareyTree.js"></script>
     <script src="visualization.js"></script>
     <script src="rileySlice.js"></script>
+    <script src="explorer.js"></script>
     <script src="main.js"></script>
 </body>
 

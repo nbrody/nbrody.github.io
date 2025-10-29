@@ -3,8 +3,8 @@
 // Initialize visualization
 let visualization;
 
-// Event handlers
-document.getElementById('calculateButton').addEventListener('click', () => {
+// Function to perform the calculation
+function calculatePolynomial(skipRileySliceUpdate = false) {
     const p = parseInt(document.getElementById('numerator').value);
     const q = parseInt(document.getElementById('denominator').value);
     const resultsDiv = document.getElementById('results');
@@ -30,66 +30,22 @@ document.getElementById('calculateButton').addEventListener('click', () => {
     let html = '';
 
     // Display Stern-Brocot tree
-    html += '<div class="polynomial-display" style="background-color: #fff9f0;">';
+    html += '<div class="polynomial-display">';
     html += `<h3>Stern-Brocot Tree for \\(\\frac{${reduced.p}}{${reduced.q}}\\)</h3>`;
-    html += '<p style="text-align: center; color: #666; font-size: 14px; margin-bottom: 15px;">The path to the target fraction is highlighted in blue:</p>';
+    html += '<p style="text-align: center; color: #9ca3af; font-size: 14px; margin-bottom: 15px;">The path to the target fraction is highlighted in blue:</p>';
     html += generateSternBrocotTree(reduced.p, reduced.q);
-    html += '</div>';
-
-    // Display linear path diagram
-    html += '<div class="polynomial-display" style="background-color: #fff9f0; margin-top: 20px;">';
-    html += `<h3>Construction Sequence</h3>`;
-    html += '<p style="text-align: center; color: #666; font-size: 14px; margin-bottom: 15px;">Step-by-step construction using the mediant operation:</p>';
-    html += generateFareyPathDiagram(reduced.p, reduced.q);
     html += '</div>';
 
     // Display Farey word and matrix
     if (word && matrix) {
-        html += '<div class="polynomial-display" style="background-color: #f0f8ff;">';
+        html += '<div class="polynomial-display">';
         html += `<h3>Farey Word for \\(\\frac{${reduced.p}}{${reduced.q}}\\)</h3>`;
-        html += `<p style="font-size: 20px; text-align: center; font-family: monospace; font-weight: bold; color: #0066cc; margin: 15px 0;">${word}</p>`;
-        html += `<p style="text-align: center; margin-top: 20px;"><strong>Corresponding Matrix:</strong></p>`;
+        html += `<p style="font-size: 20px; text-align: center; font-family: monospace; font-weight: bold; color: #60a5fa; margin: 15px 0;">${word}</p>`;
+        html += `<p style="text-align: center; margin-top: 20px; color: #f3f4f6;"><strong>Corresponding Matrix:</strong></p>`;
         html += `<div style="text-align: center; margin: 20px 0;">\\[${formatMatrixLatex(matrix)}\\]</div>`;
-        html += '<p style="font-size: 12px; color: #666; text-align: center;">where \\(L = \\begin{pmatrix}1 & 0 \\\\ z & 1\\end{pmatrix}\\) and \\(R = \\begin{pmatrix}1 & z \\\\ 0 & 1\\end{pmatrix}\\)</p>';
+        html += '<p style="font-size: 12px; color: #9ca3af; text-align: center;">where \\(L = \\begin{pmatrix}1 & 0 \\\\ z & 1\\end{pmatrix}\\) and \\(R = \\begin{pmatrix}1 & z \\\\ 0 & 1\\end{pmatrix}\\)</p>';
         html += '</div>';
     }
-
-    html += '<div class="polynomial-display">';
-    html += `<h3>Riley Polynomial \\(Q\\left(\\frac{${reduced.p}}{${reduced.q}}\\right)\\)</h3>`;
-    html += `<div class="polynomial">\\[${poly.toLatex()}\\]</div>`;
-
-    if (p !== reduced.p || q !== reduced.q) {
-        html += `<p style="margin-top: 10px; color: #6c757d; font-size: 14px;">Note: Reduced from ${p}/${q} to ${reduced.p}/${reduced.q}</p>`;
-    }
-
-    html += '</div>';
-
-    // Show degree and coefficients
-    html += '<div class="computation-steps">';
-    html += '<h4>Polynomial Details</h4>';
-    html += `<p><strong>Degree:</strong> ${poly.coeffs.length - 1}</p>`;
-    html += `<p><strong>Coefficients</strong> (from \\(z^0\\) to \\(z^{${poly.coeffs.length - 1}}\\)):</p>`;
-    html += '<p style="font-family: monospace;">[' + poly.coeffs.join(', ') + ']</p>';
-
-    // Show roots of Q + 2
-    const polyPlus2 = poly.add(Polynomial.fromConstant(2));
-    const roots = polyPlus2.findRoots();
-    if (roots.length > 0) {
-        html += `<h4 style="margin-top: 15px;">Roots of \\(Q\\left(\\frac{${reduced.p}}{${reduced.q}}\\right) + 2\\)</h4>`;
-        html += '<ul style="font-size: 14px; list-style: none; padding-left: 0;">';
-        roots.forEach((root, i) => {
-            const re = root.re.toFixed(4);
-            const im = Math.abs(root.im).toFixed(4);
-            const sign = root.im >= 0 ? '+' : '-';
-            const rootStr = Math.abs(root.im) < 1e-6
-                ? `${re}`
-                : `${re} ${sign} ${im}i`;
-            html += `<li>\\(z_{${i + 1}} = ${rootStr}\\)</li>`;
-        });
-        html += '</ul>';
-    }
-
-    html += '</div>';
 
     resultsDiv.innerHTML = html;
 
@@ -102,14 +58,54 @@ document.getElementById('calculateButton').addEventListener('click', () => {
     setTimeout(() => {
         visualization.plotRealLocus(p, q);
     }, 100);
+
+    // Update Riley Slice to highlight this polynomial (unless called from Riley Slice itself)
+    if (!skipRileySliceUpdate && window.rileySliceInstance) {
+        window.rileySliceInstance.highlightPolynomial(reduced.p, reduced.q);
+    }
+}
+
+// Global function to update fraction (called from Stern-Brocot tree clicks and Riley Slice clicks)
+function updateFraction(p, q, fromRileySlice = false) {
+    const numeratorInput = document.getElementById('numerator');
+    const denominatorInput = document.getElementById('denominator');
+    const floatingCalc = document.getElementById('floatingCalculator');
+
+    if (numeratorInput && denominatorInput) {
+        numeratorInput.value = p;
+        denominatorInput.value = q;
+
+        // Brief visual feedback
+        if (floatingCalc) {
+            floatingCalc.style.borderColor = '#28a745';
+            setTimeout(() => {
+                floatingCalc.style.borderColor = '#007bff';
+            }, 300);
+        }
+
+        // Skip Riley Slice update if this was called from Riley Slice
+        calculatePolynomial(fromRileySlice);
+    }
+}
+
+// Event handlers - auto-calculate when inputs change
+document.getElementById('numerator').addEventListener('change', calculatePolynomial);
+document.getElementById('denominator').addEventListener('change', calculatePolynomial);
+document.getElementById('numerator').addEventListener('input', function() {
+    clearTimeout(this.timeout);
+    this.timeout = setTimeout(calculatePolynomial, 500); // Debounce
+});
+document.getElementById('denominator').addEventListener('input', function() {
+    clearTimeout(this.timeout);
+    this.timeout = setTimeout(calculatePolynomial, 500); // Debounce
 });
 
 // Trigger calculation on Enter key
 document.getElementById('numerator').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') document.getElementById('calculateButton').click();
+    if (e.key === 'Enter') calculatePolynomial();
 });
 document.getElementById('denominator').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') document.getElementById('calculateButton').click();
+    if (e.key === 'Enter') calculatePolynomial();
 });
 
 // Initialize on page load
@@ -117,7 +113,7 @@ window.addEventListener('DOMContentLoaded', () => {
     visualization = new RileyVisualization('rileyCanvas');
 
     // Initial calculation
-    document.getElementById('calculateButton').click();
+    calculatePolynomial();
 
     // Initial plot
     setTimeout(() => {
