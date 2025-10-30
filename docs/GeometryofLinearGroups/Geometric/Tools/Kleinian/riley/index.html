@@ -21,7 +21,7 @@
     </div>
 
     <div class="container">
-        <h1>Riley Slice Explorer</h1>
+        <h1>The Riley Slice</h1>
 
         <div class="info-box">
             <h3>Introduction</h3>
@@ -80,6 +80,27 @@
         </div>
 
         <div id="explorerResults" style="margin-top: 20px;"></div>
+    </div>
+
+    <div class="container">
+        <h2>Polynomial Explorer</h2>
+        <p style="color: #9ca3af; margin-bottom: 20px;">Enter a polynomial \(P(t)\) to find matrices whose bottom-left entry is divisible by \(P(t)\). For example, entering \(P(t) = qt - p\) specializes to the fraction \(p/q\) case above.</p>
+
+        <div style="margin-bottom: 20px;">
+            <label style="color: #d1d5db; font-weight: 600; display: block; margin-bottom: 8px;">Polynomial \(P(t)\):</label>
+            <input type="text" id="polynomialInput" value="t" placeholder="e.g., t, 7t - 5, or t^2 - 3t + 2" style="width: 100%; max-width: 400px; padding: 10px; font-size: 14px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(31, 41, 55, 0.8); color: #d1d5db; border-radius: 4px; font-family: 'SFMono-Regular', Consolas, monospace;">
+            <p style="color: #9ca3af; font-size: 13px; margin-top: 5px;">Format: Use ^ for exponents (e.g., t^2), spaces optional. Coefficients can be integers.</p>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="color: #d1d5db; font-size: 14px;">Max Steps:</label>
+                <input type="number" id="polyMaxSteps" value="5000" min="10" max="100000" style="width: 80px; padding: 8px; font-size: 14px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(31, 41, 55, 0.8); color: #d1d5db; text-align: center; border-radius: 4px;">
+            </div>
+            <button id="polyCalculate" style="padding: 8px 20px; background: rgba(59, 130, 246, 0.8); color: white; border: 1px solid rgba(59, 130, 246, 0.6); border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.2s;">Calculate</button>
+        </div>
+
+        <div id="polyResults" style="margin-top: 20px;"></div>
     </div>
 
     <script src="polynomial.js"></script>

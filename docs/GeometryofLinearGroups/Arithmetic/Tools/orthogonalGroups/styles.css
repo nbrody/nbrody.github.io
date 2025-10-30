@@ -1,0 +1,236 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    padding: 40px;
+}
+
+h1 {
+    color: #667eea;
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+h2 {
+    color: #764ba2;
+    font-size: 1.8em;
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: 400;
+}
+
+h3 {
+    color: #667eea;
+    font-size: 1.5em;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 10px;
+}
+
+h4 {
+    color: #764ba2;
+    font-size: 1.2em;
+    margin-bottom: 10px;
+}
+
+.section {
+    margin: 30px 0;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+}
+
+.info-section {
+    background: #e8f4f8;
+    border-left-color: #17a2b8;
+}
+
+.output-section {
+    background: #f0f8f0;
+    border-left-color: #28a745;
+}
+
+.section p {
+    margin-bottom: 10px;
+}
+
+.section ul {
+    margin-left: 25px;
+    margin-bottom: 10px;
+}
+
+.section li {
+    margin-bottom: 8px;
+}
+
+.compute-button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin: 10px 10px 10px 0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.compute-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.compute-button:active {
+    transform: translateY(0);
+}
+
+.output {
+    margin-top: 15px;
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.matrix-item {
+    margin: 20px 0;
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.matrix-container {
+    margin: 15px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    overflow-x: auto;
+    text-align: center;
+}
+
+.matrix-display {
+    margin: 15px auto;
+    border-collapse: separate;
+    border-spacing: 8px;
+}
+
+.matrix-display td {
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    min-width: 80px;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+}
+
+.matrix-input {
+    margin: 20px 0;
+}
+
+.matrix-input-table {
+    margin: 0 auto;
+    border-collapse: separate;
+    border-spacing: 10px;
+}
+
+.matrix-input-table td {
+    padding: 5px;
+}
+
+.matrix-input-table input {
+    width: 120px;
+    padding: 10px;
+    font-size: 14px;
+    border: 2px solid #dee2e6;
+    border-radius: 4px;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    transition: border-color 0.3s ease;
+}
+
+.matrix-input-table input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+#min-poly {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: #764ba2;
+}
+
+#x-value {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: #28a745;
+}
+
+#form-matrix {
+    text-align: center;
+    margin: 20px 0;
+}
+
+/* MathJax styling */
+.MathJax {
+    font-size: 1.1em !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .container {
+        padding: 20px;
+    }
+
+    h1 {
+        font-size: 2em;
+    }
+
+    h2 {
+        font-size: 1.4em;
+    }
+
+    .matrix-input-table input {
+        width: 80px;
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    .compute-button {
+        width: 100%;
+        margin: 10px 0;
+    }
+}
+
+/* Success/Error indicators */
+.matrix-item p strong {
+    font-weight: bold;
+}
+
+.matrix-item p:last-child {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
