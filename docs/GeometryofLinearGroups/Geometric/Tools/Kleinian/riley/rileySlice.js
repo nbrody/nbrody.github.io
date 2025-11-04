@@ -542,6 +542,36 @@ class RileySlice {
     highlightPolynomial(p, q) {
         const key = `${p}/${q}`;
 
+        // Recompute roots accurately for this specific polynomial
+        const Q = this.polynomials[key];
+        if (Q) {
+            console.log(`Recomputing roots accurately for ${key}...`);
+            const P = Q.add(Polynomial.fromConstant(2));
+            const degree = P.coeffs.length - 1;
+
+            // Use accurate root finding
+            const accurateRoots = P.findRoots(true); // Pass true for accurate mode
+
+            console.log(`Found ${accurateRoots.length} roots (expected ${degree}) for ${key}`);
+
+            // Remove old roots for this polynomial and add new accurate ones
+            this.allRoots = this.allRoots.filter(r => r.polynomial !== key);
+
+            for (const root of accurateRoots) {
+                if (isFinite(root.re) && isFinite(root.im)) {
+                    const val = P.evaluateComplex(root.re, root.im);
+                    const magnitude = Math.sqrt(val.re * val.re + val.im * val.im);
+                    console.log(`  Root ${root.re.toFixed(6)} + ${root.im.toFixed(6)}i: |P(z)| = ${magnitude.toExponential(3)}`);
+
+                    this.allRoots.push({
+                        re: root.re,
+                        im: root.im,
+                        polynomial: key
+                    });
+                }
+            }
+        }
+
         // Find a root for this polynomial
         const root = this.allRoots.find(r => r.polynomial === key);
 

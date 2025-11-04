@@ -149,7 +149,8 @@ class Polynomial {
     }
 
     // Find roots using Durand-Kerner method
-    findRoots() {
+    // accurate: if true, uses more iterations and stricter validation (for selected fractions)
+    findRoots(accurate = false) {
         const degree = this.coeffs.length - 1;
         if (degree < 1) return [];
 
@@ -183,75 +184,94 @@ class Polynomial {
         }
 
         // Durand-Kerner method for higher degrees
-        let roots = [];
-        // Better initial guesses - spread on a circle with radius based on coefficients
-        const radius = 1 + Math.abs(p[0]);
-        for (let i = 0; i < degree; i++) {
-            const angle = (2 * Math.PI * i) / degree + 0.4;
-            roots.push({
-                re: radius * Math.cos(angle),
-                im: radius * Math.sin(angle)
-            });
-        }
+        // Use more iterations and better initial guesses for accurate mode
+        const MAX_ITER = accurate ? 1000 : 200;
+        const TOLERANCE = accurate ? 1e-12 : 1e-10;
+        const NUM_ATTEMPTS = accurate ? 5 : 1; // Try multiple initial configurations in accurate mode
 
-        const MAX_ITER = 200;
-        const TOLERANCE = 1e-10;
+        let bestRoots = [];
+        let bestCount = 0;
 
-        for (let iter = 0; iter < MAX_ITER; iter++) {
-            let maxChange = 0;
-            const newRoots = roots.map(root => ({ ...root }));
+        for (let attempt = 0; attempt < NUM_ATTEMPTS; attempt++) {
+            let roots = [];
+            // Better initial guesses - spread on circles with varying radii
+            // Use Cauchy bound: max root magnitude ≤ 1 + max|coeff|
+            const maxCoeff = Math.max(...p.slice(0, -1).map(c => Math.abs(c)));
+            const radius = (1 + maxCoeff) * (1 + attempt * 0.3); // Try different radii
 
             for (let i = 0; i < degree; i++) {
-                // Evaluate polynomial at roots[i]
-                let p_val = this.evaluateComplex(roots[i].re, roots[i].im);
+                const angle = (2 * Math.PI * i) / degree + 0.4 + attempt * 0.7;
+                roots.push({
+                    re: radius * Math.cos(angle),
+                    im: radius * Math.sin(angle)
+                });
+            }
 
-                // Compute denominator: product of (roots[i] - roots[j]) for j != i
-                let denominator = { re: 1, im: 0 };
-                for (let j = 0; j < degree; j++) {
-                    if (i === j) continue;
-                    const diff = {
-                        re: roots[i].re - roots[j].re,
-                        im: roots[i].im - roots[j].im
+            for (let iter = 0; iter < MAX_ITER; iter++) {
+                let maxChange = 0;
+                const newRoots = roots.map(root => ({ ...root }));
+
+                for (let i = 0; i < degree; i++) {
+                    // Evaluate polynomial at roots[i]
+                    let p_val = this.evaluateComplex(roots[i].re, roots[i].im);
+
+                    // Compute denominator: product of (roots[i] - roots[j]) for j != i
+                    let denominator = { re: 1, im: 0 };
+                    for (let j = 0; j < degree; j++) {
+                        if (i === j) continue;
+                        const diff = {
+                            re: roots[i].re - roots[j].re,
+                            im: roots[i].im - roots[j].im
+                        };
+                        const newDenom = {
+                            re: denominator.re * diff.re - denominator.im * diff.im,
+                            im: denominator.re * diff.im + denominator.im * diff.re
+                        };
+                        denominator = newDenom;
+                    }
+
+                    // Divide p_val by denominator
+                    const den_mag_sq = denominator.re * denominator.re + denominator.im * denominator.im;
+                    if (den_mag_sq < 1e-15) continue;
+
+                    const correction = {
+                        re: (p_val.re * denominator.re + p_val.im * denominator.im) / den_mag_sq,
+                        im: (p_val.im * denominator.re - p_val.re * denominator.im) / den_mag_sq
                     };
-                    const newDenom = {
-                        re: denominator.re * diff.re - denominator.im * diff.im,
-                        im: denominator.re * diff.im + denominator.im * diff.re
-                    };
-                    denominator = newDenom;
+
+                    newRoots[i].re -= correction.re;
+                    newRoots[i].im -= correction.im;
+
+                    const change = correction.re * correction.re + correction.im * correction.im;
+                    if (change > maxChange) maxChange = change;
                 }
 
-                // Divide p_val by denominator
-                const den_mag_sq = denominator.re * denominator.re + denominator.im * denominator.im;
-                if (den_mag_sq < 1e-15) continue;
-
-                const correction = {
-                    re: (p_val.re * denominator.re + p_val.im * denominator.im) / den_mag_sq,
-                    im: (p_val.im * denominator.re - p_val.re * denominator.im) / den_mag_sq
-                };
-
-                newRoots[i].re -= correction.re;
-                newRoots[i].im -= correction.im;
-
-                const change = correction.re * correction.re + correction.im * correction.im;
-                if (change > maxChange) maxChange = change;
+                roots = newRoots;
+                if (Math.sqrt(maxChange) < TOLERANCE) break;
             }
 
-            roots = newRoots;
-            if (Math.sqrt(maxChange) < TOLERANCE) break;
-        }
+            // Filter out roots that don't actually satisfy p(z) ≈ 0
+            const ERROR_THRESHOLD = accurate ? 1e-6 : 1e-3;
+            const validRoots = [];
 
-        // Filter out roots that don't actually satisfy p(z) ≈ 0
-        const validRoots = [];
-        const ERROR_THRESHOLD = 1e-3; // More lenient for high-degree polynomials
-
-        for (const root of roots) {
-            const val = this.evaluateComplex(root.re, root.im);
-            const magnitude = Math.sqrt(val.re * val.re + val.im * val.im);
-            if (magnitude < ERROR_THRESHOLD) {
-                validRoots.push(root);
+            for (const root of roots) {
+                const val = this.evaluateComplex(root.re, root.im);
+                const magnitude = Math.sqrt(val.re * val.re + val.im * val.im);
+                if (magnitude < ERROR_THRESHOLD) {
+                    validRoots.push(root);
+                }
             }
+
+            // Keep the best attempt (most roots found)
+            if (validRoots.length > bestCount) {
+                bestCount = validRoots.length;
+                bestRoots = validRoots;
+            }
+
+            // If we found all expected roots, stop early
+            if (bestCount === degree) break;
         }
 
-        return validRoots;
+        return bestRoots;
     }
 }
