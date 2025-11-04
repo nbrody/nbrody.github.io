@@ -19,29 +19,30 @@ function buildFareyPath(p, q) {
             return null;
         }
 
-        // Compute mediant
+        // Compute mediant (DO NOT REDUCE - Stern-Brocot tree uses unreduced mediants)
         const med_p = left.p + right.p;
         const med_q = left.q + right.q;
-        const g = gcd(med_p, med_q);
-        const reduced_p = med_p / g;
-        const reduced_q = med_q / g;
 
         const mediant = {
-            p: reduced_p,
-            q: reduced_q,
+            p: med_p,
+            q: med_q,
             word: left.word + right.word,
             leftParent: left,
             rightParent: right
         };
 
-        // Found the target
+        // Found the target (check if mediant equals target after reduction)
+        const g = gcd(med_p, med_q);
+        const reduced_p = med_p / g;
+        const reduced_q = med_q / g;
+
         if (reduced_p === target_p && reduced_q === target_q) {
             return [mediant];
         }
 
         // Determine which subtree to explore
         // target is in left subtree if target < mediant
-        if (target_p * reduced_q < reduced_p * target_q) {
+        if (target_p * med_q < med_p * target_q) {
             // Search left subtree: between left and mediant
             const subpath = findPath(target_p, target_q, left, mediant, depth + 1);
             if (subpath) {
@@ -78,7 +79,11 @@ function generateSternBrocotTree(p, q) {
     const reduced = reduceFraction(p, q);
 
     // Build the tree structure to sufficient depth
-    const maxDepth = 6; // Show up to 6 levels
+    // Calculate depth needed to reach the target fraction
+    const path = buildFareyPath(reduced.p, reduced.q);
+    const targetDepth = path.length;
+    const maxDepth = Math.max(6, targetDepth + 2); // At least 6 levels, or target depth + 2
+
     const nodeRadius = 20;
     const levelHeight = 80;
     const width = 1200;
@@ -86,7 +91,6 @@ function generateSternBrocotTree(p, q) {
 
     // Track which nodes are on the path to target
     const pathSet = new Set();
-    const path = buildFareyPath(reduced.p, reduced.q);
     path.forEach(node => {
         pathSet.add(`${node.p}/${node.q}`);
     });
@@ -103,15 +107,12 @@ function generateSternBrocotTree(p, q) {
             word: (leftBound.word || '') + (rightBound.word || '')
         };
 
-        const g = gcd(mediant.p, mediant.q);
-        mediant.p /= g;
-        mediant.q /= g;
-
-        // Only expand nodes that are on the path or nearby
+        // Check if this node is on the path using unreduced form
         const key = `${mediant.p}/${mediant.q}`;
         const onPath = pathSet.has(key);
         const nearPath = depth <= 4; // Show more context at shallow levels
 
+        // Always expand nodes on path, regardless of depth
         if (onPath || nearPath || depth <= 3) {
             mediant.left = buildTreeStructure(leftBound, mediant, depth + 1);
             mediant.right = buildTreeStructure(mediant, rightBound, depth + 1);
@@ -132,7 +133,12 @@ function generateSternBrocotTree(p, q) {
         if (drawn.has(key)) return;
         drawn.add(key);
 
-        const isTarget = node.p === reduced.p && node.q === reduced.q;
+        // Reduce for comparison and display
+        const g = gcd(node.p, node.q);
+        const displayP = node.p / g;
+        const displayQ = node.q / g;
+
+        const isTarget = displayP === reduced.p && displayQ === reduced.q;
         const onPath = pathSet.has(key);
         const isBase = (node.p === 0 && node.q === 1) || (node.p === 1 && node.q === 1);
 
@@ -190,7 +196,7 @@ function generateSternBrocotTree(p, q) {
         // Text color based on node type
         const textColor = (isTarget || onPath || isBase) ? 'white' : '#495057';
         const fontSize = (isTarget || onPath) ? 13 : 11;
-        svg += `<text x="${x}" y="${y + 4}" text-anchor="middle" fill="${textColor}" font-size="${fontSize}" font-weight="bold" ${clickHandler} style="${cursorStyle} pointer-events: none;">${node.p}/${node.q}</text>`;
+        svg += `<text x="${x}" y="${y + 4}" text-anchor="middle" fill="${textColor}" font-size="${fontSize}" font-weight="bold" ${clickHandler} style="${cursorStyle} pointer-events: none;">${displayP}/${displayQ}</text>`;
     }
 
     // Draw base nodes at top level

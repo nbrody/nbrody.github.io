@@ -479,7 +479,7 @@ class RileySlice {
             // Create info display below the canvas
             infoDiv = document.createElement('div');
             infoDiv.id = 'rileySliceInfo';
-            infoDiv.style.cssText = 'min-height: 80px; padding: 15px; background: rgba(17, 24, 39, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; margin-top: 15px; text-align: center; font-size: 14px; color: #d1d5db;';
+            infoDiv.style.cssText = 'min-height: 80px; padding: 15px; background: rgba(17, 24, 39, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; margin-top: 15px; text-align: center; font-size: 14px; color: #d1d5db; overflow-x: auto; overflow-y: hidden;';
             this.canvas.parentElement.appendChild(infoDiv);
         }
 

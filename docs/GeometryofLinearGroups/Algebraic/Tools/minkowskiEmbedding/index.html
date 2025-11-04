@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minkowski Embeddings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        canvas {
+            background-color: #f8fafc;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        mjx-container[jax="SVG"] svg {
+            display: inline;
+            vertical-align: -0.2em;
+        }
+
+        .visualization-section {
+            margin-bottom: 3rem;
+        }
+    </style>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen p-8 antialiased">
+
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-4xl font-bold text-gray-800 mb-4 text-center">Minkowski Embeddings</h1>
+        <p class="text-gray-600 mb-12 text-center max-w-3xl mx-auto">
+            Explore how number rings can be embedded into products of real and complex fields,
+            revealing their geometric structure.
+        </p>
+
+        <!-- First Visualization: Z[√2] -->
+        <div class="visualization-section bg-white rounded-lg shadow-lg p-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Minkowski Embedding of \(\mathbb{Z}[\sqrt{2}]\)</h2>
+            <p class="text-gray-600 mb-6">
+                Visualizing the mapping from \(a + b\sqrt{2}\) to the point \((a + b\sqrt{2},\, a - b\sqrt{2}) \in \mathbb{R}^2\).
+                Points are colored by their norm \(a^2 - 2b^2\).
+            </p>
+
+            <div class="relative mb-4">
+                <canvas id="sqrt2Canvas" class="w-full" style="aspect-ratio: 16/9;"></canvas>
+                <div class="absolute top-4 left-4 bg-white/90 backdrop-blur-sm p-4 rounded-lg shadow-md text-sm text-gray-700 pointer-events-none">
+                    <h3 class="font-bold mb-2">Norm: \(a^2 - 2b^2\)</h3>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-4 rounded-full" style="background-color: rgb(59, 130, 246);"></div>
+                        <span>Negative</span>
+                    </div>
+                    <div class="flex items-center space-x-2 my-1">
+                        <div class="w-4 h-4 rounded-full" style="background-color: rgb(209, 213, 219);"></div>
+                        <span>Zero</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-4 rounded-full" style="background-color: rgb(239, 68, 68);"></div>
+                        <span>Positive</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button id="sqrt2AnimateBtn"
+                    class="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                    Start Animation
+                </button>
+            </div>
+        </div>
+
+        <!-- Second Visualization: Z[1/3] -->
+        <div class="visualization-section bg-white rounded-lg shadow-lg p-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Minkowski Embedding of \(\mathbb{Z}[\frac{1}{3}]\)</h2>
+            <p class="text-gray-600 mb-6">
+                This visualization shows how to separate points in \(\mathbb{Z}[\frac{1}{3}]\) in a product of local fields.
+                Initially, we see \(\mathbb{Z}[\frac{1}{3}]\) as a dense subring of \(\mathbb{R}\). The animation
+                spreads points according to their 3-adic valuation, mapping \(x\) from \((x, 0)\) to \((x, 3^{v_3(x)})\).
+            </p>
+
+            <div class="mb-4">
+                <canvas id="primeCanvas" class="w-full" style="height: 500px;"></canvas>
+            </div>
+
+            <div class="text-center">
+                <button id="primeAnimateBtn"
+                    class="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75 transition-transform transform hover:scale-105">
+                    Animate Embedding
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="sqrt2-embedding.js"></script>
+    <script src="prime-embedding.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            initSqrt2Embedding();
+            initPrimeEmbedding();
+        });
+    </script>
+</body>
+
+</html>

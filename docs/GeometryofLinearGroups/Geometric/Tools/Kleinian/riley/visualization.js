@@ -54,17 +54,19 @@ class RileyVisualization {
     }
 
     drawAxes(xMin, xMax, yMin, yMax) {
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        this.ctx.lineWidth = 1.5;
+        // Draw main axes in blue since they're part of the real locus
+        // (Q(z) is real when z is real or purely imaginary)
+        this.ctx.strokeStyle = '#007bff'; // Blue to match the real locus curves
+        this.ctx.lineWidth = 2.5;
 
-        // X-axis
+        // X-axis (real axis)
         const yZero = this.mapY(0, yMin, yMax);
         this.ctx.beginPath();
         this.ctx.moveTo(0, yZero);
         this.ctx.lineTo(this.canvas.width, yZero);
         this.ctx.stroke();
 
-        // Y-axis
+        // Y-axis (imaginary axis)
         const xZero = this.mapX(0, xMin, xMax);
         this.ctx.beginPath();
         this.ctx.moveTo(xZero, 0);
