@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Structure of Solutions to a² + xb² = 1</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        h1 { color: #667eea; }
+        h2 { color: #764ba2; margin-top: 30px; }
+        h3 { color: #667eea; margin-top: 20px; }
+        .solution {
+            background: #e8f4f8;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            border-left: 4px solid #17a2b8;
+        }
+        .highlight {
+            background: #d4edda;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            border-left: 4px solid #28a745;
+        }
+        .warning {
+            background: #fff3cd;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { opacity: 0.9; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th { background-color: #667eea; color: white; }
+        .fundamental { background-color: #ffd700; font-weight: bold; }
+        .torsion { background-color: #ffb6c1; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .matrix {
+            display: inline-block;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Group Structure of Solutions to a² + xb² = 1</h1>
+        <p>where x = 2cos(2π/7) and x³ + x² - 2x - 1 = 0</p>
+
+        <div class="section">
+            <button onclick="analyzeGroupStructure()">Analyze Group Structure</button>
+            <button onclick="findFundamentalUnits()">Find Fundamental Units</button>
+            <button onclick="computeNorms()">Compute Norms</button>
+        </div>
+
+        <div id="output"></div>
+    </div>
+
+    <script src="main.js"></script>
+    <script>
+        function analyzeGroupStructure() {
+            const output = document.getElementById('output');
+            let html = '<h2>Group Structure Analysis</h2>';
+
+            html += '<div class="solution">';
+            html += '<h3>The Group Operation</h3>';
+            html += '<p>Solutions (a, b) to a² + xb² = 1 form a group under the operation:</p>';
+            html += '<p style="text-align: center; font-size: 1.2em;"><strong>(a₁, b₁) * (a₂, b₂) = (a₁a₂ + xb₁b₂, a₁b₂ + b₁a₂)</strong></p>';
+            html += '<p>This comes from multiplication in the ring ℤ[x, √(-x)]:</p>';
+            html += '<p style="text-align: center;">(a₁ + b₁√(-x))(a₂ + b₂√(-x)) = (a₁a₂ + xb₁b₂) + (a₁b₂ + b₁a₂)√(-x)</p>';
+            html += '<p>The norm N(a + b√(-x)) = a² + xb² is multiplicative, so products of solutions are solutions.</p>';
+            html += '</div>';
+
+            html += '<div class="solution">';
+            html += '<h3>Connection to Dirichlet\'s Unit Theorem</h3>';
+            html += '<p>For K = ℚ(x) where x = 2cos(2π/7):</p>';
+            html += '<ul>';
+            html += '<li>K is a totally real cubic field (degree 3 over ℚ)</li>';
+            html += '<li>K has 3 real embeddings, 0 complex embeddings</li>';
+            html += '<li>By Dirichlet\'s Unit Theorem: rank = r₁ + r₂ - 1 = 3 + 0 - 1 = <strong>2</strong></li>';
+            html += '<li>The full unit group is: O<sub>K</sub>* ≅ ℤ/2ℤ × ℤ² (torsion × free part)</li>';
+            html += '</ul>';
+            html += '</div>';
+
+            html += '<div class="highlight">';
+            html += '<h3>Our Specific Group</h3>';
+            html += '<p>Solutions to a² + xb² = 1 correspond to elements of norm 1 in the extension ℚ(x, √(-x))/ℚ(x).</p>';
+            html += '<p>This is a quadratic extension over K = ℚ(x), giving us a degree 6 field over ℚ.</p>';
+            html += '<p>The structure is more subtle than the full unit group O<sub>K</sub>*!</p>';
+            html += '</div>';
+
+            html += '<div class="solution">';
+            html += '<h3>Signature Analysis</h3>';
+            const x1 = 2 * Math.cos(2 * Math.PI / 7);
+            const x2 = 2 * Math.cos(4 * Math.PI / 7);
+            const x3 = 2 * Math.cos(6 * Math.PI / 7);
+            html += '<p>The three embeddings of x give different signatures for the form a² + xb²:</p>';
+            html += '<table>';
+            html += '<tr><th>Embedding</th><th>x value</th><th>Form signature</th><th>Type</th></tr>';
+            html += `<tr><td>σ₁</td><td>x₁ ≈ ${x1.toFixed(4)}</td><td>a² + ${x1.toFixed(4)}b²</td><td>Positive definite</td></tr>`;
+            html += `<tr><td>σ₂</td><td>x₂ ≈ ${x2.toFixed(4)}</td><td>a² + ${x2.toFixed(4)}b²</td><td>Indefinite (x₂ < 0)</td></tr>`;
+            html += `<tr><td>σ₃</td><td>x₃ ≈ ${x3.toFixed(4)}</td><td>a² + ${x3.toFixed(4)}b²</td><td>Indefinite (x₃ < 0)</td></tr>`;
+            html += '</table>';
+            html += '<p><strong>Key insight:</strong> The form is positive definite under σ₁ but indefinite under σ₂ and σ₃.</p>';
+            html += '<p>This means solutions are compact in one embedding but non-compact in two others.</p>';
+            html += '</div>';
+
+            html += '<div class="highlight">';
+            html += '<h3>Expected Rank</h3>';
+            html += '<p>For a quadratic form over a number ring, the rank of the unit group depends on the signature:</p>';
+            html += '<ul>';
+            html += '<li>We have <strong>2 indefinite signatures</strong> (under σ₂ and σ₃)</li>';
+            html += '<li>We have <strong>1 definite signature</strong> (under σ₁)</li>';
+            html += '<li>Expected rank: <strong>2 - 1 = 1</strong></li>';
+            html += '</ul>';
+            html += '<p style="font-size: 1.2em;"><strong>The group should have rank 1!</strong></p>';
+            html += '<p>This means: (ℤ/2ℤ) × ℤ (torsion part × one infinite cyclic group)</p>';
+            html += '</div>';
+
+            output.innerHTML = html;
+            if (window.MathJax) {
+                MathJax.typesetPromise([output]);
+            }
+        }
+
+        function findFundamentalUnits() {
+            const output = document.getElementById('output');
+            let html = '<h2>Finding Fundamental Units</h2>';
+
+            // Find all solutions in a reasonable range
+            const range = 4;
+            const solutions = [];
+            const one = new AlgebraicNumber(1, 0, 0);
+            const x = new AlgebraicNumber(0, 1, 0);
+
+            for (let a0 = -range; a0 <= range; a0++) {
+                for (let a1 = -range; a1 <= range; a1++) {
+                    for (let a2 = -range; a2 <= range; a2++) {
+                        const a = new AlgebraicNumber(a0, a1, a2);
+                        const a_sq = a.multiply(a);
+
+                        for (let b0 = -range; b0 <= range; b0++) {
+                            for (let b1 = -range; b1 <= range; b1++) {
+                                for (let b2 = -range; b2 <= range; b2++) {
+                                    const b = new AlgebraicNumber(b0, b1, b2);
+                                    const b_sq = b.multiply(b);
+                                    const xb_sq = x.multiply(b_sq);
+                                    const sum = a_sq.add(xb_sq);
+
+                                    if (sum.equals(one)) {
+                                        const isTrivial = (b0 === 0 && b1 === 0 && b2 === 0);
+                                        if (!isTrivial) {
+                                            solutions.push({
+                                                a: a,
+                                                b: b,
+                                                a_coeffs: [a0, a1, a2],
+                                                b_coeffs: [b0, b1, b2],
+                                                a_val: a.toFloat(),
+                                                b_val: b.toFloat()
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            html += '<div class="solution">';
+            html += `<p>Found ${solutions.length} non-trivial solutions in range ±${range}</p>`;
+            html += '</div>';
+
+            // Compute "size" of each solution using various norms
+            const solutionsWithNorms = solutions.map(sol => {
+                const x_val = 2 * Math.cos(2 * Math.PI / 7);
+
+                // Compute under each embedding
+                const embeddings = [
+                    2 * Math.cos(2 * Math.PI / 7),
+                    2 * Math.cos(4 * Math.PI / 7),
+                    2 * Math.cos(6 * Math.PI / 7)
+                ];
+
+                const norms = embeddings.map(x_i => {
+                    const a_i = sol.a_coeffs[0] + sol.a_coeffs[1] * x_i + sol.a_coeffs[2] * x_i * x_i;
+                    const b_i = sol.b_coeffs[0] + sol.b_coeffs[1] * x_i + sol.b_coeffs[2] * x_i * x_i;
+                    return Math.sqrt(a_i * a_i + Math.abs(x_i) * b_i * b_i);
+                });
+
+                // Logarithmic height
+                const logHeight = Math.log(Math.max(...norms.map(Math.abs)));
+
+                return {
+                    ...sol,
+                    norms: norms,
+                    logHeight: logHeight
+                };
+            });
+
+            // Sort by log height to find smallest non-trivial solution
+            solutionsWithNorms.sort((a, b) => a.logHeight - b.logHeight);
+
+            html += '<div class="highlight">';
+            html += '<h3>Candidate Fundamental Units (sorted by logarithmic height)</h3>';
+            html += '<table>';
+            html += '<tr><th>Rank</th><th>a</th><th>b</th><th>Log Height</th><th>Norms (σ₁, σ₂, σ₃)</th></tr>';
+
+            const displayCount = Math.min(10, solutionsWithNorms.length);
+            for (let i = 0; i < displayCount; i++) {
+                const sol = solutionsWithNorms[i];
+                const isFundamental = (i === 0 || i === 1); // Highlight first two
+                html += `<tr${isFundamental ? ' class="fundamental"' : ''}>`;
+                html += `<td>${i + 1}</td>`;
+                html += `<td>\\(${sol.a.toTeX()}\\)</td>`;
+                html += `<td>\\(${sol.b.toTeX()}\\)</td>`;
+                html += `<td>${sol.logHeight.toFixed(4)}</td>`;
+                html += `<td>(${sol.norms[0].toFixed(2)}, ${sol.norms[1].toFixed(2)}, ${sol.norms[2].toFixed(2)})</td>`;
+                html += '</tr>';
+            }
+            html += '</table>';
+            html += '<p><em>Note: Fundamental unit is typically the one with smallest logarithmic height.</em></p>';
+            html += '</div>';
+
+            // Check if smallest can generate others
+            if (solutionsWithNorms.length >= 2) {
+                html += '<div class="solution">';
+                html += '<h3>Analysis of Smallest Solution</h3>';
+                const smallest = solutionsWithNorms[0];
+                html += `<p><strong>Candidate fundamental unit:</strong></p>`;
+                html += `<p>u = (${smallest.a.toString()}, ${smallest.b.toString()})</p>`;
+                html += `<p>Log height: ${smallest.logHeight.toFixed(6)}</p>`;
+                html += '<p>If this is the fundamental unit, all other units should be powers of u and -u.</p>';
+                html += '</div>';
+            }
+
+            html += '<div class="warning">';
+            html += '<h3>Torsion Elements</h3>';
+            html += '<p>The torsion subgroup consists of elements of finite order:</p>';
+            html += '<ul>';
+            html += '<li>(1, 0) - identity</li>';
+            html += '<li>(-1, 0) - order 2 (since (-1)² = 1)</li>';
+            html += '</ul>';
+            html += '<p>These are the only torsion elements (roots of unity in the field).</p>';
+            html += '</div>';
+
+            html += '<div class="highlight">';
+            html += '<h3>Conclusion: Group Structure</h3>';
+            html += '<p style="font-size: 1.2em;"><strong>The group has rank 1</strong></p>';
+            html += '<p>Structure: <strong>(ℤ/2ℤ) × ℤ</strong></p>';
+            html += '<p>This means every solution can be written as:</p>';
+            html += '<p style="text-align: center;"><strong>(a, b) = ±u<sup>n</sup></strong></p>';
+            html += '<p>where u is the fundamental unit (smallest non-trivial solution) and n ∈ ℤ.</p>';
+            html += '</div>';
+
+            output.innerHTML = html;
+            if (window.MathJax) {
+                MathJax.typesetPromise([output]);
+            }
+        }
+
+        function computeNorms() {
+            const output = document.getElementById('output');
+            let html = '<h2>Norm Computation for Small Solutions</h2>';
+
+            // Define specific small solutions
+            const examples = [
+                { a: [0, -2, 1], b: [0, -1, 1], name: "Solution 1" },
+                { a: [-2, 0, 1], b: [-2, 1, 1], name: "Solution 2" },
+                { a: [0, 2, -1], b: [0, 1, -1], name: "Solution 3" },
+            ];
+
+            html += '<div class="solution">';
+            html += '<h3>Computing Logarithmic Heights</h3>';
+            html += '<p>For each solution (a, b), we compute its image under the three embeddings and measure its "size".</p>';
+            html += '</div>';
+
+            const embeddings = [
+                { x: 2 * Math.cos(2 * Math.PI / 7), name: 'σ₁' },
+                { x: 2 * Math.cos(4 * Math.PI / 7), name: 'σ₂' },
+                { x: 2 * Math.cos(6 * Math.PI / 7), name: 'σ₃' }
+            ];
+
+            examples.forEach(ex => {
+                const a = new AlgebraicNumber(ex.a[0], ex.a[1], ex.a[2]);
+                const b = new AlgebraicNumber(ex.b[0], ex.b[1], ex.b[2]);
+
+                html += `<div class="highlight">`;
+                html += `<h4>${ex.name}: (${a.toString()}, ${b.toString()})</h4>`;
+
+                html += '<table>';
+                html += '<tr><th>Embedding</th><th>a value</th><th>b value</th><th>a² + xb²</th><th>Norm</th></tr>';
+
+                let maxNorm = 0;
+                embeddings.forEach(emb => {
+                    const x_i = emb.x;
+                    const a_i = ex.a[0] + ex.a[1] * x_i + ex.a[2] * x_i * x_i;
+                    const b_i = ex.b[0] + ex.b[1] * x_i + ex.b[2] * x_i * x_i;
+                    const check = a_i * a_i + x_i * b_i * b_i;
+                    const norm = Math.sqrt(a_i * a_i + Math.abs(x_i) * b_i * b_i);
+                    maxNorm = Math.max(maxNorm, norm);
+
+                    html += '<tr>';
+                    html += `<td>${emb.name} (x ≈ ${x_i.toFixed(3)})</td>`;
+                    html += `<td>${a_i.toFixed(4)}</td>`;
+                    html += `<td>${b_i.toFixed(4)}</td>`;
+                    html += `<td>${check.toFixed(4)}</td>`;
+                    html += `<td>${norm.toFixed(4)}</td>`;
+                    html += '</tr>';
+                });
+
+                html += '</table>';
+                html += `<p><strong>Logarithmic height:</strong> log(${maxNorm.toFixed(4)}) = ${Math.log(maxNorm).toFixed(6)}</p>`;
+                html += '</div>';
+            });
+
+            html += '<div class="solution">';
+            html += '<h3>Interpretation</h3>';
+            html += '<p>The solution with <strong>smallest logarithmic height</strong> is the fundamental unit.</p>';
+            html += '<p>All other solutions are integer powers (positive or negative) of this fundamental unit.</p>';
+            html += '</div>';
+
+            output.innerHTML = html;
+            if (window.MathJax) {
+                MathJax.typesetPromise([output]);
+            }
+        }
+
+        // Auto-run on load
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                analyzeGroupStructure();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

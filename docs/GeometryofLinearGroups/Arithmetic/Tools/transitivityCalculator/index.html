@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transitivity Calculator for Matrix Groups on QP^1</title>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Transitivity Calculator for Matrix Groups on $\mathbb{Q}\mathbb{P}^1$</h1>
+        <div class="subtitle">Proving transitivity via height reduction</div>
+
+        <div class="section">
+            <h2>Matrix Generators</h2>
+            <p>Enter 2×2 matrices with rational coefficients. Use fractions like "1/2" or integers.</p>
+
+            <div class="generators-display" id="generators-container">
+                <span class="angle-bracket">⟨</span>
+            </div>
+
+            <div class="examples">
+                <button class="example-btn" onclick="loadExample(1)">Example 1: Modular Group</button>
+                <button class="example-btn" onclick="loadExample(2)">Example 2: Odd/Even Reduction</button>
+                <button class="example-btn" onclick="loadExample(3)">Example 3: Your Challenge</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Proving Finitely Many Orbits</h2>
+            <p>Each matrix has an interval on $\mathbb{Q}\mathbb{P}^1$ where it reduces height. If we can find words that cover all sufficiently large heights, then every point eventually reduces to a bounded set, proving finitely many orbits.</p>
+            <p><strong>Strategy:</strong> For each word, determine the interval(s) where it reduces height, then verify all of $\mathbb{Q}\mathbb{P}^1$ is covered.</p>
+
+            <label>
+                Max word length:
+                <input type="number" id="maxDepth" value="6" min="1" max="10" style="width: 60px;">
+            </label>
+            <br><br>
+
+            <label>
+                Sample points up to height:
+                <input type="number" id="maxTestHeight" value="20" min="1" max="100" style="width: 60px;">
+            </label>
+            <br><br>
+
+            <button onclick="findPartitionStrategy()">Prove Finitely Many Orbits</button>
+            <button onclick="testTransitivity()">Verify All Sample Points</button>
+        </div>
+
+        <div id="results"></div>
+
+        <div id="visualization" style="display: none;">
+            <div class="section">
+                <h2>Visualization: $\mathbb{R}\mathbb{P}^1$ Interval Covering</h2>
+                <p>Each colored band shows where a word reduces height. Multiple bands at different heights show overlapping coverage.</p>
+                <div style="width: 100%; overflow-x: auto;">
+                    <canvas id="rp1Canvas" width="1000" height="400" style="border: 1px solid #ddd; border-radius: 5px; background: white; display: block; margin: 20px auto;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="fraction.js"></script>
+    <script src="matrix.js"></script>
+    <script src="analytical.js"></script>
+    <script src="visualization.js"></script>
+    <script src="ui.js"></script>
+    <script src="algorithm.js"></script>
+</body>
+</html>

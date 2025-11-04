@@ -58,6 +58,38 @@
         </div>
 
         <div class="section">
+            <h3>Unit Circle Solutions: a² + xb² = 1</h3>
+            <p>Find solutions to a² + xb² = 1 in Z[x]:</p>
+            <p>Search range: <input type="number" id="unit-range" value="4" min="1" max="6"> (±range for each coefficient)</p>
+            <button id="find-units" class="compute-button">Find Solutions</button>
+            <button id="show-example-units" class="compute-button">Show Example Solutions</button>
+            <button id="analyze-group" class="compute-button">Analyze Group Structure</button>
+        </div>
+
+        <div class="section output-section" id="units-section" style="display: none;">
+            <h3>Solutions to a² + xb² = 1</h3>
+            <div id="units-output" class="output"></div>
+        </div>
+
+        <div class="section output-section" id="group-structure-section" style="display: none;">
+            <h3>Group Structure Analysis</h3>
+            <div id="group-structure-output" class="output"></div>
+        </div>
+
+        <div class="section">
+            <h3>Full Form Solutions: a² + b² + xc² = 1</h3>
+            <p>Search for solutions with all three variables nonzero:</p>
+            <p>Search range: <input type="number" id="full-range" value="3" min="1" max="4"> (±range for each coefficient)</p>
+            <button id="find-full-solutions" class="compute-button">Find Solutions</button>
+            <button id="analyze-all-nonzero" class="compute-button">Check for All-Nonzero-Coefficient Solutions</button>
+        </div>
+
+        <div class="section output-section" id="full-solutions-section" style="display: none;">
+            <h3>Solutions to a² + b² + xc² = 1</h3>
+            <div id="full-solutions-output" class="output"></div>
+        </div>
+
+        <div class="section">
             <h3>Custom Matrix Checker</h3>
             <p>Enter a 3×3 matrix to check if it's in O(1,1,x; Z[x]):</p>
             <div class="matrix-input">

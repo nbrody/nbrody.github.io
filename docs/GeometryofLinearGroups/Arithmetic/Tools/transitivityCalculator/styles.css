@@ -1,0 +1,271 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+.container {
+    background: white;
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+
+h1 {
+    color: #333;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 30px;
+    font-style: italic;
+}
+
+.section {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+}
+
+.section h2 {
+    margin-top: 0;
+    color: #667eea;
+}
+
+.generators-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 18px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.angle-bracket {
+    font-size: 72px;
+    color: #667eea;
+    font-weight: 700;
+    line-height: 0.85;
+    align-self: center;
+}
+
+.matrix-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.matrix-paren {
+    font-size: 72px;
+    color: #333;
+    line-height: 0.85;
+    font-weight: 300;
+    align-self: center;
+}
+
+.matrix-input {
+    display: inline-grid;
+    grid-template-columns: 65px 65px;
+    grid-template-rows: 32px 32px;
+    gap: 4px;
+    padding: 8px;
+    vertical-align: middle;
+}
+
+.matrix-input input {
+    width: 100%;
+    padding: 4px;
+    text-align: center;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 14px;
+}
+
+.comma {
+    font-size: 24px;
+    color: #333;
+    margin: 0 5px;
+}
+
+.add-generator-btn {
+    font-size: 28px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #48bb78;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.add-generator-btn:hover {
+    background: #38a169;
+}
+
+.remove-generator-btn {
+    font-size: 16px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: 50%;
+    background: #f56565;
+    color: white;
+    border: none;
+    cursor: pointer;
+    margin-left: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.remove-generator-btn:hover {
+    background: #e53e3e;
+}
+
+button {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 5px;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background: #5568d3;
+}
+
+button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.examples {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 15px 0;
+}
+
+.example-btn {
+    background: #48bb78;
+}
+
+.example-btn:hover {
+    background: #38a169;
+}
+
+#results {
+    margin-top: 20px;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    min-height: 100px;
+}
+
+.success {
+    color: #48bb78;
+    font-weight: bold;
+}
+
+.failure {
+    color: #f56565;
+    font-weight: bold;
+}
+
+.proof-step {
+    margin: 10px 0;
+    padding: 10px;
+    background: #f7fafc;
+    border-left: 3px solid #667eea;
+    font-family: 'Courier New', monospace;
+}
+
+.height-reduction {
+    color: #48bb78;
+    font-weight: bold;
+}
+
+.test-point {
+    margin: 15px 0;
+    padding: 15px;
+    background: #edf2f7;
+    border-radius: 5px;
+}
+
+.loading {
+    text-align: center;
+    color: #667eea;
+    font-style: italic;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+}
+
+th, td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    background: #667eea;
+    color: white;
+}
+
+.math {
+    font-family: 'Times New Roman', serif;
+    font-style: italic;
+}
+
+.partition-card {
+    background: white;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 10px 0;
+    border-left: 4px solid #667eea;
+}
+
+.partition-success {
+    border-left-color: #48bb78;
+}
+
+.partition-failure {
+    border-left-color: #f56565;
+}
+
+.partition-header {
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.word-display {
+    background: #f7fafc;
+    padding: 8px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    margin: 5px 0;
+}
