@@ -31,6 +31,18 @@
         <h3>Rendering</h3>
 
         <div class="control-group">
+            <label>Performance Mode</label>
+            <select id="performanceMode">
+                <option value="fast" selected>Fast (Fixed Spheres)</option>
+                <option value="flexible">Flexible (Editable Spheres)</option>
+            </select>
+            <div class="info" style="font-size: 0.85em; margin-top: 4px;">
+                <strong>Fast:</strong> 2-3x faster, uses default sphere preset<br>
+                <strong>Flexible:</strong> Edit sphere positions freely
+            </div>
+        </div>
+
+        <div class="control-group">
             <label>Quality Preset</label>
             <select id="qualityPreset">
                 <option value="low">Low (Fast)</option>

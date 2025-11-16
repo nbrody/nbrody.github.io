@@ -91,13 +91,15 @@ function getRileyPolynomial(p, q) {
                 const sum = product.add(Q3);
                 const result = Polynomial.fromConstant(8).subtract(sum);
 
-                // Build matrix word: for mediant, concatenate parent words
-                const word1 = matrixWordCache.get(`${f1.p}/${f1.q}`);
-                const word2 = matrixWordCache.get(`${f2.p}/${f2.q}`);
-                const word = word1 + word2;
+                // Get the correct Farey word from the Stern-Brocot tree
+                const fareyPath = buildFareyPath(p, q);
+                const targetNode = fareyPath[fareyPath.length - 1];
+                const word = targetNode ? targetNode.word : null;
 
                 polynomialCache.set(key, result);
-                matrixWordCache.set(key, word);
+                if (word) {
+                    matrixWordCache.set(key, word);
+                }
                 return result;
             }
         }

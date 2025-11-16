@@ -3,6 +3,7 @@
  */
 
 import { faceColorJS } from './palette.js';
+import { formatMatrix2x2 } from '../../../../../assets/js/algebraicFormatter.js';
 
 // Get textarea metrics for gutter alignment
 export function getTextareaMetrics() {
@@ -121,39 +122,9 @@ export function showFaceMeta(faceId, lineIndexHint, facesMetaById) {
 }
 
 // Helper function to format matrix object as LaTeX
+// Now uses algebraic formatter for exact expressions
 function formatMatrixLatex(matrix) {
-    if (!matrix) return '';
-
-    // Format complex number for LaTeX
-    const formatComplex = (c) => {
-        if (!c) return '0';
-        const re = c.re || 0;
-        const im = c.im || 0;
-
-        // Helper to format a single number
-        const fmt = (x) => {
-            if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x));
-            return x.toFixed(3);
-        };
-
-        if (Math.abs(im) < 1e-9) return fmt(re);
-        if (Math.abs(re) < 1e-9) {
-            if (Math.abs(im - 1) < 1e-9) return 'i';
-            if (Math.abs(im + 1) < 1e-9) return '-i';
-            return `${fmt(im)}i`;
-        }
-
-        const imPart = Math.abs(im - 1) < 1e-9 ? 'i' : Math.abs(im + 1) < 1e-9 ? 'i' : `${fmt(Math.abs(im))}i`;
-        const sign = im > 0 ? '+' : '-';
-        return `${fmt(re)}${sign}${imPart}`;
-    };
-
-    const a = formatComplex(matrix.a);
-    const b = formatComplex(matrix.b);
-    const c = formatComplex(matrix.c);
-    const d = formatComplex(matrix.d);
-
-    return `\\begin{pmatrix} ${a} & ${b} \\\\ ${c} & ${d} \\end{pmatrix}`;
+    return formatMatrix2x2(matrix);
 }
 
 // Setup panel pager

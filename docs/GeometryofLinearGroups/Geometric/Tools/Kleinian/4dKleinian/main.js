@@ -85,8 +85,8 @@ const vertexShader = `
 `;
 
 // Load fragment shader from file
-async function loadShader() {
-    const response = await fetch('./kleinian.frag');
+async function loadShader(shaderFile = './kleinian.frag') {
+    const response = await fetch(shaderFile);
     let fragmentShader = await response.text();
 
     // Generate and inject palette/color scheme code
@@ -108,8 +108,12 @@ async function loadShader() {
     return fragmentShader;
 }
 
-// Initialize scene async
-loadShader().then(fragmentShader => {
+// Track current mesh and performance mode
+let currentMesh = null;
+let currentPerformanceMode = 'fast';
+
+// Initialize scene async - start in fast mode
+loadShader('./kleinian-fast.frag').then(fragmentShader => {
     // Create fullscreen quad with shader material
     const material = new THREE.ShaderMaterial({
         uniforms: uniforms,
@@ -118,12 +122,60 @@ loadShader().then(fragmentShader => {
     });
 
     const geometry = new THREE.PlaneGeometry(2, 2);
-    const mesh = new THREE.Mesh(geometry, material);
-    scene.add(mesh);
+    currentMesh = new THREE.Mesh(geometry, material);
+    scene.add(currentMesh);
+
+    // Disable sphere editing in fast mode
+    const sphereTab = document.querySelector('.tab-btn[data-page="spheres"]');
+    if (sphereTab) {
+        sphereTab.style.opacity = '0.5';
+        sphereTab.style.pointerEvents = 'none';
+        sphereTab.title = 'Sphere editing disabled in Fast mode';
+    }
 
     // Start animation loop with initial render
     requestRender();
 });
+
+// Switch between fast and flexible shaders
+async function switchPerformanceMode(mode) {
+    if (mode === currentPerformanceMode || !currentMesh) return;
+
+    currentPerformanceMode = mode;
+
+    // Load appropriate shader
+    const shaderFile = mode === 'fast' ? './kleinian-fast.frag' : './kleinian.frag';
+    const fragmentShader = await loadShader(shaderFile);
+
+    // Create new material
+    const newMaterial = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader
+    });
+
+    // Replace material
+    currentMesh.material.dispose();
+    currentMesh.material = newMaterial;
+
+    // Update UI
+    const sphereTab = document.querySelector('.tab-btn[data-page="spheres"]');
+    if (mode === 'fast') {
+        if (sphereTab) {
+            sphereTab.style.opacity = '0.5';
+            sphereTab.style.pointerEvents = 'none';
+            sphereTab.title = 'Sphere editing disabled in Fast mode';
+        }
+    } else {
+        if (sphereTab) {
+            sphereTab.style.opacity = '1';
+            sphereTab.style.pointerEvents = 'auto';
+            sphereTab.title = '';
+        }
+    }
+
+    requestRender();
+}
 
 // Populate color palette dropdown
 const paletteSelect = document.getElementById('colorPalette');
@@ -273,6 +325,11 @@ document.getElementById('addSphere').addEventListener('click', () => {
 // Preset selector
 document.getElementById('spherePreset').addEventListener('change', (e) => {
     loadPreset(e.target.value);
+});
+
+// Performance mode selector
+document.getElementById('performanceMode').addEventListener('change', (e) => {
+    switchPerformanceMode(e.target.value);
 });
 
 // Handle window resize
@@ -549,7 +606,7 @@ let isInteracting = false;
 let interactionTimeout = null;
 let baseMaxIterations = uniforms.maxIterations.value;
 let baseMaxMarchSteps = uniforms.maxMarchSteps.value;
-const QUALITY_REDUCTION_FACTOR = 0.4; // Reduce to 40% during interaction
+const QUALITY_REDUCTION_FACTOR = 0.8; // Reduce to 80% during interaction (less aggressive)
 const INTERACTION_DELAY = 150; // ms to wait after interaction stops
 
 function startInteraction() {
@@ -557,8 +614,8 @@ function startInteraction() {
         isInteracting = true;
         baseMaxIterations = uniforms.maxIterations.value;
         baseMaxMarchSteps = uniforms.maxMarchSteps.value;
-        uniforms.maxIterations.value = Math.max(5, Math.floor(baseMaxIterations * QUALITY_REDUCTION_FACTOR));
-        uniforms.maxMarchSteps.value = Math.max(50, Math.floor(baseMaxMarchSteps * QUALITY_REDUCTION_FACTOR));
+        uniforms.maxIterations.value = Math.max(15, Math.floor(baseMaxIterations * QUALITY_REDUCTION_FACTOR));
+        uniforms.maxMarchSteps.value = Math.max(150, Math.floor(baseMaxMarchSteps * QUALITY_REDUCTION_FACTOR));
     }
 
     clearTimeout(interactionTimeout);

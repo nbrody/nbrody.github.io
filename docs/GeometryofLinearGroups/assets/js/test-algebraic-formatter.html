@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algebraic Formatter Test</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-case {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-case h3 {
+            margin-top: 0;
+        }
+        .result {
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Algebraic Formatter Test</h1>
+    <div id="test-results"></div>
+
+    <script type="module">
+        import { formatReal, formatComplex, formatMatrix2x2 } from './algebraicFormatter.js';
+
+        const testResults = document.getElementById('test-results');
+
+        // Test cases
+        const tests = [
+            {
+                name: "Simple rationals",
+                tests: [
+                    { value: 0.5, expected: "1/2" },
+                    { value: 0.333333, expected: "1/3" },
+                    { value: 0.666666, expected: "2/3" },
+                    { value: 0.75, expected: "3/4" },
+                    { value: -0.5, expected: "-1/2" }
+                ],
+                formatter: formatReal
+            },
+            {
+                name: "Square roots",
+                tests: [
+                    { value: Math.sqrt(2), expected: "√2" },
+                    { value: Math.sqrt(3), expected: "√3" },
+                    { value: 1/Math.sqrt(2), expected: "1/√2" },
+                    { value: Math.sqrt(3)/2, expected: "√3/2" }
+                ],
+                formatter: formatReal
+            },
+            {
+                name: "Golden ratio",
+                tests: [
+                    { value: (1 + Math.sqrt(5))/2, expected: "φ" },
+                    { value: (1 - Math.sqrt(5))/2, expected: "φ conjugate" }
+                ],
+                formatter: formatReal
+            },
+            {
+                name: "Complex numbers",
+                tests: [
+                    { value: {re: 1, im: 0}, expected: "1" },
+                    { value: {re: 0, im: 1}, expected: "i" },
+                    { value: {re: 1, im: 1}, expected: "1+i" },
+                    { value: {re: 0.5, im: 0.5}, expected: "1/2+1/2 i" },
+                    { value: {re: Math.sqrt(2), im: Math.sqrt(3)}, expected: "√2+√3 i" }
+                ],
+                formatter: formatComplex
+            },
+            {
+                name: "2x2 Matrices",
+                tests: [
+                    {
+                        value: {
+                            a: {re: 1, im: 0},
+                            b: {re: 0, im: 0},
+                            c: {re: 0, im: 0},
+                            d: {re: 1, im: 0}
+                        },
+                        expected: "Identity matrix"
+                    },
+                    {
+                        value: {
+                            a: {re: 0.5, im: 0},
+                            b: {re: Math.sqrt(3)/2, im: 0},
+                            c: {re: -Math.sqrt(3)/2, im: 0},
+                            d: {re: 0.5, im: 0}
+                        },
+                        expected: "Rotation matrix (60°)"
+                    }
+                ],
+                formatter: formatMatrix2x2
+            }
+        ];
+
+        // Run tests
+        tests.forEach(testGroup => {
+            const div = document.createElement('div');
+            div.className = 'test-case';
+
+            const title = document.createElement('h3');
+            title.textContent = testGroup.name;
+            div.appendChild(title);
+
+            testGroup.tests.forEach((test, index) => {
+                const result = document.createElement('div');
+                result.className = 'result';
+
+                const input = document.createElement('div');
+                input.textContent = `Input: ${JSON.stringify(test.value)}`;
+                result.appendChild(input);
+
+                const output = document.createElement('div');
+                const formatted = testGroup.formatter(test.value);
+                output.innerHTML = `Output: \\(${formatted}\\)`;
+                result.appendChild(output);
+
+                if (test.expected) {
+                    const expected = document.createElement('div');
+                    expected.textContent = `Expected: ${test.expected}`;
+                    expected.style.color = '#666';
+                    result.appendChild(expected);
+                }
+
+                div.appendChild(result);
+            });
+
+            testResults.appendChild(div);
+        });
+
+        // Trigger MathJax rendering
+        if (typeof MathJax !== 'undefined') {
+            MathJax.typesetPromise().catch(err => console.error('MathJax error:', err));
+        }
+    </script>
+</body>
+</html>

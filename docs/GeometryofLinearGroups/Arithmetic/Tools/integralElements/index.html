@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integer matrices</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady();
+                }
+            }
+        };
+    </script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="antialiased">
+    <div id="control-panel"
+        class="absolute top-4 right-4 w-96 max-h-[90vh] shadow-lg flex flex-col overflow-x-hidden rounded-lg z-40 transition-transform transform"
+        style="transform: translateX(0);">
+        <div class="tab-navigation">
+            <h1 class="text-2xl font-bold text-white">Integral elements</h1>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <div class="control-group p-4">
+                <h2 class="text-lg font-semibold text-white mb-3">Input matrices</h2>
+                <div id="matrixInputs"></div>
+                <button id="addMatrixBtn"
+                    class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-3">
+                    + Add Matrix
+                </button>
+
+                <div class="mt-4 pt-4 border-t border-gray-700">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        Constants <span class="text-gray-500 text-xs">(optional)</span>
+                    </label>
+                    <div id="constantsInputs"></div>
+                    <button id="addConstantBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-2">
+                        + Add Constant
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-group p-4">
+                <div class="flex items-center gap-3 mb-3">
+                    <label for="example-select" class="text-sm font-medium text-gray-300 whitespace-nowrap">Examples</label>
+                    <select id="example-select"
+                        class="flex-1 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-gray-700 border-gray-600 text-white p-2">
+                        <option value="">-- Select an Example --</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label for="word-length" class="text-sm font-medium text-gray-300 whitespace-nowrap">Word Length</label>
+                    <input id="word-length" type="number" value="2" min="0" max="6" step="1"
+                        class="flex-1 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-gray-700 border-gray-600 text-white p-2">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="main-content" class="container mx-auto p-8 max-w-6xl">
+        <div class="content-section">
+            <h2 class="text-2xl font-semibold text-white mb-4">Generators</h2>
+            <div id="generators-display" class="output-display"></div>
+        </div>
+
+        <div class="content-section mt-6">
+            <h2 class="text-2xl font-semibold text-white mb-4">Inverted Primes</h2>
+            <p class="text-sm text-gray-400 mb-3">Click to toggle inclusion (all included by default)</p>
+            <div id="ring-display" class="text-lg text-gray-300 mb-3"></div>
+            <div id="primes-display" class="primes-container"></div>
+        </div>
+
+        <div class="content-section mt-6">
+            <h2 class="text-2xl font-semibold text-white mb-4">Monte Carlo Tree Search</h2>
+            <p class="text-sm text-gray-400 mb-3">Search for words that land in PGL(2,A)</p>
+            <div class="flex gap-4 mb-4">
+                <div class="flex-1">
+                    <label for="mcts-iterations" class="block text-sm text-gray-400 mb-2">Iterations</label>
+                    <input id="mcts-iterations" type="number" value="5000" min="100" max="50000" step="100"
+                        class="block w-full rounded-md shadow-sm sm:text-sm bg-gray-700 border-gray-600 text-white p-2">
+                </div>
+                <div class="flex-1">
+                    <label for="mcts-max-depth" class="block text-sm text-gray-400 mb-2">Max Depth</label>
+                    <input id="mcts-max-depth" type="number" value="15" min="4" max="30" step="1"
+                        class="block w-full rounded-md shadow-sm sm:text-sm bg-gray-700 border-gray-600 text-white p-2">
+                </div>
+                <div class="flex-1 flex items-end">
+                    <button id="run-mcts"
+                        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                        Run MCTS
+                    </button>
+                </div>
+            </div>
+            <div id="mcts-status" class="text-sm text-gray-400 mb-3"></div>
+            <div id="mcts-output" class="output-display"></div>
+        </div>
+
+        <div class="content-section mt-6">
+            <h2 class="text-2xl font-semibold text-white mb-4">Evaluate Word</h2>
+            <p class="text-sm text-gray-400 mb-3">Enter a word using g1, g2, ... for generators and G1, G2, ... for inverses</p>
+            <input id="word-input" type="text" placeholder="e.g., g1G2g1"
+                class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-gray-700 border-gray-600 text-white p-3 mb-3">
+            <div id="word-result" class="text-lg text-gray-300"></div>
+        </div>
+
+        <div class="content-section mt-6">
+            <h2 class="text-2xl font-semibold text-white mb-4">Matrix List</h2>
+            <div id="output" class="output-display"></div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>

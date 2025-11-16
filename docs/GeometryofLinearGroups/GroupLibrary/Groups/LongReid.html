@@ -19,25 +19,43 @@
     <div class="container">
         <header>
             <nav class="breadcrumb">
-                <a href="../../index.html">Home</a> / <a href="../index.html">Group Library</a> / \(SO_3(\mathbb{Q})\)
+                <a href="../../index.html">Home</a> / <a href="../index.html">Group Library</a> / Long-Reid Group
             </nav>
-            <h1>\(SO_3(\mathbb{Q})\)</h1>
+            <h1>The Long-Reid Group: \(\left\langle \frac{1}{3}\begin{pmatrix} 9 & 0 \\ 0 & 1 \end{pmatrix}, \tfrac{1}{8}\begin{pmatrix} 1 & 2 \\ 9 & 82
+            \end{pmatrix}\right\rangle\)</h1>
         </header>
 
         <main>
             <div class="section-intro">
                 <p>
-                    This group is a lattice in an infinite restricted product of locally finite trees.
+                   
+                    The Long-Reid group is a specific surface subgroup of \(PGL_2(\mathbb{Q})\). It has a natural action on a product of 
+                    locally finite trees, and it is a longstanding question whether this is a proper action. 
                 </p>
             </div>
 
             <div>
                 <p>
-                    The group \(SO_3(\mathbb{Q})\) is a lattice in
-                </p>
-
-                <p>
-                    One important question about \(SO_3(\mathbb{Q})\) is whether
+                    Consider the orbifold which is a torus with a single cone point of order 2. The fundamental group \(\Gamma\) of this
+                    orbifold
+                    may be presented as \(\langle a,b \mid (aba^{-1}b^{-1})^2 = 1\rangle \).
+                    
+                    To find a representation of $\Gamma$ into \(PGL_2(\mathbb{Q})\), we start with \( a = \begin{pmatrix} t & 0 \\ 0 &
+                    1\end{pmatrix} \).
+                    In order for the relation to hold, we require that the trace of \(c=[a,b]=aba^{-1}b^{-1}\) is 0.
+                    
+                    With our choice of \(a\), this forces the entries of \(b\) to satisfy \( 2b_{11}b_{22}=(t+t^{-1})b_{12}b_{21} \). We can
+                    choose
+                    \( b = \begin{pmatrix} t^2+1 & 2 \\ t & 1\end{pmatrix} \), and then
+                    \(c = \begin{pmatrix} t^2+1 & 2t \\ 1 & 1\end{pmatrix} \begin{pmatrix} 1 & -2 \\ -t & t^2+1
+                    \end{pmatrix}=\begin{pmatrix} 1-t^2 & -2(t^2+1)(1-t) \\ 1-t & -(1-t^2) \end{pmatrix}=\begin{pmatrix} 1+t & -2(t^2+1) \\
+                    1 & -(1+t) \end{pmatrix} \).
+                    
+                    We obtain a subgroup of \(PGL_2(\mathbb{Z}[t,\frac{1}{t},\frac{1}{t-1}])\) isomorphic to \(\Gamma\). By setting \(t=9\), 
+                    we obtain the group studied by Long and Reid, which is contained in \(PSL_2(\mathbb{Z}[1/6])\).  
+                    
+                    This group acts on each of the trees for \(PGL_2(\mathbb{Q}_2)\) and \(PGL_2(\mathbb{Q}_3)\), and the action is proper 
+                    if and only if the intersection of \(\Gamma\) with \(PSL_2(\mathbb{Z})\) is finite. 
                 </p>
             </div>
         </main>

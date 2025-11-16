@@ -86,7 +86,12 @@ function generateSternBrocotTree(p, q) {
 
     const nodeRadius = 20;
     const levelHeight = 80;
-    const width = 1200;
+    const minNodeSpacing = 50; // Minimum horizontal space between nodes
+
+    // Calculate required width based on tree depth
+    // At depth d, we have at most 2^d nodes, needing (2^d - 1) * minNodeSpacing
+    const requiredWidth = Math.max(1200, Math.pow(2, maxDepth) * minNodeSpacing);
+    const width = requiredWidth;
     const height = maxDepth * levelHeight + 100;
 
     // Track which nodes are on the path to target
@@ -142,9 +147,12 @@ function generateSternBrocotTree(p, q) {
         const onPath = pathSet.has(key);
         const isBase = (node.p === 0 && node.q === 1) || (node.p === 1 && node.q === 1);
 
+        // Calculate next xSpan with minimum spacing constraint
+        const nextXSpan = Math.max(xSpan / 2, minNodeSpacing);
+
         // Draw edges to children first (so they appear behind nodes)
         if (node.left) {
-            const childX = x - xSpan;
+            const childX = x - nextXSpan;
             const childY = y + levelHeight;
             const childKey = `${node.left.p}/${node.left.q}`;
             const childOnPath = pathSet.has(childKey);
@@ -152,11 +160,11 @@ function generateSternBrocotTree(p, q) {
             const edgeColor = (onPath && childOnPath) ? '#007bff' : '#ddd';
             const edgeWidth = (onPath && childOnPath) ? 3 : 1;
             svg += `<line x1="${x}" y1="${y + nodeRadius}" x2="${childX}" y2="${childY - nodeRadius}" stroke="${edgeColor}" stroke-width="${edgeWidth}"/>`;
-            drawNode(node.left, childX, childY, xSpan / 2, depth + 1);
+            drawNode(node.left, childX, childY, nextXSpan, depth + 1);
         }
 
         if (node.right) {
-            const childX = x + xSpan;
+            const childX = x + nextXSpan;
             const childY = y + levelHeight;
             const childKey = `${node.right.p}/${node.right.q}`;
             const childOnPath = pathSet.has(childKey);
@@ -164,7 +172,7 @@ function generateSternBrocotTree(p, q) {
             const edgeColor = (onPath && childOnPath) ? '#007bff' : '#ddd';
             const edgeWidth = (onPath && childOnPath) ? 3 : 1;
             svg += `<line x1="${x}" y1="${y + nodeRadius}" x2="${childX}" y2="${childY - nodeRadius}" stroke="${edgeColor}" stroke-width="${edgeWidth}"/>`;
-            drawNode(node.right, childX, childY, xSpan / 2, depth + 1);
+            drawNode(node.right, childX, childY, nextXSpan, depth + 1);
         }
 
         // Draw node

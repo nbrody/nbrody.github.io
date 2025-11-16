@@ -223,8 +223,7 @@ canvas {
 }
 
 .canvas-container {
-    text-align: center;
-    margin: 20px 0;
+    display: inline-block;
 }
 
 .legend {
@@ -235,4 +234,30 @@ canvas {
     border-radius: 6px;
     font-size: 14px;
     color: #d1d5db;
+}
+
+/* Toggle buttons for Real Locus visualization */
+.locus-toggle-btn {
+    flex: 1;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.locus-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.locus-toggle-btn.active {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
 }

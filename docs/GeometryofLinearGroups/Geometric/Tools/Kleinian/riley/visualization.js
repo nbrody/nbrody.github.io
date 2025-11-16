@@ -5,9 +5,53 @@ class RileyVisualization {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d');
         this.currentPolynomial = null;
+        this.currentP = null;
+        this.currentQ = null;
+
+        // Toggle states
+        this.showRealLocus = true;
+        this.showRootsP = false;
+        this.showRootsQ = false;
+
+        // Setup toggle buttons
+        this.setupToggleButtons();
+    }
+
+    setupToggleButtons() {
+        const buttons = document.querySelectorAll('.locus-toggle-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const toggle = btn.getAttribute('data-toggle');
+
+                // Update state
+                if (toggle === 'realLocus') {
+                    this.showRealLocus = !this.showRealLocus;
+                } else if (toggle === 'rootsP') {
+                    this.showRootsP = !this.showRootsP;
+                } else if (toggle === 'rootsQ') {
+                    this.showRootsQ = !this.showRootsQ;
+                }
+
+                // Update button state
+                btn.classList.toggle('active');
+
+                // Redraw if we have a polynomial
+                if (this.currentPolynomial && this.currentP !== null && this.currentQ !== null) {
+                    this.redraw();
+                }
+            });
+        });
+    }
+
+    redraw() {
+        if (!this.currentPolynomial || this.currentP === null || this.currentQ === null) return;
+        this.plotRealLocus(this.currentP, this.currentQ);
     }
 
     plotRealLocus(p, q) {
+        // Store current fraction
+        this.currentP = p;
+        this.currentQ = q;
         const xMin = -3;
         const xMax = 3;
         const yMin = -3;
@@ -33,30 +77,31 @@ class RileyVisualization {
         // Draw axes
         this.drawAxes(xMin, xMax, yMin, yMax);
 
-        // Plot the real locus (where Im(Q(z)) = 0)
-        this.plotImplicitCurve(this.currentPolynomial, xMin, xMax, yMin, yMax);
-
-        // Find and plot roots of Q + 2
-        const polyPlus2 = this.currentPolynomial.add(Polynomial.fromConstant(2));
-        const roots = polyPlus2.findRoots();
-
-        // Verify roots are correct
-        console.log(`Visualization: Found ${roots.length} roots for ${p}/${q}`);
-        for (let i = 0; i < Math.min(3, roots.length); i++) {
-            const evalResult = polyPlus2.evaluateComplex(roots[i].re, roots[i].im);
-            const qEvalResult = this.currentPolynomial.evaluateComplex(roots[i].re, roots[i].im);
-            console.log(`Root ${i}: z = ${roots[i].re.toFixed(4)} + ${roots[i].im.toFixed(4)}i`);
-            console.log(`  P(z) = ${evalResult.re.toFixed(6)} + ${evalResult.im.toFixed(6)}i`);
-            console.log(`  Q(z) = ${qEvalResult.re.toFixed(6)} + ${qEvalResult.im.toFixed(6)}i`);
+        // Plot the real locus (where Im(Q(z)) = 0) if enabled
+        if (this.showRealLocus) {
+            this.plotImplicitCurve(this.currentPolynomial, xMin, xMax, yMin, yMax);
         }
 
-        this.plotRoots(roots, xMin, xMax, yMin, yMax);
+        // Find and plot roots of P(z) = Q(z) + 2 if enabled
+        if (this.showRootsP) {
+            const polyPlus2 = this.currentPolynomial.add(Polynomial.fromConstant(2));
+            const rootsP = polyPlus2.findRoots();
+            console.log(`Visualization: Found ${rootsP.length} roots of P for ${p}/${q}`);
+            this.plotRoots(rootsP, xMin, xMax, yMin, yMax, '#dc3545', 'P'); // red
+        }
+
+        // Find and plot roots of Q(z) if enabled
+        if (this.showRootsQ) {
+            const rootsQ = this.currentPolynomial.findRoots();
+            console.log(`Visualization: Found ${rootsQ.length} roots of Q for ${p}/${q}`);
+            this.plotRoots(rootsQ, xMin, xMax, yMin, yMax, '#10b981', 'Q'); // green
+        }
     }
 
     drawAxes(xMin, xMax, yMin, yMax) {
-        // Draw main axes in blue since they're part of the real locus
-        // (Q(z) is real when z is real or purely imaginary)
-        this.ctx.strokeStyle = '#007bff'; // Blue to match the real locus curves
+        // Draw main axes in blue if showing real locus (since they're part of it)
+        // Otherwise draw in gray
+        this.ctx.strokeStyle = this.showRealLocus ? '#007bff' : '#6b7280';
         this.ctx.lineWidth = 2.5;
 
         // X-axis (real axis)
@@ -152,9 +197,13 @@ class RileyVisualization {
         }
     }
 
-    plotRoots(roots, xMin, xMax, yMin, yMax) {
-        this.ctx.fillStyle = '#dc3545';
-        this.ctx.strokeStyle = '#721c24';
+    plotRoots(roots, xMin, xMax, yMin, yMax, color = '#dc3545', polyType = 'P') {
+        this.ctx.fillStyle = color;
+
+        // Darken the color for stroke
+        const strokeColor = color === '#dc3545' ? '#721c24' :
+                           color === '#10b981' ? '#065f46' : '#1e3a8a';
+        this.ctx.strokeStyle = strokeColor;
         this.ctx.lineWidth = 2;
 
         for (const root of roots) {
@@ -167,12 +216,7 @@ class RileyVisualization {
             this.ctx.fill();
             this.ctx.stroke();
 
-            // Add label showing the root value
-            this.ctx.fillStyle = '#333';
-            this.ctx.font = '10px Arial';
-            const label = `${root.re.toFixed(2)}${root.im >= 0 ? '+' : ''}${root.im.toFixed(2)}i`;
-            this.ctx.fillText(label, x + 8, y - 8);
-            this.ctx.fillStyle = '#dc3545';
+            // No labels to reduce clutter - users can hover in Riley Slice visualization for details
         }
     }
 

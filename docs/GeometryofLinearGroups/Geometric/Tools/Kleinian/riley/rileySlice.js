@@ -488,7 +488,23 @@ class RileySlice {
         const poly = this.polynomials[root.polynomial];
         const P = poly.add(Polynomial.fromConstant(2));
 
-        let html = `<div style="margin-bottom: 10px; color: #f3f4f6;">\\(P\\left(\\frac{${root.polynomial.replace('/', '}{')}}\\right) = ${P.toLatex()}\\)</div>`;
+        // Create plain text version for copying
+        const plainText = P.toString();
+
+        let html = `<div style="margin-bottom: 10px; position: relative;">
+                        <div style="color: #f3f4f6; padding-right: 70px; overflow-x: auto;">\\(P\\left(\\frac{${root.polynomial.replace('/', '}{')}}\\right) = ${P.toLatex()}\\)</div>
+                        <button class="copy-polynomial-btn"
+                                data-polynomial="${plainText.replace(/"/g, '&quot;')}"
+                                style="position: absolute; top: 0; right: 0; padding: 4px 8px; font-size: 12px; background: rgba(59, 130, 246, 0.5); border: 1px solid rgba(59, 130, 246, 0.8); border-radius: 4px; color: white; cursor: pointer; white-space: nowrap;"
+                                title="Copy polynomial to clipboard">Copy</button>
+                    </div>`;
+
+        // Add factorization if available
+        const factorization = P.formatFactorization();
+        if (factorization) {
+            html += `<div style="margin-bottom: 10px; color: #93c5fd; font-size: 13px;">\\(= ${factorization}\\)</div>`;
+        }
+
         html += `<div style="font-family: monospace; color: #d1d5db;"><strong>Roots</strong> (${conjugates.length} Galois conjugate${conjugates.length !== 1 ? 's' : ''}):<br>`;
         conjugates.forEach((r, i) => {
             const re = r.re.toFixed(4);
@@ -510,6 +526,33 @@ class RileySlice {
         html += '</div>';
 
         infoDiv.innerHTML = html;
+
+        // Add click handler for copy button
+        const copyBtn = infoDiv.querySelector('.copy-polynomial-btn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const polynomial = copyBtn.getAttribute('data-polynomial');
+
+                // Copy to clipboard
+                navigator.clipboard.writeText(polynomial).then(() => {
+                    // Show temporary feedback
+                    const originalText = copyBtn.textContent;
+                    copyBtn.textContent = 'Copied!';
+                    copyBtn.style.background = 'rgba(74, 222, 128, 0.5)';
+                    copyBtn.style.borderColor = 'rgba(74, 222, 128, 0.8)';
+
+                    setTimeout(() => {
+                        copyBtn.textContent = originalText;
+                        copyBtn.style.background = 'rgba(59, 130, 246, 0.5)';
+                        copyBtn.style.borderColor = 'rgba(59, 130, 246, 0.8)';
+                    }, 1000);
+                }).catch(err => {
+                    console.error('Failed to copy polynomial:', err);
+                    alert('Failed to copy polynomial to clipboard');
+                });
+            });
+        }
 
         // Typeset MathJax if available
         if (window.MathJax) {
@@ -541,36 +584,6 @@ class RileySlice {
     // Highlight a specific polynomial (called from calculator)
     highlightPolynomial(p, q) {
         const key = `${p}/${q}`;
-
-        // Recompute roots accurately for this specific polynomial
-        const Q = this.polynomials[key];
-        if (Q) {
-            console.log(`Recomputing roots accurately for ${key}...`);
-            const P = Q.add(Polynomial.fromConstant(2));
-            const degree = P.coeffs.length - 1;
-
-            // Use accurate root finding
-            const accurateRoots = P.findRoots(true); // Pass true for accurate mode
-
-            console.log(`Found ${accurateRoots.length} roots (expected ${degree}) for ${key}`);
-
-            // Remove old roots for this polynomial and add new accurate ones
-            this.allRoots = this.allRoots.filter(r => r.polynomial !== key);
-
-            for (const root of accurateRoots) {
-                if (isFinite(root.re) && isFinite(root.im)) {
-                    const val = P.evaluateComplex(root.re, root.im);
-                    const magnitude = Math.sqrt(val.re * val.re + val.im * val.im);
-                    console.log(`  Root ${root.re.toFixed(6)} + ${root.im.toFixed(6)}i: |P(z)| = ${magnitude.toExponential(3)}`);
-
-                    this.allRoots.push({
-                        re: root.re,
-                        im: root.im,
-                        polynomial: key
-                    });
-                }
-            }
-        }
 
         // Find a root for this polynomial
         const root = this.allRoots.find(r => r.polynomial === key);

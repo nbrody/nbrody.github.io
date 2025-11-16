@@ -50,15 +50,16 @@
         <h2>Real Locus Visualization</h2>
         <p>The plot below shows the set of complex numbers \(z\) where \(Q(p/q)(z)\) is real (i.e., \(\text{Im}(Q(p/q)(z)) = 0\)) in the region \([-3, 3] \times [-3, 3]\).</p>
 
-        <div class="canvas-container">
-            <canvas id="rileyCanvas" width="600" height="600"></canvas>
-        </div>
+        <div style="display: flex; gap: 20px; align-items: flex-start; justify-content: center;">
+            <div class="canvas-container">
+                <canvas id="rileyCanvas" width="600" height="600"></canvas>
+            </div>
 
-        <div class="legend">
-            <strong>Legend:</strong>
-            <span style="color: #007bff;">■</span> Blue curves show where \(Q(p/q)(z)\) is real (\(\text{Im}(Q(z)) = 0\)).
-            <span style="color: #dc3545;">●</span> Red dots show the roots of \(Q(p/q)(z) + 2\).
-            The axes show the real and imaginary parts of \(z\).
+            <div style="display: flex; flex-direction: column; gap: 8px; min-width: 150px; margin-top: 40px;">
+                <button class="locus-toggle-btn active" data-toggle="realLocus">Real Locus</button>
+                <button class="locus-toggle-btn" data-toggle="rootsP">Roots of <span style="color: #dc3545;">P(z)</span></button>
+                <button class="locus-toggle-btn" data-toggle="rootsQ">Roots of <span style="color: #10b981;">Q(z)</span></button>
+            </div>
         </div>
     </div>
 
