@@ -131,14 +131,7 @@
     </style>
 </head>
 <body>
-    <h1>The Martelli Manifold</h1>
-
-    <div class="reference">
-        <strong>Reference:</strong>
-        <a href="https://arxiv.org/pdf/2511.10530" target="_blank">
-            arXiv:2511.10530
-        </a>
-    </div>
+    <h1><a href="https://arxiv.org/pdf/2511.10530" target="_blank" style="color: #2c3e50; text-decoration: none;">The Martelli Manifold</a></h1>
 
     <div class="section">
         <div class="section-header" onclick="toggleSection(this)">
@@ -147,28 +140,20 @@
         </div>
         <div class="section-content">
             <p>
-                The ring \(\mathbb{Z}[\zeta_5]\) is the ring of integers in the fifth cyclotomic field
+                The ring \(\mathbb{Z}[\zeta_5]\) is the ring of integers in the cyclotomic field
                 \(\mathbb{Q}(\zeta_5)\), where \(\zeta_5 = e^{2\pi i/5}\) is a primitive
                 fifth root of unity.
             </p>
             <p>
-                The minimal polynomial of \(\zeta_5\) is:
+                The minimal polynomial of \(\zeta_5\) is
             </p>
             <p style="text-align: center; font-size: 1.2em;">
-                \[z^4 + z^3 + z^2 + z + 1 = 0\]
-            </p>
-            <p>
-                This polynomial is the fifth cyclotomic polynomial \(\Phi_5(z)\), which factors as:
-            </p>
-            <p style="text-align: center;">
-                \[z^5 - 1 = (z - 1)(z^4 + z^3 + z^2 + z + 1)\]
-            </p>
-            <p>
-                The roots of this polynomial are the four primitive fifth roots of unity,
-                shown in the complex plane below:
+                \[z^4 + z^3 + z^2 + z + 1\]
             </p>
             <canvas id="rootsCanvas" width="500" height="500"></canvas>
             <p>
+                We also consider the element \(\lambda=\zeta_5+\zeta_5^{-1}=\frac{1+\sqrt{5}}{2}\), which is the golden ratio.
+                
                 The ring \(\mathbb{Z}[\zeta_5]\) has several important properties:
             </p>
             <ul>
@@ -205,8 +190,12 @@
                 The animation below shows how this map acts on the unit square torus:
             </p>
             <ul>
-                <li><strong style="color: #e74c3c;">Red vector:</strong> basis vector \((1, 0) \to (1, 1)\)</li>
-                <li><strong style="color: #3498db;">Blue vector:</strong> basis vector \((0, 1) \to (1, 0)\)</li>
+                <li><strong style="color: #e74c3c;">Red vector \(e_1\):</strong> basis vector \((1, 0) \to (1, 1)\)</li>
+                <li><strong style="color: #3498db;">Blue vector \(e_2\):</strong> basis vector \((0, 1) \to (1, 0)\)</li>
+                <li><strong style="color: #3498db;">Blue diagonal lines:</strong> foliation by expanding eigenspace (eigenvalue \(\varphi\))</li>
+                <li><strong style="color: #3498db;">Blue vector \(v_+\):</strong> expanding eigenvector, scales by \(\varphi\)</li>
+                <li><strong style="color: #e67e22;">Orange diagonal lines:</strong> foliation by contracting eigenspace (eigenvalue \(-1/\varphi\))</li>
+                <li><strong style="color: #e67e22;">Orange vector \(v_-\):</strong> contracting eigenvector, scales by \(1/\varphi\)</li>
                 <li>The grid shows how the map stretches and shears the torus</li>
                 <li>Five special points \(P_1\)-\(P_5\) (from Theorem 7) are tracked throughout the transformation</li>
                 <li>After transformation, we cut along the line \(x=1\) and drag the triangle left</li>
@@ -642,7 +631,55 @@
 
                 const gridDensity = 5;
 
+                // Golden ratio and eigenspaces
+                const phi = (1 + Math.sqrt(5)) / 2;
+
                 if (phase !== 'cut_drag') {
+                    // Draw fixed eigenspace foliations (not transformed)
+                    const numLines = 8;
+
+                    // Expanding eigenspace (blue) - direction [φ, 1]
+                    ctx.strokeStyle = 'rgba(52, 152, 219, 0.3)';
+                    ctx.lineWidth = 1.5;
+                    for (let i = -numLines; i <= numLines; i++) {
+                        const offset = i * 0.15;
+                        const t1 = -2, t2 = 2;
+
+                        const x1 = offset + phi * t1;
+                        const y1 = t1;
+                        const x2 = offset + phi * t2;
+                        const y2 = t2;
+
+                        const p1 = toCanvas(x1, y1);
+                        const p2 = toCanvas(x2, y2);
+
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+
+                    // Contracting eigenspace (orange) - direction [1, -φ]
+                    ctx.strokeStyle = 'rgba(230, 126, 34, 0.3)';
+                    ctx.lineWidth = 1.5;
+                    for (let i = -numLines; i <= numLines; i++) {
+                        const offset = i * 0.15;
+                        const t1 = -2, t2 = 2;
+
+                        const x1 = offset + t1;
+                        const y1 = -phi * t1;
+                        const x2 = offset + t2;
+                        const y2 = -phi * t2;
+
+                        const p1 = toCanvas(x1, y1);
+                        const p2 = toCanvas(x2, y2);
+
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+
                     // Normal grid drawing
                     ctx.strokeStyle = '#e0e0e0';
                     ctx.lineWidth = 1;
@@ -719,6 +756,50 @@
 
                     drawVector(1, 0, '#e74c3c', 'e₁');
                     drawVector(0, 1, '#3498db', 'e₂');
+
+                    // Draw scaling eigenvectors
+                    const drawEigenvector = (vx, vy, scaleFactor, color, label) => {
+                        const length = Math.sqrt(vx*vx + vy*vy);
+                        const scale = 0.4 * scaleFactor; // Base length 0.4
+                        const x = vx * scale / length;
+                        const y = vy * scale / length;
+
+                        const p = toCanvas(x, y);
+                        const origin = toCanvas(0, 0);
+
+                        ctx.strokeStyle = color;
+                        ctx.fillStyle = color;
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(origin.x, origin.y);
+                        ctx.lineTo(p.x, p.y);
+                        ctx.stroke();
+
+                        const angle = Math.atan2(p.y - origin.y, p.x - origin.x);
+                        const headLength = 15;
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p.x - headLength * Math.cos(angle - Math.PI/6),
+                                   p.y - headLength * Math.sin(angle - Math.PI/6));
+                        ctx.lineTo(p.x - headLength * Math.cos(angle + Math.PI/6),
+                                   p.y - headLength * Math.sin(angle + Math.PI/6));
+                        ctx.closePath();
+                        ctx.fill();
+
+                        ctx.font = 'bold 16px Arial';
+                        ctx.fillText(label, p.x + 10, p.y - 10);
+                    };
+
+                    // Expanding eigenvector (blue): scales by φ^smoothS
+                    const expandScale = Math.pow(phi, smoothS);
+                    drawEigenvector(phi, 1, expandScale, '#3498db', 'v₊');
+
+                    // Contracting eigenvector (orange): eigenvalue is -1/φ, so it flips and contracts
+                    // Smoothly interpolate from (1, -φ) to (-1, φ) while scaling by 1/φ
+                    const contractScale = Math.pow(1/phi, smoothS);
+                    const vx = (1 - smoothS) * 1 + smoothS * (-1);
+                    const vy = (1 - smoothS) * (-phi) + smoothS * phi;
+                    drawEigenvector(vx, vy, contractScale, '#e67e22', 'v₋');
 
                 } else {
                     // Cut-and-drag phase
