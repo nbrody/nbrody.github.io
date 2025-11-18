@@ -794,12 +794,11 @@
                     const expandScale = Math.pow(phi, smoothS);
                     drawEigenvector(phi, 1, expandScale, '#3498db', 'v₊');
 
-                    // Contracting eigenvector (orange): eigenvalue is -1/φ, so it flips and contracts
-                    // Smoothly interpolate from (1, -φ) to (-1, φ) while scaling by 1/φ
-                    const contractScale = Math.pow(1/phi, smoothS);
-                    const vx = (1 - smoothS) * 1 + smoothS * (-1);
-                    const vy = (1 - smoothS) * (-phi) + smoothS * phi;
-                    drawEigenvector(vx, vy, contractScale, '#e67e22', 'v₋');
+                    // Contracting eigenvector (orange): maps from (1, -φ) to (-1/φ, 1)
+                    // Linear interpolation naturally passes through origin
+                    const vx = (1 - smoothS) * 1 + smoothS * (-1/phi);
+                    const vy = (1 - smoothS) * (-phi) + smoothS * 1;
+                    drawEigenvector(vx, vy, 1, '#e67e22', 'v₋');
 
                 } else {
                     // Cut-and-drag phase
