@@ -125,13 +125,11 @@ loadShader('./kleinian-fast.frag').then(fragmentShader => {
     currentMesh = new THREE.Mesh(geometry, material);
     scene.add(currentMesh);
 
-    // Disable sphere editing in fast mode
-    const sphereTab = document.querySelector('.tab-btn[data-page="spheres"]');
-    if (sphereTab) {
-        sphereTab.style.opacity = '0.5';
-        sphereTab.style.pointerEvents = 'none';
-        sphereTab.title = 'Sphere editing disabled in Fast mode';
-    }
+    // Disable sphere editing controls in fast mode
+    const spherePresetSelect = document.getElementById('spherePreset');
+    const addSphereBtn = document.getElementById('addSphere');
+    if (spherePresetSelect) spherePresetSelect.disabled = true;
+    if (addSphereBtn) addSphereBtn.disabled = true;
 
     // Start animation loop with initial render
     requestRender();
@@ -158,20 +156,21 @@ async function switchPerformanceMode(mode) {
     currentMesh.material.dispose();
     currentMesh.material = newMaterial;
 
-    // Update UI
-    const sphereTab = document.querySelector('.tab-btn[data-page="spheres"]');
+    // Update sphere editing controls based on mode
+    const spherePresetSelect = document.getElementById('spherePreset');
+    const addSphereBtn = document.getElementById('addSphere');
+    const sphereInputs = document.querySelectorAll('#sphereList input, #sphereList button');
+
     if (mode === 'fast') {
-        if (sphereTab) {
-            sphereTab.style.opacity = '0.5';
-            sphereTab.style.pointerEvents = 'none';
-            sphereTab.title = 'Sphere editing disabled in Fast mode';
-        }
+        // Disable sphere editing controls in fast mode
+        if (spherePresetSelect) spherePresetSelect.disabled = true;
+        if (addSphereBtn) addSphereBtn.disabled = true;
+        sphereInputs.forEach(el => el.disabled = true);
     } else {
-        if (sphereTab) {
-            sphereTab.style.opacity = '1';
-            sphereTab.style.pointerEvents = 'auto';
-            sphereTab.title = '';
-        }
+        // Enable sphere editing controls in flexible mode
+        if (spherePresetSelect) spherePresetSelect.disabled = false;
+        if (addSphereBtn) addSphereBtn.disabled = false;
+        sphereInputs.forEach(el => el.disabled = false);
     }
 
     requestRender();
@@ -332,6 +331,27 @@ document.getElementById('performanceMode').addEventListener('change', (e) => {
     switchPerformanceMode(e.target.value);
 });
 
+// Collapse button
+const collapseBtn = document.getElementById('collapse-btn');
+const controlPanel = document.getElementById('controlPanel');
+
+if (collapseBtn && controlPanel) {
+    collapseBtn.addEventListener('click', () => {
+        controlPanel.classList.toggle('collapsed');
+    });
+}
+
+// Refresh button (reset camera)
+const refreshBtn = document.getElementById('refresh-btn');
+if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+        camera.position.set(0, 0, 2);
+        controls.target.set(0, 0, 0);
+        controls.update();
+        requestRender();
+    });
+}
+
 // Handle window resize
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -342,15 +362,12 @@ function onWindowResize() {
 }
 window.addEventListener('resize', onWindowResize);
 
-// Panel drag and minimize functionality
-const controlPanel = document.getElementById('controlPanel');
+// Panel drag functionality
 let isDraggingPanel = false;
 let dragStartX = 0;
 let dragStartY = 0;
 let panelStartX = 0;
 let panelStartY = 0;
-let lastClickTime = 0;
-const DOUBLE_CLICK_DELAY = 300; // ms
 
 controlPanel.addEventListener('pointerdown', (e) => {
     // Don't drag if clicking on interactive elements or scrollbar
@@ -364,16 +381,6 @@ controlPanel.addEventListener('pointerdown', (e) => {
     if (e.clientX > rect.right - scrollbarWidth) {
         return;
     }
-
-    // Check for double-click to minimize
-    const currentTime = Date.now();
-    if (currentTime - lastClickTime < DOUBLE_CLICK_DELAY) {
-        e.preventDefault();
-        controlPanel.classList.toggle('minimized');
-        lastClickTime = 0;
-        return;
-    }
-    lastClickTime = currentTime;
 
     // Start dragging
     e.preventDefault();

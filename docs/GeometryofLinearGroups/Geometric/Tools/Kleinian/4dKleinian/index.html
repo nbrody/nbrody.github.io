@@ -14,17 +14,21 @@
     <div id="stats">FPS: 0</div>
 
     <div class="controls" id="controlPanel">
-        <h2>4D Kleinian Group</h2>
-
         <div class="tabbar">
             <button class="tab-btn active" data-page="spheres">Spheres</button>
             <button class="tab-btn" data-page="render">Render</button>
-            <button class="tab-btn" data-page="camera">Camera &amp; Presets</button>
+            <button class="tab-btn" data-page="camera">Presets</button>
+            <button id="refresh-btn" class="collapse-btn" title="Reset Camera">
+                <span class="collapse-icon">⟳</span>
+            </button>
+            <button id="collapse-btn" class="collapse-btn" title="Hide panel">
+                <span class="collapse-icon collapse-x">×</span>
+                <span class="collapse-icon collapse-plus">+</span>
+            </button>
         </div>
 
         <div class="panel-page active" id="page-render">
         <div class="info">
-            <strong>Drag panel</strong> to move, <strong>double-click</strong> to minimize.<br>
             <strong>Drag fractal</strong> to rotate, <strong>scroll</strong> to zoom, <strong>right-click drag</strong> to pan.
         </div>
 

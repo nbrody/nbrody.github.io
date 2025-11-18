@@ -84,44 +84,50 @@ function tryAlgebraicForm(x) {
 }
 
 /**
- * Format a real number as LaTeX with algebraic expressions when possible
+ * Format a real number as LaTeX
+ * @param {number} x - The number to format
+ * @param {number} precision - Decimal precision for non-algebraic output
+ * @param {boolean} useAlgebraic - If true, try to convert decimals to algebraic expressions
  */
-export function formatReal(x, precision = 3) {
+export function formatReal(x, precision = 3, useAlgebraic = false) {
     if (!Number.isFinite(x)) return String(x);
 
     // Check if it's essentially zero
     if (Math.abs(x) < EPSILON) return '0';
 
-    // Try to recognize as a simple rational
-    const rational = approximateRational(x);
-    if (rational) {
-        if (rational.denominator === 1) {
-            return String(rational.numerator);
+    // Only try algebraic form if explicitly requested
+    if (useAlgebraic) {
+        // Try to recognize as a simple rational
+        const rational = approximateRational(x);
+        if (rational) {
+            if (rational.denominator === 1) {
+                return String(rational.numerator);
+            }
+            return `\\frac{${rational.numerator}}{${rational.denominator}}`;
         }
-        return `\\frac{${rational.numerator}}{${rational.denominator}}`;
+
+        // Try to recognize as algebraic form (rational * sqrt(n))
+        const algebraic = tryAlgebraicForm(x);
+        if (algebraic) {
+            const { rational, constant } = algebraic;
+
+            if (rational.numerator === 1 && rational.denominator === 1) {
+                return constant.latex;
+            } else if (rational.numerator === -1 && rational.denominator === 1) {
+                return `-${constant.latex}`;
+            } else if (rational.denominator === 1) {
+                return `${rational.numerator}${constant.latex}`;
+            } else if (rational.numerator === 1) {
+                return `\\frac{${constant.latex}}{${rational.denominator}}`;
+            } else if (rational.numerator === -1) {
+                return `-\\frac{${constant.latex}}{${rational.denominator}}`;
+            } else {
+                return `\\frac{${rational.numerator}${constant.latex}}{${rational.denominator}}`;
+            }
+        }
     }
 
-    // Try to recognize as algebraic form (rational * sqrt(n))
-    const algebraic = tryAlgebraicForm(x);
-    if (algebraic) {
-        const { rational, constant } = algebraic;
-
-        if (rational.numerator === 1 && rational.denominator === 1) {
-            return constant.latex;
-        } else if (rational.numerator === -1 && rational.denominator === 1) {
-            return `-${constant.latex}`;
-        } else if (rational.denominator === 1) {
-            return `${rational.numerator}${constant.latex}`;
-        } else if (rational.numerator === 1) {
-            return `\\frac{${constant.latex}}{${rational.denominator}}`;
-        } else if (rational.numerator === -1) {
-            return `-\\frac{${constant.latex}}{${rational.denominator}}`;
-        } else {
-            return `\\frac{${rational.numerator}${constant.latex}}{${rational.denominator}}`;
-        }
-    }
-
-    // Fall back to decimal approximation
+    // Default: use decimal representation
     if (Math.abs(x - Math.round(x)) < EPSILON) {
         return String(Math.round(x));
     }
@@ -129,21 +135,24 @@ export function formatReal(x, precision = 3) {
 }
 
 /**
- * Format a complex number as LaTeX with algebraic expressions
+ * Format a complex number as LaTeX
+ * @param {object} c - Complex number with re/im or real/imag properties
+ * @param {number} precision - Decimal precision for non-algebraic output
+ * @param {boolean} useAlgebraic - If true, try to convert decimals to algebraic expressions
  */
-export function formatComplex(c, precision = 3) {
+export function formatComplex(c, precision = 3, useAlgebraic = false) {
     if (!c) return '0';
 
     const re = c.re !== undefined ? c.re : (c.real !== undefined ? c.real : 0);
     const im = c.im !== undefined ? c.im : (c.imag !== undefined ? c.imag : 0);
 
-    const reStr = formatReal(re, precision);
+    const reStr = formatReal(re, precision, useAlgebraic);
     const imAbs = Math.abs(im);
 
     // Real number
     if (imAbs < EPSILON) return reStr;
 
-    const imStr = formatReal(imAbs, precision);
+    const imStr = formatReal(imAbs, precision, useAlgebraic);
     const sign = im > 0 ? '+' : '-';
 
     // Pure imaginary
@@ -160,9 +169,12 @@ export function formatComplex(c, precision = 3) {
 }
 
 /**
- * Format a 2x2 matrix as LaTeX pmatrix with algebraic expressions
+ * Format a 2x2 matrix as LaTeX pmatrix
+ * @param {object|array} matrix - Matrix in {a,b,c,d} or [[a,b],[c,d]] format
+ * @param {number} precision - Decimal precision for non-algebraic output
+ * @param {boolean} useAlgebraic - If true, try to convert decimals to algebraic expressions
  */
-export function formatMatrix2x2(matrix, precision = 3) {
+export function formatMatrix2x2(matrix, precision = 3, useAlgebraic = false) {
     if (!matrix) return '';
 
     // Handle both {a, b, c, d} and [[a, b], [c, d]] formats
@@ -188,13 +200,13 @@ export function formatMatrix2x2(matrix, precision = 3) {
     const isComplex = (x) => x && (x.im !== undefined || x.imag !== undefined);
 
     const formatEntry = (x) => {
-        if (isComplex(x)) {
-            return formatComplex(x, precision);
-        } else if (typeof x === 'number') {
-            return formatReal(x, precision);
-        } else if (x && x.toLatex) {
-            // Support objects with toLatex method (like Rational class)
+        // Always respect objects with toLatex method (these are exact by definition)
+        if (x && x.toLatex) {
             return x.toLatex();
+        } else if (isComplex(x)) {
+            return formatComplex(x, precision, useAlgebraic);
+        } else if (typeof x === 'number') {
+            return formatReal(x, precision, useAlgebraic);
         } else {
             return String(x);
         }
@@ -209,9 +221,12 @@ export function formatMatrix2x2(matrix, precision = 3) {
 }
 
 /**
- * Format an NxN matrix as LaTeX pmatrix with algebraic expressions
+ * Format an NxN matrix as LaTeX pmatrix
+ * @param {array} matrix - Matrix as 2D array
+ * @param {number} precision - Decimal precision for non-algebraic output
+ * @param {boolean} useAlgebraic - If true, try to convert decimals to algebraic expressions
  */
-export function formatMatrix(matrix, precision = 3) {
+export function formatMatrix(matrix, precision = 3, useAlgebraic = false) {
     if (!matrix || !Array.isArray(matrix) || matrix.length === 0) return '';
 
     const rows = matrix.length;
@@ -219,18 +234,19 @@ export function formatMatrix(matrix, precision = 3) {
 
     // Use specialized 2x2 formatter for common case
     if (rows === 2 && cols === 2) {
-        return formatMatrix2x2(matrix, precision);
+        return formatMatrix2x2(matrix, precision, useAlgebraic);
     }
 
     const isComplex = (x) => x && (x.im !== undefined || x.imag !== undefined);
 
     const formatEntry = (x) => {
-        if (isComplex(x)) {
-            return formatComplex(x, precision);
-        } else if (typeof x === 'number') {
-            return formatReal(x, precision);
-        } else if (x && x.toLatex) {
+        // Always respect objects with toLatex method (these are exact by definition)
+        if (x && x.toLatex) {
             return x.toLatex();
+        } else if (isComplex(x)) {
+            return formatComplex(x, precision, useAlgebraic);
+        } else if (typeof x === 'number') {
+            return formatReal(x, precision, useAlgebraic);
         } else {
             return String(x);
         }

@@ -5,7 +5,7 @@
 
 export const colorPalettes = {
     cyanPurple: {
-        name: "Cyan/Purple",
+        name: "Vaporwave",
         description: "Deep purple through cyan with pink accents",
         colors: [
             { t: 0.0, rgb: [0.3, 0.1, 0.6] },    // Deep purple
