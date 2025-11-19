@@ -33,154 +33,145 @@
 <body class="flex flex-col md:flex-row h-screen antialiased">
     <!-- Controls and Info Panel -->
     <div id="control-panel"
-        class="absolute top-4 right-4 w-96 max-h-[90vh] p-6 bg-gray-800 shadow-lg flex flex-col space-y-4 overflow-y-auto rounded-lg z-40 transition-transform transform"
+        class="absolute top-4 right-4 w-96 max-h-[90vh] shadow-lg flex flex-col overflow-x-hidden rounded-lg z-40 transition-transform transform"
         style="transform: translateX(0);">
-        <!-- Panel Header: Pager + Collapse -->
-        <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-                <button id="page-left"
-                    class="pager-btn w-7 h-7 rounded border border-gray-500 text-gray-200 text-xs flex items-center justify-center"
-                    disabled>◀</button>
-                <button id="page-right"
-                    class="pager-btn w-7 h-7 rounded border border-gray-500 text-gray-200 text-xs flex items-center justify-center">▶</button>
-            </div>
-        </div>
-        <div id="page-1" class="panel-page active">
-            <div>
-                <h2 class="text-xl font-semibold text-white mb-2">Matrix Input (PSL(2,R))</h2>
-                <p class="text-sm text-gray-400 mb-3">Input generators as 2×2 matrices with real entries.</p>
-            </div>
-
-            <div>
-                <div id="matrixInputs"></div>
-                <button id="addMatrixBtn"
-                    class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-2">
-                    + Add Matrix
-                </button>
-            </div>
-
-            <div class="mt-4">
-                <label for="matrix-example-select" class="block text-sm font-medium text-gray-300 mb-2">Examples</label>
-                <select id="matrix-example-select"
-                    class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="">-- Select an Example --</option>
-                </select>
-            </div>
-
-            <div class="mt-4">
-                <label for="wordLength" class="block text-sm font-medium text-gray-300 mb-2">Word Length</label>
-                <input id="wordLength" type="number" value="4" min="1" step="1"
-                    class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2">
-            </div>
-
-            <button id="render-from-matrices-btn"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-4">
-                Generate from Matrices
+        <!-- Tab Navigation -->
+        <div class="tab-navigation flex gap-2 items-center">
+            <button class="tab-btn active" data-tab="group">Group</button>
+            <button class="tab-btn" data-tab="polyhedron">Polyhedron</button>
+            <button class="tab-btn" data-tab="graphics">Graphics</button>
+            <button id="refresh-btn" class="collapse-btn" title="Render/Generate">
+                <span class="collapse-icon">⟳</span>
             </button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
 
-            <div class="flex items-center space-x-2 mt-4">
-                <input id="toggle-domain-orbit" type="checkbox"
-                    class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
-                <label for="toggle-domain-orbit" class="text-sm text-gray-300">Show domain orbit</label>
-            </div>
-
-            <div class="flex items-center space-x-2 mt-4">
-                <input id="toggle-cayley-graph" type="checkbox"
-                    class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500">
-                <label for="toggle-cayley-graph" class="text-sm text-gray-300">Show Cayley graph</label>
-            </div>
-
-            <p id="matrix-error-message" class="text-red-400 text-sm mt-2 h-4"></p>
-        </div> <!-- end page-1 -->
-
-        <!-- Page 2: Vector Input (previously page 1) -->
-        <div id="page-2" class="panel-page">
-            <div>
-                <h1 class="text-2xl font-bold text-white">Hyperbolic 2-Space</h1>
-                <p class="text-sm text-gray-400 mt-1">Poincaré Disk Model Visualization</p>
-            </div>
-
-            <div>
-                <label for="vectors" class="block text-sm font-medium text-gray-300 mb-2">Input Vectors S = {v₁, v₂,
-                    ...}</label>
-                <div id="vector-input" class="relative">
-                    <div id="vector-gutter"
-                        class="absolute left-0 top-0 bottom-0 w-20 bg-gray-800/60 border-r border-gray-700 overflow-hidden rounded-l-md">
-                    </div>
-                    <textarea id="vectors" rows="8"
-                        class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono pl-24 leading-6"></textarea>
+        <div class="panel-content">
+            <!-- Group Tab (Matrix Input) -->
+            <div id="tab-group" class="tab-content active">
+                <div>
+                    <h2 class="text-xl font-semibold text-white mb-2">Matrix Input (PSL(2,R))</h2>
+                    <p class="text-sm text-gray-400 mb-3">Input generators as 2×2 matrices with real entries.</p>
                 </div>
-                <p id="error-message" class="text-red-400 text-sm mt-2 h-4"></p>
-                <p id="selected-face-normal" class="text-xs text-gray-300 mt-1 h-4"></p>
-                <p id="selected-edge" class="text-sm text-gray-200 mt-2 mb-2 min-h-[3rem] whitespace-pre-wrap"></p>
-                <p id="selected-face-meta" class="text-xs text-gray-300 mt-1 whitespace-pre-wrap"></p>
+
+                <div class="control-group p-3">
+                    <div id="matrixInputs"></div>
+                    <button id="addMatrixBtn"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-2">
+                        + Add Matrix
+                    </button>
+                </div>
+
+                <div class="control-group p-3 mt-3">
+                    <div class="flex items-center gap-2 mb-3">
+                        <label for="matrix-example-select" class="text-sm font-medium text-gray-300">Examples</label>
+                        <select id="matrix-example-select"
+                            class="flex-1 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            <option value="">-- Select an Example --</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="wordLength" class="text-sm font-medium text-gray-300">Word Length</label>
+                        <input id="wordLength" type="number" value="4" min="1" step="1"
+                            class="flex-1 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2">
+                    </div>
+                </div>
+
+                <button id="render-from-matrices-btn"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-3">
+                    Generate from Matrices
+                </button>
+
+                <p id="matrix-error-message" class="text-red-400 text-sm mt-2"></p>
             </div>
 
-            <div>
-                <select id="example-select"
-                    class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="">-- Select an Example --</option>
-                </select>
+            <!-- Polyhedron Tab (Vector Input) -->
+            <div id="tab-polyhedron" class="tab-content">
+                <div>
+                    <h1 class="text-2xl font-bold text-white">Hyperbolic 2-Space</h1>
+                    <p class="text-sm text-gray-400 mt-1">Poincaré Disk Model Visualization</p>
+                </div>
+
+                <div class="control-group p-3">
+                    <label for="vectors" class="block text-sm font-medium text-gray-300 mb-2">Input Vectors S = {v₁, v₂,
+                        ...}</label>
+                    <div id="vector-input" class="relative">
+                        <div id="vector-gutter"
+                            class="absolute left-0 top-0 bottom-0 w-20 bg-gray-800/60 border-r border-gray-700 overflow-hidden rounded-l-md">
+                        </div>
+                        <textarea id="vectors" rows="8"
+                            class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono pl-24 leading-6"></textarea>
+                    </div>
+                    <p id="error-message" class="text-red-400 text-sm mt-2"></p>
+                    <p id="selected-face-normal" class="text-xs text-gray-300 mt-1 h-4"></p>
+                    <p id="selected-edge" class="text-sm text-gray-200 mt-2 mb-2 min-h-[3rem] whitespace-pre-wrap"></p>
+                    <p id="selected-face-meta" class="text-xs text-gray-300 mt-1 whitespace-pre-wrap"></p>
+                </div>
+
+                <div class="control-group p-3">
+                    <select id="example-select"
+                        class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <option value="">-- Select an Example --</option>
+                    </select>
+                </div>
+
+                <button id="render-btn"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-3">
+                    Render Disk
+                </button>
+
+                <div class="info text-xs text-gray-500 p-3 mt-3">
+                    <p><strong>Controls:</strong> Click on a geodesic to select it.</p>
+                    <p><strong>Selection:</strong> Click a face to select it and view its metadata.</p>
+                </div>
             </div>
 
-            <button id="render-btn"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
-                Render Disk
-            </button>
+            <!-- Graphics Tab -->
+            <div id="tab-graphics" class="tab-content">
+                <div>
+                    <h2 class="text-xl font-semibold text-white mb-2">Color Palette</h2>
+                    <p class="text-sm text-gray-400 mb-3">Choose how faces are colored.</p>
+                </div>
+                <div class="control-group p-3">
+                    <label for="palette-select" class="block text-sm font-medium text-gray-300 mb-2">Palette</label>
+                    <select id="palette-select"
+                        class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <option value="colorful" selected>colorful</option>
+                        <option value="vaporwave">vaporwave</option>
+                        <option value="uc">UC colors (blue & gold)</option>
+                        <option value="halloween">halloween</option>
+                        <option value="tie-dye">tie-dye</option>
+                        <option value="sunset">sunset</option>
+                    </select>
+                </div>
 
-            <div class="flex items-center space-x-2">
-                <input id="toggle-boundary" type="checkbox"
-                    class="h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500" checked>
-                <label for="toggle-boundary" class="text-sm text-gray-300">Show boundary circle</label>
-            </div>
+                <div class="control-group p-3 mt-3">
+                    <button id="toggle-boundary-btn" class="toggle-btn active">Show boundary circle</button>
+                    <button id="toggle-domain-orbit-btn" class="toggle-btn">Show domain orbit</button>
+                    <button id="toggle-cayley-graph-btn" class="toggle-btn">Show Cayley graph</button>
+                </div>
 
-            <div class="text-xs text-gray-500 pt-4 border-t border-gray-700">
-                <p><strong>Controls:</strong> Click on a geodesic to select it.</p>
-                <p><strong>Selection:</strong> Click a face to select it and view its metadata.</p>
-            </div>
-        </div> <!-- end page-2 -->
-
-        <!-- Page 3: Color Palette (previously page 2) -->
-        <div id="page-3" class="panel-page">
-            <div>
-                <h2 class="text-xl font-semibold text-white mb-2">Color Palette</h2>
-                <p class="text-sm text-gray-400 mb-3">Choose how faces are colored. This affects both the rendering and
-                    the gutter.</p>
-                <label for="palette-select" class="block text-sm font-medium text-gray-300 mb-1">Palette</label>
-                <select id="palette-select"
-                    class="block w-full rounded-md bg-gray-700 border-gray-600 text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                    <option value="colorful" selected>colorful</option>
-                    <option value="vaporwave">vaporwave</option>
-                    <option value="uc">UC colors (blue & gold)</option>
-                    <option value="halloween">halloween</option>
-                    <option value="tie-dye">tie-dye</option>
-                    <option value="sunset">sunset</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Page 4: How it Works (previously page 3) -->
-        <div id="page-4" class="panel-page">
-            <div class="info-panel text-sm text-gray-400 bg-gray-900/50 p-4 rounded-lg">
-                <h2 class="font-semibold text-white mb-2">How it Works</h2>
-                <p>This tool visualizes the Dirichlet domain in the Poincaré disk model of hyperbolic 2-space.</p>
-                <ol class="list-decimal list-inside mt-2 space-y-1">
-                    <li>Enter a set of 3D vectors <code>[x, y, t]</code> above.</li>
-                    <li>Each vector <code>v</code> must be <strong>spacelike</strong> (i.e., x²+y² > t²).</li>
-                    <li>You may also enter lines like <code>(a, b, c, d)</code>. These are interpreted as 2×2 real matrices
-                        <code>\begin{pmatrix}a & b \\ c & d\end{pmatrix}</code> in PSL(2,ℝ); we map them to SO(2,1) and compute
-                        their geodesics automatically.</li>
-                    <li>The final coordinate <strong>t must be nonpositive (<= 0)</strong>.</li>
-                </ol>
-                <p class="mt-2">The point (0,0,1) in Minkowski space R^{2,1} corresponds to the center of the disk.</p>
+                <!-- About Section -->
+                <div class="info text-sm text-gray-400 p-3 mt-3">
+                    <h2 class="font-semibold text-white mb-2">How it Works</h2>
+                    <p>This tool visualizes the Dirichlet domain in the Poincaré disk model of hyperbolic 2-space.</p>
+                    <ol class="list-decimal list-inside mt-2 space-y-1">
+                        <li>Enter a set of 3D vectors <code>[x, y, t]</code>.</li>
+                        <li>Each vector <code>v</code> must be <strong>spacelike</strong> (i.e., x²+y² > t²).</li>
+                        <li>You may also enter lines like <code>(a, b, c, d)</code>. These are interpreted as 2×2 real
+                            matrices
+                            <code>\begin{pmatrix}a & b \\ c & d\end{pmatrix}</code> in PSL(2,ℝ).
+                        </li>
+                        <li>The final coordinate <strong>t must be nonpositive (<= 0)</strong>.</li>
+                    </ol>
+                    <p class="mt-2">The point (0,0,1) in Minkowski space R^{2,1} corresponds to the center of the disk.
+                    </p>
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- Panel Toggle Button (kept visible even when panel is collapsed) -->
-    <button id="toggle-panel-btn"
-        class="fixed top-4 right-4 rounded-full w-8 h-8 flex items-center justify-center z-50 border border-gray-400 text-gray-300 hover:bg-gray-700"
-        title="Collapse/Expand control panel">☰</button>
 
     <!-- 2D Canvas Container -->
     <div id="container" class="flex-grow h-full w-full relative">
@@ -189,8 +180,8 @@
 
     <!-- 3D Label Overlay for face metadata -->
     <div id="face-label-overlay"
-         class="absolute pointer-events-none bg-gray-900/90 text-white px-3 py-2 rounded-lg shadow-lg border border-gray-600 hidden"
-         style="z-index: 30; max-width: 300px;">
+        class="absolute pointer-events-none bg-gray-900/90 text-white px-3 py-2 rounded-lg shadow-lg border border-gray-600 hidden"
+        style="z-index: 30; max-width: 300px;">
         <div id="face-label-content"></div>
     </div>
 

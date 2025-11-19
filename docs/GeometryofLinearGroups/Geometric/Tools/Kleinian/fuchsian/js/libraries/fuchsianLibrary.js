@@ -53,7 +53,7 @@ export const exampleLibrary = [
     },
     {
         name: 'Long-Reid Group',
-        mats: [['3', '0', '0', '\\frac{1}{3}'], ['\\frac{1}{8}', '\\frac{9}{8}', '\\frac{2}{8}', '\\frac{82}{8}']]
+        mats: [['3', '0', '0', '\\frac{1}{3}'], ['\\frac{82}{8}', '\\frac{2}{8}', '\\frac{9}{8}', '\\frac{1}{8}']]
     },
     {
         name: 'Congruence subgroup Γ₀(2)',

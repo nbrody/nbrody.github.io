@@ -11,7 +11,7 @@ import {
     computeEdgeCycleByPairings,
     formatAngle
 } from './utils.js';
-import { renderGutter, highlightGutterFaces, showFaceMeta, setupPager, setupPanelToggle } from './ui.js';
+import { renderGutter, highlightGutterFaces, showFaceMeta, setupTabs, setupPanelToggle } from './ui.js';
 import { setupMatrixInput, getMatricesFromUI, Complex } from './matrixInput.js';
 import { generateGroupElements } from './dirichletUtils.js';
 
@@ -183,6 +183,7 @@ async function updateFromInput(clearGeneratedWords = true) {
     const wordsByLine = [];
     const covRowsByLine = []; // raw covectors [x,y,t], oriented with t<=0
     const wordsByRawLine = []; // word metadata parallel to covRowsByLine
+    const matricesByLine = []; // Store matrix data for each line
 
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
         const line = lines[lineIdx];
@@ -248,6 +249,7 @@ async function updateFromInput(clearGeneratedWords = true) {
                 }
                 covRowsByLine.push([vx, vy, vw]);
                 wordsByRawLine.push(word);
+                matricesByLine.push({ a, b, c, d }); // Store matrix
                 lineKinds.push('raw');
                 lineLocalIdx.push(covRowsByLine.length - 1);
                 wordsByLine.push(word);
@@ -286,6 +288,7 @@ async function updateFromInput(clearGeneratedWords = true) {
 
         covRowsByLine.push([vx, vy, vw]);
         wordsByRawLine.push(word);
+        matricesByLine.push(null); // No matrix for raw vector
         lineKinds.push('raw');
         lineLocalIdx.push(covRowsByLine.length - 1);
         wordsByLine.push(word);
@@ -326,6 +329,10 @@ async function updateFromInput(clearGeneratedWords = true) {
         if (aw > 0) { ax = -ax; ay = -ay; aw = -aw; }
         const nSq = ax * ax + ay * ay;
         const wSq = aw * aw;
+
+        // Get matrix for this face if available
+        const matrix = matricesByLine[iRaw];
+
         if (Math.abs(aw) < 1e-6) {
             // Line through origin in 2D disk: store unit normal
             if (nSq < 1e-12) continue; // skip degenerate
@@ -333,7 +340,7 @@ async function updateFromInput(clearGeneratedWords = true) {
             rawIndexToFaceId.set(iRaw, fid);
             const norm = Math.sqrt(nSq);
             planeNormalsFiltered.push(new Vec2(ax / norm, ay / norm));
-            faceMatricesFiltered.push(null); // No matrix data from vector input
+            faceMatricesFiltered.push(matrix);
         } else {
             // Circle in 2D disk: center = (ax/aw, ay/aw), radius = sqrt(nSq/wSq - 1)
             if (nSq <= wSq) continue; // skip non-spacelike (safety)
@@ -343,7 +350,7 @@ async function updateFromInput(clearGeneratedWords = true) {
             rawIndexToFaceId.set(iRaw, fid);
             sphereCentersFiltered.push(center);
             sphereRadiiFiltered.push(r);
-            faceMatricesFiltered.push(null); // No matrix data from vector input
+            faceMatricesFiltered.push(matrix);
         }
     }
 
@@ -413,7 +420,7 @@ async function updateFromMatrices() {
         console.log('Converting all group elements to covectors...');
         const allCovectors = [];
         const allWords = [];
-        const allSO21Matrices = [];
+        const allPSL2RMatrices = []; // Store PSL(2,R) matrices for renderer
 
         for (const item of groupElements) {
             const mat = item.m;
@@ -455,7 +462,7 @@ async function updateFromMatrices() {
 
             allCovectors.push([vx, vy, vw]);
             allWords.push(word);
-            allSO21Matrices.push(so21);
+            allPSL2RMatrices.push({ a, b, c, d });
         }
 
         console.log(`Converted ${allCovectors.length} group elements to covectors`);
@@ -519,7 +526,7 @@ async function updateFromMatrices() {
         const vectorsWithMeta = standardGeneratorIndices.map(idx => ({
             vector: allCovectors[idx],
             word: allWords[idx],
-            matrix: allSO21Matrices[idx]
+            matrix: allPSL2RMatrices[idx]
         }));
 
         // Step 6: Format and populate page 2 with vectors
@@ -1223,11 +1230,12 @@ function setupEventHandlers() {
     document.getElementById('render-btn').addEventListener('click', updateFromInput);
 
     // Boundary toggle
-    const boundaryToggle = document.getElementById('toggle-boundary');
+    const boundaryToggle = document.getElementById('toggle-boundary-btn');
     if (boundaryToggle) {
-        boundaryToggle.addEventListener('change', (e) => {
+        boundaryToggle.addEventListener('click', () => {
+            boundaryToggle.classList.toggle('active');
             if (renderer) {
-                renderer.showBoundary = e.target.checked;
+                renderer.showBoundary = boundaryToggle.classList.contains('active');
                 renderer.render();
             }
         });
@@ -1250,22 +1258,24 @@ function setupEventHandlers() {
     }
 
     // Domain orbit toggle
-    const domainOrbitToggle = document.getElementById('toggle-domain-orbit');
+    const domainOrbitToggle = document.getElementById('toggle-domain-orbit-btn');
     if (domainOrbitToggle) {
-        domainOrbitToggle.addEventListener('change', (e) => {
+        domainOrbitToggle.addEventListener('click', () => {
+            domainOrbitToggle.classList.toggle('active');
             if (renderer) {
-                renderer.showDomainOrbit = e.target.checked;
+                renderer.showDomainOrbit = domainOrbitToggle.classList.contains('active');
                 renderer.render();
             }
         });
     }
 
     // Cayley graph toggle
-    const cayleyGraphToggle = document.getElementById('toggle-cayley-graph');
+    const cayleyGraphToggle = document.getElementById('toggle-cayley-graph-btn');
     if (cayleyGraphToggle) {
-        cayleyGraphToggle.addEventListener('change', (e) => {
+        cayleyGraphToggle.addEventListener('click', () => {
+            cayleyGraphToggle.classList.toggle('active');
             if (renderer) {
-                renderer.showCayleyGraph = e.target.checked;
+                renderer.showCayleyGraph = cayleyGraphToggle.classList.contains('active');
                 renderer.render();
             }
         });
@@ -1317,7 +1327,7 @@ async function setupUI() {
     }
 
 
-    setupPager();
+    setupTabs();
     setupPanelToggle();
 
     // Setup matrix input

@@ -766,60 +766,127 @@ export class PoincareRenderer {
 
     drawCayleyGraph() {
         const ctx = this.ctx;
-        const basepoint = { x: 0, y: 0 };
-        const maxDepth = 3;
+        const maxDepth = 4;
 
-        const generators = this.faceMatrices.filter(m => m);
+        // Identify generator indices and matrices
+        const generators = [];
+        for (let i = 0; i < this.faceMatrices.length; i++) {
+            if (this.faceMatrices[i]) {
+                generators.push({
+                    matrix: this.faceMatrices[i],
+                    faceId: i
+                });
+            }
+        }
+
         if (generators.length === 0) return;
 
-        let orbit = new Map();
-        const originKey = `${basepoint.x.toFixed(12)},${basepoint.y.toFixed(12)}`;
-        orbit.set(originKey, { point: basepoint, from: null, faceId: -1, depth: 0 });
+        // Helper to multiply 2x2 matrices
+        const multiply = (m1, m2) => {
+            const a1 = m1.a?.re ?? m1.a;
+            const b1 = m1.b?.re ?? m1.b;
+            const c1 = m1.c?.re ?? m1.c;
+            const d1 = m1.d?.re ?? m1.d;
 
-        let queue = [originKey];
-        
+            const a2 = m2.a?.re ?? m2.a;
+            const b2 = m2.b?.re ?? m2.b;
+            const c2 = m2.c?.re ?? m2.c;
+            const d2 = m2.d?.re ?? m2.d;
+
+            return {
+                a: a1 * a2 + b1 * c2,
+                b: a1 * b2 + b1 * d2,
+                c: c1 * a2 + d1 * c2,
+                d: c1 * b2 + d1 * d2
+            };
+        };
+
+        // Helper to get disk point from matrix (applying to origin)
+        const getPoint = (matrix) => {
+            // Origin in Minkowski is (0, 0, 1)
+            const p = this.applyMatrixToPoint(matrix, [0, 0, 1]);
+            if (!p) return { x: 0, y: 0 };
+            return { x: p[0] / (1 + p[2]), y: p[1] / (1 + p[2]) };
+        };
+
+        // Helper to get canonical matrix key for PSL(2,R)
+        const getMatrixKey = (m) => {
+            let a = m.a?.re ?? m.a;
+            let b = m.b?.re ?? m.b;
+            let c = m.c?.re ?? m.c;
+            let d = m.d?.re ?? m.d;
+
+            // Normalize: ensure first non-zero element is positive
+            if (a < -1e-9 || (Math.abs(a) < 1e-9 && (b < -1e-9 || (Math.abs(b) < 1e-9 && (c < -1e-9 || (Math.abs(c) < 1e-9 && d < -1e-9)))))) {
+                a = -a; b = -b; c = -c; d = -d;
+            }
+            return `${a.toFixed(4)},${b.toFixed(4)},${c.toFixed(4)},${d.toFixed(4)}`;
+        };
+
+        const identity = { a: 1, b: 0, c: 0, d: 1 };
+        const originPoint = { x: 0, y: 0 };
+
+        // BFS
+        let visited = new Map();
+        const startKey = getMatrixKey(identity);
+        visited.set(startKey, { matrix: identity, point: originPoint, depth: 0 });
+
+        let queue = [startKey];
         let head = 0;
-        while(head < queue.length) {
+
+        // Store edges to draw
+        const edges = [];
+
+        while (head < queue.length) {
             const currentKey = queue[head++];
-            const currentElement = orbit.get(currentKey);
+            const current = visited.get(currentKey);
 
-            if (currentElement.depth >= maxDepth) continue;
+            if (current.depth >= maxDepth) continue;
 
-            for (let j = 0; j < generators.length; j++) {
-                const generator = generators[j];
-                const faceId = this.faceMatrices.indexOf(generator);
-                const newPoint = this.applyTransformation(currentElement.point, faceId, false);
+            for (const gen of generators) {
+                // Right multiplication: current * generator
+                const nextMatrix = multiply(current.matrix, gen.matrix);
+                const nextKey = getMatrixKey(nextMatrix);
 
-                if (newPoint) {
-                    const newKey = `${newPoint.x.toFixed(12)},${newPoint.y.toFixed(12)}`;
-                    if (!orbit.has(newKey)) {
-                        orbit.set(newKey, { point: newPoint, from: currentElement.point, faceId: faceId, depth: currentElement.depth + 1 });
-                        queue.push(newKey);
-                    }
+                // Calculate point for next matrix
+                const nextPoint = getPoint(nextMatrix);
+
+                // Add edge
+                edges.push({
+                    p1: current.point,
+                    p2: nextPoint,
+                    color: this.getFaceColor(gen.faceId)
+                });
+
+                if (!visited.has(nextKey)) {
+                    visited.set(nextKey, {
+                        matrix: nextMatrix,
+                        point: nextPoint,
+                        depth: current.depth + 1
+                    });
+                    queue.push(nextKey);
                 }
             }
         }
 
         // Draw edges
-        for (const element of orbit.values()) {
-            if (element.from && element.faceId !== -1) {
-                const p1 = this.diskToScreen(element.from.x, element.from.y);
-                const p2 = this.diskToScreen(element.point.x, element.point.y);
-                ctx.beginPath();
-                ctx.moveTo(p1.x, p1.y);
-                ctx.lineTo(p2.x, p2.y);
-                ctx.strokeStyle = this.getFaceColor(element.faceId);
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
+        ctx.lineWidth = 1;
+        for (const edge of edges) {
+            const p1 = this.diskToScreen(edge.p1.x, edge.p1.y);
+            const p2 = this.diskToScreen(edge.p2.x, edge.p2.y);
+            ctx.strokeStyle = edge.color;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
         }
 
-        // Draw points
-        for (const element of orbit.values()) {
-            const screenPoint = this.diskToScreen(element.point.x, element.point.y);
+        // Draw vertices
+        ctx.fillStyle = '#FFF';
+        for (const node of visited.values()) {
+            const p = this.diskToScreen(node.point.x, node.point.y);
             ctx.beginPath();
-            ctx.arc(screenPoint.x, screenPoint.y, 5, 0, 2 * Math.PI);
-            ctx.fillStyle = 'white';
+            ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
             ctx.fill();
         }
     }
@@ -1020,18 +1087,18 @@ export class PoincareRenderer {
             const hue2rgb = (p, q, t) => {
                 if (t < 0) t += 1;
                 if (t > 1) t -= 1;
-                if (t < 1/6) return p + (q - p) * 6 * t;
-                if (t < 1/2) return q;
-                if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                if (t < 1 / 6) return p + (q - p) * 6 * t;
+                if (t < 1 / 2) return q;
+                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
                 return p;
             };
 
             const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
             const p = 2 * l - q;
 
-            r = hue2rgb(p, q, h + 1/3);
+            r = hue2rgb(p, q, h + 1 / 3);
             g = hue2rgb(p, q, h);
-            b = hue2rgb(p, q, h - 1/3);
+            b = hue2rgb(p, q, h - 1 / 3);
         }
 
         return {
