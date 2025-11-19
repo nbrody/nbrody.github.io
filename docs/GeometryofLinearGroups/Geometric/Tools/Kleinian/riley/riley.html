@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kleinian Limit Set Visualizer</title>
+    <style>
+        :root {
+            --bg-color: #0f0f13;
+            --panel-bg: rgba(30, 30, 35, 0.8);
+            --text-color: #e0e0e0;
+            --accent-color: #4facfe;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Main Canvas Container */
+        #canvas-container {
+            position: relative;
+            flex-grow: 1;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+
+        #canvas-container:active {
+            cursor: grabbing;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            pointer-events: none;
+            /* Let clicks pass through to canvas where not on controls */
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: auto;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+            color: #aaa;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: #444;
+            border-radius: 2px;
+            appearance: none;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Z-Plane Control Specifics */
+        #z-control-container {
+            position: relative;
+            width: 100%;
+            padding-top: 100%;
+            /* 1:1 Aspect Ratio */
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #444;
+        }
+
+        #z-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .info-text {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 5px;
+            text-align: center;
+        }
+
+        .value-display {
+            font-family: monospace;
+            color: #fff;
+        }
+
+        #loading {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #666;
+            font-size: 0.8rem;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="canvas-container">
+        <canvas id="main-canvas"></canvas>
+    </div>
+
+    <div id="ui-layer">
+        <!-- Z Parameter Control -->
+        <div class="panel">
+            <h1>Parameter Z</h1>
+            <div id="z-control-container">
+                <canvas id="z-canvas"></canvas>
+            </div>
+            <div class="info-text">
+                <span id="z-val" class="value-display">z = 1.366 + 0.248 i</span>
+            </div>
+            <div class="info-text" style="margin-top:8px; font-style: italic;">
+                Drag point to morph group
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="panel">
+            <h1>Settings</h1>
+
+            <div class="control-group">
+                <label>Iteration Depth <span id="depth-val" class="value-display">14</span></label>
+                <input type="range" id="depth-slider" min="5" max="25" step="1" value="14">
+            </div>
+
+            <div class="control-group">
+                <label>Zoom <span id="zoom-val" class="value-display">150</span></label>
+                <input type="range" id="zoom-slider" min="10" max="500" step="10" value="150">
+            </div>
+
+            <div class="control-group">
+                <label>Coloring</label>
+                <select id="color-mode"
+                    style="width: 100%; background: #444; color: white; border: none; padding: 5px; border-radius: 4px;">
+                    <option value="lastOp">Last Operation</option>
+                    <option value="firstOp">First Operation</option>
+                    <option value="depth">Depth</option>
+                    <option value="parity">Parity</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Examples</label>
+                <select id="examples-select"
+                    style="width: 100%; background: #444; color: white; border: none; padding: 5px; border-radius: 4px;">
+                    <option value="">-- Select --</option>
+                    <option value='{"re":2,"im":0}'>Classic Schottky (2.0, 0.0)</option>
+                    <option value='{"re":1.366,"im":0.248}' selected>Riley Slice Boundary</option>
+                    <option value='{"re":1.9,"im":0.05}'>Spiral</option>
+                    <option value='{"re":0.5,"im":1.5}'>Grandma's Recipe</option>
+                    <option value='{"re":0,"im":2}'>Square Lattice</option>
+                </select>
+            </div>
+
+            <div class="control-group" style="margin-top: 15px;">
+                <button id="save-btn"
+                    style="width: 100%; background: var(--accent-color); color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">Save
+                    State (Copy URL)</button>
+            </div>
+
+            <div class="info-text">
+                Scroll or Drag main view to navigate.<br>
+                Higher depth = more detail but slower.
+            </div>
+        </div>
+    </div>
+
+    <div id="loading">Rendering...</div>
+
+    <script>
+        /**
+         * Kleinian Group Limit Set Visualizer
+         * Group generated by:
+         * A(w) = w + z
+         * B(w) = -1 / w
+         */
+
+        // --- Configuration & State ---
+        const state = {
+            z: { re: 1.366, im: 0.248 }, // Updated default
+            depth: 14,
+            colorMode: 'lastOp', // 'lastOp', 'firstOp', 'depth', 'parity'
+
+            // Viewport for the main fractal
+            view: {
+                x: 0,
+                y: 0,
+                scale: 150 // Pixels per unit
+            },
+
+            // Viewport for the Z-control plane
+            zView: {
+                scale: 60, // Pixels per unit in Z-plane
+                range: 2.5 // visible range +/-
+            },
+
+            isDraggingZ: false,
+            isDraggingView: false,
+            lastMouse: { x: 0, y: 0 }
+        };
+
+        // DOM Elements
+        const mainCanvas = document.getElementById('main-canvas');
+        const zCanvas = document.getElementById('z-canvas');
+        const mainCtx = mainCanvas.getContext('2d', { alpha: false });
+        const zCtx = zCanvas.getContext('2d');
+
+        const uiRefs = {
+            zVal: document.getElementById('z-val'),
+            depthSlider: document.getElementById('depth-slider'),
+            depthVal: document.getElementById('depth-val'),
+            zoomSlider: document.getElementById('zoom-slider'),
+            zoomVal: document.getElementById('zoom-val'),
+            colorMode: document.getElementById('color-mode'),
+            examples: document.getElementById('examples-select'),
+            saveBtn: document.getElementById('save-btn'),
+            loading: document.getElementById('loading')
+        };
+
+        // --- Math & Algorithm ---
+
+        function generateLimitSetPoints() {
+            const maxDepth = state.depth;
+            let currentRe = [0];
+            let currentIm = [0];
+            let currentOp = [-1];
+            let currentFirstOp = [-1]; // Track first operation
+
+            const pointsToDraw = [];
+
+            for (let d = 0; d < maxDepth; d++) {
+                const nextRe = [];
+                const nextIm = [];
+                const nextOp = [];
+                const nextFirstOp = [];
+
+                const zRe = state.z.re;
+                const zIm = state.z.im;
+
+                const len = currentRe.length;
+
+                for (let i = 0; i < len; i++) {
+                    const wRe = currentRe[i];
+                    const wIm = currentIm[i];
+                    const last = currentOp[i];
+                    const first = currentFirstOp[i];
+
+                    // Apply A: w + z
+                    if (last !== 1) {
+                        nextRe.push(wRe + zRe);
+                        nextIm.push(wIm + zIm);
+                        nextOp.push(0);
+                        nextFirstOp.push(d === 0 ? 0 : first);
+                    }
+
+                    // Apply A': w - z
+                    if (last !== 0) {
+                        nextRe.push(wRe - zRe);
+                        nextIm.push(wIm - zIm);
+                        nextOp.push(1);
+                        nextFirstOp.push(d === 0 ? 1 : first);
+                    }
+
+                    // Apply B: -1/w
+                    if (last !== 2) {
+                        const distSq = wRe * wRe + wIm * wIm;
+                        if (distSq > 1e-12) {
+                            const invDist = 1.0 / distSq;
+                            nextRe.push(-wRe * invDist);
+                            nextIm.push(wIm * invDist);
+                            nextOp.push(2);
+                            nextFirstOp.push(d === 0 ? 2 : first);
+                        }
+                    }
+                }
+
+                if (d > 4) {
+                    const nextLen = nextRe.length;
+                    for (let k = 0; k < nextLen; k++) {
+                        // Store: re, im, op, depth, firstOp
+                        pointsToDraw.push(nextRe[k], nextIm[k], nextOp[k], d, nextFirstOp[k]);
+                    }
+                }
+
+                currentRe = nextRe;
+                currentIm = nextIm;
+                currentOp = nextOp;
+                currentFirstOp = nextFirstOp;
+
+                if (currentRe.length > 300000) break;
+            }
+
+            return pointsToDraw;
+        }
+
+        // --- Rendering ---
+
+        function drawMainCanvas() {
+            const width = mainCanvas.width;
+            const height = mainCanvas.height;
+            const cx = width / 2 + state.view.x;
+            const cy = height / 2 + state.view.y;
+            const scale = state.view.scale;
+
+            mainCtx.fillStyle = "#0f0f13";
+            mainCtx.fillRect(0, 0, width, height);
+
+            uiRefs.loading.style.opacity = 1;
+            // Use setTimeout to allow UI to update before heavy calculation
+            setTimeout(() => {
+                const points = generateLimitSetPoints();
+                uiRefs.loading.style.opacity = 0;
+
+                const imgData = mainCtx.createImageData(width, height);
+                const data = imgData.data;
+
+                const pLen = points.length;
+                // Stride is now 5: re, im, op, depth, firstOp
+                for (let i = 0; i < pLen; i += 5) {
+                    const re = points[i];
+                    const im = points[i + 1];
+                    const op = points[i + 2];
+                    const depth = points[i + 3];
+                    const firstOp = points[i + 4];
+
+                    const sx = Math.floor(cx + re * scale);
+                    const sy = Math.floor(cy - im * scale);
+
+                    if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
+                        const idx = (sy * width + sx) * 4;
+
+                        let r, g, b;
+
+                        if (state.colorMode === 'lastOp') {
+                            if (op === 0) { r = 255; g = 100; b = 100; }
+                            else if (op === 1) { r = 100; g = 150; b = 255; }
+                            else { r = 255; g = 255; b = 100; }
+                        } else if (state.colorMode === 'firstOp') {
+                            if (firstOp === 0) { r = 255; g = 100; b = 100; }
+                            else if (firstOp === 1) { r = 100; g = 150; b = 255; }
+                            else { r = 255; g = 255; b = 100; }
+                        } else if (state.colorMode === 'depth') {
+                            // Gradient from blue to pink/white based on depth
+                            const t = (depth - 5) / (state.depth - 5);
+                            r = 50 + 200 * t;
+                            g = 100 + 50 * t;
+                            b = 255 - 100 * t;
+                        } else if (state.colorMode === 'parity') {
+                            if (depth % 2 === 0) { r = 255; g = 100; b = 255; }
+                            else { r = 100; g = 255; b = 255; }
+                        }
+
+                        data[idx] = r;
+                        data[idx + 1] = g;
+                        data[idx + 2] = b;
+                        data[idx + 3] = 255;
+                    }
+                }
+
+                mainCtx.putImageData(imgData, 0, 0);
+                drawAxes(cx, cy, width, height);
+            }, 0);
+        }
+
+        function drawAxes(cx, cy, width, height) {
+            mainCtx.strokeStyle = "#333";
+            mainCtx.lineWidth = 1;
+            mainCtx.beginPath();
+            mainCtx.moveTo(0, cy);
+            mainCtx.lineTo(width, cy);
+            mainCtx.moveTo(cx, 0);
+            mainCtx.lineTo(cx, height);
+            mainCtx.stroke();
+        }
+
+        function drawZCanvas() {
+            const w = zCanvas.width;
+            const h = zCanvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const scale = state.zView.scale;
+
+            zCtx.fillStyle = "#000";
+            zCtx.fillRect(0, 0, w, h);
+
+            // Grid
+            zCtx.strokeStyle = "#333";
+            zCtx.lineWidth = 1;
+
+            // Unit Circle
+            zCtx.beginPath();
+            zCtx.arc(cx, cy, scale * 2, 0, Math.PI * 2);
+            zCtx.strokeStyle = "#2a2a2a";
+            zCtx.stroke();
+
+            zCtx.beginPath();
+            zCtx.arc(cx, cy, scale * 1, 0, Math.PI * 2);
+            zCtx.strokeStyle = "#222";
+            zCtx.stroke();
+
+            // Axes
+            zCtx.beginPath();
+            zCtx.moveTo(0, cy);
+            zCtx.lineTo(w, cy);
+            zCtx.moveTo(cx, 0);
+            zCtx.lineTo(cx, h);
+            zCtx.strokeStyle = "#555";
+            zCtx.stroke();
+
+            // Z Point
+            const zx = cx + state.z.re * scale;
+            const zy = cy - state.z.im * scale;
+
+            // Glow
+            const grad = zCtx.createRadialGradient(zx, zy, 2, zx, zy, 10);
+            grad.addColorStop(0, "#4facfe");
+            grad.addColorStop(1, "transparent");
+            zCtx.fillStyle = grad;
+            zCtx.beginPath();
+            zCtx.arc(zx, zy, 10, 0, Math.PI * 2);
+            zCtx.fill();
+
+            // Dot
+            zCtx.fillStyle = "#fff";
+            zCtx.beginPath();
+            zCtx.arc(zx, zy, 3, 0, Math.PI * 2);
+            zCtx.fill();
+        }
+
+        // --- Interaction Handling ---
+
+        function updateUIValues() {
+            const re = state.z.re.toFixed(3);
+            const im = Math.abs(state.z.im).toFixed(3);
+            const sign = state.z.im >= 0 ? '+' : '-';
+            uiRefs.zVal.textContent = `z = ${re} ${sign} ${im} i`;
+            uiRefs.depthVal.textContent = state.depth;
+            uiRefs.zoomVal.textContent = state.view.scale;
+        }
+
+        function resize() {
+            const container = document.getElementById('canvas-container');
+            mainCanvas.width = container.clientWidth;
+            mainCanvas.height = container.clientHeight;
+
+            const zRect = document.getElementById('z-control-container').getBoundingClientRect();
+            zCanvas.width = zRect.width;
+            zCanvas.height = zRect.height;
+
+            drawMainCanvas();
+            drawZCanvas();
+        }
+
+        // Main Canvas Interaction
+        mainCanvas.addEventListener('mousedown', e => {
+            state.isDraggingView = true;
+            state.lastMouse = { x: e.clientX, y: e.clientY };
+        });
+
+        window.addEventListener('mousemove', e => {
+            if (state.isDraggingView) {
+                const dx = e.clientX - state.lastMouse.x;
+                const dy = e.clientY - state.lastMouse.y;
+                state.view.x += dx;
+                state.view.y += dy;
+                state.lastMouse = { x: e.clientX, y: e.clientY };
+                requestAnimationFrame(drawMainCanvas);
+            }
+            if (state.isDraggingZ) {
+                handleZInteraction(e.clientX, e.clientY);
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            state.isDraggingView = false;
+            state.isDraggingZ = false;
+        });
+
+        mainCanvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const zoomSpeed = 0.05;
+            const factor = e.deltaY > 0 ? (1 - zoomSpeed) : (1 + zoomSpeed);
+            state.view.scale *= factor;
+            state.view.scale = Math.max(10, Math.min(50000, state.view.scale));
+            if (state.view.scale <= 500) uiRefs.zoomSlider.value = Math.floor(state.view.scale);
+            updateUIValues();
+            requestAnimationFrame(drawMainCanvas);
+        });
+
+        // Z-Canvas Interaction
+        zCanvas.addEventListener('mousedown', e => {
+            state.isDraggingZ = true;
+            handleZInteraction(e.clientX, e.clientY);
+        });
+
+        function handleZInteraction(clientX, clientY) {
+            const rect = zCanvas.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+            const w = zCanvas.width;
+            const h = zCanvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const scale = state.zView.scale;
+
+            state.z.re = (x - cx) / scale;
+            state.z.im = -(y - cy) / scale;
+            updateUIValues();
+            requestAnimationFrame(drawZCanvas);
+            requestAnimationFrame(drawMainCanvas);
+        }
+
+        // UI Controls
+        uiRefs.depthSlider.addEventListener('input', e => {
+            state.depth = parseInt(e.target.value);
+            updateUIValues();
+            requestAnimationFrame(drawMainCanvas);
+        });
+
+        uiRefs.zoomSlider.addEventListener('input', e => {
+            state.view.scale = parseInt(e.target.value);
+            updateUIValues();
+            requestAnimationFrame(drawMainCanvas);
+        });
+
+        uiRefs.colorMode.addEventListener('change', e => {
+            state.colorMode = e.target.value;
+            requestAnimationFrame(drawMainCanvas);
+        });
+
+        uiRefs.examples.addEventListener('change', e => {
+            if (e.target.value) {
+                const val = JSON.parse(e.target.value);
+                state.z.re = val.re;
+                state.z.im = val.im;
+                updateUIValues();
+                drawZCanvas();
+                drawMainCanvas();
+            }
+        });
+
+        uiRefs.saveBtn.addEventListener('click', () => {
+            const params = new URLSearchParams();
+            params.set('re', state.z.re.toFixed(4));
+            params.set('im', state.z.im.toFixed(4));
+            params.set('depth', state.depth);
+            params.set('zoom', Math.floor(state.view.scale));
+            params.set('color', state.colorMode);
+
+            const url = window.location.pathname + '#' + params.toString();
+            window.history.replaceState(null, '', url);
+
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                const originalText = uiRefs.saveBtn.textContent;
+                uiRefs.saveBtn.textContent = "Copied!";
+                setTimeout(() => uiRefs.saveBtn.textContent = originalText, 2000);
+            });
+        });
+
+        // Initialization
+        function init() {
+            // Check URL hash for params
+            if (window.location.hash) {
+                const params = new URLSearchParams(window.location.hash.substring(1));
+                if (params.has('re')) state.z.re = parseFloat(params.get('re'));
+                if (params.has('im')) state.z.im = parseFloat(params.get('im'));
+                if (params.has('depth')) state.depth = parseInt(params.get('depth'));
+                if (params.has('zoom')) state.view.scale = parseInt(params.get('zoom'));
+                if (params.has('color')) state.colorMode = params.get('color');
+            }
+
+            // Sync UI
+            uiRefs.depthSlider.value = state.depth;
+            uiRefs.zoomSlider.value = Math.min(500, state.view.scale);
+            uiRefs.colorMode.value = state.colorMode;
+
+            updateUIValues();
+            window.addEventListener('resize', resize);
+            resize();
+        }
+
+        init();
+
+    </script>
+</body>
+
+</html>

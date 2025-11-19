@@ -12,6 +12,7 @@ let scene, camera, renderer, controls;
 let polyhedronGroup = new THREE.Group();
 let delaunayGroup = new THREE.Group();
 let orbitGroup = new THREE.Group();
+let limitSetGroup = new THREE.Group();
 let floor;
 const basepoint = new THREE.Vector3(0, 0, 1);
 
@@ -68,6 +69,7 @@ export function initScene(viewer) {
   scene.add(polyhedronGroup);
   scene.add(delaunayGroup);
   scene.add(orbitGroup);
+  scene.add(limitSetGroup);
 
   window.addEventListener('resize', onWindowResize, false);
 }
@@ -126,6 +128,7 @@ function clearGroup(group) {
 export function clearPolyhedron() { clearGroup(polyhedronGroup); }
 export function clearDelaunay() { clearGroup(delaunayGroup); }
 export function clearOrbit() { clearGroup(orbitGroup); }
+export function clearLimitSet() { clearGroup(limitSetGroup); }
 
 // Canonical key for the bisector between two points
 function bisectorKeyFromPoints(p, q) {
@@ -322,109 +325,115 @@ export function drawOrbitPoints(points) {
   orbitGroup.add(mesh);
 }
 
+// Draw limit set points (projected to z=0)
+export function drawLimitSet(groupElements) {
+  clearLimitSet();
+  if (!groupElements || groupElements.length === 0) return;
+
+  const pts = [];
+  // We'll just project the orbit of o to the boundary
+  for (const item of groupElements) {
+    const g = (item && item.m) ? item.m : item;
+    if (!g) continue;
+    const p = imageOfBasepoint(g);
+    // Only draw if t is small enough to be "near" the boundary, or just draw everything projected
+    // For a true limit set, we want the accumulation points as t -> 0.
+    // We'll just plot (u.re, u.im, 0) for all points.
+    if (isFinite(p.t)) {
+      pts.push(new THREE.Vector3(p.u.re, p.u.im, 0.002)); // Slightly above z=0 to avoid z-fighting with floor if floor is at 0
+    }
+  }
+
+  if (pts.length === 0) return;
+
+  const geometry = new THREE.BufferGeometry().setFromPoints(pts);
+  const material = new THREE.PointsMaterial({
+    color: 0x00ff00,
+    size: 0.015,
+    sizeAttenuation: true
+  });
+  const points = new THREE.Points(geometry, material);
+  limitSetGroup.add(points);
+}
+
 // Main function to generate and draw the polyhedron
-export function generateAndDrawPolyhedron(generators, wordLength, wallOpacity, colorPalette, coloringMode = 'index') {
+// Main function to draw the polyhedron from pre-computed data
+export function drawPolyhedronFromData(data, wallOpacity, colorPalette, coloringMode = 'index') {
   clearPolyhedron();
   clearDelaunay();
   clearOrbit();
+  clearLimitSet();
 
-  const groupElements = generateGroupElements(generators, wordLength);
-  const neighbors = computeDelaunayNeighbors(groupElements, basepoint);
+  if (!data) return;
 
-  const selectedBtn = document.querySelector('button[data-walls-mode].active');
-  const wallsMode = selectedBtn ? selectedBtn.getAttribute('data-walls-mode') : 'all';
+  const { orbitPts, limitSetPts, walls, delaunayEdges } = data;
 
-  if (wallsMode === 'dirichlet') {
-    // Draw exactly one wall per Dirichlet neighbor
-    const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
-    const o = imageOfBasepoint(I);
-    const vO = new THREE.Vector3(o.u.re, o.u.im, o.t);
-    const sList = neighbors
-      .map(n => ({ g: (n && n.g) ? n.g : n, word: n && n.word ? n.word : undefined }))
-      .filter(x => x.g);
-    sList.forEach((sObj, si) => {
-      const s = sObj.g;
-      const p2 = imageOfBasepoint(s);
-      if (!isFinite(p2.t) || p2.t <= 0) return;
-      const vS = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
-      const material = createWallMaterial(si, sList.length, wallOpacity, colorPalette, coloringMode, sObj.word || '');
-      const mesh = drawBisector(vO, vS, material);
+  // Draw Walls
+  if (walls) {
+    walls.forEach(w => {
+      const material = (colorPalette === 'random')
+        ? createWallMaterial(w.randomSeed || Math.random(), 1, wallOpacity, colorPalette, coloringMode, w.word)
+        : createWallMaterial(w.index, w.total, wallOpacity, colorPalette, coloringMode, w.word);
+
+      // Re-hydrate points to Vector3 for Three.js
+      const v1 = new THREE.Vector3(w.p1.x, w.p1.y, w.p1.z);
+      const v2 = new THREE.Vector3(w.p2.x, w.p2.y, w.p2.z);
+
+      const mesh = drawBisector(v1, v2, material);
       if (mesh) {
-        const labelM = repWithNonnegativeRealTrace(s);
-        mesh.userData.labelMatrix = labelM;
-        mesh.userData.latex = matrixToLatex(labelM);
-        mesh.userData.word = sObj.word;
+        // labelMatrix comes as a plain object, we can attach it directly or rehydrate if needed
+        // matrixToLatex in ui.js/geometry.js handles plain objects fine as long as they have a,b,c,d
+        mesh.userData.labelMatrix = w.labelMatrix;
+        mesh.userData.latex = matrixToLatex(w.labelMatrix);
+        mesh.userData.word = w.word;
       }
     });
-  } else if (wallsMode === 'all') {
-    // Draw walls for all generated pairs (g, gs)
-    const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
-    const allG = [I, ...groupElements.map(o => (o && o.m) ? o.m : o)];
-    const neighborsWithWords = neighbors.map(n => ({ g: (n && n.g) ? n.g : n, word: n && n.word ? n.word : '' })).filter(x => x.g);
-
-    const wallKeys = new Set();
-    neighborsWithWords.forEach((sObj, si) => {
-      const s = sObj.g;
-      const perNeighborMaterial = (colorPalette === 'random') ? null : createWallMaterial(si, neighborsWithWords.length, wallOpacity, colorPalette, coloringMode, sObj.word);
-
-      allG.forEach(g => {
-        const p1 = imageOfBasepoint(g);
-        const p2 = imageOfBasepoint(g.multiply(s));
-        if (!isFinite(p1.t) || p1.t <= 0 || !isFinite(p2.t) || p2.t <= 0) return;
-        if (Math.abs(p1.u.re - p2.u.re) < 1e-12 && Math.abs(p1.u.im - p2.u.im) < 1e-12 && Math.abs(p1.t - p2.t) < 1e-12) return;
-        const v1 = new THREE.Vector3(p1.u.re, p1.u.im, p1.t);
-        const v2 = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
-        const key = bisectorKeyFromPoints(v1, v2);
-        if (!key || wallKeys.has(key)) return;
-        wallKeys.add(key);
-
-        const material = (colorPalette === 'random')
-          ? createWallMaterial(Math.random(), 1, wallOpacity, colorPalette, coloringMode, sObj.word)
-          : perNeighborMaterial;
-
-        const mesh = drawBisector(v1, v2, material);
-        if (mesh) {
-          const labelM = repWithNonnegativeRealTrace(s);
-          mesh.userData.labelMatrix = labelM;
-          mesh.userData.latex = matrixToLatex(labelM);
-        }
-      });
-    });
   }
 
+  // Draw Orbit
   const showOrbit = document.getElementById('toggleOrbit')?.classList.contains('active');
-  if (showOrbit) {
-    const orbitPts = computeOrbitPoints(groupElements);
-    drawOrbitPoints(orbitPts);
-  } else {
-    clearOrbit();
+  if (showOrbit && orbitPts) {
+    const pts = orbitPts.map(p => new THREE.Vector3(p.x, p.y, p.z));
+    drawOrbitPoints(pts);
   }
 
+  // Draw Limit Set
+  const showLimit = document.getElementById('toggleLimitSet')?.classList.contains('active');
+  if (showLimit && limitSetPts) {
+    // drawLimitSet expects group elements to compute points, but we already have points
+    // So we need to modify drawLimitSet or create a new one.
+    // Actually, let's just inline the drawing here or modify drawLimitSet to take points.
+    // For cleaner code, let's modify drawLimitSet to take points.
+    drawLimitSetPoints(limitSetPts);
+  }
+
+  // Draw Delaunay
   const showDel = document.getElementById('toggleDelaunay')?.classList.contains('active');
-  if (showDel) {
-    clearDelaunay();
-    const I = new Matrix2(new Complex(1, 0), new Complex(0, 0), new Complex(0, 0), new Complex(1, 0));
-    const allG = [I, ...groupElements.map(o => (o && o.m) ? o.m : o)];
-    const sList = neighbors.map(n => (n && n.g) ? n.g : n).filter(Boolean);
-
-    sList.forEach((s, si) => {
-      const col = colorForIndex(si, sList.length, colorPalette);
+  if (showDel && delaunayEdges) {
+    delaunayEdges.forEach(edge => {
+      const col = colorForIndex(edge.index, edge.total, colorPalette);
       const material = new THREE.LineBasicMaterial({ color: col });
-
-      allG.forEach(g => {
-        const p1 = imageOfBasepoint(g);
-        const p2 = imageOfBasepoint(g.multiply(s));
-        if (!isFinite(p1.t) || p1.t <= 0 || !isFinite(p2.t) || p2.t <= 0) return;
-        if (Math.abs(p1.u.re - p2.u.re) < 1e-12 && Math.abs(p1.u.im - p2.u.im) < 1e-12 && Math.abs(p1.t - p2.t) < 1e-12) return;
-
-        const v1 = new THREE.Vector3(p1.u.re, p1.u.im, p1.t);
-        const v2 = new THREE.Vector3(p2.u.re, p2.u.im, p2.t);
-        drawGeodesicArc(v1, v2, material);
-      });
+      const v1 = new THREE.Vector3(edge.p1.x, edge.p1.y, edge.p1.z);
+      const v2 = new THREE.Vector3(edge.p2.x, edge.p2.y, edge.p2.z);
+      drawGeodesicArc(v1, v2, material);
     });
-  } else {
-    clearDelaunay();
   }
+}
+
+// Helper to draw limit set from points
+function drawLimitSetPoints(pts) {
+  clearLimitSet();
+  if (!pts || pts.length === 0) return;
+
+  const vecPts = pts.map(p => new THREE.Vector3(p.x, p.y, p.z));
+  const geometry = new THREE.BufferGeometry().setFromPoints(vecPts);
+  const material = new THREE.PointsMaterial({
+    color: 0x00ff00,
+    size: 0.015,
+    sizeAttenuation: true
+  });
+  const points = new THREE.Points(geometry, material);
+  limitSetGroup.add(points);
 }
 
 // Canvas click handler for picking walls
@@ -477,5 +486,5 @@ export function saveImage() {
 
 // Export scene objects for external access
 export function getSceneObjects() {
-  return { scene, camera, renderer, controls, polyhedronGroup, delaunayGroup, orbitGroup, floor, basepoint };
+  return { scene, camera, renderer, controls, polyhedronGroup, delaunayGroup, orbitGroup, limitSetGroup, floor, basepoint };
 }

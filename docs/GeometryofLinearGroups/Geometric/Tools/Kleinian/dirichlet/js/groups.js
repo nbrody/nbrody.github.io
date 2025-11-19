@@ -1,7 +1,7 @@
 // groups.js
 // Group theory operations: element generation, orbit computation, and Cayley graph
 
-import * as THREE from 'three';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js';
 import { Complex, Matrix2, keyFromMatrix, keyFromVec } from './geometry.js';
 
 // Generate group elements up to a given word length
