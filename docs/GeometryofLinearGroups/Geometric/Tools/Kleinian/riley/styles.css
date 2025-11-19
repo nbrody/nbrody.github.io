@@ -1,10 +1,12 @@
 body {
     font-family: 'Helvetica', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     line-height: 1.6;
-    color: #d1d5db; /* gray-300 */
+    color: #d1d5db;
+    /* gray-300 */
     margin: 0;
     padding: 20px;
-    background-color: #111827; /* gray-900 */
+    background-color: #111827;
+    /* gray-900 */
     min-height: 100vh;
 }
 
@@ -76,7 +78,8 @@ h2 {
 
 .info-box h3 {
     margin-top: 0;
-    color: #93c5fd; /* blue-300 */
+    color: #93c5fd;
+    /* blue-300 */
 }
 
 .input-group {
@@ -164,7 +167,8 @@ svg text {
 
 .polynomial-display h3 {
     margin-top: 0;
-    color: #f3f4f6; /* gray-100 */
+    color: #f3f4f6;
+    /* gray-100 */
 }
 
 .polynomial {
@@ -180,14 +184,16 @@ svg text {
 
 code {
     background: rgba(255, 255, 255, 0.1);
-    color: #93c5fd; /* blue-300 */
+    color: #93c5fd;
+    /* blue-300 */
     padding: 2px 5px;
     border-radius: 3px;
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 .error {
-    color: #fca5a5; /* red-300 */
+    color: #fca5a5;
+    /* red-300 */
     font-weight: bold;
     padding: 10px;
     background: rgba(239, 68, 68, 0.15);
@@ -218,7 +224,8 @@ canvas {
     border-radius: 8px;
     display: block;
     margin: 20px auto;
-    background-color: #1f2937; /* gray-800 */
+    background-color: #1f2937;
+    /* gray-800 */
     cursor: crosshair;
 }
 
@@ -260,4 +267,153 @@ canvas {
     border-color: rgba(99, 102, 241, 0.4);
     color: rgba(255, 255, 255, 0.95);
     box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
+
+/* Limit Set Visualizer Styles */
+#limit-set-canvas-container {
+    position: relative;
+    width: 100%;
+    height: 600px;
+    background-color: #0f0f13;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    cursor: grab;
+}
+
+#limit-set-canvas-container:active {
+    cursor: grabbing;
+}
+
+#limit-set-main-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    /* Override global canvas margin */
+    border: none;
+    /* Override global canvas border */
+    background-color: transparent;
+}
+
+.visualizer-layout {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.visualizer-main {
+    flex: 1;
+    min-width: 300px;
+}
+
+.visualizer-sidebar {
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.panel {
+    background: rgba(30, 30, 35, 0.8);
+    backdrop-filter: blur(10px);
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.panel h1 {
+    margin: 0 0 10px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #4facfe;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: none;
+    /* Override global h1 border */
+    padding-bottom: 0;
+}
+
+.control-group {
+    margin-bottom: 10px;
+}
+
+.control-group label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-bottom: 5px;
+    color: #aaa;
+}
+
+input[type="range"] {
+    width: 100%;
+    height: 4px;
+    background: #444;
+    border-radius: 2px;
+    appearance: none;
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #4facfe;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* Z-Plane Control Specifics */
+#z-control-container {
+    position: relative;
+    width: 100%;
+    padding-top: 100%;
+    /* 1:1 Aspect Ratio */
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #444;
+}
+
+#z-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    margin: 0;
+    /* Override global canvas margin */
+    border: none;
+    /* Override global canvas border */
+}
+
+.info-text {
+    font-size: 0.75rem;
+    color: #888;
+    margin-top: 5px;
+    text-align: center;
+}
+
+.value-display {
+    font-family: monospace;
+    color: #fff;
+}
+
+#limit-set-loading {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    color: #666;
+    font-size: 0.8rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
 }

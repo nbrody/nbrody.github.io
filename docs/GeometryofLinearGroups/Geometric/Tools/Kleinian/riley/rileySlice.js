@@ -29,7 +29,7 @@ class RileySlice {
         for (let q = 1; q <= this.maxDenom; q++) {
             for (let p = 0; p <= q; p++) {
                 if (gcd(p, q) === 1) {
-                    fractions.push({p, q});
+                    fractions.push({ p, q });
                 }
             }
         }
@@ -463,6 +463,12 @@ class RileySlice {
 
             // Synchronize with the polynomial calculator
             this.syncWithCalculator(closestRoot.polynomial);
+
+            // Dispatch event for other visualizers
+            const event = new CustomEvent('riley-slice-root-selected', {
+                detail: { re: closestRoot.re, im: closestRoot.im }
+            });
+            window.dispatchEvent(event);
         } else {
             // Click on empty space - unpin
             this.clickedRoot = null;
