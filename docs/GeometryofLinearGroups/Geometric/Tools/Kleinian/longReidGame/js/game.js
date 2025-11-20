@@ -128,15 +128,38 @@ function triggerMove(matrixOp) {
 function updateUI(height) {
     const matrixDiv = document.getElementById('matrix-display');
 
-    // Format matrix with large parentheses and no commas
-    const m = currentMatrix.elements;
-    const a = m[0][0].toString();
-    const b = m[0][1].toString();
-    const c = m[1][0].toString();
-    const d = m[1][1].toString();
+    // Get factored form: 1/(2^m * 3^n) * integer matrix
+    const factored = currentMatrix.getFactoredForm();
+    const { power2, power3, intMatrix } = factored;
+
+    // Build denominator string
+    let denomStr = '';
+    if (power2 === 0 && power3 === 0) {
+        denomStr = '1';
+    } else {
+        const parts = [];
+        if (power2 > 0) parts.push(power2 === 1 ? '2' : `2<sup>${power2}</sup>`);
+        if (power3 > 0) parts.push(power3 === 1 ? '3' : `3<sup>${power3}</sup>`);
+        denomStr = parts.join('·');
+    }
+
+    const a = intMatrix[0][0].toString();
+    const b = intMatrix[0][1].toString();
+    const c = intMatrix[1][0].toString();
+    const d = intMatrix[1][1].toString();
+
+    // Create fraction with horizontal bar
+    const fractionHTML = (power2 === 0 && power3 === 0) ? '' : `
+        <div style="display: inline-flex; flex-direction: column; align-items: center; margin-right: 8px;">
+            <div style="font-size: 14px;">1</div>
+            <div style="border-top: 2px solid currentColor; width: 100%; margin: 2px 0;"></div>
+            <div style="font-size: 14px;">${denomStr}</div>
+        </div>
+    `;
 
     matrixDiv.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 5px;">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+            ${fractionHTML}
             <div style="font-size: 40px; line-height: 0.6;">(</div>
             <div style="display: flex; flex-direction: column; gap: 5px;">
                 <div>${a}  ${b}</div>

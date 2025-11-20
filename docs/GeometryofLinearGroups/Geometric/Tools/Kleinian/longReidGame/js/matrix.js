@@ -195,6 +195,39 @@ class Matrix {
         return exponent2 + exponent3;
     }
 
+    getFactoredForm() {
+        // Get the LCM of all denominators
+        const lcm = this.getLCMDenominator();
+
+        // Factor out powers of 2 and 3 from the LCM
+        let temp = lcm;
+        let power2 = 0;
+        let power3 = 0;
+
+        while (temp % 2n === 0n) {
+            power2++;
+            temp /= 2n;
+        }
+
+        while (temp % 3n === 0n) {
+            power3++;
+            temp /= 3n;
+        }
+
+        // Get integer matrix entries by multiplying by LCM
+        const intMatrix = [
+            [this.elements[0][0].numerator * lcm / this.elements[0][0].denominator,
+            this.elements[0][1].numerator * lcm / this.elements[0][1].denominator],
+            [this.elements[1][0].numerator * lcm / this.elements[1][0].denominator,
+            this.elements[1][1].numerator * lcm / this.elements[1][1].denominator]
+        ];
+
+        return {
+            power2,
+            power3,
+            intMatrix
+        };
+    }
 
     toString() {
         return `[[${this.elements[0][0]}, ${this.elements[0][1]}], [${this.elements[1][0]}, ${this.elements[1][1]}]]`;
