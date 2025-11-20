@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+    --neon-pink: #ff71ce;
+    --neon-blue: #01cdfe;
+    --neon-purple: #b967ff;
+    --neon-yellow: #fffb96;
+    --grid-color: rgba(255, 113, 206, 0.4);
+    --bg-color: #050011;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-color);
+    color: var(--neon-blue);
+    font-family: 'Press Start 2P', cursive;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+#game-container {
+    position: relative;
+    width: 800px;
+    height: 600px;
+    border: 4px solid var(--neon-purple);
+    box-shadow: 0 0 20px var(--neon-purple), inset 0 0 20px var(--neon-purple);
+    background: linear-gradient(to bottom, #000022 0%, #2b003b 100%);
+}
+
+canvas {
+    display: block;
+}
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    padding: 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.hud-top {
+    display: flex;
+    justify-content: space-between;
+    text-shadow: 2px 2px 0px #ff00ff;
+}
+
+.hud-bottom {
+    text-align: center;
+    color: var(--neon-yellow);
+    text-shadow: 2px 2px 0px #ff0000;
+    font-size: 12px;
+}
+
+.matrix-display {
+    font-size: 14px;
+    line-height: 1.5;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    border: 2px solid var(--neon-blue);
+    box-shadow: 0 0 10px var(--neon-blue);
+}
+
+.height-display {
+    font-size: 20px;
+    color: var(--neon-pink);
+}
+
+/* CRT Scanline Effect */
+#scanlines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom,
+            rgba(255, 255, 255, 0),
+            rgba(255, 255, 255, 0) 50%,
+            rgba(0, 0, 0, 0.2) 50%,
+            rgba(0, 0, 0, 0.2));
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Sun glow animation */
+@keyframes sun-pulse {
+    0% {
+        box-shadow: 0 0 20px #ff0055;
+    }
+
+    50% {
+        box-shadow: 0 0 40px #ff0055, 0 0 80px #ff71ce;
+    }
+
+    100% {
+        box-shadow: 0 0 20px #ff0055;
+    }
+}
