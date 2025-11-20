@@ -148,6 +148,10 @@ function updateUI(height) {
 
     const heightSpan = document.getElementById('height-value');
     heightSpan.innerText = height;
+
+    // Update solution progress
+    const progressSpan = document.getElementById('solution-progress');
+    progressSpan.innerText = `${solutionIndex}/${solutionWord.length}`;
 }
 
 
