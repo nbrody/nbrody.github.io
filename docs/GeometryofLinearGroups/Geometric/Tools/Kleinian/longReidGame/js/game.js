@@ -14,6 +14,16 @@ let carY = 0; // -1 (Down), 0 (Center), 1 (Up) - Visual offset
 let isMoving = false;
 let moveDirection = null; // 'left', 'right', 'up', 'down'
 
+// Solution word - 'ai' means A inverse, 'bi' means B inverse
+const solutionWord = ['a', 'a', 'b', 'ai', 'ai', 'bi', 'a', 'b', 'a', 'a', 'bi', 'ai', 'bi', 'a', 'a', 'b',
+    'ai', 'b', 'a', 'a', 'bi', 'ai', 'bi', 'a', 'b', 'a', 'bi', 'a', 'b', 'ai', 'b', 'a',
+    'a', 'bi', 'a', 'a', 'a', 'b', 'ai', 'ai', 'bi', 'a', 'bi', 'ai', 'ai', 'b', 'b', 'a',
+    'bi', 'ai', 'ai', 'b', 'ai', 'bi', 'a', 'bi', 'ai', 'ai', 'b', 'a', 'bi', 'a', 'a',
+    'b', 'ai', 'b', 'a', 'bi', 'a', 'b', 'ai', 'b', 'a', 'a', 'bi', 'a', 'a', 'a', 'b',
+    'ai', 'ai', 'bi'];
+let solutionIndex = 0;
+let autoPlay = false;
+
 // Assets (Procedural for now)
 const sunGradient = ctx.createLinearGradient(0, 0, 0, 200);
 sunGradient.addColorStop(0, "#ff71ce");
@@ -40,8 +50,45 @@ document.addEventListener('keydown', (e) => {
             moveDirection = 'down';
             triggerMove(Matrix.B_inv);
             break;
+        case ',':
+            // Auto-play next move in solution
+            playNextSolutionMove();
+            break;
     }
 });
+
+function playNextSolutionMove() {
+    if (solutionIndex >= solutionWord.length) {
+        console.log('Solution complete! Height:', currentHeight);
+        return;
+    }
+
+    const move = solutionWord[solutionIndex];
+    solutionIndex++;
+
+    let matrix, direction;
+    switch (move) {
+        case 'a':
+            matrix = Matrix.A;
+            direction = 'left';
+            break;
+        case 'ai':
+            matrix = Matrix.A_inv;
+            direction = 'right';
+            break;
+        case 'b':
+            matrix = Matrix.B;
+            direction = 'up';
+            break;
+        case 'bi':
+            matrix = Matrix.B_inv;
+            direction = 'down';
+            break;
+    }
+
+    moveDirection = direction;
+    triggerMove(matrix);
+}
 
 function triggerMove(matrixOp) {
     isMoving = true;
