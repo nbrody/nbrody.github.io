@@ -1227,7 +1227,23 @@ function setupEventHandlers() {
         renderGutter(lines.length, _currentFaceIdsByLine, _currentWordsByLine, _paletteMode);
     });
 
-    document.getElementById('render-btn').addEventListener('click', updateFromInput);
+    // Refresh button - triggers updateFromMatrices
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', updateFromMatrices);
+    }
+
+    // Fundamental domain toggle
+    const fundamentalDomainToggle = document.getElementById('toggle-fundamental-domain-btn');
+    if (fundamentalDomainToggle) {
+        fundamentalDomainToggle.addEventListener('click', () => {
+            fundamentalDomainToggle.classList.toggle('active');
+            if (renderer) {
+                renderer.showFundamentalDomain = fundamentalDomainToggle.classList.contains('active');
+                renderer.render();
+            }
+        });
+    }
 
     // Boundary toggle
     const boundaryToggle = document.getElementById('toggle-boundary-btn');
@@ -1333,11 +1349,7 @@ async function setupUI() {
     // Setup matrix input
     setupMatrixInput();
 
-    // Render from matrices button
-    const renderFromMatricesBtn = document.getElementById('render-from-matrices-btn');
-    if (renderFromMatricesBtn) {
-        renderFromMatricesBtn.addEventListener('click', updateFromMatrices);
-    }
+
 
     // Initialize: Load a random group example and generate
     if (!externalPayload) {

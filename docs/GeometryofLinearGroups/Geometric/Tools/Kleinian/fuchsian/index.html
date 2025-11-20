@@ -22,6 +22,7 @@
             },
             startup: {
                 pageReady: () => {
+
                     return MathJax.startup.defaultPageReady();
                 }
             }
@@ -79,10 +80,7 @@
                     </div>
                 </div>
 
-                <button id="render-from-matrices-btn"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-3">
-                    Generate from Matrices
-                </button>
+
 
                 <p id="matrix-error-message" class="text-red-400 text-sm mt-2"></p>
             </div>
@@ -117,10 +115,7 @@
                     </select>
                 </div>
 
-                <button id="render-btn"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-3">
-                    Render Disk
-                </button>
+
 
                 <div class="info text-xs text-gray-500 p-3 mt-3">
                     <p><strong>Controls:</strong> Click on a geodesic to select it.</p>
@@ -148,9 +143,11 @@
                 </div>
 
                 <div class="control-group p-3 mt-3">
-                    <button id="toggle-boundary-btn" class="toggle-btn active">Show boundary circle</button>
-                    <button id="toggle-domain-orbit-btn" class="toggle-btn">Show domain orbit</button>
-                    <button id="toggle-cayley-graph-btn" class="toggle-btn">Show Cayley graph</button>
+                    <button id="toggle-fundamental-domain-btn" class="toggle-btn active">Fundamental
+                        domain</button>
+                    <button id="toggle-boundary-btn" class="toggle-btn active">Boundary circle</button>
+                    <button id="toggle-domain-orbit-btn" class="toggle-btn">Domain orbit</button>
+                    <button id="toggle-cayley-graph-btn" class="toggle-btn">Cayley graph</button>
                 </div>
 
                 <!-- About Section -->

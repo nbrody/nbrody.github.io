@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Multiplication Visualizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            padding: 40px;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #64b5f6;
+            margin-bottom: 30px;
+        }
+
+        .word-display {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            font-size: 18px;
+            line-height: 1.8;
+            word-wrap: break-word;
+            font-family: monospace;
+        }
+
+        .letter {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .letter.current {
+            background: #ffd700;
+            color: #000;
+            font-weight: bold;
+            transform: scale(1.2);
+        }
+
+        .letter.processed {
+            opacity: 0.5;
+        }
+
+        .matrix-display {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 40px 0;
+            font-size: 24px;
+            min-height: 150px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #e0e0e0;
+        }
+
+        .speed-control input {
+            width: 150px;
+        }
+
+        .info {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 16px;
+        }
+
+        .step-counter {
+            color: #64b5f6;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Word Multiplication Visualizer (Long-Reid Group)</h1>
+
+        <div class="info">
+            <span class="step-counter">Step: <span id="step-number">0</span> / <span id="total-steps">0</span></span>
+        </div>
+
+        <div class="word-display" id="word-display"></div>
+
+        <div class="matrix-display">
+            <div id="matrix-latex">$$I$$</div>
+        </div>
+
+        <div class="controls">
+            <button id="start-btn" onclick="startAnimation()">Start</button>
+            <button id="pause-btn" onclick="pauseAnimation()" disabled>Pause</button>
+            <button id="reset-btn" onclick="resetAnimation()">Reset</button>
+            <button id="step-btn" onclick="stepForward()">Step Forward</button>
+            <div class="speed-control">
+                <label for="speed">Speed (ms):</label>
+                <input type="range" id="speed" min="100" max="2000" value="500" step="50">
+                <span id="speed-value">500</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fraction class for exact arithmetic with BigInt
+        class Fraction {
+            constructor(n, d = 1n) {
+                if (typeof n === 'number') n = BigInt(Math.round(n));
+                if (typeof d === 'number') d = BigInt(Math.round(d));
+
+                if (d === 0n) throw new Error("Division by zero");
+
+                if (d < 0n) {
+                    n = -n;
+                    d = -d;
+                }
+
+                const common = this.gcd(n < 0n ? -n : n, d);
+                this.n = n / common;
+                this.d = d / common;
+            }
+
+            gcd(a, b) {
+                return b === 0n ? a : this.gcd(b, a % b);
+            }
+
+            add(other) {
+                return new Fraction(this.n * other.d + other.n * this.d, this.d * other.d);
+            }
+
+            sub(other) {
+                return new Fraction(this.n * other.d - other.n * this.d, this.d * other.d);
+            }
+
+            mul(other) {
+                return new Fraction(this.n * other.n, this.d * other.d);
+            }
+
+            div(other) {
+                if (other.n === 0n) throw new Error("Division by zero");
+                return new Fraction(this.n * other.d, this.d * other.n);
+            }
+
+            toLaTeX() {
+                if (this.d === 1n) return this.n.toString();
+                return `\\frac{${this.n}}{${this.d}}`;
+            }
+        }
+
+        // Generators using Fractions
+        const a = [
+            [new Fraction(3n), new Fraction(0n)],
+            [new Fraction(0n), new Fraction(1n, 3n)]
+        ];
+
+        const b = [
+            [new Fraction(82n, 8n), new Fraction(2n, 8n)],
+            [new Fraction(9n, 8n), new Fraction(1n, 8n)]
+        ];
+
+        // Inverse matrices
+        function matrixInverse(M) {
+            // det = ad - bc
+            const det = M[0][0].mul(M[1][1]).sub(M[0][1].mul(M[1][0]));
+            // inv = 1/det * [[d, -b], [-c, a]]
+            return [
+                [M[1][1].div(det), M[0][1].mul(new Fraction(-1n)).div(det)],
+                [M[1][0].mul(new Fraction(-1n)).div(det), M[0][0].div(det)]
+            ];
+        }
+
+        const ai = matrixInverse(a);
+        const bi = matrixInverse(b);
+
+        // The word to multiply
+        const wordString = "a . a . b . ai . ai . bi . a . b . a . a . bi . ai . bi . a . a . b . ai . b . a . a . bi . ai . bi . a . b . a . bi . a . b . ai . b . a . a . bi . a . a . a . b . ai . ai . bi . a . bi . ai . ai . b . b . a . bi . ai . ai . b . ai . bi . a . bi . ai . ai . b . a . bi . a . a . b . ai . b . a . bi . a . b . ai . b . a . a . bi . a . a . a . b . ai . ai . bi";
+        const word = wordString.split(' . ');
+
+        let currentMatrix = [[new Fraction(1n), new Fraction(0n)], [new Fraction(0n), new Fraction(1n)]]; // Identity
+        let currentStep = 0;
+        let animationInterval = null;
+        let speed = 500;
+
+        // Matrix multiplication
+        function matrixMultiply(A, B) {
+            return [
+                [
+                    A[0][0].mul(B[0][0]).add(A[0][1].mul(B[1][0])),
+                    A[0][0].mul(B[0][1]).add(A[0][1].mul(B[1][1]))
+                ],
+                [
+                    A[1][0].mul(B[0][0]).add(A[1][1].mul(B[1][0])),
+                    A[1][0].mul(B[0][1]).add(A[1][1].mul(B[1][1]))
+                ]
+            ];
+        }
+
+        // Get generator by name
+        function getGenerator(name) {
+            switch (name) {
+                case 'a': return a;
+                case 'b': return b;
+                case 'ai': return ai;
+                case 'bi': return bi;
+                default: return [[new Fraction(1n), new Fraction(0n)], [new Fraction(0n), new Fraction(1n)]];
+            }
+        }
+
+        // Format matrix for LaTeX
+        function formatMatrix(M) {
+            return `\\begin{pmatrix}${M[0][0].toLaTeX()} & ${M[0][1].toLaTeX()} \\\\ ${M[1][0].toLaTeX()} & ${M[1][1].toLaTeX()}\\end{pmatrix}`;
+        }
+
+        // Initialize display
+        function initDisplay() {
+            const wordDisplay = document.getElementById('word-display');
+            wordDisplay.innerHTML = word.map((letter, idx) =>
+                `<span class="letter" id="letter-${idx}">${letter}</span>`
+            ).join(' ');
+
+            document.getElementById('total-steps').textContent = word.length;
+            updateDisplay();
+        }
+
+        // Update the display
+        function updateDisplay() {
+            document.getElementById('step-number').textContent = currentStep;
+
+            // Update matrix display
+            const matrixLatex = formatMatrix(currentMatrix);
+            document.getElementById('matrix-latex').innerHTML = `$$${matrixLatex}$$`;
+            if (window.MathJax) {
+                MathJax.typesetPromise([document.getElementById('matrix-latex')]).catch(err => console.log(err));
+            }
+
+            // Update letter highlighting
+            word.forEach((_, idx) => {
+                const elem = document.getElementById(`letter-${idx}`);
+                elem.classList.remove('current', 'processed');
+                if (idx < currentStep) {
+                    elem.classList.add('processed');
+                } else if (idx === currentStep) {
+                    elem.classList.add('current');
+                }
+            });
+        }
+
+        // Step forward one letter
+        function stepForward() {
+            if (currentStep < word.length) {
+                const generator = getGenerator(word[currentStep]);
+                currentMatrix = matrixMultiply(currentMatrix, generator);
+                currentStep++;
+                updateDisplay();
+            }
+
+            if (currentStep >= word.length) {
+                pauseAnimation();
+            }
+        }
+
+        // Start animation
+        function startAnimation() {
+            if (animationInterval) return;
+
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('pause-btn').disabled = false;
+
+            animationInterval = setInterval(() => {
+                stepForward();
+            }, speed);
+        }
+
+        // Pause animation
+        function pauseAnimation() {
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+            }
+
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('pause-btn').disabled = true;
+        }
+
+        // Reset animation
+        function resetAnimation() {
+            pauseAnimation();
+            currentMatrix = [[new Fraction(1n), new Fraction(0n)], [new Fraction(0n), new Fraction(1n)]];
+            currentStep = 0;
+            updateDisplay();
+        }
+
+        // Speed control
+        document.getElementById('speed').addEventListener('input', (e) => {
+            speed = parseInt(e.target.value);
+            document.getElementById('speed-value').textContent = speed;
+
+            // Restart animation if running
+            if (animationInterval) {
+                pauseAnimation();
+                startAnimation();
+            }
+        });
+
+        // Initialize
+        initDisplay();
+    </script>
+</body>
+
+</html>
