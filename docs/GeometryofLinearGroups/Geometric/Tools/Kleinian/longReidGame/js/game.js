@@ -102,8 +102,26 @@ document.addEventListener('keydown', (e) => {
             // Auto-play next move in solution
             playNextSolutionMove();
             break;
+        case 'r':
+        case 'R':
+            // Restart game
+            restartGame();
+            break;
     }
 });
+
+function restartGame() {
+    currentMatrix = Matrix.identity();
+    currentHeight = 0;
+    moveHistory = [];
+    solutionIndex = 0;
+    hasWon = false;
+    victoryScrollX = 0;
+    isMoving = false;
+    carX = 0;
+    carY = 0;
+    updateUI(0);
+}
 
 function undoMove() {
     if (moveHistory.length === 0) return;
@@ -170,6 +188,9 @@ function triggerMove(matrixOp, label) {
 
     // Update UI
     updateUI(newHeight);
+
+    // Check for victory
+    checkVictory();
 
     // Animate
     let progress = 0;
@@ -272,6 +293,143 @@ function getHeightAfterMove(matrixOp) {
     return testMatrix.getPrimeFactorCount();
 }
 
+// Check if we've found a winning matrix (integer but not identity)
+function checkVictory() {
+    // Check if all entries are integers (denominator = 1)
+    const factored = currentMatrix.getFactoredForm();
+    const { power2, power3, intMatrix } = factored;
+
+    // If height is 0, all denominators are 1 (it's an integer matrix)
+    if (power2 === 0 && power3 === 0) {
+        // Check if it's NOT the identity matrix
+        const isIdentity =
+            intMatrix[0][0] === 1n && intMatrix[0][1] === 0n &&
+            intMatrix[1][0] === 0n && intMatrix[1][1] === 1n;
+
+        if (!isIdentity && !hasWon) {
+            hasWon = true;
+            victoryScrollX = canvas.width; // Start from right edge
+        }
+    }
+}
+
+// Draw victory screen with celebration
+function drawVictoryScreen() {
+    // Starfield background effect
+    ctx.fillStyle = '#050011';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Animated stars/particles
+    const time = Date.now() / 1000;
+    for (let i = 0; i < 50; i++) {
+        const x = (i * 123.456) % canvas.width;
+        const y = ((i * 789.012 + time * 50) % canvas.height);
+        const size = (i % 3) + 1;
+        const hue = (i * 30 + time * 50) % 360;
+
+        ctx.fillStyle = `hsl(${hue}, 100%, 70%)`;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.fillRect(x, y, size, size);
+    }
+
+    ctx.shadowBlur = 0;
+
+    // Main "VICTORY!" text
+    ctx.save();
+    ctx.font = 'bold 80px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Pulsing effect
+    const pulse = 1 + Math.sin(time * 3) * 0.1;
+    ctx.translate(canvas.width / 2, canvas.height / 3);
+    ctx.scale(pulse, pulse);
+
+    // Rainbow gradient
+    const gradient = ctx.createLinearGradient(-200, 0, 200, 0);
+    gradient.addColorStop(0, '#ff71ce');
+    gradient.addColorStop(0.5, '#01cdfe');
+    gradient.addColorStop(1, '#05ffa1');
+
+    ctx.fillStyle = gradient;
+    ctx.shadowBlur = 30;
+    ctx.shadowColor = '#ff71ce';
+    ctx.fillText('VICTORY!', 0, 0);
+
+    ctx.restore();
+
+    // Scrolling winning word
+    victoryScrollX -= 3; // Scroll speed
+
+    // Build the word string from move history
+    const winningWord = moveHistory.map(m => m.moveLabel).join(' ');
+
+    // Reset scroll when off screen
+    ctx.font = '24px "Press Start 2P", monospace';
+    const wordWidth = ctx.measureText(winningWord).width;
+    if (victoryScrollX < -wordWidth - 100) {
+        victoryScrollX = canvas.width;
+    }
+
+    // Draw scrolling text
+    ctx.fillStyle = '#fffb96';
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = '#fffb96';
+    ctx.textAlign = 'left';
+    ctx.fillText(winningWord, victoryScrollX, canvas.height / 2 + 50);
+
+    // "Winning Matrix" label
+    ctx.shadowBlur = 0;
+    ctx.font = '20px "Press Start 2P", monospace';
+    ctx.fillStyle = '#01cdfe';
+    ctx.textAlign = 'center';
+    ctx.fillText('Winning Matrix:', canvas.width / 2, canvas.height - 280);
+
+    // Display the winning matrix with large parentheses
+    const factored = currentMatrix.getFactoredForm();
+    const { intMatrix } = factored;
+
+    const a = intMatrix[0][0].toString();
+    const b = intMatrix[0][1].toString();
+    const c = intMatrix[1][0].toString();
+    const d = intMatrix[1][1].toString();
+
+    // Draw matrix with proper formatting
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height - 180);
+
+    // Large parentheses
+    ctx.font = '80px "Press Start 2P", monospace';
+    ctx.fillStyle = '#ff71ce';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('(', -150, 0);
+    ctx.fillText(')', 150, 0);
+
+    // Matrix entries
+    ctx.font = '28px "Press Start 2P", monospace';
+    ctx.fillStyle = '#fffb96';
+    ctx.textAlign = 'right';
+    ctx.fillText(a, -20, -25);
+    ctx.fillText(c, -20, 25);
+    ctx.textAlign = 'left';
+    ctx.fillText(b, 20, -25);
+    ctx.fillText(d, 20, 25);
+
+    ctx.restore();
+
+    // Instructions
+    ctx.font = '14px "Press Start 2P", monospace';
+    ctx.fillStyle = '#05ffa1';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press R to restart', canvas.width / 2, canvas.height - 50);
+
+    // Hide UI layer during victory
+    const uiLayer = document.getElementById('ui-layer');
+    if (uiLayer) uiLayer.style.display = 'none';
+}
+
 // Rendering
 function draw() {
     ctx.fillStyle = '#050011';
@@ -279,6 +437,13 @@ function draw() {
 
     // Smoothly interpolate visual height
     targetHeight = currentHeight; // In a real game we might want to lag this
+
+    // If victory, show celebration screen
+    if (hasWon) {
+        drawVictoryScreen();
+        requestAnimationFrame(draw);
+        return;
+    }
 
     drawBackground();
     drawRoad();
