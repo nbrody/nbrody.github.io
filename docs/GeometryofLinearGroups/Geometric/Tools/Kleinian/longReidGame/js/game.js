@@ -121,6 +121,10 @@ function restartGame() {
     carX = 0;
     carY = 0;
     updateUI(0);
+
+    // Show UI layer again
+    const uiLayer = document.getElementById('ui-layer');
+    if (uiLayer) uiLayer.style.display = 'block';
 }
 
 function undoMove() {
