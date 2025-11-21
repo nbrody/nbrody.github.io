@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Long-Reid Racer</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="scanlines"></div>
+
+        <div id="ui-layer">
+            <div class="hud-top">
+                <div class="matrix-display" id="matrix-display">
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <div style="font-size: 40px; line-height: 0.6;">(</div>
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <div>1 0</div>
+                            <div>0 1</div>
+                        </div>
+                        <div style="font-size: 40px; line-height: 0.6;">)</div>
+                    </div>
+                </div>
+                <div class="height-display">
+                    HEIGHT: <span id="height-value">0</span><br>
+                    <span style="font-size: 12px; color: #01cdfe;">Distance: <span
+                            id="solution-progress">0</span></span>
+                </div>
+            </div>
+
+            <div class="hud-bottom">
+                CONTROLS: ARROW KEYS<br>
+                LEFT/RIGHT: A / A⁻¹<br>
+                UP/DOWN: B / B⁻¹<br>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/matrix.js"></script>
+    <script src="js/game.js"></script>
+</body>
+
+</html>
