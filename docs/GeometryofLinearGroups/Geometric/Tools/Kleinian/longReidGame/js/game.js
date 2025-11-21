@@ -18,6 +18,9 @@ let moveDirection = null; // 'left', 'right', 'up', 'down'
 let moveHistory = []; // Stack of { matrix, height, moveLabel }
 const GENERATOR_CYCLE = ['a', 'b', 'A', 'B']; // Cycle for relative controls
 
+// Mobile Support
+let signHitboxes = []; // Hitboxes for tappable signs
+
 // Solution word - 'ai' means A inverse, 'bi' means B inverse
 const solutionWord = ['a', 'a', 'b', 'ai', 'ai', 'bi', 'a', 'b', 'a', 'a', 'bi', 'ai', 'bi', 'a', 'a', 'b',
     'ai', 'b', 'a', 'a', 'bi', 'ai', 'bi', 'a', 'b', 'a', 'bi', 'a', 'b', 'ai', 'b', 'a',
@@ -545,6 +548,17 @@ function drawIntersectionRamps() {
             }
             ctx.fill();
         }
+
+        // Height Change Text (below sign)
+        if (heightDelta !== 0) {
+            ctx.fillStyle = heightDelta > 0 ? '#ff0055' : '#00ff55';
+            ctx.shadowColor = ctx.fillStyle;
+            ctx.font = 'bold 10px "Press Start 2P", monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            const heightText = heightDelta > 0 ? `+${heightDelta}h` : `${heightDelta}h`;
+            ctx.fillText(heightText, ramp.x, signY + signH + 5);
+        }
     });
 
     ctx.restore();
@@ -585,8 +599,7 @@ let touchStartY = null;
 let touchStartX = null;
 let touchStartTime = null;
 
-// Sign hitboxes - updated during drawIntersectionRamps
-let signHitboxes = [];
+// Sign hitboxes are initialized at the top of the file
 
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault(); // Prevent scrolling
