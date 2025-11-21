@@ -21,6 +21,10 @@ const GENERATOR_CYCLE = ['a', 'b', 'A', 'B']; // Cycle for relative controls
 // Mobile Support
 let signHitboxes = []; // Hitboxes for tappable signs
 
+// Victory State
+let hasWon = false;
+let victoryScrollX = 0;
+
 // Solution word - 'ai' means A inverse, 'bi' means B inverse
 const solutionWord = ['a', 'a', 'b', 'ai', 'ai', 'bi', 'a', 'b', 'a', 'a', 'bi', 'ai', 'bi', 'a', 'a', 'b',
     'ai', 'b', 'a', 'a', 'bi', 'ai', 'bi', 'a', 'b', 'a', 'bi', 'a', 'b', 'ai', 'b', 'a',
@@ -177,16 +181,24 @@ function triggerMove(matrixOp, label) {
         // Z-depth simulation: scale down car?
         // For now, just move X and maybe Y slightly
 
-        // Target X positions for forks (approximate based on drawing)
-        // Left: -150, Center: 0, Right: 150 (at horizon)
+        // Target positions for each fork
+        // Left: -1, Center: 0 (up), Right: 1
         let targetX = 0;
-        if (moveDirection === 'left') targetX = -2; // Normalized
-        if (moveDirection === 'right') targetX = 2;
+        let targetY = 0;
+
+        if (moveDirection === 'left') {
+            targetX = -1.25; // Move to left fork
+            targetY = -1; // Move towards horizon
+        } else if (moveDirection === 'right') {
+            targetX = 1.25; // Move to right fork
+            targetY = -1; // Move towards horizon
+        } else if (moveDirection === 'up') {
+            targetX = 0; // Stay centered
+            targetY = -1; // Move forward towards horizon
+        }
 
         carX = targetX * Math.sin(progress * Math.PI / 2); // Ease out
-
-        // Simulate driving "up" or "down" the ramp visually?
-        // Maybe just driving forward is enough, the ramp slope handles the height cue.
+        carY = targetY * Math.sin(progress * Math.PI / 2); // Move towards horizon
 
         if (progress >= 1) {
             isMoving = false;
@@ -250,7 +262,7 @@ function updateUI(height) {
 
     // Update solution progress
     const progressSpan = document.getElementById('solution-progress');
-    progressSpan.innerText = `${solutionIndex}/${solutionWord.length}`;
+    progressSpan.innerText = `${solutionIndex}`;
 }
 
 
@@ -343,7 +355,7 @@ function drawRoad() {
     ctx.fillStyle = roadGradient;
 
     // Define the road shape
-    const splitY = horizonY + 150; // Where the forks start
+    const splitY = horizonY + 350; // Where the forks start (lowered to car level)
 
     // Main trunk
     ctx.beginPath();
@@ -556,7 +568,7 @@ function drawIntersectionRamps() {
             ctx.font = 'bold 10px "Press Start 2P", monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            const heightText = heightDelta > 0 ? `+${heightDelta}h` : `${heightDelta}h`;
+            const heightText = heightDelta > 0 ? `+${heightDelta}` : `${heightDelta}`;
             ctx.fillText(heightText, ramp.x, signY + signH + 5);
         }
     });
@@ -565,11 +577,12 @@ function drawIntersectionRamps() {
 }
 
 function drawCar() {
+    const horizonY = 90 - currentHeight * 5;
+    const splitY = horizonY + 350; // Match the fork position
     const centerX = canvas.width / 2;
-    const bottomY = 550;
 
-    const x = centerX + carX * 50;
-    const y = bottomY + carY * 20;
+    const x = centerX + carX * 200; // Increased for wider movement
+    const y = splitY + carY * 150; // Start at fork, move towards horizon
 
     ctx.save();
     ctx.translate(x, y);
