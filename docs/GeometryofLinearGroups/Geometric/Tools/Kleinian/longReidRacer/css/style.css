@@ -14,7 +14,7 @@ body {
     padding: 0;
     background-color: var(--bg-color);
     color: var(--neon-blue);
-    font-family: 'Press Start 2P', cursive;
+    font-family: 'Press Start 2P';
     overflow: hidden;
     display: flex;
     justify-content: center;
@@ -76,6 +76,80 @@ canvas {
     color: var(--neon-pink);
 }
 
+/* Title Screen */
+#title-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(5, 0, 17, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+    text-align: center;
+}
+
+h1.glitch {
+    font-size: 48px;
+    color: var(--neon-pink);
+    text-shadow: 4px 4px var(--neon-blue);
+    margin-bottom: 40px;
+    position: relative;
+}
+
+.mission-box {
+    border: 2px solid var(--neon-blue);
+    padding: 30px;
+    background: rgba(0, 0, 0, 0.8);
+    box-shadow: 0 0 15px var(--neon-blue);
+    max-width: 600px;
+}
+
+.mission-box p {
+    margin: 15px 0;
+    line-height: 1.5;
+    color: #fff;
+}
+
+.generators {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin: 20px 0;
+    font-size: 14px;
+    color: var(--neon-blue);
+}
+
+.generator-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.gen-label {
+    color: var(--neon-blue);
+    font-size: 16px;
+}
+
+.generator-item div {
+    color: var(--neon-pink);
+}
+
+.blink {
+    animation: blinker 1s linear infinite;
+    color: var(--neon-yellow) !important;
+    margin-top: 30px !important;
+}
+
+@keyframes blinker {
+    50% {
+        opacity: 0;
+    }
+}
+
 /* CRT Scanline Effect */
 #scanlines {
     position: absolute;
@@ -91,19 +165,4 @@ canvas {
     background-size: 100% 4px;
     pointer-events: none;
     z-index: 10;
-}
-
-/* Sun glow animation */
-@keyframes sun-pulse {
-    0% {
-        box-shadow: 0 0 20px #ff0055;
-    }
-
-    50% {
-        box-shadow: 0 0 40px #ff0055, 0 0 80px #ff71ce;
-    }
-
-    100% {
-        box-shadow: 0 0 20px #ff0055;
-    }
 }

@@ -233,3 +233,69 @@ class Matrix {
         return `[[${this.elements[0][0]}, ${this.elements[0][1]}], [${this.elements[1][0]}, ${this.elements[1][1]}]]`;
     }
 }
+
+class Complex {
+    constructor(re, im) {
+        this.re = re;
+        this.im = im;
+    }
+    add(other) { return new Complex(this.re + other.re, this.im + other.im); }
+    sub(other) { return new Complex(this.re - other.re, this.im - other.im); }
+    mul(other) {
+        return new Complex(
+            this.re * other.re - this.im * other.im,
+            this.re * other.im + this.im * other.re
+        );
+    }
+    div(other) {
+        const d = other.re * other.re + other.im * other.im;
+        return new Complex(
+            (this.re * other.re + this.im * other.im) / d,
+            (this.im * other.re - this.re * other.im) / d
+        );
+    }
+    abs() { return Math.sqrt(this.re * this.re + this.im * this.im); }
+    conj() { return new Complex(this.re, -this.im); }
+}
+
+function toComplexMatrix(m) {
+    return {
+        a: new Complex(m.elements[0][0].toNumber(), 0),
+        b: new Complex(m.elements[0][1].toNumber(), 0),
+        c: new Complex(m.elements[1][0].toNumber(), 0),
+        d: new Complex(m.elements[1][1].toNumber(), 0)
+    };
+}
+
+function applyMobius(z, m) {
+    const num = m.a.mul(z).add(m.b);
+    const den = m.c.mul(z).add(m.d);
+    return num.div(den);
+}
+
+function mapToDisk(z) {
+    const i = new Complex(0, 1);
+    return z.sub(i).div(z.add(i));
+}
+
+function invertMatrix(m) {
+    const a = m.elements[0][0];
+    const b = m.elements[0][1];
+    const c = m.elements[1][0];
+    const d = m.elements[1][1];
+    return new Matrix(
+        d, new Fraction(-b.numerator, b.denominator),
+        new Fraction(-c.numerator, c.denominator), a
+    );
+}
+
+// Pseudo-random generator seeded by index
+function pseudoRandom(seed) {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+}
+
+const GEN_A = toComplexMatrix(Matrix.A);
+const GEN_A_INV = toComplexMatrix(Matrix.A_inv);
+const GEN_B = toComplexMatrix(Matrix.B);
+const GEN_B_INV = toComplexMatrix(Matrix.B_inv);
