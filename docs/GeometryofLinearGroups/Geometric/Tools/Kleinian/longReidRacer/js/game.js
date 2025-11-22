@@ -84,7 +84,7 @@ let cayleyGraph = [];
 
 function buildCayleyGraph(depth, center = Matrix.identity()) {
     const i = new Complex(0, 1);
-    const queue = [{ matrix: center, level: 0, pos: mapToDisk(applyMobius(i, toComplexMatrix(center))) }];
+    const queue = [{ matrix: center, level: 0, pos: mapToDisk(applyMobius(i, toComplexMatrix(center))), height: center.getPrimeFactorCount() }];
     const visited = new Set([center.toString()]);
     cayleyGraph = [queue[0]];
 
@@ -155,7 +155,8 @@ function project3D(diskX, diskY, height) {
 
     const screenX = canvas.width / 2 + (x_raw * fov) / depth;
     // Screen Y grows downwards, so we subtract y_rot
-    const screenY = canvas.height / 2 - (y_rot * fov) / depth + 100;
+    // Increased offset to 250 to lower the car on screen
+    const screenY = canvas.height / 2 - (y_rot * fov) / depth + 250;
     const scale = fov / depth;
 
     return { x: screenX, y: screenY, scale: scale, depth: depth };
@@ -190,6 +191,17 @@ function getMatrixFromLabel(label) {
 // Input Handling
 document.addEventListener('keydown', (e) => {
     if (isMoving || hasWon) return;
+
+    // WASD: Global/Absolute controls
+    // d = a, a = A, w = b, s = B
+    switch (e.key.toLowerCase()) {
+        case 'd': triggerMove(Matrix.A, 'a'); break;
+        case 'a': triggerMove(Matrix.A_inv, 'A'); break;
+        case 'w': triggerMove(Matrix.B, 'b'); break;
+        case 's': triggerMove(Matrix.B_inv, 'B'); break;
+    }
+
+    // Arrow Keys: Relative controls (depend on previous move)
     const nextMoves = getNextMoves();
     switch (e.key) {
         case 'ArrowLeft': triggerMove(nextMoves.left.matrix, nextMoves.left.label); break;
@@ -208,7 +220,7 @@ function restartGame() {
     solutionIndex = 0;
     hasWon = false;
     isMoving = false;
-    buildCayleyGraph(3);
+    buildCayleyGraph(3, Matrix.identity());
     updateUI(0);
     const uiLayer = document.getElementById('ui-layer');
     if (uiLayer) uiLayer.style.display = 'block';
@@ -226,7 +238,7 @@ function undoMove() {
     }
     currentMatrix = currentMatrix.mul(invMatrix);
     currentHeight = currentMatrix.getPrimeFactorCount();
-    buildCayleyGraph(3);
+    buildCayleyGraph(3, currentMatrix);
     updateUI(currentHeight);
 }
 
@@ -254,7 +266,7 @@ function triggerMove(matrixOp, label) {
 
     currentMatrix = nextMatrix;
     currentHeight = currentMatrix.getPrimeFactorCount();
-    buildCayleyGraph(3);
+    buildCayleyGraph(3, currentMatrix);
     updateUI(currentHeight);
     checkVictory();
 
@@ -337,12 +349,13 @@ function invertMatrix(m) {
     );
 }
 
-function drawCar() {
-    const centerX = canvas.width / 2;
-    const bottomY = canvas.height - 100;
-
+function drawCar(x, y, scale) {
     ctx.save();
-    ctx.translate(centerX, bottomY);
+    ctx.translate(x, y);
+    // Car width is 80 units in local coords. We want it to be ~0.16 units in world space.
+    // So scale factor = (0.16 * scale) / 80 = 0.002 * scale
+    const s = Math.max(0.05, scale * 0.002);
+    ctx.scale(s, s);
 
     // Car Body (Retro Boxy)
     ctx.fillStyle = '#01cdfe'; // Cyan
@@ -503,58 +516,100 @@ function draw() {
     // Sort edges by depth (far to near)
     edgesToDraw.sort((a, b) => b.avgDepth - a.avgDepth);
 
-    // Draw highways
+    // Draw highways (Roads)
     edgesToDraw.forEach(edge => {
         const avgHeight = (edge.height1 + edge.height2) / 2;
 
-        // Color based on height
-        let color;
+        // Colors
+        let glowColor, laneColor;
         if (avgHeight === 0) {
-            color = '#05ffa1'; // Bright green for ground
+            glowColor = '#05ffa1'; // Green for ground
+            laneColor = 'rgba(5, 255, 161, 0.5)';
         } else {
             const hue = Math.max(0, 120 - Math.min(avgHeight / 6 * 120, 120));
-            color = `hsl(${hue}, 100%, 50%)`;
+            glowColor = `hsl(${hue}, 100%, 50%)`;
+            laneColor = `hsla(${hue}, 100%, 70%, 0.6)`;
         }
 
-        const width = Math.max(1, 12 * edge.proj1.scale);
+        const p1 = edge.proj1;
+        const p2 = edge.proj2;
 
-        ctx.save();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = width;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = color;
-        ctx.lineCap = 'round';
+        // Calculate road width based on scale
+        const avgScale = (p1.scale + p2.scale) / 2;
+        const roadWidth = Math.max(2, 0.15 * avgScale);
+
+        // Direction vector for width
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 1) return;
+
+        const nx = -dy / len * roadWidth;
+        const ny = dx / len * roadWidth;
+
+        // Draw Road Surface (Asphalt)
+        ctx.fillStyle = '#1a1a2e';
         ctx.beginPath();
-        ctx.moveTo(edge.proj1.x, edge.proj1.y);
-        ctx.lineTo(edge.proj2.x, edge.proj2.y);
+        ctx.moveTo(p1.x + nx, p1.y + ny);
+        ctx.lineTo(p2.x + nx, p2.y + ny);
+        ctx.lineTo(p2.x - nx, p2.y - ny);
+        ctx.lineTo(p1.x - nx, p1.y - ny);
+        ctx.fill();
+
+        // Draw Side Rails (Neon Glow)
+        ctx.save();
+        ctx.strokeStyle = glowColor;
+        ctx.lineWidth = Math.max(1, 0.02 * avgScale);
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = glowColor;
+
+        ctx.beginPath();
+        ctx.moveTo(p1.x + nx, p1.y + ny);
+        ctx.lineTo(p2.x + nx, p2.y + ny);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(p1.x - nx, p1.y - ny);
+        ctx.lineTo(p2.x - nx, p2.y - ny);
+        ctx.stroke();
+        ctx.restore();
+
+        // Draw Center Lines (Dashed)
+        ctx.save();
+        ctx.strokeStyle = laneColor;
+        ctx.lineWidth = Math.max(1, 0.01 * avgScale);
+        ctx.setLineDash([10 * (avgScale / 100), 10 * (avgScale / 100)]);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
         ctx.stroke();
         ctx.restore();
     });
 
-    // Draw nodes
+    // Draw nodes as Intersections (Simple Asphalt Junctions)
     cayleyGraph.forEach(node => {
         if (node.proj && node.proj.depth > 0.1) {
-            const size = Math.max(3, 6 * node.proj.scale);
+            const scale = node.proj.scale;
+            // Radius matches road half-width (0.15 * scale) to create smooth joins
+            const size = Math.max(2, 0.15 * scale);
 
-            if (node.height === 0) {
-                ctx.fillStyle = '#05ffa1';
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = '#05ffa1';
-            } else {
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowBlur = 5;
-                ctx.shadowColor = '#ffffff';
-            }
+            ctx.save();
+            ctx.translate(node.proj.x, node.proj.y);
 
+            // Junction surface (Asphalt) - matches road color to blend seamlessly
+            ctx.fillStyle = '#1a1a2e';
             ctx.beginPath();
-            ctx.arc(node.proj.x, node.proj.y, size, 0, Math.PI * 2);
+            ctx.arc(0, 0, size, 0, Math.PI * 2);
             ctx.fill();
-            ctx.shadowBlur = 0;
+
+            ctx.restore();
         }
     });
 
-    // Draw Car
-    drawCar();
+    // Draw Car at projected center position
+    // Project (0,0) relative to current view (which is the car's position)
+    const carProj = project3D(0, 0, currentHeight);
+    drawCar(carProj.x, carProj.y, carProj.scale);
 
     // Draw highway signs for next moves
     if (!isMoving) {
@@ -613,6 +668,6 @@ function draw() {
 }
 
 // Initialize
-buildCayleyGraph(3);
+buildCayleyGraph(3, Matrix.identity());
 updateUI(0);
 draw();

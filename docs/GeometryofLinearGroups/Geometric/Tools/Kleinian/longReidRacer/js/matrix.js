@@ -149,7 +149,7 @@ class Matrix {
         for (let i = 1; i < 4; i++) {
             result = this.lcm(result, denoms[i]);
         }
-        return result;
+        return result || 1n;
     }
 
     lcm(a, b) {
