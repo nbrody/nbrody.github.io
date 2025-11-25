@@ -137,12 +137,12 @@ export function generateGroupElements(gens, wordLength) {
     // Identity
     const I = gens[0].constructor === Function ?
         new gens[0].constructor(
-            {re: 1, im: 0}, {re: 0, im: 0},
-            {re: 0, im: 0}, {re: 1, im: 0}
+            { re: 1, im: 0 }, { re: 0, im: 0 },
+            { re: 0, im: 0 }, { re: 1, im: 0 }
         ) :
         {
-            a: {re: 1, im: 0}, b: {re: 0, im: 0},
-            c: {re: 0, im: 0}, d: {re: 1, im: 0},
+            a: { re: 1, im: 0 }, b: { re: 0, im: 0 },
+            c: { re: 0, im: 0 }, d: { re: 1, im: 0 },
             mul: (x) => x,
             isIdentity: () => true
         };
@@ -198,52 +198,69 @@ export function generateGroupElements(gens, wordLength) {
 
 // Compute which group elements contribute faces to the Dirichlet domain
 export function computeDelaunayNeighbors(groupElements) {
-    const orbit = [basepoint];
-    const imgs = [];
+    // 1. Compute unique orbit points (images of basepoint) to implement "mod-stabilizers"
+    // We keep the first (shortest word) element for each unique geometric point.
+    const uniquePoints = new Map();
 
-    // Compute images of basepoint under all group elements
     for (const item of groupElements) {
         const g = (item && item.m) ? item.m : item;
         const w = (item && item.word) ? item.word : undefined;
         const p = imageOfBasepoint(g);
-        if (!isFinite(p.t) || p.t <= 0) continue;
+
+        if (!isFinite(p.t) || p.t <= 1e-9) continue;
+
+        // Filter out stabilizers (elements that map basepoint to itself)
+        // Basepoint is (0,0,1). So we check if p is close to (0,0,1).
+        if (Math.abs(p.t - 1.0) < 1e-5 && Math.abs(p.u.re) < 1e-5 && Math.abs(p.u.im) < 1e-5) {
+            continue;
+        }
+
         const v = new THREE.Vector3(p.u.re, p.u.im, p.t);
-        orbit.push(v);
-        imgs.push({ u: p.u, t: p.t, v, g, word: w });
+        const key = keyFromVec(v);
+
+        if (!uniquePoints.has(key)) {
+            uniquePoints.set(key, { u: p.u, t: p.t, v, g, word: w });
+        }
     }
 
-    // Test each bisector to see if it contributes
-    const neighborsMap = new Map();
-    for (const item of imgs) {
+    const candidates = Array.from(uniquePoints.values());
+    // The set of sites defining the Voronoi cell includes the basepoint and all orbit points
+    const sites = [basepoint, ...candidates.map(c => c.v)];
+
+    const faces = [];
+
+    for (const item of candidates) {
+        // Check if the bisector between basepoint and item.v contributes to the cell boundary
+        // We sample points on the bisector and check if they are closer to basepoint than to any other site.
         const samples = samplePointsOnBisector(item.u, item.t, 160);
         let contributes = false;
 
         for (const s of samples) {
             const d0 = hDist(basepoint, s);
-            const d1 = hDist(item.v, s);
-            if (Math.abs(d0 - d1) > 2e-3) continue;
 
-            let ok = true;
-            for (let k = 1; k < orbit.length; k++) {
-                const dk = hDist(orbit[k], s);
-                if (dk < d0) {
-                    ok = false;
+            let obscured = false;
+            // Check against all other sites (excluding the one defining this bisector)
+            for (let k = 1; k < sites.length; k++) {
+                const site = sites[k];
+                if (site === item.v) continue; // Distance is equal (d0), so not obscured
+
+                const dk = hDist(site, s);
+                if (dk < d0 - 1e-4) { // Strictly closer to another site
+                    obscured = true;
                     break;
                 }
             }
-            if (ok) {
+
+            if (!obscured) {
                 contributes = true;
                 break;
             }
         }
 
         if (contributes) {
-            const key = keyFromVec(item.v);
-            if (!neighborsMap.has(key)) {
-                neighborsMap.set(key, { v: item.v, g: item.g, word: item.word });
-            }
+            faces.push({ v: item.v, g: item.g, word: item.word });
         }
     }
 
-    return Array.from(neighborsMap.values());
+    return faces;
 }

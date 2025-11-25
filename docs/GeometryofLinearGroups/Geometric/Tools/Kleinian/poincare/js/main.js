@@ -4,19 +4,19 @@
 
 import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls.js';
-import { 
-    easeInOutQuad, 
-    getExternalVectorsPayload, 
-    getExternalFacesPayload, 
+import {
+    easeInOutQuad,
+    getExternalVectorsPayload,
+    getExternalFacesPayload,
     normalizeFacesMeta,
     vectorsToTextarea,
     computeEdgeCycleByPairings,
     formatAngle
 } from './utils.js';
-import { 
-    raySphereIntersectCPU, 
-    sceneSDFWithIdCPU, 
-    sceneSDFTop2CPU, 
+import {
+    raySphereIntersectCPU,
+    sceneSDFWithIdCPU,
+    sceneSDFTop2CPU,
     sceneSDFTop3CPU,
     getNormalCPU,
     computeRayFromMouse,
@@ -28,6 +28,7 @@ import { generateGroupElements, computeDelaunayNeighbors } from './dirichletUtil
 import { polyhedronLibrary } from '../../assets/polyhedronLibrary.js';
 import { exportPolyhedronAs3MF } from './export3mf.js';
 import { buildCayleyGraph, toggleCayleyGraph, clearCayleyGraph } from './cayleyGraph.js';
+import { PoincareCertifier } from './poincareCertifier.js';
 
 // Constants
 const MAX_PLANES_CONST = 256;
@@ -501,19 +502,19 @@ function deduplicateCovectors(covectors, words, matrices) {
     for (let i = 0; i < covectors.length; i++) {
         const cov = covectors[i];
         const [vx, vy, vz, vw] = cov;
-        const norm = Math.sqrt(vx*vx + vy*vy + vz*vz + vw*vw);
+        const norm = Math.sqrt(vx * vx + vy * vy + vz * vz + vw * vw);
         if (norm < 1e-12) continue; // skip degenerate
 
         // Normalize: unit vector with w <= 0
-        let [nx, ny, nz, nw] = [vx/norm, vy/norm, vz/norm, vw/norm];
+        let [nx, ny, nz, nw] = [vx / norm, vy / norm, vz / norm, vw / norm];
         if (nw > 0) { nx = -nx; ny = -ny; nz = -nz; nw = -nw; }
 
         // Check if this normalized covector already exists
         let isDuplicate = false;
         for (let j = 0; j < uniqueCovectors.length; j++) {
             const [ux, uy, uz, uw] = uniqueCovectors[j];
-            const unorm = Math.sqrt(ux*ux + uy*uy + uz*uz + uw*uw);
-            const [unx, uny, unz, unw] = [ux/unorm, uy/unorm, uz/unorm, uw/unorm];
+            const unorm = Math.sqrt(ux * ux + uy * uy + uz * uz + uw * uw);
+            const [unx, uny, unz, unw] = [ux / unorm, uy / unorm, uz / unorm, uw / unorm];
 
             // Check if they're the same (allowing for numerical tolerance)
             const diff = Math.sqrt(
@@ -774,26 +775,7 @@ async function init() {
     dirLight.position.set(3, 3, 5);
     scene.add(dirLight);
 
-    const boundaryMat = new THREE.MeshPhongMaterial({
-        color: 0x88aaff,
-        transparent: true,
-        opacity: 0.4,
-        shininess: 120,
-        specular: 0xffffff,
-        side: THREE.DoubleSide,
-        depthWrite: false  // Don't block Cayley graph
-    });
-
-    const sphereGeom = new THREE.SphereGeometry(1, 64, 64);
-    boundarySphere = new THREE.Mesh(sphereGeom, boundaryMat);
-    boundarySphere.renderOrder = 0;
-
-    // Load shaders from external files
-    const vertexShaderResponse = await fetch('./shaders/vertex.glsl');
-    const fragmentShaderResponse = await fetch('./shaders/fragment.glsl');
-    const vertexShader = await vertexShaderResponse.text();
-    const fragmentShader = await fragmentShaderResponse.text();
-
+    // Initialize uniforms first so they can be shared
     const initialSphereCenters = Array.from({ length: MAX_PLANES_CONST }, () => new THREE.Vector3());
     const initialSphereRadii = new Float32Array(MAX_PLANES_CONST);
     const initialPlaneNormals = Array.from({ length: MAX_PLANES_CONST }, () => new THREE.Vector3());
@@ -817,10 +799,106 @@ async function init() {
         u_edge_global: { value: 0.20 },
         u_edge_select_boost: { value: 0.45 },
         u_selected_edge_faces: { value: new THREE.Vector2(-1, -1) },
-        u_selected_vertex_pos: { value: new THREE.Vector3(0,0,0) },
+        u_selected_vertex_pos: { value: new THREE.Vector3(0, 0, 0) },
         u_selected_vertex_radius: { value: 0.0 },
         u_polyhedron_opacity: { value: 1.0 },
+        u_boundary_mode: { value: 0.0 }, // 0 = full glass, 1 = inside only (cross-hatch)
     };
+
+    // Boundary Shader
+    // Renders the part of the sphere at infinity that is INSIDE the polyhedron
+    // with a cross-hatched pattern.
+    const boundaryVertexShader = `
+        varying vec3 vPos;
+        varying vec2 vUv;
+        void main() {
+            vPos = position;
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `;
+
+    const boundaryFragmentShader = `
+        varying vec3 vPos;
+        varying vec2 vUv;
+        uniform vec3 u_sphere_centers[${MAX_PLANES_CONST}];
+        uniform float u_sphere_radii[${MAX_PLANES_CONST}];
+        uniform vec3 u_plane_normals[${MAX_PLANES_CONST}];
+        uniform int u_num_sphere_planes;
+        uniform int u_num_euclidean_planes;
+        uniform float u_boundary_mode; // 0 = full glass, 1 = inside only (not used here, controlled by JS)
+
+        void main() {
+            float maxSdf = -10000.0;
+            
+            // Spheres: inside if dist > r (exterior of bisector sphere)
+            for (int i = 0; i < ${MAX_PLANES_CONST}; i++) {
+                if (i >= u_num_sphere_planes) break;
+                vec3 c = u_sphere_centers[i];
+                float r = u_sphere_radii[i];
+                float d = r - length(vPos - c);
+                if (d > maxSdf) maxSdf = d;
+            }
+            
+            // Planes: inside if dot(p, n) < 0
+            for (int i = 0; i < ${MAX_PLANES_CONST}; i++) {
+                if (i >= u_num_euclidean_planes) break;
+                vec3 n = u_plane_normals[i];
+                float d = dot(vPos, n);
+                if (d > maxSdf) maxSdf = d;
+            }
+            
+            // Base color
+            vec3 color = vec3(0.53, 0.66, 1.0); // #88aaff
+            float alpha = 0.3;
+            
+            // Lighting
+            vec3 normal = normalize(vPos);
+            vec3 light = normalize(vec3(1.0, 1.0, 1.0));
+            float diff = max(dot(normal, light), 0.3);
+            
+            if (maxSdf < 0.0) {
+                // Inside polyhedron: Cross-hatch pattern
+                // Use UV coordinates or position for hatching
+                // Simple grid based on UV
+                float scale = 40.0;
+                float lineThickness = 0.1;
+                float gridX = step(1.0 - lineThickness, fract(vUv.x * scale));
+                float gridY = step(1.0 - lineThickness, fract(vUv.y * scale));
+                float grid = max(gridX, gridY);
+                
+                if (grid > 0.5) {
+                    // Hatch lines are opaque(r)
+                    gl_FragColor = vec4(color * 1.2, 0.8);
+                } else {
+                    // Space between lines is transparent
+                    gl_FragColor = vec4(color * (0.6 + 0.4 * diff), 0.2);
+                }
+            } else {
+                // Outside polyhedron: Standard glass look
+                gl_FragColor = vec4(color * (0.6 + 0.4 * diff), 0.15);
+            }
+        }
+    `;
+
+    const boundaryMat = new THREE.ShaderMaterial({
+        vertexShader: boundaryVertexShader,
+        fragmentShader: boundaryFragmentShader,
+        uniforms: uniforms,
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false
+    });
+
+    const sphereGeom = new THREE.SphereGeometry(1, 64, 64);
+    boundarySphere = new THREE.Mesh(sphereGeom, boundaryMat);
+    boundarySphere.renderOrder = 0;
+
+    // Load shaders from external files for the main polyhedron
+    const vertexShaderResponse = await fetch('./shaders/vertex.glsl');
+    const fragmentShaderResponse = await fetch('./shaders/fragment.glsl');
+    const vertexShader = await vertexShaderResponse.text();
+    const fragmentShader = await fragmentShaderResponse.text();
 
     material = new THREE.ShaderMaterial({
         vertexShader,
@@ -886,6 +964,55 @@ function setupEventHandlers() {
                 return;
             }
             exportPolyhedronAs3MF(_currentSphereCenters, _currentSphereRadii, _currentPlaneNormals);
+        });
+    }
+
+    // Certificate generation button
+    const certBtn = document.getElementById('generate-certificate-btn');
+    if (certBtn) {
+        certBtn.addEventListener('click', async () => {
+            const output = document.getElementById('certificate-output');
+            const status = document.getElementById('cert-status');
+            const details = document.getElementById('cert-details');
+
+            if (output) output.classList.remove('hidden');
+            if (status) status.textContent = "Running analysis...";
+            if (details) details.textContent = "";
+
+            // Get matrices
+            const matrices = _currentMatrices;
+            if (!matrices || matrices.length === 0) {
+                if (status) status.textContent = "Error: No matrices defined.";
+                return;
+            }
+
+            try {
+                // Import Certifier dynamically
+                const { PoincareCertifier } = await import('./poincareCertifier.js');
+                const wordLength = parseInt(document.getElementById('wordLength')?.value) || 3;
+
+                const certifier = new PoincareCertifier(matrices, wordLength);
+                const result = await certifier.run();
+
+                if (result.success) {
+                    if (status) {
+                        status.textContent = "SUCCESS: Poincaré Polyhedron Theorem satisfied.";
+                        status.className = "text-sm font-bold mb-2 text-green-400";
+                    }
+                    if (details) details.textContent = result.details || result.log.join('\n');
+                } else {
+                    if (status) {
+                        status.textContent = "FAILURE: Conditions not met.";
+                        status.className = "text-sm font-bold mb-2 text-red-400";
+                    }
+                    if (details) details.textContent = (result.error || "") + "\n\nLog:\n" + result.log.join('\n');
+                }
+
+            } catch (e) {
+                console.error(e);
+                if (status) status.textContent = "Error running certification.";
+                if (details) details.textContent = e.toString();
+            }
         });
     }
 
@@ -1077,7 +1204,7 @@ function setupCanvasClickHandlers() {
 
         const { ro, rd } = computeRayFromMouse(ev.clientX, ev.clientY, renderer, camera);
         const span = raySphereIntersectCPU(ro, rd, 1.0);
-        
+
         if (!span) {
             if (normalOut) normalOut.textContent = "";
             uniforms.u_selected_face_id.value = -1;
@@ -1179,7 +1306,7 @@ function setupCanvasClickHandlers() {
             let cycleInfo = null;
             const cyc = computeEdgeCycleByPairings(lastClickedFaceIdCanvas, hitId, _facesMetaById);
             if (cyc && cyc.length && isFinite(theta)) {
-                const list = Array.from({length: cyc.length}, () => formatAngle(theta));
+                const list = Array.from({ length: cyc.length }, () => formatAngle(theta));
                 const total = cyc.length * theta;
                 const niceTotal = formatAngle(total);
                 const cycleText = `Cycle length ${cyc.length}; total = ${niceTotal}`;
@@ -1246,7 +1373,7 @@ function setupGutterClickHandlers() {
             let cycleInfo = null;
             const cyc = computeEdgeCycleByPairings(lastClickedFaceId, faceId, _facesMetaById);
             if (cyc && cyc.length && isFinite(theta)) {
-                const list = Array.from({length: cyc.length}, () => formatAngle(theta));
+                const list = Array.from({ length: cyc.length }, () => formatAngle(theta));
                 const total = cyc.length * theta;
                 const niceTotal = formatAngle(total);
                 const cycleText = `Cycle length ${cyc.length}; total = ${niceTotal}`;

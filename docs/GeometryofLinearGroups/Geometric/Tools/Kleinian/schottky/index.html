@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schottky Group Visualizer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 300px;
+            background: rgba(20, 20, 20, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #eee;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            transition: opacity 0.3s ease;
+        }
+
+        h1 {
+            margin: 0 0 15px 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+            background: linear-gradient(90deg, #fff, #aaa);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            color: #aaa;
+        }
+
+        select,
+        button {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        select:hover,
+        button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        select:focus,
+        button:focus {
+            outline: none;
+            border-color: #4a9eff;
+        }
+
+        .hint {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 15px;
+            line-height: 1.4;
+        }
+
+        /* Custom Scrollbar for Select */
+        select {
+            -webkit-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat;
+            background-position: right .7em top 50%;
+            background-size: .65em auto;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: #aaa;
+            padding: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-radius: 0;
+        }
+
+        .tab-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-btn.active {
+            color: #fff;
+            border-bottom-color: #4a9eff;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Custom Palette Dropdown */
+        .custom-select-wrapper {
+            position: relative;
+        }
+
+        .custom-select {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .custom-select .selected-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .custom-select .selected-option:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .palette-swatch {
+            display: flex;
+            width: 60px;
+            height: 20px;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            flex-shrink: 0;
+        }
+
+        .palette-swatch>div {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .options-list {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 5px;
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .options-list.open {
+            display: block;
+        }
+
+        .options-list .option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .options-list .option:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .options-list .option.selected {
+            background: rgba(74, 158, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="glcanvas"></canvas>
+
+    <div id="ui-container">
+        <h1>Schottky Limit Sets</h1>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="circles">Circles</button>
+            <button class="tab-btn" data-tab="display">Display</button>
+            <button class="tab-btn" data-tab="options">Options</button>
+        </div>
+
+        <div id="tab-circles" class="tab-content active">
+            <div class="control-group">
+                <label for="preset-select">Group Preset</label>
+                <select id="preset-select">
+                    <option value="kissing">Kissing Circles</option>
+                    <option value="classical">Classical Schottky</option>
+                    <option value="orthogonal">Orthogonal Chain</option>
+                    <option value="maskit">Maskit-like</option>
+                    <option value="spiral">Spiral</option>
+                    <option value="chain">Chain</option>
+                    <option value="random">Random</option>
+                </select>
+            </div>
+
+            <div class="control-group" style="display: flex; gap: 10px;">
+                <button id="add-circle-btn">Add Circle</button>
+                <button id="remove-circle-btn">Remove</button>
+            </div>
+
+            <div class="control-group">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="wander-checkbox" style="width: auto; margin-right: 10px;">
+                    Wander Circles
+                </label>
+            </div>
+        </div>
+
+        <div id="tab-display" class="tab-content">
+            <div class="control-group">
+                <label>Color Palette</label>
+                <div class="custom-select-wrapper">
+                    <div class="custom-select" id="palette-custom-select">
+                        <div class="selected-option" data-value="0">
+                            <div class="palette-swatch">
+                                <div style="background: #00cccc;"></div>
+                                <div style="background: #ff00ff;"></div>
+                            </div>
+                            <span>Teal / Fuchsia</span>
+                        </div>
+                        <div class="options-list">
+                            <div class="option" data-value="0">
+                                <div class="palette-swatch">
+                                    <div style="background: #00cccc;"></div>
+                                    <div style="background: #ff00ff;"></div>
+                                </div>
+                                <span>Teal / Fuchsia</span>
+                            </div>
+                            <div class="option" data-value="1">
+                                <div class="palette-swatch">
+                                    <div style="background: #330066;"></div>
+                                    <div style="background: #ff9933;"></div>
+                                    <div style="background: #ffee88;"></div>
+                                </div>
+                                <span>Sunset</span>
+                            </div>
+                            <div class="option" data-value="2">
+                                <div class="palette-swatch">
+                                    <div style="background: #000000;"></div>
+                                    <div style="background: #00ff33;"></div>
+                                </div>
+                                <span>Matrix</span>
+                            </div>
+                            <div class="option" data-value="3">
+                                <div class="palette-swatch">
+                                    <div style="background: #ff0000;"></div>
+                                    <div style="background: #ffff00;"></div>
+                                    <div style="background: #00ff00;"></div>
+                                    <div style="background: #00ffff;"></div>
+                                    <div style="background: #0000ff;"></div>
+                                    <div style="background: #ff00ff;"></div>
+                                </div>
+                                <span>Rainbow</span>
+                            </div>
+                            <div class="option" data-value="4">
+                                <div class="palette-swatch">
+                                    <div style="background: #000000;"></div>
+                                    <div style="background: #888888;"></div>
+                                    <div style="background: #ffffff;"></div>
+                                </div>
+                                <span>Monochrome</span>
+                            </div>
+                            <div class="option" data-value="5">
+                                <div class="palette-swatch">
+                                    <div style="background: #0088ff;"></div>
+                                    <div style="background: #ff3300;"></div>
+                                </div>
+                                <span>Ice / Fire</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="coloring-mode-select">Coloring Mode</label>
+                <select id="coloring-mode-select">
+                    <option value="0">Depth (Iterations)</option>
+                    <option value="1">Generator ID</option>
+                    <option value="2">Parity (Even/Odd)</option>
+                    <option value="3">Electric</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="animate-checkbox" style="width: auto; margin-right: 10px;">
+                    Animate Colors
+                </label>
+            </div>
+
+            <div class="control-group">
+                <label for="anim-speed-slider">Animation Speed</label>
+                <input type="range" id="anim-speed-slider" min="0" max="200" value="50" style="width: 100%;">
+            </div>
+        </div>
+
+        <div id="tab-options" class="tab-content">
+            <div class="control-group">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="hires-checkbox" style="width: auto; margin-right: 10px;">
+                    High Resolution
+                </label>
+            </div>
+
+            <div class="control-group">
+                <button id="reset-btn">Reset View</button>
+            </div>
+
+            <div class="hint">
+                • <strong>Drag Center</strong> to move circles.<br>
+                • <strong>Drag Edge</strong> to resize circles.<br>
+                • <strong>Scroll</strong> to zoom.<br>
+                • <strong>Drag Background</strong> to pan.
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
