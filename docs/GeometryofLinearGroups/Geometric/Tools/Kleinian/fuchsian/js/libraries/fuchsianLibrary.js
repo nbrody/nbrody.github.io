@@ -66,5 +66,10 @@ export const exampleLibrary = [
     {
         name: 'Surface group (small)',
         mats: [['\\sqrt{2}', '0', '0', '\\frac{1}{\\sqrt{2}}'], ['0', '-1', '1', '0'], ['1', '2', '2', '5']]
+    },
+    {
+        name: 'Magnus Curve',
+        mats: [['t', '0', '0', '1'], ['1+t^2', '2', 't', '1']],
+        constants: { 't': '2' }
     }
 ];

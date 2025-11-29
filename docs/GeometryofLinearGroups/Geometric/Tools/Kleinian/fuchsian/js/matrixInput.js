@@ -84,9 +84,9 @@ export class Matrix2 {
     isIdentity() {
         const eps = 1e-9;
         return Math.abs(this.a.re - 1) < eps && Math.abs(this.a.im) < eps &&
-               Math.abs(this.b.re) < eps && Math.abs(this.b.im) < eps &&
-               Math.abs(this.c.re) < eps && Math.abs(this.c.im) < eps &&
-               Math.abs(this.d.re - 1) < eps && Math.abs(this.d.im) < eps;
+            Math.abs(this.b.re) < eps && Math.abs(this.b.im) < eps &&
+            Math.abs(this.c.re) < eps && Math.abs(this.c.im) < eps &&
+            Math.abs(this.d.re - 1) < eps && Math.abs(this.d.im) < eps;
     }
 
     neg() {
@@ -137,7 +137,7 @@ export function latexToExpr(latex) {
 }
 
 // Evaluate real expression using math.js (reject complex/imaginary numbers)
-export function evalComplexExpression(expr) {
+export function evalComplexExpression(expr, scope = {}) {
     try {
         if (typeof expr !== 'string') expr = String(expr || '0');
         expr = expr.replace(/\u2212/g, '-');
@@ -147,7 +147,7 @@ export function evalComplexExpression(expr) {
             throw new Error('Complex numbers not allowed');
         }
 
-        const val = math.evaluate(expr);
+        const val = math.evaluate(expr, scope);
 
         function toReal(v) {
             if (v == null) return new Complex(0);
@@ -234,6 +234,24 @@ export function addMatrixInput(values = ['1', '0', '0', '1']) {
     updateMatrixLabels();
 }
 
+// Add a constant input UI element
+export function addConstantInput(name = 't', value = '2') {
+    const container = document.getElementById('constants-list');
+    if (!container) return;
+
+    const row = document.createElement('div');
+    row.className = 'constant-row flex items-center gap-2 mb-2';
+    row.innerHTML = `
+        <input type="text" class="constant-name w-16 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-2 py-1 bg-gray-700 text-white border border-gray-600" value="${name}" placeholder="Name">
+        <span class="text-gray-400">=</span>
+        <input type="text" class="constant-value flex-1 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-2 py-1 bg-gray-700 text-white border border-gray-600" value="${value}" placeholder="Value">
+        <button class="delete-constant-btn text-gray-400 hover:text-red-400 font-bold px-2">✖</button>
+    `;
+
+    row.querySelector('.delete-constant-btn').addEventListener('click', () => row.remove());
+    container.appendChild(row);
+}
+
 // Update matrix labels after deletion
 function updateMatrixLabels() {
     const labels = document.querySelectorAll('#matrixInputs .matrix-label');
@@ -262,9 +280,25 @@ export function getMatricesFromUI() {
     const matrices = [];
     const blocks = document.querySelectorAll('#matrixInputs .matrix-block');
 
+    // Get constants from UI
+    const scope = {};
+    document.querySelectorAll('#constants-list .constant-row').forEach(row => {
+        const name = row.querySelector('.constant-name').value.trim();
+        const valStr = row.querySelector('.constant-value').value;
+        if (name) {
+            try {
+                // Evaluate constant value (using current scope to allow dependencies if order permits)
+                const valComplex = evalComplexExpression(valStr, scope);
+                scope[name] = isNaN(valComplex.re) ? 0 : valComplex.re;
+            } catch (e) {
+                scope[name] = 0;
+            }
+        }
+    });
+
     for (const block of blocks) {
         const spans = block.querySelectorAll('.mq-matrix-input');
-        const toC = (latex) => evalComplexExpression(latexToExpr(String(latex || '0')));
+        const toC = (latex) => evalComplexExpression(latexToExpr(String(latex || '0')), scope);
 
         const a = toC(getLatex(spans[0]));
         const b = toC(getLatex(spans[1]));
@@ -291,6 +325,26 @@ function setExample(example) {
     example.forEach(vals => addMatrixInput(vals.map(v => String(v).replace(/\*\*/g, '^'))));
 }
 
+function setExampleWithConstants(ex) {
+    // Clear matrices
+    const container = document.getElementById('matrixInputs');
+    if (container) container.innerHTML = '';
+
+    // Clear constants
+    const constContainer = document.getElementById('constants-list');
+    if (constContainer) constContainer.innerHTML = '';
+
+    // Add matrices
+    ex.mats.forEach(vals => addMatrixInput(vals.map(v => String(v).replace(/\*\*/g, '^'))));
+
+    // Add constants if any
+    if (ex.constants) {
+        Object.entries(ex.constants).forEach(([name, val]) => {
+            addConstantInput(name, val);
+        });
+    }
+}
+
 // Populate example dropdown
 function populateExampleDropdown() {
     const sel = document.getElementById('matrix-example-select');
@@ -306,7 +360,7 @@ function populateExampleDropdown() {
     sel.addEventListener('change', () => {
         const idx = parseInt(sel.value, 10);
         if (idx >= 0 && idx < exampleLibrary.length) {
-            setExample(exampleLibrary[idx].mats);
+            setExampleWithConstants(exampleLibrary[idx]);
         }
     });
 }
@@ -323,5 +377,11 @@ export function setupMatrixInput() {
     const addBtn = document.getElementById('addMatrixBtn');
     if (addBtn) {
         addBtn.addEventListener('click', () => addMatrixInput());
+    }
+
+    // Add constant button
+    const addConstBtn = document.getElementById('addConstantBtn');
+    if (addConstBtn) {
+        addConstBtn.addEventListener('click', () => addConstantInput());
     }
 }

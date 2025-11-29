@@ -38,7 +38,14 @@ export class PoincareRenderer {
         this.popStartTime = 0;
         this.popDuration = 600;
 
+        this.isUpperHalfPlane = false;
+
         this.setupEventListeners();
+    }
+
+    toggleUpperHalfPlane(enabled) {
+        this.isUpperHalfPlane = enabled;
+        this.render();
     }
 
     setupEventListeners() {
@@ -83,14 +90,60 @@ export class PoincareRenderer {
     }
 
     // Convert from screen coordinates to Poincaré disk coordinates
-    // Inverse of 90° counterclockwise rotation
     screenToDisk(screenX, screenY) {
+        if (this.isUpperHalfPlane) {
+            const uhp = this.screenToUHP(screenX, screenY);
+            return this.UHPToDisk(uhp.u, uhp.v);
+        }
+
+        // Inverse of 90° counterclockwise rotation
         const rotatedX = (screenX - this.centerX) / this.scale;
         const rotatedY = -(screenY - this.centerY) / this.scale;
         // Inverse rotation: (-y, x) → (y, -x)
         return {
             x: rotatedY,
             y: -rotatedX
+        };
+    }
+
+    diskToUHP(x, y) {
+        const denom = (1 - x) * (1 - x) + y * y;
+        if (denom < 1e-9) return { u: 0, v: 10000 }; // Near infinity
+
+        return {
+            u: -2 * y / denom,
+            v: (1 - x * x - y * y) / denom
+        };
+    }
+
+    UHPToDisk(u, v) {
+        const denom = u * u + (v + 1) * (v + 1);
+        if (denom < 1e-9) return { x: 1, y: 0 }; // Should not happen for v>0
+        return {
+            x: (u * u + v * v - 1) / denom,
+            y: -2 * u / denom
+        };
+    }
+
+    UHPToScreen(u, v) {
+        const scale = this.height / 5; // Show up to v=5
+        const centerX = this.width / 2;
+        const bottomY = this.height - 20; // Padding from bottom
+
+        return {
+            x: centerX + u * scale,
+            y: bottomY - v * scale
+        };
+    }
+
+    screenToUHP(sx, sy) {
+        const scale = this.height / 5;
+        const centerX = this.width / 2;
+        const bottomY = this.height - 20;
+
+        return {
+            u: (sx - centerX) / scale,
+            v: (bottomY - sy) / scale
         };
     }
 
@@ -710,7 +763,20 @@ export class PoincareRenderer {
         ctx.fillStyle = '#1a1a1a';
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // Save context state
+        if (this.isUpperHalfPlane) {
+            this.renderUHP();
+        } else {
+            this.renderDisk();
+        }
+
+        // Update animation and request next frame if needed
+        if (this.updateAnimation()) {
+            requestAnimationFrame(() => this.render());
+        }
+    }
+
+    renderDisk() {
+        const ctx = this.ctx;
         ctx.save();
 
         // Create clipping region for unit disk
@@ -775,11 +841,74 @@ export class PoincareRenderer {
 
         // Restore context state (removes clipping)
         ctx.restore();
+    }
 
-        // Update animation and request next frame if needed
-        if (this.updateAnimation()) {
-            requestAnimationFrame(() => this.render());
+    renderUHP() {
+        const ctx = this.ctx;
+        ctx.save();
+
+        // Fill background
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        // Draw and fill fundamental domain or orbit
+        if (this.showFundamentalDomain) {
+            if (this.showDomainOrbit && this.faceMatrices.length > 0) {
+                this.drawDomainOrbit();
+            } else {
+                this.drawFundamentalDomain();
+            }
         }
+
+        // Draw Cayley graph if enabled
+        if (this.showCayleyGraph && this.faceMatrices.length > 0) {
+            this.drawCayleyGraph((x, y) => {
+                const uhp = this.diskToUHP(x, y);
+                return this.UHPToScreen(uhp.u, uhp.v);
+            });
+        }
+
+        // Draw boundary (Real line)
+        if (this.showBoundary) {
+            const p1 = this.UHPToScreen(-100, 0);
+            const p2 = this.UHPToScreen(100, 0);
+            ctx.strokeStyle = 'rgba(136, 170, 255, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+        }
+
+        // Draw all geodesics
+        if (this.showFundamentalDomain) {
+            // Draw circles
+            for (let i = 0; i < this.sphereCenters.length; i++) {
+                const isSelected = this.selectedFaceId === i || this.selectedEdgeFaces[0] === i || this.selectedEdgeFaces[1] === i;
+                const isMapped = this.mappedFaceId === i;
+                const isShiftClicked = this.shiftClickedFaceId === i;
+                const isHovered = this.hoveredFaceId === i;
+                this.drawGeodesicCircleUHP(this.sphereCenters[i], this.sphereRadii[i], i, isSelected, isHovered, isMapped, isShiftClicked);
+            }
+
+            // Draw lines
+            const numSpheres = this.sphereCenters.length;
+            for (let i = 0; i < this.planeNormals.length; i++) {
+                const faceId = numSpheres + i;
+                const isSelected = this.selectedFaceId === faceId || this.selectedEdgeFaces[0] === faceId || this.selectedEdgeFaces[1] === faceId;
+                const isMapped = this.mappedFaceId === faceId;
+                const isShiftClicked = this.shiftClickedFaceId === faceId;
+                const isHovered = this.hoveredFaceId === faceId;
+                this.drawGeodesicLineUHP(this.planeNormals[i], faceId, isSelected, isHovered, isMapped, isShiftClicked);
+            }
+        }
+
+        // Draw vertices
+        if (this.showFundamentalDomain) {
+            this.drawVerticesUHP();
+        }
+
+        ctx.restore();
     }
 
     // Check if a point in the disk is inside the fundamental domain
@@ -910,9 +1039,10 @@ export class PoincareRenderer {
         ctx.putImageData(imageData, 0, 0);
     }
 
-    drawCayleyGraph() {
+    drawCayleyGraph(projectionFn = null) {
         const ctx = this.ctx;
         const maxDepth = 4;
+        const project = projectionFn || ((x, y) => this.diskToScreen(x, y));
 
         // Identify generator indices and matrices
         const generators = [];
@@ -1018,8 +1148,8 @@ export class PoincareRenderer {
         // Draw edges
         ctx.lineWidth = 1;
         for (const edge of edges) {
-            const p1 = this.diskToScreen(edge.p1.x, edge.p1.y);
-            const p2 = this.diskToScreen(edge.p2.x, edge.p2.y);
+            const p1 = project(edge.p1.x, edge.p1.y);
+            const p2 = project(edge.p2.x, edge.p2.y);
             ctx.strokeStyle = edge.color;
             ctx.beginPath();
             ctx.moveTo(p1.x, p1.y);
@@ -1030,7 +1160,7 @@ export class PoincareRenderer {
         // Draw vertices
         ctx.fillStyle = '#FFF';
         for (const node of visited.values()) {
-            const p = this.diskToScreen(node.point.x, node.point.y);
+            const p = project(node.point.x, node.point.y);
             ctx.beginPath();
             ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
             ctx.fill();
@@ -1258,5 +1388,155 @@ export class PoincareRenderer {
         }
 
         ctx.putImageData(imageData, 0, 0);
+    }
+    drawGeodesicCircleUHP(center, radius, faceId, isSelected, isHovered, isMapped, isShiftClicked) {
+        // Find intersection with unit circle in D
+        // Circle: |z-c|^2 = r^2
+        // Unit circle: |z|^2 = 1
+        // 2 Re(z c_bar) = 1 + |c|^2 - r^2
+        // 2(x cx + y cy) = 1 + cx^2 + cy^2 - r^2
+
+        const cx = center.x;
+        const cy = center.y;
+        const C = 1 + cx * cx + cy * cy - radius * radius;
+
+        // Intersection of line 2*cx*x + 2*cy*y = C and x^2+y^2=1
+        const A = 2 * cx;
+        const B = 2 * cy;
+
+        // Distance from origin to line
+        const dist = Math.abs(C) / Math.sqrt(A * A + B * B);
+        if (dist >= 1.0) return; // Should not happen for geodesics intersecting disk
+
+        // Find points
+        const x0 = A * C / (A * A + B * B);
+        const y0 = B * C / (A * A + B * B);
+
+        const d = Math.sqrt(1 - dist * dist);
+        const mult = Math.sqrt(d * d / (A * A + B * B));
+
+        const ax = x0 + B * mult;
+        const ay = y0 - A * mult;
+        const bx = x0 - B * mult;
+        const by = y0 + A * mult;
+
+        // Map to UHP
+        const p1 = this.diskToUHP(ax, ay);
+        const p2 = this.diskToUHP(bx, by);
+
+        this.drawGeodesicUHPFromEndpoints(p1, p2, faceId, isSelected, isHovered, isMapped, isShiftClicked);
+    }
+
+    drawGeodesicLineUHP(normal, faceId, isSelected, isHovered, isMapped, isShiftClicked) {
+        // Line through origin with normal (nx, ny)
+        // Intersects unit circle at (-ny, nx) and (ny, -nx)
+        const ax = -normal.y;
+        const ay = normal.x;
+        const bx = normal.y;
+        const by = -normal.x;
+
+        const p1 = this.diskToUHP(ax, ay);
+        const p2 = this.diskToUHP(bx, by);
+
+        this.drawGeodesicUHPFromEndpoints(p1, p2, faceId, isSelected, isHovered, isMapped, isShiftClicked);
+    }
+
+    drawGeodesicUHPFromEndpoints(p1, p2, faceId, isSelected, isHovered, isMapped, isShiftClicked) {
+        const ctx = this.ctx;
+
+        // Set styles
+        let strokeWidth = 2;
+        let alpha = 0.8;
+        let dashPattern = [];
+
+        if (isSelected) {
+            strokeWidth = 4;
+            alpha = 1.0;
+        } else if (isMapped) {
+            strokeWidth = 4;
+            alpha = 1.0;
+            dashPattern = [10, 5];
+        } else if (isShiftClicked) {
+            strokeWidth = 4;
+            alpha = 1.0;
+            dashPattern = [5, 5];
+        } else if (isHovered) {
+            strokeWidth = 3;
+            alpha = 0.9;
+        }
+
+        if (this.popFaceId === faceId && this.popStrength > 0) {
+            const popScale = 1 + this.popStrength * 0.05;
+            strokeWidth *= popScale;
+        }
+
+        ctx.strokeStyle = this.getFaceColor(faceId, alpha);
+        ctx.lineWidth = strokeWidth;
+        ctx.setLineDash(dashPattern);
+        ctx.beginPath();
+
+        // Check if vertical line
+        // p1 or p2 might be at infinity (v large)
+        const isInf1 = p1.v > 1000;
+        const isInf2 = p2.v > 1000;
+
+        if (isInf1 || isInf2) {
+            // Vertical line
+            const u = isInf1 ? p2.u : p1.u;
+            const top = this.UHPToScreen(u, 10); // High up
+            const bottom = this.UHPToScreen(u, 0);
+            ctx.moveTo(top.x, top.y);
+            ctx.lineTo(bottom.x, bottom.y);
+        } else {
+            // Semicircle
+            const centerU = (p1.u + p2.u) / 2;
+            const radius = Math.abs(p1.u - p2.u) / 2;
+
+            const screenCenter = this.UHPToScreen(centerU, 0);
+            // Radius in screen pixels
+            // UHPToScreen scales u by 'scale'
+            const scale = this.height / 5;
+            const screenRadius = radius * scale;
+
+            // Draw semicircle
+            ctx.arc(screenCenter.x, screenCenter.y, screenRadius, Math.PI, 0);
+        }
+
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    drawVerticesUHP() {
+        if (!this.vertices || this.vertices.length === 0) return;
+        const ctx = this.ctx;
+
+        for (let i = 0; i < this.vertices.length; i++) {
+            const vertex = this.vertices[i];
+            const uhp = this.diskToUHP(vertex.point.x, vertex.point.y);
+            const screen = this.UHPToScreen(uhp.u, uhp.v);
+
+            const isSelected = this.selectedVertexId === i;
+            const isHovered = this.hoveredVertexId === i;
+
+            ctx.beginPath();
+            ctx.arc(screen.x, screen.y, isSelected ? 8 : (isHovered ? 6 : 4), 0, 2 * Math.PI);
+
+            if (isSelected) {
+                ctx.fillStyle = '#FFD700';
+                ctx.strokeStyle = '#FF6B35';
+                ctx.lineWidth = 2;
+            } else if (isHovered) {
+                ctx.fillStyle = '#FFA07A';
+                ctx.strokeStyle = '#FF6B35';
+                ctx.lineWidth = 2;
+            } else {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+            }
+
+            ctx.fill();
+            ctx.stroke();
+        }
     }
 }

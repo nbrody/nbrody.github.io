@@ -431,7 +431,11 @@ async function updateFromMatrices() {
             const c = mat.c.re;
             const d = mat.d.re;
 
-            const so21 = PSL2RtoSDF.PSL2RtoSO21(a, b, c, d);
+            // Normalize determinant to +/- 1
+            const det = a * d - b * c;
+            const scale = (Math.abs(det) > 1e-12) ? (1 / Math.sqrt(Math.abs(det))) : 1;
+
+            const so21 = PSL2RtoSDF.PSL2RtoSO21(a * scale, b * scale, c * scale, d * scale);
             let cov;
             try {
                 const result = PSL2RtoSDF.sDF_autoFromSO21(so21);
@@ -1293,6 +1297,17 @@ function setupEventHandlers() {
             if (renderer) {
                 renderer.showCayleyGraph = cayleyGraphToggle.classList.contains('active');
                 renderer.render();
+            }
+        });
+    }
+
+    // Upper half-plane toggle
+    const uhpToggle = document.getElementById('toggle-upper-half-plane-btn');
+    if (uhpToggle) {
+        uhpToggle.addEventListener('click', () => {
+            uhpToggle.classList.toggle('active');
+            if (renderer) {
+                renderer.toggleUpperHalfPlane(uhpToggle.classList.contains('active'));
             }
         });
     }
