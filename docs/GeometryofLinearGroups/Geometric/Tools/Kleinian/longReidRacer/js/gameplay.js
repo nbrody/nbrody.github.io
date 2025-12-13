@@ -130,6 +130,79 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// Mobile Controls
+function handleMobileInput(action) {
+    if (!gameStarted) {
+        console.log('Starting game via mobile input');
+        gameStarted = true;
+        const titleScreen = document.getElementById('title-screen');
+        if (titleScreen) titleScreen.style.display = 'none';
+        return;
+    }
+
+    if (isMoving || hasWon) return;
+
+    if (action === 'autoplay') {
+        autoPlaySolution();
+        return;
+    }
+
+    if (action === 'undo') {
+        undoMove();
+        return;
+    }
+
+    // Relative moves
+    const nextMoves = getNextMoves();
+    if (action === 'left') triggerMove(nextMoves.left.matrix, nextMoves.left.label);
+    if (action === 'up') triggerMove(nextMoves.up.matrix, nextMoves.up.label);
+    if (action === 'right') triggerMove(nextMoves.right.matrix, nextMoves.right.label);
+}
+
+// Add listeners when DOM is loaded (or immediately if script runs after DOM)
+// Since this is at end of body in index.html, elements should exist.
+const mobileBtnUp = document.getElementById('btn-up');
+const mobileBtnLeft = document.getElementById('btn-left');
+const mobileBtnRight = document.getElementById('btn-right');
+const mobileBtnDown = document.getElementById('btn-down');
+const mobileBtnAuto = document.getElementById('mobile-autoplay-btn');
+
+if (mobileBtnUp) {
+    mobileBtnUp.addEventListener('touchstart', (e) => { e.preventDefault(); handleMobileInput('up'); });
+    mobileBtnUp.addEventListener('mousedown', (e) => { e.preventDefault(); handleMobileInput('up'); });
+}
+if (mobileBtnLeft) {
+    mobileBtnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); handleMobileInput('left'); });
+    mobileBtnLeft.addEventListener('mousedown', (e) => { e.preventDefault(); handleMobileInput('left'); });
+}
+if (mobileBtnRight) {
+    mobileBtnRight.addEventListener('touchstart', (e) => { e.preventDefault(); handleMobileInput('right'); });
+    mobileBtnRight.addEventListener('mousedown', (e) => { e.preventDefault(); handleMobileInput('right'); });
+}
+if (mobileBtnDown) {
+    mobileBtnDown.addEventListener('touchstart', (e) => { e.preventDefault(); handleMobileInput('undo'); });
+    mobileBtnDown.addEventListener('mousedown', (e) => { e.preventDefault(); handleMobileInput('undo'); });
+}
+if (mobileBtnAuto) {
+    mobileBtnAuto.addEventListener('touchstart', (e) => { e.preventDefault(); handleMobileInput('autoplay'); });
+    mobileBtnAuto.addEventListener('mousedown', (e) => { e.preventDefault(); handleMobileInput('autoplay'); });
+}
+
+// Tap title screen to start
+const titleScreen = document.getElementById('title-screen');
+if (titleScreen) {
+    const startGame = (e) => {
+        if (!gameStarted) {
+            e.preventDefault(); // Prevent ghost clicks
+            console.log('Starting game via title screen tap');
+            gameStarted = true;
+            titleScreen.style.display = 'none';
+        }
+    };
+    titleScreen.addEventListener('touchstart', startGame);
+    titleScreen.addEventListener('click', startGame);
+}
+
 
 
 function restartGame() {

@@ -133,19 +133,22 @@ export function addMatrixInput(values = ['1', '0', '0', '1']) {
   const container = document.createElement('div');
   container.className = 'matrix-block';
   container.innerHTML = `
-    <div style="display:flex;align-items:center;">
-      <label style="flex-grow:1;">
-        <span class="matrix-label">\\( g_{${idx + 1}} = \\)</span>
-        <span class="matrix-bracket">(</span>
-        <span class="matrix-grid-inline">
-            <span class="mq-matrix-input" data-initial="${values[0]}"></span>
-            <span class="mq-matrix-input" data-initial="${values[1]}"></span>
-            <span class="mq-matrix-input" data-initial="${values[2]}"></span>
-            <span class="mq-matrix-input" data-initial="${values[3]}"></span>
-        </span>
-        <span class="matrix-bracket">)</span>
+    <div style="display:flex;align-items:center; gap: 15px; margin-bottom: 5px;">
+      <label style="flex-grow:1; display:flex; align-items:center;">
+        <span class="matrix-label" style="margin-right: 15px; font-size: 1.1em;">\\( g_{${idx + 1}} = \\)</span>
+        
+        <div class="matrix-bracket">
+            <div class="matrix-row">
+                <span class="mq-matrix-input" data-initial="${values[0]}"></span>
+                <span class="mq-matrix-input" data-initial="${values[1]}"></span>
+            </div>
+            <div class="matrix-row">
+                <span class="mq-matrix-input" data-initial="${values[2]}"></span>
+                <span class="mq-matrix-input" data-initial="${values[3]}"></span>
+            </div>
+        </div>
       </label>
-      <button class="delete-matrix-btn" style="margin-left:8px;width:26px;height:30px;">✖</button>
+      <button class="delete-matrix-btn" style="width:30px;height:30px; display: flex; align-items: center; justify-content: center; opacity: 0.6; hover: opacity: 1;">✖</button>
     </div>`;
   container.querySelector('.delete-matrix-btn').addEventListener('click', () => {
     container.remove();

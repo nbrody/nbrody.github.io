@@ -35,9 +35,9 @@ body {
   min-height: 56px;
   box-sizing: border-box;
   transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-              margin 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-              background 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-              border-bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    margin 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+    border-bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Tab System - light glass styling */
@@ -136,7 +136,7 @@ button[data-walls-mode].active {
 /* Collapsed state - with smooth animation */
 #control-panel {
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-              padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   background: rgba(15, 15, 25, 0.85);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -261,56 +261,91 @@ button:active {
 
 /* Matrix input styles */
 .matrix-bracket {
-  display: inline-block;
-  font-size: 48px;
-  font-weight: normal;
-  line-height: 48px;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  padding: 0 12px;
+  margin: 0 5px;
   vertical-align: middle;
-  margin: 0 4px;
-  color: #d1d5db;
 }
 
-.matrix-grid-inline {
-  display: inline-grid;
-  grid-template-columns: repeat(2, minmax(40px, max-content));
-  grid-auto-rows: minmax(30px, max-content);
-  grid-gap: 4px;
-  vertical-align: middle;
-  margin: 0 4px;
-  align-items: start;
+/* Parentheses effect */
+.matrix-bracket::before,
+.matrix-bracket::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 10px;
+  border: 2px solid #94a3b8;
+  border-radius: 12px;
+  pointer-events: none;
 }
 
-.matrix-grid-inline .mq-editable-field {
-  min-width: 40px;
-  min-height: 30px;
-  padding: 2px 4px;
-  font-size: 16px;
-  width: auto;
-  display: inline-block;
-  white-space: nowrap;
-  max-width: none;
-  overflow: visible;
+.matrix-bracket::before {
+  left: 0;
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.matrix-bracket::after {
+  right: 0;
+  border-left: none;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.matrix-row {
+  display: flex;
+  gap: 8px;
 }
 
 .mq-matrix-input {
-  display: inline-block;
-  border: 1px solid #4b5563;
-  border-radius: 4px;
-  background: #374151;
-  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+  height: 40px;
+  padding: 4px 8px;
+  background: rgba(31, 41, 55, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px;
+  color: #f3f4f6;
+  font-size: 1.1em;
+  transition: all 0.2s ease;
   width: auto;
   white-space: nowrap;
   max-width: none;
   overflow: visible;
 }
 
+.mq-matrix-input.mq-focused {
+  background: rgba(31, 41, 55, 0.9);
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
 .mq-matrix-input .mq-root-block {
+  border: none !important;
+  padding: 0 !important;
   display: inline-block;
   overflow: visible;
 }
 
 .matrix-block {
-  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+  transition: all 0.2s ease;
+}
+
+.matrix-block:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .delete-matrix-btn {

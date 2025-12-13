@@ -38,14 +38,22 @@ export function initScene(viewer) {
   controls.dampingFactor = 0.05;
   controls.target.copy(basepoint);
 
-  const ambientLight = new THREE.AmbientLight(0xcccccc, 1.0);
+  // Enhanced lighting for more vibrant colors
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
   scene.add(ambientLight);
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
-  directionalLight.position.set(2, 3, 5);
+
+  // Hemisphere light for natural sky/ground fill
+  const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+  scene.add(hemisphereLight);
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+  directionalLight.position.set(5, 5, 5);
   scene.add(directionalLight);
-  const fixedLight = new THREE.PointLight(0xffffff, 0.8);
-  fixedLight.position.set(-3, 4, 10);
-  scene.add(fixedLight);
+
+  // Additional rim light for definition
+  const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
+  backLight.position.set(-5, -5, 2);
+  scene.add(backLight);
 
   const basepointGeom = new THREE.SphereGeometry(0.1, 16, 16);
   const basepointMat = new THREE.MeshStandardMaterial({ color: 0xffeb3b });

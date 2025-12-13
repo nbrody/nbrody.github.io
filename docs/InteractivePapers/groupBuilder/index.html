@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix Group Builder</title>
+
+    <!-- jQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+    <!-- MathQuill -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.js"></script>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Matrix Group Builder</h1>
+        <p class="subtitle">Define a custom number ring and matrix group generators.</p>
+
+        <!-- Section 1: Number Ring -->
+        <div class="section" id="number-ring-section">
+            <h2>
+                <span class="step-number">1.</span> Build Number Ring
+            </h2>
+
+            <div class="input-block">
+                <label for="ring-variables">Variables</label>
+                <div class="helper-text">List your variables separated by commas (e.g., x, y, z)</div>
+                <input type="text" id="ring-variables" placeholder="x_1, x_2, ...">
+            </div>
+
+            <div class="input-block">
+                <label>Relations & Definitions</label>
+                <div class="helper-text">Define polynomials or constants (e.g., x^2 + 1 = 0, a = x^2 - x)</div>
+                <div id="relations-container">
+                    <!-- Dynamic MathQuill inputs added here -->
+                </div>
+                <button class="add-btn" id="add-relation-btn">
+                    <span>+</span> Add Relation
+                </button>
+            </div>
+        </div>
+
+        <!-- Section 2: Generators -->
+        <div class="section" id="matrix-section">
+            <h2>
+                <span class="step-number">2.</span> Define Generators
+            </h2>
+            <p class="helper-text" style="margin-bottom: 30px;">Enter two 2x2 matrices over your number ring.</p>
+
+            <div class="matrix-section-content">
+                <!-- Matrix A -->
+                <div class="matrix-wrapper">
+                    <h3>Matrix A</h3>
+                    <div class="matrix-bracket">
+                        <div class="matrix-row">
+                            <span class="math-field" id="matA-00"></span>
+                            <span class="math-field" id="matA-01"></span>
+                        </div>
+                        <div class="matrix-row">
+                            <span class="math-field" id="matA-10"></span>
+                            <span class="math-field" id="matA-11"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Matrix B -->
+                <div class="matrix-wrapper">
+                    <h3>Matrix B</h3>
+                    <div class="matrix-bracket">
+                        <div class="matrix-row">
+                            <span class="math-field" id="matB-00"></span>
+                            <span class="math-field" id="matB-01"></span>
+                        </div>
+                        <div class="matrix-row">
+                            <span class="math-field" id="matB-10"></span>
+                            <span class="math-field" id="matB-11"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

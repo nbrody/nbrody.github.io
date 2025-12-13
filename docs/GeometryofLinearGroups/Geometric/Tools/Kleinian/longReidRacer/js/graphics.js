@@ -370,9 +370,8 @@ function draw() {
     }
 
     // Calculate View Transform (Inverse of Current Matrix)
-    // This centers the world on the car
     const invCurrent = invertMatrix(currentMatrix);
-    const invCurrentComplex = toComplexMatrix(invCurrent);
+    const i_complex = new Complex(0, 1);
 
     // Animation interpolation
     let animTransform = { a: new Complex(1, 0), b: new Complex(0, 0), c: new Complex(0, 0), d: new Complex(1, 0) };
@@ -399,78 +398,78 @@ function draw() {
         };
     }
 
-    // Draw Cayley graph edges as highways
-    const drawnEdges = new Set();
-    const edgesToDraw = [];
+    // 1. Prepare Nodes (Project all nodes first)
+    // Map matrix string -> { z_disk, proj, height }
+    const nodeData = new Map();
 
-    cayleyGraph.forEach(node1 => {
-        const moves = [
-            { m: Matrix.A, l: 'a' },
-            { m: Matrix.B, l: 'b' }
-        ];
-
-        // Calculate relative position of node1
-        const relM1 = invCurrent.mul(node1.matrix);
-        const relC1 = toComplexMatrix(relM1);
+    cayleyGraph.forEach(node => {
+        // Calculate relative position
+        const relM = invCurrent.mul(node.matrix);
+        // Optimization: In a real heavy app, we'd cache toComplexMatrix(relM) 
+        // if !isMoving, but this first pass is already a big improvement.
+        const relC = toComplexMatrix(relM);
 
         // Apply animation transform (Mobius composition)
-        const finalC1 = {
-            a: animTransform.a.mul(relC1.a).add(animTransform.b.mul(relC1.c)),
-            b: animTransform.a.mul(relC1.b).add(animTransform.b.mul(relC1.d)),
-            c: animTransform.c.mul(relC1.a).add(animTransform.d.mul(relC1.c)),
-            d: animTransform.c.mul(relC1.b).add(animTransform.d.mul(relC1.d))
+        const finalC = {
+            a: animTransform.a.mul(relC.a).add(animTransform.b.mul(relC.c)),
+            b: animTransform.a.mul(relC.b).add(animTransform.b.mul(relC.d)),
+            c: animTransform.c.mul(relC.a).add(animTransform.d.mul(relC.c)),
+            d: animTransform.c.mul(relC.b).add(animTransform.d.mul(relC.d))
         };
 
-        const i = new Complex(0, 1);
-        const z1_uhp = applyMobius(i, finalC1);
-        const z1_disk = mapToDisk(z1_uhp);
+        const z_uhp = applyMobius(i_complex, finalC);
+        const z_disk = mapToDisk(z_uhp);
+        const proj = project3D(z_disk.re, z_disk.im, node.height);
+
+        // Store for edge lookup
+        nodeData.set(node.matrix.toString(), {
+            node: node,
+            z_disk: z_disk,
+            proj: proj,
+            height: node.height
+        });
+
+        // Store node proj for later usages (labels, etc)
+        node.proj = proj;
+    });
+
+    // 2. Collect Edges
+    const drawnEdges = new Set();
+    const edgesToDraw = [];
+    const moves = [
+        { m: Matrix.A, l: 'a' },
+        { m: Matrix.B, l: 'b' }
+    ];
+
+    cayleyGraph.forEach(node1 => {
+        const d1 = nodeData.get(node1.matrix.toString());
+        if (!d1) return;
 
         moves.forEach(move => {
             const nextMatrix = node1.matrix.mul(move.m);
-            const node2 = cayleyGraph.find(n => n.matrix.toString() === nextMatrix.toString());
+            const key2 = nextMatrix.toString();
+            const d2 = nodeData.get(key2);
 
-            if (node2) {
-                const edgeKey = [node1.matrix.toString(), node2.matrix.toString()].sort().join('|');
+            if (d2) {
+                const edgeKey = [node1.matrix.toString(), key2].sort().join('|');
                 if (!drawnEdges.has(edgeKey)) {
                     drawnEdges.add(edgeKey);
 
-                    // Calculate relative position of node2
-                    const relM2 = invCurrent.mul(node2.matrix);
-                    const relC2 = toComplexMatrix(relM2);
-                    const finalC2 = {
-                        a: animTransform.a.mul(relC2.a).add(animTransform.b.mul(relC2.c)),
-                        b: animTransform.a.mul(relC2.b).add(animTransform.b.mul(relC2.d)),
-                        c: animTransform.c.mul(relC2.a).add(animTransform.d.mul(relC2.c)),
-                        d: animTransform.c.mul(relC2.b).add(animTransform.d.mul(relC2.d))
-                    };
-
-                    const z2_uhp = applyMobius(i, finalC2);
-                    const z2_disk = mapToDisk(z2_uhp);
-
-                    // Project 3D
-                    const p1 = { x: z1_disk.re, y: z1_disk.im, z: node1.height };
-                    const p2 = { x: z2_disk.re, y: z2_disk.im, z: node2.height };
-
-                    const proj1 = project3D(p1.x, p1.y, p1.z);
-                    const proj2 = project3D(p2.x, p2.y, p2.z);
-
-                    // Only draw if in front of camera
-                    if (proj1.depth > 0.1 && proj2.depth > 0.1) {
+                    // Visibility Check
+                    if (d1.proj.depth > 0.1 && d2.proj.depth > 0.1) {
                         edgesToDraw.push({
-                            proj1, proj2,
-                            avgDepth: (proj1.depth + proj2.depth) / 2,
-                            height1: node1.height,
-                            height2: node2.height,
-                            disk1: z1_disk,
-                            disk2: z2_disk
+                            proj1: d1.proj,
+                            proj2: d2.proj,
+                            avgDepth: (d1.proj.depth + d2.proj.depth) / 2,
+                            height1: d1.height,
+                            height2: d2.height,
+                            disk1: d1.z_disk,
+                            disk2: d2.z_disk
                         });
                     }
                 }
             }
         });
-
-        // Store node projection for later
-        node1.proj = project3D(z1_disk.re, z1_disk.im, node1.height);
     });
 
     // Sort edges by depth (far to near)
@@ -523,20 +522,21 @@ function draw() {
     // Draw highway supports at each intersection - before roads
     cayleyGraph.forEach(node => {
         if (node.height === 0) return;
+        const d = nodeData.get(node.matrix.toString());
+        if (!d || d.proj.depth < 0.1) return;
 
-        const relM = invCurrent.mul(node.matrix);
-        const relC = toComplexMatrix(relM);
-        const i = new Complex(0, 1);
-        const z_uhp = applyMobius(i, relC);
-        const z_disk = mapToDisk(z_uhp);
+        // Recalculate baseProj reusing d.z_disk
+        // (Actually, baseProj is just project3D with h=0)
+        // Optimization: nodeData has z_disk, so we can skip matrix math
+        const z_disk = d.z_disk;
+        const baseProj = project3D(z_disk.re, z_disk.im, 0);
+
+        if (baseProj.depth < 0.1) return;
 
         const hyperbolicFactor = 1 - (z_disk.re * z_disk.re + z_disk.im * z_disk.im);
         const supportOpacity = Math.min(1, Math.max(0.1, hyperbolicFactor * 1.5));
 
-        const baseProj = project3D(z_disk.re, z_disk.im, 0);
-        const topProj = project3D(z_disk.re, z_disk.im, node.height);
-
-        if (baseProj.depth < 0.1 || topProj.depth < 0.1) return;
+        const topProj = d.proj; // Already computed
 
         ctx.save();
         ctx.strokeStyle = `rgba(100, 100, 120, ${supportOpacity})`;
@@ -568,17 +568,10 @@ function draw() {
         const h1 = edge.height1;
         const h2 = edge.height2;
 
-        // Calculate hyperbolic scaling factor based on distance from origin (approx by depth/scale)
-        // We want distant roads to be thinner and fainter
-        const distFactor = Math.max(0, 1 - (1 / edge.proj1.scale) * 50); // Rough approx
         const opacity = Math.min(1, Math.max(0.1, edge.proj1.scale / 200));
 
-        // Colors with opacity
-        const glowColor = `rgba(255, 113, 206, ${opacity})`;
-        const laneColor = `rgba(255, 113, 206, ${opacity * 0.5})`;
-
-        // Generate geodesic points with hyperbolic distance info
-        const steps = 16;
+        // Reduced steps for performance (16 -> 8 is 2x speedup per edge)
+        const steps = 8;
         const points = [];
 
         const z1_conj = z1.conj();
@@ -592,7 +585,6 @@ function draw() {
             const z = w.add(z1).div(den2);
             const h = h1 + (h2 - h1) * t;
             const proj = project3D(z.re, z.im, h);
-            // Store hyperbolic distance factor (1 - |z|^2) which shrinks near boundary
             proj.hyperbolicFactor = 1 - (z.re * z.re + z.im * z.im);
             points.push(proj);
         }
@@ -603,6 +595,14 @@ function draw() {
 
         for (let i = 0; i < points.length; i++) {
             const p = points[i];
+
+            // Skip calculating detailed geometry if depth is very low (clipping)
+            if (p.depth < 0.1) {
+                leftPoints.push({ x: p.x, y: p.y, hyperbolicFactor: p.hyperbolicFactor });
+                rightPoints.push({ x: p.x, y: p.y, hyperbolicFactor: p.hyperbolicFactor });
+                continue;
+            }
+
             let dx, dy;
             if (i < points.length - 1) {
                 dx = points[i + 1].x - p.x;
@@ -624,8 +624,6 @@ function draw() {
             const nx = -dy / len;
             const ny = dx / len;
 
-            // Hyperbolic width scaling: width decreases as we approach disk boundary
-            // p.hyperbolicFactor = (1 - |z|^2), which is the conformal factor in Poincaré disk
             const hyperbolicScale = Math.max(0.1, p.hyperbolicFactor);
             const width = p.scale * 0.08 * hyperbolicScale * (opacity * 0.8 + 0.2);
 
@@ -636,42 +634,55 @@ function draw() {
         // Draw Road Surface (Black)
         ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
         ctx.beginPath();
-        ctx.moveTo(leftPoints[0].x, leftPoints[0].y);
-        for (let i = 1; i < leftPoints.length; i++) ctx.lineTo(leftPoints[i].x, leftPoints[i].y);
-        for (let i = rightPoints.length - 1; i >= 0; i--) ctx.lineTo(rightPoints[i].x, rightPoints[i].y);
-        ctx.closePath();
-        ctx.fill();
+        if (leftPoints.length > 0) {
+            ctx.moveTo(leftPoints[0].x, leftPoints[0].y);
+            for (let i = 1; i < leftPoints.length; i++) ctx.lineTo(leftPoints[i].x, leftPoints[i].y);
+            for (let i = rightPoints.length - 1; i >= 0; i--) ctx.lineTo(rightPoints[i].x, rightPoints[i].y);
+            ctx.closePath();
+            ctx.fill();
+        }
 
         // Draw Rails and Center Line (Segments)
+        // Optimization: Removing shadowBlur. Using double-stroke for glow effect is faster
+        // but for now let's just use semi-transparent lines to keep it simple and fast.
+
         for (let i = 0; i < points.length - 1; i++) {
+            // Simple frustum check
+            if (points[i].depth < 0.1 && points[i + 1].depth < 0.1) continue;
+
             const scale = points[i].scale;
-            // Per-segment opacity based on hyperbolic distance (fades toward disk boundary)
             const segmentOpacity = Math.min(1, Math.max(0.05, points[i].hyperbolicFactor * 1.2));
-            const segmentGlowColor = `rgba(255, 113, 206, ${segmentOpacity})`;
-            const segmentLaneColor = `rgba(255, 113, 206, ${segmentOpacity * 0.5})`;
+            const segmentGlowColor = `rgba(255, 113, 206, ${segmentOpacity * 0.8})`; // slightly reduced opacity
 
-            ctx.save();
-            ctx.strokeStyle = segmentGlowColor;
-            ctx.shadowBlur = 10 * segmentOpacity;
-            ctx.shadowColor = segmentGlowColor;
-            ctx.lineWidth = Math.max(0.5, 0.02 * scale * segmentOpacity);
+            // Replaced shadowBlur with just a solid stroke.
+            // If "glow" is essential, we can draw a wider stroke with low opacity first.
 
-            // Left Rail
+            // "Glow" pass (simulated) - Efficient replacement for shadowBlur
             ctx.beginPath();
             ctx.moveTo(leftPoints[i].x, leftPoints[i].y);
             ctx.lineTo(leftPoints[i + 1].x, leftPoints[i + 1].y);
+            ctx.moveTo(rightPoints[i].x, rightPoints[i].y);
+            ctx.lineTo(rightPoints[i + 1].x, rightPoints[i + 1].y);
+            ctx.lineWidth = Math.max(1, 0.06 * scale * segmentOpacity);
+            ctx.strokeStyle = `rgba(255, 113, 206, ${segmentOpacity * 0.3})`;
             ctx.stroke();
 
-            // Right Rail
+            // Core pass
+            ctx.lineWidth = Math.max(0.5, 0.02 * scale * segmentOpacity);
+            ctx.strokeStyle = segmentGlowColor;
+
             ctx.beginPath();
+            // Left Rail
+            ctx.moveTo(leftPoints[i].x, leftPoints[i].y);
+            ctx.lineTo(leftPoints[i + 1].x, leftPoints[i + 1].y);
+            // Right Rail
             ctx.moveTo(rightPoints[i].x, rightPoints[i].y);
             ctx.lineTo(rightPoints[i + 1].x, rightPoints[i + 1].y);
             ctx.stroke();
-            ctx.restore();
 
             // Center Line
             ctx.save();
-            ctx.strokeStyle = segmentLaneColor;
+            ctx.strokeStyle = `rgba(255, 113, 206, ${segmentOpacity * 0.5})`;
             ctx.lineWidth = Math.max(0.5, 0.01 * scale * segmentOpacity);
             ctx.setLineDash([10 * (scale / 100), 10 * (scale / 100)]);
             ctx.beginPath();
@@ -684,6 +695,7 @@ function draw() {
 
     // Draw Car at projected center position
     const carProj = project3D(0, 0, currentHeight);
+
 
     // Always draw the car
     if (carProj.depth > 0.1) {

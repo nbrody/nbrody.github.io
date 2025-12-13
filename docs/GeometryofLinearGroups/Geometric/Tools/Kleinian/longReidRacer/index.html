@@ -13,6 +13,7 @@
         <canvas id="gameCanvas" width="800" height="600"></canvas>
         <div id="scanlines"></div>
 
+
         <div id="ui-layer">
             <div class="hud-top">
                 <div class="matrix-display" id="matrix-display">
@@ -32,9 +33,22 @@
                 </div>
             </div>
 
+            <div id="mobile-autoplay-btn">!</div>
+
             <div class="hud-bottom">
                 WASD: Absolute controls<br>
                 <span id="arrow-instructions"></span>Arrows: Relative controls</span>
+            </div>
+
+            <div id="mobile-controls">
+                <div class="dpad-row">
+                    <button id="btn-up" class="dpad-btn">▲</button>
+                </div>
+                <div class="dpad-row">
+                    <button id="btn-left" class="dpad-btn">◄</button>
+                    <button id="btn-down" class="dpad-btn">▼</button>
+                    <button id="btn-right" class="dpad-btn">►</button>
+                </div>
             </div>
         </div>
 
