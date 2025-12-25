@@ -7,49 +7,18 @@ export class ControlsManager {
     }
 
     applyMove(moveChar) {
-        let moveMatrix = null;
-        let moveExact = null;
-
-        switch (moveChar) {
-            case 'L':
-                this.gameState.targetQuaternion.premultiply(this.gameState.qL);
-                moveExact = this.gameState.Lx;
-                break;
-            case 'R':
-                this.gameState.targetQuaternion.premultiply(this.gameState.qLinv);
-                moveExact = this.gameState.Linvx;
-                break;
-            case 'U':
-                this.gameState.targetQuaternion.premultiply(this.gameState.qU);
-                moveExact = this.gameState.Ux;
-                break;
-            case 'D':
-                this.gameState.targetQuaternion.premultiply(this.gameState.qUinv);
-                moveExact = this.gameState.Uinvx;
-                break;
-            default:
-                return;
-        }
-
-        if (moveExact) {
-            this.gameState.moves.push(moveChar);
-            this.gameState.simplifyMovesInPlace();
-            this.gameState.cumulativeMatrixExact = this.gameState.matMul3(
-                moveExact,
-                this.gameState.cumulativeMatrixExact
-            );
-            this.uiManager.updateDisplays();
-        }
+        this.gameState.applyMove(moveChar);
+        this.uiManager.updateDisplays();
     }
 
     initKeyboard() {
         window.addEventListener('keydown', (e) => {
             let move = null;
             switch (e.key) {
-                case 'ArrowLeft':  move = 'L'; break;
+                case 'ArrowLeft': move = 'L'; break;
                 case 'ArrowRight': move = 'R'; break;
-                case 'ArrowUp':    move = 'U'; break;
-                case 'ArrowDown':  move = 'D'; break;
+                case 'ArrowUp': move = 'U'; break;
+                case 'ArrowDown': move = 'D'; break;
                 default: return;
             }
             e.preventDefault();
@@ -66,12 +35,12 @@ export class ControlsManager {
         const bindButton = (btn, moveChar) => {
             if (!btn) return;
             const fire = (ev) => {
-                ev.preventDefault();
+                if (ev.cancelable) ev.preventDefault();
                 ev.stopPropagation();
                 this.applyMove(moveChar);
             };
+            // Use pointerdown to avoid delay and ghost clicks
             btn.addEventListener('pointerdown', fire);
-            btn.addEventListener('click', fire);
         };
 
         bindButton(btnUp, 'U');

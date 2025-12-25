@@ -570,8 +570,7 @@ function draw() {
 
         const opacity = Math.min(1, Math.max(0.1, edge.proj1.scale / 200));
 
-        // Reduced steps for performance (16 -> 8 is 2x speedup per edge)
-        const steps = 8;
+        const steps = 10;
         const points = [];
 
         const z1_conj = z1.conj();

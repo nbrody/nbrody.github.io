@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beam Search - Globe Game</title>
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #e6edf3;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #58a6ff;
+        }
+
+        .controls {
+            background: #161b22;
+            padding: 20px;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #8b949e;
+        }
+
+        input {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        button {
+            background: #238636;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #2ea043;
+        }
+
+        button:disabled {
+            background: #23863680;
+            cursor: not-allowed;
+        }
+
+        #results {
+            background: #161b22;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+            padding: 20px;
+        }
+
+        .result-row {
+            display: grid;
+            grid-template-columns: 300px 100px 1fr;
+            padding: 8px;
+            border-bottom: 1px solid #21262d;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .result-row.header {
+            font-weight: bold;
+            color: #8b949e;
+            border-bottom: 2px solid #30363d;
+        }
+
+        .word {
+            color: #7ee787;
+            word-break: break-all;
+        }
+
+        .dist {
+            color: #feecf0;
+        }
+
+        /* Actually I'll swap this color */
+        .padic {
+            color: #79c0ff;
+        }
+
+        .highlight {
+            background: rgba(56, 139, 253, 0.1);
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.171.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.171.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Beam Search: Nash Beacon</h1>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Beam Width</label>
+                <input type="number" id="beamWidth" value="1000">
+            </div>
+            <div class="control-group">
+                <label>Max Depth</label>
+                <input type="number" id="maxDepth" value="12">
+            </div>
+            <div class="control-group">
+                <label>P-adic Weight (Penalty)</label>
+                <input type="number" id="padicWeight" value="0.0" step="0.1">
+                <small style="color:#666">Add cost for higher denominators</small>
+            </div>
+            <button id="startBtn">Start Search</button>
+        </div>
+
+        <div id="status" style="margin-bottom: 10px; color: #8b949e;">Ready</div>
+
+        <div id="results">
+            <div class="result-row header">
+                <div>Word</div>
+                <div>Miles</div>
+                <div>P-adic Depth</div>
+            </div>
+            <div id="resultsList"></div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+
+</html>

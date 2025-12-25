@@ -1,22 +1,26 @@
 import * as THREE from 'three';
-import { F, I3, matMul3, cloneMat3, transpose3 } from './math.js';
+import { I3, matMul3, cloneMat3, transpose3 } from './math.js';
 import { setupScene, computeGeodesicMiles } from './scene.js';
 import { UIManager } from './ui.js';
 import { ControlsManager } from './controls.js';
+import {
+    MAT_L_FLOAT, MAT_U_FLOAT,
+    MAT_L_EXACT, MAT_LINV_EXACT, MAT_U_EXACT, MAT_UINV_EXACT
+} from './constants.js';
 
 class GameState {
     constructor() {
-        // Rotation matrices
-        this.L = this.makeM4(3 / 5, 0, 4 / 5, 0, 1, 0, -4 / 5, 0, 3 / 5);
+        // Rotation matrices (Float for THREE.js)
+        this.L = MAT_L_FLOAT;
         this.Linv = this.L.clone().invert();
-        this.U = this.makeM4(1, 0, 0, 0, 5 / 13, -12 / 13, 0, 12 / 13, 5 / 13);
+        this.U = MAT_U_FLOAT;
         this.Uinv = this.U.clone().invert();
 
         // Exact rational versions
-        this.Lx = [[F(3,5), F(0), F(4,5)], [F(0), F(1), F(0)], [F(-4,5), F(0), F(3,5)]];
-        this.Linvx = [[F(3,5), F(0), F(-4,5)], [F(0), F(1), F(0)], [F(4,5), F(0), F(3,5)]];
-        this.Ux = [[F(1), F(0), F(0)], [F(0), F(5,13), F(-12,13)], [F(0), F(12,13), F(5,13)]];
-        this.Uinvx = [[F(1), F(0), F(0)], [F(0), F(5,13), F(12,13)], [F(0), F(-12,13), F(5,13)]];
+        this.Lx = MAT_L_EXACT;
+        this.Linvx = MAT_LINV_EXACT;
+        this.Ux = MAT_U_EXACT;
+        this.Uinvx = MAT_UINV_EXACT;
 
         // Quaternions for smooth interpolation
         this.qL = new THREE.Quaternion().setFromRotationMatrix(this.L);
@@ -29,19 +33,11 @@ class GameState {
         this.cumulativeMatrixExact = I3();
         this.savedGens = [];
 
+        // History for Undo
+        this.history = [];
+
         // Keep reference to matMul3
         this.matMul3 = matMul3;
-    }
-
-    makeM4(a11, a12, a13, a21, a22, a23, a31, a32, a33) {
-        const m = new THREE.Matrix4();
-        m.set(
-            a11, a12, a13, 0,
-            a21, a22, a23, 0,
-            a31, a32, a33, 0,
-            0, 0, 0, 1
-        );
-        return m;
     }
 
     areInverseTokens(a, b) {
@@ -55,19 +51,17 @@ class GameState {
         return false;
     }
 
+    // O(N) Stack-based reduction
     reduceWordArray(wordArr) {
-        let changed = true;
-        while (changed) {
-            changed = false;
-            for (let i = 0; i < wordArr.length - 1; i++) {
-                if (this.areInverseTokens(wordArr[i], wordArr[i+1])) {
-                    wordArr.splice(i, 2);
-                    changed = true;
-                    break;
-                }
+        const stack = [];
+        for (const char of wordArr) {
+            if (stack.length > 0 && this.areInverseTokens(stack[stack.length - 1], char)) {
+                stack.pop();
+            } else {
+                stack.push(char);
             }
         }
-        return wordArr;
+        return stack;
     }
 
     simplifyMovesInPlace() {
@@ -90,7 +84,58 @@ class GameState {
         return { q, exact: M, word: clean };
     }
 
+    // Capture state before mutation
+    pushHistory() {
+        this.history.push({
+            moves: [...this.moves],
+            q: this.targetQuaternion.clone(),
+            exact: cloneMat3(this.cumulativeMatrixExact)
+        });
+        if (this.history.length > 50) this.history.shift();
+    }
+
+    undo() {
+        if (this.history.length === 0) return false;
+        const prev = this.history.pop();
+        this.moves = prev.moves;
+        this.targetQuaternion.copy(prev.q);
+        this.cumulativeMatrixExact = prev.exact;
+        return true;
+    }
+
+    reset() {
+        this.pushHistory(); // Allow undoing the reset
+        this.moves = [];
+        // Reset to initial Earth orientation? 
+        if (this.initialQuaternion) {
+            this.targetQuaternion.copy(this.initialQuaternion);
+        }
+        this.cumulativeMatrixExact = I3();
+    }
+
+    applyMove(moveChar) {
+        this.pushHistory();
+
+        let moveQ = null;
+        let moveExact = null;
+
+        switch (moveChar) {
+            case 'L': moveQ = this.qL; moveExact = this.Lx; break;
+            case 'R': moveQ = this.qLinv; moveExact = this.Linvx; break;
+            case 'U': moveQ = this.qU; moveExact = this.Ux; break;
+            case 'D': moveQ = this.qUinv; moveExact = this.Uinvx; break;
+        }
+
+        if (moveExact && moveQ) {
+            this.targetQuaternion.premultiply(moveQ);
+            this.cumulativeMatrixExact = matMul3(moveExact, this.cumulativeMatrixExact);
+            this.moves.push(moveChar);
+            this.simplifyMovesInPlace();
+        }
+    }
+
     applySavedGenerator(g, inverse) {
+        this.pushHistory();
         if (inverse) {
             const qInv = g.q.clone().invert();
             this.targetQuaternion.premultiply(qInv);
@@ -117,6 +162,7 @@ export function init() {
 
     // Initialize target quaternion
     gameState.targetQuaternion.copy(earthMesh.quaternion);
+    gameState.initialQuaternion = earthMesh.quaternion.clone(); // Save for reset
 
     const uiManager = new UIManager(gameState);
     const controlsManager = new ControlsManager(gameState, uiManager);

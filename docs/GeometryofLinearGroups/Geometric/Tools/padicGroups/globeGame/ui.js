@@ -13,6 +13,8 @@ export class UIManager {
 
         this.initLegend();
         this.initPanelToggle();
+        this.initControls(); // Add Undo/Reset
+
         if (this.saveBtn) {
             this.saveBtn.addEventListener('click', () => this.handleSaveCurrentRotation());
         }
@@ -21,8 +23,8 @@ export class UIManager {
     initLegend() {
         const legendEl = document.getElementById('legend-box');
         const round4 = (n) => Math.round(n * 1e4) / 1e4;
-        const xDeg = round4(Math.atan2(4/5, 3/5) * 180 / Math.PI);
-        const yDeg = round4(Math.atan2(12/13, 5/13) * 180 / Math.PI);
+        const xDeg = round4(Math.atan2(4 / 5, 3 / 5) * 180 / Math.PI);
+        const yDeg = round4(Math.atan2(12 / 13, 5 / 13) * 180 / Math.PI);
         legendEl.innerHTML = `Left/Right: rotate by ${xDeg}&deg;.<br>Up/Down: rotate by ${yDeg}&deg;.`;
     }
 
@@ -42,6 +44,40 @@ export class UIManager {
                 this.gameState.handleResize();
             }, 50);
         });
+    }
+
+    initControls() {
+        // Create Undo/Reset buttons dynamically
+        const container = document.createElement('div');
+        container.className = 'controls-row';
+        container.style.marginTop = '10px';
+        container.style.display = 'flex';
+        container.style.gap = '10px';
+
+        const createBtn = (text, cls, onClick) => {
+            const btn = document.createElement('button');
+            btn.textContent = text;
+            btn.className = `control-btn ${cls}`;
+            btn.addEventListener('click', onClick);
+            return btn;
+        };
+
+        this.undoBtn = createBtn('Undo', 'undo-btn', () => {
+            if (this.gameState.undo()) this.updateDisplays();
+        });
+
+        this.resetBtn = createBtn('Reset', 'reset-btn', () => {
+            this.gameState.reset();
+            this.updateDisplays();
+        });
+
+        container.appendChild(this.undoBtn);
+        container.appendChild(this.resetBtn);
+
+        // Insert after moves display
+        if (this.movesDisplay && this.movesDisplay.parentNode) {
+            this.movesDisplay.parentNode.insertBefore(container, this.movesDisplay.nextSibling);
+        }
     }
 
     updateDisplays() {
