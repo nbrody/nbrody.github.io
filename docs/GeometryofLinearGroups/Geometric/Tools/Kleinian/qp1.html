@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>QP^1 Height Reduction — Exact Interval Cover</title>
+    <style>
+        :root {
+            --bg: #0b0f17;
+            --panel: #111827;
+            --panel2: #0f172a;
+            --muted: #94a3b8;
+            --text: #e5e7eb;
+            --line: #22304a;
+            --good: #10b981;
+            --bad: #ef4444;
+            --chip: #0b1220;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .wrap {
+            max-width: 1100px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
+
+        header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        h1 {
+            font-size: 16px;
+            margin: 0;
+            letter-spacing: .2px;
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1.15fr .85fr;
+            gap: 14px;
+        }
+
+        .card {
+            background: linear-gradient(180deg, var(--panel), var(--panel2));
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 14px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 74px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: #0a1222;
+            color: var(--text);
+            padding: 10px;
+        }
+
+        input {
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            background: #0a1222;
+            color: var(--text);
+            padding: 8px 10px;
+        }
+
+        input[type="number"] {
+            width: 86px;
+        }
+
+        button {
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: #0a1222;
+            color: var(--text);
+            padding: 10px 12px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0d1930;
+        }
+
+        .chip {
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 10px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: var(--chip);
+            font-size: 12px;
+        }
+
+        details {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: #0a1222;
+        }
+
+        summary {
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        svg {
+            width: 100%;
+            height: 130px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: #070b12;
+        }
+
+        .kpi {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .kpi>div {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 10px;
+            background: #0a1222;
+        }
+
+        .kpi .v {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .kpi .l {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .list {
+            max-height: 260px;
+            overflow: auto;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #0a1222;
+        }
+
+        .item {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 10px;
+            border-bottom: 1px solid #15213a;
+        }
+
+        .item:last-child {
+            border-bottom: none;
+        }
+
+        .tag {
+            font-weight: 700;
+        }
+
+        .good {
+            color: var(--good);
+        }
+
+        .bad {
+            color: var(--bad);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <header>
+            <div>
+                <h1>QP<sup>1</sup> height reduction: exact reducing intervals + finite cover</h1>
+                <div class="muted">Computes reducing sets as unions of intervals (core |x|≤1 plus tails x≥1 / x≤−1),
+                    then builds a finite partition from endpoints and solves a greedy cover.</div>
+            </div>
+            <div class="row">
+                <button id="runBtn">Run</button>
+                <span id="status" class="muted"></span>
+            </div>
+        </header>
+
+        <div class="grid">
+            <div class="card">
+                <div class="row" style="justify-content:space-between;">
+                    <div class="chip"><span class="tag">A</span><span class="muted mono">3 4 / 2 3</span></div>
+                    <div class="chip"><span class="tag">B</span><span class="muted mono">2 −2 / 0 1/2</span></div>
+                </div>
+
+                <div class="row" style="margin-top:10px; gap:14px;">
+                    <div style="flex:1">
+                        <div class="muted" style="margin:6px 0 6px;">Generator A</div>
+                        <textarea id="A_in" class="mono">3 4
+2 3</textarea>
+                    </div>
+                    <div style="flex:1">
+                        <div class="muted" style="margin:6px 0 6px;">Generator B</div>
+                        <textarea id="B_in" class="mono">2 -2
+0 1/2</textarea>
+                    </div>
+                </div>
+
+                <details style="margin-top:12px;">
+                    <summary>Advanced parameters</summary>
+                    <div class="row" style="margin-top:10px;">
+                        <div class="chip">Max word length <input id="L" type="number" value="10" min="1" max="18" />
+                        </div>
+                        <div class="chip">Max words <input id="MAXW" type="number" value="2500" min="50" max="60000" />
+                        </div>
+                        <div class="chip">Plot clamp R <input id="CLAMP" type="number" value="6" min="2" max="50" />
+                        </div>
+                        <div class="chip">Sanity sample height N <input id="N" type="number" value="40" min="10"
+                                max="400" /></div>
+                    </div>
+                    <div class="muted" style="margin-top:10px;">
+                        “Sanity sample” is optional: it checks the resulting cover on all rationals p/q with
+                        max(|p|,|q|)≤N.
+                    </div>
+                </details>
+
+                <div class="kpi" id="kpis"></div>
+            </div>
+
+            <div class="card">
+                <div class="muted" style="margin-bottom:10px;">Finite partition (green = covered by some reducing map;
+                    labels are chosen by greedy cover).</div>
+                <svg id="viz" viewBox="0 0 1000 130" preserveAspectRatio="none"></svg>
+                <div class="row" style="margin-top:10px; justify-content:space-between;">
+                    <div class="muted" id="coverNote"></div>
+                    <button id="exportBtn">Export JSON</button>
+                </div>
+
+                <div style="margin-top:10px;">
+                    <div class="muted" style="margin-bottom:6px;">Labeled intervals</div>
+                    <div class="list mono" id="intervalList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* BigInt utilities */
+        const abs = x => x < 0n ? -x : x;
+        const sign = x => x < 0n ? -1n : (x > 0n ? 1n : 0n);
+        function gcd(a, b) { a = abs(a); b = abs(b); while (b) { const t = a % b; a = b; b = t; } return a; }
+        function lcm(a, b) { a = abs(a); b = abs(b); if (!a || !b) return 0n; return (a / gcd(a, b)) * b; }
+
+        function rat(n, d) { if (d === 0n) return { n, d }; if (d < 0n) { n = -n; d = -d; } const g = gcd(n, d); return { n: n / g, d: d / g }; }
+        function ratCmp(x, y) {
+            if (x.d === 0n && y.d === 0n) return Number(x.n - y.n); // -∞ vs +∞
+            if (x.d === 0n) return x.n < 0n ? -1 : 1;
+            if (y.d === 0n) return y.n < 0n ? 1 : -1;
+            const L = x.n * y.d, R = y.n * x.d;
+            return L < R ? -1 : (L > R ? 1 : 0);
+        }
+        function ratToFloat(x) { if (x.d === 0n) return x.n < 0n ? -Infinity : Infinity; return Number(x.n) / Number(x.d); }
+        function ratStr(x) {
+            if (x.d === 0n) return x.n < 0n ? "-∞" : "∞";
+            if (x.d === 1n) return String(x.n);
+            return `${x.n}/${x.d}`;
+        }
+
+        /* Parse rationals like "1/2" */
+        function parseR(token) {
+            token = token.trim();
+            if (token.includes('/')) {
+                const [a, b] = token.split('/');
+                return rat(BigInt(a.trim()), BigInt(b.trim()));
+            }
+            return rat(BigInt(token), 1n);
+        }
+        function parseMat(text) {
+            const lines = text.trim().split(/\n+/).map(s => s.trim()).filter(Boolean);
+            if (lines.length !== 2) throw new Error("Need 2 rows.");
+            const r0 = lines[0].split(/\s+/), r1 = lines[1].split(/\s+/);
+            if (r0.length !== 2 || r1.length !== 2) throw new Error("Need 2 entries per row.");
+            const e = [parseR(r0[0]), parseR(r0[1]), parseR(r1[0]), parseR(r1[1])];
+            let L = 1n; for (const x of e) L = lcm(L, x.d);
+            const M = [[e[0].n * (L / e[0].d), e[1].n * (L / e[1].d)],
+            [e[2].n * (L / e[2].d), e[3].n * (L / e[3].d)]];
+            return normMat(M);
+        }
+        function normMat(M) {
+            let g = 0n; for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) g = gcd(g, M[i][j]);
+            if (g === 0n) throw new Error("Zero matrix.");
+            let A = [[M[0][0] / g, M[0][1] / g], [M[1][0] / g, M[1][1] / g]];
+            // fix overall sign
+            let s = 0n;
+            for (let i = 0; i < 2; i++) { for (let j = 0; j < 2; j++) { if (A[i][j] !== 0n) { s = sign(A[i][j]); i = 10; break; } } }
+            if (s < 0n) A = [[-A[0][0], -A[0][1]], [-A[1][0], -A[1][1]]];
+            return A;
+        }
+        function det(M) { return M[0][0] * M[1][1] - M[0][1] * M[1][0]; }
+        function invPGL(M) {
+            if (det(M) === 0n) throw new Error("Noninvertible.");
+            const a = M[0][0], b = M[0][1], c = M[1][0], d = M[1][1];
+            return normMat([[d, -b], [-c, a]]);
+        }
+        function mul(M, N) {
+            const a = M[0][0] * N[0][0] + M[0][1] * N[1][0];
+            const b = M[0][0] * N[0][1] + M[0][1] * N[1][1];
+            const c = M[1][0] * N[0][0] + M[1][1] * N[1][0];
+            const d = M[1][0] * N[0][1] + M[1][1] * N[1][1];
+            return normMat([[a, b], [c, d]]);
+        }
+        function matKey(M) { return `${M[0][0]},${M[0][1]},${M[1][0]},${M[1][1]}`; }
+
+        /* Generate words in A,B,a,b */
+        function genWords(A, B, L, MAXW) {
+            const Ai = invPGL(A), Bi = invPGL(B);
+            const gens = [{ s: "A", M: A }, { s: "B", M: B }, { s: "a", M: Ai }, { s: "b", M: Bi }];
+            const I = normMat([[1n, 0n], [0n, 1n]]);
+            const out = [], seen = new Set([matKey(I)]);
+            const q = [{ w: "", M: I, len: 0 }];
+            while (q.length && out.length < MAXW) {
+                const cur = q.shift(); out.push(cur);
+                if (cur.len >= L) continue;
+                const last = cur.w.slice(-1);
+                for (const g of gens) {
+                    if ((last === "A" && g.s === "a") || (last === "a" && g.s === "A") || (last === "B" && g.s === "b") || (last === "b" && g.s === "B")) continue;
+                    const M2 = mul(g.M, cur.M);
+                    const k = matKey(M2); if (seen.has(k)) continue;
+                    seen.add(k); q.push({ w: cur.w + g.s, M: M2, len: cur.len + 1 });
+                    if (out.length + q.length >= MAXW) break;
+                }
+            }
+            return out;
+        }
+
+        /* Inequality handling for intervals: maintain (lo,hi) with open bounds */
+        function intersectLt0(state, alpha, beta) {
+            // alpha*x + beta < 0
+            if (alpha === 0n) return (beta < 0n) ? state : null;
+            const x0 = rat(-beta, alpha); // root
+            if (alpha > 0n) {
+                // x < x0 => hi = min(hi, x0)
+                if (state.hi == null || ratCmp(x0, state.hi) < 0) state.hi = x0;
+            } else {
+                // x > x0 => lo = max(lo, x0)
+                if (state.lo == null || ratCmp(x0, state.lo) > 0) state.lo = x0;
+            }
+            return state;
+        }
+        function intersectGt0(state, alpha, beta) {
+            // alpha*x + beta > 0
+            if (alpha === 0n) return (beta > 0n) ? state : null;
+            const x0 = rat(-beta, alpha);
+            if (alpha > 0n) {
+                // x > x0
+                if (state.lo == null || ratCmp(x0, state.lo) > 0) state.lo = x0;
+            } else {
+                // x < x0
+                if (state.hi == null || ratCmp(x0, state.hi) < 0) state.hi = x0;
+            }
+            return state;
+        }
+        function intersectWith(state, lo, hi) {
+            if (lo != null && (state.lo == null || ratCmp(lo, state.lo) > 0)) state.lo = lo;
+            if (hi != null && (state.hi == null || ratCmp(hi, state.hi) < 0)) state.hi = hi;
+            return state;
+        }
+        function nonempty(state) {
+            if (state.lo == null || state.hi == null) return true;
+            return ratCmp(state.lo, state.hi) < 0; // open interval, strict
+        }
+
+        /* Exact reducing intervals for one matrix M */
+        function reducingIntervals(M) {
+            const a = M[0][0], b = M[0][1], c = M[1][0], d = M[1][1];
+            const out = [];
+
+            // Core: |x|<=1, inequalities |ax+b|<1 and |cx+d|<1
+            {
+                let st = { lo: rat(-1n, 1n), hi: rat(1n, 1n) };
+                // -1 < ax+b  < 1  => ax+(b-1)<0 and ax+(b+1)>0 ??? (careful)
+                // ax+b < 1  => ax + (b-1) < 0
+                // ax+b > -1 => ax + (b+1) > 0
+                st = intersectLt0(st, a, b - 1n); if (!st) { } else
+                    st = intersectGt0(st, a, b + 1n); if (!st) { } else
+                    st = intersectLt0(st, c, d - 1n); if (!st) { } else
+                    st = intersectGt0(st, c, d + 1n);
+                if (st && nonempty(st)) out.push({ L: st.lo, R: st.hi });
+            }
+
+            // Right tail: x>=1, |ax+b|<x and |cx+d|<x
+            {
+                let st = { lo: rat(1n, 1n), hi: null };
+                // ax+b < x => (a-1)x + b < 0
+                // ax+b > -x => (a+1)x + b > 0
+                st = intersectLt0(st, a - 1n, b); if (st)
+                    st = intersectGt0(st, a + 1n, b); if (st)
+                    st = intersectLt0(st, c - 1n, d); if (st)
+                    st = intersectGt0(st, c + 1n, d);
+                if (st && nonempty(st)) out.push({ L: st.lo, R: st.hi });
+            }
+
+            // Left tail: x<=-1, |ax+b|<-x and |cx+d|<-x
+            {
+                let st = { lo: null, hi: rat(-1n, 1n) };
+                // ax+b < -x => (a+1)x + b < 0
+                // ax+b > x  => (a-1)x + b > 0
+                st = intersectLt0(st, a + 1n, b); if (st)
+                    st = intersectGt0(st, a - 1n, b); if (st)
+                    st = intersectLt0(st, c + 1n, d); if (st)
+                    st = intersectGt0(st, c - 1n, d);
+                if (st && nonempty(st)) out.push({ L: st.lo, R: st.hi });
+            }
+
+            // Normalize (sort, drop empties)
+            out.sort((u, v) => ratCmp(u.L, v.L));
+            return out;
+        }
+
+        function intervalContains(iv, x) {
+            return (iv.L == null || ratCmp(iv.L, x) < 0) && (iv.R == null || ratCmp(x, iv.R) < 0);
+        }
+
+        /* Build finite partition atoms from endpoints */
+        function buildAtoms(endpoints) {
+            const eps = endpoints.slice().sort(ratCmp);
+            // remove duplicates
+            const uniq = [];
+            for (const x of eps) {
+                if (!uniq.length || ratCmp(x, uniq[uniq.length - 1]) !== 0) uniq.push(x);
+            }
+            const atoms = [];
+            // left ray (-∞, e0)
+            if (uniq.length) atoms.push({ L: null, R: uniq[0] });
+            // middle gaps (ei, e{i+1})
+            for (let i = 0; i + 1 < uniq.length; i++) {
+                if (ratCmp(uniq[i], uniq[i + 1]) < 0) atoms.push({ L: uniq[i], R: uniq[i + 1] });
+            }
+            // right ray (elast, +∞)
+            if (uniq.length) atoms.push({ L: uniq[uniq.length - 1], R: null });
+            // if no endpoints, single atom is whole line
+            if (!uniq.length) atoms.push({ L: null, R: null });
+            return atoms;
+        }
+
+        /* Pick a rational "test point" inside an atom for labeling (midpoint-ish) */
+        function pickTestPoint(atom) {
+            if (atom.L == null && atom.R == null) return rat(0n, 1n);
+            if (atom.L == null) {
+                // (-∞, R): choose R-1
+                const R = atom.R; if (R.d === 0n) return rat(-2n, 1n);
+                return rat(R.n - R.d, R.d);
+            }
+            if (atom.R == null) {
+                const L = atom.L; if (L.d === 0n) return rat(2n, 1n);
+                return rat(L.n + L.d, L.d);
+            }
+            // midpoint (L+R)/2
+            const L = atom.L, R = atom.R;
+            return rat(L.n * R.d + R.n * L.d, 2n * L.d * R.d);
+        }
+
+        /* Greedy set cover over atoms */
+        function greedyCover(atoms, wordIntervals) {
+            const uncovered = new Set(atoms.map((_, i) => i));
+            const picks = [];
+            while (uncovered.size) {
+                let best = null, bestCovers = [];
+                for (const wi of wordIntervals) {
+                    const covers = [];
+                    for (const idx of uncovered) {
+                        const tp = atoms[idx].test;
+                        if (wi.ivs.some(iv => intervalContains(iv, tp))) covers.push(idx);
+                    }
+                    if (covers.length > bestCovers.length) {
+                        best = wi; bestCovers = covers;
+                    }
+                }
+                if (!best || bestCovers.length === 0) break;
+                picks.push(best);
+                for (const idx of bestCovers) uncovered.delete(idx);
+            }
+            return { picks, uncovered };
+        }
+
+        /* Optional sanity check on rationals up to height N */
+        function reducePoint(p, q) {
+            if (q === 0n) return { p: sign(p) >= 0n ? 1n : -1n, q: 0n };
+            if (q < 0n) { p = -p; q = -q; }
+            const g = gcd(p, q); p /= g; q /= g;
+            return { p, q };
+        }
+        function height(pt) {
+            if (pt.q === 0n) return 1n;
+            return abs(pt.p) > abs(pt.q) ? abs(pt.p) : abs(pt.q);
+        }
+        function applyMat(M, pt) {
+            const p2 = M[0][0] * pt.p + M[0][1] * pt.q;
+            const q2 = M[1][0] * pt.p + M[1][1] * pt.q;
+            return reducePoint(p2, q2);
+        }
+        function enumQP1(N) {
+            const NN = BigInt(N), out = [];
+            out.push(reducePoint(1n, 0n));
+            const seen = new Set(["1/0"]);
+            for (let q = 1n; q <= NN; q++) {
+                for (let p = -NN; p <= NN; p++) {
+                    if (gcd(p, q) !== 1n) continue;
+                    const pt = reducePoint(p, q);
+                    const k = `${pt.p}/${pt.q}`;
+                    if (!seen.has(k)) { seen.add(k); out.push(pt); }
+                }
+            }
+            return out;
+        }
+
+        /* UI rendering */
+        function drawViz(labeled, R) {
+            const svg = document.getElementById("viz");
+            svg.innerHTML = "";
+            const clamp = x => x === Infinity ? R : x === -Infinity ? -R : Math.max(-R, Math.min(R, x));
+            const xToPix = x => ((x + R) / (2 * R)) * 1000;
+
+            const axis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            axis.setAttribute("x1", "0"); axis.setAttribute("y1", "92");
+            axis.setAttribute("x2", "1000"); axis.setAttribute("y2", "92");
+            axis.setAttribute("stroke", "#334155"); axis.setAttribute("stroke-width", "1");
+            svg.appendChild(axis);
+
+            for (let k = -Math.floor(R); k <= Math.floor(R); k++) {
+                const x = xToPix(k);
+                const t = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                t.setAttribute("x1", x); t.setAttribute("y1", "88");
+                t.setAttribute("x2", x); t.setAttribute("y2", "96");
+                t.setAttribute("stroke", "#22304a"); t.setAttribute("stroke-width", "1");
+                svg.appendChild(t);
+            }
+
+            labeled.forEach((seg, i) => {
+                const L = clamp(ratToFloat(seg.L ?? rat(-1n, 0n)));
+                const Rr = clamp(ratToFloat(seg.R ?? rat(1n, 0n)));
+                const x1 = xToPix(L), x2 = xToPix(Rr);
+                const w = Math.max(1, x2 - x1);
+                const y = 18 + (i % 7) * 10;
+
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("x", x1); rect.setAttribute("y", y);
+                rect.setAttribute("width", w); rect.setAttribute("height", 8);
+                rect.setAttribute("fill", seg.label ? "#052e2a" : "#3b0a0a");
+                rect.setAttribute("stroke", seg.label ? "#10b981" : "#ef4444");
+                rect.setAttribute("stroke-width", ".6");
+                svg.appendChild(rect);
+
+                if (seg.label && w > 30) {
+                    const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    txt.setAttribute("x", x1 + 3); txt.setAttribute("y", y + 7);
+                    txt.setAttribute("font-size", "10");
+                    txt.setAttribute("fill", "#34d399");
+                    txt.textContent = seg.label;
+                    svg.appendChild(txt);
+                }
+            });
+        }
+
+        function setKPIs(obj) {
+            const k = document.getElementById("kpis");
+            k.innerHTML = "";
+            const items = [
+                { v: obj.words, l: "words generated" },
+                { v: obj.endpoints, l: "distinct endpoints" },
+                { v: obj.coveredAtoms + "/" + obj.atoms, l: "atoms covered" },
+            ];
+            for (const it of items) {
+                const d = document.createElement("div");
+                d.innerHTML = `<div class="v">${it.v}</div><div class="l">${it.l}</div>`;
+                k.appendChild(d);
+            }
+        }
+
+        function renderIntervalList(labeled) {
+            const box = document.getElementById("intervalList");
+            box.innerHTML = "";
+            labeled.forEach(seg => {
+                const div = document.createElement("div");
+                div.className = "item";
+                const left = seg.L ? ratStr(seg.L) : "-∞";
+                const right = seg.R ? ratStr(seg.R) : "∞";
+                const lab = seg.label ? seg.label : "—";
+                div.innerHTML = `<span>[${left}, ${right}]</span><span class="${seg.label ? 'good' : 'bad'}">${lab}</span>`;
+                box.appendChild(div);
+            });
+        }
+
+        async function run() {
+            const status = document.getElementById("status");
+            status.textContent = "Running…";
+
+            let A, B;
+            try {
+                A = parseMat(document.getElementById("A_in").value);
+                B = parseMat(document.getElementById("B_in").value);
+            } catch (e) {
+                status.textContent = "Parse error: " + e.message;
+                return;
+            }
+
+            const L = +document.getElementById("L").value;
+            const MAXW = +document.getElementById("MAXW").value;
+            const CLAMP = +document.getElementById("CLAMP").value;
+            const N = +document.getElementById("N").value;
+
+            const words = genWords(A, B, L, MAXW).filter(w => w.w !== ""); // drop identity
+            // Compute reducing intervals for each word
+            const wordIntervals = words.map(w => ({ w: w.w, M: w.M, ivs: reducingIntervals(w.M) }))
+                .filter(x => x.ivs.length > 0);
+
+            // Collect endpoints
+            const endpoints = [];
+            for (const wi of wordIntervals) {
+                for (const iv of wi.ivs) {
+                    if (iv.L && iv.L.d !== 0n) endpoints.push(iv.L);
+                    if (iv.R && iv.R.d !== 0n) endpoints.push(iv.R);
+                    // Keep ±1 as structural boundaries too
+                }
+            }
+            endpoints.push(rat(-1n, 1n), rat(1n, 1n));
+            const atoms = buildAtoms(endpoints).map(a => ({ ...a, test: pickTestPoint(a) }));
+
+            // Greedy cover on atoms (by test point membership)
+            const cover = greedyCover(atoms, wordIntervals);
+
+            // Label atoms by first covering pick (for display); uncovered get null
+            const labeledAtoms = atoms.map((a) => ({ L: a.L, R: a.R, label: null }));
+            for (const pick of cover.picks) {
+                for (let i = 0; i < atoms.length; i++) {
+                    if (labeledAtoms[i].label) continue;
+                    if (pick.ivs.some(iv => intervalContains(iv, atoms[i].test))) {
+                        labeledAtoms[i].label = pick.w;
+                    }
+                }
+            }
+
+            // Merge adjacent atoms with same label (purely for display)
+            const merged = [];
+            for (const seg of labeledAtoms) {
+                if (!merged.length) { merged.push(seg); continue; }
+                const last = merged[merged.length - 1];
+                const same = last.label === seg.label;
+                const touch = (last.R == null && seg.L == null) ? true : (last.R && seg.L && ratCmp(last.R, seg.L) === 0);
+                if (same && touch) { last.R = seg.R; }
+                else merged.push(seg);
+            }
+
+            // Optional sanity check on rationals up to height N:
+            let sanity = { ok: null, total: 0, reduced: 0 };
+            const pts = enumQP1(N);
+            sanity.total = pts.length;
+            // For each point, pick label by atom test (using real value), then check height reduction for that label.
+            // This is a sanity check, not a proof.
+            const labelToMat = new Map(words.map(w => [w.w, w.M]));
+            function ptToX(pt) {
+                if (pt.q === 0n) return pt.p < 0n ? rat(-1n, 0n) : rat(1n, 0n);
+                return rat(pt.p, pt.q);
+            }
+            function findLabel(x) {
+                for (const seg of merged) {
+                    const L = seg.L, R = seg.R;
+                    const inL = (L == null) || ratCmp(L, x) < 0;
+                    const inR = (R == null) || ratCmp(x, R) < 0;
+                    if (inL && inR) return seg.label;
+                }
+                return null;
+            }
+            for (const pt of pts) {
+                const x = ptToX(pt);
+                const lab = findLabel(x);
+                if (!lab) continue;
+                const M = labelToMat.get(lab);
+                const h0 = height(pt);
+                const h1 = height(applyMat(M, pt));
+                if (h1 < h0) sanity.reduced++;
+            }
+            sanity.ok = sanity.reduced;
+
+            // Render
+            drawViz(merged, CLAMP);
+            renderIntervalList(merged);
+            setKPIs({
+                words: wordIntervals.length,
+                endpoints: new Set(endpoints.map(ratStr)).size,
+                atoms: atoms.length,
+                coveredAtoms: atoms.length - cover.uncovered.size
+            });
+
+            const note = document.getElementById("coverNote");
+            note.textContent = cover.uncovered.size
+                ? `Cover incomplete: ${cover.uncovered.size} atoms uncovered. Try increasing L/MAXW. Sanity: reduced ${sanity.reduced}/${sanity.total} points.`
+                : `Cover found with ${cover.picks.length} maps. Sanity: reduced ${sanity.reduced}/${sanity.total} points (height ≤ ${N}).`;
+
+            // Export payload
+            window.__EXPORT__ = {
+                params: { L, MAXW, CLAMP, N },
+                coverMaps: cover.picks.map(p => p.w),
+                intervals: merged.map(s => ({ L: s.L ? ratStr(s.L) : "-∞", R: s.R ? ratStr(s.R) : "∞", label: s.label }))
+            };
+
+            status.textContent = "Done.";
+        }
+
+        document.getElementById("runBtn").addEventListener("click", run);
+        document.getElementById("exportBtn").addEventListener("click", () => {
+            if (!window.__EXPORT__) return;
+            const blob = new Blob([JSON.stringify(window.__EXPORT__, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = url; a.download = "qp1_interval_cover.json";
+            document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        });
+        setTimeout(() => document.getElementById("runBtn").click(), 40);
+    </script>
+</body>
+
+</html>

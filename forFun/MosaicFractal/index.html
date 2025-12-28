@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="MosaicFractal - Create infinite recursive photo mosaics from your image collection">
+    <title>MosaicFractal | Infinite Photo Mosaics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="background-gradient"></div>
+    <div class="floating-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>
+                <span class="logo-icon">◈</span>
+                MosaicFractal
+            </h1>
+            <p class="tagline">Transform your photos into infinite recursive mosaics</p>
+        </header>
+
+        <main>
+            <!-- Upload Section -->
+            <section id="upload-section" class="glass-panel">
+                <div class="section-header">
+                    <h2>📷 Upload Photos</h2>
+                    <span class="photo-count">0 / 100 photos</span>
+                </div>
+
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-content">
+                        <div class="upload-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                        </div>
+                        <p class="upload-text">Drag & drop images here</p>
+                        <p class="upload-subtext">or click to browse</p>
+                        <span class="upload-hint">Supports JPG, PNG, WebP • Max 100 images</span>
+                    </div>
+                    <input type="file" id="file-input" multiple accept="image/*" hidden>
+                </div>
+
+                <div id="photo-grid" class="photo-grid"></div>
+
+                <div id="main-photo-selector" class="main-photo-selector hidden">
+                    <h3>✨ Select Main Photo</h3>
+                    <p>Click on a photo above to set it as the main mosaic image</p>
+                    <div class="selected-main" id="selected-main">
+                        <span class="placeholder">No main photo selected</span>
+                    </div>
+                </div>
+
+                <div id="settings-panel" class="settings-panel hidden">
+                    <h3>⚙️ Mosaic Settings</h3>
+                    <div class="setting-row">
+                        <label for="grid-size-input">Grid Size</label>
+                        <div class="slider-group">
+                            <input type="range" id="grid-size-input" min="5" max="30" value="10">
+                            <span id="grid-size-value" class="slider-value">10×10</span>
+                        </div>
+                        <p class="setting-hint">Higher values = more detail, but requires more photos for variety</p>
+                    </div>
+                </div>
+
+                <button id="generate-btn" class="btn btn-primary hidden" disabled>
+                    <span class="btn-icon">🎨</span>
+                    Generate Mosaic
+                </button>
+            </section>
+
+            <!-- Mosaic Viewer Section -->
+            <section id="viewer-section" class="glass-panel hidden">
+                <div class="section-header">
+                    <h2>🖼️ Mosaic Viewer</h2>
+                    <div class="viewer-controls">
+                        <span class="zoom-level">Zoom: <span id="zoom-display">100%</span></span>
+                        <button id="reset-view" class="btn btn-secondary">Reset View</button>
+                        <button id="back-to-upload" class="btn btn-secondary">← Back</button>
+                    </div>
+                </div>
+
+                <div class="mosaic-container" id="mosaic-container">
+                    <canvas id="mosaic-canvas"></canvas>
+                    <div class="zoom-hint" id="zoom-hint">
+                        <span>🔍 Scroll to zoom • Drag to pan</span>
+                    </div>
+                </div>
+
+                <div class="mosaic-info">
+                    <div class="info-card">
+                        <span class="info-label">Current Depth</span>
+                        <span class="info-value" id="depth-display">0</span>
+                    </div>
+                    <div class="info-card">
+                        <span class="info-label">Tiles Rendered</span>
+                        <span class="info-value" id="tiles-display">0</span>
+                    </div>
+                    <div class="info-card">
+                        <span class="info-label">Grid Size</span>
+                        <span class="info-value" id="grid-display">—</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Loading Overlay -->
+            <div id="loading-overlay" class="loading-overlay hidden">
+                <div class="loading-content">
+                    <div class="loading-spinner"></div>
+                    <p class="loading-text">Generating mosaic...</p>
+                    <p class="loading-subtext" id="loading-status">Analyzing colors...</p>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Built with 💜 • Infinite zoom into your memories</p>
+        </footer>
+    </div>
+
+    <script src="mosaic.js"></script>
+</body>
+
+</html>
