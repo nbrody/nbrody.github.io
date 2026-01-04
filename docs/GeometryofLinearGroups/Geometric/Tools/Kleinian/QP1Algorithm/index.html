@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>QP¹ Dynamics: S-A-X Algorithm</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>QP¹ Algorithmic Dynamics</h1>
+            <div class="subtitle">Exploring the termination of the S-A-X reduction algorithm on rational numbers</div>
+        </header>
+
+        <div class="matrix-info">
+            <div class="matrix-box">
+                <h3>Generator S</h3>
+                <div class="matrix-grid">
+                    <span>0</span><span>-1</span>
+                    <span>1</span><span>0</span>
+                </div>
+            </div>
+            <div class="matrix-box">
+                <h3>Generator A</h3>
+                <div class="matrix-grid">
+                    <span>2</span><span>0</span>
+                    <span>0</span><span>1</span>
+                </div>
+            </div>
+            <div class="matrix-box">
+                <h3>Generator X</h3>
+                <div class="matrix-grid">
+                    <span>5</span><span>-4</span>
+                    <span>-1</span><span>1</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Max Height (N)</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="range" id="heightRange" min="1" max="100" value="20" />
+                    <input type="number" id="heightInput" value="20" min="1" max="100" />
+                </div>
+            </div>
+            <div class="control-group">
+                <label>Max X-Steps</label>
+                <input type="number" id="maxSteps" value="100" min="10" max="1000" />
+            </div>
+            <div class="control-group">
+                <label>Filter by X-Steps</label>
+                <input type="number" id="filterSteps" placeholder="All" min="0" />
+            </div>
+            <div class="control-group" style="flex-direction: row; align-items: center; gap: 8px;">
+                <input type="checkbox" id="showEdges" checked />
+                <label style="margin: 0;">Show Edges</label>
+            </div>
+            <button id="runBtn">Run Simulation</button>
+        </div>
+
+        <div class="viz-grid">
+            <div class="viz-container">
+                <div class="stat-label" style="margin-bottom: 10px;">Lattice View (x: p, y: q)</div>
+                <canvas id="vizCanvas" width="800" height="800"></canvas>
+            </div>
+            <div class="viz-container">
+                <div class="stat-label" style="margin-bottom: 10px;">2-adic View (x: z, y: v₂(q))</div>
+                <canvas id="adicCanvas" width="800" height="800"></canvas>
+            </div>
+            <div class="viz-container full-width">
+                <div class="stat-label" style="margin-bottom: 10px;">Hyperbolic Path Explorer (Upper Half Plane)</div>
+                <canvas id="hypCanvas" width="1600" height="600"></canvas>
+            </div>
+        </div>
+        <div class="path-explorer">
+            <div class="control-group">
+                <label>Explore Specific Path (p/q)</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="targetPath" placeholder="e.g. 5/7" style="flex: 1; min-width: 150px;" />
+                    <button id="exploreBtn">Explore Path</button>
+                </div>
+            </div>
+        </div>
+        <div id="hoverInfo" class="stat-label" style="margin-top: 10px; height: 1.2em;">Hover over a point</div>
+
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="dashboard">
+            <div class="stat-card">
+                <div class="stat-label">Total Rationals</div>
+                <div class="stat-value" id="totalCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Terminated</div>
+                <div class="stat-value" style="color: var(--success);" id="terminatedCount">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Average X-Steps</div>
+                <div class="stat-value" style="color: var(--accent);" id="avgSteps">0</div>
+            </div>
+        </div>
+
+        <div class="results-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="margin: 0;">Detailed Results</h2>
+                <div id="statusText" class="stat-label">Ready</div>
+            </div>
+            <div class="table-wrap">
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Rational (p/q)</th>
+                            <th>Height</th>
+                            <th>Status</th>
+                            <th>X-Steps</th>
+                            <th>Sequence</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                        <!-- Results will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="algorithm.js"></script>
+    <script src="main.js"></script>
+</body>
+
+</html>

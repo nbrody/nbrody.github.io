@@ -319,42 +319,49 @@ async function updateFromInput(clearGeneratedWords = true) {
     const sphereRadiiFiltered = [];
     const planeNormalsFiltered = [];
     const faceMatricesFiltered = [];
-    const faceIdsByLine = new Array(lines.length).fill(undefined);
-
-    const idxSet = new Set(survivorsIdx);
     const rawIndexToFaceId = new Map();
+
+    // First pass: Circles
     for (const iRaw of survivorsIdx) {
         const row = covRowsByLine[iRaw];
         let [ax, ay, aw] = row;
-        if (aw > 0) { ax = -ax; ay = -ay; aw = -aw; }
-        const nSq = ax * ax + ay * ay;
-        const wSq = aw * aw;
+        if (Math.abs(aw) >= 1e-6) {
+            const nSq = ax * ax + ay * ay;
+            const wSq = aw * aw;
+            if (nSq <= wSq) continue;
 
-        // Get matrix for this face if available
-        const matrix = matricesByLine[iRaw];
-
-        if (Math.abs(aw) < 1e-6) {
-            // Line through origin in 2D disk: store unit normal
-            if (nSq < 1e-12) continue; // skip degenerate
-            const fid = sphereCentersFiltered.length + planeNormalsFiltered.length;
-            rawIndexToFaceId.set(iRaw, fid);
-            const norm = Math.sqrt(nSq);
-            planeNormalsFiltered.push(new Vec2(ax / norm, ay / norm));
-            faceMatricesFiltered.push(matrix);
-        } else {
-            // Circle in 2D disk: center = (ax/aw, ay/aw), radius = sqrt(nSq/wSq - 1)
-            if (nSq <= wSq) continue; // skip non-spacelike (safety)
             const center = new Vec2(ax / aw, ay / aw);
             const r = Math.sqrt(nSq / wSq - 1);
+
             const fid = sphereCentersFiltered.length;
             rawIndexToFaceId.set(iRaw, fid);
             sphereCentersFiltered.push(center);
             sphereRadiiFiltered.push(r);
-            faceMatricesFiltered.push(matrix);
+            faceMatricesFiltered.push(matricesByLine[iRaw]);
+        }
+    }
+
+    // Second pass: Lines
+    const numSpheres = sphereCentersFiltered.length;
+    for (const iRaw of survivorsIdx) {
+        const row = covRowsByLine[iRaw];
+        let [ax, ay, aw] = row;
+        if (Math.abs(aw) < 1e-6) {
+            const nSq = ax * ax + ay * ay;
+            if (nSq < 1e-12) continue;
+
+            const fid = numSpheres + planeNormalsFiltered.length;
+            rawIndexToFaceId.set(iRaw, fid);
+            const norm = Math.sqrt(nSq);
+            planeNormalsFiltered.push(new Vec2(ax / norm, ay / norm));
+            faceMatricesFiltered.push(matricesByLine[iRaw]);
         }
     }
 
     // Map original lines to face ids
+    const faceIdsByLine = new Array(lineKinds.length).fill(undefined);
+    const idxSet = new Set(survivorsIdx);
+
     for (let i = 0; i < lineKinds.length; i++) {
         if (lineKinds[i] !== 'raw') { faceIdsByLine[i] = undefined; continue; }
         const rawIdx = lineLocalIdx[i];
@@ -1283,7 +1290,11 @@ function setupEventHandlers() {
         domainOrbitToggle.addEventListener('click', () => {
             domainOrbitToggle.classList.toggle('active');
             if (renderer) {
-                renderer.showDomainOrbit = domainOrbitToggle.classList.contains('active');
+                const isActive = domainOrbitToggle.classList.contains('active');
+                renderer.showDomainOrbit = isActive;
+                if (isActive && (!renderer.vertices || renderer.vertices.length === 0)) {
+                    displayVertexAngleSums();
+                }
                 renderer.render();
             }
         });

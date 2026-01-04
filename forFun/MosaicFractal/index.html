@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="MosaicFractal - Create infinite recursive photo mosaics from your image collection">
-    <title>MosaicFractal | Infinite Photo Mosaics</title>
+        content="Mosaic Fractal - Create infinite recursive photo mosaics from your image collection">
+    <title>Mosaic Fractal | Infinite Photo Mosaics</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -25,9 +25,9 @@
         <header>
             <h1>
                 <span class="logo-icon">◈</span>
-                MosaicFractal
+                Mosaic Fractal
             </h1>
-            <p class="tagline">Transform your photos into infinite recursive mosaics</p>
+            <p class="tagline">Transform your photos into recursive mosaics</p>
         </header>
 
         <main>
@@ -54,6 +54,14 @@
                     <input type="file" id="file-input" multiple accept="image/*" hidden>
                 </div>
 
+                <div class="example-section">
+                    <span class="divider-text">or try an example</span>
+                    <button id="load-example-btn" class="btn btn-secondary">
+                        <span class="btn-icon">✨</span>
+                        Load Example Photos
+                    </button>
+                </div>
+
                 <div id="photo-grid" class="photo-grid"></div>
 
                 <div id="main-photo-selector" class="main-photo-selector hidden">
@@ -69,10 +77,11 @@
                     <div class="setting-row">
                         <label for="grid-size-input">Grid Size</label>
                         <div class="slider-group">
-                            <input type="range" id="grid-size-input" min="5" max="30" value="10">
+                            <input type="range" id="grid-size-input" min="5" max="500" value="10">
                             <span id="grid-size-value" class="slider-value">10×10</span>
                         </div>
-                        <p class="setting-hint">Higher values = more detail, but requires more photos for variety</p>
+                        <p class="setting-hint">Higher values = more detail (max 500×500), but requires more photos for
+                            variety</p>
                     </div>
                 </div>
 

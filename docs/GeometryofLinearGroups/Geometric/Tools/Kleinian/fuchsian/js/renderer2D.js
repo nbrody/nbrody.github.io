@@ -40,6 +40,16 @@ export class PoincareRenderer {
 
         this.isUpperHalfPlane = false;
 
+        // Hyperbolic view transform (for panning and rotation)
+        this.viewpoint = { x: 0, y: 0 };
+        this.viewRotation = 0;
+        this.isDragging = false;
+        this.isRotating = false;
+        this.dragStart = { x: 0, y: 0 };
+        this.dragStartAngle = 0;
+        this.viewpointStart = { x: 0, y: 0 };
+        this.viewRotationStart = 0;
+
         this.setupEventListeners();
     }
 
@@ -48,9 +58,76 @@ export class PoincareRenderer {
         this.render();
     }
 
+    // Apply hyperbolic view transform: first rotate, then translate
+    applyViewTransform(x, y) {
+        // First apply rotation about origin
+        const cos = Math.cos(this.viewRotation);
+        const sin = Math.sin(this.viewRotation);
+        let rx = x * cos - y * sin;
+        let ry = x * sin + y * cos;
+
+        const ax = this.viewpoint.x;
+        const ay = this.viewpoint.y;
+
+        // If viewpoint is at origin, just return rotated point
+        if (ax * ax + ay * ay < 1e-12) {
+            return { x: rx, y: ry };
+        }
+
+        // Möbius transformation: T(z) = (z - a) / (1 - ā·z)
+        const numRe = rx - ax;
+        const numIm = ry - ay;
+        const denRe = 1 - ax * rx - ay * ry;
+        const denIm = -(ax * ry - ay * rx);
+
+        const denNormSq = denRe * denRe + denIm * denIm;
+        if (denNormSq < 1e-12) return { x: rx, y: ry };
+
+        return {
+            x: (numRe * denRe + numIm * denIm) / denNormSq,
+            y: (numIm * denRe - numRe * denIm) / denNormSq
+        };
+    }
+
     setupEventListeners() {
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('click', (e) => this.handleClick(e));
+        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+        this.canvas.addEventListener('mouseleave', (e) => this.handleMouseUp(e));
+        this.canvas.addEventListener('dblclick', (e) => this.resetView());
+    }
+
+    handleMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
+        const disk = this.screenToDisk(screenX, screenY);
+
+        // Only start drag if inside the disk
+        if (disk.x * disk.x + disk.y * disk.y < 0.99) {
+            this.isDragging = true;
+            this.isRotating = e.metaKey || e.ctrlKey;
+            this.dragStart = { x: disk.x, y: disk.y };
+            this.dragStartAngle = Math.atan2(disk.y, disk.x);
+            this.viewpointStart = { x: this.viewpoint.x, y: this.viewpoint.y };
+            this.viewRotationStart = this.viewRotation;
+            this.canvas.style.cursor = this.isRotating ? 'crosshair' : 'grabbing';
+        }
+    }
+
+    handleMouseUp(e) {
+        if (this.isDragging) {
+            this.isDragging = false;
+            this.isRotating = false;
+            this.canvas.style.cursor = 'default';
+        }
+    }
+
+    resetView() {
+        this.viewpoint = { x: 0, y: 0 };
+        this.viewRotation = 0;
+        this.render();
     }
 
     resize(width, height) {
@@ -173,6 +250,76 @@ export class PoincareRenderer {
         const b = parseInt(color.slice(5, 7), 16);
 
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    // Draw a hyperbolic geodesic arc between two points
+    drawGeodesicArc(p1, p2, color = '#FFF', lineWidth = 1) {
+        const ctx = this.ctx;
+        const eps = 1e-9;
+
+        // Apply view transform
+        const tp1 = this.applyViewTransform(p1.x, p1.y);
+        const tp2 = this.applyViewTransform(p2.x, p2.y);
+
+        // Check if collinear with origin (straight line geodesic)
+        const cross = tp1.x * tp2.y - tp1.y * tp2.x;
+
+        if (Math.abs(cross) < eps) {
+            const s1 = this.diskToScreen(tp1.x, tp1.y);
+            const s2 = this.diskToScreen(tp2.x, tp2.y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.beginPath();
+            ctx.moveTo(s1.x, s1.y);
+            ctx.lineTo(s2.x, s2.y);
+            ctx.stroke();
+            return;
+        }
+
+        // Find geodesic circle (orthogonal to unit circle)
+        const x1 = tp1.x, y1 = tp1.y;
+        const x2 = tp2.x, y2 = tp2.y;
+        const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+        const perpX = -(y2 - y1), perpY = x2 - x1;
+
+        const r1sq = x1 * x1 + y1 * y1;
+        const lhsConst = 2 * x1 * mx + 2 * y1 * my;
+        const lhsT = 2 * x1 * perpX + 2 * y1 * perpY;
+
+        if (Math.abs(lhsT) < eps) {
+            const s1 = this.diskToScreen(tp1.x, tp1.y);
+            const s2 = this.diskToScreen(tp2.x, tp2.y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.beginPath();
+            ctx.moveTo(s1.x, s1.y);
+            ctx.lineTo(s2.x, s2.y);
+            ctx.stroke();
+            return;
+        }
+
+        const t = (1 + r1sq - lhsConst) / lhsT;
+        const cx = mx + t * perpX;
+        const cy = my + t * perpY;
+        const r = Math.sqrt((x1 - cx) * (x1 - cx) + (y1 - cy) * (y1 - cy));
+
+        const screenCenter = this.diskToScreen(cx, cy);
+        const screenRadius = r * this.scale;
+        const s1 = this.diskToScreen(x1, y1);
+        const s2 = this.diskToScreen(x2, y2);
+
+        const angle1 = Math.atan2(s1.y - screenCenter.y, s1.x - screenCenter.x);
+        const angle2 = Math.atan2(s2.y - screenCenter.y, s2.x - screenCenter.x);
+
+        let diff = angle2 - angle1;
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.beginPath();
+        ctx.arc(screenCenter.x, screenCenter.y, screenRadius, angle1, angle2, diff < 0);
+        ctx.stroke();
     }
 
     // Draw a geodesic circle in the Poincaré disk
@@ -426,6 +573,40 @@ export class PoincareRenderer {
         const rect = this.canvas.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
+
+        // Handle dragging for hyperbolic panning or rotation
+        if (this.isDragging) {
+            const disk = this.screenToDisk(screenX, screenY);
+
+            if (this.isRotating) {
+                // Rotation mode: compute angle change from drag start
+                const currentAngle = Math.atan2(disk.y, disk.x);
+                const angleDelta = currentAngle - this.dragStartAngle;
+                this.viewRotation = this.viewRotationStart + angleDelta;
+                this.render();
+                return;
+            }
+
+            // Translation mode
+            const dx = disk.x - this.dragStart.x;
+            const dy = disk.y - this.dragStart.y;
+
+            // Move viewpoint in opposite direction of drag
+            const newX = this.viewpointStart.x - dx * 0.5;
+            const newY = this.viewpointStart.y - dy * 0.5;
+
+            // Clamp to stay inside the disk
+            const rSq = newX * newX + newY * newY;
+            if (rSq < 0.95) {
+                this.viewpoint = { x: newX, y: newY };
+            } else {
+                const r = Math.sqrt(rSq);
+                this.viewpoint = { x: newX * 0.95 / r, y: newY * 0.95 / r };
+            }
+
+            this.render();
+            return;
+        }
 
         // Check for vertex hover first
         const vertexId = this.getVertexAtScreen(screenX, screenY);
@@ -1145,22 +1326,16 @@ export class PoincareRenderer {
             }
         }
 
-        // Draw edges
-        ctx.lineWidth = 1;
+        // Draw edges as hyperbolic geodesics
         for (const edge of edges) {
-            const p1 = project(edge.p1.x, edge.p1.y);
-            const p2 = project(edge.p2.x, edge.p2.y);
-            ctx.strokeStyle = edge.color;
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
+            this.drawGeodesicArc(edge.p1, edge.p2, edge.color, 1.5);
         }
 
-        // Draw vertices
+        // Draw vertices (apply view transform)
         ctx.fillStyle = '#FFF';
         for (const node of visited.values()) {
-            const p = project(node.point.x, node.point.y);
+            const tp = this.applyViewTransform(node.point.x, node.point.y);
+            const p = this.diskToScreen(tp.x, tp.y);
             ctx.beginPath();
             ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
             ctx.fill();

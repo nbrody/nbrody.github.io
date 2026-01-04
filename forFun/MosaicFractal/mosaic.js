@@ -208,6 +208,107 @@ class MosaicFractal {
             const value = parseInt(e.target.value);
             this.gridSizeValue.textContent = `${value}×${value}`;
         });
+
+        // Load example button
+        document.getElementById('load-example-btn').addEventListener('click', () => {
+            this.loadExamplePhotos();
+        });
+    }
+
+    async loadExamplePhotos() {
+        // List of example images in the test_images folder
+        const exampleImages = [
+            'test_images/img01.jpg',
+            'test_images/img02.jpg',
+            'test_images/img03.jpg',
+            'test_images/img04.jpg',
+            'test_images/img05.jpg',
+            'test_images/img06.jpg',
+            'test_images/img07.jpg',
+            'test_images/img08.jpg',
+            'test_images/img09.jpg',
+            'test_images/img10.jpg',
+            'test_images/img11.jpg',
+            'test_images/img12.jpg',
+            'test_images/img13.jpg',
+            'test_images/img14.jpg',
+            'test_images/img15.jpg',
+            'test_images/img16.jpg',
+            'test_images/img17.jpg',
+            'test_images/img18.jpg',
+            'test_images/img19.jpg',
+            'test_images/img20.jpg',
+            'test_images/img21.jpg',
+            'test_images/img22.jpg',
+            'test_images/img23.jpg',
+            'test_images/img24.jpg',
+            'test_images/img25.jpg'
+        ];
+
+        // Show loading state
+        const btn = document.getElementById('load-example-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span class="btn-icon">⏳</span> Loading...';
+        btn.disabled = true;
+
+        // Clear existing photos
+        this.photos = [];
+        this.mainPhotoIndex = -1;
+        this.photoGrid.innerHTML = '';
+
+        // Load each example image
+        for (const src of exampleImages) {
+            try {
+                const photo = await this.loadImageFromUrl(src);
+                this.photos.push(photo);
+                this.addPhotoToGrid(photo, this.photos.length - 1);
+            } catch (err) {
+                console.warn('Could not load example image:', src, err);
+            }
+        }
+
+        // Auto-select first photo as main
+        if (this.photos.length > 0) {
+            this.selectMainPhoto(0);
+        }
+
+        // Restore button
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+
+        this.updateUI();
+    }
+
+    loadImageFromUrl(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+
+            img.onload = () => {
+                // Create thumbnail canvas
+                const thumbSize = 200;
+                const canvas = document.createElement('canvas');
+                canvas.width = thumbSize;
+                canvas.height = thumbSize;
+                const ctx = canvas.getContext('2d');
+
+                // Center crop
+                const size = Math.min(img.width, img.height);
+                const sx = (img.width - size) / 2;
+                const sy = (img.height - size) / 2;
+
+                ctx.drawImage(img, sx, sy, size, size, 0, 0, thumbSize, thumbSize);
+
+                resolve({
+                    original: img,
+                    thumbnail: canvas,
+                    dataUrl: canvas.toDataURL('image/jpeg', 0.8)
+                });
+            };
+
+            img.onerror = reject;
+            img.src = url;
+        });
     }
 
     async handleFiles(files) {
