@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial_scale=1.0">
+    <title>Hurwitz Quaternion Explorer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8">
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Hurwitz Quaternions</h1>
+            <p class="subtitle">Integer Quaternion Arithmetic & Prime Factorization</p>
+        </header>
+
+        <main>
+            <!-- Section 1: Primes Above p -->
+            <div class="card input-card">
+                <div class="input-group">
+                    <label for="primeInput">Find Primes Above Rational Prime p</label>
+                    <div class="input-wrapper">
+                        <div id="primeInput" class="math-field" style="width: 200px;"></div>
+                        <button onclick="getFactors('primes')" class="btn-primary">
+                            <span class="btn-text">Find Primes</span>
+                            <div class="btn-shine"></div>
+                        </button>
+                    </div>
+                    <p class="hint">Enter 1 for units, or a prime p to find the p+1 primes above it.</p>
+                </div>
+
+                <!-- Local Results: Primes -->
+                <div id="res-primes" class="local-results hidden">
+                    <hr class="divider">
+                    <div class="res-header">
+                        <h3 id="title-primes">Results</h3>
+                        <span id="count-primes" class="badge"></span>
+                    </div>
+                    <div id="grid-primes" class="grid-layout"></div>
+                    <div id="loading-primes" class="local-loading hidden">Computing...</div>
+                    <div id="error-primes" class="local-error hidden"></div>
+                </div>
+            </div>
+
+            <!-- Section 2: Multiply Quaternions -->
+            <div class="card input-card">
+                <div class="input-group">
+                    <label>Multiply Quaternions</label>
+                    <div class="input-wrapper">
+                        <div id="mulQ1" class="math-field"></div>
+                        <span style="align-self: center; font-size: 1.5rem; color: var(--text-muted);">×</span>
+                        <div id="mulQ2" class="math-field"></div>
+                        <button onclick="multiply()" class="btn-primary" style="padding: 0 1.5rem; min-width: 60px;">
+                            <span class="btn-text">=</span>
+                            <div class="btn-shine"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Local Results: Multiply -->
+                <div id="res-multiply" class="local-results hidden">
+                    <hr class="divider">
+                    <div class="res-header">
+                        <h3 id="title-multiply">Product</h3>
+                        <div id="norm-multiply" class="norm-info"></div>
+                    </div>
+                    <div id="grid-multiply" class="grid-layout"></div>
+                    <div id="loading-multiply" class="local-loading hidden">Multiplying...</div>
+                    <div id="error-multiply" class="local-error hidden"></div>
+                </div>
+            </div>
+
+            <!-- Section 3: Factor Quaternion -->
+            <div class="card input-card">
+                <div class="input-group">
+                    <label for="quatInput">Factor Quaternion q</label>
+                    <div class="input-wrapper">
+                        <div id="quatInput" class="math-field"></div>
+                        <button onclick="getFactors('factor')" class="btn-primary">
+                            <span class="btn-text">Factorize</span>
+                            <div class="btn-shine"></div>
+                        </button>
+                    </div>
+                    <p class="hint">Enter a quaternion to find all its prime factorizations.</p>
+                </div>
+
+                <!-- Local Results: Factor -->
+                <div id="res-factor" class="local-results hidden">
+                    <hr class="divider">
+                    <div class="res-header">
+                        <h3 id="title-factor">Factorization</h3>
+                        <div id="norm-factor" class="norm-info"></div>
+                        <span id="count-factor" class="badge"></span>
+                    </div>
+                    <div id="grid-factor" class="grid-layout"></div>
+                    <div id="loading-factor" class="local-loading hidden">Factoring...</div>
+                    <div id="error-factor" class="local-error hidden"></div>
+                </div>
+            </div>
+
+            <!-- Section 4: Relation Search -->
+            <div class="card input-card" style="margin-top: 2rem;">
+                <div class="input-group">
+                    <label for="relInput">Search Group Relations</label>
+                    <div class="input-wrapper" style="flex-direction: column; align-items: stretch; gap: 1rem;">
+                        <textarea id="relInput"
+                            placeholder="Enter generators (e.g. 1+i, 1-j), one per line or comma separated."
+                            style="width: 100%; min-height: 100px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 12px; padding: 1rem; color: var(--text-main); font-family: 'Outfit', sans-serif; font-size: 1.1rem; resize: vertical; box-sizing: border-box;"></textarea>
+                        <details style="width: 100%;">
+                            <summary
+                                style="cursor: pointer; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem; user-select: none;">
+                                Advanced Options</summary>
+                            <div style="display: flex; gap: 1rem; padding-top: 0.5rem;">
+                                <div style="flex: 1;">
+                                    <label for="beamWidth"
+                                        style="font-size: 0.8rem; display: block; margin-bottom: 0.3rem;">Beam
+                                        Width</label>
+                                    <input type="number" id="beamWidth" value="50" min="1" max="1000"
+                                        style="padding: 0.5rem; font-size: 1rem;">
+                                </div>
+                                <div style="flex: 1;">
+                                    <label for="depth"
+                                        style="font-size: 0.8rem; display: block; margin-bottom: 0.3rem;">Search
+                                        Depth</label>
+                                    <input type="number" id="depth" value="12" min="1" max="50"
+                                        style="padding: 0.5rem; font-size: 1rem;">
+                                </div>
+                                <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                                    <label for="filterCommutator"
+                                        style="font-size: 0.8rem; display: block; margin-bottom: 0.3rem; cursor: pointer;">Constraint
+                                        $[a,b]^2=1$</label>
+                                    <input type="checkbox" id="filterCommutator"
+                                        style="transform: scale(1.5); align-self: flex-start; margin-left: 0.5rem; cursor: pointer;">
+                                </div>
+                            </div>
+                        </details>
+                        <button onclick="searchRelations()" class="btn-primary" style="align-self: flex-end;">
+                            <span class="btn-text">Search Relations</span>
+                            <div class="btn-shine"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="search-progress"
+                    style="margin-top: 1rem; color: var(--text-muted); font-size: 0.9rem; font-family: monospace; white-space: pre-wrap;">
+                </div>
+
+                <!-- Local Results: Relations -->
+                <div id="res-relations" class="local-results hidden">
+                    <hr class="divider">
+                    <div class="res-header">
+                        <h3 id="title-relations">Relations</h3>
+                        <span id="count-relations" class="badge"></span>
+                    </div>
+                    <div id="grid-relations" class="grid-layout"></div>
+                    <div id="logs-relations"
+                        style="margin-top: 1rem; color: var(--accent); font-size: 0.9rem; white-space: pre-wrap; font-family: monospace;">
+                    </div>
+                    <div id="loading-relations" class="local-loading hidden">Searching...</div>
+                    <div id="error-relations" class="local-error hidden"></div>
+                </div>
+            </div>
+
+
+        </main>
+
+        <footer>
+            <div class="math-context">
+                <p>Quaternion $\mathbb{H}(\mathbb{Z})$ elements are of the form $\frac{a+bi+cj+dk}{2}$ where $a,b,c,d$
+                    have same parity.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Script for interactions and MathQuill -->
+    <script>
+        // Init MathQuill
+        const MQ = MathQuill.getInterface(2);
+
+        let mqFields = {}; // ID -> MQ Instance
+
+        $(document).ready(function () {
+            $('.math-field').each(function () {
+                const id = $(this).attr('id');
+                const mq = MQ.MathField(this, {
+                    spaceBehavesLikeTab: true,
+                    handlers: {
+                        enter: function () {
+                            // Determine context to trigger action
+                            if (id === 'primeInput') getFactors('primes');
+                            else if (id === 'quatInput') getFactors('factor');
+                            else if (id === 'mulQ1' || id === 'mulQ2') multiply();
+                        }
+                    }
+                });
+
+                // Set placeholders or default config
+                mqFields[id] = mq;
+            });
+
+            // Focus first
+            // mqFields['primeInput'].focus(); 
+        });
+
+        function parseLatex(latex) {
+            // Convert simple latex to string format expectation.
+            // \frac{1+i}{2} -> (1+i)/2
+            // 1+2i -> 1+2i
+            // \left( ... \right) -> ( ... )
+
+            let s = latex;
+            // Handle fractions: \frac{num}{den} -> (num)/(den)
+            s = s.replace(/\\frac{([^}]+)}{([^}]+)}/g, '($1)/($2)');
+
+            // Remove \left and \right
+            s = s.replace(/\\left/g, '').replace(/\\right/g, '');
+
+            // Remove other latex commands if any commonly occur like \cdot
+            s = s.replace(/\\cdot/g, '*');
+
+            // Remove any curly braces left (unless needed?)
+            s = s.replace(/{/g, '').replace(/}/g, '');
+
+            return s;
+        }
+
+        // --- Existing Logic Updated ---
+
+        function resetLocal(suffix) {
+            document.getElementById('res-' + suffix).classList.add('hidden');
+            document.getElementById('loading-' + suffix).classList.remove('hidden');
+            document.getElementById('error-' + suffix).classList.add('hidden');
+            document.getElementById('grid-' + suffix).innerHTML = '';
+
+            // Clear norm info if exists
+            const normEl = document.getElementById('norm-' + suffix);
+            if (normEl) normEl.textContent = '';
+        }
+
+        function showResult(suffix, data) {
+            document.getElementById('loading-' + suffix).classList.add('hidden');
+            document.getElementById('res-' + suffix).classList.remove('hidden');
+
+            // Title
+            if (data.title) {
+                const tEl = document.getElementById('title-' + suffix);
+                if (tEl) tEl.textContent = data.title;
+            }
+
+            // Count
+            const cEl = document.getElementById('count-' + suffix);
+            if (cEl) cEl.textContent = data.count ? data.count + ' items' : '';
+
+            // Norm
+            if (data.norm_info) {
+                const nEl = document.getElementById('norm-' + suffix);
+                if (nEl) nEl.textContent = data.norm_info;
+            }
+
+            // Grid
+            const grid = document.getElementById('grid-' + suffix);
+            data.results.forEach((q, index) => {
+                const card = document.createElement('div');
+                card.className = 'result-card fade-in';
+                card.style.animationDelay = `${index * 0.05}s`;
+                // Wrap in $$ for MathJax
+                // Larger font for multiply result
+                if (suffix === 'multiply') {
+                    card.innerHTML = `<span class="q-val" style="font-size: 1.5rem;">$${q}$</span>`;
+                } else {
+                    card.innerHTML = `<span class="q-val">$${q}$</span>`;
+                }
+                grid.appendChild(card);
+            });
+
+            // Trigger MathJax typeset
+            if (window.MathJax) {
+                MathJax.typesetPromise([document.getElementById('res-' + suffix)]);
+            }
+        }
+
+        function showError(suffix, msg) {
+            document.getElementById('loading-' + suffix).classList.add('hidden');
+            const errEl = document.getElementById('error-' + suffix);
+            errEl.textContent = msg;
+            errEl.classList.remove('hidden');
+            document.getElementById('res-' + suffix).classList.remove('hidden');
+        }
+
+        async function getFactors(mode) {
+            let inputId = 'primeInput';
+            let suffix = 'primes';
+
+            if (mode === 'factor') {
+                inputId = 'quatInput';
+                suffix = 'factor';
+            }
+
+            // Get value from MathQuill
+            const rawLatex = mqFields[inputId].latex();
+            const val = parseLatex(rawLatex);
+
+            if (!val) return;
+
+            resetLocal(suffix);
+
+            try {
+                const response = await fetch('/factor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ number: val, mode: mode })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Something went wrong');
+                }
+
+                showResult(suffix, data);
+            } catch (err) {
+                showError(suffix, err.message);
+            }
+        }
+
+        async function multiply() {
+            // Get values from MathQuill
+            const q1Raw = mqFields['mulQ1'].latex();
+            const q2Raw = mqFields['mulQ2'].latex();
+
+            const q1 = parseLatex(q1Raw);
+            const q2 = parseLatex(q2Raw);
+
+            if (!q1 || !q2) return;
+
+            const suffix = 'multiply';
+            resetLocal(suffix);
+
+            try {
+                const response = await fetch('/multiply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ q1: q1, q2: q2 })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Something went wrong');
+                }
+
+                showResult(suffix, data);
+            } catch (err) {
+                showError(suffix, err.message);
+            }
+        }
+
+        async function searchRelations() {
+            const input = document.getElementById('relInput').value;
+            if (!input.trim()) return;
+
+            // Split by newline or comma
+            const lines = input.split(/[\n,]+/).map(s => s.trim()).filter(s => s);
+            if (!lines.length) return;
+
+            const suffix = 'relations';
+            resetLocal(suffix);
+
+            // Clear logs specifically
+            // Clear logs specifically
+            const logEl = document.getElementById('logs-' + suffix);
+            if (logEl) logEl.textContent = '';
+
+            // Get params
+            const bw = document.getElementById('beamWidth').value;
+            const depth = document.getElementById('depth').value;
+            const filterCommutator = document.getElementById('filterCommutator').checked;
+
+            const progEl = document.getElementById('search-progress');
+            if (progEl) progEl.textContent = '';
+
+            const resultDiv = document.getElementById('res-' + suffix);
+            const grid = document.getElementById('grid-' + suffix);
+            const countEl = document.getElementById('count-' + suffix);
+            const loading = document.getElementById('loading-' + suffix);
+            const errorEl = document.getElementById('error-' + suffix);
+
+            try {
+                loading.classList.remove('hidden');
+                resultDiv.classList.remove('hidden');
+
+                const response = await fetch('/relations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        quats: lines,
+                        beam_width: bw,
+                        depth: depth,
+                        filter_commutator: filterCommutator
+                    })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Something went wrong');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let relCount = 0;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const chunkLines = buffer.split('\n');
+                    buffer = chunkLines.pop();
+
+                    for (const line of chunkLines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const msg = JSON.parse(line);
+
+                            if (msg.type === 'progress') {
+                                if (progEl) {
+                                    progEl.textContent = `Depth ${msg.data.depth}: Best dist ${msg.data.dist}\nBest word: ${msg.data.best_word}\nQuaternion: ${msg.data.best_quat}`;
+                                }
+                            } else if (msg.type === 'relation') {
+                                const card = document.createElement('div');
+                                card.className = 'result-card fade-in';
+                                card.innerHTML = `<span class="q-val">${msg.rel} = ${msg.val}</span>`;
+                                grid.appendChild(card);
+                                relCount++;
+                                if (countEl) countEl.textContent = relCount;
+
+                            } else if (msg.type === 'log') {
+                                if (logEl) logEl.textContent += msg.msg + '\n';
+                            } else if (msg.type === 'error') {
+                                throw new Error(msg.msg);
+                            }
+                        } catch (e) {
+                            console.error("Error parsing stream:", e);
+                        }
+                    }
+                }
+                loading.classList.add('hidden');
+            } catch (err) {
+                loading.classList.add('hidden');
+                errorEl.textContent = err.message;
+                errorEl.classList.remove('hidden');
+            }
+        }
+    </script>
+
+    <!-- MathJax for rendering the footer formula nicely -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+</body>
+
+</html>

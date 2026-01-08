@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integer Matrix Search - Hyperbolic Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a, #1a1a2e, #16213e);
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            padding: 20px 30px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        #stats {
+            display: flex;
+            gap: 30px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .stat-value {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        #controls {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #graph-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #0a0a0a 100%);
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .poincare-disk {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.1);
+            stroke-width: 2px;
+        }
+
+        .link {
+            stroke: rgba(255, 255, 255, 0.15);
+            stroke-width: 1px;
+            fill: none;
+        }
+
+        .node circle {
+            transition: fill 0.5s ease, stroke 0.5s ease, r 0.3s ease;
+        }
+
+        .node.unexplored circle {
+            fill: rgba(20, 20, 20, 0.8);
+            stroke: rgba(100, 100, 100, 0.3);
+            stroke-width: 1px;
+        }
+
+        .node.visited circle {
+            fill: rgba(102, 126, 234, 0.6);
+            stroke: #667eea;
+            stroke-width: 2px;
+        }
+
+        .node.beam circle {
+            fill: rgba(255, 107, 107, 0.9);
+            stroke: #ff6b6b;
+            stroke-width: 3px;
+            filter: drop-shadow(0 0 12px rgba(255, 107, 107, 0.9));
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .node.candidate circle {
+            fill: rgba(81, 255, 107, 0.9);
+            stroke: #51ff6b;
+            stroke-width: 3px;
+            filter: drop-shadow(0 0 15px rgba(81, 255, 107, 1));
+        }
+
+        .node.root circle {
+            fill: rgba(255, 255, 255, 0.95);
+            stroke: #fff;
+            stroke-width: 3px;
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.8));
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.15);
+            }
+        }
+
+        .node text {
+            fill: rgba(255, 255, 255, 0.8);
+            font-size: 9px;
+            text-anchor: middle;
+            pointer-events: none;
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .node.visited text,
+        .node.beam text,
+        .node.candidate text,
+        .node.root text {
+            opacity: 1;
+        }
+
+        #status {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            padding: 15px 25px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 14px;
+            max-width: 300px;
+        }
+
+        #status.connected {
+            border-color: rgba(81, 255, 107, 0.5);
+        }
+
+        #status.disconnected {
+            border-color: rgba(255, 107, 107, 0.5);
+        }
+
+        .connection-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .connected .connection-indicator {
+            background: #51ff6b;
+            box-shadow: 0 0 10px rgba(81, 255, 107, 0.8);
+        }
+
+        .disconnected .connection-indicator {
+            background: #ff6b6b;
+            box-shadow: 0 0 10px rgba(255, 107, 107, 0.8);
+        }
+
+        #solution-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(15px);
+            padding: 20px 30px;
+            border-radius: 12px;
+            border: 2px solid rgba(81, 255, 107, 0.5);
+            display: none;
+            max-width: 80%;
+            box-shadow: 0 10px 40px rgba(81, 255, 107, 0.3);
+        }
+
+        #solution-panel.show {
+            display: block;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        #solution-panel h2 {
+            color: #51ff6b;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        #solution-word {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            word-break: break-all;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <header>
+            <h1>Integer Matrix Search - Hyperbolic Visualization</h1>
+            <div id="stats">
+                <div class="stat-item">
+                    <span class="stat-label">Iteration:</span>
+                    <span class="stat-value" id="iteration">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Beam Size:</span>
+                    <span class="stat-value" id="beam-size">1</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Best Score:</span>
+                    <span class="stat-value" id="best-score">0.00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Explored:</span>
+                    <span class="stat-value" id="explored-nodes">1</span>
+                </div>
+            </div>
+        </header>
+
+        <div id="controls">
+            <button id="start-btn">Start Search</button>
+            <button id="pause-btn" disabled>Pause</button>
+            <button id="reset-btn">Reset</button>
+        </div>
+
+        <div id="graph-container">
+            <svg id="graph"></svg>
+            <div id="status" class="disconnected">
+                <span class="connection-indicator"></span>
+                <span id="status-text">Connecting to server...</span>
+            </div>
+            <div id="solution-panel">
+                <h2>✨ Solution Found!</h2>
+                <p id="solution-word"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Hyperbolic geometry utilities
+        const MAX_DEPTH = 8; // Reduced from 25 to prevent hang
+
+        // Map Poincaré disk coordinates to screen coordinates
+        function poincareToScreen(px, py, width, height) {
+            const radius = Math.min(width, height) * 0.45;
+            const cx = width / 2;
+            const cy = height / 2;
+
+            return {
+                x: cx + px * radius,
+                y: cy + py * radius
+            };
+        }
+
+        // Generate Cayley graph structure with radial layout
+        function generateCayleyGraph(maxDepth) {
+            const nodes = new Map();
+            const links = [];
+
+            // Root node
+            const root = {
+                id: 'root',
+                word: '',
+                depth: 0,
+                hyperbolic: { x: 0, y: 0 },
+                angle: 0,
+                sectorSize: 2 * Math.PI,
+                state: 'root'
+            };
+            nodes.set('root', root);
+
+            // BFS to generate tree
+            const queue = [root];
+            const visited = new Set(['']);
+
+            while (queue.length > 0) {
+                const node = queue.shift();
+                if (node.depth >= maxDepth) continue;
+
+                const currentPath = wordToPath(node.word);
+                const lastGen = currentPath[currentPath.length - 1];
+
+                // Determine available generators (no backtracking)
+                const generators = ['ai', 'a', 'bi', 'b'].filter(gen =>
+                    !lastGen || INVERSES[lastGen] !== gen
+                );
+
+                // Divide node's sector among children
+                const childSectorSize = node.sectorSize / generators.length;
+                let startAngle = node.angle - node.sectorSize / 2;
+
+                generators.forEach((gen, index) => {
+                    const newWord = node.word ? `${node.word}.${gen}` : gen;
+
+                    if (visited.has(newWord)) return;
+                    visited.add(newWord);
+
+                    // Calculate child position
+                    // Angle: center of its sub-sector
+                    const childAngle = startAngle + (index + 0.5) * childSectorSize;
+
+                    // Radius: increases with depth (using tanh for hyperbolic spacing)
+                    // We want steps to get smaller as we get closer to boundary
+                    const r = Math.tanh((node.depth + 1) * 0.35);
+
+                    const hypPos = {
+                        x: r * Math.cos(childAngle),
+                        y: r * Math.sin(childAngle)
+                    };
+
+                    const childNode = {
+                        id: newWord,
+                        word: newWord,
+                        depth: node.depth + 1,
+                        hyperbolic: hypPos,
+                        angle: childAngle,
+                        sectorSize: childSectorSize,
+                        state: 'unexplored'
+                    };
+
+                    nodes.set(newWord, childNode);
+                    links.push({ source: node.id, target: newWord });
+
+                    if (childNode.depth < maxDepth) {
+                        queue.push(childNode);
+                    }
+                });
+            }
+
+            return { nodes, links };
+        }
+
+        const INVERSES = { 'ai': 'a', 'a': 'ai', 'bi': 'b', 'b': 'bi' };
+
+        // WebSocket and visualization state
+        let ws;
+        let cayleyGraph;
+        let visitedNodes = new Set(['root']);
+        let beamIds = new Set();
+
+        // D3 setup
+        const svg = d3.select("#graph");
+        const width = window.innerWidth;
+        const height = window.innerHeight - 150;
+
+        svg.attr("viewBox", [0, 0, width, height]);
+
+        const g = svg.append("g");
+
+        // Zoom behavior
+        const zoom = d3.zoom()
+            .scaleExtent([0.5, 8])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+
+        svg.call(zoom);
+
+        // Draw Poincaré disk boundary
+        const diskRadius = Math.min(width, height) * 0.4;
+        g.append("circle")
+            .attr("class", "poincare-disk")
+            .attr("cx", width / 2)
+            .attr("cy", height / 2)
+            .attr("r", diskRadius);
+
+        // Generate the Cayley graph
+        console.log("Generating Cayley graph...");
+        cayleyGraph = generateCayleyGraph(MAX_DEPTH);
+        console.log(`Generated ${cayleyGraph.nodes.size} nodes`);
+
+        // Draw links
+        const linkElements = g.append("g")
+            .selectAll(".link")
+            .data(cayleyGraph.links)
+            .join("path")
+            .attr("class", "link")
+            .attr("d", d => {
+                const source = cayleyGraph.nodes.get(d.source);
+                const target = cayleyGraph.nodes.get(d.target);
+                const s = poincareToScreen(source.hyperbolic.x, source.hyperbolic.y, width, height);
+                const t = poincareToScreen(target.hyperbolic.x, target.hyperbolic.y, width, height);
+                return `M ${s.x} ${s.y} L ${t.x} ${t.y}`;
+            });
+
+        // Draw nodes
+        const nodeElements = g.append("g")
+            .selectAll(".node")
+            .data(Array.from(cayleyGraph.nodes.values()))
+            .join("g")
+            .attr("class", d => `node ${d.state}`)
+            .attr("transform", d => {
+                const pos = poincareToScreen(d.hyperbolic.x, d.hyperbolic.y, width, height);
+                return `translate(${pos.x}, ${pos.y})`;
+            });
+
+        nodeElements.append("circle")
+            .attr("r", d => d.id === 'root' ? 6 : 4);
+
+        nodeElements.append("text")
+            .attr("dy", -8)
+            .text(d => {
+                if (d.id === 'root') return 'I';
+                const path = wordToPath(d.word);
+                return path[path.length - 1] || '';
+            });
+
+        function updateNodeStates() {
+            nodeElements.attr("class", d => {
+                if (d.id === 'root') return 'node root';
+                if (beamIds.has(d.id)) return 'node beam';
+                if (cayleyGraph.nodes.get(d.id).state === 'candidate') return 'node candidate';
+                if (visitedNodes.has(d.id)) return 'node visited';
+                return 'node unexplored';
+            });
+        }
+
+        // WebSocket handlers
+        function connect() {
+            ws = new WebSocket("ws://localhost:8765");
+
+            ws.onopen = () => {
+                document.getElementById("status").className = "connected";
+                document.getElementById("status-text").textContent = "Connected";
+            };
+
+            ws.onclose = () => {
+                document.getElementById("status").className = "disconnected";
+                document.getElementById("status-text").textContent = "Disconnected";
+                setTimeout(connect, 2000);
+            };
+
+            ws.onerror = (error) => {
+                console.error("WebSocket error:", error);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleMessage(data);
+            };
+        }
+
+        function handleMessage(data) {
+            if (data.type === 'init') {
+                console.log("Initialized");
+            } else if (data.type === 'update') {
+                // Update stats
+                if (data.iteration !== undefined) {
+                    document.getElementById("iteration").textContent = data.iteration;
+                }
+                if (data.beam_size !== undefined) {
+                    document.getElementById("beam-size").textContent = data.beam_size;
+                }
+                if (data.best_score !== undefined) {
+                    document.getElementById("best-score").textContent = data.best_score.toFixed(3);
+                }
+
+                // Mark nodes as visited
+                if (data.new_nodes) {
+                    data.new_nodes.forEach(nodeData => {
+                        // Reconstruct word from node
+                        // We need to trace back from parent
+                        const word = reconstructWord(nodeData);
+                        if (word !== null && cayleyGraph.nodes.has(word)) {
+                            visitedNodes.add(word);
+                            if (nodeData.is_candidate) {
+                                cayleyGraph.nodes.get(word).state = 'candidate';
+                            }
+                        }
+                    });
+                }
+
+                // Update beam highlighting
+                if (data.beam_ids) {
+                    beamIds.clear();
+                    data.beam_ids.forEach(id => {
+                        const word = nodeIdToWord.get(id);
+                        if (word) beamIds.add(word);
+                    });
+                }
+
+                document.getElementById("explored-nodes").textContent = visitedNodes.size;
+                updateNodeStates();
+
+                // Check for solution
+                if (data.status === 'found') {
+                    document.getElementById("solution-word").textContent = data.solution;
+                    document.getElementById("solution-panel").classList.add("show");
+                    document.getElementById("start-btn").disabled = true;
+                    document.getElementById("pause-btn").disabled = true;
+                }
+            } else if (data.type === 'reset') {
+                visitedNodes = new Set(['root']);
+                beamIds.clear();
+                cayleyGraph.nodes.forEach(node => {
+                    if (node.id !== 'root') node.state = 'unexplored';
+                });
+                updateNodeStates();
+                document.getElementById("solution-panel").classList.remove("show");
+                document.getElementById("start-btn").disabled = false;
+                document.getElementById("pause-btn").disabled = true;
+                document.getElementById("iteration").textContent = "0";
+                document.getElementById("beam-size").textContent = "1";
+                document.getElementById("best-score").textContent = "0.00";
+                document.getElementById("explored-nodes").textContent = "1";
+            }
+        }
+
+        // Map node IDs to words (we need to track this)
+        const nodeIdToWord = new Map();
+
+        function reconstructWord(nodeData) {
+            // Store mapping
+            nodeIdToWord.set(nodeData.id, nodeData.action ?
+                (nodeData.parent && nodeIdToWord.get(nodeData.parent) ?
+                    `${nodeIdToWord.get(nodeData.parent)}.${nodeData.action}` :
+                    nodeData.action) :
+                '');
+            return nodeIdToWord.get(nodeData.id);
+        }
+
+        // Control buttons
+        document.getElementById("start-btn").addEventListener("click", () => {
+            ws.send(JSON.stringify({ command: "start" }));
+            document.getElementById("start-btn").disabled = true;
+            document.getElementById("pause-btn").disabled = false;
+        });
+
+        document.getElementById("pause-btn").addEventListener("click", () => {
+            ws.send(JSON.stringify({ command: "pause" }));
+            document.getElementById("start-btn").disabled = false;
+            document.getElementById("pause-btn").disabled = true;
+        });
+
+        document.getElementById("reset-btn").addEventListener("click", () => {
+            ws.send(JSON.stringify({ command: "reset" }));
+        });
+
+        // Connect on load
+        connect();
+    </script>
+</body>
+
+</html>

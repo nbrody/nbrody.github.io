@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beam Search Visualization</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        video {
+            border-radius: 8px;
+            max-width: 100%;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Beam Search Visualization</h1>
+
+        <div class="video-grid">
+            <div class="video-card">
+                <h2>Randomness 0 (Pure Beam)</h2>
+                <video controls autoplay loop muted playsinline>
+                    <source src="beam_search_r0.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+
+            <div class="video-card">
+                <h2>Randomness 0.2 (Mixed)</h2>
+                <video controls autoplay loop muted playsinline>
+                    <source src="beam_search_r02.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+
+            <div class="video-card">
+                <h2>Randomness 1.0 (Random Walk)</h2>
+                <video controls autoplay loop muted playsinline>
+                    <source src="beam_search_r1.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+
+        <div class="description">
+            <p>Visualization of the Beam Search algorithm on the Cayley graph of &lt;a, b&gt;.</p>
+            <p><strong>Color Legend:</strong> <span style="color: #ffd700;">●</span> Randomly Sampled (Gold) &mdash;
+                <span style="color: #00ff00;">●</span> Height 0 &mdash; <span style="color: #0000ff;">●</span> Positive
+                Height &mdash; <span style="color: #ff0000;">●</span> Negative Height
+            </p>
+            <p>Nodes are colored based on their "height" in the hyperbolic space.</p>
+        </div>
+    </div>
+
+    <style>
+        .video-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .video-card {
+            flex: 1 1 300px;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        video {
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: #e0e0e0;
+        }
+    </style>
+    <style>
+        .description {
+            margin-top: 20px;
+            text-align: center;
+            color: #ccc;
+        }
+
+        .description p {
+            margin: 5px 0;
+        }
+    </style>
+</body>
+
+</html>

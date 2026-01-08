@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integer Matrix Search</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --bg-dark: #0f172a;
+            --surface-dark: #1e293b;
+            --text-light: #f8fafc;
+            --text-gray: #94a3b8;
+            --border: #334155;
+            --success: #22c55e;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        h1 {
+            font-weight: 600;
+            margin: 0;
+            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .controls {
+            background-color: var(--surface-dark);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            align-items: end;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            color: var(--text-gray);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        input {
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--text-light);
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            font-size: 1rem;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .count-badge {
+            background-color: var(--surface-dark);
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            border: 1px solid var(--border);
+            color: var(--text-gray);
+        }
+
+        #results {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .result-card {
+            background-color: var(--surface-dark);
+            border: 1px solid var(--border);
+            padding: 1rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            animation: slideIn 0.3s ease-out;
+            transition: border-color 0.2s;
+        }
+
+        .result-card:hover {
+            border-color: var(--primary);
+        }
+
+        .result-index {
+            color: var(--text-gray);
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+
+        .result-word {
+            font-family: monospace;
+            font-size: 1rem;
+            color: var(--success);
+            word-break: break-all;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .loading {
+            display: none;
+            color: var(--text-gray);
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        .explanation {
+            background-color: var(--surface-dark);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 2rem;
+            text-align: left;
+            line-height: 1.6;
+        }
+
+        .explanation h3 {
+            margin-top: 0;
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+
+        .explanation p {
+            color: var(--text-gray);
+            margin-bottom: 0;
+        }
+
+        .explanation p+p {
+            margin-top: 1rem;
+        }
+
+        .math-block {
+            background-color: var(--bg-dark);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            text-align: center;
+            border: 1px solid var(--border);
+            color: var(--text-light);
+            /* Better contrast for math */
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Integer Matrix Search</h1>
+            <p style="color: var(--text-gray); margin-top: 0.5rem; margin-bottom: 2rem;">Find words evaluating to
+                integer matrices in surface subgroups of \(PSL(2,\mathbb{Q})\)</p>
+
+            <div class="explanation">
+                <h3>About This Tool</h3>
+                <p>
+                    This tool explores surface subgroups of \(PGL(2, \mathbb{Q})\). We consider matrices generated by
+                    \(a\) and \(b\) which depend on a parameter \(t\).
+                </p>
+                <div class="math-block">
+                    \[ a = \begin{pmatrix} t & 0 \\ 0 & 1 \end{pmatrix}, \quad b = \begin{pmatrix} 1+t^2 & 2 \\ t & 1
+                    \end{pmatrix} \]
+                </div>
+                <p>
+                    Viewing \(t\) as an indeterminate, these matrices generate a subgroup of \(PGL(2,
+                    \mathbb{Z}[t,\frac{1}{t},\frac{1}{t-1}])\). The commutator has trace zero, and so has order 2.
+                    There is a specialization of the group which determines a discrete and faithful representation into
+                    \(PSL(2, \mathbb{R})\), and we conclude that this is a surface subgroup of \(PGL(2,
+                    \mathbb{Z}[t,\frac{1}{t},\frac{1}{t-1}])\).
+                </p>
+                <p>
+                    The goal is to find non-trivial group elements that result in <strong>integer
+                        matrices</strong>
+                    with determinant \(\pm 1\). The search uses a beam search algorithm to efficiently explore the group
+                    and identify these "integral points" for a given value of \(t\).
+                </p>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="form-group">
+                <label for="t_param">Parameter T</label>
+                <input type="number" id="t_param" value="25" min="2">
+            </div>
+            <div class="form-group">
+                <label for="beam_width">Beam Width</label>
+                <input type="number" id="beam_width" value="10000" min="100" step="100">
+            </div>
+            <div class="form-group">
+                <label for="max_iterations">Max Iterations</label>
+                <input type="number" id="max_iterations" value="100" min="10">
+            </div>
+            <button id="searchBtn" onclick="startSearch()">Start Search</button>
+        </div>
+
+        <div class="results-container">
+            <div class="results-header">
+                <h3>Found Words</h3>
+                <span id="count" class="count-badge">0 found</span>
+            </div>
+            <div class="loading" id="statusMsg">Searching...</div>
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+
+        function startSearch() {
+            const t = document.getElementById('t_param').value;
+            const beam_width = document.getElementById('beam_width').value;
+            const max_iterations = document.getElementById('max_iterations').value;
+            const resultsDiv = document.getElementById('results');
+            const countBadge = document.getElementById('count');
+            const btn = document.getElementById('searchBtn');
+            const statusMsg = document.getElementById('statusMsg');
+
+            // Reset UI
+            resultsDiv.innerHTML = '';
+            countBadge.textContent = '0 found';
+            btn.disabled = true;
+            btn.textContent = 'Searching...';
+            statusMsg.style.display = 'block';
+
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            const url = `/search?t=${t}&beam_width=${beam_width}&max_iterations=${max_iterations}`;
+            eventSource = new EventSource(url);
+
+            let count = 0;
+
+            eventSource.onmessage = function (event) {
+                const data = JSON.parse(event.data);
+                const word = data.word;
+
+                count++;
+                countBadge.textContent = `${count} found`;
+
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                card.innerHTML = `
+                    <span class="result-index">#${count}</span>
+                    <span class="result-word">${word}</span>
+                `;
+                resultsDiv.insertBefore(card, resultsDiv.firstChild);
+            };
+
+            eventSource.addEventListener('done', function (event) {
+                eventSource.close();
+                btn.disabled = false;
+                btn.textContent = 'Start Search';
+                statusMsg.style.display = 'none';
+            });
+
+            eventSource.onerror = function (err) {
+                console.error("EventSource failed:", err);
+                eventSource.close();
+                btn.disabled = false;
+                btn.textContent = 'Start Search';
+                statusMsg.textContent = 'Error occurred or connection closed.';
+            };
+        }
+    </script>
+</body>
+
+</html>

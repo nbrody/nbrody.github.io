@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Triangle Group - First Generator Analysis</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            color: #e0e0e0;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #4FC3F7, #81C784, #FFB74D);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            text-align: center;
+            font-size: 1.1rem;
+            color: #9e9e9e;
+            margin-bottom: 2rem;
+        }
+        
+        .generators-info {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .generators-info h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+        
+        .matrix-row {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .matrix-item {
+            text-align: center;
+        }
+        
+        .matrix-name {
+            font-weight: 600;
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .matrix {
+            font-family: monospace;
+            font-size: 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+        }
+        
+        .generator-sections {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .generator-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .generator-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .generator-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .generator-badge {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+        
+        .generator-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .generator-count {
+            font-size: 0.9rem;
+            color: #9e9e9e;
+        }
+        
+        .rational-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .rational-tag {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-family: monospace;
+            transition: background 0.2s ease;
+        }
+        
+        .rational-tag:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .summary {
+            margin-top: 2rem;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .summary h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #4FC3F7;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #9e9e9e;
+            margin-top: 0.3rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Triangle Group Generator Analysis</h1>
+        <p class="subtitle">Rational numbers with height ≤ 10, grouped by first generator in path to ∞</p>
+        
+        <div class="generators-info">
+            <h2>Triangle Group Generators</h2>
+            <div class="matrix-row">
+                <div class="matrix-item">
+                    <div class="matrix-name" style="color: #4FC3F7">S</div>
+                    <div class="matrix">[0, -1]<br>[1, &nbsp;0]</div>
+                </div>
+                <div class="matrix-item">
+                    <div class="matrix-name" style="color: #81C784">A</div>
+                    <div class="matrix">[2, 0]<br>[0, 1]</div>
+                </div>
+                <div class="matrix-item">
+                    <div class="matrix-name" style="color: #FFB74D">B</div>
+                    <div class="matrix">[1, 2]<br>[2, 5]</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="generator-sections">
+
+            <div class="generator-card">
+                <div class="generator-header">
+                    <div class="generator-badge" style="background: #4FC3F7;">S</div>
+                    <div>
+                        <div class="generator-title">First Move: S</div>
+                        <div class="generator-count">46 rational numbers</div>
+                    </div>
+                </div>
+                <div class="rational-list">
+                    <span class="rational-tag">-1</span>
+                    <span class="rational-tag">0</span>
+                    <span class="rational-tag">-2</span>
+                    <span class="rational-tag">-1/2</span>
+                    <span class="rational-tag">3</span>
+                    <span class="rational-tag">3/2</span>
+                    <span class="rational-tag">1/3</span>
+                    <span class="rational-tag">2/3</span>
+                    <span class="rational-tag">-4</span>
+                    <span class="rational-tag">4/3</span>
+                    <span class="rational-tag">-1/4</span>
+                    <span class="rational-tag">3/4</span>
+                    <span class="rational-tag">-5/3</span>
+                    <span class="rational-tag">5/4</span>
+                    <span class="rational-tag">-3/5</span>
+                    <span class="rational-tag">1/5</span>
+                    <span class="rational-tag">2/5</span>
+                    <span class="rational-tag">4/5</span>
+                    <span class="rational-tag">-6/5</span>
+                    <span class="rational-tag">-5/6</span>
+                    <span class="rational-tag">1/6</span>
+                    <span class="rational-tag">-7</span>
+                    <span class="rational-tag">-7/2</span>
+                    <span class="rational-tag">-7/3</span>
+                    <span class="rational-tag">-7/4</span>
+                    <span class="rational-tag">-7/5</span>
+                    <span class="rational-tag">7/5</span>
+                    <span class="rational-tag">-7/6</span>
+                    <span class="rational-tag">-8</span>
+                    <span class="rational-tag">8/3</span>
+                    <span class="rational-tag">8/5</span>
+                    <span class="rational-tag">-7/8</span>
+                    <span class="rational-tag">-1/8</span>
+                    <span class="rational-tag">3/8</span>
+                    <span class="rational-tag">5/8</span>
+                    <span class="rational-tag">-9</span>
+                    <span class="rational-tag">-9/2</span>
+                    <span class="rational-tag">-9/4</span>
+                    <span class="rational-tag">-9/8</span>
+                    <span class="rational-tag">-8/9</span>
+                    <span class="rational-tag">7/9</span>
+                    <span class="rational-tag">-10/3</span>
+                    <span class="rational-tag">-7/10</span>
+                    <span class="rational-tag">-3/10</span>
+                    <span class="rational-tag">1/10</span>
+                    <span class="rational-tag">7/10</span>
+                </div>
+            </div>
+
+            <div class="generator-card">
+                <div class="generator-header">
+                    <div class="generator-badge" style="background: #81C784;">A</div>
+                    <div>
+                        <div class="generator-title">First Move: A</div>
+                        <div class="generator-count">35 rational numbers</div>
+                    </div>
+                </div>
+                <div class="rational-list">
+                    <span class="rational-tag">-2/3</span>
+                    <span class="rational-tag">-1/3</span>
+                    <span class="rational-tag">-4/3</span>
+                    <span class="rational-tag">-3/4</span>
+                    <span class="rational-tag">1/4</span>
+                    <span class="rational-tag">-5/4</span>
+                    <span class="rational-tag">-4/5</span>
+                    <span class="rational-tag">-2/5</span>
+                    <span class="rational-tag">-1/5</span>
+                    <span class="rational-tag">-1/6</span>
+                    <span class="rational-tag">-6/7</span>
+                    <span class="rational-tag">-5/7</span>
+                    <span class="rational-tag">-4/7</span>
+                    <span class="rational-tag">-3/7</span>
+                    <span class="rational-tag">-2/7</span>
+                    <span class="rational-tag">-1/7</span>
+                    <span class="rational-tag">1/7</span>
+                    <span class="rational-tag">2/7</span>
+                    <span class="rational-tag">-8/5</span>
+                    <span class="rational-tag">-8/7</span>
+                    <span class="rational-tag">-5/8</span>
+                    <span class="rational-tag">-3/8</span>
+                    <span class="rational-tag">1/8</span>
+                    <span class="rational-tag">-9/7</span>
+                    <span class="rational-tag">-7/9</span>
+                    <span class="rational-tag">-5/9</span>
+                    <span class="rational-tag">-4/9</span>
+                    <span class="rational-tag">-2/9</span>
+                    <span class="rational-tag">-1/9</span>
+                    <span class="rational-tag">1/9</span>
+                    <span class="rational-tag">2/9</span>
+                    <span class="rational-tag">-10/7</span>
+                    <span class="rational-tag">-10/9</span>
+                    <span class="rational-tag">-9/10</span>
+                    <span class="rational-tag">-1/10</span>
+                </div>
+            </div>
+
+            <div class="generator-card">
+                <div class="generator-header">
+                    <div class="generator-badge" style="background: #FFB74D;">B</div>
+                    <div>
+                        <div class="generator-title">First Move: B</div>
+                        <div class="generator-count">5 rational numbers</div>
+                    </div>
+                </div>
+                <div class="rational-list">
+                    <span class="rational-tag">-3</span>
+                    <span class="rational-tag">-3/2</span>
+                    <span class="rational-tag">-5/2</span>
+                    <span class="rational-tag">-8/3</span>
+                    <span class="rational-tag">-9/5</span>
+                </div>
+            </div>
+
+            <div class="generator-card">
+                <div class="generator-header">
+                    <div class="generator-badge" style="background: #66BB6A;">A'</div>
+                    <div>
+                        <div class="generator-title">First Move: A'</div>
+                        <div class="generator-count">34 rational numbers</div>
+                    </div>
+                </div>
+                <div class="rational-list">
+                    <span class="rational-tag">1</span>
+                    <span class="rational-tag">2</span>
+                    <span class="rational-tag">4</span>
+                    <span class="rational-tag">-5</span>
+                    <span class="rational-tag">5</span>
+                    <span class="rational-tag">5/2</span>
+                    <span class="rational-tag">5/3</span>
+                    <span class="rational-tag">-6</span>
+                    <span class="rational-tag">6</span>
+                    <span class="rational-tag">6/5</span>
+                    <span class="rational-tag">5/6</span>
+                    <span class="rational-tag">7</span>
+                    <span class="rational-tag">7/2</span>
+                    <span class="rational-tag">7/3</span>
+                    <span class="rational-tag">7/4</span>
+                    <span class="rational-tag">7/6</span>
+                    <span class="rational-tag">5/7</span>
+                    <span class="rational-tag">6/7</span>
+                    <span class="rational-tag">8</span>
+                    <span class="rational-tag">8/7</span>
+                    <span class="rational-tag">7/8</span>
+                    <span class="rational-tag">9</span>
+                    <span class="rational-tag">9/2</span>
+                    <span class="rational-tag">9/4</span>
+                    <span class="rational-tag">9/5</span>
+                    <span class="rational-tag">9/7</span>
+                    <span class="rational-tag">9/8</span>
+                    <span class="rational-tag">8/9</span>
+                    <span class="rational-tag">-10</span>
+                    <span class="rational-tag">10</span>
+                    <span class="rational-tag">10/3</span>
+                    <span class="rational-tag">10/7</span>
+                    <span class="rational-tag">10/9</span>
+                    <span class="rational-tag">9/10</span>
+                </div>
+            </div>
+
+            <div class="generator-card">
+                <div class="generator-header">
+                    <div class="generator-badge" style="background: #FFA726;">B'</div>
+                    <div>
+                        <div class="generator-title">First Move: B'</div>
+                        <div class="generator-count">7 rational numbers</div>
+                    </div>
+                </div>
+                <div class="rational-list">
+                    <span class="rational-tag">1/2</span>
+                    <span class="rational-tag">3/5</span>
+                    <span class="rational-tag">3/7</span>
+                    <span class="rational-tag">4/7</span>
+                    <span class="rational-tag">4/9</span>
+                    <span class="rational-tag">5/9</span>
+                    <span class="rational-tag">3/10</span>
+                </div>
+            </div>
+
+            <div class="generator-card">
+                <div class="generator-header">
+                    <div class="generator-badge" style="background: #CE93D8;">(Already at Target)</div>
+                    <div>
+                        <div class="generator-title">First Move: (Already at Target)</div>
+                        <div class="generator-count">1 rational numbers</div>
+                    </div>
+                </div>
+                <div class="rational-list">
+                    <span class="rational-tag">∞</span>
+                </div>
+            </div>
+
+        </div>
+        
+        <div class="summary">
+            <h2>Summary Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">128</div>
+                    <div class="stat-label">Total Points</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">10</div>
+                    <div class="stat-label">Height Bound</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">5</div>
+                    <div class="stat-label">Generators Used</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

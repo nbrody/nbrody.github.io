@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SL(3, Z) Ping Pong Visualization</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- MathJax Configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: {
+                fontCache: 'global'
+            },
+            startup: {
+                ready: () => {
+                    MathJax.startup.defaultReady();
+                    window.MathJaxReady = true;
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>$\mathrm{SL}(3,\mathbb{Z})$ Ping Pong</h1>
+            <p>Visualize attractors, repelling planes, and ping-pong sets for matrix groups.</p>
+        </header>
+
+        <main>
+            <div class="controls">
+                <div id="generators-container">
+                    <h3>Generators</h3>
+                    <div id="generators-list">
+                        <!-- Dynamic generators will be inserted here -->
+                    </div>
+                    <button id="add-generator-btn" class="secondary-btn">+ Add Matrix</button>
+                </div>
+
+                <div class="input-group" style="margin-top: 1.5rem;">
+                    <h3>Words to Visualize</h3>
+                    <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.5rem;">
+                        Enter dot-separated words (e.g. "a.t.a_inv") to visualize their attractors.
+                    </p>
+                    <textarea id="extra-words-input" rows="3" placeholder="a.t&#10;t.a_inv.t"></textarea>
+                </div>
+
+                <div class="settings">
+                    <label for="power-k">Power k:</label>
+                    <input type="number" id="power-k" value="1" min="1" max="10">
+                    <button id="analyze-btn">Analyze Ping Pong</button>
+                </div>
+
+                <div id="results-panel">
+                    <h3>Analysis Results</h3>
+                    <div id="status-text">Ready</div>
+                    <ul id="warnings-list"></ul>
+                    <div id="metrics"></div>
+
+                    <div style="margin-top: 1rem; border-top: 1px solid rgba(148, 163, 184, 0.1); padding-top: 1rem;">
+                        <p style="font-size: 0.8rem; color: #94a3b8; margin: 0;">
+                            <strong>Tip:</strong> Click on a generator label below the visualization to animate its
+                            action.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="visualization">
+                <div class="viz-header">
+                    <div class="view-tabs">
+                        <button class="view-tab active" data-view="sphere">Sphere View (RP²)</button>
+                        <button class="view-tab" data-view="affine">Affine Patch (Z=1)</button>
+                    </div>
+                    <button id="refresh-btn" class="refresh-btn"
+                        title="Refresh visualization with current matrices">↻</button>
+                </div>
+                <div id="canvas-container">
+                    <canvas id="viz-canvas" width="600" height="600"></canvas>
+                </div>
+                <div id="affine-controls"
+                    style="display: none; margin-top: 1rem; gap: 1rem; flex-wrap: wrap; justify-content: center;">
+                    <label style="color: var(--text-muted); font-size: 0.85rem;">
+                        View Range:
+                        <input type="range" id="affine-range" min="1" max="20" value="5"
+                            style="width: 100px; vertical-align: middle;">
+                        <span id="affine-range-value">±5</span>
+                    </label>
+                </div>
+                <div class="legend">
+                    <div><span class="dot a-dot"></span> Attractor A</div>
+                    <div><span class="dot t-dot"></span> Attractor T</div>
+                    <div><span class="line rep-line"></span> Repelling Plane</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>

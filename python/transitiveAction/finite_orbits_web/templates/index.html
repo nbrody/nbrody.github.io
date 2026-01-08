@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finite Orbits Explorer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Space+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <!-- Dependencies -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Finite Orbits Explorer</h1>
+            <p class="subtitle">Analyze actions of rational linear groups on the rational projective line</p>
+        </header>
+
+        <main>
+            <section class="controls glass-panel">
+                <h2>Configuration</h2>
+
+                <div class="input-group">
+                    <label>Generator Set</label>
+                    <div class="select-wrapper">
+                        <select id="generator">
+                            <option value="Z1/2">Z[1/2] Fuchsian Group</option>
+                            <option value="Modular">Modular Group SL(2,Z)</option>
+                            <option value="Triangle">Triangle Group (S,A,B)</option>
+                            <option value="Custom">Custom</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Matrix Editors -->
+                <div id="matrix-editor-container" class="matrix-grid-container">
+                    <!-- Dynamic Content -->
+                </div>
+
+                <div class="generator-controls">
+                    <button id="add-gen-btn" class="secondary-btn">+ Add Generator</button>
+                </div>
+
+                <div class="params-grid">
+                    <div class="input-group">
+                        <label for="H">Height Bound (H)</label>
+                        <input type="number" id="H" value="10" min="1">
+                    </div>
+                    <div class="input-group">
+                        <label for="depth">Search Depth</label>
+                        <input type="number" id="depth" value="16" min="1">
+                    </div>
+                    <div class="input-group">
+                        <label for="height_cap_factor">Height Cap Factor</label>
+                        <input type="number" id="height_cap_factor" value="500" min="1">
+                    </div>
+                    <div class="input-group">
+                        <label for="max_nodes">Max Nodes</label>
+                        <input type="number" id="max_nodes" value="2000000" min="1000">
+                    </div>
+                </div>
+
+                <div class="run-actions">
+                    <button id="run-btn" class="primary-btn">
+                        <span class="btn-text">Run Simulation</span>
+                        <div class="loader hidden"></div>
+                    </button>
+                    <button id="stop-btn" class="stop-btn hidden" title="Stop">
+                        <div class="stop-icon"></div>
+                    </button>
+                </div>
+            </section>
+
+            <section class="results glass-panel hidden" id="results-section">
+                <div class="results-header">
+                    <h2>Results</h2>
+                    <span id="status-badge" class="badgeSuccess">Completed</span>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="stat-label">Representatives</span>
+                        <span class="stat-value" id="reps-count">-</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Hit Node Cap</span>
+                        <span class="stat-value" id="hit-cap">-</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Stop Reason</span>
+                        <span class="stat-value" id="stop-reason">-</span>
+                    </div>
+                </div>
+
+                <div class="reps-container">
+                    <h3>Representatives (Orbit Seeds)</h3>
+                    <div id="reps-list" class="reps-grid">
+                        <!-- Reps will be injected here -->
+                    </div>
+                </div>
+            </section>
+
+            <section class="match-section glass-panel hidden" id="match-section">
+                <h2>Match Orbit</h2>
+                <div class="input-group">
+                    <label for="rational-input">Enter Rational Number (e.g., "1/3", "-5/2", "0")</label>
+                    <div class="match-input-wrapper">
+                        <input type="text" id="rational-input" placeholder="p/q">
+                        <button id="match-btn" class="primary-btn small-btn">Match</button>
+                    </div>
+                </div>
+
+                <div class="params-grid match-params">
+                    <div class="input-group">
+                        <label for="match-depth">Search Depth</label>
+                        <input type="number" id="match-depth" value="25" min="1">
+                    </div>
+                    <div class="input-group">
+                        <label for="match-height-cap">Height Cap</label>
+                        <input type="number" id="match-height-cap" value="50000" min="100">
+                    </div>
+                    <div class="input-group">
+                        <label for="match-beam-width">Beam Width</label>
+                        <input type="number" id="match-beam-width" value="5000" min="100">
+                    </div>
+                </div>
+
+                <div id="match-result" class="hidden">
+                    <p>Path found to representative: <strong id="match-target" class="accent-text"></strong></p>
+                    <div class="path-steps" id="path-steps"></div>
+                </div>
+
+                <div class="viz-container">
+                    <h3>Visualization (Projective Line)</h3>
+                    <canvas id="orbit-canvas" width="900" height="500"></canvas>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>

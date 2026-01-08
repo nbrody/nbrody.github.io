@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limit Set Visualizer</title>
+
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111;
+            color: #eee;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            /* Moved to right */
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            border: 1px solid #444;
+            backdrop-filter: blur(5px);
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            max-height: 90vh;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #444;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.05);
+            color: #aaa;
+            border-right: 1px solid #444;
+        }
+
+        .tab:last-child {
+            border-right: none;
+        }
+
+        .tab.active {
+            background: transparent;
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        select,
+        button {
+            width: 100%;
+            padding: 5px;
+            background: #222;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background: #333;
+            cursor: pointer;
+        }
+
+        .info {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        p {
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: #ddd;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="controls">
+        <div class="tabs">
+            <div class="tab active" data-target="tab-controls">Controls</div>
+            <div class="tab" data-target="tab-params">Params</div>
+            <div class="tab" data-target="tab-about">About</div>
+        </div>
+
+        <div id="tab-controls" class="tab-content">
+            <h3 style="margin-top: 0; color: #fff;">Limit Set Viewer</h3>
+
+
+            <div class="control-group">
+                <label for="patchSelect">View Option</label>
+                <select id="patchSelect">
+                    <option value="z">z = 1 (Standard)</option>
+                    <option value="y">y = 1</option>
+                    <option value="x">x = 1</option>
+                    <option value="disk">Poincare Disk (u=v=&#8730;8)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="modeSelect">Generation Mode</label>
+                <select id="modeSelect">
+                    <option value="random">Random Walk (Limit Set)</option>
+                    <option value="bfs">BFS (Full Orbit)</option>
+                </select>
+            </div>
+
+            <!-- Random Mode Controls -->
+            <div id="randomControls">
+                <div class="control-group">
+                    <label for="countRange">Point Count: <span id="countVal">10000</span></label>
+                    <input type="range" id="countRange" min="1000" max="50000" step="1000" value="10000">
+                </div>
+                <div class="control-group">
+                    <label for="lenRange">Word Length: <span id="lenVal">50</span></label>
+                    <input type="range" id="lenRange" min="5" max="100" step="5" value="50">
+                </div>
+            </div>
+
+            <!-- BFS Controls -->
+            <div id="bfsControls" style="display:none;">
+                <div class="control-group">
+                    <label for="depthRange">Search Depth: <span id="depthVal">10</span></label>
+                    <input type="range" id="depthRange" min="1" max="12" value="10">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <button id="fetchBtn">Regenerate Orbit</button>
+            </div>
+
+            <div class="control-group">
+                <label>Status: <span id="status">Ready</span></label>
+                <div class="info">
+                    Points: <span id="pointCount">0</span><br>
+                    Pan: Click & Drag<br>
+                    Zoom: Scroll
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-params" class="tab-content hidden">
+            <h3 style="margin-top: 0; color: #fff;">Parameters</h3>
+
+            <div class="control-group" style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label for="paramU">u</label>
+                    <input type="number" id="paramU" value="9" step="0.1" style="width: 100%;">
+                </div>
+                <div style="flex: 1;">
+                    <label for="paramV">v</label>
+                    <input type="number" id="paramV" value="-9" step="0.1" style="width: 100%;">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Parameter Plane (u, v)</label>
+                <canvas id="paramCanvas" width="260" height="260"
+                    style="background: #222; border: 1px solid #444; cursor: crosshair;"></canvas>
+            </div>
+
+            <div class="info">
+                <span style="color: #f55;">Red Curve</span>: D = 0<br>
+                <span style="color: #4f4;">Green Dots</span>: Integer D=k²<br>
+                <span style="color: #aaf;">Blue Dot</span>: Hyperbolic (u=v=√8)<br>
+                <span style="color: #fff;">White Cross</span>: Current Selection
+            </div>
+
+            <div id="matrixDisplay"
+                style="font-family: monospace; font-size: 0.75em; margin-top: 10px; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 4px; overflow-x: auto;">
+                Matrices will appear here...
+            </div>
+        </div>
+
+
+        <div id="tab-about" class="tab-content hidden">
+            <h3 style="margin-top: 0; color: #fff;">About</h3>
+            <p>
+                This visualization explores the limit set of a specific subgroup of \( SL(3, \mathbb{Z}) \).
+            </p>
+            <p>
+                The generators are derived from the work of <strong>Long, Reid, and Thistlethwaite</strong>.
+                They define a family of representations parameterized by \( u \) and \( v \).
+            </p>
+            <p>
+
+            <p>
+                Consider the quadratic polynomial
+                \[ Q(w) = (w+2)^2 - uvw + (u+v+5)(u-v)^2 \]
+            </p>
+            <p>
+                The discriminant of \( Q \), denoted \( D(u,v) \), is:
+                \[ D(u,v) = (uv - 4)^2-4(u+v+5)(u-v)^2-16 \]
+            </p>
+            <p>
+                We also define:
+                \[ \tau(u,v) = 2 (u^2 + v^2) (u^2 - uv + v^2) \]
+            </p>
+
+            <p>
+                The generators \( A \) and \( B \) are given by:
+            </p>
+            <div style="overflow-x: auto; font-size: 0.8em;">
+                \[
+                A = \begin{pmatrix}
+                1 & 1 & (-u^3 v + 4 u v^2 - 6 u^2 v - 2 v^3 + u^2 \sqrt{D})\frac{u}{\tau} \\
+                0 & -v/u & 1 \\
+                0 & -\frac{u^2 - u v + v^2}{u^2} & -1 + v/u
+                \end{pmatrix}
+                \]
+                \[
+                B = \begin{pmatrix}
+                -1 + v/u & 0 & \frac{u(-u^2 v^2 + 2 C + u v \sqrt{D})}{\tau} \\
+                \frac{-2 v^2 + 2 u^2 + u^2 v + 4 u v + u \sqrt{D}}{2 u^2} & 1 & -1 \\
+                \frac{u^2 v^2 - 2 C + u v \sqrt{D}}{2 u^3} & 0 & -v/u
+                \end{pmatrix}
+                \]
+            </div>
+            <p>
+                For this visualization, we use the parameters <strong>u = 9</strong> and <strong>v = -9</strong>.
+                In this case, \( D = 729 = 27^2 \), resulting in integer matrices:
+            </p>
+            <div
+                style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 4px; font-size: 0.8em; margin-bottom: 10px;">
+                \[
+                A = \begin{pmatrix} 1 & 1 & 2 \\ 0 & 1 & 1 \\ 0 & -3 & -2 \end{pmatrix}, \quad
+                B = \begin{pmatrix} -2 & 0 & -1 \\ -5 & 1 & -1 \\ 3 & 0 & 1 \end{pmatrix}
+                \]
+            </div>
+            <p>
+                This is a <strong>non-Hitchin representation</strong>.
+            </p>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // State
+        let width, height;
+
+        let points3D = []; // Array of [x, y, z]
+        let points2D = []; // Array of [u, v] (projected)
+
+        // Removed features
+
+        let transform = {
+            zoom: 200,    // Pixels per unit
+            offsetX: 0,   // Center X (screen)
+            offsetY: 0,   // Center Y (screen)
+            originX: 0,   // World X at center
+            originY: 0    // World Y at center
+        };
+
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        // Init
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            transform.offsetX = width / 2;
+            transform.offsetY = height / 2;
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        // Interaction
+        canvas.addEventListener('mousedown', e => {
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+
+        window.addEventListener('mouseup', () => isDragging = false);
+
+        canvas.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+
+            const dx = e.clientX - lastMouseX;
+            const dy = e.clientY - lastMouseY;
+
+
+            transform.originX -= dx / transform.zoom;
+            transform.originY += dy / transform.zoom; // Fix: Add dy because screen Y is inverted relative to world Y
+
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            draw();
+        });
+
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const zoomIntensity = 0.1;
+            const wheel = e.deltaY < 0 ? 1 : -1;
+
+            // Zoom towards mouse pointer logic
+            // Current world coords of mouse
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+
+            const wx = (mouseX - transform.offsetX) / transform.zoom + transform.originX;
+            const wy = (mouseY - transform.offsetY) / -transform.zoom + transform.originY; // Note Y flip
+
+            const zoomFactor = Math.exp(wheel * zoomIntensity);
+            transform.zoom *= zoomFactor;
+
+            draw();
+        }, { passive: false });
+
+
+        const paramCanvas = document.getElementById('paramCanvas');
+        const pCtx = paramCanvas.getContext('2d');
+
+        let perfectSquares = [];
+        let currentU = 9.0;
+        let currentV = -9.0;
+
+        // Load squares on start
+        fetch('/api/squares').then(r => r.json()).then(data => {
+            perfectSquares = data;
+            drawParams();
+        });
+
+        function drawParams() {
+            const w = paramCanvas.width;
+            const h = paramCanvas.height;
+            pCtx.clearRect(0, 0, w, h);
+
+            // Coordinate system: Center (0,0), Range [-20, 20]
+            // Scale: w / 40 -> pixels per unit
+            const scale = w / 40;
+            const cx = w / 2;
+            const cy = h / 2;
+
+            function toScreen(u, v) {
+                return [cx + u * scale, cy - v * scale];
+            }
+
+            function fromScreen(x, y) {
+                return [(x - cx) / scale, (cy - y) / scale];
+            }
+
+            // Draw D=0 Locus (Pixel scan for simplicity)
+            // D(u,v) = (uv - 4)^2 - 4(u+v+5)(u-v)^2 - 16
+            const imgData = pCtx.createImageData(w, h);
+            const data = imgData.data;
+
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    // map pixel to u, v
+                    const u = (x - cx) / scale;
+                    const v = (cy - y) / scale; // y is down
+
+                    const val = (u * v - 4) ** 2 - 4 * (u + v + 5) * ((u - v) ** 2) - 16;
+
+                    // Simple threshold for "close to zero" visually
+                    // This is naive but works for rough visualization. 
+                    // Better method: check sign change with neighbors, but this is fast enough.
+                    // Dynamic threshold based on gradient would be better but let's try constant.
+                    if (Math.abs(val) < 20) {
+                        const idx = (y * w + x) * 4;
+                        data[idx] = 255;   // R
+                        data[idx + 1] = 50;  // G
+                        data[idx + 2] = 50;  // B
+                        data[idx + 3] = 255; // A
+                    }
+                }
+            }
+            pCtx.putImageData(imgData, 0, 0);
+
+            // Axes
+            pCtx.strokeStyle = '#444';
+            pCtx.beginPath();
+            pCtx.moveTo(0, cy); pCtx.lineTo(w, cy);
+            pCtx.moveTo(cx, 0); pCtx.lineTo(cx, h);
+            pCtx.stroke();
+
+            // Draw Perfect Squares
+            pCtx.fillStyle = '#4f4';
+            for (let sq of perfectSquares) {
+                const [sx, sy] = toScreen(sq.u, sq.v);
+                pCtx.fillRect(sx - 1, sy - 1, 3, 3);
+            }
+
+            // Draw Hyperbolic Point u=v=sqrt(8) ~= 2.828
+            const root8 = Math.sqrt(8);
+            const [hx, hy] = toScreen(root8, root8);
+            pCtx.fillStyle = '#aaf';
+            pCtx.beginPath();
+            pCtx.arc(hx, hy, 4, 0, Math.PI * 2);
+            pCtx.fill();
+
+            // Draw Current Point
+            const [ux, uy] = toScreen(currentU, currentV);
+            pCtx.strokeStyle = '#fff';
+            pCtx.lineWidth = 2;
+            pCtx.beginPath();
+            pCtx.moveTo(ux - 5, uy); pCtx.lineTo(ux + 5, uy);
+            pCtx.moveTo(ux, uy - 5); pCtx.lineTo(ux, uy + 5);
+            pCtx.stroke();
+        }
+
+        // Param Interaction
+        paramCanvas.addEventListener('click', e => {
+            const rect = paramCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const w = paramCanvas.width;
+            const h = paramCanvas.height;
+            const scale = w / 40;
+            const cx = w / 2;
+            const cy = h / 2;
+
+            let u = (x - cx) / scale;
+            let v = (cy - y) / scale;
+
+            // Snap to integer if close? Maybe.
+            // Snap to .1
+            u = Math.round(u * 10) / 10;
+            v = Math.round(v * 10) / 10;
+
+            updateParams(u, v);
+        });
+
+        document.getElementById('paramU').addEventListener('change', e => {
+            updateParams(parseFloat(e.target.value), currentV);
+        });
+        document.getElementById('paramV').addEventListener('change', e => {
+            updateParams(currentU, parseFloat(e.target.value));
+        });
+
+        function updateParams(u, v) {
+            currentU = u;
+            currentV = v;
+            document.getElementById('paramU').value = u;
+            document.getElementById('paramV').value = v;
+            drawParams();
+            fetchPoints();
+        }
+
+        // Logic
+
+        // UI Bindings
+
+        // Tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Toggle active tab
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Toggle content
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                document.getElementById(tab.dataset.target).classList.remove('hidden');
+
+                if (tab.dataset.target === 'tab-params') {
+                    drawParams();
+                }
+            });
+        });
+
+        // Mode switch
+        document.getElementById('modeSelect').addEventListener('change', e => {
+            const mode = e.target.value;
+            if (mode === 'random') {
+                document.getElementById('randomControls').style.display = 'block';
+                document.getElementById('bfsControls').style.display = 'none';
+            } else {
+                document.getElementById('randomControls').style.display = 'none';
+                document.getElementById('bfsControls').style.display = 'block';
+            }
+        });
+
+        // Ranges
+        document.getElementById('countRange').addEventListener('input', e => {
+            document.getElementById('countVal').textContent = e.target.value;
+        });
+        document.getElementById('lenRange').addEventListener('input', e => {
+            document.getElementById('lenVal').textContent = e.target.value;
+        });
+        document.getElementById('depthRange').addEventListener('input', e => {
+            document.getElementById('depthVal').textContent = e.target.value;
+        });
+
+        document.getElementById('fetchBtn').addEventListener('click', fetchPoints);
+
+        document.getElementById('patchSelect').addEventListener('change', () => {
+            projectPoints();
+            draw();
+        });
+
+        // Update fetch function to use new params
+
+
+        function formatMatrix(label, m) {
+            if (!m) return "";
+
+            const formatVal = (v) => {
+                let s = v.toString();
+                // If number
+                if (typeof v === 'number') {
+                    if (Number.isInteger(v)) return s;
+                    // Check if close to integer (float noise)
+                    if (Math.abs(Math.round(v) - v) < 1e-6) {
+                        return Math.round(v).toString();
+                    }
+                    return parseFloat(v.toFixed(4)).toString();
+                }
+                // String or complex
+                if (s.length > 20) {
+                    return s.substring(0, 15) + "\\dots";
+                }
+                return s;
+            };
+
+            let tex = `\\[ ${label} = \\begin{pmatrix}`;
+            for (let i = 0; i < m.length; i++) {
+                for (let j = 0; j < m[i].length; j++) {
+                    tex += formatVal(m[i][j]);
+                    if (j < m[i].length - 1) tex += " & ";
+                }
+                if (i < m.length - 1) tex += " \\\\ ";
+            }
+            tex += `\\end{pmatrix} \\]`;
+            return tex;
+        }
+
+        async function fetchPoints() {
+            const mode = document.getElementById('modeSelect').value;
+            const statusEl = document.getElementById('status');
+
+            let url = `/api/points?mode=${mode}`;
+            if (mode === 'random') {
+                const count = document.getElementById('countRange').value;
+                const length = document.getElementById('lenRange').value;
+                url += `&count=${count}&length=${length}`;
+            } else {
+                const depth = document.getElementById('depthRange').value;
+                url += `&depth=${depth}`;
+            }
+
+            // Add params
+            url += `&u=${currentU}&v=${currentV}`;
+
+            statusEl.textContent = "Fetching...";
+            statusEl.style.color = "yellow";
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+
+
+                points3D = data.points;
+
+                // Update matrix display
+
+
+                const HYPER_MATRIX = [
+                    [-0.78425248, 0.42644651, -0.70698112],
+                    [-0.14953169, 0.73451783, 0.60893163],
+                    [-2.57631746, -1.92908607, 1.69429042]
+                ];
+
+                function projectPoints() {
+                    const patch = document.getElementById('patchSelect').value;
+                    points2D = [];
+
+                    // 1. Project regular points
+                    for (let p of points3D) {
+                        let u, v;
+
+                        try {
+                            if (patch === 'disk') {
+                                // Apply Basis Change for u=v=sqrt(8) Form
+                                const h = [
+                                    HYPER_MATRIX[0][0] * p[0] + HYPER_MATRIX[0][1] * p[1] + HYPER_MATRIX[0][2] * p[2],
+                                    HYPER_MATRIX[1][0] * p[0] + HYPER_MATRIX[1][1] * p[1] + HYPER_MATRIX[1][2] * p[2],
+                                    HYPER_MATRIX[2][0] * p[0] + HYPER_MATRIX[2][1] * p[1] + HYPER_MATRIX[2][2] * p[2]
+                                ];
+
+                                // Project from h[2] (Time-like coord)
+                                if (Math.abs(h[2]) > 1e-9) {
+                                    // Klein coords
+                                    let kx = h[0] / h[2];
+                                    let ky = h[1] / h[2];
+
+                                    // Check magnitude
+                                    let r2 = kx * kx + ky * ky;
+
+                                    // Allow slight tolerance for boundary
+                                    if (r2 < 1.0001) {
+                                        // Clamp
+                                        if (r2 > 1.0) r2 = 1.0;
+
+                                        // Klein to Poincare: P = K / (1 + sqrt(1 - |K|^2))
+                                        let scale = 1 / (1 + Math.sqrt(1 - r2));
+                                        u = kx * scale;
+                                        v = ky * scale;
+                                    } else {
+                                        // Skip points outside null cone
+                                        continue;
+                                    }
+                                }
+                            }
+                            else if (patch === 'z') { if (Math.abs(p[2]) > 1e-9) { u = p[0] / p[2]; v = p[1] / p[2]; } }
+                            else if (patch === 'y') { if (Math.abs(p[1]) > 1e-9) { u = p[0] / p[1]; v = p[2] / p[1]; } }
+                            else { if (Math.abs(p[0]) > 1e-9) { u = p[1] / p[0]; v = p[2] / p[0]; } }
+                        } catch (e) { continue; }
+
+                        if (u !== undefined && !isNaN(u) && !isNaN(v)) points2D.push([u, v]);
+                    }
+                }
+                // Removed features projection
+
+
+                // Update matrix display
+                if (data.matrices) {
+                    const disp = document.getElementById('matrixDisplay');
+                    disp.innerHTML =
+                        formatMatrix("A", data.matrices.A) +
+                        formatMatrix("B", data.matrices.B) +
+                        formatMatrix("AB", data.matrices.AB);
+
+                    if (window.MathJax) {
+                        MathJax.typesetPromise([disp]).catch((err) => console.log(err));
+                    }
+                }
+
+                // Removed features3D capture
+                statusEl.textContent = "Ready";
+                statusEl.style.color = "#0f0";
+                document.getElementById('pointCount').textContent = data.count;
+
+                projectPoints();
+                draw();
+
+            } catch (e) {
+                console.error(e);
+                statusEl.textContent = "Error";
+                statusEl.style.color = "red";
+            }
+        }
+
+
+        function draw() {
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, width, height);
+
+            const cx = transform.offsetX;
+            const cy = transform.offsetY;
+            const z = transform.zoom;
+            const ox = transform.originX;
+            const oy = transform.originY;
+
+            // Removed Drawing Lines
+
+            // Draw Orbit Points
+            ctx.fillStyle = '#4af';
+            ctx.beginPath();
+            for (let p of points2D) {
+                const px = cx + (p[0] - ox) * z;
+                const py = cy - (p[1] - oy) * z;
+                // Simple culling
+                if (px < -10 || px > width + 10 || py < -10 || py > height + 10) continue;
+                ctx.rect(px, py, 1.5, 1.5);
+            }
+            ctx.fill();
+
+            // Removed Drawing Feature Points
+
+            // Axis
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            // X axis
+            let y0 = cy + oy * z;
+            if (y0 >= 0 && y0 <= height) {
+                ctx.moveTo(0, y0);
+                ctx.lineTo(width, y0);
+            }
+            // Y axis
+            let x0 = cx - ox * z;
+            if (x0 >= 0 && x0 <= width) {
+                ctx.moveTo(x0, 0);
+                ctx.lineTo(x0, height);
+            }
+            ctx.stroke();
+        }
+
+        // Start
+        resize();
+        fetchPoints();
+
+    </script>
+
+</body>
+
+</html>
