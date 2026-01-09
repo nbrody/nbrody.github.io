@@ -1,0 +1,122 @@
+:root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --text-color: #ffffff;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: #0f172a;
+    color: var(--text-color);
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+}
+
+/* Pre-AR Overlay */
+#overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    /* Let clicks pass through to ARButton if needed, though ARButton usually appends to body */
+    z-index: 10;
+}
+
+/* We want the header visible before AR, and prompt visible during AR */
+header {
+    text-align: center;
+    margin-bottom: 2rem;
+    pointer-events: auto;
+}
+
+h1 {
+    font-size: 3rem;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.5rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+}
+
+p {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* AR Button Customization (Three.js appends it) */
+#ARButton {
+    background: var(--glass-bg) !important;
+    border: 1px solid var(--glass-border) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    color: white !important;
+    font-weight: 600 !important;
+    border-radius: 20px !important;
+    padding: 12px 24px !important;
+    transition: transform 0.2s ease, background 0.2s ease !important;
+    bottom: 50px !important;
+}
+
+#ARButton:active {
+    transform: scale(0.95);
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Styles for when in AR mode */
+body.ar-active #overlay {
+    justify-content: flex-end;
+    padding-bottom: 100px;
+}
+
+body.ar-active header {
+    display: none;
+}
+
+#interaction-prompt {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(8px);
+    border-radius: 30px;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: opacity 0.5s;
+    pointer-events: none;
+}
+
+.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.hand-icon {
+    font-size: 1.5rem;
+    animation: swipeHint 2s infinite ease-in-out;
+}
+
+@keyframes swipeHint {
+
+    0%,
+    100% {
+        transform: translateX(-5px);
+    }
+
+    50% {
+        transform: translateX(5px);
+    }
+}
