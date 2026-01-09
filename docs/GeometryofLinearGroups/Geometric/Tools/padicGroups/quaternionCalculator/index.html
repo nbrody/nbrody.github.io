@@ -14,7 +14,8 @@
             color: #333;
         }
 
-        h1, h2 {
+        h1,
+        h2 {
             text-align: center;
             color: #2c3e50;
             border-bottom: 2px solid #3498db;
@@ -150,13 +151,15 @@
             font-weight: bold;
         }
 
-        select, input[type="range"] {
+        select,
+        input[type="range"] {
             padding: 8px;
             border-radius: 4px;
             border: 1px solid #bdc3c7;
         }
 
-        #vis-container, #square-complex-container {
+        #vis-container,
+        #square-complex-container {
             width: 100%;
             height: 600px;
             margin-top: 20px;
@@ -379,11 +382,161 @@
             }
         }
     </style>
+    <style>
+        /* Dark Mode and Collapsible Styles */
+        :root {
+            --bg-color: #f4f4f9;
+            --container-bg: #ffffff;
+            --text-color: #333;
+            --heading-color: #2c3e50;
+            --accent-color: #3498db;
+            --section-bg: #ecf0f1;
+            --card-bg: #fdfdfd;
+            --border-muted: #bdc3c7;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --container-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --heading-color: #90caf9;
+            --accent-color: #90caf9;
+            --section-bg: #2d2d2d;
+            --card-bg: #252525;
+            --border-muted: #444;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container {
+            background-color: var(--container-bg);
+            color: var(--text-color);
+        }
+
+        h1,
+        h2 {
+            color: var(--heading-color);
+            border-bottom-color: var(--accent-color);
+        }
+
+        .prime-input-section,
+        .controls,
+        .generator-filter {
+            background-color: var(--section-bg);
+            color: var(--text-color);
+        }
+
+        input,
+        select {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border-color: var(--border-muted);
+        }
+
+        .relation-square,
+        #generators-container {
+            background-color: var(--card-bg);
+        }
+
+        .legend-title,
+        .generators-legend-title {
+            color: var(--heading-color);
+        }
+
+        /* Dark mode specific for tables */
+        [data-theme="dark"] .pq-relation-table-wrapper {
+            background-color: var(--section-bg);
+            border-color: var(--border-muted);
+        }
+
+        [data-theme="dark"] .pq-relation-table td {
+            background-color: var(--card-bg);
+            border-color: var(--border-muted);
+        }
+
+        [data-theme="dark"] .pq-relation-table th {
+            border-color: var(--border-muted);
+        }
+
+        [data-theme="dark"] #square-complex-container,
+        [data-theme="dark"] #vis-container {
+            border-color: var(--border-muted);
+        }
+
+        [data-theme="dark"] .section-content p {
+            color: var(--text-color);
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: var(--container-bg);
+            border: 2px solid var(--accent-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .collapsible-header {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+
+        .carat {
+            margin-right: 10px;
+            transition: transform 0.3s;
+            display: inline-block;
+        }
+
+        .collapsible-header.collapsed .carat {
+            transform: rotate(-90deg);
+        }
+
+        .section-content {
+            overflow: hidden;
+        }
+
+        .section-content.hidden {
+            display: none;
+        }
+
+        .generator-pill {
+            cursor: pointer;
+            transition: background-color 0.2s, box-shadow 0.2s, border-color 0.2s;
+        }
+
+        .generator-pill:hover {
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .generator-pill.selected {
+            background-color: #fff !important;
+            /* Force white background */
+            color: #d32f2f !important;
+            /* Dark red text */
+            border: 2px solid #d32f2f !important;
+            box-shadow: 0 0 8px rgba(211, 47, 47, 0.4);
+            font-weight: 800 !important;
+        }
+    </style>
     <script>
         window.MathJax = {
             tex: {
                 inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$','$$'], ['\\[','\\]']]
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
             },
             options: {
                 skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
@@ -392,12 +545,52 @@
         };
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+    <script>
+        var MQ = MathQuill.getInterface(2);
+    </script>
 </head>
 
 <body>
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle Dark Mode">🌙</button>
     <div class="container">
         <h1>Quaternion Calculator</h1>
         <p style="text-align: center;">Computations in $\mathsf{SO}_3(\mathbb{Z}[1/n])$</p>
+
+        <div class="so3z-section" style="margin-top: 20px;">
+            <h2 class="collapsible-header collapsed"><span class="carat">▼</span> \(\mathsf{SO}_3(\mathbb{Z})\)
+                Visualization</h2>
+            <div class="section-content hidden">
+                <div style="display: flex; gap: 20px; flex-wrap: wrap; height: 500px;">
+                    <!-- Left: Sphere Visualization -->
+                    <div id="so3z-vis-container"
+                        style="flex: 1; min-width: 300px; background: #000; border-radius: 8px; position: relative; overflow: hidden;">
+                    </div>
+
+                    <!-- Right: Quaternion List -->
+                    <div id="so3z-list-container"
+                        style="flex: 1; min-width: 300px; border: 1px solid #ccc; border-radius: 8px; background: #fdfdfd; overflow-y: auto; padding: 10px;">
+                        <div style="text-align: center; margin-bottom: 10px;">
+                            <button id="btn-gen-so3z"
+                                style="padding: 8px 16px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Generate
+                                Group (24 elts)</button>
+                        </div>
+                        <div id="so3z-list"
+                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px;">
+                            <p style="grid-column: 1/-1; text-align: center; color: #7f8c8d;">Click generate to see
+                                elements.</p>
+                        </div>
+                    </div>
+                </div>
+                <p style="text-align: center; color: #7f8c8d; font-size: 0.9em; margin-top: 10px;">
+                    The rotation group of the cube, $S_4$, inside $SO_3(\mathbb{R})$. Generated by $i, j, 1+i, 1+j$.
+                </p>
+            </div>
+        </div>
+
+        <hr>
 
         <div class="prime-input-section">
             <label for="prime-input">Odd Primes:</label>
@@ -409,8 +602,8 @@
         <hr>
 
         <div class="generators-section">
-            <h2>Generators</h2>
-            <div class="generators-content">
+            <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Generators</h2>
+            <div class="section-content generators-content hidden">
                 <div class="generator-vis-panel">
                     <div id="generator-vis-container"></div>
                 </div>
@@ -424,38 +617,158 @@
 
         <hr>
 
-        <h2>Relations</h2>
-        <p style="text-align: center; color: #7f8c8d;">
-            For each pair of primes $p$ and $q$, there are $(p+1)(q+1)$ quaternions of norm $pq$.<br>
-            Each can be factored as $p_i \cdot q_j = q_k \cdot p_\ell$ where $i \in \mathbb{F}_p \mathbb{P}^1$ and $j \in \mathbb{F}_q \mathbb{P}^1$.
-        </p>
-        <div id="pq-relations-container">
-            <p style="text-align: center; color: #7f8c8d;">Compute generators for at least 2 primes.</p>
+        <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Relations</h2>
+        <div class="section-content hidden">
+            <p style="text-align: center; color: #7f8c8d;">
+                For each pair of primes $p$ and $q$, there are $(p+1)(q+1)$ quaternions of norm $pq$.<br>
+                Each can be factored as $p_i \cdot q_j = q_k \cdot p_\ell$ where $i \in \mathbb{F}_p \mathbb{P}^1$ and
+                $j \in \mathbb{F}_q \mathbb{P}^1$.
+            </p>
+            <div id="pq-relations-container">
+                <p style="text-align: center; color: #7f8c8d;">Compute generators for at least 2 primes.</p>
+            </div>
+        </div>
+
+
+
+        <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Presentation of the Group</h2>
+        <div class="section-content hidden">
+            <div id="relations-container"></div>
         </div>
 
         <hr>
 
-        <h2>Presentation of the Group</h2>
-        <div id="relations-container"></div>
-
-        <hr>
-
-        <h2>Interactive Cayley Graph on $S^2$</h2>
-        <div class="controls">
-            <label for="gen-x">X-Axis Generator:</label>
-            <select id="gen-x"></select>
-            <label for="gen-y">Y-Axis Generator:</label>
-            <select id="gen-y"></select>
-            <label for="depth-slider">Depth:</label>
-            <input type="range" id="depth-slider" min="1" max="12" value="4">
-            <span id="depth-value">4</span>
+        <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Interactive Cayley Graph on $S^2$</h2>
+        <div class="section-content hidden">
+            <div class="controls">
+                <label for="gen-x">X-Axis Generator:</label>
+                <select id="gen-x"></select>
+                <label for="gen-y">Y-Axis Generator:</label>
+                <select id="gen-y"></select>
+                <label for="depth-slider">Depth:</label>
+                <input type="range" id="depth-slider" min="1" max="12" value="4">
+                <span id="depth-value">4</span>
+            </div>
+            <div id="vis-container"></div>
         </div>
-        <div id="vis-container"></div>
 
         <hr>
 
-        <h2>Square Complex</h2>
-        <div id="square-complex-container"></div>
+        <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Square Complex</h2>
+        <div class="section-content hidden">
+            <div id="square-complex-container"></div>
+        </div>
+
+
+
+        <hr>
+
+        <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Multiplication</h2>
+        <div class="section-content hidden">
+            <div class="controls">
+                <label for="mult-q1">Q1:</label>
+                <input type="text" id="mult-q1" value="1,0,0,0" placeholder="w,x,y,z" style="width: 120px;">
+                <span style="margin: 0 10px;">×</span>
+                <label for="mult-q2">Q2:</label>
+                <input type="text" id="mult-q2" value="1,0,0,0" placeholder="w,x,y,z" style="width: 120px;">
+                <button id="btn-multiply">Multiply</button>
+                <div style="margin-left: 10px; display: inline-flex; align-items: center;">
+                    <input type="checkbox" id="mult-primitize" style="margin-right: 5px;">
+                    <label for="mult-primitize" style="font-size: 0.9em; cursor: pointer;">Primitize</label>
+                </div>
+            </div>
+            <div id="mult-result" style="text-align: center; margin: 10px; font-weight: bold; color: #2c3e50;"></div>
+        </div>
+
+        <hr>
+
+        <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Word Calculator</h2>
+        <div class="section-content hidden">
+            <div style="background: rgba(255, 255, 255, 0.5); padding: 15px; border-radius: 8px;">
+                <div style="display: flex; gap: 20px; margin-bottom: 15px;">
+                    <div style="flex: 1;">
+                        <label
+                            style="display: block; font-weight: bold; margin-bottom: 5px; color: #34495e;">Generators:</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; align-items: center;">
+                                <strong style="width: 30px; font-family: 'Fira Code', monospace;">a =</strong>
+                                <input id="word-gen-a" type="text" value="4+5j"
+                                    style="flex: 1; padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px; font-family: 'Fira Code', monospace;">
+                            </div>
+                            <div style="display: flex; align-items: center;">
+                                <strong style="width: 30px; font-family: 'Fira Code', monospace;">b =</strong>
+                                <input id="word-gen-b" type="text" value="3+i+3j+9k"
+                                    style="flex: 1; padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px; font-family: 'Fira Code', monospace;">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="flex: 2;">
+                        <label for="word-expr"
+                            style="display: block; font-weight: bold; margin-bottom: 5px; color: #34495e;">Word ( .
+                            separated, parens ):</label>
+                        <textarea id="word-expr" rows="5"
+                            style="width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 6px; font-family: 'Fira Code', monospace; font-size: 14px; background: #fafafa;">b . ai . ai . bi . ai . b . b . b . b . a . a . bi . a . b . ai . b . a . bi . a . b . ai . ai . bi . bi . bi . a . b . a . bi . bi . bi . bi . ai . b . ai . bi . a . a . b . ai . b . a . bi . a . a . b . b . b . b . ai . bi . ai . ai . b . a . b . a . bi . a . b . ai . ai . bi . bi . bi . bi . a . b . a . bi . bi . bi . ai . ai . b . a . bi . a . b . ai . b . a . bi . a . a . b . b . b . b . ai . bi . ai . b . ai . ai . ai . bi . bi . bi . a . b . a . bi . bi . bi . bi . ai . ai . b . a . bi . a . b . ai . b . a . bi . a . a . b . b . b . b . ai . bi . ai . bi . bi . ai . ai . b . a . a . bi . ai . b . b . a . bi . a . a . b . b . b . b . ai . bi . ai . b . ai . ai . ai . bi . bi . bi . bi . a . b . a . a . bi . a . bi . ai . ai . b . a . bi . a . b . b . b . b . ai . ai . bi . bi . a . a . a . b . b . b . b . ai . bi . ai . ai . b . b . a . bi . a . b . a . bi . a . b . a . bi . bi . bi . bi . ai . ai . b . ai . bi . bi . a . b . a . a . bi . ai . bi . bi . a . a . b . a . bi . bi . bi . bi . ai . ai . b . b . ai . b . a . bi . bi . bi . ai . ai . b . a . bi . a . b . ai . b . a . bi . a . a . b . b . b . b . ai . bi . ai . ai . b . a . bi . bi . ai . bi . a . a . b . a . bi . bi . bi . bi . ai . ai . ai . b . ai . bi . ai . b . b . b . b . a . a . a . bi . a . b . a . bi . bi . bi . bi . ai . ai . ai . b . a . bi . bi . ai . ai . b . a . bi . a . b . b . b . ai . ai . bi . a . b . b . a . bi . bi . bi . bi . ai . ai . b . a . bi . a . b . ai . b . a . bi . a . a . b . b . b . b . ai . bi . ai . ai . b . a</textarea>
+                    </div>
+                </div>
+
+                <div style="text-align: center;">
+                    <button id="btn-calc-word"
+                        style="background: #27ae60; color: white; padding: 10px 24px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.2s;">
+                        Calculate Word
+                    </button>
+                </div>
+            </div>
+
+            <div id="word-result"
+                style="margin-top: 20px; padding: 20px; background: #ecf0f1; border-radius: 8px; border-left: 5px solid #27ae60; text-align: center; font-family: monospace; font-weight: bold; color: #2c3e50; font-size: 1.1em; word-break: break-all; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                Result will appear here...
+            </div>
+        </div>
+
+        <hr>
+
+        <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Factor Complex</h2>
+        <div class="section-content hidden">
+            <div class="controls">
+                <label for="factor-q">Quaternion (w,x,y,z):</label>
+                <input type="text" id="factor-q" value="23+2i+4j+6k" placeholder="e.g. 1,2,3,4">
+                <button id="btn-factor">Factor</button>
+                <div style="margin-left: 10px; display: flex; flex-direction: column; gap: 2px;">
+                    <div style="display: flex; align-items: center;">
+                        <input type="checkbox" id="factor-labels-vertices" style="margin-right: 5px;">
+                        <label for="factor-labels-vertices" style="font-size: 0.9em; cursor: pointer;">Vertices</label>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <input type="checkbox" id="factor-labels-edges" style="margin-right: 5px;">
+                        <label for="factor-labels-edges" style="font-size: 0.9em; cursor: pointer;">Edges</label>
+                    </div>
+                </div>
+            </div>
+            <div id="factor-result" style="text-align: center; margin: 10px; color: #2c3e50;"></div>
+            <div id="factor-vis-container"
+                style="width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 8px; background: #fdfdfd; overflow: auto; display: flex; justify-content: center; align-items: center;">
+                <p style="color: #7f8c8d;">Enter a quaternion to see its factorization complex.</p>
+            </div>
+        </div>
+
+        <hr>
+
+        <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Tree Visualization</h2>
+        <div class="section-content hidden">
+            <div class="controls">
+                <label>Quaternion:</label>
+                <span id="tree-q-mq"
+                    style="min-width: 200px; display: inline-block; padding: 5px; background: white; border: 1px solid #ccc; border-radius: 4px;"></span>
+                <!-- p input removed as it is auto-detected -->
+                <button id="btn-tree">Show Trees</button>
+            </div>
+            <div id="tree-result" style="text-align: center; margin: 10px; color: #2c3e50;"></div>
+            <div id="tree-vis-container"
+                style="width: 100%; height: 600px; border: 1px solid #ccc; border-radius: 8px; background: #fdfdfd; overflow: hidden;">
+                <p style="text-align: center; margin-top: 20px; color: #7f8c8d;">Enter a quaternion and prime to see the
+                    action.</p>
+            </div>
+        </div>
     </div>
 
     <script type="importmap">
@@ -492,6 +805,8 @@
             matchQuaternionToP1
         } from './primeQuaternionFilters.js';
         import { computeProjectiveRelations } from './projectiveQuaternion.js';
+        import { computeFactorizationLattice, calculateTreePath, getPrimeFactors } from './factorization.js';
+        import { generateSO3Z, getRotationMatrix } from './so3z.js';
 
         // --- GLOBAL STATE ---
         let GENERATORS = {};
@@ -500,8 +815,58 @@
         let scene, camera, renderer, controls, cayleyGroup;
         let genScene, genCamera, genRenderer, genControls;
 
+        // Interaction State
+        let currentVisKeys = []; // Syncs 3D point indices to Generator Keys
+        let highlightedKey = null;
+        let activeHighlightMesh = null;
+
         // --- UTILITY FUNCTIONS ---
         const SVG_NS = 'http://www.w3.org/2000/svg';
+
+        function highlightGenerator(key) {
+            // 1. Update State
+            if (highlightedKey === key) {
+                key = null; // Toggle off
+            }
+            highlightedKey = key;
+
+            // 2. Update DOM (Generators List)
+            document.querySelectorAll('.generator-pill').forEach(el => {
+                if (key && el.dataset.key === key) {
+                    el.classList.add('selected');
+                } else {
+                    el.classList.remove('selected');
+                }
+            });
+
+            // 3. Update 3D (Visualization)
+            if (activeHighlightMesh) {
+                genScene.remove(activeHighlightMesh);
+                if (activeHighlightMesh.geometry) activeHighlightMesh.geometry.dispose();
+                if (activeHighlightMesh.material) activeHighlightMesh.material.dispose();
+                activeHighlightMesh = null;
+            }
+
+            if (key && GENERATORS[key]) {
+                const gen = GENERATORS[key];
+                const [a, b, c, d] = gen.q;
+
+                // Use a larger, semi-transparent solid sphere for better visibility
+                // Radius 0.8 ensures it surrounds the point (size 0.3)
+                const geom = new THREE.SphereGeometry(0.4, 32, 32);
+                const mat = new THREE.MeshBasicMaterial({
+                    color: 0xff0000,
+                    transparent: true,
+                    opacity: 0.6,
+                    depthTest: false // Ensure it's visible even if inside other things slightly
+                });
+                activeHighlightMesh = new THREE.Mesh(geom, mat);
+                activeHighlightMesh.position.set(b, c, d);
+                // Render on top
+                activeHighlightMesh.renderOrder = 999;
+                genScene.add(activeHighlightMesh);
+            }
+        }
 
         const H = (tag, props = {}, kids = []) => {
             const el = document.createElement(tag);
@@ -862,6 +1227,14 @@
                     pill.style.border = '2px solid #2c3e50';
                     pill.title = `P¹ label: ${gen.p1Label}\nQuaternion: ${formatQuaternion(gen.q)}`;
 
+                    // Interactive attributes
+                    pill.className = 'generator-pill';
+                    pill.dataset.key = key;
+                    pill.onclick = (e) => {
+                        e.stopPropagation();
+                        highlightGenerator(key);
+                    }
+
                     pillContainer.appendChild(pill);
                     foreignObj.appendChild(pillContainer);
                     svg.appendChild(foreignObj);
@@ -915,6 +1288,35 @@
             const axesHelper = new THREE.AxesHelper(10);
             genScene.add(axesHelper);
 
+            // Raycaster for interaction
+            const raycaster = new THREE.Raycaster();
+            raycaster.params.Points.threshold = 0.5; // Hit area size
+            const mouse = new THREE.Vector2();
+
+            genRenderer.domElement.addEventListener('click', (event) => {
+                const rect = genRenderer.domElement.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, genCamera);
+
+                // Find points object (the generators)
+                const pointsObj = genScene.children.find(obj => obj instanceof THREE.Points);
+                if (!pointsObj) return;
+
+                const intersects = raycaster.intersectObject(pointsObj);
+                if (intersects.length > 0) {
+                    // Closest point
+                    const index = intersects[0].index;
+                    if (index >= 0 && index < currentVisKeys.length) {
+                        highlightGenerator(currentVisKeys[index]);
+                    }
+                } else {
+                    // Clicked empty space
+                    highlightGenerator(null);
+                }
+            });
+
             animateGeneratorVis();
         }
 
@@ -940,6 +1342,7 @@
             // Get all quaternions to visualize
             const allQuaternions = [];
             const genKeys = Object.keys(GENERATORS);
+            currentVisKeys = genKeys; // Store keys to map index -> key for raycasting
 
             genKeys.forEach(key => {
                 const gen = GENERATORS[key];
@@ -1021,7 +1424,8 @@
                     [y1, y2] = [y2, y1];
                 }
 
-                const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+                const mx = (x1 + x2) / 2;
+                const my = (y1 + y2) / 2;
                 const markerId = markerForColor(defs, color);
                 const pathEl = S('path', {
                     d: `M ${x1} ${y1} L ${mx} ${my} L ${x2} ${y2}`,
@@ -1075,7 +1479,7 @@
                     console.log(`PQ Relations table for p=${p}, q=${q}:`);
                     console.log(`  P¹ labels for p=${p} (${sortedPLabels.length}): ${sortedPLabels.join(', ')}`);
                     console.log(`  P¹ labels for q=${q} (${sortedQLabels.length}): ${sortedQLabels.join(', ')}`);
-                    console.log(`  Expected: ${p+1} × ${q+1} = ${(p+1) * (q+1)} cells`);
+                    console.log(`  Expected: ${p + 1} × ${q + 1} = ${(p + 1) * (q + 1)} cells`);
 
                     // Create table
                     const tableWrapper = H('div', { className: 'pq-relation-table-wrapper' });
@@ -1252,7 +1656,8 @@
                         [x1, x2] = [x2, x1];
                         [y1, y2] = [y2, y1];
                     }
-                    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+                    const mx = (x1 + x2) / 2;
+                    const my = (y1 + y2) / 2;
                     const markerId = markerForColor(defs, e.color);
                     const pathEl = S('path', {
                         d: `M ${x1} ${y1} L ${mx} ${my} L ${x2} ${y2}`,
@@ -1344,6 +1749,7 @@
 
         function onWindowResize() {
             const container = document.getElementById('vis-container');
+            if (!container || container.clientWidth === 0 || container.clientHeight === 0) return;
             camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(container.clientWidth, container.clientHeight);
@@ -1354,6 +1760,13 @@
                 genCamera.aspect = genContainer.clientWidth / genContainer.clientHeight;
                 genCamera.updateProjectionMatrix();
                 genRenderer.setSize(genContainer.clientWidth, genContainer.clientHeight);
+            }
+            // Also resize factor visualization
+            if (factorRenderer && factorCamera) {
+                const factorContainer = document.getElementById('factor-vis-container');
+                factorCamera.aspect = factorContainer.clientWidth / factorContainer.clientHeight;
+                factorCamera.updateProjectionMatrix();
+                factorRenderer.setSize(factorContainer.clientWidth, factorContainer.clientHeight);
             }
         }
 
@@ -1606,6 +2019,933 @@
             svg.appendChild(origin);
         }
 
+        // --- SO3(Z) VISUALIZATION ---
+        let so3zScene, so3zCamera, so3zRenderer, so3zCube, so3zFrame;
+        let so3zCurrentQuat = [1, 0, 0, 0];
+
+        async function initSO3Z() {
+            const listContainer = document.getElementById('so3z-list');
+            listContainer.innerHTML = 'Computing...';
+
+            // Generate Group
+            const group = await generateSO3Z();
+
+            // Render List
+            listContainer.innerHTML = '';
+            group.forEach((g, idx) => {
+                const div = document.createElement('div');
+                div.className = 'relation-square'; // reuse style
+                div.style.cursor = 'pointer';
+                div.style.padding = '8px';
+                div.style.fontSize = '12px';
+
+                const qStr = formatQuaternion(g.q);
+                div.innerHTML = `<strong>#${idx + 1}</strong><br>${qStr}<br><span style="color:#888; font-size:10px">N=${g.norm}</span>`;
+
+                div.onclick = () => {
+                    document.querySelectorAll('#so3z-list .relation-square').forEach(El => El.style.borderColor = '#ccc');
+                    div.style.borderColor = '#3498db';
+                    applySO3ZRotation(g.q);
+                };
+
+                listContainer.appendChild(div);
+            });
+
+            // Init Visualizer if needed
+            if (!so3zRenderer) {
+                initSO3ZVis();
+            }
+        }
+
+        function initSO3ZVis() {
+            const container = document.getElementById('so3z-vis-container');
+            const w = container.clientWidth || 300;
+            const h = container.clientHeight || 500;
+
+            so3zScene = new THREE.Scene();
+            so3zScene.background = new THREE.Color(0x111111);
+            so3zCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+            so3zCamera.position.set(3, 3, 5);
+            so3zCamera.lookAt(0, 0, 0);
+
+            so3zRenderer = new THREE.WebGLRenderer({ antialias: true });
+            so3zRenderer.setSize(w, h);
+            container.appendChild(so3zRenderer.domElement);
+
+            const controls = new OrbitControls(so3zCamera, so3zRenderer.domElement);
+            controls.enableDamping = true;
+
+            // Lights
+            const amb = new THREE.AmbientLight(0xffffff, 0.5);
+            so3zScene.add(amb);
+            const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+            dir.position.set(5, 10, 7);
+            so3zScene.add(dir);
+
+            // Objects to rotate
+            const group = new THREE.Group();
+
+            // 1. Axes
+            const axes = new THREE.AxesHelper(1.5);
+            group.add(axes);
+
+            // 2. Translucent Unit Sphere
+            const sphereGeom = new THREE.SphereGeometry(1.0, 32, 32);
+            const sphereMat = new THREE.MeshPhongMaterial({
+                color: 0x3498db,
+                transparent: true,
+                opacity: 0.1,
+                wireframe: false,
+                specular: 0xffffff,
+                shininess: 100
+            });
+            const sphere = new THREE.Mesh(sphereGeom, sphereMat);
+            group.add(sphere);
+
+            // 3. A Cube to assume the symmetries
+            // We want a cube with vertices at (+/-1, +/-1, +/-1) / sqrt(3) ? 
+            // Standard box geometry is centered size 1 by default (0.5 extents).
+            // Let's make a cube frame.
+            const boxGeom = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+            const boxMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.3 });
+            const box = new THREE.Mesh(boxGeom, boxMat);
+            group.add(box);
+
+            // 4. Highlighted Vertices/Faces to show orientation?
+            // Let's add distinct colored cones on the 3 axes of the *Group Object* 
+            // so we can see where they rotate to.
+            // X-Axis Cone (Red)
+            const coneX = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.4), new THREE.MeshPhongMaterial({ color: 0xff0000 }));
+            coneX.position.set(1, 0, 0);
+            coneX.rotation.z = -Math.PI / 2;
+            group.add(coneX);
+
+            // Y-Axis Cone (Green)
+            const coneY = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.4), new THREE.MeshPhongMaterial({ color: 0x00ff00 }));
+            coneY.position.set(0, 1, 0);
+            group.add(coneY);
+
+            // Z-Axis Cone (Blue)
+            const coneZ = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.4), new THREE.MeshPhongMaterial({ color: 0x0000ff }));
+            coneZ.position.set(0, 0, 1);
+            coneZ.rotation.x = Math.PI / 2;
+            group.add(coneZ);
+
+            so3zCube = group;
+            so3zScene.add(group);
+
+            // Animation Loop
+            const animate = () => {
+                requestAnimationFrame(animate);
+                controls.update();
+                so3zRenderer.render(so3zScene, so3zCamera);
+            };
+            animate();
+
+            // Handle Resize
+            new ResizeObserver(() => {
+                const newW = container.clientWidth;
+                const newH = container.clientHeight;
+                so3zRenderer.setSize(newW, newH);
+                so3zCamera.aspect = newW / newH;
+                so3zCamera.updateProjectionMatrix();
+            }).observe(container);
+        }
+
+        function applySO3ZRotation(q) {
+            if (!so3zCube) return;
+
+            // The q defines a rotation.
+            // In Three.js, quaternion is (x, y, z, w).
+            // Our standard is (w, x, y, z).
+
+            // Normalize q to unit quaternion for rotation
+            const norm = Math.sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+            const w = q[0] / norm;
+            const x = q[1] / norm;
+            const y = q[2] / norm;
+            const z = q[3] / norm;
+
+            // Create Three Quaternion
+            // Note: ThreeJS coordinate system might match or be slightly different?
+            // Usually ThreeJS uses right-handed Y-up.
+            // Quaternion multiplication order might matter.
+            // Three.js quaternion set(x, y, z, w)
+
+            // We want to animate to this rotation.
+            // Slerp?
+            // For now, just snap or smooth transition.
+
+            const targetQ = new THREE.Quaternion(x, y, z, w);
+
+            // Animate
+            const startQ = so3zCube.quaternion.clone();
+            let t = 0;
+
+            const animStep = () => {
+                t += 0.05;
+                if (t > 1) t = 1;
+                THREE.Quaternion.slerp(startQ, targetQ, so3zCube.quaternion, t);
+                if (t < 1) requestAnimationFrame(animStep);
+            };
+            animStep();
+        }
+
+        // --- MULTIPLICATION LOGIC ---
+        function parseQuaternionInput(input) {
+            let q;
+            // Handle empty input as scalar 0 ? or error? let's error or default 0
+            if (!input) return [0, 0, 0, 0];
+
+            if (input.includes(',')) {
+                const parts = input.split(',').map(s => parseInt(s.trim()));
+                if (parts.length !== 4 || parts.some(isNaN)) throw new Error("Invalid quaternion format. Use w,x,y,z or a+bi+cj+dk");
+                q = parts;
+            } else {
+                q = [0, 0, 0, 0];
+                let s = input.replace(/\s+/g, '');
+                // Try to handle single number case nicely like "3" -> "+3"
+                if (!s.startsWith('+') && !s.startsWith('-')) s = '+' + s;
+                const matches = [...s.matchAll(/([+-])(\d*)([ijk]?)/g)];
+                for (const m of matches) {
+                    if (m[0] === '') continue;
+                    const sign = m[1] === '-' ? -1 : 1;
+                    let val = m[2] === '' ? 1 : parseInt(m[2]);
+                    const unit = m[3];
+                    const coeff = sign * val;
+                    if (unit === 'i') q[1] += coeff;
+                    else if (unit === 'j') q[2] += coeff;
+                    else if (unit === 'k') q[3] += coeff;
+                    else q[0] += coeff;
+                }
+            }
+            return q;
+        }
+
+        function gcd(a, b) {
+            a = Math.abs(a);
+            b = Math.abs(b);
+            while (b) {
+                let t = b;
+                b = a % b;
+                a = t;
+            }
+            return a;
+        }
+
+        function runMultiplication() {
+            const q1In = document.getElementById('mult-q1').value;
+            const q2In = document.getElementById('mult-q2').value;
+            const resDiv = document.getElementById('mult-result');
+            const primitize = document.getElementById('mult-primitize').checked;
+
+            try {
+                const q1 = parseQuaternionInput(q1In);
+                const q2 = parseQuaternionInput(q2In);
+                const prod = QMath.multiply(q1, q2);
+
+                let output = "";
+                if (primitize) {
+                    // GCD of all 4 components
+                    const g = [prod[0], prod[1], prod[2], prod[3]].reduce((acc, val) => gcd(acc, val), 0);
+
+                    if (g > 1) {
+                        const primQ = prod.map(x => x / g);
+                        output = `Product: ${g} · (${formatQuaternion(primQ)})`;
+                    } else {
+                        output = `Product: ${formatQuaternion(prod)} (Primitive)`;
+                    }
+                } else {
+                    output = `Product: ${formatQuaternion(prod)}`;
+                }
+
+                resDiv.innerHTML = output;
+                MathJax.typesetPromise([resDiv]);
+            } catch (err) {
+                resDiv.innerHTML = `<span style="color:red">${err.message}</span>`;
+            }
+        }
+
+        // --- WORD CALCULATOR ---
+        function runWordCalculation() {
+            const valA = document.getElementById('word-gen-a').value;
+            const valB = document.getElementById('word-gen-b').value;
+
+            const exprText = document.getElementById('word-expr').value.replace(/\n/g, ' ');
+            const resDiv = document.getElementById('word-result');
+
+            // BigInt Helpers
+            const bigAbs = (n) => n < 0n ? -n : n;
+            const bigGcd = (a, b) => {
+                a = bigAbs(a); b = bigAbs(b);
+                while (b > 0n) { let t = b; b = a % b; a = t; }
+                return a;
+            };
+            const bigMul = (a, b) => [
+                a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+                a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+                a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+                a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]
+            ];
+
+            try {
+                // 1. Parse Generators (as BigInt)
+                const genMap = {};
+
+                // Helper to process input
+                const processGen = (name, text) => {
+                    const val = parseQuaternionInput(text.trim());
+                    const bigVal = val.map(n => BigInt(Math.round(n)));
+                    const g = bigVal.reduce((acc, v) => bigGcd(acc, v), 0n);
+                    genMap[name] = bigVal.map(x => g === 0n ? x : x / g);
+                };
+
+                processGen('a', valA);
+                processGen('b', valB);
+
+                // 2. Evaluate Expression
+                function evaluateSegment(seg) {
+                    seg = seg.trim();
+                    if (seg.length === 0) return [1n, 0n, 0n, 0n];
+
+                    // Tokenize
+                    const tokens = [];
+                    let depth = 0;
+                    let current = '';
+                    for (let i = 0; i < seg.length; i++) {
+                        const char = seg[i];
+                        if (char === '(') depth++;
+                        if (char === ')') depth--;
+                        if (char === '.' && depth === 0) {
+                            if (current.trim()) tokens.push(current.trim());
+                            current = '';
+                        } else {
+                            current += char;
+                        }
+                    }
+                    if (current.trim()) tokens.push(current.trim());
+
+                    if (tokens.length === 0) return [1n, 0n, 0n, 0n];
+
+                    if (tokens.length > 1) {
+                        let res = [1n, 0n, 0n, 0n];
+                        for (let t of tokens) {
+                            const val = evaluateSegment(t);
+                            res = bigMul(res, val);
+                            // Projectivize
+                            const g = res.reduce((acc, v) => bigGcd(acc, v), 0n);
+                            if (g > 1n) res = res.map(x => x / g);
+                        }
+                        return res;
+                    }
+
+                    let token = tokens[0];
+                    if (token.startsWith('(') && token.endsWith(')')) {
+                        return evaluateSegment(token.slice(1, -1));
+                    }
+
+                    let isInv = false;
+                    let key = token;
+                    if (!genMap[key] && key.endsWith('i')) {
+                        const base = key.slice(0, -1);
+                        if (genMap[base]) {
+                            key = base;
+                            isInv = true;
+                        }
+                    }
+
+                    if (!genMap[key]) throw new Error(`Unknown generator: ${token}`);
+
+                    let q = genMap[key];
+                    if (isInv) {
+                        // Conjugate: [w, -x, -y, -z]
+                        q = [q[0], -q[1], -q[2], -q[3]];
+                    }
+                    return q;
+                }
+                // Calculate Result
+                let result = evaluateSegment(exprText);
+                const gFinal = result.reduce((acc, v) => bigGcd(acc, v), 0n);
+                if (gFinal > 1n) result = result.map(x => x / gFinal);
+
+                // Format output for MathJax
+                let s = '';
+                const labels = ['', '\\mathbf{i}', '\\mathbf{j}', '\\mathbf{k}'];
+
+                for (let i = 0; i < 4; i++) {
+                    let n = result[i];
+                    if (n === 0n) continue;
+
+                    let val = n; // working absolute value equivalent roughly
+
+                    if (s.length > 0) {
+                        // Not first term
+                        if (n > 0n) {
+                            s += ' + ';
+                        } else {
+                            s += ' - ';
+                            val = -n;
+                        }
+                    } else {
+                        // First term
+                        if (n < 0n) {
+                            s += '-';
+                            val = -n;
+                        }
+                    }
+
+                    // Append number if it's not 1, OR if it's the scalar term (i=0)
+                    if (val !== 1n || i === 0) {
+                        s += val.toString();
+                    }
+                    s += labels[i];
+                }
+                if (s === '') s = '0';
+
+                resDiv.innerHTML = `Result: $${s}$`;
+                if (window.MathJax) {
+                    MathJax.typesetPromise([resDiv]);
+                }
+
+            } catch (err) {
+                console.error(err);
+                resDiv.innerHTML = `<span style="color:red">Error: ${err.message}</span>`;
+            }
+        }
+
+        // --- FACTOR COMPLEX VISUALIZATION ---
+        async function runFactorization() {
+            const input = document.getElementById('factor-q').value;
+            const container = document.getElementById('factor-vis-container');
+            const resultDiv = document.getElementById('factor-result');
+
+            container.innerHTML = 'Computing...';
+
+            try {
+                // Parse quaternion input
+                const q = parseQuaternionInput(input);
+
+                const norm = QMath.normSq(q);
+                const factors = getPrimeFactors(norm);
+                const factorStr = Object.entries(factors).map(([p, e]) => `${p}<sup>${e}</sup>`).join(' · ');
+
+                resultDiv.innerHTML = `Norm: ${norm} = ${factorStr || '1'}`;
+
+                const data = await computeFactorizationLattice(q);
+                // Pass the input quaternion 'q' to identify it in the graph
+                drawFactorComplex(data, container, q);
+
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<p style="color: red">Error: ${err.message}</p>`;
+                resultDiv.innerHTML = '';
+            }
+        }
+
+        // --- FACTOR COMPLEX THREE.JS ---
+        let factorScene, factorCamera, factorRenderer, factorControls;
+        let factorNodes = [], factorLinks = [], factorAxesMeshes = [];
+        let factorPrimeAxes = []; // Vectors for each prime
+        let isDraggingAxis = -1; // Index of axis being dragged
+        let factorRaycaster, factorMouse;
+        let factorDataCache = null;
+
+        function initFactorScene(container) {
+            factorScene = new THREE.Scene();
+            factorScene.background = new THREE.Color(0xfdfdfd);
+
+            const aspect = container.clientWidth / container.clientHeight;
+            factorCamera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
+            factorCamera.position.set(0, 0, 400);
+
+            factorRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            factorRenderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(factorRenderer.domElement);
+
+            factorControls = new OrbitControls(factorCamera, factorRenderer.domElement);
+            factorControls.enableDamping = true;
+
+            // Lights
+            const amb = new THREE.AmbientLight(0xffffff, 0.6);
+            factorScene.add(amb);
+            const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+            dir.position.set(100, 200, 100);
+            factorScene.add(dir);
+
+            // Interaction
+            factorRaycaster = new THREE.Raycaster();
+            factorMouse = new THREE.Vector2();
+
+            // Events
+            const canvas = factorRenderer.domElement;
+
+            canvas.addEventListener('mousedown', onFactorMouseDown);
+            canvas.addEventListener('mousemove', onFactorMouseMove);
+            canvas.addEventListener('mouseup', onFactorMouseUp);
+
+            animateFactorScene();
+        }
+
+        function animateFactorScene() {
+            requestAnimationFrame(animateFactorScene);
+            if (factorControls) factorControls.update();
+            if (factorRenderer && factorScene) factorRenderer.render(factorScene, factorCamera);
+        }
+
+        function createTextSprite(text, fontSize = 24, color = 'black') {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            const metrics = ctx.measureText(text);
+            const w = metrics.width + 10;
+            const h = fontSize + 10;
+            canvas.width = w;
+            canvas.height = h;
+
+            // clear
+            ctx.clearRect(0, 0, w, h);
+            // background
+            ctx.fillStyle = "rgba(255,255,255,0.7)";
+            ctx.fillRect(0, 0, w, h);
+            // text
+            ctx.fillStyle = color;
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.fillText(text, 5, fontSize - 2);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.SpriteMaterial({ map: tex });
+            const sprite = new THREE.Sprite(mat);
+            // Scale sprite to be reasonable size in world
+            sprite.scale.set(w / 10, h / 10, 1);
+            return sprite;
+        }
+
+        function drawFactorComplex(data, container, targetQ) {
+            factorDataCache = { data, targetQ };
+
+            // Clear "Computing..." text or previous content
+            container.innerHTML = '';
+
+            if (!factorScene) {
+                initFactorScene(container);
+            } else {
+                // Re-attach renderer if it was removed by innerHTML usage
+                container.appendChild(factorRenderer.domElement);
+            }
+
+            // Clear old objects
+            // Keeping lights/camera
+            const toRemove = [];
+            factorScene.traverse(obj => {
+                if (obj.isMesh || obj.isLine || obj.isSprite) toRemove.push(obj);
+            });
+            toRemove.forEach(o => factorScene.remove(o));
+
+            factorNodes = [];
+            factorLinks = [];
+            factorAxesMeshes = [];
+
+            const { nodes, links, primes } = data;
+
+            // Initialize Axes if new primes
+            // Default Layout: spread in circle on XZ plane, grow Up in Y
+            if (factorPrimeAxes.length !== primes.length) {
+                factorPrimeAxes = primes.map((p, i) => {
+                    const angle = (2 * Math.PI * i) / primes.length;
+                    const radius = 60;
+                    const heightStep = 60; // Upwards
+                    return new THREE.Vector3(
+                        Math.cos(angle) * radius,
+                        heightStep,
+                        Math.sin(angle) * radius
+                    );
+                });
+            }
+
+            // Create Axis Tips (Draggable handles)
+            primes.forEach((p, i) => {
+                const tipGeom = new THREE.ConeGeometry(5, 10, 16);
+                const tipMat = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+                const tip = new THREE.Mesh(tipGeom, tipMat);
+                tip.userData = { axisIndex: i, isAxisHandle: true };
+                factorScene.add(tip);
+                factorAxesMeshes.push(tip);
+
+                // Axis Line
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 10, 0)]);
+                const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+                // Will update positions in updateFactorPositions
+                factorScene.add(line);
+                tip.userData.line = line;
+            });
+
+            // Create Nodes
+            const nodeGeom = new THREE.SphereGeometry(3, 16, 16);
+            const defaultMat = new THREE.MeshLambertMaterial({ color: 0x3498db });
+            const startMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+
+            nodes.forEach(n => {
+                const isStart = n.level === 0;
+                const isEnd = targetQ && QMath.areEqual(n.q, targetQ);
+
+                const mesh = new THREE.Mesh(nodeGeom, (isStart || isEnd) ? startMat : defaultMat);
+                mesh.userData = { node: n };
+
+                // Label Sprite
+                const label = createTextSprite(formatQuaternion(n.q), 18);
+                label.visible = false; // toggled later
+                mesh.add(label);
+                mesh.userData.label = label;
+
+                factorScene.add(mesh);
+                factorNodes.push(mesh);
+            });
+
+            // Create Links
+            links.forEach(l => {
+                const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)]);
+                const color = `hsl(${(l.prime * 40) % 360}, 70%, 50%)`;
+                const mat = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
+                const line = new THREE.Line(geo, mat);
+                line.userData = { link: l };
+
+                // Edge Label
+                const label = createTextSprite(formatQuaternion(l.factor), 14, color);
+                label.visible = false;
+                factorScene.add(label);
+                line.userData.label = label;
+
+                factorScene.add(line);
+                factorLinks.push(line);
+            });
+
+            updateFactorPositions();
+            updateFactorVisLabels();
+
+            // Re-center camera?
+            factorControls.target.set(0, 100, 0);
+        }
+
+        function updateFactorPositions() {
+            // Update Axis Meshes
+            factorPrimeAxes.forEach((vec, i) => {
+                const tip = factorAxesMeshes[i];
+                tip.position.copy(vec).multiplyScalar(3); // Visual scale of axis handles: placed at 3x step
+                tip.lookAt(new THREE.Vector3(0, 0, 0)); // Point inward?
+
+                // Update axis visual line
+                const positions = new Float32Array([0, 0, 0, tip.position.x, tip.position.y, tip.position.z]);
+                tip.userData.line.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                tip.userData.line.geometry.attributes.position.needsUpdate = true;
+            });
+
+            // Update Nodes: pos = sum(coord[i] * axis[i])
+            factorNodes.forEach(mesh => {
+                const n = mesh.userData.node;
+                const pos = new THREE.Vector3(0, 0, 0);
+                n.coord.forEach((val, i) => {
+                    pos.addScaledVector(factorPrimeAxes[i], val);
+                });
+                mesh.position.copy(pos);
+            });
+
+            // Update Links
+            factorLinks.forEach(line => {
+                const l = line.userData.link;
+                const sNode = factorNodes.find(m => m.userData.node.id === l.source);
+                const tNode = factorNodes.find(m => m.userData.node.id === l.target);
+                if (sNode && tNode) {
+                    const posAttr = line.geometry.attributes.position;
+                    posAttr.setXYZ(0, sNode.position.x, sNode.position.y, sNode.position.z);
+                    posAttr.setXYZ(1, tNode.position.x, tNode.position.y, tNode.position.z);
+                    posAttr.needsUpdate = true;
+
+                    // Update label pos
+                    if (line.userData.label) {
+                        line.userData.label.position.copy(sNode.position).add(tNode.position).multiplyScalar(0.5);
+                    }
+                }
+            });
+        }
+
+        function updateFactorVisLabels() {
+            const showV = document.getElementById('factor-labels-vertices')?.checked;
+            const showE = document.getElementById('factor-labels-edges')?.checked;
+
+            factorNodes.forEach(m => {
+                if (m.userData.label) m.userData.label.visible = showV;
+            });
+            factorLinks.forEach(l => {
+                if (l.userData.label) l.userData.label.visible = showE;
+            });
+        }
+
+        // Interaction Handlers
+        function onFactorMouseDown(e) {
+            const rect = factorRenderer.domElement.getBoundingClientRect();
+            factorMouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            factorMouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            factorRaycaster.setFromCamera(factorMouse, factorCamera);
+
+            // Check Axis Handles
+            const intersects = factorRaycaster.intersectObjects(factorAxesMeshes);
+            if (intersects.length > 0) {
+                factorControls.enabled = false;
+                isDraggingAxis = intersects[0].object.userData.axisIndex;
+            }
+        }
+
+        function onFactorMouseMove(e) {
+            if (isDraggingAxis === -1) return;
+
+            const rect = factorRenderer.domElement.getBoundingClientRect();
+            factorMouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            factorMouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+            // Project mouse to plane perpendicular to camera? 
+            // Or just arbitrary plane. Let's drag on XZ plane + Y-offset?
+            // Simple interaction: Map mouse movement to axis vector.
+            // We want to move the "Tip" which is at 3 * axis.
+            // Let's unproject.
+
+            // Plane at current axis tip depth?
+            const vec = new THREE.Vector3(factorMouse.x, factorMouse.y, 0.5);
+            vec.unproject(factorCamera);
+            const dir = vec.sub(factorCamera.position).normalize();
+            const distance = -factorCamera.position.z / dir.z; // Intersection with Z=0 if looking down?
+            // This is hard to get right generically.
+
+            // Simplified: Just use delta mouse to add to vector.
+            // Or drag on a viewing plane passing through origin?
+
+            // Let's just set the axis vector based on raycast to a plane facing camera at origin.
+            const planeNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(factorCamera.quaternion);
+            const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, new THREE.Vector3(0, 0, 0));
+            const target = new THREE.Vector3();
+            factorRaycaster.setFromCamera(factorMouse, factorCamera);
+            factorRaycaster.ray.intersectPlane(plane, target);
+
+            if (target) {
+                // The target is the new position of the handle (which is 3 * axis)
+                // So axis = target / 3
+                factorPrimeAxes[isDraggingAxis].copy(target).multiplyScalar(1 / 3); // No, 1/3 scale interaction
+                // Actually, let's keep it 1:1 feel.
+                // If I drag to (100, 100, 0), I want the tip there.
+                // So factorPrimeAxes[i] = target / 3 is correct if tip was at 3x.
+            }
+
+            updateFactorPositions();
+        }
+
+        function onFactorMouseUp(e) {
+            isDraggingAxis = -1;
+            factorControls.enabled = true;
+        }
+
+        // --- TREE VISUALIZATION ---
+        async function runTreeVis() {
+            const container = document.getElementById('tree-vis-container');
+            // Get latex from MQ
+            const lat = treeQMq.latex();
+            // Robust cleanup of LaTeX to plain text for common quaternion formats
+            // Remove \mathbf, \left, \right, and braces/spaces
+            let text = lat
+                .replace(/\\mathbf/g, '')
+                .replace(/\\left/g, '')
+                .replace(/\\right/g, '')
+                .replace(/[{}]/g, '')
+                .replace(/\\,/g, ',') // explicit comma handling if any
+                .replace(/\s/g, '');
+
+            const resultDiv = document.getElementById('tree-result');
+
+            container.innerHTML = 'Computing...';
+
+            try {
+                // Use parseQuaternionInput (returns array [w,x,y,z])
+                const q = parseQuaternionInput(text);
+
+                if (q.some(isNaN)) throw new Error("Invalid quaternion");
+                const norm = QMath.normSq(q);
+                const factors = getPrimeFactors(norm);
+
+                // Filter odd primes
+                const oddPrimes = Object.keys(factors).map(Number).filter(p => p !== 2);
+
+                if (oddPrimes.length === 0) {
+                    resultDiv.innerHTML = "No odd primes divide the norm.";
+                    container.innerHTML = '';
+                    return;
+                }
+
+                container.innerHTML = ''; // Clear loading
+                resultDiv.innerHTML = `Found odd factors: ${oddPrimes.join(', ')}`;
+
+                // Style container for flex layout
+                container.style.display = 'flex';
+                container.style.flexWrap = 'wrap';
+                container.style.gap = '20px';
+                container.style.justifyContent = 'center';
+
+                for (let p of oddPrimes) {
+                    const path = await calculateTreePath(q, p);
+
+                    // Wrapper for this tree
+                    const wrap = document.createElement('div');
+                    wrap.style.width = '300px';
+                    wrap.style.height = '300px';
+                    wrap.style.border = '1px solid #eee';
+                    wrap.style.borderRadius = '8px';
+                    wrap.style.position = 'relative';
+                    wrap.innerHTML = `<h4 style="margin: 0; padding: 5px; text-align: center; background: #f9f9f9; border-bottom: 1px solid #eee;">p = ${p}, Path: ${path.length}</h4>`;
+
+                    // Content div for SVG
+                    const vizDiv = document.createElement('div');
+                    vizDiv.style.width = '100%';
+                    vizDiv.style.height = 'calc(100% - 30px)'; // minus header
+                    wrap.appendChild(vizDiv);
+
+                    container.appendChild(wrap);
+
+                    drawTree(vizDiv, p, path);
+                }
+
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<p style="color: red">Error: ${err.message}</p>`;
+            }
+        }
+
+        function drawTree(container, p, path) {
+            container.innerHTML = '';
+            const width = container.clientWidth || 300;
+            const height = container.clientHeight || 270;
+            const cx = width / 2;
+            const cy = height / 2;
+
+            const svg = S('svg', { width, height, viewBox: `0 0 ${width} ${height}` });
+
+            // Draw regular tree (background)
+            // Depth 4 is usually enough
+            const maxDepth = 4;
+
+            const drawNode = (x, y, level, angle, parentAngle) => {
+                if (level > maxDepth) return;
+
+                // Draw circle
+                const r = 4;
+                svg.appendChild(S('circle', { cx: x, cy: y, r, fill: '#ccc' }));
+
+                // Children
+                const numChildren = (level === 0) ? p + 1 : p;
+                const length = 100 * Math.pow(0.5, level);
+
+                // Distribute children angles
+                // For level 0: distribute evenly
+                // For level > 0: distribute in the cone away from parent
+
+                let startAngle = 0;
+                let angleStep = 0;
+
+                if (level === 0) {
+                    angleStep = (2 * Math.PI) / numChildren;
+                    startAngle = 0;
+                } else {
+                    // "Fan out" around the extension of the incoming edge
+                    // Incoming angle is `angle`. We want to fan corresponding to deviations.
+                    // Actually, let's just use a simple recursive fanning approach.
+                    // The range of angles available is roughly PI (half-plane forward).
+                    const range = Math.PI * 0.8;
+                    angleStep = range / (numChildren); // close to evenly spaced in cone
+                    startAngle = angle - range / 2 + angleStep / 2;
+                }
+
+                for (let i = 0; i < numChildren; i++) {
+                    const childAngle = (level === 0) ? startAngle + i * angleStep : startAngle + i * angleStep;
+                    const nx = x + length * Math.cos(childAngle);
+                    const ny = y + length * Math.sin(childAngle);
+
+                    svg.appendChild(S('line', { x1: x, y1: y, x2: nx, y2: ny, stroke: '#eee', 'stroke-width': 1 }));
+
+                    drawNode(nx, ny, level + 1, childAngle, angle);
+                }
+            };
+
+            // Just draw path for now? 
+            // Drawing the full tree nicely is hard.
+            // Let's just draw the PATH clearly, and maybe "ghost" branches.
+
+            // Better: Just draw the path as a heavy chain
+            let tx = cx, ty = cy;
+            const stepLen = 50;
+
+            // Draw Root
+            svg.appendChild(S('circle', { cx: tx, cy: ty, r: 8, fill: '#3498db' }));
+
+            let currentAngle = -Math.PI / 2; // Up
+
+            // For the path, we need direction based on P1 labels
+            // Simple visualization:
+            // Just move in different directions based on hash of label?
+            // Or just straight line? No, that's boring.
+            // Random walk look?
+
+            path.forEach((step, i) => {
+                // Determine angle based on label (pseudo-random but deterministic)
+                // We want it to look like a specific path
+                // Hash the label to an angle variation
+                const hash = step.label === '∞' ? 999 : parseInt(step.label);
+                const turn = ((hash * 137.5) % 90 - 45) * (Math.PI / 180); // +/- 45 deg turn
+
+                const nextAngle = currentAngle + turn; // slightly wandering
+                // Actually, let's just do a distinct direction for each P1 label
+                // There are p+1 directions. map label to 0..p
+                let labelIdx = step.label === '∞' ? p : parseInt(step.label);
+
+                // Map idx to angle: 0..p -> 0..2PI
+                // But this assumes global frame. 
+                // In tree, directions are relative. 
+                // Let's just create a nice visual walk.
+
+                // New layout: Use force layout or just deterministic stack?
+                // Let's use deterministic "spiral" or just spread.
+
+                const dx = Math.cos(labelIdx * 2 * Math.PI / (p + 1)) * stepLen;
+                const dy = Math.sin(labelIdx * 2 * Math.PI / (p + 1)) * stepLen;
+
+                const nx = tx + dx;
+                const ny = ty + dy;
+
+                // Draw Edge
+                svg.appendChild(S('line', {
+                    x1: tx, y1: ty, x2: nx, y2: ny,
+                    stroke: '#e74c3c', 'stroke-width': 3
+                }));
+
+                // Draw Node
+                const g = S('g', { transform: `translate(${nx}, ${ny})`, style: 'cursor:pointer' });
+                g.appendChild(S('circle', { r: 6, fill: '#e74c3c' }));
+                const title = S('title');
+                title.textContent = `Depth: ${step.depth}\nP¹: ${step.label}\n${formatQuaternion(step.quaternion)}`;
+                g.appendChild(title);
+
+                // Label
+                const txt = S('text', {
+                    y: -10, 'text-anchor': 'middle', fill: '#333', 'font-size': '10px'
+                });
+                txt.textContent = step.label;
+                g.appendChild(txt);
+
+                svg.appendChild(g);
+
+                tx = nx;
+                ty = ny;
+            });
+
+            container.appendChild(svg);
+        }
+
         // --- EVENT LISTENERS ---
         function setupEventListeners() {
             const genX = document.getElementById('gen-x');
@@ -1625,6 +2965,47 @@
                 depthValue.textContent = depthSlider.value;
             });
             depthSlider.addEventListener('change', updateAll);
+
+            document.getElementById('btn-factor').addEventListener('click', runFactorization);
+            document.getElementById('factor-labels-vertices')?.addEventListener('change', updateFactorVisLabels);
+            document.getElementById('factor-labels-edges')?.addEventListener('change', updateFactorVisLabels);
+            document.getElementById('btn-tree').addEventListener('click', runTreeVis);
+            document.getElementById('btn-multiply').addEventListener('click', runMultiplication);
+            document.getElementById('btn-calc-word').addEventListener('click', runWordCalculation);
+
+            // SO3Z
+            document.getElementById('btn-gen-so3z').addEventListener('click', initSO3Z);
+
+            // Collapsible headers
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    header.classList.toggle('collapsed');
+                    const content = header.nextElementSibling;
+                    if (content && content.classList.contains('section-content')) {
+                        content.classList.toggle('hidden');
+                        window.dispatchEvent(new Event('resize'));
+                    }
+                });
+            });
+
+            // ... (Dark mode code remains) ...
+
+            // Dark Mode Toggle
+            const toggleBtn = document.getElementById('theme-toggle');
+            if (toggleBtn) {
+                // Init theme
+                const currentTheme = localStorage.getItem('theme') || 'light';
+                document.body.setAttribute('data-theme', currentTheme);
+                toggleBtn.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+
+                toggleBtn.addEventListener('click', () => {
+                    const theme = document.body.getAttribute('data-theme');
+                    const newTheme = theme === 'dark' ? 'light' : 'dark';
+                    document.body.setAttribute('data-theme', newTheme);
+                    toggleBtn.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+                    localStorage.setItem('theme', newTheme);
+                });
+            }
         }
 
         // --- INITIALIZATION ---
@@ -1642,7 +3023,20 @@
                 }
             });
         }
+
+        // Init MQ
+        var treeQMqStr = document.getElementById('tree-q-mq');
+        window.treeQMq = MQ.MathField(treeQMqStr, {
+            handlers: {
+                edit: function () {
+                    // console.log(treeQMq.latex());
+                }
+            }
+        });
+        window.treeQMq.latex('3+2\\mathbf{i}+6\\mathbf{j}+4\\mathbf{k}');
+
     </script>
 </body>
 
 </html>
+```
