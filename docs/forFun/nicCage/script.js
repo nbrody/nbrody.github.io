@@ -18,18 +18,16 @@ document.addEventListener('DOMContentLoaded', () => {
             text: "Find the hidden truths within the grid. Words can be scattered in any direction.",
             type: "wordsearch",
             grid: [
-                "NATIONALBEES", // NATIONAL (0,0-7), BEES (0,8-11)
-                "QARIZONAPZLO", // ARIZONA (1,1-7), OSCARFEVER(O at 11)
-                "FWYIVBHKMNJS", // F(2,0) ... S(2,11)
-                "OAGRXQWUZIPC", // A(3,1) ... C(3,11)
-                "LKCJTDSMEBKA", // C(4,2) ... A(4,11)
-                "ZNBEYVRGXHWR", // E(5,3) ... R(5,11)
-                "POIUOWQASDRF", // O(6,4) ... F(6,11)
-                "LKJHGFAZXCXE", // F(7,5) ... E(7,11)
-                "MNBVCXZFPOIV", // F(8,6) ... V(8,11)
-                "LONGLEGSQWEE", // E(9,11)
-                "TREASUREZXCR", // R(10,11)
-                "CONAIRPLMOKN"  // CONAIR
+                "OGFACEOFFU",
+                "NSQEDILCRT",
+                "AACDVZOOBR",
+                "TBBAAWNNQE",
+                "IGEORVGAAA",
+                "OTEYIFLIVS",
+                "NESVZIERLU",
+                "AVTCOTGVMR",
+                "LVEPNVSGEE",
+                "SVHCAKHXYR"
             ],
             words: ["ARIZONA", "BEES", "CONAIR", "FACEOFF", "LONGLEGS", "NATIONAL", "OSCARFEVER", "TREASURE"],
             displayWords: ["ARIZONA", "BEES", "CON AIR", "FACE OFF", "LONGLEGS", "NATIONAL", "OSCAR FEVER", "TREASURE"],
@@ -40,8 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
             title: "Clue #3: The Neon Despair",
             text: "To the city of sin I drove, to shed my mortal coil. A love found in the bottle's bottom, a tragic, Oscar-winning end.",
             type: "riddle",
-            answer: "Leaving Las Vegas",
-            hint: "1995. Ben Sanderson."
+            answer: "italy",
+            hint: "1995. Ben Sanderson. (But the answer is a place)"
         },
         {
             id: 4,
@@ -54,15 +52,66 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         {
             id: 5,
-            title: "Clue #5: The Meta-Morphosis",
-            text: "A version of my younger self haunts me. I accept a million dollars to attend a birthday, only to become a CIA informant. Paddington 2 makes me cry.",
+            title: "Puzzle #5: The Agent",
+            text: "Decipher the location code:<br><br><span style='font-family: monospace; font-size: 1.5em; letter-spacing: 5px; color: #d4af37;'>XPPEIPVTF</span><br><br>Decode this to find the agent's name. Enter the name to confirm you've identified the target.",
             type: "riddle",
-            answer: "The Unbearable Weight of Massive Talent",
-            hint: "2022. Nick Cage."
+            answer: "woodhouse",
+            hint: "The code is a name shifted by one. Decode 'XPPEIPVTF'."
         },
         {
             id: 6,
-            title: "Clue #6: The Secret Society",
+            title: "Puzzle #6: The Cage Slide",
+            text: "Slide to the target. But beware, once you start moving, you can't stop until you hit a wall!",
+            type: "orbox",
+            // 3 Levels:
+            // 0: Empty, 1: Wall, 2: Start, 3: Target (Ladder or Scroll)
+            levels: [
+                // Level 1: The Descent (Simple)
+                [
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                    [1, 0, 0, 0, 0, 0, 1, 0, 0, 1],
+                    [1, 0, 1, 0, 2, 0, 0, 0, 0, 1],
+                    [1, 0, 0, 0, 0, 0, 1, 0, 0, 1],
+                    [1, 0, 1, 1, 0, 0, 0, 0, 0, 1],
+                    [1, 0, 0, 0, 0, 1, 0, 1, 0, 1],
+                    [1, 0, 0, 3, 0, 0, 0, 0, 0, 1], // Goal accessible
+                    [1, 0, 1, 0, 0, 0, 1, 0, 0, 1],
+                    [1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+                ],
+                // Level 2: The Catacombs (Medium)
+                [
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                    [1, 3, 0, 0, 1, 0, 0, 0, 2, 1], // Goal top left, start top right
+                    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                    [1, 0, 1, 0, 1, 0, 1, 0, 0, 1],
+                    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                    [1, 1, 0, 1, 0, 0, 0, 1, 0, 1],
+                    [1, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+                    [1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+                    [1, 0, 0, 0, 0, 0, 1, 0, 0, 1], // Tricky slide at bottom
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+                ],
+                // Level 3: The Vault (Hard) - Declaration
+                [
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                    [1, 2, 0, 0, 0, 1, 0, 0, 0, 1], // Start top left
+                    [1, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+                    [1, 0, 1, 1, 0, 0, 0, 0, 0, 1],
+                    [1, 0, 0, 0, 0, 0, 3, 0, 0, 1], // Goal in middle? No, make it harder
+                    [1, 0, 1, 0, 0, 0, 0, 0, 0, 1],
+                    [1, 0, 0, 0, 1, 0, 0, 1, 0, 1],
+                    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                    [1, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+                ]
+            ],
+            answer: "italy", // Legacy field, not used for Orbox
+            hint: "Level 1: Find the ladder. Level 2: Go deeper. Level 3: Steal it."
+        },
+        {
+            id: 7,
+            title: "Clue #7: The Secret Society",
             text: "The final step. The movie that started this specific hunt. It's not about the money, it's about the history. I'm going to steal the Declaration of Independence.",
             type: "riddle",
             answer: "National Treasure",
@@ -71,6 +120,25 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     let currentClueIndex = 0;
+
+    // --- DEV NAV ---
+    const nav = document.createElement('div');
+    nav.style.position = 'fixed';
+    nav.style.top = '0';
+    nav.style.left = '0';
+    nav.style.zIndex = '9999';
+    nav.style.background = 'rgba(0,0,0,0.8)';
+    nav.style.padding = '5px';
+    nav.innerHTML = clues.map((c, i) => `<button onclick="window.jumpTo(${i})" style="margin: 0 5px;">${i + 1}</button>`).join('');
+    document.body.appendChild(nav);
+
+    window.jumpTo = function (i) {
+        currentClueIndex = i;
+        const intro = document.getElementById('intro-card');
+        if (intro) intro.classList.add('hidden');
+        showClue(i);
+    };
+    // ---------------
 
     startBtn.addEventListener('click', () => {
         introCard.style.animation = 'zoomIn 0.5s ease-in reverse forwards';
@@ -125,6 +193,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p class="hint-text" style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8;">${clue.hint}</p>
                         <p id="feedback" style="margin-top: 15px; font-weight: bold; min-height: 1.5em;"></p>
                     </div>
+                    </div>
+                `;
+            } else if (clue.type === 'orbox') {
+                contentHtml = `
+                    <div class="glass-panel" style="animation: zoomIn 0.6s ease-out;">
+                        <h2>${clue.title}</h2>
+                        <p>${clue.text}</p>
+                        <div id="orbox-container" style="margin: 20px auto;"></div>
+                        <div id="orbox-controls" style="margin-top: 15px; display: grid; gap: 5px; grid-template-areas: '. U .' 'L D R'; justify-content: center;">
+                             <button class="cta-button" onclick="handleOrboxMove('up')" style="grid-area: U;">▲</button>
+                             <button class="cta-button" onclick="handleOrboxMove('left')" style="grid-area: L;">◀</button>
+                             <button class="cta-button" onclick="handleOrboxMove('down')" style="grid-area: D;">▼</button>
+                             <button class="cta-button" onclick="handleOrboxMove('right')" style="grid-area: R;">▶</button>
+                        </div>
+                        <p class="hint-text" style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8;">${clue.hint} (Use Arrow Keys)</p>
+                         <p id="feedback" style="margin-top: 15px; font-weight: bold; min-height: 1.5em;"></p>
+                    </div>
                 `;
             } else {
                 contentHtml = `
@@ -155,6 +240,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 initPuzzle(clue);
             } else if (clue.type === 'wordsearch') {
                 initWordSearch(clue);
+            } else if (clue.type === 'orbox') {
+                initOrbox(clue, () => {
+                    currentClueIndex++;
+                    showClue(currentClueIndex);
+                });
             } else {
                 const input = document.getElementById('answer-input');
                 document.getElementById('submit-answer').addEventListener('click', () => checkAnswer(clue));
@@ -163,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 input.focus();
             }
-        }, 2000);
+        }, 100);
     }
 
     let puzzleState = [];
@@ -244,8 +334,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const input = document.getElementById('answer-input');
         const feedback = document.getElementById('feedback');
 
-        // Normalize: remove non-alphanumeric characters and convert to lowercase
-        const normalize = (str) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+        // Normalize: trim and lowercase. Simple is robust.
+        const normalize = (str) => str.trim().toLowerCase();
 
         const userVal = normalize(input.value);
         const answerVal = normalize(clue.answer);
@@ -285,9 +375,14 @@ document.addEventListener('DOMContentLoaded', () => {
         gridEl.innerHTML = '';
         svgEl.innerHTML = ''; // Clear lines
 
-        // 12x12 grid
-        for (let r = 0; r < 12; r++) {
-            for (let c = 0; c < 12; c++) {
+        // Set grid columns dynamically
+        const rows = wsGrid.length;
+        const cols = wsGrid[0].length;
+        gridEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+        // Dynamic grid generation
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
                 const cell = document.createElement('div');
                 cell.className = 'ws-cell';
                 cell.textContent = wsGrid[r][c];
@@ -588,21 +683,29 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.className = 'cta-button';
         btn.style.marginTop = '20px';
         btn.style.animation = 'fadeIn 0.5s ease-out';
-        btn.textContent = "Retry";
 
-        btn.addEventListener('click', () => {
-            // Reset the board to play again
-            btn.remove();
-            // Reset taunt
-            tauntEl.textContent = '"I can eat a peach for hours..."';
-            tauntEl.style.color = '#ff6666';
-            initTicTacToe();
-        });
+        // If Player Wins or Draws, they escape
+        if (message.includes("WON") || message.includes("DRAW") || message.includes("survive")) {
+            btn.textContent = "Escape The Cage";
+            btn.addEventListener('click', () => {
+                document.body.style.overflow = '';
+                document.querySelector('.trap-overlay').remove();
+            });
+        } else {
+            // Loss
+            btn.textContent = "Try Again";
+            btn.addEventListener('click', () => {
+                btn.remove();
+                tauntEl.textContent = '"I can eat a peach for hours..."';
+                tauntEl.style.color = '#ff6666';
+                initTicTacToe();
+            });
+        }
 
         container.appendChild(btn);
     }
 
-    // Minimax Algorithm
+
     function checkTTTWin(player) {
         const wins = [
             [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows

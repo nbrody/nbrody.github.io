@@ -458,6 +458,17 @@ p {
 }
 
 /* Remove background highlights, use text color if needed */
+.agent-photo {
+    background: rgba(212, 175, 55, 0.2);
+    border: 1px solid var(--primary-gold);
+    color: var(--text-light);
+    padding: 10px;
+    text-align: center;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    font-family: 'Lato', sans-serif;
+}
+
 .ws-cell.selected {
     color: #fff;
     text-shadow: 0 0 5px var(--primary-gold);
