@@ -44,7 +44,7 @@ function initOrbox(clue, onWin) {
         }
     };
 
-    // Add Touch Support
+    // Touch Support
     addOrboxTouchSupport();
 }
 
@@ -74,39 +74,57 @@ function addOrboxTouchSupport() {
     const container = document.getElementById('orbox-container');
     if (!container) return;
 
-    let touchStartX = 0;
-    let touchStartY = 0;
+    let startX = 0;
+    let startY = 0;
+    let isDragging = false;
 
+    // Touch events
     container.addEventListener('touchstart', (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-        touchStartY = e.changedTouches[0].screenY;
-        e.preventDefault(); // Prevent scroll
+        startX = e.changedTouches[0].screenX;
+        startY = e.changedTouches[0].screenY;
+        e.preventDefault();
     }, { passive: false });
 
     container.addEventListener('touchend', (e) => {
+        const endX = e.changedTouches[0].screenX;
+        const endY = e.changedTouches[0].screenY;
+        handleSwipe(startX, startY, endX, endY);
+        e.preventDefault();
+    }, { passive: false });
+
+    // Mouse events (for desktop "swipe")
+    container.addEventListener('mousedown', (e) => {
+        startX = e.screenX;
+        startY = e.screenY;
+        isDragging = true;
+    });
+
+    window.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        const endX = e.screenX;
+        const endY = e.screenY;
+        handleSwipe(startX, startY, endX, endY);
+        isDragging = false;
+    });
+
+    function handleSwipe(sX, sY, eX, eY) {
         if (!orboxActive || isMoving) return;
 
-        const touchEndX = e.changedTouches[0].screenX;
-        const touchEndY = e.changedTouches[0].screenY;
-
-        const dx = touchEndX - touchStartX;
-        const dy = touchEndY - touchStartY;
+        const dx = eX - sX;
+        const dy = eY - sY;
 
         if (Math.abs(dx) > Math.abs(dy)) {
-            // Horizontal
-            if (Math.abs(dx) > 30) { // Threshold
+            if (Math.abs(dx) > 30) {
                 if (dx > 0) handleOrboxMove('right');
                 else handleOrboxMove('left');
             }
         } else {
-            // Vertical
             if (Math.abs(dy) > 30) {
                 if (dy > 0) handleOrboxMove('down');
                 else handleOrboxMove('up');
             }
         }
-        e.preventDefault();
-    }, { passive: false });
+    }
 }
 
 // Global Move Handler

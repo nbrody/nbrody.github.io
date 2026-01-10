@@ -221,12 +221,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h2>${clue.title}</h2>
                         <p>${clue.text}</p>
                         <div id="orbox-container" style="margin: 20px auto;"></div>
-                        <div id="orbox-controls" style="margin-top: 15px; display: grid; gap: 5px; grid-template-areas: '. U .' 'L D R'; justify-content: center;">
-                             <button class="cta-button" onclick="handleOrboxMove('up')" style="grid-area: U;">▲</button>
-                             <button class="cta-button" onclick="handleOrboxMove('left')" style="grid-area: L;">◀</button>
-                             <button class="cta-button" onclick="handleOrboxMove('down')" style="grid-area: D;">▼</button>
-                             <button class="cta-button" onclick="handleOrboxMove('right')" style="grid-area: R;">▶</button>
-                        </div>
                         <p class="hint-text" style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8;">${clue.hint} (Use Arrow Keys)</p>
                          <p id="feedback" style="margin-top: 15px; font-weight: bold; min-height: 1.5em;"></p>
                     </div>
