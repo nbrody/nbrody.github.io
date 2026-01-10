@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent Dossier - Nic unCaged</title>
+    <title>Scavenger Hunt Leaderboard - Nic unCaged</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -76,59 +76,67 @@
     <div class="background-overlay"></div>
     <main class="container">
         <header>
-            <h1 class="title">Agent Dossier</h1>
-            <p class="subtitle">Secure Your Place in History</p>
+            <h1 class="title">Hall of Fame</h1>
+            <p class="subtitle">Immortalize Your Victory</p>
         </header>
 
         <section id="entry-step" class="glass-panel">
-            <h2>Identity Confirmation</h2>
-            <p>Enter your name to be added to the high-clearance agent registry.</p>
+            <h2>Claim Your Spot</h2>
+            <p>Enter your name to be added to the winners list.</p>
             <div class="input-group">
-                <input type="text" id="agent-name" placeholder="Agent Name..."
+                <input type="text" id="agent-name" placeholder="Your Name..."
                     style="width: 100%; padding: 15px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: var(--text-light); font-size: 1.1rem; margin-bottom: 20px;">
             </div>
-            <button id="next-to-camera" class="cta-button">Proceed to Identification</button>
+            <button id="next-to-camera" class="cta-button">Take Victory Photo</button>
         </section>
 
         <section id="camera-step" class="glass-panel hidden">
-            <h2>Biometric Scan</h2>
+            <h2>Face Off</h2>
             <p>Align your face using the guide below.</p>
 
             <div class="camera-container">
                 <video id="video" autoplay playsinline></video>
                 <!-- This image overlays the camera for alignment -->
-                <img id="alignment-overlay" src="selfieTemplate.png" alt="Alignment Guide"
+                <img id="alignment-overlay" src="selfieTemplateZoom.png" alt="Alignment Guide"
                     onload="this.parentElement.style.aspectRatio = this.naturalWidth / this.naturalHeight + ''; this.parentElement.style.height = 'auto';">
             </div>
 
             <div class="controls">
-                <button id="capture-btn" class="cta-button">Capture Identification</button>
+                <button id="capture-btn" class="cta-button">Capture Moment</button>
             </div>
         </section>
 
         <section id="result-step" class="glass-panel hidden">
-            <h2>Dossier Complete</h2>
-            <p>Your official clearance has been granted.</p>
+            <h2>Victory Recorded</h2>
+            <p>You have successfully decoded the secrets.</p>
             <canvas id="canvas"></canvas>
             <img id="poster-final" class="poster-preview">
             <div class="controls">
-                <button id="download-btn" class="cta-button">Download Dossier</button>
-                <button id="view-gallery-btn" class="cta-button" style="background: rgba(212, 175, 55, 0.2);">View Agent
-                    Gallery</button>
+                <button id="download-btn" class="cta-button">Download Souvenir</button>
+                <button id="view-gallery-btn" class="cta-button" style="background: rgba(212, 175, 55, 0.2);">View Hall
+                    of Fame</button>
                 <button id="restart-btn" class="cta-button" style="background: rgba(255,255,255,0.1);">Back to
                     Hub</button>
             </div>
         </section>
 
         <section id="gallery-step" class="glass-panel hidden">
-            <h2>High-Clearance Gallery</h2>
+            <h2>Hall of Fame</h2>
             <p>The elite collective of Cage hunters who successfully recovered the Declaration.</p>
+
+            <div style="text-align: center; margin: 15px 0;">
+                <button id="cageify-all-btn" class="cta-button"
+                    style="background: var(--primary-gold); color: #000; font-weight: bold;">Cageify Everyone</button>
+            </div>
+
             <div id="gallery-grid"
-                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px;">
+                style="display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 20px; max-width: 600px; margin-left: auto; margin-right: auto;">
                 <!-- Dossiers will appear here -->
             </div>
             <div class="controls">
-                <button id="back-from-gallery" class="cta-button">Return to Dossier</button>
+                <button id="back-from-gallery" class="cta-button">Return to Photo</button>
+                <button id="clear-gallery-btn" class="cta-button"
+                    style="background: rgba(255, 0, 0, 0.3); border-color: #ff4444;">Clear Registry</button>
             </div>
         </section>
     </main>
