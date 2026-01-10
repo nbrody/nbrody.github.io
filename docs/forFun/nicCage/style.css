@@ -4,7 +4,7 @@
     --deep-brown: #3E2723;
     --parchment: #F3E5AB;
     --text-light: #F5F5F5;
-    --glass-bg: rgba(20, 10, 5, 0.75);
+    --glass-bg: rgba(20, 10, 5, 0.2);
     --glass-border: rgba(212, 175, 55, 0.3);
     --shadow-color: rgba(0, 0, 0, 0.6);
 }
@@ -197,6 +197,18 @@ p {
     }
 }
 
+@keyframes zoomOut {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+}
+
 @media (max-width: 768px) {
     .title {
         font-size: 2.5rem;
@@ -252,5 +264,196 @@ p {
         width: 240px;
         height: 355px;
         /* Maintain aspect ratio on mobile */
+    }
+}
+
+/* Tic-Tac-Toe Trap Styles */
+.trap-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    background-image: url('nicCage.png');
+    /* The meme face */
+    background-size: cover;
+    background-blend-mode: overlay;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    animation: fadeIn 0.5s ease-in;
+}
+
+.trap-overlay.fade-out {
+    animation: fadeOut 0.5s ease-out forwards;
+}
+
+.ttt-container {
+    max-width: 500px;
+    width: 90%;
+    text-align: center;
+    border: 3px solid #ff0000;
+    box-shadow: 0 0 50px #ff0000;
+}
+
+.ttt-title {
+    color: #bdc3c7;
+    font-size: 3rem;
+    font-family: 'Stencil', 'Impact', sans-serif;
+    letter-spacing: 5px;
+    text-shadow: 2px 2px 5px #000;
+    margin-bottom: 0.5rem;
+}
+
+.ttt-board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    grid-gap: 8px;
+    /* The gaps form the bars */
+    margin: 20px auto;
+    width: 300px;
+    height: 300px;
+    background-color: #7f8c8d;
+    /* Metal bar color */
+    border: 8px solid #7f8c8d;
+    /* Outer frame */
+    box-shadow: 0 0 20px #000 inset;
+}
+
+.ttt-cell {
+    background: rgba(0, 0, 0, 0.85);
+    /* Dark spacing between bars */
+    border: none;
+    /* Borders handled by grid container */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 3.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text-light);
+}
+
+.ttt-cell:hover {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.ttt-cell.x-mark {
+    color: var(--primary-gold);
+    text-shadow: 0 0 10px var(--primary-gold);
+}
+
+.ttt-cell.o-mark {
+    color: #ff0000;
+    text-shadow: 0 0 10px #ff0000;
+}
+
+.ttt-taunt {
+    font-size: 1.5rem;
+    color: #ff6666;
+    margin-top: 20px;
+    font-style: italic;
+    min-height: 2rem;
+    transition: transform 0.1s;
+}
+
+.ttt-taunt.pop {
+    transform: scale(1.2);
+}
+
+@keyframes fadeOut {
+    to {
+        opacity: 0;
+        visibility: hidden;
+    }
+}
+
+/* Word Search Styles */
+.wordsearch-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.wordsearch-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 2px;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    border: 2px solid var(--primary-gold);
+    user-select: none;
+    touch-action: none;
+    /* Prevent scrolling while dragging */
+}
+
+.ws-cell {
+    width: 25px;
+    height: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: var(--text-light);
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.ws-cell.selected {
+    background: rgba(212, 175, 55, 0.5);
+    color: #fff;
+}
+
+.ws-cell.found {
+    background: var(--primary-gold);
+    color: var(--deep-brown);
+    animation: pulse 0.5s ease-out;
+}
+
+.word-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 20px;
+    max-width: 400px;
+}
+
+.word-item {
+    font-family: 'Cinzel', serif;
+    color: var(--parchment);
+    transition: all 0.3s;
+}
+
+.word-item.found {
+    text-decoration: line-through;
+    opacity: 0.5;
+    color: #888;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@media (max-width: 400px) {
+    .ws-cell {
+        width: 20px;
+        height: 20px;
+        font-size: 0.7rem;
     }
 }
