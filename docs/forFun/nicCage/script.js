@@ -10,7 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
             text: "I am not just a map, I am a declaration. To proceed, you must unlock the year of our independence.",
             type: "riddle",
             answer: "1776",
-            hint: "National Treasure, Ben Gates."
+            hint: "National Treasure, Ben Gates.",
+            passcode: "TREASURE"
         },
         {
             id: 2,
@@ -31,15 +32,17 @@ document.addEventListener('DOMContentLoaded', () => {
             ],
             words: ["ARIZONA", "BEES", "CONAIR", "FACEOFF", "LONGLEGS", "NATIONAL", "OSCARFEVER", "TREASURE"],
             displayWords: ["ARIZONA", "BEES", "CON AIR", "FACE OFF", "LONGLEGS", "NATIONAL", "OSCAR FEVER", "TREASURE"],
-            hint: "Drag to select. Words can be backwards!"
+            hint: "Drag to select. Words can be backwards!",
+            passcode: "MCDUNNOUGH"
         },
         {
             id: 3,
-            title: "Clue #3: The Neon Despair",
-            text: "To the city of sin I drove, to shed my mortal coil. A love found in the bottle's bottom, a tragic, Oscar-winning end.",
+            title: "Clue #3: The Classified Cipher",
+            text: "Decipher the secret code:<br><br><span style='font-family: monospace; font-size: 1.5em; letter-spacing: 5px; color: #d4af37;'>XPPEIPVTF</span><br><br> Shift to proceed.",
             type: "riddle",
-            answer: "italy",
-            hint: "1995. Ben Sanderson. (But the answer is a place)"
+            answer: "woodhouse",
+            hint: "The code is a name shifted by one. Decode 'XPPEIPVTF'.",
+            passcode: "SANDERSON"
         },
         {
             id: 4,
@@ -48,15 +51,17 @@ document.addEventListener('DOMContentLoaded', () => {
             type: "puzzle",
             image: "face_off_poster.png",
             answer: "face/off", // Not directly used for text input, but good for reference
-            hint: "Click two pieces to swap them. Reconstruct the poster."
+            hint: "Click two pieces to swap them. Reconstruct the poster.",
+            passcode: "TROY"
         },
         {
             id: 5,
-            title: "Puzzle #5: The Agent",
-            text: "Decipher the location code:<br><br><span style='font-family: monospace; font-size: 1.5em; letter-spacing: 5px; color: #d4af37;'>XPPEIPVTF</span><br><br>Decode this to find the agent's name. Enter the name to confirm you've identified the target.",
+            title: "Puzzle #5: The Codekeepers",
+            text: "Now find the ones who hold the secret. Locate one of the codekeepers (Nic, Rae, Katie, Aaron, Chelsea, or Claire) pictured below:<br><br><img src='codekeepers.jpg' style='max-width: 100%; border: 1px solid var(--primary-gold); border-radius: 8px; margin-bottom: 20px;'><br> The code is:",
             type: "riddle",
-            answer: "woodhouse",
-            hint: "The code is a name shifted by one. Decode 'XPPEIPVTF'."
+            answer: "unbearable",
+            hint: "Find the 'Unbearable Weight of Massive Talent' poster and check their status.",
+            passcode: "CAGE"
         },
         {
             id: 6,
@@ -107,17 +112,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 ]
             ],
             answer: "italy", // Legacy field, not used for Orbox
-            hint: "Level 1: Find the ladder. Level 2: Go deeper. Level 3: Steal it."
-        },
-        {
-            id: 7,
-            title: "Clue #7: The Secret Society",
-            text: "The final step. The movie that started this specific hunt. It's not about the money, it's about the history. I'm going to steal the Declaration of Independence.",
-            type: "riddle",
-            answer: "National Treasure",
-            hint: "2004. Benjamin Franklin Gates."
+            hint: "Level 1: Find the ladder. Level 2: Go deeper. Level 3: Steal it.",
+            passcode: "GATES"
         }
     ];
+
 
     let currentClueIndex = 0;
 
@@ -129,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     nav.style.zIndex = '9999';
     nav.style.background = 'rgba(0,0,0,0.8)';
     nav.style.padding = '5px';
+    nav.style.display = 'none'; // Hidden by default
     nav.innerHTML = clues.map((c, i) => `<button onclick="window.jumpTo(${i})" style="margin: 0 5px;">${i + 1}</button>`).join('');
     document.body.appendChild(nav);
 
@@ -136,11 +136,25 @@ document.addEventListener('DOMContentLoaded', () => {
         currentClueIndex = i;
         const intro = document.getElementById('intro-card');
         if (intro) intro.classList.add('hidden');
+
+        const header = document.querySelector('header');
+        if (header) header.classList.add('hidden');
+
         showClue(i);
     };
+
+    // Toggle dev nav with "!"
+    document.addEventListener('keydown', (e) => {
+        if (e.key === '!') {
+            nav.style.display = (nav.style.display === 'none') ? 'block' : 'none';
+        }
+    });
     // ---------------
 
     startBtn.addEventListener('click', () => {
+        const header = document.querySelector('header');
+        if (header) header.classList.add('hidden');
+
         introCard.style.animation = 'zoomIn 0.5s ease-in reverse forwards';
         setTimeout(() => {
             introCard.classList.add('hidden');
@@ -148,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 500);
     });
 
-    function showClue(index) {
+    function showClue(index, skipGate = false) {
         if (index >= clues.length) {
             showVictory();
             return;
@@ -164,7 +178,13 @@ document.addEventListener('DOMContentLoaded', () => {
         clueContainer.innerHTML = '';
         clueContainer.classList.remove('hidden');
 
-        // Wait 2 seconds for background appreciation
+        // Check for Passcode Gate
+        if (clue.passcode && !skipGate) {
+            showPosterGate(clue, index);
+            return;
+        }
+
+        // Wait 100ms for background appreciation or transition
         setTimeout(() => {
             let contentHtml = '';
 
@@ -254,6 +274,75 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.focus();
             }
         }, 100);
+    }
+
+    function showPosterGate(clue, index) {
+        clueContainer.innerHTML = `
+            <div class="passcode-gate-minimal" style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+                animation: zoomIn 0.5s ease-out;
+            ">
+                <div style="display: flex; gap: 10px; align-items: center; background: rgba(0,0,0,0.6); padding: 5px; border: 1px solid var(--primary-gold); border-radius: 8px; backdrop-filter: blur(5px);">
+                    <input type="text" id="passcode-input" placeholder="PASSCODE" style="
+                        width: 200px;
+                        background: transparent;
+                        border: none;
+                        color: var(--primary-gold);
+                        font-family: 'Cinzel', serif;
+                        font-size: 1.2rem;
+                        padding: 10px;
+                        text-align: center;
+                        outline: none;
+                        letter-spacing: 2px;
+                    ">
+                    <button id="hint-btn" style="
+                        background: none;
+                        border: none;
+                        color: var(--primary-gold);
+                        font-family: 'Cinzel', serif;
+                        font-size: 1.5rem;
+                        cursor: pointer;
+                        padding: 0 10px;
+                        opacity: 0.7;
+                    ">?</button>
+                </div>
+                <p id="gate-feedback" style="font-size: 0.8rem; height: 1.2em; color: #ff6666; font-family: 'Cinzel', serif; text-transform: uppercase; letter-spacing: 1px;"></p>
+            </div>
+        `;
+
+        const input = document.getElementById('passcode-input');
+        const hintBtn = document.getElementById('hint-btn');
+        const feedback = document.getElementById('gate-feedback');
+
+        const verify = () => {
+            if (input.value.trim().toUpperCase() === clue.passcode.toUpperCase()) {
+                feedback.textContent = "ACCESS GRANTED";
+                feedback.style.color = "#4CAF50";
+                input.style.borderColor = "#4CAF50";
+                setTimeout(() => showClue(index, true), 800);
+            } else if (input.value.trim() !== "") {
+                feedback.textContent = "DENIED";
+                input.classList.add('shake');
+                setTimeout(() => input.classList.remove('shake'), 400);
+            }
+        };
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') verify();
+        });
+
+        hintBtn.addEventListener('click', () => {
+            alert("Find the poster for this stage in the room — the passcode is written on it.");
+        });
+
+        input.focus();
     }
 
     let puzzleState = [];
@@ -764,12 +853,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showVictory() {
+        // High-premium victory screen with National Treasure quote
+        const bgOverlay = document.querySelector('.background-overlay');
+        if (bgOverlay) bgOverlay.style.backgroundImage = `url('background.png')`;
+
         clueContainer.innerHTML = `
-            <div class="glass-panel" style="animation: zoomIn 0.8s ease-out;">
-                <h2>Mission Accomplished!</h2>
-                <p>You have successfully decoded the secrets of the Cage. Happy 62nd Birthday!</p>
-                <p>Enjoy the bees. NOT THE BEES!</p>
-                <button onclick="window.location.href='leaderboard.html'" class="cta-button" style="margin-top: 20px;">Claim Your Dossier</button>
+            <div class="glass-panel" style="animation: zoomIn 1s cubic-bezier(0.175, 0.885, 0.32, 1.275); padding: 4rem;">
+                <h1 style="font-family: 'Cinzel', serif; font-size: 3rem; color: var(--primary-gold); margin-bottom: 1rem;">MISSION ACCOMPLISHED</h1>
+                <p style="font-size: 1.4rem; color: var(--parchment); font-style: italic; margin-bottom: 2rem;">"I'm going to steal the Declaration of Independence."</p>
+                
+                <div style="margin: 30px 0; border-top: 1px solid var(--glass-border); border-bottom: 1px solid var(--glass-border); padding: 20px 0;">
+                    <p>You have successfully decoded every secret and survived the Cage. <br> The 62nd Birthday hunt is complete.</p>
+                </div>
+
+                <p style="margin-bottom: 30px;">The treasure is waiting. Claim your victory in the Hall of Fame.</p>
+                
+                <button onclick="window.location.href='leaderboard.html'" class="cta-button" style="
+                    font-size: 1.5rem; 
+                    padding: 1.2rem 4rem;
+                    box-shadow: 0 0 30px rgba(212, 175, 55, 0.5);
+                ">Steal the Declaration</button>
             </div>
         `;
     }

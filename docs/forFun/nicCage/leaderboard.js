@@ -25,7 +25,12 @@ document.addEventListener('DOMContentLoaded', () => {
             isGlobalCaged = !isGlobalCaged;
             cageifyAllBtn.textContent = isGlobalCaged ? 'Un-Cage' : 'Cageify Everyone';
 
+            const selfies = document.querySelectorAll('.selfie-img');
             const souvenirs = document.querySelectorAll('.souvenir-img');
+
+            selfies.forEach(img => {
+                img.style.opacity = isGlobalCaged ? '0' : '1';
+            });
             souvenirs.forEach(img => {
                 img.style.opacity = isGlobalCaged ? '1' : '0';
             });
@@ -64,7 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const context = canvas.getContext('2d');
 
         const template = new Image();
-        template.src = 'nicCageTemplate.png'; // Using the PNG with transparency
 
         // Hardcoded Calibration Values (Success)
         const CAL_X = 0.39;
@@ -76,20 +80,17 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.height = template.height;
 
             // 1. Draw User Photo (Behind Template) - FILL THE CANVAS
-            // We want the video to cover the entire template area, matching the preview
             const vWidth = video.videoWidth;
             const vHeight = video.videoHeight;
             const targetAspect = canvas.width / canvas.height;
 
             let sx, sy, sWidth, sHeight;
             if (vWidth / vHeight > targetAspect) {
-                // Video is wider than canvas: crop sides
                 sHeight = vHeight;
                 sWidth = vHeight * targetAspect;
                 sx = (vWidth - sWidth) / 2;
                 sy = 0;
             } else {
-                // Video is taller than canvas: crop top/bottom
                 sWidth = vWidth;
                 sHeight = vWidth / targetAspect;
                 sx = 0;
@@ -106,7 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const rawSelfieImg = new Image();
 
             rawSelfieImg.onload = () => {
-                // Clear and Redraw with Transform for Composition
                 context.clearRect(0, 0, canvas.width, canvas.height);
 
                 // 1b. Redraw Photo with Transform
@@ -139,8 +139,11 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         template.onerror = () => {
-            alert("Identification Template Error (nicCageTemplate.png missing).");
+            alert("Identification Template Error (nicCageTemplate.png missing or failed to load).");
         };
+
+        // Set src AFTER handlers for robustness
+        template.src = 'nicCageTemplate.png';
     });
 
     // --- ACTIONS ---
@@ -167,13 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resultStep.classList.remove('hidden');
     });
 
-    const clearGalleryBtn = document.getElementById('clear-gallery-btn');
-    clearGalleryBtn.addEventListener('click', () => {
-        if (confirm("Are you sure you want to PURGE the entire Hall of Fame? This cannot be undone.")) {
-            localStorage.removeItem('agentGallery');
-            loadGallery();
-        }
-    });
+
 
     restartBtn.addEventListener('click', () => {
         window.location.href = 'index.html';
@@ -236,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             img.style.objectFit = 'cover';
             img.style.display = 'block';
             img.style.borderRadius = '3px';
+            img.style.transition = 'opacity 0.5s ease';
 
             // 2. Souvenir (Overlay, toggleable)
             // If legacy entry has no souvenir, maybe generate one on fly? typically hard.
