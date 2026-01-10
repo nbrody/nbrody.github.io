@@ -769,6 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <h2>Mission Accomplished!</h2>
                 <p>You have successfully decoded the secrets of the Cage. Happy 62nd Birthday!</p>
                 <p>Enjoy the bees. NOT THE BEES!</p>
+                <button onclick="window.location.href='leaderboard.html'" class="cta-button" style="margin-top: 20px;">Claim Your Dossier</button>
             </div>
         `;
     }

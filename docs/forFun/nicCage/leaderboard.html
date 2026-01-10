@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Dossier - Nic unCaged</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin: 20px auto;
+            border: 2px solid var(--primary-gold);
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #video {
+            width: 100%;
+            display: block;
+        }
+
+        #canvas {
+            display: none;
+        }
+
+        .poster-preview {
+            max-width: 100%;
+            margin-top: 20px;
+            border: 2px solid var(--primary-gold);
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+            display: none;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="background-overlay"></div>
+    <main class="container">
+        <header>
+            <h1 class="title">Agent Dossier</h1>
+            <p class="subtitle">Secure Your Place in History</p>
+        </header>
+
+        <section id="entry-step" class="glass-panel">
+            <h2>Identity Confirmation</h2>
+            <p>Enter your name to be added to the high-clearance agent registry.</p>
+            <div class="input-group">
+                <input type="text" id="agent-name" placeholder="Agent Name..."
+                    style="width: 100%; padding: 15px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.3); color: var(--text-light); font-size: 1.1rem; margin-bottom: 20px;">
+            </div>
+            <button id="next-to-camera" class="cta-button">Proceed to Identification</button>
+        </section>
+
+        <section id="camera-step" class="glass-panel hidden">
+            <h2>Biometric Scan</h2>
+            <p>Align your face with the green figure to authorize your dossier.</p>
+            <div class="camera-container"
+                style="width: 320px; height: 420px; margin: 20px auto; position: relative; border: 2px solid #00ff00; background: #000;">
+                <video id="video" autoplay playsinline
+                    style="width: 100%; height: 100%; object-fit: cover; clip-path: url(#silhouette-clip); -webkit-clip-path: url(#silhouette-clip);"></video>
+                <svg width="0" height="0" style="position: absolute;">
+                    <defs>
+                        <clipPath id="silhouette-clip" clipPathUnits="objectBoundingBox">
+                            <path
+                                d="M 0.5,0.1 C 0.38,0.1 0.32,0.18 0.32,0.32 C 0.32,0.46 0.38,0.54 0.5,0.54 C 0.62,0.54 0.68,0.46 0.68,0.32 C 0.68,0.18 0.62,0.1 0.5,0.1 Z M 0.15,0.9 C 0.15,0.7 0.25,0.62 0.5,0.62 C 0.75,0.62 0.85,0.7 0.85,0.9 L 0.15,0.9 Z" />
+                        </clipPath>
+                    </defs>
+                </svg>
+                <div id="camera-mask"
+                    style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none; border: 1px solid rgba(0,255,0,0.2);">
+                    <svg viewBox="0 0 100 100"
+                        style="width: 100%; height: 100%; stroke: #00ff00; stroke-width: 0.8; fill: rgba(0,255,0,0.1); filter: drop-shadow(0 0 5px #00ff00);">
+                        <path
+                            d="M 50,10 C 38,10 32,18 32,32 C 32,46 38,54 50,54 C 62,54 68,46 68,32 C 68,18 62,10 50,10 Z M 15,90 C 15,70 25,62 50,62 C 75,62 85,70 85,90 L 15,90 Z" />
+                    </svg>
+                    <div
+                        style="position: absolute; bottom: 15px; width: 100%; text-align: center; color: #00ff00; font-family: monospace; font-size: 0.7rem; letter-spacing: 2px;">
+                        IDENTIFICATION SCAN</div>
+                </div>
+            </div>
+            <div class="controls">
+                <button id="capture-btn" class="cta-button">Capture Portrait</button>
+            </div>
+        </section>
+
+        <section id="result-step" class="glass-panel hidden">
+            <h2>Dossier Complete</h2>
+            <p>Your official clearance has been granted.</p>
+            <canvas id="canvas"></canvas>
+            <img id="poster-final" class="poster-preview">
+            <div class="controls">
+                <button id="download-btn" class="cta-button">Download Dossier</button>
+                <button id="view-gallery-btn" class="cta-button" style="background: rgba(212, 175, 55, 0.2);">View Agent
+                    Gallery</button>
+                <button id="restart-btn" class="cta-button" style="background: rgba(255,255,255,0.1);">Back to
+                    Hub</button>
+            </div>
+        </section>
+
+        <section id="gallery-step" class="glass-panel hidden">
+            <h2>High-Clearance Gallery</h2>
+            <p>The elite collective of Cage hunters who successfully recovered the Declaration.</p>
+            <div id="gallery-grid"
+                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px;">
+                <!-- Dossiers will appear here -->
+            </div>
+            <div class="controls">
+                <button id="back-from-gallery" class="cta-button">Return to Dossier</button>
+            </div>
+        </section>
+    </main>
+
+    <script src="leaderboard.js"></script>
+</body>
+
+</html>
