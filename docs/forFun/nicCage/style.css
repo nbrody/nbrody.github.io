@@ -377,6 +377,14 @@ p {
     display: flex;
     flex-direction: column;
     align-items: center;
+    position: relative;
+    /* Context for SVG */
+}
+
+/* Container for grid + SVG */
+.ws-grid-wrapper {
+    position: relative;
+    display: inline-block;
 }
 
 .wordsearch-grid {
@@ -388,7 +396,52 @@ p {
     border: 2px solid var(--primary-gold);
     user-select: none;
     touch-action: none;
-    /* Prevent scrolling while dragging */
+    position: relative;
+    z-index: 1;
+    /* Below SVG */
+}
+
+.ws-svg-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+    /* Above grid */
+}
+
+/* SVG Line Styles */
+.ws-line {
+    stroke: rgba(212, 175, 55, 0.6);
+    /* Gold semi-transparent */
+    stroke-width: 20;
+    stroke-linecap: round;
+    transition: all 0.2s;
+}
+
+.ws-line.found {
+    stroke: rgba(212, 175, 55, 0.8);
+    stroke-width: 22;
+    animation: pulseLine 0.5s ease-out;
+}
+
+@keyframes pulseLine {
+    0% {
+        stroke-width: 22;
+        stroke-opacity: 0.8;
+    }
+
+    50% {
+        stroke-width: 30;
+        stroke-opacity: 1;
+    }
+
+    100% {
+        stroke-width: 22;
+        stroke-opacity: 0.8;
+    }
 }
 
 .ws-cell {
@@ -404,15 +457,15 @@ p {
     font-size: 0.9rem;
 }
 
+/* Remove background highlights, use text color if needed */
 .ws-cell.selected {
-    background: rgba(212, 175, 55, 0.5);
     color: #fff;
+    text-shadow: 0 0 5px var(--primary-gold);
 }
 
 .ws-cell.found {
-    background: var(--primary-gold);
-    color: var(--deep-brown);
-    animation: pulse 0.5s ease-out;
+    color: var(--primary-gold);
+    text-shadow: 0 0 8px var(--primary-gold);
 }
 
 .word-list {
