@@ -13,8 +13,10 @@
     <style>
         .camera-container {
             position: relative;
-            width: 100%;
-            max-width: 400px;
+            /* Adjust size to match the aspect ratio of your templates if known. 
+               Assuming portrait 3:4 or similar. */
+            width: 320px;
+            height: 420px;
             margin: 20px auto;
             border: 2px solid var(--primary-gold);
             border-radius: 10px;
@@ -24,7 +26,10 @@
 
         #video {
             width: 100%;
-            display: block;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            /* Mirror the selfie view for better UX */
         }
 
         #canvas {
@@ -49,6 +54,21 @@
         .hidden {
             display: none !important;
         }
+
+        /* Overlay Image for Alignment */
+        #alignment-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.8;
+            /* Use object-fit contain or cover to match how the final photo sits? 
+               Usually cover if the whole container is the frame */
+            object-fit: cover;
+            z-index: 10;
+        }
     </style>
 </head>
 
@@ -72,33 +92,17 @@
 
         <section id="camera-step" class="glass-panel hidden">
             <h2>Biometric Scan</h2>
-            <p>Align your face with the green figure to authorize your dossier.</p>
-            <div class="camera-container"
-                style="width: 320px; height: 420px; margin: 20px auto; position: relative; border: 2px solid #00ff00; background: #000;">
-                <video id="video" autoplay playsinline
-                    style="width: 100%; height: 100%; object-fit: cover; clip-path: url(#silhouette-clip); -webkit-clip-path: url(#silhouette-clip);"></video>
-                <svg width="0" height="0" style="position: absolute;">
-                    <defs>
-                        <clipPath id="silhouette-clip" clipPathUnits="objectBoundingBox">
-                            <path
-                                d="M 0.5,0.1 C 0.38,0.1 0.32,0.18 0.32,0.32 C 0.32,0.46 0.38,0.54 0.5,0.54 C 0.62,0.54 0.68,0.46 0.68,0.32 C 0.68,0.18 0.62,0.1 0.5,0.1 Z M 0.15,0.9 C 0.15,0.7 0.25,0.62 0.5,0.62 C 0.75,0.62 0.85,0.7 0.85,0.9 L 0.15,0.9 Z" />
-                        </clipPath>
-                    </defs>
-                </svg>
-                <div id="camera-mask"
-                    style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none; border: 1px solid rgba(0,255,0,0.2);">
-                    <svg viewBox="0 0 100 100"
-                        style="width: 100%; height: 100%; stroke: #00ff00; stroke-width: 0.8; fill: rgba(0,255,0,0.1); filter: drop-shadow(0 0 5px #00ff00);">
-                        <path
-                            d="M 50,10 C 38,10 32,18 32,32 C 32,46 38,54 50,54 C 62,54 68,46 68,32 C 68,18 62,10 50,10 Z M 15,90 C 15,70 25,62 50,62 C 75,62 85,70 85,90 L 15,90 Z" />
-                    </svg>
-                    <div
-                        style="position: absolute; bottom: 15px; width: 100%; text-align: center; color: #00ff00; font-family: monospace; font-size: 0.7rem; letter-spacing: 2px;">
-                        IDENTIFICATION SCAN</div>
-                </div>
+            <p>Align your face using the guide below.</p>
+
+            <div class="camera-container">
+                <video id="video" autoplay playsinline></video>
+                <!-- This image overlays the camera for alignment -->
+                <img id="alignment-overlay" src="selfieTemplate.png" alt="Alignment Guide"
+                    onload="this.parentElement.style.aspectRatio = this.naturalWidth / this.naturalHeight + ''; this.parentElement.style.height = 'auto';">
             </div>
+
             <div class="controls">
-                <button id="capture-btn" class="cta-button">Capture Portrait</button>
+                <button id="capture-btn" class="cta-button">Capture Identification</button>
             </div>
         </section>
 

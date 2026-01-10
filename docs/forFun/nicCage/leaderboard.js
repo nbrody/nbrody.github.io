@@ -47,123 +47,73 @@ document.addEventListener('DOMContentLoaded', () => {
     captureBtn.addEventListener('click', () => {
         const context = canvas.getContext('2d');
 
-        // Template Dimensions
         const template = new Image();
-        template.src = 'nicCageTemplate.jpeg';
+        template.src = 'nicCageTemplate.png'; // Using the PNG with transparency
 
         template.onload = () => {
             canvas.width = template.width;
             canvas.height = template.height;
 
-            // Target coordinates for the 'green figure' area in nicCageTemplate.jpeg
-            const photoX = canvas.width * 0.28;
-            const photoY = canvas.height * 0.15;
-            const photoW = canvas.width * 0.44;
-            const photoH = canvas.height * 0.65;
-
+            // 1. Draw User Photo (Behind Template) - FILL THE CANVAS
+            // We want the video to cover the entire template area, matching the preview
             const vWidth = video.videoWidth;
             const vHeight = video.videoHeight;
-            const targetAspect = photoW / photoH;
+            const targetAspect = canvas.width / canvas.height;
 
             let sx, sy, sWidth, sHeight;
             if (vWidth / vHeight > targetAspect) {
+                // Video is wider than canvas: crop sides
                 sHeight = vHeight;
                 sWidth = vHeight * targetAspect;
                 sx = (vWidth - sWidth) / 2;
                 sy = 0;
             } else {
+                // Video is taller than canvas: crop top/bottom
                 sWidth = vWidth;
                 sHeight = vWidth / targetAspect;
                 sx = 0;
                 sy = (vHeight - sHeight) / 2;
             }
 
-            // 1. Draw Template Background first
-            context.drawImage(template, 0, 0);
-
-            // 2. Create Silhouette Clip path to overlay the photo onto the figure
             context.save();
-            context.beginPath();
-
-            // Exact match for the SVG Guide Path (normalized to 100 in guide, so divide by 100)
-            const mapX = (val) => photoX + (val / 100) * photoW;
-            const mapY = (val) => photoY + (val / 100) * photoH;
-
-            // Head (Ellipse) - matching SVG cx:50, cy:32, rx:18, ry:22 approx
-            const headX = mapX(50);
-            const headY = mapY(32);
-            const headRx = (18 / 100) * photoW;
-            const headRy = (22 / 100) * photoH;
-            context.ellipse(headX, headY, headRx, headRy, 0, 0, Math.PI * 2);
-
-            // Body/Shoulders - matching SVG Path: M 15,90 C 15,70 25,62 50,62 C 75,62 85,70 85,90 L 15,90 Z
-            context.moveTo(mapX(15), mapY(90));
-            context.bezierCurveTo(mapX(15), mapY(70), mapX(25), mapY(62), mapX(50), mapY(62));
-            context.bezierCurveTo(mapX(75), mapY(62), mapX(85), mapY(70), mapX(85), mapY(90));
-            context.lineTo(mapX(15), mapY(90));
-            context.closePath();
-
-            context.clip();
-
-            // Apply vintage filter to the captured face
+            // Apply vintage filter to match the template style
             context.filter = 'sepia(0.3) contrast(1.1) brightness(0.9)';
-            context.drawImage(video, sx, sy, sWidth, sHeight, photoX, photoY, photoW, photoH);
+
+            // Draw the video frame nicely cropped to fill the WHOLE canvas
+            context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+
             context.restore();
 
-            // 3. Draw Name - Registry line (Adjusted to sit clean on the template line)
-            context.font = `bold ${canvas.height * 0.045}px 'Cinzel', serif`;
-            context.fillStyle = '#2a1a10';
-            context.textAlign = 'left';
-            context.fillText(agentName.toUpperCase(), canvas.width * 0.35, canvas.height * 0.635);
+            // 2. Draw Template ON TOP (The hole in the template reveals the photo)
+            context.drawImage(template, 0, 0);
 
-            // Show result
+            // Export
             posterFinal.src = canvas.toDataURL('image/png');
             posterFinal.style.display = 'block';
 
             cameraStep.classList.add('hidden');
             resultStep.classList.remove('hidden');
 
-            // Stop camera
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
 
-            // Save to gallery
             finalizeDossier();
         };
 
         template.onerror = () => {
-            alert("Agent template not found. Using basic layout.");
-            canvas.width = 600;
-            canvas.height = 800;
-            context.fillStyle = '#f4e4bc';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            context.strokeStyle = '#d4af37';
-            context.lineWidth = 10;
-            context.strokeRect(10, 10, 580, 780);
-
-            context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 50, 50, 500, 500);
-            context.font = "40px 'Cinzel'";
-            context.fillStyle = "#000";
-            context.fillText("AGENT: " + agentName, 50, 650);
-
-            posterFinal.src = canvas.toDataURL('image/png');
-            posterFinal.style.display = 'block';
-
-            cameraStep.classList.add('hidden');
-            resultStep.classList.remove('hidden');
+            alert("Identification Template Error (nicCageTemplate.png missing).");
         };
     });
 
-    // Step 4: Download
+    // --- ACTIONS ---
     downloadBtn.addEventListener('click', () => {
         const link = document.createElement('a');
-        link.download = `Agent_${agentName.replace(/\s+/g, '_')}_Dossier.png`;
+        link.download = `AGENT_FILE_${agentName.toUpperCase()}_CLEARANCE.png`;
         link.href = canvas.toDataURL();
         link.click();
     });
 
-    // Step 5: Gallery Switching Logic
     const viewGalleryBtn = document.getElementById('view-gallery-btn');
     const backBtn = document.getElementById('back-from-gallery');
     const galleryStep = document.getElementById('gallery-step');
@@ -184,56 +134,34 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'index.html';
     });
 
-    // --- GLOBAL GALLERY LOGIC ---
+    // --- STORAGE ---
     function saveToGallery(imageData) {
         let gallery = JSON.parse(localStorage.getItem('agentGallery') || '[]');
-        gallery.unshift({
-            name: agentName,
-            image: imageData,
-            date: new Date().toLocaleDateString()
-        });
-        if (gallery.length > 24) gallery.pop();
+        gallery.unshift({ name: agentName, image: imageData, date: Date.now() });
+        if (gallery.length > 32) gallery.pop();
         localStorage.setItem('agentGallery', JSON.stringify(gallery));
     }
 
     function loadGallery() {
         const gallery = JSON.parse(localStorage.getItem('agentGallery') || '[]');
         galleryGrid.innerHTML = '';
-
         if (gallery.length === 0) {
-            galleryGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; opacity: 0.5;">No agents recorded yet...</p>';
+            galleryGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; opacity: 0.5;">REGISTRY EMPTY</p>';
             return;
         }
-
         gallery.forEach(entry => {
-            const item = document.createElement('div');
-            item.className = 'agent-photo';
-            item.style.background = 'rgba(255,255,255,0.05)';
-            item.style.padding = '10px';
-            item.style.borderRadius = '8px';
-            item.style.border = '1px solid var(--glass-border)';
-            item.style.textAlign = 'center';
-
-            const img = document.createElement('img');
-            img.src = entry.image;
-            img.style.width = '100%';
-            img.style.borderRadius = '4px';
-            img.style.marginBottom = '8px';
-
-            const label = document.createElement('div');
-            label.textContent = entry.name;
-            label.style.fontFamily = "'Cinzel', serif";
-            label.style.fontSize = '0.7rem';
-            label.style.color = 'var(--primary-gold)';
-
-            item.appendChild(img);
-            item.appendChild(label);
-            galleryGrid.appendChild(item);
+            const card = document.createElement('div');
+            card.style.background = 'rgba(0,0,0,0.4)';
+            card.style.padding = '10px';
+            card.style.borderRadius = '5px';
+            card.style.border = '1px solid var(--primary-gold)';
+            card.innerHTML = `<img src="${entry.image}" style="width:100%;"><p style="font-size:0.7rem; color:var(--primary-gold); margin-top:5px;">${entry.name}</p>`;
+            galleryGrid.appendChild(card);
         });
     }
 
     function finalizeDossier() {
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
         saveToGallery(dataUrl);
     }
 });
