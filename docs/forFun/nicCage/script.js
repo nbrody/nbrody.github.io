@@ -18,21 +18,21 @@ document.addEventListener('DOMContentLoaded', () => {
             text: "Find the hidden truths within the grid. Words can be scattered in any direction.",
             type: "wordsearch",
             grid: [
-                "LONGLEGSBEES", // LONGLEGS, BEES
-                "QKJZHXUBPAWB",
-                "ANOZIRACKJAR", // ARIZONA (Rev)
-                "VCONAIRAQXLA", // CONAIR
-                "IWERTYUGPCKC",
-                "NPFACEOFFVEO", // FACEOFF
-                "NATIONALJKBR", // NATIONAL
-                "HQUWIEOPLXZI",
-                "ASDSGHOSCARQ", // OSCAR
-                "KVJFUYTREWQA",
-                "TREASUREVMPT", // TREASURE
-                "BVCXZLKJHGFD"
+                "NATIONALBEES", // NATIONAL (0,0-7), BEES (0,8-11)
+                "QARIZONAPZLO", // ARIZONA (1,1-7), OSCARFEVER(O at 11)
+                "FWYIVBHKMNJS", // F(2,0) ... S(2,11)
+                "OAGRXQWUZIPC", // A(3,1) ... C(3,11)
+                "LKCJTDSMEBKA", // C(4,2) ... A(4,11)
+                "ZNBEYVRGXHWR", // E(5,3) ... R(5,11)
+                "POIUOWQASDRF", // O(6,4) ... F(6,11)
+                "LKJHGFAZXCXE", // F(7,5) ... E(7,11)
+                "MNBVCXZFPOIV", // F(8,6) ... V(8,11)
+                "LONGLEGSQWEE", // E(9,11)
+                "TREASUREZXCR", // R(10,11)
+                "CONAIRPLMOKN"  // CONAIR
             ],
-            words: ["ARIZONA", "BEES", "CONAIR", "FACEOFF", "LONGLEGS", "NATIONAL", "OSCAR", "TREASURE"],
-            displayWords: ["ARIZONA", "BEES", "CON AIR", "FACE OFF", "LONGLEGS", "NATIONAL", "OSCAR", "TREASURE"],
+            words: ["ARIZONA", "BEES", "CONAIR", "FACEOFF", "LONGLEGS", "NATIONAL", "OSCARFEVER", "TREASURE"],
+            displayWords: ["ARIZONA", "BEES", "CON AIR", "FACE OFF", "LONGLEGS", "NATIONAL", "OSCAR FEVER", "TREASURE"],
             hint: "Drag to select. Words can be backwards!"
         },
         {
