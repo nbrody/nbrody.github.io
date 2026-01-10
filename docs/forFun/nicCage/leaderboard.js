@@ -23,23 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cageifyAllBtn) {
         cageifyAllBtn.addEventListener('click', () => {
             isGlobalCaged = !isGlobalCaged;
-            cageifyAllBtn.textContent = isGlobalCaged ? 'Un-Cage Everyone' : 'Cageify Everyone';
+            cageifyAllBtn.textContent = isGlobalCaged ? 'Un-Cage' : 'Cageify Everyone';
 
-            const overlays = document.querySelectorAll('.cage-overlay');
-            const selfies = document.querySelectorAll('.selfie-img');
-
-            overlays.forEach(overlay => {
-                overlay.style.opacity = isGlobalCaged ? '1' : '0';
-            });
-
-            selfies.forEach(img => {
-                if (isGlobalCaged) {
-                    // Shrunk down (~35% width), bottom-aligned, shifted right
-                    // User request: "Translate down farther, and slightly farther to the right. Align the bottoms"
-                    img.style.transform = 'scale(0.4) translate(35%, 35%)';
-                } else {
-                    img.style.transform = 'none';
-                }
+            const souvenirs = document.querySelectorAll('.souvenir-img');
+            souvenirs.forEach(img => {
+                img.style.opacity = isGlobalCaged ? '1' : '0';
             });
         });
     }
@@ -78,6 +66,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const template = new Image();
         template.src = 'nicCageTemplate.png'; // Using the PNG with transparency
 
+        // Hardcoded Calibration Values (Success)
+        const CAL_X = 0.39;
+        const CAL_Y = 0.51;
+        const CAL_SCALE = 0.50;
+
         template.onload = () => {
             canvas.width = template.width;
             canvas.height = template.height;
@@ -103,44 +96,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 sy = (vHeight - sHeight) / 2;
             }
 
+            // Capture raw photo initial (full size)
             context.save();
-            // Apply vintage filter to match the template style
             context.filter = 'sepia(0.3) contrast(1.1) brightness(0.9)';
-
-            // Draw the video frame nicely cropped to fill the WHOLE canvas
             context.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
-
             context.restore();
 
-            // CAPTURE RAW SELFIE FOR GALLERY (Before adding template)
-            // This is what will be shown in the gallery initially
             const rawSelfieUrl = canvas.toDataURL('image/jpeg', 0.7);
+            const rawSelfieImg = new Image();
 
-            // CLEAR CANVAS to prepare for "Souvenir" composition
-            context.clearRect(0, 0, canvas.width, canvas.height);
+            rawSelfieImg.onload = () => {
+                // Clear and Redraw with Transform for Composition
+                context.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 1b. Redraw Video with "Cageify" transform for the Poster
-            // Transform: scale(0.4) translate(35%, 35%)
-            // Center-based logic conversion:
-            // Scale 0.4 keeps center. Top-left moves to 0.3W, 0.3H.
-            // Translate 35% adds 0.35W, 0.35H.
-            // Final Dest: X=0.65W, Y=0.65H, W=0.4W, H=0.4H.
-            const destX = canvas.width * 0.65;
-            const destY = canvas.height * 0.65;
-            const destW = canvas.width * 0.4;
-            const destH = canvas.height * 0.4;
+                // 1b. Redraw Photo with Transform
+                const destW = canvas.width * CAL_SCALE;
+                const destH = canvas.height * CAL_SCALE;
+                const destX = canvas.width * CAL_X;
+                const destY = canvas.height * CAL_Y;
 
-            context.save();
-            context.filter = 'sepia(0.3) contrast(1.1) brightness(0.9)';
-            context.drawImage(video, sx, sy, sWidth, sHeight, destX, destY, destW, destH);
-            context.restore();
+                context.drawImage(rawSelfieImg, 0, 0, rawSelfieImg.width, rawSelfieImg.height, destX, destY, destW, destH);
 
-            // 2. Draw Template ON TOP (The hole in the template reveals the photo)
-            context.drawImage(template, 0, 0);
+                // 2. Draw Template ON TOP
+                context.drawImage(template, 0, 0);
 
-            // Export (Result View shows the full poster)
-            posterFinal.src = canvas.toDataURL('image/png');
-            posterFinal.style.display = 'block';
+                // Export Souvenir
+                const souvenirUrl = canvas.toDataURL('image/png');
+                posterFinal.src = souvenirUrl;
+                posterFinal.style.display = 'block';
+
+                // Save to Gallery (Both images)
+                saveToGallery(rawSelfieUrl, souvenirUrl);
+            };
+            rawSelfieImg.src = rawSelfieUrl;
 
             cameraStep.classList.add('hidden');
             resultStep.classList.remove('hidden');
@@ -148,9 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
-
-            // Save the raw selfie to the gallery
-            saveToGallery(rawSelfieUrl);
         };
 
         template.onerror = () => {
@@ -162,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
     downloadBtn.addEventListener('click', () => {
         const link = document.createElement('a');
         link.download = `NIC_CAGE_HUNT_VICTORY_${agentName.toUpperCase()}.png`;
-        link.href = canvas.toDataURL();
+        link.href = posterFinal.src;
         link.click();
     });
 
@@ -195,15 +180,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- STORAGE ---
-    function saveToGallery(imageData) {
+    function saveToGallery(selfieData, souvenirData) {
         let gallery = JSON.parse(localStorage.getItem('agentGallery') || '[]');
-        gallery.push({ name: agentName, image: imageData, date: Date.now() }); // Push to end (chronological)
-        if (gallery.length > 32) gallery.shift(); // Remove oldest if full, keeping newest? Or keep oldest?
-        // "First person... at the top". If I push, they are at the bottom of the array.
-        // Wait, display loop order matters. Currently forEach iterates 0..N.
-        // If I use push(), index 0 is first person. Index 0 displays first.
-        // So push() + forEach() = First person at top.
-        // Previous code was unshift(), so Newest was index 0.
+        gallery.push({
+            name: agentName,
+            selfie: selfieData,
+            souvenir: souvenirData,
+            date: Date.now()
+        });
+
+        // Keep last 50
+        if (gallery.length > 50) gallery.shift();
+
         localStorage.setItem('agentGallery', JSON.stringify(gallery));
     }
 
@@ -219,7 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
             galleryGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; opacity: 0.5;">REGISTRY EMPTY</p>';
             return;
         }
-        gallery.forEach(entry => {
+
+        // Show oldest first (chronological)
+        gallery.forEach((entry, index) => {
             const card = document.createElement('div');
             card.style.position = 'relative';
             card.style.background = 'rgba(0,0,0,0.4)';
@@ -231,50 +221,77 @@ document.addEventListener('DOMContentLoaded', () => {
             const imgContainer = document.createElement('div');
             imgContainer.style.position = 'relative';
             imgContainer.style.width = '100%';
-            imgContainer.style.overflow = 'hidden'; // Keep transformed image inside bounds
+            imgContainer.style.aspectRatio = '3/4'; // Enforce aspect ratio to avoid jumps
+            imgContainer.style.overflow = 'hidden';
 
-            // Raw Selfie
+            // 1. Raw Selfie (Base)
+            // Use 'image' property for legacy support, 'selfie' for new
+            const selfieSrc = entry.selfie || entry.image;
+
             const img = document.createElement('img');
-            img.src = entry.image;
+            img.src = selfieSrc;
             img.classList.add('selfie-img');
             img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'cover';
             img.style.display = 'block';
             img.style.borderRadius = '3px';
-            img.style.transition = 'transform 0.5s ease'; // Smooth move
-            img.style.transformOrigin = 'center center';
 
-            // Cage Overlay (Hidden by default)
-            const overlay = document.createElement('img');
-            overlay.src = 'nicCageTemplate.png';
-            overlay.classList.add('cage-overlay');
-            overlay.style.position = 'absolute';
-            overlay.style.top = '0';
-            overlay.style.left = '0';
-            overlay.style.width = '100%';
-            overlay.style.height = '100%';
-            overlay.style.opacity = '0';
-            overlay.style.transition = 'opacity 0.3s ease';
-            overlay.style.pointerEvents = 'none';
+            // 2. Souvenir (Overlay, toggleable)
+            // If legacy entry has no souvenir, maybe generate one on fly? typically hard.
+            // Just show nothing or fallback.
+            const souvenirSrc = entry.souvenir;
 
             imgContainer.appendChild(img);
-            imgContainer.appendChild(overlay);
 
-            // Name
-            const nameP = document.createElement('p');
-            nameP.style.fontSize = '0.7rem';
-            nameP.style.color = 'var(--primary-gold)';
-            nameP.style.marginTop = '5px';
-            nameP.textContent = entry.name;
+            if (souvenirSrc) {
+                const souvenirImg = document.createElement('img');
+                souvenirImg.src = souvenirSrc;
+                souvenirImg.classList.add('souvenir-img'); // Hook for toggle
+                souvenirImg.style.position = 'absolute';
+                souvenirImg.style.top = '0';
+                souvenirImg.style.left = '0';
+                souvenirImg.style.width = '100%';
+                souvenirImg.style.height = '100%';
+                souvenirImg.style.objectFit = 'contain'; // Souvenir preserves its ratio
+                souvenirImg.style.opacity = '0'; // Hidden by default
+                souvenirImg.style.transition = 'opacity 0.5s ease';
+                imgContainer.appendChild(souvenirImg);
+            }
+
+            // Details: Rank, Name, Time
+            const detailsDiv = document.createElement('div');
+            detailsDiv.style.marginTop = '10px';
+            detailsDiv.style.display = 'flex';
+            detailsDiv.style.justifyContent = 'space-between';
+            detailsDiv.style.alignItems = 'end';
+
+            const leftInfo = document.createElement('div');
+            leftInfo.style.fontFamily = 'Cinzel, serif';
+            leftInfo.innerHTML = `
+                <span style="font-size: 1.2rem; font-weight: bold; color: var(--primary-gold); margin-right: 5px;">#${index + 1}</span>
+                <span style="font-size: 1rem; color: var(--primary-gold);">${entry.name}</span>
+            `;
+
+            const rightInfo = document.createElement('div');
+            const dateStr = entry.date ? new Date(entry.date).toLocaleString([], {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) : '';
+            rightInfo.textContent = dateStr;
+            rightInfo.style.fontSize = '0.7rem';
+            rightInfo.style.color = 'rgba(212, 175, 55, 0.7)';
+
+            detailsDiv.appendChild(leftInfo);
+            detailsDiv.appendChild(rightInfo);
 
             card.appendChild(imgContainer);
-            card.appendChild(nameP);
+            card.appendChild(detailsDiv);
 
             galleryGrid.appendChild(card);
         });
     }
 
-    function finalizeDossier() {
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-        saveToGallery(dataUrl);
-    }
 });
