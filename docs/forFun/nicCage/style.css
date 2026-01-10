@@ -38,6 +38,7 @@ body {
     background-repeat: no-repeat;
     z-index: -1;
     filter: brightness(0.4) sepia(0.2);
+    transition: background-image 1s ease-in-out;
 }
 
 .container {
@@ -132,6 +133,34 @@ p {
 }
 
 /* Animations */
+@keyframes shake {
+
+    10%,
+    90% {
+        transform: translate3d(-1px, 0, 0);
+    }
+
+    20%,
+    80% {
+        transform: translate3d(2px, 0, 0);
+    }
+
+    30%,
+    50%,
+    70% {
+        transform: translate3d(-4px, 0, 0);
+    }
+
+    40%,
+    60% {
+        transform: translate3d(4px, 0, 0);
+    }
+}
+
+.shake {
+    animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
+}
+
 @keyframes fadeInDown {
     from {
         opacity: 0;
@@ -175,5 +204,53 @@ p {
 
     .glass-panel {
         padding: 2rem;
+    }
+}
+
+/* Puzzle Styles */
+.puzzle-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    grid-gap: 2px;
+    width: 300px;
+    height: 444px;
+    /* Matches ~2:3 poster aspect ratio */
+    margin: 20px auto;
+    border: 3px solid var(--primary-gold);
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+    background: #000;
+}
+
+.puzzle-tile {
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    background-size: 400% 400%;
+    /* Ensure both dimensions scale */
+    background-repeat: no-repeat;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid rgba(0, 0, 0, 0.5);
+}
+
+.puzzle-tile:hover {
+    filter: brightness(1.2);
+    z-index: 10;
+}
+
+.puzzle-tile.selected {
+    transform: scale(0.95);
+    box-shadow: 0 0 10px #f00 inset;
+    /* Red glow for "Face/Off" theme */
+    border-color: #f00;
+    filter: sepia(0.5) hue-rotate(-50deg);
+    /* Intense red shift */
+}
+
+@media (max-width: 400px) {
+    .puzzle-grid {
+        width: 240px;
+        height: 355px;
+        /* Maintain aspect ratio on mobile */
     }
 }
