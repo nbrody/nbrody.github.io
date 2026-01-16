@@ -59,6 +59,10 @@ class SearchProblem(ABC):
         """Return a string representation of the score for logging."""
         pass
 
+    def format_state(self, node: Node) -> str:
+        """Return a string representation of the state for logging."""
+        return str(node.state)
+
 class FlashBeam:
     def __init__(self, 
                  problem: SearchProblem, 
@@ -119,8 +123,8 @@ class FlashBeam:
             
             # 2. Expand: Beam x Pool
             for b_idx, b_node in enumerate(current_beam):
-                if b_idx % 1000 == 0 and b_idx > 0:
-                    print(f"  ... {b_idx}/{len(current_beam)} frontier nodes expanded")
+                # if b_idx % 1000 == 0 and b_idx > 0:
+                #     print(f"  ... {b_idx}/{len(current_beam)} frontier nodes expanded")
                 for f_node in expansion_pool:
                     
                     # Domain specific combination
@@ -179,6 +183,13 @@ class FlashBeam:
             best_node = current_beam[0]
             elapsed = time.monotonic() - start_time
             print(f"Iter {i} Complete: Best Score {self.problem.format_score(best_node)} | Total Visited {len(visited)} | Time {elapsed:.1f}s")
+            
+            # Print best state every iteration
+            print(f"  Best Word: {best_node.identifier}", flush=True)
+            state_str = self.problem.format_state(best_node)
+            # Indent state str if it has multiple lines
+            indented_state = "\n".join("    " + line for line in state_str.splitlines())
+            print(f"  State:\n{indented_state}", flush=True)
 
         print("\nSearch complete.")
         return found_solutions

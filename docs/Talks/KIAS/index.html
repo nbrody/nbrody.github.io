@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surface Groups | KIAS Talk</title>
+
+    <!-- Fullpage.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.css" />
+
+    <!-- MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                macros: {
+                    N: "\\mathbb{N}",
+                    Z: "\\mathbb{Z}",
+                    Q: "\\mathbb{Q}",
+                    R: "\\mathbb{R}",
+                    C: "\\mathbb{C}",
+                    bbA: "\\mathbb{A}",
+                    bbF: "\\mathbb{F}",
+                    bbG: "\\mathbb{G}",
+                    bbH: "\\mathbb{H}",
+                    bbX: "\\mathbb{X}",
+
+                    GL: "\\mathsf{GL}",
+                    PGL: "\\mathsf{PGL}",
+                    SL: "\\mathsf{SL}",
+                    PSL: "\\mathsf{PSL}",
+                    Aut: "\\mathsf{Aut}",
+                    Hom: "\\mathsf{Hom}",
+                    Mod: "\\mathsf{Mod}"
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div id="fullpage">
+        <!-- Section 1: Title -->
+        <div class="section" data-anchor="title">
+            <img src="assets/redwoods.png" class="bg-art redwoods" alt="Redwood Forest">
+            <div class="content-box animate-up">
+                <span class="tag">KIAS Virtual Seminar on Geometry and Topology</span>
+                <h1>Surface Groups and Products of Trees</h1>
+                <p>Nic Brody, UC Santa Cruz
+                    <br>January 23, 2026
+                </p>
+            </div>
+        </div>
+
+        <!-- Section 2: Introduction -->
+        <div class="section" data-anchor="introduction">
+            <div class="slide" data-anchor="questions">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Introduction</h2>
+                    <p>Suppose that \(G\) is a group.<br>
+                        Question 1: What are the subgroups of \(G\)?<br>
+                        Question 2: Which groups can \(G\) embed into?<br>
+                        Question 3: Which spaces can \(G\) act on?
+                    </p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="the-goal">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">The Goal</h2>
+                    <p>Our focus today is on the intersection of these questions for surface groups.</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="main-theorem">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Classical Result</h2>
+                    <div class="theorem" data-label="Theorem (Nielsen-Fenchel)">
+                        <p>Every finite subgroup of the mapping class group \(\Mod(S)\) can be realized as a group of
+                            isometries of some hyperbolic structure on \(S\).</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Background -->
+        <div class="section" data-anchor="background">
+            <div class="slide" data-anchor="hyperbolic">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Background: \(\PSL_2(\R)\)</h2>
+                    <p>The group \(\PSL_2(\R)\) acts on the upper half plane \(\bbH = \{z \in \C : \Im(z) > 0\}\) via
+                        Möbius transformations:</p>
+                    <formula>
+                        \[ \begin{pmatrix} a & b \\ c & d \end{pmatrix} \cdot z = \frac{az + b}{cz + d} \]
+                    </formula>
+                    <p>This action is transitive and preserves the hyperbolic metric \(ds^2 = \frac{dx^2 + dy^2}{y^2}\).
+                    </p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="iwasawa">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Iwasawa Decomposition</h2>
+                    <p>Every element \(g \in \SL_2(\R)\) can be uniquely factored as \(g = kan\):</p>
+                    <formula>
+                        \[ \underbrace{\begin{pmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta
+                        \end{pmatrix}}_{K \in \mathsf{SO}(2)}
+                        \underbrace{\begin{pmatrix} \lambda & 0 \\ 0 & \lambda^{-1} \end{pmatrix}}_{A \in \mathsf{A}}
+                        \underbrace{\begin{pmatrix} 1 & x \\ 0 & 1 \end{pmatrix}}_{N \in \mathsf{N}} \]
+                    </formula>
+                    <p>Geometrically, this represents a rotation, followed by a scaling, followed by a translation of
+                        \(\bbH\).</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="padics">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">The \(p\)-adic Numbers</h2>
+                    <p>The field \(\Q_p\) is the completion of \(\Q\) with respect to the \(p\)-adic norm \(|x|_p\):</p>
+                    <formula>
+                        \[ x = p^v \frac{a}{b} \implies |x|_p = p^{-v} \]
+                    </formula>
+                    <p>In this non-archimedean world, a sequence converges if and only if the difference between terms
+                        goes to zero—leading to a totally disconnected topology.</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="tree">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">The Bruhat-Tits Tree</h2>
+                    <p>The \(p\)-adic analogue of the hyperbolic plane is the Bruhat-Tits tree \(\mathbb{T}_p\).</p>
+                    <ul>
+                        <li>Vertices are homothety classes of \(\Z_p\)-lattices in \(\Q_p^2\).</li>
+                        <li>An edge exists between \([\Lambda]\) and \([\Lambda']\) if they have representatives with
+                            \(\Lambda' \subset \Lambda\) and \(\Lambda/\Lambda' \cong \Z/p\Z\).</li>
+                    </ul>
+                    <p>This results in a regular tree of valence \(p+1\).</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="padic-action">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Action on \(\mathbb{T}_p\)</h2>
+                    <p>The group \(\PGL_2(\Q_p)\) acts by isometries on the tree \(\mathbb{T}_p\).</p>
+                    <p>Just as in the real case, we have an Iwasawa decomposition:</p>
+                    <formula>
+                        \[ \PGL_2(\Q_p) = \PGL_2(\Z_p) \cdot \mathsf{A} \cdot \mathsf{N} \]
+                    </formula>
+                    <p>where \(\PGL_2(\Z_p)\) is the stabilizer of a vertex, acting as "rotations" of the tree.</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="arithmetic">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Arithmetic Lattices</h2>
+                    <p>The <strong>Minkowski embedding</strong> allows us to view groups defined over \(\Q\) as discrete
+                        subgroups of Lie groups. For example:</p>
+                    <formula>
+                        \[ \PGL_2(\Q) \hookrightarrow \PGL_2(\R) \times \prod_{p} \PGL_2(\Q_p) \]
+                    </formula>
+                    <div class="theorem" data-label="Theorem (Borel--Harish-Chandra)">
+                        <p>Let \(G\) be a semisimple algebraic group defined over \(\Q\). Then \(G(\Z)\) is a lattice in
+                            \(G(\R)\). More generally, \(G(\Z[1/S])\) is a lattice in \(\prod_{v \in S \cup \{\infty\}}
+                            G(\Q_v)\).</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Actions -->
+        <div class="section" data-anchor="actions">
+            <div class="slide" data-anchor="approaches">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Approaches</h2>
+                    <p>Suppose \(\Gamma\) is a surface group. We will try to find a discrete and faithful representation
+                        of \(\Gamma\) into \(\Aut(\bbX)\) for some space \(\bbX\).
+                    </p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="long-reid-group">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Long-Reid group</h2>
+                    <p>Suppose \(\Gamma\leq \PGL_2(\Q)\) is a surface group. By embedding \(\Q\)
+                        into the adeles \(\bbA\), we instantly have a proper action of \(\Gamma\) on
+                    </p>
+                    <formula>
+                        \(\bbH^2\times \prod'_{p\text{ prime}}\mathbb{T}_p\)
+                    </formula>
+                </div>
+            </div>
+            <div class="slide" data-anchor="FLSS-action">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">FLSS action</h2>
+                    <p>Suppose \(\Gamma\leq \PGL_2(\bbF_p(t))\) is a surface group. Since \(\Gamma\) is finitely
+                        generated, it is contained in \(\PGL_2(A)\) for some finitely generated subring \(A\) of
+                        \(\bbF_p(t)\). Such a ring is of the form \(A=\bbF_p[t,\frac{1}{f_1},...,\frac{1}{f_k}]\)
+                        for some irreducible polynomials \(f_i\in \bbF_p[t]\).
+                    </p>
+
+                    <p>We can obtain a representation of \(\Gamma\) into \(\PGL_2(\bbF_p(t))\) by taking a
+                        representations of \(\Gamma\) into \(\PGL_2(\Z(t))\), and composing with the reduction
+                        map \(\Z(t)\to\bbF_p(t)\). If we can find a faithful such representation, we've succeeded!
+                    </p>
+
+                    <p>Using the same surface group as before, we can consider
+                        <formula>
+                            \(\left\langle \begin{pmatrix} t & 0 \\ 0 & 1 \end{pmatrix}, \begin{pmatrix} t^2+1 & 2 \\ t
+                            & 1 \end{pmatrix} \right\rangle \leq \PGL_2(\Z(t))\)
+                        </formula>
+                    </p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="totally-unitary">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Totally unitary representations</h2>
+                    <p>Suppose \(k\) is a number field, and \(\Gamma\) is a group. We say that a representation
+                        \(\rho\colon \Gamma\to \PGL_2(k)\) is <strong>totally unitary</strong> if for every archimedean
+                        place \(v\colon k\to \C\), \(\rho(\Gamma)\) is precompact.
+                    </p>
+                    <div class="theorem" data-label="Proposition">
+                        <p>Let \(\rho\colon \Gamma\to \PGL_2(k)\) be a faithful totally unitary representation. Then
+                            \(\rho\) induces a proper action of \(\Gamma\) on a locally compact product of trees.</p>
+                    </div>
+                    <p>Thus, if we can find a faithful and totally unitary surface group representation, we've
+                        succeeded! <br>
+
+                        For example, we can try to find surface subgroups of \(\mathsf{PU}_2(\Q(i))\). To keep things
+                        simple, let's seek matrices
+                        \(g=\begin{pmatrix} x & y \\ -y & x\end{pmatrix}\) and \(h=\begin{pmatrix} a+bi & c+di \\ -c+di
+                        & a-bi\end{pmatrix}\) where
+                        \([g,h]\) has trace zero.
+                        <br> This becomes the condition that
+                        \((x^2+y^2)(a^2+c^2)+(x^2-y^2)(b^2+d^2)=0\). We can find a particular integer solution
+                        \(x=4, y=5, a=3, b=1, c=3, d=9\), giving the representation
+                        \(g=\begin{pmatrix} 4 & 5 \\ -5 & 4\end{pmatrix}\) and \(h=\begin{pmatrix} 3+i & 3+9i \\ -3+9i &
+                        3-i\end{pmatrix}\). Indeed,
+                        we note that \([g,h]=\begin{pmatrix} -\frac{27}{5\cdot 41}i & \frac{4}{5}-\frac{24}{41}i \\
+                        -\frac{4}{5}-\frac{24}{41}i & \frac{27}{5\cdot 41}i\end{pmatrix}\).
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Computation -->
+        <div class="section" data-anchor="computation">
+            <div class="slide" data-anchor="overview">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Computation</h2>
+                    <p>Algorithmic approaches and results.</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="beam-search">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Beam search</h2>
+                    <p>Maintain a set of top \(k\) candidates and extend them based on a cost function \(C\colon G\to
+                        \bbR\).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 6: Conclusions -->
+        <div class="section" data-anchor="conclusions">
+            <img src="assets/ocean.png" class="bg-art ocean" alt="Pacific Ocean">
+            <div class="content-box animate-up">
+                <h2 class="slide-title">Summary & Outlook</h2>
+                <p>Bridging the gap between low-dimensional topology and algebraic geometry.</p>
+                <div style="margin-top: 3rem;">
+                    <a href="#title"
+                        style="text-decoration: none; border: 2px solid var(--text-ink); padding: 1.2rem 2.5rem; color: var(--text-ink); font-weight: 700;">Back
+                        to Start</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 7: Speculation -->
+        <div class="section" data-anchor="speculation">
+            <div class="slide" data-anchor="conjecture-1">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Conjecture 1</h2>
+                    <p>Suppose \(k\) is a number field and \(\bbG\) is a simple \(k\)-algebraic group. We say that a
+                        subgroup \(\Gamma \leq \bbG(k)\) is:
+                        <br>\(\bullet\) <strong>algebraic</strong> if \(\Gamma\) is contained in
+                        \(\bbH(\Q)\lneq\mathsf{Res}_{k/\Q}(\bbG)(\Q)\) for some proper algebraic
+                        subgroup of \(\bbG(k)\).
+                        <br>\(\bullet\) <strong>geometric</strong> if there is some place \(v\) such that \(\Gamma\) is
+                        discrete in \(\bbG(k_v)\).
+                        <br>\(\bullet\) <strong>arithmetic</strong> if \(\Gamma\) is commensurable with \(\bbG(A)\) for
+                        some subring \(A \leq k\).
+                    </p>
+                    <p>
+                        Conjecture:Every subgroup \(\Gamma\) is either algebraic, geometric, or arithmetic.
+                    </p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="conjecture-2">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Conjecture 2</h2>
+                    <p>Suppose \(k\) is a number field and \(\bbG\) is a simple \(k\)-algebraic group. We say that a
+                        subgroup \(\Gamma \leq \bbG(k)\) is:
+                        <br>\(\bullet\) <strong>algebraic</strong> if \(\Gamma\) is contained in
+                        \(\bbH(\Q)\lneq\mathsf{Res}_{k/\Q}(\bbG)(\Q)\) for some proper algebraic
+                        subgroup of \(\bbG(k)\).
+                        <br>\(\bullet\) <strong>geometric</strong> if there is some place \(v\) such that \(\Gamma\) is
+                        discrete in \(\bbG(k_v)\).
+                        <br>\(\bullet\) <strong>arithmetic</strong> if \(\Gamma\) is commensurable with \(\bbG(A)\) for
+                        some subring \(A \leq k\).
+                    </p>
+                    <p>
+                        Conjecture: Every subgroup \(\Gamma\) is either algebraic, geometric, or arithmetic.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullpage.js JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            new fullpage('#fullpage', {
+                licenseKey: 'gplv3-license',
+                autoScrolling: true,
+                navigation: true,
+                navigationPosition: 'right',
+                anchors: ['title', 'introduction', 'background', 'actions', 'computation', 'conclusions', 'speculation'],
+                slidesNavigation: true,
+                controlArrows: true,
+                keyboardScrolling: true,
+                animateAnchor: true,
+
+                afterLoad: function (origin, destination, direction) {
+                    destination.item.classList.add('active');
+                },
+                afterSlideLoad: function (section, origin, destination, direction) {
+                    destination.item.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Borel-Harish-Chandra Explorer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&family=Outfit:wght@300;600&display=swap"
+        rel="stylesheet">
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --glass: rgba(30, 41, 59, 0.7);
+            --accent: #6366f1;
+            --text: #f8fafc;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 1.5rem;
+            margin: 0;
+            background: linear-gradient(135deg, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .matrix-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+        }
+
+        input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            color: white;
+            padding: 4px;
+            width: 50px;
+            text-align: center;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .primes-input {
+            width: 120px;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .main-viz {
+            flex: 1;
+            position: relative;
+            display: flex;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            cursor: move;
+        }
+
+        #tooltip {
+            position: absolute;
+            background: var(--glass);
+            backdrop-filter: blur(8px);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+            font-size: 0.9rem;
+        }
+
+        .viewport-label {
+            position: absolute;
+            padding: 0.4rem 0.8rem;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--accent);
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>Borel-Harish-Chandra Animator</h1>
+        <div class="controls">
+            <div class="input-group">
+                <span>Matrix:</span>
+                <div class="matrix-grid">
+                    <input type="text" id="g-a" value="3/2">
+                    <input type="text" id="g-b" value="1">
+                    <input type="text" id="g-c" value="1">
+                    <input type="text" id="g-d" value="1">
+                </div>
+            </div>
+            <div class="input-group">
+                <span>Primes:</span>
+                <input type="text" id="primes" value="2, 3" class="primes-input">
+            </div>
+            <button id="apply-btn">Apply Action & Animate</button>
+            <button id="reset-btn" style="background: #334155;">Reset Views</button>
+        </div>
+    </div>
+
+    <div class="main-viz">
+        <canvas id="viz-canvas"></canvas>
+        <div id="tooltip"></div>
+    </div>
+
+    <script src="hypPlane/exactMath.js"></script>
+    <script>
+        // Extend BigFrac with p-adic specific methods if they are missing
+        BigFrac.prototype.val = function (p) {
+            if (this.n === 0n) return 1000;
+            let v = 0;
+            let n = this.n < 0n ? -this.n : this.n;
+            let d = this.d;
+            const bigP = BigInt(p);
+            while (n > 0n && n % bigP === 0n) { n /= bigP; v++; }
+            while (d > 0n && d % bigP === 0n) { d /= bigP; v--; }
+            return v;
+        };
+
+        BigFrac.prototype.modPn = function (p, n) {
+            const pBig = BigInt(p);
+            const pn = (n >= 0) ? new BigFrac(pBig ** BigInt(n)) : new BigFrac(1n, pBig ** BigInt(-n));
+            const val = this.div(pn);
+            let rem = val.n % val.d;
+            if (rem < 0n) rem += val.d;
+            return pn.mul(new BigFrac(rem, val.d));
+        };
+
+        // Add Iwasawa to BigMat
+        BigMat.prototype.getOrientedIwasawa = function (p) {
+            let a = this.a, b = this.b, c = this.c, d = this.d;
+            if (c.val(p) < d.val(p)) {
+                let tA = a, tC = c;
+                a = b; c = d;
+                b = tA; d = tC;
+            }
+            const k = c.div(d);
+            a = a.sub(k.mul(b));
+            a = a.div(d);
+            b = b.div(d);
+            const n = a.val(p);
+            const q = b.modPn(p, n);
+            return { n, q };
+        };
+
+        // Lie theory for Hyperbolic animation
+        function getMatrixLog(mat) {
+            const a = mat.a.toNumber(), b = mat.b.toNumber(), c = mat.c.toNumber(), d = mat.d.toNumber();
+            const det = a * d - b * c;
+            const s = Math.sqrt(Math.abs(det));
+            const na = a / s, nb = b / s, nc = c / s, nd = d / s;
+            const tr = na + nd;
+            if (tr > 2.000001) {
+                const phi = Math.acosh(tr / 2);
+                const coeff = phi / Math.sinh(phi);
+                return { type: 'hyperbolic', log: { a: coeff * (na - tr / 2), b: coeff * nb, c: coeff * nc, d: coeff * (nd - tr / 2) } };
+            } else if (tr < 1.999999 && tr > -1.999999) {
+                const phi = Math.acos(tr / 2);
+                const coeff = phi / Math.sin(phi);
+                return { type: 'elliptic', log: { a: coeff * (na - tr / 2), b: coeff * nb, c: coeff * nc, d: coeff * (nd - tr / 2) } };
+            } else {
+                return { type: 'parabolic', log: { a: na - 1, b: nb, c: nc, d: nd - 1 } };
+            }
+        }
+
+        function matrixExp(X, t) {
+            const a = X.a * t, b = X.b * t, c = X.c * t, d = X.d * t;
+            const mdet = -(a * d - b * c);
+            if (mdet > 1e-9) {
+                const s = Math.sqrt(mdet);
+                const co = Math.cosh(s), si = Math.sinh(s) / s;
+                return { a: co + si * a, b: si * b, c: si * c, d: co + si * d };
+            } else if (mdet < -1e-9) {
+                const s = Math.sqrt(-mdet);
+                const co = Math.cos(s), si = Math.sin(s) / s;
+                return { a: co + si * a, b: si * b, c: si * c, d: co + si * d };
+            } else {
+                return { a: 1 + a, b: b, c: c, d: 1 + d };
+            }
+        }
+
+        function applyRawAction(G, z) {
+            const numR = G.a * z.re + G.b, numI = G.a * z.im;
+            const denR = G.c * z.re + G.d, denI = G.c * z.im;
+            const denMagSq = denR * denR + denI * denI;
+            return { re: (numR * denR + numI * denI) / denMagSq, im: (numI * denR - numR * denI) / denMagSq };
+        }
+
+        // --- Visualization Classes ---
+
+        class HyperbolicView {
+            constructor(parent) {
+                this.parent = parent;
+                this.points = [];
+                this.isAnimating = false;
+                this.init();
+            }
+            init() {
+                this.points = [];
+                const nx = 15, ny = 8;
+                for (let i = 0; i < nx; i++) {
+                    for (let j = 0; j < ny; j++) {
+                        const x = -4 + (i / (nx - 1)) * 8;
+                        const y = 0.4 + (j / (ny - 1)) * 3;
+                        this.points.push({ currentZ: { re: x, im: y } });
+                    }
+                }
+            }
+            draw(ctx, w, h) {
+                ctx.save();
+                // Coordinate setup for UHP
+                const scale = w / 10;
+                ctx.translate(w / 2, h * 0.8);
+                ctx.scale(scale, -scale);
+
+                // Real axis
+                ctx.strokeStyle = '#6366f1';
+                ctx.lineWidth = 2 / scale;
+                ctx.beginPath();
+                ctx.moveTo(-5, 0); ctx.lineTo(5, 0);
+                ctx.stroke();
+
+                // Points
+                ctx.fillStyle = '#6366f1';
+                this.points.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.currentZ.re, p.currentZ.im, 0.04, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                ctx.restore();
+            }
+            animate(mat, duration) {
+                const X_data = getMatrixLog(mat);
+                const X = X_data.log;
+                const startPositions = this.points.map(p => ({ ...p.currentZ }));
+                const self = this;
+
+                return (progress) => {
+                    const G_t = matrixExp(X, progress);
+                    self.points.forEach((p, i) => {
+                        const zPrime = applyRawAction(G_t, startPositions[i]);
+                        p.currentZ = zPrime;
+                    });
+                };
+            }
+        }
+
+        class TreeView {
+            constructor(parent, p) {
+                this.parent = parent;
+                this.p = p;
+                this.nodes = [];
+                this.particles = [];
+                this.view = { x: 0, y: 0, scale: 0.3 };
+                this.init();
+            }
+            safePow(p, n) {
+                const pBig = BigInt(p);
+                if (n >= 0) return new BigFrac(pBig ** BigInt(n));
+                return new BigFrac(1n, pBig ** BigInt(-n));
+            }
+            init() {
+                this.nodes = [];
+                const p = this.p;
+                const build = (n, q, x, y, parentIdx, width) => {
+                    const idx = this.nodes.length;
+                    this.nodes.push({ n, q, x, y, parentIdx, mat: new BigMat(this.safePow(p, n), q, 0, 1) });
+                    if (n >= 4) return;
+                    for (let u = 0; u < p; u++) {
+                        const qNext = q.add(new BigFrac(BigInt(u)).mul(this.safePow(p, n)));
+                        build(n + 1, qNext, x + (u - (p - 1) / 2) * width, y + 100, idx, width / p);
+                    }
+                };
+                build(-1, new BigFrac(0), 0, -100, -1, 300);
+                this.particles = this.nodes.map(n => ({
+                    mat: n.mat, pos: { x: n.x, y: n.y }, targetPos: { x: n.x, y: n.y },
+                    color: `hsl(${220 - n.n * 30}, 80%, 60%)`
+                }));
+            }
+            draw(ctx, w, h) {
+                ctx.save();
+                ctx.translate(w / 2, h / 2);
+                ctx.scale(this.view.scale, this.view.scale);
+                ctx.translate(this.view.x, this.view.y);
+
+                // Edges
+                ctx.strokeStyle = 'rgba(99, 102, 241, 0.2)';
+                ctx.lineWidth = 2 / this.view.scale;
+                for (let i = 0; i < this.particles.length; i++) {
+                    const p = this.particles[i];
+                    const n = this.nodes[i];
+                    if (n.parentIdx !== -1) {
+                        const parent = this.particles[n.parentIdx];
+                        ctx.beginPath(); ctx.moveTo(parent.pos.x, parent.pos.y); ctx.lineTo(p.pos.x, p.pos.y); ctx.stroke();
+                    }
+                }
+                // Particles
+                this.particles.forEach(p => {
+                    p.pos.x += (p.targetPos.x - p.pos.x) * 0.1;
+                    p.pos.y += (p.targetPos.y - p.pos.y) * 0.1;
+                    const size = 10 / this.view.scale;
+                    ctx.beginPath(); ctx.arc(p.pos.x, p.pos.y, size, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color; ctx.fill();
+                });
+                ctx.restore();
+            }
+            animate(mat) {
+                const self = this;
+                const p = this.p;
+                this.particles.forEach(pObj => {
+                    pObj.mat = mat.mul(pObj.mat);
+                    const iwa = pObj.mat.getOrientedIwasawa(p);
+                    const target = self.nodes.find(n => n.n === iwa.n && n.q.n === iwa.q.n && n.q.d === iwa.q.d);
+                    if (target) pObj.targetPos = { x: target.x, y: target.y };
+                    else pObj.targetPos = { x: (Math.random() - 0.5) * 1000, y: iwa.n * 100 };
+                });
+                return (progress) => { }; // Discrete target setting handled above
+            }
+        }
+
+        // --- Main Controller ---
+
+        class BHCAnimator {
+            constructor() {
+                this.canvas = document.getElementById('viz-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.views = [];
+                this.isAnimating = false;
+
+                this.setup();
+                window.addEventListener('resize', () => this.resize());
+                this.resize();
+                this.loop();
+            }
+
+            setup() {
+                this.views = [];
+                const primesStr = document.getElementById('primes').value;
+                const primes = primesStr.split(',').map(s => parseInt(s.trim())).filter(p => !isNaN(p));
+
+                this.hypView = new HyperbolicView(this);
+                this.views.push({ view: this.hypView, label: 'Hyperbolic Plane (Real)' });
+
+                primes.forEach(p => {
+                    const tv = new TreeView(this, p);
+                    this.views.push({ view: tv, label: `p-adic Tree (p=${p})` });
+                });
+            }
+
+            resize() {
+                this.canvas.width = this.canvas.clientWidth * window.devicePixelRatio;
+                this.canvas.height = this.canvas.clientHeight * window.devicePixelRatio;
+            }
+
+            loop() {
+                const { canvas, ctx } = this;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                const n = this.views.length;
+                const cols = Math.ceil(Math.sqrt(n));
+                const rows = Math.ceil(n / cols);
+                const w = canvas.width / cols;
+                const h = canvas.height / rows;
+
+                this.views.forEach((v, i) => {
+                    const ix = i % cols;
+                    const iy = Math.floor(i / cols);
+                    ctx.save();
+                    ctx.translate(ix * w, iy * h);
+
+                    // Draw Label
+                    ctx.fillStyle = 'rgba(99, 102, 241, 0.8)';
+                    ctx.font = 'bold 14px Inter';
+                    ctx.fillText(v.label, 20, 30);
+
+                    // Clip area
+                    ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
+
+                    v.view.draw(ctx, w, h);
+                    ctx.restore();
+                });
+
+                requestAnimationFrame(() => this.loop());
+            }
+
+            animate(matArr) {
+                if (this.isAnimating) return;
+                const mat = new BigMat(matArr[0], matArr[1], matArr[2], matArr[3]);
+                const duration = 1500;
+                let startTime = null;
+                this.isAnimating = true;
+
+                const animators = this.views.map(v => v.view.animate(mat, duration));
+
+                const self = this;
+                function run(timestamp) {
+                    if (!startTime) startTime = timestamp;
+                    const progress = Math.min((timestamp - startTime) / duration, 1);
+                    animators.forEach(a => a(progress));
+                    if (progress < 1) requestAnimationFrame(run);
+                    else self.isAnimating = false;
+                }
+                requestAnimationFrame(run);
+            }
+        }
+
+        const animator = new BHCAnimator();
+
+        document.getElementById('apply-btn').addEventListener('click', () => {
+            const vals = [
+                document.getElementById('g-a').value,
+                document.getElementById('g-b').value,
+                document.getElementById('g-c').value,
+                document.getElementById('g-d').value
+            ];
+            animator.animate(vals);
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            animator.setup();
+        });
+    </script>
+</body>
+
+</html>

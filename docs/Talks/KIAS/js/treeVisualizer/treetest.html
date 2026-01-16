@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P-adic Tree Action Explorer</title>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --ink: #f8fafc;
+            --accent: #6366f1;
+            --paper: #1e293b;
+            --border: #334155;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #ui-panel {
+            padding: 1.5rem;
+            background: var(--paper);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .matrix-input {
+            display: grid;
+            grid-template-columns: repeat(2, 60px);
+            gap: 5px;
+            padding: 10px;
+            border: 2px solid var(--accent);
+            position: relative;
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        .matrix-input::before,
+        .matrix-input::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            bottom: -2px;
+            width: 8px;
+            border: 2px solid var(--accent);
+        }
+
+        .matrix-input::before {
+            left: -2px;
+            border-right: 0;
+        }
+
+        .matrix-input::after {
+            right: -2px;
+            border-left: 0;
+        }
+
+        input {
+            width: 100%;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--ink);
+            padding: 4px;
+            text-align: center;
+            font-size: 1rem;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 0.8rem 1.5rem;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background: #020617;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        #tooltip {
+            position: absolute;
+            background: var(--paper);
+            border: 1px solid var(--accent);
+            color: var(--ink);
+            padding: 12px;
+            border-radius: 8px;
+            pointer-events: none;
+            display: none;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui-panel">
+        <div>
+            <span class="tag">Action of \( g \in \mathsf{PGL}_2(\mathbb{Q}) \) on \( \mathcal{T}_p \)</span>
+        </div>
+        <div class="matrix-input" id="matrix-g">
+            <input type="text" id="g-a" value="1">
+            <input type="text" id="g-b" value="0">
+            <input type="text" id="g-c" value="0">
+            <input type="text" id="g-d" value="p">
+        </div>
+        <div>
+            \( p = \) <input type="number" id="prime-p" value="2" style="width: 50px;">
+        </div>
+        <div>
+            Depth: <input type="number" id="max-depth" value="5" min="0" max="8" style="width: 45px;">
+        </div>
+        <div>
+            Trunk: <input type="number" id="trunk-height" value="3" min="0" max="5" style="width: 45px;">
+        </div>
+        <button onclick="startAnimation()">Animate Action</button>
+        <button onclick="resetTree()">Reset</button>
+    </div>
+    <div id="canvas-container">
+        <canvas id="treeCanvas"></canvas>
+        <div id="tooltip"></div>
+    </div>
+
+    <script src="trees.js"></script>
+    <script>
+        function startAnimation() {
+            const p = parseInt(document.getElementById('prime-p').value);
+            const g = [
+                evalVal(document.getElementById('g-a').value, p),
+                evalVal(document.getElementById('g-b').value, p),
+                evalVal(document.getElementById('g-c').value, p),
+                evalVal(document.getElementById('g-d').value, p)
+            ];
+            treeViz.animateAction(g, p);
+        }
+
+        function evalVal(val, p) {
+            try {
+                return parseInt(val.replace(/p/g, p));
+            } catch (e) { return 0; }
+        }
+
+        function resetTree() {
+            treeViz.reset();
+        }
+
+        window.addEventListener('load', () => {
+            const canvas = document.getElementById('treeCanvas');
+            window.treeViz = new PAdicTreeViz(canvas);
+        });
+    </script>
+</body>
+
+</html>

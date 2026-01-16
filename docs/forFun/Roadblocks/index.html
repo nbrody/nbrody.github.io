@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roadblocks</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="background-overlay"></div>
+    <div id="flash-screen"></div>
+    <main class="container">
+        <header>
+            <h1 class="title">Roadblocks</h1>
+            <p class="subtitle">A Sliding Block Puzzle Engine</p>
+        </header>
+
+        <section id="game-section" class="glass-panel">
+            <h2 id="level-title">Level 1</h2>
+            <div style="margin-bottom: 20px;">
+                <label for="level-select"
+                    style="font-family: 'Cinzel', serif; font-size: 0.9rem; margin-right: 10px; opacity: 0.8;">Go
+                    to:</label>
+                <select id="level-select"
+                    style="background: rgba(0,0,0,0.5); color: var(--primary-gold); border: 1px solid var(--glass-border); border-radius: 4px; padding: 5px 10px; font-family: 'Cinzel', serif; outline: none; cursor: pointer;">
+                    <!-- Options populated by game.js -->
+                </select>
+            </div>
+            <div id="orbox-container" style="margin: 0 auto;"></div>
+            <p class="hint-text" style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8;">(Use Arrow Keys or Mouse
+                Drag)</p>
+            <p id="feedback" style="margin-top: 15px; font-weight: bold; min-height: 1.5em;"></p>
+        </section>
+
+        <section id="victory-screen" class="glass-panel hidden">
+            <h2>Mission Accomplished</h2>
+            <p>You have successfully navigated the roadblocks.</p>
+            <button onclick="location.reload()" class="cta-button">Play Again</button>
+        </section>
+    </main>
+
+    <script src="roadblocks.js"></script>
+    <script src="game.js"></script>
+</body>
+
+</html>

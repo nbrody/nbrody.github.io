@@ -1,0 +1,214 @@
+:root {
+    --bg-paper: #fcfaf2;
+    --text-ink: #1e1b4b;
+    --accent-indigo: #4338ca;
+    --accent-redwood: #7c2d12;
+    --border-subtle: rgba(30, 27, 75, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    color: var(--text-ink);
+    background-color: var(--bg-paper);
+    margin: 0;
+    overflow: hidden;
+    line-height: 1.6;
+}
+
+h1,
+h2,
+h3 {
+    font-family: 'Helvetica', 'Arial', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 900;
+    margin: 0;
+}
+
+.section {
+    position: relative;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.slide {
+    text-align: center;
+    width: 100%;
+}
+
+.content-box {
+    max-width: 850px;
+    margin: 0 auto;
+    padding: 4rem;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-subtle);
+    box-shadow: 20px 20px 0px var(--border-subtle);
+    position: relative;
+    z-index: 5;
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Animations for FullPage */
+.animate-up {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.8s ease-out;
+}
+
+.active .animate-up {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+h1 {
+    font-size: clamp(3rem, 8vw, 5.5rem);
+    line-height: 1.1;
+    margin-bottom: 2rem;
+    color: var(--text-ink);
+    border-bottom: 8px solid var(--accent-indigo);
+    display: inline-block;
+}
+
+p {
+    font-size: 1.3rem;
+    color: var(--text-ink);
+    opacity: 0.9;
+}
+
+ul {
+    text-align: left;
+    display: inline-block;
+    font-size: 1.2rem;
+    margin: 1rem 0;
+}
+
+li {
+    margin: 0.5rem 0;
+}
+
+.tag {
+    display: block;
+    font-family: sans-serif;
+    font-weight: 800;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--accent-indigo);
+    margin-bottom: 1rem;
+}
+
+.formula,
+formula {
+    display: block;
+    margin: 2.5rem auto;
+    padding: 2rem;
+    background: rgba(248, 250, 252, 0.6);
+    border: 1px dashed var(--accent-indigo);
+    font-size: 2rem;
+    color: var(--accent-indigo);
+    width: fit-content;
+}
+
+/* Sidebar Nav Redesign */
+#fp-nav ul li a span,
+.fp-slidesNav ul li a span {
+    background: var(--text-ink) !important;
+    width: 6px !important;
+    height: 6px !important;
+    margin: -3px 0 0 -3px !important;
+}
+
+#fp-nav ul li a.active span,
+.fp-slidesNav ul li a.active span {
+    width: 12px !important;
+    height: 12px !important;
+    margin: -6px 0 0 -6px !important;
+    background: var(--accent-indigo) !important;
+}
+
+.fp-slidesNav.fp-bottom {
+    text-align: center !important;
+}
+
+/* Horizontal Controls - Classic arrows */
+.fp-controlArrow {
+    top: auto !important;
+    bottom: 3rem !important;
+    opacity: 0.8 !important;
+}
+
+.fp-controlArrow.fp-prev {
+    left: 4rem !important;
+    border-color: transparent var(--text-ink) transparent transparent !important;
+}
+
+.fp-controlArrow.fp-next {
+    right: 4rem !important;
+    border-color: transparent transparent transparent var(--text-ink) !important;
+}
+
+/* Theorem Environment */
+.theorem {
+    margin: 3rem 0;
+    padding: 2rem;
+    border: 2px solid var(--text-ink);
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(4px);
+    text-align: left;
+}
+
+.theorem::before {
+    content: attr(data-label);
+    font-family: sans-serif;
+    font-weight: 900;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: var(--text-ink);
+    color: white;
+    padding: 0.4rem 1rem;
+    position: absolute;
+    top: -1.2rem;
+    left: 1rem;
+}
+
+.theorem.conjecture {
+    border-color: var(--accent-redwood);
+}
+
+.theorem.conjecture::before {
+    background: var(--accent-redwood);
+}
+
+/* Background Illustrations */
+.bg-art {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0.25;
+    z-index: 1;
+}
+
+.bg-art.redwoods {
+    height: 100%;
+    right: 0;
+    top: 0;
+}
+
+.bg-art.ocean {
+    width: 60%;
+    left: 0;
+    bottom: 0;
+}
+
+.fp-watermark {
+    display: none;
+}
