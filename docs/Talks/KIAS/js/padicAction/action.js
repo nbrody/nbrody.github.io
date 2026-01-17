@@ -115,7 +115,7 @@ function calculateSteps() {
         type: "morph",
         mode: "matrix",
         g: g, m: matM, q: q, n: n, p: p,
-        desc: "Represent the vertex as a matrix $M(q)$."
+        desc: "Represent the vertex as a matrix \\(M(q)\\)."
     });
 
     // Step 2: Multiplication - FORMULA
@@ -123,7 +123,7 @@ function calculateSteps() {
     steps.push({
         type: "mult-formula",
         g: g, m: matM, formula: formula,
-        desc: "Multiply $g \\cdot M(q)$. Combining entries: $(g_{11}m_{11} + g_{12}m_{21})$, etc."
+        desc: "Multiply \\(g \\cdot M(q)\\). Combining entries: \\((g_{11}m_{11} + g_{12}m_{21})\\), etc."
     });
 
     // Step 3: Multiplication - RESULT
@@ -161,7 +161,7 @@ function calculateSteps() {
         type: "single",
         mat: m4,
         content: createMatrixHTML(m4, "elim-mat"),
-        desc: `Zero out $c$ by subtracting Column 2 contribution.`
+        desc: `Zero out \\(c\\) by subtracting Column 2 contribution.`
     });
 
     // Step 6: Normalize
@@ -173,7 +173,7 @@ function calculateSteps() {
         type: "single",
         mat: m5,
         content: createMatrixHTML(m5, "norm-mat"),
-        desc: `Normalize the matrix by dividing by $d$.`
+        desc: `Normalize the matrix by dividing by \\(d\\).`
     });
 
     // Step 7: Scale
@@ -186,7 +186,7 @@ function calculateSteps() {
         type: "single",
         mat: m6,
         content: createMatrixHTML(m6, "scale-mat"),
-        desc: `Scale first column to recover $p^{${mLevel}}$.`
+        desc: `Scale first column to recover \\(p^{${mLevel}}\\).`
     });
 
     // Step 8: Residue
@@ -196,22 +196,36 @@ function calculateSteps() {
         type: "single",
         mat: qStep,
         content: createMatrixHTML(qStep, "residue-mat"),
-        desc: `Reduce top-right residue modulo $p^{${mLevel}}$.`
+        desc: `Reduce top-right residue modulo \\(p^{${mLevel}}\\).`
     });
 
     // Step 9: Result
     steps.push({
         type: "result",
-        content: `
-            <div class="result-equation">
-                ${createMatrixHTML(g)}
-                <div class="operator">\\(\\cdot\\)</div>
-                <div class="vertex-notation">\\(\\lfloor ${q.toLatex()} \\rfloor_{${n}}\\)</div>
-                <div class="operator">\\(=\\)</div>
-                <div class="vertex-notation">\\(\\lfloor ${qFinal.toLatex()} \\rfloor_{${mLevel}}\\)</div>
+        content: String.raw`
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 2rem;">
+                <div class="result-equation">
+                    ${createMatrixHTML(g)}
+                    <div class="operator" style="font-size: 1.5rem;">\(\cdot\)</div>
+                    <div class="vertex-notation">\(\lfloor ${q.toLatex()} \rfloor_{${n}}\)</div>
+                    <div class="operator">\(=\)</div>
+                    <div class="vertex-notation">\(\lfloor ${qFinal.toLatex()} \rfloor_{${mLevel}}\)</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 1.2rem; margin-top: 1rem;">
+                    <div style="font-size: 1.8rem; color: var(--accent); opacity: 0.9;">
+                        \[ g \cdot \lfloor q \rfloor_n = \left\lfloor \frac{aq+b}{cq+d} \right\rfloor_{n'} \]
+                    </div>
+                    <div style="font-size: 1.4rem; color: var(--text); opacity: 0.7;">
+                        \[ n' = n + v_p(\det g) - 2 \min \bigl( v_p(cp^n), v_p(cq+d) \bigr) \]
+                    </div>
+                </div>
+                <div style="font-size: 1rem; color: #94a3b8; max-width: 600px;">
+                    The power \( n' \) reflects the \( p \)-adic norm of the denominator, 
+                    analogous to how \( \text{Im}(gz) = \frac{\text{Im}(z)}{|cz+d|^2} \) in the hyperbolic plane.
+                </div>
             </div>
         `,
-        desc: "The action is complete!"
+        desc: "The action is complete! This formula describes how heights change in the tree."
     });
 
     actionData.steps = steps;

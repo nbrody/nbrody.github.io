@@ -262,35 +262,16 @@
                 <p>Bridging the gap between low-dimensional topology and algebraic geometry.</p>
                 <div style="margin-top: 3rem;">
                     <a href="#title"
-                        style="text-decoration: none; border: 2px solid var(--text-ink); padding: 1.2rem 2.5rem; color: var(--text-ink); font-weight: 700;">Back
+                        style="text-decoration: none; border: 2px solid var(--text); padding: 1.2rem 2.5rem; color: var(--text); font-weight: 700; border-radius: 99px; transition: all 0.3s; opacity: 0.8;">Back
                         to Start</a>
                 </div>
             </div>
         </div>
 
-        <!-- Section 7: Speculation -->
         <div class="section" data-anchor="speculation">
             <div class="slide" data-anchor="conjecture-1">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Conjecture 1</h2>
-                    <p>Suppose \(k\) is a number field and \(\bbG\) is a simple \(k\)-algebraic group. We say that a
-                        subgroup \(\Gamma \leq \bbG(k)\) is:
-                        <br>\(\bullet\) <strong>algebraic</strong> if \(\Gamma\) is contained in
-                        \(\bbH(\Q)\lneq\mathsf{Res}_{k/\Q}(\bbG)(\Q)\) for some proper algebraic
-                        subgroup of \(\bbG(k)\).
-                        <br>\(\bullet\) <strong>geometric</strong> if there is some place \(v\) such that \(\Gamma\) is
-                        discrete in \(\bbG(k_v)\).
-                        <br>\(\bullet\) <strong>arithmetic</strong> if \(\Gamma\) is commensurable with \(\bbG(A)\) for
-                        some subring \(A \leq k\).
-                    </p>
-                    <p>
-                        Conjecture:Every subgroup \(\Gamma\) is either algebraic, geometric, or arithmetic.
-                    </p>
-                </div>
-            </div>
-            <div class="slide" data-anchor="conjecture-2">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">Conjecture 2</h2>
+                    <h2 class="slide-title">Conjecture</h2>
                     <p>Suppose \(k\) is a number field and \(\bbG\) is a simple \(k\)-algebraic group. We say that a
                         subgroup \(\Gamma \leq \bbG(k)\) is:
                         <br>\(\bullet\) <strong>algebraic</strong> if \(\Gamma\) is contained in
@@ -324,6 +305,12 @@
                 controlArrows: true,
                 keyboardScrolling: true,
                 animateAnchor: true,
+                scrollingSpeed: 1000,
+                // Better scroll handling
+                scrollBar: true,
+                scrollOverflow: true,
+                touchSensitivity: 15,
+                bigSectionsDestination: 'top',
 
                 afterLoad: function (origin, destination, direction) {
                     destination.item.classList.add('active');

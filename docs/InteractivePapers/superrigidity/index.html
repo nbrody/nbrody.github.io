@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Margulis Superrigidity | Mathematics Overview</title>
+    <meta name="description"
+        content="A mathematical overview of Margulis's Superrigidity Theorem, covering algebraic groups, Furstenberg boundaries, and boundary maps.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Outfit:wght@400;700&display=swap"
+        rel="stylesheet">
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg-deep: #050505;
+            --accent-cyan: #00f2ffa1;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #e0e0e0;
+            --text-dim: #a0a0a0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        header {
+            width: 100%;
+            padding: 60px 20px;
+            text-align: center;
+            background: linear-gradient(to bottom, rgba(0, 242, 255, 0.05), transparent);
+        }
+
+        header h1 {
+            font-size: 3rem;
+            margin: 0;
+            background: linear-gradient(135deg, #fff 0%, #00f2ff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header p {
+            color: var(--text-dim);
+            max-width: 600px;
+            margin: 10px auto;
+            line-height: 1.6;
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: 800px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .step-nav {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+
+        .step-btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-dim);
+            padding: 12px 24px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .step-btn.active {
+            background: var(--accent-cyan);
+            color: black;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+        }
+
+        .step-section {
+            display: none;
+            backdrop-filter: blur(10px);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 40px;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .step-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .explanation {
+            line-height: 1.8;
+            color: var(--text-dim);
+            font-size: 1.15rem;
+        }
+
+        .explanation b {
+            color: var(--text-main);
+        }
+
+        .highlight-box {
+            background: rgba(0, 242, 255, 0.05);
+            border-left: 4px solid var(--accent-cyan);
+            padding: 25px;
+            margin: 30px 0;
+            border-radius: 0 8px 8px 0;
+            color: var(--text-main);
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 60px;
+            text-align: center;
+            color: #444;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Margulis Superrigidity</h1>
+        <p>A rigorous overview of the mathematical foundations and core steps of Margulis's Superrigidity Theorem.</p>
+    </header>
+
+    <div id="app-container">
+        <nav class="step-nav">
+            <button class="step-btn active" onclick="showStep(1)">1. Lattices & Rank</button>
+            <button class="step-btn" onclick="showStep(2)">2. Proximal Boundaries</button>
+            <button class="step-btn" onclick="showStep(3)">3. Extension Theorem</button>
+        </nav>
+
+        <main>
+            <!-- STEP 1 -->
+            <section id="step1" class="step-section active">
+                <div class="explanation">
+                    <h2>Irreducible Lattices and High Rank</h2>
+                    <p>The theorem considers an <b>Irreducible Lattice</b> $\Gamma$ in a connected semi-simple algebraic
+                        group $G$ without compact factors. A primary example is $\Gamma = SL(n, \mathbb{Z})$ inside $G =
+                        SL(n, \mathbb{R})$.</p>
+
+                    <p>The critical requirement is the **High Rank Condition**: the real rank of $G$ must be at least 2.
+                        In rank 1 (such as in $SL(2, \mathbb{R})$ or $SO(n, 1)$), lattices can be "deformed"
+                        non-trivially. In higher rank, the algebraic structure becomes rigid.</p>
+
+                    <div class="highlight-box">
+                        <b>The Normal Subgroup Theorem:</b> A profound discovery by Margulis; it states that any normal
+                        subgroup $N \trianglelefteq \Gamma$ is either finite (contained in the center) or has finite
+                        index in $\Gamma$, showcasing the "near-simplicity" of these lattices.
+                    </div>
+                </div>
+            </section>
+
+            <!-- STEP 2 -->
+            <section id="step2" class="step-section">
+                <div class="explanation">
+                    <h2>The Furstenberg Boundary ($G/P$)</h2>
+                    <p>Margulis's proof relies on the <b>Furstenberg Boundary</b> $B(G)$, which is the quotient $G/P$
+                        where $P$ is a minimal parabolic subgroup (the Borel subgroup). For $SL(n, \mathbb{R})$, this is
+                        the variety of full flags in $\mathbb{R}^n$.</p>
+
+                    <p>The boundary serves as the "proximal" limit where $G$-actions are most descriptive. Because $P$
+                        is an amenable subgroup, we can utilize measure-theoretic tools that aren't available for the
+                        group $G$ itself.</p>
+
+                    <div class="highlight-box">
+                        <b>Amenability and Boundary Maps:</b> Since $\Gamma$ acts on $B(G)$ and the target boundary
+                        $B(H)$, the amenability of $P$ guarantees the existence of a measurable map $\phi: B(G) \to
+                        \text{Prob}(B(H))$, providing a crucial bridge between the two geometries.
+                    </div>
+                </div>
+            </section>
+
+            <!-- STEP 3 -->
+            <section id="step3" class="step-section">
+                <div class="explanation">
+                    <h2>The Extension Theorem</h2>
+                    <p>The core of the proof constructs a **$\Gamma$-equivariant measurable map** $\phi: B(G) \to B(H)$.
+                        Using the high-rank geometry (and specifically the fact that the action of $\Gamma$ is "too
+                        chaotic" for $\phi$ to be complex), Margulis proves that $\phi$ must be a rational map.</p>
+
+                    <div class="highlight-box">
+                        <b>Superrigidity Statement:</b> Let $G$ be a simple algebraic group of $\mathbb{R}\text{-rank}
+                        \ge 2$. Any linear representation $\pi: \Gamma \to GL(n, \mathbf{k})$ with unbounded image
+                        (where $\mathbf{k}$ is a local field) extends to a rational representation $\tilde{\pi}: G \to
+                        GL(n, \mathbf{k})$.
+                    </div>
+
+                    <p>This implies that the representation of the discrete group $\Gamma$ is entirely determined by the
+                        continuous structure of the surrounding group $G$.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer>
+        &copy; 2026 Interactive Mathematics &mdash; Margulis Superrigidity Overview
+    </footer>
+
+    <script>
+        function showStep(n) {
+            document.querySelectorAll('.step-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('active'));
+
+            document.getElementById('step' + n).classList.add('active');
+            document.querySelectorAll('.step-btn')[n - 1].classList.add('active');
+        }
+    </script>
+</body>
+
+</html>

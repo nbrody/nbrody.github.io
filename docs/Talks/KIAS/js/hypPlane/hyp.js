@@ -189,3 +189,33 @@ function updateMatrixDisplay(mat) {
 document.getElementById('apply-btn').addEventListener('click', applyAction);
 document.getElementById('reset-btn').addEventListener('click', resetView);
 window.onload = initGrid;
+
+// --- UHP/Disk Transformation Functions ---
+
+// Convert Upper Half Plane (z) to Poincare Disk (w)
+// w = (z - i) / (z + i)
+function toDisk(z) {
+    const denR = z.re;
+    const denI = z.im + 1;
+    const numR = z.re;
+    const numI = z.im - 1;
+    const magSq = denR * denR + denI * denI;
+    return {
+        re: (numR * denR + numI * denI) / magSq,
+        im: (numI * denR - numR * denI) / magSq
+    };
+}
+
+// Convert Poincare Disk (w) to Upper Half Plane (z)
+// z = i(1 + w) / (1 - w)
+function fromDisk(w) {
+    const denR = 1 - w.re;
+    const denI = -w.im;
+    const numR = -w.im; // Re[i(1+w)] = Re[i + ire - im] = -im
+    const numI = 1 + w.re; // Im[i(1+w)] = Im[i + ire - im] = 1 + re
+    const magSq = denR * denR + denI * denI;
+    return {
+        re: (numR * denR + numI * denI) / magSq,
+        im: (numI * denR - numR * denI) / magSq
+    };
+}

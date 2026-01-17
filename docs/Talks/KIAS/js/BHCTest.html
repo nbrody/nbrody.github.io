@@ -163,46 +163,8 @@
         <div id="tooltip"></div>
     </div>
 
-    <script src="hypPlane/exactMath.js"></script>
+    <script src="math.js"></script>
     <script>
-        // Extend BigFrac with p-adic specific methods if they are missing
-        BigFrac.prototype.val = function (p) {
-            if (this.n === 0n) return 1000;
-            let v = 0;
-            let n = this.n < 0n ? -this.n : this.n;
-            let d = this.d;
-            const bigP = BigInt(p);
-            while (n > 0n && n % bigP === 0n) { n /= bigP; v++; }
-            while (d > 0n && d % bigP === 0n) { d /= bigP; v--; }
-            return v;
-        };
-
-        BigFrac.prototype.modPn = function (p, n) {
-            const pBig = BigInt(p);
-            const pn = (n >= 0) ? new BigFrac(pBig ** BigInt(n)) : new BigFrac(1n, pBig ** BigInt(-n));
-            const val = this.div(pn);
-            let rem = val.n % val.d;
-            if (rem < 0n) rem += val.d;
-            return pn.mul(new BigFrac(rem, val.d));
-        };
-
-        // Add Iwasawa to BigMat
-        BigMat.prototype.getOrientedIwasawa = function (p) {
-            let a = this.a, b = this.b, c = this.c, d = this.d;
-            if (c.val(p) < d.val(p)) {
-                let tA = a, tC = c;
-                a = b; c = d;
-                b = tA; d = tC;
-            }
-            const k = c.div(d);
-            a = a.sub(k.mul(b));
-            a = a.div(d);
-            b = b.div(d);
-            const n = a.val(p);
-            const q = b.modPn(p, n);
-            return { n, q };
-        };
-
         // Lie theory for Hyperbolic animation
         function getMatrixLog(mat) {
             const a = mat.a.toNumber(), b = mat.b.toNumber(), c = mat.c.toNumber(), d = mat.d.toNumber();

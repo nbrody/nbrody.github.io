@@ -147,6 +147,7 @@
             Trunk: <input type="number" id="trunk-height" value="3" min="0" max="5" style="width: 45px;">
         </div>
         <button onclick="startAnimation()">Animate Action</button>
+        <button onclick="updateTree()">Update Viewer</button>
         <button onclick="resetTree()">Reset</button>
     </div>
     <div id="canvas-container">
@@ -154,23 +155,28 @@
         <div id="tooltip"></div>
     </div>
 
+    <script src="../math.js"></script>
     <script src="trees.js"></script>
     <script>
+        function parseVal(val) {
+            const p = document.getElementById('prime-p').value;
+            const sanitized = val.trim().replace(/\bp\b/g, p);
+            return new BigFrac(sanitized);
+        }
+
         function startAnimation() {
             const p = parseInt(document.getElementById('prime-p').value);
             const g = [
-                evalVal(document.getElementById('g-a').value, p),
-                evalVal(document.getElementById('g-b').value, p),
-                evalVal(document.getElementById('g-c').value, p),
-                evalVal(document.getElementById('g-d').value, p)
+                parseVal(document.getElementById('g-a').value),
+                parseVal(document.getElementById('g-b').value),
+                parseVal(document.getElementById('g-c').value),
+                parseVal(document.getElementById('g-d').value)
             ];
             treeViz.animateAction(g, p);
         }
 
-        function evalVal(val, p) {
-            try {
-                return parseInt(val.replace(/p/g, p));
-            } catch (e) { return 0; }
+        function updateTree() {
+            treeViz.reset();
         }
 
         function resetTree() {
