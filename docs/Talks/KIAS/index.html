@@ -557,7 +557,7 @@
                 bigSectionsDestination: 'top',
 
                 onLeave: function (origin, destination, direction, trigger) {
-                    const isSequential = ['keydown', 'wheel', 'touch'].includes(trigger);
+                    const isSequential = ['keydown', 'wheel', 'touch', 'drag', 'swipe'].includes(trigger);
 
                     if (isSequential && direction === 'down') {
                         const fragments = origin.item.querySelectorAll('.fragment:not(.visible)');
@@ -587,7 +587,7 @@
                 },
 
                 onSlideLeave: function (section, origin, destination, direction, trigger) {
-                    const isSequential = ['keydown', 'wheel', 'touch'].includes(trigger);
+                    const isSequential = ['keydown', 'wheel', 'touch', 'drag', 'swipe'].includes(trigger);
 
                     if (isSequential && direction === 'right') {
                         const fragments = origin.item.querySelectorAll('.fragment:not(.visible)');
