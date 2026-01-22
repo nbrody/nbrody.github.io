@@ -76,21 +76,43 @@
             <div class="slide" data-anchor="questions">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Introduction</h2>
+                    <p> Suppose that \(G\) is a finitely generated group, and \(X\) is a metric space.
+                    <ul>
+                        <li class="fragment">When does \(G\) act faithfully on \(X\)?</li>
+                        <li class="fragment">When does \(G\) act properly on \(X\)?</li>
+                    </ul>
+                    <p class="fragment"> More broadly, given a group \(G\) can we classify the metric spaces \(X\) on
+                        which \(G\) acts?
+                        Or given a space, can we classify the groups that can act on it?</p>
+                </div>
+            </div>
+
+            <div class="slide" data-anchor="examples">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Geometric Context</h2>
+                    <p>
+                        Suppose \(G\) is given to us in some sort of geometric terms. For example, it's the fundamental
+                        group of a finite-volume hyperbolic manifold of dimension \(n\), or it's a lattice in a higher
+                        rank Lie group.
+                    </p>
+                </div>
+            </div>
+
+            <div class="slide" data-anchor="main-question">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">The Question</h2>
                     <p>Suppose that \(G\) is the fundamental group of a closed surface of genus at least two.
                     <div class="theorem" data-label="Main Question">
                         Can \(G\) act freely on a locally finite product of trees?
                     </div>
                     </p>
-                    <p>
-                        There is a mass of literature finding proper actions of surface groups on nearly any type of
-                        geometric space one can imagine.
-                    </p>
                 </div>
             </div>
             <div class="slide" data-anchor="the-goal">
                 <div class="full-viz-container">
-                    <div style="display: flex; gap: 10px; margin-bottom: 1rem; justify-content: center;">
-                        <button class="action-btn" onclick="toggleViz('orbifold-frame', this)">Pause</button>
+                    <div
+                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
+                        <button class="minimal-btn" onclick="toggleViz('orbifold-frame', this)">Play</button>
                     </div>
                     <iframe id="orbifold-frame" src="js/torusOrbifold/torusOrbifold.html?embed=true" class="viz-frame"
                         style="height: 650px; border: none;"></iframe>
@@ -98,10 +120,12 @@
             </div>
             <div class="slide" data-anchor="main-theorem">
                 <div class="full-viz-container">
-                    <div style="display: flex; gap: 10px; margin-bottom: 1rem; justify-content: center;">
-                        <button class="action-btn" onclick="toggleViz('trees-frame', this)">Pause</button>
+                    <div
+                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
+                        <button class="minimal-btn" onclick="postToViz('trees-frame', 'toggle-link')">Link</button>
+                        <button class="minimal-btn" onclick="toggleViz('trees-frame', this)">Play</button>
                     </div>
-                    <iframe id="trees-frame" src="productOfTrees/productOfTrees.html?embed=true" class="viz-frame"
+                    <iframe id="trees-frame" src="js/productOfTrees/productOfTrees.html?embed=true" class="viz-frame"
                         style="height: 650px; border: none;"></iframe>
                 </div>
             </div>
@@ -112,12 +136,13 @@
             <!-- New Slide 1: PSL2(R) action on H2 -->
             <div class="slide" data-anchor="h2-action">
                 <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
-                        <button class="action-btn"
+                    <div
+                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
+                        <button class="minimal-btn"
                             onclick="document.getElementById('hyp-frame').contentWindow.postMessage('elliptic', '*')">Elliptic</button>
-                        <button class="action-btn"
+                        <button class="minimal-btn"
                             onclick="document.getElementById('hyp-frame').contentWindow.postMessage('parabolic', '*')">Parabolic</button>
-                        <button class="action-btn"
+                        <button class="minimal-btn"
                             onclick="document.getElementById('hyp-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
                     </div>
                     <div class="full-viz-container">
@@ -130,14 +155,15 @@
             <!-- New Slide 2: Iterated Circle Map -->
             <div class="slide" data-anchor="pto1-map-iterated">
                 <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div style="display: flex; gap: 10px; margin-bottom: 1rem; align-items: center;">
-                        <button class="action-btn"
+                    <div
+                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
+                        <button class="minimal-btn"
                             onclick="document.getElementById('pto1-frame').contentWindow.postMessage('rotate', '*')">⟳
                             Rotate</button>
-                        <button class="action-btn"
+                        <button class="minimal-btn"
                             onclick="document.getElementById('pto1-frame').contentWindow.postMessage('play', '*')">▶
                             Play</button>
-                        <button class="action-btn"
+                        <button class="minimal-btn"
                             onclick="document.getElementById('pto1-frame').contentWindow.postMessage('add', '*')">+
                             Layer</button>
                     </div>
@@ -151,8 +177,9 @@
             <!-- New Slide 3: p-adic Tower -->
             <div class="slide" data-anchor="padic-tower">
                 <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
-                        <button class="action-btn"
+                    <div
+                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
+                        <button class="minimal-btn"
                             onclick="document.getElementById('tower-frame').contentWindow.postMessage('grow', '*')">+</button>
                     </div>
                     <div class="full-viz-container">
@@ -165,10 +192,11 @@
             <!-- New Slide 4: p-adic Action -->
             <div class="slide" data-anchor="padic-action-desc">
                 <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
-                        <button class="action-btn"
+                    <div
+                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
+                        <button class="minimal-btn"
                             onclick="document.getElementById('action-frame').contentWindow.postMessage('prev', '*')">←</button>
-                        <button class="action-btn"
+                        <button class="minimal-btn"
                             onclick="document.getElementById('action-frame').contentWindow.postMessage('next', '*')">→</button>
                     </div>
                     <div class="full-viz-container">
@@ -181,12 +209,13 @@
             <!-- New Slide 5: Tree Action Explorer -->
             <div class="slide" data-anchor="tree-action-demo">
                 <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
-                        <button class="action-btn"
+                    <div
+                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
+                        <button class="minimal-btn"
                             onclick="document.getElementById('tree-frame').contentWindow.postMessage('elliptic', '*')">Elliptic</button>
-                        <button class="action-btn"
+                        <button class="minimal-btn"
                             onclick="document.getElementById('tree-frame').contentWindow.postMessage('parabolic', '*')">Parabolic</button>
-                        <button class="action-btn"
+                        <button class="minimal-btn"
                             onclick="document.getElementById('tree-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
                     </div>
                     <div class="full-viz-container">
@@ -199,12 +228,13 @@
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Arithmetic Methods</h2>
                     <p>The <strong>Minkowski embedding</strong> allows us to find discrete embeddings of subrings of
-                        \(\overline{Q}\) into products of fields. In turn, we obtain actions on locally compact spaces.
+                        \(\overline{\Q}\) into products of fields. In turn, we obtain actions on locally compact spaces.
                         For example</p>
-                    <formula>
+                    <formula class="fragment">
                         \[ \PGL_2(\Q) \hookrightarrow \PGL_2(\R) \times \prod_{p} \PGL_2(\Q_p) \]
                     </formula>
-                    <p>This gives us a discrete action of \(\PGL_2(\Q)\) on \(\PGL_2(\R) \times \prod_{p}'
+                    <p class="fragment">This gives us a discrete action of \(\PGL_2(\Q)\) on \(\PGL_2(\R) \times
+                        \prod_{p}'
                         \PGL_2(\Q_p)\). </p>
                 </div>
             </div>
@@ -219,9 +249,9 @@
                         of \(\Gamma\) into \(\Aut(\bbX)\), where \(\bbX\) is a product of trees.
 
                     <ul>
-                        <li>\(\Gamma\leq \PGL_2(\Q)\) with \(\Gamma\cap \PGL_2(\Z)=I\)</li>
-                        <li>\(\Gamma\leq \PGL_2(\bbF_p(t))\)</li>
-                        <li>\(\Gamma \leq \mathsf{SO}_3(\Q)\)</li>
+                        <li class="fragment">\(\Gamma\leq \PGL_2(\Q)\) with \(\Gamma\cap \PGL_2(\Z)=I\)</li>
+                        <li class="fragment">\(\Gamma\leq \PGL_2(\bbF_p(t))\)</li>
+                        <li class="fragment">\(\Gamma \leq \mathsf{SO}_3(\Q)\)</li>
                     </ul>
                     </p>
                 </div>
@@ -296,73 +326,114 @@
 
         <!-- Section 5: Computation -->
         <div class="section" data-anchor="computation">
+            <div class="slide" data-anchor="goals">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Computation</h2>
+                    <p>Suppose that \(G\) is a finitely generated group, and \(C\colon G\to \R_{\geq0}\) is a cost
+                        function.</p>
+                    <p class="fragment">For example, the cost might be a norm on the group, or the size of the
+                        denominator of
+                        an element.</p>
+                    <p class="fragment">We want to somehow efficiently navigate the group to find elements with small
+                        cost.</p>
+
+                </div>
+            </div>
+
             <div class="slide" data-anchor="bfs">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Breadth-First Search</h2>
                     <p>Explore the Cayley graph layer by layer.</p>
-                    <formula>
-                        \[ \mathcal{B}_d = \{ g \cdot s : g \in \mathcal{B}_{d-1}, s \in S \} \]
+                    <formula class="fragment">
+                        \[ \mathcal{B}_0 = \{id_G\} \]
+                        \[ \mathcal{B}_{k+1} = \mathcal{B}_{k}\cdot S \]
                     </formula>
                     <ul>
-                        <li><strong>Pros:</strong> Guaranteed to find minimal-length words.</li>
-                        <li><strong>Cons:</strong> Exponential complexity \(O(|S|^d)\).</li>
+                        <li class="fragment"><strong>Pros:</strong> Guaranteed to find a solution if one exists.</li>
+                        <li class="fragment"><strong>Cons:</strong> Each successive iteration takes \(|S|\) times longer
+                            than the previous one.</li>
                     </ul>
                 </div>
             </div>
             <div class="slide" data-anchor="greedy">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Greedy Algorithms</h2>
-                    <p>Always extend the "best" candidate according to a cost function \(C(w)\).</p>
-                    <formula>
-                        \[ w_{n+1} = \text{argmin}_{s \in S} \, \|\rho(w_n s)\| \]
+                    <p>Always extend the "best" candidate according to the cost function \(C\).</p>
+                    <formula class="fragment">
+                        \[g_0=id_G\]
+                        \[ g_{n+1} = g_n s_i, \text{ where } s_i \in S \text{ minimizes } C(g_ns). \]
                     </formula>
                     <ul>
-                        <li><strong>Pros:</strong> Extremely fast; can reach very long words (depth \(1000+\)).</li>
-                        <li><strong>Cons:</strong> Sensitive to local minima (large "valleys" in the norm).</li>
+                        <li class="fragment"><strong>Pros:</strong> Extremely fast - we only keep track of one element
+                            at a time.</li>
+                        <li class="fragment"><strong>Cons:</strong> Nearly guaranteed to fail.</li>
                     </ul>
                 </div>
             </div>
             <div class="slide" data-anchor="beam-search">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Beam Search</h2>
-                    <p>Given a finitely generated group \((G,S)\) and a cost function \(C\), we can use beam search to
-                        find
-                        elements with small cost.</p>
-                    <p>
-                        We first choose a beam width \(B\). We initialize the <i>beam</i> \(B_0=\{I\}\).
+                    <p class="fragment">
+                        We first choose a beam width \(W\). We initialize the <i>beam</i> \(B_0=\{I\}\).
                     </p>
-                    <p>
-                        Given the current beam \(B_n\), we define the <i>extended beam</i>
-                        \(B_{n+1}\) to be the set of elements of the form \(w \cdot s\) where \(w \in B_n\) and
-                        \(s \in S\).
+                    <p class="fragment">
+                        Given the current beam \(B_n\), we first build the set \(B_{n+1}'=B_n\cdot S\), the <i>extended
+                            beam</i>.
+                        We then prune this set to \(B_{n+1}\) by taking the top \(W\) elements with the smallest cost.
+                        Let \(\mathsf{WMin}(X)\) denote this operation.
                     </p>
-                    <p>
-                        We then prune the extended beam by taking the top \(B\) elements with the smallest cost.
-                    </p>
-                    <div class="full-viz-container">
-                        <iframe src="js/beamSearch/index.html" class="viz-frame" style="height: 600px;"></iframe>
-                    </div>
+                    <formula class="fragment">
+                        \[ B_{n+1} = \mathsf{WMin}(B_n\cdot S). \]
+                    </formula>
+                    <ul>
+                        <li class="fragment"><strong>Pros:</strong> An excellent comprmise of speed and success rate.
+                            Each iteration takes a constant amount of time. </li>
+                        <li class="fragment"><strong>Cons:</strong> If the minimal length of a successful word is \(k\),
+                            we will require at least \(k\) iterations. </li>
+                    </ul>
                 </div>
             </div>
             <div class="slide" data-anchor="flashbeam">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">FlashBeam Search</h2>
-                    <p>Suppose we have a finitely generated group \((G,S)\) have a cost
-                        function \(C\colon G\to \R_{\geq 0}\) which we would like to optimize.</p>
-                    <p>
-                        We first choose a beam width \(B\) and a flash size \(F\). We initialize the <i>flash</i>
+                    <p class="fragment">
+                        We first choose a beam width \(W\) and a flash size \(F\). We initialize the <i>flash</i>
                         \(F_0\) to
                         consist of the generating set, and set \(B_0 = \{I\}\).
                     </p>
 
-                    <p>
+                    <p class="fragment">
                         Given the current beam \(B_n\) and flash \(F_n\), we define the <i>extended beam</i>
                         \(B_{n+1}\) to be the set of elements of the form \(w \cdot s\) where \(w \in B_n\) and
                         \(s \in F_n\).
                     </p>
-                    <p>
-                        We then prune the extended beam by taking the top \(B\) elements with the smallest cost, and
+                    <p class="fragment">
+                        We then prune the extended beam by taking the top \(W\) elements with the smallest cost, and
                         prune the flash by taking the \(F\) elements with the smallest cost.
+                    </p>
+                    <formula class="fragment">
+                        \[ B_0=\{I\}, F_0=S. \]
+                        \[ B_{n+1} = \mathsf{WMin}(B_n\cdot F_n). \]
+                        \[ F_{n+1} = \mathsf{FMin}(F_n\cdot S). \]
+                    </formula>
+                    <ul>
+                        <li class="fragment"><strong>Pros:</strong> This can find a solution of length \(k\) in \(\log
+                            k\) iterations. </li>
+                        <li class="fragment"><strong>Cons:</strong> A large flash size slows down the algorithm. </li>
+                    </ul>
+
+                </div>
+            </div>
+            <div class="slide" data-anchor="flashbeam">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">FlashBeam Search</h2>
+                    <p class="fragment">
+                        We can think of the flashbeam search as exploring the Cayley graph of the group, but the
+                        generators vary as we explore it!
+                    </p>
+                    <p class="fragment">
+                        This can be useful in finding "optimal" generators for a group, such as computing Dirichlet
+                        domains.
                     </p>
                 </div>
             </div>
@@ -374,7 +445,7 @@
                             style="width: 100%; height: 100%; border: none; display: block;"></iframe>
                         <div id="play-overlay"
                             style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(2, 6, 23, 0.4); backdrop-filter: blur(8px); cursor: pointer; transition: all 0.6s ease; z-index: 1001;">
-                            <div class="action-btn" style="font-size: 1.6rem; padding: 2rem 4rem;">▶ Play Animation
+                            <div class="minimal-btn" style="font-size: 1.6rem; padding: 2rem 4rem;">▶ Play Animation
                             </div>
                         </div>
                     </div>
@@ -385,15 +456,32 @@
         <!-- Section 6: Conclusions -->
         <div class="section" data-anchor="conclusions">
             <div class="slide" data-anchor="summary">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">Conclusions</h2>
-                    <p>The FlashBeam search succeeds in finding:</p>
-                    <ul>
-                        <li>an integer matrix in the Long-Reid group</li>
-                        <li>relations in the Fisher-Larsen-Spatzier-Stover groups, for many small primes</li>
-                        <li>a relation in the totally unitary group</li>
-                        <li>and more...</li>
-                    </ul>
+                <div class="content-box animate-up" style="max-width: 1200px;">
+                    <div style="display: flex; align-items: center; gap: 4rem;">
+                        <div style="flex: 1;">
+                            <h2 class="slide-title">Conclusions</h2>
+                            <p>The FlashBeam search succeeds in finding:</p>
+                            <ul>
+                                <li class="fragment">an integer matrix in the Long-Reid group</li>
+                                <li class="fragment" data-fragment-group="flss">relations in the
+                                    Fisher-Larsen-Spatzier-Stover
+                                    groups, for many small
+                                    primes</li>
+                                <li class="fragment" data-fragment-group="tugp">a relation in the totally unitary group
+                                </li>
+                                <li class="fragment" data-fragment-group="z2z">and more...</li>
+                            </ul>
+                        </div>
+                        <div
+                            style="flex: 1; position: relative; height: 500px; display: flex; align-items: center; justify-content: center;">
+                            <img src="assets/FLSS.jpg" class="fragment" data-fragment-group="flss"
+                                style="position: absolute; max-width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+                            <img src="assets/TUgp.jpg" class="fragment" data-fragment-group="tugp"
+                                style="position: absolute; max-width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+                            <img src="assets/Z2*Z.jpg" class="fragment" data-fragment-group="z2z"
+                                style="position: absolute; max-width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -412,15 +500,18 @@
                     <h2 class="slide-title">Conjecture</h2>
                     <p>Suppose \(k\) is a number field and \(\bbG\) is a simple \(k\)-algebraic group. We say that a
                         subgroup \(\Gamma \leq \bbG(k)\) is:
-                        <br>\(\bullet\) <strong>algebraic</strong> if \(\Gamma\) is contained in
+                        <br><span class="fragment"></span>\(\bullet\) <strong>algebraic</strong> if \(\Gamma\) is
+                        contained in
                         \(\bbH(\Q)\lneq\mathsf{Res}_{k/\Q}(\bbG)(\Q)\) for some proper algebraic
-                        subgroup of \(\bbG(k)\).
-                        <br>\(\bullet\) <strong>geometric</strong> if there is some place \(v\) such that \(\Gamma\) is
-                        discrete in \(\bbG(k_v)\).
-                        <br>\(\bullet\) <strong>arithmetic</strong> if \(\Gamma\) is commensurable with \(\bbG(A)\) for
-                        some subring \(A \leq k\).
+                        subgroup of \(\bbG(k)\).</span>
+                        <br><span class="fragment">\(\bullet\) <strong>geometric</strong> if there is some place \(v\)
+                            such that \(\Gamma\) is
+                            discrete in \(\bbG(k_v)\).</span>
+                        <br><span class="fragment">\(\bullet\) <strong>arithmetic</strong> if \(\Gamma\) is
+                            commensurable with \(\bbG(A)\) for
+                            some subring \(A \leq k\).</span>
                     </p>
-                    <p>
+                    <p class="fragment">
                         Conjecture: Every subgroup \(\Gamma\) is either algebraic, geometric, or arithmetic.
                     </p>
                 </div>
@@ -450,10 +541,62 @@
                 touchSensitivity: 15,
                 bigSectionsDestination: 'top',
 
-                afterLoad: function (origin, destination, direction) {
+                onLeave: function (origin, destination, direction, trigger) {
+                    const isSequential = ['keydown', 'wheel', 'touch'].includes(trigger);
+
+                    if (isSequential && direction === 'down') {
+                        const fragments = origin.item.querySelectorAll('.fragment:not(.visible)');
+                        if (fragments.length > 0) {
+                            const group = fragments[0].getAttribute('data-fragment-group');
+                            if (group) {
+                                origin.item.querySelectorAll(`.fragment[data-fragment-group="${group}"]`).forEach(f => f.classList.add('visible'));
+                            } else {
+                                fragments[0].classList.add('visible');
+                            }
+                            return false; // Cancel move
+                        }
+                    }
+
+                    // Reset/Show fragments in destination if moving directly or via sequential
+                    if (direction === 'down' || !isSequential) {
+                        destination.item.querySelectorAll('.fragment').forEach(f => {
+                            if (!isSequential) f.classList.add('visible');
+                            else f.classList.remove('visible');
+                        });
+                    } else if (direction === 'up' && isSequential) {
+                        // All fragments visible if moving back sequentially
+                        destination.item.querySelectorAll('.fragment').forEach(f => f.classList.add('visible'));
+                    }
+
                     destination.item.classList.add('active');
                 },
-                afterSlideLoad: function (section, origin, destination, direction) {
+
+                onSlideLeave: function (section, origin, destination, direction, trigger) {
+                    const isSequential = ['keydown', 'wheel', 'touch'].includes(trigger);
+
+                    if (isSequential && direction === 'right') {
+                        const fragments = origin.item.querySelectorAll('.fragment:not(.visible)');
+                        if (fragments.length > 0) {
+                            const group = fragments[0].getAttribute('data-fragment-group');
+                            if (group) {
+                                origin.item.querySelectorAll(`.fragment[data-fragment-group="${group}"]`).forEach(f => f.classList.add('visible'));
+                            } else {
+                                fragments[0].classList.add('visible');
+                            }
+                            return false; // Cancel move
+                        }
+                    }
+
+                    // Reset/Show fragments in destination slide
+                    if (direction === 'right' || !isSequential) {
+                        destination.item.querySelectorAll('.fragment').forEach(f => {
+                            if (!isSequential) f.classList.add('visible');
+                            else f.classList.remove('visible');
+                        });
+                    } else if (direction === 'left' && isSequential) {
+                        destination.item.querySelectorAll('.fragment').forEach(f => f.classList.add('visible'));
+                    }
+
                     destination.item.classList.add('active');
                 }
             });
@@ -469,12 +612,22 @@
                 });
             }
 
-            // Global Viz Toggle Helper
+            // Global Viz Toggle Helpers
             window.toggleViz = function (id, btn) {
                 const frame = document.getElementById(id);
                 if (frame) {
                     frame.contentWindow.postMessage('toggle', '*');
+                    // We don't update btn.innerText here anymore because it might get out of sync
+                    // if the iframe also has a toggle button. But wait, we want it to be "Play" or "Pause".
+                    // Let's just toggle it for now.
                     btn.innerText = (btn.innerText === "Play") ? "Pause" : "Play";
+                }
+            };
+
+            window.postToViz = function (id, msg) {
+                const frame = document.getElementById(id);
+                if (frame) {
+                    frame.contentWindow.postMessage(msg, '*');
                 }
             };
         });

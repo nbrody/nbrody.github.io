@@ -102,19 +102,23 @@
         }
 
         button {
-            background: var(--accent);
-            color: white;
-            border: none;
-            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.8rem 1.2rem;
             border-radius: 12px;
-            font-weight: 700;
+            font-weight: 600;
+            font-size: 0.9rem;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(8px);
         }
 
         button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--accent);
+            color: #fff;
+            transform: translateY(-1px);
         }
 
         .viz-container {
@@ -217,9 +221,9 @@
                 </div>
             </div>
             <button id="apply-btn">Apply Action</button>
-            <button id="toggle-model-btn" style="background: #8b5cf6;">Switch to Poincare Disk</button>
-            <button id="toggle-viz-btn" style="background: #10b981;">Switch to Tiling</button>
-            <button id="reset-btn" style="background: #334155;">Reset View</button>
+            <button id="toggle-model-btn">Switch to Poincare Disk</button>
+            <button id="toggle-viz-btn">Switch to Tiling</button>
+            <button id="reset-btn">Reset View</button>
 
             <div class="input-group" id="face-pairings-container" style="display: none;">
                 <span class="tag">Face Pairings (Click to Animate)</span>

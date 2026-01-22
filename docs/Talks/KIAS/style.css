@@ -256,26 +256,40 @@ formula {
     display: none;
 }
 
-.action-btn {
+
+.minimal-btn {
     display: inline-block;
-    padding: 1rem 2rem;
-    background: var(--accent);
-    color: white;
+    padding: 0.5rem 1.2rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-dim);
     text-decoration: none;
-    border-radius: 99px;
-    font-weight: 700;
-    font-size: 1.1rem;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    border: 1px solid var(--border);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
 }
 
-.action-btn:hover {
-    transform: translateY(-4px) scale(1.05);
-    box-shadow: 0 20px 30px -5px rgba(99, 102, 241, 0.6);
-    filter: brightness(1.1);
+.minimal-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-color: var(--accent);
 }
 
-.action-btn:active {
-    transform: translateY(-2px) scale(1);
+/* Fragment System */
+.fragment {
+    opacity: 0;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    transform: translateY(10px);
+}
+
+.fragment.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+li.fragment {
+    display: list-item;
 }

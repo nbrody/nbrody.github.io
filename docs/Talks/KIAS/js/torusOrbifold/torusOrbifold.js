@@ -8,7 +8,7 @@ const params = {
     fold: -1.0,
     opacity: 0.95,
     speed: 5,
-    isPlaying: true,
+    isPlaying: false,
     direction: 1,
     pauseTimer: 0
 };
@@ -191,6 +191,7 @@ function createFullTiling(engine, baseVerts, rotFunc) {
     });
 
     const tGeo = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(tilePositions, 3));
+    tGeo.computeVertexNormals();
     backgroundMesh = new THREE.Mesh(tGeo, tileMat);
     scene.add(backgroundMesh);
 
@@ -354,7 +355,7 @@ const updateUI = () => {
         let val = params[k];
         if (k === 'fold') {
             if (label) {
-                if (val < 0) label.innerText = `Tiling: ${Math.round((val + 1) * 100)}%`;
+                if (val < 0) label.innerText = `Tiling: ${Math.round(-val * 100)}%`;
                 else label.innerText = `Fold: ${Math.round(val * 100)}%`;
             }
             if (fill) fill.style.width = (val + 1) * 50 + '%';

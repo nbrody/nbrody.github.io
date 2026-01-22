@@ -18,8 +18,8 @@ const params = {
 };
 
 let time = 0;
-window.isPlaying = true;
-const speedMult = 0.005;
+window.isPlaying = false;
+const speedMult = 0.002;
 
 // -----------------------------
 // Tree generation
@@ -375,6 +375,11 @@ window.addEventListener('message', (e) => {
     if (e.data === 'play') window.isPlaying = true;
     if (e.data === 'pause') window.isPlaying = false;
     if (e.data === 'toggle') window.isPlaying = !window.isPlaying;
+    if (e.data === 'toggle-link') {
+        params.showLink = !params.showLink;
+        updateUI();
+        rebuild();
+    }
     const btn = document.getElementById('play-pause');
     if (btn) btn.innerText = window.isPlaying ? "Pause" : "Play";
 });
