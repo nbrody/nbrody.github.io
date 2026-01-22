@@ -41,26 +41,25 @@
     <style>
         .viz-frame {
             width: 100%;
-            height: 500px;
-            max-height: 50dvh;
+            height: 700px;
+            max-height: 75dvh;
             border: 1px solid var(--border);
             border-radius: 20px;
-            margin-top: 1.5rem;
             background: transparent;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: block;
         }
 
         @media (max-width: 1024px),
         (max-height: 900px) {
             .viz-frame {
-                height: 40dvh;
+                height: 60dvh;
             }
         }
 
         @media (max-height: 700px) {
             .viz-frame {
-                height: 35dvh;
-                margin-top: 1rem;
+                height: 55dvh;
             }
         }
 
@@ -68,6 +67,16 @@
             width: 100%;
             max-width: 1000px;
             margin: 0 auto;
+            position: relative;
+        }
+
+        .viz-controls {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 100;
+            display: flex;
+            gap: 10px;
         }
     </style>
 </head>
@@ -137,8 +146,7 @@
 
             <div class="slide" data-anchor="the-goal">
                 <div class="full-viz-container">
-                    <div
-                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
+                    <div class="viz-controls">
                         <button class="minimal-btn" onclick="toggleViz('orbifold-frame', this)">Play</button>
                     </div>
                     <iframe id="orbifold-frame" src="js/torusOrbifold/torusOrbifold.html?embed=true"
@@ -147,8 +155,7 @@
             </div>
             <div class="slide" data-anchor="main-theorem">
                 <div class="full-viz-container">
-                    <div
-                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
+                    <div class="viz-controls">
                         <button class="minimal-btn" onclick="postToViz('trees-frame', 'toggle-link')">Link</button>
                         <button class="minimal-btn" onclick="toggleViz('trees-frame', this)">Play</button>
                     </div>
@@ -163,16 +170,15 @@
             <!-- New Slide 1: PSL2(R) action on H2 -->
             <div class="slide" data-anchor="h2-action">
                 <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div
-                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('hyp-frame').contentWindow.postMessage('elliptic', '*')">Elliptic</button>
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('hyp-frame').contentWindow.postMessage('parabolic', '*')">Parabolic</button>
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('hyp-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
-                    </div>
                     <div class="full-viz-container">
+                        <div class="viz-controls">
+                            <button class="minimal-btn"
+                                onclick="document.getElementById('hyp-frame').contentWindow.postMessage('elliptic', '*')">Elliptic</button>
+                            <button class="minimal-btn"
+                                onclick="document.getElementById('hyp-frame').contentWindow.postMessage('parabolic', '*')">Parabolic</button>
+                            <button class="minimal-btn"
+                                onclick="document.getElementById('hyp-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
+                        </div>
                         <iframe id="hyp-frame" src="js/hypPlane/hyp.html?embed=true" class="viz-frame"></iframe>
                     </div>
                 </div>
@@ -182,6 +188,17 @@
             <div class="slide" data-anchor="pto1-map-iterated">
                 <div class="content-box animate-up" style="max-width: 1100px;">
                     <div class="full-viz-container">
+                        <div class="viz-controls">
+                            <button class="minimal-btn"
+                                onclick="document.getElementById('pto1-frame').contentWindow.postMessage('rotate', '*')">⟳
+                                Rotate</button>
+                            <button class="minimal-btn"
+                                onclick="document.getElementById('pto1-frame').contentWindow.postMessage('play', '*')">▶
+                                Play</button>
+                            <button class="minimal-btn"
+                                onclick="document.getElementById('pto1-frame').contentWindow.postMessage('add', '*')">+
+                                Layer</button>
+                        </div>
                         <iframe id="pto1-frame" src="js/pto1Map/pto1Map.html?embed=true" class="viz-frame"></iframe>
                     </div>
                 </div>
@@ -190,12 +207,11 @@
             <!-- New Slide 3: p-adic Tower -->
             <div class="slide" data-anchor="padic-tower">
                 <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div
-                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('tower-frame').contentWindow.postMessage('grow', '*')">+</button>
-                    </div>
                     <div class="full-viz-container">
+                        <div class="viz-controls">
+                            <button class="minimal-btn"
+                                onclick="document.getElementById('tower-frame').contentWindow.postMessage('grow', '*')">+</button>
+                        </div>
                         <iframe id="tower-frame" src="js/padicTower/padic.html?embed=true&grow=1"
                             class="viz-frame"></iframe>
                     </div>
@@ -205,14 +221,13 @@
             <!-- New Slide 4: p-adic Action -->
             <div class="slide" data-anchor="padic-action-desc">
                 <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div
-                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('action-frame').contentWindow.postMessage('prev', '*')">←</button>
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('action-frame').contentWindow.postMessage('next', '*')">→</button>
-                    </div>
                     <div class="full-viz-container">
+                        <div class="viz-controls">
+                            <button class="minimal-btn"
+                                onclick="document.getElementById('action-frame').contentWindow.postMessage('prev', '*')">←</button>
+                            <button class="minimal-btn"
+                                onclick="document.getElementById('action-frame').contentWindow.postMessage('next', '*')">→</button>
+                        </div>
                         <iframe id="action-frame" src="js/padicAction/action.html?embed=true"
                             class="viz-frame"></iframe>
                     </div>
@@ -222,16 +237,15 @@
             <!-- New Slide 5: Tree Action Explorer -->
             <div class="slide" data-anchor="tree-action-demo">
                 <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div
-                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('tree-frame').contentWindow.postMessage('elliptic', '*')">Elliptic</button>
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('tree-frame').contentWindow.postMessage('parabolic', '*')">Parabolic</button>
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('tree-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
-                    </div>
                     <div class="full-viz-container">
+                        <div class="viz-controls">
+                            <button class="minimal-btn"
+                                onclick="document.getElementById('tree-frame').contentWindow.postMessage('elliptic', '*')">Elliptic</button>
+                            <button class="minimal-btn"
+                                onclick="document.getElementById('tree-frame').contentWindow.postMessage('parabolic', '*')">Parabolic</button>
+                            <button class="minimal-btn"
+                                onclick="document.getElementById('tree-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
+                        </div>
                         <iframe id="tree-frame" src="js/treeVisualizer/treetest.html?embed=true"
                             class="viz-frame"></iframe>
                     </div>
