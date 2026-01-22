@@ -42,11 +42,26 @@
         .viz-frame {
             width: 100%;
             height: 500px;
+            max-height: 50dvh;
             border: 1px solid var(--border);
             border-radius: 20px;
-            margin-top: 2rem;
+            margin-top: 1.5rem;
             background: transparent;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        @media (max-width: 1024px),
+        (max-height: 900px) {
+            .viz-frame {
+                height: 40dvh;
+            }
+        }
+
+        @media (max-height: 700px) {
+            .viz-frame {
+                height: 35dvh;
+                margin-top: 1rem;
+            }
         }
 
         .full-viz-container {
@@ -76,46 +91,51 @@
             <div class="slide" data-anchor="questions">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Introduction</h2>
-                    <p> Suppose that \(G\) is a finitely generated group, and \(X\) is a metric space.
+                    <p> Suppose that \(G\) is a finitely generated group, and \(X\) is a proper metric space.
                     <ul>
                         <li class="fragment">When does \(G\) act faithfully on \(X\)?</li>
                         <li class="fragment">When does \(G\) act properly on \(X\)?</li>
                     </ul>
                     <p class="fragment"> More broadly, given a group \(G\) can we classify the metric spaces \(X\) on
-                        which \(G\) acts?
+                        which \(G\) acts?<br>
                         Or given a space, can we classify the groups that can act on it?</p>
                 </div>
             </div>
 
             <div class="slide" data-anchor="examples">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Geometric Context</h2>
-                    <p>
-                        Suppose \(G\) is given to us in some sort of geometric terms. For example, it's the fundamental
-                        group of a finite-volume hyperbolic manifold of dimension \(n\), or it's a lattice in a higher
-                        rank Lie group.
-                    </p>
+                    <h2 class="slide-title">Examples</h2>
+                    <p class="fragment"> If \(X\) is a tree, then any group which acts properly on \(X\) is virtually free.</p>
+                    <p class="fragment">If \(G\) is a lattice in a higher rank Lie group, then Margulis superrigidity gives extremely strong constraints on the possible spaces \(X\).</p>
+                    <p class="fragment">The virtual cohomological dimension of a group gives a lower bound on the dimension of the spaces on which it can act nicely.</p>
+
                 </div>
             </div>
 
-            <div class="slide" data-anchor="main-question">
+            <div class="slide" data-anchor="questions">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">The Question</h2>
-                    <p>Suppose that \(G\) is the fundamental group of a closed surface of genus at least two.
-                    <div class="theorem" data-label="Main Question">
-                        Can \(G\) act freely on a locally finite product of trees?
-                    </div>
-                    </p>
+                    <h2 class="slide-title">Questions</h2>
+                    <p class="fragment">Now suppose that \(G\) is the fundamental group of a finite-volume hyperbolic \(n\)-manifold. Can \(G\) ever act faithfully on a lower-dimensional hyperbolic space? Can it act properly on a product of such spaces?</p>
+                    <p class="fragment">In the absence of superrigidity, we don't have an immediate obstruction to faithful actions. And by taking products of lower-dimensional spaces, there's not an obvious way that virtual cohomological dimension would prevent proper actions.</p>
                 </div>
             </div>
+
+            <div class="slide" data-anchor="surface-groups">
+                <div class="content-box animate-up">
+                    <div class="theorem" data-label="Main Question">
+                        Can a surface group act properly on a locally compact product of trees?
+                    </div>
+                </div>
+            </div>
+            
             <div class="slide" data-anchor="the-goal">
                 <div class="full-viz-container">
                     <div
                         style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
                         <button class="minimal-btn" onclick="toggleViz('orbifold-frame', this)">Play</button>
                     </div>
-                    <iframe id="orbifold-frame" src="js/torusOrbifold/torusOrbifold.html?embed=true" class="viz-frame"
-                        style="height: 650px; border: none;"></iframe>
+                    <iframe id="orbifold-frame" src="js/torusOrbifold/torusOrbifold.html?embed=true"
+                        class="viz-frame"></iframe>
                 </div>
             </div>
             <div class="slide" data-anchor="main-theorem">
@@ -125,8 +145,8 @@
                         <button class="minimal-btn" onclick="postToViz('trees-frame', 'toggle-link')">Link</button>
                         <button class="minimal-btn" onclick="toggleViz('trees-frame', this)">Play</button>
                     </div>
-                    <iframe id="trees-frame" src="js/productOfTrees/productOfTrees.html?embed=true" class="viz-frame"
-                        style="height: 650px; border: none;"></iframe>
+                    <iframe id="trees-frame" src="js/productOfTrees/productOfTrees.html?embed=true"
+                        class="viz-frame"></iframe>
                 </div>
             </div>
         </div>
@@ -146,8 +166,7 @@
                             onclick="document.getElementById('hyp-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
                     </div>
                     <div class="full-viz-container">
-                        <iframe id="hyp-frame" src="js/hypPlane/hyp.html?embed=true" class="viz-frame"
-                            style="height: 600px;"></iframe>
+                        <iframe id="hyp-frame" src="js/hypPlane/hyp.html?embed=true" class="viz-frame"></iframe>
                     </div>
                 </div>
             </div>
@@ -155,21 +174,8 @@
             <!-- New Slide 2: Iterated Circle Map -->
             <div class="slide" data-anchor="pto1-map-iterated">
                 <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div
-                        style="display: flex; gap: 10px; margin-bottom: 0.5rem; justify-content: flex-end; padding-right: 1rem;">
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('pto1-frame').contentWindow.postMessage('rotate', '*')">⟳
-                            Rotate</button>
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('pto1-frame').contentWindow.postMessage('play', '*')">▶
-                            Play</button>
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('pto1-frame').contentWindow.postMessage('add', '*')">+
-                            Layer</button>
-                    </div>
                     <div class="full-viz-container">
-                        <iframe id="pto1-frame" src="js/pto1Map/pto1Map.html?embed=true" class="viz-frame"
-                            style="height: 650px;"></iframe>
+                        <iframe id="pto1-frame" src="js/pto1Map/pto1Map.html?embed=true" class="viz-frame"></iframe>
                     </div>
                 </div>
             </div>
@@ -183,8 +189,8 @@
                             onclick="document.getElementById('tower-frame').contentWindow.postMessage('grow', '*')">+</button>
                     </div>
                     <div class="full-viz-container">
-                        <iframe id="tower-frame" src="js/padicTower/padic.html?embed=true&grow=1" class="viz-frame"
-                            style="height: 650px;"></iframe>
+                        <iframe id="tower-frame" src="js/padicTower/padic.html?embed=true&grow=1"
+                            class="viz-frame"></iframe>
                     </div>
                 </div>
             </div>
@@ -200,8 +206,8 @@
                             onclick="document.getElementById('action-frame').contentWindow.postMessage('next', '*')">→</button>
                     </div>
                     <div class="full-viz-container">
-                        <iframe id="action-frame" src="js/padicAction/action.html?embed=true" class="viz-frame"
-                            style="height: 650px;"></iframe>
+                        <iframe id="action-frame" src="js/padicAction/action.html?embed=true"
+                            class="viz-frame"></iframe>
                     </div>
                 </div>
             </div>
@@ -219,8 +225,8 @@
                             onclick="document.getElementById('tree-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
                     </div>
                     <div class="full-viz-container">
-                        <iframe id="tree-frame" src="js/treeVisualizer/treetest.html?embed=true" class="viz-frame"
-                            style="height: 650px;"></iframe>
+                        <iframe id="tree-frame" src="js/treeVisualizer/treetest.html?embed=true"
+                            class="viz-frame"></iframe>
                     </div>
                 </div>
             </div>
@@ -233,9 +239,9 @@
                     <formula class="fragment">
                         \[ \PGL_2(\Q) \hookrightarrow \PGL_2(\R) \times \prod_{p} \PGL_2(\Q_p) \]
                     </formula>
-                    <p class="fragment">This gives us a discrete action of \(\PGL_2(\Q)\) on \(\PGL_2(\R) \times
+                    <p class="fragment">This gives us a discrete action of \(\PGL_2(\Q)\) on \(\bbH^2 \times
                         \prod_{p}'
-                        \PGL_2(\Q_p)\). </p>
+                        T_{p+1}\). </p>
                 </div>
             </div>
         </div>
@@ -439,8 +445,8 @@
             </div>
             <div class="slide" data-anchor="dirichlet-demo">
                 <div class="content-box animate-up" style="max-width: 1200px; padding: 2rem;">
-                    <div class="viz-container"
-                        style="position: relative; border-radius: 20px; overflow: hidden; height: 750px; background: #000; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+                    <div class="viz-container viz-frame"
+                        style="position: relative; overflow: hidden; height: 75dvh; background: #000; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
                         <iframe id="dirichlet-frame" src="js/BHCTest.html?preset=dirichlet&embed=true"
                             style="width: 100%; height: 100%; border: none; display: block;"></iframe>
                         <div id="play-overlay"
@@ -457,7 +463,7 @@
         <div class="section" data-anchor="conclusions">
             <div class="slide" data-anchor="summary">
                 <div class="content-box animate-up" style="max-width: 1200px;">
-                    <div style="display: flex; align-items: center; gap: 4rem;">
+                    <div class="responsive-flex" style="display: flex; align-items: center; gap: 4rem;">
                         <div style="flex: 1;">
                             <h2 class="slide-title">Conclusions</h2>
                             <p>The FlashBeam search succeeds in finding:</p>
@@ -473,7 +479,7 @@
                             </ul>
                         </div>
                         <div
-                            style="flex: 1; position: relative; height: 500px; display: flex; align-items: center; justify-content: center;">
+                            style="flex: 1; position: relative; height: 40dvh; display: flex; align-items: center; justify-content: center;">
                             <img src="assets/FLSS.jpg" class="fragment" data-fragment-group="flss"
                                 style="position: absolute; max-width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
                             <img src="assets/TUgp.jpg" class="fragment" data-fragment-group="tugp"
@@ -529,6 +535,8 @@
                 autoScrolling: true,
                 navigation: true,
                 navigationPosition: 'right',
+                navigationTooltips: ['Intro', 'Context', 'Geometry', 'Groups', 'Search', 'Summary'],
+                showActiveTooltip: false,
                 anchors: ['title', 'introduction', 'background', 'actions', 'computation', 'conclusions'],
                 slidesNavigation: true,
                 controlArrows: true,

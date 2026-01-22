@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sitemap | Interactive Index</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@300;600;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #020617;
+            --card-bg: rgba(15, 23, 42, 0.6);
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.4);
+            --text: #f8fafc;
+            --text-dim: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Abstract Background */
+        .bg-glow {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100vw;
+            height: 100vh;
+            background:
+                radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(192, 132, 252, 0.15) 0%, transparent 50%);
+            z-index: -1;
+            filter: blur(100px);
+        }
+
+        header {
+            padding: 4rem 2rem 2rem;
+            text-align: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 3.5rem;
+            margin: 0;
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.04em;
+        }
+
+        p.subtitle {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+            margin-top: 1rem;
+            font-weight: 400;
+        }
+
+        .search-container {
+            margin: 3rem auto;
+            max-width: 600px;
+            width: 90%;
+            position: relative;
+        }
+
+        #search-input {
+            width: 100%;
+            padding: 1.2rem 1.5rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            color: white;
+            font-size: 1.1rem;
+            font-family: inherit;
+            backdrop-filter: blur(12px);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            outline: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        #search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px var(--accent-glow);
+            transform: translateY(-2px);
+        }
+
+        .islands-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .island {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2rem;
+            backdrop-filter: blur(12px);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .island:hover {
+            transform: translateY(-8px);
+            border-color: rgba(99, 102, 241, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .island::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent), #c084fc);
+            opacity: 0.5;
+        }
+
+        .island-title {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 1.4rem;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .island-title svg {
+            color: var(--accent);
+        }
+
+        .links-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .nav-link {
+            padding: 1rem 1.2rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-link:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--accent);
+            color: #fff;
+            transform: translateX(4px);
+        }
+
+        .nav-link .mtime {
+            font-size: 0.75rem;
+            opacity: 0.5;
+            font-family: monospace;
+        }
+
+        .nested-island {
+            margin-top: 1rem;
+            padding-left: 1rem;
+            border-left: 2px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .subfolder-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+            opacity: 0.8;
+        }
+
+        /* Empty State */
+        #empty-state {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-dim);
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+
+            .islands-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-glow"></div>
+
+    <header>
+        <h1>Sitemap Navigator</h1>
+        <p class="subtitle">Interactive index of all research, talks, and interactive papers.</p>
+
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Search for pages, topics, or folders...">
+        </div>
+    </header>
+
+    <main id="islands-container" class="islands-grid">
+        <!-- Islands will be injected here -->
+    </main>
+
+    <div id="empty-state">
+        <p>No pages found matching your search.</p>
+    </div>
+
+    <script>
+        async function loadSitemap() {
+            try {
+                const response = await fetch('sitemap.json');
+                const data = await response.json();
+                renderIslands(data);
+
+                document.getElementById('search-input').addEventListener('input', (e) => {
+                    const query = e.target.value.toLowerCase();
+                    filterContent(data, query);
+                });
+            } catch (err) {
+                console.error("Failed to load sitemap:", err);
+            }
+        }
+
+        function createFileLink(file) {
+            const a = document.createElement('a');
+            a.className = 'nav-link';
+            a.href = file.url;
+
+            const name = file.name.replace('.html', '');
+            const cleanName = name === 'index' ? 'Home' : name.replace(/([A-Z])/g, ' $1').trim();
+
+            a.innerHTML = `
+                <span>${cleanName}</span>
+                <span class="mtime">${file.mtime}</span>
+            `;
+            return a;
+        }
+
+        function renderFolder(name, folder, container, isNested = false) {
+            const section = document.createElement('div');
+            section.className = isNested ? 'nested-island' : 'island';
+
+            if (isNested) {
+                section.innerHTML = `<div class="subfolder-title">${name}</div>`;
+            } else {
+                section.innerHTML = `
+                    <h3 class="island-title">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                        ${name}
+                    </h3>
+                `;
+            }
+
+            const linksList = document.createElement('div');
+            linksList.className = 'links-list';
+
+            Object.entries(folder.children).forEach(([childName, child]) => {
+                if (child._type === 'file') {
+                    linksList.appendChild(createFileLink(child));
+                } else {
+                    renderFolder(childName, child, linksList, true);
+                }
+            });
+
+            section.appendChild(linksList);
+            container.appendChild(section);
+        }
+
+        function renderIslands(data) {
+            const container = document.getElementById('islands-container');
+            container.innerHTML = '';
+
+            // Render root files first in an 'Overview' island if any
+            const rootFiles = Object.entries(data).filter(([k, v]) => v._type === 'file');
+            if (rootFiles.length > 0) {
+                const overview = { children: {} };
+                rootFiles.forEach(([k, v]) => overview.children[k] = v);
+                renderFolder('Overview', overview, container);
+            }
+
+            // Render folders
+            Object.entries(data)
+                .filter(([k, v]) => v._type === 'folder')
+                .forEach(([name, folder]) => {
+                    renderFolder(name, folder, container);
+                });
+        }
+
+        function filterContent(data, query) {
+            // Flatten data for searching
+            function flatten(node, prefix = '') {
+                let results = [];
+                Object.entries(node.children || node).forEach(([name, val]) => {
+                    const path = prefix ? `${prefix}/${name}` : name;
+                    if (val._type === 'file') {
+                        if (name.toLowerCase().includes(query) || path.toLowerCase().includes(query)) {
+                            results.push(val);
+                        }
+                    } else {
+                        results = results.concat(flatten(val.children, path));
+                    }
+                });
+                return results;
+            }
+
+            const results = flatten(data);
+            const container = document.getElementById('islands-container');
+            const emptyState = document.getElementById('empty-state');
+
+            if (query === '') {
+                renderIslands(data);
+                emptyState.style.display = 'none';
+                return;
+            }
+
+            container.innerHTML = '';
+            if (results.length === 0) {
+                emptyState.style.display = 'block';
+            } else {
+                emptyState.style.display = 'none';
+                // Group results by their top-level folder for the search view
+                const grouped = {};
+                results.forEach(res => {
+                    const top = res.url.split('/')[0] || 'Overview';
+                    if (!grouped[top]) grouped[top] = { children: {} };
+                    grouped[top].children[res.name] = res;
+                });
+
+                Object.entries(grouped).forEach(([name, folder]) => {
+                    renderFolder(name, folder, container);
+                });
+            }
+        }
+
+        loadSitemap();
+    </script>
+</body>
+
+</html>
