@@ -11,8 +11,8 @@
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         :root {
-            --bg: #0f172a;
-            --glass: rgba(30, 41, 59, 0.7);
+            --bg: #020617;
+            --glass: rgba(15, 23, 42, 0.8);
             --accent: #6366f1;
             --text: #f8fafc;
         }
@@ -170,12 +170,39 @@
             stroke-width: 1.5;
             transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
+        .tile {
+            fill: rgba(99, 102, 241, 0.15);
+            stroke: rgba(99, 102, 241, 0.5);
+            stroke-width: 0.01;
+            transition: fill 0.3s;
+        }
+
+        .tile:hover {
+            fill: rgba(99, 102, 241, 0.4);
+        }
+
+        #tiling-group {
+            pointer-events: auto;
+        }
+
+        /* Embed Mode */
+        body.embedded .control-panel,
+        body.embedded .header {
+            display: none;
+        }
+
+        body.embedded .main-container {
+            padding: 0;
+            width: 100%;
+            height: 100vh;
+        }
     </style>
 </head>
 
 <body>
     <div class="header">
-        <h1>Hyperbolic Action Animator (UHP)</h1>
+        <h1 id="model-title">Hyperbolic Action Animator (UHP)</h1>
     </div>
 
     <div class="main-container">
@@ -190,7 +217,15 @@
                 </div>
             </div>
             <button id="apply-btn">Apply Action</button>
+            <button id="toggle-model-btn" style="background: #8b5cf6;">Switch to Poincare Disk</button>
+            <button id="toggle-viz-btn" style="background: #10b981;">Switch to Tiling</button>
             <button id="reset-btn" style="background: #334155;">Reset View</button>
+
+            <div class="input-group" id="face-pairings-container" style="display: none;">
+                <span class="tag">Face Pairings (Click to Animate)</span>
+                <div id="pairing-buttons" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                </div>
+            </div>
 
             <div id="matrix-display" style="margin-top: 1rem; font-size: 1.5rem; text-align: center;">
                 <!-- Typeset matrix here -->
@@ -207,12 +242,14 @@
                 <!-- Real Axis -->
                 <line class="real-axis" x1="-10" y1="5" x2="10" y2="5" />
                 <g id="guides-group" transform="scale(1, -1) translate(0, -5)"></g>
+                <g id="tiling-group" transform="scale(1, -1) translate(0, -5)"></g>
                 <g id="grid-group" transform="scale(1, -1) translate(0, -5)"></g>
             </svg>
         </div>
     </div>
 
     <script src="../math.js"></script>
+    <script src="hypTiling.js"></script>
     <script src="hyp.js"></script>
 </body>
 

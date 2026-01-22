@@ -178,6 +178,7 @@ formula {
     bottom: 3rem !important;
     opacity: 0.5 !important;
     transition: opacity 0.3s;
+    border-width: 16px !important;
 }
 
 .fp-controlArrow:hover {
@@ -253,4 +254,28 @@ formula {
 
 .fp-watermark {
     display: none;
+}
+
+.action-btn {
+    display: inline-block;
+    padding: 1rem 2rem;
+    background: var(--accent);
+    color: white;
+    text-decoration: none;
+    border-radius: 99px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 20px -5px rgba(99, 102, 241, 0.4);
+}
+
+.action-btn:hover {
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: 0 20px 30px -5px rgba(99, 102, 241, 0.6);
+    filter: brightness(1.1);
+}
+
+.action-btn:active {
+    transform: translateY(-2px) scale(1);
 }

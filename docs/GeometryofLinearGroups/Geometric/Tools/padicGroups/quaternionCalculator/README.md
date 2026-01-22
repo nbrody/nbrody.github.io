@@ -1,121 +1,64 @@
 # Quaternion Calculator - General Primes
 
-This tool dynamically computes generators and relations for quaternion groups based on user-specified odd primes.
+This tool dynamically computes generators and relations for quaternion groups based on user-specified odd primes, providing a comprehensive set of visualizations for exploration and algorithmic analysis.
 
-## Structure
+## Project Structure
 
-- **generatorComputation.js**: Core module for computing generators and relations
-  - `generateQuaternionsOfNorm(p)`: Finds all quaternions with norm = p
-  - `removeDuplicatesUpToSign(quaternions)`: Removes projective duplicates
-  - `computeRelations(generators)`: Finds all commutation relations between generators
+The codebase is organized into modular ES modules, separating mathematical logic from UI and visualization.
 
-- **projectiveQuaternion.js**: ProjectiveQuaternion class
-  - `ProjectiveQuaternion`: Class representing quaternions in projective space (q ~ λq)
-  - Automatic normalization to canonical form
-  - Projective equality checking
-  - `generateProjectiveQuaternionsOfNorm(p)`: Generate all projective quaternions of norm p
-  - `computeProjectiveRelations(generators)`: Compute relations using projective equality
+### Core Mathematics (located in `/quaternionPackage/`)
+- **`projectiveQuaternion.js`**: Core arithmetic library.
+  - `QMath`: Low-level quaternion operations (multiply, conjugate, norm).
+  - `ProjectiveQuaternion`: Class representing quaternions in projective space ($q \sim \lambda q$).
+  - `formatQuaternion`: High-fidelity LaTeX formatting for quaternion expressions.
+  - `findXYSolution`: Efficiently finds $x^2 + y^2 \equiv -1 \pmod p$ to establish the bijection with $\mathbb{F}_p\mathbb{P}^1$.
+- **`primeQuaternion.js`**: Group-theoretic computation engine.
+  - `generateCanonicalGenerators`: Finds the $p+1$ canonical generators for a prime $p$.
+  - `createGeneratorObject`: Handles color assignment and labeling for generators and their conjugates.
+  - `computeProjectiveRelations`: Discovers commutation relations ($a \cdot b = b' \cdot a'$) in the projective group.
+- **`factorization.js`**: Algorithms for quaternion factorization.
+  - `computeFactorizationLattice`: Generates the lattice of all possible factorizations for a given quaternion.
+  - `calculateTreePath`: Computes the unique non-backtracking path in the Bruhat-Tits tree.
+- **`so3z.js`**: Generates elements of the finite group $SO(3, \mathbb{Z})$.
 
-- **primeQuaternionFilters.js**: Canonical generator computation (from primeQuaternions.html)
-  - `findAllQuaternions(p)`: Find all integer quaternions of norm p
-  - `filterByQ8Orbit(quaternions)`: Remove Q8 orbit equivalents (a > 0, a odd, b even)
-  - `removeConjugatePairs(quaternions)`: Remove conjugate pairs
-  - `findXYSolution(p)`: Find solution to x²+y²≡-1 (mod p)
-  - `matchQuaternionToP1(q, x0, y0, p)`: Map quaternion to P¹ label in {0, 1, ..., p-1, ∞}
-  - `generateCanonicalGenerators(p)`: Main function returning (p+1)/2 canonical generators with P¹ labels
-  - `generateGeneratorsForPrimes(primes)`: Generate for multiple primes with progress tracking
+### Visualizations (located in `/vis/`)
+- **`vis_generators.js`**: 
+  - **Pinwheel Diagrams**: SVG-based displays showing the bijection between $\mathbb{F}_p\mathbb{P}^1$ and the quaternions.
+  - **3D Sphere**: Interactive point cloud of generators in space with raycasting selection.
+- **`vis_square.js`**: Renders the square complex tiling derived from the commutation relations.
+- **`vis_main.js`**: Visualizes the interactive Cayley graph acting on the sphere.
+- **`vis_tree.js`**: Generates SVG representations of p-adic trees.
+- **`vis_factor.js`**: D3-like force-directed visualization of the factorization lattice.
+- **`vis_so3z.js`**: Interactive cube rotation tool for $SO(3, \mathbb{Z})$ elements.
 
-- **index.html**: Full interactive page with Three.js visualizations
-- **test.html**: Test page to verify generator and relation computation
-- **testProjective.html**: Test suite for ProjectiveQuaternion class
-- **testP1Labeling.html**: Test suite for P¹ labeling system and bijection verification
+### UI and Orchestration
+- **`main.js`**: The central entry point and controller, managing state, event listeners, and data flow between modules.
+- **`index.html`**: The main entry point, integrating MathQuill for interactive LaTeX input and MathJax for rendering.
 
 ## How It Works
 
-### Canonical Generator Computation (Integrated from primeQuaternions.html)
+### Canonical Generator Computation
 
-For each odd prime `p`, we find canonical generators using a three-step filtering process:
+For each odd prime $p$, we find canonical generators using the following mathematical framework:
 
-1. **Find all solutions**: Generate all integer quaternions `(a, b, c, d)` where:
-   ```
-   a² + b² + c² + d² = p
-   ```
-   By Lagrange's four-square theorem, there are exactly `8(p+1)` solutions.
-
-2. **Remove Q8 orbit equivalents**: Filter to only quaternions where:
-   - `a > 0` (positive real part)
-   - `a` is odd
-   - `d` is even
-
-   This removes equivalences under the action of Q8 = {±1, ±i, ±j, ±k}.
-
-3. **Keep conjugate pairs**: Both a quaternion and its conjugate are kept as distinct generators (they are group inverses).
-
-4. **Label with P¹(F_p)**: Each generator is labeled with an element of P¹(F_p) = {0, 1, ..., p-1, ∞}:
-   - Find a solution (x₀, y₀) to x²+y²≡-1 (mod p)
-   - This solution determines an isomorphism from the F_p quaternion algebra to M_2(F_p)
-   - Quaternions of norm p correspond to rank 1 matrices (trace p, determinant 0)
-   - Each rank 1 matrix annihilates a 1-dimensional subspace of F_p², giving a point in P¹(F_p)
-   - Convert projective coordinates [x:y] to labels: [1:0]→∞, [x:y]→x·y⁻¹ mod p
-   - A quaternion and its conjugate correspond to **distinct** points in P¹(F_p)
-
-**Result**: Exactly `p+1` canonical generators for each prime `p`. Each is labeled with a unique element of P¹(F_p). Conjugate pairs are group inverses but have different P¹ labels.
-
-### Example: Prime 5
-
-- All solutions: 40 quaternions (8 × 6)
-- After Q8 filtering: 6 quaternions (= p+1 = 6 generators)
-- Final generators (6 total, forming 3 conjugate pairs):
-  - `1+2i` and `1-2i` (conjugate pair, distinct P¹ labels)
-  - `1+2j` and `1-2j` (conjugate pair, distinct P¹ labels)
-  - `1+2k` and `1-2k` (conjugate pair, distinct P¹ labels)
+1. **Four-Square Search**: We find all integer solutions to $a^2 + b^2 + c^2 + d^2 = p$.
+2. **Q8 Filtering**: We normalize solutions to ensure a unique representative under the action of the unit group $Q_8$.
+3. **P¹(F_p) Bijection**: Each generator is mapped to a point in the projective line over $\mathbb{F}_p$. This is done by representing the quaternion as a $2 \times 2$ matrix modulo $p$ and finding its kernel.
+4. **Canonical Choice**: We select representatives such that $a > 0$, $a$ is odd, and $d$ is even where possible.
 
 ### Relation Computation
 
-For generators `a`, `b`, `bp`, `ap`, a relation is:
-```
-a × b = bp × ap  (up to sign)
-```
+The tool automatically identifies "squares" in the group: pairs $(a, b)$ and $(b', a')$ such that $a \cdot b = b' \cdot a'$ in the projective group. These relations are the building blocks of the **Square Complex**, which is visualized as a grid of commuting squares.
 
-This means the square with edges labeled `a` (bottom), `b` (right), `ap` (top), `bp` (left) commutes in the group.
+## Interactive Features
 
-The algorithm:
-1. For each pair of generators `(a, b)`
-2. Compute `ab = a × b`
-3. Search for generators `bp`, `ap` such that `bp × ap = ab` (up to sign)
-4. Record the relation `{ a, b, bp, ap }`
-
-### Norm pq Factorization Relations
-
-For each pair of distinct primes `p` and `q`, there are `(p+1)(q+1)` quaternions of norm `pq`. Each such quaternion can be written in two ways:
-- As a product `p_i × q_j` (generator of norm p times generator of norm q)
-- As a product `q_k × p_ℓ` (generator of norm q times generator of norm p)
-
-These factorizations are organized in a `(p+1) × (q+1)` table where:
-- **Rows** are indexed by `i ∈ F_p P¹ = {0, 1, ..., p-1, ∞}`
-- **Columns** are indexed by `j ∈ F_q P¹ = {0, 1, ..., q-1, ∞}`
-- **Cell (i,j)** displays a square diagram showing the relation: `p_i × q_j = ±q_k × p_ℓ`
-  - Bottom edge: p_i (row generator)
-  - Right edge: q_j (column generator)
-  - Left edge: q_k (found from relation)
-  - Top edge: p_ℓ (found from relation)
-
-Each square graphically represents the commutation relation, showing how the two paths through the diagram (bottom→right vs left→top) produce the same result.
-
-This table reveals how the two different prime factorizations of quaternions of norm pq relate to each other through the P¹ labeling.
+- **MathQuill Integration**: All quaternion and prime inputs support real-time LaTeX editing.
+- **Dynamic Resizing**: Visualizations automatically scale and respond to window changes.
+- **Cross-Module Interaction**: Selecting a generator in the "Generators" section highlights its occurrences in the Cayley graph and the Square Complex.
+- **Export/Analysis**: View the P¹ labels and exact integer coordinates for every computed element.
 
 ## Usage
 
-Open `test.html` in a browser and enter odd primes (e.g., "5, 13").
-
-The tool will:
-1. Generate all quaternion generators for those primes
-2. Compute all relations between them
-3. Display the results
-
-## Next Steps
-
-- [ ] Create full UI with Three.js visualizations
-- [ ] Add Cayley graph visualization on S²
-- [ ] Add square complex tiling visualization
-- [ ] Add interactive controls for generator selection
+1. Serve the directory using a local web server (e.g., `python3 -m http.server`).
+2. Enter primes in the input field (e.g., `5, 13`).
+3. Explore the resulting visualizations across the collapsible sections.

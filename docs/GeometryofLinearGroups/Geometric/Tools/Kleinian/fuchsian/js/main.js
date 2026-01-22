@@ -34,9 +34,16 @@ let _currentSphereRadii = [];
 let _currentPlaneNormals = [];
 let _currentFaceIdsByLine = [];
 let _currentWordsByLine = []; // Store word metadata for each line
-let _generatedWords = []; // Store words from matrix generation (not displayed in textarea)
+let _generatedWords = []; // Store words from matrix generation
+let _generatedMatrices = []; // Store matrices from generation
 let _facesMetaById = [];
 let _paletteMode = 0;
+
+function getReal(val) {
+    if (val === null || val === undefined) return 0;
+    if (typeof val === 'number') return val;
+    return val.re ?? 0;
+}
 let _currentCovectors = []; // Store covectors for vertex computation
 
 // Simple 2D vector class
@@ -51,28 +58,22 @@ class Vec2 {
 }
 
 // Helper function: Check if a point satisfies an SDF constraint
+// Helper function: Check if a point satisfies an SDF constraint
 function satisfiesSDF(point, cov, eps = 1e-6) {
-    const [x, y] = point;
+    const [px, py] = point;
     const [vx, vy, vw] = cov;
 
-    const nSq = vx * vx + vy * vy;
-    const wSq = vw * vw;
+    // Minkowski coordinates of the point in H^2 (disk model)
+    const r2 = px * px + py * py;
+    if (r2 >= 1.0) return false;
 
-    if (Math.abs(vw) < 1e-6) {
-        // Line through origin: normal·point <= 0 means in half-space
-        const dot = vx * x + vy * y;
-        return dot <= eps;
-    } else {
-        // Circle: point must be outside the circle
-        const cx = vx / vw;
-        const cy = vy / vw;
-        const r = Math.sqrt(nSq / wSq - 1);
-        const dx = x - cx;
-        const dy = y - cy;
-        const distSq = dx * dx + dy * dy;
-        const rSq = r * r;
-        return distSq >= rSq - eps;
-    }
+    const denom = 1.0 - r2;
+    const x = (2 * px) / denom;
+    const y = (2 * py) / denom;
+    const w = (1.0 + r2) / denom;
+
+    // Condition: <X, cov> <= 0
+    return (vx * x + vy * y + vw * w) <= eps;
 }
 
 // Helper function: Check if a geodesic has a point in the fundamental domain
@@ -166,6 +167,7 @@ async function updateFromInput(clearGeneratedWords = true) {
     // Clear generated words if this is a manual update
     if (clearGeneratedWords) {
         _generatedWords = [];
+        _generatedMatrices = [];
     }
 
     if (lines.length > MAX_PLANES_CONST) {
@@ -195,6 +197,7 @@ async function updateFromInput(clearGeneratedWords = true) {
         if (!word && _generatedWords && _generatedWords[lineIdx]) {
             word = _generatedWords[lineIdx];
         }
+        let matrix = (_generatedMatrices && _generatedMatrices[lineIdx]) ? _generatedMatrices[lineIdx] : null;
         if (!cleanLine) continue;
 
         // Check for matrix input: (a, b, c, d)
@@ -232,12 +235,15 @@ async function updateFromInput(clearGeneratedWords = true) {
                     } else if (Array.isArray(so21) && so21.length === 9) {
                         yx = so21[2]; yy = so21[5]; yw = so21[8];
                     }
-                    cov = [0 - yx, 0 - yy, 1 - yw];
+                    // Correct Minkowski bisector fallback
+                    cov = [-yx, -yy, yw - 1];
                 }
                 if (!cov || cov.length !== 3 || cov.some(v => !Number.isFinite(v))) {
                     throw new Error('Invalid sDF from PSL2RtoSO21');
                 }
                 let [vx, vy, vw] = cov;
+                // Reference point: origin [0, 0, 1] in Minkowski space
+                // Dot product <Origin, Covector> should be <= 0
                 if (vw > 0) { vx = -vx; vy = -vy; vw = -vw; }
                 // Validate spacelike then store raw row
                 const nSq = vx * vx + vy * vy;
@@ -271,10 +277,9 @@ async function updateFromInput(clearGeneratedWords = true) {
         }
 
         const [vx, vy, vw] = coords;
-        if (vw > 0) {
-            errorMessage.textContent = `Final coordinate must be nonpositive (t <= 0).`;
-            renderGutter(lines.length, null, null, _paletteMode);
-            return;
+        // For raw vectors, we don't force flip but warn if they are oriented towards infinity
+        if (vw > 1.0) {
+            errorMessage.textContent = `Warning: Final coordinate t > 1.0 may be pointing at infinity.`;
         }
 
         const nSq = vx * vx + vy * vy;
@@ -286,9 +291,17 @@ async function updateFromInput(clearGeneratedWords = true) {
             return;
         }
 
-        covRowsByLine.push([vx, vy, vw]);
+        let [ax, ay, aw] = [vx, vy, vw];
+        const qVal = ax * ax + ay * ay - aw * aw;
+        if (qVal > 1e-12) {
+            const norm = Math.sqrt(qVal);
+            ax /= norm; ay /= norm; aw /= norm;
+        }
+        if (aw > 0) { ax = -ax; ay = -ay; aw = -aw; }
+
+        covRowsByLine.push([ax, ay, aw]);
         wordsByRawLine.push(word);
-        matricesByLine.push(null); // No matrix for raw vector
+        matricesByLine.push(matrix);
         lineKinds.push('raw');
         lineLocalIdx.push(covRowsByLine.length - 1);
         wordsByLine.push(word);
@@ -319,6 +332,7 @@ async function updateFromInput(clearGeneratedWords = true) {
     const sphereRadiiFiltered = [];
     const planeNormalsFiltered = [];
     const faceMatricesFiltered = [];
+    const faceCovectorsFiltered = [];
     const rawIndexToFaceId = new Map();
 
     // First pass: Circles
@@ -337,6 +351,7 @@ async function updateFromInput(clearGeneratedWords = true) {
             rawIndexToFaceId.set(iRaw, fid);
             sphereCentersFiltered.push(center);
             sphereRadiiFiltered.push(r);
+            faceCovectorsFiltered.push([ax, ay, aw]);
             faceMatricesFiltered.push(matricesByLine[iRaw]);
         }
     }
@@ -354,6 +369,7 @@ async function updateFromInput(clearGeneratedWords = true) {
             rawIndexToFaceId.set(iRaw, fid);
             const norm = Math.sqrt(nSq);
             planeNormalsFiltered.push(new Vec2(ax / norm, ay / norm));
+            faceCovectorsFiltered.push([ax, ay, aw]);
             faceMatricesFiltered.push(matricesByLine[iRaw]);
         }
     }
@@ -378,10 +394,23 @@ async function updateFromInput(clearGeneratedWords = true) {
     _currentPlaneNormals = planeNormalsFiltered;
     _currentFaceIdsByLine = faceIdsByLine.slice();
     _currentWordsByLine = wordsByLine.slice();
+    _currentCovectors = faceCovectorsFiltered;
+
+    // Populate _facesMetaById for metadata display and animations
+    _facesMetaById = [];
+    for (const iRaw of survivorsIdx) {
+        const fid = rawIndexToFaceId.get(iRaw);
+        if (fid !== undefined) {
+            _facesMetaById[fid] = {
+                word: wordsByRawLine[iRaw],
+                matrix: matricesByLine[iRaw]
+            };
+        }
+    }
 
     // Update renderer
     if (renderer) {
-        renderer.setGeometry(_currentSphereCenters, _currentSphereRadii, _currentPlaneNormals, faceMatricesFiltered);
+        renderer.setGeometry(_currentSphereCenters, _currentSphereRadii, _currentPlaneNormals, faceMatricesFiltered, faceCovectorsFiltered);
         renderer.paletteMode = _paletteMode;
         renderer.render();
     }
@@ -433,10 +462,10 @@ async function updateFromMatrices() {
             const mat = item.m;
             const word = item.word || '';
 
-            const a = mat.a.re;
-            const b = mat.b.re;
-            const c = mat.c.re;
-            const d = mat.d.re;
+            const a = getReal(mat.a);
+            const b = getReal(mat.b);
+            const c = getReal(mat.c);
+            const d = getReal(mat.d);
 
             // Normalize determinant to +/- 1
             const det = a * d - b * c;
@@ -460,7 +489,9 @@ async function updateFromMatrices() {
                 } else if (Array.isArray(so21) && so21.length === 9) {
                     yx = so21[2]; yy = so21[5]; yw = so21[8];
                 }
-                cov = [0 - yx, 0 - yy, 1 - yw];
+                // Correct Minkowski bisector: V = O - gO = (-yx, -yy, 1-yw)
+                // For Euclidean dot, we use (Vx, Vy, -Vw) = (-yx, -yy, yw-1)
+                cov = [-yx, -yy, yw - 1];
             }
 
             if (!cov || cov.length !== 3 || cov.some(v => !Number.isFinite(v))) {
@@ -469,6 +500,16 @@ async function updateFromMatrices() {
             }
 
             let [vx, vy, vw] = cov;
+
+            // Normalize covector: <v, v> = vx^2 + vy^2 - vw^2 = 1
+            const q = vx * vx + vy * vy - vw * vw;
+            if (q > 1e-12) {
+                const norm = Math.sqrt(q);
+                vx /= norm; vy /= norm; vw /= norm;
+            }
+
+            // Force origin (0,0,1) to be on the negative side (inside)
+            // <(0,0,1), (vx, vy, vw)> = vw (in Euclidean dot for renderer)
             if (vw > 0) { vx = -vx; vy = -vy; vw = -vw; }
 
             allCovectors.push([vx, vy, vw]);
@@ -549,8 +590,9 @@ async function updateFromMatrices() {
             });
             vectorsEl.value = lines.join('\n');
 
-            // Store words separately (not in textarea)
+            // Store metadata separately so it persists through updateFromInput
             _generatedWords = vectorsWithMeta.map(item => item.word);
+            _generatedMatrices = vectorsWithMeta.map(item => item.matrix);
 
             await updateFromInput(false);
 
@@ -1238,14 +1280,32 @@ function setupEventHandlers() {
         renderGutter(lines.length, _currentFaceIdsByLine, _currentWordsByLine, _paletteMode);
     });
 
+    // Toggle buttons
+    const fundamentalDomainToggle = document.getElementById('toggle-fundamental-domain-btn');
+    const boundaryToggle = document.getElementById('toggle-boundary-btn');
+    const domainOrbitToggle = document.getElementById('toggle-domain-orbit-btn');
+    const cayleyGraphToggle = document.getElementById('toggle-cayley-graph-btn');
+    const uhpToggle = document.getElementById('toggle-upper-half-plane-btn');
+
+    // Sync initial renderer state with UI button classes
+    if (renderer) {
+        if (fundamentalDomainToggle) renderer.showFundamentalDomain = fundamentalDomainToggle.classList.contains('active');
+        if (boundaryToggle) renderer.showBoundary = boundaryToggle.classList.contains('active');
+        if (domainOrbitToggle) renderer.showDomainOrbit = domainOrbitToggle.classList.contains('active');
+        if (cayleyGraphToggle) renderer.showCayleyGraph = cayleyGraphToggle.classList.contains('active');
+        // Initial UHP state
+        if (uhpToggle && uhpToggle.classList.contains('active')) {
+            renderer.isUpperHalfPlane = true;
+        }
+    }
+
     // Refresh button - triggers updateFromMatrices
     const refreshBtn = document.getElementById('refresh-btn');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', updateFromMatrices);
     }
 
-    // Fundamental domain toggle
-    const fundamentalDomainToggle = document.getElementById('toggle-fundamental-domain-btn');
+    // Fundamental domain toggle listener
     if (fundamentalDomainToggle) {
         fundamentalDomainToggle.addEventListener('click', () => {
             fundamentalDomainToggle.classList.toggle('active');
@@ -1256,8 +1316,7 @@ function setupEventHandlers() {
         });
     }
 
-    // Boundary toggle
-    const boundaryToggle = document.getElementById('toggle-boundary-btn');
+    // Boundary toggle listener
     if (boundaryToggle) {
         boundaryToggle.addEventListener('click', () => {
             boundaryToggle.classList.toggle('active');
@@ -1284,8 +1343,7 @@ function setupEventHandlers() {
         });
     }
 
-    // Domain orbit toggle
-    const domainOrbitToggle = document.getElementById('toggle-domain-orbit-btn');
+    // Domain orbit toggle listener
     if (domainOrbitToggle) {
         domainOrbitToggle.addEventListener('click', () => {
             domainOrbitToggle.classList.toggle('active');
@@ -1300,8 +1358,7 @@ function setupEventHandlers() {
         });
     }
 
-    // Cayley graph toggle
-    const cayleyGraphToggle = document.getElementById('toggle-cayley-graph-btn');
+    // Cayley graph toggle listener
     if (cayleyGraphToggle) {
         cayleyGraphToggle.addEventListener('click', () => {
             cayleyGraphToggle.classList.toggle('active');
@@ -1312,8 +1369,7 @@ function setupEventHandlers() {
         });
     }
 
-    // Upper half-plane toggle
-    const uhpToggle = document.getElementById('toggle-upper-half-plane-btn');
+    // Upper half-plane toggle listener
     if (uhpToggle) {
         uhpToggle.addEventListener('click', () => {
             uhpToggle.classList.toggle('active');
@@ -1324,6 +1380,23 @@ function setupEventHandlers() {
     }
 
     setupGutterClickHandlers();
+
+    // Add delegator for isometry animation triggers in metadata panel
+    const metaPanel = document.getElementById('selected-face-meta');
+    if (metaPanel) {
+        metaPanel.addEventListener('click', (e) => {
+            const trigger = e.target.closest('.clickable-isometry');
+            if (trigger) {
+                const faceId = parseInt(trigger.dataset.faceId, 10);
+                const matrix = _facesMetaById[faceId]?.matrix;
+                if (matrix && renderer) {
+                    renderer.selectedFaceId = faceId;
+                    renderer.triggerPop(faceId);
+                    renderer.animateIsometry(matrix);
+                }
+            }
+        });
+    }
 }
 
 function setupGutterClickHandlers() {
@@ -1337,6 +1410,18 @@ function setupGutterClickHandlers() {
         if (!Number.isInteger(line)) return;
         const faceId = _currentFaceIdsByLine[line];
         if (faceId === undefined) return;
+
+        // Check if clicked on the word specifically for animation
+        const wordTrigger = e.target.closest('.gutter-word');
+        if (wordTrigger) {
+            const matrix = _facesMetaById[faceId]?.matrix;
+            if (matrix && renderer) {
+                renderer.selectedFaceId = faceId;
+                renderer.triggerPop(faceId);
+                renderer.animateIsometry(matrix);
+                return;
+            }
+        }
 
         if (renderer) {
             renderer.selectedFaceId = faceId;

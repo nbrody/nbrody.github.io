@@ -50,6 +50,14 @@ export class PoincareRenderer {
         this.viewpointStart = { x: 0, y: 0 };
         this.viewRotationStart = 0;
 
+        // Current view as PSL(2,R) matrix
+        this.viewMatrix = { a: 1, b: 0, c: 0, d: 1 };
+        this.isAnimating = false;
+        this.animationStartTime = 0;
+        this.animationDuration = 1000;
+        this.animationTarget = null;
+        this.animationStartMatrix = null;
+
         this.setupEventListeners();
     }
 
@@ -107,6 +115,7 @@ export class PoincareRenderer {
         // Only start drag if inside the disk
         if (disk.x * disk.x + disk.y * disk.y < 0.99) {
             this.isDragging = true;
+            this.isAnimating = false; // Stop animation on drag
             this.isRotating = e.metaKey || e.ctrlKey;
             this.dragStart = { x: disk.x, y: disk.y };
             this.dragStartAngle = Math.atan2(disk.y, disk.x);
@@ -121,12 +130,16 @@ export class PoincareRenderer {
             this.isDragging = false;
             this.isRotating = false;
             this.canvas.style.cursor = 'default';
+            // Final high-res render
+            this.render();
         }
     }
 
     resetView() {
+        this.viewMatrix = { a: 1, b: 0, c: 0, d: 1 };
         this.viewpoint = { x: 0, y: 0 };
         this.viewRotation = 0;
+        this.isAnimating = false;
         this.render();
     }
 
@@ -138,14 +151,19 @@ export class PoincareRenderer {
         this.centerX = width / 2;
         this.centerY = height / 2;
         this.scale = Math.min(width, height) * 0.4;
-        this.render();
+
+        // Re-calculate domain orbit if it was showing
+        if (this.showDomainOrbit) {
+            this.render();
+        }
     }
 
-    setGeometry(sphereCenters, sphereRadii, planeNormals, faceMatrices = []) {
+    setGeometry(sphereCenters, sphereRadii, planeNormals, faceMatrices = [], faceCovectors = []) {
         this.sphereCenters = sphereCenters;
         this.sphereRadii = sphereRadii;
         this.planeNormals = planeNormals;
         this.faceMatrices = faceMatrices;
+        this.faceCovectors = faceCovectors;
     }
 
     setVertices(vertices, cycles, angleSums) {
@@ -173,14 +191,47 @@ export class PoincareRenderer {
             return this.UHPToDisk(uhp.u, uhp.v);
         }
 
-        // Inverse of 90° counterclockwise rotation
+        // 1. Initial coordinates relative to center, unscaled
         const rotatedX = (screenX - this.centerX) / this.scale;
         const rotatedY = -(screenY - this.centerY) / this.scale;
-        // Inverse rotation: (-y, x) → (y, -x)
-        return {
+
+        // 2. Inverse of the 90° CCW rotation: (-y, x) -> (y, -x)
+        const diskPoint = {
             x: rotatedY,
             y: -rotatedX
         };
+
+        // 3. Inverse of the hyperbolic view transform
+        // Forward: rotate then translate. Inverse: translate back then rotate back.
+        const ax = this.viewpoint.x;
+        const ay = this.viewpoint.y;
+
+        // Möbius translation by -a: T^{-1}(w) = (w + a) / (1 + ā·w)
+        const numRe = diskPoint.x + ax;
+        const numIm = diskPoint.y + ay;
+        const denRe = 1 + ax * diskPoint.x + ay * diskPoint.y;
+        const denIm = ax * diskPoint.y - ay * diskPoint.x;
+
+        const denNormSq = denRe * denRe + denIm * denIm;
+        let x = diskPoint.x;
+        let y = diskPoint.y;
+
+        if (denNormSq > 1e-12) {
+            x = (numRe * denRe + numIm * denIm) / denNormSq;
+            y = (numIm * denRe - numRe * denIm) / denNormSq;
+        }
+
+        // Rotate back by -viewRotation
+        if (Math.abs(this.viewRotation) > 1e-12) {
+            const cos = Math.cos(-this.viewRotation);
+            const sin = Math.sin(-this.viewRotation);
+            const rx = x * cos - y * sin;
+            const ry = x * sin + y * cos;
+            x = rx;
+            y = ry;
+        }
+
+        return { x, y };
     }
 
     diskToUHP(x, y) {
@@ -711,6 +762,82 @@ export class PoincareRenderer {
         return { x: diskX, y: diskY };
     }
 
+    // Multiply two 2x2 matrices
+    multiplyMatrices(m1, m2) {
+        if (!m1 || !m2) return { a: 1, b: 0, c: 0, d: 1 };
+        const a1 = m1.a?.re ?? m1.a, b1 = m1.b?.re ?? m1.b, c1 = m1.c?.re ?? m1.c, d1 = m1.d?.re ?? m1.d;
+        const a2 = m2.a?.re ?? m2.a, b2 = m2.b?.re ?? m2.b, c2 = m2.c?.re ?? m2.c, d2 = m2.d?.re ?? m2.d;
+        return {
+            a: a1 * a2 + b1 * c2,
+            b: a1 * b2 + b1 * d2,
+            c: c1 * a2 + d1 * c2,
+            d: c1 * b2 + d1 * d2
+        };
+    }
+
+    // Compute matrix power M^t for PSL(2,R)
+    matrixPower(m, t) {
+        if (!m) return { a: 1, b: 0, c: 0, d: 1 };
+        if (t === 0) return { a: 1, b: 0, c: 0, d: 1 };
+        if (t === 1) return m;
+
+        const getR = (val) => (typeof val === 'number') ? val : (val?.re ?? 0);
+        let a = getR(m.a), b = getR(m.b), c = getR(m.c), d = getR(m.d);
+        const det = a * d - b * c;
+        if (Math.abs(det) < 1e-10) return { a: 1, b: 0, c: 0, d: 1 };
+        const s = Math.sqrt(Math.abs(det));
+        a /= s; b /= s; c /= s; d /= s;
+
+        let trace = a + d;
+        if (trace < 0) { a = -a; b = -b; c = -c; d = -d; trace = -trace; }
+
+        const tau = trace / 2;
+        if (Math.abs(tau - 1) < 1e-10) {
+            return { a: (1 - t) + t * a, b: t * b, c: t * c, d: (1 - t) + t * d };
+        } else if (tau > 1) {
+            const theta = Math.acosh(tau);
+            const s0 = Math.sinh((1 - t) * theta) / Math.sinh(theta);
+            const s1 = Math.sinh(t * theta) / Math.sinh(theta);
+            return { a: s0 + s1 * a, b: s1 * b, c: s1 * c, d: s0 + s1 * d };
+        } else {
+            const theta = Math.acos(tau);
+            const s0 = Math.sin((1 - t) * theta) / Math.sin(theta);
+            const s1 = Math.sin(t * theta) / Math.sin(theta);
+            return { a: s0 + s1 * a, b: s1 * b, c: s1 * c, d: s0 + s1 * d };
+        }
+    }
+
+    // Convert SL(2,R) matrix back to view (viewpoint + rotation)
+    matrixToView(m) {
+        const a = m.a?.re ?? m.a, b = m.b?.re ?? m.b, c = m.c?.re ?? m.c, d = m.d?.re ?? m.d;
+        // Preimage of i in UHP: w0 = M^-1(i) = (-ab-cd + i)/(a^2+c^2)
+        const denMag = a * a + c * c;
+        const w0 = { re: -(a * b + c * d) / denMag, im: 1 / denMag };
+
+        // Convert UHP w0 to Disk point z0 (point mapped to origin)
+        const zDenMag = w0.re * w0.re + (w0.im + 1) * (w0.im + 1);
+        const z0 = {
+            x: (w0.re * w0.re + w0.im * w0.im - 1) / zDenMag,
+            y: -(2 * w0.re) / zDenMag
+        };
+
+        // Rotation component: f'(z0) = 1/((cw0+d)^2 * (1-z0)^2) ... simplified
+        const c_w0_d = { re: c * w0.re + d, im: c * w0.im };
+        const phi = -2 * Math.atan2(c_w0_d.im, c_w0_d.re);
+
+        return { viewpoint: z0, rotation: phi };
+    }
+
+    animateIsometry(targetMatrix, duration = 1000) {
+        if (this.isAnimating) return;
+        this.isAnimating = true;
+        this.animationStartTime = performance.now();
+        this.animationDuration = duration;
+        this.animationTarget = targetMatrix;
+        this.animationStartMatrix = { ...this.viewMatrix };
+        this.render();
+    }
+
     // Find which geodesic is closest to the given covector
     findClosestGeodesic(covector) {
         if (!covector) return -1;
@@ -922,19 +1049,37 @@ export class PoincareRenderer {
     }
 
     updateAnimation() {
+        let isMoving = false;
         if (this.popStrength > 0) {
             const elapsed = Date.now() - this.popStartTime;
             const t = Math.min(1, elapsed / this.popDuration);
             this.popStrength = 1.0 - t;
-
             if (t >= 1) {
                 this.popStrength = 0;
                 this.popFaceId = -1;
             }
-
-            return true; // Animation in progress
+            isMoving = true;
         }
-        return false;
+
+        if (this.isAnimating) {
+            const now = performance.now();
+            const elapsed = now - this.animationStartTime;
+            const progress = Math.min(elapsed / this.animationDuration, 1.0);
+            const ease = progress * (2 - progress);
+
+            const m_t = this.matrixPower(this.animationTarget, ease);
+            this.viewMatrix = this.multiplyMatrices(m_t, this.animationStartMatrix);
+            const view = this.matrixToView(this.viewMatrix);
+            this.viewpoint = view.viewpoint;
+            this.viewRotation = view.rotation;
+
+            if (progress >= 1.0) {
+                this.isAnimating = false;
+            }
+            isMoving = true;
+        }
+
+        return isMoving;
     }
 
     render() {
@@ -1128,96 +1273,238 @@ export class PoincareRenderer {
         return true;
     }
 
-    // Draw domain orbit using raytracing algorithm
-    // Colors each G-translate of the domain based on which generator brings it back
+    // Draw domain orbit using a stabilization (pull-back) algorithm
+    // Optimized for performance with typed arrays and draft mode
     drawDomainOrbit() {
         const ctx = this.ctx;
-        const imageData = ctx.createImageData(this.width, this.height);
+        const w = this.width;
+        const h = this.height;
+        const imageData = ctx.createImageData(w, h);
         const data = imageData.data;
 
-        const maxIterations = 20;
+        // Draft mode: skip pixels during interaction for responsiveness
+        const step = (this.isDragging || this.isAnimating) ? 4 : 1;
+        const maxIterations = (this.isDragging || this.isAnimating) ? 12 : 24;
 
-        for (let screenY = 0; screenY < this.height; screenY++) {
-            for (let screenX = 0; screenX < this.width; screenX++) {
-                const disk = this.screenToDisk(screenX, screenY);
-                const r = Math.sqrt(disk.x * disk.x + disk.y * disk.y);
+        const numSpheres = this.sphereCenters.length;
+        const numPlanes = this.planeNormals.length;
+        const numFaces = numSpheres + numPlanes;
+        if (numFaces === 0) return;
 
-                const idx = (screenY * this.width + screenX) * 4;
+        // Flatten geometry into typed arrays
+        const sphereX = new Float32Array(numSpheres);
+        const sphereY = new Float32Array(numSpheres);
+        const sphereR = new Float32Array(numSpheres);
+        const sphereRSq = new Float32Array(numSpheres);
+        for (let i = 0; i < numSpheres; i++) {
+            sphereX[i] = this.sphereCenters[i]?.x ?? 0;
+            sphereY[i] = this.sphereCenters[i]?.y ?? 0;
+            sphereR[i] = this.sphereRadii[i] ?? 0;
+            sphereRSq[i] = sphereR[i] * sphereR[i];
+        }
 
-                // Skip points outside the disk
-                if (r >= 1.0) {
-                    continue; // Transparent
-                }
+        const planeX = new Float32Array(numPlanes);
+        const planeY = new Float32Array(numPlanes);
+        for (let i = 0; i < numPlanes; i++) {
+            planeX[i] = this.planeNormals[i]?.x ?? 0;
+            planeY[i] = this.planeNormals[i]?.y ?? 0;
+        }
 
-                // Trace the point to the fundamental domain by repeatedly applying inverse generators
-                let point = { x: disk.x, y: disk.y };
-                let firstGeneratorUsed = -1;
-                let wordLength = 0;
-
-                for (let iter = 0; iter < maxIterations; iter++) {
-                    // Check if point is in fundamental domain
-                    if (this.isInFundamentalDomain(point.x, point.y)) {
-                        break;
-                    }
-
-                    // Find most violated constraint
-                    const violatedFace = this.findMostViolatedSDF(point);
-
-                    if (violatedFace === -1) {
-                        break;
-                    }
-
-                    if (violatedFace >= this.faceMatrices.length || !this.faceMatrices[violatedFace]) {
-                        break;
-                    }
-
-                    if (firstGeneratorUsed === -1) {
-                        firstGeneratorUsed = violatedFace;
-                    }
-
-                    // Apply inverse of the generator to move toward fundamental domain
-                    const newPoint = this.applyTransformation(point, violatedFace, true);
-
-                    if (!newPoint) {
-                        break;
-                    }
-
-                    point = newPoint;
-                    wordLength++;
-                }
-
-                let color;
-                if (firstGeneratorUsed === -1 || wordLength === 0) {
-                    // In fundamental domain
-                    color = { r: 255, g: 255, b: 255, a: 180 };
+        // Universal Covectors for SDF
+        const covX = new Float32Array(numFaces);
+        const covY = new Float32Array(numFaces);
+        const covW = new Float32Array(numFaces);
+        for (let i = 0; i < numFaces; i++) {
+            if (this.faceCovectors && this.faceCovectors[i]) {
+                covX[i] = this.faceCovectors[i][0];
+                covY[i] = this.faceCovectors[i][1];
+                covW[i] = this.faceCovectors[i][2];
+            } else {
+                // Fallback to sphere/plane defaults
+                if (i < numSpheres) {
+                    const cx = sphereX[i], cy = sphereY[i], r = sphereR[i];
+                    covX[i] = cx; covY[i] = cy; covW[i] = -(cx * cx + cy * cy - r * r + 1) / 2; // Not quite right but fallback
                 } else {
-                    // Color based on which generator was first used
-                    const baseColor = this.getFaceColor(firstGeneratorUsed, 1.0);
-                    const match = baseColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/);
-                    if (match) {
-                        color = {
-                            r: parseInt(match[1]),
-                            g: parseInt(match[2]),
-                            b: parseInt(match[3]),
-                            a: 150
-                        };
-                    } else {
-                        // Fallback color based on position
-                        const hue = (Math.atan2(point.y, point.x) / (2 * Math.PI) + 0.5) * 360;
-                        const saturation = 70;
-                        const lightness = 60;
-                        color = this.hslToRgb(hue, saturation, lightness);
-                        color.a = 150;
-                    }
+                    const px = planeX[i - numSpheres], py = planeY[i - numSpheres];
+                    covX[i] = px; covY[i] = py; covW[i] = 0;
                 }
-                data[idx] = color.r;
-                data[idx + 1] = color.g;
-                data[idx + 2] = color.b;
-                data[idx + 3] = color.a;
             }
         }
 
+        // Cache matrix data to avoid object lookups
+        const matA = new Float32Array(numFaces);
+        const matB = new Float32Array(numFaces);
+        const matC = new Float32Array(numFaces);
+        const matD = new Float32Array(numFaces);
+        for (let i = 0; i < numFaces; i++) {
+            const m = this.faceMatrices[i];
+            if (m) {
+                matA[i] = m.a?.re ?? m.a;
+                matB[i] = m.b?.re ?? m.b;
+                matC[i] = m.c?.re ?? m.c;
+                matD[i] = m.d?.re ?? m.d;
+            }
+        }
+
+        // Pre-calculate face colors
+        const faceR = new Uint8Array(numFaces);
+        const faceG = new Uint8Array(numFaces);
+        const faceB = new Uint8Array(numFaces);
+        for (let i = 0; i < numFaces; i++) {
+            const col = this.getFaceColor(i, 1.0);
+            const match = col.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            if (match) {
+                faceR[i] = parseInt(match[1]);
+                faceG[i] = parseInt(match[2]);
+                faceB[i] = parseInt(match[3]);
+            }
+        }
+
+        // Performance constants
+        const eps = 1e-6;
+
+        for (let y = 0; y < h; y += step) {
+            for (let x = 0; x < w; x += step) {
+                const disk = this.screenToDisk(x, y);
+                let px = disk.x;
+                let py = disk.y;
+                let rSq = px * px + py * py;
+
+                if (rSq >= 1.0) continue;
+
+                let lastViolatedFace = -1;
+                let wordHash = 0;
+                let wordLength = 0;
+
+                // Pull-back loop
+                for (let iter = 0; iter < maxIterations; iter++) {
+                    let mostViolatedFace = -1;
+                    let maxViolation = 0; // We define violation as F(X) > 0
+
+                    // Minkowski coords of pixel
+                    const denom = 1.0 - rSq;
+                    const mx = (2.0 * px) / denom;
+                    const my = (2.0 * py) / denom;
+                    const mw = (1.0 + rSq) / denom;
+
+                    // Check all covectors
+                    for (let i = 0; i < numFaces; i++) {
+                        const val = covX[i] * mx + covY[i] * my + covW[i] * mw;
+                        if (val > maxViolation) {
+                            maxViolation = val;
+                            mostViolatedFace = i;
+                        }
+                    }
+
+                    if (mostViolatedFace === -1) break;
+
+                    const ma = matA[mostViolatedFace];
+                    const mb = matB[mostViolatedFace];
+                    const mc = matC[mostViolatedFace];
+                    const md = matD[mostViolatedFace];
+                    if (ma === 0 && mb === 0) break; // No matrix for this face
+
+                    lastViolatedFace = mostViolatedFace;
+                    wordHash = (wordHash * 37 + (mostViolatedFace + 1)) | 0;
+
+                    // Apply inverse transformation (inline for speed)
+                    // H = [[t+x, y], [y, t-x]]
+                    const rSqCur = px * px + py * py;
+                    const d_inv = 1.0 - rSqCur;
+                    const mx_inv = (2.0 * px) / d_inv;
+                    const my_inv = (2.0 * py) / d_inv;
+                    const mt_inv = (1.0 + rSqCur) / d_inv;
+
+                    // Inversion of PSL(2,R) matrix [[a,b],[c,d]] is [[d,-b],[-c,a]]
+                    const det = ma * md - mb * mc;
+                    const ia = md / det, ib = -mb / det, ic = -mc / det, id = ma / det;
+
+                    const h11 = mt_inv + mx_inv, h12 = my_inv, h22 = mt_inv - mx_inv;
+                    const gh11 = ia * h11 + ib * h12;
+                    const gh12 = ia * h12 + ib * h22;
+                    const gh21 = ic * h11 + id * h12;
+                    const gh22 = ic * h12 + id * h22;
+
+                    const r11 = gh11 * ia + gh12 * ib;
+                    const r12 = gh11 * ic + gh12 * id;
+                    const r22 = gh21 * ic + gh22 * id;
+
+                    const tP = (r11 + r22) * 0.5;
+                    const xP = (r11 - r22) * 0.5;
+                    const yP = r12;
+
+                    px = xP / (1.0 + tP);
+                    py = yP / (1.0 + tP);
+                    rSq = px * px + py * py;
+                    wordLength++;
+                }
+
+                // Final SDF check for edge detection
+                let maxViolation = -Infinity;
+                const rSqFinal = px * px + py * py;
+                const denomFinal = 1.0 - rSqFinal;
+                const final_mx = (2.0 * px) / denomFinal;
+                const final_my = (2.0 * py) / denomFinal;
+                const final_mw = (1.0 + rSqFinal) / denomFinal;
+
+                if (lastViolatedFace !== -1) {
+                    maxViolation = covX[lastViolatedFace] * final_mx + covY[lastViolatedFace] * final_my + covW[lastViolatedFace] * final_mw;
+                } else {
+                    for (let i = 0; i < numFaces; i++) {
+                        const val = covX[i] * final_mx + covY[i] * final_my + covW[i] * final_mw;
+                        if (val > maxViolation) maxViolation = val;
+                    }
+                }
+
+                // Color selection
+                let pr, pg, pb, pa;
+                // Threshold for edge detection (hyperbolic distance proxy)
+                // Since covectors are normalized, maxViolation is sinh(dist)
+                const edgeThreshold = 0.004;
+
+                if (maxViolation > -edgeThreshold && maxViolation < edgeThreshold) {
+                    pr = 30; pg = 30; pb = 35; pa = 255;
+                }
+
+                if (pr === undefined) {
+                    if (wordLength === 0) {
+                        pr = 255; pg = 255; pb = 255; pa = 140;
+                    } else {
+                        const col = this.getColorFromHash(wordHash);
+                        pr = col.r; pg = col.g; pb = col.b; pa = 160;
+                    }
+                }
+
+                // Fill block if in draft mode
+                for (let dy = 0; dy < step; dy++) {
+                    for (let dx = 0; dx < step; dx++) {
+                        const py_ = y + dy;
+                        const px_ = x + dx;
+                        if (px_ >= w || py_ >= h) continue;
+                        const pidx = (py_ * w + px_) * 4;
+                        data[pidx] = pr;
+                        data[pidx + 1] = pg;
+                        data[pidx + 2] = pb;
+                        data[pidx + 3] = pa;
+                    }
+                }
+            }
+        }
         ctx.putImageData(imageData, 0, 0);
+    }
+
+    // Stabilized color hashing
+    getColorFromHash(hash) {
+        let h = hash;
+        h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+        h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+        h ^= h >>> 16;
+
+        const hue = (h % 360 + 360) % 360;
+        const s = 65 + (h % 15);
+        const l = 55 + (h % 10);
+
+        return this.hslToRgb(hue, s, l);
     }
 
     drawCayleyGraph(projectionFn = null) {
@@ -1345,21 +1632,33 @@ export class PoincareRenderer {
     // Evaluate SDF at a point for a given face
     evaluateSDF(point, faceId) {
         const { x, y } = point;
-        const numSpheres = this.sphereCenters.length;
-
-        if (faceId < numSpheres) {
-            // Circle: SDF is distance to center minus radius
-            const center = this.sphereCenters[faceId];
-            const radius = this.sphereRadii[faceId];
-            const dx = x - center.x;
-            const dy = y - center.y;
-            const distToCenter = Math.sqrt(dx * dx + dy * dy);
-            return distToCenter - radius; // Positive outside, negative inside
-        } else {
-            // Line: SDF is -normal·point
-            const normal = this.planeNormals[faceId - numSpheres];
-            return -(normal.x * x + normal.y * y); // Positive on correct side
+        if (!this.faceCovectors || !this.faceCovectors[faceId]) {
+            // Fallback for direct input logic
+            const numSpheres = this.sphereCenters.length;
+            if (faceId < numSpheres) {
+                const center = this.sphereCenters[faceId];
+                const radius = this.sphereRadii[faceId];
+                const dx = x - center.x;
+                const dy = y - center.y;
+                return Math.sqrt(dx * dx + dy * dy) - radius;
+            } else {
+                const normal = this.planeNormals[faceId - numSpheres];
+                return -(normal.x * x + normal.y * y);
+            }
         }
+
+        const r2 = x * x + y * y;
+        if (r2 >= 1.0) return 0;
+        const denom = 1.0 - r2;
+        const X = (2 * x) / denom;
+        const Y = (2 * y) / denom;
+        const W = (1.0 + r2) / denom;
+        const [vx, vy, vw] = this.faceCovectors[faceId];
+
+        // Return <X, cov>. We want <X, cov> <= 0 to be in domain.
+        // So for "SDF" where positive is OUTSIDE and negative is INSIDE,
+        // we return just <X, cov>.
+        return vx * X + vy * Y + vw * W;
     }
 
     // Find the most violated SDF (most negative)

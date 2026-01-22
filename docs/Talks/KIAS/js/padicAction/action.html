@@ -123,6 +123,7 @@
             justify-content: center;
             font-size: 2.5rem;
             position: relative;
+            width: 100%;
         }
 
         /* COMPONENT STYLES */
@@ -145,7 +146,8 @@
             font-weight: 200;
             color: var(--accent);
             user-select: none;
-            transition: opacity 0.5s, transform 0.5s;
+            display: flex;
+            align-items: center;
         }
 
         .matrix-bracket:before {
@@ -165,6 +167,7 @@
             align-items: center;
             justify-content: center;
             transition: all 0.6s ease;
+            overflow: hidden;
         }
 
         .floor-bracket {
@@ -173,6 +176,14 @@
             position: absolute;
             transition: all 0.6s ease;
             user-select: none;
+        }
+
+        .floor-bracket.left {
+            left: 85px;
+        }
+
+        .floor-bracket.right {
+            right: 85px;
         }
 
         .result-equation {
@@ -254,7 +265,51 @@
             display: flex;
             gap: 1.5rem;
         }
+
+        .ghost-cell {
+            position: absolute;
+            font-size: 1.5rem;
+            color: var(--accent);
+            opacity: 0.8;
+            pointer-events: none;
+            z-index: 5;
+            transition: all 1s cubic-bezier(0.5, 0, 0.5, 1);
+        }
+
+        .multiplier-tag {
+            position: absolute;
+            font-size: 1.2rem;
+            color: var(--accent);
+            background: rgba(15, 23, 42, 0.8);
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            z-index: 10;
+        }
+
+        body.embedded #ui-panel,
+        body.embedded #step-count,
+        body.embedded .step-controls {
+            display: none;
+        }
+
+        body.embedded #stage {
+            padding: 1rem;
+        }
+
+        body.embedded .display-box {
+            padding: 1.5rem;
+            min-height: auto;
+        }
     </style>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('embed') === 'true') {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.classList.add('embedded');
+            });
+        }
+    </script>
 </head>
 
 <body>

@@ -1,125 +1,109 @@
 import * as THREE from 'three';
-import { BEACON_SC, BEACON_NASH, MAT_L_FLOAT, MAT_U_FLOAT, MAT_L_EXACT, MAT_LINV_EXACT, MAT_U_EXACT, MAT_UINV_EXACT } from '../constants.js';
-import { matMul3 } from '../math.js';
 
-// --- Setup Vectors ---
+// --- Configuration ---
+const vStart = new THREE.Vector3(1, 0, 0);
 const R_EARTH = 3958.7613;
 
-function getNormalizedVec(beacon) {
-    const v = new THREE.Vector3(beacon.a / beacon.den, beacon.c / beacon.den, -beacon.b / beacon.den);
-    return v.normalize();
+function getGenerators() {
+    const gens = [];
+    const seen = new Set();
+
+    function addQuat(a, b, c, d, p) {
+        // Restriction: Only use quaternions where the first coordinate (a) is odd.
+        // For norm 5 and 13, exactly one entry is odd. This forces b,c,d even.
+        if (Math.abs(a) % 2 === 0) return;
+
+        // Quaternions represent the same rotation if q2 = -q1
+        // Normalize to a > 0
+        if (a < 0) {
+            a = -a; b = -b; c = -c; d = -d;
+        }
+        const key = `${a},${b},${c},${d}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+
+        const m = new THREE.Matrix4();
+        const N = p;
+        // Correcting formula
+        m.set(
+            (a * a + b * b - c * c - d * d) / N, 2 * (b * c - a * d) / N, 2 * (b * d + a * c) / N, 0,
+            2 * (b * c + a * d) / N, (a * a - b * b + c * c - d * d) / N, 2 * (c * d - a * b) / N, 0,
+            2 * (b * d - a * c) / N, 2 * (c * d + a * b) / N, (a * a - b * b - c * c + d * d) / N, 0,
+            0, 0, 0, 1
+        );
+
+        gens.push({
+            name: `(${a},${b},${c},${d})`,
+            m: m,
+            quat: [a, b, c, d],
+            p: p
+        });
+    }
+
+    function findForNorm(p) {
+        const limit = Math.ceil(Math.sqrt(p));
+        for (let a = -limit; a <= limit; a++) {
+            for (let b = -limit; b <= limit; b++) {
+                for (let c = -limit; c <= limit; c++) {
+                    const d2 = p - a * a - b * b - c * c;
+                    if (d2 >= 0) {
+                        const d = Math.round(Math.sqrt(d2));
+                        if (a * a + b * b + c * c + d * d === p) {
+                            addQuat(a, b, c, d, p);
+                            if (d !== 0) addQuat(a, b, c, -d, p);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    findForNorm(5);
+    findForNorm(13);
+    return gens;
 }
 
-const vSC = getNormalizedVec(BEACON_SC);
-const vNash = getNormalizedVec(BEACON_NASH);
+const GENS = getGenerators();
+console.log(`Initialized with ${GENS.length} generators.`);
 
-// Replicate Initial Rotation from scene.js
-// SC at 36.9741, -122.0308
-const lat = THREE.MathUtils.degToRad(36.9741);
-const lon = THREE.MathUtils.degToRad(-122.0308);
-const phi = Math.PI / 2 - lat;
-const theta = lon + Math.PI;
-const vSC_Sphere = new THREE.Vector3(
-    -Math.sin(phi) * Math.cos(theta),
-    Math.cos(phi),
-    Math.sin(phi) * Math.sin(theta)
-).normalize();
-
-// qCenter rotates vSC_Sphere to (0,0,1)
-const q0 = new THREE.Quaternion().setFromUnitVectors(vSC_Sphere, new THREE.Vector3(0, 0, 1));
-const m0 = new THREE.Matrix4().makeRotationFromQuaternion(q0);
-
-// Initial positions in World Space
-// Target: Character is fixed at World(SC_Start).
-// SC_Start_World = R0 * SC_Local.
-// Wait, vSC from constants IS the local vector?
-// Let's verify. BEACON_SC is used to place beacon on Earth.
-// scene.js: `v` (used for Q) is computed from Lat/Lon. `SCBeacon` is computed from A,B,C.
-// They should be the same point.
-// So vSC_Sphere ~ vSC (from constants).
-// We want M * (R0 * vNash) ~= (R0 * vSC).
-// Let vNashWorld0 = vNash.applyMatrix4(m0)
-// Let vTarget = vSC.applyMatrix4(m0) (Which is approx (0,0,1))
-const vNashWorld0 = vNash.clone().applyMatrix4(m0);
-const vTarget = vSC.clone().applyMatrix4(m0);
-
-// Generators
-const GENS = [
-    { name: 'L', m: MAT_L_FLOAT, mx: MAT_L_EXACT, inv: 'R' },
-    { name: 'R', m: MAT_L_FLOAT.clone().invert(), mx: MAT_LINV_EXACT, inv: 'L' },
-    { name: 'U', m: MAT_U_FLOAT, mx: MAT_U_EXACT, inv: 'D' },
-    { name: 'D', m: MAT_U_FLOAT.clone().invert(), mx: MAT_UINV_EXACT, inv: 'U' }
-];
-
-// --- Search Logic ---
-
-function getPadicDepth(mat) {
-    // Check one entry, e.g. [0][0]. Or max of all.
-    // L uses 5, U uses 13.
-    // We just count powers of 5 and 13 in the denominator of the first entry (usually representative enough)
-    // Actually, we should check the common denominator.
-    // math.js Frac has .d (BigInt).
-    let d = mat[0][0].d;
-    // Simply counting factors:
-    let depth5 = 0;
-    let depth13 = 0;
-    while (d % 5n === 0n) { d /= 5n; depth5++; }
-    while (d % 13n === 0n) { d /= 13n; depth13++; }
-    return depth5 + depth13;
-}
-
-function solveBeam(width, maxDepth, pWeight, onUpdate) {
-    // Beam: { matrix: THREE.Matrix4, exact: Array, word: [], lastGen: null, score: Number }
+function solveBeam(targetVec, width, maxDepth, pWeight, onUpdate) {
     let beam = [{
         matrix: new THREE.Matrix4(), // Identity
-        // exact: null, // Optimization: Don't track exact until end? 
-        // Actually, we need exact for p-adic depth.
-        // But matrix mult is expensive.
-        // Let's assume we can track p-adic depth just by counting moves?
-        // L/R adds +1 to 5-depth. U/D adds +1 to 13-depth.
-        // This is a good approximation (length of word).
-        // Let's rely on word length for p-adic cost for speed.
-        // We will reconstruct exact matrix only for results.
         depth: 0,
         word: [],
-        lastGen: null
+        lastQuat: null
     }];
 
     let bestSolution = null;
     let bestDist = Infinity;
 
-    // Run search
     (async () => {
         for (let d = 0; d < maxDepth; d++) {
             let nextBeam = [];
 
             for (const node of beam) {
-                // Expand
                 for (const g of GENS) {
-                    if (node.lastGen === g.inv) continue; // No backtrack
+                    // Primitive check: avoid immediate inverse
+                    // Since q and -q are normalized, we check for identity-ish
+                    // Actually, let's just use the matrix multiplication directly
 
-                    const newMat = node.matrix.clone().multiply(g.m); // Post-multiply or Pre?
-                    // main.js: q.premultiply(moveQ) => M_new = M_move * M_old
-                    // So we should PRE-multiply.
-                    const newMatPre = g.m.clone().multiply(node.matrix);
-
+                    // M_new = M_gen * M_old
+                    const newMat = g.m.clone().multiply(node.matrix);
                     const newWord = [...node.word, g.name];
 
-                    // Calc Distance
-                    // v_current = M * v_start
-                    const vCurr = vNashWorld0.clone().applyMatrix4(newMatPre);
-                    const dot = vCurr.dot(vTarget); // dot in [-1, 1]
-                    const distMiles = Math.acos(Math.max(-1, Math.min(1, dot))) * R_EARTH;
+                    // First column of M is M * (1,0,0)
+                    const vCurr = vStart.clone().applyMatrix4(newMat);
+                    const dot = vCurr.dot(targetVec);
+                    const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+                    const distMiles = angle * R_EARTH;
 
-                    // Score
-                    // score = Miles + weight * length
+                    // Scoring
                     const score = distMiles + (pWeight * (node.depth + 1));
 
                     nextBeam.push({
-                        matrix: newMatPre,
+                        matrix: newMat,
                         depth: node.depth + 1,
                         word: newWord,
-                        lastGen: g.name,
                         dist: distMiles,
                         score: score
                     });
@@ -131,14 +115,11 @@ function solveBeam(width, maxDepth, pWeight, onUpdate) {
                 }
             }
 
-            // Sort and prune
             nextBeam.sort((a, b) => a.score - b.score);
             beam = nextBeam.slice(0, width);
 
-            // Notify UI
             onUpdate(d + 1, beam[0], bestSolution);
-
-            // Yield to UI
+            if (bestDist < 1e-10) break; // Found exact match
             await new Promise(r => setTimeout(r, 0));
         }
     })();
@@ -151,50 +132,47 @@ const resultsList = document.getElementById('resultsList');
 const statusEl = document.getElementById('status');
 
 btn.addEventListener('click', () => {
+    const nx = BigInt(document.getElementById('targetNx').value);
+    const ny = BigInt(document.getElementById('targetNy').value);
+    const nz = BigInt(document.getElementById('targetNz').value);
+    const k = parseInt(document.getElementById('targetK').value);
+    const N = 65n ** BigInt(k);
+    const Nf = Number(N);
+
+    // Verify normalization
+    const normSq = nx * nx + ny * ny + nz * nz;
+    if (normSq !== N * N) {
+        statusEl.textContent = `Error: x^2+y^2+z^2 = ${normSq}, expected N^2 = ${N * N}`;
+        statusEl.style.color = '#ff7b72';
+        return;
+    }
+    statusEl.style.color = '#8b949e';
+
+    const targetVec = new THREE.Vector3(Number(nx) / Nf, Number(ny) / Nf, Number(nz) / Nf);
     const width = parseInt(document.getElementById('beamWidth').value) || 1000;
-    const depth = parseInt(document.getElementById('maxDepth').value) || 12;
+    const depth = parseInt(document.getElementById('maxDepth').value) || 16;
     const pWeight = parseFloat(document.getElementById('padicWeight').value) || 0;
 
     btn.disabled = true;
     resultsList.innerHTML = '';
     statusEl.textContent = 'Searching...';
 
-    solveBeam(width, depth, pWeight, (currentDepth, bestInBeam, globalBest) => {
-        statusEl.textContent = `Depth ${currentDepth}/${depth}. Best Dist: ${globalBest.dist.toFixed(2)} miles`;
+    solveBeam(targetVec, width, depth, pWeight, (currentDepth, bestInBeam, globalBest) => {
+        statusEl.textContent = `Depth ${currentDepth}/${depth}. Best Dist: ${globalBest.dist.toFixed(4)} miles`;
 
-        // Add row for global best found so far (if new)
-        // Or just list the top of the beam?
-        // Let's list the top few of the current beam to show progress
-
-        // Actually, let's keep a history of "Best Solutions Found"
-        // Clear list and show top 5 candidates of this generation
-        /*
-        resultsList.innerHTML = '';
         const row = document.createElement('div');
         row.className = 'result-row';
+        if (bestInBeam.dist < 0.1) row.classList.add('highlight');
         row.innerHTML = `
-            <div class="word">${globalBest.word.join('')}</div>
-            <div class="dist">${globalBest.dist.toFixed(4)}</div>
-            <div class="padic">${globalBest.depth}</div>
+            <div class="word">${bestInBeam.word.join('·')}</div>
+            <div class="dist">${bestInBeam.dist.toFixed(6)}</div>
+            <div class="padic">${bestInBeam.depth}</div>
         `;
-        resultsList.appendChild(row);
-        */
-
-        // Better: Append the best result of this depth
-        const row = document.createElement('div');
-        row.className = 'result-row';
-        if (bestInBeam.dist < 500) row.classList.add('highlight'); // Highlight plausible solutions
-        row.innerHTML = `
-           <div class="word">${bestInBeam.word.join('')}</div>
-           <div class="dist">${bestInBeam.dist.toFixed(2)}</div>
-           <div class="padic">${bestInBeam.depth}</div>
-       `;
-        // Prepend
         resultsList.insertBefore(row, resultsList.firstChild);
 
-        if (currentDepth === depth) {
+        if (currentDepth === depth || globalBest.dist < 1e-10) {
             btn.disabled = false;
-            statusEl.textContent = 'Done.';
+            statusEl.textContent = globalBest.dist < 1e-10 ? 'Exact solution found!' : 'Done.';
         }
     });
 });

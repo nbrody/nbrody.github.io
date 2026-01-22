@@ -123,6 +123,10 @@
             z-index: 100;
             backdrop-filter: blur(8px);
         }
+
+        #ui-panel.embed-hidden {
+            display: none;
+        }
     </style>
 </head>
 
@@ -145,6 +149,19 @@
         </div>
         <div>
             Trunk: <input type="number" id="trunk-height" value="3" min="0" max="5" style="width: 45px;">
+        </div>
+        <div>
+            X-Spread: <input type="range" id="x-spread" value="2200" min="500" max="8000" step="100"
+                style="width: 100px; vertical-align: middle;">
+        </div>
+        <div>
+            Layout:
+            <select id="layout-method"
+                style="background: transparent; color: var(--ink); border: 1px solid var(--border); border-radius: 4px; padding: 4px;">
+                <option value="slanted">Slanted</option>
+                <option value="even">Even</option>
+                <option value="hierarchical">Hierarchical</option>
+            </select>
         </div>
         <button onclick="startAnimation()">Animate Action</button>
         <button onclick="updateTree()">Update Viewer</button>
@@ -186,6 +203,36 @@
         window.addEventListener('load', () => {
             const canvas = document.getElementById('treeCanvas');
             window.treeViz = new PAdicTreeViz(canvas);
+
+            // Hide UI if embedded
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('embed') === 'true') {
+                document.getElementById('ui-panel').classList.add('embed-hidden');
+                treeViz.resize();
+            }
+        });
+
+        // --- Presentation Control ---
+        window.addEventListener('message', (event) => {
+            if (event.data === 'elliptic') {
+                document.getElementById('g-a').value = '0';
+                document.getElementById('g-b').value = '1';
+                document.getElementById('g-c').value = '-1';
+                document.getElementById('g-d').value = '0';
+                startAnimation();
+            } else if (event.data === 'parabolic') {
+                document.getElementById('g-a').value = '1';
+                document.getElementById('g-b').value = '1';
+                document.getElementById('g-c').value = '0';
+                document.getElementById('g-d').value = '1';
+                startAnimation();
+            } else if (event.data === 'hyperbolic') {
+                document.getElementById('g-a').value = 'p';
+                document.getElementById('g-b').value = '0';
+                document.getElementById('g-c').value = '0';
+                document.getElementById('g-d').value = '1';
+                startAnimation();
+            }
         });
     </script>
 </body>

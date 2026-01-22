@@ -7,10 +7,10 @@
     <title>Globe Game</title>
     <link rel="stylesheet" href="styles.css">
     <script>
-      window.MathJax = {
-        tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
-        chtml: { scale: 2 }
-      };
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            chtml: { scale: 2 }
+        };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" defer></script>
 </head>
@@ -36,7 +36,8 @@
         <div id="side-panel">
             <h2>Globe Navigation Game</h2>
             <div class="goal-text">
-                <strong>Goal:</strong> Navigate the globe using the arrow keys. Try to move the character from the green beacon to the orange beacon.
+                <strong>Goal:</strong> Navigate the globe using the arrow keys. Try to move the character from the green
+                beacon to the orange beacon.
             </div>
 
             <h3>Move Sequence</h3>
@@ -46,7 +47,8 @@
             <div id="matrix-display"></div>
 
             <h3>Saved Rotations</h3>
-            <button id="save-rotation-btn" title="Save the current rotation as a new generator">Save current as g</button>
+            <button id="save-rotation-btn" title="Save the current rotation as a new generator">Save current as
+                g</button>
             <div class="saved-help">Click to apply. Hold <kbd>Shift</kbd> to apply the inverse.</div>
             <div id="saved-list"></div>
 
@@ -55,6 +57,10 @@
                 • Arrow Keys: Rotate globe<br>
                 • Mouse: Drag to orbit view<br>
                 • Scroll: Zoom in/out
+            </div>
+            <div style="margin-top: 20px;">
+                <a href="513coords.html" style="color: #6366f1; text-decoration: none; font-size: 0.9rem;">&rarr; 5-13
+                    Coordinate Converter</a>
             </div>
         </div>
     </div>

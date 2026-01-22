@@ -126,6 +126,13 @@ class BigMat {
         k = BigFrac.from(k);
         return new BigMat(this.a.mul(k), this.b.mul(k), this.c.mul(k), this.d.mul(k));
     }
+    det() {
+        return this.a.mul(this.d).sub(this.b.mul(this.c));
+    }
+    inv() {
+        const d = this.det();
+        return new BigMat(this.d.div(d), this.b.neg().div(d), this.c.neg().div(d), this.a.div(d));
+    }
     swapCols() {
         return new BigMat(this.b, this.a, this.d, this.c);
     }
@@ -151,7 +158,7 @@ class BigMat {
             a = b; c = d;
             b = tA; d = tC;
         }
-        const k = c.div(d).modPn(p, 0); // Ensure k is in Z_p. modPn(p, 0) should handle v_p >= 0.
+        const k = c.div(d);
         // Actually k = c/d is already in Z_p because v_p(c) >= v_p(d).
         a = a.sub(k.mul(b));
         a = a.div(d);
@@ -163,6 +170,9 @@ class BigMat {
         return { n, q: b.div(unit).modPn(p, n) };
     }
 
+    toLatex() {
+        return `\\begin{pmatrix} ${this.a.toLatex()} & ${this.b.toLatex()} \\\\ ${this.c.toLatex()} & ${this.d.toLatex()} \\end{pmatrix}`;
+    }
     getMulFormula(other) {
         return {
             a: `${this.a.toLatex()} \\cdot ${other.a.toLatex()} + ${this.b.toLatex()} \\cdot ${other.c.toLatex()}`,

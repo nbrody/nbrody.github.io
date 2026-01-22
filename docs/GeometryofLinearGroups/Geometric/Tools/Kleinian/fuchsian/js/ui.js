@@ -45,7 +45,7 @@ export function renderGutter(lineCount, faceIds, wordsByLine, paletteMode) {
         if (word) {
             const wordSpan = document.createElement('span');
             wordSpan.className = 'gutter-word';
-            wordSpan.style.cssText = 'position:absolute; left:4px; top:50%; transform:translateY(-50%); font-size:11px; color:#000000; pointer-events:none; white-space:nowrap; max-width:72px; overflow:hidden; text-overflow:ellipsis;';
+            wordSpan.style.cssText = 'position:absolute; left:4px; top:50%; transform:translateY(-50%); font-size:11px; color:#000000; white-space:nowrap; max-width:72px; overflow:hidden; text-overflow:ellipsis;';
             // Wrap word in \(...\) delimiters for inline LaTeX rendering via MathJax
             wordSpan.textContent = `\\(${word}\\)`;
             div.appendChild(wordSpan);
@@ -102,12 +102,11 @@ export function showFaceMeta(faceId, lineIndexHint, facesMetaById) {
 
     if (meta) {
         if (meta.word) {
-            parts.push(`<div class="mt-2">Word: \\(${meta.word}\\)</div>`);
+            parts.push(`<div class="mt-2 clickable-isometry" data-face-id="${fid}" title="Click to animate isometry">Word: <span class="cursor-pointer hover:text-indigo-400">\\(${meta.word}\\)</span></div>`);
         }
         if (meta.matrix) {
-            // Format matrix in LaTeX
             const matrixLatex = formatMatrixLatex(meta.matrix);
-            parts.push(`<div class="mt-2">Matrix: \\[${matrixLatex}\\]</div>`);
+            parts.push(`<div class="mt-2 clickable-isometry" data-face-id="${fid}" title="Click to animate isometry">Matrix: <div class="cursor-pointer hover:bg-gray-800 p-2 rounded">\\[${matrixLatex}\\]</div></div>`);
         }
     } else {
         parts.push('<div class="text-xs text-gray-400 mt-1">(no metadata)</div>');

@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5-13 Coordinate Converter</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #1e1e28;
+            font-family: 'Outfit', sans-serif;
+            color: #ccc;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(30, 30, 40, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 350px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            /* Custom scrollbar for better aesthetics */
+            scrollbar-width: thin;
+            scrollbar-color: #6366f1 rgba(0, 0, 0, 0.1);
+        }
+
+        #ui-overlay::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #ui-overlay::-webkit-scrollbar-thumb {
+            background-color: #6366f1;
+            border-radius: 10px;
+        }
+
+        h1 {
+            margin: 0 0 15px 0;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #00ffcc, #3399ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #444;
+            color: #fff;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+
+        #result-panel {
+            margin-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 15px;
+        }
+
+        .coord-box {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+
+        .coord-label {
+            font-size: 0.75rem;
+            color: #6366f1;
+            margin-bottom: 2px;
+        }
+
+        .status {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        #word-display {
+            word-break: break-all;
+            color: #33ff99;
+            font-size: 0.8rem;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .mathjax-out {
+            font-size: 0.95rem;
+            margin-top: 5px;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .result-section {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .section-title {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #6366f1;
+        }
+
+        .section-title.source {
+            color: #00ccff;
+        }
+
+        .section-title.target {
+            color: #ff6666;
+        }
+
+        .latlon-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            chtml: { scale: 1.2 }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" defer></script>
+</head>
+
+<body>
+    <div id="ui-overlay">
+        <h1>5-13 Sphere Coords</h1>
+        <p style="font-size: 0.8rem; margin-top: -10px; margin-bottom: 15px; color: #666;">
+            Points in $\mathbb{Z}[1/5, 1/13]$ with $x$ odd, $y,z$ even.
+        </p>
+
+        <div class="result-section">
+            <div class="section-header">
+                <span class="section-title source">SOURCE</span>
+            </div>
+            <div class="input-group">
+                <select id="source-select"
+                    style="width: 100%; background: rgba(0, 0, 0, 0.3); border: 1px solid #444; color: #fff; padding: 8px; border-radius: 4px; font-family: inherit; margin-bottom: 10px;">
+                    <option value="">-- Presets --</option>
+                    <option value="36.9916,-122.0608">UC Santa Cruz</option>
+                    <option value="37.5928,127.0458">KIAS</option>
+                    <option value="36.1441,-86.8009">Vanderbilt</option>
+                    <option value="43.6036,-116.2087">Boise State</option>
+                    <option value="41.8268,-71.4029">Brown University</option>
+                </select>
+                <div class="latlon-inputs">
+                    <input type="number" id="src-lat" value="36.9916" step="0.0001" placeholder="Lat">
+                    <input type="number" id="src-lon" value="-122.0608" step="0.0001" placeholder="Lon">
+                </div>
+            </div>
+            <div id="src-result" style="display: none;">
+                <div class="coord-box" id="src-coords-text" style="font-size: 0.75rem; color: #888;"></div>
+                <div id="src-mathjax" class="mathjax-out"></div>
+            </div>
+        </div>
+
+        <div class="result-section">
+            <div class="section-header">
+                <span class="section-title target">TARGET</span>
+            </div>
+            <div class="input-group">
+                <select id="target-select"
+                    style="width: 100%; background: rgba(0, 0, 0, 0.3); border: 1px solid #444; color: #fff; padding: 8px; border-radius: 4px; font-family: inherit; margin-bottom: 10px;">
+                    <option value="">-- Presets --</option>
+                    <option value="36.9916,-122.0608">UC Santa Cruz</option>
+                    <option value="37.5928,127.0458">KIAS</option>
+                    <option value="36.1441,-86.8009">Vanderbilt</option>
+                    <option value="43.6036,-116.2087">Boise State</option>
+                    <option value="41.8268,-71.4029">Brown University</option>
+                </select>
+                <div class="latlon-inputs">
+                    <input type="number" id="tgt-lat" value="37.5928" step="0.0001" placeholder="Lat">
+                    <input type="number" id="tgt-lon" value="127.0458" step="0.0001" placeholder="Lon">
+                </div>
+            </div>
+            <div id="tgt-result" style="display: none;">
+                <div class="coord-box" id="tgt-coords-text" style="font-size: 0.75rem; color: #888;"></div>
+                <div id="tgt-mathjax" class="mathjax-out"></div>
+            </div>
+        </div>
+
+        <div class="input-group" style="margin-top: 20px;">
+            <label>Resolution (Power of 65)</label>
+            <input type="range" id="res-slider" min="1" max="7" value="4" step="1">
+            <div id="res-val" style="font-size: 0.8rem; text-align: center; color: #888; margin-top: 5px;">k = 4</div>
+        </div>
+
+        <button id="convert-btn">Update Z[1/65] Points</button>
+        <button id="use-view-btn" style="background: #333; margin-top: -5px;">Use View for Target</button>
+
+        <div id="word-panel"
+            style="display: none; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: 15px;">
+            <div class="section-title" style="color: #33ff99; margin-bottom: 10px;">RELATIVE TRANSFORMATION</div>
+            <div id="word-display" class="coord-box" style="color: #33ff99; font-size: 0.75rem;"></div>
+        </div>
+    </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.171.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.171.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { F, I3 } from './math.js';
+
+        // --- Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        camera.position.set(0, 0, 25);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 2);
+        pointLight.position.set(50, 50, 50);
+        scene.add(pointLight);
+
+        // Globe
+        const textureLoader = new THREE.TextureLoader();
+        const earthTexture = textureLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+        const earthMaterial = new THREE.MeshPhongMaterial({ map: earthTexture, shininess: 5 });
+        const earthGeometry = new THREE.SphereGeometry(10, 64, 64);
+        const earthMesh = new THREE.Mesh(earthGeometry, earthMaterial);
+        scene.add(earthMesh);
+
+        // Axes
+        const axesHelper = new THREE.AxesHelper(15);
+        scene.add(axesHelper);
+
+        // Axis Labels
+        function createLabel(text, pos, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 32, 32);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.position.copy(pos);
+            sprite.scale.set(1.5, 1.5, 1);
+            return sprite;
+        }
+
+        scene.add(createLabel('X', new THREE.Vector3(16, 0, 0), '#ff4444'));
+        scene.add(createLabel('Y', new THREE.Vector3(0, 16, 0), '#44ff44'));
+        scene.add(createLabel('Z', new THREE.Vector3(0, 0, 16), '#4444ff'));
+
+        // Markers
+        const srcTrueMarker = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), new THREE.MeshBasicMaterial({ color: 0x0088ff }));
+        const srcApproxMarker = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+        const tgtTrueMarker = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), new THREE.MeshBasicMaterial({ color: 0xff0044 }));
+        const tgtApproxMarker = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+
+        scene.add(srcTrueMarker, srcApproxMarker, tgtTrueMarker, tgtApproxMarker);
+        srcTrueMarker.visible = srcApproxMarker.visible = tgtTrueMarker.visible = tgtApproxMarker.visible = false;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // --- High-Performance Quaternionic 3D Point Finder ---
+
+        function latLonToVector(lat, lon) {
+            const phi = Math.PI / 2 - THREE.MathUtils.degToRad(lat);
+            const theta = THREE.MathUtils.degToRad(lon) + Math.PI;
+            return new THREE.Vector3(
+                -Math.sin(phi) * Math.cos(theta),
+                Math.cos(phi),
+                Math.sin(phi) * Math.sin(theta)
+            ).normalize();
+        }
+
+        function bigIntSqrt(n) {
+            if (n < 0n) return null;
+            if (n < 2n) return n;
+            let x = n / 2n + 1n;
+            let y = (x + n / x) / 2n;
+            while (y < x) {
+                x = y;
+                y = (x + n / x) / 2n;
+            }
+            return x;
+        }
+
+        async function findClosest(targetVec, power) {
+            const N = 65n ** BigInt(power);
+            const Nf = Number(N);
+
+            // To find an integer point (nx, ny, nz) on x^2+y^2+z^2=N^2,
+            // we search for a quaternion q = a + bi + cj + dk with norm N.
+            // The point is given by the first column of the matrix representation.
+
+            const v0 = new THREE.Vector3(1, 0, 0);
+            const qTarget = new THREE.Quaternion().setFromUnitVectors(v0, targetVec);
+
+            const scale = Math.sqrt(Nf);
+            const a0 = qTarget.w * scale;
+            const b0 = qTarget.x * scale;
+            const c0 = qTarget.y * scale;
+            const d0 = qTarget.z * scale;
+
+            let best = null;
+            let minDistSq = Infinity;
+
+            const radius = power < 4 ? 40 : (power === 4 ? 80 : 120);
+            const ra = Math.round(a0);
+            const rb = Math.round(b0);
+            const rc = Math.round(c0);
+
+            for (let da = -radius; da <= radius; da++) {
+                const a = BigInt(ra + da);
+                const a2 = a * a;
+                if (a2 > N) continue;
+
+                for (let db = -radius; db <= radius; db++) {
+                    const b = BigInt(rb + db);
+                    const b2 = b * b;
+                    if (a2 + b2 > N) continue;
+
+                    for (let dc = -radius; dc <= radius; dc++) {
+                        const c = BigInt(rc + dc);
+                        const c2 = c * c;
+                        const rem = N - a2 - b2 - c2;
+                        if (rem < 0n) continue;
+
+                        const d_val = bigIntSqrt(rem);
+                        if (d_val !== null && d_val * d_val === rem) {
+                            // Parity check: exactly one must be odd for x odd, y/z even
+                            const oddCount = (a % 2n !== 0n ? 1 : 0) + (b % 2n !== 0n ? 1 : 0) +
+                                (c % 2n !== 0n ? 1 : 0) + (d_val % 2n !== 0n ? 1 : 0);
+
+                            if (oddCount === 1) {
+                                for (let dBI of (d_val === 0n ? [0n] : [d_val, -d_val])) {
+                                    const raw_nx = a * a + b * b - c * c - dBI * dBI;
+                                    const raw_ny = 2n * (b * c + a * dBI);
+                                    const raw_nz = 2n * (b * dBI - a * c);
+
+                                    const nx = raw_nx;
+                                    const ny = raw_ny;
+                                    const nz = raw_nz;
+
+                                    const nxf = Number(nx) / Nf;
+                                    const nyf = Number(ny) / Nf;
+                                    const nzf = Number(nz) / Nf;
+
+                                    const d2 = (nxf - targetVec.x) ** 2 + (nyf - targetVec.y) ** 2 + (nzf - targetVec.z) ** 2;
+                                    if (d2 < minDistSq) {
+                                        minDistSq = d2;
+                                        best = { nx, ny, nz, N, q: [a, b, c, dBI] };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (da % 15 === 0) await new Promise(r => setTimeout(r, 0));
+            }
+            return best;
+        }
+
+        const convertBtn = document.getElementById('convert-btn');
+        const viewBtn = document.getElementById('use-view-btn');
+        const resSlider = document.getElementById('res-slider');
+        const resVal = document.getElementById('res-val');
+
+        let srcPoint = null;
+        let tgtPoint = null;
+
+        resSlider.addEventListener('input', () => {
+            const k = resSlider.value;
+            resVal.textContent = `k = ${k} (N = 65^${k})`;
+        });
+
+        async function handleConversion(vec, mode = 'target') {
+            const isSrc = mode === 'source';
+            const k = parseInt(resSlider.value);
+            const radius = k < 4 ? 40 : (k === 4 ? 80 : 120);
+
+            const prefix = isSrc ? 'src' : 'tgt';
+            const resultDiv = document.getElementById(`${prefix}-result`);
+            const mathOut = document.getElementById(`${prefix}-mathjax`);
+            const textDiv = document.getElementById(`${prefix}-coords-text`);
+            const trueMarker = isSrc ? srcTrueMarker : tgtTrueMarker;
+            const approxMarker = isSrc ? srcApproxMarker : tgtApproxMarker;
+
+            resultDiv.style.display = 'block';
+            textDiv.textContent = `Finding ${mode} approximation (k=${k})...`;
+
+            trueMarker.position.copy(vec.clone().multiplyScalar(10.1));
+            trueMarker.visible = true;
+
+            // Yield a frame
+            await new Promise(r => setTimeout(r, 0));
+
+            const best = await findClosest(vec, k);
+
+            if (!best) {
+                textDiv.textContent = "No solution in radius.";
+            } else {
+                if (isSrc) srcPoint = best; else tgtPoint = best;
+
+                const { nx, ny, nz, N, q } = best;
+                const Nf = Number(N);
+                const ex = F(nx, N);
+                const ey = F(ny, N);
+                const ez = F(nz, N);
+
+                textDiv.textContent = `Approx: ${nx}, ${ny}, ${nz} / N`;
+
+                const [qa, qb, qc, qd] = q;
+                const formatSign = (val, char = '') => {
+                    if (val === 0n) return '';
+                    const prefix = val < 0n ? ' - ' : ' + ';
+                    const absVal = val < 0n ? -val : val;
+                    return `${prefix}${absVal}${char}`;
+                };
+
+                // Build q string
+                let qStr = `${qa}`;
+                qStr += formatSign(qb, 'i');
+                qStr += formatSign(qc, 'j');
+                qStr += formatSign(qd, 'k');
+
+                mathOut.innerHTML = `
+                    <div style="font-size: 0.85rem; color: #888; margin-bottom: 5px;">RATIONAL COORDINATES</div>
+                    $x = ${ex.toLatex()}$<br>
+                    $y = ${ey.toLatex()}$<br>
+                    $z = ${ez.toLatex()}$
+                    <div style="font-size: 0.85rem; color: #ffcc00; margin-top: 10px; margin-bottom: 5px;">INTEGER QUATERNION ($q i q^{-1} = v$)</div>
+                    <div style="color: #ffcc00; font-family: 'Courier New', monospace;">$q = ${qStr}$</div>
+                `;
+                if (window.MathJax) MathJax.typesetPromise([mathOut]).catch(() => { });
+
+                approxMarker.position.set(Number(nx) / Nf, Number(ny) / Nf, Number(nz) / Nf).multiplyScalar(10.2);
+                approxMarker.visible = true;
+            }
+
+            if (srcPoint && tgtPoint) {
+                const vS = new THREE.Vector3(Number(srcPoint.nx), Number(srcPoint.ny), Number(srcPoint.nz)).normalize();
+                const vT = new THREE.Vector3(Number(tgtPoint.nx), Number(tgtPoint.ny), Number(tgtPoint.nz)).normalize();
+                const angle = vS.angleTo(vT);
+                const distMiles = angle * 3958.8;
+                document.getElementById('word-panel').style.display = 'block';
+                document.getElementById('word-display').textContent = `Approx Distance: ${distMiles.toFixed(2)} miles (${(angle * 180 / Math.PI).toFixed(4)}°)`;
+            }
+        }
+
+        convertBtn.addEventListener('click', async () => {
+            convertBtn.disabled = true;
+
+            const sLat = parseFloat(document.getElementById('src-lat').value);
+            const sLon = parseFloat(document.getElementById('src-lon').value);
+            const tLat = parseFloat(document.getElementById('tgt-lat').value);
+            const tLon = parseFloat(document.getElementById('tgt-lon').value);
+
+            await handleConversion(latLonToVector(sLat, sLon), 'source');
+            await handleConversion(latLonToVector(tLat, tLon), 'target');
+
+            convertBtn.disabled = false;
+        });
+
+        const sourceSelect = document.getElementById('source-select');
+        sourceSelect.addEventListener('change', () => {
+            const val = sourceSelect.value;
+            if (val) {
+                const [lat, lon] = val.split(',').map(parseFloat);
+                document.getElementById('src-lat').value = lat;
+                document.getElementById('src-lon').value = lon;
+                const v = latLonToVector(lat, lon);
+                camera.position.copy(v.multiplyScalar(25));
+                controls.update();
+                handleConversion(v, 'source');
+            }
+        });
+
+        const targetSelect = document.getElementById('target-select');
+        targetSelect.addEventListener('change', () => {
+            const val = targetSelect.value;
+            if (val) {
+                const [lat, lon] = val.split(',').map(parseFloat);
+                document.getElementById('tgt-lat').value = lat;
+                document.getElementById('tgt-lon').value = lon;
+                handleConversion(latLonToVector(lat, lon), 'target');
+            }
+        });
+
+        viewBtn.addEventListener('click', () => {
+            const v = camera.position.clone().normalize();
+            handleConversion(v, 'target');
+        });
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        renderer.domElement.addEventListener('dblclick', (event) => {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(earthMesh);
+            if (intersects.length > 0) {
+                handleConversion(intersects[0].point.normalize(), 'target');
+            }
+        });
+
+        const initSrc = latLonToVector(36.9916, -122.0608);
+        const initTgt = latLonToVector(37.5928, 127.0458);
+        camera.position.copy(initTgt.clone().multiplyScalar(25));
+        controls.update();
+
+        const helpText = document.createElement('div');
+        helpText.style.cssText = 'position:absolute; bottom:20px; left:50%; transform:translateX(-50%); pointer-events:none; color:#fff; opacity:0.5; font-size:0.9rem;';
+        helpText.textContent = 'Presets update Source/Target automatically';
+        document.body.appendChild(helpText);
+    </script>
+</body>
+
+</html>

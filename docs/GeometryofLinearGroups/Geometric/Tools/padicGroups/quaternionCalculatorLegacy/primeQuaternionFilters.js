@@ -15,7 +15,7 @@ export function findXYSolution(p) {
         for (let x = 1; x < p; x++) {
             if ((x * x) % p === (p - 1)) {
                 console.log(`p=${p} ≡ 1 (mod 4): Using y=0, found x=${x} where x² ≡ -1 (mod ${p})`);
-                console.log(`  Verification: ${x}² = ${x*x} ≡ ${(x*x) % p} (mod ${p})`);
+                console.log(`  Verification: ${x}² = ${x * x} ≡ ${(x * x) % p} (mod ${p})`);
                 return { x, y: 0 };
             }
         }
@@ -25,7 +25,7 @@ export function findXYSolution(p) {
     for (let x = 0; x < p; x++) {
         for (let y = 1; y < p; y++) {  // Start y from 1 to prefer non-zero y
             if ((x * x + y * y) % p === (p - 1)) {
-                console.log(`Found solution for p=${p}: (x,y) = (${x},${y}), verification: ${x}² + ${y}² = ${x*x + y*y} ≡ ${(x*x + y*y) % p} (mod ${p})`);
+                console.log(`Found solution for p=${p}: (x,y) = (${x},${y}), verification: ${x}² + ${y}² = ${x * x + y * y} ≡ ${(x * x + y * y) % p} (mod ${p})`);
                 return { x, y };
             }
         }

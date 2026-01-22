@@ -33,7 +33,7 @@ export function generateQuaternionsOfNorm(p) {
         for (let x = -maxCoeff; x <= maxCoeff; x++) {
             for (let y = -maxCoeff; y <= maxCoeff; y++) {
                 for (let z = -maxCoeff; z <= maxCoeff; z++) {
-                    if (w*w + x*x + y*y + z*z === p) {
+                    if (w * w + x * x + y * y + z * z === p) {
                         quaternions.push([w, x, y, z]);
                     }
                 }

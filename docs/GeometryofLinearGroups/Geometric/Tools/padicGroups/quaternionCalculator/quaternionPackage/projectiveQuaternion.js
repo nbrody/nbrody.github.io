@@ -1,3 +1,93 @@
+// projectiveQuaternion.js - Projective Quaternion Arithmetic and Utilities
+
+export const QMath = {
+    multiply: (q1, q2) => {
+        const [w1, x1, y1, z1] = q1;
+        const [w2, x2, y2, z2] = q2;
+        return [
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+        ];
+    },
+
+    conjugate: (q) => [q[0], -q[1], -q[2], -q[3]],
+
+    normSq: (q) => q[0] ** 2 + q[1] ** 2 + q[2] ** 2 + q[3] ** 2,
+
+    inverse: (q) => {
+        const n2 = QMath.normSq(q);
+        if (n2 === 0) return [0, 0, 0, 0];
+        const [w, x, y, z] = QMath.conjugate(q);
+        return [w / n2, x / n2, y / n2, z / n2];
+    },
+
+    areEqual: (q1, q2, epsilon = 1e-9) => {
+        return q1.every((val, i) => Math.abs(val - q2[i]) < epsilon);
+    }
+};
+
+/**
+ * Formats a quaternion [w, x, y, z] into a string like "1+2i-3j+4k"
+ */
+export function formatQuaternion(q) {
+    const [w, x, y, z] = q;
+    const parts = [];
+    if (w !== 0) parts.push(String(w));
+
+    const term = (coef, sym) => {
+        if (coef === 0) return;
+        const sign = coef > 0 ? (parts.length ? '+' : '') : '';
+        const abs = Math.abs(coef);
+        let str = sign;
+        if (coef < 0) str += '-';
+        if (abs !== 1) str += abs;
+        str += sym;
+        parts.push(str);
+    };
+
+    term(x, '\\mathbf{i}');
+    term(y, '\\mathbf{j}');
+    term(z, '\\mathbf{k}');
+
+    return parts.length > 0 ? parts.join('') : '0';
+}
+
+/**
+ * Finds solutions to x^2 + y^2 = -1 mod p
+ */
+export function findXYSolution(p) {
+    if (p % 4 === 1) {
+        for (let x = 1; x < p; x++) {
+            if ((x * x) % p === (p - 1)) return { x, y: 0 };
+        }
+    }
+    for (let x = 0; x < p; x++) {
+        for (let y = 1; y < p; y++) {
+            if ((x * x + y * y) % p === (p - 1)) return { x, y };
+        }
+    }
+    return null;
+}
+
+/**
+ * Modular inverse using extended Euclidean algorithm
+ */
+export function modInverse(a, m) {
+    a = ((a % m) + m) % m;
+    let [old_r, r] = [a, m];
+    let [old_s, s] = [1, 0];
+
+    while (r !== 0) {
+        const quotient = Math.floor(old_r / r);
+        [old_r, r] = [r, old_r - quotient * r];
+        [old_s, s] = [s, old_s - quotient * s];
+    }
+
+    return old_r === 1 ? ((old_s % m) + m) % m : null;
+}
+
 // ProjectiveQuaternion class
 // Represents quaternions in the projective space (identifies q ~ λq for any real λ ≠ 0)
 
@@ -161,7 +251,7 @@ export function generateProjectiveQuaternionsOfNorm(p) {
         for (let x = -maxCoeff; x <= maxCoeff; x++) {
             for (let y = -maxCoeff; y <= maxCoeff; y++) {
                 for (let z = -maxCoeff; z <= maxCoeff; z++) {
-                    if (w*w + x*x + y*y + z*z === p) {
+                    if (w * w + x * x + y * y + z * z === p) {
                         const pq = new ProjectiveQuaternion(w, x, y, z);
                         const hash = pq.hash();
                         if (!seen.has(hash)) {
@@ -177,48 +267,3 @@ export function generateProjectiveQuaternionsOfNorm(p) {
     return quaternions;
 }
 
-// Compute relations between projective quaternions
-export function computeProjectiveRelations(generators) {
-    const relations = [];
-    const genKeys = Object.keys(generators);
-    const relationSet = new Set();
-
-    console.log(`Computing projective relations for ${genKeys.length} generators...`);
-
-    // For each pair (a, b)
-    for (const aKey of genKeys) {
-        if (aKey.endsWith('*')) continue;
-
-        for (const bKey of genKeys) {
-            if (bKey.endsWith('*')) continue;
-
-            const a = generators[aKey].pq;
-            const b = generators[bKey].pq;
-            const ab = a.multiply(b);
-
-            // Try to find bp, ap such that ab ~ bp * ap
-            let found = false;
-            for (const bpKey of genKeys) {
-                if (found) break;
-                for (const apKey of genKeys) {
-                    const bp = generators[bpKey].pq;
-                    const ap = generators[apKey].pq;
-                    const bpap = bp.multiply(ap);
-
-                    if (ab.equals(bpap)) {
-                        const relKey = `${aKey},${bKey},${bpKey},${apKey}`;
-                        if (!relationSet.has(relKey)) {
-                            relationSet.add(relKey);
-                            relations.push({ a: aKey, b: bKey, bp: bpKey, ap: apKey });
-                        }
-                        found = true;
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    console.log(`Found ${relations.length} projective relations`);
-    return relations;
-}

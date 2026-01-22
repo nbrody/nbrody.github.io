@@ -38,6 +38,23 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .viz-frame {
+            width: 100%;
+            height: 500px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            margin-top: 2rem;
+            background: transparent;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .full-viz-container {
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+    </style>
 </head>
 
 <body>
@@ -45,7 +62,6 @@
     <div id="fullpage">
         <!-- Section 1: Title -->
         <div class="section" data-anchor="title">
-            <img src="assets/redwoods.png" class="bg-art redwoods" alt="Redwood Forest">
             <div class="content-box animate-up">
                 <span class="tag">KIAS Virtual Seminar on Geometry and Topology</span>
                 <h1>Surface Groups and Products of Trees</h1>
@@ -60,105 +76,136 @@
             <div class="slide" data-anchor="questions">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Introduction</h2>
-                    <p>Suppose that \(G\) is a group.<br>
-                        Question 1: What are the subgroups of \(G\)?<br>
-                        Question 2: Which groups can \(G\) embed into?<br>
-                        Question 3: Which spaces can \(G\) act on?
+                    <p>Suppose that \(G\) is the fundamental group of a closed surface of genus at least two.
+                    <div class="theorem" data-label="Main Question">
+                        Can \(G\) act freely on a locally finite product of trees?
+                    </div>
+                    </p>
+                    <p>
+                        There is a mass of literature finding proper actions of surface groups on nearly any type of
+                        geometric space one can imagine.
                     </p>
                 </div>
             </div>
             <div class="slide" data-anchor="the-goal">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">The Goal</h2>
-                    <p>Our focus today is on the intersection of these questions for surface groups.</p>
+                <div class="full-viz-container">
+                    <div style="display: flex; gap: 10px; margin-bottom: 1rem; justify-content: center;">
+                        <button class="action-btn" onclick="toggleViz('orbifold-frame', this)">Pause</button>
+                    </div>
+                    <iframe id="orbifold-frame" src="js/torusOrbifold/torusOrbifold.html?embed=true" class="viz-frame"
+                        style="height: 650px; border: none;"></iframe>
                 </div>
             </div>
             <div class="slide" data-anchor="main-theorem">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">Classical Result</h2>
-                    <div class="theorem" data-label="Theorem (Nielsen-Fenchel)">
-                        <p>Every finite subgroup of the mapping class group \(\Mod(S)\) can be realized as a group of
-                            isometries of some hyperbolic structure on \(S\).</p>
+                <div class="full-viz-container">
+                    <div style="display: flex; gap: 10px; margin-bottom: 1rem; justify-content: center;">
+                        <button class="action-btn" onclick="toggleViz('trees-frame', this)">Pause</button>
                     </div>
+                    <iframe id="trees-frame" src="productOfTrees/productOfTrees.html?embed=true" class="viz-frame"
+                        style="height: 650px; border: none;"></iframe>
                 </div>
             </div>
         </div>
 
         <!-- Section 3: Background -->
         <div class="section" data-anchor="background">
-            <div class="slide" data-anchor="hyperbolic">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">Background: \(\PSL_2(\R)\)</h2>
-                    <p>The group \(\PSL_2(\R)\) acts on the upper half plane \(\bbH = \{z \in \C : \Im(z) > 0\}\) via
-                        Möbius transformations:</p>
-                    <formula>
-                        \[ \begin{pmatrix} a & b \\ c & d \end{pmatrix} \cdot z = \frac{az + b}{cz + d} \]
-                    </formula>
-                    <p>This action is transitive and preserves the hyperbolic metric \(ds^2 = \frac{dx^2 + dy^2}{y^2}\).
-                    </p>
+            <!-- New Slide 1: PSL2(R) action on H2 -->
+            <div class="slide" data-anchor="h2-action">
+                <div class="content-box animate-up" style="max-width: 1100px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+                        <button class="action-btn"
+                            onclick="document.getElementById('hyp-frame').contentWindow.postMessage('elliptic', '*')">Elliptic</button>
+                        <button class="action-btn"
+                            onclick="document.getElementById('hyp-frame').contentWindow.postMessage('parabolic', '*')">Parabolic</button>
+                        <button class="action-btn"
+                            onclick="document.getElementById('hyp-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
+                    </div>
+                    <div class="full-viz-container">
+                        <iframe id="hyp-frame" src="js/hypPlane/hyp.html?embed=true" class="viz-frame"
+                            style="height: 600px;"></iframe>
+                    </div>
                 </div>
             </div>
-            <div class="slide" data-anchor="iwasawa">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">Iwasawa Decomposition</h2>
-                    <p>Every element \(g \in \SL_2(\R)\) can be uniquely factored as \(g = kan\):</p>
-                    <formula>
-                        \[ \underbrace{\begin{pmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta
-                        \end{pmatrix}}_{K \in \mathsf{SO}(2)}
-                        \underbrace{\begin{pmatrix} \lambda & 0 \\ 0 & \lambda^{-1} \end{pmatrix}}_{A \in \mathsf{A}}
-                        \underbrace{\begin{pmatrix} 1 & x \\ 0 & 1 \end{pmatrix}}_{N \in \mathsf{N}} \]
-                    </formula>
-                    <p>Geometrically, this represents a rotation, followed by a scaling, followed by a translation of
-                        \(\bbH\).</p>
+
+            <!-- New Slide 2: Iterated Circle Map -->
+            <div class="slide" data-anchor="pto1-map-iterated">
+                <div class="content-box animate-up" style="max-width: 1100px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 1rem; align-items: center;">
+                        <button class="action-btn"
+                            onclick="document.getElementById('pto1-frame').contentWindow.postMessage('rotate', '*')">⟳
+                            Rotate</button>
+                        <button class="action-btn"
+                            onclick="document.getElementById('pto1-frame').contentWindow.postMessage('play', '*')">▶
+                            Play</button>
+                        <button class="action-btn"
+                            onclick="document.getElementById('pto1-frame').contentWindow.postMessage('add', '*')">+
+                            Layer</button>
+                    </div>
+                    <div class="full-viz-container">
+                        <iframe id="pto1-frame" src="js/pto1Map/pto1Map.html?embed=true" class="viz-frame"
+                            style="height: 650px;"></iframe>
+                    </div>
                 </div>
             </div>
-            <div class="slide" data-anchor="padics">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">The \(p\)-adic Numbers</h2>
-                    <p>The field \(\Q_p\) is the completion of \(\Q\) with respect to the \(p\)-adic norm \(|x|_p\):</p>
-                    <formula>
-                        \[ x = p^v \frac{a}{b} \implies |x|_p = p^{-v} \]
-                    </formula>
-                    <p>In this non-archimedean world, a sequence converges if and only if the difference between terms
-                        goes to zero—leading to a totally disconnected topology.</p>
+
+            <!-- New Slide 3: p-adic Tower -->
+            <div class="slide" data-anchor="padic-tower">
+                <div class="content-box animate-up" style="max-width: 1100px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+                        <button class="action-btn"
+                            onclick="document.getElementById('tower-frame').contentWindow.postMessage('grow', '*')">+</button>
+                    </div>
+                    <div class="full-viz-container">
+                        <iframe id="tower-frame" src="js/padicTower/padic.html?embed=true&grow=1" class="viz-frame"
+                            style="height: 650px;"></iframe>
+                    </div>
                 </div>
             </div>
-            <div class="slide" data-anchor="tree">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">The Bruhat-Tits Tree</h2>
-                    <p>The \(p\)-adic analogue of the hyperbolic plane is the Bruhat-Tits tree \(\mathbb{T}_p\).</p>
-                    <ul>
-                        <li>Vertices are homothety classes of \(\Z_p\)-lattices in \(\Q_p^2\).</li>
-                        <li>An edge exists between \([\Lambda]\) and \([\Lambda']\) if they have representatives with
-                            \(\Lambda' \subset \Lambda\) and \(\Lambda/\Lambda' \cong \Z/p\Z\).</li>
-                    </ul>
-                    <p>This results in a regular tree of valence \(p+1\).</p>
+
+            <!-- New Slide 4: p-adic Action -->
+            <div class="slide" data-anchor="padic-action-desc">
+                <div class="content-box animate-up" style="max-width: 1100px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+                        <button class="action-btn"
+                            onclick="document.getElementById('action-frame').contentWindow.postMessage('prev', '*')">←</button>
+                        <button class="action-btn"
+                            onclick="document.getElementById('action-frame').contentWindow.postMessage('next', '*')">→</button>
+                    </div>
+                    <div class="full-viz-container">
+                        <iframe id="action-frame" src="js/padicAction/action.html?embed=true" class="viz-frame"
+                            style="height: 650px;"></iframe>
+                    </div>
                 </div>
             </div>
-            <div class="slide" data-anchor="padic-action">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">Action on \(\mathbb{T}_p\)</h2>
-                    <p>The group \(\PGL_2(\Q_p)\) acts by isometries on the tree \(\mathbb{T}_p\).</p>
-                    <p>Just as in the real case, we have an Iwasawa decomposition:</p>
-                    <formula>
-                        \[ \PGL_2(\Q_p) = \PGL_2(\Z_p) \cdot \mathsf{A} \cdot \mathsf{N} \]
-                    </formula>
-                    <p>where \(\PGL_2(\Z_p)\) is the stabilizer of a vertex, acting as "rotations" of the tree.</p>
+
+            <!-- New Slide 5: Tree Action Explorer -->
+            <div class="slide" data-anchor="tree-action-demo">
+                <div class="content-box animate-up" style="max-width: 1100px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+                        <button class="action-btn"
+                            onclick="document.getElementById('tree-frame').contentWindow.postMessage('elliptic', '*')">Elliptic</button>
+                        <button class="action-btn"
+                            onclick="document.getElementById('tree-frame').contentWindow.postMessage('parabolic', '*')">Parabolic</button>
+                        <button class="action-btn"
+                            onclick="document.getElementById('tree-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
+                    </div>
+                    <div class="full-viz-container">
+                        <iframe id="tree-frame" src="js/treeVisualizer/treetest.html?embed=true" class="viz-frame"
+                            style="height: 650px;"></iframe>
+                    </div>
                 </div>
             </div>
             <div class="slide" data-anchor="arithmetic">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Arithmetic Lattices</h2>
-                    <p>The <strong>Minkowski embedding</strong> allows us to view groups defined over \(\Q\) as discrete
-                        subgroups of Lie groups. For example:</p>
+                    <h2 class="slide-title">Arithmetic Methods</h2>
+                    <p>The <strong>Minkowski embedding</strong> allows us to find discrete embeddings of subrings of
+                        \(\overline{Q}\) into products of fields. In turn, we obtain actions on locally compact spaces.
+                        For example</p>
                     <formula>
                         \[ \PGL_2(\Q) \hookrightarrow \PGL_2(\R) \times \prod_{p} \PGL_2(\Q_p) \]
                     </formula>
-                    <div class="theorem" data-label="Theorem (Borel--Harish-Chandra)">
-                        <p>Let \(G\) be a semisimple algebraic group defined over \(\Q\). Then \(G(\Z)\) is a lattice in
-                            \(G(\R)\). More generally, \(G(\Z[1/S])\) is a lattice in \(\prod_{v \in S \cup \{\infty\}}
-                            G(\Q_v)\).</p>
-                    </div>
+                    <p>This gives us a discrete action of \(\PGL_2(\Q)\) on \(\PGL_2(\R) \times \prod_{p}'
+                        \PGL_2(\Q_p)\). </p>
                 </div>
             </div>
         </div>
@@ -167,26 +214,36 @@
         <div class="section" data-anchor="actions">
             <div class="slide" data-anchor="approaches">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Approaches</h2>
+                    <h2 class="slide-title">Three Approaches</h2>
                     <p>Suppose \(\Gamma\) is a surface group. We will try to find a discrete and faithful representation
-                        of \(\Gamma\) into \(\Aut(\bbX)\) for some space \(\bbX\).
+                        of \(\Gamma\) into \(\Aut(\bbX)\), where \(\bbX\) is a product of trees.
+
+                    <ul>
+                        <li>\(\Gamma\leq \PGL_2(\Q)\) with \(\Gamma\cap \PGL_2(\Z)=I\)</li>
+                        <li>\(\Gamma\leq \PGL_2(\bbF_p(t))\)</li>
+                        <li>\(\Gamma \leq \mathsf{SO}_3(\Q)\)</li>
+                    </ul>
                     </p>
                 </div>
             </div>
             <div class="slide" data-anchor="long-reid-group">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Long-Reid group</h2>
-                    <p>Suppose \(\Gamma\leq \PGL_2(\Q)\) is a surface group. By embedding \(\Q\)
-                        into the adeles \(\bbA\), we instantly have a proper action of \(\Gamma\) on
-                    </p>
+                    <h2 class="slide-title">Long-Reid Group</h2>
+                    <p>Let \(\Gamma=\langle a,b\mid [a,b]^2=1\rangle\). We get a representation of \(\Gamma\) into
+                        \(\PGL_2(\Z(t))\) by taking</p>
                     <formula>
-                        \(\bbH^2\times \prod'_{p\text{ prime}}\mathbb{T}_p\)
+                        \(\left\langle \begin{pmatrix} t & 0 \\ 0 & 1 \end{pmatrix}, \begin{pmatrix} t^2+1 & 2 \\ t
+                        & 1 \end{pmatrix} \right\rangle \leq \PGL_2(\Z(t))\)
                     </formula>
+                    <p>Specializing \(t\in\Q\), we can obtain a subgroup of \(\PGL_2(\Q)\). This determines a proper
+                        action on a product of trees if and only if the representation is faithful and \(\Gamma_t\cap
+                        \PGL_2(\Z)\) is finite.
+                    </p>
                 </div>
             </div>
             <div class="slide" data-anchor="FLSS-action">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">FLSS action</h2>
+                    <h2 class="slide-title">Fisher-Larsen-Spatzier-Stover</h2>
                     <p>Suppose \(\Gamma\leq \PGL_2(\bbF_p(t))\) is a surface group. Since \(\Gamma\) is finitely
                         generated, it is contained in \(\PGL_2(A)\) for some finitely generated subring \(A\) of
                         \(\bbF_p(t)\). Such a ring is of the form \(A=\bbF_p[t,\frac{1}{f_1},...,\frac{1}{f_k}]\)
@@ -194,15 +251,8 @@
                     </p>
 
                     <p>We can obtain a representation of \(\Gamma\) into \(\PGL_2(\bbF_p(t))\) by taking a
-                        representations of \(\Gamma\) into \(\PGL_2(\Z(t))\), and composing with the reduction
+                        representation of \(\Gamma\) into \(\PGL_2(\Z(t))\), and composing with the reduction
                         map \(\Z(t)\to\bbF_p(t)\). If we can find a faithful such representation, we've succeeded!
-                    </p>
-
-                    <p>Using the same surface group as before, we can consider
-                        <formula>
-                            \(\left\langle \begin{pmatrix} t & 0 \\ 0 & 1 \end{pmatrix}, \begin{pmatrix} t^2+1 & 2 \\ t
-                            & 1 \end{pmatrix} \right\rangle \leq \PGL_2(\Z(t))\)
-                        </formula>
                     </p>
                 </div>
             </div>
@@ -217,6 +267,13 @@
                         <p>Let \(\rho\colon \Gamma\to \PGL_2(k)\) be a faithful totally unitary representation. Then
                             \(\rho\) induces a proper action of \(\Gamma\) on a locally compact product of trees.</p>
                     </div>
+                </div>
+            </div>
+
+
+            <div class="slide" data-anchor="representation-example">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Example Representation</h2>
                     <p>Thus, if we can find a faithful and totally unitary surface group representation, we've
                         succeeded! <br>
 
@@ -239,37 +296,118 @@
 
         <!-- Section 5: Computation -->
         <div class="section" data-anchor="computation">
-            <div class="slide" data-anchor="overview">
+            <div class="slide" data-anchor="bfs">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Computation</h2>
-                    <p>Algorithmic approaches and results.</p>
+                    <h2 class="slide-title">Breadth-First Search</h2>
+                    <p>Explore the Cayley graph layer by layer.</p>
+                    <formula>
+                        \[ \mathcal{B}_d = \{ g \cdot s : g \in \mathcal{B}_{d-1}, s \in S \} \]
+                    </formula>
+                    <ul>
+                        <li><strong>Pros:</strong> Guaranteed to find minimal-length words.</li>
+                        <li><strong>Cons:</strong> Exponential complexity \(O(|S|^d)\).</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="slide" data-anchor="greedy">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Greedy Algorithms</h2>
+                    <p>Always extend the "best" candidate according to a cost function \(C(w)\).</p>
+                    <formula>
+                        \[ w_{n+1} = \text{argmin}_{s \in S} \, \|\rho(w_n s)\| \]
+                    </formula>
+                    <ul>
+                        <li><strong>Pros:</strong> Extremely fast; can reach very long words (depth \(1000+\)).</li>
+                        <li><strong>Cons:</strong> Sensitive to local minima (large "valleys" in the norm).</li>
+                    </ul>
                 </div>
             </div>
             <div class="slide" data-anchor="beam-search">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Beam search</h2>
-                    <p>Maintain a set of top \(k\) candidates and extend them based on a cost function \(C\colon G\to
-                        \bbR\).</p>
+                    <h2 class="slide-title">Beam Search</h2>
+                    <p>Given a finitely generated group \((G,S)\) and a cost function \(C\), we can use beam search to
+                        find
+                        elements with small cost.</p>
+                    <p>
+                        We first choose a beam width \(B\). We initialize the <i>beam</i> \(B_0=\{I\}\).
+                    </p>
+                    <p>
+                        Given the current beam \(B_n\), we define the <i>extended beam</i>
+                        \(B_{n+1}\) to be the set of elements of the form \(w \cdot s\) where \(w \in B_n\) and
+                        \(s \in S\).
+                    </p>
+                    <p>
+                        We then prune the extended beam by taking the top \(B\) elements with the smallest cost.
+                    </p>
+                    <div class="full-viz-container">
+                        <iframe src="js/beamSearch/index.html" class="viz-frame" style="height: 600px;"></iframe>
+                    </div>
+                </div>
+            </div>
+            <div class="slide" data-anchor="flashbeam">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">FlashBeam Search</h2>
+                    <p>Suppose we have a finitely generated group \((G,S)\) have a cost
+                        function \(C\colon G\to \R_{\geq 0}\) which we would like to optimize.</p>
+                    <p>
+                        We first choose a beam width \(B\) and a flash size \(F\). We initialize the <i>flash</i>
+                        \(F_0\) to
+                        consist of the generating set, and set \(B_0 = \{I\}\).
+                    </p>
+
+                    <p>
+                        Given the current beam \(B_n\) and flash \(F_n\), we define the <i>extended beam</i>
+                        \(B_{n+1}\) to be the set of elements of the form \(w \cdot s\) where \(w \in B_n\) and
+                        \(s \in F_n\).
+                    </p>
+                    <p>
+                        We then prune the extended beam by taking the top \(B\) elements with the smallest cost, and
+                        prune the flash by taking the \(F\) elements with the smallest cost.
+                    </p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="dirichlet-demo">
+                <div class="content-box animate-up" style="max-width: 1200px; padding: 2rem;">
+                    <div class="viz-container"
+                        style="position: relative; border-radius: 20px; overflow: hidden; height: 750px; background: #000; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+                        <iframe id="dirichlet-frame" src="js/BHCTest.html?preset=dirichlet&embed=true"
+                            style="width: 100%; height: 100%; border: none; display: block;"></iframe>
+                        <div id="play-overlay"
+                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(2, 6, 23, 0.4); backdrop-filter: blur(8px); cursor: pointer; transition: all 0.6s ease; z-index: 1001;">
+                            <div class="action-btn" style="font-size: 1.6rem; padding: 2rem 4rem;">▶ Play Animation
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Section 6: Conclusions -->
         <div class="section" data-anchor="conclusions">
-            <img src="assets/ocean.png" class="bg-art ocean" alt="Pacific Ocean">
-            <div class="content-box animate-up">
-                <h2 class="slide-title">Summary & Outlook</h2>
-                <p>Bridging the gap between low-dimensional topology and algebraic geometry.</p>
-                <div style="margin-top: 3rem;">
-                    <a href="#title"
-                        style="text-decoration: none; border: 2px solid var(--text); padding: 1.2rem 2.5rem; color: var(--text); font-weight: 700; border-radius: 99px; transition: all 0.3s; opacity: 0.8;">Back
-                        to Start</a>
+            <div class="slide" data-anchor="summary">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Conclusions</h2>
+                    <p>The FlashBeam search succeeds in finding:</p>
+                    <ul>
+                        <li>an integer matrix in the Long-Reid group</li>
+                        <li>relations in the Fisher-Larsen-Spatzier-Stover groups, for many small primes</li>
+                        <li>a relation in the totally unitary group</li>
+                        <li>and more...</li>
+                    </ul>
                 </div>
             </div>
-        </div>
 
-        <div class="section" data-anchor="speculation">
-            <div class="slide" data-anchor="conjecture-1">
+            <div class="slide" data-anchor="open-questions">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Open Questions</h2>
+                    <p>We consider this as fairly discouraging evidence for the general approach. Indeed, we suspect
+                        that
+                        <i>none of these approaches will ever work!</i>
+                    </p>
+                </div>
+            </div>
+
+            <div class="slide" data-anchor="conjecture">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Conjecture</h2>
                     <p>Suppose \(k\) is a number field and \(\bbG\) is a simple \(k\)-algebraic group. We say that a
@@ -300,7 +438,7 @@
                 autoScrolling: true,
                 navigation: true,
                 navigationPosition: 'right',
-                anchors: ['title', 'introduction', 'background', 'actions', 'computation', 'conclusions', 'speculation'],
+                anchors: ['title', 'introduction', 'background', 'actions', 'computation', 'conclusions'],
                 slidesNavigation: true,
                 controlArrows: true,
                 keyboardScrolling: true,
@@ -319,6 +457,26 @@
                     destination.item.classList.add('active');
                 }
             });
+
+            // Dirichlet Embed Logic
+            const overlay = document.getElementById('play-overlay');
+            const iframe = document.getElementById('dirichlet-frame');
+            if (overlay && iframe) {
+                overlay.addEventListener('click', function () {
+                    overlay.style.opacity = '0';
+                    overlay.style.pointerEvents = 'none';
+                    iframe.contentWindow.postMessage('play', '*');
+                });
+            }
+
+            // Global Viz Toggle Helper
+            window.toggleViz = function (id, btn) {
+                const frame = document.getElementById(id);
+                if (frame) {
+                    frame.contentWindow.postMessage('toggle', '*');
+                    btn.innerText = (btn.innerText === "Play") ? "Pause" : "Play";
+                }
+            };
         });
     </script>
 </body>

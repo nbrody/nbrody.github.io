@@ -1,6 +1,4 @@
-
-import { ProjectiveQuaternion } from './projectiveQuaternion.js';
-import { QMath } from './generatorComputation.js';
+import { ProjectiveQuaternion, QMath } from './projectiveQuaternion.js';
 
 // Generators for SO3(Z) ~ S4
 // i, j, 1+i, 1+j
