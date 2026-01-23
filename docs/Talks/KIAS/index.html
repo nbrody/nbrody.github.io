@@ -40,34 +40,35 @@
     <link rel="stylesheet" href="style.css">
     <style>
         .viz-frame {
-            width: 100%;
-            height: 700px;
-            max-height: 75dvh;
-            border: 1px solid var(--border);
-            border-radius: 20px;
+            width: 100vw;
+            height: 100dvh;
+            border: none;
+            border-radius: 0;
             background: transparent;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             display: block;
         }
 
         @media (max-width: 1024px),
         (max-height: 900px) {
             .viz-frame {
-                height: 60dvh;
+                height: 100dvh;
             }
         }
 
         @media (max-height: 700px) {
             .viz-frame {
-                height: 55dvh;
+                height: 100dvh;
             }
         }
 
         .full-viz-container {
-            width: 100%;
-            max-width: 1000px;
-            margin: 0 auto;
+            width: 100vw;
+            height: 100dvh;
+            max-width: none;
+            margin: 0;
+            padding: 0;
             position: relative;
+            overflow: hidden;
         }
 
         .viz-controls {
@@ -95,12 +96,12 @@
             </div>
         </div>
 
-        <!-- Section 2: Introduction -->
-        <div class="section" data-anchor="introduction">
+        <!-- Section 2: Background -->
+        <div class="section" data-anchor="background">
             <div class="slide" data-anchor="questions">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Introduction</h2>
-                    <p> Suppose that \(G\) is a finitely generated group, and \(X\) is a proper metric space.
+                    <h2 class="slide-title">Background</h2>
+                    <p> Suppose that \(G\) is a finitely generated group, and \(X\) is a proper metric space.</p>
                     <ul>
                         <li class="fragment">When does \(G\) act faithfully on \(X\)?</li>
                         <li class="fragment">When does \(G\) act properly on \(X\)?</li>
@@ -124,7 +125,7 @@
                 </div>
             </div>
 
-            <div class="slide" data-anchor="questions">
+            <div class="slide" data-anchor="intro-questions">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Questions</h2>
                     <p class="fragment">Now suppose that \(G\) is the fundamental group of a finite-volume hyperbolic
@@ -145,7 +146,7 @@
             </div>
 
             <div class="slide" data-anchor="the-goal">
-                <div class="full-viz-container">
+                <div class="full-viz-container animate-up">
                     <div class="viz-controls">
                         <button class="minimal-btn" onclick="toggleViz('orbifold-frame', this)">Play</button>
                     </div>
@@ -154,7 +155,7 @@
                 </div>
             </div>
             <div class="slide" data-anchor="main-theorem">
-                <div class="full-viz-container">
+                <div class="full-viz-container animate-up">
                     <div class="viz-controls">
                         <button class="minimal-btn" onclick="postToViz('trees-frame', 'toggle-link')">Link</button>
                         <button class="minimal-btn" onclick="toggleViz('trees-frame', this)">Play</button>
@@ -165,90 +166,78 @@
             </div>
         </div>
 
-        <!-- Section 3: Background -->
-        <div class="section" data-anchor="background">
+        <!-- Section 3: Geometry -->
+        <div class="section" data-anchor="geometry">
             <!-- New Slide 1: PSL2(R) action on H2 -->
             <div class="slide" data-anchor="h2-action">
-                <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div class="full-viz-container">
-                        <div class="viz-controls">
-                            <button class="minimal-btn"
-                                onclick="document.getElementById('hyp-frame').contentWindow.postMessage('elliptic', '*')">Elliptic</button>
-                            <button class="minimal-btn"
-                                onclick="document.getElementById('hyp-frame').contentWindow.postMessage('parabolic', '*')">Parabolic</button>
-                            <button class="minimal-btn"
-                                onclick="document.getElementById('hyp-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
-                        </div>
-                        <iframe id="hyp-frame" src="js/hypPlane/hyp.html?embed=true" class="viz-frame"></iframe>
+                <div class="full-viz-container animate-up">
+                    <div class="viz-controls">
+                        <button class="minimal-btn"
+                            onclick="document.getElementById('hyp-frame').contentWindow.postMessage('elliptic', '*')">Elliptic</button>
+                        <button class="minimal-btn"
+                            onclick="document.getElementById('hyp-frame').contentWindow.postMessage('parabolic', '*')">Parabolic</button>
+                        <button class="minimal-btn"
+                            onclick="document.getElementById('hyp-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
                     </div>
+                    <iframe id="hyp-frame" src="js/hypPlane/hyp.html?embed=true" class="viz-frame"></iframe>
                 </div>
             </div>
 
             <!-- New Slide 2: Iterated Circle Map -->
             <div class="slide" data-anchor="pto1-map-iterated">
-                <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div class="full-viz-container">
-                        <div class="viz-controls">
-                            <button class="minimal-btn"
-                                onclick="document.getElementById('pto1-frame').contentWindow.postMessage('rotate', '*')">⟳
-                                Rotate</button>
-                            <button class="minimal-btn"
-                                onclick="document.getElementById('pto1-frame').contentWindow.postMessage('play', '*')">▶
-                                Play</button>
-                            <button class="minimal-btn"
-                                onclick="document.getElementById('pto1-frame').contentWindow.postMessage('add', '*')">+
-                                Layer</button>
-                        </div>
-                        <iframe id="pto1-frame" src="js/pto1Map/pto1Map.html?embed=true" class="viz-frame"></iframe>
+                <div class="full-viz-container animate-up">
+                    <div class="viz-controls">
+                        <button class="minimal-btn"
+                            onclick="document.getElementById('pto1-frame').contentWindow.postMessage('rotate', '*')">⟳
+                            Rotate</button>
+                        <button class="minimal-btn"
+                            onclick="document.getElementById('pto1-frame').contentWindow.postMessage('play', '*')">▶
+                            Play</button>
+                        <button class="minimal-btn"
+                            onclick="document.getElementById('pto1-frame').contentWindow.postMessage('add', '*')">+
+                            Layer</button>
                     </div>
+                    <iframe id="pto1-frame" src="js/pto1Map/pto1Map.html?embed=true" class="viz-frame"></iframe>
                 </div>
             </div>
 
             <!-- New Slide 3: p-adic Tower -->
             <div class="slide" data-anchor="padic-tower">
-                <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div class="full-viz-container">
-                        <div class="viz-controls">
-                            <button class="minimal-btn"
-                                onclick="document.getElementById('tower-frame').contentWindow.postMessage('grow', '*')">+</button>
-                        </div>
-                        <iframe id="tower-frame" src="js/padicTower/padic.html?embed=true&grow=1"
-                            class="viz-frame"></iframe>
+                <div class="full-viz-container animate-up">
+                    <div class="viz-controls">
+                        <button class="minimal-btn"
+                            onclick="document.getElementById('tower-frame').contentWindow.postMessage('grow', '*')">+</button>
                     </div>
+                    <iframe id="tower-frame" src="js/padicTower/padic.html?embed=true&grow=1"
+                        class="viz-frame"></iframe>
                 </div>
             </div>
 
             <!-- New Slide 4: p-adic Action -->
             <div class="slide" data-anchor="padic-action-desc">
-                <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div class="full-viz-container">
-                        <div class="viz-controls">
-                            <button class="minimal-btn"
-                                onclick="document.getElementById('action-frame').contentWindow.postMessage('prev', '*')">←</button>
-                            <button class="minimal-btn"
-                                onclick="document.getElementById('action-frame').contentWindow.postMessage('next', '*')">→</button>
-                        </div>
-                        <iframe id="action-frame" src="js/padicAction/action.html?embed=true"
-                            class="viz-frame"></iframe>
+                <div class="full-viz-container animate-up">
+                    <div class="viz-controls">
+                        <button class="minimal-btn"
+                            onclick="document.getElementById('action-frame').contentWindow.postMessage('prev', '*')">←</button>
+                        <button class="minimal-btn"
+                            onclick="document.getElementById('action-frame').contentWindow.postMessage('next', '*')">→</button>
                     </div>
+                    <iframe id="action-frame" src="js/padicAction/action.html?embed=true" class="viz-frame"></iframe>
                 </div>
             </div>
 
             <!-- New Slide 5: Tree Action Explorer -->
             <div class="slide" data-anchor="tree-action-demo">
-                <div class="content-box animate-up" style="max-width: 1100px;">
-                    <div class="full-viz-container">
-                        <div class="viz-controls">
-                            <button class="minimal-btn"
-                                onclick="document.getElementById('tree-frame').contentWindow.postMessage('elliptic', '*')">Elliptic</button>
-                            <button class="minimal-btn"
-                                onclick="document.getElementById('tree-frame').contentWindow.postMessage('parabolic', '*')">Parabolic</button>
-                            <button class="minimal-btn"
-                                onclick="document.getElementById('tree-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
-                        </div>
-                        <iframe id="tree-frame" src="js/treeVisualizer/treetest.html?embed=true"
-                            class="viz-frame"></iframe>
+                <div class="full-viz-container animate-up">
+                    <div class="viz-controls">
+                        <button class="minimal-btn"
+                            onclick="document.getElementById('tree-frame').contentWindow.postMessage('elliptic', '*')">Elliptic</button>
+                        <button class="minimal-btn"
+                            onclick="document.getElementById('tree-frame').contentWindow.postMessage('parabolic', '*')">Parabolic</button>
+                        <button class="minimal-btn"
+                            onclick="document.getElementById('tree-frame').contentWindow.postMessage('hyperbolic', '*')">Hyperbolic</button>
                     </div>
+                    <iframe id="tree-frame" src="js/treeVisualizer/treetest.html?embed=true" class="viz-frame"></iframe>
                 </div>
             </div>
             <div class="slide" data-anchor="arithmetic">
@@ -273,14 +262,12 @@
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Three Approaches</h2>
                     <p>Suppose \(\Gamma\) is a surface group. We will try to find a discrete and faithful representation
-                        of \(\Gamma\) into \(\Aut(\bbX)\), where \(\bbX\) is a product of trees.
-
+                        of \(\Gamma\) into \(\Aut(\bbX)\), where \(\bbX\) is a product of trees.</p>
                     <ul>
                         <li class="fragment">\(\Gamma\leq \PGL_2(\Q)\) with \(\Gamma\cap \PGL_2(\Z)=I\)</li>
                         <li class="fragment">\(\Gamma\leq \PGL_2(\bbF_p(t))\)</li>
                         <li class="fragment">\(\Gamma \leq \mathsf{SO}_3(\Q)\)</li>
                     </ul>
-                    </p>
                 </div>
             </div>
             <div class="slide" data-anchor="long-reid-group">
@@ -465,9 +452,11 @@
                 </div>
             </div>
             <div class="slide" data-anchor="dirichlet-demo">
-                <div class="content-box animate-up" style="max-width: 1200px; padding: 2rem;">
-                    <div class="viz-container viz-frame"
-                        style="position: relative; overflow: hidden; height: 75dvh; background: #000; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+                <div class="full-viz-container animate-up">
+                    <div class="viz-controls">
+                        <div class="minimal-btn" onclick="document.getElementById('play-overlay').click()">▶ Play</div>
+                    </div>
+                    <div class="viz-frame" style="background: #000; position: relative;">
                         <iframe id="dirichlet-frame" src="js/BHCTest.html?preset=dirichlet&embed=true"
                             style="width: 100%; height: 100%; border: none; display: block;"></iframe>
                         <div id="play-overlay"
@@ -556,9 +545,9 @@
                 autoScrolling: true,
                 navigation: true,
                 navigationPosition: 'right',
-                navigationTooltips: ['Intro', 'Context', 'Geometry', 'Groups', 'Search', 'Summary'],
+                navigationTooltips: ['Title', 'Background', 'Geometry', 'Actions', 'Search', 'Summary'],
                 showActiveTooltip: false,
-                anchors: ['title', 'introduction', 'background', 'actions', 'computation', 'conclusions'],
+                anchors: ['title', 'background', 'geometry', 'actions', 'computation', 'conclusions'],
                 slidesNavigation: true,
                 controlArrows: true,
                 keyboardScrolling: true,
