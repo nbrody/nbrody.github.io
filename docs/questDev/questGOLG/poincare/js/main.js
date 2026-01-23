@@ -26,7 +26,7 @@ import {
 import { renderGutter, highlightGutterFaces, showFaceMeta, setupPager, setupPanelToggle, showFaceLabel3D, updateFaceLabelPosition, hideFaceLabel3D, getCurrentLabelFaceId, showEdgeLabel3D, updateEdgeLabelPosition, hideEdgeLabel3D, getCurrentEdgeLabelPosition } from './ui.js';
 import { setupMatrixInput, getMatricesFromUI, Complex } from './matrixInput.js';
 import { generateGroupElements, computeDelaunayNeighbors } from './dirichletUtils.js';
-import { polyhedronLibrary } from '../../assets/polyhedronLibrary.js';
+import { polyhedronLibrary } from '../assets/polyhedronLibrary.js';
 import { exportPolyhedronAs3MF } from './export3mf.js';
 import { buildCayleyGraph, toggleCayleyGraph, clearCayleyGraph } from './cayleyGraph.js';
 import { PoincareCertifier } from './poincareCertifier.js';

@@ -3,7 +3,7 @@
  */
 
 import { faceColorJS } from './palette.js';
-import { formatMatrix2x2 } from '../../../../../assets/js/algebraicFormatter.js';
+import { formatMatrix2x2 } from '../assets/js/algebraicFormatter.js';
 
 // Get textarea metrics for gutter alignment
 export function getTextareaMetrics() {

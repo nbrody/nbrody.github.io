@@ -104,9 +104,9 @@ export class Matrix2 {
     isIdentity() {
         const eps = 1e-9;
         return Math.abs(this.a.re - 1) < eps && Math.abs(this.a.im) < eps &&
-               Math.abs(this.b.re) < eps && Math.abs(this.b.im) < eps &&
-               Math.abs(this.c.re) < eps && Math.abs(this.c.im) < eps &&
-               Math.abs(this.d.re - 1) < eps && Math.abs(this.d.im) < eps;
+            Math.abs(this.b.re) < eps && Math.abs(this.b.im) < eps &&
+            Math.abs(this.c.re) < eps && Math.abs(this.c.im) < eps &&
+            Math.abs(this.d.re - 1) < eps && Math.abs(this.d.im) < eps;
     }
 
     neg() {
@@ -221,7 +221,7 @@ export function evalComplexExpression(expr, constants = {}) {
 }
 
 // Group library
-import { exampleLibrary } from '../../assets/grouplibrary.js';
+import { exampleLibrary } from '../assets/grouplibrary.js';
 
 // Re-export for use in other modules
 export { exampleLibrary };
