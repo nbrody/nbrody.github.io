@@ -44,6 +44,53 @@ h3 {
     /* Remove flex centering to allow true 100% height */
 }
 
+/* Transition Slides */
+.transition-slide {
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.transition-slide::before {
+    display: none;
+}
+
+.transition-slide .content-box {
+    position: relative;
+    z-index: 10;
+    background: rgba(15, 23, 42, 0.7);
+    /* Slightly more opaque to ensure contrast without blur */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+.bg-title {
+    background-image: url('assets/transitionImages/Title.png');
+}
+
+.bg-background {
+    background-image: url('assets/transitionImages/Background.png');
+}
+
+.bg-geometry {
+    background-image: url('assets/transitionImages/Geometry.png');
+}
+
+.bg-actions {
+    background-image: url('assets/transitionImages/Actions.png');
+}
+
+.bg-search {
+    background-image: url('assets/transitionImages/Search.png');
+}
+
+.bg-summary {
+    background-image: url('assets/transitionImages/Summary.png');
+}
+
 .slide {
     text-align: center;
     width: 100%;
@@ -212,8 +259,8 @@ formula {
 }
 
 #fp-nav ul li:nth-child(4) a span {
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 14c0-5 5-8 8-8s8 3 8 9'/%3E%3Cpath d='m17 12 3 3 3-3'/%3E%3C/svg%3E");
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 14c0-5 5-8 8-8s8 3 8 9'/%3E%3Cpath d='m17 12 3 3 3-3'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 14c0-5 5-8 8-8s8 3 8 8'/%3E%3Cpath d='m17 12 3 3-3 3'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 14c0-5 5-8 8-8s8 3 8 8'/%3E%3Cpath d='m17 12 3 3-3 3'/%3E%3C/svg%3E");
 }
 
 #fp-nav ul li:nth-child(5) a span {
