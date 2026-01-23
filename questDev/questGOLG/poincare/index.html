@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyperbolic Polyhedron Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="js/PSL2CtoSDF.js"></script>
+    <script src="js/faceFilter.js"></script>
+    <script src="../assets/polyhedronLibrary.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady();
+                }
+            }
+        };
+    </script>
+    <link rel="stylesheet" href="./css/styles.css">
+</head>
+
+<body class="flex flex-col md:flex-row h-screen antialiased">
+    <!-- Controls and Info Panel -->
+    <div id="control-panel"
+        class="absolute top-4 right-4 w-96 max-h-[90vh] shadow-lg flex flex-col overflow-x-hidden rounded-lg z-40 transition-transform transform"
+        style="transform: translateX(0);">
+        <!-- Tab Navigation -->
+        <div class="tab-navigation flex gap-2 items-center">
+            <button class="tab-btn active" data-tab="group">Group</button>
+            <button class="tab-btn" data-tab="polyhedron">Polyhedron</button>
+            <button class="tab-btn" data-tab="graphics">Graphics</button>
+            <button id="refresh-btn" class="collapse-btn" title="Render/Generate">
+                <span class="collapse-icon">⟳</span>
+            </button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <div id="tab-group" class="tab-content active">
+                <div>
+                    <h2 class="text-xl font-semibold text-white mb-2">Matrix Input</h2>
+                    <p class="text-sm text-gray-400 mb-3">Input generators as 2×2 matrices with complex entries.</p>
+                </div>
+
+                <div class="control-group p-3">
+                    <div id="matrixInputs"></div>
+                    <button id="addMatrixBtn"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-2">
+                        + Add Matrix
+                    </button>
+                </div>
+
+                <div class="control-group p-3 mt-3">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        Constants <span class="text-gray-500 text-xs">(optional)</span>
+                    </label>
+                    <div id="constantsInputs"></div>
+                    <button id="addConstantBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out mt-2">
+                        + Add Constant
+                    </button>
+                </div>
+
+                <div class="control-group p-3 mt-3">
+                    <div class="flex items-center gap-2 mb-3">
+                        <label for="matrix-example-select" class="text-sm font-medium text-gray-300">Examples</label>
+                        <select id="matrix-example-select"
+                            class="flex-1 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                            <option value="">-- Select an Example --</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="wordLength" class="text-sm font-medium text-gray-300">Word Length</label>
+                        <input id="wordLength" type="number" value="4" min="1" step="1"
+                            class="flex-1 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2">
+                    </div>
+                </div>
+
+                <p id="matrix-error-message" class="text-red-400 text-sm mt-2"></p>
+            </div> <!-- end tab-group -->
+
+            <!-- Polyhedron Tab -->
+            <div id="tab-polyhedron" class="tab-content">
+                <div>
+                    <h1 class="text-2xl font-bold text-white">Hyperbolic Polyhedron</h1>
+                    <p class="text-sm text-gray-400 mt-1">Poincaré Ball Model Visualization</p>
+                </div>
+
+                <div class="control-group p-3">
+                    <div id="vector-input" class="relative">
+                        <div id="vector-gutter"
+                            class="absolute left-0 top-0 bottom-0 w-20 bg-gray-800/60 border-r border-gray-700 overflow-hidden rounded-l-md">
+                        </div>
+                        <textarea id="vectors" rows="8"
+                            class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono pl-24 leading-6"></textarea>
+                    </div>
+                    <p id="error-message" class="text-red-400 text-sm mt-2"></p>
+                    <p id="selected-face-normal" class="text-xs text-gray-300 mt-1 h-4"></p>
+                    <p id="selected-edge" class="text-sm text-gray-200 mt-2 mb-2 min-h-[3rem] whitespace-pre-wrap"></p>
+                    <p id="selected-face-meta" class="text-xs text-gray-300 mt-1 whitespace-pre-wrap"></p>
+                </div>
+
+                <div class="control-group p-3">
+                    <select id="example-select"
+                        class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <option value="">-- Select an Example --</option>
+                    </select>
+                </div>
+
+                <button id="export-3mf-btn"
+                    class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                    Export polyhedron as .3MF
+                </button>
+
+                <!-- Certificate Section -->
+                <div class="control-group p-3 mt-3 border-t border-gray-700 pt-4">
+                    <h3 class="text-sm font-semibold text-white mb-2">Poincaré Certificate</h3>
+                    <button id="generate-certificate-btn"
+                        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                        Generate Certificate
+                    </button>
+
+                    <div id="certificate-output" class="mt-3 hidden">
+                        <div id="cert-status" class="text-sm font-bold mb-2"></div>
+                        <div id="cert-details"
+                            class="text-xs text-gray-300 font-mono whitespace-pre-wrap max-h-40 overflow-y-auto bg-gray-900 p-2 rounded">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info text-xs text-gray-500 p-3">
+                    <p><strong>Controls:</strong> Drag to rotate, scroll to zoom, right-drag to pan.</p>
+                    <p><strong>Selection:</strong> Click a face to select it. <kbd>Shift</kbd>+Click near an edge to
+                        select
+                        the edge (highlights both faces in the gutter).</p>
+                </div>
+            </div> <!-- end tab-polyhedron -->
+
+            <!-- Graphics Tab -->
+            <div id="tab-graphics" class="tab-content">
+                <div>
+                    <h2 class="text-xl font-semibold text-white mb-2">Color Palette</h2>
+                    <p class="text-sm text-gray-400 mb-3">Choose how faces are colored. This affects both the rendering
+                        and
+                        the gutter.</p>
+                </div>
+                <div class="control-group p-3">
+                    <label for="palette-select" class="block text-sm font-medium text-gray-300 mb-2">Palette</label>
+                    <select id="palette-select"
+                        class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <option value="colorful" selected>colorful</option>
+                        <option value="vaporwave">vaporwave</option>
+                        <option value="uc">UC colors (blue & gold)</option>
+                        <option value="halloween">halloween</option>
+                        <option value="tie-dye">tie-dye</option>
+                        <option value="sunset">sunset</option>
+                    </select>
+                </div>
+
+                <div class="control-group p-3 mt-3">
+                    <button id="toggle-boundary" class="toggle-btn w-full mt-2 active">
+                        Show boundary
+                    </button>
+                    <div id="show-polyhedron" class="polyhedron-slider w-full mt-2" data-opacity="1">
+                        <div class="polyhedron-slider-fill"></div>
+                        <span class="polyhedron-slider-text">Polyhedron</span>
+                    </div>
+                    <button id="show-cayley-graph" class="toggle-btn w-full mt-2">
+                        Show Cayley graph
+                    </button>
+                    <button id="auto-rotate" class="toggle-btn w-full mt-2">
+                        Auto-rotate scene
+                    </button>
+                </div>
+
+                <div class="control-group p-3 mt-3">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">View Model</label>
+                    <div class="flex gap-2">
+                        <button id="view-poincare" class="toggle-btn flex-1 active">
+                            Poincaré
+                        </button>
+                        <button id="view-upper-halfspace" class="toggle-btn flex-1">
+                            Upper Half-space
+                        </button>
+                        <button id="view-inside" class="toggle-btn flex-1">
+                            Inside view
+                        </button>
+                    </div>
+                </div>
+
+                <!-- About Section -->
+                <div class="info text-sm text-gray-400 p-3 mt-3">
+                    <h2 class="font-semibold text-white mb-2">How it Works</h2>
+                    <p class="mb-3">This tool visualizes Kleinian groups and their fundamental domains in the Poincaré
+                        ball model of hyperbolic 3-space.</p>
+
+                    <h3 class="font-semibold text-white text-xs mb-1 mt-3">Two Modes:</h3>
+                    <p class="mb-2"><strong>Group Mode:</strong> Enter PSL(2,ℂ) matrix generators. The tool computes the
+                        Dirichlet domain (fundamental polyhedron) centered at the origin, and can display the Cayley
+                        graph showing group structure.</p>
+                    <p class="mb-2"><strong>Polyhedron Mode:</strong> Directly specify face-defining hyperplanes as 4D
+                        vectors <code>[x,y,z,t]</code> (spacelike: x²+y²+z² > t², with t ≤ 0).</p>
+
+                    <h3 class="font-semibold text-white text-xs mb-1 mt-3">Cayley Graph:</h3>
+                    <p class="mb-2">When enabled, vertices represent group elements (images of the origin), and edges
+                        connect elements differing by one generator. Edge colors match the corresponding face colors,
+                        revealing how generators act as reflections through domain faces.</p>
+
+                    <h3 class="font-semibold text-white text-xs mb-1 mt-3">Technical Notes:</h3>
+                    <ul class="list-disc list-inside space-y-1 ml-2">
+                        <li>Uses ray marching with signed distance functions for rendering</li>
+                        <li>Point (0,0,0,1) in Minkowski space = center of ball</li>
+                        <li>Matrices map to SO(3,1) via PSL(2,ℂ) ≅ Isom⁺(ℍ³)</li>
+                    </ul>
+                </div>
+            </div> <!-- end tab-graphics -->
+
+
+        </div> <!-- end panel-content -->
+    </div>
+
+    <!-- 3D Scene Container -->
+    <div id="container" class="flex-grow h-full w-full"></div>
+
+    <!-- 3D Label Overlay for face metadata -->
+    <div id="face-label-overlay"
+        class="absolute pointer-events-none bg-gray-900/90 text-white px-3 py-2 rounded-lg shadow-lg border border-gray-600 hidden"
+        style="z-index: 30; max-width: 300px;">
+        <div id="face-label-content"></div>
+    </div>
+
+    <!-- 3D Label Overlay for edge angle information -->
+    <div id="edge-label-overlay"
+        class="absolute pointer-events-none bg-indigo-900/90 text-white px-3 py-2 rounded-lg shadow-lg border border-indigo-500 hidden"
+        style="z-index: 30; max-width: 400px;">
+        <div id="edge-label-content"></div>
+    </div>
+
+    <!-- Main Application Module -->
+    <script type="module" src="./js/main.js"></script>
+</body>
+
+</html>
