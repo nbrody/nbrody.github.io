@@ -589,14 +589,15 @@
                 bigSectionsDestination: 'top',
 
                 onLeave: function (origin, destination, direction, trigger) {
-                    const isSequential = ['keydown', 'wheel', 'touch', 'drag', 'swipe'].includes(trigger);
+                    const isSequential = ['keydown', 'keyboard', 'wheel', 'touch', 'drag', 'swipe', 'scroll', 'mouse', 'touchmove'].includes(trigger);
+                    const activeSlide = origin.item.querySelector('.slide.active') || origin.item;
 
                     if (isSequential && direction === 'down') {
-                        const fragments = origin.item.querySelectorAll('.fragment:not(.visible)');
+                        const fragments = activeSlide.querySelectorAll('.fragment:not(.visible)');
                         if (fragments.length > 0) {
                             const group = fragments[0].getAttribute('data-fragment-group');
                             if (group) {
-                                origin.item.querySelectorAll(`.fragment[data-fragment-group="${group}"]`).forEach(f => f.classList.add('visible'));
+                                activeSlide.querySelectorAll(`.fragment[data-fragment-group="${group}"]`).forEach(f => f.classList.add('visible'));
                             } else {
                                 fragments[0].classList.add('visible');
                             }
@@ -605,21 +606,20 @@
                     }
 
                     // Reset/Show fragments in destination if moving directly or via sequential
+                    const destSlide = destination.item.querySelector('.slide.active') || destination.item.querySelector('.slide') || destination.item;
                     if (direction === 'down' || !isSequential) {
-                        destination.item.querySelectorAll('.fragment').forEach(f => {
+                        destSlide.querySelectorAll('.fragment').forEach(f => {
                             if (!isSequential) f.classList.add('visible');
                             else f.classList.remove('visible');
                         });
                     } else if (direction === 'up' && isSequential) {
                         // All fragments visible if moving back sequentially
-                        destination.item.querySelectorAll('.fragment').forEach(f => f.classList.add('visible'));
+                        destSlide.querySelectorAll('.fragment').forEach(f => f.classList.add('visible'));
                     }
-
-                    destination.item.classList.add('active');
                 },
 
                 onSlideLeave: function (section, origin, destination, direction, trigger) {
-                    const isSequential = ['keydown', 'wheel', 'touch', 'drag', 'swipe'].includes(trigger);
+                    const isSequential = ['keydown', 'keyboard', 'wheel', 'touch', 'drag', 'swipe', 'scroll', 'mouse', 'touchmove'].includes(trigger);
 
                     if (isSequential && direction === 'right') {
                         const fragments = origin.item.querySelectorAll('.fragment:not(.visible)');
@@ -643,8 +643,6 @@
                     } else if (direction === 'left' && isSequential) {
                         destination.item.querySelectorAll('.fragment').forEach(f => f.classList.add('visible'));
                     }
-
-                    destination.item.classList.add('active');
                 }
             });
 
