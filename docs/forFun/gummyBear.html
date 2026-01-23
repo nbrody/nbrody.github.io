@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chocolate Covered Gummy Bears</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #2c1a11 0%, #000000 100%);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            color: #d7ccc8;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        h1 {
+            font-weight: 300;
+            font-size: 2.5rem;
+            margin: 0;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            text-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        p {
+            font-weight: 300;
+            opacity: 0.7;
+            font-size: 1rem;
+        }
+
+        .stack-btn {
+            margin-top: 1.5rem;
+            padding: 0.8rem 1.5rem;
+            background: rgba(93, 64, 55, 0.2);
+            border: 1px solid rgba(215, 204, 200, 0.3);
+            color: #d7ccc8;
+            font-family: 'Outfit', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+            border-radius: 4px;
+        }
+
+        .stack-btn:hover {
+            background: rgba(93, 64, 55, 0.4);
+            border-color: #d7ccc8;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .stack-btn span {
+            font-size: 1.5rem;
+            line-height: 1;
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 2rem;
+            right: 2rem;
+            color: #5d4037;
+            font-size: 0.8rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100;300;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <div class="ui-overlay">
+        <button id="add-bear-btn" class="stack-btn"><span>+</span></button>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let bears = [];
+        let chocolateMaterial;
+        let stackHeight = 0;
+        const BEAR_SCALE = 3;
+        const BEAR_HEIGHT = 4.0; // Base height of the bear geometry
+        const BEAR_WIDTH = 2.5;  // Base width when lying on side
+
+        function init() {
+            // Scene Setup
+            scene = new THREE.Scene();
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 15;
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            // Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = false;
+            controls.autoRotateSpeed = 0.5;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
+            scene.add(ambientLight);
+
+            const mainLight = new THREE.DirectionalLight(0xffffff, 3);
+            mainLight.position.set(5, 5, 5);
+            mainLight.castShadow = true;
+            scene.add(mainLight);
+
+            const rimLight = new THREE.PointLight(0xffa726, 2); // Warm rim light
+            rimLight.position.set(-10, 0, -5);
+            scene.add(rimLight);
+
+            // Create Gummy Bear Group
+            createGummyBears();
+
+            // Hook up button
+            document.getElementById('add-bear-btn').addEventListener('click', doubleStack);
+
+            // Resize Event
+            window.addEventListener('resize', onWindowResize, false);
+
+            animate();
+        }
+
+        function createGummyBears() {
+            // Chocolate Material
+            chocolateMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0x2b1d1d,
+                roughness: 0.35,
+                metalness: 0.1,
+                clearcoat: 0.8,
+                clearcoatRoughness: 0.2,
+                reflectivity: 1,
+                sheen: 1,
+                sheenColor: 0x3d2b1f
+            });
+
+            // Creating the first hero bear (Standing)
+            const bear = createSingleBear(chocolateMaterial);
+            bear.position.set(0, 0, 0);
+            bear.scale.set(BEAR_SCALE, BEAR_SCALE, BEAR_SCALE);
+
+            scene.add(bear);
+            bears.push(bear);
+
+            // The top of the first standing bear is at y = 2.25 * scale
+            stackHeight = 2.25 * BEAR_SCALE;
+        }
+
+        function doubleStack() {
+            const currentCount = bears.length;
+            if (currentCount > 500) return;
+
+            for (let i = 0; i < currentCount; i++) {
+                const bear = createSingleBear(chocolateMaterial);
+                const lastBear = bears[bears.length - 1];
+                const isNextLying = lastBear.rotation.z === 0;
+
+                bear.scale.set(BEAR_SCALE, BEAR_SCALE, BEAR_SCALE);
+
+                // Tight fit overlap
+                const overlap = 0.3 * BEAR_SCALE;
+
+                if (isNextLying) {
+                    bear.rotation.z = Math.PI / 2;
+                    // Lying: center to edge is 1.1
+                    const halfH = 1.1 * BEAR_SCALE;
+                    bear.position.y = stackHeight + halfH - overlap;
+                    stackHeight = bear.position.y + halfH;
+                } else {
+                    bear.rotation.z = 0;
+                    // Standing: center to bottom is 1.45, center to top is 2.25
+                    const bottomH = 1.45 * BEAR_SCALE;
+                    const topH = 2.25 * BEAR_SCALE;
+                    bear.position.y = stackHeight + bottomH - overlap;
+                    stackHeight = bear.position.y + topH;
+                }
+
+                bear.position.x = (Math.random() - 0.5) * 0.2;
+                bear.position.z = (Math.random() - 0.5) * 0.2;
+
+                scene.add(bear);
+                bears.push(bear);
+            }
+
+            // Move camera up and zoom out
+            const targetY = stackHeight * 0.5;
+            const distance = Math.max(15, stackHeight * 1.0);
+
+            camera.position.z = distance;
+            camera.position.y = targetY;
+            controls.target.set(0, targetY, 0);
+        }
+
+        function createSingleBear(material) {
+            const group = new THREE.Group();
+
+            // Body - More squat and "Haribo" chonky
+            const bodyGeo = new THREE.CapsuleGeometry(1, 0.8, 8, 16);
+            const body = new THREE.Mesh(bodyGeo, material);
+            body.position.y = 0;
+            body.scale.set(1.1, 1, 0.9);
+            body.castShadow = true;
+            body.receiveShadow = true;
+            group.add(body);
+
+            // Head - Integrated lower into the torso
+            const headGeo = new THREE.SphereGeometry(1, 32, 32);
+            const head = new THREE.Mesh(headGeo, material);
+            head.position.y = 1.2;
+            head.scale.set(1, 0.85, 0.9); // Wider, flatter head
+            head.castShadow = true;
+            group.add(head);
+
+            // Snout - Smooth and rounded, no box
+            const snoutGeo = new THREE.SphereGeometry(0.45, 32, 32);
+            const snout = new THREE.Mesh(snoutGeo, material);
+            snout.position.set(0, 1.1, 0.7);
+            snout.scale.set(1.1, 0.9, 0.7); // Oblong but smooth
+            group.add(snout);
+
+            // Ears - Large and characteristic
+            const earGeo = new THREE.SphereGeometry(0.45, 16, 16);
+            const leftEar = new THREE.Mesh(earGeo, material);
+            leftEar.position.set(0.65, 1.8, 0.1);
+            leftEar.scale.y = 0.8;
+            group.add(leftEar);
+
+            const rightEar = new THREE.Mesh(earGeo, material);
+            rightEar.position.set(-0.65, 1.8, 0.1);
+            rightEar.scale.y = 0.8;
+            group.add(rightEar);
+
+            // Arms - Pointing forward
+            const armGeo = new THREE.CapsuleGeometry(0.4, 0.4, 4, 12);
+            const leftArm = new THREE.Mesh(armGeo, material);
+            leftArm.position.set(0.7, 0.5, 0.6);
+            leftArm.rotation.x = Math.PI / 2;
+            group.add(leftArm);
+
+            const rightArm = new THREE.Mesh(armGeo, material);
+            rightArm.position.set(-0.7, 0.5, 0.6);
+            rightArm.rotation.x = Math.PI / 2;
+            group.add(rightArm);
+
+            // Legs - Pointing forward
+            const legGeo = new THREE.CapsuleGeometry(0.45, 0.5, 4, 12);
+            const leftLeg = new THREE.Mesh(legGeo, material);
+            leftLeg.position.set(0.5, -1.0, 0.6);
+            leftLeg.rotation.x = Math.PI / 2;
+            group.add(leftLeg);
+
+            const rightLeg = new THREE.Mesh(legGeo, material);
+            rightLeg.position.set(-0.5, -1.0, 0.6);
+            rightLeg.rotation.x = Math.PI / 2;
+            group.add(rightLeg);
+
+            return group;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
