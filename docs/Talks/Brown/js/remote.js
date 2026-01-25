@@ -50,11 +50,44 @@ function handleCommand(cmd) {
 
     switch (cmd) {
         case 'next':
-            api.moveSectionDown();
+        case 'smartNext':
+            const activeSection = document.querySelector('.section.active');
+            const slides = activeSection.querySelectorAll('.slide');
+            const activeSlide = activeSection.querySelector('.slide.active') || slides[0];
+
+            // Smart logic: Try to move right if slides exist
+            if (slides.length > 0) {
+                const activeIndex = Array.from(slides).indexOf(activeSlide);
+                if (activeIndex < slides.length - 1) {
+                    api.moveSlideRight();
+                } else {
+                    api.moveSectionDown();
+                }
+            } else {
+                api.moveSectionDown();
+            }
             break;
         case 'prev':
-            api.moveSectionUp();
+        case 'smartPrev':
+            const activeSecPrev = document.querySelector('.section.active');
+            const slidesPrev = activeSecPrev.querySelectorAll('.slide');
+            const activeSlidePrev = activeSecPrev.querySelector('.slide.active') || slidesPrev[0];
+
+            if (slidesPrev.length > 0) {
+                const activeIndex = Array.from(slidesPrev).indexOf(activeSlidePrev);
+                if (activeIndex > 0) {
+                    api.moveSlideLeft();
+                } else {
+                    api.moveSectionUp();
+                }
+            } else {
+                api.moveSectionUp();
+            }
             break;
+        case 'up': api.moveSectionUp(); break;
+        case 'down': api.moveSectionDown(); break;
+        case 'left': api.moveSlideLeft(); break;
+        case 'right': api.moveSlideRight(); break;
         case 'toggle':
             const activeIframe = document.querySelector('.section.active iframe') ||
                 document.querySelector('.slide.active iframe');
@@ -100,11 +133,19 @@ function setupMasterListener() {
 
 function updateRemoteUI(state) {
     const vizBtn = document.getElementById('remote-viz-btn');
+    const vizText = document.getElementById('viz-btn-text');
     if (vizBtn) {
         vizBtn.style.display = state.hasViz ? 'flex' : 'none';
-        const span = vizBtn.querySelector('span');
-        if (span) {
-            span.innerText = state.isPlaying ? 'Pause' : 'Play';
+        if (vizText) {
+            vizText.innerText = state.isPlaying ? 'Pause' : 'Play';
+            const svg = vizBtn.querySelector('svg');
+            if (svg) {
+                if (state.isPlaying) {
+                    svg.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+                } else {
+                    svg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+                }
+            }
         }
     }
 }
