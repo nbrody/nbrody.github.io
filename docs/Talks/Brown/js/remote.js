@@ -17,7 +17,7 @@ const firebaseConfig = {
 let db;
 let sessionRef;
 const urlParams = new URLSearchParams(window.location.search);
-const isRemote = urlParams.has('remote');
+const isRemote = urlParams.has('remote') || urlParams.get('mode') === 'remote';
 const sessionId = urlParams.get('session') || 'presentation-session';
 
 // Local Fallback for same-machine testing
@@ -204,7 +204,7 @@ function showLiveIndicator(id) {
 function startPresentation() {
     const newId = Math.random().toString(36).substring(2, 8).toUpperCase();
     const baseUrl = window.location.href.split('?')[0].split('#')[0];
-    const remoteUrl = baseUrl + '?remote&session=' + newId;
+    const remoteUrl = baseUrl + '?mode=remote&session=' + newId;
 
     // Sticky URL
     const localUrl = baseUrl + '?session=' + newId;
@@ -266,6 +266,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isRemote) {
         const remoteUi = document.getElementById('remote-ui');
         if (remoteUi) remoteUi.classList.add('active');
+
+        const fp = document.getElementById('fullpage');
+        if (fp) fp.style.display = 'none';
+
         document.body.style.overflow = 'hidden';
 
         const sessDisplay = document.getElementById('sess-display');

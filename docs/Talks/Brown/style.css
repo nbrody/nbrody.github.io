@@ -608,6 +608,10 @@ li.fragment {
     -webkit-tap-highlight-color: transparent;
 }
 
+#remote-ui.active {
+    display: flex;
+}
+
 #remote-ui::before {
     content: "";
     position: absolute;
