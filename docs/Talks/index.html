@@ -156,13 +156,49 @@
         }
 
         /* Specific Backgrounds */
+        .bg-brown {
+            background-image: url('Brown/assets/transitionImages/Title.png');
+        }
+
         .bg-kias {
             background-image: url('KIAS/assets/transitionImages/Title.png');
         }
 
         .bg-vanderbilt {
-            background-image: url('KIAS/assets/transitionImages/Geometry.png');
-            /* Using the geometry pattern for variety */
+            background-image: url('Vanderbilt/GOLGVanderbilt.png');
+        }
+
+        .bg-so3q {
+            background-image: url('notabilityTalks/SubgroupsofSO3Q.png');
+        }
+
+        .bg-matrices {
+            background-image: url('notabilityTalks/TwobyTwoMatrices.png');
+        }
+
+        /* Simplified PDF Card */
+        .pdf-card {
+            position: relative;
+            background-color: #000;
+            border-radius: 24px;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            overflow: hidden;
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.6s ease;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .pdf-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .pdf-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6);
         }
 
         footer {
@@ -185,6 +221,15 @@
 
     <main>
         <div class="talks-grid">
+            <!-- Brown Talk Card -->
+            <a href="Brown/index.html" class="talk-card bg-brown">
+                <div class="slide-content">
+                    <span class="tag">Brown Geometry & Topology Seminar</span>
+                    <h2>Surface Groups and Products of Trees</h2>
+                    <p>Nic Brody, UC Santa Cruz<br>December 1, 2025</p>
+                </div>
+            </a>
+
             <!-- KIAS Talk Card -->
             <a href="KIAS/index.html" class="talk-card bg-kias">
                 <div class="slide-content">
@@ -195,12 +240,18 @@
             </a>
 
             <!-- Vanderbilt Talk Card -->
-            <a href="Vanderbilt/GOLGVanderbilt.pdf" class="talk-card bg-vanderbilt" target="_blank">
-                <div class="slide-content">
-                    <span class="tag">Vanderbilt Geometry & Topology Seminar</span>
-                    <h2>Geometry of Linear Groups</h2>
-                    <p>Nic Brody, UC Santa Cruz<br>(PDF Presentation)</p>
-                </div>
+            <a href="Vanderbilt/GOLGVanderbilt.pdf" class="pdf-card" target="_blank">
+                <img src="Vanderbilt/GOLGVanderbilt.png" alt="Geometry of Linear Groups">
+            </a>
+
+            <!-- SO3Q Talk Card -->
+            <a href="notabilityTalks/SubgroupsofSO3Q.pdf" class="pdf-card" target="_blank">
+                <img src="notabilityTalks/SubgroupsofSO3Q.png" alt="Subgroups of SO3(Q)">
+            </a>
+
+            <!-- Matrices Talk Card -->
+            <a href="notabilityTalks/TwobyTwoMatrices.pdf" class="pdf-card" target="_blank">
+                <img src="notabilityTalks/TwobyTwoMatrices.png" alt="Two by Two Matrices">
             </a>
         </div>
     </main>

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surface Groups | KIAS Talk</title>
+    <title>Surface Groups + Jungles | Brown Talk</title>
 
     <!-- Fullpage.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.css" />
@@ -41,119 +41,6 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-
-    <style>
-        .viz-frame {
-            width: 100vw;
-            height: 100dvh;
-            border: none;
-            border-radius: 0;
-            background: transparent;
-            display: block;
-        }
-
-        /* Remote UI Styling */
-        #remote-ui {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100dvh;
-            background: #020617;
-            z-index: 9999;
-            flex-direction: column;
-            align-items: center;
-            justify-content: space-evenly;
-            padding: 2rem;
-            box-sizing: border-box;
-            background-image: url('assets/transitionImages/Title.png');
-            background-size: cover;
-            background-position: center;
-        }
-
-        .remote-btn {
-            width: 100%;
-            height: 25dvh;
-            max-width: 400px;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            color: #fff;
-            font-size: 2rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-
-        .remote-btn:active {
-            transform: scale(0.95);
-            background: rgba(99, 102, 241, 0.2);
-            border-color: #6366f1;
-        }
-
-        .remote-status {
-            color: var(--text-dim);
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-        }
-
-        #remote-ui.active {
-            display: flex;
-        }
-
-        .remote-footer {
-            display: flex;
-            gap: 15px;
-            width: 100%;
-            max-width: 400px;
-        }
-
-        .remote-footer .small-btn {
-            flex: 1;
-            height: 60px;
-            font-size: 0.9rem;
-        }
-
-        @media (max-width: 1024px),
-        (max-height: 900px) {
-            .viz-frame {
-                height: 100dvh;
-            }
-        }
-
-        @media (max-height: 700px) {
-            .viz-frame {
-                height: 100dvh;
-            }
-        }
-
-        .full-viz-container {
-            width: 100vw;
-            height: 100dvh;
-            max-width: none;
-            margin: 0;
-            padding: 0;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .viz-controls {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            z-index: 100;
-            display: flex;
-            gap: 10px;
-        }
-    </style>
 </head>
 
 <body>
@@ -163,11 +50,12 @@
         <div class="section" data-anchor="title">
             <div class="slide transition-slide bg-title" data-anchor="title-slide">
                 <div class="content-box animate-up">
-                    <span class="tag">KIAS Virtual Seminar on Geometry and Topology</span>
+                    <span class="tag">Brown University Geometry/Topology Seminar</span>
                     <h1>Surface Groups and Products of Trees</h1>
                     <p>Nic Brody, UC Santa Cruz
-                        <br>January 23, 2026
+                        <br>February 18, 2026
                     </p>
+                    <button class="present-btn" onclick="startPresentation()">Present</button>
                 </div>
             </div>
         </div>
@@ -220,7 +108,7 @@
 
             <div class="slide" data-anchor="surface-groups">
                 <div class="content-box animate-up">
-                    <div class="theorem" data-label="Main Question">
+                    <div class="theorem main-question-container" data-label="Main Question">
                         Can a surface group act properly on a locally compact product of trees?
                     </div>
                 </div>
@@ -641,31 +529,10 @@
     <!-- Fullpage.js JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.js"></script>
 
+    <!-- Remote Control Logic -->
+    <script src="js/remote.js"></script>
+
     <script>
-        // --- Firebase Integration ---
-        const firebaseConfig = {
-            // Placeholder: User must fill this in
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            databaseURL: "YOUR_DATABASE_URL",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-
-        let db;
-        let sessionRef;
-        const urlParams = new URLSearchParams(window.location.search);
-        const isRemote = urlParams.has('remote');
-        const sessionId = urlParams.get('session') || 'kias-presentation';
-
-        if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.database();
-            sessionRef = db.ref('sessions/' + sessionId);
-        }
-
         document.addEventListener('DOMContentLoaded', function () {
             window.fp_api = new fullpage('#fullpage', {
                 licenseKey: 'gplv3-license',
@@ -760,9 +627,6 @@
                 const frame = document.getElementById(id);
                 if (frame) {
                     frame.contentWindow.postMessage('toggle', '*');
-                    // We don't update btn.innerText here anymore because it might get out of sync
-                    // if the iframe also has a toggle button. But wait, we want it to be "Play" or "Pause".
-                    // Let's just toggle it for now.
                     btn.innerText = (btn.innerText === "Play") ? "Pause" : "Play";
                 }
             };
@@ -773,43 +637,6 @@
                     frame.contentWindow.postMessage(msg, '*');
                 }
             };
-
-            // --- Remote Control Logic ---
-            if (isRemote) {
-                document.getElementById('remote-ui').classList.add('active');
-                document.body.style.overflow = 'hidden';
-
-                window.sendRemoteCommand = (cmd) => {
-                    if (sessionRef) {
-                        sessionRef.set({
-                            command: cmd,
-                            timestamp: Date.now()
-                        });
-                    }
-                };
-            } else if (sessionRef) {
-                // Master Listener
-                sessionRef.on('value', (snapshot) => {
-                    const data = snapshot.val();
-                    if (data && data.command && Date.now() - data.timestamp < 2000) {
-                        switch (data.command) {
-                            case 'next':
-                                fp_api.moveSectionDown();
-                                break;
-                            case 'prev':
-                                fp_api.moveSectionUp();
-                                break;
-                            case 'toggle':
-                                // Toggles currently visible viz
-                                const activeIframe = document.querySelector('.section.active iframe');
-                                if (activeIframe) {
-                                    activeIframe.contentWindow.postMessage('toggle', '*');
-                                }
-                                break;
-                        }
-                    }
-                });
-            }
         });
     </script>
 
@@ -835,9 +662,26 @@
         <div class="remote-status" style="margin-top: 20px;">Connected to Display</div>
     </div>
 
-    <script>
-        document.getElementById('sess-display').innerText = sessionId;
-    </script>
+
+
+    <!-- Presentation Setup Modal -->
+    <div id="present-modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closePresentModal()">&times;</button>
+            <h3>Remote Control</h3>
+            <p style="color: var(--text-dim); margin-bottom: 2rem;">Scan the code or visit the link on your phone to
+                control this presentation.</p>
+
+            <div id="qr-container">
+                <img id="qr-img" src="" alt="Session QR Code" width="250" height="250">
+            </div>
+
+            <div class="remote-url" id="remote-link-text">URL loading...</div>
+
+            <p style="font-size: 0.8rem; color: var(--text-dim);">The remote allows you to switch slides and toggle
+                visualizations from anywhere in the room.</p>
+        </div>
+    </div>
 </body>
 
 </html>

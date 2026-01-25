@@ -399,6 +399,29 @@ formula {
     background: #f43f5e;
 }
 
+/* Main Question Specialty Styling */
+.main-question-container {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    line-height: 1.2;
+    padding: 5rem 4rem;
+    text-align: center;
+    background: rgba(99, 102, 241, 0.15);
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 60px rgba(99, 102, 241, 0.2);
+    color: #fff;
+    font-weight: 700;
+}
+
+.main-question-container::before {
+    font-size: 1rem;
+    padding: 0.6rem 2.5rem;
+    top: -1.4rem;
+    left: 50%;
+    transform: translateX(-50%);
+    letter-spacing: 0.2em;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
 /* Background Illustrations */
 .bg-art {
     position: absolute;
@@ -538,4 +561,218 @@ li.fragment {
     .responsive-flex ul {
         text-align: left;
     }
+}
+
+/* Interactive & Remote UI Components */
+.viz-frame {
+    width: 100vw;
+    height: 100dvh;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    display: block;
+}
+
+#remote-ui {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    background: #020617;
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    padding: 2rem;
+    box-sizing: border-box;
+    background-image: url('assets/transitionImages/Title.png');
+    background-size: cover;
+    background-position: center;
+}
+
+.remote-btn {
+    width: 100%;
+    height: 25dvh;
+    max-width: 400px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    color: #fff;
+    font-size: 2rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.remote-btn:active {
+    transform: scale(0.95);
+    background: rgba(99, 102, 241, 0.2);
+    border-color: #6366f1;
+}
+
+.remote-status {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+}
+
+#remote-ui.active {
+    display: flex;
+}
+
+.remote-footer {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.remote-footer .small-btn {
+    flex: 1;
+    height: 60px;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 1024px),
+(max-height: 900px) {
+    .viz-frame {
+        height: 100dvh;
+    }
+}
+
+@media (max-height: 700px) {
+    .viz-frame {
+        height: 100dvh;
+    }
+}
+
+.full-viz-container {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.viz-controls {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 100;
+    display: flex;
+    gap: 10px;
+}
+
+/* Presenter UI */
+.present-btn {
+    display: inline-block;
+    margin-top: 2rem;
+    padding: 1rem 2.5rem;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 50px;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+}
+
+.present-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px rgba(99, 102, 241, 0.5);
+    background: #818cf8;
+}
+
+#present-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    background: rgba(2, 6, 23, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+#present-modal.active {
+    display: flex;
+    opacity: 1;
+}
+
+.modal-content {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 32px;
+    padding: 3rem;
+    max-width: 500px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+}
+
+.modal-content h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, #fff, #c084fc);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+#qr-container {
+    background: #fff;
+    padding: 15px;
+    border-radius: 12px;
+    display: inline-block;
+    margin-bottom: 2rem;
+}
+
+#qr-container img {
+    display: block;
+}
+
+.remote-url {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 1rem;
+    border-radius: 12px;
+    font-family: monospace;
+    word-break: break-all;
+    margin-bottom: 2rem;
+    color: var(--accent);
+    border: 1px solid var(--border);
+}
+
+.close-modal {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 1.5rem;
+    cursor: pointer;
 }
