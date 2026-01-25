@@ -73,6 +73,10 @@ function startPresentation() {
     const baseUrl = window.location.href.split('?')[0].split('#')[0];
     const remoteUrl = baseUrl + '?remote&session=' + newId;
 
+    // Update the local browser URL so it's "sticky" if refreshed
+    const localUrl = baseUrl + '?session=' + newId;
+    window.history.replaceState({ sessionId: newId }, '', localUrl);
+
     // Update display
     const linkDisplay = document.getElementById('remote-link-text');
     if (linkDisplay) linkDisplay.innerText = remoteUrl;

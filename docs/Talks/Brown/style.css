@@ -401,25 +401,41 @@ formula {
 
 /* Main Question Specialty Styling */
 .main-question-container {
-    font-size: clamp(2rem, 5vw, 3.5rem);
-    line-height: 1.2;
-    padding: 5rem 4rem;
+    font-size: clamp(2.2rem, 6vw, 4rem);
+    line-height: 1.1;
+    padding: 6rem 5rem;
     text-align: center;
-    background: rgba(99, 102, 241, 0.15);
-    border: 2px solid var(--accent);
-    box-shadow: 0 0 60px rgba(99, 102, 241, 0.2);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(192, 132, 252, 0.2));
+    border: 3px solid var(--accent);
+    box-shadow: 0 0 100px rgba(99, 102, 241, 0.3);
     color: #fff;
-    font-weight: 700;
+    font-weight: 800;
+    animation: main-pulse 4s infinite ease-in-out;
+}
+
+@keyframes main-pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 80px rgba(99, 102, 241, 0.2);
+        transform: scale(1);
+    }
+
+    50% {
+        box-shadow: 0 0 120px rgba(99, 102, 241, 0.4);
+        transform: scale(1.01);
+    }
 }
 
 .main-question-container::before {
-    font-size: 1rem;
-    padding: 0.6rem 2.5rem;
-    top: -1.4rem;
+    font-size: 1.1rem;
+    padding: 0.8rem 3rem;
+    top: -1.8rem;
     left: 50%;
     transform: translateX(-50%);
-    letter-spacing: 0.2em;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    letter-spacing: 0.3em;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    background: linear-gradient(to right, #6366f1, #a855f7);
 }
 
 /* Background Illustrations */
