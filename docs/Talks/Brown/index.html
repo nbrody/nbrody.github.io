@@ -554,7 +554,7 @@
                 bigSectionsDestination: 'top',
 
                 onLeave: function (origin, destination, direction, trigger) {
-                    const isSequential = ['keydown', 'keyboard', 'wheel', 'touch', 'drag', 'swipe', 'scroll', 'mouse', 'touchmove'].includes(trigger);
+                    const isSequential = ['keydown', 'keyboard', 'wheel', 'touch', 'drag', 'swipe', 'scroll', 'mouse', 'touchmove'].includes(trigger) || window.isRemoteAction;
                     const activeSlide = origin.item.querySelector('.slide.active') || origin.item;
 
                     if (isSequential && direction === 'down') {
@@ -584,7 +584,7 @@
                 },
 
                 onSlideLeave: function (section, origin, destination, direction, trigger) {
-                    const isSequential = ['keydown', 'keyboard', 'wheel', 'touch', 'drag', 'swipe', 'scroll', 'mouse', 'touchmove'].includes(trigger);
+                    const isSequential = ['keydown', 'keyboard', 'wheel', 'touch', 'drag', 'swipe', 'scroll', 'mouse', 'touchmove'].includes(trigger) || window.isRemoteAction;
 
                     if (isSequential && direction === 'right') {
                         const fragments = origin.item.querySelectorAll('.fragment:not(.visible)');
