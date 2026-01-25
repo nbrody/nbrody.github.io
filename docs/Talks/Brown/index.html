@@ -608,6 +608,12 @@
                     } else if (direction === 'left' && isSequential) {
                         destination.item.querySelectorAll('.fragment').forEach(f => f.classList.add('visible'));
                     }
+                },
+                afterLoad: function () {
+                    if (window.syncRemoteState) window.syncRemoteState();
+                },
+                afterSlideLoad: function () {
+                    if (window.syncRemoteState) window.syncRemoteState();
                 }
             });
 
@@ -627,7 +633,9 @@
                 const frame = document.getElementById(id);
                 if (frame) {
                     frame.contentWindow.postMessage('toggle', '*');
-                    btn.innerText = (btn.innerText === "Play") ? "Pause" : "Play";
+                    window.isVizPlaying = (btn.innerText === "Play");
+                    btn.innerText = window.isVizPlaying ? "Pause" : "Play";
+                    if (window.syncRemoteState) window.syncRemoteState();
                 }
             };
 
@@ -654,8 +662,9 @@
         </div>
 
         <div class="remote-footer">
-            <div class="remote-btn small-btn" onclick="sendRemoteCommand('toggle')">
-                <span>Toggle Viz</span>
+            <div id="remote-viz-btn" class="remote-btn small-btn" onclick="sendRemoteCommand('toggle')"
+                style="display: none;">
+                <span>Play</span>
             </div>
         </div>
 

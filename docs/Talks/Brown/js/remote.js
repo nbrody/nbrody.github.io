@@ -31,6 +31,13 @@ if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
     console.warn("Firebase not configured. Remote control will only work in same-browser/same-machine 'Demo' mode.");
 }
 
+// State Syncing
+function updateRemoteState(state) {
+    if (db && sessionRef) {
+        sessionRef.child('state').update(state);
+    }
+}
+
 function handleCommand(cmd) {
     const api = window.fp_api || window.fullpage_api;
     if (!api) {
@@ -63,12 +70,23 @@ function handleCommand(cmd) {
 
 function setupMasterListener() {
     if (sessionRef) {
-        sessionRef.on('value', (snapshot) => {
+        // Listen for commands
+        sessionRef.child('command').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data && data.command && Date.now() - data.timestamp < 2000) {
                 handleCommand(data.command);
             }
         });
+
+        // Listen for state (for remote UI)
+        if (isRemote) {
+            sessionRef.child('state').on('value', (snapshot) => {
+                const state = snapshot.val();
+                if (state) {
+                    updateRemoteUI(state);
+                }
+            });
+        }
     }
 
     // Local fallback listener
@@ -78,6 +96,17 @@ function setupMasterListener() {
             handleCommand(event.data.command);
         }
     };
+}
+
+function updateRemoteUI(state) {
+    const vizBtn = document.getElementById('remote-viz-btn');
+    if (vizBtn) {
+        vizBtn.style.display = state.hasViz ? 'flex' : 'none';
+        const span = vizBtn.querySelector('span');
+        if (span) {
+            span.innerText = state.isPlaying ? 'Pause' : 'Play';
+        }
+    }
 }
 
 /**
@@ -168,7 +197,7 @@ function sendRemoteCommand(cmd) {
         console.log("Sending remote command:", cmd);
         // Sync to Firebase
         if (db && sessionRef) {
-            sessionRef.set({
+            sessionRef.child('command').set({
                 command: cmd,
                 timestamp: Date.now()
             });
@@ -177,6 +206,19 @@ function sendRemoteCommand(cmd) {
         bc.postMessage({ command: cmd });
     }
 }
+
+// Global helper for the presentation to update remote UI
+window.syncRemoteState = function () {
+    if (isRemote || !window.fp_api) return;
+    const activeSection = document.querySelector('.section.active');
+    const activeSlide = activeSection.querySelector('.slide.active') || activeSection;
+    const hasViz = !!activeSlide.querySelector('iframe');
+
+    updateRemoteState({
+        hasViz: hasViz,
+        isPlaying: window.isVizPlaying || false
+    });
+};
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', () => {
@@ -194,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
             warning.innerHTML = "<strong>Cloud Sync Disabled</strong><br>Firebase is not configured. This remote will only work in 'Local Demo' mode (on the same machine).";
             remoteUi.prepend(warning);
         }
+        setupMasterListener();
     } else {
         if (sessionId && sessionId !== 'presentation-session') {
             showLiveIndicator(sessionId);
