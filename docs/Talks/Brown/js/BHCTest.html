@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Borel-Harish-Chandra Explorer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&family=Outfit:wght@300;600&display=swap"
+        rel="stylesheet">
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #020617;
+            --glass: rgba(15, 23, 42, 0.8);
+            --accent: #6366f1;
+            --text: #f8fafc;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: rgba(15, 23, 42, 0.95);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            gap: 1.5rem;
+            z-index: 10;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3);
+            overflow-y: auto;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 1.4rem;
+            margin: 0 0 0.5rem 0;
+            background: linear-gradient(135deg, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #94a3b8;
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .generator-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+        }
+
+        .gen-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .gen-name {
+            font-weight: 700;
+            color: var(--accent);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .matrix-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            color: white;
+            padding: 6px;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .word-input {
+            width: 100%;
+            min-height: 80px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #e2e8f0;
+            padding: 0.75rem;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.8rem;
+            resize: vertical;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .main-viz {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .add-gen-btn {
+            background: transparent;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            color: #94a3b8;
+            font-size: 0.7rem;
+            padding: 0.4rem;
+            margin-top: 0.5rem;
+        }
+
+        .add-gen-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.4);
+            color: white;
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        .preset-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            font-size: 0.75rem;
+            padding: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .preset-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .preset-btn.active {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* Progress Bar Styles */
+        .progress-wrapper {
+            display: none;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-track {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 4px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .progress-block {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            background: #334155;
+            transition: all 0.1s;
+            position: relative;
+        }
+
+        .progress-block.active {
+            transform: scale(1.3);
+            z-index: 2;
+            box-shadow: 0 0 10px var(--block-color);
+            filter: brightness(1.3);
+        }
+
+        .progress-block.completed {
+            background: var(--block-color);
+            opacity: 0.9;
+        }
+
+        .matrix-display {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 60px;
+            font-size: 1.1rem;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        body.embedded .sidebar {
+            display: none;
+        }
+
+        body.embedded .progress-wrapper {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            top: 0;
+            background: transparent;
+            backdrop-filter: none;
+            border: none;
+            box-shadow: none;
+            padding: 0;
+            z-index: 1000;
+            margin: 0;
+            pointer-events: none;
+            display: none;
+            /* Set to flex by animator */
+        }
+
+        body.embedded .progress-info {
+            position: absolute;
+            left: 30px;
+            bottom: 125px;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 6px 10px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+        }
+
+        body.embedded .progress-track {
+            position: absolute;
+            left: 30px;
+            bottom: 30px;
+            width: 280px;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: auto;
+        }
+
+        body.embedded .matrix-display {
+            position: absolute;
+            right: 30px;
+            bottom: 30px;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            padding: 1.25rem 2rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: auto;
+            margin: 0;
+            min-height: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <div>
+            <h1>BHC Explorer</h1>
+            <p style="font-size: 0.8rem; opacity: 0.7; margin: 0;">Lattice action on the product space.</p>
+        </div>
+
+        <div>
+            <div class="section-title">Presets</div>
+            <div class="preset-grid">
+                <button class="preset-btn active" data-id="long-reid"
+                    onclick="loadPreset('long-reid')">Long-Reid</button>
+                <button class="preset-btn" data-id="dirichlet" onclick="loadPreset('dirichlet')">Long-Reid
+                    (Dirichlet)</button>
+                <button class="preset-btn" data-id="musical" onclick="loadPreset('musical')">Musical</button>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">
+                Generators
+                <button class="add-gen-btn" onclick="addGenerator()">+ Add</button>
+            </div>
+            <div id="generators-list">
+                <div class="generator-item" data-name="a">
+                    <div class="gen-header">
+                        <span class="gen-name">a =</span>
+                    </div>
+                    <div class="matrix-grid">
+                        <input type="text" value="3"> <input type="text" value="0">
+                        <input type="text" value="0"> <input type="text" value="1/3">
+                    </div>
+                </div>
+                <div class="generator-item" data-name="b">
+                    <div class="gen-header">
+                        <span class="gen-name">b =</span>
+                    </div>
+                    <div class="matrix-grid">
+                        <input type="text" value="82/8"> <input type="text" value="2/8">
+                        <input type="text" value="9/8"> <input type="text" value="1/8">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Word to Animate</div>
+            <textarea id="word-input"
+                class="word-input">a.a.b.ai.ai.bi.a.b.a.a.bi.ai.bi.a.a.b.ai.b.a.a.bi.ai.bi.a.b.a.bi.a.b.ai.b.a.a.bi.a.a.a.b.ai.ai.bi.a.bi.ai.ai.b.b.a.bi.ai.ai.b.ai.bi.a.bi.ai.ai.b.a.bi.a.a.b.ai.b.a.bi.a.b.ai.b.a.a.bi.a.a.a.b.ai.ai.bi</textarea>
+        </div>
+
+        <div>
+            <div class="section-title">Global Settings</div>
+            <div class="input-group">
+                <span style="font-size: 0.85rem;">Primes:</span>
+                <input type="text" id="primes" value="2, 3" style="width: 100%;">
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: auto;">
+            <div id="progress-wrapper" class="progress-wrapper">
+                <div class="progress-info">
+                    <span id="progress-step">Step 0 / 0</span>
+                    <span id="current-part">[-]</span>
+                </div>
+                <div id="progress-track" class="progress-track"></div>
+                <div id="matrix-display" class="matrix-display">\[ I = \begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix} \]
+                </div>
+            </div>
+            <button id="apply-btn">Animate Word &raquo;</button>
+            <button id="reset-btn" style="background: #334155; opacity: 0.8;">Reset Views</button>
+        </div>
+    </div>
+
+    <div class="main-viz">
+        <canvas id="viz-canvas"></canvas>
+    </div>
+
+    <script src="math.js"></script>
+    <script src="hypPlane/hypTiling.js"></script>
+    <script>
+        // --- Hyperbolic Math Helpers ---
+        function getMatrixLog(mat) {
+            const a = mat.a.toNumber(), b = mat.b.toNumber(), c = mat.c.toNumber(), d = mat.d.toNumber();
+            const det = a * d - b * c;
+            const s = Math.sqrt(Math.abs(det));
+            const na = a / s, nb = b / s, nc = c / s, nd = d / s;
+            const tr = na + nd;
+            if (tr > 2.000001) {
+                const phi = Math.acosh(tr / 2);
+                const coeff = phi / Math.sinh(phi);
+                return { type: 'hyperbolic', log: { a: coeff * (na - tr / 2), b: coeff * nb, c: coeff * nc, d: coeff * (nd - tr / 2) } };
+            } else if (tr < 1.999999 && tr > -1.999999) {
+                const phi = Math.acos(tr / 2);
+                const coeff = phi / Math.sin(phi);
+                return { type: 'elliptic', log: { a: coeff * (na - tr / 2), b: coeff * nb, c: coeff * nc, d: coeff * (nd - tr / 2) } };
+            } else {
+                return { type: 'parabolic', log: { a: na - 1, b: nb, c: nc, d: nd - 1 } };
+            }
+        }
+
+        function matrixExp(X, t) {
+            const a = X.a * t, b = X.b * t, c = X.c * t, d = X.d * t;
+            const mdet = -(a * d - b * c);
+            if (mdet > 1e-9) {
+                const s = Math.sqrt(mdet);
+                const co = Math.cosh(s), si = Math.sinh(s) / s;
+                return { a: co + si * a, b: si * b, c: si * c, d: co + si * d };
+            } else if (mdet < -1e-9) {
+                const s = Math.sqrt(-mdet);
+                const co = Math.cos(s), si = Math.sin(s) / s;
+                return { a: co + si * a, b: si * b, c: si * c, d: co + si * d };
+            } else {
+                return { a: 1 + a, b: b, c: c, d: 1 + d };
+            }
+        }
+
+        function applyDiskAction(G, w) {
+            if (!w || !isFinite(w.re) || !isFinite(w.im)) return { re: 0, im: 0 };
+            const a = (typeof G.a === 'object') ? G.a.toNumber() : G.a;
+            const b = (typeof G.b === 'object') ? G.b.toNumber() : G.b;
+            const c = (typeof G.c === 'object') ? G.c.toNumber() : G.c;
+            const d = (typeof G.d === 'object') ? G.d.toNumber() : G.d;
+
+            const alphaR = (a + d) / 2, alphaI = (b - c) / 2;
+            const betaR = (a - d) / 2, betaI = -(b + c) / 2;
+
+            const numR = alphaR * w.re - alphaI * w.im + betaR;
+            const numI = alphaR * w.im + alphaI * w.re + betaI;
+            const denR = betaR * w.re + betaI * w.im + alphaR;
+            const denI = betaR * w.im - betaI * w.re - alphaI;
+            const magSq = denR * denR + denI * denI;
+
+            if (magSq < 1e-12) return w;
+            const res = { re: (numR * denR + numI * denI) / magSq, im: (numI * denR - numR * denI) / magSq };
+            return (isFinite(res.re) && isFinite(res.im)) ? res : w;
+        }
+
+        // --- View Classes ---
+
+        class HyperbolicDiskView {
+            constructor() {
+                this.tiles = [];
+                this.canonicalTiles = [];
+                this.engine = new TilingEngine();
+                this.totalMatInv = new BigMat(1, 0, 0, 1);
+                this.orbit = [{ re: 0, im: 0 }];
+                this.currentOrbitPoint = { re: 0, im: 0 };
+                this.init();
+            }
+            init() {
+                this.tiles = [];
+                this.engine.computeFundamentalDomain();
+                const orbit = this.engine.getTilingOrbit(800); // Massive increase for edge coverage
+
+                this.canonicalTiles = orbit.map(item => {
+                    const uhpVertices = this.engine.baseVertices.map(v => item.g.action(v));
+                    return {
+                        vertices: uhpVertices.map(v => this.toDiskLocal(v))
+                    };
+                });
+                this.tiles = this.canonicalTiles.map(t => ({
+                    vertices: t.vertices.map(v => ({ ...v }))
+                }));
+                this.totalMatInv = new BigMat(1, 0, 0, 1);
+                this.orbit = [{ re: 0, im: 0 }];
+                this.currentOrbitPoint = { re: 0, im: 0 };
+            }
+            toDiskLocal(z) {
+                if (!z || !isFinite(z.re) || !isFinite(z.im)) return { re: 1, im: 0 };
+                const denR = z.re; const denI = z.im + 1;
+                const numR = z.re; const numI = z.im - 1;
+                const magSq = denR * denR + denI * denI;
+                if (magSq < 1e-12) return { re: 1, im: 0 };
+                return { re: (numR * denR + numI * denI) / magSq, im: (numI * denR - numR * denI) / magSq };
+            }
+            fromDiskLocal(w) {
+                const denR = 1 - w.re; const denI = -w.im;
+                const numR = -w.im; const numI = 1 + w.re;
+                const magSq = denR * denR + denI * denI;
+                if (magSq < 1e-12) return { re: 0, im: 1000 };
+                return { re: (numR * denR + numI * denI) / magSq, im: (numI * denR - numR * denI) / magSq };
+            }
+            drawArc(ctx, p1, p2, radius) {
+                const x1 = p1.re, y1 = p1.im;
+                const x2 = p2.re, y2 = p2.im;
+                const det = x1 * y2 - x2 * y1;
+                if (Math.abs(det) < 1e-5) {
+                    ctx.lineTo(x2 * radius, y2 * radius);
+                } else {
+                    const r1sq = x1 * x1 + y1 * y1;
+                    const r2sq = x2 * x2 + y2 * y2;
+                    const f1 = (r1sq + 1) / 2;
+                    const f2 = (r2sq + 1) / 2;
+                    const cx = (f1 * y2 - f2 * y1) / det;
+                    const cy = (x1 * f2 - x2 * f1) / det;
+                    const r = Math.sqrt((x1 - cx) ** 2 + (y1 - cy) ** 2);
+                    ctx.arc(cx * radius, cy * radius, r * radius, Math.atan2(y1 - cy, x1 - cx), Math.atan2(y2 - cy, x2 - cx), det > 0);
+                }
+            }
+            draw(ctx, w, h) {
+                const radius = Math.min(w, h) * 0.44;
+                ctx.save();
+                ctx.translate(w / 2, h / 2);
+
+                const renderTiles = (tiles, fillStyle, strokeStyle) => {
+                    ctx.fillStyle = fillStyle;
+                    ctx.strokeStyle = strokeStyle;
+                    ctx.beginPath();
+                    tiles.forEach(tile => {
+                        const verts = tile.vertices;
+                        if (verts.length < 3) return;
+                        ctx.moveTo(verts[0].re * radius, verts[0].im * radius);
+                        for (let i = 1; i < verts.length; i++) {
+                            this.drawArc(ctx, verts[i - 1], verts[i], radius);
+                        }
+                        this.drawArc(ctx, verts[verts.length - 1], verts[0], radius);
+                    });
+                    ctx.fill();
+                    ctx.stroke();
+                };
+
+                if (this.tiles.length > 1) renderTiles(this.tiles.slice(1), 'rgba(99, 102, 241, 0.1)', 'rgba(99, 102, 241, 0.4)');
+                if (this.tiles.length > 0) renderTiles([this.tiles[0]], 'rgba(99, 102, 241, 0.3)', 'rgba(99, 102, 241, 0.7)');
+
+                // Draw orbit path
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                if (this.orbit.length > 0) {
+                    ctx.moveTo(this.orbit[0].re * radius, this.orbit[0].im * radius);
+                    for (let i = 1; i < this.orbit.length; i++) {
+                        ctx.lineTo(this.orbit[i].re * radius, this.orbit[i].im * radius);
+                    }
+                    ctx.lineTo(this.currentOrbitPoint.re * radius, this.currentOrbitPoint.im * radius);
+                }
+                ctx.stroke();
+
+                // Draw current basepoint
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(this.currentOrbitPoint.re * radius, this.currentOrbitPoint.im * radius, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = 'rgba(99, 102, 241, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.stroke();
+                ctx.restore();
+            }
+            animate(g, totalMat) {
+                const X_data = getMatrixLog(g);
+                const X = X_data.log;
+
+                const prevMInvRaw = this.totalMatInv;
+                const prevMInv = {
+                    a: prevMInvRaw.a.toNumber(), b: prevMInvRaw.b.toNumber(),
+                    c: prevMInvRaw.c.toNumber(), d: prevMInvRaw.d.toNumber()
+                };
+                this.totalMatInv = totalMat.inv();
+
+                return (progress) => {
+                    const G_t_inv = matrixExp(X, -progress);
+
+                    // 1. Sliding Tiles (Infinite Room)
+                    this.tiles.forEach((tile, i) => {
+                        tile.vertices = this.canonicalTiles[i].vertices.map(v => applyDiskAction(G_t_inv, v));
+                    });
+
+                    // 2. Continuous Orbit Point (Total Accumulated Action)
+                    const V_total_t = {
+                        a: prevMInv.a * G_t_inv.a + prevMInv.b * G_t_inv.c,
+                        b: prevMInv.a * G_t_inv.b + prevMInv.b * G_t_inv.d,
+                        c: prevMInv.c * G_t_inv.a + prevMInv.d * G_t_inv.c,
+                        d: prevMInv.c * G_t_inv.b + prevMInv.d * G_t_inv.d
+                    };
+                    const pt = applyDiskAction(V_total_t, { re: 0, im: 0 });
+                    this.currentOrbitPoint = { re: pt.re, im: pt.im };
+
+                    if (progress >= 1) {
+                        this.orbit.push({ ...this.currentOrbitPoint });
+                        // Hard reset to canonical for next part
+                        this.tiles.forEach((tile, i) => {
+                            tile.vertices = this.canonicalTiles[i].vertices.map(v => ({ ...v }));
+                        });
+                    }
+                };
+            }
+        }
+
+        class DiskTreeView {
+            constructor(p) {
+                this.p = p;
+                this.nodes = [];
+                this.baseMat = new BigMat(1, 0, 0, 1);
+                this.stepDist = p === 2 ? 0.8 : 1.0;
+                this.maxDepth = p === 2 ? 7 : (p > 3 ? 3 : 5);
+                this.orbit = [{ re: 0, im: 0 }];
+                this.currentOrbitPoint = { re: 0, im: 0 };
+                this.init();
+            }
+            init() {
+                this.nodes = [];
+                this.baseMat = new BigMat(1, 0, 0, 1);
+                this.orbit = [{ re: 0, im: 0 }];
+                this.currentOrbitPoint = { re: 0, im: 0 };
+                const p = this.p;
+                const build = (n, mat, angle, budget, parentIdx, prevMat = null) => {
+                    const pos = (n === 0) ? { x: 0, y: 0 } : this.getCanonicalPos(mat, n);
+                    const nodeIdx = this.nodes.length;
+                    this.nodes.push({ n, refMat: mat, mat: mat, parentIdx, x: pos.x, y: pos.y, targetX: pos.x, targetY: pos.y, origX: pos.x, origY: pos.y });
+                    if (n >= this.maxDepth) return;
+                    const gens = [];
+                    for (let u = 0; u < p; u++) gens.push(new BigMat(new BigFrac(BigInt(p)), u, 0, 1));
+                    gens.push(new BigMat(1, 0, 0, new BigFrac(BigInt(p))));
+                    if (n === 0) {
+                        const delta = (2 * Math.PI) / (p + 1);
+                        gens.forEach((G, i) => build(n + 1, G, i * delta, delta, nodeIdx, mat));
+                    } else {
+                        const delta = budget / p;
+                        const startAngle = angle - budget / 2 + delta / 2;
+                        let childCount = 0;
+                        for (let G of gens) {
+                            const next = mat.mul(G);
+                            if (prevMat) {
+                                const test = next.mul(new BigMat(prevMat.d, prevMat.b.neg(), prevMat.c.neg(), prevMat.a));
+                                const iwa = test.getOrientedIwasawa(p);
+                                if (iwa.n === 0 && iwa.q.n === 0n) continue;
+                            }
+                            if (childCount < p) { build(n + 1, next, startAngle + childCount * delta, delta, nodeIdx, mat); childCount++; }
+                        }
+                    }
+                };
+                build(0, new BigMat(1, 0, 0, 1), 0, 2 * Math.PI, -1);
+            }
+            getCanonicalPos(M, D) {
+                const r = Math.tanh(D * this.stepDist / 2);
+                const p = this.p;
+                const gens = [];
+                for (let u = 0; u < p; u++) gens.push(new BigMat(new BigFrac(BigInt(p)), u, 0, 1));
+                gens.push(new BigMat(1, 0, 0, new BigFrac(BigInt(p))));
+                let firstIdx = -1;
+                for (let i = 0; i < gens.length; i++) {
+                    const test = ((i < p) ? new BigMat(1, -i, 0, p) : new BigMat(p, 0, 0, 1)).mul(M);
+                    const v = Math.min(test.a.val(p), test.b.val(p), test.c.val(p), test.d.val(p));
+                    if (test.a.mul(test.d).sub(test.b.mul(test.c)).val(p) - 2 * v === D - 1) { firstIdx = i; break; }
+                }
+                const deltaRoot = (2 * Math.PI) / (p + 1);
+                let curAngle = firstIdx * deltaRoot, curBudget = deltaRoot, curMat = gens[firstIdx];
+                for (let level = 2; level <= D; level++) {
+                    const delta = curBudget / p, startAngle = curAngle - curBudget / 2 + delta / 2;
+                    let found = false;
+                    for (let i = 0; i < gens.length; i++) {
+                        const next = curMat.mul(gens[i]);
+                        const test = new BigMat(next.d, next.b.neg(), next.c.neg(), next.a).mul(M);
+                        const v = Math.min(test.a.val(p), test.b.val(p), test.c.val(p), test.d.val(p));
+                        if (test.a.mul(test.d).sub(test.b.mul(test.c)).val(p) - 2 * v === D - level) {
+                            let validIdx = 0;
+                            for (let j = 0; j < gens.length; j++) {
+                                const cj = curMat.mul(gens[j]), cj_v = Math.min(cj.a.val(p), cj.b.val(p), cj.c.val(p), cj.d.val(p));
+                                if (cj.a.mul(cj.d).sub(cj.b.mul(cj.c)).val(p) - 2 * cj_v > level - 1) {
+                                    if (j === i) { curAngle = startAngle + validIdx * delta; curBudget = delta; curMat = next; found = true; break; }
+                                    validIdx++;
+                                }
+                            }
+                        }
+                        if (found) break;
+                    }
+                }
+                return { x: r * Math.cos(curAngle), y: r * Math.sin(curAngle) };
+            }
+            draw(ctx, w, h) {
+                const radius = Math.min(w, h) * 0.44;
+                ctx.save();
+                ctx.translate(w / 2, h / 2);
+
+                ctx.strokeStyle = 'rgba(99, 102, 241, 0.25)';
+                ctx.lineWidth = 1.2;
+                this.nodes.forEach(n => {
+                    // Update: Smoothing removed here, handled by animator for better sync
+                    if (n.parentIdx !== -1) {
+                        const prent = this.nodes[n.parentIdx];
+                        ctx.beginPath(); ctx.moveTo(prent.x * radius, prent.y * radius); ctx.lineTo(n.x * radius, n.y * radius); ctx.stroke();
+                    }
+                });
+                this.nodes.forEach(n => {
+                    ctx.fillStyle = `hsl(${220 - n.n * 25}, 80%, 65%)`; // Slower color cycle
+                    ctx.beginPath(); ctx.arc(n.x * radius, n.y * radius, Math.max(2, 6 - n.n * 0.7), 0, Math.PI * 2); ctx.fill();
+                });
+
+                // Red dot tracking the target identity recursion 
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(this.currentOrbitPoint.re * radius, this.currentOrbitPoint.im * radius, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.restore();
+            }
+            animate(g, totalMat) {
+                const p = this.p;
+
+                // 1. Compute Slide (Recentering)
+                const h_inv = this.baseMat.inv().mul(g.inv()).mul(this.baseMat);
+                this.baseMat = g.mul(this.baseMat);
+
+                // Precompute start positions for all nodes to animate them smoothly
+                const nodeStartPositions = this.nodes.map(node => {
+                    const startMat = h_inv.mul(node.refMat);
+                    const v = Math.min(startMat.a.val(p), startMat.b.val(p), startMat.c.val(p), startMat.d.val(p));
+                    const score = Math.abs(startMat.a.mul(startMat.d).sub(startMat.b.mul(startMat.c)).val(p) - 2 * v);
+                    return this.getCanonicalPos(startMat, score);
+                });
+
+                // 2. Compute Orbit Point (Identity Receding)
+                const startPos = { ...this.currentOrbitPoint };
+                const finalTargetMat = totalMat.inv();
+                const D = Math.abs(finalTargetMat.a.mul(finalTargetMat.d).sub(finalTargetMat.b.mul(finalTargetMat.c)).val(p) - 2 * Math.min(finalTargetMat.a.val(p), finalTargetMat.b.val(p), finalTargetMat.c.val(p), finalTargetMat.d.val(p)));
+                const endPosInTree = this.getCanonicalPos(finalTargetMat, D);
+                const endOrbit = { re: endPosInTree.x, im: endPosInTree.y };
+
+                return (progress) => {
+                    // Animate all tree nodes synchronously with progress
+                    this.nodes.forEach((node, i) => {
+                        const sPos = nodeStartPositions[i];
+                        node.x = sPos.x + (node.origX - sPos.x) * progress;
+                        node.y = sPos.y + (node.origY - sPos.y) * progress;
+                    });
+
+                    this.currentOrbitPoint = {
+                        re: startPos.re + (endOrbit.re - startPos.re) * progress,
+                        im: startPos.im + (endOrbit.im - startPos.im) * progress
+                    };
+                };
+            }
+        }
+
+        function addGenerator(name, vals) {
+            const list = document.getElementById('generators-list');
+            const names = 'abcdefghijklmnopqrstuvwxyz'.split('');
+            const existing = Array.from(list.querySelectorAll('.generator-item')).map(el => el.dataset.name);
+
+            if (!name) name = names.find(n => !existing.includes(n)) || 'z';
+            if (!vals) vals = ["1", "0", "0", "1"];
+
+            const item = document.createElement('div');
+            item.className = 'generator-item';
+            item.dataset.name = name;
+            item.innerHTML = `
+                <div class="gen-header">
+                    <span class="gen-name">${name} =</span>
+                </div>
+                <div class="matrix-grid">
+                    <input type="text" value="${vals[0]}"> <input type="text" value="${vals[1]}">
+                    <input type="text" value="${vals[2]}"> <input type="text" value="${vals[3]}">
+                </div>
+            `;
+            list.appendChild(item);
+        }
+
+        const PRESETS = {
+            'long-reid': {
+                gens: { a: ["3", "0", "0", "1/3"], b: ["82/8", "2/8", "9/8", "1/8"] },
+                word: "a.a.b.ai.ai.bi.a.b.a.a.bi.ai.bi.a.a.b.ai.b.a.a.bi.ai.bi.a.b.a.bi.a.b.ai.b.a.a.bi.a.a.a.b.ai.ai.bi.a.bi.ai.ai.b.b.a.bi.ai.ai.b.ai.bi.a.bi.ai.ai.b.a.bi.a.a.b.ai.b.a.bi.a.b.ai.b.a.a.bi.a.a.a.b.ai.ai.bi"
+            },
+            'dirichlet': {
+                gens: {
+                    a: ["3", "0", "0", "1/3"],
+                    b: ["9/8", "-18/8", "-1/8", "82/72"],
+                    c: ["9/8", "-2/8", "-9/8", "82/72"]
+                },
+                word: "a.a.bi.ai.c.bi.a.a.b.ai.ai.c.a.bi.a.bi.a.a.b.ai.ai.c.bi.a.b.a.bi.a.bi.a.a.b.a.a.a.bi.ai.ai.b.ai.b.ai.ci.a.bi.a.b.ai.ai.bi.ai.b.ai.b.ai.ci.b.a.a.bi.a.bi.a.b.a.bi.a.bi.a.a.b.a.a.a.bi.ai.ai.b"
+            },
+            'musical': {
+                gens: { a: ["2", "0", "0", "1"], b: ["1", "0", "0", "3"] },
+                word: "a.a.b.a.b.a.a.b.a.a.b.a.b.a.b.a.a.b.a.a.b.a.b"
+            }
+        };
+
+        function loadPreset(id) {
+            const preset = PRESETS[id];
+            if (!preset) return;
+
+            // Update UI buttons
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.id === id);
+            });
+
+            // Clear and rebuild generators
+            document.getElementById('generators-list').innerHTML = '';
+            for (let [name, vals] of Object.entries(preset.gens)) {
+                addGenerator(name, vals);
+            }
+
+            // Update word
+            document.getElementById('word-input').value = preset.word;
+
+            // Auto-trigger setup to refresh views
+            if (window.animator) animator.setup();
+        }
+
+        function getPartColor(part) {
+            const colors = {
+                a: '#6366f1', ai: '#818cf8',
+                b: '#ec4899', bi: '#f472b6',
+                c: '#10b981', ci: '#34d399',
+                d: '#f59e0b', di: '#fbbf24',
+                e: '#0ea5e9', ei: '#38bdf8',
+                f: '#8b5cf6', fi: '#a78bfa'
+            };
+            return colors[part] || '#94a3b8';
+        }
+
+        // --- Controller ---
+
+        class BHCAnimator {
+            constructor() {
+                this.canvas = document.getElementById('viz-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.views = [];
+                this.isAnimating = false;
+                this.totalMat = new BigMat(1, 0, 0, 1);
+
+                window.addEventListener('resize', () => this.resize());
+                this.resize();
+
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('embed') === 'true') {
+                    document.body.classList.add('embedded');
+                    const wrapper = document.getElementById('progress-wrapper');
+                    document.body.appendChild(wrapper); // Move out of sidebar
+                }
+
+                this.setup();
+
+                const presetId = params.get('preset');
+                if (presetId) {
+                    loadPreset(presetId);
+                }
+
+                window.addEventListener('message', (e) => {
+                    if (e.data === 'play') this.animate();
+                    if (e.data === 'reset') this.setup();
+                });
+
+                this.loop();
+            }
+
+            parseVal(val, p) { return new BigFrac(val.trim().replace(/\bp\b/g, p || 3)); }
+
+            getGenerators(p) {
+                const gens = {};
+                document.querySelectorAll('.generator-item').forEach(item => {
+                    const name = item.dataset.name;
+                    const inputs = item.querySelectorAll('input');
+                    gens[name] = new BigMat(
+                        this.parseVal(inputs[0].value, p), this.parseVal(inputs[1].value, p),
+                        this.parseVal(inputs[2].value, p), this.parseVal(inputs[3].value, p)
+                    );
+                    gens[name + 'i'] = gens[name].inv();
+                });
+                return gens;
+            }
+
+            parseWord(word, gens) {
+                const parts = word.split('.').map(p => p.trim()).filter(p => p);
+                let res = new BigMat(1, 0, 0, 1);
+                parts.forEach(p => { if (gens[p]) res = res.mul(gens[p]); });
+                return res;
+            }
+
+            setup() {
+                const primesVal = document.getElementById('primes').value;
+                const primes = primesVal.split(',').map(s => parseInt(s.trim())).filter(p => !isNaN(p));
+                this.views = [{ view: new HyperbolicDiskView(), label: 'Hyperbolic Disk' }];
+                primes.forEach(p => this.views.push({ view: new DiskTreeView(p), label: `p-adic Ball (p=${p})` }));
+            }
+
+            resize() {
+                const dpr = window.devicePixelRatio || 1;
+                const w = this.canvas.clientWidth;
+                const h = this.canvas.clientHeight;
+                if (!w || !h) return;
+
+                this.canvas.width = w * dpr;
+                this.canvas.height = h * dpr;
+                this.ctx.resetTransform();
+                this.ctx.scale(dpr, dpr);
+            }
+
+            loop() {
+                const { canvas, ctx } = this;
+                const dpr = window.devicePixelRatio || 1;
+                const w = canvas.width / dpr;
+                const h = canvas.height / dpr;
+
+                if (canvas.width !== Math.floor(canvas.clientWidth * dpr) || canvas.height !== Math.floor(canvas.clientHeight * dpr)) {
+                    this.resize();
+                }
+
+                ctx.clearRect(0, 0, w, h);
+                const botH = h * 0.58;
+                const topH = h * 0.42;
+
+                const trees = this.views.filter(v => v.view instanceof DiskTreeView);
+                const disk = this.views.find(v => v.view instanceof HyperbolicDiskView);
+
+                // Draw trees top row
+                const nTrees = trees.length;
+                const treeW = w / Math.max(1, nTrees);
+
+                trees.forEach((v, i) => {
+                    const x = i * treeW;
+                    ctx.save();
+                    ctx.translate(x, 0);
+
+                    ctx.fillStyle = 'rgba(99, 102, 241, 0.9)';
+                    ctx.font = 'bold 20px Outfit';
+                    if (v.view.p === 2) {
+                        ctx.textAlign = 'left';
+                        ctx.fillText('2-adic tree', 30, 45);
+                    } else if (v.view.p === 3) {
+                        ctx.textAlign = 'right';
+                        ctx.fillText('3-adic tree', treeW - 30, 45);
+                    } else {
+                        ctx.textAlign = 'center';
+                        ctx.fillText(`${v.view.p}-adic tree`, treeW / 2, 45);
+                    }
+
+                    ctx.beginPath(); ctx.rect(0, 0, treeW, topH); ctx.clip();
+                    v.view.draw(ctx, treeW, topH);
+                    ctx.restore();
+                });
+
+                // Draw disk bottom row
+                if (disk) {
+                    ctx.save();
+                    ctx.translate(0, topH);
+
+                    ctx.fillStyle = 'rgba(99, 102, 241, 0.9)';
+                    ctx.font = 'bold 28px Outfit';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('hyperbolic plane', w / 2, botH - 35);
+
+                    ctx.beginPath(); ctx.rect(0, 0, w, botH); ctx.clip();
+                    disk.view.draw(ctx, w, botH);
+                    ctx.restore();
+                }
+
+                requestAnimationFrame(() => this.loop());
+            }
+
+            async animate() {
+                if (this.isAnimating) return;
+                const wrapper = document.getElementById('progress-wrapper');
+                const track = document.getElementById('progress-track');
+                const stepInfo = document.getElementById('progress-step');
+                const partInfo = document.getElementById('current-part');
+                const matrixInfo = document.getElementById('matrix-display');
+                const wordStr = document.getElementById('word-input').value;
+                const symbols = wordStr.split('.').map(p => p.trim()).filter(p => p);
+
+                if (symbols.length === 0) return;
+
+                this.isAnimating = true;
+                wrapper.style.display = 'flex';
+                track.innerHTML = '';
+
+                const blocks = symbols.map(p => {
+                    const b = document.createElement('div');
+                    b.className = 'progress-block';
+                    const color = getPartColor(p);
+                    b.style.setProperty('--block-color', color);
+                    track.appendChild(b);
+                    return b;
+                });
+
+                const duration = 600; // Faster animations
+                this.totalMat = new BigMat(1, 0, 0, 1);
+
+                // Cache generators for all views to prevent stutter
+                const viewGens = this.views.map(v => {
+                    const p = (v.view instanceof DiskTreeView) ? v.view.p : 3;
+                    return this.getGenerators(p);
+                });
+                const labelGens = this.getGenerators(3);
+
+                try {
+                    // Animate from right to left (Composition order: g_n ... g_2 g_1)
+                    for (let i = symbols.length - 1; i >= 0; i--) {
+                        const part = symbols[i];
+                        const block = blocks[i];
+                        const stepNum = symbols.length - i;
+
+                        stepInfo.innerText = `Step ${stepNum} / ${symbols.length}`;
+                        partInfo.innerText = `[${part}]`;
+                        block.classList.add('active');
+
+                        // Update Cumulative Matrix
+                        const g = labelGens[part];
+                        if (g) {
+                            this.totalMat = g.mul(this.totalMat);
+                            matrixInfo.innerHTML = `\\[${this.totalMat.toLatex()} \\]`;
+                            if (window.MathJax) MathJax.typesetPromise([matrixInfo]);
+                        }
+
+                        let startTime = null;
+                        const animators = this.views.map((v, idx) => {
+                            const currentMat = viewGens[idx][part];
+                            if (!currentMat) return (p) => { };
+                            return v.view.animate(currentMat, this.totalMat);
+                        });
+
+                        const stepDuration = stepNum <= 3 ? duration * 4 : duration;
+
+                        await new Promise(resolve => {
+                            const run = (timestamp) => {
+                                if (!startTime) startTime = timestamp;
+                                let progress = Math.min((timestamp - startTime) / stepDuration, 1);
+                                const eased = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+                                animators.forEach(a => a(eased));
+                                if (progress < 1) requestAnimationFrame(run);
+                                else resolve();
+                            };
+                            requestAnimationFrame(run);
+                        });
+
+                        block.classList.remove('active');
+                        block.classList.add('completed');
+                    }
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    this.isAnimating = false;
+                    partInfo.innerText = 'DONE';
+                    // We no longer hide the wrapper automatically to leave the final matrix visible
+                }
+            }
+        }
+
+        const animator = new BHCAnimator();
+        document.getElementById('apply-btn').addEventListener('click', () => animator.animate());
+        document.getElementById('reset-btn').addEventListener('click', () => animator.setup());
+    </script>
+</body>
+
+</html>

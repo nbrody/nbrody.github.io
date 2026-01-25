@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyperbolic Action Animator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&family=Outfit:wght@300;600&display=swap"
+        rel="stylesheet">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #020617;
+            --glass: rgba(15, 23, 42, 0.8);
+            --accent: #6366f1;
+            --text: #f8fafc;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 2.5rem;
+            margin: 0;
+            background: linear-gradient(135deg, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 2rem;
+            padding: 2rem;
+            width: 90%;
+            max-width: 1400px;
+            flex: 1;
+            align-items: center;
+        }
+
+        .control-panel {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            padding: 2rem;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .tag {
+            font-size: 0.9rem;
+            color: var(--accent);
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .matrix-input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+        }
+
+        .matrix-input-grid input {
+            width: 80px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: white;
+            padding: 8px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.8rem 1.2rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(8px);
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--accent);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .viz-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        #hyp-svg {
+            width: 800px;
+            height: 400px;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 2px solid var(--accent);
+            border-radius: 12px;
+        }
+
+        .real-axis {
+            stroke: var(--accent);
+            stroke-width: 0.05;
+            opacity: 0.5;
+        }
+
+        .grid-point {
+            fill: var(--accent);
+        }
+
+        .guide-axis {
+            stroke: #fcd34d;
+            stroke-width: 0.04;
+            fill: none;
+            stroke-dasharray: 0.2;
+            opacity: 0.6;
+        }
+
+        .fixed-point {
+            fill: #fcd34d;
+            stroke: white;
+            stroke-width: 0.02;
+        }
+
+        .action-arrow {
+            stroke: #fcd34d;
+            stroke-width: 0.06;
+            fill: none;
+            stroke-linecap: round;
+        }
+
+        .geodesic {
+            stroke: rgba(99, 102, 241, 0.4);
+            fill: none;
+            stroke-width: 1.5;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tile {
+            fill: rgba(99, 102, 241, 0.15);
+            stroke: rgba(99, 102, 241, 0.5);
+            stroke-width: 0.01;
+            transition: fill 0.3s;
+        }
+
+        .tile:hover {
+            fill: rgba(99, 102, 241, 0.4);
+        }
+
+        #tiling-group {
+            pointer-events: auto;
+        }
+
+        /* Embed Mode */
+        body.embedded .control-panel,
+        body.embedded .header {
+            display: none;
+        }
+
+        body.embedded .main-container {
+            padding: 0;
+            width: 100%;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1 id="model-title">Hyperbolic Action Animator (UHP)</h1>
+    </div>
+
+    <div class="main-container">
+        <div class="control-panel">
+            <div class="input-group">
+                <span class="tag">Matrix \( g \in \mathsf{PSL}_2(\mathbb{Q}) \)</span>
+                <div class="matrix-input-grid">
+                    <input type="text" id="g-a" value="1">
+                    <input type="text" id="g-b" value="1">
+                    <input type="text" id="g-c" value="0">
+                    <input type="text" id="g-d" value="1">
+                </div>
+            </div>
+            <button id="apply-btn">Apply Action</button>
+            <button id="toggle-model-btn">Switch to Poincare Disk</button>
+            <button id="toggle-viz-btn">Switch to Tiling</button>
+            <button id="reset-btn">Reset View</button>
+
+            <div class="input-group" id="face-pairings-container" style="display: none;">
+                <span class="tag">Face Pairings (Click to Animate)</span>
+                <div id="pairing-buttons" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                </div>
+            </div>
+
+            <div id="matrix-display" style="margin-top: 1rem; font-size: 1.5rem; text-align: center;">
+                <!-- Typeset matrix here -->
+            </div>
+        </div>
+
+        <div class="viz-container">
+            <svg id="hyp-svg" viewBox="-5 0 10 5">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#fcd34d" />
+                    </marker>
+                </defs>
+                <!-- Real Axis -->
+                <line class="real-axis" x1="-10" y1="5" x2="10" y2="5" />
+                <g id="guides-group" transform="scale(1, -1) translate(0, -5)"></g>
+                <g id="tiling-group" transform="scale(1, -1) translate(0, -5)"></g>
+                <g id="grid-group" transform="scale(1, -1) translate(0, -5)"></g>
+            </svg>
+        </div>
+    </div>
+
+    <script src="../math.js"></script>
+    <script src="hypTiling.js"></script>
+    <script src="hyp.js"></script>
+</body>
+
+</html>

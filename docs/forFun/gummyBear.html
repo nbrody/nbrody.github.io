@@ -10,7 +10,7 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background: radial-gradient(circle at center, #2c1a11 0%, #000000 100%);
+            background: #0a0a0a;
             font-family: 'Outfit', sans-serif;
         }
 
@@ -26,6 +26,9 @@
             color: #d7ccc8;
             pointer-events: none;
             z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
         }
 
         h1 {
@@ -44,7 +47,6 @@
         }
 
         .stack-btn {
-            margin-top: 1.5rem;
             padding: 0.8rem 1.5rem;
             background: rgba(93, 64, 55, 0.2);
             border: 1px solid rgba(215, 204, 200, 0.3);
@@ -87,12 +89,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100;300;600&display=swap" rel="stylesheet">
+    <!-- KaTeX for beautiful math -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 </head>
 
 <body>
 
     <div class="ui-overlay">
         <button id="add-bear-btn" class="stack-btn"><span>+</span></button>
+        <button id="mystery-btn" class="stack-btn"><span>?</span></button>
     </div>
 
     <div id="canvas-container"></div>
@@ -109,9 +115,12 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-        let scene, camera, renderer, controls;
+        let scene, camera, renderer, labelRenderer, controls;
         let bears = [];
+        let floaters = [];
+        let movementActive = false;
         let chocolateMaterial;
         let stackHeight = 0;
         const BEAR_SCALE = 3;
@@ -137,11 +146,25 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.getElementById('canvas-container').appendChild(renderer.domElement);
 
+            // Label Renderer
+            labelRenderer = new CSS2DRenderer();
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.domElement.style.position = 'absolute';
+            labelRenderer.domElement.style.top = '0px';
+            labelRenderer.domElement.style.pointerEvents = 'none';
+            labelRenderer.domElement.style.zIndex = '-1'; // Place behind WebGL for "background" effect
+            document.getElementById('canvas-container').appendChild(labelRenderer.domElement);
+
             // Controls
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.autoRotate = false;
-            controls.autoRotateSpeed = 0.5;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.2;
+
+            // Background
+            scene.fog = new THREE.FogExp2(0x0a0a0a, 0.015);
+
+            createAtmosphere();
 
             // Lights
             const ambientLight = new THREE.AmbientLight(0x404040, 2);
@@ -159,13 +182,24 @@
             // Create Gummy Bear Group
             createGummyBears();
 
-            // Hook up button
+            // Hook up buttons
             document.getElementById('add-bear-btn').addEventListener('click', doubleStack);
+            document.getElementById('mystery-btn').addEventListener('click', () => {
+                movementActive = !movementActive;
+                floaters.forEach(f => f.visible = movementActive);
+            });
 
             // Resize Event
             window.addEventListener('resize', onWindowResize, false);
 
             animate();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
         }
 
         function createGummyBears() {
@@ -304,17 +338,97 @@
             return group;
         }
 
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+
+
+        function createAtmosphere() {
+            // Create Floating Equations using KaTeX + CSS2D
+            const latexEquations = [
+                "\\zeta(s) = 0 \\implies \\text{Re}(s) = \\frac{1}{2}",
+                "\\int_{\\partial \\Omega} \\omega = \\int_{\\Omega} d\\omega",
+                "\\frac{\\partial g}{\\partial t} = -2Rc(g)",
+                "Ri_{jk} - \\frac{1}{2}Rg_{jk} + \\Lambda g_{jk} = \\kappa T_{jk}",
+                "i\\hbar\\frac{\\partial}{\\partial t}\\Psi(r,t) = \\hat{H}\\Psi(r,t)",
+                "d(f^k) = (d f) \\wedge f^{k-1}",
+                "\\mathcal{P} = \\mathcal{NP}?",
+                "e^{i\\pi} + 1 = 0",
+                "\\mathbf{G} \\iff \\neg(\\mathcal{P} \\vdash \\mathbf{G})",
+                "\\text{index}(D) = \\int_M \\text{AS}(M)",
+                "\\frac{D\\mathbf{v}}{Dt} = -\\frac{1}{\\rho}\\nabla p + \\nu\\nabla^2\\mathbf{v}",
+                "H^n(M, \\mathbb{R}) \\cong H_{\\text{dR}}^n(M)"
+            ];
+
+            latexEquations.forEach((latex, idx) => {
+                for (let i = 0; i < 2; i++) {
+                    const label = createLatexLabel(latex);
+                    label.visible = false;
+
+                    resetFloater(label);
+                    scene.add(label);
+                    floaters.push(label);
+                }
+            });
+        }
+
+        function createLatexLabel(latex) {
+            const div = document.createElement('div');
+            div.className = 'latex-label';
+            div.style.color = '#ffffff';
+            div.style.fontSize = '24px';
+            div.style.textShadow = '0 0 10px rgba(0,0,0,0.8)';
+            div.style.opacity = '0.7'; // Balanced visibility
+
+            katex.render(latex, div, {
+                throwOnError: false,
+                displayMode: true
+            });
+
+            const label = new CSS2DObject(div);
+            return label;
+        }
+
+
+
+        function resetFloater(obj) {
+            const range = 100;
+            // Equations stay strictly in the background
+            const zPos = -(Math.random() * 40 + 20);
+
+            obj.position.set(
+                (Math.random() - 0.5) * range,
+                (Math.random() - 0.5) * range + 20,
+                zPos
+            );
+
+            obj.userData.velocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 0.04,
+                (Math.random() - 0.5) * 0.04,
+                (Math.random() - 0.5) * 0.04
+            );
         }
 
         function animate() {
             requestAnimationFrame(animate);
 
+            if (movementActive) {
+                floaters.forEach(obj => {
+                    obj.position.add(obj.userData.velocity);
+                    if (obj.isMesh) {
+                        obj.rotation.x += obj.userData.rotVelocity.x;
+                        obj.rotation.y += obj.userData.rotVelocity.y;
+                        obj.rotation.z += obj.userData.rotVelocity.z;
+                    }
+
+                    // Loop back if too far
+                    if (obj.position.length() > 100) {
+                        resetFloater(obj);
+                        obj.position.multiplyScalar(-0.9);
+                    }
+                });
+            }
+
             controls.update();
             renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
         }
 
         init();

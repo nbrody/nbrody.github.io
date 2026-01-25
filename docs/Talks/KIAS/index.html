@@ -38,6 +38,10 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
     <style>
         .viz-frame {
             width: 100vw;
@@ -46,6 +50,76 @@
             border-radius: 0;
             background: transparent;
             display: block;
+        }
+
+        /* Remote UI Styling */
+        #remote-ui {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100dvh;
+            background: #020617;
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-evenly;
+            padding: 2rem;
+            box-sizing: border-box;
+            background-image: url('assets/transitionImages/Title.png');
+            background-size: cover;
+            background-position: center;
+        }
+
+        .remote-btn {
+            width: 100%;
+            height: 25dvh;
+            max-width: 400px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            color: #fff;
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .remote-btn:active {
+            transform: scale(0.95);
+            background: rgba(99, 102, 241, 0.2);
+            border-color: #6366f1;
+        }
+
+        .remote-status {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+        }
+
+        #remote-ui.active {
+            display: flex;
+        }
+
+        .remote-footer {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .remote-footer .small-btn {
+            flex: 1;
+            height: 60px;
+            font-size: 0.9rem;
         }
 
         @media (max-width: 1024px),
@@ -568,8 +642,32 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.js"></script>
 
     <script>
+        // --- Firebase Integration ---
+        const firebaseConfig = {
+            // Placeholder: User must fill this in
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            databaseURL: "YOUR_DATABASE_URL",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        let db;
+        let sessionRef;
+        const urlParams = new URLSearchParams(window.location.search);
+        const isRemote = urlParams.has('remote');
+        const sessionId = urlParams.get('session') || 'kias-presentation';
+
+        if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            sessionRef = db.ref('sessions/' + sessionId);
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
-            new fullpage('#fullpage', {
+            window.fp_api = new fullpage('#fullpage', {
                 licenseKey: 'gplv3-license',
                 autoScrolling: true,
                 navigation: true,
@@ -675,7 +773,69 @@
                     frame.contentWindow.postMessage(msg, '*');
                 }
             };
+
+            // --- Remote Control Logic ---
+            if (isRemote) {
+                document.getElementById('remote-ui').classList.add('active');
+                document.body.style.overflow = 'hidden';
+
+                window.sendRemoteCommand = (cmd) => {
+                    if (sessionRef) {
+                        sessionRef.set({
+                            command: cmd,
+                            timestamp: Date.now()
+                        });
+                    }
+                };
+            } else if (sessionRef) {
+                // Master Listener
+                sessionRef.on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data && data.command && Date.now() - data.timestamp < 2000) {
+                        switch (data.command) {
+                            case 'next':
+                                fp_api.moveSectionDown();
+                                break;
+                            case 'prev':
+                                fp_api.moveSectionUp();
+                                break;
+                            case 'toggle':
+                                // Toggles currently visible viz
+                                const activeIframe = document.querySelector('.section.active iframe');
+                                if (activeIframe) {
+                                    activeIframe.contentWindow.postMessage('toggle', '*');
+                                }
+                                break;
+                        }
+                    }
+                });
+            }
         });
+    </script>
+
+    <!-- Remote UI -->
+    <div id="remote-ui">
+        <div class="remote-status">Presentation Remote: <span id="sess-display"></span></div>
+        
+        <div class="remote-btn" onclick="sendRemoteCommand('prev')">
+            <span>Previous</span>
+        </div>
+
+        <div class="remote-btn" onclick="sendRemoteCommand('next')" style="border-color: var(--accent); background: rgba(99, 102, 241, 0.05);">
+            <span>Next Slide</span>
+        </div>
+
+        <div class="remote-footer">
+            <div class="remote-btn small-btn" onclick="sendRemoteCommand('toggle')">
+                <span>Toggle Viz</span>
+            </div>
+        </div>
+
+        <div class="remote-status" style="margin-top: 20px;">Connected to Display</div>
+    </div>
+
+    <script>
+        document.getElementById('sess-display').innerText = sessionId;
     </script>
 </body>
 

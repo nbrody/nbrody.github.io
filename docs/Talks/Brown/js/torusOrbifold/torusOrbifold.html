@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Torus Orbifold: Folding the Hexagon</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #020617;
+            --panel: rgba(15, 23, 42, 0.7);
+            --border: rgba(99, 102, 241, 0.3);
+            --accent: #6366f1;
+            --text: #f8fafc;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', -apple-system, sans-serif;
+            overflow: hidden;
+        }
+
+        #ui {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            z-index: 10;
+            background: var(--panel);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            border-radius: 20px;
+            width: 330px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #ui.is-minimized {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border-radius: 10px;
+        }
+
+        #ui.is-minimized h2,
+        #ui.is-minimized #ui-subtitle,
+        #ui.is-minimized .slide-group,
+        #ui.is-minimized .main-controls {
+            display: none;
+        }
+
+        #minimize-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 100;
+        }
+
+        #ui.is-minimized #minimize-btn {
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            background: none;
+            border: none;
+        }
+
+        #minimize-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--accent);
+        }
+
+        .slide-group {
+            margin-top: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .interactive-bar {
+            position: relative;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .interactive-bar:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .bar-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: currentColor;
+            opacity: 0.15;
+            transition: width 0.1s linear;
+        }
+
+        .bar-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 18px;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .bar-label {
+            font-weight: 600;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .bar-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            opacity: 0.7;
+            font-weight: 500;
+        }
+
+        .interactive-bar input[type="range"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 3;
+        }
+
+        .main-controls {
+            margin-top: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        button:hover {
+            filter: brightness(1.2);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+        }
+
+        #speed {
+            flex-grow: 1;
+            accent-color: var(--accent);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="minimize-btn" onclick="toggleUI()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                stroke-linecap="round">
+                <path d="M5 12h14" />
+            </svg>
+        </div>
+        <h2 style="margin:0; font-size: 1.4rem; letter-spacing: -0.02em; color: var(--text);">Torus Orbifold</h2>
+        <div id="ui-subtitle" style="opacity: 0.6; font-size: 0.9rem; margin-top: 2px;">
+            Folding the Hexagonal Domain
+        </div>
+
+        <div class="slide-group">
+            <div class="interactive-bar" style="color: #6366f1;">
+                <div id="fill-fold" class="bar-fill" style="width: 0%;"></div>
+                <div class="bar-content">
+                    <span class="bar-label">
+                        <div
+                            style="width:10px; height:10px; border-radius:3px; background:#6366f1; box-shadow: 0 0 10px #6366f1;">
+                        </div>
+                        Fold Progression
+                    </span>
+                    <span id="display-fold" class="bar-value">0%</span>
+                </div>
+                <input type="range" id="range-fold" min="-100" max="100" value="-100">
+            </div>
+
+            <div class="interactive-bar" style="color: #10b981;">
+                <div id="fill-opacity" class="bar-fill" style="width: 80%;"></div>
+                <div class="bar-content">
+                    <span class="bar-label">
+                        <div
+                            style="width:10px; height:10px; border-radius:3px; background:#10b981; box-shadow: 0 0 10px #10b981;">
+                        </div>
+                        Opacity
+                    </span>
+                    <span id="display-opacity" class="bar-value">80%</span>
+                </div>
+                <input type="range" id="range-opacity" min="0" max="100" value="80">
+            </div>
+        </div>
+
+        <div class="main-controls">
+            <button id="play-pause">Play</button>
+            <input type="range" id="speed" min="0" max="20" value="5">
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script>
+        function toggleUI() {
+            const ui = document.getElementById('ui');
+            const btn = document.getElementById('minimize-btn');
+            ui.classList.toggle('is-minimized');
+            if (ui.classList.contains('is-minimized')) {
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+            } else {
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"/></svg>';
+            }
+        }
+
+        // Hide UI if embedded
+        if (window.location.search.includes('embed=true')) {
+            document.getElementById('ui').style.display = 'none';
+        }
+    </script>
+    <script src="../math.js"></script>
+    <script src="../hypPlane/hypTiling.js"></script>
+    <script type="module" src="torusOrbifold.js"></script>
+</body>
+
+</html>

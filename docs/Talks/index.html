@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Talks | Nic Brody</title>
+    <meta name="description" content="A collection of mathematical talks by Nic Brody.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@300;600;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Styling adapted from KIAS show -->
+    <style>
+        :root {
+            --bg: #020617;
+            --panel: rgba(15, 23, 42, 0.7);
+            --border: rgba(99, 102, 241, 0.2);
+            --accent: #6366f1;
+            --text: #f8fafc;
+            --text-dim: #94a3b8;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            width: 100%;
+            max-width: 1200px;
+            padding: 80px 20px 40px;
+            text-align: left;
+        }
+
+        h1.page-title {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 3.5rem;
+            margin: 0;
+            background: linear-gradient(135deg, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.04em;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        main {
+            width: 100%;
+            max-width: 1400px;
+            padding: 20px 20px 100px;
+            box-sizing: border-box;
+        }
+
+        .talks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 60px;
+            width: 100%;
+        }
+
+        @media (max-width: 700px) {
+            .talks-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* The "Slide" Card */
+        .talk-card {
+            position: relative;
+            aspect-ratio: 16 / 9;
+            background-size: cover;
+            background-position: center;
+            border-radius: 24px;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.6s ease;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .talk-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6);
+        }
+
+        /* Replicating the "content-box" from the slides */
+        .slide-content {
+            width: 85%;
+            padding: 2.5rem;
+            background: var(--panel);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            text-align: center;
+            transition: background 0.4s ease;
+        }
+
+        .talk-card:hover .slide-content {
+            background: rgba(30, 41, 59, 0.85);
+        }
+
+        .slide-content .tag {
+            display: block;
+            font-weight: 800;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.25em;
+            color: var(--accent);
+            margin-bottom: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .slide-content h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(1.5rem, 3vw, 2.8rem);
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 0 0 1.5rem 0;
+            background: linear-gradient(135deg, #fff, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .slide-content p {
+            font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+            color: var(--text-dim);
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        /* Specific Backgrounds */
+        .bg-kias {
+            background-image: url('KIAS/assets/transitionImages/Title.png');
+        }
+
+        .bg-vanderbilt {
+            background-image: url('KIAS/assets/transitionImages/Geometry.png');
+            /* Using the geometry pattern for variety */
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 40px;
+            color: #444;
+            font-size: 0.8rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1 class="page-title">Talks</h1>
+        <div class="subtitle">Lectures & Presentations</div>
+    </header>
+
+    <main>
+        <div class="talks-grid">
+            <!-- KIAS Talk Card -->
+            <a href="KIAS/index.html" class="talk-card bg-kias">
+                <div class="slide-content">
+                    <span class="tag">KIAS Virtual Seminar on Geometry and Topology</span>
+                    <h2>Surface Groups and Products of Trees</h2>
+                    <p>Nic Brody, UC Santa Cruz<br>January 23, 2026</p>
+                </div>
+            </a>
+
+            <!-- Vanderbilt Talk Card -->
+            <a href="Vanderbilt/GOLGVanderbilt.pdf" class="talk-card bg-vanderbilt" target="_blank">
+                <div class="slide-content">
+                    <span class="tag">Vanderbilt Geometry & Topology Seminar</span>
+                    <h2>Geometry of Linear Groups</h2>
+                    <p>Nic Brody, UC Santa Cruz<br>(PDF Presentation)</p>
+                </div>
+            </a>
+        </div>
+    </main>
+
+    <footer>
+        &copy; 2026 Nic Brody &mdash; UC Santa Cruz
+    </footer>
+</body>
+
+</html>
