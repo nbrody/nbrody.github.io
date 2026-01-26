@@ -612,6 +612,13 @@ li.fragment {
     display: flex;
 }
 
+/* Hide specific controls when in presentation mode */
+body.presentation-mode .minimal-btn,
+body.presentation-mode #play-overlay,
+body.presentation-mode .viz-controls {
+    display: none !important;
+}
+
 #remote-ui::before {
     content: "";
     position: absolute;

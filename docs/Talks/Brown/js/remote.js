@@ -220,6 +220,10 @@ function startPresentation() {
     const modal = document.getElementById('present-modal');
     if (modal) modal.classList.add('active');
 
+    document.body.classList.add('presentation-mode');
+    const presentBtn = document.querySelector('.present-btn');
+    if (presentBtn) presentBtn.style.display = 'none';
+
     // Switch Firebase listener
     if (db) {
         if (sessionRef) sessionRef.off();
@@ -285,6 +289,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         if (sessionId && sessionId !== 'presentation-session') {
             showLiveIndicator(sessionId);
+            document.body.classList.add('presentation-mode');
+            const presentBtn = document.querySelector('.present-btn');
+            if (presentBtn) presentBtn.style.display = 'none';
         }
         setupMasterListener();
     }
