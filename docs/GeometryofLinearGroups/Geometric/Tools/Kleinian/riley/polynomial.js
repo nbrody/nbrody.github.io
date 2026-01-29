@@ -323,7 +323,7 @@ class Polynomial {
                     let mult = 0;
 
                     while (true) {
-                        const {quotient, remainder} = poly.divide(factor);
+                        const { quotient, remainder } = poly.divide(factor);
                         if (remainder.coeffs.length === 1 && Math.abs(remainder.coeffs[0]) < 1e-6) {
                             mult++;
                             poly = new Polynomial(quotient.coeffs.map(c => Math.round(c)));
@@ -430,4 +430,210 @@ class Polynomial {
 
         return latex || null;
     }
+}
+
+
+// --- Helper Math Functions ---
+
+/**
+ * Computes the greatest common divisor of a and b.
+ */
+function gcd(a, b) {
+    a = Math.abs(a);
+    b = Math.abs(b);
+    while (b) {
+        const t = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
+}
+
+/**
+ * Reduces a fraction p/q to its lowest terms.
+ */
+function reduceFraction(p, q) {
+    const g = gcd(p, q);
+    return { p: p / g, q: q / g };
+}
+
+/**
+ * Checks if two fractions p1/q1 and p2/q2 are Farey neighbors.
+ */
+function areFareyNeighbors(p1, q1, p2, q2) {
+    return Math.abs(p2 * q1 - p1 * q2) === 1;
+}
+
+/**
+ * Traces the path from the root (0/1, 1/1) to p/q in the Stern-Brocot tree.
+ */
+function buildFareyPath(p, q) {
+    if (q === 0) return [];
+    if (p === 0 && q === 1) return [{ p: 0, q: 1, word: 'L' }];
+    if (p === 1 && q === 1) return [{ p: 1, q: 1, word: 'R' }];
+
+    let left = { p: 0, q: 1, word: 'L' };
+    let right = { p: 1, q: 1, word: 'R' };
+    const pathNodes = [left, right];
+
+    // Iteratively find mediants until we hit target p/q
+    while (true) {
+        const med_p = left.p + right.p;
+        const med_q = left.q + right.q;
+
+        const mediant = {
+            p: med_p,
+            q: med_q,
+            word: left.word + right.word,
+            leftParent: { ...left },
+            rightParent: { ...right }
+        };
+
+        pathNodes.push(mediant);
+
+        if (med_p === p && med_q === q) break;
+
+        // Decide which branch to follow
+        if (p * med_q < med_p * q) {
+            // Target is to the left of mediant
+            right = mediant;
+        } else {
+            // Target is to the right of mediant
+            left = mediant;
+        }
+
+        // Safety break
+        if (pathNodes.length > 500) break;
+    }
+
+    return pathNodes;
+}
+
+// --- Riley Polynomial Computation Core ---
+
+const polynomialCache = new Map();
+const matrixWordCache = new Map();
+
+/**
+ * Computes the Riley polynomial Q(p/q) recursively using the Farey tree rule.
+ */
+function getRileyPolynomial(p, q) {
+    const key = `${p}/${q}`;
+    if (polynomialCache.has(key)) {
+        return polynomialCache.get(key);
+    }
+
+    // Base cases
+    if (p === 0 && q === 1) {
+        const poly = new Polynomial([2, 0, -1]); // 2 - z^2
+        polynomialCache.set(key, poly);
+        matrixWordCache.set(key, 'L');
+        return poly;
+    }
+    if (p === 1 && q === 1) {
+        const poly = new Polynomial([2, 0, 1]); // 2 + z^2
+        polynomialCache.set(key, poly);
+        matrixWordCache.set(key, 'R');
+        return poly;
+    }
+    if (p === 1 && q === 2) {
+        const poly = new Polynomial([2, 0, 0, 0, 1]); // 2 + z^4
+        polynomialCache.set(key, poly);
+        matrixWordCache.set(key, 'LR');
+        return poly;
+    }
+
+    // Recursion using Farey neighbors
+    const target = reduceFraction(p, q);
+    const path = buildFareyPath(target.p, target.q);
+    if (path.length > 0) {
+        const node = path[path.length - 1];
+        if (node.leftParent && node.rightParent) {
+            const Q1 = getRileyPolynomial(node.leftParent.p, node.leftParent.q);
+            const Q2 = getRileyPolynomial(node.rightParent.p, node.rightParent.q);
+
+            const diffP = Math.abs(node.rightParent.p - node.leftParent.p);
+            const diffQ = Math.abs(node.rightParent.q - node.leftParent.q);
+            const diffReduced = reduceFraction(diffP, diffQ);
+            const Q3 = getRileyPolynomial(diffReduced.p, diffReduced.q);
+
+            // Recursion rule: Q(med) = 8 - Q(L)Q(R) - Q(diff)
+            const product = Q1.multiply(Q2);
+            const sum = product.add(Q3);
+            const result = Polynomial.fromConstant(8).subtract(sum);
+
+            polynomialCache.set(key, result);
+            matrixWordCache.set(key, node.word);
+            return result;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Returns the Farey word associated with the fraction p/q.
+ */
+function getMatrixWord(p, q) {
+    const key = `${p}/${q}`;
+    if (matrixWordCache.has(key)) return matrixWordCache.get(key);
+    getRileyPolynomial(p, q);
+    return matrixWordCache.get(key) || null;
+}
+
+/**
+ * Multiplies two matrices with polynomial entries.
+ */
+function multiplySymbolicMatrices(M1, M2) {
+    return [
+        [M1[0][0].multiply(M2[0][0]).add(M1[0][1].multiply(M2[1][0])), M1[0][0].multiply(M2[0][1]).add(M1[0][1].multiply(M2[1][1]))],
+        [M1[1][0].multiply(M2[0][0]).add(M1[1][1].multiply(M2[1][0])), M1[1][0].multiply(M2[0][1]).add(M1[1][1].multiply(M2[1][1]))]
+    ];
+}
+
+/**
+ * Computes the symbolic matrix for a given Farey word.
+ */
+function computeMatrixFromWord(word) {
+    const L = [
+        [Polynomial.fromConstant(1), Polynomial.fromConstant(0)],
+        [new Polynomial([0, 1]), Polynomial.fromConstant(1)] // z
+    ];
+    const R = [
+        [Polynomial.fromConstant(1), new Polynomial([0, 1])], // z
+        [Polynomial.fromConstant(0), Polynomial.fromConstant(1)]
+    ];
+
+    let result = [
+        [Polynomial.fromConstant(1), Polynomial.fromConstant(0)],
+        [Polynomial.fromConstant(0), Polynomial.fromConstant(1)]
+    ];
+
+    for (const char of word) {
+        if (char === 'L') result = multiplySymbolicMatrices(result, L);
+        else if (char === 'R') result = multiplySymbolicMatrices(result, R);
+    }
+    return result;
+}
+
+/**
+ * Formats a symbolic matrix for LaTeX rendering.
+ */
+function formatMatrixLatex(matrix) {
+    return `\\begin{pmatrix}${matrix[0][0].toLatex()} & ${matrix[0][1].toLatex()} \\\\ ${matrix[1][0].toLatex()} & ${matrix[1][1].toLatex()}\\end{pmatrix}`;
+}
+
+// --- Node.js Exports ---
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        Polynomial,
+        gcd,
+        reduceFraction,
+        areFareyNeighbors,
+        buildFareyPath,
+        getRileyPolynomial,
+        getMatrixWord,
+        computeMatrixFromWord,
+        formatMatrixLatex
+    };
 }

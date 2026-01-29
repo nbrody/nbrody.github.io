@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gecko Out Solver | AI Explorer</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <main>
+        <header>
+            <h1>Gecko Out <span>Solver</span></h1>
+            <p>Upload a screenshot and let the AI find the way out.</p>
+        </header>
+
+        <section class="workspace">
+            <div class="controls-panel card">
+                <h2>Tools</h2>
+                <div class="level-selector">
+                    <label for="levelDropdown">Load Level</label>
+                    <select id="levelDropdown" class="select-input">
+                        <option value="">-- Select Level --</option>
+                        <option value="1389">Level 1389</option>
+                        <option value="demo">Demo Level</option>
+                    </select>
+                </div>
+
+                <div class="upload-zone" id="uploadZone">
+                    <input type="file" id="imageInput" accept="image/*" hidden>
+                    <div class="upload-prompt">
+                        <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor">
+                            <path d="M11 15h2v-3h3l-4-4-4 4h3z" />
+                            <path
+                                d="M20 18H4V8h7V6H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4h-2v4zm-1-8h-3v2h3v3h2v-3h3v-2h-3V7h-2v3z" />
+                        </svg>
+                        <span>Drag & Drop Screenshot</span>
+                        <small>or click to browse</small>
+                    </div>
+                </div>
+
+                <div class="stats-panel">
+                    <div class="stat">
+                        <span class="label">Geckos</span>
+                        <span class="value" id="geckoCount">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Moves</span>
+                        <span class="value" id="moveCount">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Score</span>
+                        <span class="value" id="scoreValue">-</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Iter</span>
+                        <span class="value" id="iterValue">-</span>
+                    </div>
+                </div>
+
+                <div class="level-selector">
+                    <label for="solverDropdown">Solver</label>
+                    <select id="solverDropdown" class="select-input">
+                        <option value="subgoal">Subgoal (A*)</option>
+                        <option value="beam">Beam Search</option>
+                        <option value="mcts">MCTS</option>
+                    </select>
+                </div>
+
+                <div class="actions">
+                    <button id="solveBtn" disabled class="btn btn-primary">Solve Level</button>
+                    <button id="pauseBtn" disabled class="btn btn-secondary">Pause</button>
+                    <button id="resetBtn" class="btn btn-secondary">Reset</button>
+                </div>
+
+                <div class="solver-status" id="solverStatus">
+                    Ready for input...
+                </div>
+            </div>
+
+            <div class="display-panel card">
+                <div id="gameContainer">
+                    <canvas id="gameCanvas"></canvas>
+                    <div id="gridOverlay" class="grid-overlay"></div>
+                </div>
+                <div class="view-controls">
+                    <button id="toggleGrid">Toggle Grid</button>
+                    <button id="stepBack">Step Back</button>
+                    <button id="stepForward">Step Forward</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vision Confirmation Modal -->
+        <div id="visionModal" class="modal">
+            <div class="modal-content card">
+                <h3>Is this correct?</h3>
+                <p>We've detected the following level structure.</p>
+                <div class="vision-preview">
+                    <canvas id="visionPreviewCanvas"></canvas>
+                </div>
+                <div class="modal-actions">
+                    <button id="confirmVision" class="btn btn-primary">Looks Good!</button>
+                    <button id="retryVision" class="btn btn-secondary">Try Again</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module" src="main.js"></script>
+</body>
+
+</html>

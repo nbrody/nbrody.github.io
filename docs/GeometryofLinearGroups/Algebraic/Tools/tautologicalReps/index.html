@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tautological Representations Explorer</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- MathJax for TeX rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+    <div class="background-gradient"></div>
+
+    <div class="container">
+        <header>
+            <h1>Tautological Representations</h1>
+            <p class="subtitle">Exploring the universal representations of groups over function fields and their
+                specializations.</p>
+        </header>
+
+        <section id="theory">
+            <h2>The Universal Perspective</h2>
+            <p>
+                A <strong>tautological representation</strong> is a map \(\rho: \Gamma \to \mathsf{SL}_n(R)\) where the
+                matrix entries in \(\mathsf{SL}_n(R)\) are themselves the "coordinates" of the representation.
+                Typically, \(R\) is a ring of functions (like \(\mathbb{Z}[x_1, \dots, x_k]\)) on some algebraic variety
+                \(X\) related to the group \(\Gamma\).
+            </p>
+            <p>
+                By evaluating these coordinates at a point \(p \in X\), we obtain a <strong>specialization</strong>: a
+                concrete representation into \(\mathsf{SL}_n(\mathbb{C})\) or another field.
+                The most famous examples come from the character variety of 3-manifold groups.
+            </p>
+        </section>
+
+        <section id="interactive">
+            <h2>Interactive Explorer</h2>
+            <div class="interactive-box">
+                <div id="viz-container">
+                    <canvas id="mainCanvas"></canvas>
+                    <div id="overlay-label"
+                        style="position: absolute; top: 10px; left: 10px; color: #60a5fa; font-size: 12px; pointer-events: none;">
+                        Limit Set / Specialized Spectrum</div>
+                </div>
+
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Complex Parameter \(z\)</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span style="font-family: monospace;">Re:</span>
+                            <input type="range" id="param-re" min="-3" max="3" step="0.01" value="0.5">
+                            <span id="re-val" class="value-display">0.50</span>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
+                            <span style="font-family: monospace;">Im:</span>
+                            <input type="range" id="param-im" min="-3" max="3" step="0.01" value="1.0">
+                            <span id="im-val" class="value-display">1.00</span>
+                        </div>
+                    </div>
+
+                    <div class="example-grid">
+                        <div class="example-card active" id="ex-torus" onclick="selectExample('torus')">
+                            <h3>Torus Orbifold</h3>
+                            <p style="font-size: 0.8rem; margin: 0;">Representing \(\mathbb{Z}^2\). Parabolic
+                                generators.</p>
+                        </div>
+                        <div class="example-card" id="ex-knot" onclick="selectExample('knot')">
+                            <h3>Figure Eight Knot</h3>
+                            <p style="font-size: 0.8rem; margin: 0;">The Riley representation specialized to the knot
+                                complement group.</p>
+                        </div>
+                    </div>
+
+                    <div class="control-group" id="matrix-display">
+                        <label>Current Representation \(\rho_z(g)\)</label>
+                        <div class="matrix-view" id="rho-matrix">
+                            \(\begin{pmatrix} 1 & z \\ 0 & 1 \end{pmatrix}\)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="details">
+            <div id="torus-details">
+                <h2>The Torus Orbifold (\(\mathbb{Z}^2\))</h2>
+                <p>
+                    For a torus, the fundamental group is \(\mathbb{Z}^2 = \langle a, b \mid [a, b] = 1 \rangle\). The
+                    tautological representation \(\rho: \mathbb{Z}^2 \to \mathsf{SL}_2(\mathbb{C})\) sends the
+                    generators to commuting matrices.
+                    In the parabolic case, we can write:
+                </p>
+                <div class="math-block">
+                    \[ \rho(a) = \begin{pmatrix} 1 & 1 \\ 0 & 1 \end{pmatrix}, \quad \rho(b) = \begin{pmatrix} 1 & z \\
+                    0 & 1 \end{pmatrix} \]
+                </div>
+                <p>
+                    As \(z\) varies in the upper half-plane \(\mathbb{H}\), we recover the different conformal
+                    structures of the torus.
+                </p>
+            </div>
+
+            <div id="knot-details" style="display: none;">
+                <h2>The Figure Eight Knot complement</h2>
+                <p>
+                    The figure-eight knot group has a presentation \(\Gamma = \langle s, t \mid s w = w t \rangle\)
+                    where \(w = s t^{-1} s^{-1} t\).
+                    The <strong>Riley representation</strong> into \(\mathsf{SL}_2(\mathbb{Z}[z, z^{-1}])\) is given by:
+                </p>
+                <div class="math-block">
+                    \[ \rho(s) = \begin{pmatrix} 1 & 1 \\ 0 & 1 \end{pmatrix}, \quad \rho(t) = \begin{pmatrix} 1 & 0 \\
+                    z & 1 \end{pmatrix} \]
+                </div>
+                <p>
+                    The Riley slice consists of \(z \in \mathbb{C}\) where this representation is discrete and faithful.
+                    The Figure Eight knot corresponds to the specialization at \(z = e^{i\pi/3} = \frac{1 +
+                    \sqrt{3}i}{2}\).
+                </p>
+            </div>
+        </section>
+
+        <footer>
+            Built with mathematical precision for the Geometry of Linear Groups explorer.
+        </footer>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+
+</html>

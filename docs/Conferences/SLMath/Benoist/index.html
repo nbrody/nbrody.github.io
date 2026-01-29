@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benoist Lectures | SLMath 2026</title>
+
+    <!-- Fullpage.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.css" />
+
+    <!-- MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                macros: {
+                    frakg: "{\\mathfrak{g}}",
+                    frakk: "{\\mathfrak{k}}",
+                    fraks: "{\\mathfrak{s}}",
+                    fraka: "{\\mathfrak{a}}",
+                    frakm: "{\\mathfrak{m}}",
+                    frakn: "{\\mathfrak{n}}",
+                    fraknm: "{\\mathfrak{n}^{-}}",
+                    frakp: "{\\mathfrak{p}}",
+                    eta: "\\eta",
+                    Aut: "\\mathsf{Aut}",
+                    diag: "\\mathsf{diag}",
+                    vol: "\\mathsf{vol}",
+                    Lambda: "\\Lambda",
+                    Ad: "\\mathsf{Ad}",
+                    ad: "\\mathsf{ad}",
+                    eps: "\\varepsilon",
+                    tr: "\\text{tr}"
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div id="fullpage">
+        <!-- Section 1: Title -->
+        <div class="section" data-anchor="title">
+            <div class="slide transition-slide"
+                style="background-image: linear-gradient(rgba(2, 6, 23, 0.6), rgba(2, 6, 23, 0.6)), url('assets/bg.png');">
+                <div class="content-box animate-up">
+                    <span class="tag">SLMath / MSRI Lectures 2026</span>
+                    <h1>Yves Benoist</h1>
+                    <p>Geometry of Homogeneous Spaces
+                        <br>January 2026
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Lecture 1 -->
+        <div class="section" data-anchor="lecture-1">
+            <!-- Slide 1.1: Intro -->
+            <div class="slide" data-anchor="intro-lie-algebras">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Lecture 1: Symmetric Spaces</h2>
+                    <p>Building on Elie Cartan's 1926 work, we define the foundations of symmetric space geometry.</p>
+                    <div class="fragment">
+                        <p><strong>Lie Algebras:</strong></p>
+                        <ul>
+                            <li>$\frakg$ is <strong>simple</strong> if $\dim \frakg > 1$ and it has no non-trivial
+                                ideals.</li>
+                            <li>$\frakg$ is <strong>semisimple</strong> if it is a direct sum of simple ideals: $\frakg
+                                = \bigoplus \frakg_i$.</li>
+                        </ul>
+                    </div>
+                    <div class="fragment" style="margin-top: 2rem;">
+                        <p><strong>Examples:</strong></p>
+                        <ul>
+                            <li>$\mathfrak{sl}(n, \mathbb{R}) = \{M \in M_n(\mathbb{R}) \mid \text{tr}(M) = 0\}$</li>
+                            <li>$\mathfrak{so}(p, q) = \{M \in M(p+q, \mathbb{R}) \mid M I_{p,q} + I_{p,q} M^t = 0\}$
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 1.2: Killing Form -->
+            <div class="slide" data-anchor="killing-form">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">The Killing Form</h2>
+                    <p>The Killing form $B(X, Y)$ is defined by the trace of the adjoint representation:</p>
+                    <formula class="fragment">
+                        $B(X, Y) = \tr(\ad_X \circ \ad_Y)$
+                    </formula>
+                    <div class="fragment">
+                        <p><strong>Cartan's Criteria:</strong></p>
+                        <ul>
+                            <li>$\frakg$ is semisimple $\iff B$ is non-degenerate.</li>
+                            <li>$\frakg$ is compact $\iff B$ is negative definite.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 1.3: Cartan Involution -->
+            <div class="slide" data-anchor="cartan-involution">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Cartan Involution & Decomposition</h2>
+                    <p>A <strong>Cartan involution</strong> is an automorphism $\Theta: \frakg \to \frakg$ $(\Theta^2 =
+                        id)$ such that:</p>
+                    <formula class="fragment">
+                        $B_\Theta(X, Y) = -B(X, \Theta Y) \quad \text{is positive definite}$
+                    </formula>
+                    <p class="fragment">This yields the <strong>Cartan decomposition</strong> $\frakg = \frakk \oplus
+                        \fraks$ (where $\fraks$ is often called $\frakp$):</p>
+                    <ul class="fragment">
+                        <li>$\frakk$ is the $+1$ eigenspace (subalgebra of $K$).</li>
+                        <li>$\fraks$ is the $-1$ eigenspace.</li>
+                    </ul>
+                    <p class="fragment">$B$ is negative definite on $\frakk$ and positive definite on $\fraks$.</p>
+                </div>
+            </div>
+
+            <!-- Slide 1.4: Geometry of X=G/K -->
+            <div class="slide" data-anchor="geometry-gk">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Geometry of $X = G/K$</h2>
+                    <p>Let $G$ be a connected semisimple Lie group and $K$ a maximal compact subgroup.</p>
+                    <div class="fragment">
+                        <p><strong>The Metric:</strong></p>
+                        <p>$X = G/K$ admits a $G$-invariant Riemannian metric induced by $B|_{\fraks}$.</p>
+                    </div>
+                    <div class="fragment" style="margin-top: 1.5rem;">
+                        <p><strong>Geodesics & Exp:</strong></p>
+                        <ul>
+                            <li>The geodesic through $x_0 = eK$ in direction $X \in \fraks$ is: $\gamma(t) = (\exp tX)
+                                \cdot x_0$.</li>
+                            <li>The exponential map $\exp_{x_0}: \fraks \to X$ is a <strong>diffeomorphism</strong>.
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 1.5: Curvature & Rank -->
+            <div class="slide" data-anchor="curvature-rank">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Curvature & Rank</h2>
+                    <p>Symmetric spaces $X = G/K$ of non-compact type satisfy:</p>
+                    <formula class="fragment">
+                        \text{Sectional Curvature } K_\sigma \leq 0
+                    </formula>
+                    <div class="fragment">
+                        <p><strong>Rank:</strong></p>
+                        <p>A maximal abelian subalgebra $\fraka \subset \fraks$ is a Cartan subspace.</p>
+                        <p>The <strong>rank</strong> of $X$ is $\dim \fraka$.</p>
+                    </div>
+                    <p class="fragment">Geometric Fact: The rank is the dimension of the largest flat $(\mathbb{R}^d)$
+                        totally geodetically embedded in $X$.</p>
+                </div>
+            </div>
+
+            <!-- Slide 1.6: Example SLn revisited -->
+            <div class="slide" data-anchor="example-sln-1">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Standard Example: $SL(n, \mathbb{R})$</h2>
+                    <p>For $G = SL(n, \mathbb{R})$ and $X = G/SO(n)$:</p>
+                    <ul class="fragment">
+                        <li>$\fraks = \{A \in M_n(\mathbb{R}) \mid A = A^t, \text{tr}(A) = 0\}$ (symmetric trace-zero).
+                        </li>
+                        <li>$\fraka = \text{diagonal trace-zero matrices}$.</li>
+                        <li>$\text{rank}(X) = n-1$.</li>
+                    </ul>
+                    <p class="fragment" style="margin-top: 1.5rem;">$\Theta(X) = -X^t$ corresponds to $g \mapsto {}^t
+                        g^{-1}$ on the group.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Lecture 2 -->
+        <div class="section" data-anchor="lecture-2">
+            <!-- Slide 2.1: Intro -->
+            <div class="slide" data-anchor="subgroups-intro">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Lecture 2: Subgroups of semisimple Lie groups</h2>
+                    <p>Let $G$ be a semisimple Lie group with trivial center, and $\frakg = \text{Lie}(G)$.</p>
+                    <div class="formula fragment">
+                        $\Theta \in \Aut(G) \text{ is a Cartan involution}$
+                    </div>
+                    <p class="fragment">The fixed set of $\Theta$ is a maximal compact subgroup $K \subset G$.</p>
+                    <p class="fragment">This determines a Cartan decomposition of the Lie algebra:</p>
+                    <formula class="fragment">
+                        $\frakg = \frakk \oplus \fraks$
+                    </formula>
+                </div>
+            </div>
+
+            <!-- Slide 2.2: Cartan Subspace & Roots -->
+            <div class="slide" data-anchor="cartan-subspace">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Decomposition & Roots</h2>
+                    <p>Take a maximal abelian subspace $\fraka \subset \fraks$; set $r = \dim \fraka$.</p>
+                    <p class="fragment">Let $M = Z_K(\fraka)$ be the centralizer in $K$ of $\fraka$, and $\frakm =
+                        \text{Lie}(M)$.</p>
+                    <p class="fragment">The restricted roots $\Sigma \subset \fraka^*$ give a decomposition:</p>
+                    <formula class="fragment">
+                        $\frakg = (\frakm \oplus \fraka) \oplus \bigoplus_{\alpha \in \Sigma} \frakg_\alpha$
+                    </formula>
+                    <p class="fragment">where $m_\alpha = \dim(\frakg_\alpha)$ are the multiplicities of the roots.</p>
+                </div>
+            </div>
+
+            <!-- Slide 2.3: Weyl Chamber -->
+            <div class="slide" data-anchor="weyl-chamber">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Weyl Chambers & Projections</h2>
+                    <p>A choice of Weyl chamber $\fraka_+ \subset \fraka$ determines:</p>
+                    <ul>
+                        <li class="fragment">Positive roots $\Sigma_+$</li>
+                        <li class="fragment">Simple roots $\Pi$</li>
+                    </ul>
+                    <p class="fragment">The Cartan projection $\kappa: G \to \fraka_+$ is defined via the $KAK$
+                        decomposition:</p>
+                    <formula class="fragment">
+                        $g = k_1 e^{\kappa(g)} k_2$
+                    </formula>
+                    <p class="fragment">Finally, we set the half-sum of positive roots:</p>
+                    <formula class="fragment">
+                        $\rho = \frac{1}{2} \sum_{\alpha \in \Sigma_+} m_\alpha \alpha$
+                    </formula>
+                </div>
+            </div>
+
+            <!-- Slide 2.4: Example 2 SLn -->
+            <div class="slide" data-anchor="example-sln">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Example 2: $G = SL_n(\mathbb{R})$</h2>
+                    <p>Let $\Theta(g) = {}^t g^{-1}$, so $K = SO(n, \mathbb{R})$.</p>
+                    <p class="fragment">$A = \{ H = \diag(e^{\lambda_1}, \dots, e^{\lambda_n}) \mid \sum \lambda_k = 0
+                        \}$</p>
+                    <p class="fragment">$\fraka_+ = \{ H \in A \mid \lambda_1 \geq \dots \geq \lambda_n \}$</p>
+                    <p class="fragment">Roots and simple roots:</p>
+                    <ul class="fragment">
+                        <li>$\Sigma = \{ \alpha = e_i^* - e_j^* \mid i \neq j \}$</li>
+                        <li>$\Sigma_+ = \{ e_i^* - e_j^* \mid i > j \}$</li>
+                        <li>$\Pi = \{ e_{i+1}^* - e_i^* \mid 1 \leq i < n \}$</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Slide 2.5: A2 Root System -->
+            <div class="slide" data-anchor="a2-roots">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">$A_2$ Root System ($n=3$)</h2>
+                    <div style="display: flex; align-items: center; gap: 4rem; margin-top: 2rem;"
+                        class="responsive-flex">
+                        <div class="root-system-container">
+                            <svg viewBox="-150 -150 300 300" id="a2-svg">
+                                <!-- Grid Lines -->
+                                <circle cx="0" cy="0" r="100" fill="none" stroke="rgba(255,255,255,0.05)"
+                                    stroke-width="1" />
+                                <line x1="-130" y1="0" x2="130" y2="0" stroke="rgba(255,255,255,0.05)"
+                                    stroke-width="1" />
+                                <line x1="-65" y1="-112.5" x2="65" y2="112.5" stroke="rgba(255,255,255,0.05)"
+                                    stroke-width="1" />
+                                <line x1="65" y1="-112.5" x2="-65" y2="112.5" stroke="rgba(255,255,255,0.05)"
+                                    stroke-width="1" />
+
+                                <!-- Weyl Chambers (Background areas) -->
+                                <path d="M 0 0 L 150 -86.6 L 150 86.6 Z" class="weyl-chamber" />
+
+                                <!-- Roots -->
+                                <g id="roots-group">
+                                    <line x1="0" y1="0" x2="100" y2="0" class="root-vec" />
+                                    <line x1="0" y1="0" x2="50" y2="-86.6" class="root-vec simple-root" />
+                                    <line x1="0" y1="0" x2="-50" y2="-86.6" class="root-vec" />
+                                    <line x1="0" y1="0" x2="-100" y2="0" class="root-vec" />
+                                    <line x1="0" y1="0" x2="-50" y2="86.6" class="root-vec simple-root" />
+                                    <line x1="0" y1="0" x2="50" y2="86.6" class="root-vec" />
+                                </g>
+
+                                <defs>
+                                    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6"
+                                        markerHeight="6" orient="auto-start-reverse">
+                                        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" />
+                                    </marker>
+                                </defs>
+
+                                <text x="110" y="5" class="root-label">$\alpha_1+\alpha_2$</text>
+                                <text x="55" y="-95" class="root-label">$\alpha_2$</text>
+                                <text x="-75" y="105" class="root-label">$\alpha_1$</text>
+                            </svg>
+                        </div>
+                        <div style="text-align: left; flex: 1;">
+                            <p>For $SL_3(\mathbb{R})$:</p>
+                            <ul>
+                                <li class="fragment">Six roots forming a perfect hexagon.</li>
+                                <li class="fragment">Weyl chambers are the sectors between root lines.</li>
+                                <li class="fragment">Simple roots $\Pi = \{\alpha_1, \alpha_2\}$ define the fundamental
+                                    chamber.</li>
+                                <li class="fragment">The Cartan projection $\kappa(g)$ always lies in $\fraka_+$.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 2.6: Exterior Powers & Projection -->
+            <div class="slide" data-anchor="cartan-projection-formula">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Exterior Powers & Projection</h2>
+                    <p>The Cartan projection $\kappa(g)$ can be computed via exterior powers $\Lambda^k \mathbb{R}^n$:
+                    </p>
+                    <formula class="fragment">
+                        $\kappa(g) = \left( \dots, \log \frac{\| \Lambda^k g \|}{\| \Lambda^{k-1} g \|}, \dots \right)$
+                    </formula>
+                    <p class="fragment">where $\Lambda^k g \in SL(\Lambda^k \mathbb{R}^n)$.</p>
+                </div>
+            </div>
+
+            <!-- Slide 2.7: Volume Estimates -->
+            <div class="slide" data-anchor="volume-estimates">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Volume Estimates</h2>
+                    <p>Let $B \subset \subset G$ be a compact set (a "box"). As $\kappa(g) \to \infty$:</p>
+                    <formula class="fragment">
+                        $\vol_G(BgB) \approx e^{2\rho(\kappa(g))}$
+                    </formula>
+                    <p class="fragment">And for intersection volume:</p>
+                    <formula class="fragment">
+                        $\vol_G(gBg^{-1} \cap B) \approx e^{-2\rho(\kappa(g))}$
+                    </formula>
+                </div>
+            </div>
+
+            <!-- Slide 2.8: Cartan Projection Stability -->
+            <div class="slide" data-anchor="projection-stability">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Cartan Projection Stability</h2>
+                    <div class="theorem" data-label="Proposition">
+                        <p>Let $B \subset \subset G$ be compact. There exists $r > 0$ such that:</p>
+                        <formula>
+                            $\kappa(BgB) \subset \kappa(g) + \fraka_r \quad \text{for all } g \in G$
+                        </formula>
+                        <p>where $\fraka_r = B(0,r) \cap \fraka$.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 2.9: Proof Sketch Stability -->
+            <div class="slide" data-anchor="stability-proof">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Proof Sketch: Stability</h2>
+                    <p>Using the exterior power formula for $\kappa$, we note that for any $b \in B$:</p>
+                    <formula class="fragment">
+                        $\min_{b \in B} \| \Lambda^k b^{-1} \|^{-2} \leq \frac{\| \Lambda^k(b_1 g b_2) \|}{\| \Lambda^k
+                        g \|} \leq \max_{b \in B} \| \Lambda^k b \|^2$
+                    </formula>
+                    <p class="fragment">For $g = e^{X_0}$ with $X_0 \in \fraka_+$, this implies $BgB \subset K e^{X_0 +
+                        \fraka_r} K$.</p>
+                    <p class="fragment">Taking logs, we get the uniform bound on $\kappa(b_1 g b_2) - \kappa(g)$.</p>
+                </div>
+            </div>
+
+            <!-- Slide 2.10: Volume Corollary -->
+            <div class="slide" data-anchor="volume-corollary">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Volume Proportionality</h2>
+                    <div class="theorem" data-label="Corollary">
+                        <p>For $B \subset G$ with nonempty interior, there exist $c, C > 0$ such that:</p>
+                        <formula>
+                            $c e^{2\rho(\kappa(g))} \leq \vol_G(BgB) \leq C e^{2\rho(\kappa(g))}$
+                        </formula>
+                    </div>
+                    <p class="fragment"><strong>Proof Sketch:</strong> Using the Weyl integration formula for the $KAK$
+                        decomposition:</p>
+                    <formula class="fragment">
+                        $\vol_G(K e^{X_0 + \fraka_r} K) = \int_{X_0 + \fraka_r} \left( \prod_{\alpha \in \Sigma_+}
+                        \sinh(\alpha(X))^{m_\alpha} \right) dX$
+                    </formula>
+                    <p class="fragment">As $X \to \infty$ in $\fraka_+$, the integrand is $\approx e^{\sum m_\alpha
+                        \alpha(X)} = e^{2\rho(X)}$.</p>
+                </div>
+            </div>
+
+            <!-- Slide 2.11: Iwasawa -->
+            <div class="slide" data-anchor="iwasawa-decomp">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">2. Iwasawa Decompositions</h2>
+                    <p>Set $\frakn = \bigoplus_{\alpha \in \Sigma_+} \frakg_\alpha$. This is a nilpotent Lie algebra
+                        since $[\frakg_\alpha, \frakg_\beta] \subseteq \frakg_{\alpha+\beta}$.</p>
+                    <p class="fragment">Indeed, $\Theta(\frakg_\alpha) = \frakg_{-\alpha}$. We obtain the Iwasawa
+                        decomposition:</p>
+                    <formula class="fragment">
+                        $\frakg = \frakk \oplus \fraka \oplus \frakn$
+                    </formula>
+                    <p class="fragment">At the group level: $G = KAN$. We also define the minimal parabolic subalgebra:
+                    </p>
+                    <formula class="fragment">
+                        $\frakp = \frakm \oplus \fraka \oplus \frakn$
+                    </formula>
+                </div>
+            </div>
+
+            <!-- Slide 2.12: Parabolic Subgroups -->
+            <div class="slide" data-anchor="parabolic-subgroups">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Parabolic Subgroups</h2>
+                    <p>Let $P = N_G(\frakp) = MAN$ be the **minimal parabolic subgroup**, where $N = \exp(\frakn)$.</p>
+                    <p class="fragment">A subgroup $Q \subset G$ is **parabolic** if it contains a conjugate of $P$.</p>
+                    <p class="fragment">The space $G/P$ classifies minimal parabolic subgroups, corresponding to the
+                        **maximal boundary**.</p>
+                    <formula class="fragment">
+                        $G/P = \{ \xi \mid \xi \text{ is a flag in } \fraka \}$
+                    </formula>
+                </div>
+            </div>
+
+            <!-- Slide 2.13: Example SLn Parabolics -->
+            <div class="slide" data-anchor="sln-parabolic">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Example: $G = SL(n, \mathbb{R})$</h2>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; text-align: left;">
+                        <div class="fragment">
+                            <p><strong>Nilpotent part $N$:</strong></p>
+                            <p>Upper triangular matrices with 1s on the diagonal.</p>
+                        </div>
+                        <div class="fragment">
+                            <p><strong>Minimal Parabolic $P$:</strong></p>
+                            <p>All upper triangular matrices (Borel subgroup).</p>
+                        </div>
+                    </div>
+                    <p class="fragment" style="margin-top: 2rem;"><strong>Parabolic $Q$:</strong> Any block upper
+                        triangular subgroup containing $P$.</p>
+                </div>
+            </div>
+
+            <!-- Slide 2.14: Iwasawa Theorem -->
+            <div class="slide" data-anchor="iwasawa-theorem">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Theorem (Iwasawa)</h2>
+                    <p>Every $g \in G$ can be written in a **unique** way as:</p>
+                    <formula class="fragment">
+                        $g = k e^X n \quad (k \in K, X \in \fraka, n \in N)$
+                    </formula>
+                    <p class="fragment">The element $X = \eta(g) = \eta(g, P)$ is called the **Iwasawa cocycle**,
+                        satisfying the relation:</p>
+                    <formula class="fragment">
+                        $\eta(g_1 g_2, P) = \eta(g_1, g_2 P) + \eta(g_2, P)$
+                    </formula>
+                    <p class="fragment">where $\eta(g_1, g_2 P)$ denotes the cocycle relative to the shifted parabolic
+                        $g_2 P g_2^{-1}$.</p>
+                </div>
+            </div>
+
+            <!-- Slide 2.15: Weyl Group & SLn -->
+            <div class="slide" data-anchor="weyl-group-details">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">2.3 Bruhat Decomposition</h2>
+                    <p>The <strong>Weyl group</strong> $W = M^*/M$ is generated by reflections:</p>
+                    <formula class="fragment">
+                        $W = \langle s_\alpha \mid \alpha \in \Sigma \rangle$
+                    </formula>
+                    <p class="fragment">For $G = SL_n(\mathbb{R})$, $W \cong S_n$ (permutations of $\{1, \dots, n\}$).
+                    </p>
+                    <p class="fragment">Define the <strong>opposite nilpotent part</strong>:</p>
+                    <formula class="fragment">
+                        $\fraknm = \Theta(\frakn) = \bigoplus_{\alpha \in \Sigma_+} \frakg_{-\alpha}, \quad N^- =
+                        \exp(\fraknm)$
+                    </formula>
+                    <p class="fragment">This gives a new decomposition $\frakg = \fraknm \oplus \frakm \oplus \fraka
+                        \oplus \frakn$.</p>
+                </div>
+            </div>
+
+            <!-- Slide 2.16: Bruhat Decomposition Theorem -->
+            <div class="slide" data-anchor="bruhat-theorem">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Theorem: Bruhat Decomposition</h2>
+                    <ol>
+                        <li class="fragment">$G = \bigsqcup_{w \in W} N^{-} w P$</li>
+                        <li class="fragment">$\Omega = N^{-} P$ is a Zariski <strong>open cell</strong>.</li>
+                        <li class="fragment">For $w \neq 1$, $\text{codim}(N^{-} w P) \geq 1$.</li>
+                        <li class="fragment">Every $g \in \Omega$ is uniquely $g = n_{-} m a n$.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Slide 2.17: Haar Measure Formula -->
+            <div class="slide" data-anchor="haar-measure">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Haar Measure Formula</h2>
+                    <p>The Haar measure $dg$ decomposes according to $N^- M A N$:</p>
+                    <formula class="fragment">
+                        $\int_G \phi(g) dg = \int_{N^- \times M \times \fraka \times N} \phi(n_{-} m e^X n) \, dn_{-} \,
+                        dm \, e^{2\rho(X)} dX \, dn$
+                    </formula>
+                    <p class="fragment">The factor $e^{2\rho(X)}$ rescales the right-invariant $MAN$ measure to a
+                        left-invariant one.</p>
+                </div>
+            </div>
+
+            <!-- Slide 2.18: Proof of Intersection Volume -->
+            <div class="slide" data-anchor="intersection-vol-proof">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Proof: Intersection Volume</h2>
+                    <p>Recall $\vol_G(g B g^{-1} \cap B) \approx e^{-2\rho(\kappa(g))}$.</p>
+                    <p class="fragment">Sketch: Assume $g = e^X$ ($X \in \fraka_+$) and $B = N^{-}_\eps M_\eps A_\eps
+                        N_\eps$.</p>
+                    <formula class="fragment">
+                        $g B g^{-1} \cap B \approx (g N^{-}_\eps g^{-1}) M_\eps A_\eps N_\eps$
+                    </formula>
+                    <p class="fragment">Since $g$ contracts $N^-$, the volume is proportional to the Jacobian:</p>
+                    <formula class="fragment">
+                        $\vol_G(g B g^{-1} \cap B) \approx \det \Ad_g|_{N^-} = e^{-2\rho(X)}$
+                    </formula>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Lecture 3 -->
+        <div class="section" data-anchor="lecture-3">
+            <div class="slide">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Lecture 3</h2>
+                    <p>Content to be added...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Lecture 4 -->
+        <div class="section" data-anchor="lecture-4">
+            <div class="slide">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Lecture 4</h2>
+                    <p>Content to be added...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 6: Lecture 5 -->
+        <div class="section" data-anchor="lecture-5">
+            <div class="slide">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Lecture 5</h2>
+                    <p>Content to be added...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 4: Lecture 4 -->
+    <div class="section" data-anchor="lecture-4">
+        <div class="slide">
+            <div class="content-box animate-up">
+                <h2 class="slide-title">Lecture 4</h2>
+                <p>Content to be added...</p>
+            </div>
+        </div>
+    </div>
+
+
+    </div>
+
+    <!-- Fullpage.js JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            new fullpage('#fullpage', {
+                licenseKey: 'gplv3-license',
+                autoScrolling: true,
+                navigation: true,
+                navigationPosition: 'right',
+                navigationTooltips: ['Title', 'Lecture 1', 'Lecture 2', 'Lecture 3', 'Lecture 4', 'Lecture 5'],
+                showActiveTooltip: false,
+                anchors: ['title', 'lecture-1', 'lecture-2', 'lecture-3', 'lecture-4', 'lecture-5'],
+                slidesNavigation: true,
+                controlArrows: true,
+                keyboardScrolling: true,
+                animateAnchor: true,
+                scrollingSpeed: 1000,
+                scrollBar: true,
+                touchSensitivity: 15,
+
+                onLeave: function (origin, destination, direction, trigger) {
+                    const isSequential = ['keydown', 'keyboard', 'wheel', 'touch', 'drag', 'swipe', 'scroll', 'mouse', 'touchmove'].includes(trigger);
+                    const activeSlide = origin.item.querySelector('.slide.active') || origin.item;
+
+                    if (isSequential && direction === 'down') {
+                        const fragments = activeSlide.querySelectorAll('.fragment:not(.visible)');
+                        if (fragments.length > 0) {
+                            fragments[0].classList.add('visible');
+                            return false; // Stay on current slide
+                        }
+                    }
+
+                    // Handle fragments in the destination slide
+                    const destSlide = destination.item.querySelector('.slide.active') || destination.item.querySelector('.slide') || destination.item;
+                    if (direction === 'down' || !isSequential) {
+                        // If moving forward or jumping, show fragments only if not sequential
+                        destSlide.querySelectorAll('.fragment').forEach(f => {
+                            if (!isSequential) f.classList.add('visible');
+                            else f.classList.remove('visible');
+                        });
+                    } else if (direction === 'up' && isSequential) {
+                        // All fragments visible if moving back sequentially
+                        destSlide.querySelectorAll('.fragment').forEach(f => f.classList.add('visible'));
+                    }
+                },
+                onSlideLeave: function (section, origin, destination, direction, trigger) {
+                    const isSequential = ['keydown', 'keyboard', 'wheel', 'touch', 'drag', 'swipe', 'scroll', 'mouse', 'touchmove'].includes(trigger);
+
+                    if (isSequential && direction === 'right') {
+                        const fragments = origin.item.querySelectorAll('.fragment:not(.visible)');
+                        if (fragments.length > 0) {
+                            fragments[0].classList.add('visible');
+                            return false; // Stay on current slide
+                        }
+                    }
+
+                    // Handle fragments in the destination slide
+                    if (direction === 'right' || !isSequential) {
+                        destination.item.querySelectorAll('.fragment').forEach(f => {
+                            if (!isSequential) f.classList.add('visible');
+                            else f.classList.remove('visible');
+                        });
+                    } else if (direction === 'left' && isSequential) {
+                        destination.item.querySelectorAll('.fragment').forEach(f => f.classList.add('visible'));
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

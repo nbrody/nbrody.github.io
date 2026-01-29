@@ -291,6 +291,7 @@ function renderCircle(m) {
     }
 }
 
+
 function render() {
     ctx.clearRect(0, 0, width, height);
     ctx.beginPath();

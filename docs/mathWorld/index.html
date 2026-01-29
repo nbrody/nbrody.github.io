@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math World - An Immersive Mathematical Journey</title>
+    <meta name="description"
+        content="Explore an immersive 3D world of mathematics, featuring interactive chalkboards and study cabins in a beautiful outdoor environment.">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div id="loading-screen">
+        <div class="loader-content">
+            <div class="loader-ring"></div>
+            <h1>Math World</h1>
+            <p class="loader-subtitle">Preparing your journey...</p>
+        </div>
+    </div>
+
+    <div id="ui-overlay">
+        <div id="crosshair"></div>
+
+        <div id="controls-hint">
+            <div class="hint-title">Controls</div>
+            <div class="hint-item"><span class="key">W A S D</span> Move</div>
+            <div class="hint-item"><span class="key">Mouse</span> Look Around</div>
+            <div class="hint-item"><span class="key">Space</span> Fly Up (hold)</div>
+            <div class="hint-item"><span class="key">Shift</span> Speed Boost (accelerates!)</div>
+            <div class="hint-item"><span class="key">E</span> Interact</div>
+            <div class="hint-item"><span class="key">H</span> Toggle Help</div>
+            <div class="hint-divider"></div>
+            <div class="hint-item"><span class="key">M</span> Atlas (Aerial View)</div>
+        </div>
+
+        <div id="interaction-prompt" class="hidden">
+            <span class="prompt-key">E</span>
+            <span class="prompt-text">Interact</span>
+        </div>
+
+        <div id="location-indicator">
+            <span id="location-name">The Meadow</span>
+        </div>
+
+        <div id="click-to-look" class="hidden">
+            Click to enable mouse look
+        </div>
+    </div>
+
+    <!-- Atlas Overlay (HUD for aerial view mode) -->
+    <div id="atlas-overlay" class="hidden">
+        <!-- Content populated by atlas.js -->
+    </div>
+
+    <div id="start-screen">
+        <div class="start-content">
+            <div class="start-logo">
+                <div class="logo-symbol">📐</div>
+            </div>
+            <h1>Math World</h1>
+            <p class="tagline">Where Mathematics Comes Alive</p>
+            <p class="aerial-hint">Aerial view of Santa Cruz, California</p>
+            <p class="coordinates">Mountains • Coast • Campus</p>
+            <button id="start-button">
+                <span>Descend to McHenry Library</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12l7 7 7-7" />
+                </svg>
+            </button>
+            <p class="start-note">Explore UC Santa Cruz campus</p>
+        </div>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

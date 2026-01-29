@@ -1,78 +1,6 @@
 // Farey tree visualization
+// (Uses math utilities from polynomial.js)
 
-// Build the path to a rational number in the Farey tree
-function buildFareyPath(p, q) {
-    // Start with base fractions
-    let left = { p: 0, q: 1, word: 'L' };
-    let right = { p: 1, q: 1, word: 'R' };
-
-    // Check base cases
-    if (p === 0 && q === 1) return [left];
-    if (p === 1 && q === 1) return [right];
-
-    // Build path by recursively finding ancestors
-    // Returns array of {node, leftParent, rightParent}
-    function findPath(target_p, target_q, left, right, depth = 0) {
-        // Prevent infinite recursion (increased limit for larger fractions)
-        if (depth > 50) {
-            console.warn(`Farey path: depth limit reached for ${target_p}/${target_q}`);
-            return null;
-        }
-
-        // Compute mediant (DO NOT REDUCE - Stern-Brocot tree uses unreduced mediants)
-        const med_p = left.p + right.p;
-        const med_q = left.q + right.q;
-
-        const mediant = {
-            p: med_p,
-            q: med_q,
-            word: left.word + right.word,
-            leftParent: left,
-            rightParent: right
-        };
-
-        // Found the target (check if mediant equals target after reduction)
-        const g = gcd(med_p, med_q);
-        const reduced_p = med_p / g;
-        const reduced_q = med_q / g;
-
-        if (reduced_p === target_p && reduced_q === target_q) {
-            return [mediant];
-        }
-
-        // Determine which subtree to explore
-        // target is in left subtree if target < mediant
-        if (target_p * med_q < med_p * target_q) {
-            // Search left subtree: between left and mediant
-            const subpath = findPath(target_p, target_q, left, mediant, depth + 1);
-            if (subpath) {
-                return [mediant].concat(subpath);
-            }
-        } else {
-            // Search right subtree: between mediant and right
-            const subpath = findPath(target_p, target_q, mediant, right, depth + 1);
-            if (subpath) {
-                return [mediant].concat(subpath);
-            }
-        }
-
-        return null;
-    }
-
-    const ancestors = findPath(p, q, left, right);
-    if (!ancestors) {
-        console.warn(`Farey path: Could not find path for ${p}/${q}`);
-        return [left];
-    }
-
-    // Return all nodes on the path (for tree highlighting)
-    const pathNodes = [left, right];
-    for (const node of ancestors) {
-        pathNodes.push(node);
-    }
-
-    return pathNodes;
-}
 
 // Generate Stern-Brocot tree with highlighted path
 function generateSternBrocotTree(p, q) {
@@ -126,7 +54,7 @@ function generateSternBrocotTree(p, q) {
         return mediant;
     }
 
-    const tree = buildTreeStructure({p: 0, q: 1, word: 'L'}, {p: 1, q: 1, word: 'R'}, 1);
+    const tree = buildTreeStructure({ p: 0, q: 1, word: 'L' }, { p: 1, q: 1, word: 'R' }, 1);
 
     // Draw the tree
     const drawn = new Set();
@@ -208,8 +136,8 @@ function generateSternBrocotTree(p, q) {
     }
 
     // Draw base nodes at top level
-    const baseLeft = {p: 0, q: 1, word: 'L'};
-    const baseRight = {p: 1, q: 1, word: 'R'};
+    const baseLeft = { p: 0, q: 1, word: 'L' };
+    const baseRight = { p: 1, q: 1, word: 'R' };
 
     const baseY = 40;
     const baseLeftX = width / 2 - width / 4;
@@ -225,12 +153,12 @@ function generateSternBrocotTree(p, q) {
         // Left edge highlighted if both 0/1 and tree root are on path
         const leftEdgeColor = (baseLeftOnPath && treeOnPath) ? '#007bff' : '#ddd';
         const leftEdgeWidth = (baseLeftOnPath && treeOnPath) ? 3 : 1;
-        svg += `<line x1="${baseLeftX}" y1="${baseY + nodeRadius}" x2="${width/2}" y2="${baseY + levelHeight - nodeRadius}" stroke="${leftEdgeColor}" stroke-width="${leftEdgeWidth}"/>`;
+        svg += `<line x1="${baseLeftX}" y1="${baseY + nodeRadius}" x2="${width / 2}" y2="${baseY + levelHeight - nodeRadius}" stroke="${leftEdgeColor}" stroke-width="${leftEdgeWidth}"/>`;
 
         // Right edge highlighted if both 1/1 and tree root are on path
         const rightEdgeColor = (baseRightOnPath && treeOnPath) ? '#007bff' : '#ddd';
         const rightEdgeWidth = (baseRightOnPath && treeOnPath) ? 3 : 1;
-        svg += `<line x1="${baseRightX}" y1="${baseY + nodeRadius}" x2="${width/2}" y2="${baseY + levelHeight - nodeRadius}" stroke="${rightEdgeColor}" stroke-width="${rightEdgeWidth}"/>`;
+        svg += `<line x1="${baseRightX}" y1="${baseY + nodeRadius}" x2="${width / 2}" y2="${baseY + levelHeight - nodeRadius}" stroke="${rightEdgeColor}" stroke-width="${rightEdgeWidth}"/>`;
 
         drawNode(tree, width / 2, baseY + levelHeight, width / 6, 1);
     }

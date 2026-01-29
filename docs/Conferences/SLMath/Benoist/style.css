@@ -1,0 +1,252 @@
+:root {
+    --bg: #020617;
+    --panel: rgba(15, 23, 42, 0.7);
+    --border: rgba(99, 102, 241, 0.2);
+    --accent: #6366f1;
+    --text: #f8fafc;
+    --text-dim: #94a3b8;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', 'Outfit', sans-serif;
+    color: var(--text);
+    background-color: var(--bg);
+    margin: 0;
+    line-height: 1.6;
+}
+
+h1,
+h2,
+h3 {
+    font-family: 'Outfit', sans-serif;
+    text-transform: none;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    margin: 0;
+}
+
+.section {
+    position: relative;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    min-height: 100dvh;
+}
+
+.slide {
+    text-align: center;
+    width: 100%;
+    height: 100%;
+}
+
+.transition-slide {
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.content-box {
+    max-width: 950px;
+    width: 90%;
+    margin: 0 auto;
+    padding: 3.5rem 4.5rem;
+    background: var(--panel);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 32px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    position: relative;
+    z-index: 5;
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-up {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.active .animate-up,
+.active.animate-up {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+h1 {
+    font-size: clamp(3rem, 8vw, 5rem);
+    line-height: 1.1;
+    margin-bottom: 2rem;
+    color: var(--text);
+    background: linear-gradient(135deg, #818cf8, #c084fc);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
+}
+
+h2 {
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--accent);
+}
+
+p {
+    font-size: 1.25rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+}
+
+ul {
+    text-align: left;
+    display: inline-block;
+    list-style-type: none;
+    padding-left: 0;
+    font-size: 1.15rem;
+    margin: 1rem 0;
+    color: var(--text-dim);
+}
+
+.content-box li {
+    margin: 0.8rem 0;
+    position: relative;
+    padding-left: 1.5rem;
+}
+
+.content-box li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+}
+
+.tag {
+    display: block;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+    opacity: 0.8;
+}
+
+.formula {
+    display: block;
+    margin: 1.5rem auto;
+    padding: 1.2rem 2rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    font-size: 1.4rem;
+    color: var(--text);
+    width: fit-content;
+}
+
+/* Fragment System */
+.fragment {
+    opacity: 0;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    transform: translateY(10px);
+}
+
+.fragment.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Sidebar Nav */
+#fp-nav ul li a span {
+    background: white !important;
+}
+
+#fp-nav ul li a.active span {
+    background: var(--accent) !important;
+}
+
+.fp-watermark {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .content-box {
+        padding: 2rem;
+        border-radius: 20px;
+    }
+
+    h1 {
+        font-size: 2.5rem;
+    }
+
+    h2 {
+        font-size: 1.8rem;
+    }
+}
+
+/* Root System SVG */
+.root-system-container {
+    width: 45%;
+    aspect-ratio: 1;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 24px;
+    border: 1px solid var(--border);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.3);
+}
+
+#a2-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.root-vec {
+    stroke: var(--accent);
+    stroke-width: 3;
+    stroke-linecap: round;
+    marker-end: url(#arrow);
+    transition: all 0.3s ease;
+}
+
+.root-vec.simple-root {
+    stroke: #f43f5e;
+    stroke-width: 4;
+}
+
+.root-label {
+    fill: var(--text-dim);
+    font-size: 14px;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+}
+
+.weyl-chamber {
+    fill: rgba(99, 102, 241, 0.05);
+    transition: fill 0.3s ease;
+}
+
+.root-system-container:hover .weyl-chamber {
+    fill: rgba(99, 102, 241, 0.15);
+}
+
+@media (max-width: 1024px) {
+    .root-system-container {
+        width: 80%;
+    }
+}

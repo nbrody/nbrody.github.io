@@ -27,9 +27,24 @@
 
         isDraggingZ: false,
         isDraggingView: false,
+        isInteracting: false, // Tracks if user is actively moving things
         lastMouse: { x: 0, y: 0 },
         isWandering: false,
-        wanderId: null
+        wanderId: null,
+
+        // Pre-allocated buffers for BFS (to avoid GC)
+        buffers: {
+            maxPoints: 500000,
+            currRe: new Float32Array(500000),
+            currIm: new Float32Array(500000),
+            currOp: new Int8Array(500000),
+            currFirstOp: new Int8Array(500000),
+            nextRe: new Float32Array(500000),
+            nextIm: new Float32Array(500000),
+            nextOp: new Int8Array(500000),
+            nextFirstOp: new Int8Array(500000),
+            pointsToDraw: new Float32Array(1500000) // Stride 5
+        }
     };
 
     // DOM Elements - will be initialized after DOM is ready
@@ -37,81 +52,106 @@
 
     // --- Math & Algorithm ---
 
-    function generateLimitSetPoints() {
-        const maxDepth = state.depth;
-        let currentRe = [0];
-        let currentIm = [0];
-        let currentOp = [-1];
-        let currentFirstOp = [-1]; // Track first operation
+    function generateLimitSetPoints(isDraft = false) {
+        const maxDepth = isDraft ? Math.min(state.depth, 10) : state.depth;
+        const maxPointsInLayer = state.buffers.maxPoints;
 
-        const pointsToDraw = [];
+        let currRe = state.buffers.currRe;
+        let currIm = state.buffers.currIm;
+        let currOp = state.buffers.currOp;
+        let currFirstOp = state.buffers.currFirstOp;
+
+        let nextRe = state.buffers.nextRe;
+        let nextIm = state.buffers.nextIm;
+        let nextOp = state.buffers.nextOp;
+        let nextFirstOp = state.buffers.nextFirstOp;
+
+        const pointsToDraw = state.buffers.pointsToDraw;
+        let pointsCount = 0;
+
+        // Initial point: (0,0)
+        currRe[0] = 0;
+        currIm[0] = 0;
+        currOp[0] = -1;
+        currFirstOp[0] = -1;
+        let currentLen = 1;
+
+        const zRe = state.z.re;
+        const zIm = state.z.im;
 
         for (let d = 0; d < maxDepth; d++) {
-            const nextRe = [];
-            const nextIm = [];
-            const nextOp = [];
-            const nextFirstOp = [];
+            let nextLen = 0;
 
-            const zRe = state.z.re;
-            const zIm = state.z.im;
-
-            const len = currentRe.length;
-
-            for (let i = 0; i < len; i++) {
-                const wRe = currentRe[i];
-                const wIm = currentIm[i];
-                const last = currentOp[i];
-                const first = currentFirstOp[i];
+            for (let i = 0; i < currentLen; i++) {
+                const wRe = currRe[i];
+                const wIm = currIm[i];
+                const last = currOp[i];
+                const first = currFirstOp[i];
 
                 // Apply A: w + z
-                if (last !== 1) {
-                    nextRe.push(wRe + zRe);
-                    nextIm.push(wIm + zIm);
-                    nextOp.push(0);
-                    nextFirstOp.push(d === 0 ? 0 : first);
+                if (last !== 1 && nextLen < maxPointsInLayer) {
+                    nextRe[nextLen] = wRe + zRe;
+                    nextIm[nextLen] = wIm + zIm;
+                    nextOp[nextLen] = 0;
+                    nextFirstOp[nextLen] = (d === 0) ? 0 : first;
+                    nextLen++;
                 }
 
                 // Apply A': w - z
-                if (last !== 0) {
-                    nextRe.push(wRe - zRe);
-                    nextIm.push(wIm - zIm);
-                    nextOp.push(1);
-                    nextFirstOp.push(d === 0 ? 1 : first);
+                if (last !== 0 && nextLen < maxPointsInLayer) {
+                    nextRe[nextLen] = wRe - zRe;
+                    nextIm[nextLen] = wIm - zIm;
+                    nextOp[nextLen] = 1;
+                    nextFirstOp[nextLen] = (d === 0) ? 1 : first;
+                    nextLen++;
                 }
 
                 // Apply B: -1/w
-                if (last !== 2) {
+                if (last !== 2 && nextLen < maxPointsInLayer) {
                     const distSq = wRe * wRe + wIm * wIm;
                     if (distSq > 1e-12) {
                         const invDist = 1.0 / distSq;
-                        nextRe.push(-wRe * invDist);
-                        nextIm.push(wIm * invDist);
-                        nextOp.push(2);
-                        nextFirstOp.push(d === 0 ? 2 : first);
+                        nextRe[nextLen] = -wRe * invDist;
+                        nextIm[nextLen] = wIm * invDist;
+                        nextOp[nextLen] = 2;
+                        nextFirstOp[nextLen] = (d === 0) ? 2 : first;
+                        nextLen++;
                     }
                 }
             }
 
+            // Export points to draw from certain depth
             if (d > 4) {
-                const nextLen = nextRe.length;
-                for (let k = 0; k < nextLen; k++) {
-                    // Store: re, im, op, depth, firstOp
-                    pointsToDraw.push(nextRe[k], nextIm[k], nextOp[k], d, nextFirstOp[k]);
+                // Limit points to draw in draft mode
+                const step = isDraft ? 2 : 1;
+                for (let k = 0; k < nextLen; k += step) {
+                    if (pointsCount + 5 < pointsToDraw.length) {
+                        pointsToDraw[pointsCount++] = nextRe[k];
+                        pointsToDraw[pointsCount++] = nextIm[k];
+                        pointsToDraw[pointsCount++] = nextOp[k];
+                        pointsToDraw[pointsCount++] = d;
+                        pointsToDraw[pointsCount++] = nextFirstOp[k];
+                    }
                 }
             }
 
-            currentRe = nextRe;
-            currentIm = nextIm;
-            currentOp = nextOp;
-            currentFirstOp = nextFirstOp;
+            // Swap buffers
+            let temp;
+            temp = currRe; currRe = nextRe; nextRe = temp;
+            temp = currIm; currIm = nextIm; nextIm = temp;
+            temp = currOp; currOp = nextOp; nextOp = temp;
+            temp = currFirstOp; currFirstOp = nextFirstOp; nextFirstOp = temp;
 
-            if (currentRe.length > 300000) break;
+            currentLen = nextLen;
+            if (currentLen > 300000 || (isDraft && currentLen > 50000)) break;
         }
 
-        return pointsToDraw;
+        return { data: pointsToDraw, count: pointsCount };
     }
 
     // --- Rendering ---
+
+    let highDetailTimer = null;
 
     function drawMainCanvas() {
         if (!mainCanvas || !mainCtx) return;
@@ -122,36 +162,44 @@
         const cy = height / 2 + state.view.y;
         const scale = state.view.scale;
 
-        mainCtx.fillStyle = "#0f0f13";
-        mainCtx.fillRect(0, 0, width, height);
+        // If interacting, draw immediately with lower depth
+        if (state.isInteracting || state.isWandering) {
+            render(true); // Draft mode
 
-        if (uiRefs.loading) uiRefs.loading.style.opacity = 1;
+            // Schedule high detail render when interaction stops
+            clearTimeout(highDetailTimer);
+            highDetailTimer = setTimeout(() => {
+                state.isInteracting = false;
+                render(false);
+            }, 300);
+        } else {
+            render(false); // High detail
+        }
 
-        // Use setTimeout to allow UI to update before heavy calculation
-        setTimeout(() => {
-            const points = generateLimitSetPoints();
-            if (uiRefs.loading) uiRefs.loading.style.opacity = 0;
+        function render(isDraft) {
+            const { data: points, count } = generateLimitSetPoints(isDraft);
+
+            mainCtx.fillStyle = "#0f0f13";
+            mainCtx.fillRect(0, 0, width, height);
 
             const imgData = mainCtx.createImageData(width, height);
             const data = imgData.data;
 
-            const pLen = points.length;
-            // Stride is now 5: re, im, op, depth, firstOp
-            for (let i = 0; i < pLen; i += 5) {
+            // Stride is 5: re, im, op, depth, firstOp
+            for (let i = 0; i < count; i += 5) {
                 const re = points[i];
                 const im = points[i + 1];
                 const op = points[i + 2];
                 const depth = points[i + 3];
                 const firstOp = points[i + 4];
 
-                const sx = Math.floor(cx + re * scale);
-                const sy = Math.floor(cy - im * scale);
+                const sx = (cx + re * scale) | 0; // Faster than Math.floor
+                const sy = (cy - im * scale) | 0;
 
                 if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
-                    const idx = (sy * width + sx) * 4;
+                    const idx = (sy * width + sx) << 2; // Faster than * 4
 
                     let r, g, b;
-
                     if (state.colorMode === 'lastOp') {
                         if (op === 0) { r = 255; g = 100; b = 100; }
                         else if (op === 1) { r = 100; g = 150; b = 255; }
@@ -161,11 +209,10 @@
                         else if (firstOp === 1) { r = 100; g = 150; b = 255; }
                         else { r = 255; g = 255; b = 100; }
                     } else if (state.colorMode === 'depth') {
-                        // Gradient from blue to pink/white based on depth
                         const t = (depth - 5) / (state.depth - 5);
-                        r = 50 + 200 * t;
-                        g = 100 + 50 * t;
-                        b = 255 - 100 * t;
+                        r = (50 + 200 * t) | 0;
+                        g = (100 + 50 * t) | 0;
+                        b = (255 - 100 * t) | 0;
                     } else if (state.colorMode === 'parity') {
                         if (depth % 2 === 0) { r = 255; g = 100; b = 255; }
                         else { r = 100; g = 255; b = 255; }
@@ -180,7 +227,7 @@
 
             mainCtx.putImageData(imgData, 0, 0);
             drawAxes(cx, cy, width, height);
-        }, 0);
+        }
     }
 
     function drawAxes(cx, cy, width, height) {
@@ -357,6 +404,7 @@
         // Main Canvas Interaction
         mainCanvas.addEventListener('mousedown', e => {
             state.isDraggingView = true;
+            state.isInteracting = true;
             state.lastMouse = { x: e.clientX, y: e.clientY };
         });
 
@@ -377,10 +425,18 @@
         window.addEventListener('mouseup', () => {
             state.isDraggingView = false;
             state.isDraggingZ = false;
+            // state.isInteracting remains true momentarily to allow final high-detail render via timer
+        });
+
+        zCanvas.addEventListener('mousedown', e => {
+            state.isDraggingZ = true;
+            state.isInteracting = true;
+            handleZInteraction(e.clientX, e.clientY);
         });
 
         mainCanvas.addEventListener('wheel', e => {
             e.preventDefault();
+            state.isInteracting = true;
             const zoomSpeed = 0.05;
             const factor = e.deltaY > 0 ? (1 - zoomSpeed) : (1 + zoomSpeed);
             state.view.scale *= factor;
@@ -388,13 +444,7 @@
             if (state.view.scale <= 500 && uiRefs.zoomSlider) uiRefs.zoomSlider.value = Math.floor(state.view.scale);
             updateUIValues();
             requestAnimationFrame(drawMainCanvas);
-        });
-
-        // Z-Canvas Interaction
-        zCanvas.addEventListener('mousedown', e => {
-            state.isDraggingZ = true;
-            handleZInteraction(e.clientX, e.clientY);
-        });
+        }, { passive: false });
 
         // UI Controls
         if (uiRefs.zReInput) {
