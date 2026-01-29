@@ -311,16 +311,37 @@ class MathWorld {
         const local = gpsToLocal(locData.lat, locData.lon);
         const elevation = getElevation(locData.lat, locData.lon);
 
-        this.camera.position.set(local.x, elevation + 1.7, local.z + 12);
+        // Position based on location type - coastal locations face ocean (south = +Z)
+        let spawnX = 0, spawnZ = -12;  // Default: stand south of center, face north
+        let faceTowardZ = -50;  // Look at center of location
+
+        if (locationId === 'steamerLane') {
+            // Stand on the bluff, facing the ocean (south/+Z direction)
+            spawnX = 20;   // Near benches
+            spawnZ = 5;    // On the bluff edge
+            faceTowardZ = 80;  // Look toward ocean
+        } else if (locationId === 'boardwalk') {
+            spawnX = 0;
+            spawnZ = -20;  // Stand on beach side
+            faceTowardZ = 50;  // Look toward boardwalk
+        }
+
+        this.camera.position.set(local.x + spawnX, elevation + 1.7, local.z + spawnZ);
 
         this.player.setLocationGroup(this.locationGroup);
-        this.player.setPositionOnGround(0, 1.7, 12);
+        this.player.setPositionOnGround(spawnX, 1.7, spawnZ);
         this.player.setTerrainFunction((x, z) => {
             const worldX = this.locationGroup.position.x + x;
             const worldZ = this.locationGroup.position.z + z;
             const worldElevation = this.terrain.getElevationAtLocal(worldX, worldZ);
             return worldElevation - this.locationGroup.position.y;
         });
+
+        // Set initial camera orientation based on location
+        if (locationId === 'steamerLane') {
+            // Face south (toward ocean)
+            this.camera.lookAt(new THREE.Vector3(local.x + spawnX, elevation + 1.7, local.z + faceTowardZ));
+        }
 
         this.isRunning = true;
         this.player.enable();

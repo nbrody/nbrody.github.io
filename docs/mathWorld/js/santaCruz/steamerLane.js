@@ -452,13 +452,14 @@ export class SteamerLane {
 
     createOcean() {
         // Pacific Ocean with wave action at Steamer Lane break
-        const oceanGeo = new THREE.PlaneGeometry(400, 200, 80, 40);
+        // Ocean should be at sea level (below the bluff edge)
+        const oceanGeo = new THREE.PlaneGeometry(800, 400, 80, 40);
         const pos = oceanGeo.attributes.position;
 
         // Add gentle wave undulation
         for (let i = 0; i < pos.count; i++) {
             const x = pos.getX(i), y = pos.getY(i);
-            const wave = Math.sin(x * 0.05) * Math.cos(y * 0.03) * 1;
+            const wave = Math.sin(x * 0.05) * Math.cos(y * 0.03) * 0.5;
             pos.setZ(i, wave);
         }
         oceanGeo.computeVertexNormals();
@@ -473,7 +474,8 @@ export class SteamerLane {
 
         const ocean = new THREE.Mesh(oceanGeo, oceanMat);
         ocean.rotation.x = -Math.PI / 2;
-        ocean.position.set(0, -8, 80);
+        // Position ocean at sea level - below the bluff but visible
+        ocean.position.set(0, -15, 150);
         this.group.add(ocean);
 
         // Wave breaks - foam lines at the surf zone
@@ -502,7 +504,7 @@ export class SteamerLane {
 
         const wave = new THREE.Mesh(waveGeo, foamMat);
         wave.rotation.x = -Math.PI / 2;
-        wave.position.set(-10, -5, 55);
+        wave.position.set(-10, -12, 100);  // Closer to bluff edge
         wave.rotation.z = 0.3; // Angled wave
         this.group.add(wave);
 
@@ -515,8 +517,8 @@ export class SteamerLane {
             patch.rotation.x = -Math.PI / 2;
             patch.position.set(
                 -30 + Math.random() * 60,
-                -6 + Math.random(),
-                50 + Math.random() * 30
+                -13 + Math.random(),
+                80 + Math.random() * 50  // Spread through surf zone
             );
             this.group.add(patch);
         }
@@ -558,11 +560,11 @@ export class SteamerLane {
             }
             surfer.add(body);
 
-            // Position in the lineup
+            // Position in the lineup (beyond the wave break)
             surfer.position.set(
                 -25 + Math.random() * 50,
-                -6.5,
-                55 + Math.random() * 25
+                -13,  // At ocean level
+                90 + Math.random() * 40  // In the lineup area
             );
 
             // Face the waves
