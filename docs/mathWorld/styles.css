@@ -761,3 +761,66 @@ body {
     visibility: hidden !important;
     pointer-events: none !important;
 }
+
+/* ============================================
+   Mobile Styles
+   ============================================ */
+
+@media (pointer: coarse),
+(max-width: 768px) {
+
+    /* Hide keyboard controls hint on touch devices */
+    #controls-hint {
+        display: none;
+    }
+
+    /* Smaller crosshair for mobile */
+    #crosshair {
+        width: 16px;
+        height: 16px;
+    }
+
+    #crosshair::before {
+        height: 10px;
+    }
+
+    #crosshair::after {
+        width: 10px;
+    }
+
+    /* Adjust start screen for mobile */
+    .start-content {
+        padding: 24px;
+        max-width: 95vw;
+    }
+
+    .start-content h1 {
+        font-size: 2.5rem;
+    }
+
+    .logo-symbol {
+        font-size: 3.5rem;
+    }
+
+    #start-button {
+        padding: 14px 24px;
+        font-size: 1rem;
+    }
+
+    /* Adjust location indicator for mobile */
+    #location-indicator {
+        top: 12px;
+        font-size: 0.8rem;
+        padding: 8px 16px;
+    }
+
+    /* Move atlas HUD down on mobile to avoid notch */
+    .atlas-hud {
+        top: 50px;
+    }
+
+    .atlas-instructions {
+        font-size: 0.8rem;
+        padding: 6px 12px;
+    }
+}

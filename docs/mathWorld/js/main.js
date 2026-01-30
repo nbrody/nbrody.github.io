@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { SantaCruzTerrain, gpsToLocal, getElevation, SC_SIZE, SC_CENTER } from './santaCruz/santaCruz.js';
 import { Player } from './player.js';
 import { Atlas } from './atlas.js';
+import { MobileControls } from './mobileControls.js';
 import {
     SANTA_CRUZ_LOCATIONS,
     UCSCCampus,
@@ -23,6 +24,7 @@ class MathWorld {
         this.terrain = null;
         this.player = null;
         this.atlas = null;
+        this.mobileControls = null;
 
         // Location management
         this.currentLocationId = null;
@@ -81,6 +83,10 @@ class MathWorld {
 
         // Create Atlas
         this.atlas = new Atlas(this);
+
+        // Create Mobile Controls
+        this.mobileControls = new MobileControls(this.player, this);
+        this.player.setMobileControls(this.mobileControls);
 
         this.setupEventListeners();
         this.loadingScreen.classList.add('hidden');
@@ -274,7 +280,11 @@ class MathWorld {
         this.isRunning = true;
         this.uiOverlay.classList.add('active');
         this.player.setLocationGroup(this.locationGroup);
-        this.player.setPositionOnGround(0, 1.7, 12);
+
+        // Sync player orientation from where the camera ended up during zoom
+        // This prevents the jarring camera flip
+        this.player.syncOrientationFromCamera();
+        this.player.setPositionOnGround(0, 1.7, 12, true);  // preserveOrientation = true
         this.player.setTerrainFunction((x, z) => {
             // Get terrain height at world position
             const worldX = this.locationGroup.position.x + x;
@@ -285,10 +295,17 @@ class MathWorld {
         });
         this.player.enable();
 
+        // Enable mobile controls if on touch device
+        if (this.mobileControls && this.mobileControls.isTouch()) {
+            this.mobileControls.enable();
+        }
+
         console.log('Player controls enabled at McHenry Library!');
 
-        // Request pointer lock for mouse look
-        this.requestPointerLock();
+        // Request pointer lock for mouse look (desktop only)
+        if (!this.mobileControls || !this.mobileControls.isTouch()) {
+            this.requestPointerLock();
+        }
     }
 
     getInteractables() {
@@ -346,6 +363,11 @@ class MathWorld {
         this.isRunning = true;
         this.player.enable();
 
+        // Keep mobile controls enabled if on touch device
+        if (this.mobileControls && this.mobileControls.isTouch()) {
+            this.mobileControls.enable();
+        }
+
         this.showLocation(`${locData.name} - Santa Cruz`);
     }
 
@@ -364,9 +386,12 @@ class MathWorld {
             }
         } else {
             console.log('Pointer unlocked - click to resume mouse look');
-            // Show the click-to-look prompt if game is running
+            // Show the click-to-look prompt if game is running (desktop only)
             if (this.introPhase === 'ready' && this.isRunning) {
-                this.clickToLook.classList.remove('hidden');
+                // Don't show on mobile - touch controls handle look
+                if (!this.mobileControls || !this.mobileControls.isTouch()) {
+                    this.clickToLook.classList.remove('hidden');
+                }
             }
         }
     }

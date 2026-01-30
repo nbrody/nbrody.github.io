@@ -143,6 +143,11 @@ export class Atlas {
         this.mathWorld.player.disable();
         this.mathWorld.isRunning = false;
 
+        // Disable mobile controls while in Atlas
+        if (this.mathWorld.mobileControls) {
+            this.mathWorld.mobileControls.disable();
+        }
+
         // Move camera to aerial view centered directly over Santa Cruz region
         // Camera at center (0,0) looking straight down to see full area
         const targetPos = new THREE.Vector3(0, this.atlasHeight, 0);
@@ -181,8 +186,13 @@ export class Atlas {
         this.mathWorld.player.enable();
         this.mathWorld.isRunning = true;
 
-        // Request pointer lock
-        setTimeout(() => this.mathWorld.requestPointerLock(), 100);
+        // Re-enable mobile controls if on touch device
+        if (this.mathWorld.mobileControls && this.mathWorld.mobileControls.isTouch()) {
+            this.mathWorld.mobileControls.enable();
+        } else {
+            // Request pointer lock (desktop only)
+            setTimeout(() => this.mathWorld.requestPointerLock(), 100);
+        }
 
         console.log('Atlas closed');
     }

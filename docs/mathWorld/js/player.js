@@ -67,6 +67,9 @@ export class Player {
         this.interactionPrompt = document.getElementById('interaction-prompt');
         this.currentInteractable = null;
 
+        // Mobile controls reference
+        this.mobileControls = null;
+
         this.setupEventListeners();
     }
 
@@ -160,6 +163,22 @@ export class Player {
         }
     }
 
+    // Mobile controls support
+    setMobileControls(controls) {
+        this.mobileControls = controls;
+    }
+
+    handleMobileLook(dx, dy) {
+        if (!this.enabled) return;
+        this.yaw -= dx;
+        this.pitch -= dy;
+        this.pitch = Math.max(this.minPitch, Math.min(this.maxPitch, this.pitch));
+    }
+
+    tryInteract() {
+        this.interact();
+    }
+
     update(delta) {
         if (!this.enabled) return;
 
@@ -187,10 +206,44 @@ export class Player {
         right.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw);
 
         this.direction.set(0, 0, 0);
-        if (this.keys.forward) this.direction.add(forward);
-        if (this.keys.backward) this.direction.sub(forward);
-        if (this.keys.left) this.direction.sub(right);
-        if (this.keys.right) this.direction.add(right);
+
+        // Get input from keyboard or mobile controls
+        let moveForward = this.keys.forward;
+        let moveBackward = this.keys.backward;
+        let moveLeft = this.keys.left;
+        let moveRight = this.keys.right;
+        let wantsFly = this.keys.fly;
+
+        // Mobile joystick overrides
+        if (this.mobileControls && this.mobileControls.enabled) {
+            const mobileInput = this.mobileControls.getMovement();
+            if (Math.abs(mobileInput.z) > 0.1) {
+                if (mobileInput.z > 0) moveForward = true;
+                else moveBackward = true;
+            }
+            if (Math.abs(mobileInput.x) > 0.1) {
+                if (mobileInput.x > 0) moveRight = true;
+                else moveLeft = true;
+            }
+            if (mobileInput.jump) wantsFly = true;
+
+            // Apply analog sensitivity
+            const analogScale = Math.max(Math.abs(mobileInput.x), Math.abs(mobileInput.z));
+            if (analogScale > 0.1) {
+                this.direction.x = mobileInput.x;
+                this.direction.z = mobileInput.z;
+                // Rotate to camera direction
+                const angle = this.yaw;
+                const rotatedX = this.direction.x * Math.cos(angle) + this.direction.z * Math.sin(angle);
+                const rotatedZ = -this.direction.x * Math.sin(angle) + this.direction.z * Math.cos(angle);
+                this.direction.set(rotatedX, 0, rotatedZ);
+            }
+        }
+
+        if (moveForward) this.direction.add(forward);
+        if (moveBackward) this.direction.sub(forward);
+        if (moveLeft) this.direction.sub(right);
+        if (moveRight) this.direction.add(right);
         this.direction.normalize();
 
         // Apply movement speed with multiplier
@@ -202,8 +255,8 @@ export class Player {
         this.velocity.x = THREE.MathUtils.lerp(this.velocity.x, targetVelocityX, 10 * delta);
         this.velocity.z = THREE.MathUtils.lerp(this.velocity.z, targetVelocityZ, 10 * delta);
 
-        // Flight: holding Space floats up
-        if (this.keys.fly) {
+        // Flight: holding Space (or mobile jump) floats up
+        if (wantsFly) {
             const flyVelocity = this.flySpeed * this.speedMultiplier;
             this.velocity.y = flyVelocity;
             this.isGrounded = false;
@@ -327,11 +380,25 @@ export class Player {
         }
     }
 
-    setPositionOnGround(x, y, z) {
+    setPositionOnGround(x, y, z, preserveOrientation = false) {
         this.localPosition.set(x, y, z);
-        this.yaw = Math.PI; // Face forward (negative Z)
-        this.pitch = 0;
+        if (!preserveOrientation) {
+            this.yaw = Math.PI; // Face forward (negative Z)
+            this.pitch = 0;
+        }
         this.updateCamera();
+    }
+
+    // Set yaw/pitch to match current camera orientation
+    syncOrientationFromCamera() {
+        // Extract yaw from camera's forward direction
+        const forward = new THREE.Vector3(0, 0, -1);
+        forward.applyQuaternion(this.camera.quaternion);
+        this.yaw = Math.atan2(-forward.x, -forward.z);
+
+        // Extract pitch
+        this.pitch = Math.asin(-forward.y);
+        this.pitch = Math.max(this.minPitch, Math.min(this.maxPitch, this.pitch));
     }
 
     setLocationGroup(group) {

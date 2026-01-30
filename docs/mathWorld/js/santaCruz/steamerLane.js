@@ -147,14 +147,8 @@ export class SteamerLane {
 
     createBluffs() {
         // Rocky coastal bluffs dropping to the water
-        const bluffMat = new THREE.MeshStandardMaterial({
-            color: 0x6A5A4A,
-            roughness: 0.95,
-            flatShading: true
-        });
-
-        // Create main bluff edge
-        const bluffGeo = new THREE.PlaneGeometry(200, 40, 40, 15);
+        // Main bluff edge - dramatic cliff with vertical faces
+        const bluffGeo = new THREE.PlaneGeometry(300, 60, 60, 20);
         const pos = bluffGeo.attributes.position;
         const colors = new Float32Array(pos.count * 3);
 
@@ -162,17 +156,17 @@ export class SteamerLane {
             const x = pos.getX(i), z = pos.getZ(i);
 
             // Steep cliff face with erosion patterns
-            let h = z * 0.4; // Base slope
-            h += Math.sin(x * 0.3) * 1.5; // Erosion gullies
-            h += (Math.random() - 0.5) * 2; // Rocky texture
+            let h = z * 0.5; // Steeper base slope
+            h += Math.sin(x * 0.3) * 2; // Erosion gullies
+            h += (Math.random() - 0.5) * 1.5; // Rocky texture
 
             pos.setZ(i, h);
 
             // Cliff colors - sandstone/mudstone mix
-            const shade = 0.4 + Math.random() * 0.2;
+            const shade = 0.35 + Math.random() * 0.25;
             colors[i * 3] = shade * 1.2;
-            colors[i * 3 + 1] = shade;
-            colors[i * 3 + 2] = shade * 0.8;
+            colors[i * 3 + 1] = shade * 0.9;
+            colors[i * 3 + 2] = shade * 0.7;
         }
 
         bluffGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -183,8 +177,9 @@ export class SteamerLane {
             roughness: 0.95,
             flatShading: true
         }));
-        bluffMesh.rotation.x = -Math.PI / 2 + 1.2; // Angled cliff face
-        bluffMesh.position.set(0, -5, 50);
+        // Angled cliff face dropping from bluff top to water
+        bluffMesh.rotation.x = -Math.PI / 2 + 1.3;
+        bluffMesh.position.set(0, -8, 45);
         this.group.add(bluffMesh);
 
         // Add rocky outcrops and tide pools at base
@@ -199,21 +194,21 @@ export class SteamerLane {
         });
 
         // Point Santa Cruz - rocky point extending into water
-        for (let i = 0; i < 25; i++) {
-            const geo = new THREE.DodecahedronGeometry(1 + Math.random() * 2, 0);
+        for (let i = 0; i < 40; i++) {
+            const geo = new THREE.DodecahedronGeometry(1 + Math.random() * 3, 0);
             const rock = new THREE.Mesh(geo, rockMat);
 
-            // Cluster around the point
-            const angle = (Math.random() - 0.5) * 1.5;
-            const dist = 20 + Math.random() * 30;
+            // Cluster around the point, extending into water
+            const angle = (Math.random() - 0.5) * 2;
+            const dist = 20 + Math.random() * 50;
 
             rock.position.set(
                 Math.sin(angle) * dist,
-                -3 + Math.random() * 2,
-                35 + Math.cos(angle) * dist * 0.5
+                -12 + Math.random() * 4,  // At water level
+                50 + Math.cos(angle) * dist * 0.6  // Extend toward ocean
             );
             rock.rotation.set(Math.random(), Math.random(), Math.random());
-            rock.scale.y = 0.5 + Math.random() * 0.3;
+            rock.scale.y = 0.4 + Math.random() * 0.4;
             this.group.add(rock);
         }
     }
