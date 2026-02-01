@@ -401,33 +401,12 @@ export class UCSCCampus {
     createGulchAndBridge() {
         const buildingZ = -35;
         const gulchX = 65; // East of building
-        const gulchZ = buildingZ;
+        const bridgeZ = buildingZ - 50; // Move bridge 50 units North
         const gulchWidth = 25;
         const gulchLength = 100;
-        const gulchDepth = 45; // Deep chasm
 
-        // Chasm - represented by a depressed mesh
-        const chasmGeo = new THREE.PlaneGeometry(gulchWidth + 10, gulchLength, 40, 40);
-        const pos = chasmGeo.attributes.position;
-        for (let i = 0; i < pos.count; i++) {
-            const px = pos.getX(i);
-            // Create a sharp "V" shape chasm with steep walls
-            const distFromCenter = Math.abs(px);
-            const normalizedDist = distFromCenter / (gulchWidth / 2);
-            // Steeper walls using power function
-            const depthFactor = Math.max(0, 1.0 - Math.pow(normalizedDist, 0.4));
-            pos.setZ(i, -depthFactor * gulchDepth);
-        }
-        chasmGeo.computeVertexNormals();
-        const chasmMat = new THREE.MeshStandardMaterial({
-            color: 0x1A2A15,
-            roughness: 1.0,
-            flatShading: true
-        });
-        const chasmMesh = new THREE.Mesh(chasmGeo, chasmMat);
-        chasmMesh.rotation.x = -Math.PI / 2;
-        chasmMesh.position.set(gulchX, this.getTerrainHeight(gulchX, gulchZ) - 0.2, gulchZ);
-        this.group.add(chasmMesh);
+        // Note: The chasm topography is now handled procedurally in santaCruz.js
+        // so we don't need a local chasmMesh. We just place objects relative to the terrain.
 
         // Wooden Bridge
         const bridgeWidth = 4;
@@ -469,22 +448,19 @@ export class UCSCCampus {
             bridgeGroup.add(post2);
         }
 
-        bridgeGroup.position.set(gulchX, this.getTerrainHeight(gulchX, gulchZ) + 0.1, gulchZ);
+        // Position bridge across the chasm
+        // The terrain function will now return the deep chasm values from santaCruz.js
+        bridgeGroup.position.set(gulchX, this.getTerrainHeight(gulchX, bridgeZ) + 0.1, bridgeZ);
         this.group.add(bridgeGroup);
 
         // Add some trees in and around the chasm
-        for (let i = 0; i < 20; i++) {
-            const tx = gulchX + (Math.random() - 0.5) * 35;
-            const tz = gulchZ + (Math.random() - 0.5) * gulchLength;
-
-            const distFromCenter = Math.abs(tx - gulchX);
-            const normalizedDist = distFromCenter / (gulchWidth / 2);
-            const depthFactor = Math.max(0, 1.0 - Math.pow(normalizedDist, 0.4));
-            const yOffset = -depthFactor * gulchDepth;
+        for (let i = 0; i < 25; i++) {
+            const tx = gulchX + (Math.random() - 0.5) * 40;
+            const tz = buildingZ + (Math.random() - 0.5) * gulchLength;
 
             const tree = this.createRedwood();
-            tree.position.set(tx, this.getTerrainHeight(tx, tz) + yOffset, tz);
-            tree.scale.setScalar(0.4 + Math.random() * 0.8);
+            tree.position.set(tx, this.getTerrainHeight(tx, tz), tz);
+            tree.scale.setScalar(0.4 + Math.random() * 0.9);
             this.group.add(tree);
         }
     }

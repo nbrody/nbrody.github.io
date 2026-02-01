@@ -83,6 +83,22 @@ export function getElevation(lat, lon) {
     const distToUcsc = Math.sqrt(Math.pow(nx - ucscNx, 2) + Math.pow(ny - ucscNy, 2));
     if (distToUcsc < 0.15) {
         elevation = Math.max(elevation, 250 + (0.15 - distToUcsc) * 200);
+
+        // Add the Chasm (East of McHenry)
+        // McHenry local origin is at (ucscLat, ucscLon)
+        // Chasm is at local X=65, local Z range around -35
+        const chasmCenterLat = 36.9958 - (-35) / 111000; // buildingZ is -35
+        const chasmCenterLon = -122.0595 + (65) / METERS_PER_LON;
+
+        const dLat = (lat - chasmCenterLat) * 111000;
+        const dLon = (lon - chasmCenterLon) * METERS_PER_LON;
+
+        // Chasm bounds: 100m north-south, steep V-shape 30m wide
+        if (Math.abs(dLat) < 60 && Math.abs(dLon) < 20) {
+            const normalizedDist = Math.abs(dLon) / 15;
+            const depthFactor = Math.max(0, 1.0 - Math.pow(normalizedDist, 0.4));
+            elevation -= depthFactor * 60; // Deep 60m chasm
+        }
     }
 
     // Coastal lowland zone - flatten near the actual coast
