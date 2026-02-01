@@ -210,7 +210,7 @@ export class SantaCruzTerrain {
         this.scene = scene;
         this.terrainMesh = null;
         this.oceanMesh = null;
-        this.resolution = 256; // Grid resolution
+        this.resolution = 512; // Grid resolution (Increased for better chasm visibility)
     }
 
     async generate() {

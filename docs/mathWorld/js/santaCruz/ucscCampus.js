@@ -402,15 +402,37 @@ export class UCSCCampus {
         const buildingZ = -35;
         const gulchX = 65; // East of building
         const bridgeZ = buildingZ - 50; // Move bridge 50 units North
-        const gulchWidth = 25;
-        const gulchLength = 100;
+        const gulchWidth = 30; // Wider for better visibility
+        const gulchLength = 120;
+        const gulchDepth = 60;
 
-        // Note: The chasm topography is now handled procedurally in santaCruz.js
-        // so we don't need a local chasmMesh. We just place objects relative to the terrain.
+        // Local high-detail chasm mesh to ground-level immersion
+        // This overlaps the regional terrain with higher resolution
+        const chasmGeo = new THREE.PlaneGeometry(gulchWidth + 20, gulchLength, 60, 60);
+        const pos = chasmGeo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+            const px = pos.getX(i);
+            const distFromCenter = Math.abs(px);
+            const normalizedDist = distFromCenter / (gulchWidth / 2);
+            const depthFactor = Math.max(0, 1.0 - Math.pow(normalizedDist, 0.4));
+            pos.setZ(i, -depthFactor * gulchDepth);
+        }
+        chasmGeo.computeVertexNormals();
+        const chasmMat = new THREE.MeshStandardMaterial({
+            color: 0x1A2A15,
+            roughness: 1.0,
+            flatShading: true
+        });
+        const chasmMesh = new THREE.Mesh(chasmGeo, chasmMat);
+        chasmMesh.rotation.x = -Math.PI / 2;
+        // Position at the rim height
+        const rimHeight = this.getTerrainHeight(gulchX - 25, bridgeZ);
+        chasmMesh.position.set(gulchX, rimHeight, buildingZ - 20); // Center of the north-south chasm
+        this.group.add(chasmMesh);
 
         // Wooden Bridge
         const bridgeWidth = 4;
-        const bridgeLength = gulchWidth + 15;
+        const bridgeLength = gulchWidth + 10;
         const bridgeGroup = new THREE.Group();
 
         const woodMat = new THREE.MeshStandardMaterial({ color: 0x5D4037, roughness: 0.9 });
@@ -427,16 +449,16 @@ export class UCSCCampus {
         const railLower = new THREE.Mesh(new THREE.BoxGeometry(bridgeLength, 0.1, 0.1), woodMat);
         railLower.position.set(0, 0.5, bridgeWidth / 2 - 0.1);
         bridgeGroup.add(railLower);
-        const railLower2 = railLower.clone();
-        railLower2.position.z = -bridgeWidth / 2 + 0.1;
-        bridgeGroup.add(railLower2);
+        const railLower1 = railLower.clone();
+        railLower1.position.z = -bridgeWidth / 2 + 0.1;
+        bridgeGroup.add(railLower1);
 
         const railUpper = new THREE.Mesh(new THREE.BoxGeometry(bridgeLength, 0.15, 0.15), woodMat);
         railUpper.position.set(0, 1.1, bridgeWidth / 2 - 0.1);
         bridgeGroup.add(railUpper);
-        const railUpper2 = railUpper.clone();
-        railUpper2.position.z = -bridgeWidth / 2 + 0.1;
-        bridgeGroup.add(railUpper2);
+        const railUpper1 = railUpper.clone();
+        railUpper1.position.z = -bridgeWidth / 2 + 0.1;
+        bridgeGroup.add(railUpper1);
 
         // Posts
         for (let i = 0; i < bridgeLength; i += 4) {
@@ -448,10 +470,10 @@ export class UCSCCampus {
             bridgeGroup.add(post2);
         }
 
-        // Position bridge across the chasm
-        // The terrain function will now return the deep chasm values from santaCruz.js
-        bridgeGroup.position.set(gulchX, this.getTerrainHeight(gulchX, bridgeZ) + 0.1, bridgeZ);
+        // Important: Position bridge at RIM height so it spans the chasm
+        bridgeGroup.position.set(gulchX, rimHeight + 0.1, bridgeZ);
         this.group.add(bridgeGroup);
+
 
         // Add some trees in and around the chasm
         for (let i = 0; i < 25; i++) {
