@@ -564,6 +564,9 @@ export class Atlas {
                 this.globe.rotation.y += delta * 0.01;
             }
 
+            // Calculate space factor for sky and light fading
+            const spaceFactor = THREE.MathUtils.clamp((cameraHeight - 200000) / 800000, 0, 1);
+
             // Boost AmbientLight as we go into space to see the dark side
             if (this.mathWorld.scene.children) {
                 const ambient = this.mathWorld.scene.children.find(c => c.isAmbientLight);
@@ -573,7 +576,6 @@ export class Atlas {
             }
 
             // Fade sky to black
-            const spaceFactor = THREE.MathUtils.clamp((cameraHeight - 200000) / 800000, 0, 1);
             const skyColor = new THREE.Color(0xAAD4E6).lerp(new THREE.Color(0x020305), spaceFactor);
             this.mathWorld.scene.background.copy(skyColor);
             if (this.mathWorld.scene.fog) this.mathWorld.scene.fog.color.copy(skyColor);
