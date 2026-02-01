@@ -26,6 +26,7 @@ export class UCSCCampus {
         this.createBoulders();
         this.createPaths();
         this.createMcHenryLibrary();
+        this.createGulchAndBridge();
         this.createChalkboards();
         this.createStudyCabins();
         this.createBenches();
@@ -234,261 +235,323 @@ export class UCSCCampus {
         const lib = new THREE.Group();
         lib.userData = { name: 'McHenry Library', isInteractable: true, type: 'building', interactionType: 'Enter' };
 
-        // Materials - Warm Brutalist concrete aesthetic (tan/beige like the real building)
-        // Using brighter colors + subtle emissive so the warm tone shows even in shadow
+        // ============================================
+        // McHenry Library - UCSC (Refined Architectural Design)
+        // - "9" shape in plan view
+        // - Central atrium (surrounded on 3 sides)
+        // - 4th floor bridge with support beams across atrium opening
+        // - East side extends farther south (the "tail")
+        // - Dense redwood grove integration
+        // - 4 stories high
+        // ============================================
+
+        // Materials
         const concreteMat = new THREE.MeshStandardMaterial({
-            color: 0xD8C8A8, // Bright warm tan/beige concrete - the real McHenry color
-            emissive: 0x2A2418, // Subtle warm emissive to show color in shadow
-            roughness: 0.8,
-            metalness: 0.02
+            color: 0xC9B896, emissive: 0x1A1610, roughness: 0.9, metalness: 0.02
         });
-        const concreteAccentMat = new THREE.MeshStandardMaterial({
-            color: 0xCCBB99, // Lighter accent for slabs
-            emissive: 0x221E14, // Subtle warm emissive
-            roughness: 0.85
-        });
-        const concreteBandMat = new THREE.MeshStandardMaterial({
-            color: 0xAA9B80, // Darker bands for horizontal lines
-            emissive: 0x1A1610,
-            roughness: 0.9
+        const concreteSlabMat = new THREE.MeshStandardMaterial({
+            color: 0xD4C4A4, emissive: 0x1C1814, roughness: 0.8
         });
         const glassMat = new THREE.MeshStandardMaterial({
-            color: 0x6BA3BE, // Blueish reflective glass
-            roughness: 0.1,
-            metalness: 0.4,
-            transparent: true,
-            opacity: 0.7
+            color: 0x88AAC0, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.6
         });
-        const glassFrameMat = new THREE.MeshStandardMaterial({
-            color: 0x4A4A4A,
-            roughness: 0.3,
-            metalness: 0.6
+        const copperMat = new THREE.MeshStandardMaterial({
+            color: 0x5B8C6B, emissive: 0x0A1A0E, roughness: 0.7, metalness: 0.4
         });
-
-        // ============================================
-        // MAIN BUILDING - Dramatic Horizontal Cantilevers
-        // The key feature: each floor extends SIGNIFICANTLY beyond the one below
-        // Creating the iconic "inverted pyramid" brutalist look
-        // ============================================
 
         const baseY = 0;
+        const buildingZ = -35;
+        const floorHeight = 3.8;
+        const numFloors = 4; // Refinement: 4 stories
 
-        // GROUND LEVEL - Recessed base with thick support columns
-        // This level is set back, mostly open with columns
-        const groundWidth = 24;
-        const groundDepth = 20;
+        // Wing Dimensions
+        const wingWidth = 12;
+        const northWingLen = 42;
+        const eastWingLen = 50;  // Long "tail" of the 9
+        const westWingLen = 22;  // Shorter, forms the loop
+        const bridgeWidth = wingWidth;
 
-        // Heavy concrete support columns (the building appears to float on these)
-        const columnPositions = [
-            [-9, -7], [-9, 0], [-9, 7],
-            [-3, -7], [-3, 7],
-            [3, -7], [3, 7],
-            [9, -7], [9, 0], [9, 7]
-        ];
+        // Atrium Dimensions (estimated from wing gaps)
+        const atriumW = northWingLen - (wingWidth * 2);
+        const atriumD = westWingLen - wingWidth;
 
-        columnPositions.forEach(([x, z]) => {
-            const column = new THREE.Mesh(
-                new THREE.BoxGeometry(1.8, 5, 1.8),
-                concreteMat
-            );
-            column.position.set(x, baseY + 2.5, z - 30);
-            column.castShadow = true;
-            lib.add(column);
-        });
+        // Function to create a wing for each floor
+        const createWing = (floor, w, h, d, x, z) => {
+            const floorY = baseY + floor * floorHeight;
+            const wingGroup = new THREE.Group();
 
-        // Ground floor slab
-        const groundSlab = new THREE.Mesh(
-            new THREE.BoxGeometry(groundWidth, 0.6, groundDepth),
-            concreteAccentMat
-        );
-        groundSlab.position.set(0, baseY + 5.3, -30);
-        groundSlab.castShadow = true;
-        lib.add(groundSlab);
+            // Floor slab
+            const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 0.5, 0.5, d + 0.5), concreteSlabMat);
+            slab.position.set(0, 0, 0);
+            slab.castShadow = true; slab.receiveShadow = true;
+            wingGroup.add(slab);
 
-        // FIRST FLOOR - Extends beyond ground columns
-        const floor1Width = groundWidth + 8;  // 32 wide
-        const floor1Depth = groundDepth + 6;  // 26 deep
-        const floor1Height = 4.5;
+            // Facade walls (simple box for massing, plus grid logic)
+            const walls = new THREE.Mesh(new THREE.BoxGeometry(w, h - 0.5, d), glassMat);
+            walls.position.y = (h - 0.5) / 2 + 0.25;
+            wingGroup.add(walls);
 
-        // First floor solid mass
-        const floor1 = new THREE.Mesh(
-            new THREE.BoxGeometry(floor1Width, floor1Height, floor1Depth),
-            concreteMat
-        );
-        floor1.position.set(0, baseY + 5.6 + floor1Height / 2, -30);
-        floor1.castShadow = true;
-        lib.add(floor1);
+            // Add concrete grid lines (simplified vertical grid)
+            const gridSpacing = 4;
+            const numGridsX = Math.floor(w / gridSpacing);
+            const numGridsZ = Math.floor(d / gridSpacing);
 
-        // First floor horizontal band (dark concrete stripe)
-        const band1 = new THREE.Mesh(
-            new THREE.BoxGeometry(floor1Width + 0.4, 0.5, floor1Depth + 0.4),
-            concreteBandMat
-        );
-        band1.position.set(0, baseY + 10.3, -30);
-        lib.add(band1);
+            // Vertical grid lines for X facades
+            for (let i = 0; i <= numGridsX; i++) {
+                const gx = -w / 2 + i * (w / numGridsX);
+                const beam = new THREE.Mesh(new THREE.BoxGeometry(0.35, h - 0.5, 0.5), concreteMat);
+                beam.position.set(gx, (h - 0.5) / 2 + 0.25, d / 2);
+                wingGroup.add(beam);
+                const beam2 = beam.clone();
+                beam2.position.z = -d / 2;
+                wingGroup.add(beam2);
+            }
+            // Vertical grid lines for Z facades
+            for (let i = 0; i <= numGridsZ; i++) {
+                const gz = -d / 2 + i * (d / numGridsZ);
+                const beam = new THREE.Mesh(new THREE.BoxGeometry(0.5, h - 0.5, 0.35), concreteMat);
+                beam.position.set(w / 2, (h - 0.5) / 2 + 0.25, gz);
+                wingGroup.add(beam);
+                const beam2 = beam.clone();
+                beam2.position.x = -w / 2;
+                wingGroup.add(beam2);
+            }
 
-        // First floor windows - ribbon windows typical of brutalism
-        this.addRibbonWindows(lib, floor1Width, floor1Height, floor1Depth, baseY + 7.8, -30, glassMat, glassFrameMat);
+            wingGroup.position.set(x, floorY, z);
+            lib.add(wingGroup);
+        };
 
-        // SECOND FLOOR - Even more dramatic cantilever
-        const floor2Width = floor1Width + 6;  // 38 wide
-        const floor2Depth = floor1Depth + 4;  // 30 deep
-        const floor2Height = 4.5;
+        // Create the "9" shape floor by floor
+        for (let f = 0; f < numFloors; f++) {
+            // North Wing (Across the top)
+            createWing(f, northWingLen, floorHeight, wingWidth, 0, buildingZ - westWingLen / 2);
 
-        const floor2 = new THREE.Mesh(
-            new THREE.BoxGeometry(floor2Width, floor2Height, floor2Depth),
-            concreteMat
-        );
-        floor2.position.set(0, baseY + 10.6 + floor2Height / 2, -30);
-        floor2.castShadow = true;
-        lib.add(floor2);
+            // East Wing (Right side, extensions)
+            const eastX = northWingLen / 2 - wingWidth / 2;
+            createWing(f, wingWidth, floorHeight, eastWingLen, eastX, buildingZ + (eastWingLen - westWingLen) / 2);
 
-        // Second floor band
-        const band2 = new THREE.Mesh(
-            new THREE.BoxGeometry(floor2Width + 0.4, 0.5, floor2Depth + 0.4),
-            concreteBandMat
-        );
-        band2.position.set(0, baseY + 15.3, -30);
-        lib.add(band2);
+            // West Wing (Left side, shorter)
+            const westX = -northWingLen / 2 + wingWidth / 2;
+            createWing(f, wingWidth, floorHeight, westWingLen, westX, buildingZ);
 
-        // Second floor windows
-        this.addRibbonWindows(lib, floor2Width, floor2Height, floor2Depth, baseY + 12.8, -30, glassMat, glassFrameMat);
+            // 4th Floor Bridge (The "bar" across the middle-ish)
+            if (f === 3) { // 4th floor (0-indexed: 3)
+                const bridgeWidthNarrow = wingWidth * 0.4;
+                const bridgeZ = westWingLen / 2 - bridgeWidthNarrow / 2;
+                createWing(f, atriumW, floorHeight, bridgeWidthNarrow, 0, buildingZ + bridgeZ);
 
-        // THIRD FLOOR (TOP) - Maximum cantilever, most dramatic
-        const floor3Width = floor2Width + 4;  // 42 wide
-        const floor3Depth = floor2Depth + 3;  // 33 deep
-        const floor3Height = 4;
+                // Support Beams for the bridge
+                [-atriumW / 2 + 2, atriumW / 2 - 2].forEach(bx => {
+                    const support = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, f * floorHeight, 8), concreteMat);
+                    support.position.set(bx, (f * floorHeight) / 2, buildingZ + bridgeZ);
+                    lib.add(support);
+                });
 
-        const floor3 = new THREE.Mesh(
-            new THREE.BoxGeometry(floor3Width, floor3Height, floor3Depth),
-            concreteMat
-        );
-        floor3.position.set(0, baseY + 15.6 + floor3Height / 2, -30);
-        floor3.castShadow = true;
-        lib.add(floor3);
-
-        // Third floor windows
-        this.addRibbonWindows(lib, floor3Width, floor3Height, floor3Depth, baseY + 17.6, -30, glassMat, glassFrameMat);
-
-        // ROOF with parapet
-        const roof = new THREE.Mesh(
-            new THREE.BoxGeometry(floor3Width + 1, 0.8, floor3Depth + 1),
-            concreteAccentMat
-        );
-        roof.position.set(0, baseY + 20, -30);
-        lib.add(roof);
-
-        // Roof parapet
-        const parapetHeight = 1.2;
-        // Front parapet
-        const parapetFront = new THREE.Mesh(
-            new THREE.BoxGeometry(floor3Width + 1, parapetHeight, 0.4),
-            concreteMat
-        );
-        parapetFront.position.set(0, baseY + 20.8, -30 + floor3Depth / 2 + 0.3);
-        lib.add(parapetFront);
-        // Back parapet
-        const parapetBack = new THREE.Mesh(
-            new THREE.BoxGeometry(floor3Width + 1, parapetHeight, 0.4),
-            concreteMat
-        );
-        parapetBack.position.set(0, baseY + 20.8, -30 - floor3Depth / 2 - 0.3);
-        lib.add(parapetBack);
-        // Side parapets
-        [-1, 1].forEach(side => {
-            const parapetSide = new THREE.Mesh(
-                new THREE.BoxGeometry(0.4, parapetHeight, floor3Depth + 1),
-                concreteMat
-            );
-            parapetSide.position.set(side * (floor3Width / 2 + 0.3), baseY + 20.8, -30);
-            lib.add(parapetSide);
-        });
-
-        // ============================================
-        // ENTRANCE - Recessed entry at ground level
-        // ============================================
-
-        // Entrance canopy extending forward
-        const entranceCanopy = new THREE.Mesh(
-            new THREE.BoxGeometry(14, 0.6, 10),
-            concreteAccentMat
-        );
-        entranceCanopy.position.set(0, baseY + 5, -15);
-        entranceCanopy.castShadow = true;
-        lib.add(entranceCanopy);
-
-        // Entrance support columns
-        [-5, 5].forEach(x => {
-            const entryCol = new THREE.Mesh(
-                new THREE.BoxGeometry(1.2, 5, 1.2),
-                concreteMat
-            );
-            entryCol.position.set(x, baseY + 2.5, -12);
-            entryCol.castShadow = true;
-            lib.add(entryCol);
-        });
-
-        // Glass entrance doors
-        const entranceDoors = new THREE.Mesh(
-            new THREE.BoxGeometry(8, 4, 0.2),
-            glassMat
-        );
-        entranceDoors.position.set(0, baseY + 2.5, -17);
-        lib.add(entranceDoors);
-
-        // Door frames
-        [-4, 0, 4].forEach(x => {
-            const doorFrame = new THREE.Mesh(
-                new THREE.BoxGeometry(0.15, 4, 0.3),
-                glassFrameMat
-            );
-            doorFrame.position.set(x, baseY + 2.5, -16.9);
-            lib.add(doorFrame);
-        });
-
-        // Entry steps
-        for (let i = 0; i < 5; i++) {
-            const step = new THREE.Mesh(
-                new THREE.BoxGeometry(12 - i * 0.3, 0.25, 1.4),
-                concreteMat
-            );
-            step.position.set(0, baseY + 0.15 + i * 0.25, -8 + i * 1.4);
-            step.receiveShadow = true;
-            lib.add(step);
+                // Add covered roof specifically for the bridge
+                const roof = new THREE.Mesh(new THREE.BoxGeometry(atriumW + 0.5, 0.4, bridgeWidthNarrow + 0.5), concreteSlabMat);
+                roof.position.set(0, baseY + (f + 1) * floorHeight, buildingZ + bridgeZ);
+                lib.add(roof);
+            }
         }
 
-        // ============================================
-        // ROOFTOP EQUIPMENT - Mechanical penthouse
-        // ============================================
+        // Roof slabs for the wings
+        const roofY = baseY + numFloors * floorHeight;
+        const addRoof = (w, d, x, z) => {
+            const r = new THREE.Mesh(new THREE.BoxGeometry(w + 1, 0.6, d + 1), concreteSlabMat);
+            r.position.set(x, roofY, z);
+            r.castShadow = true; lib.add(r);
+        };
+        addRoof(northWingLen, wingWidth, 0, buildingZ - westWingLen / 2);
+        addRoof(wingWidth, eastWingLen, northWingLen / 2 - wingWidth / 2, buildingZ + (eastWingLen - westWingLen) / 2);
+        addRoof(wingWidth, westWingLen, -northWingLen / 2 + wingWidth / 2, buildingZ);
 
-        const mechRoom = new THREE.Mesh(
-            new THREE.BoxGeometry(10, 3, 8),
-            concreteAccentMat
-        );
-        mechRoom.position.set(-8, baseY + 22.5, -35);
-        lib.add(mechRoom);
 
-        const mechRoom2 = new THREE.Mesh(
-            new THREE.BoxGeometry(6, 2.5, 5),
-            concreteAccentMat
-        );
-        mechRoom2.position.set(10, baseY + 22, -28);
-        lib.add(mechRoom2);
+        // Copper Stairwell Towers
+        const towerHeight = numFloors * floorHeight + 2;
+        const tower1 = new THREE.Mesh(new THREE.BoxGeometry(6, towerHeight, 6), copperMat);
+        tower1.position.set(northWingLen / 2 + 2, towerHeight / 2, buildingZ - westWingLen / 2);
+        lib.add(tower1);
+        const tower2 = new THREE.Mesh(new THREE.BoxGeometry(6, towerHeight, 6), copperMat);
+        tower2.position.set(-northWingLen / 2 - 2, towerHeight / 2, buildingZ - westWingLen / 2);
+        lib.add(tower2);
 
-        // HVAC vents
-        for (let i = 0; i < 3; i++) {
-            const vent = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.8, 0.8, 1.5, 12),
-                new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.5 })
-            );
-            vent.position.set(5 + i * 4, baseY + 21.5, -40);
-            lib.add(vent);
+        // Entrance (Cleaned up, no large staircase)
+        const entryPlaza = new THREE.Mesh(new THREE.BoxGeometry(15, 0.4, 15), concreteSlabMat);
+        entryPlaza.position.set(0, 0.2, buildingZ + westWingLen / 2 + 5);
+        lib.add(entryPlaza);
+
+        // Dense Redwood Cluster
+        for (let i = 0; i < 60; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 35 + Math.random() * 40;
+            const tx = Math.cos(angle) * dist;
+            const tz = buildingZ + Math.sin(angle) * dist;
+            // Don't place tree inside building
+            if (Math.abs(tx) < northWingLen / 2 + 5 && Math.abs(tz - buildingZ) < eastWingLen / 2 + 5) continue;
+            const tree = this.createRedwood();
+            tree.position.set(tx, this.getTerrainHeight(tx, tz), tz);
+            tree.scale.setScalar(0.6 + Math.random() * 1.2);
+            this.group.add(tree);
         }
 
-        // Position library on terrain
-        lib.position.y = this.getTerrainHeight(0, -30);
-
+        lib.position.y = this.getTerrainHeight(0, buildingZ);
         this.group.add(lib);
+    }
+
+    createGulchAndBridge() {
+        const buildingZ = -35;
+        const gulchX = 65; // East of building
+        const gulchZ = buildingZ;
+        const gulchWidth = 25;
+        const gulchLength = 100;
+        const gulchDepth = 45; // Deep chasm
+
+        // Chasm - represented by a depressed mesh
+        const chasmGeo = new THREE.PlaneGeometry(gulchWidth + 10, gulchLength, 40, 40);
+        const pos = chasmGeo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+            const px = pos.getX(i);
+            // Create a sharp "V" shape chasm with steep walls
+            const distFromCenter = Math.abs(px);
+            const normalizedDist = distFromCenter / (gulchWidth / 2);
+            // Steeper walls using power function
+            const depthFactor = Math.max(0, 1.0 - Math.pow(normalizedDist, 0.4));
+            pos.setZ(i, -depthFactor * gulchDepth);
+        }
+        chasmGeo.computeVertexNormals();
+        const chasmMat = new THREE.MeshStandardMaterial({
+            color: 0x1A2A15,
+            roughness: 1.0,
+            flatShading: true
+        });
+        const chasmMesh = new THREE.Mesh(chasmGeo, chasmMat);
+        chasmMesh.rotation.x = -Math.PI / 2;
+        chasmMesh.position.set(gulchX, this.getTerrainHeight(gulchX, gulchZ) - 0.2, gulchZ);
+        this.group.add(chasmMesh);
+
+        // Wooden Bridge
+        const bridgeWidth = 4;
+        const bridgeLength = gulchWidth + 15;
+        const bridgeGroup = new THREE.Group();
+
+        const woodMat = new THREE.MeshStandardMaterial({ color: 0x5D4037, roughness: 0.9 });
+
+        // Planks
+        for (let i = 0; i < bridgeLength; i += 0.8) {
+            const plank = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.15, bridgeWidth), woodMat);
+            plank.position.set(i - bridgeLength / 2, 0, 0);
+            plank.castShadow = true; plank.receiveShadow = true;
+            bridgeGroup.add(plank);
+        }
+
+        // Side rails
+        const railLower = new THREE.Mesh(new THREE.BoxGeometry(bridgeLength, 0.1, 0.1), woodMat);
+        railLower.position.set(0, 0.5, bridgeWidth / 2 - 0.1);
+        bridgeGroup.add(railLower);
+        const railLower2 = railLower.clone();
+        railLower2.position.z = -bridgeWidth / 2 + 0.1;
+        bridgeGroup.add(railLower2);
+
+        const railUpper = new THREE.Mesh(new THREE.BoxGeometry(bridgeLength, 0.15, 0.15), woodMat);
+        railUpper.position.set(0, 1.1, bridgeWidth / 2 - 0.1);
+        bridgeGroup.add(railUpper);
+        const railUpper2 = railUpper.clone();
+        railUpper2.position.z = -bridgeWidth / 2 + 0.1;
+        bridgeGroup.add(railUpper2);
+
+        // Posts
+        for (let i = 0; i < bridgeLength; i += 4) {
+            const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.2, 0.2), woodMat);
+            post.position.set(i - bridgeLength / 2, 0.6, bridgeWidth / 2 - 0.1);
+            bridgeGroup.add(post);
+            const post2 = post.clone();
+            post2.position.z = -bridgeWidth / 2 + 0.1;
+            bridgeGroup.add(post2);
+        }
+
+        bridgeGroup.position.set(gulchX, this.getTerrainHeight(gulchX, gulchZ) + 0.1, gulchZ);
+        this.group.add(bridgeGroup);
+
+        // Add some trees in and around the chasm
+        for (let i = 0; i < 20; i++) {
+            const tx = gulchX + (Math.random() - 0.5) * 35;
+            const tz = gulchZ + (Math.random() - 0.5) * gulchLength;
+
+            const distFromCenter = Math.abs(tx - gulchX);
+            const normalizedDist = distFromCenter / (gulchWidth / 2);
+            const depthFactor = Math.max(0, 1.0 - Math.pow(normalizedDist, 0.4));
+            const yOffset = -depthFactor * gulchDepth;
+
+            const tree = this.createRedwood();
+            tree.position.set(tx, this.getTerrainHeight(tx, tz) + yOffset, tz);
+            tree.scale.setScalar(0.4 + Math.random() * 0.8);
+            this.group.add(tree);
+        }
+    }
+
+    // Helper: Create grid facade typical of McHenry's design
+    // Regular pattern of concrete grid with large glass panels
+    addGridFacade(parent, width, height, depth, y, z, concreteMat, gridMat, glassMat, frameMat) {
+        const gridSpacingH = 4;  // Horizontal spacing between grid lines
+        const gridSpacingV = height;  // Vertical (full floor height)
+        const gridThickness = 0.35;
+        const glassInset = 0.2;
+
+        // Create glass and grid for front and back facades
+        [1, -1].forEach(side => {
+            const facadeZ = z + side * (depth / 2);
+            const numBays = Math.floor(width / gridSpacingH);
+
+            for (let i = 0; i < numBays; i++) {
+                const bayX = -width / 2 + gridSpacingH / 2 + i * gridSpacingH;
+
+                // Large glass panel
+                const glass = new THREE.Mesh(
+                    new THREE.BoxGeometry(gridSpacingH - gridThickness * 2, height - gridThickness * 2, 0.12),
+                    glassMat
+                );
+                glass.position.set(bayX, y, facadeZ + side * glassInset);
+                parent.add(glass);
+
+                // Vertical grid line (between bays)
+                if (i > 0) {
+                    const vGrid = new THREE.Mesh(
+                        new THREE.BoxGeometry(gridThickness, height, 0.5),
+                        gridMat
+                    );
+                    vGrid.position.set(bayX - gridSpacingH / 2, y, facadeZ);
+                    parent.add(vGrid);
+                }
+            }
+
+            // Edge vertical grid lines
+            [-width / 2, width / 2].forEach(edgeX => {
+                const edgeGrid = new THREE.Mesh(
+                    new THREE.BoxGeometry(gridThickness * 1.5, height, 0.5),
+                    concreteMat
+                );
+                edgeGrid.position.set(edgeX, y, facadeZ);
+                parent.add(edgeGrid);
+            });
+        });
+
+        // Side facades - fewer, larger windows
+        [-1, 1].forEach(side => {
+            const facadeX = side * (width / 2);
+            const numSideBays = Math.floor(depth / gridSpacingH);
+
+            for (let i = 0; i < numSideBays; i++) {
+                const bayZ = z - depth / 2 + gridSpacingH / 2 + i * gridSpacingH;
+
+                // Side glass panel
+                const sideGlass = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.12, height - gridThickness * 2, gridSpacingH - gridThickness * 2),
+                    glassMat
+                );
+                sideGlass.position.set(facadeX + side * glassInset, y, bayZ);
+                parent.add(sideGlass);
+            }
+        });
     }
 
     // Helper method to add ribbon windows (horizontal strips typical of Brutalism)
