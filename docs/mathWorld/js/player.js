@@ -70,6 +70,11 @@ export class Player {
         // Mobile controls reference
         this.mobileControls = null;
 
+        // Collision detection
+        this.collisionRaycaster = new THREE.Raycaster();
+        this.playerRadius = 0.4; // Player collision radius
+        this.stepHeight = 0.5;   // Max step height player can walk up
+
         this.setupEventListeners();
     }
 
@@ -208,43 +213,39 @@ export class Player {
         this.direction.set(0, 0, 0);
 
         // Get input from keyboard or mobile controls
-        let moveForward = this.keys.forward;
-        let moveBackward = this.keys.backward;
-        let moveLeft = this.keys.left;
-        let moveRight = this.keys.right;
         let wantsFly = this.keys.fly;
+        let usingAnalog = false;
 
-        // Mobile joystick overrides
+        // Mobile joystick (analog) takes priority
         if (this.mobileControls && this.mobileControls.enabled) {
             const mobileInput = this.mobileControls.getMovement();
-            if (Math.abs(mobileInput.z) > 0.1) {
-                if (mobileInput.z > 0) moveForward = true;
-                else moveBackward = true;
-            }
-            if (Math.abs(mobileInput.x) > 0.1) {
-                if (mobileInput.x > 0) moveRight = true;
-                else moveLeft = true;
-            }
-            if (mobileInput.jump) wantsFly = true;
 
-            // Apply analog sensitivity
+            // Check if analog joystick is being used
             const analogScale = Math.max(Math.abs(mobileInput.x), Math.abs(mobileInput.z));
             if (analogScale > 0.1) {
-                this.direction.x = mobileInput.x;
-                this.direction.z = mobileInput.z;
-                // Rotate to camera direction
+                usingAnalog = true;
+                // Joystick input: x = left/right, z = forward/back
+                // Need to rotate by camera yaw to get world direction
                 const angle = this.yaw;
-                const rotatedX = this.direction.x * Math.cos(angle) + this.direction.z * Math.sin(angle);
-                const rotatedZ = -this.direction.x * Math.sin(angle) + this.direction.z * Math.cos(angle);
-                this.direction.set(rotatedX, 0, rotatedZ);
+                // Forward is -Z in camera space, so joystick.z > 0 means forward
+                // Right is +X in camera space, so joystick.x > 0 means right
+                const rotatedX = mobileInput.x * Math.cos(angle) - mobileInput.z * Math.sin(angle);
+                const rotatedZ = mobileInput.x * Math.sin(angle) + mobileInput.z * Math.cos(angle);
+                this.direction.set(rotatedX, 0, -rotatedZ);
+                // Don't normalize - keep analog magnitude for variable speed
             }
+
+            if (mobileInput.jump) wantsFly = true;
         }
 
-        if (moveForward) this.direction.add(forward);
-        if (moveBackward) this.direction.sub(forward);
-        if (moveLeft) this.direction.sub(right);
-        if (moveRight) this.direction.add(right);
-        this.direction.normalize();
+        // Only use keyboard if not using analog joystick
+        if (!usingAnalog) {
+            if (this.keys.forward) this.direction.add(forward);
+            if (this.keys.backward) this.direction.sub(forward);
+            if (this.keys.left) this.direction.sub(right);
+            if (this.keys.right) this.direction.add(right);
+            this.direction.normalize();
+        }
 
         // Apply movement speed with multiplier
         const baseSpeed = this.keys.run ? this.runSpeed : this.walkSpeed;
@@ -265,13 +266,37 @@ export class Player {
             this.velocity.y -= this.gravity * delta;
         }
 
-        // Update local position
-        this.localPosition.x += this.velocity.x * delta;
-        this.localPosition.z += this.velocity.z * delta;
-        this.localPosition.y += this.velocity.y * delta;
+        // Calculate proposed new position
+        const newX = this.localPosition.x + this.velocity.x * delta;
+        const newZ = this.localPosition.z + this.velocity.z * delta;
+        const newY = this.localPosition.y + this.velocity.y * delta;
 
-        // Get ground height and apply collision
-        const groundY = this.getGroundHeight(this.localPosition.x, this.localPosition.z);
+        // Check horizontal collision with buildings/objects
+        const horizontalCollision = this.checkObjectCollision(newX, newZ);
+        if (horizontalCollision.blocked) {
+            // Hit a wall - can't move horizontally in that direction
+            // Try to slide along the wall
+            if (!this.checkObjectCollision(newX, this.localPosition.z).blocked) {
+                this.localPosition.x = newX;
+                this.velocity.z = 0;
+            } else if (!this.checkObjectCollision(this.localPosition.x, newZ).blocked) {
+                this.localPosition.z = newZ;
+                this.velocity.x = 0;
+            }
+            // Otherwise, completely blocked
+        } else {
+            this.localPosition.x = newX;
+            this.localPosition.z = newZ;
+        }
+
+        // Update vertical position
+        this.localPosition.y = newY;
+
+        // Get effective ground height (terrain or building roof)
+        const terrainY = this.getGroundHeight(this.localPosition.x, this.localPosition.z);
+        const objectY = this.getObjectSurfaceHeight(this.localPosition.x, this.localPosition.y, this.localPosition.z);
+        const groundY = Math.max(terrainY, objectY);
+
         if (this.localPosition.y <= groundY + this.eyeHeight) {
             this.localPosition.y = groundY + this.eyeHeight;
             this.velocity.y = 0;
@@ -322,6 +347,128 @@ export class Player {
         const dist = Math.sqrt(x * x + z * z);
         if (dist < 25) h *= 0.3;
         return h;
+    }
+
+    // Check for horizontal collision with objects (walls, trees, buildings)
+    checkObjectCollision(x, z) {
+        if (!this.mathWorld || !this.locationGroup) {
+            return { blocked: false };
+        }
+
+        const result = { blocked: false, hitObject: null };
+
+        // Player position in local coordinates
+        const feetY = this.localPosition.y - this.eyeHeight;
+        const checkHeight = feetY + this.stepHeight + 0.1; // Check at step height
+
+        // Get world position for raycasting
+        const localPos = new THREE.Vector3(x, checkHeight, z);
+        const worldPos = localPos.clone();
+        this.locationGroup.localToWorld(worldPos);
+
+        // Cast rays in multiple directions to detect walls
+        const directions = [
+            new THREE.Vector3(1, 0, 0),
+            new THREE.Vector3(-1, 0, 0),
+            new THREE.Vector3(0, 0, 1),
+            new THREE.Vector3(0, 0, -1),
+        ];
+
+        // Check distance from current position to proposed position
+        const currentWorldPos = this.localPosition.clone();
+        currentWorldPos.y = checkHeight;
+        this.locationGroup.localToWorld(currentWorldPos);
+
+        const moveDir = new THREE.Vector3(x - this.localPosition.x, 0, z - this.localPosition.z);
+        const moveDist = moveDir.length();
+
+        if (moveDist < 0.001) return result;
+
+        moveDir.normalize();
+
+        // Transform direction to world space
+        const worldMoveDir = moveDir.clone();
+        // Apply only rotation (not translation) from locationGroup
+        worldMoveDir.applyQuaternion(this.locationGroup.quaternion);
+
+        this.collisionRaycaster.set(currentWorldPos, worldMoveDir);
+        this.collisionRaycaster.far = moveDist + this.playerRadius;
+
+        // Get all collidable objects from scene
+        const collidables = this.getCollidables();
+        const intersects = this.collisionRaycaster.intersectObjects(collidables, true);
+
+        if (intersects.length > 0) {
+            const hit = intersects[0];
+            if (hit.distance < moveDist + this.playerRadius) {
+                result.blocked = true;
+                result.hitObject = hit.object;
+            }
+        }
+
+        return result;
+    }
+
+    // Get height of any object surface at the given position (for standing on roofs)
+    getObjectSurfaceHeight(x, y, z) {
+        if (!this.mathWorld || !this.locationGroup) {
+            return -Infinity;
+        }
+
+        // Ray from above the player, pointing down
+        const maxCheckHeight = y + 5; // Check from slightly above player
+        const localPos = new THREE.Vector3(x, maxCheckHeight, z);
+        const worldPos = localPos.clone();
+        this.locationGroup.localToWorld(worldPos);
+
+        const downDir = new THREE.Vector3(0, -1, 0);
+        this.collisionRaycaster.set(worldPos, downDir);
+        this.collisionRaycaster.far = maxCheckHeight + 10; // Check below
+
+        const collidables = this.getCollidables();
+        const intersects = this.collisionRaycaster.intersectObjects(collidables, true);
+
+        if (intersects.length > 0) {
+            // Find the highest surface below the player's feet
+            const feetY = y - this.eyeHeight;
+            for (const hit of intersects) {
+                // Convert hit point back to local coordinates
+                const hitLocal = hit.point.clone();
+                this.locationGroup.worldToLocal(hitLocal);
+
+                // Check if this surface is below our current feet but reachable
+                if (hitLocal.y <= feetY + this.stepHeight && hitLocal.y > feetY - 1) {
+                    return hitLocal.y;
+                }
+            }
+        }
+
+        return -Infinity;
+    }
+
+    // Get all objects that can be collided with
+    getCollidables() {
+        if (!this.mathWorld) return [];
+
+        const collidables = [];
+
+        // Add all solid objects in the current location
+        if (this.locationGroup) {
+            this.locationGroup.traverse(obj => {
+                // Only mesh objects can be collided with
+                if (obj.isMesh) {
+                    // Skip objects marked as non-collidable (like water, particles, etc.)
+                    if (obj.userData && obj.userData.noCollision) return;
+                    // Skip very small objects
+                    if (obj.geometry && obj.geometry.boundingSphere) {
+                        if (obj.geometry.boundingSphere.radius < 0.1) return;
+                    }
+                    collidables.push(obj);
+                }
+            });
+        }
+
+        return collidables;
     }
 
     checkInteraction() {

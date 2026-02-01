@@ -234,46 +234,306 @@ export class UCSCCampus {
         const lib = new THREE.Group();
         lib.userData = { name: 'McHenry Library', isInteractable: true, type: 'building', interactionType: 'Enter' };
 
-        const cm = new THREE.MeshStandardMaterial({ color: 0xA89F91, roughness: 0.85 });
-        const dm = new THREE.MeshStandardMaterial({ color: 0x7A7368, roughness: 0.9 });
-        const gm = new THREE.MeshStandardMaterial({ color: 0x87CEEB, roughness: 0.1, transparent: true, opacity: 0.5 });
-
-        // Building layers
-        const base = new THREE.Mesh(new THREE.BoxGeometry(30, 4, 20), cm);
-        base.position.set(0, 2, -30); base.castShadow = true; lib.add(base);
-        const u1 = new THREE.Mesh(new THREE.BoxGeometry(26, 4, 18), cm);
-        u1.position.set(0, 6, -30); u1.castShadow = true; lib.add(u1);
-        const u2 = new THREE.Mesh(new THREE.BoxGeometry(22, 4, 16), cm);
-        u2.position.set(0, 10, -30); u2.castShadow = true; lib.add(u2);
-        const top = new THREE.Mesh(new THREE.BoxGeometry(18, 3, 14), dm);
-        top.position.set(0, 13.5, -30); top.castShadow = true; lib.add(top);
-
-        // Windows
-        for (let f = 0; f < 3; f++) {
-            const y = 2.5 + f * 4;
-            for (let i = 0; i < 5; i++) {
-                const w = new THREE.Mesh(new THREE.BoxGeometry(3, 2.5, 0.2), gm);
-                w.position.set(-8 + i * 4, y, -20 - f);
-                lib.add(w);
-            }
-        }
-
-        // Entrance
-        const portico = new THREE.Mesh(new THREE.BoxGeometry(12, 0.5, 6), dm);
-        portico.position.set(0, 4.25, -18); lib.add(portico);
-        [-4, 4].forEach(x => {
-            const pillar = new THREE.Mesh(new THREE.BoxGeometry(1, 4, 1), cm);
-            pillar.position.set(x, 2, -18); pillar.castShadow = true; lib.add(pillar);
+        // Materials - Warm Brutalist concrete aesthetic (tan/beige like the real building)
+        // Using brighter colors + subtle emissive so the warm tone shows even in shadow
+        const concreteMat = new THREE.MeshStandardMaterial({
+            color: 0xD8C8A8, // Bright warm tan/beige concrete - the real McHenry color
+            emissive: 0x2A2418, // Subtle warm emissive to show color in shadow
+            roughness: 0.8,
+            metalness: 0.02
+        });
+        const concreteAccentMat = new THREE.MeshStandardMaterial({
+            color: 0xCCBB99, // Lighter accent for slabs
+            emissive: 0x221E14, // Subtle warm emissive
+            roughness: 0.85
+        });
+        const concreteBandMat = new THREE.MeshStandardMaterial({
+            color: 0xAA9B80, // Darker bands for horizontal lines
+            emissive: 0x1A1610,
+            roughness: 0.9
+        });
+        const glassMat = new THREE.MeshStandardMaterial({
+            color: 0x6BA3BE, // Blueish reflective glass
+            roughness: 0.1,
+            metalness: 0.4,
+            transparent: true,
+            opacity: 0.7
+        });
+        const glassFrameMat = new THREE.MeshStandardMaterial({
+            color: 0x4A4A4A,
+            roughness: 0.3,
+            metalness: 0.6
         });
 
-        // Steps
-        for (let i = 0; i < 4; i++) {
-            const step = new THREE.Mesh(new THREE.BoxGeometry(14, 0.25, 1.5), cm);
-            step.position.set(0, 0.125 + i * 0.25, -14 + i * 1.2);
+        // ============================================
+        // MAIN BUILDING - Dramatic Horizontal Cantilevers
+        // The key feature: each floor extends SIGNIFICANTLY beyond the one below
+        // Creating the iconic "inverted pyramid" brutalist look
+        // ============================================
+
+        const baseY = 0;
+
+        // GROUND LEVEL - Recessed base with thick support columns
+        // This level is set back, mostly open with columns
+        const groundWidth = 24;
+        const groundDepth = 20;
+
+        // Heavy concrete support columns (the building appears to float on these)
+        const columnPositions = [
+            [-9, -7], [-9, 0], [-9, 7],
+            [-3, -7], [-3, 7],
+            [3, -7], [3, 7],
+            [9, -7], [9, 0], [9, 7]
+        ];
+
+        columnPositions.forEach(([x, z]) => {
+            const column = new THREE.Mesh(
+                new THREE.BoxGeometry(1.8, 5, 1.8),
+                concreteMat
+            );
+            column.position.set(x, baseY + 2.5, z - 30);
+            column.castShadow = true;
+            lib.add(column);
+        });
+
+        // Ground floor slab
+        const groundSlab = new THREE.Mesh(
+            new THREE.BoxGeometry(groundWidth, 0.6, groundDepth),
+            concreteAccentMat
+        );
+        groundSlab.position.set(0, baseY + 5.3, -30);
+        groundSlab.castShadow = true;
+        lib.add(groundSlab);
+
+        // FIRST FLOOR - Extends beyond ground columns
+        const floor1Width = groundWidth + 8;  // 32 wide
+        const floor1Depth = groundDepth + 6;  // 26 deep
+        const floor1Height = 4.5;
+
+        // First floor solid mass
+        const floor1 = new THREE.Mesh(
+            new THREE.BoxGeometry(floor1Width, floor1Height, floor1Depth),
+            concreteMat
+        );
+        floor1.position.set(0, baseY + 5.6 + floor1Height / 2, -30);
+        floor1.castShadow = true;
+        lib.add(floor1);
+
+        // First floor horizontal band (dark concrete stripe)
+        const band1 = new THREE.Mesh(
+            new THREE.BoxGeometry(floor1Width + 0.4, 0.5, floor1Depth + 0.4),
+            concreteBandMat
+        );
+        band1.position.set(0, baseY + 10.3, -30);
+        lib.add(band1);
+
+        // First floor windows - ribbon windows typical of brutalism
+        this.addRibbonWindows(lib, floor1Width, floor1Height, floor1Depth, baseY + 7.8, -30, glassMat, glassFrameMat);
+
+        // SECOND FLOOR - Even more dramatic cantilever
+        const floor2Width = floor1Width + 6;  // 38 wide
+        const floor2Depth = floor1Depth + 4;  // 30 deep
+        const floor2Height = 4.5;
+
+        const floor2 = new THREE.Mesh(
+            new THREE.BoxGeometry(floor2Width, floor2Height, floor2Depth),
+            concreteMat
+        );
+        floor2.position.set(0, baseY + 10.6 + floor2Height / 2, -30);
+        floor2.castShadow = true;
+        lib.add(floor2);
+
+        // Second floor band
+        const band2 = new THREE.Mesh(
+            new THREE.BoxGeometry(floor2Width + 0.4, 0.5, floor2Depth + 0.4),
+            concreteBandMat
+        );
+        band2.position.set(0, baseY + 15.3, -30);
+        lib.add(band2);
+
+        // Second floor windows
+        this.addRibbonWindows(lib, floor2Width, floor2Height, floor2Depth, baseY + 12.8, -30, glassMat, glassFrameMat);
+
+        // THIRD FLOOR (TOP) - Maximum cantilever, most dramatic
+        const floor3Width = floor2Width + 4;  // 42 wide
+        const floor3Depth = floor2Depth + 3;  // 33 deep
+        const floor3Height = 4;
+
+        const floor3 = new THREE.Mesh(
+            new THREE.BoxGeometry(floor3Width, floor3Height, floor3Depth),
+            concreteMat
+        );
+        floor3.position.set(0, baseY + 15.6 + floor3Height / 2, -30);
+        floor3.castShadow = true;
+        lib.add(floor3);
+
+        // Third floor windows
+        this.addRibbonWindows(lib, floor3Width, floor3Height, floor3Depth, baseY + 17.6, -30, glassMat, glassFrameMat);
+
+        // ROOF with parapet
+        const roof = new THREE.Mesh(
+            new THREE.BoxGeometry(floor3Width + 1, 0.8, floor3Depth + 1),
+            concreteAccentMat
+        );
+        roof.position.set(0, baseY + 20, -30);
+        lib.add(roof);
+
+        // Roof parapet
+        const parapetHeight = 1.2;
+        // Front parapet
+        const parapetFront = new THREE.Mesh(
+            new THREE.BoxGeometry(floor3Width + 1, parapetHeight, 0.4),
+            concreteMat
+        );
+        parapetFront.position.set(0, baseY + 20.8, -30 + floor3Depth / 2 + 0.3);
+        lib.add(parapetFront);
+        // Back parapet
+        const parapetBack = new THREE.Mesh(
+            new THREE.BoxGeometry(floor3Width + 1, parapetHeight, 0.4),
+            concreteMat
+        );
+        parapetBack.position.set(0, baseY + 20.8, -30 - floor3Depth / 2 - 0.3);
+        lib.add(parapetBack);
+        // Side parapets
+        [-1, 1].forEach(side => {
+            const parapetSide = new THREE.Mesh(
+                new THREE.BoxGeometry(0.4, parapetHeight, floor3Depth + 1),
+                concreteMat
+            );
+            parapetSide.position.set(side * (floor3Width / 2 + 0.3), baseY + 20.8, -30);
+            lib.add(parapetSide);
+        });
+
+        // ============================================
+        // ENTRANCE - Recessed entry at ground level
+        // ============================================
+
+        // Entrance canopy extending forward
+        const entranceCanopy = new THREE.Mesh(
+            new THREE.BoxGeometry(14, 0.6, 10),
+            concreteAccentMat
+        );
+        entranceCanopy.position.set(0, baseY + 5, -15);
+        entranceCanopy.castShadow = true;
+        lib.add(entranceCanopy);
+
+        // Entrance support columns
+        [-5, 5].forEach(x => {
+            const entryCol = new THREE.Mesh(
+                new THREE.BoxGeometry(1.2, 5, 1.2),
+                concreteMat
+            );
+            entryCol.position.set(x, baseY + 2.5, -12);
+            entryCol.castShadow = true;
+            lib.add(entryCol);
+        });
+
+        // Glass entrance doors
+        const entranceDoors = new THREE.Mesh(
+            new THREE.BoxGeometry(8, 4, 0.2),
+            glassMat
+        );
+        entranceDoors.position.set(0, baseY + 2.5, -17);
+        lib.add(entranceDoors);
+
+        // Door frames
+        [-4, 0, 4].forEach(x => {
+            const doorFrame = new THREE.Mesh(
+                new THREE.BoxGeometry(0.15, 4, 0.3),
+                glassFrameMat
+            );
+            doorFrame.position.set(x, baseY + 2.5, -16.9);
+            lib.add(doorFrame);
+        });
+
+        // Entry steps
+        for (let i = 0; i < 5; i++) {
+            const step = new THREE.Mesh(
+                new THREE.BoxGeometry(12 - i * 0.3, 0.25, 1.4),
+                concreteMat
+            );
+            step.position.set(0, baseY + 0.15 + i * 0.25, -8 + i * 1.4);
+            step.receiveShadow = true;
             lib.add(step);
         }
 
+        // ============================================
+        // ROOFTOP EQUIPMENT - Mechanical penthouse
+        // ============================================
+
+        const mechRoom = new THREE.Mesh(
+            new THREE.BoxGeometry(10, 3, 8),
+            concreteAccentMat
+        );
+        mechRoom.position.set(-8, baseY + 22.5, -35);
+        lib.add(mechRoom);
+
+        const mechRoom2 = new THREE.Mesh(
+            new THREE.BoxGeometry(6, 2.5, 5),
+            concreteAccentMat
+        );
+        mechRoom2.position.set(10, baseY + 22, -28);
+        lib.add(mechRoom2);
+
+        // HVAC vents
+        for (let i = 0; i < 3; i++) {
+            const vent = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.8, 0.8, 1.5, 12),
+                new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.5 })
+            );
+            vent.position.set(5 + i * 4, baseY + 21.5, -40);
+            lib.add(vent);
+        }
+
+        // Position library on terrain
+        lib.position.y = this.getTerrainHeight(0, -30);
+
         this.group.add(lib);
+    }
+
+    // Helper method to add ribbon windows (horizontal strips typical of Brutalism)
+    addRibbonWindows(parent, width, height, depth, y, z, glassMat, frameMat) {
+        const windowHeight = height * 0.5;
+        const windowInset = 0.3;
+
+        // Front facade - large ribbon window
+        const frontWindow = new THREE.Mesh(
+            new THREE.BoxGeometry(width - 6, windowHeight, 0.15),
+            glassMat
+        );
+        frontWindow.position.set(0, y, z + depth / 2 - windowInset);
+        parent.add(frontWindow);
+
+        // Horizontal mullions
+        [-windowHeight / 3, 0, windowHeight / 3].forEach(offset => {
+            const hMullion = new THREE.Mesh(
+                new THREE.BoxGeometry(width - 6, 0.12, 0.2),
+                frameMat
+            );
+            hMullion.position.set(0, y + offset, z + depth / 2 - windowInset + 0.05);
+            parent.add(hMullion);
+        });
+
+        // Vertical mullions
+        const numVMullions = Math.floor((width - 6) / 5);
+        for (let i = 0; i <= numVMullions; i++) {
+            const vMullion = new THREE.Mesh(
+                new THREE.BoxGeometry(0.12, windowHeight, 0.2),
+                frameMat
+            );
+            vMullion.position.set(-(width - 6) / 2 + i * ((width - 6) / numVMullions), y, z + depth / 2 - windowInset + 0.05);
+            parent.add(vMullion);
+        }
+
+        // Side windows (smaller strips)
+        [-1, 1].forEach(side => {
+            const sideWindow = new THREE.Mesh(
+                new THREE.BoxGeometry(0.15, windowHeight * 0.8, depth - 8),
+                glassMat
+            );
+            sideWindow.position.set(side * (width / 2 - windowInset), y, z);
+            parent.add(sideWindow);
+        });
     }
 
     createChalkboards() {
