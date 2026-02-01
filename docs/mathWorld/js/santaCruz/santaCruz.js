@@ -5,30 +5,40 @@
  */
 import * as THREE from 'three';
 
-// Geographic bounds
+// Geographic bounds - expanded to cover the whole Monterey Bay and Santa Cruz Mountains
 export const SC_BOUNDS = {
-    north: 37.01454,
-    south: 36.92946,
-    west: -122.08174,
-    east: -121.90707
+    north: 37.50, // Higher north into the mountains
+    south: 36.50, // Further south into Monterey Bay
+    west: -122.55, // Further west into the Pacific
+    east: -121.65  // Further east into the Central Valley/Gilroy area
 };
 
 // Calculate dimensions in meters (approximate)
-const LAT_RANGE = SC_BOUNDS.north - SC_BOUNDS.south; // ~0.085 degrees
-const LON_RANGE = SC_BOUNDS.east - SC_BOUNDS.west;   // ~0.174 degrees
+const LAT_RANGE = SC_BOUNDS.north - SC_BOUNDS.south; // 1.0 degrees (~111 km)
+const LON_RANGE = SC_BOUNDS.east - SC_BOUNDS.west;   // 0.9 degrees (~80 km)
 const METERS_PER_LAT = 111000; // meters per degree latitude
 const METERS_PER_LON = 111000 * Math.cos((SC_BOUNDS.north + SC_BOUNDS.south) / 2 * Math.PI / 180);
 
 export const SC_SIZE = {
-    width: LON_RANGE * METERS_PER_LON,   // ~15.5 km east-west
-    height: LAT_RANGE * METERS_PER_LAT,  // ~9.4 km north-south
+    width: LON_RANGE * METERS_PER_LON,   // ~80 km east-west
+    height: LAT_RANGE * METERS_PER_LAT,  // ~111 km north-south
     scale: 1 // 1 unit = 1 meter
 };
 
-// Center point of the region
+// Center point of the region (Fixed near Santa Cruz)
 export const SC_CENTER = {
-    lat: (SC_BOUNDS.north + SC_BOUNDS.south) / 2,
-    lon: (SC_BOUNDS.east + SC_BOUNDS.west) / 2
+    lat: 36.97,
+    lon: -122.03
+};
+
+
+// Precise bounds for the UCSC Gulch area (to override regional terrain)
+// Calculated relative to the new SC_CENTER
+export const UCSC_GULCH_OVERRIDE = {
+    xMin: -2630, // East of West side
+    xMax: -2480, // West of East side
+    zMin: -3050, // North edge
+    zMax: -2750  // South edge
 };
 
 /**
@@ -51,150 +61,180 @@ export function localToGps(x, z) {
 }
 
 /**
+ * Helper: Procedural Noise
+ */
+function noise(nx, ny, octaves = 4) {
+    let val = 0;
+    let amp = 1;
+    let freq = 1;
+    for (let i = 0; i < octaves; i++) {
+        val += Math.sin(nx * freq * 5 + ny * freq * 3) * Math.cos(nx * freq * 2 - ny * freq * 4) * amp;
+        amp *= 0.5;
+        freq *= 2.1;
+    }
+    return val;
+}
+
+/**
  * Get elevation at a given GPS coordinate
  * Uses procedural approximation of Santa Cruz topography with accurate coastline
+ * Includes fine detail for local landmarks (UCSC, Boardwalk, River Mouth)
  */
 export function getElevation(lat, lon) {
-    // Normalize to 0-1 within bounds
-    const nx = (lon - SC_BOUNDS.west) / LON_RANGE;
-    const ny = (lat - SC_BOUNDS.south) / LAT_RANGE;
-
     // Check if point is in the ocean based on actual coastline
     if (isInOcean(lat, lon)) {
-        return -10;
+        return -20;
     }
+
+    // Normalize to 0-1 within expanded bounds
+    const nx = (lon - SC_BOUNDS.west) / LON_RANGE;
+    const ny = (lat - SC_BOUNDS.south) / LAT_RANGE;
 
     // Base elevation components
     let elevation = 0;
 
-    // Santa Cruz Mountains - higher in the north
-    const mountainFactor = Math.pow(ny, 1.5);
-    elevation += mountainFactor * 400; // Peak around 400m
+    // 1. Primary Coastal Range (Santa Cruz Mountains)
+    // Masked to only appear inland (further East/North)
+    const coastDistFactor = Math.max(0, Math.min(1, getDistanceToCoast(lat, lon) * 15)); // Grows as we go inland
+    const mountainAxis = (nx + ny * 0.8);
+    const mountainSpine = Math.exp(-Math.pow(mountainAxis - 1.1, 2) * 5) * 1100; // Peak @ ~1100m
+    elevation += mountainSpine * coastDistFactor;
 
-    // Ridge lines running NW-SE
-    elevation += Math.sin((nx + ny) * 12) * 50 * mountainFactor;
-    elevation += Math.sin((nx * 2 + ny) * 8) * 30 * mountainFactor;
+    // 2. Secondary Ridges and Valleys
+    elevation += noise(nx * 10, ny * 10, 3) * 80 * (0.3 + (mountainSpine / 1100));
 
-    // UCSC area - moderately elevated (around 250-300m)
+    // 3. Marine Terraces
+    const localDistToCoast = getDistanceToCoast(lat, lon);
+    if (localDistToCoast < 0.04) {
+        const terraceHeight = 25; // More subtle steps
+        const t = elevation / terraceHeight;
+        const terraceFrac = t % 1.0;
+        const stepAdjustment = Math.pow(terraceFrac, 5) * terraceHeight;
+        elevation = Math.floor(t) * terraceHeight + stepAdjustment;
+    }
+
+    // 4. San Lorenzo River Basin & Downtown
+    const downtownLat = 36.974;
+    const downtownLon = -122.030;
+    const distToDowntown = Math.sqrt(Math.pow(lat - downtownLat, 2) + Math.pow(lon - downtownLon, 2));
+
+    // San Lorenzo River path
+    const riverLon = -122.025 - Math.sin((lat - 36.97) * 40) * 0.005;
+    const riverDist = Math.abs(lon - riverLon);
+    if (riverDist < 0.006 && lat < 37.1) {
+        const depth = (1.0 - riverDist / 0.006) * 50;
+        elevation -= depth;
+    }
+
+    // Downtown Basin - Bring it closer to real-world ~10-20m
+    if (distToDowntown < 0.015) {
+        const downtownFactor = 1.0 - distToDowntown / 0.015;
+        elevation = elevation * (1.0 - downtownFactor * 0.85) + 8 * downtownFactor;
+    }
+
+    // 5. UCSC Plateau - Real world: Base @ 100m, Upper Campus @ 250m
     const ucscLat = 36.9958;
     const ucscLon = -122.0595;
-    const ucscNx = (ucscLon - SC_BOUNDS.west) / LON_RANGE;
-    const ucscNy = (ucscLat - SC_BOUNDS.south) / LAT_RANGE;
-    const distToUcsc = Math.sqrt(Math.pow(nx - ucscNx, 2) + Math.pow(ny - ucscNy, 2));
-    if (distToUcsc < 0.15) {
-        elevation = Math.max(elevation, 250 + (0.15 - distToUcsc) * 200);
+    const distToUcsc = Math.sqrt(Math.pow(lat - ucscLat, 2) + Math.pow(lon - ucscLon, 2));
+    if (distToUcsc < 0.025) {
+        const lift = (1.0 - distToUcsc / 0.025) * 60;
+        elevation = Math.max(elevation, 110 + lift); // Base lift to 110m (360ft)
 
-        // Add the Chasm (East of McHenry)
-        // McHenry local origin is at (ucscLat, ucscLon)
-        // Chasm is at local X=65, local Z range around -35
-        const chasmCenterLat = 36.9958 - (-35) / 111000; // buildingZ is -35
-        const chasmCenterLon = -122.0595 + (65) / METERS_PER_LON;
-
-        const dLat = (lat - chasmCenterLat) * 111000;
-        const dLon = (lon - chasmCenterLon) * METERS_PER_LON;
-
-        // Chasm bounds: 100m north-south, steep V-shape 30m wide
-        if (Math.abs(dLat) < 60 && Math.abs(dLon) < 20) {
-            const normalizedDist = Math.abs(dLon) / 15;
-            const depthFactor = Math.max(0, 1.0 - Math.pow(normalizedDist, 0.4));
-            elevation -= depthFactor * 60; // Deep 60m chasm
+        // Chasm Detail
+        const ucscLocal = gpsToLocal(ucscLat, ucscLon);
+        const chasmX = ucscLocal.x + 70;
+        const local = gpsToLocal(lat, lon);
+        const dX = local.x - chasmX;
+        const dZ = local.z - ucscLocal.z;
+        if (dX > -30 && dX < 30 && dZ > -120 && dZ < 60) {
+            const depthFactor = Math.max(0, 1.0 - Math.pow(Math.abs(dX) / 20, 0.4));
+            return Math.max(10, elevation - depthFactor * 80);
         }
     }
 
-    // Coastal lowland zone - flatten near the actual coast
-    const distToCoast = getDistanceToCoast(lat, lon);
-    if (distToCoast < 0.02) { // About 2km from coast
-        const coastalFactor = distToCoast / 0.02;
-        elevation *= 0.1 + coastalFactor * 0.9; // Lower near coast
+    // 6. Boardwalk / Main Beach
+    const boardwalkLat = 36.963;
+    const boardwalkLon = -122.018;
+    const distToBoardwalk = Math.sqrt(Math.pow(lat - boardwalkLat, 2) + Math.pow(lon - boardwalkLon, 2));
+    if (distToBoardwalk < 0.008) {
+        const bwFactor = 1.0 - distToBoardwalk / 0.008;
+        elevation = elevation * (1.0 - bwFactor) + 3 * bwFactor; // Fade to beach (3m)
     }
 
-    // Downtown Santa Cruz - gradual lowering
-    const downtownLat = 36.9741;
-    const downtownLon = -122.0308;
-    const dtNx = (downtownLon - SC_BOUNDS.west) / LON_RANGE;
-    const dtNy = (downtownLat - SC_BOUNDS.south) / LAT_RANGE;
-    const distToDowntown = Math.sqrt(Math.pow(nx - dtNx, 2) + Math.pow(ny - dtNy, 2));
-    if (distToDowntown < 0.1) {
-        const blend = distToDowntown / 0.1;
-        elevation *= 0.3 + 0.7 * blend;
+    // 7. Coastal Bluffs
+    const coastDist = getDistanceToCoast(lat, lon);
+    if (coastDist < 0.004) {
+        const bluffFactor = coastDist / 0.004;
+        if (lon < -122.025) {
+            elevation = Math.max(11, elevation); // Standard 35ft bluffs
+            if (coastDist < 0.0004) elevation *= (0.2 + 0.8 * (coastDist / 0.0004));
+        } else {
+            elevation *= Math.pow(bluffFactor, 0.4);
+        }
     }
 
-    // San Lorenzo River valley
-    const riverLon = -122.025;
-    const riverNx = (riverLon - SC_BOUNDS.west) / LON_RANGE;
-    const distToRiver = Math.abs(nx - riverNx);
-    if (distToRiver < 0.03 && ny < 0.5) {
-        elevation *= 0.5 + distToRiver * 15;
-    }
+    // Fine texture noise
+    elevation += noise(nx * 200, ny * 200, 2) * 3;
 
-    // Add some noise for natural variation
-    elevation += Math.sin(nx * 50) * Math.cos(ny * 50) * 5;
-    elevation += Math.sin(nx * 100 + ny * 80) * 2;
-
-    return Math.max(0, elevation);
+    return Math.max(1.5, elevation);
 }
 
-/**
- * Accurate Santa Cruz coastline based on real GPS points
- * Returns true if the point is in Monterey Bay (ocean)
- */
 function isInOcean(lat, lon) {
-    // Coastline reference points (from west to east along the shore)
-    // These define where land meets water
+    // Define the coastline with high resolution for the Santa Cruz city area
     const coastline = [
-        { lat: 36.9519, lon: -122.0575 }, // Natural Bridges
-        { lat: 36.9515, lon: -122.0256 }, // Steamer Lane / Lighthouse Point
-        { lat: 36.9620, lon: -122.0177 }, // Main Beach / Boardwalk
-        { lat: 36.9630, lon: -122.0070 }, // Seabright Beach
-        { lat: 36.9680, lon: -121.9850 }, // Twin Lakes
-        { lat: 36.9761, lon: -121.9530 }, // Capitola
-        { lat: 36.9820, lon: -121.9200 }, // New Brighton (east edge)
+        { lat: 37.15, lon: -122.45 }, // Año Nuevo area
+        { lat: 37.05, lon: -122.30 }, // Davenport
+        { lat: 36.965, lon: -122.100 }, // Terrace Point (near Long Marine Lab)
+        { lat: 36.958, lon: -122.066 }, // Wilder Ranch
+        { lat: 36.952, lon: -122.058 }, // Natural Bridges
+        { lat: 36.951, lon: -122.043 }, // Mitchell's Cove
+        { lat: 36.951, lon: -122.027 }, // Steamer Lane (Lighthouse Point)
+        { lat: 36.963, lon: -122.022 }, // Cowell Beach
+        { lat: 36.964, lon: -122.018 }, // Main Beach (Boardwalk) - PROTECTED
+        { lat: 36.964, lon: -122.012 }, // San Lorenzo River Mouth
+        { lat: 36.964, lon: -122.008 }, // Seabright Beach
+        { lat: 36.962, lon: -122.000 }, // Santa Cruz Harbor
+        { lat: 36.967, lon: -121.986 }, // Twin Lakes
+        { lat: 36.974, lon: -121.956 }, // Capitola
+        { lat: 36.950, lon: -121.900 }, // Rio Del Mar
+        { lat: 36.850, lon: -121.800 }, // Moss Landing
+        { lat: 36.650, lon: -121.850 }, // Marina
+        { lat: 36.620, lon: -121.940 }, // Monterey
+        { lat: 36.600, lon: -121.990 }  // Pebble Beach
     ];
 
-    // For each segment of coastline, check if point is south of the line
-    // (south = ocean for Santa Cruz which faces Monterey Bay)
-
+    // Find the segment the longitude falls into
     for (let i = 0; i < coastline.length - 1; i++) {
         const p1 = coastline[i];
         const p2 = coastline[i + 1];
 
-        // Skip if lon is outside this segment
-        if (lon < p1.lon || lon > p2.lon) continue;
+        const minLon = Math.min(p1.lon, p2.lon);
+        const maxLon = Math.max(p1.lon, p2.lon);
 
-        // Linear interpolation to find coastline latitude at this longitude
-        const t = (lon - p1.lon) / (p2.lon - p1.lon);
-        const coastLat = p1.lat + t * (p2.lat - p1.lat);
-
-        // If point's latitude is south of coastline, it's in the ocean
-        if (lat < coastLat - 0.002) { // Small buffer for beach
-            return true;
+        if (lon >= minLon && lon <= maxLon) {
+            const t = (lon - p1.lon) / (p2.lon - p1.lon);
+            const coastLat = p1.lat + t * (p2.lat - p1.lat);
+            if (lat < coastLat) return true;
         }
     }
 
-    // West of Natural Bridges - ocean is south of ~36.95
-    if (lon < -122.0575 && lat < 36.95) {
-        return true;
-    }
-
-    // East of New Brighton - ocean is south of ~36.98
-    if (lon > -121.92 && lat < 36.98) {
-        return true;
-    }
+    // Extremes
+    if (lon < -122.45 && lat < 37.15) return true;
+    if (lon > -122.00 && lat < 36.60) return true;
 
     return false;
 }
 
 /**
- * Get approximate distance to coastline (in normalized coordinates)
+ * Get approximate distance to coastline
  */
 function getDistanceToCoast(lat, lon) {
     const coastline = [
-        { lat: 36.9519, lon: -122.0575 },
-        { lat: 36.9515, lon: -122.0256 },
-        { lat: 36.9620, lon: -122.0177 },
-        { lat: 36.9630, lon: -122.0070 },
-        { lat: 36.9680, lon: -121.9850 },
-        { lat: 36.9761, lon: -121.9530 },
+        { lat: 36.951, lon: -122.058 }, // Natural Bridges
+        { lat: 36.951, lon: -122.027 }, // Steamer Lane
+        { lat: 36.962, lon: -122.018 }, // Boardwalk
+        { lat: 36.964, lon: -122.012 }, // River Mouth - TYPO FIXED
+        { lat: 36.974, lon: -121.956 }  // Capitola
     ];
 
     let minDist = Infinity;
@@ -205,16 +245,30 @@ function getDistanceToCoast(lat, lon) {
     return minDist;
 }
 
+// Bounds for the "Santa Cruz Shoreline Detail" patch in World Z (North = Negative)
+const SC_SHORELINE_PATCH = {
+    xMin: -6000,
+    xMax: 6000,
+    zMin: -4500, // 4.5km North of center
+    zMax: 2000   // 2km South of center
+};
+
+/**
+ * High-fidelity terrain renderer for Santa Cruz
+ */
 export class SantaCruzTerrain {
     constructor(scene) {
         this.scene = scene;
         this.terrainMesh = null;
+        this.shorelineMesh = null;
         this.oceanMesh = null;
-        this.resolution = 512; // Grid resolution (Increased for better chasm visibility)
+        this.resolution = 768; // Regional resolution
+        this.patchResolution = 512; // High-density patch for city center
     }
 
     async generate() {
         this.createTerrain();
+        this.createShorelinePatch();
         this.createOcean();
         this.createCoastline();
         this.createSky();
@@ -225,108 +279,142 @@ export class SantaCruzTerrain {
         const width = SC_SIZE.width;
         const height = SC_SIZE.height;
 
-        // Create high-resolution terrain geometry
-        const geometry = new THREE.PlaneGeometry(
-            width, height,
-            this.resolution, this.resolution
-        );
-
+        const geometry = new THREE.PlaneGeometry(width, height, this.resolution, this.resolution);
         const positions = geometry.attributes.position;
         const colors = new Float32Array(positions.count * 3);
 
         for (let i = 0; i < positions.count; i++) {
             const x = positions.getX(i);
-            const z = positions.getY(i); // Y in PlaneGeometry becomes Z when rotated
+            const yPlane = positions.getY(i);
+            const worldZ = -yPlane; // Mapping Plane Y+ to World Z- (North)
 
-            // Convert to GPS
-            const gps = localToGps(x, -z);
+            const gps = localToGps(x, worldZ);
 
-            // Get elevation
-            const elevation = getElevation(gps.lat, gps.lon);
-            positions.setZ(i, elevation);
+            // OVERRIDE: Punch holes for high-detail local meshes
+            const inGulch = (x > UCSC_GULCH_OVERRIDE.xMin && x < UCSC_GULCH_OVERRIDE.xMax &&
+                worldZ > UCSC_GULCH_OVERRIDE.zMin && worldZ < UCSC_GULCH_OVERRIDE.zMax);
+            const inShoreline = (x > SC_SHORELINE_PATCH.xMin && x < SC_SHORELINE_PATCH.xMax &&
+                worldZ > SC_SHORELINE_PATCH.zMin && worldZ < SC_SHORELINE_PATCH.zMax);
 
-            // Set vertex colors based on elevation and type
-            let r, g, b;
-            if (elevation < 0) {
-                // Ocean
-                r = 0.1; g = 0.3; b = 0.5;
-            } else if (elevation < 5) {
-                // Beach/sand
-                r = 0.9; g = 0.85; b = 0.7;
-            } else if (elevation < 50) {
-                // Coastal lowland - grassland
-                r = 0.4; g = 0.55; b = 0.3;
-            } else if (elevation < 200) {
-                // Foothills - mixed
-                r = 0.35; g = 0.5; b = 0.28;
-            } else if (elevation < 350) {
-                // Forest - darker green (redwoods)
-                r = 0.2; g = 0.35; b = 0.18;
-            } else {
-                // Mountain tops - slightly brown/rocky
-                r = 0.45; g = 0.4; b = 0.35;
+            let elevation = getElevation(gps.lat, gps.lon);
+            if (inGulch || inShoreline) {
+                elevation = -500; // Sink regional terrain
             }
 
-            // Add some variation
-            const noise = (Math.random() - 0.5) * 0.1;
-            colors[i * 3] = Math.max(0, Math.min(1, r + noise));
-            colors[i * 3 + 1] = Math.max(0, Math.min(1, g + noise));
-            colors[i * 3 + 2] = Math.max(0, Math.min(1, b + noise));
+            positions.setZ(i, elevation);
+            const color = this.getVertexColor(gps, elevation, x, worldZ);
+            colors[i * 3] = color.r;
+            colors[i * 3 + 1] = color.g;
+            colors[i * 3 + 2] = color.b;
         }
 
         geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
         geometry.computeVertexNormals();
 
-        const material = new THREE.MeshStandardMaterial({
-            vertexColors: true,
-            roughness: 0.9,
-            metalness: 0,
-            flatShading: false
-        });
-
-        this.terrainMesh = new THREE.Mesh(geometry, material);
+        this.terrainMesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+            vertexColors: true, roughness: 0.9, metalness: 0
+        }));
         this.terrainMesh.rotation.x = -Math.PI / 2;
         this.terrainMesh.receiveShadow = true;
-        this.terrainMesh.castShadow = true;
-
         this.scene.add(this.terrainMesh);
     }
 
-    createOcean() {
-        // Monterey Bay water surface - positioned to match actual coastline
-        // The coastline runs roughly from NW to SE, so ocean is to the south
-        const oceanGeometry = new THREE.PlaneGeometry(SC_SIZE.width * 2.5, SC_SIZE.height * 2);
-        const oceanMaterial = new THREE.MeshStandardMaterial({
-            color: 0x1E6091,
-            roughness: 0.2,
-            metalness: 0.3,
-            transparent: true,
-            opacity: 0.85
-        });
+    createShorelinePatch() {
+        const width = SC_SHORELINE_PATCH.xMax - SC_SHORELINE_PATCH.xMin;
+        const height = SC_SHORELINE_PATCH.zMax - SC_SHORELINE_PATCH.zMin;
 
+        const geo = new THREE.PlaneGeometry(width, height, this.patchResolution, this.patchResolution);
+        const pos = geo.attributes.position;
+        const colors = new Float32Array(pos.count * 3);
+
+        const centerX = (SC_SHORELINE_PATCH.xMin + SC_SHORELINE_PATCH.xMax) / 2;
+        const centerZ = (SC_SHORELINE_PATCH.zMin + SC_SHORELINE_PATCH.zMax) / 2;
+
+        for (let i = 0; i < pos.count; i++) {
+            const lx = pos.getX(i);
+            const ly = pos.getY(i);
+            const worldX = centerX + lx;
+            const worldZ = centerZ - ly; // Transform to World Z
+            const gps = localToGps(worldX, worldZ);
+
+            let elevation = getElevation(gps.lat, gps.lon);
+            pos.setZ(i, elevation);
+
+            const color = this.getVertexColor(gps, elevation, worldX, worldZ);
+            colors[i * 3] = color.r;
+            colors[i * 3 + 1] = color.g;
+            colors[i * 3 + 2] = color.b;
+        }
+
+        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        geo.computeVertexNormals();
+
+        this.shorelineMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+            vertexColors: true, roughness: 0.85, metalness: 0
+        }));
+        this.shorelineMesh.rotation.x = -Math.PI / 2;
+        this.shorelineMesh.position.set(centerX, 0.1, centerZ);
+        this.shorelineMesh.receiveShadow = true;
+        this.shorelineMesh.castShadow = true;
+
+        this.scene.add(this.shorelineMesh);
+    }
+
+    getVertexColor(gps, elevation, x, z) {
+        let r, g, b;
+        const boardwalkDist = Math.sqrt(Math.pow(gps.lat - 36.963, 2) + Math.pow(gps.lon - -122.018, 2));
+        const downtownDist = Math.sqrt(Math.pow(gps.lat - 36.974, 2) + Math.pow(gps.lon - -122.030, 2));
+        const riverLon = -122.025 - Math.sin((gps.lat - 36.97) * 40) * 0.005;
+        const riverDist = Math.abs(gps.lon - riverLon);
+
+        if (boardwalkDist < 0.008 && elevation < 25) {
+            r = 0.94; g = 0.90; b = 0.75;
+        } else if (riverDist < 0.003 && gps.lat < 37.05 && elevation < 50) {
+            r = 0.15; g = 0.25; b = 0.35;
+        } else if (downtownDist < 0.015 && elevation < 70) {
+            r = 0.55; g = 0.52; b = 0.48;
+        } else {
+            if (elevation < 1) {
+                r = 0.75; g = 0.7; b = 0.55;
+            } else if (elevation < 12) {
+                r = 0.85; g = 0.82; b = 0.68;
+            } else if (elevation < 80) {
+                r = 0.42; g = 0.52; b = 0.35;
+            } else if (elevation < 250) {
+                r = 0.35; g = 0.48; b = 0.32;
+            } else if (elevation < 600) {
+                r = 0.22; g = 0.32; b = 0.2;
+            } else {
+                r = 0.48; g = 0.45; b = 0.42;
+            }
+        }
+        const variation = (Math.sin(x * 0.02) * Math.cos(z * 0.02)) * 0.05;
+        return {
+            r: Math.max(0.05, Math.min(0.95, r + variation)),
+            g: Math.max(0.05, Math.min(0.95, g + variation)),
+            b: Math.max(0.05, Math.min(0.95, b + variation))
+        };
+    }
+
+    createOcean() {
+        const oceanGeometry = new THREE.PlaneGeometry(SC_SIZE.width * 10, SC_SIZE.height * 10);
+        const oceanMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1E6091, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.8
+        });
         this.oceanMesh = new THREE.Mesh(oceanGeometry, oceanMaterial);
         this.oceanMesh.rotation.x = -Math.PI / 2;
-        // Position: The coastline is roughly at Z = +2000 to +3500 (positive Z = south)
-        // So ocean center needs to be well south of that
-        this.oceanMesh.position.set(0, -3, SC_SIZE.height * 0.7);
-
+        this.oceanMesh.position.set(0, 0, 0);
         this.scene.add(this.oceanMesh);
     }
 
     createCoastline() {
-        // Add white foam/surf line along the coast
-        const foamGeometry = new THREE.PlaneGeometry(SC_SIZE.width * 1.2, 50);
+        const foamGeometry = new THREE.PlaneGeometry(20000, 100);
         const foamMaterial = new THREE.MeshStandardMaterial({
-            color: 0xFFFFFF,
-            transparent: true,
-            opacity: 0.6,
-            roughness: 1
+            color: 0xFFFFFF, transparent: true, opacity: 0.4, roughness: 1
         });
-
         const foam = new THREE.Mesh(foamGeometry, foamMaterial);
         foam.rotation.x = -Math.PI / 2;
-        foam.position.set(0, 1, SC_SIZE.height * 0.42);
-
+        foam.position.set(-2000, 0.5, 2500);
         this.scene.add(foam);
     }
 
@@ -366,14 +454,13 @@ export class SantaCruzTerrain {
             `,
             side: THREE.BackSide
         });
-
         this.scene.add(new THREE.Mesh(skyGeo, skyMat));
     }
 
     createLighting() {
-        // Sun
         const sunLight = new THREE.DirectionalLight(0xFFFFF0, 1.5);
-        sunLight.position.set(SC_SIZE.width, 5000, -SC_SIZE.height / 2);
+        // Position the sun at a planetary scale altitude (50,000km)
+        sunLight.position.set(50000000, 50000000, -50000000);
         sunLight.castShadow = true;
         sunLight.shadow.mapSize.width = 4096;
         sunLight.shadow.mapSize.height = 4096;
@@ -384,25 +471,15 @@ export class SantaCruzTerrain {
         sunLight.shadow.camera.top = 10000;
         sunLight.shadow.camera.bottom = -10000;
         this.scene.add(sunLight);
-
-        // Ambient light
         this.scene.add(new THREE.AmbientLight(0x6688AA, 0.5));
-
-        // Hemisphere light for natural sky/ground color
         this.scene.add(new THREE.HemisphereLight(0x87CEEB, 0x3A6B35, 0.4));
     }
 
-    /**
-     * Get the elevation at local coordinates
-     */
     getElevationAtLocal(x, z) {
         const gps = localToGps(x, z);
         return getElevation(gps.lat, gps.lon);
     }
 
-    /**
-     * Get local coordinates for a known location
-     */
     getLocalPosition(locationId) {
         const locations = {
             mchenryLibrary: { lat: 36.9958, lon: -122.0595 },

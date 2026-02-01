@@ -14,6 +14,7 @@ import {
     SteamerLane,
     BeachBoardwalk
 } from './santaCruz/index.js';
+import { REGIONAL_LOCATIONS } from './regionalLocations.js';
 
 class MathWorld {
     constructor() {
@@ -60,45 +61,65 @@ class MathWorld {
     }
 
     async init() {
-        this.setupRenderer();
-        this.setupScene();
-        this.setupCamera();
+        try {
+            this.setupRenderer();
+            this.setupScene();
+            this.setupCamera();
 
-        // Create Santa Cruz terrain
-        this.terrain = new SantaCruzTerrain(this.scene);
-        await this.terrain.generate();
+            // Create Santa Cruz terrain
+            this.terrain = new SantaCruzTerrain(this.scene);
+            await this.terrain.generate();
 
-        // Get McHenry Library position
-        this.mchenryLocalPos = this.terrain.getLocalPosition('mchenryLibrary');
+            // Get McHenry Library position
+            this.mchenryLocalPos = this.terrain.getLocalPosition('mchenryLibrary');
 
-        // Calculate camera positions
-        this.calculateCameraPositions();
+            // Calculate camera positions
+            this.calculateCameraPositions();
 
-        // Position camera for aerial view
-        this.camera.position.copy(this.aerialPosition);
-        this.camera.lookAt(new THREE.Vector3(0, 0, 0));
+            // Position camera for aerial view
+            this.camera.position.copy(this.aerialPosition);
+            this.camera.lookAt(new THREE.Vector3(0, 0, 0));
 
-        // Create player (initially disabled)
-        this.player = new Player(this.camera, this.canvas, this, null);
+            // Create player (initially disabled)
+            this.player = new Player(this.camera, this.canvas, this, null);
 
-        // Create Atlas
-        this.atlas = new Atlas(this);
+            // Create Atlas
+            try {
+                this.atlas = new Atlas(this);
+            } catch (e) {
+                console.error('Failed to initialize Atlas:', e);
+                // Create a dummy atlas if it fails to prevent complete crash
+                this.atlas = {
+                    isActive: false,
+                    update: () => { },
+                    handleKeyDown: () => false,
+                    open: () => { },
+                    close: () => { }
+                };
+            }
 
-        // Create Mobile Controls
-        this.mobileControls = new MobileControls(this.player, this);
-        this.player.setMobileControls(this.mobileControls);
+            // Create Mobile Controls
+            this.mobileControls = new MobileControls(this.player, this);
+            this.player.setMobileControls(this.mobileControls);
 
-        this.setupEventListeners();
-        this.loadingScreen.classList.add('hidden');
-        this.animate();
+            this.setupEventListeners();
+            this.loadingScreen.classList.add('hidden');
+            this.animate();
+        } catch (e) {
+            console.error('MathWorld initialization failed:', e);
+            const subtitle = this.loadingScreen?.querySelector('.loader-subtitle');
+            if (subtitle) {
+                subtitle.textContent = 'Load failed. Open console for details.';
+            }
+        }
     }
 
     calculateCameraPositions() {
-        // Aerial view - high above the center of Santa Cruz
+        // Aerial view - higher altitude and further south to see the bay and mountains
         this.aerialPosition = new THREE.Vector3(
-            0,            // Center X
-            3000,         // 3km altitude
-            -SC_SIZE.height * 0.3  // Slightly north to see the whole region
+            -5000,        // Off-center X for more dynamic angle
+            6000,         // 6km altitude (was 3km)
+            8000          // Positioned slightly south over the water, looking north toward campus
         );
 
         // Ground position at McHenry Library
@@ -110,7 +131,7 @@ class MathWorld {
     }
 
     async loadLocation(locationId) {
-        const locData = SANTA_CRUZ_LOCATIONS[locationId];
+        const locData = SANTA_CRUZ_LOCATIONS[locationId] || REGIONAL_LOCATIONS[locationId];
         if (!locData) {
             console.error(`Location not found: ${locationId}`);
             return;
@@ -152,17 +173,47 @@ class MathWorld {
             case 'boardwalk':
                 this.locationContent = new BeachBoardwalk(this.locationGroup, localTerrainFn);
                 break;
-            default:
-                console.warn(`No content class for location: ${locationId}`);
-                return;
+            case 'berkeley':
+                this.locationContent = this.createBerkeleyPlaceholder(this.locationGroup);
+                break;
         }
 
-        await this.locationContent.generate();
+        if (this.locationContent && this.locationContent.generate) {
+            await this.locationContent.generate();
+        }
 
         this.currentLocationId = locationId;
         this.currentLocation = locData;
 
         console.log(`Loaded location: ${locData.name}`);
+    }
+
+    createBerkeleyPlaceholder(group) {
+        // Simple geometric placeholder for Berkeley
+        const ground = new THREE.Mesh(
+            new THREE.CylinderGeometry(50, 50, 1, 32),
+            new THREE.MeshStandardMaterial({ color: 0x3A6B35 })
+        );
+        group.add(ground);
+
+        // A stylized Campanile tower
+        const tower = new THREE.Group();
+        const base = new THREE.Mesh(new THREE.BoxGeometry(4, 30, 4), new THREE.MeshStandardMaterial({ color: 0xDDDDDD }));
+        base.position.y = 15;
+        tower.add(base);
+        const top = new THREE.Mesh(new THREE.ConeGeometry(3, 8, 4), new THREE.MeshStandardMaterial({ color: 0x555555 }));
+        top.position.y = 34;
+        top.rotation.y = Math.PI / 4;
+        tower.add(top);
+        tower.position.set(0, 0, -20);
+        group.add(tower);
+
+        // Berkeley Sign
+        const sign = new THREE.Mesh(new THREE.BoxGeometry(6, 2, 0.5), new THREE.MeshStandardMaterial({ color: 0x003262 }));
+        sign.position.set(0, 5, -10);
+        group.add(sign);
+
+        return { generate: async () => { }, getInteractables: () => [] };
     }
 
     setupRenderer() {
@@ -184,15 +235,16 @@ class MathWorld {
     setupScene() {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0xAAD4E6);
-        this.scene.fog = new THREE.Fog(0xAAD4E6, 5000, 20000);
+        // Pushed fog back significantly to allow seeing the new 100km terrain range
+        this.scene.fog = new THREE.Fog(0xAAD4E6, 20000, 150000);
     }
 
     setupCamera() {
         this.camera = new THREE.PerspectiveCamera(
             60,
             window.innerWidth / window.innerHeight,
-            0.1,  // Near clipping - close enough for first-person
-            100000
+            0.1,  // Near clipping
+            100000000 // Increased far clipping for high-altitude Atlas views
         );
     }
 
@@ -324,23 +376,26 @@ class MathWorld {
         await this.loadLocation(locationId);
 
         // Get new ground position
-        const locData = SANTA_CRUZ_LOCATIONS[locationId];
+        const locData = SANTA_CRUZ_LOCATIONS[locationId] || REGIONAL_LOCATIONS[locationId];
         const local = gpsToLocal(locData.lat, locData.lon);
-        const elevation = getElevation(locData.lat, locData.lon);
+        // Fallback for elevation if outside terrain bounds
+        let elevation = 0;
+        try {
+            elevation = getElevation(locData.lat, locData.lon);
+        } catch (e) {
+            elevation = 0;
+        }
 
-        // Position based on location type - coastal locations face ocean (south = +Z)
-        let spawnX = 0, spawnZ = -12;  // Default: stand south of center, face north
-        let faceTowardZ = -50;  // Look at center of location
+        // Position based on location type
+        let spawnX = 0, spawnZ = -12;
+        let faceTowardZ = -50;
 
         if (locationId === 'steamerLane') {
-            // Stand on the bluff, facing the ocean (south/+Z direction)
-            spawnX = 20;   // Near benches
-            spawnZ = 5;    // On the bluff edge
-            faceTowardZ = 80;  // Look toward ocean
+            spawnX = 20; spawnZ = 5; faceTowardZ = 80;
         } else if (locationId === 'boardwalk') {
-            spawnX = 0;
-            spawnZ = -20;  // Stand on beach side
-            faceTowardZ = 50;  // Look toward boardwalk
+            spawnX = 0; spawnZ = -20; faceTowardZ = 50;
+        } else if (locationId === 'berkeley') {
+            spawnX = 0; spawnZ = 15; faceTowardZ = -20;
         }
 
         this.camera.position.set(local.x + spawnX, elevation + 1.7, local.z + spawnZ);
@@ -430,11 +485,12 @@ class MathWorld {
         } else if (this.isRunning) {
             this.player.update(delta);
         } else if (this.introPhase === 'aerial') {
-            // Gentle camera drift over Santa Cruz
+            // Gentle camera drift over the Monterey Bay
             const time = this.clock.getElapsedTime();
-            this.camera.position.x = Math.sin(time * 0.1) * 500;
-            this.camera.position.z = this.aerialPosition.z + Math.cos(time * 0.08) * 300;
-            this.camera.lookAt(new THREE.Vector3(0, 100, 0));
+            this.camera.position.x = this.aerialPosition.x + Math.sin(time * 0.1) * 2000;
+            this.camera.position.z = this.aerialPosition.z + Math.cos(time * 0.08) * 1500;
+            // Look toward the UCSC campus area
+            this.camera.lookAt(new THREE.Vector3(this.mchenryLocalPos.x, 200, this.mchenryLocalPos.z));
         }
 
         this.renderer.render(this.scene, this.camera);

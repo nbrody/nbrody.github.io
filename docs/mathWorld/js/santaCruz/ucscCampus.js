@@ -113,7 +113,7 @@ export class UCSCCampus {
         for (let i = 0; i < 120; i++) {
             let x, z;
             do { x = (Math.random() - 0.5) * 280; z = (Math.random() - 0.5) * 280; }
-            while (Math.sqrt(x * x + (z + 20) * (z + 20)) < 35);
+            while (this.isNearBuilding(x, z));
             const tree = this.createRedwood();
             tree.position.set(x, this.getTerrainHeight(x, z), z);
             tree.scale.setScalar(0.6 + Math.random() * 0.8);
@@ -387,7 +387,7 @@ export class UCSCCampus {
             const tx = Math.cos(angle) * dist;
             const tz = buildingZ + Math.sin(angle) * dist;
             // Don't place tree inside building
-            if (Math.abs(tx) < northWingLen / 2 + 5 && Math.abs(tz - buildingZ) < eastWingLen / 2 + 5) continue;
+            if (this.isNearBuilding(tx, tz)) continue;
             const tree = this.createRedwood();
             tree.position.set(tx, this.getTerrainHeight(tx, tz), tz);
             tree.scale.setScalar(0.6 + Math.random() * 1.2);
@@ -398,17 +398,27 @@ export class UCSCCampus {
         this.group.add(lib);
     }
 
+    // Helper: Exact footprint check for McHenry Library to prevent overlaps
+    isNearBuilding(x, z) {
+        const buildingZ = -35;
+        // The "9" shape footprint with a small buffer (5 units)
+        const xBounds = 21 + 5;
+        const zMin = buildingZ - 11 - 6 - 5; // North edge
+        const zMax = buildingZ + 14 + 25 + 5; // Southern tail edge
+
+        return Math.abs(x) < xBounds && z > zMin && z < zMax;
+    }
+
     createGulchAndBridge() {
         const buildingZ = -35;
-        const gulchX = 65; // East of building
-        const bridgeZ = buildingZ - 50; // Move bridge 50 units North
-        const gulchWidth = 30; // Wider for better visibility
-        const gulchLength = 120;
-        const gulchDepth = 60;
+        const gulchX = 70; // Center matches override in santaCruz.js
+        const bridgeZ = buildingZ - 50;
+        const gulchWidth = 35;
+        const gulchLength = 150;
+        const gulchDepth = 75;
 
-        // Local high-detail chasm mesh to ground-level immersion
-        // This overlaps the regional terrain with higher resolution
-        const chasmGeo = new THREE.PlaneGeometry(gulchWidth + 20, gulchLength, 60, 60);
+        // High-detail chasm floor
+        const chasmGeo = new THREE.PlaneGeometry(gulchWidth + 20, gulchLength, 80, 80);
         const pos = chasmGeo.attributes.position;
         for (let i = 0; i < pos.count; i++) {
             const px = pos.getX(i);
@@ -418,17 +428,32 @@ export class UCSCCampus {
             pos.setZ(i, -depthFactor * gulchDepth);
         }
         chasmGeo.computeVertexNormals();
+
         const chasmMat = new THREE.MeshStandardMaterial({
-            color: 0x1A2A15,
+            color: 0x1A2215, // Denser floor color
             roughness: 1.0,
             flatShading: true
         });
         const chasmMesh = new THREE.Mesh(chasmGeo, chasmMat);
         chasmMesh.rotation.x = -Math.PI / 2;
-        // Position at the rim height
-        const rimHeight = this.getTerrainHeight(gulchX - 25, bridgeZ);
-        chasmMesh.position.set(gulchX, rimHeight, buildingZ - 20); // Center of the north-south chasm
+
+        // Find rim height (elevated ground around the chasm)
+        // We sample a point outside the chasm override zone to get the "pre-chasm" height
+        const rimHeight = this.getTerrainHeight(gulchX - 40, bridgeZ);
+        chasmMesh.position.set(gulchX, rimHeight, buildingZ - 60);
         this.group.add(chasmMesh);
+
+        // Vertical "Wall" planes to hide the transition to the sunk regional terrain
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x2A2215, roughness: 1.0 });
+        const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(gulchLength, gulchDepth * 2), wallMat);
+        leftWall.position.set(gulchX - gulchWidth / 2 - 5, rimHeight - gulchDepth, buildingZ - 60);
+        leftWall.rotation.y = Math.PI / 2;
+        this.group.add(leftWall);
+
+        const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(gulchLength, gulchDepth * 2), wallMat);
+        rightWall.position.set(gulchX + gulchWidth / 2 + 5, rimHeight - gulchDepth, buildingZ - 60);
+        rightWall.rotation.y = -Math.PI / 2;
+        this.group.add(rightWall);
 
         // Wooden Bridge
         const bridgeWidth = 4;
@@ -476,13 +501,14 @@ export class UCSCCampus {
 
 
         // Add some trees in and around the chasm
-        for (let i = 0; i < 25; i++) {
+        for (let i = 0; i < 40; i++) {
             const tx = gulchX + (Math.random() - 0.5) * 40;
-            const tz = buildingZ + (Math.random() - 0.5) * gulchLength;
+            const tz = (buildingZ - 60) + (Math.random() - 0.5) * gulchLength;
 
             const tree = this.createRedwood();
+            // Important: Use getElevation which now returns the deep floor for the chasm area
             tree.position.set(tx, this.getTerrainHeight(tx, tz), tz);
-            tree.scale.setScalar(0.4 + Math.random() * 0.9);
+            tree.scale.setScalar(0.4 + Math.random() * 1.5);
             this.group.add(tree);
         }
     }
@@ -599,15 +625,16 @@ export class UCSCCampus {
 
     createChalkboards() {
         const positions = [
-            { x: -12, z: -5, ry: Math.PI / 5, name: 'Algebra' },
-            { x: 12, z: -8, ry: -Math.PI / 4, name: 'Geometry' },
-            { x: -18, z: -25, ry: Math.PI / 3, name: 'Calculus' },
-            { x: 20, z: -35, ry: -Math.PI / 6, name: 'Linear Algebra' },
-            { x: -8, z: 8, ry: Math.PI / 8, name: 'Number Theory' }
+            { x: -35, z: 25, ry: Math.PI / 5, name: 'Algebra' },
+            { x: 45, z: -5, ry: -Math.PI / 4, name: 'Geometry' },
+            { x: -28, z: 50, ry: Math.PI / 3, name: 'Calculus' },
+            { x: 40, z: 35, ry: -Math.PI / 6, name: 'Linear Algebra' },
+            { x: -50, z: -15, ry: Math.PI / 8, name: 'Number Theory' }
         ];
         positions.forEach(p => {
             const board = this.createChalkboard(p.name);
-            board.position.set(p.x, 0, p.z);
+            const h = this.getTerrainHeight(p.x, p.z);
+            board.position.set(p.x, h, p.z);
             board.rotation.y = p.ry;
             this.group.add(board);
         });

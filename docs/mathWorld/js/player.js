@@ -261,8 +261,9 @@ export class Player {
             const flyVelocity = this.flySpeed * this.speedMultiplier;
             this.velocity.y = flyVelocity;
             this.isGrounded = false;
-        } else if (!this.isGrounded) {
-            // Gravity only when not flying and not grounded
+            this.isFlying = true;
+        } else {
+            // Apply gravity even if "grounded" to facilitate walking off edges
             this.velocity.y -= this.gravity * delta;
         }
 
@@ -299,9 +300,13 @@ export class Player {
 
         if (this.localPosition.y <= groundY + this.eyeHeight) {
             this.localPosition.y = groundY + this.eyeHeight;
-            this.velocity.y = 0;
+            // Zero out downward velocity when hitting ground
+            if (this.velocity.y < 0) this.velocity.y = 0;
             this.isGrounded = true;
             this.isFlying = false;
+        } else {
+            // In the air
+            this.isGrounded = false;
         }
 
         // Update camera
