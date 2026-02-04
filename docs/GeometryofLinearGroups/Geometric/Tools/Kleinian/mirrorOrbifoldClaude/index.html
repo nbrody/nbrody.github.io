@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mirror Orbifold | Pentagonal Mirrors</title>
+    <meta name="description"
+        content="Hyperbolic polyhedral chamber with one-way mirror pentagonal faces, curved inwards.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #020204;
+            --glass-bg: rgba(8, 12, 20, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent-cyan: #00f2ff;
+            --accent-blue: #4fc3f7;
+            --text-primary: rgba(255, 255, 255, 0.95);
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --text-muted: rgba(255, 255, 255, 0.35);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg-dark);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+        }
+
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            transition: opacity 0.8s ease;
+        }
+
+        .loader-ring {
+            width: 48px;
+            height: 48px;
+            border: 2px solid rgba(255, 255, 255, 0.05);
+            border-top-color: var(--accent-cyan);
+            border-radius: 50%;
+            animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #ui-overlay {
+            position: fixed;
+            top: 1.5rem;
+            left: 1.5rem;
+            z-index: 100;
+            width: 320px;
+            pointer-events: none;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px) saturate(1.5);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1.75rem;
+            pointer-events: auto;
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #fff 0%, var(--accent-blue) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin: 0.5rem 0 1.5rem 0;
+            line-height: 1.5;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .label-row span:first-child {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+        }
+
+        .value-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-cyan);
+        }
+
+        select {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            padding: 0.6rem 1rem;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        select:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: var(--accent-cyan);
+        }
+
+        select:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 12px rgba(0, 242, 255, 0.3);
+        }
+
+        select option {
+            background: #0a0c10;
+            color: var(--text-primary);
+        }
+
+        #status-display {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--glass-border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--accent-cyan);
+        }
+
+        footer {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 1.5rem;
+            font-family: 'JetBrains Mono';
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading-screen">
+        <div class="loader-ring"></div>
+        <div style="font-family: 'JetBrains Mono'; color: var(--text-muted); letter-spacing: 0.2em; font-size: 0.7rem;">
+            BUILDING CONVEX HULL</div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-overlay">
+        <div class="glass-panel">
+            <h1>Mirror Orbifold</h1>
+            <p class="subtitle">Curved inward pentagonal mirrors assembled into a hyperbolic dodecahedron.</p>
+
+            <div class="controls">
+                <div class="control-group">
+                    <div class="label-row"><span>Geometry</span></div>
+                    <select id="geometry-select">
+                        <option value="hyperbolic">🎡 Hyperbolic (Curved)</option>
+                        <option value="euclidean">🕋 Euclidean (Flat)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <div class="label-row"><span>Color Palette</span></div>
+                    <select id="palette-select">
+                        <option value="0">✦ Cyan</option>
+                        <option value="1">🌊 Ocean</option>
+                        <option value="2">🔥 Fire</option>
+                        <option value="3">💜 Vaporwave</option>
+                        <option value="4">🌅 Skyspace Dawn</option>
+                        <option value="5">🌌 Twilight Aperture</option>
+                        <option value="6">☁️ Ganzfeld Pastel</option>
+                        <option value="7">⚡ Perceptual Neon</option>
+                        <option value="8">🏜️ Desert Light</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <div class="label-row"><span>Color Speed</span><span id="colorspeed-value"
+                            class="value-label">0.017</span></div>
+                    <input type="range" id="colorspeed-slider" min="0" max="0.5" value="0.017" step="0.001">
+                </div>
+
+                <div class="control-group">
+                    <div class="label-row"><span>Reflection Depth</span><span id="bounce-value"
+                            class="value-label">12</span></div>
+                    <input type="range" id="bounce-slider" min="1" max="32" value="12">
+                </div>
+
+                <div class="control-group">
+                    <div class="label-row"><span>Mirror Opacity</span><span id="opacity-value"
+                            class="value-label">94%</span></div>
+                    <input type="range" id="opacity-slider" min="0.5" max="0.99" value="0.94" step="0.01">
+                </div>
+
+                <div class="control-group">
+                    <div class="label-row"><span>One-Way Transmit</span><span id="transparency-value"
+                            class="value-label">0.80</span></div>
+                    <input type="range" id="transparency-slider" min="0.0" max="1.0" value="0.80" step="0.05">
+                </div>
+
+                <div class="control-group">
+                    <div class="label-row"><span>Light Intensity</span><span id="intensity-value"
+                            class="value-label">2.0</span></div>
+                    <input type="range" id="intensity-slider" min="0" max="10" value="2.0" step="0.1">
+                </div>
+
+                <div class="control-group">
+                    <div class="label-row"><span>Curvature Scale</span><span id="curvature-value"
+                            class="value-label">1.00</span></div>
+                    <input type="range" id="curvature-slider" min="0.4" max="1.5" value="1.0" step="0.01">
+                </div>
+
+                <div class="control-group">
+                    <div class="label-row"><span>Frame Width</span><span id="border-value"
+                            class="value-label">0.010</span></div>
+                    <input type="range" id="border-slider" min="0" max="0.1" value="0.010" step="0.005">
+                </div>
+
+                <div class="control-group">
+                    <div class="label-row"><span>Edge Filament</span><span id="edge-value"
+                            class="value-label">0.015</span></div>
+                    <input type="range" id="edge-slider" min="0.001" max="0.05" value="0.015" step="0.001">
+                </div>
+            </div>
+
+            <div id="status-display">> INITIALIZING...</div>
+        </div>
+    </div>
+
+    <footer>H³ // POINCARÉ BALL MODEL // RIGHT-ANGLED</footer>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://esm.sh/three@0.160.0",
+            "three/examples/jsm/controls/OrbitControls.js": "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js"
+        }
+    }
+    </script>
+    <script type="module" src="./main.js"></script>
+</body>
+
+</html>

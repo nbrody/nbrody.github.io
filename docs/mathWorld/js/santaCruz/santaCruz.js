@@ -364,10 +364,14 @@ export class SantaCruzTerrain {
         let r, g, b;
         const boardwalkDist = Math.sqrt(Math.pow(gps.lat - 36.963, 2) + Math.pow(gps.lon - -122.018, 2));
         const downtownDist = Math.sqrt(Math.pow(gps.lat - 36.974, 2) + Math.pow(gps.lon - -122.030, 2));
+        const ucscDist = Math.sqrt(Math.pow(gps.lat - 36.9958, 2) + Math.pow(gps.lon - -122.0595, 2));
         const riverLon = -122.025 - Math.sin((gps.lat - 36.97) * 40) * 0.005;
         const riverDist = Math.abs(gps.lon - riverLon);
 
-        if (boardwalkDist < 0.008 && elevation < 25) {
+        if (ucscDist < 0.02) {
+            // Lush UCSC Meadow Green
+            r = 0.25; g = 0.45; b = 0.15;
+        } else if (boardwalkDist < 0.008 && elevation < 25) {
             r = 0.94; g = 0.90; b = 0.75;
         } else if (riverDist < 0.003 && gps.lat < 37.05 && elevation < 50) {
             r = 0.15; g = 0.25; b = 0.35;

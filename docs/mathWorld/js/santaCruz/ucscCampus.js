@@ -19,7 +19,9 @@ export class UCSCCampus {
     }
 
     async generate() {
-        // Note: Sky and terrain now handled by regional SantaCruzTerrain
+        // Create local high-detail terrain for the campus area
+        this.createTerrain();
+
         // This module adds local campus details on top
         this.createRedwoods();
         this.createMeadowFlowers();
@@ -102,7 +104,7 @@ export class UCSCCampus {
             pos.setZ(i, h);
         }
         geo.computeVertexNormals();
-        const mat = new THREE.MeshStandardMaterial({ color: 0x3A6B35, roughness: 0.9 });
+        const mat = new THREE.MeshStandardMaterial({ color: 0x4B7D3A, roughness: 0.95 }); // Lush Meadow Green
         const terrain = new THREE.Mesh(geo, mat);
         terrain.rotation.x = -Math.PI / 2;
         terrain.receiveShadow = true;

@@ -1,0 +1,194 @@
+/**
+ * Mirror Orbifold - Main Application
+ * 
+ * Renders a right-angled hyperbolic dodecahedron with one-way mirror
+ * pentagonal patches. The viewer can explore the recursive reflections
+ * inside or see the structure from the outside.
+ */
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { getHyperbolicDodecahedron } from './dodecahedron.js';
+import { getEuclideanDodecahedron } from './eucDodeca.js';
+import { MirrorShader, createMirrorUniforms, updateGeometryUniforms } from './mirror.js';
+
+class MirrorOrbifoldApp {
+    constructor() {
+        this.container = document.getElementById('canvas-container');
+        this.loadingScreen = document.getElementById('loading-screen');
+        this.statusDisplay = document.getElementById('status-display');
+
+        this.params = {
+            geometry: 'hyperbolic',
+            curvature: 1.0,
+            inradius: 0.5, // Used for Euclidean
+            maxBounces: 12,
+            mirrorOpacity: 0.94,
+            transparency: 0.80,
+            edgeLightWidth: 0.015,
+            blackBorderWidth: 0.025,
+            lightIntensity: 2.0,
+            colorSpeed: 0.017,
+            palette: 0
+        };
+
+        this.init();
+        this.setupControls();
+        this.animate();
+    }
+
+    init() {
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.container.appendChild(this.renderer.domElement);
+
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.001, 100);
+        this.camera.position.set(0, 0, 0.3); // Start slightly inside
+
+        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+        this.controls.dampingFactor = 0.08;
+        this.controls.minDistance = 0.0001;
+        this.controls.maxDistance = 5.0;
+
+        this.uniforms = createMirrorUniforms(THREE);
+        this.updateGeometry();
+
+        const shaderMaterial = new THREE.ShaderMaterial({
+            uniforms: this.uniforms,
+            vertexShader: MirrorShader.vertexShader,
+            fragmentShader: MirrorShader.fragmentShader,
+            depthTest: false,
+            depthWrite: false
+        });
+
+        const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), shaderMaterial);
+        quad.frustumCulled = false;
+        this.scene.add(quad);
+
+        this.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+
+        window.addEventListener('resize', () => this.onResize());
+
+        setTimeout(() => {
+            if (this.loadingScreen) {
+                this.loadingScreen.style.opacity = '0';
+                setTimeout(() => this.loadingScreen.style.display = 'none', 600);
+            }
+            this.updateStatus('ORBIFOLD ACTIVE // DODECA_H3');
+        }, 1200);
+    }
+
+    updateGeometry() {
+        let faces;
+        if (this.params.geometry === 'euclidean') {
+            faces = getEuclideanDodecahedron(this.params.curvature);
+            this.updateStatus('EUCLIDEAN DODECAHEDRON // FLAT_R3');
+        } else {
+            faces = getHyperbolicDodecahedron(this.params.curvature);
+            this.updateStatus('HYPERBOLIC ORBIFOLD // CURVED_H3');
+        }
+        updateGeometryUniforms(this.uniforms, faces, THREE);
+    }
+
+    setupControls() {
+        const bind = (id, param, uniform) => {
+            const el = document.getElementById(id);
+            const valEl = document.getElementById(id.replace('-slider', '-value'));
+            if (!el) return;
+            el.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                this.params[param] = val;
+                if (uniform) this.uniforms[uniform].value = val;
+                if (valEl) valEl.textContent = (el.step < 0.1) ? val.toFixed(3) : (val < 2 ? val.toFixed(2) : val.toFixed(0));
+                if (param === 'curvature') this.updateGeometry();
+                if (id === 'opacity-slider' && valEl) valEl.textContent = (val * 100).toFixed(0) + '%';
+            });
+        };
+
+        bind('bounce-slider', 'maxBounces', 'uMaxBounces');
+        bind('opacity-slider', 'mirrorOpacity', 'uMirrorOpacity');
+        bind('transparency-slider', 'transparency', 'uTransparency');
+        bind('intensity-slider', 'lightIntensity', 'uLightIntensity');
+        bind('curvature-slider', 'curvature', null);
+        bind('edge-slider', 'edgeLightWidth', 'uEdgeLightWidth');
+        bind('border-slider', 'blackBorderWidth', 'uBlackBorderWidth');
+        bind('colorspeed-slider', 'colorSpeed', 'uColorSpeed');
+
+        // Geometry selector
+        const geometrySelect = document.getElementById('geometry-select');
+        if (geometrySelect) {
+            geometrySelect.addEventListener('change', (e) => {
+                this.params.geometry = e.target.value;
+
+                // Update slider labels/visibility based on mode
+                const curvGroup = document.getElementById('curvature-slider')?.closest('.control-group');
+                const label = curvGroup?.querySelector('.label-row span:first-child');
+                const slider = document.getElementById('curvature-slider');
+                const valEl = document.getElementById('curvature-value');
+
+                if (this.params.geometry === 'euclidean') {
+                    if (label) label.textContent = 'Inradius (Size)';
+                    if (slider) {
+                        slider.min = 0.1;
+                        slider.max = 3.0;
+                        slider.value = 1.0;
+                        this.params.curvature = 1.0;
+                        if (valEl) valEl.textContent = "1.000";
+                    }
+                } else {
+                    if (label) label.textContent = 'H3 Curvature';
+                    if (slider) {
+                        slider.min = 0.5;
+                        slider.max = 3.0;
+                        slider.value = 1.0;
+                        this.params.curvature = 1.0;
+                        if (valEl) valEl.textContent = "1.000";
+                    }
+                }
+
+                this.updateGeometry();
+            });
+        }
+
+        // Palette selector
+        const paletteSelect = document.getElementById('palette-select');
+        if (paletteSelect) {
+            paletteSelect.addEventListener('change', (e) => {
+                this.params.palette = parseInt(e.target.value);
+                this.uniforms.uPalette.value = this.params.palette;
+            });
+        }
+    }
+
+    onResize() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        this.camera.aspect = w / h;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(w, h);
+        this.uniforms.uResolution.value.set(w, h);
+    }
+
+    updateStatus(message) {
+        if (this.statusDisplay) this.statusDisplay.textContent = `> ${message}`;
+    }
+
+    animate() {
+        requestAnimationFrame(() => this.animate());
+        this.controls.update();
+
+        this.uniforms.uTime.value = performance.now() * 0.001;
+        this.uniforms.uCameraPos.value.copy(this.camera.position);
+        this.uniforms.uInvProjection.value.copy(this.camera.projectionMatrixInverse);
+        this.uniforms.uInvView.value.copy(this.camera.matrixWorld);
+
+        this.renderer.render(this.scene, this.camera);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    new MirrorOrbifoldApp();
+});

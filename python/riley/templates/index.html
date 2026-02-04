@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>flashBeam | Sanov Search</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --panel: rgba(255, 255, 255, 0.05);
+            --accent: #00f2ff;
+            --accent-glow: rgba(0, 242, 255, 0.3);
+            --text: #e0e0e0;
+            --text-dim: #a0a0a0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 350px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            pointer-events: none;
+            max-height: calc(100vh - 40px);
+        }
+
+        .panel {
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            pointer-events: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .scrollable {
+            overflow-y: auto;
+            max-height: 250px;
+            margin-top: 10px;
+            padding-right: 5px;
+        }
+
+        .scrollable::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .scrollable::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #fff, var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h2 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+        }
+
+        p {
+            margin: 0 0 15px 0;
+            font-size: 13px;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .control-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+        }
+
+        input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: white;
+            font-size: 12px;
+            width: 80px;
+            outline: none;
+            text-align: right;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+        }
+
+        button {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 8px;
+        }
+
+        button:hover {
+            box-shadow: 0 0 20px var(--accent-glow);
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            background: #444;
+            color: #888;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+
+        .word-item {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            word-break: break-all;
+        }
+
+        .word-item .poly {
+            color: var(--accent);
+            display: block;
+            margin-top: 4px;
+            font-size: 9px;
+            opacity: 0.8;
+        }
+
+        #canvas-container {
+            flex-grow: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #0a0a0f 100%);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        #overlay {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            font-size: 11px;
+            color: var(--text-dim);
+            pointer-events: none;
+            text-align: right;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui-layer">
+        <div class="panel">
+            <h1>flashBeam</h1>
+            <p>Searching for algebraic relation numbers $z$ in $PSL_2(\mathbb{C})$ where the group $\langle
+                \begin{pmatrix} 1 & z \\ 0 & 1 \end{pmatrix}, \begin{pmatrix} 1 & 0 \\ z & 1 \end{pmatrix} \rangle$ is
+                not free.</p>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>Max Degree</label>
+                    <input type="number" id="max-degree" value="3" min="2" max="6">
+                </div>
+                <div class="control-group">
+                    <label>Coeff Range</label>
+                    <input type="number" id="coeff-range" value="2" min="1" max="10">
+                </div>
+                <div class="control-group">
+                    <label>Beam Width</label>
+                    <input type="number" id="beam-width" value="200">
+                </div>
+                <button id="start-btn">INDEX POLY SPACE</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Search Engine</h2>
+            <div class="status-item">
+                <span>Status</span>
+                <span id="stat-running" style="color: #ff4d4d">IDLE</span>
+            </div>
+            <div class="status-item">
+                <span>Pass</span>
+                <span id="stat-iter">0</span>
+            </div>
+            <div class="status-item">
+                <span>Convergence</span>
+                <span id="stat-score">0.0000</span>
+            </div>
+            <div class="status-item">
+                <span>Relations</span>
+                <span id="stat-count">0</span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Relation Library</h2>
+            <div class="scrollable" id="word-list"></div>
+        </div>
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="plot"></canvas>
+    </div>
+
+    <div id="overlay">
+        Sanov Territory: $|z| < 2$<br>
+            Unit Circle: Dashed | Boundary ($|z|=2$): Solid<br>
+            Pan: Left Mouse | Zoom: Scroll
+    </div>
+
+    <script>
+        const canvas = document.getElementById('plot');
+        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('start-btn');
+        const wordList = document.getElementById('word-list');
+
+        let roots = [];
+        let knownWords = new Set();
+        let transform = {
+            x: 0,
+            y: 0,
+            scale: 250
+        };
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            transform.x = canvas.width * 0.6; // Offset to the right to clear UI
+            transform.y = canvas.height / 2;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            const gridSize = transform.scale / 2;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let x = transform.x % gridSize; x < canvas.width; x += gridSize) {
+                ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+            }
+            for (let y = transform.y % gridSize; y < canvas.height; y += gridSize) {
+                ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+            }
+            ctx.stroke();
+
+            // Draw axes
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.beginPath();
+            ctx.moveTo(0, transform.y); ctx.lineTo(canvas.width, transform.y);
+            ctx.moveTo(transform.x, 0); ctx.lineTo(transform.x, canvas.height);
+            ctx.stroke();
+
+            // Draw regions
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.beginPath();
+            ctx.arc(transform.x, transform.y, transform.scale, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.setLineDash([]);
+            ctx.strokeStyle = 'rgba(0, 242, 255, 0.2)';
+            ctx.beginPath();
+            ctx.arc(transform.x, transform.y, transform.scale * 2, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Draw roots
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = '#00f2ff';
+
+            roots.forEach(r => {
+                const px = transform.x + r[0] * transform.scale;
+                const py = transform.y - r[1] * transform.scale;
+
+                if (px > -10 && px < canvas.width + 10 && py > -10 && py < canvas.height + 10) {
+                    const distSq = r[0] * r[0] + r[1] * r[1];
+                    if (distSq > 3.9) ctx.fillStyle = '#ff4d4d'; // Near boundary
+                    else if (distSq < 1.1) ctx.fillStyle = '#fff'; // Central
+                    else ctx.fillStyle = '#00f2ff';
+
+                    ctx.beginPath();
+                    ctx.arc(px, py, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            ctx.shadowBlur = 0;
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+
+        // Interaction
+        let isDragging = false;
+        let lastMouse = { x: 0, y: 0 };
+
+        canvas.addEventListener('mousedown', e => {
+            isDragging = true;
+            lastMouse = { x: e.clientX, y: e.clientY };
+        });
+
+        window.addEventListener('mousemove', e => {
+            if (isDragging) {
+                transform.x += (e.clientX - lastMouse.x);
+                transform.y += (e.clientY - lastMouse.y);
+                lastMouse = { x: e.clientX, y: e.clientY };
+            }
+        });
+
+        window.addEventListener('mouseup', () => isDragging = false);
+        canvas.addEventListener('wheel', e => {
+            const zoomSpeed = 1.1;
+            const direction = e.deltaY > 0 ? 1 / zoomSpeed : zoomSpeed;
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+            transform.x = mouseX - (mouseX - transform.x) * direction;
+            transform.y = mouseY - (mouseY - transform.y) * direction;
+            transform.scale *= direction;
+            e.preventDefault();
+        }, { passive: false });
+
+        // Backend Integration
+        startBtn.addEventListener('click', async () => {
+            startBtn.disabled = true;
+            startBtn.innerText = "INDEXING...";
+            wordList.innerHTML = '';
+            knownWords.clear();
+            roots = [];
+
+            const data = {
+                max_degree: document.getElementById('max-degree').value,
+                coeff_range: document.getElementById('coeff-range').value,
+                beam_width: document.getElementById('beam-width').value
+            };
+
+            await fetch('http://127.0.0.1:5051/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            poll();
+        });
+
+        async function poll() {
+            const resp = await fetch('http://127.0.0.1:5051/status');
+            const data = await resp.json();
+
+            document.getElementById('stat-running').innerText = data.running ? 'RUNNING' : 'IDLE';
+            document.getElementById('stat-running').style.color = data.running ? '#00f2ff' : '#ff4d4d';
+            document.getElementById('stat-iter').innerText = data.iteration;
+            document.getElementById('stat-score').innerText = data.best_score.toFixed(4);
+            document.getElementById('stat-count').innerText = data.solution_count;
+
+            if (data.roots) roots = data.roots;
+
+            if (data.solutions) {
+                let added = false;
+                data.solutions.forEach(sol => {
+                    if (!knownWords.has(sol.word)) {
+                        knownWords.add(sol.word);
+                        const item = document.createElement('div');
+                        item.className = 'word-item';
+                        item.innerHTML = `${sol.word} <span class="poly">Poly: $${sol.rel_poly}$</span>`;
+                        wordList.appendChild(item);
+                        wordList.scrollTop = wordList.scrollHeight;
+                        added = true;
+                    }
+                });
+                if (added && window.MathJax && window.MathJax.typesetPromise) {
+                    MathJax.typesetPromise([wordList]);
+                }
+            }
+
+            if (data.running) {
+                setTimeout(poll, 500);
+            } else {
+                startBtn.disabled = false;
+                startBtn.innerText = "INDEX POLY SPACE";
+            }
+        }
+    </script>
+</body>
+
+</html>

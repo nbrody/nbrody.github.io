@@ -1,0 +1,430 @@
+:root {
+    --bg-color: #0d0d0f;
+    --surface-color: #1a1a1e;
+    --accent-color: #00d4ff;
+    --pedal-color-1: #e91e63;
+    /* Pink */
+    --pedal-color-2: #ff9800;
+    /* Orange */
+    --pedal-color-3: #ffeb3b;
+    /* Yellow */
+    --pedal-color-4: #4caf50;
+    /* Green */
+    --pedal-color-5: #00bcd4;
+    /* Cyan */
+    --pedal-color-6: #2196f3;
+    /* Blue */
+    --pedal-color-7: #9c27b0;
+    /* Purple */
+    --pedal-color-8: #795548;
+    /* Brown */
+    --text-primary: #ffffff;
+    --text-secondary: #8a8a8e;
+    --led-off: #2a2a2e;
+    --led-red: #ff3b30;
+    --led-green: #4cd964;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;
+}
+
+/* Status Bar */
+.status-bar {
+    height: 60px;
+    background: linear-gradient(180deg, rgba(30, 30, 35, 1) 0%, rgba(20, 20, 25, 1) 100%);
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 100;
+}
+
+.logo {
+    font-weight: 800;
+    font-size: 1.2rem;
+    letter-spacing: -0.5px;
+    background: linear-gradient(90deg, #fff, #888);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.indicators {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--led-red);
+    box-shadow: 0 0 5px var(--led-red);
+    transition: all 0.3s ease;
+}
+
+.status-dot.active {
+    background-color: var(--led-green);
+    box-shadow: 0 0 8px var(--led-green);
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.secondary-btn {
+    background: transparent;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+}
+
+.secondary-btn.active {
+    background: var(--accent-color);
+    color: #000;
+    box-shadow: 0 0 15px var(--accent-color);
+}
+
+.power-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.power-btn:hover {
+    background: var(--glass-border);
+}
+
+/* Pedalboard Grid */
+.pedalboard {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background: radial-gradient(circle at center, #1e1e24 0%, #0d0d0f 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.pedal-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 20px;
+    width: 100%;
+    max-width: 1200px;
+    height: 100%;
+}
+
+@media (max-width: 800px) {
+    .pedal-grid {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+    }
+}
+
+/* Pedal Styling */
+.pedal {
+    background: var(--surface-color);
+    border-radius: 12px;
+    position: relative;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 1px var(--glass-border);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pedal:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+}
+
+.pedal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.pedal-name {
+    font-weight: 800;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.pedal-led {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--led-off);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+.pedal.active .pedal-led {
+    background: var(--pedal-active-color, var(--led-green));
+    box-shadow: 0 0 10px var(--pedal-active-color, var(--led-green));
+}
+
+.pedal-controls {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    align-content: center;
+}
+
+.knob-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.knob {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #333 0%, #111 100%);
+    border: 2px solid #444;
+    position: relative;
+    cursor: pointer;
+}
+
+.knob-pointer {
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 10px;
+    background: var(--text-primary);
+    border-radius: 4px;
+}
+
+.knob-label {
+    font-size: 0.6rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+/* Footbar */
+.footbar {
+    height: 120px;
+    background: #111;
+    border-top: 2px solid #222;
+    display: flex;
+    justify-content: center;
+    padding: 0 20px;
+}
+
+.hardware-buttons {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    width: 100%;
+    max-width: 1000px;
+}
+
+.hw-btn {
+    flex: 1;
+    height: 80px;
+    background: linear-gradient(180deg, #2a2a2e 0%, #1a1a1e 100%);
+    border: 1px solid #333;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.hw-btn:active,
+.hw-btn.active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
+    background: linear-gradient(180deg, #1a1a1e 0%, #141418 100%);
+}
+
+.hw-btn .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text-secondary);
+}
+
+.hw-btn .led {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--led-off);
+}
+
+.hw-btn.active .led {
+    background: var(--accent-color);
+    box-shadow: 0 0 8px var(--accent-color);
+}
+
+.hw-btn.active .label {
+    color: var(--text-primary);
+}
+
+.hw-btn.special {
+    background: linear-gradient(180deg, #3a3a40 0%, #2a2a2e 100%);
+}
+
+/* Expression Pedal Monitor */
+.expression-pedal-container {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 200px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 0;
+    z-index: 50;
+    backdrop-filter: blur(10px);
+}
+
+.expression-label {
+    font-size: 0.6rem;
+    font-weight: 800;
+    margin-bottom: 5px;
+}
+
+.expression-track {
+    flex: 1;
+    width: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+.expression-fill {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    background: linear-gradient(to top, var(--accent-color), #fff);
+    transition: height 0.05s linear;
+    box-shadow: 0 0 15px var(--accent-color);
+}
+
+/* Overlays */
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(20px);
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.overlay-content {
+    text-align: center;
+    max-width: 400px;
+    padding: 40px;
+}
+
+.overlay-content h1 {
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 10px;
+    letter-spacing: -2px;
+}
+
+.primary-btn {
+    background: var(--accent-color);
+    border: none;
+    color: #000;
+    padding: 15px 40px;
+    font-size: 1rem;
+    font-weight: 800;
+    border-radius: 30px;
+    cursor: pointer;
+    margin-top: 30px;
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.primary-btn:hover {
+    transform: scale(1.05);
+    filter: brightness(1.1);
+}
+
+.primary-btn.pulse {
+    animation: btn-pulse 0.5s ease-in-out;
+}
+
+@keyframes btn-pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+        box-shadow: 0 0 30px var(--accent-color);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}

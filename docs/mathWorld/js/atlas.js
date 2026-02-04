@@ -56,37 +56,33 @@ export class Atlas {
     setupGlobe() {
         try {
             this.globe = new ThreeGlobe()
-                .globeMaterial(new THREE.MeshPhongMaterial({
-                    color: 0x0A244D,
-                    emissive: 0x051021,
-                    shininess: 0.8
-                }))
+                .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+                .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
                 .showAtmosphere(true)
-                .atmosphereColor('#3B82F6')
-                .atmosphereAltitude(0.1);
+                .atmosphereColor('#88CCFF')
+                .atmosphereAltitude(0.2);
 
             // === CRITICAL: Scale globe to planetary size ===
-            // ThreeGlobe defaults to radius 100. We must scale to this.radius (6371km).
             const scale = this.radius / 100;
             this.globe.scale.setScalar(scale);
 
-            // Fetch landmass data
+            // Fetch landmass data for high-quality polygon overlay (interactive layer)
             fetch('https://raw.githubusercontent.com/vasturiano/three-globe/master/example/country-polygons/ne_110m_admin_0_countries.geojson')
                 .then(res => res.json())
                 .then(countries => {
                     this.globe.polygonsData(countries.features)
-                        .polygonCapColor(() => '#22C15E')
-                        .polygonSideColor(() => 'rgba(20, 83, 45, 0.4)')
-                        .polygonAltitude(0.002);
+                        .polygonCapColor(() => 'rgba(34, 193, 94, 0.2)') // Subtle green tint over land
+                        .polygonSideColor(() => 'rgba(20, 83, 45, 0.1)')
+                        .polygonAltitude(0.005);
                 });
+            console.log('ThreeGlobe initialized successfully');
         } catch (e) {
             console.error('ThreeGlobe initialization failed:', e);
             const fallbackGeo = new THREE.SphereGeometry(this.radius, 64, 64);
-            const fallbackMat = new THREE.MeshLambertMaterial({
+            const fallbackMat = new THREE.MeshPhongMaterial({
                 color: 0x0A244D,
                 emissive: 0x051021,
-                transparent: true,
-                opacity: 0
+                shininess: 5
             });
             this.globe = new THREE.Mesh(fallbackGeo, fallbackMat);
         }

@@ -315,13 +315,14 @@ export class BeachBoardwalk {
     }
 
     createSkyGlider() {
-        // The iconic cable car ride running the length of the boardwalk
+        // Reimagined Sky Glider as the starting point of a boardwalk-sized
+        // Rube Goldberg machine with branching color-coded tracks.
         const skyGlider = new THREE.Group();
         skyGlider.userData = {
-            name: 'Sky Glider',
+            name: 'Sky Glider Rube Goldberg Machine',
             isInteractable: true,
             type: 'attraction',
-            interactionType: 'Ride the Sky Glider!'
+            interactionType: 'Launch the Sky Glider Machine!'
         };
 
         const metalMat = new THREE.MeshStandardMaterial({
@@ -329,12 +330,11 @@ export class BeachBoardwalk {
         });
         const cableMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
 
-        // Support towers along the boardwalk
+        // Support towers keep the recognizable skyline.
         const towerPositions = [-100, -50, 0, 50, 100];
         const towerHeight = 25;
 
         towerPositions.forEach(x => {
-            // Main tower poles (A-frame style)
             const pole1 = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.3, 0.4, towerHeight, 8),
                 metalMat
@@ -351,7 +351,6 @@ export class BeachBoardwalk {
             pole2.rotation.z = -0.1;
             skyGlider.add(pole2);
 
-            // Cross beam at top
             const beam = new THREE.Mesh(
                 new THREE.BoxGeometry(6, 0.5, 0.5),
                 metalMat
@@ -359,7 +358,6 @@ export class BeachBoardwalk {
             beam.position.set(x, towerHeight, -35);
             skyGlider.add(beam);
 
-            // Cable wheel/pulley
             const wheel = new THREE.Mesh(
                 new THREE.TorusGeometry(0.8, 0.15, 8, 16),
                 metalMat
@@ -369,49 +367,193 @@ export class BeachBoardwalk {
             skyGlider.add(wheel);
         });
 
-        // Main cable line
         const cableGeo = new THREE.CylinderGeometry(0.05, 0.05, 220, 8);
         const cable = new THREE.Mesh(cableGeo, cableMat);
         cable.rotation.z = Math.PI / 2;
         cable.position.set(0, towerHeight + 0.5, -35);
         skyGlider.add(cable);
 
-        // Gondola cars (colorful)
-        const gondolaColors = [0xFF6B6B, 0x4ECDC4, 0xFFE66D, 0x95E1D3, 0xA8E6CF];
-        for (let i = 0; i < 8; i++) {
-            const gondola = new THREE.Group();
+        // Mechanical launch area on the boardwalk deck.
+        const launchBase = new THREE.Mesh(
+            new THREE.BoxGeometry(20, 1, 12),
+            new THREE.MeshStandardMaterial({ color: 0x4A3B2E, roughness: 0.6 })
+        );
+        launchBase.position.set(-115, 0.5, -35);
+        launchBase.receiveShadow = true;
+        skyGlider.add(launchBase);
 
-            // Hanger bar
-            const hanger = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.05, 0.05, 3, 8),
-                metalMat
+        const dominoChain = new THREE.Group();
+        for (let i = 0; i < 14; i++) {
+            const domino = new THREE.Mesh(
+                new THREE.BoxGeometry(0.4, 1.4, 0.2),
+                new THREE.MeshStandardMaterial({ color: 0x1C1C1C })
             );
-            gondola.add(hanger);
+            domino.position.set(-123 + i * 1.5, 0.95, -33.5 + Math.sin(i * 0.3));
+            domino.rotation.z = -0.08 * i;
+            dominoChain.add(domino);
+        }
+        skyGlider.add(dominoChain);
 
-            // Car body (rounded box-ish)
-            const carBody = new THREE.Mesh(
-                new THREE.BoxGeometry(1.5, 1.2, 2),
+        const gear = new THREE.Mesh(
+            new THREE.TorusGeometry(3, 0.25, 16, 48),
+            new THREE.MeshStandardMaterial({ color: 0xBDB76B, metalness: 0.8 })
+        );
+        gear.position.set(-110, 1.8, -35);
+        gear.rotation.x = Math.PI / 2;
+        skyGlider.add(gear);
+
+        const liftColumn = new THREE.Mesh(
+            new THREE.CylinderGeometry(1.2, 1.2, towerHeight, 16),
+            metalMat
+        );
+        liftColumn.position.set(-110, towerHeight / 2, -35);
+        skyGlider.add(liftColumn);
+
+        const liftTube = new THREE.Mesh(
+            new THREE.CylinderGeometry(1.6, 1.6, towerHeight + 4, 16, 1, true),
+            new THREE.MeshStandardMaterial({
+                color: 0xFFFFFF,
+                transparent: true,
+                opacity: 0.25,
+                roughness: 0.05
+            })
+        );
+        liftTube.position.set(-110, towerHeight / 2 + 1, -35);
+        skyGlider.add(liftTube);
+
+        const distributor = new THREE.Mesh(
+            new THREE.SphereGeometry(2.2, 24, 16),
+            new THREE.MeshStandardMaterial({
+                color: 0xFFD54F,
+                emissive: 0xFF8C00,
+                emissiveIntensity: 0.45
+            })
+        );
+        distributor.position.set(-110, towerHeight + 2, -35);
+        skyGlider.add(distributor);
+
+        const diverterFrame = new THREE.Mesh(
+            new THREE.BoxGeometry(10, 0.6, 10),
+            new THREE.MeshStandardMaterial({ color: 0x8D6E63 })
+        );
+        diverterFrame.position.set(-110, towerHeight + 1.2, -35);
+        skyGlider.add(diverterFrame);
+
+        const startPoint = new THREE.Vector3(-110, towerHeight + 2, -35);
+        const trackConfigs = [
+            {
+                name: 'red',
+                color: 0xFF3B30,
+                speed: 0.035,
+                offset: 0,
+                points: [
+                    startPoint.clone(),
+                    startPoint.clone().add(new THREE.Vector3(-15, -2, -6)),
+                    new THREE.Vector3(-90, 18, -50),
+                    new THREE.Vector3(-60, 12, -62),
+                    new THREE.Vector3(-30, 5, -55)
+                ]
+            },
+            {
+                name: 'blue',
+                color: 0x1E90FF,
+                speed: 0.03,
+                offset: 0.33,
+                points: [
+                    startPoint.clone(),
+                    startPoint.clone().add(new THREE.Vector3(-8, -1, 6)),
+                    new THREE.Vector3(-55, 16, -8),
+                    new THREE.Vector3(-15, 10, 12),
+                    new THREE.Vector3(0, 3.5, 30)
+                ]
+            },
+            {
+                name: 'green',
+                color: 0x2ECC71,
+                speed: 0.04,
+                offset: 0.66,
+                points: [
+                    startPoint.clone(),
+                    startPoint.clone().add(new THREE.Vector3(12, -1, -6)),
+                    new THREE.Vector3(5, 20, -45),
+                    new THREE.Vector3(45, 10, -52),
+                    new THREE.Vector3(80, 3, -50)
+                ]
+            }
+        ];
+
+        trackConfigs.forEach((config, index) => {
+            const curve = new THREE.CatmullRomCurve3(config.points, false, 'centripetal');
+            const tube = new THREE.Mesh(
+                new THREE.TubeGeometry(curve, 120, 0.35, 12, false),
                 new THREE.MeshStandardMaterial({
-                    color: gondolaColors[i % gondolaColors.length]
+                    color: config.color,
+                    metalness: 0.85,
+                    roughness: 0.25,
+                    emissive: config.color,
+                    emissiveIntensity: 0.15
                 })
             );
-            carBody.position.y = -2;
-            gondola.add(carBody);
+            tube.castShadow = true;
+            skyGlider.add(tube);
 
-            // Roof
-            const roof = new THREE.Mesh(
-                new THREE.BoxGeometry(1.7, 0.2, 2.2),
-                new THREE.MeshStandardMaterial({ color: 0x333333 })
+            const glider = this.createRubeGlider(config.color);
+            glider.position.copy(curve.getPointAt(0));
+            skyGlider.add(glider);
+
+            this.animatedObjects.push({
+                type: 'rubeGlider',
+                obj: glider,
+                curve,
+                speed: config.speed,
+                offset: config.offset || index * 0.2
+            });
+
+            const landingPoint = curve.getPointAt(1).clone();
+            const landingPad = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.6, 1.6, 0.4, 16),
+                new THREE.MeshStandardMaterial({
+                    color: config.color,
+                    emissive: config.color,
+                    emissiveIntensity: 0.2
+                })
             );
-            roof.position.y = -1.3;
-            gondola.add(roof);
+            landingPad.position.set(landingPoint.x, landingPoint.y + 0.4, landingPoint.z);
+            skyGlider.add(landingPad);
 
-            // Store for animation
-            gondola.position.set(-100 + i * 28, towerHeight + 0.5, -35);
-            gondola.userData.baseX = -100 + i * 28;
-            this.animatedObjects.push({ type: 'gondola', obj: gondola });
-            skyGlider.add(gondola);
-        }
+            if (config.name === 'red') {
+                // Ramp that tips a lever on the Giant Dipper station.
+                const dipperRamp = new THREE.Mesh(
+                    new THREE.BoxGeometry(6, 0.4, 1.2),
+                    new THREE.MeshStandardMaterial({ color: 0x8B4513 })
+                );
+                dipperRamp.position.set(-32, 4.2, -56);
+                dipperRamp.rotation.z = 0.3;
+                skyGlider.add(dipperRamp);
+            } else if (config.name === 'blue') {
+                // Beach ball that the blue glider morphs into.
+                const beachBall = new THREE.Mesh(
+                    new THREE.SphereGeometry(1.2, 16, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x4FC3F7, roughness: 0.35 })
+                );
+                beachBall.position.set(0, 2.2, 32);
+                skyGlider.add(beachBall);
+
+                const beachStripe = new THREE.Mesh(
+                    new THREE.TorusGeometry(1.2, 0.08, 8, 24),
+                    new THREE.MeshStandardMaterial({ color: 0xFFFFFF })
+                );
+                beachStripe.position.set(0, 2.2, 32);
+                beachStripe.rotation.x = Math.PI / 3;
+                skyGlider.add(beachStripe);
+            } else if (config.name === 'green') {
+                // Mini bumper car showing the conversion at the arena.
+                const miniCar = this.createBumperCar(0x2ECC71);
+                miniCar.scale.set(0.35, 0.35, 0.35);
+                miniCar.position.set(80, 1.1, -50);
+                skyGlider.add(miniCar);
+            }
+        });
 
         this.group.add(skyGlider);
     }
@@ -526,6 +668,45 @@ export class BeachBoardwalk {
 
         bumperCars.position.set(80, 0.5, -50);
         this.group.add(bumperCars);
+    }
+
+    createRubeGlider(color) {
+        const glider = new THREE.Group();
+
+        const capsule = new THREE.Mesh(
+            new THREE.CapsuleGeometry(0.5, 1.2, 8, 16),
+            new THREE.MeshStandardMaterial({ color, metalness: 0.6, roughness: 0.3 })
+        );
+        glider.add(capsule);
+
+        const visor = new THREE.Mesh(
+            new THREE.SphereGeometry(0.35, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+            new THREE.MeshStandardMaterial({
+                color: 0xFFFFFF,
+                transparent: true,
+                opacity: 0.5,
+                metalness: 0.1
+            })
+        );
+        visor.position.y = 0.2;
+        visor.rotation.x = Math.PI / 2;
+        glider.add(visor);
+
+        const spinner = new THREE.Mesh(
+            new THREE.TorusGeometry(0.7, 0.08, 8, 24),
+            new THREE.MeshStandardMaterial({ color: 0xCCCCCC, metalness: 0.9 })
+        );
+        spinner.rotation.x = Math.PI / 2;
+        glider.add(spinner);
+
+        const spark = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 8, 8),
+            new THREE.MeshStandardMaterial({ color: 0xFFF176, emissive: 0xFFD54F, emissiveIntensity: 0.7 })
+        );
+        spark.position.y = -0.8;
+        glider.add(spark);
+
+        return glider;
     }
 
     createBumperCar(color) {
@@ -1084,6 +1265,18 @@ export class BeachBoardwalk {
                     item.obj.position.x = baseX + Math.sin(time * 0.2) * 80;
                     // Gentle sway
                     item.obj.rotation.z = Math.sin(time * 2) * 0.05;
+                } else if (item.type === 'rubeGlider') {
+                    const progress = (time * item.speed + item.offset) % 1;
+                    const point = item.curve.getPointAt(progress);
+                    const tangent = item.curve.getTangentAt(progress);
+                    item.obj.position.copy(point);
+                    item.obj.lookAt(point.clone().add(tangent));
+                    item.obj.rotation.z = Math.sin(time * 6 + item.offset * 10) * 0.1;
+                    if (!item.obj.userData.trail) {
+                        item.obj.userData.trail = 0;
+                    }
+                    const trailScale = THREE.MathUtils.lerp(0.5, 1.2, progress);
+                    item.obj.scale.setScalar(trailScale);
                 } else if (item.type === 'carousel') {
                     // Rotate carousel platform
                     item.obj.rotation.y = time * 0.3;
@@ -1105,4 +1298,3 @@ export class BeachBoardwalk {
         return interactables;
     }
 }
-

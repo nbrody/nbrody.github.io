@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>jamBoard | High-Fidelity Audio Effect System</title>
+    <meta name="description" content="A premium iOS-ready guitar effects pedalboard controlled by hardware and touch.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div id="app" class="app-container">
+        <!-- Header / Status Bar -->
+        <header class="status-bar">
+            <div class="logo">jamBoard</div>
+            <div class="indicators">
+                <div id="audio-status" class="status-dot"></div>
+                <div class="preset-name">DEFAULT PRESET</div>
+                <div class="cpu-usage">CPU: 0%</div>
+            </div>
+            <div class="header-actions">
+                <button id="test-tone-btn" class="secondary-btn">TEST TONE: OFF</button>
+                <button id="power-btn" class="power-btn">INITIALIZE ENGINE</button>
+            </div>
+        </header>
+
+        <!-- Main Pedalboard Grid -->
+        <main class="pedalboard">
+            <div id="pedal-grid" class="pedal-grid">
+                <!-- 8 Pedals will be injected here via JS -->
+            </div>
+        </main>
+
+        <!-- Expression Pedal Overlay/Display -->
+        <div class="expression-pedal-container">
+            <div class="expression-label">EXP</div>
+            <div class="expression-track">
+                <div id="expression-value" class="expression-fill" style="height: 50%;"></div>
+            </div>
+        </div>
+
+        <!-- Hardware Foot Controls Footbar -->
+        <footer class="footbar">
+            <div class="hardware-buttons">
+                <div class="hw-btn" data-btn="1"><span class="label">1</span>
+                    <div class="led"></div>
+                </div>
+                <div class="hw-btn" data-btn="2"><span class="label">2</span>
+                    <div class="led"></div>
+                </div>
+                <div class="hw-btn" data-btn="3"><span class="label">3</span>
+                    <div class="led"></div>
+                </div>
+                <div class="hw-btn" data-btn="4"><span class="label">4</span>
+                    <div class="led"></div>
+                </div>
+                <div class="hw-btn" data-btn="5"><span class="label">5</span>
+                    <div class="led"></div>
+                </div>
+                <div class="hw-btn" data-btn="6"><span class="label">6</span>
+                    <div class="led"></div>
+                </div>
+                <div class="hw-btn" data-btn="7"><span class="label">7</span>
+                    <div class="led"></div>
+                </div>
+                <div class="hw-btn" data-btn="8"><span class="label">8</span>
+                    <div class="led"></div>
+                </div>
+                <div class="hw-btn special" data-btn="9"><span class="label">BANK</span>
+                    <div class="led"></div>
+                </div>
+                <div class="hw-btn special" data-btn="10"><span class="label">TAP</span>
+                    <div class="led"></div>
+                </div>
+            </div>
+        </footer>
+
+        <!-- Interaction Overlays -->
+        <div id="welcome-overlay" class="overlay">
+            <div class="overlay-content">
+                <h1>jamBoard</h1>
+                <p>Plug in your hardware and enable audio to begin.</p>
+                <button id="start-btn" class="primary-btn">START SESSION</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
