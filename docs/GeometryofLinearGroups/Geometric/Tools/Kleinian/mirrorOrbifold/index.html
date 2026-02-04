@@ -232,10 +232,21 @@
 
             <div class="controls">
                 <div class="control-group">
-                    <div class="label-row"><span>Geometry</span></div>
-                    <select id="geometry-select">
-                        <option value="hyperbolic">🎡 Hyperbolic (Curved)</option>
-                        <option value="euclidean">🕋 Euclidean (Flat)</option>
+                    <div class="label-row"><span>Mirror Chamber</span></div>
+                    <select id="chamber-select">
+                        <optgroup label="─── Euclidean (Flat) ───">
+                            <option value="euc-tetrahedron">🔺 Tetrahedron</option>
+                            <option value="euc-cube">🧊 Cube</option>
+                            <option value="euc-octahedron">💎 Octahedron</option>
+                            <option value="euc-dodecahedron">⚽ Dodecahedron</option>
+                            <option value="euc-icosahedron">🔮 Icosahedron</option>
+                            <option value="euc-prism">⚖️ Hexagonal Prism</option>
+                        </optgroup>
+                        <optgroup label="─── Hyperbolic (Curved) ───">
+                            <option value="hyp-cube-60">🧊 Cube (π/3 angles)</option>
+                            <option value="hyp-octahedron-90" selected>💎 Octahedron (right-angled)</option>
+                            <option value="hyp-dodecahedron-90">⚽ Dodecahedron (right-angled)</option>
+                        </optgroup>
                     </select>
                 </div>
 
@@ -285,9 +296,9 @@
                 </div>
 
                 <div class="control-group">
-                    <div class="label-row"><span>Curvature Scale</span><span id="curvature-value"
+                    <div class="label-row"><span>Scale (Size)</span><span id="scale-value"
                             class="value-label">1.00</span></div>
-                    <input type="range" id="curvature-slider" min="0.4" max="1.5" value="1.0" step="0.01">
+                    <input type="range" id="scale-slider" min="0.2" max="3.0" value="1.0" step="0.01">
                 </div>
 
                 <div class="control-group">

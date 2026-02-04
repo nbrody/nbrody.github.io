@@ -129,7 +129,7 @@ export const MirrorShader = {
         vec3 getEdgeColor(int faceIdx, int neighborIdx) {
             int minF = min(faceIdx, neighborIdx);
             int maxF = max(faceIdx, neighborIdx);
-            int edgeId = minF * 12 + maxF;
+            int edgeId = minF * MAX_FACES + maxF;
             
             // Slow time-based color cycling
             float timeOffset = uTime * uColorSpeed;
@@ -168,7 +168,8 @@ export const MirrorShader = {
             hit.faceIndex = -1;
             hit.closestNeighbor = -1;
             
-            for (int i = 0; i < NUM_FACES; i++) {
+            for (int i = 0; i < MAX_FACES; i++) {
+                if (i >= uNumFaces) break;
                 vec3 ce = uFaceCenters[i];
                 float ra = uFaceRadii[i];
                 vec3 n_face = uFaceNormals[i];
@@ -211,7 +212,8 @@ export const MirrorShader = {
                             float minOtherD = 1e10;
                             int closestJ = -1;
                             bool valid = true;
-                            for (int j = 0; j < NUM_FACES; j++) {
+                            for (int j = 0; j < MAX_FACES; j++) {
+                                if (j >= uNumFaces) break;
                                 if (i == j) continue;
                                 float margin;
                                 if (uFaceRadii[j] < 0.0) {
@@ -395,15 +397,16 @@ export const MirrorShader = {
 };
 
 export function createMirrorUniforms(THREE) {
+    const MAX_FACES = 48;
     return {
         uResolution: { value: new THREE.Vector2() },
         uTime: { value: 0 },
         uCameraPos: { value: new THREE.Vector3() },
         uInvProjection: { value: new THREE.Matrix4() },
         uInvView: { value: new THREE.Matrix4() },
-        uFaceCenters: { value: [] },
-        uFaceRadii: { value: [] },
-        uFaceNormals: { value: [] },
+        uFaceCenters: { value: new Array(MAX_FACES).fill(0).map(() => new THREE.Vector3()) },
+        uFaceRadii: { value: new Array(MAX_FACES).fill(0) },
+        uFaceNormals: { value: new Array(MAX_FACES).fill(0).map(() => new THREE.Vector3()) },
         uMaxBounces: { value: 12 },
         uMirrorOpacity: { value: 0.94 },
         uTransparency: { value: 0.80 },
@@ -413,14 +416,32 @@ export function createMirrorUniforms(THREE) {
         uLightColor: { value: new THREE.Vector3(0.0, 0.95, 1.0) },
         uAmbientColor: { value: new THREE.Vector3(0.6, 0.8, 1.0) },
         uPalette: { value: 0 },
-        uColorSpeed: { value: 0.017 }
+        uColorSpeed: { value: 0.017 },
+        uNumFaces: { value: 12 }
     };
 }
 
 export function updateGeometryUniforms(uniforms, faces, THREE) {
-    uniforms.uFaceCenters.value = faces.map(f => new THREE.Vector3(...f.center));
-    uniforms.uFaceRadii.value = faces.map(f => f.radius);
-    uniforms.uFaceNormals.value = faces.map(f => new THREE.Vector3(...f.normal));
+    const MAX_FACES = 48;
+    const centers = uniforms.uFaceCenters.value;
+    const radii = uniforms.uFaceRadii.value;
+    const normals = uniforms.uFaceNormals.value;
+
+    for (let i = 0; i < MAX_FACES; i++) {
+        if (i < faces.length) {
+            const f = faces[i];
+            centers[i].set(...f.center);
+            radii[i] = f.radius;
+            normals[i].set(...f.normal);
+        } else {
+            // Padding
+            centers[i].set(0, 0, 0);
+            radii[i] = 1000.0; // Pushed far away
+            normals[i].set(0, 1, 0);
+        }
+    }
+
+    uniforms.uNumFaces.value = faces.length;
 }
 
 export default {

@@ -8,8 +8,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { getHyperbolicDodecahedron } from './dodecahedron.js';
-import { getEuclideanDodecahedron } from './eucDodeca.js';
+import poly from './polyhedra.js';
 import { MirrorShader, createMirrorUniforms, updateGeometryUniforms } from './mirror.js';
 
 class MirrorOrbifoldApp {
@@ -19,9 +18,8 @@ class MirrorOrbifoldApp {
         this.statusDisplay = document.getElementById('status-display');
 
         this.params = {
-            geometry: 'hyperbolic',
-            curvature: 1.0,
-            inradius: 0.5, // Used for Euclidean
+            chamber: 'hyp-octahedron-90',
+            scale: 1.0,
             maxBounces: 12,
             mirrorOpacity: 0.94,
             transparency: 0.80,
@@ -83,12 +81,42 @@ class MirrorOrbifoldApp {
 
     updateGeometry() {
         let faces;
-        if (this.params.geometry === 'euclidean') {
-            faces = getEuclideanDodecahedron(this.params.curvature);
-            this.updateStatus('EUCLIDEAN DODECAHEDRON // FLAT_R3');
+        const chamber = this.params.chamber;
+
+        if (chamber.startsWith('euc-')) {
+            // Euclidean polyhedra
+            const shape = chamber.replace('euc-', '');
+            let normals;
+            switch (shape) {
+                case 'tetrahedron': normals = poly.getTetrahedronNormals(); break;
+                case 'cube': normals = poly.getCubeNormals(); break;
+                case 'octahedron': normals = poly.getOctahedronNormals(); break;
+                case 'dodecahedron': normals = poly.getDodecahedronNormals(); break;
+                case 'icosahedron': normals = poly.getIcosahedronNormals(); break;
+                case 'prism': normals = poly.getPrismNormals(6); break;
+                default: normals = poly.getDodecahedronNormals();
+            }
+            faces = poly.generateEuclidean(normals, this.params.scale);
+            this.updateStatus(`${shape.toUpperCase()} // EUCLIDEAN`);
         } else {
-            faces = getHyperbolicDodecahedron(this.params.curvature);
-            this.updateStatus('HYPERBOLIC ORBIFOLD // CURVED_H3');
+            // Hyperbolic polyhedra with fixed dihedral angles
+            switch (chamber) {
+                case 'hyp-cube-60':
+                    faces = poly.getHyperbolicCube60();
+                    this.updateStatus('CUBE // H³ π/3 ANGLES');
+                    break;
+                case 'hyp-octahedron-90':
+                    faces = poly.getHyperbolicOctahedron90();
+                    this.updateStatus('OCTAHEDRON // H³ RIGHT-ANGLED');
+                    break;
+                case 'hyp-dodecahedron-90':
+                    faces = poly.getHyperbolicDodecahedron90();
+                    this.updateStatus('DODECAHEDRON // H³ RIGHT-ANGLED');
+                    break;
+                default:
+                    faces = poly.getHyperbolicDodecahedron90();
+                    this.updateStatus('DODECAHEDRON // H³ RIGHT-ANGLED');
+            }
         }
         updateGeometryUniforms(this.uniforms, faces, THREE);
     }
@@ -103,7 +131,7 @@ class MirrorOrbifoldApp {
                 this.params[param] = val;
                 if (uniform) this.uniforms[uniform].value = val;
                 if (valEl) valEl.textContent = (el.step < 0.1) ? val.toFixed(3) : (val < 2 ? val.toFixed(2) : val.toFixed(0));
-                if (param === 'curvature') this.updateGeometry();
+                if (param === 'scale') this.updateGeometry();
                 if (id === 'opacity-slider' && valEl) valEl.textContent = (val * 100).toFixed(0) + '%';
             });
         };
@@ -112,41 +140,21 @@ class MirrorOrbifoldApp {
         bind('opacity-slider', 'mirrorOpacity', 'uMirrorOpacity');
         bind('transparency-slider', 'transparency', 'uTransparency');
         bind('intensity-slider', 'lightIntensity', 'uLightIntensity');
-        bind('curvature-slider', 'curvature', null);
+        bind('scale-slider', 'scale', null);
         bind('edge-slider', 'edgeLightWidth', 'uEdgeLightWidth');
         bind('border-slider', 'blackBorderWidth', 'uBlackBorderWidth');
         bind('colorspeed-slider', 'colorSpeed', 'uColorSpeed');
 
-        // Geometry selector
-        const geometrySelect = document.getElementById('geometry-select');
-        if (geometrySelect) {
-            geometrySelect.addEventListener('change', (e) => {
-                this.params.geometry = e.target.value;
+        // Chamber selector
+        const chamberSelect = document.getElementById('chamber-select');
+        if (chamberSelect) {
+            chamberSelect.addEventListener('change', (e) => {
+                this.params.chamber = e.target.value;
 
-                // Update slider labels/visibility based on mode
-                const curvGroup = document.getElementById('curvature-slider')?.closest('.control-group');
-                const label = curvGroup?.querySelector('.label-row span:first-child');
-                const slider = document.getElementById('curvature-slider');
-                const valEl = document.getElementById('curvature-value');
-
-                if (this.params.geometry === 'euclidean') {
-                    if (label) label.textContent = 'Inradius (Size)';
-                    if (slider) {
-                        slider.min = 0.1;
-                        slider.max = 3.0;
-                        slider.value = 1.0;
-                        this.params.curvature = 1.0;
-                        if (valEl) valEl.textContent = "1.000";
-                    }
-                } else {
-                    if (label) label.textContent = 'H3 Curvature';
-                    if (slider) {
-                        slider.min = 0.5;
-                        slider.max = 3.0;
-                        slider.value = 1.0;
-                        this.params.curvature = 1.0;
-                        if (valEl) valEl.textContent = "1.000";
-                    }
+                // Show/hide scale slider based on geometry type
+                const scaleGroup = document.getElementById('scale-slider')?.closest('.control-group');
+                if (scaleGroup) {
+                    scaleGroup.style.display = this.params.chamber.startsWith('euc-') ? 'block' : 'none';
                 }
 
                 this.updateGeometry();
