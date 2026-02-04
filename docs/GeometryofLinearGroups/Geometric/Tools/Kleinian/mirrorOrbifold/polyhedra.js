@@ -31,34 +31,22 @@ export const getDodecahedronNormals = () => {
 
 export const getIcosahedronNormals = () => {
     const phi = (1 + Math.sqrt(5)) / 2;
-    const vertices = [
-        [1, phi, 0], [-1, phi, 0], [1, -phi, 0], [-1, -phi, 0],
-        [0, 1, phi], [0, -1, phi], [0, 1, -phi], [0, -1, -phi],
-        [phi, 0, 1], [phi, 0, -1], [-phi, 0, 1], [-phi, 0, -1]
+    const invPhi = 1 / phi;
+
+    // The face normals of an icosahedron are the vertices of a dodecahedron
+    const normals = [
+        // (±1, ±1, ±1)
+        [1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1],
+        [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1],
+        // (0, ±1/φ, ±φ)
+        [0, invPhi, phi], [0, invPhi, -phi], [0, -invPhi, phi], [0, -invPhi, -phi],
+        // (±1/φ, ±φ, 0)
+        [invPhi, phi, 0], [invPhi, -phi, 0], [-invPhi, phi, 0], [-invPhi, -phi, 0],
+        // (±φ, 0, ±1/φ)
+        [phi, 0, invPhi], [phi, 0, -invPhi], [-phi, 0, invPhi], [-phi, 0, -invPhi]
     ];
 
-    // An icosahedron has 20 faces. The face normals are obtained by 
-    // taking groups of 3 closest vertices. For simplicity, we define them.
-    const normals = [];
-    const sets = [
-        [0, 1, 4], [0, 4, 8], [0, 8, 9], [0, 9, 6], [0, 6, 1],
-        [1, 6, 10], [1, 10, 11], [1, 11, 4], [4, 11, 5], [4, 5, 8],
-        [8, 5, 2], [8, 2, 9], [9, 2, 3], [9, 3, 6], [6, 3, 10],
-        [11, 10, 7], [11, 7, 5], [5, 7, 2], [2, 7, 3], [3, 7, 10]
-    ];
-
-    sets.forEach(indices => {
-        const v1 = vertices[indices[0]];
-        const v2 = vertices[indices[1]];
-        const v3 = vertices[indices[2]];
-        const n = [
-            (v1[0] + v2[0] + v3[0]) / 3,
-            (v1[1] + v2[1] + v3[1]) / 3,
-            (v1[2] + v2[2] + v3[2]) / 3
-        ];
-        normals.push(normalize(n));
-    });
-    return normals;
+    return normals.map(v => normalize(v));
 };
 
 export const getPrismNormals = (sides = 6) => {
@@ -216,6 +204,30 @@ export function getHyperbolicDodecahedron90() {
     });
 }
 
+/**
+ * Ideal Hyperbolic Icosahedron
+ * Vertices are ideal points on ∂B.
+ * Dihedral angles are 2π/5 (72°).
+ * 
+ * For ideal icosahedron, w = (1+phi) / sqrt(3*(phi+2)) = phi^2 / sqrt(3*(phi+2))
+ * w ≈ 0.79465
+ */
+export function getHyperbolicIcosahedronIdeal() {
+    const normals = getIcosahedronNormals();
+    const phi = (1 + Math.sqrt(5)) / 2;
+
+    // Exact w for ideal vertices
+    const w = Math.pow(phi, 2) / Math.sqrt(3 * (phi + 2));
+
+    return normals.map((n, index) => {
+        const center = [n[0] / w, n[1] / w, n[2] / w];
+        const centerMag2 = center[0] ** 2 + center[1] ** 2 + center[2] ** 2;
+        const radius = Math.sqrt(centerMag2 - 1);
+
+        return { index, normal: n, center, radius };
+    });
+}
+
 export default {
     getTetrahedronNormals,
     getCubeNormals,
@@ -227,5 +239,6 @@ export default {
     generateHyperbolic,
     getHyperbolicCube60,
     getHyperbolicOctahedron90,
-    getHyperbolicDodecahedron90
+    getHyperbolicDodecahedron90,
+    getHyperbolicIcosahedronIdeal
 };

@@ -113,6 +113,10 @@ class MirrorOrbifoldApp {
                     faces = poly.getHyperbolicDodecahedron90();
                     this.updateStatus('DODECAHEDRON // H³ RIGHT-ANGLED');
                     break;
+                case 'hyp-icosahedron-ideal':
+                    faces = poly.getHyperbolicIcosahedronIdeal();
+                    this.updateStatus('ICOSAHEDRON // H³ IDEAL');
+                    break;
                 default:
                     faces = poly.getHyperbolicDodecahedron90();
                     this.updateStatus('DODECAHEDRON // H³ RIGHT-ANGLED');
@@ -198,5 +202,13 @@ class MirrorOrbifoldApp {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    new MirrorOrbifoldApp();
+    const app = new MirrorOrbifoldApp();
+
+    // Keyboard shortcuts
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'h' || e.key === 'H') {
+            const toggleBtn = document.getElementById('panel-toggle');
+            if (toggleBtn) toggleBtn.click();
+        }
+    });
 });

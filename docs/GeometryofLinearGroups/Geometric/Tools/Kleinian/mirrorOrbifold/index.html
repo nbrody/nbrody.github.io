@@ -205,6 +205,34 @@
             color: var(--accent-cyan);
         }
 
+        .toggle-btn {
+            position: fixed;
+            top: 1.5rem;
+            left: 1.5rem;
+            z-index: 200;
+            width: 32px;
+            height: 32px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px) saturate(1.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            font-weight: 300;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .toggle-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: 0 0 12px rgba(0, 242, 255, 0.3);
+        }
+
         footer {
             position: fixed;
             bottom: 1.5rem;
@@ -212,6 +240,11 @@
             font-family: 'JetBrains Mono';
             font-size: 0.65rem;
             color: var(--text-muted);
+            transition: opacity 0.3s ease;
+        }
+
+        footer.hidden {
+            opacity: 0;
         }
     </style>
 </head>
@@ -226,9 +259,10 @@
     <div id="canvas-container"></div>
 
     <div id="ui-overlay">
-        <div class="glass-panel">
+        <button class="toggle-btn" id="panel-toggle" title="Toggle UI (H)">−</button>
+        <div class="glass-panel" id="glass-panel" style="margin-top: 3rem;">
             <h1>Mirror Orbifold</h1>
-            <p class="subtitle">Curved inward pentagonal mirrors assembled into a hyperbolic dodecahedron.</p>
+            <p class="subtitle">Recursive reflections in polyhedral mirror chambers.</p>
 
             <div class="controls">
                 <div class="control-group">
@@ -244,8 +278,9 @@
                         </optgroup>
                         <optgroup label="─── Hyperbolic (Curved) ───">
                             <option value="hyp-cube-60">🧊 Cube (π/3 angles)</option>
-                            <option value="hyp-octahedron-90" selected>💎 Octahedron (right-angled)</option>
+                            <option value="hyp-octahedron-90" selected>💎 Octahedron (Ideal)</option>
                             <option value="hyp-dodecahedron-90">⚽ Dodecahedron (right-angled)</option>
+                            <option value="hyp-icosahedron-ideal">🔮 Icosahedron (Ideal)</option>
                         </optgroup>
                     </select>
                 </div>
@@ -312,11 +347,28 @@
                             class="value-label">0.015</span></div>
                     <input type="range" id="edge-slider" min="0.001" max="0.05" value="0.015" step="0.001">
                 </div>
+                <div id="status-display">> INITIALIZING...</div>
             </div>
-
-            <div id="status-display">> INITIALIZING...</div>
         </div>
     </div>
+
+    <script>
+        const toggleBtn = document.getElementById('panel-toggle');
+        const panel = document.getElementById('glass-panel');
+        const footer = document.querySelector('footer');
+
+        function toggleUI() {
+            const isHidden = panel.classList.toggle('hidden');
+            footer.classList.toggle('hidden');
+            toggleBtn.textContent = isHidden ? '+' : '−';
+        }
+
+        toggleBtn.addEventListener('click', toggleUI);
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'h') toggleUI();
+        });
+    </script>
 
     <footer>H³ // POINCARÉ BALL MODEL // RIGHT-ANGLED</footer>
 
