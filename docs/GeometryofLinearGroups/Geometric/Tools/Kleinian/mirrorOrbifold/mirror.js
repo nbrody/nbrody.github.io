@@ -296,11 +296,6 @@ export const MirrorShader = {
                 float aniso = abs(sin(hit.edgeDist * 800.0)) * 0.15;
                 reflectColor += aniso * vec3(0.25, 0.28, 0.32);
                 
-                // Sharp specular highlight
-                vec3 viewReflect = reflect(rd, hit.normal);
-                float spec = pow(max(0.0, dot(viewReflect, normalize(vec3(1.0, 2.0, 1.0)))), 64.0);
-                reflectColor += spec * vec3(1.0, 0.98, 0.95) * 0.8;
-                
                 // Edge highlight for definition
                 float edgeHighlight = 1.0 - smoothstep(frameEdge * 0.9, frameEdge, hit.edgeDist);
                 reflectColor += vec3(0.3, 0.32, 0.35) * edgeHighlight * 0.5;
@@ -387,9 +382,6 @@ export const MirrorShader = {
             
             color = color / (color + vec3(1.0));
             color = pow(color, vec3(1.0 / 2.2));
-            
-            vec2 v = gl_FragCoord.xy / uResolution - 0.5;
-            color *= 1.0 - dot(v, v) * 0.8;
             
             gl_FragColor = vec4(color, 1.0);
         }
