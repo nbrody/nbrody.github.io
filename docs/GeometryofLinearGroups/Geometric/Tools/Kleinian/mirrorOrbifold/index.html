@@ -94,6 +94,46 @@
             padding: 1.75rem;
             pointer-events: auto;
             box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .toggle-btn {
+            position: absolute;
+            top: 1.25rem;
+            right: 1.25rem;
+            z-index: 200;
+            width: 24px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 300;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        #panel-toggle.is-hidden {
+            position: fixed;
+            top: 1.5rem;
+            left: 1.5rem;
+            width: 32px;
+            height: 32px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
         }
 
         h1 {
@@ -104,12 +144,14 @@
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
+            padding-right: 2.5rem;
+            margin-bottom: 0.5rem;
         }
 
         .subtitle {
             font-size: 0.8rem;
             color: var(--text-secondary);
-            margin: 0.5rem 0 1.5rem 0;
+            margin: 0 0 1.5rem 0;
             line-height: 1.5;
         }
 
@@ -205,34 +247,6 @@
             color: var(--accent-cyan);
         }
 
-        .toggle-btn {
-            position: fixed;
-            top: 1.5rem;
-            left: 1.5rem;
-            z-index: 200;
-            width: 32px;
-            height: 32px;
-            background: var(--glass-bg);
-            backdrop-filter: blur(24px) saturate(1.5);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            color: var(--text-secondary);
-            font-size: 1.4rem;
-            font-weight: 300;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-        }
-
-        .toggle-btn:hover {
-            border-color: var(--accent-cyan);
-            color: var(--accent-cyan);
-            box-shadow: 0 0 12px rgba(0, 242, 255, 0.3);
-        }
-
         footer {
             position: fixed;
             bottom: 1.5rem;
@@ -245,6 +259,16 @@
 
         footer.hidden {
             opacity: 0;
+        }
+
+        .glass-panel.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-10px);
+        }
+
+        .glass-panel {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
     </style>
 </head>
@@ -259,8 +283,8 @@
     <div id="canvas-container"></div>
 
     <div id="ui-overlay">
-        <button class="toggle-btn" id="panel-toggle" title="Toggle UI (H)">−</button>
-        <div class="glass-panel" id="glass-panel" style="margin-top: 3rem;">
+        <div class="glass-panel" id="glass-panel">
+            <button class="toggle-btn" id="panel-toggle" title="Toggle UI (H)">−</button>
             <h1>Mirror Orbifold</h1>
             <p class="subtitle">Recursive reflections in polyhedral mirror chambers.</p>
 
@@ -278,9 +302,10 @@
                         </optgroup>
                         <optgroup label="─── Hyperbolic (Curved) ───">
                             <option value="hyp-cube-60">🧊 Cube (π/3 angles)</option>
-                            <option value="hyp-octahedron-90" selected>💎 Octahedron (Ideal)</option>
+                            <option value="hyp-octahedron-90">💎 Octahedron (Ideal)</option>
                             <option value="hyp-dodecahedron-90">⚽ Dodecahedron (right-angled)</option>
                             <option value="hyp-icosahedron-ideal">🔮 Icosahedron (Ideal)</option>
+                            <option value="hyp-icosahedron-2pi3" selected>🔮 Icosahedron (2π/3 angles)</option>
                         </optgroup>
                     </select>
                 </div>
@@ -361,13 +386,17 @@
             const isHidden = panel.classList.toggle('hidden');
             footer.classList.toggle('hidden');
             toggleBtn.textContent = isHidden ? '+' : '−';
+
+            if (isHidden) {
+                toggleBtn.classList.add('is-hidden');
+                document.getElementById('ui-overlay').appendChild(toggleBtn);
+            } else {
+                toggleBtn.classList.remove('is-hidden');
+                panel.prepend(toggleBtn);
+            }
         }
 
         toggleBtn.addEventListener('click', toggleUI);
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'h') toggleUI();
-        });
     </script>
 
     <footer>H³ // POINCARÉ BALL MODEL // RIGHT-ANGLED</footer>

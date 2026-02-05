@@ -228,6 +228,33 @@ export function getHyperbolicIcosahedronIdeal() {
     });
 }
 
+/**
+ * Hyperbolic Icosahedron with 2π/3 (120°) dihedral angles.
+ * At this angle, exactly three 120° angles meet at an edge (3 * 120 = 360),
+ * so the space is locally a manifold (no cone points).
+ * 
+ * Formula for inradius w in Poincaré model (sphere center = n/w):
+ * cos(theta) = (w^2 - d) / (1 - w^2)
+ * For 2π/3: cos(theta) = -0.5
+ * -0.5 = (w^2 - d) / (1 - w^2)  => -0.5 + 0.5w^2 = w^2 - d
+ * => d - 0.5 = 0.5w^2 => w^2 = 2d - 1
+ * With d = sqrt(5)/3 (adjacent faces)
+ * w = sqrt(2*sqrt(5)/3 - 1) ≈ 0.700
+ */
+export function getHyperbolicIcosahedron2pi3() {
+    const normals = getIcosahedronNormals();
+    const d = Math.sqrt(5) / 3;
+    const targetW = Math.sqrt(2 * d - 1);
+
+    return normals.map((n, index) => {
+        const center = [n[0] / targetW, n[1] / targetW, n[2] / targetW];
+        const centerMag2 = center[0] ** 2 + center[1] ** 2 + center[2] ** 2;
+        const radius = Math.sqrt(centerMag2 - 1);
+
+        return { index, normal: n, center, radius };
+    });
+}
+
 export default {
     getTetrahedronNormals,
     getCubeNormals,
@@ -240,5 +267,6 @@ export default {
     getHyperbolicCube60,
     getHyperbolicOctahedron90,
     getHyperbolicDodecahedron90,
-    getHyperbolicIcosahedronIdeal
+    getHyperbolicIcosahedronIdeal,
+    getHyperbolicIcosahedron2pi3
 };

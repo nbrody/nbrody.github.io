@@ -1,0 +1,672 @@
+:root {
+    --bg: #020617;
+    --surface: #1e293b;
+    --primary: #38bdf8;
+    --primary-dim: rgba(56, 189, 248, 0.2);
+    --accent: #6366f1;
+    --accent-dim: rgba(99, 102, 241, 0.2);
+    --text: #f8fafc;
+    --text-dim: #94a3b8;
+    --text-muted: #64748b;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-light: rgba(255, 255, 255, 0.15);
+    --glass-bg: rgba(15, 23, 42, 0.85);
+    --glass-hover: rgba(255, 255, 255, 0.08);
+    --success: #22c55e;
+    --danger: #ef4444;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body,
+html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow: hidden;
+}
+
+/* Full-screen 3D container */
+#viz-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+}
+
+#viz-container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* ============================================
+   FLOATING CONTROL PANEL
+   ============================================ */
+#control-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 380px;
+    max-height: calc(100vh - 40px);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-light);
+    border-radius: 16px;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.3s ease;
+}
+
+/* Tab Navigation */
+.tab-navigation {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+    background: var(--glass-hover);
+    color: var(--text);
+}
+
+.tab-btn.active {
+    background: var(--accent-dim);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: var(--text);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.2);
+}
+
+/* Collapse button */
+.collapse-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.collapse-btn:hover {
+    background: var(--glass-hover);
+    border-color: var(--border-light);
+}
+
+.collapse-icon {
+    line-height: 1;
+    transition: transform 0.3s ease;
+}
+
+/* Collapsed state */
+#control-panel.collapsed {
+    width: 56px;
+    height: 56px;
+    min-height: 56px;
+}
+
+#control-panel.collapsed .tab-btn,
+#control-panel.collapsed #refresh-btn,
+#control-panel.collapsed .panel-content {
+    display: none;
+}
+
+#control-panel.collapsed .tab-navigation {
+    padding: 12px;
+    background: transparent;
+    border-bottom: none;
+    justify-content: center;
+}
+
+#control-panel.collapsed .collapse-icon {
+    transform: rotate(45deg);
+}
+
+/* Panel content */
+.panel-content {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+.panel-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.panel-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.panel-content::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+/* Tab content */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Panel typography */
+.panel-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 4px 0;
+    background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.panel-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Control groups */
+.control-group {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.control-group:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-light);
+}
+
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.control-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.label-hint {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+/* Inputs */
+.number-input,
+.select-input {
+    flex: 1;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.number-input:focus,
+.select-input:focus {
+    outline: none;
+    background: rgba(30, 41, 59, 0.95);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.number-input {
+    width: 80px;
+    flex: none;
+}
+
+/* Range Slider */
+.slider-input {
+    flex: 1;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+.slider-input::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.5);
+}
+
+.slider-input::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: var(--accent);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Buttons */
+.btn {
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.btn-add {
+    background: var(--success);
+    color: white;
+    border-color: var(--success);
+}
+
+.btn-add:hover {
+    background: #16a34a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+.btn-add-alt {
+    background: var(--primary);
+    color: var(--bg);
+    border-color: var(--primary);
+}
+
+.btn-add-alt:hover {
+    background: #0ea5e9;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+}
+
+/* Toggle buttons */
+.toggle-btn {
+    width: 100%;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.toggle-btn:hover {
+    background: var(--glass-hover);
+    color: var(--text);
+}
+
+.toggle-btn.active {
+    background: var(--accent-dim);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: var(--text);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.15);
+}
+
+/* Error message */
+.error-message {
+    color: var(--danger);
+    font-size: 0.85rem;
+    margin: 0;
+    padding: 8px 12px;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 8px;
+    display: none;
+}
+
+.error-message:not(:empty) {
+    display: block;
+}
+
+/* Info section */
+.info-section {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--border);
+}
+
+.info-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 8px 0;
+}
+
+.info-section p {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin: 0 0 8px 0;
+}
+
+.info-section p:last-child {
+    margin-bottom: 0;
+}
+
+/* ============================================
+   MATRIX INPUT STYLES (MathQuill)
+   ============================================ */
+.matrix-block {
+    margin-bottom: 12px;
+}
+
+.matrix-label {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+}
+
+.matrix-bracket {
+    display: inline-block;
+    font-size: 40px;
+    font-weight: 200;
+    line-height: 44px;
+    vertical-align: middle;
+    margin: 0 2px;
+    color: var(--text-dim);
+}
+
+.matrix-grid-inline {
+    display: inline-grid;
+    grid-template-columns: repeat(2, minmax(50px, max-content));
+    grid-auto-rows: minmax(28px, max-content);
+    grid-gap: 4px;
+    vertical-align: middle;
+    margin: 0 4px;
+    align-items: center;
+}
+
+.mq-matrix-input {
+    display: inline-block;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(30, 41, 59, 0.8);
+    padding: 4px 8px;
+    min-width: 50px;
+    transition: all 0.2s ease;
+}
+
+.mq-matrix-input:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.mq-matrix-input .mq-root-block {
+    display: inline-block;
+    overflow: visible;
+}
+
+.delete-matrix-btn,
+.delete-constant-btn {
+    background: var(--danger);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: all 0.2s ease;
+    font-size: 12px;
+}
+
+.delete-matrix-btn:hover,
+.delete-constant-btn:hover {
+    background: #dc2626;
+    transform: scale(1.05);
+}
+
+/* Constant input styles */
+.constant-block {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.constant-label-input,
+.constant-expr-input {
+    display: inline-block;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(30, 41, 59, 0.8);
+    padding: 4px 8px;
+    min-width: 60px;
+}
+
+.constant-label-input:focus-within,
+.constant-expr-input:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.constant-equals {
+    color: var(--text-dim);
+    font-size: 1rem;
+}
+
+/* ============================================
+   STANDARD GENERATORS LIST (Polyhedron tab)
+   ============================================ */
+.std-gen-list {
+    max-height: 300px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.std-gen-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--glass-hover);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.std-gen-item:hover {
+    background: var(--primary-dim);
+    border-color: var(--primary);
+}
+
+.std-gen-item.stabilizer {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+}
+
+.std-gen-word {
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--primary);
+    min-width: 50px;
+}
+
+.std-gen-item.stabilizer .std-gen-word {
+    color: var(--accent);
+}
+
+.std-gen-type {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.empty-message {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.85rem;
+    padding: 10px;
+    text-align: center;
+}
+
+/* ============================================
+   ISOMETRY CONTROLS (bottom)
+   ============================================ */
+#isometry-controls {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    z-index: 50;
+}
+
+#isometry-controls .isometry-btn {
+    padding: 12px 24px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 60px;
+    text-align: center;
+}
+
+#isometry-controls .isometry-btn:hover {
+    background: var(--primary);
+    color: var(--bg);
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(56, 189, 248, 0.3);
+}
+
+#isometry-controls .isometry-btn:active {
+    transform: translateY(0);
+}
+
+/* Color coding for generator buttons */
+#isometry-controls .isometry-btn[data-gen="0"] {
+    border-color: rgba(56, 189, 248, 0.5);
+}
+
+#isometry-controls .isometry-btn[data-gen="1"] {
+    border-color: rgba(244, 114, 182, 0.5);
+}
+
+#isometry-controls .isometry-btn[data-gen="2"] {
+    border-color: rgba(251, 191, 36, 0.5);
+}
+
+#isometry-controls .isometry-btn[data-gen="3"] {
+    border-color: rgba(34, 197, 94, 0.5);
+}
+
+/* MathQuill overrides for dark theme */
+.mq-editable-field {
+    background: transparent !important;
+    color: var(--text) !important;
+    border: none !important;
+}
+
+.mq-math-mode {
+    color: var(--text) !important;
+}
+
+.mq-cursor {
+    border-left-color: var(--primary) !important;
+}
+
+.mq-selection {
+    background: rgba(99, 102, 241, 0.3) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #control-panel {
+        width: calc(100vw - 40px);
+        max-width: 380px;
+        right: 20px;
+        top: 20px;
+    }
+
+    #isometry-controls {
+        bottom: 20px;
+    }
+
+    #isometry-controls .isometry-btn {
+        padding: 10px 18px;
+        font-size: 0.9rem;
+    }
+}

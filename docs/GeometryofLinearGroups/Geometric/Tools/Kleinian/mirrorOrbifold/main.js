@@ -18,7 +18,7 @@ class MirrorOrbifoldApp {
         this.statusDisplay = document.getElementById('status-display');
 
         this.params = {
-            chamber: 'hyp-octahedron-90',
+            chamber: 'hyp-icosahedron-2pi3',
             scale: 1.0,
             maxBounces: 12,
             mirrorOpacity: 0.94,
@@ -116,6 +116,10 @@ class MirrorOrbifoldApp {
                 case 'hyp-icosahedron-ideal':
                     faces = poly.getHyperbolicIcosahedronIdeal();
                     this.updateStatus('ICOSAHEDRON // H³ IDEAL');
+                    break;
+                case 'hyp-icosahedron-2pi3':
+                    faces = poly.getHyperbolicIcosahedron2pi3();
+                    this.updateStatus('ICOSAHEDRON // H³ 2π/3 ANGLES');
                     break;
                 default:
                     faces = poly.getHyperbolicDodecahedron90();

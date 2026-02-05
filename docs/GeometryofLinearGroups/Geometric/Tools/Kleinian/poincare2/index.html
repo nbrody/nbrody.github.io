@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dirichlet Domains</title>
+
+    <!-- MathQuill dependencies -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+
+    <!-- MathJax for high-quality mathematical typesetting -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            startup: {
+                pageReady: () => {
+                    return MathJax.startup.defaultPageReady();
+                }
+            }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <!-- Import Map for Three.js and Addons -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <!-- External Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- 3D Scene Container (full screen) -->
+    <div id="viz-container"></div>
+
+    <!-- Floating Control Panel (right side) -->
+    <div id="control-panel">
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="group">Group</button>
+            <button class="tab-btn" data-tab="polyhedron">Domain</button>
+            <button class="tab-btn" data-tab="graphics">View</button>
+            <button id="refresh-btn" class="collapse-btn" title="Render/Generate">
+                <span class="collapse-icon">⟳</span>
+            </button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- Group Tab -->
+            <div id="tab-group" class="tab-content active">
+                <div>
+                    <h2 class="panel-title">Matrix Generators</h2>
+                    <p class="panel-subtitle">Input generators as 2×2 matrices with complex entries.</p>
+                </div>
+
+                <div class="control-group">
+                    <div id="matrixInputs"></div>
+                    <button id="addMatrixBtn" class="btn btn-add">
+                        + Add Matrix
+                    </button>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">
+                        Constants <span class="label-hint">(optional)</span>
+                    </label>
+                    <div id="constantsInputs"></div>
+                    <button id="addConstantBtn" class="btn btn-add-alt">
+                        + Add Constant
+                    </button>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row">
+                        <label for="matrix-example-select" class="control-label">Examples</label>
+                        <select id="matrix-example-select" class="select-input">
+                            <option value="">-- Select an Example --</option>
+                        </select>
+                    </div>
+                    <div class="control-row" style="margin-top: 12px;">
+                        <label for="wordLength" class="control-label">Word Length</label>
+                        <input id="wordLength" type="number" value="6" min="1" max="12" step="1" class="number-input">
+                    </div>
+                </div>
+
+                <p id="matrix-error-message" class="error-message"></p>
+            </div>
+
+            <!-- Polyhedron/Domain Tab -->
+            <div id="tab-polyhedron" class="tab-content">
+                <div>
+                    <h2 class="panel-title">Dirichlet Domain</h2>
+                    <p class="panel-subtitle">Standard generators that pair faces of the domain.</p>
+                </div>
+
+                <div class="control-group">
+                    <div class="std-gen-list" id="std-generators-list">
+                        <!-- Populated dynamically by main.js -->
+                        <p class="empty-message">Click Refresh to compute standard generators</p>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">Face Pairings</h3>
+                    <p>Each face of the Dirichlet domain corresponds to a group element g.
+                        The face is the perpendicular bisector between the basepoint and g(basepoint).</p>
+                    <p>Click a generator to animate the isometry.</p>
+                </div>
+            </div>
+
+            <!-- Graphics/View Tab -->
+            <div id="tab-graphics" class="tab-content">
+                <div>
+                    <h2 class="panel-title">View Options</h2>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row">
+                        <label for="face-count-input" class="control-label">Face Count</label>
+                        <input type="number" id="face-count-input" value="64" step="4" min="1" max="256"
+                            class="number-input">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row">
+                        <label for="polyhedron-opacity" class="control-label">Polyhedron Opacity</label>
+                        <input type="range" id="polyhedron-opacity" min="0" max="1" step="0.05" value="1"
+                            class="slider-input">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row">
+                        <label for="color-palette-select" class="control-label">Color Palette</label>
+                        <select id="color-palette-select" class="select-input">
+                        </select>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <button id="toggle-cayley" class="toggle-btn">
+                        Show Cayley Graph
+                    </button>
+
+                    <button id="auto-rotate" class="toggle-btn active">
+                        Auto-rotate
+                    </button>
+                    <button id="reset-camera" class="toggle-btn">
+                        Reset View
+                    </button>
+                </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">How it Works</h3>
+                    <p>This tool visualizes Kleinian groups and their fundamental domains in the Poincaré
+                        ball model of hyperbolic 3-space.</p>
+                    <p><strong>Cayley Graph:</strong> Vertices represent group elements, edges connect
+                        elements differing by one generator. Edge colors match generator colors.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Controls (isometry buttons) -->
+    <div id="isometry-controls">
+        <!-- Dynamically populated by main.js -->
+    </div>
+
+    <!-- Application Entry Point -->
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
