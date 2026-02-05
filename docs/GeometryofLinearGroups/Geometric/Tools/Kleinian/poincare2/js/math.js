@@ -308,6 +308,33 @@ export function getDirichletFaces(generators = [], viewMat = new Matrix2x2(1, 0,
 }
 
 /**
+ * Format a word array as MathJax: [1, -2, 1] -> "g_1 g_2^{-1} g_1"
+ */
+export function formatWordMathJax(wordArr) {
+    if (!wordArr || wordArr.length === 0) return 'e';  // Identity
+    return wordArr.map(idx => {
+        const absIdx = Math.abs(idx);
+        return idx > 0 ? `g_{${absIdx}}` : `g_{${absIdx}}^{-1}`;
+    }).join(' ');
+}
+
+/**
+ * Reduce a word by cancelling adjacent inverse pairs.
+ * [1, -1, 2] -> [2], [1, 2, -2, 3] -> [1, 3]
+ */
+export function reduceWord(wordArr) {
+    const result = [];
+    for (const idx of wordArr) {
+        if (result.length > 0 && result[result.length - 1] === -idx) {
+            result.pop();  // Cancel inverse pair
+        } else {
+            result.push(idx);
+        }
+    }
+    return result;
+}
+
+/**
  * Find standard generators: group elements that map the polyhedron to share a face with itself.
  * These are the elements g such that the bisector between basepoint and g(basepoint)
  * is a face of the Dirichlet domain.
@@ -321,7 +348,10 @@ export function getStdGenerators(generators = [], viewMat = new Matrix2x2(1, 0, 
         return [];
     }
 
-    const queue = [{ matrix: viewMat, depth: 0, word: '' }];
+    const numGens = generators.length;
+    const halfGens = numGens / 2;  // Generators are [g1, g2, ..., g1^-1, g2^-1, ...]
+
+    const queue = [{ matrix: viewMat, depth: 0, wordArr: [], lastGenIdx: -1 }];
     const allCandidates = [];  // All potential face-pairing elements
     const stabilizers = [];     // Elements that fix the basepoint
     const seenMatrices = new Set();
@@ -332,37 +362,56 @@ export function getStdGenerators(generators = [], viewMat = new Matrix2x2(1, 0, 
 
     let head = 0;
     while (head < queue.length) {
-        const { matrix, depth, word } = queue[head++];
+        const { matrix, depth, wordArr, lastGenIdx } = queue[head++];
         if (depth >= 8) continue;
 
-        for (let i = 0; i < generators.length; i++) {
+        for (let i = 0; i < numGens; i++) {
+            // Skip if this generator is the inverse of the last one (aA, Aa, bB, Bb, etc.)
+            if (lastGenIdx >= 0) {
+                const isInversePair = (lastGenIdx < halfGens && i === lastGenIdx + halfGens) ||
+                    (lastGenIdx >= halfGens && i === lastGenIdx - halfGens);
+                if (isInversePair) continue;
+            }
+
             const g = generators[i];
             const next = matrix.mul(g);
             const matKey = exploreMatrixKey(next);
-            const genLabel = i < generators.length / 2
-                ? String.fromCharCode(65 + i)  // A, B, C, ...
-                : String.fromCharCode(97 + (i - generators.length / 2));  // a, b, c, ... (inverses)
-            const nextWord = word + genLabel;
+            // Use indices for labels: positive for generators, negative for inverses
+            // This allows easy MathJax formatting later: g_1, g_1^{-1}, etc.
+            const genIdx = i < halfGens ? (i + 1) : -(i - halfGens + 1);
+            const nextWordArr = [...wordArr, genIdx];
 
             if (!seenMatrices.has(matKey)) {
                 seenMatrices.add(matKey);
-                queue.push({ matrix: next, depth: depth + 1, word: nextWord });
+                queue.push({ matrix: next, depth: depth + 1, wordArr: nextWordArr, lastGenIdx: i });
 
                 const q = uhsToBall(imageOfOriginUHS(next));
                 const distSq = q.clone().sub(startQ).lengthSq();
+                const qLength = q.length();
 
                 // Check if this is a stabilizer (fixes basepoint)
                 if (distSq < 1e-8) {
                     stabilizers.push({
                         matrix: next,
-                        word: nextWord,
+                        wordArr: nextWordArr,
                         isStabilizer: true,
                         face: null,
                         distance: 0
                     });
                 } else {
-                    // Check if this creates a new face position
-                    const faceKey = `${q.x.toFixed(5)},${q.y.toFixed(5)},${q.z.toFixed(5)}`;
+                    // For parabolic elements (orbit point near boundary), use the direction
+                    // to the ideal point as the key. This ensures only one element per cusp
+                    // (powers of the same parabolic all approach the same ideal point).
+                    let faceKey;
+                    if (qLength > 0.95) {
+                        // Near boundary - use normalized direction with low precision
+                        const dir = q.clone().normalize();
+                        faceKey = `dir:${dir.x.toFixed(2)},${dir.y.toFixed(2)},${dir.z.toFixed(2)}`;
+                    } else {
+                        // Interior point - use position with high precision
+                        faceKey = `pos:${q.x.toFixed(5)},${q.y.toFixed(5)},${q.z.toFixed(5)}`;
+                    }
+
                     if (!seenFaces.has(faceKey)) {
                         seenFaces.add(faceKey);
                         const face = getBisectorSphere(startQ, q);
@@ -374,10 +423,11 @@ export function getStdGenerators(generators = [], viewMat = new Matrix2x2(1, 0, 
 
                         allCandidates.push({
                             matrix: next,
-                            word: nextWord,
+                            wordArr: nextWordArr,
                             isStabilizer: false,
                             face: face,
-                            distance: distToFace
+                            distance: distToFace,
+                            isParabolic: qLength > 0.95
                         });
                     }
                 }
@@ -394,10 +444,13 @@ export function getStdGenerators(generators = [], viewMat = new Matrix2x2(1, 0, 
     // Combine stabilizers with visible face pairings
     const result = [...stabilizers, ...visibleFaces];
 
-    // Sort by word length, then alphabetically
+    // Sort by word length, then by first generator index
     result.sort((a, b) => {
-        if (a.word.length !== b.word.length) return a.word.length - b.word.length;
-        return a.word.localeCompare(b.word);
+        if (a.wordArr.length !== b.wordArr.length) return a.wordArr.length - b.wordArr.length;
+        for (let i = 0; i < a.wordArr.length; i++) {
+            if (a.wordArr[i] !== b.wordArr[i]) return a.wordArr[i] - b.wordArr[i];
+        }
+        return 0;
     });
 
     return result;

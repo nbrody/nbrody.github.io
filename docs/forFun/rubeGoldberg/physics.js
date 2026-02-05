@@ -7,8 +7,8 @@ export function createWorld() {
     world.broadphase = new CANNON.SAPBroadphase(world);
 
     // Default contact material
-    world.defaultContactMaterial.friction = 0.2;
-    world.defaultContactMaterial.restitution = 0.35;
+    world.defaultContactMaterial.friction = 0.45;
+    world.defaultContactMaterial.restitution = 0.2;
 
     return world;
 }

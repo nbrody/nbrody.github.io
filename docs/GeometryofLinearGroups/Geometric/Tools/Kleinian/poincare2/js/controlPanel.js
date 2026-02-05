@@ -78,7 +78,10 @@ export function getPaletteSettings() {
 export function setupControlPanel(handlers) {
     const {
         onOpacityChange,
+        onPolyhedronOpacity,
+        onWallsOpacity,
         onCayleyToggle,
+        onTiedyeToggle,
         onAutoRotateToggle,
         onResetCamera,
         onFaceCountChange,
@@ -110,9 +113,14 @@ export function setupControlPanel(handlers) {
     // Collapse button
     const collapseBtn = document.getElementById('collapse-btn');
     const panel = document.getElementById('control-panel');
+    const isometryControls = document.getElementById('isometry-controls');
     if (collapseBtn && panel) {
         collapseBtn.addEventListener('click', () => {
             panel.classList.toggle('collapsed');
+            // Hide isometry buttons when panel is collapsed
+            if (isometryControls) {
+                isometryControls.style.display = panel.classList.contains('collapsed') ? 'none' : 'flex';
+            }
         });
     }
 
@@ -149,6 +157,120 @@ export function setupControlPanel(handlers) {
     if (toggleCayleyBtn && onCayleyToggle) {
         toggleCayleyBtn.addEventListener('click', () => {
             onCayleyToggle(toggleCayleyBtn);
+        });
+    }
+
+    // Slider button helper - handles both click and drag
+    function setupSliderButton(btnId, initialValue, onChange) {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+
+        let value = initialValue;
+        let isDragging = false;
+        let startX = 0;
+        let startValue = 0;
+        let hasMoved = false;
+
+        const updateVisual = (val) => {
+            btn.style.setProperty('--fill', `${val * 100}%`);
+            btn.classList.toggle('active', val > 0);
+        };
+
+        updateVisual(value);
+
+        btn.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            hasMoved = false;
+            startX = e.clientX;
+            startValue = value;
+            btn.classList.add('dragging');
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            if (Math.abs(dx) > 5) hasMoved = true;
+
+            const btnWidth = btn.offsetWidth;
+            const sensitivity = 1.5; // How many pixels = full range
+            const delta = dx / (btnWidth * sensitivity);
+            value = Math.max(0, Math.min(1, startValue + delta));
+
+            updateVisual(value);
+            onChange(value, false); // false = still dragging
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            btn.classList.remove('dragging');
+
+            if (!hasMoved) {
+                // Click: toggle between 0 and 1
+                value = value > 0.5 ? 0 : 1;
+                updateVisual(value);
+            }
+            onChange(value, true); // true = drag ended
+        });
+
+        // Touch support
+        btn.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            hasMoved = false;
+            startX = e.touches[0].clientX;
+            startValue = value;
+            btn.classList.add('dragging');
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const dx = e.touches[0].clientX - startX;
+            if (Math.abs(dx) > 5) hasMoved = true;
+
+            const btnWidth = btn.offsetWidth;
+            const sensitivity = 1.5;
+            const delta = dx / (btnWidth * sensitivity);
+            value = Math.max(0, Math.min(1, startValue + delta));
+
+            updateVisual(value);
+            onChange(value, false);
+        }, { passive: true });
+
+        document.addEventListener('touchend', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            btn.classList.remove('dragging');
+
+            if (!hasMoved) {
+                value = value > 0.5 ? 0 : 1;
+                updateVisual(value);
+            }
+            onChange(value, true);
+        });
+
+        return { getValue: () => value, setValue: (v) => { value = v; updateVisual(v); } };
+    }
+
+    // Polyhedron opacity slider
+    if (onPolyhedronOpacity) {
+        setupSliderButton('slider-polyhedron', 1.0, (val, ended) => {
+            onPolyhedronOpacity(val);
+        });
+    }
+
+    // Walls opacity slider
+    if (onWallsOpacity) {
+        setupSliderButton('slider-walls', 0.0, (val, ended) => {
+            onWallsOpacity(val);
+        });
+    }
+
+    // Tie-Dye toggle (GLSL folding effect)
+    const toggleTiedyeBtn = document.getElementById('toggle-tiedye');
+    if (toggleTiedyeBtn && onTiedyeToggle) {
+        toggleTiedyeBtn.addEventListener('click', () => {
+            onTiedyeToggle(toggleTiedyeBtn);
         });
     }
 
@@ -191,7 +313,13 @@ export function setupControlPanel(handlers) {
     // Keyboard shortcut to toggle panel (H key)
     document.addEventListener('keydown', (e) => {
         if (e.key.toLowerCase() === 'h' && !e.target.matches('input, textarea, [contenteditable]')) {
-            if (panel) panel.classList.toggle('collapsed');
+            if (panel) {
+                panel.classList.toggle('collapsed');
+                // Hide isometry buttons when panel is collapsed
+                if (isometryControls) {
+                    isometryControls.style.display = panel.classList.contains('collapsed') ? 'none' : 'flex';
+                }
+            }
         }
     });
 
@@ -223,8 +351,14 @@ export function updateIsometryButtons(matrices, onAnimateIsometry) {
         const btn = document.createElement('button');
         btn.className = 'isometry-btn';
         btn.setAttribute('data-gen', idx);
-        btn.textContent = `g${idx + 1}`;
+        // Use the dollar-sign delimiter which is simpler
+        btn.innerHTML = `$g_{${idx + 1}}$`;
         btn.addEventListener('click', (e) => onAnimateIsometry(idx, e));
         container.appendChild(btn);
     });
+
+    // Trigger MathJax to render the button labels
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise([container]);
+    }
 }

@@ -109,7 +109,13 @@
                     <p class="panel-subtitle">Standard generators that pair faces of the domain.</p>
                 </div>
 
+                <div class="control-group current-element-group">
+                    <label class="control-label">Current Element</label>
+                    <div id="current-element-display" class="current-element-display">\(e\)</div>
+                </div>
+
                 <div class="control-group">
+                    <label class="control-label">Face Pairings</label>
                     <div class="std-gen-list" id="std-generators-list">
                         <!-- Populated dynamically by main.js -->
                         <p class="empty-message">Click Refresh to compute standard generators</p>
@@ -140,14 +146,6 @@
 
                 <div class="control-group">
                     <div class="control-row">
-                        <label for="polyhedron-opacity" class="control-label">Polyhedron Opacity</label>
-                        <input type="range" id="polyhedron-opacity" min="0" max="1" step="0.05" value="1"
-                            class="slider-input">
-                    </div>
-                </div>
-
-                <div class="control-group">
-                    <div class="control-row">
                         <label for="color-palette-select" class="control-label">Color Palette</label>
                         <select id="color-palette-select" class="select-input">
                         </select>
@@ -155,8 +153,17 @@
                 </div>
 
                 <div class="control-group">
+                    <button id="slider-polyhedron" class="slider-btn active" style="--fill: 100%">
+                        <span>Polyhedron</span>
+                    </button>
+                    <button id="slider-walls" class="slider-btn" style="--fill: 0%">
+                        <span>Walls</span>
+                    </button>
                     <button id="toggle-cayley" class="toggle-btn">
-                        Show Cayley Graph
+                        Cayley Graph
+                    </button>
+                    <button id="toggle-tiedye" class="toggle-btn">
+                        Tie-Dye
                     </button>
 
                     <button id="auto-rotate" class="toggle-btn active">

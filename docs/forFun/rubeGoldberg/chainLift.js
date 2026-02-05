@@ -16,6 +16,7 @@ export class ChainLift {
 
         this.hooks = [];
         this.wheelRotation = 0;
+        this.ballOffset = new THREE.Vector3(0.65, 0.25, 0);
 
         this.createStructure();
         this.createHooks();
@@ -169,7 +170,7 @@ export class ChainLift {
         this.world.addBody(body);
 
         const progress = index / this.numHooks;
-        return { mesh: group, body, progress };
+        return { mesh: group, body, progress, ball: null };
     }
 
     getPositionOnChain(progress) {
@@ -233,7 +234,49 @@ export class ChainLift {
             const q = new CANNON.Quaternion();
             q.setFromEuler(0, 0, pos.rotation);
             hook.body.quaternion = q;
+
+            if (hook.ball) {
+                const offset = this.ballOffset.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), pos.rotation);
+                hook.ball.body.position.set(pos.x + offset.x, pos.y + offset.y, pos.z + offset.z);
+                hook.ball.body.velocity.set(0, 0, 0);
+                hook.ball.body.angularVelocity.set(0, 0, 0);
+
+                if (hook.progress > 0.47 && hook.progress < 0.6) {
+                    hook.ball.body.type = CANNON.Body.DYNAMIC;
+                    hook.ball.body.velocity.set(1.5, 0.2, 0);
+                    hook.ball._justReleasedUntil = performance.now() + 500;
+                    hook.ball = null;
+                }
+            }
         });
+    }
+
+    captureBalls(balls) {
+        const now = performance.now();
+        for (const hook of this.hooks) {
+            if (hook.ball) continue;
+            if (hook.progress < 0.03 || hook.progress > 0.42) continue;
+
+            const pos = this.getPositionOnChain(hook.progress);
+            const offset = this.ballOffset.clone();
+            const target = new THREE.Vector3(pos.x + offset.x, pos.y + offset.y, pos.z + offset.z);
+
+            for (const ball of balls) {
+                if (ball._justReleasedUntil && now < ball._justReleasedUntil) continue;
+                if (ball.body.type !== CANNON.Body.DYNAMIC) continue;
+                const dx = ball.body.position.x - target.x;
+                const dy = ball.body.position.y - target.y;
+                const dz = ball.body.position.z - target.z;
+                const distSq = dx * dx + dy * dy + dz * dz;
+                if (distSq < 0.18) {
+                    hook.ball = ball;
+                    ball.body.type = CANNON.Body.KINEMATIC;
+                    ball.body.velocity.set(0, 0, 0);
+                    ball.body.angularVelocity.set(0, 0, 0);
+                    break;
+                }
+            }
+        }
     }
 
     // Get positions for balls to start on hooks

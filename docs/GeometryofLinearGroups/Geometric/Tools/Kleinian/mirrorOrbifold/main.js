@@ -46,10 +46,12 @@ class MirrorOrbifoldApp {
         this.camera.position.set(0, 0, 0.3); // Start slightly inside
 
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.target.set(0, 0, 0);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.08;
         this.controls.minDistance = 0.0001;
         this.controls.maxDistance = 5.0;
+        this.camera.lookAt(0, 0, 0);
 
         this.uniforms = createMirrorUniforms(THREE);
         this.updateGeometry();

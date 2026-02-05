@@ -28,12 +28,43 @@ export const fragmentShader = `
     const int MAX_STEPS = 80;
     const float EPSILON = 0.001;
 
+    uniform bool u_showTiling;
+
     // SDF for a half-space in Poincare Ball
     float sdFace(vec3 p, vec4 face) {
         vec3 c = face.xyz;
         float r = face.w;
         float s = r > 0.0 ? 1.0 : -1.0;
         return s * (length(p - c) - abs(r));
+    }
+
+    // Reflect point through a bisector sphere (hyperbolic reflection)
+    vec3 reflectThroughFace(vec3 p, vec4 face) {
+        vec3 c = face.xyz;
+        float r = abs(face.w);
+        vec3 d = p - c;
+        float dist2 = dot(d, d);
+        if (dist2 < 0.0001) return p;
+        return c + (r * r / dist2) * d;
+    }
+
+    // Apply tiling: fold point into fundamental domain
+    vec3 foldToFundamental(vec3 p, out float totalFolds) {
+        totalFolds = 0.0;
+        for(int iter = 0; iter < 20; iter++) {
+            bool folded = false;
+            for(int i = 0; i < 256; i++) {
+                if (i >= u_faceCount) break;
+                float d = sdFace(p, u_faces[i]);
+                if (d > 0.001) {
+                    p = reflectThroughFace(p, u_faces[i]);
+                    totalFolds += 1.0;
+                    folded = true;
+                }
+            }
+            if (!folded) break;
+        }
+        return p;
     }
 
     vec2 map(vec3 p) {
@@ -79,15 +110,26 @@ export const fragmentShader = `
         float t = 0.0;
         vec2 res;
         bool hit = false;
+        float foldCount = 0.0;
 
         for(int i = 0; i < MAX_STEPS; i++) {
             vec3 p = ro + rd * t;
+            
+            // If tiling is enabled, fold point into fundamental domain
+            if (u_showTiling) {
+                float folds;
+                p = foldToFundamental(p, folds);
+                foldCount = folds;
+            }
+            
             res = map(p);
             if (abs(res.x) < EPSILON) {
                 hit = true;
                 break;
             }
-            t += abs(res.x);
+            // Use smaller steps when tiling to avoid missing thin tiles
+            float stepSize = u_showTiling ? abs(res.x) * 0.5 : abs(res.x);
+            t += stepSize;
             if (t > MAX_DIST) break;
         }
 
