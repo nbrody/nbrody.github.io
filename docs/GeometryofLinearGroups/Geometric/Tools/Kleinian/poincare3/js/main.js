@@ -4,7 +4,6 @@ import { getDirichletFaces, getCayleyGraph, getStdGenerators, formatWordMathJax,
 import { vertexShader, fragmentShader } from './shaders.js';
 import { setupMatrixInput, getGeneratorsFromUI, getMatricesFromUI } from './matrixInput.js';
 import { setupControlPanel, updateToggleBtn, colorPalettes, getPaletteSettings } from './controlPanel.js';
-import { mirrorFragmentShader, mirrorDefaults } from './mirror.js';
 
 // --- Three.js Setup ---
 const container = document.getElementById('viz-container');
@@ -59,13 +58,7 @@ const material = new THREE.ShaderMaterial({
         u_colorMode: { value: initialPalette.mode },
         u_colorOffset: { value: initialPalette.offset.clone() },
         u_colorFreq: { value: initialPalette.freq },
-        u_showTiling: { value: false },
-        u_maxBounces: { value: mirrorDefaults.maxBounces },
-        u_mirrorOpacity: { value: mirrorDefaults.mirrorOpacity },
-        u_transparency: { value: mirrorDefaults.transparency },
-        u_edgeLightWidth: { value: mirrorDefaults.edgeLightWidth },
-        u_blackBorderWidth: { value: mirrorDefaults.blackBorderWidth },
-        u_lightIntensity: { value: mirrorDefaults.lightIntensity }
+        u_showTiling: { value: false }
     },
     vertexShader: vertexShader,
     fragmentShader: fragmentShader,
@@ -97,7 +90,6 @@ wallsGroup.visible = false;
 scene.add(wallsGroup);
 let wallsOpacity = 0;
 let showTiedye = false;
-let mirrorMode = false;
 
 // Generator colors for Cayley graph edges
 const generatorColors = [
@@ -442,41 +434,6 @@ function updateStdGeneratorsList() {
     updateCurrentElementDisplay();
 }
 
-function setMirrorStatus(message = '', statusClass = '') {
-    const statusEl = document.getElementById('mirror-status');
-    if (!statusEl) return;
-    statusEl.textContent = message;
-    statusEl.classList.remove('success', 'error');
-    if (statusClass) statusEl.classList.add(statusClass);
-}
-
-function setMirrorMode(enabled) {
-    mirrorMode = enabled;
-    material.fragmentShader = mirrorMode ? mirrorFragmentShader : fragmentShader;
-    material.needsUpdate = true;
-
-    const mirrorBtn = document.getElementById('open-mirror-btn');
-    if (mirrorBtn) {
-        mirrorBtn.textContent = 'Mirror';
-        updateToggleBtn(mirrorBtn, mirrorMode);
-    }
-
-    if (mirrorMode) {
-        setMirrorStatus('Mirror rendering active in this viewport.', 'success');
-    } else {
-        setMirrorStatus('Standard polyhedron rendering active.');
-    }
-}
-
-function toggleMirrorView() {
-    const faceCount = material.uniforms.u_faceCount.value || 0;
-    if (faceCount <= 0) {
-        setMirrorStatus('No domain faces available. Click Refresh first.', 'error');
-        return;
-    }
-    setMirrorMode(!mirrorMode);
-}
-
 function animateStdGenerator(idx, event) {
     if (animatingIsometry || idx >= stdGenerators.length) return;
 
@@ -644,7 +601,6 @@ function refreshFromUI() {
         actualFaceCount = updateDomain();
         updateIsometryButtons();
         updateStdGeneratorsList();
-        if (!mirrorMode) setMirrorStatus('');
         if (showCayley) updateCayley();
         if (wallsOpacity > 0) updateWalls();
     } catch (e) {
@@ -765,12 +721,6 @@ function initUI() {
         cayleyGroup,
         material
     });
-
-    const mirrorBtn = document.getElementById('open-mirror-btn');
-    if (mirrorBtn) {
-        mirrorBtn.addEventListener('click', toggleMirrorView);
-    }
-    setMirrorMode(false);
 }
 
 function animate(time) {
