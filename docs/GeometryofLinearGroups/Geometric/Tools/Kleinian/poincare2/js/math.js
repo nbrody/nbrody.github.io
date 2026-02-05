@@ -314,7 +314,7 @@ export function getDirichletFaces(generators = [], viewMat = new Matrix2x2(1, 0,
  * @param {Matrix2x2[]} generators - Array of generators (including inverses)
  * @param {Matrix2x2} viewMat - Current view matrix
  * @param {number} maxFaces - Maximum number of faces to consider
- * @returns {Array} Array of {matrix, face, isStabilizer} objects
+ * @returns {Array} Array of {matrix, word, face, isStabilizer} objects
  */
 export function getStdGenerators(generators = [], viewMat = new Matrix2x2(1, 0, 0, 1), maxFaces = 100) {
     if (!generators || generators.length === 0) {
@@ -322,7 +322,8 @@ export function getStdGenerators(generators = [], viewMat = new Matrix2x2(1, 0, 
     }
 
     const queue = [{ matrix: viewMat, depth: 0, word: '' }];
-    const stdGens = [];
+    const allCandidates = [];  // All potential face-pairing elements
+    const stabilizers = [];     // Elements that fix the basepoint
     const seenMatrices = new Set();
     const seenFaces = new Set();
 
@@ -330,7 +331,7 @@ export function getStdGenerators(generators = [], viewMat = new Matrix2x2(1, 0, 
     seenMatrices.add(exploreMatrixKey(viewMat));
 
     let head = 0;
-    while (head < queue.length && stdGens.length < maxFaces) {
+    while (head < queue.length) {
         const { matrix, depth, word } = queue[head++];
         if (depth >= 8) continue;
 
@@ -352,23 +353,31 @@ export function getStdGenerators(generators = [], viewMat = new Matrix2x2(1, 0, 
 
                 // Check if this is a stabilizer (fixes basepoint)
                 if (distSq < 1e-8) {
-                    stdGens.push({
+                    stabilizers.push({
                         matrix: next,
                         word: nextWord,
                         isStabilizer: true,
-                        face: null
+                        face: null,
+                        distance: 0
                     });
                 } else {
-                    // Check if this creates a new face
+                    // Check if this creates a new face position
                     const faceKey = `${q.x.toFixed(5)},${q.y.toFixed(5)},${q.z.toFixed(5)}`;
                     if (!seenFaces.has(faceKey)) {
                         seenFaces.add(faceKey);
                         const face = getBisectorSphere(startQ, q);
-                        stdGens.push({
+
+                        // Calculate distance from basepoint to face
+                        const faceCenter = new THREE.Vector3(face.x, face.y, face.z);
+                        const faceRadius = Math.abs(face.w);
+                        const distToFace = Math.abs(faceCenter.distanceTo(startQ) - faceRadius);
+
+                        allCandidates.push({
                             matrix: next,
                             word: nextWord,
                             isStabilizer: false,
-                            face: face
+                            face: face,
+                            distance: distToFace
                         });
                     }
                 }
@@ -376,13 +385,22 @@ export function getStdGenerators(generators = [], viewMat = new Matrix2x2(1, 0, 
         }
     }
 
+    // Sort candidates by distance to basepoint (closest faces are visible)
+    allCandidates.sort((a, b) => a.distance - b.distance);
+
+    // Take only the first maxFaces - these are the actual visible faces
+    const visibleFaces = allCandidates.slice(0, maxFaces);
+
+    // Combine stabilizers with visible face pairings
+    const result = [...stabilizers, ...visibleFaces];
+
     // Sort by word length, then alphabetically
-    stdGens.sort((a, b) => {
+    result.sort((a, b) => {
         if (a.word.length !== b.word.length) return a.word.length - b.word.length;
         return a.word.localeCompare(b.word);
     });
 
-    return stdGens;
+    return result;
 }
 
 /**
