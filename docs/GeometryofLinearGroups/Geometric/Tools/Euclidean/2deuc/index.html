@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Discrete Subgroups of Isom(ℝ²) — An Interactive Walkthrough</title>
+  <meta name="description"
+    content="An interactive exploration of all discrete subgroups of the Euclidean isometry group, from point groups through frieze groups to the 17 wallpaper groups." />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        macros: {
+          R: '\\mathbb{R}',
+          Z: '\\mathbb{Z}',
+          Isom: '\\mathrm{Isom}',
+          OO: '\\mathrm{O}',
+          SO: '\\mathrm{SO}',
+          GL: '\\mathrm{GL}',
+        }
+      },
+      options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+  <div id="app">
+
+    <!-- ======================================================
+         LEFT: WALKTHROUGH SLIDES
+         ====================================================== -->
+    <div id="walkthrough">
+      <div id="slide-viewport">
+
+        <!-- ===================== SLIDE 0: THE QUESTION ===================== -->
+        <div class="slide active" data-slide="0" data-canvas="intro">
+          <div class="chapter-label">Chapter 1</div>
+          <h1>The Symmetries of <span class="highlight">Flat Space</span></h1>
+
+          <p>
+            Hold a piece of paper up to a mirror, or slide it across a table.
+            Every distance-preserving transformation you can apply — rotations, reflections,
+            translations, glide reflections — is an <strong>isometry</strong> of the
+            Euclidean plane $\R^2$.
+          </p>
+
+          <div class="big-question">
+            What are <strong>all</strong> the ways a
+            discrete group of symmetries can tile or ornament $\R^2$?
+          </div>
+
+          <p>
+            This question has been answered since the late nineteenth century,
+            and along the way it explains every repeating pattern in wallpaper,
+            every border design on a Greek urn, and every crystal structure
+            in two dimensions.
+          </p>
+
+          <p>
+            Let's work through the answer together, step by step.
+          </p>
+
+          <div class="interact-prompt">
+            Click <strong>Next</strong> or press <span class="key-hint">→</span> to continue
+          </div>
+        </div>
+
+        <!-- ===================== SLIDE 1: THE ISOMETRY GROUP ===================== -->
+        <div class="slide" data-slide="1" data-canvas="isometries">
+          <div class="chapter-label">Chapter 1 · The Setup</div>
+          <h2>The Four Types of Isometry</h2>
+
+          <p>
+            An isometry of $\R^2$ is a map $f \colon \R^2 \to \R^2$ that
+            preserves all distances. Every such map can be written uniquely as
+          </p>
+
+          <div class="math-block">
+            $x \mapsto Ax + b, \quad A \in \OO(2),\; b \in \R^2$
+          </div>
+
+          <p>
+            The matrix $A$ controls the <em>linear part</em> (rotation or reflection),
+            while the vector $b$ is the <em>translational part</em>.
+            This gives exactly <strong>four types</strong>:
+          </p>
+
+          <div class="isometry-grid stagger" id="isometry-cards">
+            <div class="iso-card" data-iso="translation">
+              <div class="iso-icon translation">→</div>
+              <div class="iso-name">Translation</div>
+              <div class="iso-desc">$A=I$, pure shift by $b$</div>
+            </div>
+            <div class="iso-card" data-iso="rotation">
+              <div class="iso-icon rotation">↻</div>
+              <div class="iso-name">Rotation</div>
+              <div class="iso-desc">$\det A=1$, fixes a point</div>
+            </div>
+            <div class="iso-card" data-iso="reflection">
+              <div class="iso-icon reflection">↔</div>
+              <div class="iso-name">Reflection</div>
+              <div class="iso-desc">$\det A=-1$, fixes a line</div>
+            </div>
+            <div class="iso-card" data-iso="glide">
+              <div class="iso-icon glide">⇝</div>
+              <div class="iso-name">Glide Reflection</div>
+              <div class="iso-desc">Reflect + slide along mirror</div>
+            </div>
+          </div>
+
+          <div class="interact-prompt">
+            Click a card to see each isometry on the canvas
+          </div>
+        </div>
+
+        <!-- ===================== SLIDE 2: SEMIDIRECT PRODUCT ===================== -->
+        <div class="slide" data-slide="2" data-canvas="semidirect">
+          <div class="chapter-label">Chapter 1 · The Key Structure</div>
+          <h2>The Semidirect Product</h2>
+
+          <p>
+            The representation $x \mapsto Ax + b$ encodes a fundamental
+            algebraic structure. The translations $\{\, x \mapsto x + b \,\}$
+            form a <strong>normal subgroup</strong> isomorphic to $\R^2$,
+            and the linear parts $\{\, x \mapsto Ax \,\}$ form a subgroup
+            isomorphic to $\OO(2)$.
+          </p>
+
+          <div class="sdp-visual">
+            <div class="sdp-block translation-part">
+              $\R^2$
+              <div style="font-size: 10px; margin-top: 4px; opacity: 0.7;">translations</div>
+            </div>
+            <div class="sdp-symbol">$\rtimes$</div>
+            <div class="sdp-block rotation-part">
+              $\OO(2)$
+              <div style="font-size: 10px; margin-top: 4px; opacity: 0.7;">rotations &amp; reflections</div>
+            </div>
+            <div class="sdp-symbol">=</div>
+            <div class="sdp-result">
+              $\Isom(\R^2)$
+            </div>
+          </div>
+
+          <p>
+            The "$\rtimes$" means the full group is built from two simpler
+            pieces — but they don't commute, because rotating <em>then</em>
+            translating differs from translating <em>then</em> rotating.
+            Specifically, conjugating a translation by a rotation $A$
+            gives
+          </p>
+
+          <div class="math-block">
+            $ A \cdot t_b \cdot A^{-1} = t_{Ab} $
+          </div>
+
+          <p>
+            That is, $\OO(2)$ <strong>acts on</strong> $\R^2$ by its natural
+            action. This is the "twist" in the semi<em>direct</em> product.
+          </p>
+
+          <div class="insight">
+            <p>
+              <strong>Key insight:</strong> To classify discrete subgroups
+              $\Gamma \leq \Isom(\R^2)$, look at the two pieces separately.
+              The <em>translation subgroup</em>
+              $\Lambda = \Gamma \cap \R^2$ is always a discrete subgroup of $\R^2$
+              — hence a lattice of rank 0, 1, or 2.
+            </p>
+          </div>
+        </div>
+
+        <!-- ===================== SLIDE 3: THE STRATEGY ===================== -->
+        <div class="slide" data-slide="3" data-canvas="strategy">
+          <div class="chapter-label">Chapter 1 · The Strategy</div>
+          <h2>Reduction to Three Cases</h2>
+
+          <p>
+            The semidirect product tells us how to attack the classification:
+            for any discrete subgroup $\Gamma \leq \Isom(\R^2)$, extract its
+            translation subgroup $\Lambda = \Gamma \cap \R^2$.
+          </p>
+
+          <div class="strategy-box">
+            <div class="strategy-label">Strategy</div>
+            <p>
+              Since $\Lambda$ is a discrete subgroup of $\R^2$, it is
+              a free abelian group, and so
+              $\Lambda \cong \Z^r$ for some <strong>rank</strong> $r \in \{0,\, 1,\, 2\}$.
+              We classify $\Gamma$ by considering each case.
+            </p>
+          </div>
+
+          <div class="rank-cards stagger" id="rank-cards">
+            <div class="rank-card rank-0" data-rank="0">
+              <div class="rank-label">Rank 0</div>
+              <div class="rank-title">Point Groups — $C_n$ and $D_n$</div>
+              <div class="rank-count">No translations. All elements fix a common point. → ∞ many groups</div>
+            </div>
+            <div class="rank-card rank-1" data-rank="1">
+              <div class="rank-label">Rank 1</div>
+              <div class="rank-title">Frieze Groups</div>
+              <div class="rank-count">One independent translation → exactly 7 groups</div>
+            </div>
+            <div class="rank-card rank-2" data-rank="2">
+              <div class="rank-label">Rank 2</div>
+              <div class="rank-title">Wallpaper Groups</div>
+              <div class="rank-count">Two independent translations → exactly 17 groups</div>
+            </div>
+          </div>
+
+          <p>
+            Click any card to jump to that family, or continue forward to
+            see the argument unfold.
+          </p>
+        </div>
+
+        <!-- ===================== SLIDE 4: RANK 0 ===================== -->
+        <div class="slide" data-slide="4" data-canvas="pointgroup">
+          <div class="chapter-label">Chapter 2 · Rank 0</div>
+          <h2>Point Groups</h2>
+
+          <p>
+            When $\Lambda = \{0\}$, every element of $\Gamma$ must fix
+            a common point (after conjugation). So $\Gamma$ is conjugate
+            to a subgroup of $\OO(2)$ — purely rotations and reflections
+            about the origin.
+          </p>
+
+          <p>
+            The discrete subgroups of $\OO(2)$ are completely classified:
+          </p>
+
+          <ul class="reveal-list" id="point-group-list">
+            <li>
+              <strong>$C_n$</strong> — the <em>cyclic</em> group of $n$ rotations
+              by $\tfrac{2\pi k}{n}$, for each $n \geq 1$
+            </li>
+            <li>
+              <strong>$D_n$</strong> — the <em>dihedral</em> group: $n$ rotations
+              plus $n$ reflections, for each $n \geq 1$
+            </li>
+          </ul>
+
+          <p>
+            Try some examples:
+          </p>
+
+          <div class="group-gallery" id="point-group-gallery"></div>
+
+          <div class="interact-prompt">
+            Click a group to visualize it on the canvas
+          </div>
+        </div>
+
+        <!-- ===================== SLIDE 5: RANK 1 ===================== -->
+        <div class="slide" data-slide="5" data-canvas="frieze">
+          <div class="chapter-label">Chapter 2 · Rank 1</div>
+          <h2>Frieze Groups</h2>
+
+          <p>
+            When $\Lambda \cong \Z$, translations act along a single direction.
+            Call this the <strong>translation axis</strong> $\ell$.
+          </p>
+
+          <p>
+            The <em>point group</em> $\Gamma/\Lambda$ must preserve $\ell$,
+            which restricts it to at most 4 elements:
+            the identity, a $180°$ rotation, reflection across $\ell$,
+            or reflection perpendicular to $\ell$.
+          </p>
+
+          <p>
+            Combining these with the possibility of a <em>glide reflection</em>
+            (translation by half a period composed with a reflection)
+            gives exactly <strong>7 frieze groups</strong>.
+          </p>
+
+          <div class="group-gallery" id="frieze-gallery"></div>
+
+          <div class="interact-prompt">
+            Click a frieze group to see its strip pattern
+          </div>
+        </div>
+
+        <!-- ===================== SLIDE 6: RANK 2 ===================== -->
+        <div class="slide" data-slide="6" data-canvas="wallpaper">
+          <div class="chapter-label">Chapter 2 · Rank 2</div>
+          <h2>Wallpaper Groups</h2>
+
+          <p>
+            When $\Lambda \cong \Z^2$, the translations span the whole plane.
+            The point group $\Gamma/\Lambda$ must act on the lattice,
+            so it lives in $\GL_2(\Z) \cap \OO(2)$.
+          </p>
+
+          <p>
+            This forces a powerful constraint: the
+            <em>crystallographic restriction</em>.
+            A rotation of order $n$ preserving a lattice requires
+            $2\cos(2\pi/n) \in \Z$, so
+          </p>
+
+          <div class="math-block">
+            $n \in \{1,\; 2,\; 3,\; 4,\; 6\}$
+          </div>
+
+          <p>
+            Enumerating all compatible combinations of rotation orders,
+            reflection axes, and glide reflections gives exactly
+            <strong>17 wallpaper groups</strong>:
+          </p>
+
+          <div class="group-gallery" id="wallpaper-gallery"></div>
+
+          <div class="interact-prompt">
+            Click a wallpaper group to tile the plane
+          </div>
+        </div>
+
+        <!-- ===================== SLIDE 7: EXPLORE ===================== -->
+        <div class="slide" data-slide="7" data-canvas="explore">
+          <div class="chapter-label">Explore</div>
+          <h2>Free Exploration</h2>
+
+          <p>
+            You've seen the full classification! Every discrete subgroup
+            of $\Isom(\R^2)$ is one of:
+          </p>
+
+          <ul class="reveal-list" id="summary-list">
+            <li>A <strong>point group</strong> $C_n$ or $D_n$ (infinitely many)</li>
+            <li>One of <strong>7 frieze groups</strong></li>
+            <li>One of <strong>17 wallpaper groups</strong></li>
+          </ul>
+
+          <div class="separator"></div>
+
+          <h3>Display Settings</h3>
+          <div class="settings-row">
+            <span>Show lattice</span>
+            <input type="checkbox" id="show-lattice" checked />
+          </div>
+          <div class="settings-row">
+            <span>Show fundamental domain</span>
+            <input type="checkbox" id="show-domain" checked />
+          </div>
+          <div class="settings-row">
+            <span>Show axes</span>
+            <input type="checkbox" id="show-axes" checked />
+          </div>
+          <div class="settings-row">
+            <span>Show motif</span>
+            <input type="checkbox" id="show-motif" checked />
+          </div>
+          <div class="settings-row">
+            <span>Copies</span>
+            <input type="range" id="copies-slider" min="1" max="8" value="4" />
+          </div>
+        </div>
+
+        <!-- ===================== SLIDE 8: CLASSIFY ===================== -->
+        <div class="slide" data-slide="8" data-canvas="classify">
+          <div class="chapter-label">Lab</div>
+          <h2>Identify Your Group</h2>
+
+          <p>
+            Enter generators as elements of $\text{Euc}(2)$, realized as $3 \times 3$ matrices:
+          </p>
+          <div class="math-block fade-in">
+            $$\begin{pmatrix} a & b & t_x \\ c & d & t_y \\ 0 & 0 & 1 \end{pmatrix}, \quad \begin{pmatrix} a & b \\ c &
+            d \end{pmatrix} \in \OO(2)$$
+          </div>
+
+          <div class="separator"></div>
+
+          <div class="preset-row">
+            <span class="preset-label">Presets:</span>
+            <button class="preset-btn" id="preset-trans" title="Translation by (1, 0)">T(1,0)</button>
+            <button class="preset-btn" id="preset-rot90" title="Rotation by 90°">R(90°)</button>
+            <button class="preset-btn" id="preset-rot60" title="Rotation by 60°">R(60°)</button>
+            <button class="preset-btn" id="preset-reflx" title="Reflection across x-axis">σₓ</button>
+            <button class="preset-btn" id="preset-glidex" title="Glide: reflect x + translate (½,0)">Glide</button>
+          </div>
+
+          <div id="generator-list"></div>
+
+          <div class="button-row">
+            <button class="action-btn secondary" id="add-gen-btn">+ Add Generator</button>
+            <button class="action-btn primary" id="classify-btn">✦ Classify Group</button>
+          </div>
+
+          <div id="classify-result" class="result-box" style="display:none;"></div>
+        </div>
+
+      </div>
+
+      <!-- NAVIGATION -->
+      <div id="slide-nav">
+        <button class="nav-btn" id="prev-btn" disabled>
+          <span class="arrow">←</span> Back
+        </button>
+        <div class="progress-dots" id="progress-dots"></div>
+        <button class="nav-btn" id="next-btn">
+          Next <span class="arrow">→</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ======================================================
+         RIGHT: INTERACTIVE CANVAS
+         ====================================================== -->
+    <div id="canvas-container">
+      <canvas id="canvas"></canvas>
+
+      <div id="gen-bar"></div>
+
+      <div id="canvas-info">
+        <span class="info-badge" id="group-name-badge">Isom(ℝ²)</span>
+        <span class="info-sub" id="anim-status"></span>
+      </div>
+
+      <div id="canvas-controls">
+        <button class="canvas-ctrl-btn" id="reset-view-btn" title="Reset view">⟲</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

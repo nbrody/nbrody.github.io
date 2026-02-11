@@ -279,7 +279,7 @@ window.addEventListener("resize", () => {
 // --- Message Listener for Presentation Control ---
 window.addEventListener('message', (event) => {
     if (event.data === 'rotate') {
-        const btn = document.getElementById('rotBtn');
+        const btn = document.getElementById('fiberBtn');
         if (btn) btn.click();
     } else if (event.data === 'play') {
         const btn = document.getElementById('playBtn');

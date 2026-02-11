@@ -35,9 +35,10 @@ let currentN = 2;
 let currentMaxFaces = 64;
 let viewMatrix = new Matrix2x2(1, 0, 0, 1);
 let animatingIsometry = false;
+let fiberOnly = false;
 
-const { faces: facesArr, count: actualCount } = getDirichletFaces(currentN, viewMatrix, currentMaxFaces);
-let currentDepth = 8;
+const { faces: facesArr, count: actualCount } = getDirichletFaces(currentN, viewMatrix, currentMaxFaces, fiberOnly);
+let currentDepth = 5;
 
 const material = new THREE.ShaderMaterial({
     uniforms: {
@@ -158,7 +159,7 @@ function getHyperbolicGeodesic(p1, p2, segments = 16) {
 
 function updateCayley() {
     cayleyGroup.clear();
-    const { points, edges } = getCayleyGraph(currentN, currentDepth, viewMatrix);
+    const { points, edges } = getCayleyGraph(currentN, currentDepth, viewMatrix, fiberOnly);
 
     // Vertices
     const ptGeom = new THREE.SphereGeometry(0.015, 8, 8);
@@ -173,14 +174,12 @@ function updateCayley() {
     });
 
     // Color definitions
-    const colors = [
-        0x38bdf8, // T: Light Blue
-        0xf472b6, // X: Pink
-        0xfbbf24  // Y: Amber
-    ];
+    const colors = fiberOnly
+        ? [0xf472b6, 0xfbbf24]  // X: Pink, Y: Amber
+        : [0x38bdf8, 0xf472b6, 0xfbbf24]; // T: Light Blue, X: Pink, Y: Amber
 
     // Create a separate LineSegments object for each type
-    for (let type = 0; type < 3; type++) {
+    for (let type = 0; type < colors.length; type++) {
         const typeEdges = edges.filter(e => e.type === type);
         if (typeEdges.length === 0) continue;
 
@@ -244,10 +243,28 @@ window.updateN = function () {
 };
 
 function updateDomain() {
-    const { faces, count } = getDirichletFaces(currentN, viewMatrix, currentMaxFaces);
+    const { faces, count } = getDirichletFaces(currentN, viewMatrix, currentMaxFaces, fiberOnly);
     material.uniforms.u_faces.value = faces;
     material.uniforms.u_faceCount.value = count;
 }
+
+window.toggleFiber = function () {
+    fiberOnly = !fiberOnly;
+    // Disable/enable T button
+    const tBtn = document.getElementById('btn-T');
+    if (tBtn) {
+        tBtn.disabled = fiberOnly;
+        tBtn.style.opacity = fiberOnly ? '0.3' : '1';
+    }
+    // Update label on the toggle button
+    const fiberBtn = document.getElementById('btn-fiber');
+    if (fiberBtn) {
+        fiberBtn.textContent = fiberOnly ? '\u27E8X, Y\u27E9' : '\u27E8T, X, Y\u27E9';
+    }
+    viewMatrix = new Matrix2x2(1, 0, 0, 1);
+    updateDomain();
+    if (showCayley) updateCayley();
+};
 
 window.updateFaceCount = function () {
     const countInput = document.getElementById('face-count-input');
@@ -268,11 +285,17 @@ window.updateDepth = function () {
 window.animateIsometry = function (name, event) {
     if (animatingIsometry) return;
 
-    const gens = getGenerators(currentN);
+    if (fiberOnly && name === 'T') return;
+    const gens = getGenerators(currentN, fiberOnly);
     let g;
-    if (name === 'T') g = gens[0];
-    else if (name === 'X') g = gens[2];
-    else if (name === 'Y') g = gens[4];
+    if (fiberOnly) {
+        if (name === 'X') g = gens[0];
+        else if (name === 'Y') g = gens[2];
+    } else {
+        if (name === 'T') g = gens[0];
+        else if (name === 'X') g = gens[2];
+        else if (name === 'Y') g = gens[4];
+    }
 
     if (event.metaKey || event.ctrlKey) {
         g = g.inv();

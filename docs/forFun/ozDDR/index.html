@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emerald Road Rhythm</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Cinzel:wght@500;700&family=Nunito:wght@500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="sky-layer" aria-hidden="true"></div>
+
+    <main class="game-shell">
+        <header class="hero">
+            <h1>Emerald Road Rhythm</h1>
+            <p>A Wizard of Oz-themed DDR challenge. Hit LEFT, DOWN, UP, RIGHT on the yellow brick beat.</p>
+        </header>
+
+        <section class="stats-grid" aria-label="Game stats">
+            <article class="stat-card">
+                <h2>Score</h2>
+                <p id="scoreValue">0</p>
+            </article>
+            <article class="stat-card">
+                <h2>Combo</h2>
+                <p id="comboValue">0x</p>
+            </article>
+            <article class="stat-card">
+                <h2>Accuracy</h2>
+                <p id="accuracyValue">100.0%</p>
+            </article>
+            <article class="stat-card">
+                <h2>Health</h2>
+                <p id="healthValue">100%</p>
+            </article>
+            <article class="stat-card">
+                <h2>Song Time</h2>
+                <p id="songTimeValue">00:00 / 00:00</p>
+            </article>
+        </section>
+
+        <section class="game-layout">
+            <div id="playfield" class="playfield" aria-label="Rhythm playfield">
+                <div class="yellow-road" aria-hidden="true"></div>
+                <div class="lanes">
+                    <div class="lane" data-lane="0"><span class="lane-tag">LEFT</span></div>
+                    <div class="lane" data-lane="1"><span class="lane-tag">DOWN</span></div>
+                    <div class="lane" data-lane="2"><span class="lane-tag">UP</span></div>
+                    <div class="lane" data-lane="3"><span class="lane-tag">RIGHT</span></div>
+                </div>
+                <div id="hitLine" class="hit-line" aria-hidden="true"></div>
+                <div class="receptors" aria-hidden="true">
+                    <div class="receptor">LEFT</div>
+                    <div class="receptor">DOWN</div>
+                    <div class="receptor">UP</div>
+                    <div class="receptor">RIGHT</div>
+                </div>
+            </div>
+
+            <aside class="control-panel">
+                <p id="statusLine" class="status-line">Press Start to begin the trip down the yellow brick road.</p>
+                <p id="judgementText" class="judgement idle">Ready</p>
+
+                <label class="difficulty-label" for="difficultySelect">Difficulty</label>
+                <select id="difficultySelect" class="difficulty-select">
+                    <option value="yellow">Munchkin (Easy)</option>
+                    <option value="emerald" selected>Emerald (Normal)</option>
+                    <option value="tornado">Witch Storm (Hard)</option>
+                </select>
+
+                <div class="button-row">
+                    <button id="startButton" class="action-button primary">Start Song</button>
+                    <button id="resetButton" class="action-button">Reset</button>
+                </div>
+
+                <div id="endCard" class="end-card hidden" role="status"></div>
+            </aside>
+        </section>
+
+        <section class="touch-controls" aria-label="Touch controls">
+            <button class="tap-button" data-lane="0">LEFT</button>
+            <button class="tap-button" data-lane="1">DOWN</button>
+            <button class="tap-button" data-lane="2">UP</button>
+            <button class="tap-button" data-lane="3">RIGHT</button>
+        </section>
+
+        <p class="instructions">Keyboard: Arrow keys or A S W D. Space starts a new run.</p>
+    </main>
+
+    <script src="game.js"></script>
+</body>
+</html>

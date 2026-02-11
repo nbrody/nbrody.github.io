@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Triangle-Square Tiling</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)']],
+                displayMath: [['\\[', '\\]']],
+                macros: {
+                    R: '\\mathbb{R}',
+                    Z: '\\mathbb{Z}',
+                    C: '\\mathbb{C}',
+                    Q: '\\mathbb{Q}'
+                }
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js"></script>
+</head>
+<body>
+    <main class="page">
+        <!-- Hero -->
+        <header class="hero">
+            <div class="hero__content">
+                <h1>Triangle-Square Tiling</h1>
+                <p>
+                    Slice a rational 2-plane through the product of two Eisenstein
+                    triangulations in \(\R^4 \cong \C^2\). The plane meets the
+                    4D cell complex in a wallpaper pattern of
+                    <span style="color: rgba(239,100,100,0.9);">red triangles</span>,
+                    <span style="color: rgba(100,160,246,0.9);">blue triangles</span>, and
+                    <span style="color: rgba(250,210,60,0.9);">yellow squares</span>.
+                </p>
+            </div>
+            <div class="hero__accent">
+                <span class="hero__formula">
+                    \(P \;\cap\; (\Delta_1 \!\times\! \Delta_2)\)
+                </span>
+            </div>
+        </header>
+
+        <!-- Input card -->
+        <section class="card" id="input-card">
+            <h2 class="card__title">Plane Direction Vectors</h2>
+            <p class="hint">
+                Enter a \(2 \times 4\) matrix with rational entries.
+                Columns correspond to the Eisenstein lattice basis
+                \(\{1,\,\omega,\,1',\,\omega'\}\) of
+                \(\Z[\omega] \times \Z[\omega]\),
+                where \(\omega = e^{2\pi i/3}\).
+            </p>
+
+            <div class="matrix-input-container">
+                <div class="matrix-bracket">(</div>
+                <div class="matrix-grid" id="matrix-grid"></div>
+                <div class="matrix-bracket">)</div>
+            </div>
+
+            <div class="matrix-labels">
+                <span class="factor-label factor-red">
+                    Cols 1–2: Factor 1 (red)
+                </span>
+                <span class="factor-label factor-blue">
+                    Cols 3–4: Factor 2 (blue)
+                </span>
+            </div>
+
+            <div>
+                <p class="hint" style="margin-bottom: 0.5rem;">Presets:</p>
+                <div class="presets" id="presets"></div>
+            </div>
+
+            <div class="actions">
+                <button class="button button--primary" id="btn-compute">
+                    Compute Tiling
+                </button>
+            </div>
+
+            <div id="validation-msg" class="validation-msg hidden"></div>
+        </section>
+
+        <!-- Canvas card -->
+        <section class="card canvas-card hidden" id="canvas-card">
+            <div class="card__header">
+                <h2 class="card__title">Tiling</h2>
+                <div class="canvas-toolbar">
+                    <button class="button button--tiny" id="btn-reset-view">
+                        Reset View
+                    </button>
+                </div>
+            </div>
+
+            <div class="tile-legend">
+                <span class="legend-item">
+                    <span class="legend-swatch red"></span> Red triangle
+                </span>
+                <span class="legend-item">
+                    <span class="legend-swatch blue"></span> Blue triangle
+                </span>
+                <span class="legend-item">
+                    <span class="legend-swatch yellow"></span> Yellow square
+                </span>
+            </div>
+
+            <div class="canvas-wrap" id="canvas-wrap">
+                <canvas id="tiling-canvas"></canvas>
+            </div>
+
+            <div class="settings-row">
+                <span>Show edges</span>
+                <input type="checkbox" id="show-edges" checked />
+            </div>
+            <div class="settings-row">
+                <span>Show period vectors</span>
+                <input type="checkbox" id="show-periods" checked />
+            </div>
+            <div class="settings-row">
+                <span>Fill opacity</span>
+                <input type="range" id="fill-opacity" min="10" max="100" value="70" />
+            </div>
+        </section>
+
+        <!-- Info card -->
+        <section class="card hidden" id="info-card">
+            <h2 class="card__title">Tiling Data</h2>
+            <div id="tiling-info" class="result-box result-box--accent">
+                <div class="result-box__content"></div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <p>
+                Part of the
+                <a href="../../../../index.html">Geometry of Linear Groups</a> explorer.
+            </p>
+        </footer>
+    </main>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

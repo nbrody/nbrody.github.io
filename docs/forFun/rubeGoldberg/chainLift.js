@@ -17,9 +17,29 @@ export class ChainLift {
         this.hooks = [];
         this.wheelRotation = 0;
         this.ballOffset = new THREE.Vector3(0.65, 0.25, 0);
+        this.releasePoint = new THREE.Vector3(this.x + 0.95, this.topY + 0.45, this.z);
+        this.releaseDirection = new THREE.Vector3(-1, -0.35, 0).normalize();
+        this.releaseSpeed = 1.1;
+        this.captureProgressMin = 0.0;
+        this.captureProgressMax = 0.06;
+        this.pathHalfWidth = 0.45;
+        this.topArcRise = 0.4;
+        this.bottomArcRise = 0.3;
 
         this.createStructure();
         this.createHooks();
+    }
+
+    setTopTransfer(start, end) {
+        const dir = new THREE.Vector3().subVectors(end, start);
+        if (dir.lengthSq() > 0.0001) {
+            dir.normalize();
+            this.releaseDirection.copy(dir);
+        }
+
+        this.releasePoint.copy(start);
+        this.releasePoint.addScaledVector(this.releaseDirection, -0.08);
+        this.releasePoint.y += 0.3;
     }
 
     createStructure() {
@@ -174,44 +194,50 @@ export class ChainLift {
     }
 
     getPositionOnChain(progress) {
-        // Chain path (racetrack):
-        // 0.00 - 0.45: Going UP on the right (hooks facing outward, carrying balls)
-        // 0.45 - 0.55: Going over TOP (hooks tip, balls roll off)
-        // 0.55 - 0.95: Going DOWN on the left (hooks facing inward, empty)
-        // 0.95 - 1.00: Going around BOTTOM (ready to scoop new balls)
+        const p = ((progress % 1) + 1) % 1;
+        const halfWidth = this.pathHalfWidth;
+        const topArcRise = this.topArcRise;
+        const bottomArcRise = this.bottomArcRise;
 
-        const halfWidth = 0.45;
-        let x, y, rotation = 0;
+        // Use geometric segment lengths so equal progress spacing is equal-ish along the loop.
+        const upLength = this.height;
+        const topArcLength = Math.PI * Math.sqrt((halfWidth * halfWidth + topArcRise * topArcRise) / 2);
+        const downLength = this.height;
+        const bottomArcLength = Math.PI * Math.sqrt((halfWidth * halfWidth + bottomArcRise * bottomArcRise) / 2);
+        const totalLength = upLength + topArcLength + downLength + bottomArcLength;
+        const upBreak = upLength / totalLength;
+        const topBreak = upBreak + topArcLength / totalLength;
+        const downBreak = topBreak + downLength / totalLength;
 
-        if (progress < 0.45) {
-            // Moving UP - hooks point outward (positive X from chain)
-            const t = progress / 0.45;
+        let x;
+        let y;
+        let rotation;
+
+        if (p < upBreak) {
+            const t = p / upBreak;
             x = halfWidth;
             y = this.bottomY + t * this.height;
             rotation = 0;
-        } else if (progress < 0.55) {
-            // Rounding TOP - hooks tip forward, dumping balls
-            const t = (progress - 0.45) / 0.1;
+        } else if (p < topBreak) {
+            const t = (p - upBreak) / (topBreak - upBreak);
             const angle = t * Math.PI;
             x = Math.cos(angle) * halfWidth;
-            y = this.topY + Math.sin(angle) * 0.4;
-            rotation = angle;  // Rotates from 0 to PI (tips forward)
-        } else if (progress < 0.95) {
-            // Moving DOWN - hooks point inward (empty return)
-            const t = (progress - 0.55) / 0.4;
+            y = this.topY + Math.sin(angle) * topArcRise;
+            rotation = angle;
+        } else if (p < downBreak) {
+            const t = (p - topBreak) / (downBreak - topBreak);
             x = -halfWidth;
             y = this.topY - t * this.height;
-            rotation = Math.PI;  // Upside down
+            rotation = Math.PI;
         } else {
-            // Rounding BOTTOM - hooks scoop up new balls
-            const t = (progress - 0.95) / 0.05;
+            const t = (p - downBreak) / (1 - downBreak);
             const angle = Math.PI + t * Math.PI;
             x = Math.cos(angle) * halfWidth;
-            y = this.bottomY + (Math.sin(angle) + 1) * 0.3;
-            rotation = angle;  // Rotates from PI to 2PI (back to upright)
+            y = this.bottomY + (Math.sin(angle) + 1) * bottomArcRise;
+            rotation = angle;
         }
 
-        return { x: this.x + x, y, z: this.z, rotation };
+        return { x: this.x + x, y, z: this.z, rotation, upBreak, topBreak };
     }
 
     update() {
@@ -241,21 +267,60 @@ export class ChainLift {
                 hook.ball.body.velocity.set(0, 0, 0);
                 hook.ball.body.angularVelocity.set(0, 0, 0);
 
-                if (hook.progress > 0.47 && hook.progress < 0.6) {
-                    hook.ball.body.type = CANNON.Body.DYNAMIC;
-                    hook.ball.body.velocity.set(1.5, 0.2, 0);
-                    hook.ball._justReleasedUntil = performance.now() + 500;
+                const topSegmentStart = pos.upBreak;
+                const topSegmentEnd = pos.topBreak;
+                const releaseStart = topSegmentStart + (topSegmentEnd - topSegmentStart) * 0.12;
+                const releaseEnd = topSegmentStart + (topSegmentEnd - topSegmentStart) * 0.62;
+
+                if (hook.progress > releaseStart && hook.progress < releaseEnd) {
+                    const releasingBall = hook.ball;
+                    releasingBall.body.type = CANNON.Body.DYNAMIC;
+                    releasingBall.body.position.set(
+                        this.releasePoint.x,
+                        this.releasePoint.y,
+                        this.releasePoint.z
+                    );
+                    releasingBall.body.velocity.set(
+                        this.releaseDirection.x * this.releaseSpeed,
+                        this.releaseDirection.y * this.releaseSpeed,
+                        this.releaseDirection.z * this.releaseSpeed
+                    );
+                    releasingBall.body.angularVelocity.set(0, 0, 0);
+                    releasingBall.body.wakeUp();
+                    releasingBall._justReleasedUntil = performance.now() + 500;
                     hook.ball = null;
                 }
             }
         });
     }
 
+    seedBallOnLift(ball, progress = 0.14) {
+        const hook = this.hooks.find((candidate) => !candidate.ball) || this.hooks[0];
+        if (!hook) return;
+
+        hook.progress = progress % 1;
+        const pos = this.getPositionOnChain(hook.progress);
+
+        hook.body.position.set(pos.x, pos.y, pos.z);
+        hook.mesh.position.set(pos.x, pos.y, pos.z);
+        hook.mesh.rotation.z = pos.rotation;
+        const q = new CANNON.Quaternion();
+        q.setFromEuler(0, 0, pos.rotation);
+        hook.body.quaternion = q;
+
+        const offset = this.ballOffset.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), pos.rotation);
+        ball.body.type = CANNON.Body.KINEMATIC;
+        ball.body.position.set(pos.x + offset.x, pos.y + offset.y, pos.z + offset.z);
+        ball.body.velocity.set(0, 0, 0);
+        ball.body.angularVelocity.set(0, 0, 0);
+        hook.ball = ball;
+    }
+
     captureBalls(balls) {
         const now = performance.now();
         for (const hook of this.hooks) {
             if (hook.ball) continue;
-            if (hook.progress < 0.03 || hook.progress > 0.42) continue;
+            if (hook.progress < this.captureProgressMin || hook.progress > this.captureProgressMax) continue;
 
             const pos = this.getPositionOnChain(hook.progress);
             const offset = this.ballOffset.clone();
@@ -277,6 +342,14 @@ export class ChainLift {
                 }
             }
         }
+    }
+
+    clearCapturedBalls() {
+        this.hooks.forEach((hook) => {
+            if (!hook.ball) return;
+            hook.ball.body.type = CANNON.Body.DYNAMIC;
+            hook.ball = null;
+        });
     }
 
     // Get positions for balls to start on hooks

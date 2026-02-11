@@ -259,7 +259,7 @@ class MathWorld {
     }
 
     requestPointerLock() {
-        if (this.introPhase === 'ready' && !document.pointerLockElement) {
+        if (this.introPhase === 'ready' && !document.pointerLockElement && !this.atlas.isActive) {
             this.canvas.requestPointerLock().catch(err => {
                 console.log('Pointer lock request failed:', err);
             });
@@ -443,8 +443,8 @@ class MathWorld {
             console.log('Pointer unlocked - click to resume mouse look');
             // Show the click-to-look prompt if game is running (desktop only)
             if (this.introPhase === 'ready' && this.isRunning) {
-                // Don't show on mobile - touch controls handle look
-                if (!this.mobileControls || !this.mobileControls.isTouch()) {
+                // Don't show on mobile or when Atlas is open
+                if ((!this.mobileControls || !this.mobileControls.isTouch()) && !this.atlas.isActive) {
                     this.clickToLook.classList.remove('hidden');
                 }
             }

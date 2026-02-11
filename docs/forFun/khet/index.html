@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khet - Laser Chess</title>
+    <meta name="description" content="Play Khet, the laser chess board game. Battle an AI trained by self-play!">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header id="header">
+            <h1 id="title">
+                <span class="glyph">𓂀</span>
+                K H E T
+                <span class="glyph">𓁹</span>
+            </h1>
+            <p class="subtitle">LASER CHESS</p>
+        </header>
+
+        <!-- Main Game Area -->
+        <div id="gameArea">
+            <!-- Left Panel - Controls -->
+            <aside id="controlPanel">
+                <div class="panel-section">
+                    <h2>Game</h2>
+                    <div class="control-group">
+                        <label for="modeSelect">Mode</label>
+                        <select id="modeSelect">
+                            <option value="vs-ai">vs AI</option>
+                            <option value="vs-human">2 Player</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="difficulty">AI Difficulty</label>
+                        <select id="difficulty">
+                            <option value="easy">Easy (200 sims)</option>
+                            <option value="medium" selected>Medium (800 sims)</option>
+                            <option value="hard">Hard (2000 sims)</option>
+                            <option value="brutal">Brutal (5000 sims)</option>
+                        </select>
+                    </div>
+                    <div class="button-row">
+                        <button id="newGame" class="btn btn-primary">
+                            <span class="icon">⟳</span> New Game
+                        </button>
+                        <button id="switchSides" class="btn btn-secondary">
+                            <span class="icon">⇄</span> Switch
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>Controls</h2>
+                    <div class="help-grid">
+                        <span class="key">Click</span><span>Select / Move piece</span>
+                        <span class="key">Q</span><span>Rotate counter-clockwise</span>
+                        <span class="key">E</span><span>Rotate clockwise</span>
+                        <span class="key">Esc</span><span>Deselect</span>
+                        <span class="key">N</span><span>New game</span>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>Pieces</h2>
+                    <div class="piece-legend">
+                        <div class="legend-item">
+                            <div class="legend-icon pharaoh-icon">♛</div>
+                            <div>
+                                <strong>Pharaoh</strong>
+                                <small>King piece. Lose if hit by laser.</small>
+                            </div>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon sphinx-icon">◈</div>
+                            <div>
+                                <strong>Sphinx</strong>
+                                <small>Fires laser. Can rotate, not move.</small>
+                            </div>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon pyramid-icon">△</div>
+                            <div>
+                                <strong>Pyramid</strong>
+                                <small>Single mirror. Deflects laser 90°.</small>
+                            </div>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon scarab-icon">⬡</div>
+                            <div>
+                                <strong>Scarab</strong>
+                                <small>Dual mirrors. Immune. Can swap.</small>
+                            </div>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon anubis-icon">⛊</div>
+                            <div>
+                                <strong>Anubis</strong>
+                                <small>Front immune. Sides/back vulnerable.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Board -->
+            <div id="boardContainer">
+                <div id="turnIndicator" class="turn-indicator silver">Silver's Turn</div>
+                <canvas id="board"></canvas>
+                <div id="status" class="status">Click a piece to select it.</div>
+            </div>
+
+            <!-- Right Panel - Training -->
+            <aside id="trainingPanel">
+                <div class="panel-section">
+                    <h2>
+                        <span class="glyph">𓋹</span>
+                        Self-Play Training
+                    </h2>
+                    <p class="description">Train the AI by having it play against itself. Evaluation weights are updated
+                        via gradient descent.</p>
+
+                    <div class="control-group">
+                        <label for="trainGames">Training Games</label>
+                        <select id="trainGames">
+                            <option value="10">10 games</option>
+                            <option value="25">25 games</option>
+                            <option value="50" selected>50 games</option>
+                            <option value="100">100 games</option>
+                            <option value="250">250 games</option>
+                        </select>
+                    </div>
+
+                    <div class="button-row">
+                        <button id="trainBtn" class="btn btn-accent">
+                            <span class="icon">⚡</span> Train
+                        </button>
+                        <button id="stopTrainBtn" class="btn btn-danger" disabled>
+                            <span class="icon">■</span> Stop
+                        </button>
+                    </div>
+
+                    <div id="trainProgressContainer" class="progress-container">
+                        <div class="progress-bar">
+                            <div id="trainProgressBar" class="progress-fill"></div>
+                        </div>
+                        <div id="trainProgress" class="progress-text">Ready to train</div>
+                    </div>
+
+                    <button id="resetWeights" class="btn btn-ghost">
+                        Reset Weights to Default
+                    </button>
+                </div>
+
+                <div class="panel-section">
+                    <h2>AI Engine</h2>
+                    <div id="nnStatus" class="nn-status loading">
+                        <span class="nn-dot"></span>
+                        <span id="nnStatusText">Loading neural network...</span>
+                    </div>
+                    <p class="description">
+                        Khet is a board game where players use Egyptian-themed pieces with mirrors
+                        to redirect a laser beam and eliminate the opponent's Pharaoh.
+                    </p>
+                    <p class="description">
+                        The AI uses <strong>Monte Carlo Tree Search</strong> guided by a
+                        <strong>neural network</strong> trained via self-play. The network provides
+                        move priors and position evaluation, similar to AlphaZero.
+                    </p>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Win Overlay -->
+        <div id="winOverlay" class="win-overlay">
+            <div class="win-content">
+                <div class="win-glyph">𓂀</div>
+                <h2 id="winText">Silver Wins!</h2>
+                <button class="btn btn-primary"
+                    onclick="document.getElementById('winOverlay').classList.remove('visible'); document.getElementById('newGame').click();">
+                    Play Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+
+</html>

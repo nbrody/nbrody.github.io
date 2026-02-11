@@ -4,49 +4,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roadblocks</title>
+    <title>Roadblocks — Sliding Block Puzzle</title>
+    <meta name="description"
+        content="A premium sliding block puzzle engine with triangle reflectors, ramps, wormholes, a level creator, and an AI solver.">
     <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@300;400;700&display=swap"
-        rel="stylesheet">
 </head>
 
 <body>
-    <div class="background-overlay"></div>
     <div id="flash-screen"></div>
-    <main class="container">
-        <header>
-            <h1 class="title">Roadblocks</h1>
-            <p class="subtitle">A Sliding Block Puzzle Engine</p>
+
+    <div class="app-container">
+        <header class="app-header">
+            <h1 class="app-title">Roadblocks</h1>
+            <p class="app-subtitle">Sliding Block Puzzle Engine</p>
         </header>
 
-        <section id="game-section" class="glass-panel">
-            <h2 id="level-title">Level 1</h2>
-            <div style="margin-bottom: 20px;">
-                <label for="level-select"
-                    style="font-family: 'Cinzel', serif; font-size: 0.9rem; margin-right: 10px; opacity: 0.8;">Go
-                    to:</label>
-                <select id="level-select"
-                    style="background: rgba(0,0,0,0.5); color: var(--primary-gold); border: 1px solid var(--glass-border); border-radius: 4px; padding: 5px 10px; font-family: 'Cinzel', serif; outline: none; cursor: pointer;">
-                    <!-- Options populated by game.js -->
-                </select>
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs" id="nav-tabs">
+            <button class="nav-tab active" data-tab="play">▶ Play</button>
+            <button class="nav-tab" data-tab="create">✎ Create</button>
+            <button class="nav-tab" data-tab="solve">⚡ Solve</button>
+        </nav>
+
+        <!-- ══════════════════════════════════════════
+             TAB 1: Play
+             ══════════════════════════════════════════ -->
+        <section id="tab-play" class="tab-content">
+            <div id="game-section" class="glass-panel">
+                <div class="game-header">
+                    <div class="level-info">
+                        <span class="level-title" id="level-title">Level 1</span>
+                        <span class="tier-badge" id="tier-badge">Basic Navigation</span>
+                    </div>
+                    <div class="game-controls">
+                        <span class="move-counter" id="move-counter">Moves: 0</span>
+                        <select class="level-select" id="level-select" aria-label="Level selector"></select>
+                    </div>
+                </div>
+
+                <div id="game-board"></div>
+
+                <p class="hint-text">Arrow Keys · Swipe · Mouse Drag</p>
+                <p class="feedback" id="feedback"></p>
             </div>
-            <div id="orbox-container" style="margin: 0 auto;"></div>
-            <p class="hint-text" style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8;">(Use Arrow Keys or Mouse
-                Drag)</p>
-            <p id="feedback" style="margin-top: 15px; font-weight: bold; min-height: 1.5em;"></p>
+
+            <div id="victory-screen" class="glass-panel hidden">
+                <div class="victory-content">
+                    <h2>🎉 All Levels Complete!</h2>
+                    <p>You've conquered every Roadblock. Impressive!</p>
+                    <button class="btn btn-primary" onclick="location.reload()">Play Again</button>
+                </div>
+            </div>
         </section>
 
-        <section id="victory-screen" class="glass-panel hidden">
-            <h2>Mission Accomplished</h2>
-            <p>You have successfully navigated the roadblocks.</p>
-            <button onclick="location.reload()" class="cta-button">Play Again</button>
-        </section>
-    </main>
+        <!-- ══════════════════════════════════════════
+             TAB 2: Create
+             ══════════════════════════════════════════ -->
+        <section id="tab-create" class="tab-content hidden">
+            <div class="glass-panel">
+                <h2 style="font-size:1.3rem; font-weight:700; margin-bottom:1rem;">Level Creator</h2>
 
-    <script src="roadblocks.js"></script>
-    <script src="game.js"></script>
+                <div class="creator-layout">
+                    <div>
+                        <div id="creator-grid"></div>
+
+                        <div style="text-align:center; margin-top:1rem;">
+                            <span id="creator-status" class="status-indicator status-unsolvable">
+                                <span class="status-dot"></span>
+                                Checking...
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="creator-toolbar" id="creator-toolbar">
+                        <div class="toolbar-section">
+                            <h3>Block Palette</h3>
+                            <div class="block-palette" id="block-palette"></div>
+                        </div>
+
+                        <div class="toolbar-section">
+                            <h3>Grid Size</h3>
+                            <div class="grid-size-controls">
+                                <label for="creator-rows">Rows</label>
+                                <input type="number" id="creator-rows" value="6" min="3" max="20">
+                            </div>
+                            <div class="grid-size-controls" style="margin-top:0.5rem;">
+                                <label for="creator-cols">Cols</label>
+                                <input type="number" id="creator-cols" value="8" min="3" max="20">
+                            </div>
+                        </div>
+
+                        <div class="toolbar-section">
+                            <h3>Actions</h3>
+                            <div class="creator-actions">
+                                <button class="btn btn-secondary" id="btn-fill-border">🔲 Border</button>
+                                <button class="btn btn-secondary" id="btn-clear">🗑 Clear</button>
+                                <button class="btn btn-success" id="btn-test-play">▶ Test</button>
+                                <button class="btn btn-primary" id="btn-export">📋 Export</button>
+                                <button class="btn btn-secondary" id="btn-import">📥 Import</button>
+                                <button class="btn btn-secondary" id="btn-solve-creator">⚡ Solve</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Play Overlay -->
+            <div id="test-play-overlay" class="glass-panel hidden" style="margin-top:1rem;">
+                <div class="game-header">
+                    <span class="level-title">Test Play</span>
+                    <button class="btn btn-danger" id="btn-stop-test">✕ Stop Test</button>
+                </div>
+                <div id="test-board"></div>
+                <p class="hint-text">Arrow Keys · Swipe · Mouse Drag</p>
+                <p class="feedback" id="test-feedback"></p>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════════════════════
+             TAB 3: Solve
+             ══════════════════════════════════════════ -->
+        <section id="tab-solve" class="tab-content hidden">
+            <div class="glass-panel">
+                <h2 style="font-size:1.3rem; font-weight:700; margin-bottom:1rem;">Level Solver</h2>
+
+                <div class="game-header">
+                    <div class="level-info">
+                        <span class="level-title" id="solver-level-title">Level 1</span>
+                    </div>
+                    <div class="game-controls">
+                        <select class="level-select" id="solver-level-select" aria-label="Solver level selector">
+                        </select>
+                    </div>
+                </div>
+
+                <div id="solver-board"></div>
+
+                <div class="solver-controls">
+                    <button class="btn btn-primary btn-icon" id="btn-solver-play">▶ Play</button>
+                    <button class="btn btn-secondary btn-icon" id="btn-solver-step">⏭ Step</button>
+                    <button class="btn btn-secondary btn-icon" id="btn-solver-reset">↺ Reset</button>
+                    <div style="margin-left:auto; display:flex; align-items:center; gap:0.5rem;">
+                        <label for="solver-speed" style="font-size:0.8rem; color:var(--text-muted);">Speed</label>
+                        <input type="range" id="solver-speed" min="100" max="1500" value="600" step="100"
+                            style="width:100px; accent-color: var(--accent-primary);">
+                    </div>
+                </div>
+
+                <div class="solution-display" id="solution-display"></div>
+            </div>
+
+            <!-- Solve custom level -->
+            <div class="glass-panel" style="margin-top:1rem;">
+                <h3 style="font-size:1rem; font-weight:600; margin-bottom:0.75rem;">Solve Custom Level</h3>
+                <textarea id="custom-level-input" placeholder='Paste a level JSON array, e.g. [[1,1,1],[1,2,3],[1,1,1]]'
+                    style="width:100%; min-height:80px; background:var(--bg-primary); color:var(--text-primary); border:1px solid var(--glass-border); border-radius:var(--radius-md); padding:0.75rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem; resize:vertical; outline:none;"></textarea>
+                <button class="btn btn-primary" id="btn-solve-custom" style="margin-top:0.75rem;">Solve Custom
+                    Level</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Export Level</h3>
+            <textarea id="export-output" readonly></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="btn-copy-export">📋 Copy</button>
+                <button class="btn btn-secondary" id="btn-close-modal">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="import-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Import Level</h3>
+            <textarea id="import-input"
+                placeholder='Paste a level JSON array, e.g. [[1,1,1],[1,2,3],[1,1,1]]'></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="btn-do-import">Import</button>
+                <button class="btn btn-secondary" id="btn-close-import">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts — order matters -->
+    <script src="engine.js"></script>
+    <script src="levels.js"></script>
+    <script src="creator.js"></script>
+    <script src="solver-ui.js"></script>
+    <script src="app.js"></script>
 </body>
 
 </html>

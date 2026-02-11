@@ -122,7 +122,9 @@ export const mirrorFragmentShader = `
         float frameMask = 1.0 - step(frameEdge, hit.edgeDist);
         float glassMask = 1.0 - frameMask;
 
+        // Sharper but less overblown edge emission near seams.
         float edgeGlow = 1.0 - smoothstep(0.0, max(0.0001, u_edgeLightWidth), hit.edgeDist);
+        edgeGlow = pow(edgeGlow, 1.6);
         float fresnel = pow(1.0 - max(0.0, dot(-rd, hit.normal)), 4.0);
 
         vec3 ec = edgeColor(hit.faceIdx, hit.neighborIdx);
@@ -130,6 +132,8 @@ export const mirrorFragmentShader = `
         vec3 baseFrame = mix(vec3(0.02, 0.02, 0.025), vec3(0.22, 0.24, 0.28), fresnel);
 
         vec3 glow = ec * edgeGlow * u_lightIntensity;
+        // Compress very bright highlights before accumulation to avoid rapid whiteout.
+        glow /= (1.0 + 0.30 * glow);
         vec3 glassCol = baseGlass + (fromInside ? glow : glow * 0.35);
         vec3 frameCol = baseFrame + glow * 0.2;
 
@@ -179,6 +183,8 @@ export const mirrorFragmentShader = `
                 curRo = hit.pos + curRd * SURFACE_EPS;
                 throughput *= u_mirrorOpacity;
             }
+            // Small global attenuation to keep long paths readable instead of clipping.
+            throughput *= 0.997;
         }
 
         return color;
@@ -198,15 +204,18 @@ export const mirrorFragmentShader = `
         float ndcDepth = clipPos.z / clipPos.w;
         gl_FragDepth = (ndcDepth + 1.0) * 0.5;
 
-        gl_FragColor = vec4(col, u_opacity);
+        // Filmic-ish compression + gamma keeps deeper reflections colorful.
+        vec3 mapped = col / (1.0 + col);
+        mapped = pow(mapped, vec3(1.0 / 2.2));
+        gl_FragColor = vec4(mapped, u_opacity);
     }
 `;
 
 export const mirrorDefaults = {
     maxBounces: 12,
-    mirrorOpacity: 0.94,
-    transparency: 0.80,
+    mirrorOpacity: 0.97,
+    transparency: 0.93,
     edgeLightWidth: 0.015,
     blackBorderWidth: 0.02,
-    lightIntensity: 1.5
+    lightIntensity: 1.20
 };

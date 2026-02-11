@@ -238,157 +238,280 @@ export class UCSCCampus {
         lib.userData = { name: 'McHenry Library', isInteractable: true, type: 'building', interactionType: 'Enter' };
 
         // ============================================
-        // McHenry Library - UCSC (Refined Architectural Design)
-        // - "9" shape in plan view
-        // - Central atrium (surrounded on 3 sides)
-        // - 4th floor bridge with support beams across atrium opening
-        // - East side extends farther south (the "tail")
-        // - Dense redwood grove integration
-        // - 4 stories high
+        // McHenry Library - UCSC
+        // Original 1968 Brutalist building (Warnecke) + 2008 Addition (Bora)
+        //
+        // Plan view: L / "9" shape
+        //   - Original building: North/west portion, heavy concrete grid
+        //   - 2008 Addition: South/east extension, more glass, lighter
+        //   - Central courtyard / atrium between wings
+        //   - Entrance from south, leading to commons
+        //   - Stairwell towers with copper/patina cladding
+        //   - 4 stories, flat roof with mechanical penthouse
         // ============================================
 
-        // Materials
+        // --- Materials ---
+        // Original 1968 — warm raw concrete, heavier
         const concreteMat = new THREE.MeshStandardMaterial({
-            color: 0xC9B896, emissive: 0x1A1610, roughness: 0.9, metalness: 0.02
+            color: 0xC0AD8A, emissive: 0x151008, roughness: 0.92, metalness: 0.02
         });
+        // Horizontal spandrels — slightly darker concrete bands
+        const spandrelMat = new THREE.MeshStandardMaterial({
+            color: 0xB09A78, emissive: 0x100C06, roughness: 0.85, metalness: 0.03
+        });
+        // 2008 Addition — lighter, smoother concrete
+        const additionConcreteMat = new THREE.MeshStandardMaterial({
+            color: 0xD0C4A8, emissive: 0x181410, roughness: 0.8, metalness: 0.02
+        });
+        // Floor slab concrete
         const concreteSlabMat = new THREE.MeshStandardMaterial({
             color: 0xD4C4A4, emissive: 0x1C1814, roughness: 0.8
         });
+        // Glass — dark tinted, reflective
         const glassMat = new THREE.MeshStandardMaterial({
-            color: 0x88AAC0, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.6
+            color: 0x6B99B0, roughness: 0.05, metalness: 0.35, transparent: true, opacity: 0.55
         });
+        // Addition glass — lighter, more transparent (40% fenestration)
+        const additionGlassMat = new THREE.MeshStandardMaterial({
+            color: 0x88B8D0, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.5
+        });
+        // Copper/patina for stairwell towers
         const copperMat = new THREE.MeshStandardMaterial({
             color: 0x5B8C6B, emissive: 0x0A1A0E, roughness: 0.7, metalness: 0.4
+        });
+        // Dark window frame
+        const frameMat = new THREE.MeshStandardMaterial({
+            color: 0x3A3A3A, roughness: 0.6, metalness: 0.5
         });
 
         const baseY = 0;
         const buildingZ = -35;
-        const floorHeight = 3.8;
-        const numFloors = 4; // Refinement: 4 stories
+        const floorHeight = 4.0;
+        const numFloors = 4;
+        const roofY = baseY + numFloors * floorHeight;
 
-        // Wing Dimensions
-        const wingWidth = 12;
-        const northWingLen = 42;
-        const eastWingLen = 50;  // Long "tail" of the 9
-        const westWingLen = 22;  // Shorter, forms the loop
-        const bridgeWidth = wingWidth;
+        // --- Wing Dimensions ---
+        const wingWidth = 13;
+        const eastWingWidth = 26;  // East wing is twice as wide (2008 addition)
+        const northWingLen = 46;
+        const eastWingLen = 52;
+        const westWingLen = 24;
 
-        // Atrium Dimensions (estimated from wing gaps)
-        const atriumW = northWingLen - (wingWidth * 2);
-        const atriumD = westWingLen - wingWidth;
+        // --- Helper: create a Brutalist wing (original 1968 style) ---
+        const createBrutalistWing = (w, h, d, x, y, z) => {
+            const wing = new THREE.Group();
 
-        // Function to create a wing for each floor
-        const createWing = (floor, w, h, d, x, z) => {
-            const floorY = baseY + floor * floorHeight;
-            const wingGroup = new THREE.Group();
+            // Core glass box (recessed behind grid)
+            const core = new THREE.Mesh(new THREE.BoxGeometry(w - 0.6, h - 0.3, d - 0.6), glassMat);
+            core.position.set(0, h / 2 + 0.15, 0);
+            wing.add(core);
 
-            // Floor slab
-            const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 0.5, 0.5, d + 0.5), concreteSlabMat);
-            slab.position.set(0, 0, 0);
-            slab.castShadow = true; slab.receiveShadow = true;
-            wingGroup.add(slab);
+            // Thick horizontal spandrels at floor and ceiling
+            [0.15, h - 0.1].forEach(spY => {
+                const spandrel = new THREE.Mesh(
+                    new THREE.BoxGeometry(w + 0.3, 0.55, d + 0.3), spandrelMat
+                );
+                spandrel.position.set(0, spY, 0);
+                spandrel.castShadow = true;
+                wing.add(spandrel);
+            });
 
-            // Facade walls (simple box for massing, plus grid logic)
-            const walls = new THREE.Mesh(new THREE.BoxGeometry(w, h - 0.5, d), glassMat);
-            walls.position.y = (h - 0.5) / 2 + 0.25;
-            wingGroup.add(walls);
-
-            // Add concrete grid lines (simplified vertical grid)
-            const gridSpacing = 4;
-            const numGridsX = Math.floor(w / gridSpacing);
-            const numGridsZ = Math.floor(d / gridSpacing);
-
-            // Vertical grid lines for X facades
-            for (let i = 0; i <= numGridsX; i++) {
-                const gx = -w / 2 + i * (w / numGridsX);
-                const beam = new THREE.Mesh(new THREE.BoxGeometry(0.35, h - 0.5, 0.5), concreteMat);
-                beam.position.set(gx, (h - 0.5) / 2 + 0.25, d / 2);
-                wingGroup.add(beam);
-                const beam2 = beam.clone();
-                beam2.position.z = -d / 2;
-                wingGroup.add(beam2);
+            // Vertical concrete mullions — front & back
+            const mullionSpacing = 3.8;
+            const numMullions = Math.floor(w / mullionSpacing);
+            for (let i = 0; i <= numMullions; i++) {
+                const mx = -w / 2 + i * (w / numMullions);
+                const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.4, h, 0.45), concreteMat);
+                mullion.position.set(mx, h / 2, d / 2);
+                wing.add(mullion);
+                const m2 = mullion.clone();
+                m2.position.z = -d / 2;
+                wing.add(m2);
             }
-            // Vertical grid lines for Z facades
-            for (let i = 0; i <= numGridsZ; i++) {
-                const gz = -d / 2 + i * (d / numGridsZ);
-                const beam = new THREE.Mesh(new THREE.BoxGeometry(0.5, h - 0.5, 0.35), concreteMat);
-                beam.position.set(w / 2, (h - 0.5) / 2 + 0.25, gz);
-                wingGroup.add(beam);
-                const beam2 = beam.clone();
-                beam2.position.x = -w / 2;
-                wingGroup.add(beam2);
+            // Side mullions
+            const sideMullions = Math.floor(d / mullionSpacing);
+            for (let i = 0; i <= sideMullions; i++) {
+                const mz = -d / 2 + i * (d / sideMullions);
+                const sm = new THREE.Mesh(new THREE.BoxGeometry(0.45, h, 0.4), concreteMat);
+                sm.position.set(w / 2, h / 2, mz);
+                wing.add(sm);
+                const sm2 = sm.clone();
+                sm2.position.x = -w / 2;
+                wing.add(sm2);
             }
 
-            wingGroup.position.set(x, floorY, z);
-            lib.add(wingGroup);
+            wing.position.set(x, y, z);
+            return wing;
         };
 
-        // Create the "9" shape floor by floor
+        // --- Helper: create an Addition wing (2008 style) ---
+        const createAdditionWing = (w, h, d, x, y, z) => {
+            const wing = new THREE.Group();
+
+            // More prominent glass
+            const core = new THREE.Mesh(
+                new THREE.BoxGeometry(w - 0.4, h - 0.2, d - 0.4), additionGlassMat
+            );
+            core.position.set(0, h / 2 + 0.1, 0);
+            wing.add(core);
+
+            // Thinner spandrels
+            [0.1, h - 0.05].forEach(spY => {
+                const spandrel = new THREE.Mesh(
+                    new THREE.BoxGeometry(w + 0.2, 0.35, d + 0.2), additionConcreteMat
+                );
+                spandrel.position.set(0, spY, 0);
+                spandrel.castShadow = true;
+                wing.add(spandrel);
+            });
+
+            // Thinner mullions
+            const mullionSpacing = 4.5;
+            const numMullions = Math.floor(w / mullionSpacing);
+            for (let i = 0; i <= numMullions; i++) {
+                const mx = -w / 2 + i * (w / numMullions);
+                const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.25, h, 0.3), additionConcreteMat);
+                mullion.position.set(mx, h / 2, d / 2);
+                wing.add(mullion);
+                const m2 = mullion.clone();
+                m2.position.z = -d / 2;
+                wing.add(m2);
+            }
+            const sideMullions = Math.floor(d / mullionSpacing);
+            for (let i = 0; i <= sideMullions; i++) {
+                const mz = -d / 2 + i * (d / sideMullions);
+                const sm = new THREE.Mesh(new THREE.BoxGeometry(0.3, h, 0.25), additionConcreteMat);
+                sm.position.set(w / 2, h / 2, mz);
+                wing.add(sm);
+                const sm2 = sm.clone();
+                sm2.position.x = -w / 2;
+                wing.add(sm2);
+            }
+
+            wing.position.set(x, y, z);
+            return wing;
+        };
+
+        // ===== BUILD FLOOR BY FLOOR =====
+        const northZ = buildingZ - westWingLen / 2;
+        const eastX = northWingLen / 2 + eastWingWidth / 2 - wingWidth;  // Adjusted for wider wing
+        const westX = -northWingLen / 2 + wingWidth / 2;
+
         for (let f = 0; f < numFloors; f++) {
-            // North Wing (Across the top)
-            createWing(f, northWingLen, floorHeight, wingWidth, 0, buildingZ - westWingLen / 2);
+            const floorY = baseY + f * floorHeight;
 
-            // East Wing (Right side, extensions)
-            const eastX = northWingLen / 2 - wingWidth / 2;
-            createWing(f, wingWidth, floorHeight, eastWingLen, eastX, buildingZ + (eastWingLen - westWingLen) / 2);
+            // North Wing — original 1968 Brutalist
+            lib.add(createBrutalistWing(
+                northWingLen, floorHeight, wingWidth,
+                0, floorY, northZ
+            ));
 
-            // West Wing (Left side, shorter)
-            const westX = -northWingLen / 2 + wingWidth / 2;
-            createWing(f, wingWidth, floorHeight, westWingLen, westX, buildingZ);
+            // West Wing — original 1968
+            lib.add(createBrutalistWing(
+                wingWidth, floorHeight, westWingLen,
+                westX, floorY, buildingZ
+            ));
 
-            // 4th Floor Bridge (The "bar" across the middle-ish)
-            if (f === 3) { // 4th floor (0-indexed: 3)
-                const bridgeWidthNarrow = wingWidth * 0.4;
-                const bridgeZ = westWingLen / 2 - bridgeWidthNarrow / 2;
-                createWing(f, atriumW, floorHeight, bridgeWidthNarrow, 0, buildingZ + bridgeZ);
+            // East Wing — 2008 Addition (wider, longer, more glass)
+            lib.add(createAdditionWing(
+                eastWingWidth, floorHeight, eastWingLen,
+                eastX, floorY, buildingZ + (eastWingLen - westWingLen) / 2
+            ));
 
-                // Support Beams for the bridge
-                [-atriumW / 2 + 2, atriumW / 2 - 2].forEach(bx => {
-                    const support = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, f * floorHeight, 8), concreteMat);
-                    support.position.set(bx, (f * floorHeight) / 2, buildingZ + bridgeZ);
-                    lib.add(support);
-                });
+            // 4th Floor Bridge across atrium
+            if (f === 3) {
+                const atriumW = northWingLen - wingWidth * 2;
+                const bridgeDepth = wingWidth * 0.35;
+                const bridgeZ = buildingZ + westWingLen / 2 - bridgeDepth / 2;
+                lib.add(createBrutalistWing(
+                    atriumW, floorHeight, bridgeDepth,
+                    0, floorY, bridgeZ
+                ));
 
-                // Add covered roof specifically for the bridge
-                const roof = new THREE.Mesh(new THREE.BoxGeometry(atriumW + 0.5, 0.4, bridgeWidthNarrow + 0.5), concreteSlabMat);
-                roof.position.set(0, baseY + (f + 1) * floorHeight, buildingZ + bridgeZ);
-                lib.add(roof);
+                // Support columns
+                const colSpacing = atriumW / 3;
+                for (let c = 0; c <= 3; c++) {
+                    const col = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.5, 0.6, f * floorHeight, 8), concreteMat
+                    );
+                    col.position.set(-atriumW / 2 + c * colSpacing, (f * floorHeight) / 2, bridgeZ);
+                    col.castShadow = true;
+                    lib.add(col);
+                }
             }
         }
 
-        // Roof slabs for the wings
-        const roofY = baseY + numFloors * floorHeight;
+        // ===== ROOF =====
         const addRoof = (w, d, x, z) => {
             const r = new THREE.Mesh(new THREE.BoxGeometry(w + 1, 0.6, d + 1), concreteSlabMat);
             r.position.set(x, roofY, z);
-            r.castShadow = true; lib.add(r);
+            r.castShadow = true;
+            lib.add(r);
         };
-        addRoof(northWingLen, wingWidth, 0, buildingZ - westWingLen / 2);
-        addRoof(wingWidth, eastWingLen, northWingLen / 2 - wingWidth / 2, buildingZ + (eastWingLen - westWingLen) / 2);
-        addRoof(wingWidth, westWingLen, -northWingLen / 2 + wingWidth / 2, buildingZ);
+        addRoof(northWingLen, wingWidth, 0, northZ);
+        addRoof(eastWingWidth, eastWingLen, eastX, buildingZ + (eastWingLen - westWingLen) / 2);
+        addRoof(wingWidth, westWingLen, westX, buildingZ);
 
+        // Rooftop mechanical penthouse
+        const penthouse = new THREE.Mesh(new THREE.BoxGeometry(8, 2.5, 6), concreteMat);
+        penthouse.position.set(0, roofY + 1.25, northZ);
+        lib.add(penthouse);
 
-        // Copper Stairwell Towers
-        const towerHeight = numFloors * floorHeight + 2;
-        const tower1 = new THREE.Mesh(new THREE.BoxGeometry(6, towerHeight, 6), copperMat);
-        tower1.position.set(northWingLen / 2 + 2, towerHeight / 2, buildingZ - westWingLen / 2);
-        lib.add(tower1);
-        const tower2 = new THREE.Mesh(new THREE.BoxGeometry(6, towerHeight, 6), copperMat);
-        tower2.position.set(-northWingLen / 2 - 2, towerHeight / 2, buildingZ - westWingLen / 2);
-        lib.add(tower2);
+        // ===== COPPER/PATINA STAIRWELL TOWERS =====
+        const towerHeight = numFloors * floorHeight + 3;
+        [
+            { x: northWingLen / 2 + 3, z: northZ },
+            { x: -northWingLen / 2 - 3, z: northZ },
+            { x: eastX, z: buildingZ + eastWingLen / 2 + 3 }
+        ].forEach(tp => {
+            const tower = new THREE.Mesh(new THREE.BoxGeometry(5, towerHeight, 5), copperMat);
+            tower.position.set(tp.x, towerHeight / 2, tp.z);
+            tower.castShadow = true;
+            lib.add(tower);
+            const cap = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.4, 5.5), frameMat);
+            cap.position.set(tp.x, towerHeight, tp.z);
+            lib.add(cap);
+        });
 
-        // Entrance (Cleaned up, no large staircase)
-        const entryPlaza = new THREE.Mesh(new THREE.BoxGeometry(15, 0.4, 15), concreteSlabMat);
-        entryPlaza.position.set(0, 0.2, buildingZ + westWingLen / 2 + 5);
-        lib.add(entryPlaza);
+        // ===== SOUTH ENTRY PLAZA & READING GARDEN =====
+        const entryZ = buildingZ + westWingLen / 2 + 3;
 
-        // Dense Redwood Cluster
+        // Entry plaza
+        const plaza = new THREE.Mesh(new THREE.BoxGeometry(24, 0.3, 12), concreteSlabMat);
+        plaza.position.set(0, 0.15, entryZ + 4);
+        lib.add(plaza);
+
+        // Entry canopy
+        const canopy = new THREE.Mesh(
+            new THREE.BoxGeometry(16, 0.3, 6),
+            new THREE.MeshStandardMaterial({ color: 0xD8CDB0, roughness: 0.7, metalness: 0.05 })
+        );
+        canopy.position.set(0, floorHeight * 0.8, entryZ + 2);
+        canopy.castShadow = true;
+        lib.add(canopy);
+
+        // Canopy support columns
+        [-6, 6].forEach(cx => {
+            const col = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.35, 0.35, floorHeight * 0.8, 8), concreteMat
+            );
+            col.position.set(cx, floorHeight * 0.4, entryZ + 4);
+            lib.add(col);
+        });
+
+        // Reading garden benches
+        for (let i = 0; i < 4; i++) {
+            const bench = new THREE.Mesh(new THREE.BoxGeometry(3, 0.5, 0.8), concreteSlabMat);
+            bench.position.set(-8 + i * 5, 0.25, entryZ + 10);
+            lib.add(bench);
+        }
+
+        // ===== DENSE REDWOOD CLUSTER =====
         for (let i = 0; i < 60; i++) {
             const angle = Math.random() * Math.PI * 2;
             const dist = 35 + Math.random() * 40;
             const tx = Math.cos(angle) * dist;
             const tz = buildingZ + Math.sin(angle) * dist;
-            // Don't place tree inside building
             if (this.isNearBuilding(tx, tz)) continue;
             const tree = this.createRedwood();
             tree.position.set(tx, this.getTerrainHeight(tx, tz), tz);
@@ -400,230 +523,214 @@ export class UCSCCampus {
         this.group.add(lib);
     }
 
+
     // Helper: Exact footprint check for McHenry Library to prevent overlaps
     isNearBuilding(x, z) {
         const buildingZ = -35;
-        // The "9" shape footprint with a small buffer (5 units)
-        const xBounds = 21 + 5;
-        const zMin = buildingZ - 11 - 6 - 5; // North edge
-        const zMax = buildingZ + 14 + 25 + 5; // Southern tail edge
+        const xMin = -23 - 5;    // West side
+        const xMax = 36 + 5;     // East side (wider east wing)
+        const zMin = buildingZ - 12 - 6 - 5;
+        const zMax = buildingZ + 26 + 5;
 
-        return Math.abs(x) < xBounds && z > zMin && z < zMax;
+        return x > xMin && x < xMax && z > zMin && z < zMax;
     }
 
     createGulchAndBridge() {
         const buildingZ = -35;
-        const gulchX = 70; // Center matches override in santaCruz.js
-        const bridgeZ = buildingZ - 50;
-        const gulchWidth = 35;
-        const gulchLength = 150;
-        const gulchDepth = 75;
+        const gulchX = 100;      // Due east of McHenry (moved east to clear wider library)
+        const gulchWidth = 30;   // Ravine width
+        const gulchLength = 140; // Ravine running N-S
+        const gulchDepth = 25;   // Realistic depth (~25m, matching UCSC gulch)
 
-        // High-detail chasm floor
-        const chasmGeo = new THREE.PlaneGeometry(gulchWidth + 20, gulchLength, 80, 80);
+        // Sample ground height at the ravine location
+        const groundHeight = this.getTerrainHeight(gulchX, buildingZ - 30);
+
+        // ===== RAVINE FLOOR =====
+        // V-shaped trench cut into the terrain
+        const chasmGeo = new THREE.PlaneGeometry(gulchWidth + 10, gulchLength, 80, 80);
         const pos = chasmGeo.attributes.position;
+        const chasmColors = new Float32Array(pos.count * 3);
+
         for (let i = 0; i < pos.count; i++) {
             const px = pos.getX(i);
+            const py = pos.getY(i);
             const distFromCenter = Math.abs(px);
             const normalizedDist = distFromCenter / (gulchWidth / 2);
-            const depthFactor = Math.max(0, 1.0 - Math.pow(normalizedDist, 0.4));
-            pos.setZ(i, -depthFactor * gulchDepth);
+            // V-shape: edges at ground level, center sinks below
+            const depthFactor = Math.max(0, 1.0 - Math.pow(normalizedDist, 0.5));
+            // Small terrain noise
+            const noise = Math.sin(px * 0.3 + py * 0.2) * 1.5 + Math.sin(px * 0.7) * 1;
+            // Edges should be at 0 (ground level), center sinks DOWN
+            pos.setZ(i, -depthFactor * gulchDepth + noise * depthFactor);
+
+            // Color: dark forest floor with moss in deep areas
+            const t = depthFactor;
+            chasmColors[i * 3] = 0.08 + t * 0.05;
+            chasmColors[i * 3 + 1] = 0.12 + t * 0.08;
+            chasmColors[i * 3 + 2] = 0.06 + t * 0.02;
         }
+        chasmGeo.setAttribute('color', new THREE.BufferAttribute(chasmColors, 3));
         chasmGeo.computeVertexNormals();
 
         const chasmMat = new THREE.MeshStandardMaterial({
-            color: 0x1A2215, // Denser floor color
+            vertexColors: true,
             roughness: 1.0,
             flatShading: true
         });
         const chasmMesh = new THREE.Mesh(chasmGeo, chasmMat);
         chasmMesh.rotation.x = -Math.PI / 2;
 
-        // Find rim height (elevated ground around the chasm)
-        // We sample a point outside the chasm override zone to get the "pre-chasm" height
-        const rimHeight = this.getTerrainHeight(gulchX - 40, bridgeZ);
-        chasmMesh.position.set(gulchX, rimHeight, buildingZ - 60);
+        // Position at ground level — the geometry already sinks below via negative Z values
+        chasmMesh.position.set(gulchX, groundHeight, buildingZ - 30);
         this.group.add(chasmMesh);
 
-        // Vertical "Wall" planes to hide the transition to the sunk regional terrain
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0x2A2215, roughness: 1.0 });
-        const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(gulchLength, gulchDepth * 2), wallMat);
-        leftWall.position.set(gulchX - gulchWidth / 2 - 5, rimHeight - gulchDepth, buildingZ - 60);
-        leftWall.rotation.y = Math.PI / 2;
-        this.group.add(leftWall);
+        // ===== RAVINE WALLS =====
+        // Vertical earth walls to hide the underside
+        const wallMat = new THREE.MeshStandardMaterial({
+            color: 0x2A2215, roughness: 1.0, side: THREE.DoubleSide
+        });
+        [-1, 1].forEach(side => {
+            const wall = new THREE.Mesh(
+                new THREE.PlaneGeometry(gulchLength, gulchDepth * 1.5), wallMat
+            );
+            wall.position.set(
+                gulchX + side * (gulchWidth / 2 + 3),
+                groundHeight - gulchDepth * 0.5,
+                buildingZ - 30
+            );
+            wall.rotation.y = side * Math.PI / 2;
+            this.group.add(wall);
+        });
 
-        const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(gulchLength, gulchDepth * 2), wallMat);
-        rightWall.position.set(gulchX + gulchWidth / 2 + 5, rimHeight - gulchDepth, buildingZ - 60);
-        rightWall.rotation.y = -Math.PI / 2;
-        this.group.add(rightWall);
-
-        // Wooden Bridge
-        const bridgeWidth = 4;
-        const bridgeLength = gulchWidth + 10;
+        // ===== HAHN-MCHENRY PEDESTRIAN BRIDGE (VIADUCT) =====
+        // A long, substantial concrete-and-wood pedestrian bridge
+        const bridgeZ = buildingZ - 20;  // Path from McHenry heading east
+        const bridgeDeckWidth = 4.5;     // Wide enough for two-way pedestrian traffic
+        const bridgeLength = gulchWidth + 14; // Spans the gulch plus short approaches
         const bridgeGroup = new THREE.Group();
 
-        const woodMat = new THREE.MeshStandardMaterial({ color: 0x5D4037, roughness: 0.9 });
+        // Materials
+        const concreteViaductMat = new THREE.MeshStandardMaterial({
+            color: 0xB8A890, roughness: 0.8, metalness: 0.05
+        });
+        const woodDeckMat = new THREE.MeshStandardMaterial({
+            color: 0x6D4C3D, roughness: 0.85
+        });
+        const railingMat = new THREE.MeshStandardMaterial({
+            color: 0x4A3A2E, roughness: 0.75
+        });
+        const metalRailMat = new THREE.MeshStandardMaterial({
+            color: 0x555555, roughness: 0.4, metalness: 0.6
+        });
 
-        // Planks
-        for (let i = 0; i < bridgeLength; i += 0.8) {
-            const plank = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.15, bridgeWidth), woodMat);
-            plank.position.set(i - bridgeLength / 2, 0, 0);
-            plank.castShadow = true; plank.receiveShadow = true;
+        // --- Concrete support piers ---
+        // Tall tapered piers descending into the ravine
+        const numPiers = 5;
+        const pierSpacing = (bridgeLength - 4) / (numPiers - 1);
+        for (let i = 0; i < numPiers; i++) {
+            const px = -bridgeLength / 2 + 2 + i * pierSpacing;
+            // Pier height depends on position (taller in center of ravine)
+            const distFromGulchCenter = Math.abs(px);
+            const normalizedPierDist = distFromGulchCenter / (gulchWidth / 2);
+            const pierDepth = Math.max(3, gulchDepth * Math.max(0, 1 - Math.pow(normalizedPierDist, 0.4)));
+
+            const pier = new THREE.Mesh(
+                new THREE.BoxGeometry(1.2, pierDepth, 1.8),
+                concreteViaductMat
+            );
+            pier.position.set(px, -pierDepth / 2, 0);
+            pier.castShadow = true;
+            bridgeGroup.add(pier);
+
+            // Pier cap (wider concrete pad at top)
+            const pierCap = new THREE.Mesh(
+                new THREE.BoxGeometry(2.0, 0.4, bridgeDeckWidth + 0.5),
+                concreteViaductMat
+            );
+            pierCap.position.set(px, 0.2, 0);
+            bridgeGroup.add(pierCap);
+        }
+
+        // --- Bridge deck (wooden planks) ---
+        // Main deck structure (concrete base)
+        const deckBase = new THREE.Mesh(
+            new THREE.BoxGeometry(bridgeLength, 0.35, bridgeDeckWidth),
+            concreteViaductMat
+        );
+        deckBase.position.set(0, 0, 0);
+        deckBase.castShadow = true;
+        deckBase.receiveShadow = true;
+        bridgeGroup.add(deckBase);
+
+        // Wooden plank surface
+        for (let i = 0; i < bridgeLength; i += 0.6) {
+            const plank = new THREE.Mesh(
+                new THREE.BoxGeometry(0.5, 0.08, bridgeDeckWidth - 0.4),
+                woodDeckMat
+            );
+            plank.position.set(i - bridgeLength / 2, 0.22, 0);
+            plank.receiveShadow = true;
             bridgeGroup.add(plank);
         }
 
-        // Side rails
-        const railLower = new THREE.Mesh(new THREE.BoxGeometry(bridgeLength, 0.1, 0.1), woodMat);
-        railLower.position.set(0, 0.5, bridgeWidth / 2 - 0.1);
-        bridgeGroup.add(railLower);
-        const railLower1 = railLower.clone();
-        railLower1.position.z = -bridgeWidth / 2 + 0.1;
-        bridgeGroup.add(railLower1);
+        // --- Railings ---
+        // Substantial wooden railings with metal top rail
+        [-1, 1].forEach(side => {
+            const railZ = side * (bridgeDeckWidth / 2 - 0.15);
 
-        const railUpper = new THREE.Mesh(new THREE.BoxGeometry(bridgeLength, 0.15, 0.15), woodMat);
-        railUpper.position.set(0, 1.1, bridgeWidth / 2 - 0.1);
-        bridgeGroup.add(railUpper);
-        const railUpper1 = railUpper.clone();
-        railUpper1.position.z = -bridgeWidth / 2 + 0.1;
-        bridgeGroup.add(railUpper1);
+            // Vertical posts (every 2.5m)
+            for (let i = 0; i < bridgeLength; i += 2.5) {
+                const post = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.15, 1.2, 0.15),
+                    railingMat
+                );
+                post.position.set(i - bridgeLength / 2, 0.6 + 0.22, railZ);
+                post.castShadow = true;
+                bridgeGroup.add(post);
+            }
 
-        // Posts
-        for (let i = 0; i < bridgeLength; i += 4) {
-            const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.2, 0.2), woodMat);
-            post.position.set(i - bridgeLength / 2, 0.6, bridgeWidth / 2 - 0.1);
-            bridgeGroup.add(post);
-            const post2 = post.clone();
-            post2.position.z = -bridgeWidth / 2 + 0.1;
-            bridgeGroup.add(post2);
-        }
+            // Horizontal rails (lower and upper)
+            const lowerRail = new THREE.Mesh(
+                new THREE.BoxGeometry(bridgeLength, 0.08, 0.12),
+                railingMat
+            );
+            lowerRail.position.set(0, 0.65, railZ);
+            bridgeGroup.add(lowerRail);
 
-        // Important: Position bridge at RIM height so it spans the chasm
-        bridgeGroup.position.set(gulchX, rimHeight + 0.1, bridgeZ);
+            // Metal top rail
+            const topRail = new THREE.Mesh(
+                new THREE.BoxGeometry(bridgeLength, 0.06, 0.08),
+                metalRailMat
+            );
+            topRail.position.set(0, 1.32, railZ);
+            bridgeGroup.add(topRail);
+
+            // Mid rail (horizontal bar for safety)
+            const midRail = new THREE.Mesh(
+                new THREE.BoxGeometry(bridgeLength, 0.06, 0.06),
+                metalRailMat
+            );
+            midRail.position.set(0, 0.95, railZ);
+            bridgeGroup.add(midRail);
+        });
+
+        // Position bridge at ground level spanning the ravine
+        bridgeGroup.position.set(gulchX, groundHeight + 0.1, bridgeZ);
         this.group.add(bridgeGroup);
 
-
-        // Add some trees in and around the chasm
+        // ===== TREES IN AND AROUND THE RAVINE =====
+        // Dense redwoods growing up from the ravine floor
         for (let i = 0; i < 40; i++) {
             const tx = gulchX + (Math.random() - 0.5) * 40;
-            const tz = (buildingZ - 60) + (Math.random() - 0.5) * gulchLength;
+            const tz = (buildingZ - 30) + (Math.random() - 0.5) * gulchLength;
 
             const tree = this.createRedwood();
-            // Important: Use getElevation which now returns the deep floor for the chasm area
             tree.position.set(tx, this.getTerrainHeight(tx, tz), tz);
-            tree.scale.setScalar(0.4 + Math.random() * 1.5);
+            tree.scale.setScalar(0.5 + Math.random() * 1.5);
             this.group.add(tree);
         }
     }
 
-    // Helper: Create grid facade typical of McHenry's design
-    // Regular pattern of concrete grid with large glass panels
-    addGridFacade(parent, width, height, depth, y, z, concreteMat, gridMat, glassMat, frameMat) {
-        const gridSpacingH = 4;  // Horizontal spacing between grid lines
-        const gridSpacingV = height;  // Vertical (full floor height)
-        const gridThickness = 0.35;
-        const glassInset = 0.2;
-
-        // Create glass and grid for front and back facades
-        [1, -1].forEach(side => {
-            const facadeZ = z + side * (depth / 2);
-            const numBays = Math.floor(width / gridSpacingH);
-
-            for (let i = 0; i < numBays; i++) {
-                const bayX = -width / 2 + gridSpacingH / 2 + i * gridSpacingH;
-
-                // Large glass panel
-                const glass = new THREE.Mesh(
-                    new THREE.BoxGeometry(gridSpacingH - gridThickness * 2, height - gridThickness * 2, 0.12),
-                    glassMat
-                );
-                glass.position.set(bayX, y, facadeZ + side * glassInset);
-                parent.add(glass);
-
-                // Vertical grid line (between bays)
-                if (i > 0) {
-                    const vGrid = new THREE.Mesh(
-                        new THREE.BoxGeometry(gridThickness, height, 0.5),
-                        gridMat
-                    );
-                    vGrid.position.set(bayX - gridSpacingH / 2, y, facadeZ);
-                    parent.add(vGrid);
-                }
-            }
-
-            // Edge vertical grid lines
-            [-width / 2, width / 2].forEach(edgeX => {
-                const edgeGrid = new THREE.Mesh(
-                    new THREE.BoxGeometry(gridThickness * 1.5, height, 0.5),
-                    concreteMat
-                );
-                edgeGrid.position.set(edgeX, y, facadeZ);
-                parent.add(edgeGrid);
-            });
-        });
-
-        // Side facades - fewer, larger windows
-        [-1, 1].forEach(side => {
-            const facadeX = side * (width / 2);
-            const numSideBays = Math.floor(depth / gridSpacingH);
-
-            for (let i = 0; i < numSideBays; i++) {
-                const bayZ = z - depth / 2 + gridSpacingH / 2 + i * gridSpacingH;
-
-                // Side glass panel
-                const sideGlass = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.12, height - gridThickness * 2, gridSpacingH - gridThickness * 2),
-                    glassMat
-                );
-                sideGlass.position.set(facadeX + side * glassInset, y, bayZ);
-                parent.add(sideGlass);
-            }
-        });
-    }
-
-    // Helper method to add ribbon windows (horizontal strips typical of Brutalism)
-    addRibbonWindows(parent, width, height, depth, y, z, glassMat, frameMat) {
-        const windowHeight = height * 0.5;
-        const windowInset = 0.3;
-
-        // Front facade - large ribbon window
-        const frontWindow = new THREE.Mesh(
-            new THREE.BoxGeometry(width - 6, windowHeight, 0.15),
-            glassMat
-        );
-        frontWindow.position.set(0, y, z + depth / 2 - windowInset);
-        parent.add(frontWindow);
-
-        // Horizontal mullions
-        [-windowHeight / 3, 0, windowHeight / 3].forEach(offset => {
-            const hMullion = new THREE.Mesh(
-                new THREE.BoxGeometry(width - 6, 0.12, 0.2),
-                frameMat
-            );
-            hMullion.position.set(0, y + offset, z + depth / 2 - windowInset + 0.05);
-            parent.add(hMullion);
-        });
-
-        // Vertical mullions
-        const numVMullions = Math.floor((width - 6) / 5);
-        for (let i = 0; i <= numVMullions; i++) {
-            const vMullion = new THREE.Mesh(
-                new THREE.BoxGeometry(0.12, windowHeight, 0.2),
-                frameMat
-            );
-            vMullion.position.set(-(width - 6) / 2 + i * ((width - 6) / numVMullions), y, z + depth / 2 - windowInset + 0.05);
-            parent.add(vMullion);
-        }
-
-        // Side windows (smaller strips)
-        [-1, 1].forEach(side => {
-            const sideWindow = new THREE.Mesh(
-                new THREE.BoxGeometry(0.15, windowHeight * 0.8, depth - 8),
-                glassMat
-            );
-            sideWindow.position.set(side * (width / 2 - windowInset), y, z);
-            parent.add(sideWindow);
-        });
-    }
 
     createChalkboards() {
         const positions = [
@@ -731,3 +838,4 @@ export class UCSCCampus {
         return interactables;
     }
 }
+

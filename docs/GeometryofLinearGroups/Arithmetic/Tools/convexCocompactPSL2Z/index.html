@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSL2(Z) Convex Cocompact Explorer</title>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']]
+            }
+        };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+</head>
+
+<body>
+    <div class="app">
+        <aside class="panel">
+            <h1>PSL<sub>2</sub>(Z) Convex Cocompact Explorer</h1>
+            <p class="subtitle">Visualize the modular tiling of the upper half-plane and overlay the geodesic axes of
+                <strong>a</strong> and <strong>b</strong> for
+                \(a=\begin{pmatrix}1+2p&p\\2&1\end{pmatrix}\),
+                \(b=\begin{pmatrix}1+2p&1\\2p&1\end{pmatrix}\).
+            </p>
+
+            <section class="control-block">
+                <div class="control-row">
+                    <label for="primeInput">p</label>
+                    <input id="primeInput" type="number" min="2" step="1" value="3">
+                    <button id="applyBtn" class="btn-primary">Apply</button>
+                </div>
+
+                <div class="control-row">
+                    <label for="depthInput">Word Depth</label>
+                    <input id="depthInput" type="range" min="0" max="6" step="1" value="3">
+                    <span id="depthVal">3</span>
+                </div>
+
+                <div class="control-row">
+                    <label for="tileInput">Tile Count</label>
+                    <input id="tileInput" type="range" min="200" max="3200" step="100" value="1400">
+                    <span id="tileVal">1400</span>
+                </div>
+
+                <div class="btn-row">
+                    <button id="resetViewBtn">Reset View</button>
+                    <button id="zoomInBtn">Zoom In</button>
+                    <button id="zoomOutBtn">Zoom Out</button>
+                </div>
+            </section>
+
+            <section class="control-block">
+                <label for="extraMatricesInput">Extra Generators (Finite Set)</label>
+                <textarea id="extraMatricesInput"
+                    placeholder="One matrix per line, e.g.\n[[0,-1],[1,0]]\n[ [1,2], [0,1] ]"></textarea>
+                <div class="btn-row">
+                    <button id="addSBtn" type="button">Insert S</button>
+                    <button id="clearExtrasBtn" type="button">Clear Extras</button>
+                </div>
+                <p class="matrix-help">Each nonempty line must contain exactly 4 integer entries \(a,b,c,d\) with
+                    determinant \(|ad-bc|\neq 0\).</p>
+                <p class="matrix-help" id="clickStatus">Click a point in the displayed PSL\(_2(\mathbb Z)\)-orbit
+                    sample of \(i\) or \(\omega\) to add its stabilizer conjugate.</p>
+            </section>
+
+            <section class="control-block toggle-row">
+                <label class="toggle"><input id="showTilingInput" type="checkbox" checked>Show PSL2(Z)
+                    tiling</label>
+                <label class="toggle"><input id="includeABInput" type="checkbox" checked>Include a, b</label>
+                <label class="toggle"><input id="includeDiagPInput" type="checkbox">Include
+                    \(D=\begin{pmatrix}p&0\\0&1\end{pmatrix}\)</label>
+                <label class="toggle"><input id="fillTilesInput" type="checkbox" checked>Fill tiles lightly</label>
+                <label class="toggle"><input id="showOrbitInput" type="checkbox" checked>Show subgroup orbit of
+                    axes</label>
+                <label class="toggle"><input id="showIOrbitInput" type="checkbox">Show subgroup orbit of
+                    \(i\)</label>
+                <label class="toggle"><input id="showIHullInput" type="checkbox" checked>Show hyperbolic convex hull of
+                    orbit\((i)\)</label>
+                <label class="toggle"><input id="showConvexCoreInput" type="checkbox" checked>Show convex core</label>
+                <label class="toggle"><input id="showPSLOrbitInput" type="checkbox" checked>Show clickable
+                    PSL2(Z)-orbit sample of \(i,\omega\)</label>
+                <label class="toggle"><input id="showGridInput" type="checkbox" checked>Show coordinate grid</label>
+            </section>
+
+            <section class="stats" id="stats"></section>
+
+            <p class="legend-note">
+                <strong>Orbifold type \((g,\,n_2,\,n_3,\,b)\)</strong>: the quotient of the convex core by the group is
+                a hyperbolic 2-orbifold of genus \(g\), with \(n_2\) order-2 cone points (from elliptic
+                fixed points conjugate to \(i\)), \(n_3\) order-3 cone points (conjugate to \(\omega\)),
+                and \(b\) geodesic boundary components. The orbifold Euler characteristic is
+                \(\chi_{\text{orb}} = 2-2g-b-\tfrac{n_2}{2}-\tfrac{2n_3}{3}\) and the area is
+                \(-2\pi\chi_{\text{orb}}\).
+            </p>
+
+            <p class="legend-note">
+                Drag canvas to pan. Use mouse wheel or zoom buttons. Add any finite list of extra matrices to enlarge
+                the generating set beyond \(a,b\).
+            </p>
+        </aside>
+
+        <section class="viewport">
+            <canvas id="uhpCanvas"></canvas>
+            <div class="canvas-legend">
+                <div id="legendItemA" class="legend-item"><span class="swatch swatch-a"></span>axis(a)</div>
+                <div id="legendItemB" class="legend-item"><span class="swatch swatch-b"></span>axis(b)</div>
+                <div id="legendItemOrbitA" class="legend-item"><span class="swatch swatch-oa"></span>orbit images of
+                    axis(a)</div>
+                <div id="legendItemOrbitB" class="legend-item"><span class="swatch swatch-ob"></span>orbit images of
+                    axis(b)</div>
+                <div class="legend-item"><span class="swatch swatch-i"></span>orbit of \(i\)</div>
+                <div class="legend-item"><span class="swatch swatch-hull"></span>hyperbolic hull of orbit\((i)\)</div>
+                <div class="legend-item"><span class="swatch swatch-core"></span>convex core</div>
+                <div class="legend-item"><span class="swatch swatch-psli"></span>PSL\(_2(\mathbb Z)\)\(\cdot i\)
+                    (click)</div>
+                <div class="legend-item"><span class="swatch swatch-pslow"></span>PSL\(_2(\mathbb Z)\)\(\cdot\omega\)
+                    (click)</div>
+            </div>
+        </section>
+    </div>
+
+    <script src="./state.js"></script>
+    <script src="./math.js"></script>
+    <script src="./hyperbolic.js"></script>
+    <script src="./group-model.js"></script>
+    <script src="./graphics.js"></script>
+    <script src="./controls.js"></script>
+</body>
+
+</html>

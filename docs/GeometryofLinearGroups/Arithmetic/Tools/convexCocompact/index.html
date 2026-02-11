@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convex Cocompact Subgroups of PSL(2,Z)</title>
+
+    <!-- MathJax 3 -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <!-- Google Font: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #f8f9fc;
+            color: #1a1a1a;
+        }
+
+        h1, h2, h3 {
+            color: #1e293b;
+            font-weight: 700;
+        }
+
+        .panel-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            justify-content: center;
+        }
+
+        .panel {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            flex: 1;
+            min-width: 350px;
+            transition: opacity 0.15s;
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            margin-top: 0;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            justify-content: center;
+        }
+
+        input[type="number"] {
+            padding: 10px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 18px;
+            width: 100px;
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 24px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        canvas {
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .error {
+            color: #ef4444;
+            font-size: 14px;
+            margin-left: 12px;
+        }
+
+        .math-block {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin: 16px 0;
+        }
+
+        .generator-display {
+            overflow-x: auto;
+        }
+
+        .loading-indicator {
+            color: #3b82f6;
+            font-size: 14px;
+            font-weight: 600;
+            margin-left: 8px;
+            display: none;
+        }
+
+        .step-btn {
+            padding: 10px 14px;
+            min-width: 36px;
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .math-explanation {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-top: 24px;
+            overflow: hidden;
+        }
+
+        .math-explanation summary {
+            padding: 18px 24px;
+            font-size: 17px;
+            font-weight: 700;
+            color: #1e293b;
+            cursor: pointer;
+            user-select: none;
+            list-style: none;
+        }
+
+        .math-explanation summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .math-explanation summary::before {
+            content: '\25B6';
+            display: inline-block;
+            margin-right: 10px;
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+
+        .math-explanation[open] summary::before {
+            transform: rotate(90deg);
+        }
+
+        .math-explanation-content {
+            padding: 0 24px 24px 24px;
+        }
+
+        .math-explanation-content h3 {
+            font-size: 16px;
+            margin-top: 24px;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .math-explanation-content h3:first-child {
+            margin-top: 0;
+        }
+
+        .math-explanation-content p {
+            line-height: 1.7;
+            color: #334155;
+            margin: 8px 0;
+        }
+
+        .panel-updating {
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            .panel-container {
+                flex-direction: column;
+            }
+
+            .controls {
+                flex-wrap: wrap;
+            }
+
+            .panel {
+                min-width: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Convex Cocompact Subgroups of \(\text{PSL}(2,\mathbb{Z})\)</h1>
+    <p>Enter a prime \(p\) to construct a convex cocompact subgroup \(\Gamma\) whose convex core
+    is a genus-1 surface with two boundary components.</p>
+
+    <div class="controls">
+        <label for="prime-input" style="font-weight:600; font-size:16px;">Prime \(p\):</label>
+        <button id="prev-prime-btn" class="step-btn" title="Previous prime">&minus;</button>
+        <input type="number" id="prime-input" value="2" min="2">
+        <button id="next-prime-btn" class="step-btn" title="Next prime">+</button>
+        <button id="compute-btn">Compute</button>
+        <span id="loading-msg" class="loading-indicator">Computing...</span>
+        <span id="error-msg" class="error"></span>
+    </div>
+
+    <div class="panel-container">
+        <div class="panel" id="hyperbolic-panel">
+            <h2>Hyperbolic Plane</h2>
+            <canvas id="hyperbolic-canvas" width="500" height="500"></canvas>
+        </div>
+        <div class="panel" id="topology-panel">
+            <h2>Convex Core Topology</h2>
+            <div id="topology-svg"></div>
+        </div>
+        <div class="panel" id="algebra-panel">
+            <h2>Algebraic Data</h2>
+            <div id="algebra-content"></div>
+        </div>
+    </div>
+
+    <!-- Mathematical Explanation Section -->
+    <details class="math-explanation" id="math-explanation">
+        <summary>Mathematical Background</summary>
+
+        <div class="math-explanation-content">
+
+            <h3>What is \(\text{PSL}(2,\mathbb{Z})\)?</h3>
+            <p>
+                The <strong>modular group</strong> is the quotient
+                \[
+                    \text{PSL}(2,\mathbb{Z}) \;=\; \text{SL}(2,\mathbb{Z})\,/\,\{\pm I\},
+                \]
+                where \(\text{SL}(2,\mathbb{Z})\) is the group of \(2 \times 2\) integer matrices
+                with determinant 1. It acts on the upper half-plane
+                \(\mathbb{H}^2 = \{z \in \mathbb{C} : \text{Im}(z) > 0\}\) by
+                M&ouml;bius transformations:
+                \[
+                    \begin{pmatrix} a & b \\ c & d \end{pmatrix} \cdot z \;=\; \frac{az + b}{cz + d}.
+                \]
+                An element is <em>hyperbolic</em> if \(|\text{tr}(M)| > 2\); such elements
+                have two fixed points on \(\mathbb{R} \cup \{\infty\}\) and translate along
+                the geodesic connecting them.
+            </p>
+
+            <h3>What is convex cocompact?</h3>
+            <p>
+                A discrete subgroup \(\Gamma \le \text{PSL}(2,\mathbb{Z})\) is
+                <strong>convex cocompact</strong> if the convex hull of its limit set,
+                modulo the action of \(\Gamma\), is compact. Equivalently, the quotient
+                \(\mathbb{H}^2/\Gamma\) possesses a <em>compact convex core</em>&mdash;a
+                compact surface with geodesic boundary that carries all the essential topology.
+                Convex cocompact subgroups are necessarily free groups (Schottky groups) and their
+                limit sets are Cantor sets on \(\mathbb{R} \cup \{\infty\}\).
+            </p>
+
+            <h3>The generators</h3>
+            <p>
+                For each prime \(p\), the two matrices
+                \[
+                    A(p) = \begin{pmatrix} 1+2p & 2 \\ p & 1 \end{pmatrix}, \qquad
+                    B(p) = \begin{pmatrix} 1+2p & 2p \\ 1 & 1 \end{pmatrix}
+                \]
+                both lie in \(\text{SL}(2,\mathbb{Z})\) (each has determinant 1) and both
+                have trace \(2 + 2p\), so they are hyperbolic for every \(p \ge 2\). Their
+                fixed points on the real line satisfy \(B^- < A^- < A^+ < B^+\), i.e., the
+                axis of \(A\) is nested inside the axis of \(B\).
+            </p>
+
+            <h3>The construction</h3>
+            <p>
+                The subgroup \(\langle A, B \rangle\) is a free group of rank 2 whose
+                quotient surface \(\mathbb{H}^2/\langle A,B\rangle\) is a once-punctured
+                torus (genus 1, one boundary component given by the commutator
+                \([A,B] = ABA^{-1}B^{-1}\)).
+            </p>
+            <p>
+                To obtain a surface with two boundary components, we introduce a third generator
+                \(P = B^2\). The extended group \(\langle A, B, P \rangle\) is a free group of
+                rank 3 (since \(P\) is not in the free group generated by \(A\) and \(B\) alone
+                as a generator, but adding it changes the quotient fatgraph). The resulting
+                convex core is a genus-1 surface with 2 boundary components, one associated
+                to each generator axis.
+            </p>
+
+            <h3>Fatgraph theory</h3>
+            <p>
+                A <strong>fatgraph</strong> (also called a <em>ribbon graph</em>) is a graph
+                equipped with a cyclic ordering of the half-edges at each vertex. This extra
+                combinatorial data determines a surface with boundary: thickening each vertex
+                to a disk and each edge to a strip, then gluing according to the cyclic orderings,
+                produces a compact oriented surface \(\Sigma\). Its boundary components are
+                traced by following the "next half-edge" pointers.
+            </p>
+            <p>
+                For a graph with \(V\) vertices and \(E\) edges, the Euler characteristic of
+                the thickened surface is \(\chi = V - E\), and the relation
+                \[
+                    \chi \;=\; 2 - 2g - b
+                \]
+                determines the genus \(g\) and the number of boundary components \(b\). For
+                the 3-rose (\(V=1,\; E=3\)), we get \(\chi = -2\), so \(2g + b = 4\). The
+                cyclic ordering chosen here gives \(g=1,\; b=2\).
+            </p>
+
+            <h3>The Bass&ndash;Serre tree</h3>
+            <p>
+                The modular group has the structure of a free product:
+                \[
+                    \text{PSL}(2,\mathbb{Z}) \;\cong\; \mathbb{Z}/2 \ast \mathbb{Z}/3.
+                \]
+                Its <strong>Bass&ndash;Serre tree</strong> is the dual graph of the Farey
+                tessellation of \(\mathbb{H}^2\). Vertices of the tree correspond to ideal
+                triangles, and edges correspond to pairs of adjacent triangles.
+            </p>
+            <p>
+                A hyperbolic element \(M \in \text{PSL}(2,\mathbb{Z})\) acts on this tree by
+                translation along an axis determined by the continued fraction expansion
+                of its attracting fixed point. The periodic part of the continued fraction
+                encodes one fundamental domain of this axis, and the translation length on the
+                tree equals the sum of the period digits.
+            </p>
+
+        </div>
+    </details>
+
+    <script src="js/math.js"></script>
+    <script src="js/bassSerre.js"></script>
+    <script src="js/fatgraph.js"></script>
+    <script src="js/construct.js"></script>
+    <script src="js/hyperbolic.js"></script>
+    <script src="js/topology.js"></script>
+    <script src="js/algebra.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            window.app = new App();
+            window.app.init();
+        });
+    </script>
+
+</body>
+</html>

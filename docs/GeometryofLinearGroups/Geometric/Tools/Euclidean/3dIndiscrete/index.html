@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Isom_n(ℤ[1/m]) and Property FAb</title>
+    <meta name="description"
+        content="Interactive exploration of S-arithmetic isometry groups and Property FAb. The main result: Isom₃(ℤ[1/65]) has Property FAb." />
+    <link rel="stylesheet" href="style.css" />
+
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                macros: {
+                    R: '\\mathbb{R}',
+                    Z: '\\mathbb{Z}',
+                    Q: '\\mathbb{Q}',
+                    Qp: '\\mathbb{Q}_p',
+                    Zp: '\\mathbb{Z}_p',
+                    Isom: '\\mathrm{Isom}',
+                    OO: '\\mathrm{O}',
+                    SO: '\\mathrm{SO}',
+                    GL: '\\mathrm{GL}',
+                    SL: '\\mathrm{SL}',
+                    FAb: '\\mathrm{FAb}',
+                    Ab: '\\mathrm{ab}',
+                    Aut: '\\mathrm{Aut}',
+                }
+            },
+            options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+
+    <div id="app">
+
+        <!-- ======================================================
+         LEFT: WALKTHROUGH PANEL
+         ====================================================== -->
+        <div id="walkthrough">
+            <div id="slide-viewport">
+
+                <!-- ===================== SLIDE 0: INTRO ===================== -->
+                <div class="slide active" data-slide="0" data-canvas="intro">
+                    <div class="chapter-label">Introduction</div>
+                    <h1>Indiscrete Isometries <br />& Property $\FAb$</h1>
+
+                    <p class="lead">
+                        What happens when we replace $\Z$ with $\Z[1/m]$ in the
+                        isometry group of $\R^n$?
+                    </p>
+
+                    <p>
+                        Recall that the discrete subgroups of $\Isom(\R^n)$ — the
+                        crystallographic groups — are classified by Bieberbach's theorem.
+                        But $\Isom_n(\Z[1/m])$ is <strong>dense</strong> in $\Isom_n(\R)$.
+                        These are <em>S-arithmetic groups</em>: not discrete in their real Lie groups, but
+                        with rich algebraic structure.
+                    </p>
+
+                    <div class="math-block fade-in">
+                        $$\Isom_n(R) \;=\; R^n \rtimes \OO_n(R), \quad R = \Z[1/m]$$
+                    </div>
+
+                    <div class="key-hint fade-in">
+                        Use <kbd>→</kbd> <kbd>←</kbd> to navigate
+                    </div>
+                </div>
+
+                <!-- ===================== SLIDE 1: THE RING ===================== -->
+                <div class="slide" data-slide="1" data-canvas="ring">
+                    <div class="chapter-label">Chapter 1</div>
+                    <h2>The Ring $\Z[1/m]$</h2>
+
+                    <p>
+                        For a positive integer $m$, the ring $\Z[1/m]$ consists of
+                        all fractions whose denominators are powers of $m$:
+                    </p>
+
+                    <div class="math-block fade-in">
+                        $$\Z[1/m] = \left\{ \frac{a}{m^k} : a \in \Z,\; k \ge 0 \right\}$$
+                    </div>
+
+                    <ul class="reveal-list">
+                        <li>$\Z[1/m]$ is dense in $\R$ — it's <em>indiscrete</em> as a subgroup of $(\R, +)$</li>
+                        <li>But it's a <strong>principal ideal domain</strong> with tractable arithmetic</li>
+                        <li>Geometrically: $\Z[1/m]^n$ fills $\R^n$ densely, like a fractal grid</li>
+                    </ul>
+
+                    <div class="separator"></div>
+
+                    <div class="insight">
+                        <p>
+                            <strong>Key example:</strong> For $m = 65 = 5 \cdot 13$,
+                            we have $\Z[1/65] = \Z[1/5] \cap \Z[1/13]$ in $\Q$.
+                            This lets us study the group simultaneously at the primes 5 and 13.
+                        </p>
+                    </div>
+
+                    <div class="interact-prompt">
+                        The canvas shows how $\Z[1/m]$ fills the real line as $k$ grows
+                    </div>
+                </div>
+
+                <!-- ===================== SLIDE 2: ISOM_n(R) ===================== -->
+                <div class="slide" data-slide="2" data-canvas="isom">
+                    <div class="chapter-label">Chapter 2</div>
+                    <h2>The Group $\Isom_n(R)$</h2>
+
+                    <p>
+                        An isometry of $\R^n$ with entries in a ring $R$ is a map
+                        $x \mapsto Ax + v$ where $A \in \OO_n(R)$ and $v \in R^n$.
+                    </p>
+
+                    <div class="math-block fade-in">
+                        $$\Isom_n(R) = \left\{
+                        \begin{pmatrix} A & v \\ 0 & 1 \end{pmatrix}
+                        : A \in \OO_n(R),\; v \in R^n
+                        \right\}$$
+                    </div>
+
+                    <p>
+                        This is a <strong>semidirect product</strong>:
+                    </p>
+
+                    <div class="sdp-visual stagger">
+                        <div class="sdp-block translation-part">$R^n$<br /><small>translations</small></div>
+                        <div class="sdp-symbol">⋊</div>
+                        <div class="sdp-block rotation-part">$\OO_n(R)$<br /><small>orthogonal</small></div>
+                        <div class="sdp-symbol">=</div>
+                        <div class="sdp-result">$\Isom_n(R)$</div>
+                    </div>
+
+                    <ul class="reveal-list">
+                        <li>The translation subgroup $R^n$ is <strong>normal</strong> and abelian</li>
+                        <li>$\OO_n(R) = \{ A \in \GL_n(R) : A^T A = I_n \}$ acts on $R^n$ by matrix multiplication</li>
+                        <li>When $R = \Z$, we recover the crystallographic groups (after taking a discrete subgroup)
+                        </li>
+                        <li>When $R = \Z[1/m]$, the group is <strong>dense</strong> in $\Isom_n(\R)$ and
+                            <strong>infinitely generated</strong> over $\Z$</li>
+                    </ul>
+                </div>
+
+                <!-- ===================== SLIDE 3: ORTHOGONAL GROUP ===================== -->
+                <div class="slide" data-slide="3" data-canvas="orthogonal">
+                    <div class="chapter-label">Chapter 2</div>
+                    <h2>The Orthogonal Group $\OO_n(\Z[1/m])$</h2>
+
+                    <p>
+                        Unlike $\OO_n(\Z)$ (which is finite — just signed permutation matrices),
+                        the group $\OO_n(\Z[1/m])$ is <strong>infinite</strong>.
+                    </p>
+
+                    <ul class="reveal-list">
+                        <li>$\OO_n(\Z) = $ signed permutation matrices, $|\OO_n(\Z)| = 2^n \cdot n!$</li>
+                        <li>$\OO_n(\Z[1/m])$ is infinite and dense in $\OO_n(\R)$</li>
+                        <li>It contains "rational rotations" — rotations by angles whose sine and cosine lie in
+                            $\Z[1/m]$</li>
+                    </ul>
+
+                    <div class="separator"></div>
+
+                    <div class="strategy-box">
+                        <div class="strategy-label">Key Structure</div>
+                        <p>
+                            $\OO_n(\Z[1/m])$ can be studied $p$-adically. For each prime $p \mid m$,
+                            completion gives $\OO_n(\Zp)$, and we have a diagonal embedding:
+                        </p>
+                    </div>
+
+                    <div class="math-block fade-in">
+                        $$\OO_n(\Z[1/m]) \hookrightarrow \OO_n(\R) \times \prod_{p \mid m} \OO_n(\Qp)$$
+                    </div>
+
+                    <p>
+                        This is the <strong>S-arithmetic</strong> perspective. The image is a lattice
+                        in the product.
+                    </p>
+                </div>
+
+                <!-- ===================== SLIDE 4: PROPERTY FAb ===================== -->
+                <div class="slide" data-slide="4" data-canvas="fab">
+                    <div class="chapter-label">Chapter 3</div>
+                    <h2>Property $\FAb$</h2>
+
+                    <p>
+                        A group $\Gamma$ has <strong>Property $\FAb$</strong> if every
+                        finite-index subgroup has <em>finite abelianization</em>:
+                    </p>
+
+                    <div class="math-block fade-in">
+                        $$\Gamma \text{ has } \FAb \;\;\Longleftrightarrow\;\;
+                        [\Gamma : \Delta] < \infty \implies \Delta^{\Ab} \text{ is finite}$$ </div>
+
+                            <p>
+                                where $\Delta^{\Ab} = \Delta / [\Delta, \Delta]$ is the abelianization.
+                            </p>
+
+                            <div class="separator"></div>
+
+                            <h3>Why does this matter?</h3>
+
+                            <ul class="reveal-list">
+                                <li>$\FAb$ is a <strong>strong rigidity property</strong> — it says the group has very
+                                    few abelian quotients</li>
+                                <li>It is implied by Kazhdan's <strong>Property (T)</strong>, but strictly weaker</li>
+                                <li>For S-arithmetic groups, $\FAb$ is related to the <strong>congruence subgroup
+                                        property</strong></li>
+                                <li>$\FAb$ implies $\Gamma$ cannot surject onto $\Z$ — every homomorphism $\Gamma \to
+                                    \Z$ is trivial on a finite-index subgroup</li>
+                            </ul>
+
+                            <div class="insight">
+                                <p>
+                                    <strong>Contrast:</strong> $\Z^n$ does NOT have $\FAb$ (it <em>is</em> its own
+                                    abelianization!). Free groups don't either.
+                                    But higher-rank lattices typically do.
+                                </p>
+                            </div>
+                    </div>
+
+                    <!-- ===================== SLIDE 5: HIERARCHY ===================== -->
+                    <div class="slide" data-slide="5" data-canvas="hierarchy">
+                        <div class="chapter-label">Chapter 3</div>
+                        <h2>A Hierarchy of Rigidity</h2>
+
+                        <p>
+                            Property $\FAb$ fits into a hierarchy of increasingly strong
+                            rigidity properties:
+                        </p>
+
+                        <div class="hierarchy-stack stagger">
+                            <div class="hierarchy-item level-1">
+                                <div class="hierarchy-label">Property (T)</div>
+                                <div class="hierarchy-desc">Every unitary representation with almost-invariant vectors
+                                    has invariant vectors</div>
+                            </div>
+                            <div class="hierarchy-arrow">⇓</div>
+                            <div class="hierarchy-item level-2">
+                                <div class="hierarchy-label">Property FA</div>
+                                <div class="hierarchy-desc">Every action on a tree has a fixed point (Serre)</div>
+                            </div>
+                            <div class="hierarchy-arrow">⇓</div>
+                            <div class="hierarchy-item level-3 highlight">
+                                <div class="hierarchy-label">Property $\FAb$</div>
+                                <div class="hierarchy-desc">Every finite-index subgroup has finite abelianization</div>
+                            </div>
+                            <div class="hierarchy-arrow">⇓</div>
+                            <div class="hierarchy-item level-4">
+                                <div class="hierarchy-label">Finite generation</div>
+                                <div class="hierarchy-desc">$\Gamma$ is finitely generated</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ===================== SLIDE 6: MAIN THEOREM ===================== -->
+                    <div class="slide" data-slide="6" data-canvas="theorem">
+                        <div class="chapter-label">Chapter 4</div>
+                        <h2>The Main Theorem</h2>
+
+                        <div class="big-question">
+                            Does $\Isom_3(\Z[1/65])$ have Property $\FAb$?
+                        </div>
+
+                        <div class="theorem-box fade-in">
+                            <div class="theorem-label">Theorem</div>
+                            <p>
+                                The group $\Isom_3(\Z[1/65])$, where $65 = 5 \cdot 13$,
+                                has <strong>Property $\FAb$</strong>. That is:
+                                every finite-index subgroup of $\Isom_3(\Z[1/65])$
+                                has finite abelianization.
+                            </p>
+                        </div>
+
+                        <div class="separator"></div>
+
+                        <h3>Why $m = 65$?</h3>
+
+                        <ul class="reveal-list">
+                            <li>$65 = 5 \cdot 13$: we need at least <strong>two primes</strong> to get "higher rank" in
+                                the S-arithmetic sense</li>
+                            <li>The primes 5 and 13 are chosen because $\OO_3(\Z[1/p])$ has enough structure at these
+                                primes</li>
+                            <li>With a single prime $p$, the group $\Isom_3(\Z[1/p])$ is "rank one" over $\Qp$ and does
+                                <strong>not</strong> have $\FAb$</li>
+                            <li>Two primes give a lattice in a <strong>higher-rank product</strong>, enabling rigidity
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- ===================== SLIDE 7: PROOF SKETCH ===================== -->
+                    <div class="slide" data-slide="7" data-canvas="proof">
+                        <div class="chapter-label">Chapter 4</div>
+                        <h2>Proof Ideas</h2>
+
+                        <p>
+                            The proof has two main ingredients:
+                        </p>
+
+                        <ul class="reveal-list">
+                            <li>
+                                <strong>S-arithmetic lattice theorem:</strong>
+                                Via the diagonal embedding
+                                $\Isom_3(\Z[1/65]) \hookrightarrow \Isom_3(\R) \times \Isom_3(\Q_5) \times
+                                \Isom_3(\Q_{13})$,
+                                the group is a lattice in a locally compact group.
+                            </li>
+                            <li>
+                                <strong>Higher rank → rigidity:</strong>
+                                Since $|S| = \{5, 13\}$ has two primes, the ambient
+                                product has <em>higher rank</em>. By results extending
+                                Margulis' normal subgroup theorem, lattices in
+                                higher-rank products satisfy strong rigidity.
+                            </li>
+                            <li>
+                                <strong>The congruence subgroup property:</strong>
+                                Every finite-index subgroup contains a congruence subgroup
+                                $\ker(\Isom_3(\Z[1/65]) \to \Isom_3(\Z/N\Z))$ for some $N$.
+                                Congruence quotients are finite, so abelianizations are controlled.
+                            </li>
+                        </ul>
+
+                        <div class="separator"></div>
+
+                        <div class="strategy-box">
+                            <div class="strategy-label">The S-arithmetic viewpoint</div>
+                            <p>
+                                The key insight is that $\Isom_n(\Z[1/m])$ is <em>not</em>
+                                just a dense subgroup of $\Isom_n(\R)$ — it is simultaneously
+                                a discrete lattice when we include the $p$-adic completions.
+                                This "recaptures" the discreteness in a higher-dimensional product.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- ===================== SLIDE 8: EXPLORE ===================== -->
+                    <div class="slide" data-slide="8" data-canvas="explore">
+                        <div class="chapter-label">Explore</div>
+                        <h2>Explore $\Z[1/m]$</h2>
+
+                        <p>
+                            Adjust the parameters below to see how $\Z[1/m]$ fills
+                            the real line and how the orthogonal group changes.
+                        </p>
+
+                        <div class="settings-row">
+                            <span>$m =$</span>
+                            <input type="number" id="m-input" min="2" max="1000" value="65" class="param-input" />
+                        </div>
+                        <div class="settings-row">
+                            <span>Depth $k$ (denominators up to $m^k$)</span>
+                            <input type="range" id="depth-slider" min="1" max="6" value="3" />
+                        </div>
+                        <div class="settings-row">
+                            <span>Dimension $n$</span>
+                            <input type="range" id="dim-slider" min="2" max="4" value="3" />
+                        </div>
+
+                        <div class="separator"></div>
+
+                        <div class="result-box" id="explore-info">
+                            <div class="result-title">$\Isom_3(\Z[1/65])$</div>
+                            <div class="result-subtitle">Primes of $m$: 5, 13 · S-arithmetic rank: 3</div>
+                            <div class="result-details">
+                                This group has Property FAb because the set S = {5, 13}
+                                gives a higher-rank lattice in the adelic product.
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- NAVIGATION -->
+                <div id="slide-nav">
+                    <button class="nav-btn" id="prev-btn" disabled>
+                        <span class="arrow">←</span> Back
+                    </button>
+                    <div class="progress-dots" id="progress-dots"></div>
+                    <button class="nav-btn" id="next-btn">
+                        Next <span class="arrow">→</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ======================================================
+         RIGHT: INTERACTIVE CANVAS
+         ====================================================== -->
+            <div id="canvas-container">
+                <canvas id="canvas"></canvas>
+
+                <div id="canvas-info">
+                    <span class="info-badge" id="group-name-badge">ℤ[1/65]</span>
+                    <span class="info-sub" id="anim-status"></span>
+                </div>
+
+                <div id="canvas-controls">
+                    <button class="canvas-ctrl-btn" id="reset-view-btn" title="Reset view">⟲</button>
+                </div>
+            </div>
+
+        </div>
+
+        <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

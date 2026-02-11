@@ -51,7 +51,7 @@
 
             <div id="depth-control" style="margin: 1.0rem 0; display: none; align-items: center; gap: 10px;">
                 <label for="depth-input">Word Length:</label>
-                <input type="number" id="depth-input" value="8" step="1" min="1" max="8"
+                <input type="number" id="depth-input" value="5" step="1" min="1" max="15"
                     style="background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 4px; width: 50px;">
                 <button class="btn" style="padding: 5px 10px;" onclick="updateDepth()">Apply</button>
             </div>
@@ -84,7 +84,7 @@
             <div class="math-box" style="font-size: 0.9rem;">
                 <ul style="padding-left: 1.2rem;">
                     <li>\( [X, Y]^n=1 \).</li>
-                    <li>\( TXT^{-1} = XY^{-1} \) and \( TYT^{-1} = YXY^{-1} \).</li>
+                    <li>\( TXT^{-1} = XY^{-1} \) and \( T(YX)T^{-1} = Y \).</li>
                 </ul>
             </div>
 
@@ -124,10 +124,11 @@
         <div id="viz-container">
             <div id="controls">
                 <div id="isometry-controls" style="display: flex; gap: 8px; margin-right: 20px;">
-                    <button class="btn" onclick="animateIsometry('T', event)">T</button>
+                    <button class="btn" id="btn-T" onclick="animateIsometry('T', event)">T</button>
                     <button class="btn" onclick="animateIsometry('X', event)">X</button>
                     <button class="btn" onclick="animateIsometry('Y', event)">Y</button>
                 </div>
+                <button class="btn" id="btn-fiber" onclick="toggleFiber()">⟨T, X, Y⟩</button>
                 <button class="btn" onclick="toggleAutoRotate()">Auto-Rotate</button>
                 <button class="btn" onclick="resetCamera()">Reset View</button>
                 <button class="btn" onclick="togglePolyhedron()">Polyhedron</button>

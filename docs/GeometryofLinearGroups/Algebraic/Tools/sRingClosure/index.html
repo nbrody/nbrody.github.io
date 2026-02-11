@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>S-Ring Closure Calculator</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js"></script>
+</head>
+<body>
+    <main class="page">
+        <!-- Hero -->
+        <header class="hero">
+            <div class="hero__content">
+                <h1>S-Ring Closure Calculator</h1>
+                <p>
+                    Define subrings of \(\overline{\mathbb{Q}}\) via polynomial relations and compute
+                    their S-integer closures, local completions, and Gr&ouml;bner bases.
+                </p>
+            </div>
+            <div class="hero__accent">
+                <span class="hero__formula">\(\mathcal{O}_{K,S} = \mathcal{O}_K[S^{-1}]\)</span>
+            </div>
+        </header>
+
+        <!-- Input card -->
+        <section class="card" id="input-card">
+            <h2 class="card__title">Define the ring</h2>
+            <p class="hint">
+                Enter polynomials \(f_i(x_1, \ldots, x_k) = 0\) to define
+                \(R = \mathbb{Z}[x_1, \ldots, x_k]/(f_1, \ldots, f_m) \hookrightarrow \overline{\mathbb{Q}}\).
+                Use \(x_1, x_2, \ldots\) for variables.
+            </p>
+
+            <div class="field field--math">
+                <div class="mq-shell">
+                    <div class="mq-editor" id="mq-input"></div>
+                </div>
+                <p class="hint">
+                    Examples: \(x_1^2 - 2\),&ensp;\(3x_1 - 1\),&ensp;\(x_1^2 + x_1 + 1\)
+                </p>
+            </div>
+
+            <div class="actions">
+                <button class="button button--primary" id="btn-add">Add polynomial</button>
+                <button class="button button--ghost" id="btn-clear">Clear all</button>
+            </div>
+
+            <div class="poly-list" id="poly-list"></div>
+
+            <div>
+                <p class="hint" style="margin-bottom: 0.5rem;">Presets:</p>
+                <div class="presets" id="presets"></div>
+            </div>
+
+            <div class="actions" style="margin-top: 0.5rem;">
+                <div class="select-field">
+                    <label for="ordering">Monomial order:</label>
+                    <select id="ordering">
+                        <option value="grevlex" selected>grevlex</option>
+                        <option value="grlex">grlex</option>
+                        <option value="lex">lex</option>
+                    </select>
+                </div>
+                <label style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.92rem; color: #b6c4ff;">
+                    <input type="checkbox" id="compute-grobner" checked />
+                    Compute Gr&ouml;bner basis
+                </label>
+            </div>
+
+            <div class="actions">
+                <button class="button button--primary" id="btn-compute" disabled>Compute S-ring closure</button>
+            </div>
+        </section>
+
+        <!-- Loading -->
+        <section class="card hidden" id="loading-card">
+            <div class="spinner"></div>
+            <p class="loading-text">Computing S-ring closure...</p>
+        </section>
+
+        <!-- Results: Number Field -->
+        <section class="card hidden" id="result-field-card">
+            <h2 class="card__title">Number Field</h2>
+            <div id="result-field" class="result-box result-box--accent">
+                <div class="result-box__content"></div>
+            </div>
+        </section>
+
+        <!-- Results: S-Ring Closure -->
+        <section class="card hidden" id="result-sring-card">
+            <h2 class="card__title">S-Ring Closure</h2>
+            <div id="result-sring" class="result-box result-box--success">
+                <div class="result-box__content"></div>
+            </div>
+        </section>
+
+        <!-- Results: Local Field Data -->
+        <section class="card hidden" id="result-local-card">
+            <h2 class="card__title">Local Completions</h2>
+            <div id="result-local" class="result-box result-box--info">
+                <div class="result-box__content"></div>
+            </div>
+        </section>
+
+        <!-- Results: Gröbner Basis -->
+        <section class="card hidden" id="result-grobner-card">
+            <h2 class="card__title">Gr&ouml;bner Basis</h2>
+            <div id="result-grobner" class="result-box result-box--accent">
+                <div class="result-box__content"></div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <p>
+                Part of the
+                <a href="../../../index.html">Geometry of Linear Groups</a> explorer.
+            </p>
+        </footer>
+    </main>
+
+    <!-- Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+
+    <!-- Math libraries -->
+    <script src="js/rational.js"></script>
+    <script src="js/polynomial.js"></script>
+    <script src="js/factoring.js"></script>
+    <script src="js/numberField.js"></script>
+    <script src="js/integralBasis.js"></script>
+    <script src="js/sRingClosure.js"></script>
+    <script src="js/localData.js"></script>
+    <script src="js/grobner.js"></script>
+    <script src="js/parser.js"></script>
+
+    <!-- App -->
+    <script src="js/app.js"></script>
+</body>
+</html>

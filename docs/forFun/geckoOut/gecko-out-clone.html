@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gecko Out Clone | Random Solvable Levels</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-top: #071217;
+            --bg-bottom: #03080b;
+            --panel: rgba(8, 20, 26, 0.82);
+            --panel-border: rgba(140, 220, 190, 0.24);
+            --text: #e7f8ee;
+            --muted: #9bc6b2;
+            --accent: #55f0aa;
+            --accent-strong: #12d87f;
+            --danger: #fb7185;
+            --shadow: rgba(0, 0, 0, 0.45);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: 'Space Grotesk', sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(1200px 700px at -15% -10%, rgba(24, 173, 130, 0.3), transparent 65%),
+                radial-gradient(800px 600px at 100% 0%, rgba(31, 94, 201, 0.24), transparent 70%),
+                linear-gradient(160deg, var(--bg-top), var(--bg-bottom));
+            padding: 20px;
+        }
+
+        .app-shell {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 16px;
+            align-items: start;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            box-shadow: 0 20px 36px var(--shadow);
+            backdrop-filter: blur(7px);
+        }
+
+        .control-card {
+            padding: 18px;
+            position: sticky;
+            top: 20px;
+        }
+
+        h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.1rem;
+            letter-spacing: 0.04em;
+            line-height: 1;
+            color: var(--accent);
+        }
+
+        .subtitle {
+            margin-top: 10px;
+            color: var(--muted);
+            font-size: 0.9rem;
+            line-height: 1.45;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        label {
+            display: grid;
+            gap: 6px;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #b8dfcf;
+        }
+
+        select,
+        input {
+            appearance: none;
+            width: 100%;
+            background: rgba(6, 13, 17, 0.9);
+            color: var(--text);
+            border: 1px solid rgba(140, 220, 190, 0.25);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+        }
+
+        select:focus,
+        input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(85, 240, 170, 0.24);
+        }
+
+        .button-row {
+            margin-top: 12px;
+            display: grid;
+            gap: 8px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        button {
+            border: 1px solid rgba(140, 220, 190, 0.3);
+            color: var(--text);
+            font-family: inherit;
+            background: rgba(10, 26, 33, 0.86);
+            border-radius: 10px;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            border-color: var(--accent);
+            background: rgba(11, 35, 41, 0.95);
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, rgba(18, 216, 127, 0.92), rgba(85, 240, 170, 0.9));
+            color: #062116;
+            border-color: rgba(130, 255, 200, 0.7);
+            font-weight: 700;
+        }
+
+        button.danger {
+            border-color: rgba(251, 113, 133, 0.45);
+            color: #ffd9df;
+            background: rgba(50, 14, 22, 0.75);
+        }
+
+        .stats {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .stat {
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(6, 14, 18, 0.7);
+            border: 1px solid rgba(140, 220, 190, 0.16);
+        }
+
+        .stat span {
+            display: block;
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #8fb8a7;
+        }
+
+        .stat strong {
+            display: block;
+            margin-top: 4px;
+            font-size: 1.06rem;
+            color: #f0fffa;
+        }
+
+        .status {
+            margin-top: 12px;
+            min-height: 58px;
+            padding: 10px;
+            font-size: 0.88rem;
+            line-height: 1.35;
+            color: #d0efe2;
+            border-radius: 10px;
+            background: rgba(4, 14, 11, 0.52);
+            border: 1px solid rgba(140, 220, 190, 0.2);
+        }
+
+        .legend {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 8px;
+            border-radius: 999px;
+            background: rgba(7, 16, 21, 0.74);
+            border: 1px solid rgba(140, 220, 190, 0.22);
+            font-size: 0.76rem;
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+        }
+
+        .board-card {
+            padding: 16px;
+        }
+
+        .canvas-wrap {
+            width: 100%;
+            overflow: auto;
+            border-radius: 14px;
+            border: 1px solid rgba(140, 220, 190, 0.2);
+            background: rgba(2, 7, 9, 0.8);
+            box-shadow: inset 0 0 0 1px rgba(140, 220, 190, 0.08);
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            cursor: crosshair;
+        }
+
+        .help {
+            margin-top: 10px;
+            color: #9bc6b2;
+            font-size: 0.82rem;
+        }
+
+        .solution-card {
+            max-width: 1200px;
+            margin: 16px auto 0;
+            padding: 12px 16px;
+            background: rgba(6, 17, 23, 0.88);
+            border: 1px solid rgba(140, 220, 190, 0.24);
+            border-radius: 14px;
+        }
+
+        .solution-card.hidden {
+            display: none;
+        }
+
+        .solution-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .solution-header h2 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.5rem;
+            letter-spacing: 0.04em;
+            color: #83ffca;
+        }
+
+        .solution-note {
+            color: #a4cebe;
+            font-size: 0.8rem;
+            margin-top: 4px;
+        }
+
+        #solutionList {
+            margin-top: 10px;
+            padding-left: 24px;
+            display: grid;
+            gap: 4px;
+            max-height: 280px;
+            overflow: auto;
+        }
+
+        #solutionList li {
+            font-size: 0.88rem;
+            color: #e5fbf0;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 980px) {
+            .app-shell {
+                grid-template-columns: 1fr;
+            }
+
+            .control-card {
+                position: static;
+            }
+
+            .button-row {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 560px) {
+            body {
+                padding: 10px;
+            }
+
+            .button-row {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="app-shell">
+        <section class="card control-card">
+            <h1>Gecko Out Clone</h1>
+            <p class="subtitle">Each level is randomly generated from a reversible scramble, then verified by simulation. Every generated board includes a full solution key.</p>
+
+            <div class="controls-grid">
+                <label for="difficultySelect">Difficulty
+                    <select id="difficultySelect">
+                        <option value="easy">Easy</option>
+                        <option value="standard" selected>Standard</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </label>
+                <label for="seedInput">Seed (optional)
+                    <input id="seedInput" type="text" placeholder="Leave blank for random seed" autocomplete="off">
+                </label>
+            </div>
+
+            <div class="button-row">
+                <button id="generateBtn" class="primary">Generate Level</button>
+                <button id="resetBtn">Reset Board</button>
+                <button id="undoBtn">Undo Move</button>
+                <button id="switchEndBtn">Switch End</button>
+                <button id="replayBtn">Replay Key</button>
+                <button id="toggleKeyBtn">Hide Key</button>
+            </div>
+
+            <div class="stats" aria-label="Game stats">
+                <div class="stat"><span>Seed</span><strong id="seedValue">-</strong></div>
+                <div class="stat"><span>Moves Made</span><strong id="moveValue">0</strong></div>
+                <div class="stat"><span>Geckos Left</span><strong id="remainingValue">0</strong></div>
+                <div class="stat"><span>Key Length</span><strong id="keyLengthValue">0</strong></div>
+            </div>
+
+            <div class="status" id="statusLine">Generate a level to start. Click a gecko segment to select it, then move with arrow keys.</div>
+            <div class="legend" id="legend"></div>
+        </section>
+
+        <section class="card board-card">
+            <div class="canvas-wrap">
+                <canvas id="gameCanvas" aria-label="Gecko Out board"></canvas>
+            </div>
+            <p class="help">Controls: Arrow keys move selected end. Tab switches between head/tail. U also undoes.</p>
+        </section>
+    </main>
+
+    <section class="solution-card" id="solutionCard">
+        <div class="solution-header">
+            <div>
+                <h2>Solution Key</h2>
+                <p class="solution-note">Moves are listed for the generated board from starting state to solved state.</p>
+            </div>
+            <button id="copyKeyBtn">Copy Key</button>
+        </div>
+        <ol id="solutionList"></ol>
+    </section>
+
+    <script>
+        const COLOR_POOL = [
+            { name: 'emerald', hex: '#34d399' },
+            { name: 'amber', hex: '#fbbf24' },
+            { name: 'coral', hex: '#fb7185' },
+            { name: 'violet', hex: '#a78bfa' },
+            { name: 'teal', hex: '#2dd4bf' },
+            { name: 'lime', hex: '#84cc16' },
+            { name: 'orange', hex: '#fb923c' },
+            { name: 'sky', hex: '#60a5fa' }
+        ];
+
+        const COLOR_MAP = Object.fromEntries(COLOR_POOL.map(entry => [entry.name, entry.hex]));
+
+        const DIRECTIONS = [
+            { key: 'ArrowUp', dr: -1, dc: 0, name: 'Up' },
+            { key: 'ArrowDown', dr: 1, dc: 0, name: 'Down' },
+            { key: 'ArrowLeft', dr: 0, dc: -1, name: 'Left' },
+            { key: 'ArrowRight', dr: 0, dc: 1, name: 'Right' }
+        ];
+
+        const PRESETS = {
+            easy: {
+                rows: 8,
+                cols: 8,
+                geckos: [3, 4],
+                lengths: [3, 4],
+                walls: [4, 7],
+                scramble: [20, 30],
+                minScramble: 18,
+                minSolution: 22
+            },
+            standard: {
+                rows: 8,
+                cols: 8,
+                geckos: [4, 5],
+                lengths: [3, 5],
+                walls: [7, 11],
+                scramble: [30, 44],
+                minScramble: 26,
+                minSolution: 34
+            },
+            hard: {
+                rows: 9,
+                cols: 9,
+                geckos: [5, 6],
+                lengths: [4, 6],
+                walls: [10, 16],
+                scramble: [40, 62],
+                minScramble: 34,
+                minSolution: 45
+            }
+        };
+
+        const ui = {
+            canvas: document.getElementById('gameCanvas'),
+            difficulty: document.getElementById('difficultySelect'),
+            seedInput: document.getElementById('seedInput'),
+            generateBtn: document.getElementById('generateBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+            undoBtn: document.getElementById('undoBtn'),
+            switchEndBtn: document.getElementById('switchEndBtn'),
+            replayBtn: document.getElementById('replayBtn'),
+            toggleKeyBtn: document.getElementById('toggleKeyBtn'),
+            copyKeyBtn: document.getElementById('copyKeyBtn'),
+            solutionCard: document.getElementById('solutionCard'),
+            solutionList: document.getElementById('solutionList'),
+            status: document.getElementById('statusLine'),
+            legend: document.getElementById('legend'),
+            seedValue: document.getElementById('seedValue'),
+            moveValue: document.getElementById('moveValue'),
+            remainingValue: document.getElementById('remainingValue'),
+            keyLengthValue: document.getElementById('keyLengthValue')
+        };
+
+        const state = {
+            board: null,
+            initialBoard: null,
+            solutionMoves: [],
+            solutionAnnotations: [],
+            moveHistory: [],
+            selectedGeckoId: null,
+            selectedEnd: 'head',
+            movesMade: 0,
+            levelSeed: null,
+            cellSize: 64,
+            keyVisible: true,
+            replayTimer: null,
+            replayIndex: 0
+        };
+
+        class Gecko {
+            constructor(id, color, body) {
+                this.id = id;
+                this.color = color;
+                this.body = body.map(point => ({ r: point.r, c: point.c }));
+            }
+
+            get head() {
+                return this.body[0];
+            }
+
+            get tail() {
+                return this.body[this.body.length - 1];
+            }
+
+            clone() {
+                return new Gecko(this.id, this.color, this.body);
+            }
+        }
+
+        class Board {
+            constructor(rows, cols) {
+                this.rows = rows;
+                this.cols = cols;
+                this.walls = new Set();
+                this.holes = new Map();
+                this.geckos = [];
+            }
+
+            clone() {
+                const next = new Board(this.rows, this.cols);
+                next.walls = new Set(this.walls);
+                next.holes = new Map(Array.from(this.holes.entries(), ([color, pos]) => [color, { r: pos.r, c: pos.c }]));
+                next.geckos = this.geckos.map(gecko => gecko.clone());
+                return next;
+            }
+
+            isInside(r, c) {
+                return r >= 0 && c >= 0 && r < this.rows && c < this.cols;
+            }
+
+            addWall(r, c) {
+                this.walls.add(cellKey(r, c));
+            }
+
+            hasWall(r, c) {
+                return this.walls.has(cellKey(r, c));
+            }
+
+            addHole(color, r, c) {
+                this.holes.set(color, { r, c });
+            }
+
+            addGecko(gecko) {
+                this.geckos.push(gecko);
+            }
+
+            getGeckoById(id) {
+                return this.geckos.find(gecko => gecko.id === id) || null;
+            }
+
+            getSegmentAt(r, c) {
+                for (const gecko of this.geckos) {
+                    for (let i = 0; i < gecko.body.length; i += 1) {
+                        const segment = gecko.body[i];
+                        if (segment.r === r && segment.c === c) {
+                            return { gecko, index: i };
+                        }
+                    }
+                }
+                return null;
+            }
+
+            holeColorAt(r, c) {
+                for (const [color, hole] of this.holes.entries()) {
+                    if (hole.r === r && hole.c === c) {
+                        return color;
+                    }
+                }
+                return null;
+            }
+
+            canMove(geckoId, end, target, options = {}) {
+                const gecko = this.getGeckoById(geckoId);
+                if (!gecko) return false;
+
+                const allowHole = options.allowHole !== false;
+                const anchor = end === 'head' ? gecko.head : gecko.tail;
+                const step = Math.abs(anchor.r - target.r) + Math.abs(anchor.c - target.c);
+
+                if (step !== 1) return false;
+                if (!this.isInside(target.r, target.c)) return false;
+                if (this.hasWall(target.r, target.c)) return false;
+
+                const holeColor = this.holeColorAt(target.r, target.c);
+                if (holeColor) {
+                    if (!allowHole) return false;
+                    if (holeColor !== gecko.color) return false;
+                }
+
+                const occupied = this.getSegmentAt(target.r, target.c);
+                if (occupied) {
+                    const allowedIndex = end === 'head' ? gecko.body.length - 1 : 0;
+                    const sameGecko = occupied.gecko.id === gecko.id;
+                    if (!sameGecko || occupied.index !== allowedIndex) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            applyMove(move, options = {}) {
+                const gecko = this.getGeckoById(move.geckoId);
+                if (!gecko) {
+                    return { ok: false, reason: 'gecko-missing' };
+                }
+
+                const allowHole = options.allowHole !== false;
+                const allowCompletion = options.allowCompletion !== false;
+
+                if (!this.canMove(move.geckoId, move.end, move.target, { allowHole })) {
+                    return { ok: false, reason: 'invalid-move' };
+                }
+
+                const oldHead = { r: gecko.head.r, c: gecko.head.c };
+                const oldTail = { r: gecko.tail.r, c: gecko.tail.c };
+
+                if (move.end === 'head') {
+                    gecko.body.unshift({ r: move.target.r, c: move.target.c });
+                    gecko.body.pop();
+                } else {
+                    gecko.body.push({ r: move.target.r, c: move.target.c });
+                    gecko.body.shift();
+                }
+
+                const inverse = move.end === 'head'
+                    ? { geckoId: move.geckoId, end: 'tail', target: oldTail }
+                    : { geckoId: move.geckoId, end: 'head', target: oldHead };
+
+                let completed = false;
+                if (allowCompletion) {
+                    completed = this.completeGeckoIfNeeded(move.geckoId);
+                }
+
+                return { ok: true, inverse, completed };
+            }
+
+            completeGeckoIfNeeded(geckoId) {
+                const index = this.geckos.findIndex(gecko => gecko.id === geckoId);
+                if (index === -1) return false;
+
+                const gecko = this.geckos[index];
+                const hole = this.holes.get(gecko.color);
+                if (!hole) return false;
+
+                const onHole =
+                    (gecko.head.r === hole.r && gecko.head.c === hole.c) ||
+                    (gecko.tail.r === hole.r && gecko.tail.c === hole.c);
+
+                if (!onHole) return false;
+
+                this.geckos.splice(index, 1);
+                return true;
+            }
+
+            isSolved() {
+                return this.geckos.length === 0;
+            }
+        }
+
+        function cellKey(r, c) {
+            return `${r},${c}`;
+        }
+
+        function titleCase(text) {
+            return text.charAt(0).toUpperCase() + text.slice(1);
+        }
+
+        function normalizeSeed(input) {
+            if (typeof input === 'number' && Number.isFinite(input)) {
+                return input >>> 0;
+            }
+
+            const value = String(input || '').trim();
+            if (!value) {
+                return (Math.floor(Math.random() * 0xffffffff) ^ Date.now()) >>> 0;
+            }
+
+            if (/^\d+$/.test(value)) {
+                return Number(value) >>> 0;
+            }
+
+            let hash = 2166136261 >>> 0;
+            for (let i = 0; i < value.length; i += 1) {
+                hash ^= value.charCodeAt(i);
+                hash = Math.imul(hash, 16777619);
+            }
+            return hash >>> 0;
+        }
+
+        function createRng(seed) {
+            let x = seed >>> 0;
+            return function rng() {
+                x += 0x6d2b79f5;
+                let z = x;
+                z = Math.imul(z ^ (z >>> 15), z | 1);
+                z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
+                return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
+            };
+        }
+
+        function randomInt(rng, min, max) {
+            return Math.floor(rng() * (max - min + 1)) + min;
+        }
+
+        function shuffled(list, rng) {
+            const copy = list.slice();
+            for (let i = copy.length - 1; i > 0; i -= 1) {
+                const j = Math.floor(rng() * (i + 1));
+                const temp = copy[i];
+                copy[i] = copy[j];
+                copy[j] = temp;
+            }
+            return copy;
+        }
+
+        function allCells(rows, cols) {
+            const cells = [];
+            for (let r = 0; r < rows; r += 1) {
+                for (let c = 0; c < cols; c += 1) {
+                    cells.push({ r, c });
+                }
+            }
+            return cells;
+        }
+
+        function listValidMoves(board, options = {}) {
+            const allowHole = options.allowHole !== false;
+            const moves = [];
+
+            for (const gecko of board.geckos) {
+                for (const end of ['head', 'tail']) {
+                    const point = end === 'head' ? gecko.head : gecko.tail;
+                    for (const direction of DIRECTIONS) {
+                        const target = { r: point.r + direction.dr, c: point.c + direction.dc };
+                        if (board.canMove(gecko.id, end, target, { allowHole })) {
+                            moves.push({ geckoId: gecko.id, end, target });
+                        }
+                    }
+                }
+            }
+
+            return moves;
+        }
+
+        function moveSignature(move) {
+            return `${move.geckoId}:${move.end}:${move.target.r}:${move.target.c}`;
+        }
+
+        function placeTemplateGecko(board, geckoId, color, length, rng) {
+            const holeCandidates = shuffled(allCells(board.rows, board.cols), rng);
+
+            for (const hole of holeCandidates) {
+                if (board.hasWall(hole.r, hole.c)) continue;
+                if (board.getSegmentAt(hole.r, hole.c)) continue;
+                if (board.holeColorAt(hole.r, hole.c)) continue;
+
+                for (const direction of shuffled(DIRECTIONS, rng)) {
+                    const head = { r: hole.r + direction.dr, c: hole.c + direction.dc };
+                    if (!board.isInside(head.r, head.c)) continue;
+                    if (board.hasWall(head.r, head.c)) continue;
+                    if (board.getSegmentAt(head.r, head.c)) continue;
+                    if (board.holeColorAt(head.r, head.c)) continue;
+
+                    const body = [{ r: head.r, c: head.c }];
+                    const used = new Set([cellKey(head.r, head.c)]);
+                    let success = true;
+
+                    for (let i = 1; i < length; i += 1) {
+                        const tail = body[body.length - 1];
+                        const nextCandidates = [];
+
+                        for (const step of shuffled(DIRECTIONS, rng)) {
+                            const nr = tail.r + step.dr;
+                            const nc = tail.c + step.dc;
+                            const key = cellKey(nr, nc);
+
+                            if (!board.isInside(nr, nc)) continue;
+                            if (board.hasWall(nr, nc)) continue;
+                            if (board.getSegmentAt(nr, nc)) continue;
+                            if (board.holeColorAt(nr, nc)) continue;
+                            if (used.has(key)) continue;
+
+                            nextCandidates.push({ r: nr, c: nc });
+                        }
+
+                        if (nextCandidates.length === 0) {
+                            success = false;
+                            break;
+                        }
+
+                        const choice = nextCandidates[Math.floor(rng() * nextCandidates.length)];
+                        body.push(choice);
+                        used.add(cellKey(choice.r, choice.c));
+                    }
+
+                    if (!success) continue;
+
+                    board.addHole(color, hole.r, hole.c);
+                    board.addGecko(new Gecko(geckoId, color, body));
+                    return { hole: { r: hole.r, c: hole.c } };
+                }
+            }
+
+            return null;
+        }
+
+        function scrambleBoard(templateBoard, depth, minDepth, rng) {
+            const board = templateBoard.clone();
+            const inverseMoves = [];
+            let avoidMove = null;
+            let attempts = 0;
+            const maxAttempts = depth * 35;
+
+            while (inverseMoves.length < depth && attempts < maxAttempts) {
+                attempts += 1;
+                let moves = listValidMoves(board, { allowHole: false });
+                if (moves.length === 0) break;
+
+                if (avoidMove) {
+                    const filtered = moves.filter(move => moveSignature(move) !== moveSignature(avoidMove));
+                    if (filtered.length > 0) {
+                        moves = filtered;
+                    }
+                }
+
+                const move = moves[Math.floor(rng() * moves.length)];
+                const result = board.applyMove(move, { allowHole: false, allowCompletion: false });
+                if (!result.ok) continue;
+
+                inverseMoves.push(result.inverse);
+                avoidMove = result.inverse;
+            }
+
+            if (inverseMoves.length < minDepth) {
+                return null;
+            }
+
+            return { board, inverseMoves };
+        }
+
+        function verifySolution(startBoard, moves) {
+            const board = startBoard.clone();
+            for (let i = 0; i < moves.length; i += 1) {
+                const result = board.applyMove(moves[i], { allowHole: true, allowCompletion: true });
+                if (!result.ok) {
+                    return { ok: false, index: i + 1 };
+                }
+            }
+            return { ok: board.isSolved(), index: moves.length + 1 };
+        }
+
+        function annotateSolution(startBoard, moves) {
+            const annotations = [];
+            const board = startBoard.clone();
+
+            for (let i = 0; i < moves.length; i += 1) {
+                const move = moves[i];
+                const gecko = board.getGeckoById(move.geckoId);
+                if (!gecko) return [];
+
+                const from = move.end === 'head' ? gecko.head : gecko.tail;
+                const dr = move.target.r - from.r;
+                const dc = move.target.c - from.c;
+                const dir = DIRECTIONS.find(direction => direction.dr === dr && direction.dc === dc);
+                const hole = board.holes.get(gecko.color);
+                const entersHole = !!hole && hole.r === move.target.r && hole.c === move.target.c;
+
+                annotations.push({
+                    step: i + 1,
+                    geckoId: gecko.id,
+                    color: gecko.color,
+                    end: move.end,
+                    direction: dir ? dir.name : 'Move',
+                    target: { r: move.target.r, c: move.target.c },
+                    entersHole
+                });
+
+                const result = board.applyMove(move, { allowHole: true, allowCompletion: true });
+                if (!result.ok) return [];
+            }
+
+            return annotations;
+        }
+
+        function tryGenerateLevel(preset, seedBase, offset = 0) {
+            const seed = (seedBase + offset * 811 + 97) >>> 0;
+            const rng = createRng(seed);
+            const board = new Board(preset.rows, preset.cols);
+
+            const wallCount = randomInt(rng, preset.walls[0], preset.walls[1]);
+            const interiorCells = [];
+            for (let r = 1; r < board.rows - 1; r += 1) {
+                for (let c = 1; c < board.cols - 1; c += 1) {
+                    interiorCells.push({ r, c });
+                }
+            }
+            const walls = shuffled(interiorCells, rng).slice(0, wallCount);
+            for (const wall of walls) {
+                board.addWall(wall.r, wall.c);
+            }
+
+            const geckoCount = randomInt(rng, preset.geckos[0], preset.geckos[1]);
+            const colors = shuffled(COLOR_POOL.map(color => color.name), rng).slice(0, geckoCount);
+            let geckoId = 1;
+
+            for (const color of colors) {
+                const length = randomInt(rng, preset.lengths[0], preset.lengths[1]);
+                const placed = placeTemplateGecko(board, geckoId, color, length, rng);
+                if (!placed) return null;
+                geckoId += 1;
+            }
+
+            const scrambleDepth = randomInt(rng, preset.scramble[0], preset.scramble[1]);
+            const scrambled = scrambleBoard(board, scrambleDepth, preset.minScramble, rng);
+            if (!scrambled) return null;
+
+            const reverseMoves = scrambled.inverseMoves.slice().reverse().map(move => ({
+                geckoId: move.geckoId,
+                end: move.end,
+                target: { r: move.target.r, c: move.target.c }
+            }));
+
+            const finishMoves = board.geckos.map(gecko => {
+                const hole = board.holes.get(gecko.color);
+                return {
+                    geckoId: gecko.id,
+                    end: 'head',
+                    target: { r: hole.r, c: hole.c }
+                };
+            });
+
+            const solutionMoves = reverseMoves.concat(finishMoves);
+            if (solutionMoves.length < preset.minSolution) return null;
+
+            const verified = verifySolution(scrambled.board, solutionMoves);
+            if (!verified.ok) return null;
+
+            return {
+                seed,
+                board: scrambled.board,
+                solutionMoves,
+                wallCount: board.walls.size
+            };
+        }
+
+        function generateSolvableLevel(presetName, seedInput) {
+            const preset = PRESETS[presetName] || PRESETS.standard;
+            const seedBase = normalizeSeed(seedInput);
+
+            for (let attempt = 0; attempt < 300; attempt += 1) {
+                const level = tryGenerateLevel(preset, seedBase, attempt);
+                if (level) return level;
+            }
+
+            throw new Error('Could not generate a solvable level after many attempts.');
+        }
+
+        function resizeCanvas() {
+            if (!state.board) return;
+
+            const maxWidth = Math.min(window.innerWidth * 0.82, 760);
+            const maxHeight = Math.min(window.innerHeight * 0.72, 760);
+            const fit = Math.floor(Math.min(maxWidth / state.board.cols, maxHeight / state.board.rows));
+            state.cellSize = Math.max(40, fit);
+
+            const cssWidth = state.board.cols * state.cellSize;
+            const cssHeight = state.board.rows * state.cellSize;
+            const dpr = window.devicePixelRatio || 1;
+
+            ui.canvas.style.width = `${cssWidth}px`;
+            ui.canvas.style.height = `${cssHeight}px`;
+            ui.canvas.width = Math.floor(cssWidth * dpr);
+            ui.canvas.height = Math.floor(cssHeight * dpr);
+
+            const ctx = ui.canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            drawBoard();
+        }
+
+        function drawBoard() {
+            if (!state.board) return;
+            const ctx = ui.canvas.getContext('2d');
+            const cell = state.cellSize;
+            const board = state.board;
+
+            ctx.clearRect(0, 0, board.cols * cell, board.rows * cell);
+
+            for (let r = 0; r < board.rows; r += 1) {
+                for (let c = 0; c < board.cols; c += 1) {
+                    const even = (r + c) % 2 === 0;
+                    ctx.fillStyle = even ? '#0b151b' : '#0f1d24';
+                    ctx.fillRect(c * cell, r * cell, cell, cell);
+
+                    if (board.hasWall(r, c)) {
+                        ctx.fillStyle = '#1f2f38';
+                        ctx.fillRect(c * cell + 2, r * cell + 2, cell - 4, cell - 4);
+                        ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(c * cell + 6, r * cell + 6);
+                        ctx.lineTo((c + 1) * cell - 6, (r + 1) * cell - 6);
+                        ctx.moveTo((c + 1) * cell - 6, r * cell + 6);
+                        ctx.lineTo(c * cell + 6, (r + 1) * cell - 6);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            for (const [color, hole] of board.holes.entries()) {
+                const x = hole.c * cell + cell / 2;
+                const y = hole.r * cell + cell / 2;
+                const ring = COLOR_MAP[color] || '#ffffff';
+
+                ctx.beginPath();
+                ctx.arc(x, y, cell * 0.34, 0, Math.PI * 2);
+                ctx.fillStyle = ring;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(x, y, cell * 0.2, 0, Math.PI * 2);
+                ctx.fillStyle = '#050505';
+                ctx.fill();
+            }
+
+            for (const gecko of board.geckos) {
+                const color = COLOR_MAP[gecko.color] || '#ffffff';
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.strokeStyle = color;
+                ctx.lineWidth = cell * 0.56;
+                ctx.beginPath();
+
+                gecko.body.forEach((segment, index) => {
+                    const x = segment.c * cell + cell / 2;
+                    const y = segment.r * cell + cell / 2;
+                    if (index === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+
+                const tail = gecko.tail;
+                ctx.beginPath();
+                ctx.arc(tail.c * cell + cell / 2, tail.r * cell + cell / 2, cell * 0.14, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.33)';
+                ctx.fill();
+
+                const head = gecko.head;
+                const headX = head.c * cell + cell / 2;
+                const headY = head.r * cell + cell / 2;
+                ctx.beginPath();
+                ctx.arc(headX, headY, cell * 0.26, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+
+                ctx.fillStyle = '#eefdf6';
+                ctx.beginPath();
+                ctx.arc(headX - cell * 0.08, headY - cell * 0.06, cell * 0.05, 0, Math.PI * 2);
+                ctx.arc(headX + cell * 0.08, headY - cell * 0.06, cell * 0.05, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            const selected = board.getGeckoById(state.selectedGeckoId);
+            if (selected) {
+                const marker = state.selectedEnd === 'head' ? selected.head : selected.tail;
+                const x = marker.c * cell + cell / 2;
+                const y = marker.r * cell + cell / 2;
+
+                ctx.beginPath();
+                ctx.arc(x, y, cell * 0.32, 0, Math.PI * 2);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+            ctx.lineWidth = 1;
+            for (let r = 0; r <= board.rows; r += 1) {
+                ctx.beginPath();
+                ctx.moveTo(0, r * cell);
+                ctx.lineTo(board.cols * cell, r * cell);
+                ctx.stroke();
+            }
+            for (let c = 0; c <= board.cols; c += 1) {
+                ctx.beginPath();
+                ctx.moveTo(c * cell, 0);
+                ctx.lineTo(c * cell, board.rows * cell);
+                ctx.stroke();
+            }
+        }
+
+        function updateStats() {
+            if (!state.board) return;
+            ui.seedValue.textContent = state.levelSeed == null ? '-' : String(state.levelSeed);
+            ui.moveValue.textContent = String(state.movesMade);
+            ui.remainingValue.textContent = String(state.board.geckos.length);
+            ui.keyLengthValue.textContent = String(state.solutionMoves.length);
+        }
+
+        function renderLegend() {
+            ui.legend.innerHTML = '';
+            if (!state.initialBoard) return;
+
+            const entries = state.initialBoard.geckos.map(gecko => ({ id: gecko.id, color: gecko.color }));
+            for (const entry of entries) {
+                const tag = document.createElement('span');
+                tag.className = 'legend-item';
+
+                const dot = document.createElement('span');
+                dot.className = 'legend-dot';
+                dot.style.background = COLOR_MAP[entry.color] || '#ffffff';
+
+                const text = document.createElement('span');
+                text.textContent = `#${entry.id} ${titleCase(entry.color)}`;
+
+                tag.append(dot, text);
+                ui.legend.appendChild(tag);
+            }
+        }
+
+        function renderSolutionList() {
+            ui.solutionList.innerHTML = '';
+            if (!state.solutionAnnotations.length) {
+                const item = document.createElement('li');
+                item.textContent = 'No solution key available.';
+                ui.solutionList.appendChild(item);
+                return;
+            }
+
+            for (const row of state.solutionAnnotations) {
+                const item = document.createElement('li');
+                const action = row.entersHole ? 'enter hole' : `to (${row.target.r}, ${row.target.c})`;
+                item.textContent = `${row.step}. Gecko #${row.geckoId} (${titleCase(row.color)}) ${row.end} ${row.direction} ${action}`;
+                ui.solutionList.appendChild(item);
+            }
+        }
+
+        function setStatus(message) {
+            ui.status.textContent = message;
+        }
+
+        function stopReplay() {
+            if (state.replayTimer) {
+                clearInterval(state.replayTimer);
+                state.replayTimer = null;
+            }
+            state.replayIndex = 0;
+        }
+
+        function refreshUi() {
+            drawBoard();
+            updateStats();
+            renderLegend();
+        }
+
+        function executeMove(move, options = {}) {
+            const recordHistory = options.recordHistory !== false;
+            const countMove = options.countMove !== false;
+            const quiet = options.quiet === true;
+
+            if (!state.board) return false;
+
+            if (recordHistory) {
+                state.moveHistory.push(state.board.clone());
+            }
+
+            const result = state.board.applyMove(move, { allowHole: true, allowCompletion: true });
+            if (!result.ok) {
+                if (recordHistory) state.moveHistory.pop();
+                return false;
+            }
+
+            if (countMove) {
+                state.movesMade += 1;
+            }
+
+            if (!state.board.getGeckoById(state.selectedGeckoId)) {
+                state.selectedGeckoId = state.board.geckos[0] ? state.board.geckos[0].id : null;
+                state.selectedEnd = 'head';
+            }
+
+            if (state.board.isSolved()) {
+                setStatus('Solved! The generated key was valid, and the level is complete.');
+            } else if (!quiet) {
+                const chosen = state.board.getGeckoById(state.selectedGeckoId);
+                if (chosen) {
+                    setStatus(`Moved Gecko #${chosen.id}. Selected end: ${state.selectedEnd}.`);
+                }
+            }
+
+            refreshUi();
+            return true;
+        }
+
+        function generateLevel() {
+            stopReplay();
+            const difficulty = ui.difficulty.value;
+            const seedSource = ui.seedInput.value.trim() || undefined;
+
+            try {
+                const level = generateSolvableLevel(difficulty, seedSource);
+                state.levelSeed = level.seed;
+                ui.seedInput.value = String(level.seed);
+
+                state.board = level.board.clone();
+                state.initialBoard = level.board.clone();
+                state.solutionMoves = level.solutionMoves.map(move => ({
+                    geckoId: move.geckoId,
+                    end: move.end,
+                    target: { r: move.target.r, c: move.target.c }
+                }));
+                state.solutionAnnotations = annotateSolution(level.board, state.solutionMoves);
+                state.moveHistory = [];
+                state.movesMade = 0;
+                state.selectedGeckoId = state.board.geckos[0] ? state.board.geckos[0].id : null;
+                state.selectedEnd = 'head';
+
+                resizeCanvas();
+                renderSolutionList();
+                updateStats();
+                renderLegend();
+
+                setStatus(`Generated a solvable ${difficulty} level with ${state.solutionMoves.length} key moves. Seed ${level.seed}.`);
+            } catch (error) {
+                setStatus(`Generation failed: ${error.message}`);
+            }
+        }
+
+        function resetBoard() {
+            if (!state.initialBoard) return;
+            stopReplay();
+            state.board = state.initialBoard.clone();
+            state.moveHistory = [];
+            state.movesMade = 0;
+            state.selectedGeckoId = state.board.geckos[0] ? state.board.geckos[0].id : null;
+            state.selectedEnd = 'head';
+            refreshUi();
+            setStatus('Board reset to generated start state.');
+        }
+
+        function undoMove() {
+            if (!state.moveHistory.length) {
+                setStatus('No move to undo.');
+                return;
+            }
+            stopReplay();
+            state.board = state.moveHistory.pop();
+            state.movesMade = Math.max(0, state.movesMade - 1);
+            if (!state.board.getGeckoById(state.selectedGeckoId)) {
+                state.selectedGeckoId = state.board.geckos[0] ? state.board.geckos[0].id : null;
+                state.selectedEnd = 'head';
+            }
+            refreshUi();
+            setStatus('Undid one move.');
+        }
+
+        function switchSelectedEnd() {
+            if (!state.selectedGeckoId || !state.board || !state.board.getGeckoById(state.selectedGeckoId)) {
+                setStatus('Select a gecko first.');
+                return;
+            }
+            state.selectedEnd = state.selectedEnd === 'head' ? 'tail' : 'head';
+            drawBoard();
+            setStatus(`Selected end switched to ${state.selectedEnd}.`);
+        }
+
+        function replaySolution() {
+            if (!state.initialBoard || !state.solutionMoves.length) {
+                setStatus('No solution key loaded yet.');
+                return;
+            }
+
+            stopReplay();
+            state.board = state.initialBoard.clone();
+            state.moveHistory = [];
+            state.movesMade = 0;
+            state.selectedGeckoId = state.board.geckos[0] ? state.board.geckos[0].id : null;
+            state.selectedEnd = 'head';
+            refreshUi();
+            setStatus('Replaying the solution key...');
+
+            state.replayTimer = setInterval(() => {
+                if (!state.board || state.replayIndex >= state.solutionMoves.length) {
+                    stopReplay();
+                    if (state.board && state.board.isSolved()) {
+                        setStatus('Replay complete. This confirms the generated level was solvable.');
+                    }
+                    return;
+                }
+
+                const move = state.solutionMoves[state.replayIndex];
+                const moved = executeMove(move, { recordHistory: false, countMove: true, quiet: true });
+                state.replayIndex += 1;
+
+                if (!moved) {
+                    stopReplay();
+                    setStatus(`Replay failed at step ${state.replayIndex}.`);
+                }
+            }, 180);
+        }
+
+        function toggleKeyVisibility() {
+            state.keyVisible = !state.keyVisible;
+            ui.solutionCard.classList.toggle('hidden', !state.keyVisible);
+            ui.toggleKeyBtn.textContent = state.keyVisible ? 'Hide Key' : 'Show Key';
+        }
+
+        function copySolutionKey() {
+            if (!state.solutionAnnotations.length) {
+                setStatus('No key to copy.');
+                return;
+            }
+
+            const text = state.solutionAnnotations
+                .map(row => {
+                    const action = row.entersHole ? 'enter hole' : `to (${row.target.r}, ${row.target.c})`;
+                    return `${row.step}. Gecko #${row.geckoId} (${titleCase(row.color)}) ${row.end} ${row.direction} ${action}`;
+                })
+                .join('\n');
+
+            const fallbackCopy = () => {
+                const helper = document.createElement('textarea');
+                helper.value = text;
+                helper.setAttribute('readonly', '');
+                helper.style.position = 'absolute';
+                helper.style.left = '-9999px';
+                document.body.appendChild(helper);
+                helper.select();
+                document.execCommand('copy');
+                document.body.removeChild(helper);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text)
+                    .then(() => setStatus('Solution key copied to clipboard.'))
+                    .catch(() => {
+                        fallbackCopy();
+                        setStatus('Solution key copied to clipboard.');
+                    });
+            } else {
+                fallbackCopy();
+                setStatus('Solution key copied to clipboard.');
+            }
+        }
+
+        function handleCanvasClick(event) {
+            if (!state.board) return;
+            const rect = ui.canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const c = Math.floor(x / state.cellSize);
+            const r = Math.floor(y / state.cellSize);
+
+            if (!state.board.isInside(r, c)) return;
+
+            const hit = state.board.getSegmentAt(r, c);
+            if (hit) {
+                state.selectedGeckoId = hit.gecko.id;
+                if (hit.index === 0) {
+                    state.selectedEnd = 'head';
+                } else if (hit.index === hit.gecko.body.length - 1) {
+                    state.selectedEnd = 'tail';
+                } else {
+                    const distToHead = hit.index;
+                    const distToTail = hit.gecko.body.length - 1 - hit.index;
+                    state.selectedEnd = distToHead <= distToTail ? 'head' : 'tail';
+                }
+                drawBoard();
+                setStatus(`Selected Gecko #${hit.gecko.id}, ${state.selectedEnd}.`);
+                return;
+            }
+
+            const selected = state.board.getGeckoById(state.selectedGeckoId);
+            if (!selected) return;
+
+            const endpoint = state.selectedEnd === 'head' ? selected.head : selected.tail;
+            const adjacent = Math.abs(endpoint.r - r) + Math.abs(endpoint.c - c) === 1;
+            if (!adjacent) return;
+
+            const moved = executeMove({
+                geckoId: selected.id,
+                end: state.selectedEnd,
+                target: { r, c }
+            });
+
+            if (!moved) {
+                setStatus('Blocked move. Try another direction.');
+            }
+        }
+
+        function handleKeyDown(event) {
+            if (!state.board) return;
+            const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+            if (tag === 'input' || tag === 'select') return;
+
+            if (event.key === 'Tab') {
+                event.preventDefault();
+                switchSelectedEnd();
+                return;
+            }
+
+            if (event.key.toLowerCase() === 'u') {
+                event.preventDefault();
+                undoMove();
+                return;
+            }
+
+            const direction = DIRECTIONS.find(entry => entry.key === event.key);
+            if (!direction) return;
+
+            event.preventDefault();
+            const selected = state.board.getGeckoById(state.selectedGeckoId);
+            if (!selected) {
+                setStatus('Select a gecko first.');
+                return;
+            }
+
+            const origin = state.selectedEnd === 'head' ? selected.head : selected.tail;
+            const target = { r: origin.r + direction.dr, c: origin.c + direction.dc };
+            const moved = executeMove({ geckoId: selected.id, end: state.selectedEnd, target });
+            if (!moved) {
+                setStatus('Blocked move.');
+            }
+        }
+
+        ui.generateBtn.addEventListener('click', generateLevel);
+        ui.resetBtn.addEventListener('click', resetBoard);
+        ui.undoBtn.addEventListener('click', undoMove);
+        ui.switchEndBtn.addEventListener('click', switchSelectedEnd);
+        ui.replayBtn.addEventListener('click', replaySolution);
+        ui.toggleKeyBtn.addEventListener('click', toggleKeyVisibility);
+        ui.copyKeyBtn.addEventListener('click', copySolutionKey);
+        ui.canvas.addEventListener('mousedown', handleCanvasClick);
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('resize', () => {
+            if (state.board) {
+                resizeCanvas();
+            }
+        });
+
+        generateLevel();
+    </script>
+</body>
+
+</html>

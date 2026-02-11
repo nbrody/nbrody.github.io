@@ -170,7 +170,7 @@ export function getBisectorSphere(p1, p2) {
 }
 
 // --- Group Setup (Jorgensen Group n) ---
-export function getGenerators(n) {
+export function getGenerators(n, fiberOnly = false) {
     const psi = (1 + Math.sqrt(17 - 8 * Math.cos(Math.PI / n))) / 2;
     const theta = Math.PI / (2 * n);
     const lambda = new Complex(Math.cos(theta), Math.sin(theta));
@@ -191,11 +191,14 @@ export function getGenerators(n) {
 
     const Y = T.mul(X.inv()).mul(T.inv()).mul(X);
 
+    if (fiberOnly) {
+        return [X, X.inv(), Y, Y.inv()];
+    }
     return [T, T.inv(), X, X.inv(), Y, Y.inv()];
 }
 
-export function getDirichletFaces(n = 2, viewMat = new Matrix2x2(1, 0, 0, 1), maxFaces = 100) {
-    const generators = getGenerators(n);
+export function getDirichletFaces(n = 2, viewMat = new Matrix2x2(1, 0, 0, 1), maxFaces = 100, fiberOnly = false) {
+    const generators = getGenerators(n, fiberOnly);
     const queue = [viewMat];
     const faces = [];
     const seen = new Set();
@@ -251,8 +254,8 @@ export function getDirichletFaces(n = 2, viewMat = new Matrix2x2(1, 0, 0, 1), ma
     return { faces: result, count: actualCount };
 }
 
-export function getCayleyGraph(n = 2, maxDepth = 4, viewMat = new Matrix2x2(1, 0, 0, 1)) {
-    const generators = getGenerators(n);
+export function getCayleyGraph(n = 2, maxDepth = 4, viewMat = new Matrix2x2(1, 0, 0, 1), fiberOnly = false) {
+    const generators = getGenerators(n, fiberOnly);
     const queue = [{ matrix: viewMat, depth: 0, index: 0 }];
     const points = [uhsToBall(imageOfOriginUHS(viewMat))];
     const edges = [];

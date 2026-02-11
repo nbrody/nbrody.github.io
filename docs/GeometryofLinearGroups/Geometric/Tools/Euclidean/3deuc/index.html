@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Discrete Subgroups of Isom(ℝ³) — Interactive Walkthrough</title>
+    <meta name="description"
+        content="Interactive exploration of discrete subgroups of the Euclidean group in 3 dimensions: Platonic solids, point groups, and Bieberbach's theorem." />
+    <link rel="stylesheet" href="style.css" />
+
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                macros: {
+                    R: '\\mathbb{R}',
+                    Z: '\\mathbb{Z}',
+                    Isom: '\\mathrm{Isom}',
+                    OO: '\\mathrm{O}',
+                    SO: '\\mathrm{SO}',
+                    GL: '\\mathrm{GL}',
+                    SL: '\\mathrm{SL}',
+                }
+            },
+            options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+
+    <div id="app">
+
+        <!-- ======================================================
+         LEFT: WALKTHROUGH PANEL
+         ====================================================== -->
+        <div id="walkthrough">
+            <div id="slide-viewport">
+
+                <!-- ===================== SLIDE 0: INTRO ===================== -->
+                <div class="slide active" data-slide="0" data-canvas="intro">
+                    <div class="chapter-label">Introduction</div>
+                    <h1>Symmetries in <br />Three Dimensions</h1>
+
+                    <p class="lead">
+                        What are the possible symmetries of a three-dimensional pattern?
+                    </p>
+
+                    <p>
+                        Just as we classified the discrete subgroups of $\Isom(\R^2)$ —
+                        point groups, frieze groups, and wallpaper groups — we now
+                        tackle the far richer world of $\Isom(\R^3)$.
+                    </p>
+
+                    <div class="math-block fade-in">
+                        $$\Isom(\R^3) \cong \R^3 \rtimes \OO(3)$$
+                    </div>
+
+                    <p class="text-muted">
+                        The same semidirect product structure, now with
+                        $\OO(3)$ — the $3 \times 3$ orthogonal group.
+                    </p>
+
+                    <div class="key-hint fade-in">
+                        Use <kbd>→</kbd> <kbd>←</kbd> to navigate
+                    </div>
+                </div>
+
+                <!-- ===================== SLIDE 1: SO(3) ===================== -->
+                <div class="slide" data-slide="1" data-canvas="so3">
+                    <div class="chapter-label">Chapter 1</div>
+                    <h2>The Rotation Group $\SO(3)$</h2>
+
+                    <p>
+                        Every orientation-preserving isometry of $\R^3$ that fixes the
+                        origin is a <strong>rotation</strong> about some axis through
+                        the origin.
+                    </p>
+
+                    <ul class="reveal-list">
+                        <li>$\SO(3) = \{ A \in \GL_3(\R) : A^TA = I,\; \det A = 1 \}$</li>
+                        <li>Every $A \in \SO(3)$ has an eigenvalue $1$ — its <strong>rotation axis</strong></li>
+                        <li>The other eigenvalues are $e^{\pm i\theta}$ — the <strong>rotation angle</strong></li>
+                    </ul>
+
+                    <div class="separator"></div>
+
+                    <p>
+                        The finite subgroups of $\SO(3)$ have been known since antiquity.
+                        They are intimately connected to the <strong>Platonic solids</strong>.
+                    </p>
+
+                    <div class="interact-prompt">
+                        Drag to rotate the polyhedron. Click a symmetry axis to animate.
+                    </div>
+                </div>
+
+                <!-- ===================== SLIDE 2: FINITE SUBGROUPS ===================== -->
+                <div class="slide" data-slide="2" data-canvas="finite">
+                    <div class="chapter-label">Chapter 1</div>
+                    <h2>Finite Subgroups of $\SO(3)$</h2>
+
+                    <p>
+                        Every finite subgroup of $\SO(3)$ is isomorphic to
+                        exactly one of:
+                    </p>
+
+                    <ul class="reveal-list" id="finite-list">
+                        <li><strong>Cyclic</strong> $C_n$ — rotations about one axis <span class="badge-small">n ≥
+                                1</span></li>
+                        <li><strong>Dihedral</strong> $D_n$ — $C_n$ plus $n$ half-turns <span class="badge-small">n ≥
+                                2</span></li>
+                        <li><strong>Tetrahedral</strong> $T \cong A_4$ — 12 rotations <span class="badge-small">order
+                                12</span></li>
+                        <li><strong>Octahedral</strong> $O \cong S_4$ — 24 rotations <span class="badge-small">order
+                                24</span></li>
+                        <li><strong>Icosahedral</strong> $I \cong A_5$ — 60 rotations <span class="badge-small">order
+                                60</span></li>
+                    </ul>
+
+                    <div class="separator"></div>
+
+                    <h3>Gallery</h3>
+                    <div class="group-gallery stagger" id="so3-gallery"></div>
+                </div>
+
+                <!-- ===================== SLIDE 3: O(3) ===================== -->
+                <div class="slide" data-slide="3" data-canvas="o3">
+                    <div class="chapter-label">Chapter 2</div>
+                    <h2>Adding Reflections: $\OO(3)$</h2>
+
+                    <p>
+                        The full orthogonal group $\OO(3)$ includes improper isometries:
+                        reflections, rotoreflections, and the <strong>inversion</strong> $x \mapsto -x$.
+                    </p>
+
+                    <ul class="reveal-list">
+                        <li>$\OO(3) = \SO(3) \times \{I, -I\}$ when $-I$ is in the group</li>
+                        <li>A <strong>rotoreflection</strong> $\bar{S}_n$: rotate by $2\pi/n$, then reflect through the
+                            perpendicular plane</li>
+                        <li>The $\bar{S}_2$ rotoreflection is exactly $-I$ (inversion)</li>
+                    </ul>
+
+                    <div class="separator"></div>
+
+                    <p>
+                        The finite subgroups of $\OO(3)$ fall into two families:
+                    </p>
+
+                    <ul class="reveal-list">
+                        <li><strong>Type I</strong>: subgroups of $\SO(3)$ (rotation-only)</li>
+                        <li><strong>Type II</strong>: groups containing improper rotations — these extend the Type I
+                            groups by adding mirror planes or inversions</li>
+                    </ul>
+                </div>
+
+                <!-- ===================== SLIDE 4: CRYSTALLOGRAPHIC ===================== -->
+                <div class="slide" data-slide="4" data-canvas="crystal">
+                    <div class="chapter-label">Chapter 3</div>
+                    <h2>Crystallographic Point Groups</h2>
+
+                    <p>
+                        Not every finite subgroup of $\OO(3)$ can be the point group of a
+                        crystal. The <strong>crystallographic restriction</strong> says:
+                    </p>
+
+                    <div class="math-block fade-in">
+                        <em>A rotation in the point group of a lattice must have order 1, 2, 3, 4, or 6.</em>
+                    </div>
+
+                    <p>
+                        This leaves exactly <strong>32 crystallographic point groups</strong>,
+                        organized into 7 crystal systems.
+                    </p>
+
+                    <ul class="reveal-list">
+                        <li><strong>Triclinic</strong>: $C_1$, $C_i$</li>
+                        <li><strong>Monoclinic</strong>: $C_2$, $C_s$, $C_{2h}$</li>
+                        <li><strong>Orthorhombic</strong>: $D_2$, $C_{2v}$, $D_{2h}$</li>
+                        <li><strong>Tetragonal</strong>: $C_4$, $S_4$, $C_{4h}$, $D_4$, $C_{4v}$, $D_{2d}$, $D_{4h}$
+                        </li>
+                        <li><strong>Trigonal</strong>: $C_3$, $S_6$, $D_3$, $C_{3v}$, $D_{3d}$</li>
+                        <li><strong>Hexagonal</strong>: $C_6$, $C_{3h}$, $C_{6h}$, $D_6$, $C_{6v}$, $D_{3h}$, $D_{6h}$
+                        </li>
+                        <li><strong>Cubic</strong>: $T$, $T_h$, $O$, $T_d$, $O_h$</li>
+                    </ul>
+                </div>
+
+                <!-- ===================== SLIDE 5: BRAVAIS ===================== -->
+                <div class="slide" data-slide="5" data-canvas="bravais">
+                    <div class="chapter-label">Chapter 4</div>
+                    <h2>Bravais Lattices</h2>
+
+                    <p>
+                        The translation subgroup of a 3D crystallographic group is a
+                        <strong>lattice</strong> $\Lambda \cong \Z^3$. Up to symmetry,
+                        there are exactly <strong>14 Bravais lattices</strong>.
+                    </p>
+
+                    <ul class="reveal-list">
+                        <li><strong>Triclinic</strong>: 1 lattice (P)</li>
+                        <li><strong>Monoclinic</strong>: 2 lattices (P, C)</li>
+                        <li><strong>Orthorhombic</strong>: 4 lattices (P, C, I, F)</li>
+                        <li><strong>Tetragonal</strong>: 2 lattices (P, I)</li>
+                        <li><strong>Trigonal</strong>: 1 lattice (R)</li>
+                        <li><strong>Hexagonal</strong>: 1 lattice (P)</li>
+                        <li><strong>Cubic</strong>: 3 lattices (P, I, F)</li>
+                    </ul>
+
+                    <div class="separator"></div>
+
+                    <h3>Gallery</h3>
+                    <div class="group-gallery stagger" id="bravais-gallery"></div>
+                </div>
+
+                <!-- ===================== SLIDE 6: SPACE GROUPS ===================== -->
+                <div class="slide" data-slide="6" data-canvas="space">
+                    <div class="chapter-label">Chapter 5</div>
+                    <h2>Space Groups &amp; Bieberbach</h2>
+
+                    <p>
+                        A <strong>space group</strong> (or crystallographic group) is a
+                        discrete subgroup $\Gamma \le \Isom(\R^3)$ whose translation
+                        subgroup is a rank-3 lattice.
+                    </p>
+
+                    <div class="math-block fade-in">
+                        $$1 \to \Lambda \to \Gamma \to G \to 1$$
+                    </div>
+
+                    <p>
+                        where $\Lambda \cong \Z^3$ and $G$ is a crystallographic point group.
+                    </p>
+
+                    <ul class="reveal-list">
+                        <li>There are exactly <strong>230 space groups</strong> in 3D</li>
+                        <li>73 are <em>symmorphic</em> (semidirect product $\Lambda \rtimes G$)</li>
+                        <li>157 are <em>non-symmorphic</em> (involve screw axes or glide planes)</li>
+                    </ul>
+
+                    <div class="separator"></div>
+
+                    <h3>Bieberbach's Theorems (1911)</h3>
+                    <ul class="reveal-list">
+                        <li><strong>Theorem 1</strong>: In any dimension $n$, every discrete cocompact subgroup of
+                            $\Isom(\R^n)$ contains a finite-index translation subgroup $\cong \Z^n$.</li>
+                        <li><strong>Theorem 2</strong>: Two crystallographic groups in $\R^n$ are isomorphic iff they
+                            are conjugate by an affine map.</li>
+                        <li><strong>Theorem 3</strong>: In every dimension, there are only finitely many
+                            crystallographic groups (up to isomorphism).</li>
+                    </ul>
+                </div>
+
+                <!-- ===================== SLIDE 7: EXPLORE ===================== -->
+                <div class="slide" data-slide="7" data-canvas="explore">
+                    <div class="chapter-label">Explore</div>
+                    <h2>Free Exploration</h2>
+
+                    <p>
+                        You've seen the full hierarchy! Every discrete subgroup
+                        of $\Isom(\R^3)$ with compact fundamental domain fits into:
+                    </p>
+
+                    <ul class="reveal-list">
+                        <li>A <strong>finite point group</strong> in $\OO(3)$ — one of 32 crystallographic types</li>
+                        <li>A <strong>Bravais lattice</strong> — one of 14 types</li>
+                        <li>A <strong>space group</strong> — one of 230 types</li>
+                    </ul>
+
+                    <div class="separator"></div>
+
+                    <h3>Display Settings</h3>
+                    <div class="settings-row">
+                        <span>Show axes</span>
+                        <input type="checkbox" id="show-axes" checked />
+                    </div>
+                    <div class="settings-row">
+                        <span>Show wireframe</span>
+                        <input type="checkbox" id="show-wireframe" checked />
+                    </div>
+                    <div class="settings-row">
+                        <span>Show symmetry axes</span>
+                        <input type="checkbox" id="show-sym-axes" checked />
+                    </div>
+                    <div class="settings-row">
+                        <span>Opacity</span>
+                        <input type="range" id="opacity-slider" min="0" max="100" value="70" />
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- NAVIGATION -->
+            <div id="slide-nav">
+                <button class="nav-btn" id="prev-btn" disabled>
+                    <span class="arrow">←</span> Back
+                </button>
+                <div class="progress-dots" id="progress-dots"></div>
+                <button class="nav-btn" id="next-btn">
+                    Next <span class="arrow">→</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ======================================================
+         RIGHT: 3D CANVAS (Three.js)
+         ====================================================== -->
+        <div id="canvas-container">
+            <canvas id="three-canvas"></canvas>
+
+            <div id="gen-bar"></div>
+
+            <div id="canvas-info">
+                <span class="info-badge" id="group-name-badge">Isom(ℝ³)</span>
+                <span class="info-sub" id="anim-status"></span>
+            </div>
+
+            <div id="canvas-controls">
+                <button class="canvas-ctrl-btn" id="reset-view-btn" title="Reset view">⟲</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+    }
+  }
+  </script>
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zariski Closure Calculator</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js"></script>
+</head>
+<body>
+    <main class="page">
+        <!-- Hero -->
+        <header class="hero">
+            <div class="hero__content">
+                <h1>Zariski Closure Calculator</h1>
+                <p>
+                    Compute the Zariski closure of a finitely generated subgroup
+                    \(\langle S \rangle \subseteq \mathbb{G}(A)\),
+                    viewing \(\mathbb{G}\) as a \(\mathbb{Q}\)-group via restriction of scalars.
+                </p>
+            </div>
+            <div class="hero__accent">
+                <span class="hero__formula">\(\overline{\langle S \rangle}^{\mathrm{Zar}} \subseteq \mathrm{Res}_{A/\mathbb{Q}}(\mathbb{G})\)</span>
+            </div>
+        </header>
+
+        <!-- Step 1: Define the ring A -->
+        <section class="card" id="ring-card">
+            <h2 class="card__title"><span class="step-badge">1</span> Define the Number Ring \(A\)</h2>
+            <p class="hint">
+                Enter polynomials \(f_i(x_1, \ldots, x_k) = 0\) to define
+                \(A = \mathbb{Z}[x_1, \ldots, x_k]/(f_1, \ldots, f_m) \hookrightarrow \overline{\mathbb{Q}}\).
+            </p>
+
+            <div class="field field--math">
+                <div class="mq-shell">
+                    <div class="mq-editor" id="mq-ring-input"></div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="button button--primary" id="btn-add-poly">Add polynomial</button>
+                <button class="button button--ghost" id="btn-clear-polys">Clear all</button>
+            </div>
+
+            <div class="poly-list" id="ring-poly-list"></div>
+
+            <div>
+                <p class="hint" style="margin-bottom: 0.5rem;">Ring presets:</p>
+                <div class="presets" id="ring-presets"></div>
+            </div>
+
+            <div class="actions">
+                <button class="button button--primary" id="btn-compute-ring" disabled>Compute ring</button>
+            </div>
+
+            <div class="hidden" id="ring-status">
+                <div class="status status--ok" id="ring-status-inner"></div>
+            </div>
+        </section>
+
+        <!-- Step 2: Choose algebraic group G -->
+        <section class="card" id="group-card">
+            <h2 class="card__title"><span class="step-badge">2</span> Choose Algebraic Group \(\mathbb{G}\)</h2>
+            <p class="hint">
+                Select a linear algebraic group \(\mathbb{G}\) defined over \(A\).
+                The group is specified as a subvariety of \(\mathrm{GL}_n\).
+            </p>
+
+            <div class="actions">
+                <div class="select-field">
+                    <label for="group-select">Group:</label>
+                    <select id="group-select">
+                        <option value="GL">GL_n</option>
+                        <option value="SL">SL_n</option>
+                        <option value="B">B_n (upper triangular)</option>
+                        <option value="U">U_n (unipotent)</option>
+                        <option value="T">T_n (diagonal torus)</option>
+                    </select>
+                </div>
+                <div class="select-field">
+                    <label for="matrix-size">n =</label>
+                    <input type="number" id="matrix-size" value="2" min="1" max="5" />
+                </div>
+            </div>
+
+            <div id="group-info" class="hint"></div>
+        </section>
+
+        <!-- Step 3: Input generators S -->
+        <section class="card" id="generators-card">
+            <h2 class="card__title"><span class="step-badge">3</span> Input Generators \(S\)</h2>
+            <p class="hint">
+                Enter generators as \(n \times n\) matrices with entries in \(A\).
+                For \(A = \mathbb{Z}[\sqrt{2}]\), use expressions like
+                <code>1+sqrt(2)</code>, <code>3</code>, <code>1/2</code>.
+            </p>
+
+            <div class="generator-list" id="generator-list"></div>
+
+            <div class="actions">
+                <button class="button button--primary" id="btn-add-gen">Add generator</button>
+                <button class="button button--ghost" id="btn-clear-gens">Clear all</button>
+            </div>
+
+            <div>
+                <p class="hint" style="margin-bottom: 0.5rem;">Full presets (ring + group + generators):</p>
+                <div class="presets" id="full-presets"></div>
+            </div>
+        </section>
+
+        <!-- Step 4: Compute -->
+        <section class="card" id="compute-card">
+            <h2 class="card__title"><span class="step-badge">4</span> Compute Zariski Closure</h2>
+
+            <div class="actions">
+                <div class="select-field">
+                    <label for="max-deg">Max degree:</label>
+                    <select id="max-deg">
+                        <option value="1">1</option>
+                        <option value="2" selected>2</option>
+                        <option value="3">3</option>
+                    </select>
+                </div>
+                <div class="select-field">
+                    <label for="max-word-len">Max word length:</label>
+                    <select id="max-word-len">
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="6" selected>6</option>
+                        <option value="8">8</option>
+                        <option value="10">10</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="button button--primary" id="btn-compute" disabled>Compute Zariski closure</button>
+            </div>
+        </section>
+
+        <!-- Loading -->
+        <section class="card hidden" id="loading-card">
+            <div class="spinner"></div>
+            <p class="loading-text" id="loading-text">Computing Zariski closure...</p>
+        </section>
+
+        <!-- Results: Ring info -->
+        <section class="card hidden" id="result-ring-card">
+            <h2 class="card__title">Number Ring</h2>
+            <div id="result-ring" class="result-box result-box--accent">
+                <div class="result-box__content"></div>
+            </div>
+        </section>
+
+        <!-- Results: Restriction of scalars -->
+        <section class="card hidden" id="result-res-card">
+            <h2 class="card__title">Restriction of Scalars</h2>
+            <div id="result-res" class="result-box result-box--info">
+                <div class="result-box__content"></div>
+            </div>
+        </section>
+
+        <!-- Results: Zariski closure -->
+        <section class="card hidden" id="result-closure-card">
+            <h2 class="card__title">Zariski Closure</h2>
+            <div id="result-closure" class="result-box result-box--success">
+                <div class="result-box__content"></div>
+            </div>
+        </section>
+
+        <!-- Results: Vanishing ideal -->
+        <section class="card hidden" id="result-ideal-card">
+            <h2 class="card__title">Vanishing Ideal</h2>
+            <div id="result-ideal" class="result-box result-box--accent">
+                <div class="result-box__content"></div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <p>
+                Part of the
+                <a href="../../../index.html">Geometry of Linear Groups</a> explorer.
+            </p>
+        </footer>
+    </main>
+
+    <!-- Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+
+    <!-- Math libraries (from sRingClosure) -->
+    <script src="js/rational.js"></script>
+    <script src="js/polynomial.js"></script>
+    <script src="js/factoring.js"></script>
+    <script src="js/numberField.js"></script>
+    <script src="js/integralBasis.js"></script>
+    <script src="js/sRingClosure.js"></script>
+    <script src="js/localData.js"></script>
+    <script src="js/grobner.js"></script>
+    <script src="js/parser.js"></script>
+
+    <!-- New modules -->
+    <script src="js/matrixArith.js"></script>
+    <script src="js/algebraicGroup.js"></script>
+    <script src="js/resScalars.js"></script>
+    <script src="js/zariskiEngine.js"></script>
+
+    <!-- App -->
+    <script src="js/app.js"></script>
+</body>
+</html>

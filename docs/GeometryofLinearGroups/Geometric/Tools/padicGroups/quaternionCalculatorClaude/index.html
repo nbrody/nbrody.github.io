@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quaternion Algebras &amp; the Bruhat–Tits Tree</title>
+  <meta name="description"
+    content="An interactive exploration of integral quaternion algebras, their generators, presentation complexes, factorization lattices, and p-adic trees." />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        macros: {
+          Z: '\\mathbb{Z}',
+          Q: '\\mathbb{Q}',
+          R: '\\mathbb{R}',
+          H: '\\mathbb{H}',
+          PP: '\\mathbb{P}',
+          F: '\\mathbb{F}',
+          SO: '\\mathrm{SO}',
+          PGL: '\\mathrm{PGL}',
+          SL: '\\mathrm{SL}',
+          bi: '\\mathbf{i}',
+          bj: '\\mathbf{j}',
+          bk: '\\mathbf{k}',
+        }
+      },
+      options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <div id="app">
+
+    <!-- LEFT: WALKTHROUGH SLIDES -->
+    <div id="walkthrough">
+      <div id="slide-viewport">
+
+        <!-- SLIDE 0: INTRO -->
+        <div class="slide active" data-slide="0" data-canvas="intro">
+          <div class="chapter-label">Chapter 1</div>
+          <h1>Quaternions &amp; <span class="highlight">$p$-adic</span> Trees</h1>
+
+          <p>
+            The Hamilton quaternions $\H = \R + \R\bi + \R\bj + \R\bk$ are
+            the unique 4-dimensional division algebra over $\R$.
+            Inside them live the <strong>Lipschitz integers</strong>
+            $\Z[\bi,\bj,\bk]$ — quaternions with integer coordinates.
+          </p>
+
+          <div class="big-question">
+            How does the arithmetic of integer quaternions
+            control the geometry of <strong>$p$-adic trees</strong>
+            and <strong>$\SO_3$</strong>?
+          </div>
+
+          <p>
+            For each odd prime $p$, the quaternions of norm $p$ give
+            exactly $p+1$ generators of $\SO_3(\Z[1/p])$.
+            These generators act on the Bruhat–Tits tree $T_p$ —
+            a $(p+1)$-regular tree — and the relations between them
+            tile a <em>square complex</em>.
+          </p>
+
+          <div class="interact-prompt">
+            Press <span class="key-hint">&rarr;</span> or click <strong>Next</strong> to begin
+          </div>
+        </div>
+
+        <!-- SLIDE 1: SO3(Z) -->
+        <div class="slide" data-slide="1" data-canvas="so3z">
+          <div class="chapter-label">Chapter 1 &middot; The Finite Group</div>
+          <h2>$\SO_3(\Z) \cong S_4$</h2>
+
+          <p>
+            The group $\SO_3(\Z)$ consists of all $3\times 3$ integer matrices
+            with determinant $1$ that preserve the standard inner product.
+            It is isomorphic to the <strong>symmetric group $S_4$</strong>
+            and has exactly <strong>24 elements</strong>.
+          </p>
+
+          <p>
+            Via the quaternion representation, each element of $\SO_3(\Z)$
+            corresponds to a <em>projective</em> integer quaternion of
+            norm $1$, $2$, or $4$, acting by conjugation: $v \mapsto q v \bar{q} / |q|^2$.
+          </p>
+
+          <div class="interact-prompt">
+            Click <strong>Generate</strong> on the canvas to see all 24 elements
+          </div>
+
+          <div class="insight">
+            <p>
+              <strong>Key point:</strong> $\SO_3(\Z)$ is the <em>stabilizer</em>
+              of a vertex in the Bruhat–Tits tree. As we invert primes,
+              the group grows — $\SO_3(\Z[1/p])$ acts on the whole tree $T_p$.
+            </p>
+          </div>
+        </div>
+
+        <!-- SLIDE 2: GENERATORS -->
+        <div class="slide" data-slide="2" data-canvas="generators">
+          <div class="chapter-label">Chapter 2 &middot; Prime Generators</div>
+          <h2>The $p+1$ Generators</h2>
+
+          <p>
+            For each odd prime $p$, the <strong>four-square theorem</strong>
+            guarantees integer solutions to $a^2 + b^2 + c^2 + d^2 = p$.
+            Each such quaternion $q = a + b\bi + c\bj + d\bk$ defines
+            a generator of $\SO_3(\Z[1/p])$.
+          </p>
+
+          <p>
+            Projectively (identifying $q$ with $-q$), there are exactly
+            $p+1$ distinct generators. They biject with the
+            <strong>projective line</strong> $\PP^1(\F_p)$.
+          </p>
+
+          <div class="prime-input-row">
+            <label>Primes:</label>
+            <input type="text" id="prime-input" value="5, 13" placeholder="e.g. 5, 13" />
+            <button class="action-btn primary" id="compute-btn">Compute</button>
+          </div>
+
+          <div id="generator-status" class="status-msg"></div>
+          <div id="generator-cards" class="generator-grid"></div>
+        </div>
+
+        <!-- SLIDE 3: PRESENTATION COMPLEX -->
+        <div class="slide" data-slide="3" data-canvas="square">
+          <div class="chapter-label">Chapter 3 &middot; The Square Complex</div>
+          <h2>Presentation Complex</h2>
+
+          <p>
+            For two primes $p$ and $q$, every product of a norm-$p$ generator
+            with a norm-$q$ generator can be <em>rewritten</em>:
+          </p>
+
+          <div class="math-block">
+            $\alpha_i \cdot \beta_j = \beta_{j'} \cdot \alpha_{i'}$
+          </div>
+
+          <p>
+            where $\alpha_i$ ranges over $p+1$ generators and $\beta_j$
+            ranges over $q+1$ generators. This gives
+            <strong>$(p+1)(q+1)$</strong> commutation relations,
+            each realized as a <em>square</em> (2-cell) in the
+            presentation complex.
+          </p>
+
+          <div class="strategy-box">
+            <div class="strategy-label">Redundancy</div>
+            <p>
+              When $\alpha_i \cdot \beta_j = \beta_{j'} \cdot \alpha_{i'}$
+              with $i = i'$ and $j = j'$, the generators <em>commute</em> —
+              these are <strong>degenerate squares</strong>.
+              We handle them separately and visualize
+              only the non-degenerate $(p+1)(q+1) - d$ squares,
+              where $d$ counts redundancies.
+            </p>
+          </div>
+
+          <div class="controls-row">
+            <label>X-Axis:</label>
+            <select id="gen-x"></select>
+            <label>Y-Axis:</label>
+            <select id="gen-y"></select>
+            <label>Depth:</label>
+            <input type="range" id="depth-slider" min="1" max="10" value="2" />
+            <span id="depth-value">2</span>
+          </div>
+
+          <div id="relation-stats" class="result-box" style="display:none;"></div>
+        </div>
+
+        <!-- SLIDE 4: CAYLEY GRAPH -->
+        <div class="slide" data-slide="4" data-canvas="cayley">
+          <div class="chapter-label">Chapter 3 &middot; The Cayley Graph</div>
+          <h2>Interactive Cayley Graph</h2>
+
+          <p>
+            The <strong>Cayley graph</strong> of $\SO_3(\Z[1/n])$
+            with respect to the chosen generators embeds naturally
+            on the 2-sphere $S^2$ via the conjugation action on
+            pure quaternions.
+          </p>
+
+          <p>
+            Each vertex is a group element $g$, placed at $g(\bk)
+            \in S^2$. Edges connect $g$ to $g \cdot \alpha_i$ for
+            each generator $\alpha_i$.
+          </p>
+
+          <div class="interact-prompt">
+            Drag to rotate the sphere. Click a generator to animate.
+          </div>
+        </div>
+
+        <!-- SLIDE 5: FACTORIZATION -->
+        <div class="slide" data-slide="5" data-canvas="factor">
+          <div class="chapter-label">Chapter 4 &middot; Factorization</div>
+          <h2>The Factor Complex</h2>
+
+          <p>
+            Every integer quaternion $q$ with
+            $|q|^2 = p_1^{e_1} \cdots p_k^{e_k}$ can be factored
+            into a product of prime quaternions. The
+            <strong>factorization lattice</strong> is the directed
+            graph of all such factorizations.
+          </p>
+
+          <div class="quat-input-row">
+            <label>Quaternion $q$:</label>
+            <input type="text" id="factor-input" value="23+2i+4j+6k" placeholder="e.g. 23+2i+4j+6k" />
+            <button class="action-btn primary" id="factor-btn">Factor</button>
+          </div>
+
+          <div id="factor-result" class="result-box" style="display:none;"></div>
+        </div>
+
+        <!-- SLIDE 6: MULTIPLICATION -->
+        <div class="slide" data-slide="6" data-canvas="multiply">
+          <div class="chapter-label">Chapter 4 &middot; Calculator</div>
+          <h2>Quaternion Arithmetic</h2>
+
+          <p>
+            Multiply quaternion expressions, evaluate words in generators,
+            and explore the algebra.
+          </p>
+
+          <h3>Multiplication</h3>
+          <div class="quat-input-row">
+            <input type="text" id="mult-input" value="(1+2i)(1+2k)(3+2i)" placeholder="e.g. (1+2i)(3-j)"
+              style="flex:2;" />
+            <button class="action-btn primary" id="mult-btn">Multiply</button>
+            <label class="checkbox-label">
+              <input type="checkbox" id="mult-primitize" /> Primitize
+            </label>
+          </div>
+          <div id="mult-result"></div>
+
+          <div class="separator"></div>
+
+          <h3>Word Calculator</h3>
+          <div class="word-inputs">
+            <div class="word-gen-row">
+              <label>$a =$</label>
+              <input type="text" id="word-gen-a" value="4+5j" />
+            </div>
+            <div class="word-gen-row">
+              <label>$b =$</label>
+              <input type="text" id="word-gen-b" value="3+i+3j+9k" />
+            </div>
+            <textarea id="word-expr" placeholder="e.g. a.b.ai.bi">a.b.ai.bi</textarea>
+            <button class="action-btn primary" id="word-btn">Evaluate</button>
+          </div>
+          <div id="word-result"></div>
+        </div>
+
+        <!-- SLIDE 7: TREE -->
+        <div class="slide" data-slide="7" data-canvas="tree">
+          <div class="chapter-label">Chapter 5 &middot; $p$-adic Trees</div>
+          <h2>The Bruhat–Tits Tree</h2>
+
+          <p>
+            The <strong>Bruhat–Tits tree</strong> $T_p$ is the
+            $(p+1)$-regular tree on which $\PGL_2(\Q_p)$ acts.
+            Each vertex represents a homothety class of
+            $\Z_p$-lattices in $\Q_p^2$.
+          </p>
+
+          <p>
+            A quaternion $q$ of norm $p^k$ translates along
+            a geodesic in $T_p$ by distance $k$.
+            The path is determined by the successive
+            $\PP^1(\F_p)$-labels of its prime factors.
+          </p>
+
+          <div class="quat-input-row">
+            <label>Quaternion:</label>
+            <input type="text" id="tree-input" value="3+2i+6j+4k" placeholder="e.g. 3+2i+6j+4k" />
+            <button class="action-btn primary" id="tree-btn">Show Path</button>
+          </div>
+          <div id="tree-result"></div>
+        </div>
+
+      </div>
+
+      <!-- NAVIGATION -->
+      <div id="slide-nav">
+        <button class="nav-btn" id="prev-btn" disabled>
+          <span class="arrow">&larr;</span> Back
+        </button>
+        <div class="progress-dots" id="progress-dots"></div>
+        <button class="nav-btn" id="next-btn">
+          Next <span class="arrow">&rarr;</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- RIGHT: INTERACTIVE CANVAS -->
+    <div id="canvas-container">
+      <div id="three-canvas"></div>
+      <svg id="svg-canvas" style="display:none;"></svg>
+
+      <div id="gen-bar"></div>
+
+      <div id="canvas-info">
+        <span class="info-badge" id="canvas-badge">Quaternion Calculator</span>
+        <span class="info-sub" id="canvas-status"></span>
+      </div>
+
+      <div id="canvas-controls">
+        <button class="canvas-ctrl-btn" id="reset-view-btn" title="Reset view">&#x27F2;</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
