@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pseudomodular Group Explorer — Δ(u², 2τ)</title>
+    <meta name="description"
+        content="Interactive explorer for pseudomodular Fuchsian groups Δ(u², 2τ), visualizing killer intervals and group actions on the upper half-plane." />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <!-- MathJax -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <!-- Header -->
+    <header id="app-header">
+        <div class="header-content">
+            <h1>Pseudomodular Group Explorer</h1>
+            <p class="subtitle">Killer intervals for $\Delta(u^2, 2\tau)$ · <a href="families.html"
+                    style="color:var(--accent-bright);text-decoration:none;font-weight:500;">Jigsaw Families →</a> · <a
+                    href="cocompact.html"
+                    style="color:var(--accent-bright);text-decoration:none;font-weight:500;">Transitivity →</a></p>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div id="app-container">
+        <!-- Control Panel -->
+        <aside id="control-panel">
+            <div class="panel-section" id="params-section">
+                <h2>Parameters</h2>
+                <div class="param-group">
+                    <label for="u-input">$u^2$ <span class="param-hint">(positive rational)</span></label>
+                    <div class="input-row">
+                        <input type="text" id="u-input" value="5/7" placeholder="e.g. 5/7" />
+                    </div>
+                </div>
+                <div class="param-group">
+                    <label for="tau-input">$\tau$ <span class="param-hint">(rational, $\tau > u^2 + 1$)</span></label>
+                    <div class="input-row">
+                        <input type="text" id="tau-input" value="6" placeholder="e.g. 6" />
+                    </div>
+                </div>
+                <div class="param-info" id="param-validity"></div>
+                <button id="compute-btn" class="primary-btn">Compute Killer Intervals</button>
+            </div>
+
+            <div class="panel-section" id="settings-section">
+                <h2>Settings</h2>
+                <div class="param-group">
+                    <label for="max-depth">Search depth</label>
+                    <input type="range" id="max-depth" min="3" max="12" value="7" />
+                    <span class="range-value" id="depth-value">7</span>
+                </div>
+                <div class="param-group">
+                    <label for="max-denom">Max denominator</label>
+                    <input type="range" id="max-denom" min="10" max="200" value="50" />
+                    <span class="range-value" id="denom-value">50</span>
+                </div>
+                <div class="param-group">
+                    <label>
+                        <input type="checkbox" id="animate-toggle" checked /> Animate group action
+                    </label>
+                </div>
+                <div class="param-group">
+                    <label for="anim-speed">Animation speed</label>
+                    <input type="range" id="anim-speed" min="1" max="10" value="5" />
+                    <span class="range-value" id="speed-value">5</span>
+                </div>
+            </div>
+
+            <div class="panel-section" id="generators-section">
+                <h2>Generators</h2>
+                <div id="generator-display" class="math-display"></div>
+            </div>
+
+            <div class="panel-section" id="results-section">
+                <h2>Results</h2>
+                <div id="results-display">
+                    <p class="placeholder-text">Click "Compute" to begin...</p>
+                </div>
+            </div>
+
+            <div class="panel-section" id="presets-section">
+                <h2>Known Examples</h2>
+                <div class="preset-grid">
+                    <button class="preset-btn" data-u2="5/7" data-tau="6">$u^2=\tfrac{5}{7},\ \tau=6$</button>
+                    <button class="preset-btn" data-u2="2/5" data-tau="4">$u^2=\tfrac{2}{5},\ \tau=4$</button>
+                    <button class="preset-btn" data-u2="3/7" data-tau="4">$u^2=\tfrac{3}{7},\ \tau=4$</button>
+                    <button class="preset-btn" data-u2="3/11" data-tau="4">$u^2=\tfrac{3}{11},\ \tau=4$</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Canvas Area -->
+        <main id="canvas-area">
+            <!-- Toggle Panel Button -->
+            <button id="toggle-panel" title="Toggle panel">☰</button>
+
+            <!-- Visualization Tabs -->
+            <div id="viz-tabs">
+                <button class="viz-tab active" data-view="intervals">Killer Intervals</button>
+                <button class="viz-tab" data-view="uhp">Upper Half-Plane</button>
+                <button class="viz-tab" data-view="fundomain">Fundamental Domain</button>
+            </div>
+
+            <!-- Canvases -->
+            <canvas id="interval-canvas"></canvas>
+            <canvas id="uhp-canvas" style="display:none;"></canvas>
+            <canvas id="fundomain-canvas" style="display:none;"></canvas>
+
+            <!-- Info Overlay -->
+            <div id="canvas-info">
+                <span id="canvas-coords"></span>
+                <span id="canvas-status"></span>
+            </div>
+        </main>
+    </div>
+
+    <script src="math.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

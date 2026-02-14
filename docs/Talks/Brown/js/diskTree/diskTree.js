@@ -296,6 +296,16 @@ class DiskTreeViz {
         return { x: r * Math.cos(currentAngle), y: r * Math.sin(currentAngle), angle: currentAngle };
     }
 
+    // Helper: compute the tree-distance of a matrix from the root vertex
+    _treeDistFromRoot(M) {
+        const p = this.p;
+        let a = M.a, b = M.b, c = M.c, d = M.d;
+        let v = Math.min(a.val(p), b.val(p), c.val(p), d.val(p));
+        const sc = this.safePow(p, v);
+        const Mn = new BigMat(a.div(sc), b.div(sc), c.div(sc), d.div(sc));
+        return Mn.a.mul(Mn.d).sub(Mn.b.mul(Mn.c)).val(p);
+    }
+
     animateAction(gArr, p) {
         this.p = p;
         const g = new BigMat(gArr[0], gArr[1], gArr[2], gArr[3]);
@@ -306,25 +316,60 @@ class DiskTreeViz {
         const invG = new BigMat(g.d, g.b.neg(), g.c.neg(), g.a);
         const h_inv = invBase.mul(invG).mul(this.baseMat);
 
+        // h = g in the reference frame (maps old center to new center)
+        const h = invBase.mul(g).mul(this.baseMat);
+
         // Update the global base matrix for the new frame
         this.baseMat = g.mul(this.baseMat);
 
+        // Standard animation: teleport existing nodes to pre-image, lerp to target
         this.nodes.forEach(node => {
-            // Find the disk position where the node's NEW label resided in the OLD frame
             const startMat = h_inv.mul(node.refMat);
             const startPos = this.getCanonicalPos(startMat);
-
-            // Teleport node to its pre-action source position
             node.x = startPos.x;
             node.y = startPos.y;
-
-            // Animate node back to its fixed canonical slot in the new centered frame
             node.targetX = node.origX;
             node.targetY = node.origY;
-
-            // Update the p-adic label for the new frame
             node.mat = this.baseMat.mul(node.refMat);
         });
+
+        // Build extra nodes: neighborhood of the OLD center (h in ref frame).
+        // These have refMat = h*R for shallow source nodes R.
+        // They START at center (position of R) and slide OUTWARD to their canonical pos.
+        const extraDepth = Math.min(4, this.maxDepth);
+        const extras = [];
+        const srcToExtraIdx = new Map();
+
+        for (let i = 0; i < this.nodes.length; i++) {
+            const src = this.nodes[i];
+            if (src.level > extraDepth) continue;
+
+            const extraRef = h.mul(src.refMat);
+            const dist = this._treeDistFromRoot(extraRef);
+            if (dist <= this.maxDepth) continue; // already in existing tree
+
+            const canonPos = this.getCanonicalPos(extraRef);
+            srcToExtraIdx.set(i, extras.length);
+            extras.push({
+                level: src.level,
+                x: src.origX,           // start at center (old position of src)
+                y: src.origY,
+                targetX: canonPos.x,    // slide outward
+                targetY: canonPos.y,
+                color: src.color,
+                parentExtraIdx: -1,
+                srcParentIdx: src.parentIdx
+            });
+        }
+
+        // Wire up parent edges among extras
+        for (const en of extras) {
+            if (en.srcParentIdx !== -1 && srcToExtraIdx.has(en.srcParentIdx)) {
+                en.parentExtraIdx = srcToExtraIdx.get(en.srcParentIdx);
+            }
+        }
+
+        this._extraNodes = extras.length > 0 ? extras : null;
     }
 
     updateTooltip(e) {
@@ -443,6 +488,50 @@ class DiskTreeViz {
             n.isVisible = n.screen.x > -padding && n.screen.x < canvas.width + padding &&
                 n.screen.y > -padding && n.screen.y < canvas.height + padding;
         });
+
+        // Update and draw extra nodes (old-center neighborhood sliding outward)
+        if (this._extraNodes) {
+            let allDone = true;
+            this._extraNodes.forEach(en => {
+                const distSq = (en.targetX - en.x) ** 2 + (en.targetY - en.y) ** 2;
+                if (distSq > 1e-7) {
+                    en.x += (en.targetX - en.x) * 0.1;
+                    en.y += (en.targetY - en.y) * 0.1;
+                    allDone = false;
+                } else {
+                    en.x = en.targetX;
+                    en.y = en.targetY;
+                }
+                en.screen = this.diskToScreen(en.x, en.y);
+            });
+
+            // Draw extra edges
+            ctx.strokeStyle = 'rgba(99, 102, 241, 0.5)';
+            ctx.lineWidth = 1.5 * this.view.scale;
+            if (ctx.lineWidth >= 0.2) {
+                ctx.beginPath();
+                this._extraNodes.forEach(en => {
+                    if (en.parentExtraIdx !== -1) {
+                        const parent = this._extraNodes[en.parentExtraIdx];
+                        this.drawGeodesic(parent, en, parent.screen, en.screen);
+                    }
+                });
+                ctx.stroke();
+            }
+
+            // Draw extra dots
+            const eDotScale = this.view.scale;
+            this._extraNodes.forEach(en => {
+                const size = Math.max(1, (5 - en.level * 0.8) * eDotScale);
+                if (size < 0.5) return;
+                ctx.beginPath();
+                ctx.arc(en.screen.x, en.screen.y, size, 0, Math.PI * 2);
+                ctx.fillStyle = en.color;
+                ctx.fill();
+            });
+
+            if (allDone) this._extraNodes = null;
+        }
 
         // Group edges by level for batching
         const levels = {};

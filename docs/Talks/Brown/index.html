@@ -276,8 +276,9 @@
                     </p>
 
                     <p>We can obtain a representation of \(\Gamma\) into \(\PGL_2(\bbF_p(t))\) by taking a
-                        representation of \(\Gamma\) into \(\PGL_2(\Z(t))\), and composing with the reduction
-                        map \(\Z(t)\to\bbF_p(t)\). If we can find a faithful such representation, we've succeeded!
+                        representation of \(\Gamma\) into \(\PGL_2(\Q(t))\) which is \(p\)-integral, and composing with
+                        the reduction
+                        map to \(\bbF_p(t)\). If we can find a faithful such representation, we've succeeded!
                     </p>
                 </div>
             </div>
@@ -300,21 +301,28 @@
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Example Representation</h2>
                     <p>Thus, if we can find a faithful and totally unitary surface group representation, we've
-                        succeeded! <br>
-
-                        For example, we can try to find surface subgroups of \(\mathsf{PU}_2(\Q(i))\). To keep things
-                        simple, let's seek matrices
-                        \(g=\begin{pmatrix} x & y \\ -y & x\end{pmatrix}\) and \(h=\begin{pmatrix} a+bi & c+di \\ -c+di
+                        succeeded!</p>
+                    <p class="fragment">We try to find surface subgroups of \(\mathsf{PU}_2(\Q(i))\). Let's seek
+                        matrices
+                        \(g=\begin{pmatrix} x & y \\ -y & x\end{pmatrix}\) and \(h=\begin{pmatrix} a+bi & c+di \\
+                        -c+di
                         & a-bi\end{pmatrix}\) where
-                        \([g,h]\) has trace zero.
-                        <br> This becomes the condition that
-                        \((x^2+y^2)(a^2+c^2)+(x^2-y^2)(b^2+d^2)=0\). We can find a particular integer solution
-                        \(x=4, y=5, a=3, b=1, c=3, d=9\), giving the representation
-                        \(g=\begin{pmatrix} 4 & 5 \\ -5 & 4\end{pmatrix}\) and \(h=\begin{pmatrix} 3+i & 3+9i \\ -3+9i &
-                        3-i\end{pmatrix}\). Indeed,
-                        we note that \([g,h]=\begin{pmatrix} -\frac{27}{5\cdot 41}i & \frac{4}{5}-\frac{24}{41}i \\
-                        -\frac{4}{5}-\frac{24}{41}i & \frac{27}{5\cdot 41}i\end{pmatrix}\).
-                    </p>
+                        \([g,h]\) has trace zero.</p>
+                    <formula class="fragment">
+                        \[(x^2+y^2)(a^2+c^2)+(x^2-y^2)(b^2+d^2)=0\]
+                    </formula>
+                    <p class="fragment">We find a particular integer solution
+                        \(x=4,\; y=5,\; a=3,\; b=1,\; c=3,\; d=9\), giving</p>
+                    <formula class="fragment">
+                        \[g=\begin{pmatrix} 4 & 5 \\ -5 & 4\end{pmatrix}, \quad h=\begin{pmatrix} 3+i & 3+9i \\
+                        -3+9i &
+                        3-i\end{pmatrix}\]
+                    </formula>
+                    <p class="fragment">Indeed, the commutator has trace zero:</p>
+                    <formula class="fragment">
+                        \[[g,h]=\begin{pmatrix} -\frac{27}{5\cdot 41}i & \frac{4}{5}-\frac{24}{41}i \\
+                        -\frac{4}{5}-\frac{24}{41}i & \frac{27}{5\cdot 41}i\end{pmatrix}\]
+                    </formula>
                 </div>
             </div>
         </div>
@@ -508,9 +516,9 @@
                     <p>Suppose \(k\) is a number field and \(\bbG\) is a simple \(k\)-algebraic group. We say that a
                         subgroup \(\Gamma \leq \bbG(k)\) is:
                         <br><span class="fragment">\(\bullet\) <strong>algebraic</strong> if \(\Gamma\) is
-                        contained in
-                        \(\bbH(\Q)\lneq\mathsf{Res}_{k/\Q}(\bbG)(\Q)\) for some proper algebraic
-                        subgroup of \(\bbG(k)\).</span>
+                            contained in
+                            \(\bbH(\Q)\lneq\mathsf{Res}_{k/\Q}(\bbG)(\Q)\) for some proper algebraic
+                            subgroup of \(\bbG(k)\).</span>
                         <br><span class="fragment">\(\bullet\) <strong>geometric</strong> if there is some place \(v\)
                             such that \(\Gamma\) is
                             discrete in \(\bbG(k_v)\).</span>

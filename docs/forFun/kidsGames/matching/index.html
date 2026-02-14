@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="description"
+        content="A fun, colorful matching game for toddlers — tap two matching stuffed animals or instruments to put them in the toy box!">
+    <title>🧸 Match the Toys!</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Background decorations -->
+    <div class="floating-shape"></div>
+    <div class="floating-shape"></div>
+    <div class="floating-shape"></div>
+
+    <!-- Header -->
+    <div id="game-header">
+        <h1>🧸 Match the Toys!</h1>
+        <div class="subtitle">Tap two that look the same!</div>
+    </div>
+
+    <!-- Stars earned -->
+    <div id="star-counter"></div>
+
+    <!-- Game Board -->
+    <div id="game-board"></div>
+
+    <!-- Toy Box -->
+    <div id="toy-box">
+        <span class="box-label">🎁 Toy Box</span>
+        <div class="box-items" id="box-items"></div>
+    </div>
+
+    <!-- Victory/Celebration Overlay -->
+    <div id="victory-screen">
+        <h2>🎉 You Did It! 🎉</h2>
+        <button id="play-again-btn">Play Again! 🔄</button>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

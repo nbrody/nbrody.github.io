@@ -111,20 +111,35 @@ class TilingEngine {
         return this.baseVertices;
     }
 
+    // Canonical key for PSL(2, Q): normalize so the first nonzero entry is positive
+    canonicalKey(mat) {
+        const entries = [mat.a, mat.b, mat.c, mat.d];
+        let sign = 1n;
+        for (const e of entries) {
+            if (e.n !== 0n) {
+                if (e.n < 0n) sign = -1n;
+                break;
+            }
+        }
+        if (sign === -1n) {
+            return entries.map(e => new BigFrac(-e.n, e.d).toString()).join(':');
+        }
+        return entries.map(e => e.toString()).join(':');
+    }
+
     getTilingOrbit(maxTiles = 500) {
-        const orbit = [{ g: new BigMat(1, 0, 0, 1), depth: 0 }];
+        const id = new BigMat(1, 0, 0, 1);
+        const orbit = [{ g: id, depth: 0 }];
         const queue = [orbit[0]];
-        const seen = new Set(["1:0:0:1"]);
+        const seen = new Set([this.canonicalKey(id)]);
         const gens = this.domainGens;
 
         while (queue.length > 0 && orbit.length < maxTiles) {
             const curr = queue.shift();
-            if (curr.depth >= 4) continue;
+            if (curr.depth >= 12) continue;
             for (let g of gens) {
                 const next = g.mul(curr.g);
-                // Simple key for BFS. In PSL(2,Q), we should ideally normalize to det 1 
-                // and choose a canonical sign, but for these generators it should be stable.
-                const key = `${next.a.toString()}:${next.b.toString()}:${next.c.toString()}:${next.d.toString()}`;
+                const key = this.canonicalKey(next);
                 if (!seen.has(key)) {
                     seen.add(key);
                     const obj = { g: next, depth: curr.depth + 1 };

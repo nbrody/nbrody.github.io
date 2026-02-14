@@ -90,6 +90,22 @@ function initScene() {
 function initGeometryData() {
     const engine = new TilingEngine();
     const uhpVerts = engine.computeFundamentalDomain();
+    console.log(`Fundamental domain: ${uhpVerts.length} vertices`);
+    uhpVerts.forEach((v, i) => console.log(`  v${i}: (${v.re.toFixed(10)}, ${v.im.toFixed(10)})`));
+
+    // Verify: each domainGen should map some vertex to another vertex
+    engine.domainGens.forEach((g, gi) => {
+        const labels = ['a', 'A', 'a²B', 'aBa', 'AbA', 'bA²'];
+        uhpVerts.forEach((v, vi) => {
+            const img = g.action(v);
+            uhpVerts.forEach((w, wi) => {
+                const dist = Math.sqrt((img.re - w.re) ** 2 + (img.im - w.im) ** 2);
+                if (dist < 0.1) {
+                    console.log(`  ${labels[gi]}(v${vi}) ≈ v${wi}, error = ${dist.toExponential(3)}`);
+                }
+            });
+        });
+    });
     let rawDisk = uhpVerts.map(v => toDisk(v));
 
     const v0 = rawDisk[0], v3 = rawDisk[3];
@@ -146,12 +162,10 @@ function initGeometryData() {
 }
 
 function createFullTiling(engine, baseVerts, rotFunc) {
-    // Increase tile count for a fuller disk
-    const orbit = engine.getTilingOrbit(400);
+    const orbit = engine.getTilingOrbit(600);
     const tilePositions = [];
     const edgePositions = [];
 
-    // We use a shared material for all background elements to keep performance high
     const tileMat = new THREE.MeshStandardMaterial({
         color: 0x1e293b,
         transparent: true,
@@ -161,32 +175,99 @@ function createFullTiling(engine, baseVerts, rotFunc) {
         metalness: 0.1
     });
 
-    orbit.forEach((cell, idx) => {
-        if (idx === 0) return; // Central hexagon is the main mesh
+    // ── Vertex welding infrastructure ──
+    // Two adjacent tiles compute the same shared vertex/edge-point through
+    // different Möbius transformations, producing slightly different floats.
+    // We snap all computed positions to a spatial hash so that the first 
+    // computation wins and all later ones reuse the same exact coordinates.
+    const WELD_TOL = 0.001;   // screen-coord snap radius
+    const GRID_SZ = 0.005;   // spatial hash cell size
+    const weldPool = [];       // [{x, y}]
+    const weldGrid = {};       // "gx,gy" -> [index into weldPool]
 
+    function weld(x, y) {
+        const gx = Math.round(x / GRID_SZ);
+        const gy = Math.round(y / GRID_SZ);
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                const bucket = weldGrid[`${gx + dx},${gy + dy}`];
+                if (bucket) {
+                    for (const idx of bucket) {
+                        const v = weldPool[idx];
+                        if (Math.abs(v.x - x) < WELD_TOL && Math.abs(v.y - y) < WELD_TOL) {
+                            return v;
+                        }
+                    }
+                }
+            }
+        }
+        const v = { x, y };
+        const key = `${gx},${gy}`;
+        if (!weldGrid[key]) weldGrid[key] = [];
+        weldGrid[key].push(weldPool.length);
+        weldPool.push(v);
+        return v;
+    }
+
+    // ── Pre-compute reference edge samples in UHP ──
+    const EDGE_SAMPLES = 60;
+    const refEdgeSamples = [];
+    for (let i = 0; i < 6; i++) {
+        const samples = [];
+        const z1 = baseVerts[i], z2 = baseVerts[(i + 1) % 6];
+        for (let k = 0; k <= EDGE_SAMPLES; k++) {
+            samples.push(uhpGeodesicSample(z1, z2, k / EDGE_SAMPLES));
+        }
+        refEdgeSamples.push(samples);
+    }
+
+    // Convert UHP → Disk → rotate → scale/shift, then weld
+    function toScreenWelded(z) {
+        const d = rotFunc(toDisk(z));
+        return weld(d.re * GLOBAL_SCALE, d.im * GLOBAL_SCALE - GLOBAL_SHIFT);
+    }
+
+    // Unwelded version for tile centers (no need to snap centers)
+    function toScreen(z) {
+        const d = rotFunc(toDisk(z));
+        return { x: d.re * GLOBAL_SCALE, y: d.im * GLOBAL_SCALE - GLOBAL_SHIFT };
+    }
+
+    orbit.forEach((cell, idx) => {
+        if (idx === 0) return;
+
+        const centerUHP = cell.g.action(engine.z0);
+        const centerDisk = toDisk(centerUHP);
+        const diskR2 = centerDisk.re * centerDisk.re + centerDisk.im * centerDisk.im;
+        if (diskR2 > 0.998) return;
+
+        const cScreen = toScreen(centerUHP);
+        const cx = cScreen.x, cy = cScreen.y;
+
+        // Build tile boundary — all points are welded
         const tilePath = [];
         for (let i = 0; i < 6; i++) {
-            const z1 = cell.g.action(baseVerts[i]);
-            const z2 = cell.g.action(baseVerts[(i + 1) % 6]);
-            const p1 = rotFunc(toDisk(z1));
-            const p2 = rotFunc(toDisk(z2));
-
-            // Sample geodesic edges - use enough points to avoid gaps
-            const pts = samplePath(p1, p2, 12);
-            pts.forEach(v => tilePath.push(new THREE.Vector2(v.x * GLOBAL_SCALE, v.y * GLOBAL_SCALE - GLOBAL_SHIFT)));
+            const edgeSamples = refEdgeSamples[i];
+            for (let k = 0; k < EDGE_SAMPLES; k++) {
+                const zUHP = cell.g.action(edgeSamples[k]);
+                tilePath.push(toScreenWelded(zUHP));
+            }
         }
 
-        // Center of the tile for triangulation
-        const centerUHP = cell.g.action(engine.z0);
-        const centerDisk = rotFunc(toDisk(centerUHP));
-        const cx = centerDisk.re * GLOBAL_SCALE, cy = centerDisk.im * GLOBAL_SCALE - GLOBAL_SHIFT;
-
+        // Fan triangulation from tile center
         for (let i = 0; i < tilePath.length; i++) {
             const p1 = tilePath[i], p2 = tilePath[(i + 1) % tilePath.length];
-            // Face triangles (fan from center)
             tilePositions.push(cx, cy, -0.2, p1.x, p1.y, -0.2, p2.x, p2.y, -0.2);
-            // Edge lines
-            edgePositions.push(p1.x, p1.y, -0.15, p2.x, p2.y, -0.15);
+        }
+
+        // Edge lines (geodesic polylines along the 6 sides)
+        for (let i = 0; i < 6; i++) {
+            const edgeSamples = refEdgeSamples[i];
+            for (let k = 0; k < edgeSamples.length - 1; k++) {
+                const pa = toScreenWelded(cell.g.action(edgeSamples[k]));
+                const pb = toScreenWelded(cell.g.action(edgeSamples[k + 1]));
+                edgePositions.push(pa.x, pa.y, -0.15, pb.x, pb.y, -0.15);
+            }
         }
     });
 
@@ -203,7 +284,6 @@ function createFullTiling(engine, baseVerts, rotFunc) {
     }));
     scene.add(backgroundEdges);
 
-    // Rim: centered at the Disk's center (0, -GLOBAL_SHIFT)
     const rimGeo = new THREE.TorusGeometry(GLOBAL_SCALE, 0.04, 16, 128);
     backgroundRim = new THREE.Mesh(rimGeo, new THREE.MeshBasicMaterial({
         color: 0x6366f1,
@@ -212,6 +292,23 @@ function createFullTiling(engine, baseVerts, rotFunc) {
     }));
     backgroundRim.position.set(0, -GLOBAL_SHIFT, -0.25);
     scene.add(backgroundRim);
+}
+
+// Sample a point along the UHP geodesic from z1 to z2 at parameter t ∈ [0,1]
+function uhpGeodesicSample(z1, z2, t) {
+    const x1 = z1.re, y1 = z1.im, x2 = z2.re, y2 = z2.im;
+    if (Math.abs(x1 - x2) < 1e-9) {
+        const logY = Math.log(y1) * (1 - t) + Math.log(y2) * t;
+        return { re: x1, im: Math.exp(logY) };
+    }
+    const center = (x2 * x2 + y2 * y2 - x1 * x1 - y1 * y1) / (2 * (x2 - x1));
+    const radius = Math.sqrt((x1 - center) * (x1 - center) + y1 * y1);
+    let a1 = Math.atan2(y1, x1 - center);
+    let a2 = Math.atan2(y2, x2 - center);
+    if (a1 <= 0) a1 += Math.PI * 2;
+    if (a2 <= 0) a2 += Math.PI * 2;
+    const ang = a1 * (1 - t) + a2 * t;
+    return { re: center + radius * Math.cos(ang), im: radius * Math.sin(ang) };
 }
 
 function createHexGrid() {

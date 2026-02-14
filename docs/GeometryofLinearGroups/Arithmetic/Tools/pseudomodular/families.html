@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hyperbolic Jigsaws & Pseudomodular Families</title>
+    <meta name="description"
+        content="An exposition of Lou–Tan–Vo's jigsaw construction for infinite families of pseudomodular groups, showing how killer intervals prove cusp sets equal Q ∪ {∞}." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,600;1,400&display=swap"
+        rel="stylesheet">
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="families.css" />
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav id="topnav">
+        <a href="index.html" class="nav-back">← Explorer</a>
+        <span class="nav-title">Hyperbolic Jigsaws & Pseudomodular Families</span>
+        <span class="nav-ref">Lou–Tan–Vo (2018)</span>
+    </nav>
+
+    <main id="article">
+        <!-- Hero -->
+        <section class="hero">
+            <h1>Hyperbolic Jigsaws<br><span class="hero-sub">and Families of Pseudomodular Groups</span></h1>
+            <p class="hero-authors">After <em>B. Lou, S.P. Tan, A.D. Vo</em> — <a
+                    href="https://arxiv.org/abs/1611.02922" target="_blank">arXiv:1611.02922</a></p>
+            <p class="hero-abstract">There are <strong>infinitely many</strong> commensurability classes of
+                pseudomodular groups — Fuchsian groups whose cusp set is all of $\mathbb{Q}\cup\{\infty\}$ but which are
+                <em>not</em> commensurable to $\mathrm{PSL}(2,\mathbb{Z})$. We explain how <em>jigsaw groups</em> are
+                constructed and how <em>killer intervals</em> prove their pseudomodularity.</p>
+        </section>
+
+        <!-- Table of Contents -->
+        <nav class="toc">
+            <h2>Contents</h2>
+            <ol>
+                <li><a href="#sec-background">Background: Pseudomodular Groups</a></li>
+                <li><a href="#sec-tiles">Jigsaw Tiles</a></li>
+                <li><a href="#sec-gluing">Gluing Tiles into Jigsaws</a></li>
+                <li><a href="#sec-groups">Jigsaw Groups</a></li>
+                <li><a href="#sec-killer">Killer Intervals</a></li>
+                <li><a href="#sec-covering">The Covering Argument</a></li>
+                <li><a href="#sec-families">Infinite Families</a></li>
+                <li><a href="#sec-interactive">Interactive Explorer</a></li>
+            </ol>
+        </nav>
+
+        <!-- §1 Background -->
+        <section id="sec-background" class="content-section">
+            <h2><span class="sec-num">1</span> Background: Pseudomodular Groups</h2>
+            <p>The <strong>modular group</strong> $\mathrm{PSL}(2,\mathbb{Z})$ acts on the upper half-plane
+                $\mathbb{H}^2$ by Möbius transformations. Its <em>cusp set</em> — the orbit of $\infty$ — is precisely
+                $\mathbb{Q}\cup\{\infty\}$. A natural question, posed by Long and Reid, is:</p>
+            <blockquote class="question-block">
+                Are there other finitely generated Fuchsian groups, <em>not commensurable</em> with
+                $\mathrm{PSL}(2,\mathbb{Z})$, whose cusp set is still all of $\mathbb{Q}\cup\{\infty\}$?
+            </blockquote>
+            <p>Such groups are called <strong>pseudomodular</strong>. Long and Reid (2002) found the first examples —
+                the family $\Delta(u^2, 2\tau)$ — by a delicate computer-assisted search. But their methods left open
+                whether infinitely many commensurability classes exist.</p>
+
+            <div class="definition-box">
+                <h3>Definition</h3>
+                <p>A <strong>pseudomodular group</strong> is a discrete subgroup $\Gamma \le \mathrm{PGL}(2,\mathbb{Q})$
+                    such that:</p>
+                <ol>
+                    <li>$\Gamma$ is <strong>not commensurable</strong> with $\mathrm{PSL}(2,\mathbb{Z})$, and</li>
+                    <li>The cusp set of $\Gamma$ is $\mathbb{Q}\cup\{\infty\}$.</li>
+                </ol>
+            </div>
+
+            <p>The key insight of Lou, Tan, and Vo is that one can <strong>systematically construct</strong> such groups
+                by assembling fundamental domains from marked ideal triangles — a method they call <em>hyperbolic
+                    jigsaws</em>.</p>
+        </section>
+
+        <!-- §2 Jigsaw Tiles -->
+        <section id="sec-tiles" class="content-section">
+            <h2><span class="sec-num">2</span> Jigsaw Tiles</h2>
+            <p>The building block is the <strong>jigsaw tile</strong>: an ideal triangle in $\mathbb{H}^2$ equipped with
+                extra structure.</p>
+
+            <div class="definition-box">
+                <h3>Definition (Jigsaw Tile)</h3>
+                <p>A <strong>jigsaw tile</strong> $\Delta(k_1, k_2, k_3)$ is a <em>rational, balanced, marked</em> ideal
+                    triangle:</p>
+                <ul>
+                    <li><strong>Ideal:</strong> All three vertices lie on $\partial\mathbb{H}^2 =
+                        \mathbb{R}\cup\{\infty\}$.</li>
+                    <li><strong>Marked:</strong> Each side $s_i$ carries a positive rational parameter $k_i \in
+                        \mathbb{Q}_{>0}$. One vertex on each side is distinguished (the "marked point").</li>
+                    <li><strong>Balanced:</strong> $k_1 \cdot k_2 \cdot k_3 = 1$.</li>
+                    <li><strong>Rational:</strong> $k_1, k_2, k_3 \in \mathbb{Q}$.</li>
+                </ul>
+            </div>
+
+            <div class="figure-container">
+                <canvas id="tile-canvas" width="560" height="320"></canvas>
+                <p class="figure-caption"><strong>Figure 1.</strong> A jigsaw tile $\Delta(k_1, k_2, k_3)$ in
+                    $\mathbb{H}^2$. Sides are colored by their parameter $k_i$. The marked vertex on each side
+                    determines the <em>shear</em> when gluing.</p>
+            </div>
+
+            <p>The parameter $k_i$ on side $s_i$ encodes how neighboring tiles will be <em>sheared</em> when glued along
+                that side. Specifically, when two tiles are joined along matching sides, the <strong>shear
+                    coordinate</strong> along the identification is $\log k_i$.</p>
+
+            <p>The balancing condition $k_1 k_2 k_3 = 1$ ensures that walking around the triangle and accumulating
+                shears returns you to where you started — a consistency condition for the resulting surface.</p>
+
+            <div class="remark-box">
+                <h3>Key Types</h3>
+                <p>Lou–Tan–Vo focus on three fundamental tile types:</p>
+                <ul>
+                    <li><strong>Type 1:</strong> $\Delta(n, n, 1/n^2)$ for an integer $n \ge 2$.</li>
+                    <li><strong>Type 2:</strong> $\Delta(1/n, 1/n, n^2)$ — the "dual" of Type 1.</li>
+                    <li><strong>Type 3:</strong> $\Delta(m/n, n/m, 1)$ for coprime integers $m, n$.</li>
+                </ul>
+                <p>Every such tile is automatically balanced since its parameter product equals 1.</p>
+            </div>
+        </section>
+
+        <!-- §3 Gluing -->
+        <section id="sec-gluing" class="content-section">
+            <h2><span class="sec-num">3</span> Gluing Tiles into Jigsaws</h2>
+            <p>A <strong>jigsaw</strong> is an ideal polygon assembled by gluing tiles along <em>matching</em> sides.
+            </p>
+
+            <div class="definition-box">
+                <h3>Definition (Matching &amp; Jigsaw)</h3>
+                <p>Two sides $s_i$ of $\Delta$ and $s_j'$ of $\Delta'$ <strong>match</strong> if $k_i = k_j'$. A
+                    <strong>jigsaw</strong> $J$ is an ideal polygon obtained by gluing a finite set $S$ of tiles along
+                    matching interior sides. The result is unique up to isometry.</p>
+            </div>
+
+            <div class="figure-container">
+                <canvas id="gluing-canvas" width="680" height="360"></canvas>
+                <p class="figure-caption"><strong>Figure 2.</strong> Two tiles glued along a matching side (shown in
+                    green). The shear coordinate along the glued edge is $\log k$. The resulting ideal quadrilateral
+                    inherits marked points on its exterior sides.</p>
+            </div>
+
+            <p>When you glue two tiles $\Delta(k_1, k_2, k_3)$ and $\Delta'(k_1', k_2', k_3')$ along sides with
+                parameter $k_i = k_j'$, the geometric operation is:</p>
+            <ol>
+                <li>Place both triangles in $\mathbb{H}^2$ with the matching sides coinciding.</li>
+                <li>Apply a <em>shear</em> of $\log k_i$ along the shared geodesic to align the markings.</li>
+                <li>The shared side becomes an <em>interior diagonal</em> of the resulting ideal quadrilateral.</li>
+            </ol>
+
+            <p>Iterating this process — gluing more tiles to the exposed sides — builds up larger ideal polygons:
+                pentagons, hexagons, and beyond. The exterior (unglued) sides retain their parameters and become the
+                sides of the jigsawed polygon.</p>
+
+            <div class="remark-box">
+                <h3>The $S$-Jigsaw Notation</h3>
+                <p>For an <em>integral jigsaw set</em> $S(n_1, n_2, \ldots, n_s)$ with $1 = n_1 < n_2 < \cdots < n_s$,
+                        each $n_i$ determines a pair of tiles (Type 1 and Type 2) that interlock. The resulting jigsaw
+                        has $2s$ tiles and forms an ideal $(s+2)$-gon.</p>
+            </div>
+        </section>
+
+        <!-- §4 Jigsaw Groups -->
+        <section id="sec-groups" class="content-section">
+            <h2><span class="sec-num">4</span> Jigsaw Groups</h2>
+            <p>Once we have a jigsaw polygon, we obtain a Fuchsian group by <em>side-pairing</em>.</p>
+
+            <p>The exterior sides of the jigsaw come in matching pairs (they carry the same parameter $k_i$).
+                Identifying each such pair by a Möbius transformation gives: </p>
+            <ul>
+                <li>A complete hyperbolic surface $\mathbb{H}^2/\Gamma$ of finite area.</li>
+                <li>A Fuchsian group $\Gamma$ — the <strong>jigsaw group</strong> — generated by the side-pairing maps.
+                </li>
+            </ul>
+
+            <p>Since all tile parameters are rational and the vertices are in $\mathbb{Q}\cup\{\infty\}$, the
+                side-pairing maps lie in $\mathrm{PGL}(2,\mathbb{Q})$, so $\Gamma \le \mathrm{PGL}(2,\mathbb{Q})$.</p>
+
+            <div class="theorem-box">
+                <h3>Theorem (Lou–Tan–Vo, 2018)</h3>
+                <p>Let $S$ be a rational balanced jigsaw set and $\Gamma_S$ the corresponding jigsaw group. Then:</p>
+                <ol>
+                    <li>$\Gamma_S$ is a finitely generated Fuchsian group of the first kind.</li>
+                    <li>$\Gamma_S \le \mathrm{PGL}(2,\mathbb{Q})$, so every cusp is rational.</li>
+                    <li>If the cusp set equals $\mathbb{Q}\cup\{\infty\}$ and $\Gamma_S$ is not commensurable to
+                        $\mathrm{PSL}(2,\mathbb{Z})$, then $\Gamma_S$ is <strong>pseudomodular</strong>.</li>
+                </ol>
+            </div>
+
+            <p>The challenge is proving that the cusp set is <em>all of</em> $\mathbb{Q}\cup\{\infty\}$, not just a
+                proper subset. This is where <em>killer intervals</em> enter.</p>
+        </section>
+
+        <!-- §5 Killer Intervals -->
+        <section id="sec-killer" class="content-section">
+            <h2><span class="sec-num">5</span> Killer Intervals</h2>
+            <p>The concept of a <strong>killer interval</strong>, introduced by Long and Reid, is the key mechanism for
+                proving that a group's cusp set is all of $\mathbb{Q}\cup\{\infty\}$.</p>
+
+            <div class="definition-box">
+                <h3>Definition (Killer Interval)</h3>
+                <p>Let $\Gamma$ be a Fuchsian group and $\gamma \in \Gamma$ with $\gamma = \begin{pmatrix} a & b \\ c &
+                    d \end{pmatrix}$, $c \ne 0$. The <strong>killer interval</strong> of $\gamma$ is an interval
+                    $I_\gamma$ around the cusp $a/c$ such that for every $p/q \in I_\gamma$ (in lowest terms):</p>
+                $$\left|\text{denominator of } \gamma^{-1}(p/q)\right| < |q|$$ <p>That is, $\gamma^{-1}$
+                    <strong>strictly reduces</strong> the denominator of any rational in $I_\gamma$.</p>
+            </div>
+
+            <p>The intuition is beautiful. Think of the denominator of a rational $p/q$ as measuring its "complexity." A
+                killer interval is a region where a group element can <em>kill</em> complexity — reduce the denominator.
+                By iterating, we eventually reduce any rational to $\infty$ (denominator 0), proving it's a cusp.</p>
+
+            <h3>Explicit Formula</h3>
+            <p>For a group element $\gamma = \begin{pmatrix} a & b \\ c & d \end{pmatrix}$ with $\det(\gamma) = 1$ and
+                the stabilizer of $\infty$ generating translations by $\lambda$, the killer interval centered at the
+                cusp $a/c$ has half-width:</p>
+            $$\text{half-width} = \frac{\lambda}{2c^2}$$
+            <p>So the killer interval is:</p>
+            $$I_\gamma = \left(\frac{a}{c} - \frac{\lambda}{2c^2},\ \frac{a}{c} + \frac{\lambda}{2c^2}\right)$$
+            <p>This is intimately related to the <em>isometric circle</em> of $\gamma$, which has center $-d/c$ and
+                radius $1/|c|$. The width of the killer interval is inversely proportional to $c^2$ — so elements with
+                large $|c|$ (deep in the group) produce <em>narrow</em> intervals.</p>
+
+            <div class="figure-container">
+                <canvas id="killer-canvas" width="680" height="300"></canvas>
+                <p class="figure-caption"><strong>Figure 3.</strong> Killer intervals on the number line. Each
+                    semicircle represents an interval around a cusp. The width $\sim 1/q^2$ for a cusp $p/q$ —
+                    resembling the Stern–Brocot / Ford circle picture.</p>
+            </div>
+        </section>
+
+        <!-- §6 Covering Argument -->
+        <section id="sec-covering" class="content-section">
+            <h2><span class="sec-num">6</span> The Covering Argument</h2>
+            <p>The strategy for proving pseudomodularity is:</p>
+
+            <div class="theorem-box">
+                <h3>Covering Criterion (Long–Reid)</h3>
+                <p>A group $\Gamma$ is pseudomodular if and only if the union of killer intervals of all elements
+                    $\gamma \in \Gamma$ covers $\mathbb{R}$. Equivalently, it suffices to cover a single
+                    <strong>fundamental interval</strong> $[0, \lambda]$ (where $\lambda$ is the translation length of
+                    the parabolic element stabilizing $\infty$).</p>
+            </div>
+
+            <p>The logic is an inductive descent:</p>
+            <ol class="proof-steps">
+                <li><strong>Start</strong> with any $p/q \in \mathbb{Q}$. By translation, we may assume $p/q \in [0,
+                    \lambda]$.</li>
+                <li><strong>Find</strong> a killer interval $I_\gamma$ containing $p/q$.</li>
+                <li><strong>Apply</strong> $\gamma^{-1}$, obtaining $p'/q'$ with $|q'| < |q|$.</li>
+                <li><strong>Translate</strong> $p'/q'$ back into $[0, \lambda]$.</li>
+                <li><strong>Repeat.</strong> The denominator strictly decreases at each step.</li>
+                <li><strong>Terminate</strong> when the denominator reaches 0, meaning $p/q$ has been mapped to
+                    $\infty$.</li>
+            </ol>
+            <p>Hence $p/q$ is in the $\Gamma$-orbit of $\infty$, i.e., it is a cusp. Since $p/q$ was arbitrary,
+                $\mathrm{Cusps}(\Gamma) = \mathbb{Q}\cup\{\infty\}$. ∎</p>
+
+            <div class="remark-box">
+                <h3>Analogy with the Euclidean Algorithm</h3>
+                <p>This is a <em>non-commutative generalization</em> of the Euclidean algorithm. For
+                    $\mathrm{PSL}(2,\mathbb{Z})$, the killer interval of the element $T^n S$ (where $T: z\mapsto z+1$
+                    and $S: z\mapsto -1/z$) is the open interval $(n, n+1)$. Together, these intervals tile
+                    $\mathbb{R}$, and the descent process is precisely the ordinary continued fraction algorithm. For
+                    pseudomodular groups, the intervals overlap and the descent is more intricate — but the principle is
+                    the same.</p>
+            </div>
+        </section>
+
+        <!-- §7 Infinite Families -->
+        <section id="sec-families" class="content-section">
+            <h2><span class="sec-num">7</span> Infinite Families</h2>
+            <p>Lou, Tan, and Vo prove that specific families of jigsaw groups are pseudomodular and pairwise
+                non-commensurable.</p>
+
+            <div class="theorem-box">
+                <h3>Main Theorem (Lou–Tan–Vo)</h3>
+                <p>There exist infinitely many commensurability classes of pseudomodular groups. Specifically:</p>
+                <ol>
+                    <li>Jigsaws formed from one Type 2 tile and $n$ Type 1 tiles (for any $n \ge 1$) are all
+                        pseudomodular.</li>
+                    <li>These jigsaw groups are pairwise <strong>non-commensurable</strong>.</li>
+                    <li>Hence there are infinitely many commensurability classes of pseudomodular groups and surfaces.
+                    </li>
+                </ol>
+            </div>
+
+            <p>The proof combines:</p>
+            <ul>
+                <li><strong>Jigsaw construction</strong> to produce explicit fundamental domains and generators in
+                    $\mathrm{PGL}(2,\mathbb{Q})$.</li>
+                <li><strong>Killer interval analysis</strong> to verify that the fundamental interval $[0, \lambda]$ is
+                    covered, establishing pseudomodularity.</li>
+                <li><strong>Invariant trace field</strong> computations to distinguish commensurability classes.
+                    Different tile parameters yield different trace fields, so the groups cannot be commensurable.</li>
+            </ul>
+
+            <p>They also show that jigsaws using Type 1 and Type 3 tiles produce <em>both</em> pseudomodular and
+                non-pseudomodular groups, revealing a rich landscape.</p>
+
+            <div class="family-table">
+                <h3>Known Families</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tile Types</th>
+                            <th>Parameters</th>
+                            <th>Pseudomodular?</th>
+                            <th>Classes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1 × Type 2 + $n$ × Type 1</td>
+                            <td>$n \ge 1$</td>
+                            <td class="yes">✓ Always</td>
+                            <td>$\infty$</td>
+                        </tr>
+                        <tr>
+                            <td>Type 1 + Type 3</td>
+                            <td>Various</td>
+                            <td class="mixed">Sometimes</td>
+                            <td>$\infty$</td>
+                        </tr>
+                        <tr>
+                            <td>Long–Reid $\Delta(u^2, 2\tau)$</td>
+                            <td>$\tau > u^2+1$</td>
+                            <td class="mixed">Sometimes</td>
+                            <td>≥ 3</td>
+                        </tr>
+                        <tr>
+                            <td>$\mathrm{PSL}(2,\mathbb{Z})$</td>
+                            <td>—</td>
+                            <td class="no">Modular (not pseudo)</td>
+                            <td>1</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- §8 Interactive -->
+        <section id="sec-interactive" class="content-section">
+            <h2><span class="sec-num">8</span> Interactive Explorer</h2>
+            <p>Use the <a href="index.html">Pseudomodular Group Explorer</a> to compute killer intervals for specific
+                parameter values and verify the covering property interactively.</p>
+            <div class="cta-container">
+                <a href="index.html" class="cta-btn">Launch Explorer →</a>
+            </div>
+        </section>
+
+        <!-- References -->
+        <section class="content-section references">
+            <h2>References</h2>
+            <ol class="ref-list">
+                <li id="ref1">B. Lou, S.P. Tan, A.D. Vo, <em>Hyperbolic jigsaws and families of pseudomodular groups
+                        I</em>, Geom. Topol. 22 (2018), 2339–2366. <a href="https://arxiv.org/abs/1611.02922"
+                        target="_blank">arXiv:1611.02922</a></li>
+                <li id="ref2">D.D. Long, A.W. Reid, <em>Pseudomodular surfaces</em>, J. Reine Angew. Math. 552 (2002),
+                    77–100.</li>
+                <li id="ref3">B. Lou, S.P. Tan, A.D. Vo, <em>Hyperbolic jigsaws and families of pseudomodular groups
+                        II</em>, 2020. <a href="https://arxiv.org/abs/2005.07795" target="_blank">arXiv:2005.07795</a>
+                </li>
+            </ol>
+        </section>
+    </main>
+
+    <script src="families.js"></script>
+</body>
+
+</html>
