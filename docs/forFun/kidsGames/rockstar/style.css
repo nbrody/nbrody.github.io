@@ -153,6 +153,42 @@ header h1 {
     font-weight: 400;
 }
 
+/* ========== SOUND STATUS INDICATOR ========== */
+.sound-status {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid rgba(255, 255, 255, .1);
+    color: var(--text-secondary);
+    padding: 8px 16px;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-body);
+    font-size: .85rem;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all .3s ease;
+    z-index: 10;
+}
+
+.sound-status:hover {
+    background: rgba(255, 255, 255, .1);
+    color: var(--text-primary);
+}
+
+#sound-status-icon {
+    font-size: 1.2rem;
+    transition: transform .3s ease;
+}
+
+#sound-status-icon.audio-active {
+    filter: drop-shadow(0 0 8px var(--accent-cyan));
+    transform: scale(1.1);
+}
+
 /* ========== INSTRUMENT PICKER ========== */
 .instrument-picker {
     display: flex;

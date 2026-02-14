@@ -7,16 +7,46 @@
 (function () {
     'use strict';
 
-    // ── AudioContext (lazy-init on first touch) ──────────────────────
+    // ── AudioContext Logic ──────────────────────
     let ctx = null;
 
-    function ensureAudio() {
+    // Visual indicator update
+    function updateAudioIndicator() {
+        const icon = document.getElementById('sound-status-icon');
+        const label = document.getElementById('sound-status-label');
+        if (!ctx) return;
+
+        if (ctx.state === 'running') {
+            icon.textContent = '🔊';
+            icon.classList.add('audio-active');
+            if (label) label.textContent = 'Sound: Ready!';
+        } else {
+            icon.textContent = '🔇';
+            icon.classList.remove('audio-active');
+            if (label) label.textContent = 'Sound: Tap to start';
+        }
+        console.log("Audio State:", ctx.state);
+    }
+
+    async function ensureAudio() {
         if (!ctx) {
             ctx = new (window.AudioContext || window.webkitAudioContext)();
+            // Listen for state changes
+            ctx.onstatechange = () => updateAudioIndicator();
         }
-        if (ctx.state === 'suspended') ctx.resume();
+        if (ctx.state === 'suspended') {
+            await ctx.resume();
+        }
+        updateAudioIndicator();
         return ctx;
     }
+
+    // Try to wake on any interaction
+    ['click', 'touchstart', 'mousedown'].forEach(evt => {
+        window.addEventListener(evt, () => {
+            if (ctx && ctx.state === 'suspended') ensureAudio();
+        }, { once: true });
+    });
 
     // ── FX Canvas (particle bursts on hit) ──────────────────────────
     const fxCanvas = document.getElementById('fx-canvas');
@@ -83,6 +113,27 @@
     document.getElementById('pick-piano').addEventListener('click', () => { ensureAudio(); showScreen('piano'); });
     document.getElementById('drums-back').addEventListener('click', () => showScreen('picker'));
     document.getElementById('piano-back').addEventListener('click', () => showScreen('picker'));
+
+    // Manual Sound initialization button
+    const soundBtn = document.getElementById('sound-status-btn');
+    if (soundBtn) {
+        soundBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            ensureAudio().then(() => {
+                // Play a tiny "blip" to confirm
+                if (ctx.state === 'running') {
+                    const osc = ctx.createOscillator();
+                    const g = ctx.createGain();
+                    osc.frequency.setTargetAtTime(440, ctx.currentTime, 0.01);
+                    g.gain.setTargetAtTime(0.1, ctx.currentTime, 0.01);
+                    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+                    osc.connect(g).connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.1);
+                }
+            });
+        });
+    }
 
     // ══════════════════════════════════════════════════════════════════
     //  DRUMS — Web Audio Synthesis
