@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description"
+        content="A fun music game for kids! Choose drums or piano and play by touching the screen.">
+    <title>🎸 Rockstar!</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Outfit:wght@400;700;900&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Animated stage lights -->
+    <div class="stage-light stage-light-1"></div>
+    <div class="stage-light stage-light-2"></div>
+    <div class="stage-light stage-light-3"></div>
+
+    <!-- ===== INSTRUMENT PICKER SCREEN ===== -->
+    <div id="picker-screen" class="screen active">
+        <header>
+            <h1>🎸 Rockstar!</h1>
+            <p class="subtitle">Pick your instrument and JAM!</p>
+        </header>
+
+        <div class="instrument-picker">
+            <button class="instrument-card" id="pick-drums" data-instrument="drums">
+                <span class="instrument-icon">🥁</span>
+                <span class="instrument-name">Drums</span>
+                <span class="instrument-desc">Tap the pads to make beats!</span>
+            </button>
+            <button class="instrument-card" id="pick-piano" data-instrument="piano">
+                <span class="instrument-icon">🎹</span>
+                <span class="instrument-name">Piano</span>
+                <span class="instrument-desc">Play melodies on the keys!</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== DRUMS PLAY SCREEN ===== -->
+    <div id="drums-screen" class="screen">
+        <div class="play-header">
+            <button id="drums-back" class="back-btn" aria-label="Back to picker">← Back</button>
+            <h2>🥁 Drum Kit</h2>
+        </div>
+        <div id="drum-pad-container" class="drum-pad-container">
+            <!-- Pads injected by JS -->
+        </div>
+    </div>
+
+    <!-- ===== PIANO PLAY SCREEN ===== -->
+    <div id="piano-screen" class="screen">
+        <div class="play-header">
+            <button id="piano-back" class="back-btn" aria-label="Back to picker">← Back</button>
+            <h2>🎹 Piano</h2>
+        </div>
+        <div id="piano-container" class="piano-container">
+            <!-- Keys injected by JS -->
+        </div>
+    </div>
+
+    <!-- Visual hit effect overlay -->
+    <canvas id="fx-canvas"></canvas>
+
+    <footer>
+        <p>&copy; 2026 Fun Hub for Kids</p>
+    </footer>
+
+    <script src="game.js"></script>
+</body>
+
+</html>
