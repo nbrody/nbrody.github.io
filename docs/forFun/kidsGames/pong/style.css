@@ -1,0 +1,280 @@
+/* ── Reset & Globals ─────────────────────────────── */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #0a0a1a;
+    --surface: rgba(255, 255, 255, 0.04);
+    --glass: rgba(255, 255, 255, 0.08);
+    --glass-b: rgba(255, 255, 255, 0.12);
+    --cyan: #00f0ff;
+    --magenta: #ff2daa;
+    --gold: #ffd700;
+    --text: #e4e4f0;
+    --text-dim: #8888aa;
+    --radius: 18px;
+    --font-display: 'Orbitron', sans-serif;
+    --font-body: 'Inter', sans-serif;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    font-family: var(--font-body);
+    color: var(--text);
+    touch-action: none;
+    /* prevent browser gestures */
+    -webkit-touch-callout: none;
+    /* prevent long-press menu  */
+    user-select: none;
+}
+
+/* ── Canvas ──────────────────────────────────────── */
+#pong-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 0;
+}
+
+/* ── HUD ─────────────────────────────────────────── */
+#hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 80px;
+    z-index: 10;
+    pointer-events: none;
+    padding-top: 18px;
+}
+
+.score {
+    font-family: var(--font-display);
+    font-size: 56px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: var(--text);
+    text-shadow:
+        0 0 12px rgba(255, 255, 255, 0.25),
+        0 0 40px rgba(0, 240, 255, 0.15);
+    transition: transform .12s, color .2s;
+}
+
+.score.flash-left {
+    color: var(--cyan);
+    transform: scale(1.35);
+}
+
+.score.flash-right {
+    color: var(--magenta);
+    transform: scale(1.35);
+}
+
+/* ── Overlays ────────────────────────────────────── */
+#menu-overlay,
+#win-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    background: radial-gradient(ellipse at center, rgba(10, 10, 26, 0.92) 0%, rgba(10, 10, 26, 0.98) 100%);
+    animation: fadeIn .4s ease;
+}
+
+.hidden {
+    display: none !important;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.menu-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    background: var(--glass);
+    border: 1px solid var(--glass-b);
+    border-radius: var(--radius);
+    padding: 52px 64px;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow:
+        0 8px 60px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.menu-title {
+    font-family: var(--font-display);
+    font-size: 72px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--cyan), var(--magenta));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 12px;
+    text-shadow: none;
+    filter: drop-shadow(0 0 30px rgba(0, 240, 255, 0.3));
+}
+
+.menu-sub {
+    font-size: 16px;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+/* ── Score selector ──────────────────────────────── */
+.setting-group {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.setting-group label {
+    font-family: var(--font-display);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+}
+
+.score-selector {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.score-selector span {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 700;
+    width: 50px;
+    text-align: center;
+    color: var(--text);
+}
+
+.score-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-b);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 22px;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+}
+
+.score-btn:active {
+    background: var(--glass-b);
+    transform: scale(0.92);
+}
+
+/* ── Glow Buttons ─────────────────────────────────── */
+.glow-btn {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    padding: 18px 48px;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    color: var(--bg);
+    background: linear-gradient(135deg, var(--cyan), var(--magenta));
+    box-shadow:
+        0 0 20px rgba(0, 240, 255, 0.25),
+        0 0 60px rgba(255, 45, 170, 0.15);
+    transition: transform .12s, box-shadow .2s;
+}
+
+.glow-btn:active {
+    transform: scale(0.95);
+    box-shadow:
+        0 0 10px rgba(0, 240, 255, 0.15),
+        0 0 30px rgba(255, 45, 170, 0.10);
+}
+
+.glow-btn.outline {
+    background: transparent;
+    border: 2px solid var(--glass-b);
+    color: var(--text-dim);
+    box-shadow: none;
+}
+
+.glow-btn.outline:active {
+    background: var(--surface);
+}
+
+/* ── Win overlay ─────────────────────────────────── */
+.win-title {
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--gold), #ff9500);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.4));
+    letter-spacing: 4px;
+}
+
+/* ── Countdown ───────────────────────────────────── */
+#countdown {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 90;
+    pointer-events: none;
+}
+
+#countdown-text {
+    font-family: var(--font-display);
+    font-size: 120px;
+    font-weight: 900;
+    color: var(--text);
+    text-shadow: 0 0 40px rgba(0, 240, 255, 0.4);
+    animation: countPulse .6s ease-out;
+}
+
+@keyframes countPulse {
+    0% {
+        transform: scale(1.8);
+        opacity: 0;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ── Center-line (drawn on canvas, but nice to have a CSS divider fallback) ── */

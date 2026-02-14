@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Two-player Pong game optimized for iPad touch controls.">
+    <title>Pong — Two Player</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Start / menu overlay -->
+    <div id="menu-overlay">
+        <div class="menu-card">
+            <h1 class="menu-title">PONG</h1>
+            <p class="menu-sub">Two-Player • Touch to Play</p>
+
+            <div class="setting-group">
+                <label for="winning-score">Play to</label>
+                <div class="score-selector">
+                    <button class="score-btn" data-delta="-1">−</button>
+                    <span id="winning-score">7</span>
+                    <button class="score-btn" data-delta="1">+</button>
+                </div>
+            </div>
+
+            <button id="start-btn" class="glow-btn">START GAME</button>
+        </div>
+    </div>
+
+    <!-- In-game HUD -->
+    <div id="hud">
+        <div id="score-left" class="score">0</div>
+        <div id="score-right" class="score">0</div>
+    </div>
+
+    <!-- Win overlay -->
+    <div id="win-overlay" class="hidden">
+        <div class="menu-card">
+            <h1 class="win-title" id="win-text">Player 1 Wins!</h1>
+            <button id="rematch-btn" class="glow-btn">REMATCH</button>
+            <button id="menu-btn" class="glow-btn outline">MENU</button>
+        </div>
+    </div>
+
+    <!-- Countdown -->
+    <div id="countdown" class="hidden">
+        <span id="countdown-text">3</span>
+    </div>
+
+    <!-- The game canvas -->
+    <canvas id="pong-canvas"></canvas>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

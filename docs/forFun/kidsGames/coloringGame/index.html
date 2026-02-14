@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description"
+        content="A fun coloring book game for kids! Choose colors and fill in beautiful stencil pictures.">
+    <title>Coloring Book</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Outfit:wght@400;700;900&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Fun background blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <!-- Header -->
+    <header>
+        <h1>🎨 Coloring Book</h1>
+        <p class="subtitle">Pick a picture and color it in!</p>
+    </header>
+
+    <!-- Stencil Picker -->
+    <div id="stencil-picker" class="stencil-picker">
+        <button class="stencil-btn active" data-stencil="butterfly">
+            <span class="stencil-icon">🦋</span>
+            <span class="stencil-label">Butterfly</span>
+        </button>
+        <button class="stencil-btn" data-stencil="dinosaur">
+            <span class="stencil-icon">🦕</span>
+            <span class="stencil-label">Dinosaur</span>
+        </button>
+        <button class="stencil-btn" data-stencil="house">
+            <span class="stencil-icon">🏠</span>
+            <span class="stencil-label">House</span>
+        </button>
+        <button class="stencil-btn" data-stencil="rocket">
+            <span class="stencil-icon">🚀</span>
+            <span class="stencil-label">Rocket</span>
+        </button>
+        <button class="stencil-btn" data-stencil="fish">
+            <span class="stencil-icon">🐠</span>
+            <span class="stencil-label">Fish</span>
+        </button>
+    </div>
+
+    <!-- Main Canvas Area -->
+    <main class="canvas-area">
+        <div class="canvas-container">
+            <svg id="coloring-canvas" viewBox="0 0 600 500" xmlns="http://www.w3.org/2000/svg">
+                <!-- Stencil paths injected by JS -->
+            </svg>
+        </div>
+    </main>
+
+    <!-- Color Palette -->
+    <div id="color-palette" class="color-palette">
+        <!-- Colors injected by JS -->
+    </div>
+
+    <!-- Tool Bar -->
+    <div class="toolbar">
+        <button id="eraser-btn" class="tool-btn" title="Eraser">
+            <span>🧹</span>
+            <span class="tool-label">Eraser</span>
+        </button>
+        <button id="clear-btn" class="tool-btn" title="Clear All">
+            <span>🗑️</span>
+            <span class="tool-label">Clear</span>
+        </button>
+        <button id="save-btn" class="tool-btn" title="Save Drawing">
+            <span>💾</span>
+            <span class="tool-label">Save</span>
+        </button>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Fun Hub for Kids</p>
+    </footer>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

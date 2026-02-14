@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kids' Games Hub | Play & Learn</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Outfit:wght@400;700;900&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #fdf4ff;
+            --card-bg: #ffffff;
+            --primary: #ff6b6b;
+            --secondary: #4ecdc4;
+            --accent: #ffe66d;
+            --text: #2d3436;
+            --text-dim: #636e72;
+            --shadow: 0 15px 35px rgba(255, 107, 107, 0.15);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Fredoka', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        /* Fun Background Shapes */
+        .blob {
+            position: fixed;
+            z-index: -1;
+            filter: blur(80px);
+            opacity: 0.5;
+            border-radius: 50%;
+        }
+
+        .blob-1 {
+            top: -100px;
+            right: -100px;
+            width: 400px;
+            height: 400px;
+            background: #ff6b6b;
+        }
+
+        .blob-2 {
+            bottom: -100px;
+            left: -100px;
+            width: 500px;
+            height: 500px;
+            background: #4ecdc4;
+        }
+
+        .blob-3 {
+            top: 40%;
+            left: -200px;
+            width: 300px;
+            height: 300px;
+            background: #ffe66d;
+        }
+
+        header {
+            padding: 4rem 2rem 2rem;
+            text-align: center;
+            max-width: 800px;
+            animation: bounceIn 1s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes bounceIn {
+            0% {
+                transform: scale(0.3);
+                opacity: 0;
+            }
+
+            60% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: 4.5rem;
+            margin: 0;
+            color: #ff6b6b;
+            text-shadow: 4px 4px 0px #ffe66d;
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+
+        .subtitle {
+            font-size: 1.5rem;
+            color: var(--text-dim);
+            margin-top: 1rem;
+            font-weight: 500;
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 2.5rem;
+            padding: 3rem 2rem;
+            max-width: 1200px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .game-card {
+            background: var(--card-bg);
+            border-radius: 40px;
+            padding: 2.5rem;
+            text-align: center;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: var(--shadow);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            border: 8px solid white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .game-card:hover {
+            transform: translateY(-15px) rotate(2deg);
+            box-shadow: 0 25px 50px rgba(255, 107, 107, 0.25);
+            border-color: #ffe66d;
+        }
+
+        .game-card:nth-child(even):hover {
+            transform: translateY(-15px) rotate(-2deg);
+        }
+
+        .icon-circle {
+            width: 120px;
+            height: 120px;
+            background: #f0f0f0;
+            border-radius: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            transition: transform 0.3s ease;
+        }
+
+        .game-card:hover .icon-circle {
+            transform: scale(1.1);
+        }
+
+        .game-title {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 2rem;
+            margin: 0;
+            color: #2d3436;
+        }
+
+        .game-description {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+            line-height: 1.4;
+        }
+
+        #loading {
+            font-size: 2rem;
+            padding: 4rem;
+            color: var(--text-dim);
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 3rem;
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+
+        .card-pink {
+            --accent: #ff6b6b;
+        }
+
+        .card-blue {
+            --accent: #4ecdc4;
+        }
+
+        .card-yellow {
+            --accent: #ffe66d;
+        }
+
+        .card-purple {
+            --accent: #a29bfe;
+        }
+
+        .card-green {
+            --accent: #55efc4;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 3rem;
+            }
+
+            .games-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <header>
+        <h1>Fun Central!</h1>
+        <p class="subtitle">Pick a game and let's play!</p>
+    </header>
+
+    <main id="games-container" class="games-grid">
+        <div id="loading">Checking the toy box...</div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 Fun Hub for Kids</p>
+    </footer>
+
+    <script>
+        const ICONS = {
+            'matching': '🧸',
+            'brickBreaker': '🧱',
+            'pong': '🏓',
+            'coloringGame': '🎨',
+            'default': '🎮'
+        };
+
+        const DESCRIPTIONS = {
+            'matching': 'Find all the stuffed animal pairs!',
+            'brickBreaker': 'Smash the colorful blocks!',
+            'pong': 'Classic paddle fun for two!',
+            'coloringGame': 'Color beautiful pictures!',
+            'default': 'A super fun game to play!'
+        };
+
+        const CARD_CLASSES = ['card-pink', 'card-blue', 'card-yellow', 'card-purple', 'card-green'];
+
+        async function loadGames() {
+            const container = document.getElementById('games-container');
+            const gamesMap = new Map();
+
+            // Helper to add game if not already present
+            const addGame = (name) => {
+                if (!gamesMap.has(name)) {
+                    gamesMap.set(name, {
+                        name: name,
+                        url: `${name}/index.html`
+                    });
+                }
+            };
+
+            // 1. Try Sitemap.json (Reliable source for local and structured data)
+            try {
+                const response = await fetch('../../sitemap.json');
+                const data = await response.json();
+                const folder = data.forFun?.children?.kidsGames?.children;
+                if (folder) {
+                    Object.entries(folder)
+                        .filter(([name, item]) => item._type === 'folder')
+                        .forEach(([name]) => addGame(name));
+                }
+            } catch (e) {
+                console.warn("Sitemap fetch failed.");
+            }
+
+            // 2. Try GitHub API (Live discovery for pushed games)
+            try {
+                const repo = "nbrody/nbrody.github.io";
+                const path = "docs/forFun/kidsGames";
+                const apiURL = `https://api.github.com/repos/${repo}/contents/${path}`;
+
+                const response = await fetch(apiURL);
+                if (response.ok) {
+                    const data = await response.json();
+                    data.filter(item => item.type === 'dir' && item.name !== 'node_modules')
+                        .forEach(dir => addGame(dir.name));
+                }
+            } catch (e) {
+                console.warn("GitHub API failed or rate limited.");
+            }
+
+            const games = Array.from(gamesMap.values());
+
+            // Render
+            if (games.length === 0) {
+                container.innerHTML = '<div>No games found in the toy box yet!</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            games.forEach((game, index) => {
+                const card = document.createElement('a');
+                card.href = game.url;
+                card.className = `game-card ${CARD_CLASSES[index % CARD_CLASSES.length]}`;
+
+                const displayName = game.name.replace(/([A-Z])/g, ' $1').trim();
+                const icon = ICONS[game.name] || ICONS.default;
+                const desc = DESCRIPTIONS[game.name] || DESCRIPTIONS.default;
+
+                card.innerHTML = `
+                    <div class="icon-circle" style="background: var(--accent)22">${icon}</div>
+                    <h2 class="game-title">${displayName}</h2>
+                    <p class="game-description">${desc}</p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        loadGames();
+    </script>
+</body>
+
+</html>
