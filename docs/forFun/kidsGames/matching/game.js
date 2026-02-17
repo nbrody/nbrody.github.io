@@ -46,6 +46,10 @@ function playSelectSound() {
     playTone(523, 0.15, 'sine', 0.12);  // C5
 }
 
+function playFlipSound() {
+    playTone(392, 0.1, 'sine', 0.08);  // G4 — subtle flip
+}
+
 function playMatchSound() {
     // Happy ascending arpeggio
     playTone(523, 0.2, 'sine', 0.12);   // C5
@@ -66,11 +70,13 @@ function playVictorySound() {
 
 /* ===== State ===== */
 let cards = [];
-let selected = null;       // Currently selected card element
+let selected = null;       // Currently selected card element (easy mode)
+let flippedCards = [];     // Currently flipped cards (hard mode, max 2)
 let isProcessing = false;  // Lock during animations
 let matchCount = 0;
 let totalPairs = 0;
 let stars = 0;
+let gameMode = 'easy';     // 'easy' or 'hard'
 
 /* ===== DOM refs ===== */
 const board = document.getElementById('game-board');
@@ -78,11 +84,26 @@ const starCounter = document.getElementById('star-counter');
 const toyBox = document.getElementById('toy-box');
 const boxItems = document.getElementById('box-items');
 const victoryScreen = document.getElementById('victory-screen');
+const subtitleText = document.getElementById('subtitle-text');
+
+/* ===== Mode picker ===== */
+document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        const newMode = btn.dataset.mode;
+        if (newMode === gameMode) return;
+        gameMode = newMode;
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        initGame();
+    });
+});
 
 /* ===== Init ===== */
 function initGame() {
     // Reset state
     selected = null;
+    flippedCards = [];
     isProcessing = false;
     matchCount = 0;
     stars = 0;
@@ -90,6 +111,13 @@ function initGame() {
     board.innerHTML = '';
     boxItems.innerHTML = '';
     victoryScreen.classList.remove('show');
+
+    // Update subtitle based on mode
+    if (gameMode === 'hard') {
+        subtitleText.textContent = 'Flip two cards — find the pairs!';
+    } else {
+        subtitleText.textContent = 'Tap two that look the same!';
+    }
 
     // Pick random items for this round
     const shuffledItems = [...ITEMS].sort(() => Math.random() - 0.5);
@@ -140,6 +168,11 @@ function createCardElement(card) {
     el.dataset.uid = card.uid;
     el.id = `card-${card.uid}`;
 
+    // In hard mode, add flip classes
+    if (gameMode === 'hard') {
+        el.classList.add('hard-mode');
+    }
+
     const inner = document.createElement('div');
     inner.className = 'card-inner';
 
@@ -151,16 +184,28 @@ function createCardElement(card) {
     inner.appendChild(img);
     el.appendChild(inner);
 
+    // Card back (visible in hard mode when face-down)
+    if (gameMode === 'hard') {
+        const back = document.createElement('div');
+        back.className = 'card-back';
+        back.textContent = '❓';
+        el.appendChild(back);
+    }
+
     // Touch + click handler
     el.addEventListener('pointerdown', (e) => {
         e.preventDefault();
-        onCardTap(el);
+        if (gameMode === 'hard') {
+            onCardTapHard(el);
+        } else {
+            onCardTap(el);
+        }
     });
 
     return el;
 }
 
-/* ===== Card Tap Handler ===== */
+/* ===== Card Tap Handler — EASY MODE ===== */
 function onCardTap(el) {
     if (isProcessing) return;
     if (el.classList.contains('matched')) return;
@@ -199,7 +244,36 @@ function onCardTap(el) {
     }
 }
 
-/* ===== Match ===== */
+/* ===== Card Tap Handler — HARD MODE ===== */
+function onCardTapHard(el) {
+    if (isProcessing) return;
+    if (el.classList.contains('matched')) return;
+    if (el.classList.contains('flipped')) return; // already face-up
+    if (flippedCards.length >= 2) return;
+
+    ensureAudioCtx();
+    playFlipSound();
+
+    // Flip the card face-up
+    el.classList.add('flipped');
+    flippedCards.push(el);
+
+    // If two cards are now flipped, check for match
+    if (flippedCards.length === 2) {
+        isProcessing = true;
+        const [card1, card2] = flippedCards;
+
+        if (card1.dataset.id === card2.dataset.id) {
+            // Match!
+            handleMatchHard(card1, card2);
+        } else {
+            // No match — flip back after a delay
+            handleNoMatchHard(card1, card2);
+        }
+    }
+}
+
+/* ===== Match — EASY MODE ===== */
 function handleMatch(card1, card2) {
     isProcessing = true;
     matchCount++;
@@ -243,7 +317,77 @@ function handleMatch(card1, card2) {
     }, 300);
 }
 
-/* ===== Fly a card to the toy box ===== */
+/* ===== Match — HARD MODE ===== */
+function handleMatchHard(card1, card2) {
+    matchCount++;
+    stars++;
+    updateStars();
+
+    setTimeout(() => {
+        playMatchSound();
+        createSparkles(card1);
+        createSparkles(card2);
+    }, 300);
+
+    // Mark as matched — they shrink/fade away
+    setTimeout(() => {
+        card1.classList.add('matched');
+        card2.classList.add('matched');
+
+        // Add to toy box
+        toyBox.classList.add('receiving');
+        setTimeout(() => toyBox.classList.remove('receiving'), 600);
+
+        const itemImg = document.createElement('img');
+        itemImg.src = card1.querySelector('img').src;
+        itemImg.alt = card1.dataset.id;
+        boxItems.appendChild(itemImg);
+
+        flippedCards = [];
+        isProcessing = false;
+
+        if (matchCount >= totalPairs) {
+            showVictory();
+        }
+    }, 700);
+}
+
+/* ===== No Match — EASY MODE ===== */
+function handleNoMatch(card1, card2) {
+    isProcessing = true;
+
+    setTimeout(() => {
+        playWrongSound();
+        card1.classList.add('shake');
+        card2.classList.add('shake');
+
+        setTimeout(() => {
+            card1.classList.remove('selected', 'shake');
+            card2.classList.remove('selected', 'shake');
+            isProcessing = false;
+            selected = null;
+        }, 600);
+    }, 300);
+}
+
+/* ===== No Match — HARD MODE ===== */
+function handleNoMatchHard(card1, card2) {
+    // Let the player see both cards for a moment
+    setTimeout(() => {
+        playWrongSound();
+        card1.classList.add('shake');
+        card2.classList.add('shake');
+
+        setTimeout(() => {
+            card1.classList.remove('flipped', 'shake');
+            card2.classList.remove('flipped', 'shake');
+            flippedCards = [];
+            isProcessing = false;
+        }, 700);
+    }, 800);
+}
+
+/* ===== Fly a card to the toy box (EASY mode only) ===== */
 function flyCardToBox(card, delay) {
     const cardRect = card.getBoundingClientRect();
     const boxRect = toyBox.getBoundingClientRect();
@@ -298,24 +442,6 @@ function flyCardToBox(card, delay) {
             clone.remove();
         }, 120 + 750);
     }, delay);
-}
-
-/* ===== No Match ===== */
-function handleNoMatch(card1, card2) {
-    isProcessing = true;
-
-    setTimeout(() => {
-        playWrongSound();
-        card1.classList.add('shake');
-        card2.classList.add('shake');
-
-        setTimeout(() => {
-            card1.classList.remove('selected', 'shake');
-            card2.classList.remove('selected', 'shake');
-            isProcessing = false;
-            selected = null;
-        }, 600);
-    }, 300);
 }
 
 /* ===== Stars ===== */

@@ -5,9 +5,9 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 // Parameters & State
 // -----------------------------
 const params = {
-    depthT3: 2,
-    depthT4: 2,
-    sqOpacity: 0.08,
+    depthT3: 3,
+    depthT4: 3,
+    sqOpacity: 0.15,
     vertexSize: 3,
     zMix: 1.0,
     spacingT3: 130,
@@ -18,7 +18,7 @@ const params = {
 };
 
 let time = 0;
-window.isPlaying = false;
+window.isPlaying = true;
 const speedMult = 0.002;
 
 // -----------------------------
@@ -80,24 +80,32 @@ function getProjectedPoint(p4) {
     z *= params.zMix;
     w *= params.zMix;
 
-    const pVec = new THREE.Vector4(x, y, z, w);
-    const a = time * 0.4, b = time * 0.25, c = time * 0.15;
+    // Rotate blue tree in its xy-plane (keeps 2D spread)
+    const a1 = time * 0.3;
+    const c1 = Math.cos(a1), s1 = Math.sin(a1);
+    const rx = x * c1 - y * s1;
+    const ry = x * s1 + y * c1;
 
-    const n = new THREE.Vector4(
-        Math.sin(a) * Math.sin(b) * Math.sin(c),
-        Math.sin(a) * Math.sin(b) * Math.cos(c),
-        Math.sin(a) * Math.cos(b),
-        Math.cos(a)
-    ).normalize();
+    // Rotate red tree in its zw-plane (keeps 2D spread)
+    const a2 = time * 0.2;
+    const c2 = Math.cos(a2), s2 = Math.sin(a2);
+    const rz = z * c2 - w * s2;
+    const rw = z * s2 + w * c2;
 
-    const e4 = new THREE.Vector4(0, 0, 0, 1);
-    const v = n.clone().sub(e4);
-    if (v.lengthSq() < 0.000001) return new THREE.Vector3(x, y, z);
-    v.normalize();
+    // Project 4D → 3D guaranteeing both trees stay 2D:
+    //   Blue tree (rx, ry) → always spans (out_x, out_y)
+    //   Red tree  (rz, rw) → always spans (out_z, out_y)
+    // They share the y-axis for depth.
 
-    const dotV = pVec.dot(v);
-    const rotated = pVec.clone().sub(v.clone().multiplyScalar(2 * dotV));
-    return new THREE.Vector3(rotated.x, rotated.y, rotated.z);
+    // Gentle cross-plane tilt oscillation (max ~14°, never collapses)
+    const tilt = 0.25 * Math.sin(time * 0.08);
+    const ct = Math.cos(tilt), st = Math.sin(tilt);
+
+    return new THREE.Vector3(
+        rx * ct - rz * st,
+        ry * 0.7 + rw * 0.7,
+        rx * st + rz * ct
+    );
 }
 
 // -----------------------------

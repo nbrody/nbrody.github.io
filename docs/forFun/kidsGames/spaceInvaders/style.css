@@ -1,0 +1,408 @@
+/* ───────── Reset & Base ───────── */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-dark: #05080f;
+    --bg-card: rgba(10, 16, 32, 0.9);
+    --neon-green: #39ff14;
+    --neon-cyan: #00f0ff;
+    --neon-pink: #ff2daa;
+    --neon-gold: #ffd700;
+    --neon-purple: #b44dff;
+    --neon-orange: #ff6a00;
+    --glass: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --font-display: 'Orbitron', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --hud-h: 52px;
+}
+
+html,
+body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: var(--bg-dark);
+    font-family: var(--font-body);
+    color: #e0e0e0;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(ellipse at 20% 15%, rgba(180, 77, 255, .06) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 85%, rgba(0, 240, 255, .04) 0%, transparent 55%),
+        radial-gradient(ellipse at 50% 50%, rgba(57, 255, 20, .02) 0%, transparent 70%),
+        var(--bg-dark);
+}
+
+/* ───────── Starfield BG ───────── */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background-image:
+        radial-gradient(1px 1px at 10% 20%, rgba(255, 255, 255, .4), transparent),
+        radial-gradient(1px 1px at 30% 60%, rgba(255, 255, 255, .3), transparent),
+        radial-gradient(1px 1px at 50% 10%, rgba(255, 255, 255, .5), transparent),
+        radial-gradient(1px 1px at 70% 40%, rgba(255, 255, 255, .2), transparent),
+        radial-gradient(1px 1px at 90% 80%, rgba(255, 255, 255, .4), transparent),
+        radial-gradient(1px 1px at 15% 90%, rgba(255, 255, 255, .3), transparent),
+        radial-gradient(1px 1px at 45% 45%, rgba(255, 255, 255, .25), transparent),
+        radial-gradient(1px 1px at 65% 70%, rgba(255, 255, 255, .35), transparent),
+        radial-gradient(1px 1px at 85% 15%, rgba(255, 255, 255, .3), transparent),
+        radial-gradient(1px 1px at 25% 35%, rgba(255, 255, 255, .2), transparent),
+        radial-gradient(1.5px 1.5px at 5% 55%, rgba(180, 77, 255, .4), transparent),
+        radial-gradient(1.5px 1.5px at 95% 45%, rgba(0, 240, 255, .3), transparent);
+    pointer-events: none;
+}
+
+/* ───────── Canvas ───────── */
+#game-canvas {
+    display: block;
+    border-radius: 6px;
+    box-shadow: 0 0 40px rgba(180, 77, 255, .12), inset 0 0 60px rgba(0, 0, 0, .5);
+    border: 1px solid var(--glass-border);
+    background: #060a14;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+}
+
+/* ───────── Overlays ───────── */
+#menu-overlay,
+#gameover-overlay,
+#level-overlay,
+#pause-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(3, 5, 12, 0.88);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    animation: fadeIn .3s ease;
+}
+
+.menu-card {
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 40px 48px;
+    text-align: center;
+    box-shadow:
+        0 8px 60px rgba(0, 0, 0, .6),
+        0 0 100px rgba(180, 77, 255, .05),
+        inset 0 1px 0 rgba(255, 255, 255, .05);
+    max-width: 400px;
+    width: 90%;
+    animation: cardPop .4s cubic-bezier(.17, .67, .35, 1.15);
+}
+
+.menu-title {
+    font-family: var(--font-display);
+    font-size: 2.4rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--neon-purple), var(--neon-cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.15;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 16px rgba(180, 77, 255, .3));
+}
+
+.menu-sub {
+    font-size: .92rem;
+    color: rgba(255, 255, 255, .5);
+    margin-bottom: 18px;
+}
+
+.controls-hint {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: .78rem;
+    color: rgba(255, 255, 255, .35);
+    margin-bottom: 20px;
+    font-family: var(--font-body);
+}
+
+.win-title {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--neon-gold), var(--neon-orange));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 0 14px rgba(255, 215, 0, .3));
+}
+
+.lose-title {
+    font-family: var(--font-display);
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--neon-pink);
+    text-shadow: 0 0 30px rgba(255, 45, 170, .4);
+    margin-bottom: 8px;
+}
+
+.new-high {
+    color: var(--neon-gold) !important;
+    font-weight: 600;
+    font-size: 1rem !important;
+    animation: pulse 1s ease infinite;
+}
+
+.level-bonus {
+    color: var(--neon-green) !important;
+    font-weight: 600;
+}
+
+/* ───────── Buttons ───────── */
+.glow-btn {
+    display: block;
+    width: 100%;
+    padding: 14px 0;
+    margin-top: 12px;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--bg-dark);
+    background: linear-gradient(135deg, var(--neon-purple), var(--neon-cyan));
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(180, 77, 255, .25);
+    transition: transform .15s, box-shadow .15s;
+    letter-spacing: .06em;
+}
+
+.glow-btn:hover {
+    transform: scale(1.04);
+    box-shadow: 0 0 30px rgba(180, 77, 255, .4);
+}
+
+.glow-btn:active {
+    transform: scale(.97);
+}
+
+.glow-btn.outline {
+    background: transparent;
+    color: var(--neon-cyan);
+    border: 2px solid var(--neon-cyan);
+    box-shadow: 0 0 12px rgba(0, 240, 255, .15);
+}
+
+.glow-btn.outline:hover {
+    box-shadow: 0 0 24px rgba(0, 240, 255, .3);
+}
+
+/* ───────── HUD ───────── */
+#hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    height: var(--hud-h);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    background: rgba(5, 8, 15, .85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.hud-label {
+    font-size: .58rem;
+    letter-spacing: .1em;
+    color: rgba(255, 255, 255, .4);
+    display: block;
+}
+
+.hud-value {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.1rem;
+    background: linear-gradient(135deg, var(--neon-purple), var(--neon-cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+#hud-left,
+#hud-center,
+#hud-right {
+    text-align: center;
+    min-width: 70px;
+}
+
+/* ───────── Countdown ───────── */
+#countdown {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(3, 5, 12, .7);
+    backdrop-filter: blur(8px);
+}
+
+#countdown-text {
+    font-family: var(--font-display);
+    font-size: 6rem;
+    font-weight: 900;
+    color: var(--neon-purple);
+    text-shadow: 0 0 60px rgba(180, 77, 255, .5);
+    animation: countPop .55s ease;
+}
+
+/* ───────── Touch Controls ───────── */
+#touch-controls {
+    position: fixed;
+    z-index: 80;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    width: 92%;
+    max-width: 420px;
+}
+
+.touch-btn {
+    flex: 1;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 14px;
+    color: rgba(255, 255, 255, .55);
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .1s, color .1s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.touch-btn:active {
+    background: rgba(180, 77, 255, .2);
+    color: var(--neon-purple);
+    border-color: var(--neon-purple);
+}
+
+.touch-fire {
+    flex: 1.8;
+    font-size: 1rem;
+    letter-spacing: .08em;
+    background: rgba(255, 45, 170, .08);
+    border-color: rgba(255, 45, 170, .2);
+    color: rgba(255, 45, 170, .6);
+}
+
+.touch-fire:active {
+    background: rgba(255, 45, 170, .25);
+    color: var(--neon-pink);
+    border-color: var(--neon-pink);
+}
+
+/* ───────── Utility ───────── */
+.hidden {
+    display: none !important;
+}
+
+/* ───────── Animations ───────── */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes cardPop {
+    from {
+        opacity: 0;
+        transform: scale(.88) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes countPop {
+    0% {
+        transform: scale(1.8);
+        opacity: 0;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: .5;
+    }
+}
+
+/* ───────── Responsive ───────── */
+@media (max-width: 500px) {
+    .menu-card {
+        padding: 28px 24px;
+    }
+
+    .menu-title {
+        font-size: 1.8rem;
+    }
+
+    .lose-title {
+        font-size: 1.5rem;
+    }
+
+    .win-title {
+        font-size: 1.4rem;
+    }
+}

@@ -68,6 +68,39 @@ body {
     margin-top: 2px;
 }
 
+/* ===== Mode Picker ===== */
+#mode-picker {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.mode-btn {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 8px 24px;
+    border: 3px solid #e0d6f0;
+    border-radius: 50px;
+    background: white;
+    color: #7e57c2;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 8px rgba(92, 53, 165, 0.1);
+}
+
+.mode-btn:active {
+    transform: scale(0.92);
+}
+
+.mode-btn.active {
+    background: linear-gradient(135deg, #ab47bc, #7c4dff);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 16px rgba(124, 77, 255, 0.35);
+}
+
 /* ===== Star counter ===== */
 #star-counter {
     font-size: 1.5rem;
@@ -113,6 +146,9 @@ body {
 }
 
 .card-inner {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     border-radius: 20px;
@@ -127,7 +163,109 @@ body {
     padding: 12px;
     overflow: hidden;
     border: 3px solid transparent;
-    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease,
+        transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    z-index: 2;
+}
+
+/* ===== Hard Mode — Card Flip ===== */
+.card.hard-mode {
+    perspective: 800px;
+}
+
+.card.hard-mode .card-inner {
+    transform: rotateY(180deg);
+}
+
+.card-back {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 20px;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #ab47bc 0%, #7c4dff 50%, #536dfe 100%);
+    box-shadow:
+        0 4px 16px rgba(92, 53, 165, 0.2),
+        0 1px 4px rgba(0, 0, 0, 0.1),
+        inset 0 -3px 0 rgba(0, 0, 0, 0.1);
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 2.6rem;
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    z-index: 1;
+}
+
+/* Pattern overlay on card back */
+.card-back::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.12) 2px, transparent 2px),
+        radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.12) 2px, transparent 2px);
+    background-size: 20px 20px;
+    pointer-events: none;
+}
+
+/* Shimmer on hover */
+.card-back::after {
+    content: '';
+    position: absolute;
+    top: -100%;
+    left: -100%;
+    width: 300%;
+    height: 300%;
+    background: linear-gradient(135deg,
+            transparent 30%,
+            rgba(255, 255, 255, 0.15) 45%,
+            transparent 60%);
+    transition: transform 0.5s ease;
+    pointer-events: none;
+}
+
+.card.hard-mode:hover .card-back::after {
+    transform: translate(30%, 30%);
+}
+
+/* Face-up in hard mode */
+.card.hard-mode.flipped .card-inner {
+    transform: rotateY(0deg);
+}
+
+.card.hard-mode.flipped .card-back {
+    transform: rotateY(180deg);
+}
+
+/* Matched in hard mode — fade/shrink out */
+.card.hard-mode.matched {
+    pointer-events: none;
+    animation: matchedFade 0.5s ease forwards;
+}
+
+@keyframes matchedFade {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(0);
+        opacity: 0;
+    }
 }
 
 .card img {

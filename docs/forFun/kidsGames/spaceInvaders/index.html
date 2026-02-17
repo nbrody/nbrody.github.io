@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description"
+        content="Classic Space Invaders arcade game with neon aesthetics and multiple levels. Touch or keyboard to play.">
+    <title>Space Invaders</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Start / menu overlay -->
+    <div id="menu-overlay">
+        <div class="menu-card">
+            <h1 class="menu-title">👾<br>SPACE<br>INVADERS</h1>
+            <p class="menu-sub">Defend Earth from the alien horde!</p>
+            <div class="controls-hint">
+                <span>← → Move</span>
+                <span>Space / Tap — Shoot</span>
+            </div>
+            <button id="start-btn" class="glow-btn">START GAME</button>
+        </div>
+    </div>
+
+    <!-- In-game HUD -->
+    <div id="hud" class="hidden">
+        <div id="hud-left">
+            <span class="hud-label">SCORE</span>
+            <span id="score-display" class="hud-value">0</span>
+        </div>
+        <div id="hud-center">
+            <span class="hud-label">LEVEL</span>
+            <span id="level-display" class="hud-value">1</span>
+        </div>
+        <div id="hud-right">
+            <span class="hud-label">LIVES</span>
+            <span id="lives-display" class="hud-value">♥♥♥</span>
+        </div>
+    </div>
+
+    <!-- Level cleared overlay -->
+    <div id="level-overlay" class="hidden">
+        <div class="menu-card">
+            <h1 class="win-title" id="level-text">LEVEL COMPLETE!</h1>
+            <p class="menu-sub" id="level-score-text">Score: 0</p>
+            <p class="menu-sub level-bonus" id="level-bonus-text"></p>
+            <button id="next-level-btn" class="glow-btn">NEXT WAVE</button>
+        </div>
+    </div>
+
+    <!-- Game Over overlay -->
+    <div id="gameover-overlay" class="hidden">
+        <div class="menu-card">
+            <h1 class="lose-title">GAME OVER</h1>
+            <p class="menu-sub" id="final-score-text">Final Score: 0</p>
+            <p class="menu-sub" id="final-level-text">Reached Level: 1</p>
+            <p class="menu-sub new-high hidden" id="new-high-text">🎉 NEW HIGH SCORE! 🎉</p>
+            <button id="retry-btn" class="glow-btn">PLAY AGAIN</button>
+            <button id="menu-btn" class="glow-btn outline">MENU</button>
+        </div>
+    </div>
+
+    <!-- Countdown -->
+    <div id="countdown" class="hidden">
+        <span id="countdown-text">3</span>
+    </div>
+
+    <!-- The game canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Touch controls -->
+    <div id="touch-controls" class="hidden">
+        <button class="touch-btn" id="touch-left">◀</button>
+        <button class="touch-btn touch-fire" id="touch-fire">FIRE</button>
+        <button class="touch-btn" id="touch-right">▶</button>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

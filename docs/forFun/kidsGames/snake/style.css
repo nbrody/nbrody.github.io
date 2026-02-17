@@ -1,0 +1,390 @@
+/* ───────── Reset & Base ───────── */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-dark: #0a0e1a;
+    --bg-card: rgba(15, 20, 40, 0.85);
+    --neon-green: #39ff14;
+    --neon-cyan: #00f0ff;
+    --neon-pink: #ff2daa;
+    --neon-gold: #ffd700;
+    --glass: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --font-display: 'Orbitron', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --hud-h: 52px;
+}
+
+html,
+body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: var(--bg-dark);
+    font-family: var(--font-body);
+    color: #e0e0e0;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(ellipse at 30% 20%, rgba(57, 255, 20, .06) 0%, transparent 60%),
+        radial-gradient(ellipse at 70% 80%, rgba(0, 240, 255, .05) 0%, transparent 60%),
+        var(--bg-dark);
+}
+
+/* ───────── Canvas ───────── */
+#game-canvas {
+    display: block;
+    border-radius: 8px;
+    box-shadow: 0 0 30px rgba(57, 255, 20, .15), inset 0 0 60px rgba(0, 0, 0, .4);
+    border: 1px solid var(--glass-border);
+    background: #0d1117;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* ───────── Overlays ───────── */
+#menu-overlay,
+#gameover-overlay,
+#pause-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 8, 18, 0.88);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    animation: fadeIn .3s ease;
+}
+
+.menu-card {
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 40px 48px;
+    text-align: center;
+    box-shadow: 0 8px 60px rgba(0, 0, 0, .6), 0 0 80px rgba(57, 255, 20, .06);
+    max-width: 380px;
+    width: 90%;
+    animation: cardPop .4s cubic-bezier(.17, .67, .35, 1.15);
+}
+
+.menu-title {
+    font-family: var(--font-display);
+    font-size: 2.6rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.15;
+    margin-bottom: 10px;
+    text-shadow: 0 0 40px rgba(57, 255, 20, .3);
+    filter: drop-shadow(0 0 12px rgba(57, 255, 20, .25));
+}
+
+.menu-sub {
+    font-size: .95rem;
+    color: rgba(255, 255, 255, .55);
+    margin-bottom: 22px;
+}
+
+.lose-title {
+    font-family: var(--font-display);
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--neon-pink);
+    text-shadow: 0 0 30px rgba(255, 45, 170, .4);
+    margin-bottom: 8px;
+}
+
+.new-high {
+    color: var(--neon-gold) !important;
+    font-weight: 600;
+    font-size: 1rem !important;
+    animation: pulse 1s ease infinite;
+}
+
+/* ───────── Buttons ───────── */
+.glow-btn {
+    display: block;
+    width: 100%;
+    padding: 14px 0;
+    margin-top: 12px;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--bg-dark);
+    background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan));
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(57, 255, 20, .25);
+    transition: transform .15s, box-shadow .15s;
+    letter-spacing: .06em;
+}
+
+.glow-btn:hover {
+    transform: scale(1.04);
+    box-shadow: 0 0 30px rgba(57, 255, 20, .4);
+}
+
+.glow-btn:active {
+    transform: scale(.97);
+}
+
+.glow-btn.outline {
+    background: transparent;
+    color: var(--neon-cyan);
+    border: 2px solid var(--neon-cyan);
+    box-shadow: 0 0 12px rgba(0, 240, 255, .15);
+}
+
+.glow-btn.outline:hover {
+    box-shadow: 0 0 24px rgba(0, 240, 255, .3);
+}
+
+/* ───────── Difficulty picker ───────── */
+.difficulty-picker {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.diff-btn {
+    flex: 1;
+    padding: 10px 0;
+    font-family: var(--font-display);
+    font-size: .75rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, .5);
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all .2s;
+    letter-spacing: .04em;
+}
+
+.diff-btn.active {
+    color: var(--neon-green);
+    border-color: var(--neon-green);
+    background: rgba(57, 255, 20, .1);
+    box-shadow: 0 0 14px rgba(57, 255, 20, .2);
+}
+
+.diff-btn:hover:not(.active) {
+    color: rgba(255, 255, 255, .8);
+    border-color: rgba(255, 255, 255, .3);
+}
+
+/* ───────── HUD ───────── */
+#hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    height: var(--hud-h);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    background: rgba(10, 14, 26, .8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.hud-label {
+    font-size: .6rem;
+    letter-spacing: .1em;
+    color: rgba(255, 255, 255, .45);
+    display: block;
+}
+
+.hud-value {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.15rem;
+    background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+#hud-left,
+#hud-center,
+#hud-right {
+    text-align: center;
+    min-width: 70px;
+}
+
+/* ───────── Countdown ───────── */
+#countdown {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 8, 18, .7);
+    backdrop-filter: blur(8px);
+}
+
+#countdown-text {
+    font-family: var(--font-display);
+    font-size: 6rem;
+    font-weight: 900;
+    color: var(--neon-green);
+    text-shadow: 0 0 60px rgba(57, 255, 20, .5);
+    animation: countPop .55s ease;
+}
+
+/* ───────── D-Pad (touch controls) ───────── */
+#dpad {
+    position: fixed;
+    z-index: 80;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 160px;
+    height: 160px;
+    display: grid;
+    grid-template-areas:
+        ".    up    ."
+        "left pause right"
+        ".    down  .";
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 4px;
+}
+
+.dpad-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, .07);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 12px;
+    color: rgba(255, 255, 255, .6);
+    font-size: 1.3rem;
+    cursor: pointer;
+    transition: background .12s, color .12s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.dpad-btn:active {
+    background: rgba(57, 255, 20, .18);
+    color: var(--neon-green);
+    border-color: var(--neon-green);
+}
+
+.dpad-up {
+    grid-area: up;
+}
+
+.dpad-left {
+    grid-area: left;
+}
+
+.dpad-right {
+    grid-area: right;
+}
+
+.dpad-down {
+    grid-area: down;
+}
+
+.dpad-pause {
+    grid-area: pause;
+    font-size: 1rem;
+}
+
+/* ───────── Utility ───────── */
+.hidden {
+    display: none !important;
+}
+
+/* ───────── Animations ───────── */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes cardPop {
+    from {
+        opacity: 0;
+        transform: scale(.88) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes countPop {
+    0% {
+        transform: scale(1.8);
+        opacity: 0;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: .5;
+    }
+}
+
+/* ───────── Responsive ───────── */
+@media (max-width: 500px) {
+    .menu-card {
+        padding: 28px 24px;
+    }
+
+    .menu-title {
+        font-size: 2rem;
+    }
+
+    .lose-title {
+        font-size: 1.6rem;
+    }
+}

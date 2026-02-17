@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="description"
-        content="A fun music game for kids! Choose drums or piano and play by touching the screen.">
+        content="A fun music game for kids! Choose drums, piano, guitar, or xylophone and play by touching the screen.">
     <title>🎸 Rockstar!</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,28 +46,104 @@
                 <span class="instrument-name">Piano</span>
                 <span class="instrument-desc">Play melodies on the keys!</span>
             </button>
+            <button class="instrument-card" id="pick-guitar" data-instrument="guitar">
+                <span class="instrument-icon">🎸</span>
+                <span class="instrument-name">Guitar</span>
+                <span class="instrument-desc">Strum chords & pick notes!</span>
+            </button>
+            <button class="instrument-card" id="pick-xylo" data-instrument="xylo">
+                <span class="instrument-icon">🎵</span>
+                <span class="instrument-name">Xylophone</span>
+                <span class="instrument-desc">Tap the rainbow bars!</span>
+            </button>
         </div>
     </div>
 
     <!-- ===== DRUMS PLAY SCREEN ===== -->
     <div id="drums-screen" class="screen">
         <div class="play-header">
-            <button id="drums-back" class="back-btn" aria-label="Back to picker">← Back</button>
+            <button class="back-btn" aria-label="Back to picker">← Back</button>
             <h2>🥁 Drum Kit</h2>
         </div>
         <div id="drum-pad-container" class="drum-pad-container">
-            <!-- Pads injected by JS -->
+            <!-- Pads injected by drums.js -->
         </div>
     </div>
 
     <!-- ===== PIANO PLAY SCREEN ===== -->
     <div id="piano-screen" class="screen">
         <div class="play-header">
-            <button id="piano-back" class="back-btn" aria-label="Back to picker">← Back</button>
+            <button class="back-btn" aria-label="Back to picker">← Back</button>
             <h2>🎹 Piano</h2>
         </div>
         <div id="piano-container" class="piano-container">
-            <!-- Keys injected by JS -->
+            <!-- Keys injected by piano.js -->
+        </div>
+    </div>
+
+    <!-- ===== GUITAR PLAY SCREEN ===== -->
+    <div id="guitar-screen" class="screen">
+        <div class="play-header">
+            <button class="back-btn" aria-label="Back to picker">← Back</button>
+            <h2>� Guitar</h2>
+        </div>
+        <div id="guitar-fretboard" class="guitar-fretboard">
+            <!-- Built by guitar.js -->
+        </div>
+
+        <!-- Chord macro bar -->
+        <div id="chord-bar" class="chord-bar">
+            <div class="chord-bar-label">Chords</div>
+            <div id="chord-btns" class="chord-btns">
+                <!-- Buttons injected by guitar.js -->
+            </div>
+            <button id="add-chord-btn" class="add-chord-btn" title="Define a new chord">＋</button>
+        </div>
+
+        <!-- Chord definition modal -->
+        <div id="chord-modal" class="chord-modal hidden">
+            <div class="chord-modal-card">
+                <h3>Define a Chord</h3>
+                <div class="chord-modal-field">
+                    <label for="chord-name-input">Name</label>
+                    <input type="text" id="chord-name-input" placeholder="e.g. Bm7" maxlength="8" autocomplete="off">
+                </div>
+                <div class="chord-modal-frets">
+                    <span class="fret-input-label">Frets (x = mute):</span>
+                    <div class="fret-inputs-row">
+                        <div class="fret-input-group"><label>E</label><input type="text" id="chord-fret-0" value="0"
+                                maxlength="2"></div>
+                        <div class="fret-input-group"><label>A</label><input type="text" id="chord-fret-1" value="0"
+                                maxlength="2"></div>
+                        <div class="fret-input-group"><label>D</label><input type="text" id="chord-fret-2" value="0"
+                                maxlength="2"></div>
+                        <div class="fret-input-group"><label>G</label><input type="text" id="chord-fret-3" value="0"
+                                maxlength="2"></div>
+                        <div class="fret-input-group"><label>B</label><input type="text" id="chord-fret-4" value="0"
+                                maxlength="2"></div>
+                        <div class="fret-input-group"><label>e</label><input type="text" id="chord-fret-5" value="0"
+                                maxlength="2"></div>
+                    </div>
+                </div>
+                <div id="chord-preset-btns" class="chord-preset-btns">
+                    <!-- Preset buttons injected by guitar.js -->
+                </div>
+                <div class="chord-modal-actions">
+                    <button id="chord-save-btn" class="chord-action-btn save">Save</button>
+                    <button id="chord-cancel-btn" class="chord-action-btn cancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== XYLOPHONE PLAY SCREEN ===== -->
+    <div id="xylo-screen" class="screen">
+        <div class="play-header">
+            <button class="back-btn" aria-label="Back to picker">← Back</button>
+            <h2>🎵 Xylophone</h2>
+        </div>
+        <div id="xylo-container" class="xylo-container">
+            <!-- Bars injected by xylophone.js -->
         </div>
     </div>
 
@@ -78,7 +154,12 @@
         <p>&copy; 2026 Fun Hub for Kids</p>
     </footer>
 
-    <script src="game.js"></script>
+    <!-- Scripts: shared first, then instruments -->
+    <script src="shared.js"></script>
+    <script src="drums.js"></script>
+    <script src="piano.js"></script>
+    <script src="guitar.js"></script>
+    <script src="xylophone.js"></script>
 </body>
 
 </html>

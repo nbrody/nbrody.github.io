@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>The √2 Game — Navigate the Z[√2] Lattice</title>
+    <meta name="description"
+        content="The sqrt(2) Game: navigate a kayak on the Z[sqrt(2)] lattice using steps of length sqrt(2)±1.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #070714
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif
+        }
+
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+            touch-action: none
+        }
+
+        canvas.grabbing {
+            cursor: grabbing
+        }
+
+        .panel {
+            position: fixed;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 16px;
+            background: rgba(12, 12, 30, .74);
+            backdrop-filter: blur(18px) saturate(1.3);
+            -webkit-backdrop-filter: blur(18px) saturate(1.3);
+            border: 1px solid rgba(255, 255, 255, .07);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .5);
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: calc(100vw - 24px);
+        }
+
+        .panel button,
+        .panel .pill {
+            font-family: 'Outfit', sans-serif;
+            font-size: .72rem;
+            font-weight: 500;
+            padding: 5px 13px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, .1);
+            background: rgba(255, 255, 255, .05);
+            color: #bbb;
+            cursor: pointer;
+            transition: all .18s;
+            white-space: nowrap;
+        }
+
+        .panel button:hover {
+            background: rgba(255, 255, 255, .12);
+            color: #fff;
+            border-color: rgba(255, 255, 255, .22);
+            transform: translateY(-1px)
+        }
+
+        .panel .pill {
+            cursor: default;
+            background: linear-gradient(135deg, rgba(56, 189, 248, .14), rgba(129, 140, 248, .14));
+            border-color: rgba(129, 140, 248, .25);
+            color: #a5b4fc;
+        }
+
+        .panel .pill.won {
+            background: rgba(52, 211, 153, .14);
+            border-color: rgba(52, 211, 153, .25);
+            color: #6ee7b7
+        }
+
+        .panel .sep {
+            width: 1px;
+            height: 18px;
+            background: rgba(255, 255, 255, .07);
+            margin: 0 2px
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            padding: 8px 20px;
+            border-radius: 10px;
+            background: rgba(12, 12, 30, .78);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, .06);
+            font-family: 'Outfit', sans-serif;
+            font-size: .76rem;
+            color: #888;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .4s;
+        }
+
+        .toast.show {
+            opacity: 1
+        }
+
+        .toast span {
+            color: #818cf8;
+            font-weight: 600
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="c"></canvas>
+
+    <div class="panel">
+        <button onclick="move(1)">↖ NW</button>
+        <button onclick="move(2)">↗ NE</button>
+        <button onclick="move(3)">↙ SW</button>
+        <button onclick="move(4)">↘ SE</button>
+        <div class="sep"></div>
+        <div class="pill" id="status">Origin ✓</div>
+        <div class="sep"></div>
+        <button onclick="resetGame()">Reset</button>
+        <button onclick="randomize()">Random</button>
+        <button onclick="fitView()">Fit</button>
+    </div>
+
+    <div class="toast" id="toast">Use <span>buttons / keyboard</span> to move · <span>Scroll</span> to zoom ·
+        <span>Drag</span> to pan</div>
+
+    <script>
+        // =============================================================
+        //  The √2 Game — full-window hi-DPI with zoom / pan
+        // =============================================================
+        const $ = id => document.getElementById(id);
+        const canvas = $('c');
+        const ctx = canvas.getContext('2d');
+
+        let dpr = 1;
+        function resize() {
+            dpr = window.devicePixelRatio || 1;
+            canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
+            canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px';
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        // Camera
+        let cam = { x: 0, y: 0, zoom: 1 };
+        function w2s(wx, wy) {
+            return { x: canvas.width / 2 + (wx - cam.x) * cam.zoom * dpr, y: canvas.height / 2 + (wy - cam.y) * cam.zoom * dpr };
+        }
+        function s2w(sx, sy) {
+            return { x: (sx - canvas.width / 2) / (cam.zoom * dpr) + cam.x, y: (sy - canvas.height / 2) / (cam.zoom * dpr) + cam.y };
+        }
+
+        // Constants
+        const sq2 = Math.sqrt(2), bg = sq2 + 1, sm = sq2 - 1;
+        const S = 30; // world-units per Z[√2] step
+
+        // State
+        let hA = 0, hB = 0, vA = 0, vB = 0; // position in Z[√2]
+        let trail = []; // breadcrumb trail
+        let trailMax = 200;
+
+        function hPos() { return (hA * sm + hB * bg) * S; }
+        function vPos() { return (vA * sm + vB * bg) * S; }
+
+        function applyStep(d) {
+            if (d === 1) { hB += 1; vA -= 1 } if (d === 2) { hB -= 1; vA += 1 }
+            if (d === 3) { hA += 1; vB -= 1 } if (d === 4) { hA -= 1; vB += 1 }
+        }
+
+        function resetGame() { hA = hB = vA = vB = 0; trail = []; fitView(); }
+
+        function randomize() {
+            hA = hB = vA = vB = 0; trail = [];
+            let dist = 0;
+            while (dist < 800 * (Math.random() + 1) / 2) {
+                applyStep(1 + Math.floor(Math.random() * 4));
+                dist = Math.sqrt(hPos() ** 2 + vPos() ** 2);
+            }
+            trail = [{ x: hPos(), y: -vPos() }];
+            fitView();
+        }
+
+        function move(d) {
+            trail.push({ x: hPos(), y: -vPos() });
+            if (trail.length > trailMax) trail.shift();
+            applyStep(d);
+            // Smoothly keep piece in view
+            const px = hPos(), py = -vPos();
+            const sp = w2s(px, py);
+            const margin = 120 * dpr;
+            if (sp.x < margin || sp.x > canvas.width - margin || sp.y < margin || sp.y > canvas.height - margin) {
+                animateCam(px, py, cam.zoom);
+            }
+            updateStatus();
+            draw();
+        }
+
+        function fitView() {
+            const px = hPos(), py = -vPos();
+            const d = Math.sqrt(px * px + py * py);
+            const extent = Math.max(d + 200, 300);
+            cam.x = px / 2; cam.y = py / 2;
+            const sx = innerWidth / extent, sy = innerHeight / extent;
+            cam.zoom = Math.min(sx, sy) * 0.38;
+            updateStatus(); draw();
+        }
+
+        // Simple animate camera
+        let camAnim = null;
+        function animateCam(tx, ty, tz) {
+            if (camAnim) cancelAnimationFrame(camAnim);
+            const sx = cam.x, sy = cam.y, sz = cam.zoom;
+            const steps = 20; let step = 0;
+            function tick() {
+                step++;
+                const t = step / steps;
+                const e = 1 - (1 - t) ** 3; // ease out
+                cam.x = sx + (tx - sx) * e * 0.5;
+                cam.y = sy + (ty - sy) * e * 0.5;
+                draw();
+                if (step < steps) camAnim = requestAnimationFrame(tick);
+            }
+            camAnim = requestAnimationFrame(tick);
+        }
+
+        function updateStatus() {
+            const x = hPos() / S, y = -vPos() / S;
+            const el = $('status');
+            if (Math.abs(x) < .001 && Math.abs(y) < .001) { el.textContent = '🎉 Origin!'; el.className = 'pill won'; }
+            else { el.textContent = `(${x.toFixed(2)}, ${y.toFixed(2)})`; el.className = 'pill'; }
+        }
+
+        // ---- Drawing ----
+        function draw() {
+            const W = canvas.width, H = canvas.height;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+            // Background
+            const bg0 = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * .7);
+            bg0.addColorStop(0, '#0e0e24'); bg0.addColorStop(1, '#060612');
+            ctx.fillStyle = bg0; ctx.fillRect(0, 0, W, H);
+
+            ctx.save();
+            ctx.translate(W / 2, H / 2);
+            ctx.scale(cam.zoom * dpr, cam.zoom * dpr);
+            ctx.translate(-cam.x, -cam.y);
+
+            // Lattice
+            drawLattice();
+
+            // Trail
+            if (trail.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(trail[0].x, trail[0].y);
+                for (let i = 1; i < trail.length; i++) ctx.lineTo(trail[i].x, trail[i].y);
+                ctx.lineTo(hPos(), -vPos());
+                ctx.strokeStyle = 'rgba(129,140,248,.18)';
+                ctx.lineWidth = 2 / cam.zoom;
+                ctx.lineJoin = 'round';
+                ctx.stroke();
+            }
+
+            // Origin
+            drawOriginMarker();
+
+            // Direction guides (faint)
+            drawDirectionGuides();
+
+            // Piece
+            const px = hPos(), py = -vPos();
+            drawKayak(px, py);
+
+            ctx.restore();
+        }
+
+        function drawLattice() {
+            const r = 25;
+            ctx.fillStyle = '#38bdf8';
+            for (let i = -r; i <= r; i++) for (let j = -r; j <= r; j++) {
+                const xx = (i * sm + j * bg) * S;
+                const yy = -(i * bg + j * sm) * S;
+                // Cull off-screen
+                const sp = w2s(xx, yy);
+                if (sp.x < -30 || sp.x > canvas.width + 30 || sp.y < -30 || sp.y > canvas.height + 30) continue;
+                if (i === 0 && j === 0) continue;
+                const sz = 2.5 / cam.zoom;
+                ctx.globalAlpha = 0.3;
+                ctx.beginPath();
+                ctx.arc(xx, yy, sz, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawOriginMarker() {
+            // Glow
+            const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, 28 / cam.zoom);
+            gr.addColorStop(0, 'rgba(56,189,248,.22)');
+            gr.addColorStop(1, 'rgba(56,189,248,0)');
+            ctx.fillStyle = gr;
+            ctx.fillRect(-30 / cam.zoom, -30 / cam.zoom, 60 / cam.zoom, 60 / cam.zoom);
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 10 / cam.zoom, 0, Math.PI * 2);
+            ctx.fillStyle = '#0ea5e9';
+            ctx.fill();
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2.5 / cam.zoom;
+            ctx.stroke();
+
+            // Inner ring
+            ctx.beginPath();
+            ctx.arc(0, 0, 5 / cam.zoom, 0, Math.PI * 2);
+            ctx.fillStyle = '#bae6fd';
+            ctx.fill();
+        }
+
+        function drawDirectionGuides() {
+            const px = hPos(), py = -vPos();
+            const dirs = [
+                { dx: bg * S, dy: sm * S, c: '#6366f1' },   // dir 4 → SE
+                { dx: sm * S, dy: bg * S, c: '#a855f7' },   // dir 3 → SW (negated y)
+                { dx: -bg * S, dy: -sm * S, c: '#3b82f6' },   // dir 1 → NW
+                { dx: -sm * S, dy: -bg * S, c: '#8b5cf6' },   // dir 2 → NE
+            ];
+            for (const d of dirs) {
+                ctx.save();
+                ctx.setLineDash([6 / cam.zoom, 6 / cam.zoom]);
+                ctx.strokeStyle = d.c + '30';
+                ctx.lineWidth = 1.5 / cam.zoom;
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(px + d.dx, py + d.dy);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Endpoint dot
+                ctx.beginPath();
+                ctx.arc(px + d.dx, py + d.dy, 4 / cam.zoom, 0, Math.PI * 2);
+                ctx.fillStyle = d.c + '55';
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function drawKayak(x, y) {
+            const s = S;
+            const smS = sm * s, bgS = bg * s;
+
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Glow under piece
+            const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, bgS * 1.2);
+            gr.addColorStop(0, 'rgba(99,102,241,.14)');
+            gr.addColorStop(1, 'rgba(99,102,241,0)');
+            ctx.fillStyle = gr;
+            ctx.beginPath(); ctx.arc(0, 0, bgS * 1.2, 0, Math.PI * 2); ctx.fill();
+
+            // Hull left
+            ctx.fillStyle = '#6366f1';
+            ctx.beginPath();
+            ctx.moveTo(-smS, 3); ctx.lineTo(-smS, -smS - 3);
+            ctx.lineTo(-bgS, -smS / 2);
+            ctx.closePath(); ctx.fill();
+
+            ctx.fillStyle = '#4f46e5';
+            ctx.fillRect(-smS, -smS - 3, smS, smS + 6);
+
+            // Hull right
+            ctx.fillStyle = '#818cf8';
+            ctx.fillRect(0, -smS - 3, smS, smS + 6);
+
+            ctx.fillStyle = '#a5b4fc';
+            ctx.beginPath();
+            ctx.moveTo(smS, 3); ctx.lineTo(smS, -smS - 3);
+            ctx.lineTo(bgS, -smS / 2);
+            ctx.closePath(); ctx.fill();
+
+            // Outlines
+            ctx.strokeStyle = '#c7d2fe';
+            ctx.lineWidth = 1.5 / cam.zoom;
+            ctx.lineJoin = 'round';
+            ctx.strokeRect(-smS, -smS - 3, smS, smS + 6);
+            ctx.strokeRect(0, -smS - 3, smS, smS + 6);
+            ctx.beginPath(); ctx.moveTo(smS, 3); ctx.lineTo(smS, -smS - 3); ctx.lineTo(bgS, -smS / 2); ctx.closePath(); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-smS, 3); ctx.lineTo(-smS, -smS - 3); ctx.lineTo(-bgS, -smS / 2); ctx.closePath(); ctx.stroke();
+
+            // Mast
+            ctx.strokeStyle = '#e0e7ff';
+            ctx.lineWidth = 2 / cam.zoom;
+            ctx.beginPath(); ctx.moveTo(0, -smS - 3); ctx.lineTo(0, -2 * smS - 8); ctx.stroke();
+
+            // Flag
+            ctx.fillStyle = '#f87171';
+            ctx.beginPath(); ctx.moveTo(0, -2 * smS - 8); ctx.lineTo(8 / cam.zoom, -2 * smS - 14); ctx.lineTo(0, -2 * smS - 12); ctx.closePath(); ctx.fill();
+
+            // Person dot
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath(); ctx.arc(0, -smS / 2 - 3, 4 / cam.zoom, 0, Math.PI * 2); ctx.fill();
+
+            ctx.restore();
+        }
+
+        // ---- Pan / Zoom ----
+        let dragging = false, dragStart = null, camStart = null;
+
+        canvas.addEventListener('pointerdown', e => {
+            dragging = true; dragStart = { x: e.clientX, y: e.clientY }; camStart = { x: cam.x, y: cam.y };
+            canvas.classList.add('grabbing');
+            canvas.setPointerCapture(e.pointerId);
+        });
+        canvas.addEventListener('pointermove', e => {
+            if (!dragging || !dragStart) return;
+            cam.x = camStart.x - (e.clientX - dragStart.x) * dpr / (cam.zoom * dpr);
+            cam.y = camStart.y - (e.clientY - dragStart.y) * dpr / (cam.zoom * dpr);
+            draw();
+        });
+        canvas.addEventListener('pointerup', () => {
+            dragging = false; dragStart = null; camStart = null;
+            canvas.classList.remove('grabbing');
+        });
+
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const { sx, sy } = (() => { const r = canvas.getBoundingClientRect(); return { sx: (e.clientX - r.left) * dpr, sy: (e.clientY - r.top) * dpr } })();
+            const wb = s2w(sx, sy);
+            cam.zoom = Math.max(.08, Math.min(15, cam.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12)));
+            const wa = s2w(sx, sy);
+            cam.x -= wa.x - wb.x; cam.y -= wa.y - wb.y;
+            draw();
+        }, { passive: false });
+
+        // Pinch
+        let pinchD0 = 0, pinchZ0 = 1;
+        canvas.addEventListener('touchstart', e => {
+            if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
+                pinchD0 = Math.sqrt(dx * dx + dy * dy); pinchZ0 = cam.zoom;
+            }
+        }, { passive: true });
+        canvas.addEventListener('touchmove', e => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
+                cam.zoom = Math.max(.08, Math.min(15, pinchZ0 * Math.sqrt(dx * dx + dy * dy) / pinchD0));
+                draw();
+            }
+        }, { passive: false });
+
+        // Keyboard
+        document.addEventListener('keydown', e => {
+            if (e.key === 'q' || e.key === '7') move(1);
+            if (e.key === 'e' || e.key === '9') move(2);
+            if (e.key === 'z' || e.key === '1') move(3);
+            if (e.key === 'c' || e.key === '3') move(4);
+            if (e.key === 'r') resetGame();
+            if (e.key === 'f') fitView();
+        });
+
+        // Toast
+        setTimeout(() => $('toast').classList.add('show'), 400);
+        setTimeout(() => $('toast').classList.remove('show'), 5500);
+
+        // Boot
+        resize();
+        resetGame();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathematical Games — Rich Schwartz Collection</title>
+    <meta name="description"
+        content="Modern HTML5 ports of Richard Evan Schwartz's classic mathematical Java/Flash games.">
+
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;500&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #03030b;
+            --surface: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+            --accent-blue: #38bdf8;
+            --accent-purple: #a855f7;
+            --accent-pink: #f472b6;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Abstract Background blobs */
+        .blob {
+            position: fixed;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.1) 0%, transparent 70%);
+            z-index: -1;
+            filter: blur(60px);
+        }
+
+        .blob-1 {
+            top: -100px;
+            right: -100px;
+            background: radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%);
+        }
+
+        .blob-2 {
+            bottom: -100px;
+            left: -100px;
+            background: radial-gradient(circle, rgba(244, 114, 182, 0.1) 0%, transparent 70%);
+        }
+
+        header {
+            max-width: 1000px;
+            margin: 80px auto 40px;
+            padding: 0 24px;
+            text-align: center;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: clamp(2.5rem, 8vw, 4rem);
+            font-weight: 800;
+            margin-bottom: 20px;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+            max-width: 650px;
+            margin: 0 auto;
+        }
+
+        .highlight {
+            color: var(--accent-blue);
+            font-weight: 500;
+        }
+
+        .grid {
+            max-width: 1200px;
+            margin: 60px auto;
+            padding: 0 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 32px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(12px);
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(to right, var(--accent-blue), var(--accent-purple));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.75rem;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+
+        .card p {
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            margin-bottom: 24px;
+            flex-grow: 1;
+        }
+
+        .card .btn-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--accent-blue);
+        }
+
+        .card .btn-label svg {
+            transition: transform 0.3s;
+        }
+
+        .card:hover .btn-label svg {
+            transform: translateX(4px);
+        }
+
+        .footer-info {
+            max-width: 800px;
+            margin: 80px auto;
+            padding: 40px 24px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .footer-info h3 {
+            font-family: 'Outfit', sans-serif;
+            margin-bottom: 16px;
+            font-size: 1.5rem;
+        }
+
+        .footer-info p {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        .links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .links a {
+            color: var(--accent-blue);
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: opacity 0.2s;
+        }
+
+        .links a:hover {
+            text-decoration: underline;
+            opacity: 0.8;
+        }
+
+        /* Animation for entrance */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate {
+            animation: fadeInUp 0.8s ease forwards;
+            opacity: 0;
+        }
+
+        .delay-1 {
+            animation-delay: 0.2s;
+        }
+
+        .delay-2 {
+            animation-delay: 0.4s;
+        }
+
+        .delay-3 {
+            animation-delay: 0.6s;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="blob"></div>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <header class="animate">
+        <h1>Resch Games</h1>
+        <p class="subtitle">Modern HTML5 ports of <span class="highlight">Richard Evan Schwartz's</span> classic
+            mathematical interactive experiences, originally developed as Java applets.</p>
+    </header>
+
+    <main class="grid">
+        <a href="lucyAndLily/" class="card animate delay-1">
+            <h2>Lucy & Lily II</h2>
+            <p>A mesmerizing polygon-flipping puzzle. Flip regular polygons across their edges to navigate a world of
+                symmetry and return the scrambled pieces to their goal.</p>
+            <div class="btn-label">
+                Play Now
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+            </div>
+        </a>
+
+        <a href="sqrt2game/" class="card animate delay-2">
+            <h2>The √2 Game</h2>
+            <p>Navigate a kayak through the lattice of the Z[√2] ring. Master movements of length √2±1 and explore the
+                dense structure of algebraic number fields.</p>
+            <div class="btn-label">
+                Explore Grid
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+            </div>
+        </a>
+
+        <a href="drivinMeCrazy/" class="card animate delay-3">
+            <h2>Drivin' Me Crazy</h2>
+            <p>A steering game set in hyperbolic 3-space. Maneuver through a space of expanding pseudoregular hexagons
+                and prevent the inner boundary from collapsing.</p>
+            <div class="btn-label">
+                Take the Wheel
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+            </div>
+        </a>
+
+        <a href="../simonAndLily/" class="card animate delay-3">
+            <h2>Simon & Lily</h2>
+            <p>A deep exploration of arithmetic lattices in H<sup>2</sup> × H<sup>2</sup>. Control a hyperbolic octagon
+                in Simon's view and watch its Galois conjugate dance in Lily's world.</p>
+            <div class="btn-label">
+                Begin Journey
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+            </div>
+        </a>
+    </main>
+
+    <section class="footer-info animate delay-3" style="margin-top: 20px;">
+        <h3>About the Artist</h3>
+        <p>Rich Schwartz is a Chancellor's Professor of Mathematics at Brown University. These games were originally
+            part of his extensive collection of Java applets illustrating deep concepts in geometry and dynamic systems.
+        </p>
+        <div class="links">
+            <a href="https://www.math.brown.edu/reschwar/" target="_blank">Rich's Home Page</a>
+            <a href="https://www.math.brown.edu/reschwar/java.html" target="_blank">Original Applets</a>
+        </div>
+    </section>
+
+</body>
+
+</html>

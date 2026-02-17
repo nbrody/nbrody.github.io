@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>nicBox — Party Games</title>
+    <meta name="description"
+        content="Jackbox-style party game platform. Play trivia, card games, and board games with friends.">
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Firebase SDK (compat v9) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <!-- QR Code library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+</head>
+
+<body>
+    <div class="bg-gradient"></div>
+
+    <!-- ═══ LOBBY SCREEN ═══ -->
+    <div id="lobby-screen" class="screen">
+        <div class="flex-col" style="gap: 8px;">
+            <h1 class="logo">nicBox</h1>
+            <p class="logo-subtitle">party games</p>
+        </div>
+
+        <div class="room-code-display mt-lg">
+            <div class="flex-col" style="gap: 4px;">
+                <span class="room-code-label">Room Code</span>
+                <span id="room-code" class="room-code">----</span>
+            </div>
+        </div>
+
+        <div class="qr-container mt-md" id="qr-container">
+            <canvas id="qr-canvas"></canvas>
+        </div>
+        <p class="mt-sm" style="font-size: 0.8rem; color: var(--text-muted);">
+            Scan to join on your phone
+        </p>
+
+        <div id="lobby-players" class="players-grid mt-lg"></div>
+
+        <p id="lobby-waiting" class="mt-md" style="color: var(--text-secondary);">
+            Waiting for players to join<span class="waiting-dots"></span>
+        </p>
+
+        <button id="btn-start-game" class="btn btn-primary btn-lg mt-lg" style="display: none;"
+            onclick="showGamePicker()">
+            🎮 Pick a Game
+        </button>
+    </div>
+
+    <!-- ═══ GAME PICKER SCREEN ═══ -->
+    <div id="picker-screen" class="screen hidden">
+        <h2
+            style="font-family: 'Press Start 2P', monospace; font-size: clamp(0.8rem, 2.5vw, 1.2rem); margin-bottom: var(--space-sm);">
+            Choose Your Game
+        </h2>
+        <p style="color: var(--text-secondary); margin-bottom: var(--space-lg);">
+            The host picks — everyone plays!
+        </p>
+
+        <div class="games-grid">
+            <div class="game-card" data-color="pink" onclick="selectGame('trivia')">
+                <span class="game-icon">🧠</span>
+                <h3 class="game-title">Trivia<br>Showdown</h3>
+                <p class="game-desc">Answer questions before the clock runs out. Fastest correct answer wins!</p>
+                <p class="game-players">2-8 players</p>
+            </div>
+
+            <div class="game-card" data-color="blue" onclick="selectGame('war')">
+                <span class="game-icon">⚔️</span>
+                <h3 class="game-title">Card<br>War</h3>
+                <p class="game-desc">Classic card game of War. Highest card wins the round!</p>
+                <p class="game-players">2-4 players</p>
+            </div>
+
+            <div class="game-card" data-color="blue" onclick="selectGame('blackjack')">
+                <span class="game-icon">🃏</span>
+                <h3 class="game-title">Blackjack</h3>
+                <p class="game-desc">Beat the dealer! Hit or stand — get as close to 21 as you can.</p>
+                <p class="game-players">1-6 players</p>
+            </div>
+
+            <div class="game-card" data-color="warm" onclick="selectGame('checkers')">
+                <span class="game-icon">🏁</span>
+                <h3 class="game-title">Checkers</h3>
+                <p class="game-desc">Classic checkers on the big screen. Move pieces from your phone!</p>
+                <p class="game-players">2 players</p>
+            </div>
+
+            <div class="game-card" data-color="purple" onclick="selectGame('drawguess')">
+                <span class="game-icon">🎨</span>
+                <h3 class="game-title">Draw &<br>Guess</h3>
+                <p class="game-desc">One player draws on their phone, everyone else guesses. Like Pictionary!</p>
+                <p class="game-players">3-8 players</p>
+            </div>
+        </div>
+
+        <button class="btn btn-ghost mt-lg" onclick="backToLobby()">← Back to Lobby</button>
+    </div>
+
+    <!-- ═══ GAME SCREEN ═══ -->
+    <div id="game-screen" class="screen hidden">
+        <div class="game-header">
+            <span id="game-name" class="game-name"></span>
+            <div id="scoreboard" class="scoreboard"></div>
+            <button class="btn btn-ghost btn-sm" onclick="endGame()">✕ End</button>
+        </div>
+
+        <div id="game-area" class="game-area"></div>
+    </div>
+
+    <!-- ═══ RESULTS SCREEN ═══ -->
+    <div id="results-screen" class="screen hidden">
+        <h2 class="logo" style="font-size: clamp(1.5rem, 4vw, 3rem);">Game Over!</h2>
+        <div id="results-podium" class="results-podium"></div>
+        <div id="results-list" class="mt-lg"></div>
+        <div class="mt-xl" style="display: flex; gap: var(--space-md);">
+            <button class="btn btn-primary" onclick="showGamePicker()">Play Again</button>
+            <button class="btn btn-ghost" onclick="backToLobby()">Back to Lobby</button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Scripts -->
+    <script src="js/firebase-config.js"></script>
+    <script src="js/lobby.js"></script>
+    <script src="games/trivia.js"></script>
+    <script src="games/war.js"></script>
+    <script src="games/blackjack.js"></script>
+    <script src="games/checkers.js"></script>
+    <script src="games/drawguess.js"></script>
+</body>
+
+</html>

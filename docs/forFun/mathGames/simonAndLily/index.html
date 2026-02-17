@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Simon and Lily — Hyperbolic Lattice Puzzle</title>
+    <meta name="description"
+        content="Simon and Lily: Navigate PSL₂(Z[√2]) via Möbius transformations on the hyperbolic plane. Simon shows √2, Lily shows its Galois conjugate.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #050510;
+            font-family: 'Outfit', sans-serif;
+            color: #d0d0e0
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            width: 50vw;
+            height: 100vh;
+            cursor: crosshair;
+            touch-action: none
+        }
+
+        #cL {
+            left: 50vw;
+            border-left: 1px solid rgba(255, 255, 255, 0.06)
+        }
+
+        .hdr {
+            position: fixed;
+            top: 16px;
+            z-index: 5;
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            pointer-events: none;
+            opacity: .7
+        }
+
+        #hS {
+            left: 25vw;
+            transform: translateX(-50%);
+            color: #60a5fa
+        }
+
+        #hL {
+            left: 75vw;
+            transform: translateX(-50%);
+            color: #f87171
+        }
+
+        .sub {
+            position: fixed;
+            top: 40px;
+            z-index: 5;
+            font-size: .65rem;
+            color: #555;
+            pointer-events: none;
+            letter-spacing: .05em
+        }
+
+        #subS {
+            left: 25vw;
+            transform: translateX(-50%)
+        }
+
+        #subL {
+            left: 75vw;
+            transform: translateX(-50%)
+        }
+
+        .panel {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 18px;
+            background: rgba(12, 12, 28, .78);
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(255, 255, 255, .08);
+            box-shadow: 0 10px 36px rgba(0, 0, 0, .6);
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: calc(100vw - 32px)
+        }
+
+        .panel button {
+            font-family: 'Outfit', sans-serif;
+            font-size: .72rem;
+            font-weight: 600;
+            padding: 5px 11px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, .1);
+            background: rgba(255, 255, 255, .04);
+            color: #999;
+            cursor: pointer;
+            transition: all .18s;
+            white-space: nowrap
+        }
+
+        .panel button:hover {
+            background: rgba(255, 255, 255, .13);
+            color: #fff;
+            transform: translateY(-1px)
+        }
+
+        .panel button.hi {
+            background: linear-gradient(135deg, rgba(96, 165, 250, .2), rgba(248, 113, 113, .2));
+            border-color: rgba(248, 113, 113, .25);
+            color: #eee
+        }
+
+        .panel .sep {
+            width: 1px;
+            height: 18px;
+            background: rgba(255, 255, 255, .08);
+            margin: 0 2px
+        }
+
+        .stat {
+            font-size: .78rem;
+            color: #666;
+            min-width: 74px;
+            text-align: center
+        }
+
+        #win {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 16, .85);
+            backdrop-filter: blur(14px);
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center
+        }
+
+        #win.show {
+            display: flex
+        }
+
+        #win h2 {
+            font-size: 3.6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #60a5fa, #f87171);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px
+        }
+
+        #win p {
+            color: #888;
+            margin-bottom: 24px
+        }
+
+        #win button {
+            font-family: 'Outfit';
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 12px 30px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #3b82f6, #ef4444);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
+            transition: transform .2s
+        }
+
+        #win button:hover {
+            transform: scale(1.05)
+        }
+
+        .toast {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 20px;
+            border-radius: 12px;
+            background: rgba(16, 16, 36, .85);
+            border: 1px solid rgba(255, 255, 255, .08);
+            font-size: .75rem;
+            color: #888;
+            opacity: 0;
+            transition: opacity .5s;
+            z-index: 5;
+            pointer-events: none
+        }
+
+        .toast.show {
+            opacity: 1
+        }
+
+        .toast b {
+            color: #60a5fa
+        }
+
+        #matPanel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 50;
+            display: none;
+            padding: 24px 32px;
+            border-radius: 18px;
+            background: rgba(12, 12, 28, .88);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, .1);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, .7);
+            text-align: center;
+            min-width: 320px;
+        }
+
+        #matPanel.show {
+            display: block;
+        }
+
+        #matPanel h3 {
+            font-size: .9rem;
+            font-weight: 700;
+            color: #c084fc;
+            margin-bottom: 14px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .mat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+            background: rgba(255, 255, 255, .04);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .mat-grid .cell {
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, .02);
+            font-size: .85rem;
+            color: #ccc;
+        }
+
+        .mat-grid .cell .zs {
+            color: #c084fc;
+            font-weight: 600;
+        }
+
+        .mat-evals {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 14px;
+        }
+
+        .mat-evals .ev {
+            font-size: .7rem;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .mat-evals .ev b {
+            display: block;
+            font-size: .72rem;
+            margin-bottom: 4px;
+        }
+
+        .mat-evals .simon b {
+            color: #60a5fa;
+        }
+
+        .mat-evals .lily b {
+            color: #f87171;
+        }
+
+        #matPanel button {
+            font-family: 'Outfit';
+            font-size: .75rem;
+            padding: 5px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, .1);
+            background: rgba(255, 255, 255, .06);
+            color: #aaa;
+            cursor: pointer;
+        }
+
+        #matPanel button:hover {
+            background: rgba(255, 255, 255, .14);
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="hS" class="hdr">Simon · √2</div>
+    <div id="hL" class="hdr">Lily · −√2</div>
+    <div id="subS" class="sub">σ₁(√2) = +1.414…</div>
+    <div id="subL" class="sub">σ₂(√2) = −1.414…</div>
+
+    <canvas id="cS"></canvas>
+    <canvas id="cL"></canvas>
+
+    <div class="panel">
+        <button onclick="doMove(0)" class="hi" title="S: z → −1/z">S</button>
+        <button onclick="doMove(1)" title="T: z → z+1">T</button>
+        <button onclick="doMove(2)" title="T⁻¹: z → z−1">T⁻¹</button>
+        <button onclick="doMove(3)" title="V: z → z/(√2·z+1)">V</button>
+        <button onclick="doMove(4)" title="V⁻¹: z → z/(−√2·z+1)">V⁻¹</button>
+        <div class="sep"></div>
+        <button onclick="scramble(1)">Scramble 1</button>
+        <button onclick="scramble(5)">×5</button>
+        <button onclick="scramble(20)">×20</button>
+        <div class="sep"></div>
+        <button onclick="undo()">Undo</button>
+        <button onclick="resetGame()">Reset</button>
+        <button onclick="toggleMatrix()">Matrix</button>
+        <div class="sep"></div>
+        <div class="stat" id="mc">Moves: 0</div>
+    </div>
+
+    <div id="win">
+        <h2>IDENTITY!</h2>
+        <p>Both planes returned to the origin simultaneously.</p>
+        <button onclick="closeWin()">Play Again</button>
+    </div>
+
+    <div id="matPanel">
+        <h3>Current Matrix M ∈ PSL₂(Z[√2])</h3>
+        <div class="mat-grid" id="matGrid"></div>
+        <div class="mat-evals" id="matEvals"></div>
+        <button onclick="toggleMatrix()">Close</button>
+    </div>
+
+    <div class="toast" id="toast">Click <b>generator buttons</b> or <b>direction arrows</b> on the disk to navigate
+        PSL₂(Z[√2])</div>
+
+    <script>
+        // =====================================================================
+        //  Simon & Lily — PSL₂(Z[√2]) Hyperbolic Lattice Game
+        //  Simon evaluates √2 = +1.4142…  |  Lily evaluates √2 = −1.4142…
+        // =====================================================================
+
+        const $ = id => document.getElementById(id);
+        const S2 = Math.SQRT2;
+
+        // ---- Z[√2] exact arithmetic: a + b√2 ----
+        class ZS {
+            constructor(a, b) { this.a = a; this.b = b; }
+            add(v) { return new ZS(this.a + v.a, this.b + v.b); }
+            sub(v) { return new ZS(this.a - v.a, this.b - v.b); }
+            mul(v) { return new ZS(this.a * v.a + 2 * this.b * v.b, this.a * v.b + this.b * v.a); }
+            neg() { return new ZS(-this.a, -this.b); }
+            eq(v) { return this.a === v.a && this.b === v.b; }
+            // Evaluate at √2 = +S2 or −S2
+            ev(gal) { return this.a + this.b * (gal ? -S2 : S2); }
+        }
+        const Z0 = new ZS(0, 0), Z1 = new ZS(1, 0), Zm1 = new ZS(-1, 0), Zr2 = new ZS(0, 1), Zmr2 = new ZS(0, -1);
+
+        // ---- 2×2 matrix over Z[√2] ----
+        class Mat {
+            constructor(a, b, c, d) { this.a = a; this.b = b; this.c = c; this.d = d; }
+            mul(m) {
+                return new Mat(
+                    this.a.mul(m.a).add(this.b.mul(m.c)),
+                    this.a.mul(m.b).add(this.b.mul(m.d)),
+                    this.c.mul(m.a).add(this.d.mul(m.c)),
+                    this.c.mul(m.b).add(this.d.mul(m.d))
+                );
+            }
+            isId() {
+                // ±I in PSL₂
+                return this.b.eq(Z0) && this.c.eq(Z0) &&
+                    ((this.a.eq(Z1) && this.d.eq(Z1)) || (this.a.eq(Zm1) && this.d.eq(Zm1)));
+            }
+            // Möbius action z → (az+b)/(cz+d) on upper half plane point {re, im}
+            act(z, gal) {
+                const ar = this.a.ev(gal), br = this.b.ev(gal);
+                const cr = this.c.ev(gal), dr = this.d.ev(gal);
+                const numRe = ar * z.re + br, numIm = ar * z.im;
+                const denRe = cr * z.re + dr, denIm = cr * z.im;
+                const den2 = denRe * denRe + denIm * denIm;
+                if (den2 < 1e-14) return { re: 1e8, im: 1e8 };
+                return {
+                    re: (numRe * denRe + numIm * denIm) / den2,
+                    im: (numIm * denRe - numRe * denIm) / den2
+                };
+            }
+        }
+        const ID = new Mat(Z1, Z0, Z0, Z1);
+
+        // ---- 5 Generators of PSL₂(Z[√2]) ----
+        const GENS = [
+            new Mat(Z0, Zm1, Z1, Z0),       // S
+            new Mat(Z1, Z1, Z0, Z1),        // T
+            new Mat(Z1, Zm1, Z0, Z1),       // T⁻¹
+            new Mat(Z1, Z0, Zr2, Z1),       // V
+            new Mat(Z1, Z0, Zmr2, Z1),      // V⁻¹
+        ];
+        const GEN_LABELS = ['S', 'T', 'T⁻¹', 'V', 'V⁻¹'];
+        const GEN_COLORS = ['#c084fc', '#60a5fa', '#38bdf8', '#fb923c', '#fbbf24'];
+
+        // ---- Game state ----
+        let M = ID;               // accumulated matrix
+        let moveHistory = [];      // list of generator indices
+        let totalMoves = 0;
+
+        const BASE_PT = { re: 0, im: 1 };  // z = i in UHP
+
+        // ---- Kite-like Dirichlet Domain ----
+        // Bounded by bisectors of i and {T, T⁻¹, V, V⁻¹}
+        // Vertices in UHP: 0, 1/2 + i y0, i*inf, -1/2 + i y0
+        function makeKitePoly() {
+            const y0 = Math.sqrt(Math.SQRT1_2 - 0.25);
+            return [
+                { re: 0, im: 1e-6 },     // Near 0 (bottom cusp)
+                { re: 0.5, im: y0 },      // T/V intersection
+                { re: 0, im: 1e6 },       // Near inf (top cusp)
+                { re: -0.5, im: y0 }      // T⁻¹/V⁻¹ intersection
+            ];
+        }
+        const REF_POLY = makeKitePoly();
+
+        // Trail
+        let trailSimon = [];
+        let trailLily = [];
+
+        // ---- UHP ↔ Disk conversion ----
+        function uhpToDisk(z) {
+            // w = (z − i)/(z + i)
+            const dRe = z.re, dIm = z.im + 1;
+            const nRe = z.re, nIm = z.im - 1;
+            const den2 = dRe * dRe + dIm * dIm;
+            if (den2 < 1e-14) return { x: 0, y: 0 };
+            return {
+                x: (nRe * dRe + nIm * dIm) / den2,
+                y: (nIm * dRe - nRe * dIm) / den2
+            };
+        }
+
+        // ---- Canvas setup ----
+        const cS = $('cS'), cL = $('cL');
+        const gS = cS.getContext('2d'), gL = cL.getContext('2d');
+        let dpr = 1;
+
+        function resize() {
+            dpr = window.devicePixelRatio || 1;
+            const w = window.innerWidth / 2, h = window.innerHeight;
+            [cS, cL].forEach(c => { c.width = w * dpr; c.height = h * dpr; c.style.width = w + 'px'; c.style.height = h + 'px'; });
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        // ---- Core game actions ----
+        function doMove(gi) {
+            M = M.mul(GENS[gi]);
+            moveHistory.push(gi);
+            totalMoves++;
+            updateTrail();
+            draw();
+            checkWin();
+        }
+
+        function undo() {
+            if (!moveHistory.length) return;
+            const last = moveHistory.pop();
+            // Inverse: S⁻¹=S, T⁻¹=T⁻¹, (T⁻¹)⁻¹=T, V⁻¹=V⁻¹, (V⁻¹)⁻¹=V
+            const invMap = [0, 2, 1, 4, 3]; // index of inverse generator
+            M = M.mul(GENS[invMap[last]]);
+            totalMoves++;
+            updateTrail();
+            draw();
+            checkWin();
+        }
+
+        function scramble(n) {
+            for (let k = 0; k < n; k++) {
+                const gi = Math.floor(Math.random() * GENS.length);
+                M = M.mul(GENS[gi]);
+                moveHistory.push(gi);
+            }
+            totalMoves += n;
+            updateTrail();
+            draw();
+        }
+
+        function resetGame() {
+            M = ID;
+            moveHistory = [];
+            totalMoves = 0;
+            trailSimon = [];
+            trailLily = [];
+            draw();
+        }
+
+        function updateTrail() {
+            const ps = uhpToDisk(M.act(BASE_PT, false));
+            const pl = uhpToDisk(M.act(BASE_PT, true));
+            trailSimon.push(ps);
+            trailLily.push(pl);
+            if (trailSimon.length > 200) { trailSimon.shift(); trailLily.shift(); }
+        }
+
+        function checkWin() {
+            if (moveHistory.length > 0 && M.isId()) {
+                $('win').classList.add('show');
+            }
+        }
+        function closeWin() { $('win').classList.remove('show'); resetGame(); }
+
+        // ---- Matrix display ----
+        function formatZS(z) {
+            const a = z.a, b = z.b;
+            if (a === 0 && b === 0) return '0';
+            let s = '';
+            if (a !== 0) s += a;
+            if (b !== 0) {
+                const abs = Math.abs(b);
+                const sign = b > 0 ? (a !== 0 ? '+' : '') : '−';
+                s += sign + (abs === 1 ? '' : abs) + '√2';
+            }
+            return s || '0';
+        }
+        function updateMatrixUI() {
+            const p = $('matPanel');
+            if (p.style.display === 'none' && !p.classList.contains('show')) return;
+            const entries = [M.a, M.b, M.c, M.d];
+            $('matGrid').innerHTML = entries.map(e =>
+                `<div class="cell"><span class="zs">${formatZS(e)}</span></div>`
+            ).join('');
+            const f = n => (n >= 0 ? '+' : '') + n.toFixed(4);
+            $('matEvals').innerHTML = `
+                <div class="ev simon"><b>Simon (√2 = +1.414…)</b>
+                    ⌈ ${f(M.a.ev(false))}  ${f(M.b.ev(false))} ⌉<br>
+                    ⌊ ${f(M.c.ev(false))}  ${f(M.d.ev(false))} ⌋</div>
+                <div class="ev lily"><b>Lily (√2 = −1.414…)</b>
+                    ⌈ ${f(M.a.ev(true))}  ${f(M.b.ev(true))} ⌉<br>
+                    ⌊ ${f(M.c.ev(true))}  ${f(M.d.ev(true))} ⌋</div>`;
+        }
+        function toggleMatrix() {
+            const p = $('matPanel');
+            const showing = p.classList.toggle('show');
+            if (showing) updateMatrixUI();
+        }
+
+        // ---- Drawing ----
+        function draw() {
+            drawDisk(gS, cS, false);
+            drawDisk(gL, cL, true);
+            $('mc').textContent = `Moves: ${totalMoves}`;
+            updateMatrixUI();
+        }
+
+        function drawDisk(ctx, canvas, gal) {
+            const W = canvas.width, H = canvas.height;
+            const cx = W / 2, cy = H / 2;
+            const R = Math.min(W, H) * 0.44;  // disk radius in pixels
+
+            // Background
+            ctx.clearRect(0, 0, W, H);
+            const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.2);
+            bg.addColorStop(0, gal ? '#140808' : '#08081a');
+            bg.addColorStop(1, '#030306');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, W, H);
+
+            // Disk fill
+            ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+            ctx.fillStyle = gal ? 'rgba(30,10,10,.3)' : 'rgba(10,10,30,.3)';
+            ctx.fill();
+
+            // Helper: disk coords → pixel
+            const toP = (d) => ({ px: cx + d.x * R, py: cy - d.y * R });
+
+            // Draw reference polygon (home shape, faint)
+            drawPolyUHP(ctx, cx, cy, R, REF_POLY, ID, gal, 'rgba(255,255,255,.06)', 'rgba(255,255,255,.12)', 1);
+            // Label HOME
+            ctx.fillStyle = 'rgba(255,255,255,.15)';
+            ctx.font = `${10 * dpr}px Outfit`;
+            ctx.textAlign = 'center';
+            ctx.fillText('HOME', cx, cy + 4 * dpr);
+
+            // Draw current polygon
+            const accent = gal ? '#f87171' : '#60a5fa';
+            const fillC = gal ? 'rgba(248,113,113,.12)' : 'rgba(96,165,250,.12)';
+            drawPolyUHP(ctx, cx, cy, R, REF_POLY, M, gal, fillC, accent, 2);
+
+            // Trail
+            const trail = gal ? trailLily : trailSimon;
+            if (trail.length > 1) {
+                ctx.beginPath();
+                const p0 = toP(trail[0]);
+                ctx.moveTo(p0.px, p0.py);
+                for (let k = 1; k < trail.length; k++) {
+                    const pk = toP(trail[k]);
+                    ctx.lineTo(pk.px, pk.py);
+                }
+                ctx.strokeStyle = gal ? 'rgba(248,113,113,.25)' : 'rgba(96,165,250,.25)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+
+            // Current position dot
+            const curUHP = M.act(BASE_PT, gal);
+            const curD = uhpToDisk(curUHP);
+            const cur = toP(curD);
+            // Glow
+            ctx.beginPath(); ctx.arc(cur.px, cur.py, 12 * dpr, 0, Math.PI * 2);
+            ctx.fillStyle = gal ? 'rgba(248,113,113,.15)' : 'rgba(96,165,250,.15)';
+            ctx.fill();
+            // Dot
+            ctx.beginPath(); ctx.arc(cur.px, cur.py, 4.5 * dpr, 0, Math.PI * 2);
+            ctx.fillStyle = accent;
+            ctx.fill();
+
+            // Direction arrows for each generator
+            for (let gi = 0; gi < GENS.length; gi++) {
+                const nextM = M.mul(GENS[gi]);
+                const nextUHP = nextM.act(BASE_PT, gal);
+                const nextD = uhpToDisk(nextUHP);
+                const nd = toP(nextD);
+
+                // Direction line
+                const dx = nd.px - cur.px, dy = nd.py - cur.py;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 2) continue;
+
+                const arrowLen = Math.min(dist * 0.6, 36 * dpr);
+                const nx = dx / dist, ny = dy / dist;
+                const ax = cur.px + nx * 14 * dpr, ay = cur.py + ny * 14 * dpr;
+                const bx = ax + nx * arrowLen, by = ay + ny * arrowLen;
+
+                ctx.beginPath();
+                ctx.moveTo(ax, ay);
+                ctx.lineTo(bx, by);
+                ctx.strokeStyle = GEN_COLORS[gi] + '66';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Arrowhead
+                const hs = 6 * dpr;
+                ctx.beginPath();
+                ctx.moveTo(bx, by);
+                ctx.lineTo(bx - nx * hs - ny * hs * 0.5, by - ny * hs + nx * hs * 0.5);
+                ctx.lineTo(bx - nx * hs + ny * hs * 0.5, by - ny * hs - nx * hs * 0.5);
+                ctx.closePath();
+                ctx.fillStyle = GEN_COLORS[gi] + '88';
+                ctx.fill();
+
+                // Small label
+                const lx = bx + nx * 8 * dpr, ly = by + ny * 8 * dpr;
+                ctx.fillStyle = GEN_COLORS[gi] + 'aa';
+                ctx.font = `${9 * dpr}px Outfit`;
+                ctx.textAlign = 'center';
+                ctx.fillText(GEN_LABELS[gi], lx, ly + 3 * dpr);
+
+                // Faint destination dot
+                ctx.beginPath(); ctx.arc(nd.px, nd.py, 2.5 * dpr, 0, Math.PI * 2);
+                ctx.fillStyle = GEN_COLORS[gi] + '44';
+                ctx.fill();
+            }
+
+            // Disk border
+            ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+            ctx.strokeStyle = accent + '44';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function drawPolyUHP(ctx, cx, cy, R, polyUHP, mat, gal, fill, stroke, lw) {
+            // Transform polygon vertices by mat, convert to disk, draw with geodesic arcs
+            const transformed = polyUHP.map(v => mat.act(v, gal));
+            const diskPts = transformed.map(uhpToDisk);
+            const N = diskPts.length;
+
+            ctx.beginPath();
+            for (let i = 0; i < N; i++) {
+                const d1 = diskPts[i], d2 = diskPts[(i + 1) % N];
+                if (i === 0) {
+                    const p = { px: cx + d1.x * R, py: cy - d1.y * R };
+                    ctx.moveTo(p.px, p.py);
+                }
+                drawGeodesicArc(ctx, cx, cy, R, d1, d2);
+            }
+            ctx.closePath();
+            ctx.fillStyle = fill;
+            ctx.fill();
+            ctx.strokeStyle = stroke;
+            ctx.lineWidth = lw;
+            ctx.stroke();
+        }
+
+        function drawGeodesicArc(ctx, cx, cy, R, p1, p2) {
+            // Geodesic in Poincaré disk: circular arc orthogonal to unit circle
+            const x1 = p1.x, y1 = p1.y, x2 = p2.x, y2 = p2.y;
+            const det = x1 * y2 - x2 * y1;
+
+            if (Math.abs(det) < 1e-6) {
+                // Points are collinear through origin → straight line (diameter)
+                ctx.lineTo(cx + x2 * R, cy - y2 * R);
+                return;
+            }
+
+            // Circle through p1, p2 orthogonal to unit circle
+            // Center C satisfies: C·p1 = (|p1|²+1)/2 and C·p2 = (|p2|²+1)/2
+            const r1s = x1 * x1 + y1 * y1;
+            const r2s = x2 * x2 + y2 * y2;
+            const b1 = (r1s + 1) / 2, b2 = (r2s + 1) / 2;
+            const cRe = (b1 * y2 - b2 * y1) / det;
+            const cIm = (x1 * b2 - x2 * b1) / det;
+            const r = Math.sqrt((x1 - cRe) ** 2 + (y1 - cIm) ** 2);
+
+            // Canvas arc angles (y-axis is inverted in canvas)
+            const startAng = Math.atan2(-(y1 - cIm), x1 - cRe);
+            const endAng = Math.atan2(-(y2 - cIm), x2 - cRe);
+
+            // Determine arc direction: shorter arc that stays inside the disk
+            const anticlockwise = det < 0;
+            ctx.arc(cx + cRe * R, cy - cIm * R, r * R, startAng, endAng, anticlockwise);
+        }
+
+        // ---- Click interaction on disks ----
+        function handleClick(e, canvas, gal) {
+            const rect = canvas.getBoundingClientRect();
+            const mx = (e.clientX - rect.left) * dpr;
+            const my = (e.clientY - rect.top) * dpr;
+            const W = canvas.width, H = canvas.height;
+            const cxP = W / 2, cyP = H / 2;
+            const R = Math.min(W, H) * 0.44;
+
+            // Current position in pixels
+            const curUHP = M.act(BASE_PT, gal);
+            const curD = uhpToDisk(curUHP);
+            const curPx = cxP + curD.x * R, curPy = cyP - curD.y * R;
+
+            // Find which generator arrow the click is closest to
+            let bestGi = -1, bestDist = Infinity;
+            for (let gi = 0; gi < GENS.length; gi++) {
+                const nextM = M.mul(GENS[gi]);
+                const nextUHP = nextM.act(BASE_PT, gal);
+                const nextD = uhpToDisk(nextUHP);
+                const ndPx = cxP + nextD.x * R, ndPy = cyP - nextD.y * R;
+
+                // Arrow midpoint
+                const dx = ndPx - curPx, dy = ndPy - curPy;
+                const arLen = Math.sqrt(dx * dx + dy * dy);
+                if (arLen < 5) continue;
+                const midX = curPx + dx * 0.4, midY = curPy + dy * 0.4;
+                const d = Math.sqrt((mx - midX) ** 2 + (my - midY) ** 2);
+                if (d < bestDist && d < 40 * dpr) {
+                    bestDist = d;
+                    bestGi = gi;
+                }
+            }
+
+            if (bestGi >= 0) doMove(bestGi);
+        }
+
+        cS.addEventListener('click', e => handleClick(e, cS, false));
+        cL.addEventListener('click', e => handleClick(e, cL, true));
+
+        // ---- Toast ----
+        setTimeout(() => $('toast').classList.add('show'), 600);
+        setTimeout(() => $('toast').classList.remove('show'), 6000);
+
+        // ---- Init ----
+        resize();
+    </script>
+</body>
+
+</html>

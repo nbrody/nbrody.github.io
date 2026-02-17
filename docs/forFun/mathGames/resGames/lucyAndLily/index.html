@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Lucy and Lily II — Polygon Flipping Puzzle</title>
+    <meta name="description"
+        content="Lucy and Lily II: A polygon-flipping puzzle game by Rich Schwartz, ported to HTML5 Canvas.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0a0a1a;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+            touch-action: none;
+        }
+
+        canvas.grabbing {
+            cursor: grabbing;
+        }
+
+        /* Floating glass panel */
+        .panel {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 16px;
+            background: rgba(16, 16, 36, 0.72);
+            backdrop-filter: blur(18px) saturate(1.3);
+            -webkit-backdrop-filter: blur(18px) saturate(1.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: calc(100vw - 24px);
+        }
+
+        .panel button {
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 500;
+            padding: 5px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: #bbb;
+            cursor: pointer;
+            transition: all 0.18s;
+            white-space: nowrap;
+        }
+
+        .panel button:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.22);
+            transform: translateY(-1px);
+        }
+
+        .panel button.accent {
+            background: linear-gradient(135deg, rgba(96, 165, 250, 0.18), rgba(192, 132, 252, 0.18));
+            border-color: rgba(192, 132, 252, 0.28);
+            color: #e0d0ff;
+        }
+
+        .panel .sep {
+            width: 1px;
+            height: 18px;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 0 2px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            padding: 8px 20px;
+            border-radius: 10px;
+            background: rgba(16, 16, 36, 0.78);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.76rem;
+            color: #999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        .toast span {
+            color: #c084fc;
+            font-weight: 600;
+        }
+
+        /* Win Overlay */
+        #winOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 26, 0.85);
+            backdrop-filter: blur(12px);
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+
+        #winOverlay.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        #winOverlay h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ff6b9d, #c084fc, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        #winOverlay p {
+            font-size: 1.2rem;
+            color: #94a3b8;
+            margin-bottom: 30px;
+        }
+
+        #winOverlay button {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 12px 32px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, #6c9cff, #a35ce6);
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s;
+        }
+
+        #winOverlay button:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="c"></canvas>
+
+    <div class="panel">
+        <button onclick="scramble(1)">Scramble 1</button>
+        <button onclick="scramble(5)">×5</button>
+        <button onclick="scramble(20)">×20</button>
+        <button onclick="scramble(50)">×50</button>
+        <div class="sep"></div>
+        <button onclick="resetGame()">Reset</button>
+        <button onclick="changeSides(-1)">◀</button>
+        <button class="accent" id="sideLabel">7 sides</button>
+        <button onclick="changeSides(1)">▶</button>
+        <div class="sep"></div>
+        <button onclick="toggleStyle()">Ring</button>
+        <button onclick="toggleShadow()">Shadow</button>
+        <button onclick="framePieces()">Fit</button>
+    </div>
+
+    <div class="toast" id="toast">Click a <span>sector</span> to flip · Scroll to zoom · Drag to pan</div>
+
+    <div id="winOverlay">
+        <h2>SOLVED!</h2>
+        <p>You returned all polygons to their home state.</p>
+        <button onclick="closeWinOverlay()">Play Again</button>
+    </div>
+
+    <script>
+        // =============================================================
+        //  Lucy & Lily II — full-window hi-DPI with zoom / pan
+        // =============================================================
+        const $ = id => document.getElementById(id);
+        const canvas = $('c');
+        const ctx = canvas.getContext('2d');
+
+        // ---- Hi-DPI setup ----
+        let dpr = 1;
+        function resize() {
+            dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        // ---- Camera (world-space center + zoom) ----
+        let cam = { x: 0, y: 0, zoom: 1.8 };
+
+        function worldToScreen(wx, wy) {
+            const cx = canvas.width / 2, cy = canvas.height / 2;
+            return {
+                x: cx + (wx - cam.x) * cam.zoom * dpr,
+                y: cy + (wy - cam.y) * cam.zoom * dpr
+            };
+        }
+        function screenToWorld(sx, sy) {
+            const cx = canvas.width / 2, cy = canvas.height / 2;
+            return {
+                x: (sx - cx) / (cam.zoom * dpr) + cam.x,
+                y: (sy - cy) / (cam.zoom * dpr) + cam.y
+            };
+        }
+
+        // ---- Palette ----
+        const PALETTE = [
+            ['#6C9CFF', '#4B7BEE'], ['#FF6B8A', '#D94466'], ['#5DE8B0', '#30C48B'],
+            ['#C78DFF', '#A35CE6'], ['#56D8E8', '#2CB4C4'], ['#FFD06B', '#E6B040'],
+            ['#FF8F6B', '#D96A44'], ['#7B8FFF', '#5566DD'], ['#FF6BD0', '#D944AA'],
+            ['#8BFFB0', '#60DD88'], ['#FFB86B', '#DD9044'], ['#6BFFEF', '#44DDC8'],
+            ['#D0FF6B', '#AADD44'],
+        ];
+        const GLOW_COLORS = ['#6C9CFF', '#FF6B8A', '#5DE8B0', '#C78DFF', '#56D8E8', '#FFD06B', '#FF8F6B'];
+
+        // ---- PolyFlip ----
+        class PolyFlip {
+            constructor(r1, r2, k, n, cx, cy, hide, mode, angle) {
+                this.r1 = r1; this.r2 = r2; this.k = k; this.n = n;
+                this.cx = cx; this.cy = cy; this.hide = hide; this.mode = mode; this.angle = angle;
+            }
+            clone() { return new PolyFlip(this.r1, this.r2, this.k, this.n, this.cx, this.cy, this.hide, this.mode, this.angle); }
+
+            sectorVerts(i) {
+                const m = this.mode === 1 ? -1 : 1;
+                const ii = m * i * this.k;
+                const nn = this.n;
+                const a1 = 2 * Math.PI * (this.angle + ii - 0.5) / nn - Math.PI * this.mode;
+                const a2 = 2 * Math.PI * (this.angle + ii + 0.5) / nn - Math.PI * this.mode;
+                return {
+                    x1: this.cx, y1: this.cy,
+                    ox2: this.cx + this.r2 * Math.cos(a1), oy2: this.cy - this.r2 * Math.sin(a1),
+                    ox3: this.cx + this.r2 * Math.cos(a2), oy3: this.cy - this.r2 * Math.sin(a2),
+                    ix2: this.cx + this.r1 * Math.cos(a1), iy2: this.cy - this.r1 * Math.sin(a1),
+                    ix3: this.cx + this.r1 * Math.cos(a2), iy3: this.cy - this.r1 * Math.sin(a2),
+                };
+            }
+
+            render(ctx, hoverIdx) {
+                if (this.hide) return;
+                for (let i = 0; i < this.n; i++) {
+                    const v = this.sectorVerts(i);
+                    ctx.beginPath();
+                    ctx.moveTo(v.ox2, v.oy2);
+                    ctx.lineTo(v.ox3, v.oy3);
+                    ctx.lineTo(v.ix3, v.iy3);
+                    ctx.lineTo(v.ix2, v.iy2);
+                    ctx.closePath();
+
+                    const cols = PALETTE[i % PALETTE.length];
+                    const isHover = (hoverIdx === i);
+
+                    // Gradient fill
+                    const gx = (v.ox2 + v.ox3) / 2, gy = (v.oy2 + v.oy3) / 2;
+                    const grad = ctx.createLinearGradient(v.x1, v.y1, gx, gy);
+                    if (isHover) {
+                        grad.addColorStop(0, cols[0] + 'ff');
+                        grad.addColorStop(1, '#fff');
+                    } else {
+                        grad.addColorStop(0, cols[1]);
+                        grad.addColorStop(1, cols[0]);
+                    }
+                    ctx.fillStyle = grad;
+                    ctx.fill();
+
+                    ctx.strokeStyle = isHover ? '#fff' : 'rgba(255,255,255,0.25)';
+                    ctx.lineWidth = isHover ? 2.5 / cam.zoom : 1.2 / cam.zoom;
+                    ctx.lineJoin = 'round';
+                    ctx.stroke();
+                }
+            }
+
+            shadowRender(ctx, flipIdx) {
+                if (this.hide || flipIdx < 0) return;
+                const q = this.flip(flipIdx);
+                ctx.setLineDash([6 / cam.zoom, 4 / cam.zoom]);
+                for (let i = 0; i < q.n; i++) {
+                    const v = q.sectorVerts.call(q, i);
+                    ctx.beginPath();
+                    ctx.moveTo(v.ox2, v.oy2);
+                    ctx.lineTo(v.ox3, v.oy3);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+                    ctx.lineWidth = 1.2 / cam.zoom;
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
+            }
+
+            goalRender(ctx) {
+                for (let i = 0; i < this.n; i++) {
+                    const nn = this.n;
+                    const a1 = 2 * Math.PI * (this.angle + i - 0.5) / nn;
+                    const a2 = 2 * Math.PI * (this.angle + i + 0.5) / nn;
+                    const x2 = this.r2 * Math.cos(a1), y2 = -this.r2 * Math.sin(a1);
+                    const x3 = this.r2 * Math.cos(a2), y3 = -this.r2 * Math.sin(a2);
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath();
+                    ctx.fillStyle = 'rgba(255,255,255,0.025)';
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                    ctx.lineWidth = 0.8 / cam.zoom;
+                    ctx.stroke();
+                }
+            }
+
+            inside(px, py) {
+                for (let i = 0; i < this.n; i++) {
+                    const v = this.sectorVerts(i);
+                    if (!this.hide && triHit(px, py, v.x1, v.y1, v.ox2, v.oy2, v.ox3, v.oy3)) {
+                        // Check inner exclusion
+                        if (this.r1 > 0 && triHit(px, py, v.x1, v.y1, v.ix2, v.iy2, v.ix3, v.iy3)) continue;
+                        return i;
+                    }
+                }
+                return -1;
+            }
+
+            flip(i) {
+                const q = this.clone(); if (i < 0) return q;
+                const nn = this.n;
+                if (this.mode === 0) {
+                    const ii = i * this.k;
+                    const x = this.r2 * Math.cos(2 * Math.PI * (this.angle + ii) / nn);
+                    const y = this.r2 * Math.sin(2 * Math.PI * (this.angle + ii) / nn);
+                    const len = 2 * Math.cos(Math.PI / nn);
+                    q.cx += len * x; q.cy -= len * y;
+                    q.angle = this.angle + 2 * this.k * i;
+                } else {
+                    const ii = -i * this.k;
+                    const x = this.r2 * Math.cos(2 * Math.PI * (this.angle + ii) / nn);
+                    const y = this.r2 * Math.sin(2 * Math.PI * (this.angle + ii) / nn);
+                    const len = 2 * Math.cos(Math.PI / nn);
+                    q.cx -= len * x; q.cy += len * y;
+                    q.angle = -2 * this.k * i + this.angle;
+                }
+                q.mode = 1 - this.mode;
+                return q;
+            }
+
+            scale(d) { const q = this.clone(); q.cx *= d; q.cy *= d; q.r1 *= d; q.r2 *= d; return q; }
+            ring() { const q = this.clone(); q.r1 += .25 * q.r2; if (q.r1 > .9 * q.r2) q.r1 = 0; return q; }
+            randomSector() { return Math.floor(Math.random() * this.n); }
+        }
+
+        function triHit(px, py, x1, y1, x2, y2, x3, y3) {
+            const d1 = (px - x2) * (y1 - y2) - (x1 - x2) * (py - y2);
+            const d2 = (px - x3) * (y2 - y3) - (x2 - x3) * (py - y3);
+            const d3 = (px - x1) * (y3 - y1) - (x3 - x1) * (py - y1);
+            return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+        }
+
+        // ---- Game state ----
+        let sides = 7;
+        let pieces = [];
+        let showShadow = true;
+        let shadowIdx = -1;
+        const R2 = 120;
+
+        const CONFIGS = {
+            5: [[1, 2]], 6: [[1]], 7: [[1, 2, 3]], 8: [[1, 3]], 9: [[1, 2, 4]],
+            10: [[1, 3]], 11: [[1, 2, 3, 4, 5]], 12: [[1, 5]], 13: [[1, 2, 3, 4, 5, 6]],
+        };
+
+        function buildPieces(n) {
+            const kList = (CONFIGS[n] || CONFIGS[7])[0];
+            pieces = kList.map(k => new PolyFlip(0, R2, k, n, 0, 0, 0, 0, 0));
+        }
+
+        function resetGame() { buildPieces(sides); shadowIdx = -1; framePieces(); }
+
+        function changeSides(d) {
+            sides = Math.max(5, Math.min(13, sides + d));
+            $('sideLabel').textContent = sides + ' sides';
+            resetGame();
+        }
+
+        function scramble(count) {
+            for (let k = 0; k < count; k++) {
+                const m = pieces[0].randomSector();
+                pieces = pieces.map(p => p.flip(m));
+            }
+            framePieces(true);
+        }
+
+        function toggleStyle() { pieces = pieces.map(p => p.ring()); draw(); }
+        function toggleShadow() { showShadow = !showShadow; draw(); }
+
+        let isWon = false;
+        function checkWin() {
+            if (isWon) return false;
+            // A piece is home if cx, cy are tiny, mode is 0, and angle is a multiple of n
+            const home = pieces.every(p => {
+                const dist = Math.sqrt(p.cx * p.cx + p.cy * p.cy);
+                const angleMod = ((p.angle % p.n) + p.n) % p.n;
+                return dist < 0.1 && p.mode === 0 && angleMod === 0;
+            });
+
+            if (home) {
+                // Ensure they weren't always home (if count was 0)
+                isWon = true;
+                showWinOverlay();
+                return true;
+            }
+            return false;
+        }
+
+        function showWinOverlay() {
+            const overlay = $('winOverlay');
+            overlay.classList.add('show');
+        }
+
+        function closeWinOverlay() {
+            const overlay = $('winOverlay');
+            overlay.classList.remove('show');
+            isWon = false;
+            // Optionally auto-scramble after win
+        }
+
+        let camAnim = null;
+        function framePieces(smooth = true) {
+            if (!pieces.length) return;
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (const p of pieces) {
+                if (p.hide) continue;
+                for (let i = 0; i < p.n; i++) {
+                    const v = p.sectorVerts(i);
+                    for (const x of [v.ox2, v.ox3, v.ix2, v.ix3]) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); }
+                    for (const y of [v.oy2, v.oy3, v.iy2, v.iy3]) { minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+                }
+            }
+            // Also include origin goal
+            minX = Math.min(minX, -R2); maxX = Math.max(maxX, R2);
+            minY = Math.min(minY, -R2); maxY = Math.max(maxY, R2);
+            const pad = 60;
+            minX -= pad; maxX += pad; minY -= pad; maxY += pad;
+
+            const targetX = (minX + maxX) / 2;
+            const targetY = (minY + maxY) / 2;
+            const sx = window.innerWidth / (maxX - minX);
+            const sy = window.innerHeight / (maxY - minY);
+            const targetZoom = Math.min(sx, sy) * 0.85;
+
+            if (!smooth) {
+                cam.x = targetX; cam.y = targetY; cam.zoom = targetZoom;
+                draw();
+                return;
+            }
+
+            // Smooth transition
+            if (camAnim) cancelAnimationFrame(camAnim);
+            const startX = cam.x, startY = cam.y, startZoom = cam.zoom;
+            let frame = 0; const frames = 30;
+            function animate() {
+                frame++;
+                const t = frame / frames;
+                const ease = 1 - Math.pow(1 - t, 3); // easeOutCubic
+                cam.x = startX + (targetX - startX) * ease;
+                cam.y = startY + (targetY - startY) * ease;
+                cam.zoom = startZoom + (targetZoom - startZoom) * ease;
+                draw();
+                if (frame < frames) camAnim = requestAnimationFrame(animate);
+            }
+            camAnim = requestAnimationFrame(animate);
+        }
+
+        // ---- Drawing ----
+        function draw() {
+            const W = canvas.width, H = canvas.height;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, W, H);
+
+            // Background gradient
+            const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.7);
+            bg.addColorStop(0, '#12122a');
+            bg.addColorStop(1, '#080818');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, W, H);
+
+            // Subtle grid
+            drawGrid();
+
+            // Transform to world
+            ctx.save();
+            const cx = W / 2, cy = H / 2;
+            ctx.translate(cx, cy);
+            ctx.scale(cam.zoom * dpr, cam.zoom * dpr);
+            ctx.translate(-cam.x, -cam.y);
+
+            // Goal outline
+            pieces[0]?.goalRender(ctx);
+
+            // Axes
+            ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+            ctx.lineWidth = 0.8 / cam.zoom;
+            ctx.beginPath(); ctx.moveTo(-3000, 0); ctx.lineTo(3000, 0); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, -3000); ctx.lineTo(0, 3000); ctx.stroke();
+
+            // Origin dot
+            ctx.beginPath();
+            ctx.arc(0, 0, 4 / cam.zoom, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(192,132,252,0.35)';
+            ctx.fill();
+
+            // Shadows
+            if (showShadow && shadowIdx >= 0) {
+                for (const p of pieces) p.shadowRender(ctx, shadowIdx);
+            }
+
+            // Pieces (reverse so first is on top)
+            for (let i = pieces.length - 1; i >= 0; i--) {
+                pieces[i].render(ctx, shadowIdx);
+            }
+
+            // Glow around hovered sector
+            if (shadowIdx >= 0 && pieces.length) {
+                const v = pieces[0].sectorVerts(shadowIdx);
+                ctx.save();
+                ctx.shadowColor = GLOW_COLORS[shadowIdx % GLOW_COLORS.length];
+                ctx.shadowBlur = 18 / cam.zoom;
+                ctx.beginPath();
+                ctx.moveTo(v.ox2, v.oy2); ctx.lineTo(v.ox3, v.oy3);
+                ctx.strokeStyle = 'rgba(255,255,255,0.0)';
+                ctx.lineWidth = 3 / cam.zoom;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
+        function drawGrid() {
+            const W = canvas.width, H = canvas.height;
+            const gap = 60 * cam.zoom * dpr;
+            if (gap < 15) return;
+            const ox = (W / 2 - cam.x * cam.zoom * dpr) % gap;
+            const oy = (H / 2 - cam.y * cam.zoom * dpr) % gap;
+            ctx.strokeStyle = 'rgba(255,255,255,0.018)';
+            ctx.lineWidth = 1;
+            for (let x = ox; x < W; x += gap) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+            // horizontal lines
+            for (let y = oy; y < H; y += gap) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+        }
+
+        // ---- Interaction ----
+        function canvasXY(e) {
+            const r = canvas.getBoundingClientRect();
+            return { sx: (e.clientX - r.left) * dpr, sy: (e.clientY - r.top) * dpr };
+        }
+
+        function findSector(wx, wy) {
+            if (pieces.length === 0) return -1;
+            for (const p of pieces) {
+                const s = p.inside(wx, wy);
+                if (s >= 0) return s;
+            }
+            return -1;
+        }
+
+        // Pan
+        let dragging = false, dragStart = null, camStart = null;
+
+        canvas.addEventListener('pointerdown', e => {
+            dragging = true; dragStart = { x: e.clientX, y: e.clientY };
+            camStart = { x: cam.x, y: cam.y };
+            canvas.classList.add('grabbing');
+            canvas.setPointerCapture(e.pointerId);
+        });
+
+        canvas.addEventListener('pointermove', e => {
+            if (dragging && dragStart) {
+                const dx = (e.clientX - dragStart.x) * dpr / (cam.zoom * dpr);
+                const dy = (e.clientY - dragStart.y) * dpr / (cam.zoom * dpr);
+                cam.x = camStart.x - dx;
+                cam.y = camStart.y - dy;
+                draw();
+                return;
+            }
+            // Hover
+            const { sx, sy } = canvasXY(e);
+            const w = screenToWorld(sx, sy);
+            shadowIdx = findSector(w.x, w.y);
+            draw();
+        });
+
+        canvas.addEventListener('pointerup', e => {
+            if (dragging && dragStart) {
+                const dx = Math.abs(e.clientX - dragStart.x);
+                const dy = Math.abs(e.clientY - dragStart.y);
+                if (dx < 4 && dy < 4) {
+                    // It was a click, not a drag
+                    const { sx, sy } = canvasXY(e);
+                    const w = screenToWorld(sx, sy);
+                    const sector = findSector(w.x, w.y);
+                    if (sector >= 0) {
+                        pieces = pieces.map(p => p.flip(sector));
+                        framePieces(true);
+                        setTimeout(checkWin, 600); // Check after animation mostly completes
+                    }
+                }
+            }
+            dragging = false; dragStart = null; camStart = null;
+            canvas.classList.remove('grabbing');
+        });
+
+        // Zoom
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const { sx, sy } = canvasXY(e);
+            const wBefore = screenToWorld(sx, sy);
+            const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+            cam.zoom = Math.max(0.15, Math.min(20, cam.zoom * factor));
+            const wAfter = screenToWorld(sx, sy);
+            cam.x -= (wAfter.x - wBefore.x);
+            cam.y -= (wAfter.y - wBefore.y);
+            draw();
+        }, { passive: false });
+
+        // Pinch zoom
+        let pinchDist0 = 0, pinchZoom0 = 1;
+        canvas.addEventListener('touchstart', e => {
+            if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                pinchDist0 = Math.sqrt(dx * dx + dy * dy);
+                pinchZoom0 = cam.zoom;
+            }
+        }, { passive: true });
+        canvas.addEventListener('touchmove', e => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                cam.zoom = Math.max(0.15, Math.min(20, pinchZoom0 * dist / pinchDist0));
+                draw();
+            }
+        }, { passive: false });
+
+        // ---- Toast ----
+        setTimeout(() => { $('toast').classList.add('show'); }, 400);
+        setTimeout(() => { $('toast').classList.remove('show'); }, 5000);
+
+        // ---- Boot ----
+        resize();
+        resetGame();
+    </script>
+</body>
+
+</html>

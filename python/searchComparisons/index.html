@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Comparisons — Cayley Graph on Hyperbolic Plane</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #050510;
+            color: #e0e0f0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* ── Header ── */
+        header {
+            background: rgba(10, 10, 30, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(120, 130, 255, 0.15);
+            padding: 12px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #7c8aff 0%, #c084fc 50%, #f472b6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header .subtitle {
+            font-size: 12px;
+            color: rgba(200, 200, 255, 0.5);
+            margin-top: 2px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, rgba(124, 138, 255, 0.25), rgba(192, 132, 252, 0.25));
+            border: 1px solid rgba(124, 138, 255, 0.3);
+            color: #c0c8ff;
+            padding: 8px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.25s ease;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, rgba(124, 138, 255, 0.4), rgba(192, 132, 252, 0.4));
+            border-color: rgba(124, 138, 255, 0.6);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(124, 138, 255, 0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, #7c8aff, #a78bfa);
+            border-color: transparent;
+            color: #fff;
+        }
+
+        button.primary:hover {
+            box-shadow: 0 4px 25px rgba(124, 138, 255, 0.4);
+        }
+
+        /* ── Param controls ── */
+        .param-group {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: rgba(124, 138, 255, 0.08);
+            border: 1px solid rgba(124, 138, 255, 0.15);
+            border-radius: 8px;
+            padding: 6px 14px;
+        }
+
+        .param-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: rgba(200, 200, 255, 0.6);
+        }
+
+        .param-item label {
+            white-space: nowrap;
+        }
+
+        .param-item input[type="number"] {
+            font-family: 'JetBrains Mono', monospace;
+            width: 72px;
+            padding: 4px 8px;
+            font-size: 12px;
+            background: rgba(10, 10, 30, 0.8);
+            border: 1px solid rgba(124, 138, 255, 0.25);
+            border-radius: 5px;
+            color: #c0c8ff;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .param-item input[type="number"]:focus {
+            border-color: rgba(124, 138, 255, 0.6);
+        }
+
+        /* ── Panels ── */
+        #panels {
+            flex: 1;
+            display: flex;
+            gap: 1px;
+            background: rgba(120, 130, 255, 0.08);
+            overflow: hidden;
+        }
+
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #080818;
+            position: relative;
+            transition: flex 0.35s ease, opacity 0.35s ease;
+        }
+
+        .panel.disabled {
+            flex: 0 0 42px;
+            opacity: 0.4;
+        }
+
+        .panel.disabled .panel-canvas-wrap {
+            display: none;
+        }
+
+        .panel-header {
+            padding: 12px 18px;
+            background: rgba(10, 10, 30, 0.9);
+            border-bottom: 1px solid rgba(120, 130, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .panel[data-method="random"] .dot {
+            background: #f472b6;
+            box-shadow: 0 0 8px rgba(244, 114, 182, 0.6);
+        }
+
+        .panel[data-method="beam"] .dot {
+            background: #60a5fa;
+            box-shadow: 0 0 8px rgba(96, 165, 250, 0.6);
+        }
+
+        .panel[data-method="flashbeam"] .dot {
+            background: #34d399;
+            box-shadow: 0 0 8px rgba(52, 211, 153, 0.6);
+        }
+
+        .panel-stats {
+            font-size: 11px;
+            color: rgba(200, 200, 255, 0.5);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .panel-canvas-wrap {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel-canvas-wrap canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* ── Toggle switch ── */
+        .toggle-switch {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            cursor: pointer;
+            background: rgba(120, 130, 255, 0.15);
+            border-radius: 20px;
+            transition: background 0.25s;
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            left: 2px;
+            bottom: 2px;
+            background: rgba(200, 200, 255, 0.4);
+            border-radius: 50%;
+            transition: transform 0.25s, background 0.25s;
+        }
+
+        .toggle-switch input:checked+.toggle-slider {
+            background: rgba(124, 138, 255, 0.5);
+        }
+
+        .toggle-switch input:checked+.toggle-slider::before {
+            transform: translateX(16px);
+            background: #7c8aff;
+        }
+
+        /* ── Stage overlay ── */
+        .stage-overlay {
+            position: absolute;
+            bottom: 14px;
+            left: 14px;
+            background: rgba(10, 10, 30, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(120, 130, 255, 0.15);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 11px;
+            z-index: 5;
+            min-width: 160px;
+        }
+
+        .stage-overlay .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
+
+        .stage-overlay .stat-label {
+            color: rgba(200, 200, 255, 0.45);
+        }
+
+        .stage-overlay .stat-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+        }
+
+        .panel[data-method="random"] .stat-val {
+            color: #f472b6;
+        }
+
+        .panel[data-method="beam"] .stat-val {
+            color: #60a5fa;
+        }
+
+        .panel[data-method="flashbeam"] .stat-val {
+            color: #34d399;
+        }
+
+        /* ── Solution toast ── */
+        .solution-toast {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: rgba(10, 40, 30, 0.9);
+            border: 1px solid rgba(52, 211, 153, 0.5);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 12px;
+            color: #34d399;
+            z-index: 5;
+            max-width: 220px;
+            display: none;
+            animation: fadeInSlide 0.4s ease-out;
+        }
+
+        .solution-toast.show {
+            display: block;
+        }
+
+        @keyframes fadeInSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ── Speed slider ── */
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: rgba(200, 200, 255, 0.5);
+        }
+
+        .speed-control input[type="range"] {
+            -webkit-appearance: none;
+            width: 80px;
+            height: 4px;
+            background: rgba(124, 138, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .speed-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #7c8aff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        #file-input {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <header>
+            <div>
+                <h1>Search Comparisons · PGL₂(ℤ[1/6])</h1>
+                <div class="subtitle">Cayley graph on the hyperbolic plane — height = log(det)</div>
+            </div>
+            <div class="header-controls">
+                <div class="param-group">
+                    <div class="param-item">
+                        <label for="param-pool">Pool</label>
+                        <input type="number" id="param-pool" value="10000" min="100" max="100000" step="1000">
+                    </div>
+                    <div class="param-item">
+                        <label for="param-flash">Flash</label>
+                        <input type="number" id="param-flash" value="50" min="5" max="500" step="5">
+                    </div>
+                </div>
+                <div class="speed-control">
+                    <span>Speed</span>
+                    <input type="range" id="speed-slider" min="1" max="50" value="10">
+                </div>
+                <button id="btn-run" class="primary">▶ Run Searches</button>
+                <button id="btn-load">Load JSON</button>
+                <input type="file" id="file-input" accept=".json">
+                <button id="btn-record">📹 Record</button>
+                <button id="btn-reset">Reset</button>
+            </div>
+        </header>
+
+        <div id="panels">
+            <div class="panel" data-method="random">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-random" checked><span
+                                class="toggle-slider"></span></label>
+                        <span class="dot"></span> Random Search
+                    </div>
+                    <div class="panel-stats" id="stats-random">—</div>
+                </div>
+                <div class="panel-canvas-wrap">
+                    <canvas id="canvas-random"></canvas>
+                    <div class="stage-overlay" id="overlay-random">
+                        <div class="stat-row"><span class="stat-label">Stage</span><span class="stat-val"
+                                id="stage-random">0</span></div>
+                        <div class="stat-row"><span class="stat-label">Explored</span><span class="stat-val"
+                                id="explored-random">0</span></div>
+                        <div class="stat-row"><span class="stat-label">Best Score</span><span class="stat-val"
+                                id="score-random">—</span></div>
+                        <div class="stat-row"><span class="stat-label">Solutions</span><span class="stat-val"
+                                id="solutions-random">0</span></div>
+                    </div>
+                    <div class="solution-toast" id="toast-random">✨ Solution found!</div>
+                </div>
+            </div>
+
+            <div class="panel" data-method="beam">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-beam" checked><span
+                                class="toggle-slider"></span></label>
+                        <span class="dot"></span> Beam Search
+                    </div>
+                    <div class="panel-stats" id="stats-beam">—</div>
+                </div>
+                <div class="panel-canvas-wrap">
+                    <canvas id="canvas-beam"></canvas>
+                    <div class="stage-overlay" id="overlay-beam">
+                        <div class="stat-row"><span class="stat-label">Stage</span><span class="stat-val"
+                                id="stage-beam">0</span></div>
+                        <div class="stat-row"><span class="stat-label">Explored</span><span class="stat-val"
+                                id="explored-beam">0</span></div>
+                        <div class="stat-row"><span class="stat-label">Best Score</span><span class="stat-val"
+                                id="score-beam">—</span></div>
+                        <div class="stat-row"><span class="stat-label">Solutions</span><span class="stat-val"
+                                id="solutions-beam">0</span></div>
+                    </div>
+                    <div class="solution-toast" id="toast-beam">✨ Solution found!</div>
+                </div>
+            </div>
+
+            <div class="panel" data-method="flashbeam">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <label class="toggle-switch"><input type="checkbox" id="toggle-flashbeam" checked><span
+                                class="toggle-slider"></span></label>
+                        <span class="dot"></span> FlashBeam Search
+                    </div>
+                    <div class="panel-stats" id="stats-flashbeam">—</div>
+                </div>
+                <div class="panel-canvas-wrap">
+                    <canvas id="canvas-flashbeam"></canvas>
+                    <div class="stage-overlay" id="overlay-flashbeam">
+                        <div class="stat-row"><span class="stat-label">Stage</span><span class="stat-val"
+                                id="stage-flashbeam">0</span></div>
+                        <div class="stat-row"><span class="stat-label">Explored</span><span class="stat-val"
+                                id="explored-flashbeam">0</span></div>
+                        <div class="stat-row"><span class="stat-label">Best Score</span><span class="stat-val"
+                                id="score-flashbeam">—</span></div>
+                        <div class="stat-row"><span class="stat-label">Solutions</span><span class="stat-val"
+                                id="solutions-flashbeam">0</span></div>
+                    </div>
+                    <div class="solution-toast" id="toast-flashbeam">✨ Solution found!</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ─────────────────────────────────────────────────
+        // BigInt exact matrix arithmetic for PGL_2(Z[1/6])
+        // ─────────────────────────────────────────────────
+
+        function matMul(m1, m2) {
+            return [
+                m1[0] * m2[0] + m1[1] * m2[2],
+                m1[0] * m2[1] + m1[1] * m2[3],
+                m1[2] * m2[0] + m1[3] * m2[2],
+                m1[2] * m2[1] + m1[3] * m2[3]
+            ];
+        }
+
+        function bigAbs(x) { return x < 0n ? -x : x; }
+
+        function bigGcd(a, b) {
+            a = bigAbs(a); b = bigAbs(b);
+            while (b > 0n) { [a, b] = [b, a % b]; }
+            return a;
+        }
+
+        function matDet(m) { return m[0] * m[3] - m[1] * m[2]; }
+        function matTrace(m) { return m[0] + m[3]; }
+
+        function primitize(m) {
+            let g = bigAbs(m[0]);
+            for (let i = 1; i < 4; i++) g = bigGcd(g, bigAbs(m[i]));
+            if (g === 0n) return m;
+            let factor = 1n, temp = g;
+            while (temp % 2n === 0n) { temp /= 2n; factor *= 2n; }
+            while (temp % 3n === 0n) { temp /= 3n; factor *= 3n; }
+            if (factor <= 1n) return m;
+            return [m[0] / factor, m[1] / factor, m[2] / factor, m[3] / factor];
+        }
+
+        function pglMul(a, b) {
+            return primitize(matMul(a, b));
+        }
+
+        function matScore(m) {
+            const d = bigAbs(matDet(m));
+            if (d === 0n) return Infinity;
+            return Math.log(Number(d));
+        }
+
+        function matHash(m) { return `${m[0]},${m[1]},${m[2]},${m[3]}`; }
+
+        // Generators (BigInt)
+        const MAT_A = [9n, 0n, 0n, 1n];
+        const MAT_B = [82n, 2n, 9n, 1n];
+        const MAT_Ai = [1n, 0n, 0n, 9n];
+        const MAT_Bi = [1n, -2n, -9n, 82n];
+        const IDENTITY = [1n, 0n, 0n, 1n];
+        const GENERATORS = [
+            { mat: MAT_A, name: 'A' },
+            { mat: MAT_B, name: 'B' },
+            { mat: MAT_Ai, name: 'a' },
+            { mat: MAT_Bi, name: 'b' },
+        ];
+        const INVERSE_MAP = { A: 'a', a: 'A', B: 'b', b: 'B' };
+
+        // ─────────────────────────────────────────────────
+        // Hyperbolic embedding
+        // ─────────────────────────────────────────────────
+
+        function mobiusFixedPoint(m) {
+            // Orbit of basepoint i: g(i) = (ai+b)/(ci+d)
+            // = (ac+bd)/(c²+d²) + (ad-bc)/(c²+d²) · i
+            const [a, b, c, d] = m.map(Number);
+            const denom = c * c + d * d;
+            if (denom < 1e-20) return { re: 0, im: 100 };
+            const re = (a * c + b * d) / denom;
+            const im = (a * d - b * c) / denom; // = det / (c²+d²)
+            return { re, im: Math.max(Math.abs(im), 1e-6) };
+        }
+
+        function halfPlaneToDisk(re, im) {
+            const dx = re, dy = im - 1;
+            const ex = re, ey = im + 1;
+            const denom = ex * ex + ey * ey;
+            if (denom < 1e-20) return { x: 0, y: 0 };
+            return {
+                x: (dx * ex + dy * ey) / denom,
+                y: (dy * ex - dx * ey) / denom
+            };
+        }
+
+        // ─────────────────────────────────────────────────
+        // Search engines (BigInt JS versions)
+        // ─────────────────────────────────────────────────
+
+        // Dynamic parameters from UI
+        function getPoolSize() { return parseInt(document.getElementById('param-pool').value) || 10000; }
+        function getFlashSize() { return parseInt(document.getElementById('param-flash').value) || 50; }
+
+        class SearchEngine {
+            constructor(method) {
+                this.method = method;
+                this.visited = new Map();
+                this.pool = [];
+                this.solutions = [];
+                this.stage = 0;
+                this.bestScore = Infinity;
+                this.flashPool = [];
+                this.allNodes = [];
+
+                // Seed with identity
+                const id = [...IDENTITY];
+                const s = matScore(id);
+                this.visited.set(matHash(id), true);
+                const seedFp = mobiusFixedPoint(id);
+                const seedPos = halfPlaneToDisk(seedFp.re, seedFp.im);
+                this.pool.push({ mat: id, word: '', lastGen: null, score: s, _x: seedPos.x, _y: seedPos.y, _isSolution: false });
+                this._addNode(id, '', s);
+
+                // For FlashBeam, bootstrap with 2 rounds of generator expansion
+                if (method === 'flashbeam') {
+                    for (let boot = 0; boot < 2; boot++) {
+                        const bootCandidates = [];
+                        for (const node of this.pool) {
+                            for (const g of GENERATORS) {
+                                const newMat = pglMul(node.mat, g.mat);
+                                const uid = matHash(newMat);
+                                if (this.visited.has(uid)) continue;
+                                this.visited.set(uid, true);
+                                const gs = matScore(newMat);
+                                const nw = node.word ? `${node.word}.${g.name}` : g.name;
+                                this._addNode(newMat, nw, gs);
+                                const bfp = mobiusFixedPoint(newMat);
+                                const bpos = halfPlaneToDisk(bfp.re, bfp.im);
+                                const bdet = bigAbs(matDet(newMat));
+                                const btr = bigAbs(matTrace(newMat));
+                                bootCandidates.push({ mat: newMat, word: nw, lastGen: g.name, score: gs, _x: bpos.x, _y: bpos.y, _isSolution: bdet === 1n && btr > 2n });
+                            }
+                        }
+                        this.pool = bootCandidates;
+                    }
+                    // Seed flash pool from all visited non-identity elements
+                    const idHash = matHash(IDENTITY);
+                    const allSeen = [];
+                    this.visited.forEach((v, h) => {
+                        if (h !== idHash) {
+                            // Find the corresponding node data
+                            const node = this.pool.find(p => matHash(p.mat) === h)
+                                || { mat: null, word: '', score: Infinity };
+                            if (node.mat) allSeen.push({ mat: node.mat, word: node.word, score: node.score });
+                        }
+                    });
+                    // also consider depth-1 elements stored in allNodes
+                    for (const n of this.allNodes) {
+                        // allNodes don't store mat, so we use pool data
+                    }
+                    // Rebuild flash from pool + any earlier elements
+                    const flashCandidates = this.pool.map(p => ({ mat: p.mat, word: p.word, score: p.score }));
+                    flashCandidates.sort((a, b) => a.score - b.score);
+                    this.flashPool = flashCandidates.slice(0, getFlashSize());
+                    console.log(`[FlashBeam] Bootstrap: pool=${this.pool.length}, flash=${this.flashPool.length}, visited=${this.visited.size}`);
+                }
+            }
+
+            _addNode(mat, word, score) {
+                const fp = mobiusFixedPoint(mat);
+                const pos = halfPlaneToDisk(fp.re, fp.im);
+                const det = bigAbs(matDet(mat));
+                const tr = bigAbs(matTrace(mat));
+                const isSolution = det === 1n && tr > 2n;
+                this.allNodes.push({
+                    x: pos.x, y: pos.y, score, word, isSolution, stage: this.stage,
+                    mat: [...mat] // Keep matrix for geodesic calculation
+                });
+                if (isSolution) {
+                    this.solutions.push({ word, stage: this.stage, trace: Number(tr) });
+                }
+                return isSolution;
+            }
+
+            step() {
+                this.stage++;
+                if (this.method === 'flashbeam') return this._stepFlashBeam();
+                if (this.method === 'beam') return this._stepBeam();
+                return this._stepRandom();
+            }
+
+            _tryAdd(nodeMat, expMat, nodeWord, expName, joiner, candidates) {
+                const newMat = pglMul(nodeMat, expMat);
+                const uid = matHash(newMat);
+                if (this.visited.has(uid)) return;
+                this.visited.set(uid, true);
+
+                const s = matScore(newMat);
+                const newWord = nodeWord ? `${nodeWord}${joiner}${expName}` : expName;
+                this._addNode(newMat, newWord, s);
+
+                // Cache disk position for visualization
+                const fp = mobiusFixedPoint(newMat);
+                const pos = halfPlaneToDisk(fp.re, fp.im);
+                const det = bigAbs(matDet(newMat));
+                const tr = bigAbs(matTrace(newMat));
+                candidates.push({
+                    mat: newMat, word: newWord, lastGen: expName, score: s,
+                    _x: pos.x, _y: pos.y, _isSolution: det === 1n && tr > 2n
+                });
+            }
+
+            _stepRandom() {
+                const candidates = [];
+                for (const node of this.pool) {
+                    for (const g of GENERATORS) {
+                        if (node.lastGen && g.name === INVERSE_MAP[node.lastGen]) continue;
+                        this._tryAdd(node.mat, g.mat, node.word, g.name, '.', candidates);
+                    }
+                }
+                // Random selection
+                shuffle(candidates);
+                this.pool = candidates.slice(0, getPoolSize());
+                this.bestScore = this.pool.length > 0 ? Math.min(...this.pool.map(p => p.score)) : Infinity;
+                return this.pool.length > 0;
+            }
+
+            _stepBeam() {
+                const candidates = [];
+                for (const node of this.pool) {
+                    for (const g of GENERATORS) {
+                        if (node.lastGen && g.name === INVERSE_MAP[node.lastGen]) continue;
+                        this._tryAdd(node.mat, g.mat, node.word, g.name, '.', candidates);
+                    }
+                }
+                candidates.sort((a, b) => a.score - b.score);
+                this.pool = candidates.slice(0, getPoolSize());
+                this.bestScore = this.pool.length > 0 ? this.pool[0].score : Infinity;
+                return this.pool.length > 0;
+            }
+
+            _stepFlashBeam() {
+                const candidates = [];
+
+                // Cap how many pool elements we expand to avoid blowing up
+                const beamSlice = this.pool.slice(0, Math.min(this.pool.length, 2000));
+
+                for (const node of beamSlice) {
+                    for (const f of this.flashPool) {
+                        // Right multiply: beam * flash
+                        this._tryAdd(node.mat, f.mat, node.word, `(${f.word})`, '*', candidates);
+                        // Left multiply: flash * beam
+                        this._tryAdd(f.mat, node.mat, `(${f.word})`, node.word, '*', candidates);
+                    }
+                }
+
+                // Beam selection
+                candidates.sort((a, b) => a.score - b.score);
+                this.pool = candidates.slice(0, getPoolSize());
+
+                // Update flash pool
+                const idHash = matHash(IDENTITY);
+                const allForFlash = [
+                    ...this.flashPool,
+                    ...this.pool.map(p => ({ mat: p.mat, word: p.word, score: p.score }))
+                ].filter(f => matHash(f.mat) !== idHash && f.score > 0);
+
+                allForFlash.sort((a, b) => a.score - b.score);
+                const seen = new Set();
+                this.flashPool = [];
+                for (const f of allForFlash) {
+                    const h = matHash(f.mat);
+                    if (!seen.has(h)) {
+                        seen.add(h);
+                        this.flashPool.push(f);
+                    }
+                    if (this.flashPool.length >= getFlashSize()) break;
+                }
+
+                this.bestScore = this.pool.length > 0 ? this.pool[0].score : Infinity;
+                return this.pool.length > 0;
+            }
+
+            getPoolNodes() {
+                // Pool entries already have _x, _y, _isSolution cached
+                const maxDisplay = 5000;
+                const src = this.pool.length > maxDisplay
+                    ? this.pool.slice(0, maxDisplay)
+                    : this.pool;
+                return src.map(p => ({
+                    x: p._x, y: p._y, score: p.score, isSolution: p._isSolution
+                }));
+            }
+        }
+
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+
+        // ─────────────────────────────────────────────────
+        // Three.js Visualization
+        // ─────────────────────────────────────────────────
+
+        class SearchVisualizer {
+            constructor(canvasId, method, color) {
+                this.method = method;
+                this.color = new THREE.Color(color);
+                this.canvas = document.getElementById(canvasId);
+                this.maxScoreForHeight = 200;
+
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x050510);
+                this.scene.fog = new THREE.FogExp2(0x050510, 0.04);
+
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.setSize(rect.width, rect.height);
+
+                this.camera = new THREE.PerspectiveCamera(50, rect.width / rect.height, 0.01, 200);
+                this.camera.position.set(0, 5, 4);
+                this.camera.lookAt(0, 1, 0);
+
+                this.controls = new OrbitControls(this.camera, this.canvas);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.08;
+                this.controls.target.set(0, 1, 0);
+                this.controls.maxPolarAngle = Math.PI * 0.85;
+                this.controls.minDistance = 1;
+                this.controls.maxDistance = 30;
+
+                const ambient = new THREE.AmbientLight(0x404060, 0.6);
+                this.scene.add(ambient);
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                dirLight.position.set(3, 5, 2);
+                this.scene.add(dirLight);
+
+                this._drawDisk();
+
+                this.nodeGeometry = new THREE.SphereGeometry(0.015, 6, 4);
+                this.nodeMaterial = new THREE.MeshPhongMaterial({
+                    color: this.color, emissive: this.color.clone().multiplyScalar(0.3),
+                    shininess: 60, transparent: true, opacity: 0.85,
+                });
+                this.solutionMaterial = new THREE.MeshPhongMaterial({
+                    color: 0xffd700, emissive: 0xffa500, emissiveIntensity: 0.8, shininess: 100,
+                });
+
+                this.nodeMeshes = new THREE.Group();
+                this.scene.add(this.nodeMeshes);
+                this.edgeGroup = new THREE.Group();
+                this.scene.add(this.edgeGroup);
+                this.cayleyGroup = new THREE.Group();
+                this.scene.add(this.cayleyGroup);
+                this.displayedCount = 0;
+
+                this._drawCayleyGraph(6);
+            }
+
+            _drawDisk() {
+                // Poincaré disk boundary ring
+                const ringGeo = new THREE.RingGeometry(0.99, 1.0, 128);
+                const ringMat = new THREE.MeshBasicMaterial({
+                    color: this.color, transparent: true, opacity: 0.2, side: THREE.DoubleSide,
+                });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.rotation.x = -Math.PI / 2;
+                this.scene.add(ring);
+
+                // Faint filled disk
+                const diskGeo = new THREE.CircleGeometry(1.0, 128);
+                const diskMat = new THREE.MeshBasicMaterial({
+                    color: this.color, transparent: true, opacity: 0.03, side: THREE.DoubleSide,
+                });
+                const disk = new THREE.Mesh(diskGeo, diskMat);
+                disk.rotation.x = -Math.PI / 2;
+                disk.position.y = -0.001;
+                this.scene.add(disk);
+
+                // Radial grid lines
+                const gridMat = new THREE.LineBasicMaterial({
+                    color: this.color.clone(), transparent: true, opacity: 0.06
+                });
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI;
+                    const pts = [];
+                    for (let t = -0.98; t <= 0.98; t += 0.04) {
+                        pts.push(new THREE.Vector3(t * Math.cos(angle), 0, t * Math.sin(angle)));
+                    }
+                    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                    this.scene.add(new THREE.Line(geo, gridMat));
+                }
+
+                // Concentric circles
+                for (const r of [0.3, 0.6, 0.85]) {
+                    const pts = [];
+                    for (let a = 0; a <= Math.PI * 2.01; a += 0.05) {
+                        pts.push(new THREE.Vector3(r * Math.cos(a), 0, r * Math.sin(a)));
+                    }
+                    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                    this.scene.add(new THREE.Line(geo, gridMat));
+                }
+            }
+
+            _drawCayleyGraph(depth) {
+                const visited = new Set();
+                const queue = [{ mat: IDENTITY, depth: 0 }];
+                visited.add(matHash(IDENTITY));
+
+                const points = [];
+                const lineMat = new THREE.LineBasicMaterial({
+                    color: this.color,
+                    transparent: true,
+                    opacity: 0.15
+                });
+
+                while (queue.length > 0) {
+                    const { mat, depth: d } = queue.shift();
+                    if (d >= depth) continue;
+
+                    for (const g of GENERATORS) {
+                        const nextMat = pglMul(mat, g.mat);
+                        const hash = matHash(nextMat);
+
+                        // Add geodesic segment points
+                        this._getGeodesicPoints(mat, nextMat, 8).forEach(p => {
+                            points.push(p);
+                        });
+
+                        if (!visited.has(hash)) {
+                            visited.add(hash);
+                            queue.push({ mat: nextMat, depth: d + 1 });
+                        }
+                    }
+                }
+
+                if (points.length > 0) {
+                    const geo = new THREE.BufferGeometry().setFromPoints(points);
+                    const line = new THREE.LineSegments(geo, lineMat);
+                    this.cayleyGroup.add(line);
+                }
+            }
+
+            _getGeodesicPoints(m1, m2, samples) {
+                // Return pairs of points for LineSegments
+                const fp1 = mobiusFixedPoint(m1);
+                const fp2 = mobiusFixedPoint(m2);
+
+                const z1 = { x: fp1.re, y: fp1.im };
+                const z2 = { x: fp2.re, y: fp2.im };
+
+                const pts = [];
+                let lastPos = halfPlaneToDisk(z1.x, z1.y);
+
+                // Hyperbolic geodesic in H to samples
+                // Simple version: interpolate in H circle
+                const dx = z2.x - z1.x;
+                const dy = z2.y - z1.y;
+
+                if (Math.abs(dx) < 1e-6) {
+                    // Vertical line in H
+                    for (let i = 1; i <= samples; i++) {
+                        const t = i / samples;
+                        const curH = { x: z1.x, y: z1.y + t * dy };
+                        const curPos = halfPlaneToDisk(curH.x, curH.y);
+                        pts.push(new THREE.Vector3(lastPos.x, 0, lastPos.y));
+                        pts.push(new THREE.Vector3(curPos.x, 0, curPos.y));
+                        lastPos = curPos;
+                    }
+                } else {
+                    // Circular arc in H (center on real axis)
+                    const center = (z2.x * z2.x + z2.y * z2.y - (z1.x * z1.x + z1.y * z1.y)) / (2 * dx);
+                    const radius = Math.sqrt((z1.x - center) * (z1.x - center) + z1.y * z1.y);
+                    const a1 = Math.atan2(z1.y, z1.x - center);
+                    const a2 = Math.atan2(z2.y, z2.x - center);
+
+                    for (let i = 1; i <= samples; i++) {
+                        const t = i / samples;
+                        const angle = a1 + t * (a2 - a1);
+                        const curH = { x: center + radius * Math.cos(angle), y: radius * Math.sin(angle) };
+                        const curPos = halfPlaneToDisk(curH.x, curH.y);
+                        pts.push(new THREE.Vector3(lastPos.x, 0, lastPos.y));
+                        pts.push(new THREE.Vector3(curPos.x, 0, curPos.y));
+                        lastPos = curPos;
+                    }
+                }
+                return pts;
+            }
+
+            updateNodes(nodeData) {
+                // Remove old instanced meshes
+                while (this.nodeMeshes.children.length > 0) {
+                    const c = this.nodeMeshes.children[0];
+                    c.geometry?.dispose();
+                    this.nodeMeshes.remove(c);
+                }
+
+                // Separate regular nodes and solutions
+                const regular = [];
+                const solutions = [];
+                for (const n of nodeData) {
+                    const x = n.x, z = n.y;
+                    if (x * x + z * z > 1.05) continue;
+                    if (!isFinite(n.score)) continue;
+                    if (n.isSolution) { solutions.push(n); } else { regular.push(n); }
+                }
+
+                const dummy = new THREE.Object3D();
+
+                // Regular nodes instanced mesh
+                if (regular.length > 0) {
+                    const im = new THREE.InstancedMesh(this.nodeGeometry, this.nodeMaterial, regular.length);
+                    for (let i = 0; i < regular.length; i++) {
+                        const n = regular[i];
+                        const height = Math.min(n.score, this.maxScoreForHeight) / this.maxScoreForHeight * 8.0;
+                        dummy.position.set(n.x, height, n.y);
+                        dummy.scale.setScalar(1);
+                        dummy.updateMatrix();
+                        im.setMatrixAt(i, dummy.matrix);
+                    }
+                    im.instanceMatrix.needsUpdate = true;
+                    this.nodeMeshes.add(im);
+                }
+
+                // Solution nodes instanced mesh (larger)
+                if (solutions.length > 0) {
+                    const im = new THREE.InstancedMesh(this.nodeGeometry, this.solutionMaterial, solutions.length);
+                    for (let i = 0; i < solutions.length; i++) {
+                        const n = solutions[i];
+                        const height = Math.min(n.score, this.maxScoreForHeight) / this.maxScoreForHeight * 8.0;
+                        dummy.position.set(n.x, height, n.y);
+                        dummy.scale.setScalar(3);
+                        dummy.updateMatrix();
+                        im.setMatrixAt(i, dummy.matrix);
+                    }
+                    im.instanceMatrix.needsUpdate = true;
+                    this.nodeMeshes.add(im);
+                }
+            }
+
+            resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.camera.aspect = rect.width / rect.height;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(rect.width, rect.height);
+            }
+
+            render() {
+                this.controls.update();
+                this.renderer.render(this.scene, this.camera);
+            }
+
+            reset() {
+                for (const group of [this.nodeMeshes, this.edgeGroup, this.cayleyGroup]) {
+                    while (group.children.length > 0) {
+                        const c = group.children[0];
+                        c.geometry?.dispose();
+                        c.material?.dispose();
+                        group.remove(c);
+                    }
+                }
+                this._drawCayleyGraph(6);
+            }
+        }
+
+        // ─────────────────────────────────────────────────
+        // App State
+        // ─────────────────────────────────────────────────
+
+        const METHODS = ['random', 'beam', 'flashbeam'];
+
+        const visualizers = {
+            random: new SearchVisualizer('canvas-random', 'random', '#f472b6'),
+            beam: new SearchVisualizer('canvas-beam', 'beam', '#60a5fa'),
+            flashbeam: new SearchVisualizer('canvas-flashbeam', 'flashbeam', '#34d399'),
+        };
+
+        let engines = null;
+        let running = false;
+        let stepsPerFrame = 10;
+
+        function isMethodEnabled(method) {
+            return document.getElementById(`toggle-${method}`).checked;
+        }
+
+        function getEnabledMethods() {
+            return METHODS.filter(isMethodEnabled);
+        }
+
+        // Toggle panel visibility
+        for (const method of METHODS) {
+            document.getElementById(`toggle-${method}`).addEventListener('change', (e) => {
+                const panel = document.querySelector(`.panel[data-method="${method}"]`);
+                if (e.target.checked) {
+                    panel.classList.remove('disabled');
+                } else {
+                    panel.classList.add('disabled');
+                }
+                // Resize all visible visualizers after layout change
+                requestAnimationFrame(() => {
+                    for (const v of Object.values(visualizers)) v.resize();
+                });
+            });
+        }
+
+        document.getElementById('speed-slider').addEventListener('input', (e) => {
+            stepsPerFrame = parseInt(e.target.value);
+        });
+
+        window.addEventListener('resize', () => {
+            for (const v of Object.values(visualizers)) v.resize();
+        });
+
+        // Animation loop (render only — node updates happen in search loop)
+        function animate() {
+            requestAnimationFrame(animate);
+            for (const method of METHODS) {
+                visualizers[method].render();
+            }
+        }
+        animate();
+
+        // Search loop
+        function startSearches() {
+            const enabled = getEnabledMethods();
+            if (enabled.length === 0) return;
+
+            for (const v of Object.values(visualizers)) v.reset();
+            engines = {};
+            for (const method of enabled) {
+                engines[method] = new SearchEngine(method);
+                visualizers[method].updateNodes(engines[method].getPoolNodes());
+            }
+            running = true;
+            document.getElementById('btn-run').textContent = '⏸ Pause';
+            runSearchLoop();
+        }
+
+        function runSearchLoop() {
+            if (!running) return;
+            const maxStages = 100;
+
+            const enabled = getEnabledMethods();
+            for (const method of enabled) {
+                const eng = engines[method];
+                if (!eng) continue;
+                if (eng.stage < maxStages && eng.pool.length > 0) {
+                    eng.step();
+                    visualizers[method].updateNodes(eng.getPoolNodes());
+                    updateOverlay(method, eng);
+                }
+            }
+
+            const allDone = enabled.every(m => {
+                const e = engines[m];
+                return !e || e.stage >= maxStages || e.pool.length === 0;
+            });
+            if (allDone) {
+                running = false;
+                document.getElementById('btn-run').textContent = '▶ Run Searches';
+                return;
+            }
+
+            const delay = Math.max(10, 500 / stepsPerFrame);
+            setTimeout(runSearchLoop, delay);
+        }
+
+        function updateOverlay(method, eng) {
+            document.getElementById(`stage-${method}`).textContent = eng.stage;
+            document.getElementById(`explored-${method}`).textContent = eng.visited.size.toLocaleString();
+            document.getElementById(`score-${method}`).textContent =
+                eng.bestScore === Infinity ? '∞' : eng.bestScore.toFixed(2);
+            document.getElementById(`solutions-${method}`).textContent = eng.solutions.length;
+            document.getElementById(`stats-${method}`).textContent = `${eng.visited.size.toLocaleString()} explored`;
+
+            if (eng.solutions.length > 0) {
+                const toast = document.getElementById(`toast-${method}`);
+                toast.textContent = `✨ ${eng.solutions.length} solution${eng.solutions.length > 1 ? 's' : ''} found!`;
+                toast.classList.add('show');
+            }
+        }
+
+        // Button handlers
+        document.getElementById('btn-run').addEventListener('click', () => {
+            if (running) {
+                running = false;
+                document.getElementById('btn-run').textContent = '▶ Run Searches';
+            } else {
+                const enabled = getEnabledMethods();
+                const canResume = engines && enabled.some(m => engines[m] && engines[m].stage < 100 && engines[m].pool.length > 0);
+                if (canResume) {
+                    running = true;
+                    document.getElementById('btn-run').textContent = '⏸ Pause';
+                    runSearchLoop();
+                } else {
+                    startSearches();
+                }
+            }
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            running = false;
+            engines = null;
+            for (const v of Object.values(visualizers)) v.reset();
+            for (const method of METHODS) {
+                document.getElementById(`stage-${method}`).textContent = '0';
+                document.getElementById(`explored-${method}`).textContent = '0';
+                document.getElementById(`score-${method}`).textContent = '—';
+                document.getElementById(`solutions-${method}`).textContent = '0';
+                document.getElementById(`stats-${method}`).textContent = '—';
+                document.getElementById(`toast-${method}`).classList.remove('show');
+            }
+            document.getElementById('btn-run').textContent = '▶ Run Searches';
+        });
+
+        // Load JSON
+        document.getElementById('btn-load').addEventListener('click', () => {
+            document.getElementById('file-input').click();
+        });
+
+        document.getElementById('file-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    loadFromJSON(JSON.parse(ev.target.result));
+                } catch (err) {
+                    console.error('Failed to parse JSON:', err);
+                    alert('Failed to parse JSON file');
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        function loadFromJSON(data) {
+            running = false;
+            for (const v of Object.values(visualizers)) v.reset();
+
+            engines = {
+                random: new SearchEngine('random'),
+                beam: new SearchEngine('beam'),
+                flashbeam: new SearchEngine('flashbeam'),
+            };
+
+            for (const method of METHODS) {
+                if (!data[method]) continue;
+                const eng = engines[method];
+                const elements = data[method].elements || data[method].all_elements || [];
+
+                eng.allNodes = elements.map(el => ({
+                    x: el.x, y: el.y, score: el.score, word: el.word,
+                    isSolution: Math.abs(el.score) < 0.001,
+                    stage: 0,
+                }));
+
+                eng.stage = data[method].max_stages || elements.length;
+                eng.bestScore = elements.length > 0
+                    ? Math.min(...eng.allNodes.map(n => n.score))
+                    : Infinity;
+                eng.solutions = data[method].solutions || [];
+                updateOverlay(method, eng);
+
+                document.getElementById(`stats-${method}`).textContent =
+                    `${elements.length.toLocaleString()} elements | ${(data[method].elapsed || 0).toFixed(1)}s`;
+            }
+        }
+
+        // ─────────────────────────────────────────────────
+        // Video Recording
+        // ─────────────────────────────────────────────────
+
+        document.getElementById('btn-record').addEventListener('click', () => {
+            const btn = document.getElementById('btn-record');
+            if (btn.disabled) return;
+            recordVideo();
+        });
+
+        async function recordVideo() {
+            const btn = document.getElementById('btn-record');
+            btn.textContent = '⏺ Recording...';
+            btn.disabled = true;
+            running = false; // Stop any live search
+
+            // Reset and create engines for all enabled methods
+            for (const v of Object.values(visualizers)) v.reset();
+            const enabled = getEnabledMethods();
+            if (enabled.length === 0) {
+                btn.textContent = '📹 Record';
+                btn.disabled = false;
+                alert('Enable at least one search method');
+                return;
+            }
+            engines = {};
+            for (const method of enabled) {
+                engines[method] = new SearchEngine(method);
+            }
+
+            // Composite canvas for recording
+            const comp = document.createElement('canvas');
+            comp.width = 1920;
+            comp.height = 720;
+            const ctx = comp.getContext('2d');
+
+            // MediaRecorder setup
+            const stream = comp.captureStream(30);
+            let mimeType = 'video/webm;codecs=vp9';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                mimeType = 'video/webm';
+            }
+            const recorder = new MediaRecorder(stream, {
+                mimeType,
+                videoBitsPerSecond: 8000000
+            });
+            const chunks = [];
+            recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+            recorder.start();
+
+            const maxStages = 50;
+            const framesPerStage = 15; // ~0.5s per stage at 30fps → ~25s video
+            const panelLabels = [
+                { method: 'random', text: 'Random Search', color: '#f472b6' },
+                { method: 'beam', text: 'Beam Search', color: '#60a5fa' },
+                { method: 'flashbeam', text: 'FlashBeam Search', color: '#34d399' },
+            ];
+
+            for (let stage = 0; stage < maxStages; stage++) {
+                // Step each enabled engine (flashbeam caps at 15 stages)
+                const methodMaxStages = { random: maxStages, beam: maxStages, flashbeam: 15 };
+                for (const method of enabled) {
+                    const eng = engines[method];
+                    if (eng && eng.pool.length > 0 && stage < (methodMaxStages[method] || maxStages)) {
+                        eng.step();
+                        visualizers[method].updateNodes(eng.getPoolNodes());
+                        updateOverlay(method, eng);
+                    }
+                }
+
+                btn.textContent = `⏺ Stage ${stage + 1}/${maxStages}`;
+
+                // Render several frames per stage to animate node additions
+                for (let f = 0; f < framesPerStage; f++) {
+                    // Update node batches and render each visualizer
+                    for (const method of METHODS) {
+                        const viz = visualizers[method];
+                        if (engines[method]) {
+                            viz.updateNodes(engines[method].getPoolNodes());
+                        }
+                        viz.render();
+                    }
+
+                    // Composite: draw all 3 canvases side by side
+                    const pw = comp.width / 3;
+                    const headerH = 36;
+                    const footerH = 28;
+                    ctx.fillStyle = '#050510';
+                    ctx.fillRect(0, 0, comp.width, comp.height);
+
+                    panelLabels.forEach((pl, i) => {
+                        const viz = visualizers[pl.method];
+                        // Draw canvas content
+                        ctx.drawImage(viz.canvas, i * pw, headerH, pw, comp.height - headerH - footerH);
+
+                        // Header label
+                        ctx.fillStyle = pl.color;
+                        ctx.font = 'bold 20px Inter, sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(pl.text, i * pw + pw / 2, 26);
+
+                        // Footer stats
+                        if (engines[pl.method]) {
+                            const eng = engines[pl.method];
+                            ctx.font = '13px JetBrains Mono, monospace';
+                            ctx.fillStyle = 'rgba(200,200,255,0.6)';
+                            const statsText = `Stage ${eng.stage} | ${eng.visited.size.toLocaleString()} explored | Best: ${eng.bestScore === Infinity ? '∞' : eng.bestScore.toFixed(2)} | Solutions: ${eng.solutions.length}`;
+                            ctx.fillText(statsText, i * pw + pw / 2, comp.height - 8);
+                        }
+                    });
+
+                    // Global progress bar
+                    const progress = (stage * framesPerStage + f) / (maxStages * framesPerStage);
+                    ctx.fillStyle = 'rgba(124,138,255,0.3)';
+                    ctx.fillRect(0, comp.height - 3, comp.width * progress, 3);
+
+                    // Yield to browser for frame capture
+                    await new Promise(r => setTimeout(r, 33));
+                }
+            }
+
+            // Hold on final frame for 2 seconds
+            for (let i = 0; i < 60; i++) {
+                await new Promise(r => setTimeout(r, 33));
+            }
+
+            // Stop recording and download
+            recorder.stop();
+            await new Promise(r => { recorder.onstop = r; });
+
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'search_comparison_50stages.webm';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            btn.textContent = '📹 Record';
+            btn.disabled = false;
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>🔒 FOR FUN - ACCESS RESTRICTED 🔒</title>
+    <style>
+        /* Y2K Matrix/Vault Aesthetic */
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', Courier, monospace;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background-image:
+                radial-gradient(circle at center, rgba(0, 255, 0, 0.1) 0%, transparent 70%),
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 100%, 100% 2px, 3px 100%;
+        }
+
+        #vault-container {
+            border: 4px solid #0f0;
+            padding: 40px;
+            background: rgba(0, 20, 0, 0.9);
+            box-shadow: 0 0 20px #0f0, inset 0 0 10px #0f0;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+        }
+
+        #vault-container::before {
+            content: "SECURE NODE 774-B";
+            position: absolute;
+            top: -15px;
+            left: 20px;
+            background: #000;
+            padding: 0 10px;
+            font-size: 12px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            animation: flicker 2s infinite;
+        }
+
+        @keyframes flicker {
+
+            0%,
+            19.999%,
+            22%,
+            62.999%,
+            64%,
+            64.999%,
+            70%,
+            100% {
+                opacity: 1;
+            }
+
+            20%,
+            21.999%,
+            63%,
+            63.999%,
+            65%,
+            69.999% {
+                opacity: 0.4;
+            }
+        }
+
+        input {
+            background: #000;
+            border: 2px solid #0f0;
+            color: #0f0;
+            padding: 10px;
+            width: 80%;
+            font-size: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            outline: none;
+        }
+
+        input:focus {
+            box-shadow: 0 0 10px #0f0;
+        }
+
+        button {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #000;
+            color: #0f0;
+            box-shadow: 0 0 15px #0f0;
+        }
+
+        #error-msg {
+            color: #f00;
+            margin-top: 20px;
+            height: 1.5em;
+            font-size: 14px;
+        }
+
+        #directory {
+            display: none;
+            margin-top: 30px;
+            text-align: left;
+            border-top: 2px solid #0f0;
+            padding-top: 20px;
+        }
+
+        #directory ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        #directory li {
+            margin: 10px 0;
+        }
+
+        #directory a {
+            color: #0f0;
+            text-decoration: none;
+            display: block;
+            padding: 5px;
+        }
+
+        #directory a:hover {
+            background: #0f0;
+            color: #000;
+        }
+
+        .scanline {
+            width: 100%;
+            height: 100px;
+            z-index: 99;
+            background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(0, 255, 0, 0.1) 50%, rgba(0, 0, 0, 0) 100%);
+            opacity: 0.1;
+            position: absolute;
+            bottom: 100%;
+            animation: scan 3s linear infinite;
+        }
+
+        @keyframes scan {
+            to {
+                bottom: -100px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="scanline"></div>
+    <div id="vault-container">
+        <div id="login-screen">
+            <h1>Top Secret Access</h1>
+            <p>IDENTiFY YOURSELF </p>
+            <input type="password" id="password" placeholder="ENTER PASSCODE" />
+            <br />
+            <button onclick="checkPassword()">Decrypt</button>
+            <div id="error-msg"></div>
+        </div>
+
+        <div id="directory">
+            <h2>Authorized Access Granted</h2>
+            <p>Welcome to the forFun Subdirectory</p>
+            <ul id="file-list">
+                <!-- Populated by JS -->
+            </ul>
+            <button onclick="logout()" style="margin-top: 20px; font-size: 12px; padding: 5px 10px;">Security
+                Logout</button>
+        </div>
+    </div>
+
+    <script>
+        // Simple hash function for demonstration (not military grade, just for fun)
+        function hashPassword(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return hash;
+        }
+
+        // The password is "password1" -> hash is 1858447606
+        const TARGET_HASH = 1858447606;
+
+        const files = [
+            { name: "💖 Rachie's Valentine", path: "rachie/index.html" },
+            { name: "🏰 nicCage Puzzle Hunt", path: "nicCage/index.html" },
+            { name: "🎮 Kids Games", path: "kidsGames/index.html" },
+            { name: "🌀 Roadblocks", path: "Roadblocks/index.html" },
+            { name: "🦎 Gecko Out", path: "geckoOut/index.html" },
+            { name: "🧩 Khet Chess", path: "khet/index.html" },
+            { name: "🏗️ Rube Goldberg", path: "rubeGoldberg/index.html" },
+            { name: "🕺 OzDDR", path: "ozDDR/index.html" },
+            { name: "🗺️ Map Tiles", path: "mapTile/index.html" },
+            { name: "🎨 Mosaic Fractal", path: "MosaicFractal/index.html" },
+            { name: "🕶️ AR Test", path: "ARTest/index.html" }
+        ];
+
+        function checkPassword() {
+            const pass = document.getElementById('password').value;
+            const error = document.getElementById('error-msg');
+
+            if (hashPassword(pass.toUpperCase()) === TARGET_HASH) {
+                localStorage.setItem('forFun_auth', 'true');
+                showDirectory();
+            } else {
+                error.textContent = "INVALiD PASSCODE. ATTEMPT LOGGED.";
+                document.getElementById('password').value = '';
+                setTimeout(() => error.textContent = '', 2000);
+            }
+        }
+
+        function showDirectory() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('directory').style.display = 'block';
+
+            const list = document.getElementById('file-list');
+            list.innerHTML = '';
+            files.forEach(f => {
+                const li = document.createElement('li');
+                li.innerHTML = `<a href="${f.path}">[EXECUTE] ${f.name}</a>`;
+                list.appendChild(li);
+            });
+        }
+
+        function logout() {
+            localStorage.removeItem('forFun_auth');
+            location.reload();
+        }
+
+        // Check if already authorized
+        if (localStorage.getItem('forFun_auth') === 'true') {
+            showDirectory();
+        }
+
+        // Allow Enter key
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') checkPassword();
+        });
+    </script>
+</body>
+
+</html>

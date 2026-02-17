@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Classic Snake arcade game with neon aesthetics. Swipe or use arrow keys to play.">
+    <title>Snake</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Start / menu overlay -->
+    <div id="menu-overlay">
+        <div class="menu-card">
+            <h1 class="menu-title">🐍<br>SNAKE</h1>
+            <p class="menu-sub">Swipe or Arrow Keys</p>
+            <div class="difficulty-picker">
+                <button class="diff-btn active" data-speed="120">Easy</button>
+                <button class="diff-btn" data-speed="85">Medium</button>
+                <button class="diff-btn" data-speed="55">Hard</button>
+            </div>
+            <button id="start-btn" class="glow-btn">START GAME</button>
+        </div>
+    </div>
+
+    <!-- In-game HUD -->
+    <div id="hud" class="hidden">
+        <div id="hud-left">
+            <span class="hud-label">SCORE</span>
+            <span id="score-display" class="hud-value">0</span>
+        </div>
+        <div id="hud-center">
+            <span class="hud-label">HIGH</span>
+            <span id="high-display" class="hud-value">0</span>
+        </div>
+        <div id="hud-right">
+            <span class="hud-label">LENGTH</span>
+            <span id="length-display" class="hud-value">3</span>
+        </div>
+    </div>
+
+    <!-- Pause overlay -->
+    <div id="pause-overlay" class="hidden">
+        <div class="menu-card">
+            <h1 class="menu-title">⏸️<br>PAUSED</h1>
+            <button id="resume-btn" class="glow-btn">RESUME</button>
+            <button id="pause-menu-btn" class="glow-btn outline">MENU</button>
+        </div>
+    </div>
+
+    <!-- Game Over overlay -->
+    <div id="gameover-overlay" class="hidden">
+        <div class="menu-card">
+            <h1 class="lose-title">GAME OVER</h1>
+            <p class="menu-sub" id="final-score-text">Score: 0</p>
+            <p class="menu-sub new-high hidden" id="new-high-text">🎉 NEW HIGH SCORE! 🎉</p>
+            <button id="retry-btn" class="glow-btn">PLAY AGAIN</button>
+            <button id="menu-btn" class="glow-btn outline">MENU</button>
+        </div>
+    </div>
+
+    <!-- Countdown -->
+    <div id="countdown" class="hidden">
+        <span id="countdown-text">3</span>
+    </div>
+
+    <!-- The game canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- On-screen D-pad for touch -->
+    <div id="dpad" class="hidden">
+        <button class="dpad-btn dpad-up" data-dir="up">▲</button>
+        <button class="dpad-btn dpad-left" data-dir="left">◀</button>
+        <button class="dpad-btn dpad-right" data-dir="right">▶</button>
+        <button class="dpad-btn dpad-down" data-dir="down">▼</button>
+        <button class="dpad-btn dpad-pause" id="dpad-pause">⏸</button>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

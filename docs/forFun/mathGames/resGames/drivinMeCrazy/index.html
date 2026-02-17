@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Drivin' Me Crazy — Hexagon Steering Game</title>
+    <meta name="description" content="Drivin' Me Crazy: steer a hexagon through hyperbolic space. By Rich Schwartz.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #080816
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif
+        }
+
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            cursor: crosshair;
+            touch-action: none
+        }
+
+        .panel {
+            position: fixed;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 16px;
+            background: rgba(12, 12, 28, .74);
+            backdrop-filter: blur(18px) saturate(1.3);
+            -webkit-backdrop-filter: blur(18px) saturate(1.3);
+            border: 1px solid rgba(255, 255, 255, .07);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .5);
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: calc(100vw - 24px);
+        }
+
+        .panel button,
+        .panel .pill {
+            font-family: 'Outfit', sans-serif;
+            font-size: .72rem;
+            font-weight: 500;
+            padding: 5px 13px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, .1);
+            background: rgba(255, 255, 255, .05);
+            color: #bbb;
+            cursor: pointer;
+            transition: all .18s;
+            white-space: nowrap;
+        }
+
+        .panel button:hover {
+            background: rgba(255, 255, 255, .12);
+            color: #fff;
+            transform: translateY(-1px)
+        }
+
+        .panel .pill {
+            cursor: default
+        }
+
+        .panel .pill.go {
+            background: rgba(52, 211, 153, .12);
+            border-color: rgba(52, 211, 153, .2);
+            color: #6ee7b7
+        }
+
+        .panel .pill.fail {
+            background: rgba(248, 113, 113, .12);
+            border-color: rgba(248, 113, 113, .2);
+            color: #fca5a5
+        }
+
+        .panel .pill.paused {
+            background: rgba(251, 191, 36, .1);
+            border-color: rgba(251, 191, 36, .18);
+            color: #fcd34d
+        }
+
+        .panel .sep {
+            width: 1px;
+            height: 18px;
+            background: rgba(255, 255, 255, .07);
+            margin: 0 2px
+        }
+
+        .speed-bar {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .speed-track {
+            width: 60px;
+            height: 5px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, .06);
+            overflow: hidden;
+        }
+
+        .speed-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #3b82f6, #c084fc);
+            transition: width .2s;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            padding: 8px 22px;
+            border-radius: 10px;
+            background: rgba(12, 12, 28, .78);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, .06);
+            font-family: 'Outfit', sans-serif;
+            font-size: .76rem;
+            color: #888;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .4s;
+            max-width: calc(100vw - 40px);
+            text-align: center;
+        }
+
+        .toast.show {
+            opacity: 1
+        }
+
+        .toast span {
+            color: #fbbf24;
+            font-weight: 600
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="c"></canvas>
+
+    <div class="panel">
+        <button onclick="toggleRun()" id="playBtn">▶ Start</button>
+        <button onclick="resetGame()">↺ Reset</button>
+        <div class="sep"></div>
+        <div class="pill paused" id="statusPill">Paused</div>
+        <div class="pill" id="tickPill">Turn 0</div>
+        <div class="sep"></div>
+        <button onclick="speedUp()">⏩</button>
+        <div class="speed-bar">
+            <div class="speed-track">
+                <div class="speed-fill" id="speedFill" style="width:50%"></div>
+            </div>
+        </div>
+        <button onclick="slowDown()">⏪</button>
+        <div class="sep"></div>
+        <button onclick="fitView()">Fit</button>
+    </div>
+
+    <div class="toast" id="toast">
+        <span>Hover</span> the outer ring to steer · <span>Click</span> it to start/stop ·
+        Click <span>inside</span> to speed up · Click <span>outside</span> to slow down
+    </div>
+
+    <script>
+        // =============================================================
+        //  Drivin' Me Crazy — full-window hi-DPI with zoom / pan
+        // =============================================================
+        const $ = id => document.getElementById(id);
+        const canvas = $('c');
+        const ctx = canvas.getContext('2d');
+
+        let dpr = 1;
+        function resize() {
+            dpr = window.devicePixelRatio || 1;
+            canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
+            canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px';
+            initHexGeometry();
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        // Camera
+        let cam = { x: 0, y: 0, zoom: 1 };
+        function w2s(wx, wy) {
+            return { x: canvas.width / 2 + (wx - cam.x) * cam.zoom * dpr, y: canvas.height / 2 + (wy - cam.y) * cam.zoom * dpr };
+        }
+        function s2w(sx, sy) {
+            return { x: (sx - canvas.width / 2) / (cam.zoom * dpr) + cam.x, y: (sy - canvas.height / 2) / (cam.zoom * dpr) + cam.y };
+        }
+
+        // Display
+        const DS = 1; // display scale factor — hexwheels are drawn in world coords
+
+        // ---- Complex ----
+        class Complex {
+            constructor(x = 0, y = 0) { this.x = x; this.y = y }
+            add(w) { return new Complex(this.x + w.x, this.y + w.y) }
+            sub(w) { return new Complex(this.x - w.x, this.y - w.y) }
+            mul(w) { return new Complex(this.x * w.x - this.y * w.y, this.x * w.y + this.y * w.x) }
+            norm() { return Math.sqrt(this.x * this.x + this.y * this.y) }
+            unit() { const d = this.norm(); return new Complex(this.x / d, this.y / d) }
+            conj() { return new Complex(this.x, -this.y) }
+            scale(s) { return new Complex(this.x * s, this.y * s) }
+            clone() { return new Complex(this.x, this.y) }
+            area(z1, z2) { let w1 = this.sub(z1), w2 = this.sub(z2).conj(); return w1.mul(w2).y }
+        }
+
+        // ---- HexWheel ----
+        const HEX_COLS = ['#3b82f6', '#ef4444', '#fbbf24'];
+        const HEX_GLOW = ['#60a5fa', '#f87171', '#fcd34d'];
+
+        class HexWheel {
+            constructor() { this.P = []; for (let i = 0; i <= 7; i++)this.P.push(new Complex()); this.C = '#000'; this.r = 1; }
+            static regular(r) {
+                const h = new HexWheel();
+                for (let i = 1; i <= 6; i++) h.P[i] = new Complex(r * Math.cos(2 * Math.PI * i / 6), r * Math.sin(2 * Math.PI * i / 6));
+                h.C = '#3b82f6'; h.r = r; return h;
+            }
+            render(ctx, cx, cy, sc) {
+                ctx.beginPath();
+                for (let i = 1; i <= 6; i++) {
+                    const x = cx + sc * this.P[i].x, y = cy + sc * this.P[i].y;
+                    i === 1 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fillStyle = this.C; ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = .8 / cam.zoom; ctx.stroke();
+            }
+            renderColor(ctx, cx, cy, sc, col) {
+                ctx.beginPath();
+                for (let i = 1; i <= 6; i++) { const x = cx + sc * this.P[i].x, y = cy + sc * this.P[i].y; i === 1 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+                ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = .8 / cam.zoom; ctx.stroke();
+            }
+            snip(d, side) {
+                const h = new HexWheel();
+                let j = side - 2; if (j < 1) j += 6; let k = side + 1; if (k === 7) k = 1; let l = side - 1; if (l === 0) l = 6;
+                const z1 = this.P[j].sub(this.P[l]).unit().scale(d * this.r);
+                const z2 = this.P[k].sub(this.P[side]).unit().scale(d * this.r);
+                for (let a = 1; a <= 6; a++) h.P[a] = this.P[a].clone();
+                h.P[l] = this.P[l].add(z1); h.P[side] = this.P[side].add(z2);
+                const ci = ((side - 1) % 3);
+                h.C = HEX_COLS[ci]; h.r = this.r; return h;
+            }
+            dilate(d) { const h = new HexWheel(); for (let i = 1; i <= 6; i++)h.P[i] = this.P[i].scale(d); h.r = this.r; h.C = this.C; return h; }
+            area() { let d = 0; for (let i = 2; i <= 5; i++)d += this.P[1].area(this.P[i + 1], this.P[i]); return d; }
+            convex() { for (let i = 2; i <= 5; i++)if (this.P[1].area(this.P[i + 1], this.P[i]) < 0) return false; return true; }
+            inside(z) { for (let i = 1; i <= 5; i++)if (z.area(this.P[i + 1], this.P[i]) < 0) return false; if (z.area(this.P[1], this.P[6]) < 0) return false; return true; }
+            bounded() { const reg = HexWheel.regular(1.0); for (let i = 1; i <= 6; i++)if (!reg.inside(this.P[i])) return false; return true; }
+        }
+
+        // ---- Game State ----
+        let hexWheels = [], count = 53;
+        let state = 1, go = false, fail = false, tick = 0, sleep = 300;
+        let animId = null, lastTime = 0;
+        let hoverSector = 0;
+        let outerVerts = [], innerVerts = []; // screen-space hex ring vertices
+
+        const SC = 150; // world-size scale for hex rendering
+
+        function initHexGeometry() {
+            outerVerts = []; innerVerts = [];
+            for (let i = 1; i <= 6; i++) {
+                const a = 2 * Math.PI * i / 6;
+                outerVerts.push({ x: SC * Math.cos(a), y: SC * Math.sin(a) });
+                innerVerts.push({ x: SC * .78 * Math.cos(a), y: SC * .78 * Math.sin(a) });
+            }
+        }
+
+        function resetState() {
+            hexWheels = []; count = 53; tick = 0; fail = false; go = false;
+            hexWheels[0] = HexWheel.regular(1.0);
+            for (let i = 1; i <= count; i++) hexWheels[i] = hexWheels[i - 1].snip(.055, ((i - 1) % 6) + 1);
+        }
+
+        function resetGame() { if (animId) cancelAnimationFrame(animId); animId = null; resetState(); updateUI(); fitView(); }
+        function fitView() { cam.x = 0; cam.y = 0; cam.zoom = Math.min(innerWidth, innerHeight) / (SC * 2.6); draw(); }
+
+        function toggleRun() {
+            if (fail) { resetState(); draw(); updateUI(); return; }
+            go = !go; updateUI();
+            if (go && !animId) { lastTime = performance.now(); animId = requestAnimationFrame(gameLoop); }
+        }
+
+        function speedUp() { sleep = Math.max(30, Math.floor(sleep * .82)); updateUI(); }
+        function slowDown() { sleep = Math.min(1200, Math.floor(sleep / .82)); updateUI(); }
+
+        function evolve() {
+            tick++;
+            hexWheels[count].C = HEX_COLS[(state - 1) % 3];
+            hexWheels[count + 1] = hexWheels[count].snip(.055, state);
+            count++;
+            const dil = Math.sqrt(hexWheels[count - 1].area() / hexWheels[count].area());
+            if (!hexWheels[count].convex() || !hexWheels[count].bounded()) {
+                fail = true; go = false; updateUI(); draw(); return;
+            }
+            for (let i = 1; i <= count; i++) hexWheels[i] = hexWheels[i].dilate(dil);
+            if (count > 120) { for (let j = 0; j <= 90; j++)hexWheels[j] = hexWheels[j + 30]; count = 90; }
+        }
+
+        function gameLoop(now) {
+            if (!go) { animId = null; return; }
+            if (now - lastTime >= sleep) {
+                evolve(); if (fail) { draw(); animId = null; return; }
+                draw(); lastTime = now;
+                $('tickPill').textContent = 'Turn ' + tick;
+            }
+            animId = requestAnimationFrame(gameLoop);
+        }
+
+        function updateUI() {
+            const pill = $('statusPill');
+            if (fail) { pill.textContent = '💥 Collapsed!'; pill.className = 'pill fail'; }
+            else if (go) { pill.textContent = '▶ Running'; pill.className = 'pill go'; }
+            else { pill.textContent = '⏸ Paused'; pill.className = 'pill paused'; }
+            $('tickPill').textContent = 'Turn ' + tick;
+            $('playBtn').textContent = go ? '⏸ Pause' : '▶ Start';
+            const pct = Math.min(100, (6000 / sleep) / 150 * 100);
+            $('speedFill').style.width = pct + '%';
+        }
+
+        // ---- Drawing ----
+        function draw() {
+            const W = canvas.width, H = canvas.height;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+            // Background
+            const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * .7);
+            bg.addColorStop(0, '#10101e'); bg.addColorStop(1, '#060610');
+            ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+            ctx.save();
+            ctx.translate(W / 2, H / 2);
+            ctx.scale(cam.zoom * dpr, cam.zoom * dpr);
+            ctx.translate(-cam.x, -cam.y);
+
+            // Hex layers
+            for (let i = 0; i <= count; i++) {
+                hexWheels[i].render(ctx, 0, 0, SC);
+            }
+            // Inner black
+            hexWheels[count].renderColor(ctx, 0, 0, SC, '#0c0c1c');
+
+            // Fail X
+            if (fail) {
+                ctx.globalAlpha = .35;
+                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 4 / cam.zoom;
+                ctx.beginPath(); ctx.moveTo(-SC * 1.2, -SC * 1.2); ctx.lineTo(SC * 1.2, SC * 1.2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(SC * 1.2, -SC * 1.2); ctx.lineTo(-SC * 1.2, SC * 1.2); ctx.stroke();
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2 / cam.zoom;
+                ctx.beginPath(); ctx.moveTo(-SC * 1.2, -SC * 1.2 + 3 / cam.zoom); ctx.lineTo(SC * 1.2, SC * 1.2 + 3 / cam.zoom); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(SC * 1.2, -SC * 1.2 + 3 / cam.zoom); ctx.lineTo(-SC * 1.2, SC * 1.2 + 3 / cam.zoom); ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+
+            // Outer ring sectors
+            for (let i = 0; i < 6; i++) {
+                const v0 = outerVerts[i], v1 = outerVerts[(i + 1) % 6];
+                const u0 = innerVerts[i], u1 = innerVerts[(i + 1) % 6];
+                ctx.beginPath();
+                ctx.moveTo(u0.x, u0.y); ctx.lineTo(v0.x, v0.y);
+                ctx.lineTo(v1.x, v1.y); ctx.lineTo(u1.x, u1.y);
+                ctx.closePath();
+
+                const sIdx = i + 1;
+                const cIdx = (sIdx - 1) % 3;
+
+                if (hoverSector === sIdx) {
+                    ctx.fillStyle = HEX_COLS[cIdx] + '44';
+                    ctx.fill();
+                    // Glow
+                    ctx.save();
+                    ctx.shadowColor = HEX_GLOW[cIdx];
+                    ctx.shadowBlur = 20 / cam.zoom;
+                    ctx.strokeStyle = HEX_GLOW[cIdx] + '88';
+                    ctx.lineWidth = 2.5 / cam.zoom;
+                    ctx.stroke();
+                    ctx.restore();
+                } else {
+                    ctx.strokeStyle = HEX_COLS[cIdx] + '55';
+                    ctx.lineWidth = 1.2 / cam.zoom;
+                    ctx.stroke();
+                }
+            }
+
+            // Active-sector indicator (filled faintly)
+            {
+                const i0 = (state + 3) % 6, i1 = (state + 4) % 6;
+                const v0 = outerVerts[i0 < 0 ? i0 + 6 : i0], v1 = outerVerts[i1 < 0 ? i1 + 6 : i1];
+                const u0 = innerVerts[i0 < 0 ? i0 + 6 : i0], u1 = innerVerts[i1 < 0 ? i1 + 6 : i1];
+                ctx.beginPath();
+                ctx.moveTo(u0.x, u0.y); ctx.lineTo(v0.x, v0.y);
+                ctx.lineTo(v1.x, v1.y); ctx.lineTo(u1.x, u1.y); ctx.closePath();
+                ctx.fillStyle = HEX_COLS[(state - 1) % 3] + '22';
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        // ---- Interaction ----
+        function getWorldPos(e) {
+            const r = canvas.getBoundingClientRect();
+            const sx = (e.clientX - r.left) * dpr, sy = (e.clientY - r.top) * dpr;
+            return s2w(sx, sy);
+        }
+
+        function getSector(wx, wy) {
+            const a = Math.atan2(wy, wx);
+            let s = Math.floor((a / (2 * Math.PI) + 1) * 6) % 6 + 1;
+            if (s < 1) s += 6; if (s > 6) s -= 6;
+            return s;
+        }
+        function distFromCenter(wx, wy) { return Math.sqrt(wx * wx + wy * wy); }
+
+        canvas.addEventListener('mousemove', e => {
+            const w = getWorldPos(e);
+            const d = distFromCenter(w.x, w.y);
+            if (d > SC * .72 && d < SC * 1.08) {
+                const s = getSector(w.x, w.y);
+                hoverSector = s;
+                state = s - 4; if (state < 1) state += 6;
+            } else {
+                hoverSector = 0;
+            }
+            draw();
+        });
+
+        canvas.addEventListener('click', e => {
+            const w = getWorldPos(e);
+            const d = distFromCenter(w.x, w.y);
+            if (d > SC * .72 && d < SC * 1.08) {
+                if (fail) { resetState(); draw(); updateUI(); return; }
+                toggleRun();
+            } else if (d <= SC * .72) {
+                speedUp();
+            } else {
+                slowDown();
+            }
+        });
+
+        canvas.addEventListener('touchstart', e => {
+            if (e.touches.length !== 1) return;
+            e.preventDefault();
+            const r = canvas.getBoundingClientRect();
+            const sx = (e.touches[0].clientX - r.left) * dpr, sy = (e.touches[0].clientY - r.top) * dpr;
+            const w = s2w(sx, sy);
+            const d = distFromCenter(w.x, w.y);
+            if (d > SC * .72 && d < SC * 1.08) {
+                const s = getSector(w.x, w.y); state = s - 4; if (state < 1) state += 6; hoverSector = s;
+                if (fail) { resetState(); draw(); updateUI(); return; }
+                toggleRun();
+            } else if (d <= SC * .72) { speedUp(); }
+            else { slowDown(); }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', e => {
+            if (e.touches.length === 1) {
+                e.preventDefault();
+                const r = canvas.getBoundingClientRect();
+                const sx = (e.touches[0].clientX - r.left) * dpr, sy = (e.touches[0].clientY - r.top) * dpr;
+                const w = s2w(sx, sy);
+                const d = distFromCenter(w.x, w.y);
+                if (d > SC * .72 && d < SC * 1.08) {
+                    const s = getSector(w.x, w.y); state = s - 4; if (state < 1) state += 6; hoverSector = s;
+                }
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('mouseleave', () => { hoverSector = 0; draw(); });
+
+        // Zoom
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const r = canvas.getBoundingClientRect();
+            const sx = (e.clientX - r.left) * dpr, sy = (e.clientY - r.top) * dpr;
+            const wb = s2w(sx, sy);
+            cam.zoom = Math.max(.2, Math.min(12, cam.zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12)));
+            const wa = s2w(sx, sy);
+            cam.x -= wa.x - wb.x; cam.y -= wa.y - wb.y;
+            draw();
+        }, { passive: false });
+
+        // Pinch
+        let pinchD0 = 0, pinchZ0 = 1;
+        canvas.addEventListener('touchstart', e => {
+            if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
+                pinchD0 = Math.sqrt(dx * dx + dy * dy); pinchZ0 = cam.zoom;
+            }
+        }, { passive: true });
+        canvas.addEventListener('touchmove', e => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
+                cam.zoom = Math.max(.2, Math.min(12, pinchZ0 * Math.sqrt(dx * dx + dy * dy) / pinchD0)); draw();
+            }
+        }, { passive: false });
+
+        // Pan via drag (right-click or two-finger on desktop)
+        let panning = false, panStart = null, panCam = null;
+        canvas.addEventListener('pointerdown', e => {
+            if (e.button === 2 || e.button === 1) {
+                e.preventDefault();
+                panning = true; panStart = { x: e.clientX, y: e.clientY }; panCam = { x: cam.x, y: cam.y };
+                canvas.setPointerCapture(e.pointerId);
+            }
+        });
+        canvas.addEventListener('pointermove', e => {
+            if (!panning) return;
+            cam.x = panCam.x - (e.clientX - panStart.x) * dpr / (cam.zoom * dpr);
+            cam.y = panCam.y - (e.clientY - panStart.y) * dpr / (cam.zoom * dpr);
+            draw();
+        });
+        canvas.addEventListener('pointerup', () => { panning = false; panStart = null; panCam = null; });
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Toast
+        setTimeout(() => $('toast').classList.add('show'), 400);
+        setTimeout(() => $('toast').classList.remove('show'), 6000);
+
+        // Boot
+        resize();
+        resetGame();
+    </script>
+</body>
+
+</html>

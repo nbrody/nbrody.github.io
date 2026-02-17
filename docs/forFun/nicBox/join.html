@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>nicBox — Controller</title>
+    <meta name="description" content="Join a nicBox game from your phone.">
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- Firebase SDK (compat v9) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        /* Extra phone-controller styles */
+        body {
+            overflow-y: auto;
+        }
+
+        .join-screen {
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            gap: 20px;
+        }
+
+        .join-card {
+            width: 100%;
+            max-width: 340px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .waiting-screen {
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 24px;
+        }
+
+        .game-controller {
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            gap: 12px;
+        }
+
+        .controller-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        /* Trivia answer buttons for phone */
+        .phone-trivia-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .phone-trivia-btn {
+            padding: 24px 16px;
+            border: none;
+            border-radius: 16px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            color: white;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            transition: transform 150ms ease;
+            text-align: center;
+        }
+
+        .phone-trivia-btn:active {
+            transform: scale(0.93) !important;
+        }
+
+        .phone-trivia-btn.a {
+            background: var(--neon-pink);
+        }
+
+        .phone-trivia-btn.b {
+            background: #0066ff;
+        }
+
+        .phone-trivia-btn.c {
+            background: #00aa55;
+        }
+
+        .phone-trivia-btn.d {
+            background: var(--neon-orange);
+        }
+
+        .phone-trivia-btn.answered {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .phone-trivia-btn.selected-answer {
+            outline: 4px solid white;
+            transform: scale(1.02);
+        }
+
+        /* War card display for phone */
+        .phone-card-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .phone-play-card {
+            width: 140px;
+            height: 200px;
+            border-radius: 16px;
+            background: white;
+            color: #1a1a2e;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            font-weight: 800;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            transition: transform 300ms var(--ease-out);
+        }
+
+        .phone-play-card.red {
+            color: #d32f2f;
+        }
+
+        .phone-play-card.flip-in {
+            animation: cardFlip 0.5s ease-out;
+        }
+
+        @keyframes cardFlip {
+            0% {
+                transform: rotateY(90deg) scale(0.8);
+            }
+
+            100% {
+                transform: rotateY(0) scale(1);
+            }
+        }
+
+        /* Checkers moves for phone */
+        .phone-moves-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .phone-move-btn {
+            padding: 16px;
+            border: 2px solid var(--glass-border);
+            border-radius: 12px;
+            background: var(--bg-glass);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: all 150ms ease;
+        }
+
+        .phone-move-btn:active {
+            background: rgba(0, 212, 255, 0.15);
+            border-color: var(--neon-blue);
+        }
+
+        .status-badge {
+            padding: 8px 20px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-badge.success {
+            background: rgba(0, 255, 136, 0.15);
+            color: var(--neon-green);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+
+        .status-badge.waiting {
+            background: rgba(0, 212, 255, 0.15);
+            color: var(--neon-blue);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .status-badge.error {
+            background: rgba(255, 45, 117, 0.15);
+            color: var(--neon-pink);
+            border: 1px solid rgba(255, 45, 117, 0.3);
+        }
+
+        .your-turn-indicator {
+            padding: 12px 24px;
+            border-radius: 999px;
+            background: var(--grad-primary);
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.7rem;
+            animation: turnPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes turnPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(255, 45, 117, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 40px rgba(255, 45, 117, 0.6);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-gradient"></div>
+
+    <!-- ═══ JOIN SCREEN ═══ -->
+    <div id="join-screen" class="join-screen">
+        <div class="join-card">
+            <h1 class="logo" style="font-size: 2rem;">nicBox</h1>
+
+            <div class="input-group">
+                <label for="room-input">Room Code</label>
+                <input type="text" id="room-input" class="input-field" placeholder="ABCD" maxlength="4"
+                    autocomplete="off"
+                    style="text-transform: uppercase; font-family: 'Press Start 2P', monospace; font-size: 1.5rem; letter-spacing: 6px;">
+            </div>
+
+            <div class="input-group">
+                <label for="name-input">Your Name</label>
+                <input type="text" id="name-input" class="input-field" placeholder="Enter name" maxlength="12"
+                    autocomplete="off">
+            </div>
+
+            <div class="input-group">
+                <label>Pick an Avatar</label>
+                <div class="avatar-picker" id="avatar-picker">
+                    <div class="avatar-option selected" data-avatar="😀">😀</div>
+                    <div class="avatar-option" data-avatar="😎">😎</div>
+                    <div class="avatar-option" data-avatar="🤩">🤩</div>
+                    <div class="avatar-option" data-avatar="🦊">🦊</div>
+                    <div class="avatar-option" data-avatar="🐸">🐸</div>
+                    <div class="avatar-option" data-avatar="🤖">🤖</div>
+                    <div class="avatar-option" data-avatar="👻">👻</div>
+                    <div class="avatar-option" data-avatar="🎃">🎃</div>
+                    <div class="avatar-option" data-avatar="🦄">🦄</div>
+                    <div class="avatar-option" data-avatar="🐙">🐙</div>
+                    <div class="avatar-option" data-avatar="🦁">🦁</div>
+                    <div class="avatar-option" data-avatar="🐲">🐲</div>
+                </div>
+            </div>
+
+            <button id="btn-join" class="btn btn-primary btn-lg w-full" onclick="handleJoin()">
+                Join Game
+            </button>
+
+            <p id="join-error" class="status-badge error" style="display: none;"></p>
+        </div>
+    </div>
+
+    <!-- ═══ WAITING SCREEN ═══ -->
+    <div id="waiting-screen" class="waiting-screen" style="display: none;">
+        <span style="font-size: 3rem;" id="my-avatar">😀</span>
+        <h2 id="my-name" style="font-size: 1.2rem;">Player</h2>
+        <span id="role-badge" class="status-badge success">Player</span>
+        <p class="mt-lg" style="color: var(--text-secondary); text-align: center;">
+            Waiting for the host to pick a game<span class="waiting-dots"></span>
+        </p>
+        <p style="font-size: 0.75rem; color: var(--text-muted);">Watch the TV screen!</p>
+    </div>
+
+    <!-- ═══ GAME CONTROLLER ═══ -->
+    <div id="controller-screen" class="game-controller" style="display: none;">
+        <div class="controller-header">
+            <div class="controller-player-info">
+                <span class="controller-avatar" id="ctrl-avatar">😀</span>
+                <span class="controller-name" id="ctrl-name">Player</span>
+            </div>
+            <span id="ctrl-score" class="score-item" style="font-size: 0.8rem;">
+                Score: <strong>0</strong>
+            </span>
+        </div>
+
+        <div class="controller-body" id="controller-body">
+            <!-- Dynamic controller content goes here based on game -->
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Scripts -->
+    <script src="js/firebase-config.js"></script>
+    <script src="js/controller.js"></script>
+</body>
+
+</html>

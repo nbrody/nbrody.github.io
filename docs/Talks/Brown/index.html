@@ -114,6 +114,16 @@
                 </div>
             </div>
 
+            <div class="slide" data-anchor="mountain-climbers">
+                <div class="full-viz-container animate-up">
+                    <div class="viz-controls">
+                        <button class="minimal-btn" onclick="toggleViz('mountain-frame', this)">Play</button>
+                    </div>
+                    <iframe id="mountain-frame" src="js/mountainClimbers/mountainClimbers.html?embed=true"
+                        class="viz-frame"></iframe>
+                </div>
+            </div>
+
             <div class="slide" data-anchor="the-goal">
                 <div class="full-viz-container animate-up">
                     <div class="viz-controls">
@@ -127,7 +137,7 @@
                 <div class="full-viz-container animate-up">
                     <div class="viz-controls">
                         <button class="minimal-btn" onclick="postToViz('trees-frame', 'toggle-link')">Link</button>
-                        <button class="minimal-btn" onclick="toggleViz('trees-frame', this)">Play</button>
+                        <button class="minimal-btn" onclick="toggleViz('trees-frame', this)">Pause</button>
                     </div>
                     <iframe id="trees-frame" src="js/productOfTrees/productOfTrees.html?embed=true"
                         class="viz-frame"></iframe>
@@ -277,8 +287,8 @@
 
                     <p>We can obtain a representation of \(\Gamma\) into \(\PGL_2(\bbF_p(t))\) by taking a
                         representation of \(\Gamma\) into \(\PGL_2(\Q(t))\) which is \(p\)-integral, and composing with
-                        the reduction
-                        map to \(\bbF_p(t)\). If we can find a faithful such representation, we've succeeded!
+                        the reduction map to \(\bbF_p(t)\). If we can find a faithful such representation, we've
+                        succeeded!
                     </p>
                 </div>
             </div>
