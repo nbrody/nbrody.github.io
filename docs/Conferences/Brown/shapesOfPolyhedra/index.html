@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shapes of Polyhedra — Polygon Side Pairings</title>
+    <meta name="description"
+        content="Interactive tool for defining octagonal polygons with side pairings via adjustable parameters on a unit square.">
+    <link rel="stylesheet" href="style.css">
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' },
+            startup: { typeset: true }
+        };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <div id="editor-panel">
+            <div class="panel-label">2D Polygon Editor</div>
+            <div id="pairing-legend">
+                <div class="pair"><span>Pair 1 (a)</span><span class="swatch" style="background:#ff6b6b"></span></div>
+                <div class="pair"><span>Pair 2 (b)</span><span class="swatch" style="background:#ffd93d"></span></div>
+                <div class="pair"><span>Pair 3 (c)</span><span class="swatch" style="background:#6bcb77"></span></div>
+                <div class="pair"><span>Pair 4 (d)</span><span class="swatch" style="background:#4d96ff"></span></div>
+            </div>
+            <canvas id="editor-canvas"></canvas>
+            <div class="glass-bar" id="controls">
+                <div class="param-display">
+                    <div class="label">a</div>
+                    <div class="value color-a" id="val-a">0.10</div>
+                </div>
+                <div class="divider"></div>
+                <div class="param-display">
+                    <div class="label">b</div>
+                    <div class="value color-b" id="val-b">0.10</div>
+                </div>
+                <div class="divider"></div>
+                <div class="param-display">
+                    <div class="label">c</div>
+                    <div class="value color-c" id="val-c">0.10</div>
+                </div>
+                <div class="divider"></div>
+                <div class="param-display">
+                    <div class="label">d</div>
+                    <div class="value color-d" id="val-d">0.10</div>
+                </div>
+            </div>
+        </div>
+        <div id="viewer-panel">
+            <div class="panel-label">3D Folding View</div>
+
+            <!-- Fold angle sliders -->
+            <div id="fold-controls" class="glass-panel">
+                <div class="fold-row">
+                    <span class="fold-label color-a" id="theta-label-0">\(\theta_1\)</span>
+                    <input type="range" class="fold-slider color-slider-a" id="fold-slider-0" min="0" max="180" step="1"
+                        value="0">
+                    <span class="fold-val color-a" id="fold-val-0">0°</span>
+                </div>
+                <div class="fold-row">
+                    <span class="fold-label color-b" id="theta-label-1">\(\theta_2\)</span>
+                    <input type="range" class="fold-slider color-slider-b" id="fold-slider-1" min="0" max="180" step="1"
+                        value="0">
+                    <span class="fold-val color-b" id="fold-val-1">0°</span>
+                </div>
+                <div class="fold-row">
+                    <span class="fold-label color-c" id="theta-label-2">\(\theta_3\)</span>
+                    <input type="range" class="fold-slider color-slider-c" id="fold-slider-2" min="0" max="180" step="1"
+                        value="0">
+                    <span class="fold-val color-c" id="fold-val-2">0°</span>
+                </div>
+                <div class="fold-row">
+                    <span class="fold-label color-d" id="theta-label-3">\(\theta_4\)</span>
+                    <input type="range" class="fold-slider color-slider-d" id="fold-slider-3" min="0" max="180" step="1"
+                        value="0">
+                    <span class="fold-val color-d" id="fold-val-3">0°</span>
+                </div>
+
+                <div class="fold-divider"></div>
+
+                <!-- Diagonal crease controls -->
+                <div class="crease-section">
+                    <span class="crease-title">Diagonal crease</span>
+                    <div class="crease-buttons">
+                        <button class="crease-btn active" id="crease-none" data-crease="none">None</button>
+                        <button class="crease-btn" id="crease-ac" data-crease="ac">\(a\text{–}c\)</button>
+                        <button class="crease-btn" id="crease-bd" data-crease="bd">\(b\text{–}d\)</button>
+                    </div>
+                    <div class="crease-buttons">
+                        <button class="crease-btn" id="fold-to-point-btn"
+                            style="margin-top: 6px; background: rgba(139, 92, 246, 0.15); border-color: rgba(139, 92, 246, 0.3); color: #a78bfa;">Fold
+                            to Point</button>
+                    </div>
+                    <div class="fold-row" id="crease-slider-row" style="display:none;">
+                        <span class="fold-label color-crease" id="crease-label">\(\phi\)</span>
+                        <input type="range" class="fold-slider color-slider-crease" id="crease-slider" min="-180"
+                            max="180" step="1" value="0">
+                        <span class="fold-val color-crease" id="crease-val">0°</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="info-panel"></div>
+            <canvas id="three-canvas"></canvas>
+            <div id="fold-hint">Click &amp; drag flaps to fold</div>
+        </div>
+    </div>
+
+    <script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

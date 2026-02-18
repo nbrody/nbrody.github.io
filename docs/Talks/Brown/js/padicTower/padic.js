@@ -450,6 +450,15 @@ class PAdicTower3D {
             this.tooltip.style.display = 'none';
         }
     }
+
+    pulseIsometry(a, b, c, d) {
+        const M = new BigMat(a, b, c, d);
+        const Minv = M.inv();
+        this.applyAction(M.a, M.b, M.c, M.d);
+        setTimeout(() => {
+            this.applyAction(Minv.a, Minv.b, Minv.c, Minv.d);
+        }, 1500); // 1.5s delay before inverse action
+    }
 }
 
 let viz;
@@ -510,6 +519,14 @@ window.onload = () => {
 window.addEventListener('message', (event) => {
     if (event.data === 'grow') {
         if (viz) viz.growTree();
+    } else if (event.data === 'toggle') {
+        if (viz) viz.toggleAnimation();
+    } else if (event.data === 'isoA') {
+        if (viz) viz.pulseIsometry(3n, 0n, 0n, 1n);
+    } else if (event.data === 'isoT') {
+        if (viz) viz.pulseIsometry(1n, 1n, 0n, 1n);
+    } else if (event.data === 'isoS') {
+        if (viz) viz.pulseIsometry(0n, -1n, 1n, 0n);
     }
 });
 

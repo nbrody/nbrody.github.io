@@ -281,7 +281,7 @@ window.addEventListener('message', (event) => {
     if (event.data === 'rotate') {
         const btn = document.getElementById('fiberBtn');
         if (btn) btn.click();
-    } else if (event.data === 'play') {
+    } else if (event.data === 'play' || event.data === 'toggle') {
         const btn = document.getElementById('playBtn');
         if (btn) btn.click();
     } else if (event.data === 'add') {

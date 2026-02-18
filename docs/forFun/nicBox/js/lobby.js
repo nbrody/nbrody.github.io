@@ -11,19 +11,31 @@ let roomListeners = [];
 
 async function initLobby() {
     try {
+        console.log("Initializing lobby...");
         const roomCode = await createRoom();
         currentRoom = roomCode;
+        console.log("Room created:", roomCode);
 
         // Display room code
         document.getElementById('room-code').textContent = roomCode;
 
         // Generate QR code
         const joinUrl = getJoinUrl(roomCode);
-        await QRCode.toCanvas(document.getElementById('qr-canvas'), joinUrl, {
-            width: 200,
-            margin: 1,
-            color: { dark: '#000000', light: '#ffffff' }
-        });
+        console.log("Generating QR for:", joinUrl);
+
+        const qrCanvas = document.getElementById('qr-canvas');
+        if (qrCanvas && (window.QRCode || typeof QRCode !== 'undefined')) {
+            const qrLibrary = window.QRCode || QRCode;
+            await qrLibrary.toCanvas(qrCanvas, joinUrl, {
+                width: 200,
+                margin: 1,
+                color: { dark: '#000000', light: '#ffffff' }
+            });
+            console.log("QR Code generated successfully.");
+        } else {
+            console.error("QR Library not found or canvas missing.");
+            showToast("QR Code library failed to load.");
+        }
 
         // Listen for player changes
         listenForPlayers(roomCode);
@@ -31,10 +43,9 @@ async function initLobby() {
         // Listen for game state changes
         listenForGameState(roomCode);
 
-        console.log(`Room ${roomCode} created. Join URL: ${joinUrl}`);
     } catch (err) {
-        console.error('Failed to create room:', err);
-        showToast('Failed to create room. Check Firebase config.');
+        console.error('Failed to initialize lobby:', err);
+        showToast('Failed to start. Check browser console.');
     }
 }
 

@@ -50,12 +50,11 @@ function handleCommand(cmd) {
 
     switch (cmd) {
         case 'next':
-        case 'smartNext':
+        case 'smartNext': {
             const activeSection = document.querySelector('.section.active');
             const slides = activeSection.querySelectorAll('.slide');
             const activeSlide = activeSection.querySelector('.slide.active') || slides[0];
 
-            // Smart logic: Try to move right if slides exist
             if (slides.length > 0) {
                 const activeIndex = Array.from(slides).indexOf(activeSlide);
                 if (activeIndex < slides.length - 1) {
@@ -67,14 +66,15 @@ function handleCommand(cmd) {
                 api.moveSectionDown();
             }
             break;
+        }
         case 'prev':
-        case 'smartPrev':
-            const activeSecPrev = document.querySelector('.section.active');
-            const slidesPrev = activeSecPrev.querySelectorAll('.slide');
-            const activeSlidePrev = activeSecPrev.querySelector('.slide.active') || slidesPrev[0];
+        case 'smartPrev': {
+            const activeSection = document.querySelector('.section.active');
+            const slides = activeSection.querySelectorAll('.slide');
+            const activeSlide = activeSection.querySelector('.slide.active') || slides[0];
 
-            if (slidesPrev.length > 0) {
-                const activeIndex = Array.from(slidesPrev).indexOf(activeSlidePrev);
+            if (slides.length > 0) {
+                const activeIndex = Array.from(slides).indexOf(activeSlide);
                 if (activeIndex > 0) {
                     api.moveSlideLeft();
                 } else {
@@ -84,17 +84,36 @@ function handleCommand(cmd) {
                 api.moveSectionUp();
             }
             break;
+        }
         case 'up': api.moveSectionUp(); break;
         case 'down': api.moveSectionDown(); break;
         case 'left': api.moveSlideLeft(); break;
         case 'right': api.moveSlideRight(); break;
-        case 'toggle':
-            const activeIframe = document.querySelector('.section.active iframe') ||
-                document.querySelector('.slide.active iframe');
-            if (activeIframe) {
-                activeIframe.contentWindow.postMessage('toggle', '*');
+        case 'toggle': {
+            const activeSection = document.querySelector('.section.active');
+            const activeSlide = activeSection.querySelector('.slide.active') || activeSection;
+            const toggleBtn = activeSlide.querySelector('.viz-controls button');
+            if (toggleBtn && (toggleBtn.innerText.includes("Play") || toggleBtn.innerText.includes("Pause"))) {
+                toggleBtn.click();
+            } else {
+                const activeIframe = activeSlide.querySelector('iframe');
+                if (activeIframe) {
+                    activeIframe.contentWindow.postMessage('toggle', '*');
+                }
             }
             break;
+        }
+        case 'isoA':
+        case 'isoT':
+        case 'isoS': {
+            const activeSection = document.querySelector('.section.active');
+            const activeSlide = activeSection.querySelector('.slide.active') || activeSection;
+            const isoIframe = activeSlide.querySelector('iframe');
+            if (isoIframe) {
+                isoIframe.contentWindow.postMessage(cmd, '*');
+            }
+            break;
+        }
     }
 
     // Reset the flag after a short delay to allow the event to propagate
@@ -134,6 +153,8 @@ function setupMasterListener() {
 function updateRemoteUI(state) {
     const vizBtn = document.getElementById('remote-viz-btn');
     const vizText = document.getElementById('viz-btn-text');
+    const isoButtons = document.getElementById('remote-iso-buttons');
+
     if (vizBtn) {
         vizBtn.style.display = state.hasViz ? 'flex' : 'none';
         if (vizText) {
@@ -147,6 +168,10 @@ function updateRemoteUI(state) {
                 }
             }
         }
+    }
+
+    if (isoButtons) {
+        isoButtons.style.display = state.isTower ? 'flex' : 'none';
     }
 }
 
@@ -258,10 +283,12 @@ window.syncRemoteState = function () {
     const activeSection = document.querySelector('.section.active');
     const activeSlide = activeSection.querySelector('.slide.active') || activeSection;
     const hasViz = !!activeSlide.querySelector('iframe');
+    const isTower = activeSlide.getAttribute('data-anchor') === 'padic-tower';
 
     updateRemoteState({
         hasViz: hasViz,
-        isPlaying: window.isVizPlaying || false
+        isPlaying: window.isVizPlaying || false,
+        isTower: isTower
     });
 };
 

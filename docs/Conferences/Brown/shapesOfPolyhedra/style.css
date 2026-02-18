@@ -1,0 +1,318 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: #0a0a0f;
+    color: #e0e0e8;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+}
+
+#app {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+/* ── Panels ── */
+#editor-panel {
+    flex: 1;
+    position: relative;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#editor-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: default;
+}
+
+#viewer-panel {
+    flex: 1;
+    position: relative;
+}
+
+#three-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* ── UI overlays ── */
+.panel-label {
+    position: absolute;
+    top: 16px;
+    left: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255, 255, 255, 0.45);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.glass-bar {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(20, 20, 30, 0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    padding: 12px 24px;
+    z-index: 10;
+}
+
+.glass-panel {
+    position: absolute;
+    top: 44px;
+    right: 16px;
+    background: rgba(16, 16, 26, 0.88);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 14px 18px;
+    z-index: 10;
+    min-width: 260px;
+}
+
+/* ── Param displays ── */
+.param-display {
+    text-align: center;
+    min-width: 52px;
+}
+
+.param-display .label {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.param-display .value {
+    font-size: 16px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.divider {
+    width: 1px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── Colors ── */
+.color-a {
+    color: #ff6b6b;
+}
+
+.color-b {
+    color: #ffd93d;
+}
+
+.color-c {
+    color: #6bcb77;
+}
+
+.color-d {
+    color: #4d96ff;
+}
+
+.color-crease {
+    color: #c084fc;
+}
+
+/* ── Legend ── */
+#pairing-legend {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    z-index: 10;
+    pointer-events: none;
+}
+
+#pairing-legend .pair {
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+#pairing-legend .swatch {
+    width: 20px;
+    height: 3px;
+    border-radius: 2px;
+}
+
+/* ── Fold angle sliders ── */
+.fold-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.fold-row:last-child {
+    margin-bottom: 0;
+}
+
+.fold-label {
+    min-width: 28px;
+    font-size: 14px;
+    text-align: right;
+}
+
+.fold-val {
+    min-width: 36px;
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+/* ── Range slider theming ── */
+.fold-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 2px;
+    outline: none;
+}
+
+.fold-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+/* Per-color thumb */
+.color-slider-a::-webkit-slider-thumb {
+    background: #ff6b6b;
+    box-shadow: 0 0 6px rgba(255, 107, 107, 0.5);
+}
+
+.color-slider-b::-webkit-slider-thumb {
+    background: #ffd93d;
+    box-shadow: 0 0 6px rgba(255, 217, 61, 0.5);
+}
+
+.color-slider-c::-webkit-slider-thumb {
+    background: #6bcb77;
+    box-shadow: 0 0 6px rgba(107, 203, 119, 0.5);
+}
+
+.color-slider-d::-webkit-slider-thumb {
+    background: #4d96ff;
+    box-shadow: 0 0 6px rgba(77, 150, 255, 0.5);
+}
+
+.color-slider-crease::-webkit-slider-thumb {
+    background: #c084fc;
+    box-shadow: 0 0 6px rgba(192, 132, 252, 0.5);
+}
+
+/* ── Crease section ── */
+.fold-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 10px 0;
+}
+
+.crease-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.crease-title {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.crease-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.crease-btn {
+    flex: 1;
+    padding: 5px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.5);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.crease-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.crease-btn.active {
+    background: rgba(192, 132, 252, 0.15);
+    border-color: rgba(192, 132, 252, 0.4);
+    color: #c084fc;
+}
+
+/* ── Info & hints ── */
+#info-panel {
+    position: absolute;
+    bottom: 56px;
+    right: 16px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    z-index: 10;
+    pointer-events: none;
+    text-align: right;
+    line-height: 1.6;
+}
+
+#fold-hint {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.3);
+    z-index: 10;
+    pointer-events: none;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: rgba(20, 20, 30, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 8px 18px;
+    transition: opacity 0.3s;
+}

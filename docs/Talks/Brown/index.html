@@ -113,17 +113,6 @@
                     </div>
                 </div>
             </div>
-
-            <div class="slide" data-anchor="mountain-climbers">
-                <div class="full-viz-container animate-up">
-                    <div class="viz-controls">
-                        <button class="minimal-btn" onclick="toggleViz('mountain-frame', this)">Play</button>
-                    </div>
-                    <iframe id="mountain-frame" src="js/mountainClimbers/mountainClimbers.html?embed=true"
-                        class="viz-frame"></iframe>
-                </div>
-            </div>
-
             <div class="slide" data-anchor="the-goal">
                 <div class="full-viz-container animate-up">
                     <div class="viz-controls">
@@ -140,6 +129,15 @@
                         <button class="minimal-btn" onclick="toggleViz('trees-frame', this)">Pause</button>
                     </div>
                     <iframe id="trees-frame" src="js/productOfTrees/productOfTrees.html?embed=true"
+                        class="viz-frame"></iframe>
+                </div>
+            </div>
+            <div class="slide" data-anchor="mountain-climbers">
+                <div class="full-viz-container animate-up">
+                    <div class="viz-controls">
+                        <button class="minimal-btn" onclick="toggleViz('mountain-frame', this)">Play</button>
+                    </div>
+                    <iframe id="mountain-frame" src="js/mountainClimbers/mountainClimbers.html?embed=true"
                         class="viz-frame"></iframe>
                 </div>
             </div>
@@ -172,14 +170,10 @@
             <div class="slide" data-anchor="pto1-map-iterated">
                 <div class="full-viz-container animate-up">
                     <div class="viz-controls">
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('pto1-frame').contentWindow.postMessage('rotate', '*')">⟳
+                        <button class="minimal-btn" onclick="postToViz('pto1-frame', 'rotate')">⟳
                             Rotate</button>
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('pto1-frame').contentWindow.postMessage('play', '*')">▶
-                            Play</button>
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('pto1-frame').contentWindow.postMessage('add', '*')">+
+                        <button class="minimal-btn" onclick="toggleViz('pto1-frame', this)">Play</button>
+                        <button class="minimal-btn" onclick="postToViz('pto1-frame', 'add')">+
                             Layer</button>
                     </div>
                     <iframe id="pto1-frame" src="js/pto1Map/pto1Map.html?embed=true" class="viz-frame"></iframe>
@@ -190,8 +184,8 @@
             <div class="slide" data-anchor="padic-tower">
                 <div class="full-viz-container animate-up">
                     <div class="viz-controls">
-                        <button class="minimal-btn"
-                            onclick="document.getElementById('tower-frame').contentWindow.postMessage('grow', '*')">+</button>
+                        <button class="minimal-btn" onclick="toggleViz('tower-frame', this)">Play</button>
+                        <button class="minimal-btn" onclick="postToViz('tower-frame', 'grow')">+</button>
                     </div>
                     <iframe id="tower-frame" src="js/padicTower/padic.html?embed=true&grow=1"
                         class="viz-frame"></iframe>
@@ -651,7 +645,7 @@
                 const frame = document.getElementById(id);
                 if (frame) {
                     frame.contentWindow.postMessage('toggle', '*');
-                    window.isVizPlaying = (btn.innerText === "Play");
+                    window.isVizPlaying = (btn.innerText.includes("Play"));
                     btn.innerText = window.isVizPlaying ? "Pause" : "Play";
                     if (window.syncRemoteState) window.syncRemoteState();
                 }
@@ -718,6 +712,14 @@
                     <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
                 <span id="viz-btn-text">Play</span>
+            </div>
+            <div id="remote-iso-buttons" class="control-group" style="display: none; flex-direction: row; gap: 8px;">
+                <div class="control-btn" onclick="sendRemoteCommand('isoA')" style="min-width: 40px; padding: 0.5rem;">A
+                </div>
+                <div class="control-btn" onclick="sendRemoteCommand('isoT')" style="min-width: 40px; padding: 0.5rem;">T
+                </div>
+                <div class="control-btn" onclick="sendRemoteCommand('isoS')" style="min-width: 40px; padding: 0.5rem;">S
+                </div>
             </div>
         </div>
 
