@@ -105,7 +105,8 @@ function handleCommand(cmd) {
         }
         case 'isoA':
         case 'isoT':
-        case 'isoS': {
+        case 'isoS':
+        case 'grow': {
             const activeSection = document.querySelector('.section.active');
             const activeSlide = activeSection.querySelector('.slide.active') || activeSection;
             const isoIframe = activeSlide.querySelector('iframe');
