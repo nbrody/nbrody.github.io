@@ -270,15 +270,22 @@
             <div class="slide" data-anchor="long-reid-group">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Long-Reid Group</h2>
-                    <p>Let \(\Gamma=\langle a,b\mid [a,b]^2=1\rangle\). We get a representation of \(\Gamma\) into
-                        \(\PGL_2(\Z(t))\) by taking</p>
-                    <formula>
+                    <p class="fragment">Let \(\Gamma=\langle a,b\mid [a,b]^2=1\rangle\); this is the fundamental group
+                        of an orbifold which is a torus with a cone point of order 2. We get a representation of
+                        \(\Gamma\) into
+                        \(\PGL_2(\Q(t))\) by taking</p>
+                    <formula class="fragment">
                         \(\left\langle \begin{pmatrix} t & 0 \\ 0 & 1 \end{pmatrix}, \begin{pmatrix} t^2+1 & 2 \\ t
-                        & 1 \end{pmatrix} \right\rangle \leq \PGL_2(\Z(t))\)
+                        & 1 \end{pmatrix} \right\rangle \leq \PGL_2(\Z[t,\frac{1}{t},\frac{1}{t-1}])\)
                     </formula>
-                    <p>Specializing \(t\in\Q\), we can obtain a subgroup of \(\PGL_2(\Q)\). This determines a proper
+                    <p class="fragment">Specializing \(t\in\Q\), we can obtain a subgroup of \(\PGL_2(\Q)\). This
+                        determines a proper
                         action on a product of trees if and only if the representation is faithful and \(\Gamma_t\cap
                         \PGL_2(\Z)\) is finite.
+                    </p>
+                    <p class="fragment" style="margin-top: 1.5rem; color: var(--accent); font-weight: 600;">
+                        The particular case \(t=9\) gives a surface group acting on the product of the 2-adic and 3-adic
+                        trees.
                     </p>
                 </div>
             </div>
@@ -324,9 +331,9 @@
                         -c+di
                         & a-bi\end{pmatrix}\) where
                         \([g,h]\) has trace zero.</p>
-                    <formula class="fragment">
-                        \[(x^2+y^2)(a^2+c^2)+(x^2-y^2)(b^2+d^2)=0\]
-                    </formula>
+                    <div class="fragment" style="font-size: 1.5rem;">
+                        \((x^2+y^2)(a^2+c^2)+(x^2-y^2)(b^2+d^2)=0\)
+                    </div>
                     <p class="fragment">We find a particular integer solution
                         \(x=4,\; y=5,\; a=3,\; b=1,\; c=3,\; d=9\), giving</p>
                     <formula class="fragment">
@@ -395,7 +402,7 @@
                 </div>
             </div>
             <div class="slide" data-anchor="beam-search">
-                <div class="content-box animate-up">
+                <div class="content-box animate-up tight">
                     <h2 class="slide-title">Beam Search</h2>
                     <p class="fragment">
                         We first choose a beam width \(W\). We initialize the <i>beam</i> \(B_0=\{I\}\).
@@ -418,7 +425,7 @@
                 </div>
             </div>
             <div class="slide" data-anchor="flashbeam">
-                <div class="content-box animate-up">
+                <div class="content-box animate-up tight">
                     <h2 class="slide-title">FlashBeam Search</h2>
                     <p class="fragment">
                         We first choose a beam width \(W\) and a flash size \(F\). We initialize the <i>flash</i>
@@ -462,12 +469,10 @@
                 </div>
             </div>
             <div class="slide" data-anchor="search-comparison">
-                <div class="full-viz-container animate-up">
-                    <div class="viz-controls">
-                        <button class="minimal-btn" onclick="toggleViz('search-compare-frame', this)">Play</button>
-                    </div>
-                    <iframe id="search-compare-frame" data-src="../../../python/searchComparisons/index.html?embed=true"
-                        class="viz-frame"></iframe>
+                <div class="animate-up"
+                    style="display: flex; align-items: center; justify-content: center; height: 100%; padding: 2rem;">
+                    <img src="assets/SearchComparison.gif" alt="Search Comparison"
+                        style="max-width: 95%; max-height: 85vh; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); border: 1px solid var(--border);">
                 </div>
             </div>
             <div class="slide" data-anchor="dirichlet-demo">
