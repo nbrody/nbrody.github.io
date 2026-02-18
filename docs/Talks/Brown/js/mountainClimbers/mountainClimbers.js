@@ -969,166 +969,13 @@ function drawProductComplex() {
     }
 }
 
-// ===================================
-// 3D Product Complex  (Θ × Θ)
-// ===================================
-const productScene = new THREE.Scene();
-productScene.background = new THREE.Color(0x020617);
-productScene.add(new THREE.AmbientLight(0x445566, 0.8));
-const pKey = new THREE.DirectionalLight(0xffffff, 1.0);
-pKey.position.set(60, 100, 80);
-productScene.add(pKey);
-const pFill = new THREE.DirectionalLight(0x6688cc, 0.4);
-pFill.position.set(-40, -30, -60);
-productScene.add(pFill);
 
-const productCamera = new THREE.PerspectiveCamera(
-    50, window.innerWidth / window.innerHeight, 0.1, 2000
-);
-productCamera.position.set(0, 30, 220);
-productCamera.lookAt(0, 0, 0);
+// -----------------------------
 
-const productControls = new OrbitControls(productCamera, renderer.domElement);
-productControls.enableDamping = true;
-productControls.enabled = false;
 
-// --- Genus-2 surface: 3 spines at 120° on a cross-section circle ---
-const HUB_X = 70;
-const CROSS_R = 45;
-// Spine angles: red at top (90°), green lower-left (210°), blue lower-right (330°)
-const spineAngles = [Math.PI / 2, Math.PI / 2 + 2 * Math.PI / 3, Math.PI / 2 + 4 * Math.PI / 3];
 
-function spinePt(idx, u) {
-    const x = -HUB_X + 2 * HUB_X * u;
-    const r = CROSS_R * Math.sin(Math.PI * u);
-    const a = spineAngles[idx];
-    return new THREE.Vector3(x, r * Math.sin(a), r * Math.cos(a));
-}
 
-// Tube i covers the 120° arc from spine i to spine (i+1)%3
-function tubeSurfPt(ti, u, v) {
-    const x = -HUB_X + 2 * HUB_X * u;
-    const r = CROSS_R * Math.sin(Math.PI * u);
-    const a1 = spineAngles[ti];
-    const a2 = spineAngles[(ti + 1) % 3];
-    let sweep = a2 - a1;
-    if (sweep < 0) sweep += 2 * Math.PI;
-    const angle = a1 + v * sweep;
-    return new THREE.Vector3(x, r * Math.sin(angle), r * Math.cos(angle));
-}
 
-function buildTubePanel(ti, vStart, vEnd, color, opacity) {
-    const RU = 40, RV = 20;
-    const positions = [], indices = [];
-    for (let ui = 0; ui <= RU; ui++) {
-        for (let vi = 0; vi <= RV; vi++) {
-            const p = tubeSurfPt(ti, ui / RU, vStart + (vEnd - vStart) * vi / RV);
-            positions.push(p.x, p.y, p.z);
-        }
-    }
-    for (let ui = 0; ui < RU; ui++) {
-        for (let vi = 0; vi < RV; vi++) {
-            const a = ui * (RV + 1) + vi;
-            indices.push(a, a + 1, a + RV + 2);
-            indices.push(a, a + RV + 2, a + RV + 1);
-        }
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geo.setIndex(indices);
-    geo.computeVertexNormals();
-    return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-        color: new THREE.Color(color), side: THREE.DoubleSide,
-        transparent: true, opacity, roughness: 0.35, metalness: 0.08,
-    }));
-}
-
-function buildDiagPatch(spineIdx, color, opacity) {
-    const RU = 40, halfW = 4;
-    const positions = [], indices = [];
-    for (let ui = 0; ui <= RU; ui++) {
-        const u = ui / RU;
-        const p = spinePt(spineIdx, u);
-        const a = spineAngles[spineIdx];
-        const hw = halfW * Math.sin(Math.PI * u);
-        positions.push(p.x, p.y + hw * Math.cos(a), p.z - hw * Math.sin(a));
-        positions.push(p.x, p.y - hw * Math.cos(a), p.z + hw * Math.sin(a));
-    }
-    for (let ui = 0; ui < RU; ui++) {
-        const a = ui * 2;
-        indices.push(a, a + 1, a + 3);
-        indices.push(a, a + 3, a + 2);
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geo.setIndex(indices);
-    geo.computeVertexNormals();
-    return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-        color: new THREE.Color(color), side: THREE.DoubleSide,
-        transparent: true, opacity, roughness: 0.3, metalness: 0.1,
-    }));
-}
-
-const prodRoot = new THREE.Group();
-const diagFaces = new THREE.Group();
-const tubeFaces = [new THREE.Group(), new THREE.Group(), new THREE.Group()];
-
-const panelColors = [
-    ['#c084fc', '#a855f7'],
-    ['#5eead4', '#2dd4bf'],
-    ['#fbbf24', '#f59e0b'],
-];
-
-for (let ti = 0; ti < 3; ti++) {
-    tubeFaces[ti].add(buildTubePanel(ti, 0, 0.5, panelColors[ti][0], 0.75));
-    tubeFaces[ti].add(buildTubePanel(ti, 0.5, 1, panelColors[ti][1], 0.75));
-    prodRoot.add(tubeFaces[ti]);
-}
-
-for (let i = 0; i < 3; i++) {
-    diagFaces.add(buildDiagPatch(i, edgeColors[i], 0.5));
-}
-prodRoot.add(diagFaces);
-
-function addEdgeLine(pts, color, parent) {
-    const geo = new THREE.BufferGeometry().setFromPoints(pts);
-    parent.add(new THREE.Line(geo, new THREE.LineBasicMaterial({
-        color: new THREE.Color(color), linewidth: 2
-    })));
-}
-for (let i = 0; i < 3; i++) {
-    const pts = [];
-    for (let k = 0; k <= 60; k++) pts.push(spinePt(i, k / 60));
-    addEdgeLine(pts, edgeColors[i], prodRoot);
-}
-
-const vSphGeo = new THREE.SphereGeometry(3.5, 20, 14);
-const vSphMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x115522 });
-const hubL = new THREE.Mesh(vSphGeo, vSphMat);
-hubL.position.set(-HUB_X, 0, 0);
-prodRoot.add(hubL);
-const hubR = new THREE.Mesh(vSphGeo, vSphMat.clone());
-hubR.position.set(HUB_X, 0, 0);
-prodRoot.add(hubR);
-
-productScene.add(prodRoot);
-
-let prodShowDiag = true;
-let prodDiagFadeStart = 0;
-let prodDiagFading = false;
-
-function resetProduct3D() {
-    prodShowDiag = true;
-    prodDiagFading = false;
-    diagFaces.visible = true;
-    diagFaces.children.forEach(m => { m.material.opacity = 0.5; });
-    tubeFaces.forEach(g => g.children.forEach(m => { m.material.opacity = 0.75; }));
-}
-
-function startDiagFade() {
-    prodDiagFading = true;
-    prodDiagFadeStart = Date.now();
-}
 
 // -----------------------------
 // Story Steps (two scenes)
@@ -1187,20 +1034,15 @@ const storySteps = [
         text: "We can model this as a theta graph \u0398 \u2014 two vertices connected by three edges.", scene: 2,
         onEnter: () => { resetAnim(); canvasMode = 'theta'; }
     },
-    { text: "Each edge represents a bridge. The two climbers start at vertex A and must reach vertex B.", scene: 2 },
-    { text: "The question: can both traverse the graph from A to B, always remaining within distance 1 of each other?", scene: 2 },
-    // Scene 3: Product complex in 3D
-    {
-        text: "Consider the product \u0398 \u00d7 \u0398. It has 4 vertices, 12 edges, and 9 square faces.", scene: 3,
-        onEnter: () => resetProduct3D()
-    },
-    { text: "The 3 diagonal squares (e\u1d62 \u00d7 f\u1d62) are the flat sheets. They represent configurations where both climbers walk the same bridge.", scene: 3 },
-    {
-        text: "Remove the diagonal squares...", scene: 3,
-        onEnter: () => startDiagFade()
-    },
-    { text: "What remains are 3 tubes, each formed from two off-diagonal squares. Together they form a genus 2 surface! (\u03c7 = 4 \u2212 12 + 6 = \u22122)", scene: 3 },
 ];
+
+// Hide UI when embedded in the talk
+const urlParams = new URLSearchParams(window.location.search);
+const isEmbedded = urlParams.get('embed') === 'true';
+if (isEmbedded) {
+    document.getElementById('ui').style.display = 'none';
+    document.body.classList.add('embedded');
+}
 
 let currentStep = 0;
 let currentScene = 1;
@@ -1218,7 +1060,6 @@ function setScene(sceneNum) {
     renderer.domElement.style.opacity = '0';
     thetaCanvas.style.display = 'none';
     controls.enabled = false;
-    productControls.enabled = false;
 
     if (sceneNum === 1) {
         mountainSceneGroup.visible = true;
@@ -1226,9 +1067,6 @@ function setScene(sceneNum) {
         controls.enabled = true;
     } else if (sceneNum === 2) {
         thetaCanvas.style.display = 'block';
-    } else if (sceneNum === 3) {
-        renderer.domElement.style.opacity = '1';
-        productControls.enabled = true;
     }
 }
 
@@ -1321,24 +1159,6 @@ function animate() {
     } else if (currentScene === 2) {
         if (canvasMode === 'theta') drawThetaGraph();
         else drawProductComplex();
-    } else if (currentScene === 3) {
-        // Animate diagonal fade
-        if (prodDiagFading) {
-            const elapsed = (Date.now() - prodDiagFadeStart) / 1000;
-            const alpha = Math.max(0, 1 - elapsed / 1.5);
-            diagFaces.children.forEach(m => { m.material.opacity = 0.5 * alpha; });
-            if (alpha <= 0) {
-                prodDiagFading = false;
-                prodShowDiag = false;
-                diagFaces.visible = false;
-                // Brighten remaining tubes
-                tubeFaces.forEach(g => g.children.forEach(m => { m.material.opacity = 0.8; }));
-            }
-        }
-        // Gentle auto-rotation
-        prodRoot.rotation.y += 0.003;
-        productControls.update();
-        renderer.render(productScene, productCamera);
     }
 }
 
@@ -1346,8 +1166,6 @@ window.addEventListener('resize', () => {
     const aspect = window.innerWidth / window.innerHeight;
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
-    productCamera.aspect = aspect;
-    productCamera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     resizeThetaCanvas();
 });
