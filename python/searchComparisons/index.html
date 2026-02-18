@@ -1403,6 +1403,24 @@
             btn.textContent = '📹 Record';
             btn.disabled = false;
         }
+
+        // ── Embed mode ──
+        const urlParams = new URLSearchParams(window.location.search);
+        const isEmbedded = urlParams.get('embed') === 'true';
+        if (isEmbedded) {
+            document.querySelector('header').style.display = 'none';
+            // Auto-start searches after a brief delay
+            setTimeout(() => {
+                document.getElementById('btn-run').click();
+            }, 500);
+        }
+
+        // Listen for postMessage commands from parent
+        window.addEventListener('message', (e) => {
+            if (e.data === 'toggle') {
+                document.getElementById('btn-run').click();
+            }
+        });
     </script>
 </body>
 
