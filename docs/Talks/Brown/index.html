@@ -532,47 +532,63 @@
                         that
                         <i>none of these approaches will ever work!</i>
                     </p>
+                    <div
+                        style="display: flex; gap: 20px; justify-content: center; align-items: center; margin-top: 2rem;">
+                        <img src="assets/transitionImages/Borromean.png" alt="Borromean"
+                            style="width: 35%; border-radius: 12px; box-shadow: 0 4px 30px rgba(124,138,255,0.3);">
+                        <img src="assets/transitionImages/Sierpinskiesque.png" alt="Sierpinskiesque"
+                            style="width: 35%; border-radius: 12px; box-shadow: 0 4px 30px rgba(244,114,182,0.3);">
+                    </div>
                 </div>
             </div>
 
             <div class="slide" data-anchor="conjecture">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Conjecture</h2>
-                    <p>Suppose \(k\) is a number field and \(\bbG\) is a simple \(k\)-algebraic group. We say that a
-                        subgroup \(\Gamma \leq \bbG(k)\) is:
-                        <br><span class="fragment">\(\bullet\) <strong>algebraic</strong> if \(\Gamma\) is
+                    <div class="theorem main-question-container" data-label="Conjecture">
+                        <p style="font-size: 1.4rem; line-height: 1.6; color: #fff;">Suppose \(k\) is a number field and
+                            \(\bbG\) is a simple \(k\)-algebraic group. A
+                            subgroup \(\Gamma \leq \bbG(k)\) is:</p>
+                        <p class="fragment"
+                            style="font-size: 1.3rem; line-height: 1.6; color: #e0e0f0; margin-top: 1.2rem;">\(\bullet\)
+                            <strong>algebraic</strong> if \(\Gamma\) is
                             contained in
                             \(\bbH(\Q)\lneq\mathsf{Res}_{k/\Q}(\bbG)(\Q)\) for some proper algebraic
-                            subgroup of \(\bbG(k)\).</span>
-                        <br><span class="fragment">\(\bullet\) <strong>geometric</strong> if there is some place \(v\)
+                            subgroup of \(\bbG(k)\).
+                        </p>
+                        <p class="fragment"
+                            style="font-size: 1.3rem; line-height: 1.6; color: #e0e0f0; margin-top: 0.8rem;">\(\bullet\)
+                            <strong>geometric</strong> if there is some place \(v\)
                             such that \(\Gamma\) is
-                            discrete in \(\bbG(k_v)\).</span>
-                        <br><span class="fragment">\(\bullet\) <strong>arithmetic</strong> if \(\Gamma\) is
+                            discrete in \(\bbG(k_v)\).
+                        </p>
+                        <p class="fragment"
+                            style="font-size: 1.3rem; line-height: 1.6; color: #e0e0f0; margin-top: 0.8rem;">\(\bullet\)
+                            <strong>arithmetic</strong> if \(\Gamma\) is
                             commensurable with \(\bbG(A)\) for
-                            some subring \(A \leq k\).</span>
-                    </p>
-                    <p class="fragment">
-                        Conjecture: Every subgroup \(\Gamma\) is either algebraic, geometric, or arithmetic.
-                    </p>
+                            some subring \(A \leq k\).
+                        </p>
+                        <p class="fragment"
+                            style="font-size: 1.5rem; line-height: 1.6; color: #fff; margin-top: 1.5rem; font-weight: 700;">
+                            Conj: Every subgroup \(\Gamma\) is either algebraic, geometric, or arithmetic.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Section: Thank You -->
-        <div class="section" data-anchor="thanks">
-            <div class="slide" data-anchor="thank-you">
-                <div class="content-box animate-up" style="text-align: center; max-width: 900px;">
-                    <h2 class="slide-title" style="font-size: 2.4rem; margin-bottom: 1.5rem;">Thank You!</h2>
-                    <div
-                        style="display: flex; gap: 20px; justify-content: center; align-items: center; margin: 2rem 0;">
-                        <img src="assets/transitionImages/Borromean.png" alt="Borromean"
-                            style="width: 28%; border-radius: 12px; box-shadow: 0 4px 30px rgba(124,138,255,0.3);">
-                        <img src="assets/transitionImages/Tiedye.png" alt="Tiedye"
-                            style="width: 28%; border-radius: 12px; box-shadow: 0 4px 30px rgba(192,132,252,0.3);">
-                        <img src="assets/transitionImages/Sierpinskiesque.png" alt="Sierpinskiesque"
-                            style="width: 28%; border-radius: 12px; box-shadow: 0 4px 30px rgba(244,114,182,0.3);">
-                    </div>
-                </div>
+        <div class="section" data-anchor="thanks"
+            style="padding: 0; width: 100vw; height: 100vh; max-width: none; overflow: hidden;">
+            <div style="position: absolute; inset: 0; z-index: 0; width: 100vw; height: 100vh;">
+                <img src="assets/transitionImages/Tiedye.png" alt="Background"
+                    style="width: 100%; height: 100%; object-fit: cover; display: block; border: none;">
+            </div>
+            <div style="position: absolute; inset: 0; background: rgba(2, 6, 23, 0.45); z-index: 1;"></div>
+            <div class="animate-up"
+                style="position: relative; z-index: 2; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center;">
+                <h2 class="slide-title"
+                    style="font-size: clamp(3rem, 10vw, 7rem); text-shadow: 0 4px 80px rgba(0,0,0,0.9); margin: 0; color: white; text-align: center;">
+                    Thank You!</h2>
             </div>
         </div>
     </div>
