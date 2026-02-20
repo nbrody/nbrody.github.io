@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Braid Group Visualizer — Bₙ</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Three.js Import Map -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <style>
+        /* ======================================================
+           Landing-page-specific styles (supplements style.css)
+           ====================================================== */
+
+        /* Generator Palette */
+        .gen-palette {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            justify-content: center;
+            margin: 1rem 0 0.6rem;
+        }
+
+        .gen-pair {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .gen-btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 0.55rem 1.1rem;
+            border-radius: 10px;
+            border: 1px solid var(--border-glass);
+            cursor: pointer;
+            transition: all 0.2s var(--ease-out);
+            user-select: none;
+            min-width: 4.2rem;
+            text-align: center;
+        }
+
+        .gen-btn.fwd {
+            background: rgba(0, 229, 255, 0.08);
+            color: var(--accent-cyan);
+            border-color: rgba(0, 229, 255, 0.25);
+        }
+
+        .gen-btn.fwd:hover {
+            background: rgba(0, 229, 255, 0.18);
+            border-color: var(--accent-cyan);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 229, 255, 0.15);
+        }
+
+        .gen-btn.fwd:active {
+            transform: translateY(0) scale(0.95);
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.25) inset;
+        }
+
+        .gen-btn.inv {
+            background: rgba(179, 136, 255, 0.08);
+            color: var(--accent-purple);
+            border-color: rgba(179, 136, 255, 0.25);
+        }
+
+        .gen-btn.inv:hover {
+            background: rgba(179, 136, 255, 0.18);
+            border-color: var(--accent-purple);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(179, 136, 255, 0.15);
+        }
+
+        .gen-btn.inv:active {
+            transform: translateY(0) scale(0.95);
+            box-shadow: 0 0 8px rgba(179, 136, 255, 0.25) inset;
+        }
+
+        /* Word area */
+        .word-area {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-glass);
+            border-radius: var(--radius-md);
+            padding: 1rem 1.2rem;
+            margin: 0.8rem 0;
+            transition: border-color 0.3s var(--ease-out);
+        }
+
+        .word-area:has(.letter-token) {
+            border-color: var(--border-glass-bright);
+        }
+
+        .word-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .word-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+        }
+
+        .word-actions {
+            display: flex;
+            gap: 0.4rem;
+        }
+
+        .word-tokens {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            min-height: 2rem;
+            align-items: center;
+        }
+
+        /* Nav link to Burau page */
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.6rem;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s var(--ease-out);
+        }
+
+        .nav-link:hover {
+            color: var(--accent-cyan);
+        }
+
+        .nav-link .arrow {
+            transition: transform 0.2s var(--ease-out);
+        }
+
+        .nav-link:hover .arrow {
+            transform: translateX(3px);
+        }
+
+        /* Ensure Viz row takes more vertical space on landing page */
+        .viz-row-landing {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0 0;
+        }
+
+        .viz-row-landing>.braid-viz-container {
+            flex: 1 1 50%;
+            margin: 0;
+            min-width: 0;
+        }
+
+        .viz-row-landing .braid-viz-canvas {
+            height: 420px;
+        }
+
+        @media (max-width: 768px) {
+            .viz-row-landing {
+                flex-direction: column;
+            }
+
+            .viz-row-landing .braid-viz-canvas {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- ============================================================
+           Hero Header
+           ============================================================ -->
+        <header class="hero">
+            <h1 id="hero-title">Braid Group B<sub>6</sub></h1>
+            <p class="subtitle">Braid & Mapping Class Visualizer</p>
+            <div class="strand-selector">
+                <label for="strand-slider">Number of strands <em>n</em></label>
+                <div class="strand-slider-row">
+                    <input type="range" id="strand-slider" min="3" max="12" value="6" step="1">
+                    <span class="strand-display" id="strand-display">6</span>
+                </div>
+            </div>
+        </header>
+
+
+        <!-- ============================================================
+           Main Panel
+           ============================================================ -->
+        <section class="glass-panel" id="section-builder">
+
+            <h2>Generators</h2>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.2rem;">
+                Click generators to build a braid word.
+            </p>
+
+            <!-- Generator Buttons -->
+            <div class="gen-palette" id="gen-palette">
+                <!-- Populated by JS -->
+            </div>
+
+            <!-- Word Display -->
+            <div class="word-area">
+                <div class="word-header">
+                    <span class="word-label">Current Word</span>
+                    <div class="word-actions">
+                        <button class="btn-icon" id="btn-undo" title="Undo last" disabled>↩ Undo</button>
+                        <button class="btn-icon" id="btn-clear" title="Clear word" disabled>✕ Clear</button>
+                    </div>
+                </div>
+                <div class="word-tokens" id="word-display">
+                    <span class="empty-word">click a generator to start…</span>
+                </div>
+                <span class="word-length-badge" id="word-badge"></span>
+
+                <!-- Braid Relations -->
+                <div id="relations-section" style="display: none;">
+                    <div class="builder-relations-section" style="display: block;">
+                        <div class="relations-header">
+                            <span class="relations-label">Available Relations</span>
+                            <span class="relations-count" id="relations-count"></span>
+                        </div>
+                        <div class="builder-relations" id="relations-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Side-by-side Visualizers -->
+            <div class="viz-row-landing">
+
+                <!-- 3D Braid Visualizer -->
+                <div class="braid-viz-container" id="braid-viz-container">
+                    <div class="braid-viz-header">
+                        <span class="braid-viz-label"> Braid</span>
+                        <div class="braid-strand-legend" id="braid-strand-legend">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    <div class="braid-viz-canvas" id="braid-viz-canvas"></div>
+                </div>
+
+                <!-- Mapping Class (Punctured Disk) Visualizer -->
+                <div class="braid-viz-container" id="disk-viz-container">
+                    <div class="braid-viz-header">
+                        <span class="braid-viz-label"> Mapping Class</span>
+                    </div>
+                    <div class="braid-viz-canvas" id="disk-viz-canvas"></div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </div>
+
+    <!-- Lightweight App Script (no Burau / FlashBeam) -->
+    <script type="module" src="js/braidBuilder.js"></script>
+
+</body>
+
+</html>
