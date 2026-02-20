@@ -44,6 +44,9 @@ let builderSymbols = [];
 let generators, inverseMap;
 let generatorBySymbol = {};
 
+// Default to B_6
+setStrandCount(6);
+
 function rebuildGenerators() {
     const result = makeBurauGenerators();
     generators = result.generators;
