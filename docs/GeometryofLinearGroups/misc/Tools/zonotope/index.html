@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zonotopal Tilings — Interactive Explorer</title>
+    <meta name="description"
+        content="Explore rhombus tilings of regular 2n-gons interactively. Flip cubes at 3-valent vertices and animate paths between the top and bottom tilings of the n-cube.">
+    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <canvas id="zonotope-canvas"></canvas>
+
+    <div id="ui-overlay">
+        <div id="title-bar">
+            <h1>Zonotopal Tilings</h1>
+            <p class="subtitle">Rhombus tilings of the regular 2n-gon</p>
+        </div>
+
+        <div id="controls-toggle" title="Toggle Controls">⚙</div>
+
+        <div id="controls-panel">
+            <div class="control-section">
+                <h3>Parameters</h3>
+                <div class="control-row">
+                    <label>n</label>
+                    <input type="range" id="n-param" min="3" max="8" value="6" step="1">
+                    <span class="val" id="n-val">6</span>
+                </div>
+                <div class="control-row info-text" id="polygon-info">12-gon · 15 rhombi</div>
+            </div>
+
+            <div class="control-section">
+                <h3>Navigation</h3>
+                <div class="button-row">
+                    <button id="top-btn" class="btn">⬆ Top Tiling</button>
+                    <button id="bottom-btn" class="btn">⬇ Bottom Tiling</button>
+                </div>
+                <div class="button-row" style="margin-top:8px">
+                    <button id="animate-path-btn" class="btn btn-accent">▶ Animate Top → Bottom</button>
+                </div>
+                <div class="button-row" style="margin-top:8px">
+                    <button id="random-btn" class="btn btn-secondary">⟳ Random Tiling</button>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Display</h3>
+                <div class="control-row">
+                    <label>Color Mode</label>
+                    <select id="color-mode">
+                        <option value="angle">By Angle Pair</option>
+                        <option value="depth" selected>By 3D Depth</option>
+                        <option value="monochrome">Monochrome</option>
+                    </select>
+                </div>
+                <div class="control-row">
+                    <label>Animation Speed</label>
+                    <input type="range" id="anim-speed" min="0.2" max="3" value="1" step="0.1">
+                    <span class="val" id="speed-val">1.0×</span>
+                </div>
+                <div class="control-row">
+                    <label>Show Flippable</label>
+                    <input type="checkbox" id="show-flippable" checked>
+                </div>
+                <div class="control-row">
+                    <label>Show Walls (Strands)</label>
+                    <input type="checkbox" id="show-walls">
+                </div>
+                <div class="control-row">
+                    <label>Show Skeleton</label>
+                    <input type="checkbox" id="show-zones">
+                </div>
+                <div class="button-row" style="margin-top:10px">
+                    <button id="arc-btn" class="btn btn-secondary">⌒ Arc Diagram</button>
+                </div>
+            </div>
+
+            <div class="control-section info-section">
+                <h3>Info</h3>
+                <p id="flip-count" class="info-text">Flips: 0</p>
+                <p id="tiling-info" class="info-text">Click a ● vertex to flip</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="tooltip">Click flippable vertices to flip · Scroll to zoom · Drag to pan</div>
+
+    <script src="zonotope.js"></script>
+</body>
+
+</html>

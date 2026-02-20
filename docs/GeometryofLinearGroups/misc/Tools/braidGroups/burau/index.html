@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Interactive exploration of the Burau representation of the n-strand braid group Bₙ. Find relations using FlashBeam search over quotient rings of Z[t,t⁻¹].">
+    <title>Burau Representation — Relation Finder for Bₙ</title>
+    <link rel="stylesheet" href="../style.css">
+
+    <!-- MathJax for LaTeX rendering -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)']],
+                displayMath: [['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea']
+            }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+
+    <!-- Three.js Import Map -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- ============================================================
+       Hero Header
+       ============================================================ -->
+        <header class="hero">
+            <h1 id="hero-title">Burau Representation of B<sub>4</sub></h1>
+            <p class="subtitle">Relation Finder via FlashBeam Search</p>
+            <div class="strand-selector">
+                <label for="strand-slider">Number of strands <em>n</em></label>
+                <div class="strand-slider-row">
+                    <input type="range" id="strand-slider" min="3" max="12" value="4" step="1">
+                    <span class="strand-display" id="strand-display">4</span>
+                </div>
+            </div>
+        </header>
+
+
+        <!-- ============================================================
+       Tab Navigation
+       ============================================================ -->
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="tab-theory" id="tab-btn-theory">
+                📐 Theory
+            </button>
+            <button class="tab-btn" data-tab="tab-search" id="tab-btn-search">
+                🔍 Relation Search
+            </button>
+            <button class="tab-btn" data-tab="tab-compute" id="tab-btn-compute">
+                🧮 Word Calculator
+            </button>
+        </div>
+
+
+        <!-- ============================================================
+       TAB: Theory
+       ============================================================ -->
+        <div class="tab-content active" id="tab-theory">
+
+            <!-- Braid Group Description -->
+            <section class="glass-panel" id="section-braid-group">
+                <h2><span class="icon">🪢</span> The Braid Group \(B_n\)</h2>
+
+                <p>
+                    The <strong>braid group</strong> \(B_n\) on \(n\) strands is a fundamental object in
+                    topology, algebra, and mathematical physics. It can be thought of as the group of
+                    "ways to braid \(n\) strands" up to ambient isotopy.
+                </p>
+
+                <div class="definition-box">
+                    <div class="def-title">Presentation</div>
+                    <p>
+                        \(B_n\) has generators \(\sigma_1, \ldots, \sigma_{n-1}\) (the elementary braids)
+                        subject to the <em>braid relations</em>:
+                    </p>
+                    <div class="math-block">
+                        \[
+                        \sigma_i \sigma_j = \sigma_j \sigma_i \quad \text{if } |i - j| \geq 2
+                        \]
+                        \[
+                        \sigma_i \sigma_{i+1} \sigma_i = \sigma_{i+1} \sigma_i \sigma_{i+1}
+                        \]
+                    </div>
+                    <p>
+                        The first relation expresses that distant crossings commute,
+                        and the second is the braid (Yang–Baxter) relation involving adjacent generators.
+                    </p>
+                </div>
+
+                <p>
+                    Geometrically, \(\sigma_i\) crosses strand \(i\) over strand \(i{+}1\). The group is
+                    infinite and non-abelian. It surjects onto the symmetric group \(S_n\) via the map
+                    \(\sigma_i \mapsto (i\ \ i{+}1)\).
+                </p>
+
+                <h3>Why study representations of \(B_n\)?</h3>
+                <ul>
+                    <li>The <strong>Burau representation</strong> is faithful for \(n \leq 3\) and known to be
+                        <em>unfaithful</em> for \(n \geq 4\).
+                    </li>
+                    <li>Finding explicit kernel elements — non-trivial braids that act as the identity under Burau — is
+                        a computationally interesting challenge.</li>
+                    <li>Relations in the Burau image correspond to constraints on the topology of the underlying braids.
+                    </li>
+                </ul>
+            </section>
+
+
+            <!-- Burau Representation -->
+            <section class="glass-panel" id="section-burau-rep">
+                <h2><span class="icon">📊</span> The Reduced Burau Representation</h2>
+
+                <p>
+                    The <strong>reduced Burau representation</strong> is a homomorphism
+                    \(\psi: B_n \to \mathrm{GL}_{n-1}\!\big(\mathbb{Z}[t, t^{-1}]\big)\),
+                    sending each braid to an invertible matrix over the ring of <em>Laurent polynomials</em> in one
+                    variable \(t\).
+                </p>
+
+                <div class="definition-box">
+                    <div class="def-title">For \(B_n\) — \((n{-}1) \times (n{-}1)\) Matrices</div>
+                    <p>
+                        The representation maps each generator \(\sigma_i\) to an \((n{-}1)\times (n{-}1)\) matrix.
+                        The action on the free module with basis \(e_1, \ldots, e_{n-1}\) is:
+                    </p>
+                    <div class="math-block">
+                        \[
+                        \sigma_i(e_j) = e_j \quad \text{if } j \neq i{-}1, i, i{+}1
+                        \]
+                        \[
+                        \sigma_i(e_{i-1}) = e_{i-1} + t\, e_i, \quad
+                        \sigma_i(e_i) = {-t}\, e_i, \quad
+                        \sigma_i(e_{i+1}) = e_i + e_{i+1}
+                        \]
+                    </div>
+                </div>
+
+                <h3>Generator Matrices</h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                    Click generators below to build a word and see the accumulated matrix.
+                </p>
+                <div class="generator-visual" id="generator-cards">
+                    <!-- Populated by JS -->
+                </div>
+
+                <!-- Interactive Word Builder -->
+                <div class="word-builder" id="word-builder">
+                    <div class="word-builder-header">
+                        <div class="word-builder-label">Current Word</div>
+                        <div class="word-builder-actions">
+                            <button class="btn-icon" id="btn-undo-letter" title="Undo last" disabled>
+                                ↩ Undo
+                            </button>
+                            <button class="btn-icon" id="btn-clear-word" title="Clear word" disabled>
+                                ✕ Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div class="word-builder-word" id="builder-word">
+                        <span class="empty-word">click a generator to start…</span>
+                    </div>
+
+                    <!-- Braid Relations -->
+                    <div class="builder-relations-section" id="builder-relations-section" style="display: none;">
+                        <div class="relations-header">
+                            <span class="relations-label">⚡ Available Relations</span>
+                            <span class="relations-count" id="relations-count"></span>
+                        </div>
+                        <div class="builder-relations" id="builder-relations"></div>
+                    </div>
+
+                    <!-- Side-by-side Visualizers -->
+                    <div class="viz-row">
+
+                        <!-- 3D Braid Visualizer -->
+                        <div class="braid-viz-container" id="braid-viz-container">
+                            <div class="braid-viz-header">
+                                <span class="braid-viz-label">🪢 Braid Visualization</span>
+                                <div class="braid-strand-legend" id="braid-strand-legend">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                            <div class="braid-viz-canvas" id="braid-viz-canvas"></div>
+                        </div>
+
+                        <!-- Mapping Class (Punctured Disk) Visualizer -->
+                        <div class="braid-viz-container" id="disk-viz-container">
+                            <div class="braid-viz-header">
+                                <span class="braid-viz-label">🔄 Mapping Class (n-Punctured Disk)</span>
+                            </div>
+                            <div class="braid-viz-canvas" id="disk-viz-canvas"></div>
+                        </div>
+
+                    </div>
+
+                    <div class="word-builder-matrix" id="builder-matrix">
+                        <!-- Matrix shown here after first click -->
+                    </div>
+                    <div class="word-builder-verdict" id="builder-verdict"></div>
+                </div>
+
+                <h3>Faithfulness and the Kernel</h3>
+                <p>
+                    A representation is <strong>faithful</strong> if its kernel is trivial. Burau showed the
+                    representation is faithful for \(n \leq 3\), but
+                    <strong>Moody (1991)</strong> proved it is <em>unfaithful</em> for \(n \geq 9\),
+                    and <strong>Long–Paton</strong> and <strong>Bigelow</strong> pushed this down to \(n \geq 4\).
+                    For \(n = 4\), there exist non-trivial braids \(w \in B_4\) with \(\psi(w) = I\).
+                </p>
+                <p>
+                    Finding such elements computationally is the goal of our <strong>FlashBeam search</strong>.
+                </p>
+            </section>
+
+
+            <!-- Quotient Rings -->
+            <section class="glass-panel" id="section-quotient-rings">
+                <h2><span class="icon">💍</span> Quotient Rings</h2>
+
+                <p>
+                    Working in the full Laurent polynomial ring \(\mathbb{Z}[t, t^{-1}]\) leads to
+                    <em>coefficient explosion</em>: as words get longer, matrix entries become polynomials
+                    of very high degree with huge coefficients.
+                </p>
+
+                <p>
+                    To make the search tractable, we can specialize to a <strong>quotient ring</strong>
+                    \(\mathbb{Z}[t, t^{-1}] / (p(t))\), where \(p(t)\) is an irreducible polynomial.
+                    This forces \(t\) to satisfy the relation \(p(t) = 0\), bounding the degree of all
+                    computations.
+                </p>
+
+                <div class="definition-box">
+                    <div class="def-title">Key Specializations</div>
+                    <ul>
+                        <li><strong>\(t = 1\)</strong>: The Burau representation collapses to the permutation
+                            representation. The kernel is the pure braid group.</li>
+                        <li><strong>\(t = -1\)</strong>: Related to homology of double covers. Important in knot theory.
+                        </li>
+                        <li><strong>\(t = \omega\)</strong> (root of unity): The image becomes a finite matrix group,
+                            making exhaustive search possible.</li>
+                        <li><strong>\(t^2 = 2\)</strong>: Embeds into \(\mathrm{GL}_3(\mathbb{Z}[\sqrt{2}])\), an
+                            arithmetic group of interest.</li>
+                    </ul>
+                </div>
+
+                <p>
+                    Relations found in a quotient ring \(R/(p(t))\) correspond to elements of the
+                    braid group that act trivially in the <em>specialized</em> representation. These may
+                    or may not be in the kernel of the full Burau representation — they are, however,
+                    elements of the <strong>kernel of the specialized homomorphism</strong>.
+                </p>
+            </section>
+
+            <!-- Free Subgroups -->
+            <section class="glass-panel" id="section-free-subgroups">
+                <h2><span class="icon">🌲</span> Restricting to Subgroups</h2>
+
+                <p>
+                    To focus the search, we can restrict to <strong>subgroups generated by subsets</strong>
+                    of the generators. For instance (when \(n \geq 4\)):
+                </p>
+                <ul>
+                    <li><strong>\(\langle \sigma_i, \sigma_j \rangle\)</strong> with \(|i - j| \geq 2\): These commute,
+                        so this is a free abelian subgroup \(\mathbb{Z}^2\). No non-trivial relations expected in any
+                        faithful representation.</li>
+                    <li><strong>\(\langle \sigma_i, \sigma_{i+1} \rangle \cong B_3\)</strong>: The Burau rep of \(B_3\)
+                        is
+                        faithful, so no kernel here.</li>
+                    <li>The full group \(B_n\) with all generators: this is where unfaithfulness is known for \(n \geq
+                        4\).</li>
+                </ul>
+
+                <p>
+                    You can use the <strong>generator checkboxes</strong> in the search panel to restrict
+                    which generators (and their inverses) are available during the FlashBeam expansion.
+                </p>
+            </section>
+
+        </div>
+
+
+        <!-- ============================================================
+       TAB: Relation Search
+       ============================================================ -->
+        <div class="tab-content" id="tab-search">
+
+            <!-- Search Configuration -->
+            <section class="glass-panel" id="section-search-config">
+                <h2><span class="icon">⚙️</span> Search Configuration</h2>
+
+                <div class="controls-grid">
+                    <div>
+                        <div class="control-group">
+                            <label>Search Group</label>
+                            <div class="group-toggle" id="group-toggle">
+                                <button class="group-btn active" data-group="Bn">B<sub>n</sub></button>
+                                <button class="group-btn" data-group="F2">F₂</button>
+                            </div>
+                            <div class="group-description" id="group-description">
+                                Braid group on 4 strands — generators σ₁, σ₂, σ₃
+                            </div>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="ring-select">Quotient Ring</label>
+                            <select id="ring-select">
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
+
+                        <div class="control-group custom-ring-group" id="custom-ring-group" style="display: none;">
+                            <label for="custom-poly-input">Custom Polynomial p(t)</label>
+                            <input type="text" id="custom-poly-input" placeholder="e.g. t^3 - t + 1" autocomplete="off">
+                            <div class="custom-ring-feedback" id="custom-ring-feedback"></div>
+                            <div class="custom-ring-examples">
+                                <span class="example-chip" data-poly="t^2 - 3">t² − 3</span>
+                                <span class="example-chip" data-poly="t^3 + t + 1">t³ + t + 1</span>
+                                <span class="example-chip" data-poly="t^6 - 1">t⁶ − 1</span>
+                                <span class="example-chip" data-poly="t^2 - t - 1">t² − t − 1</span>
+                                <span class="example-chip" data-poly="2t^2 - 1">2t² − 1</span>
+                            </div>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="beam-width">Beam Width (W)</label>
+                            <input type="number" id="beam-width" value="300" min="10" max="10000" step="50">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="flash-size">Flash Pool Size (F)</label>
+                            <input type="number" id="flash-size" value="20" min="5" max="200" step="5">
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="control-group">
+                            <label for="max-iterations">Max Iterations</label>
+                            <input type="number" id="max-iterations" value="50" min="5" max="1000" step="10">
+                        </div>
+
+                        <div class="control-group">
+                            <label>Active Generators</label>
+                            <div class="checkbox-group" id="generator-checkboxes">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="btn-start">
+                        ▶ Start Search
+                    </button>
+                    <button class="btn btn-danger" id="btn-stop" disabled>
+                        ■ Stop
+                    </button>
+                </div>
+            </section>
+
+            <!-- Live Status Dashboard -->
+            <section class="glass-panel" id="section-status">
+                <h2><span class="icon">📡</span> Live Telemetry</h2>
+
+                <div class="status-bar">
+                    <div class="status-item">
+                        <div class="status-label">State</div>
+                        <div class="status-value idle" id="status-state">IDLE</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Iteration</div>
+                        <div class="status-value" id="status-iteration">0</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Best Score</div>
+                        <div class="status-value" id="status-best-score">∞</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Explored</div>
+                        <div class="status-value" id="status-explored">0</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Solutions</div>
+                        <div class="status-value" id="status-solutions">0</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Elapsed</div>
+                        <div class="status-value" id="status-elapsed">—</div>
+                    </div>
+                </div>
+
+                <h3>Flash Pool (Top Shortcuts)</h3>
+                <div class="flash-pool" id="flash-pool">
+                    <span class="flash-tag" style="opacity:0.4">Search not started</span>
+                </div>
+
+                <h3 style="margin-top: 1.2rem;">Search Log</h3>
+                <div class="log-area" id="log-area">
+                    <div class="log-line"><span class="timestamp">[--:--:--]</span> Ready. Configure parameters and
+                        press Start.</div>
+                </div>
+            </section>
+
+            <!-- Solutions -->
+            <section class="glass-panel" id="section-solutions">
+                <h2><span class="icon">🎯</span> Found Relations</h2>
+
+                <div class="solutions-container" id="solutions-list">
+                    <div class="empty-state">
+                        <div class="icon">🔭</div>
+                        <p>No relations found yet. Start a search above.</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+
+        <!-- ============================================================
+       TAB: Word Calculator
+       ============================================================ -->
+        <div class="tab-content" id="tab-compute">
+            <section class="glass-panel" id="section-word-calc">
+                <h2><span class="icon">🧮</span> Word Calculator</h2>
+
+                <p>
+                    Enter a word in the generators to compute its Burau matrix.
+                    Use space-separated tokens: <code>s1</code>, <code>s2</code>, …, <code>s<em>k</em></code> for
+                    \(\sigma_1, \sigma_2, \ldots\) and <code>S1</code>, <code>S2</code>, … for their inverses.
+                    You can also use <code>a b c A B C</code> as aliases for the first three generators.
+                </p>
+
+                <div class="control-group">
+                    <label for="word-input">Braid Word</label>
+                    <input type="text" id="word-input" placeholder="e.g. s1 s2 S1 S2 or a b A B" autocomplete="off">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="btn-compute">
+                        Compute
+                    </button>
+                </div>
+
+                <div id="manual-result" style="margin-top: 1.5rem;">
+                </div>
+
+                <div class="definition-box" style="margin-top: 2rem;">
+                    <div class="def-title">Symbol Reference</div>
+                    <table
+                        style="width:100%; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-secondary);">
+                        <tr>
+                            <td style="padding:0.3rem 0"><code>s<em>i</em></code></td>
+                            <td>\(\sigma_i\) — forward generator</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0.3rem 0"><code>S<em>i</em></code></td>
+                            <td>\(\sigma_i^{-1}\) — inverse generator</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0.3rem 0"><code>a</code>, <code>b</code>, <code>c</code></td>
+                            <td>Aliases for \(\sigma_1, \sigma_2, \sigma_3\)</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:0.3rem 0"><code>A</code>, <code>B</code>, <code>C</code></td>
+                            <td>Aliases for \(\sigma_1^{-1}, \sigma_2^{-1}, \sigma_3^{-1}\)</td>
+                        </tr>
+                    </table>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                        For \(n\) strands, generators range from <code>s1</code> to <code>s<em>k</em></code> where \(k =
+                        n-1\).
+                    </p>
+                </div>
+            </section>
+        </div>
+
+    </div>
+
+    <!-- App Script -->
+    <script type="module" src="../js/app.js"></script>
+
+
+</body>
+
+</html>

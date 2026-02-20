@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pentagram Map Explorer</title>
+    <meta name="description"
+        content="Interactive visualization of the Schwartz pentagram map with customizable palettes and animations.">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+
+    <!-- Iteration HUD -->
+    <div id="iteration-hud">
+        <span id="iter-label">Iteration</span>
+        <span id="iter-count">0</span>
+    </div>
+
+    <!-- Toggle Panel Button (mobile / minimized) -->
+    <button id="toggle-panel-btn" title="Toggle Controls">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path
+                d="M10 3.5a1 1 0 011 1v2a1 1 0 01-2 0v-2a1 1 0 011-1zm0 6a1 1 0 011 1v2a1 1 0 01-2 0v-2a1 1 0 011-1zm-3.5-3a1 1 0 011-1h2a1 1 0 010 2h-2a1 1 0 01-1-1zm6 0a1 1 0 011-1h2a1 1 0 010 2h-2a1 1 0 01-1-1z"
+                fill="currentColor" />
+            <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5" fill="none" />
+        </svg>
+    </button>
+
+    <!-- Control Panel -->
+    <div id="ui-panel" class="glass-panel">
+        <div class="panel-header">
+            <div>
+                <h1>Pentagram Map</h1>
+                <p class="subtitle">Schwartz diagonal intersection map</p>
+            </div>
+            <button id="close-panel-btn" class="icon-btn" title="Close Panel">&times;</button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-bar">
+            <button class="tab active" data-tab="geometry">Geometry</button>
+            <button class="tab" data-tab="style">Style</button>
+            <button class="tab" data-tab="animate">Animate</button>
+        </div>
+
+        <!-- Geometry Tab -->
+        <div class="tab-content active" id="tab-geometry">
+            <div class="control-group">
+                <label>Vertices <span id="n-val" class="accent">5</span></label>
+                <input type="range" id="n-slider" min="5" max="30" value="5">
+            </div>
+
+            <div class="control-group">
+                <label>Diagonal Skip <span id="skip-val" class="accent">2</span></label>
+                <input type="range" id="skip-slider" min="2" max="10" value="2">
+                <p class="hint">Connect vertex i to vertex i+skip</p>
+            </div>
+
+            <div class="control-group">
+                <label>Initial Shape</label>
+                <select id="shape-select">
+                    <option value="regular">Regular Polygon</option>
+                    <option value="random-convex">Random Convex</option>
+                    <option value="star">Star</option>
+                    <option value="spiral">Spiral</option>
+                    <option value="irregular">Irregular</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Star Inner Radius <span id="star-radius-val" class="accent">0.45</span></label>
+                <input type="range" id="star-radius-slider" min="10" max="90" value="45">
+            </div>
+
+            <div class="control-group checkbox-group">
+                <input type="checkbox" id="normalize-checkbox">
+                <label for="normalize-checkbox">Normalize Scale &amp; Position</label>
+            </div>
+
+            <div class="control-group checkbox-group">
+                <input type="checkbox" id="drag-checkbox" checked>
+                <label for="drag-checkbox">Enable Vertex Dragging</label>
+            </div>
+        </div>
+
+        <!-- Style Tab -->
+        <div class="tab-content" id="tab-style">
+            <div class="control-group">
+                <label>Color Palette</label>
+                <div id="palette-grid" class="palette-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Line Width <span id="line-width-val" class="accent">2</span></label>
+                <input type="range" id="line-width-slider" min="1" max="8" value="2" step="0.5">
+            </div>
+
+            <div class="control-group">
+                <label>Vertex Radius <span id="vertex-radius-val" class="accent">5</span></label>
+                <input type="range" id="vertex-radius-slider" min="2" max="12" value="5">
+            </div>
+
+            <div class="control-group">
+                <label>Trail Opacity <span id="trail-opacity-val" class="accent">0.35</span></label>
+                <input type="range" id="trail-opacity-slider" min="5" max="100" value="35">
+            </div>
+
+            <div class="control-group">
+                <label>Fill Opacity <span id="fill-opacity-val" class="accent">0.06</span></label>
+                <input type="range" id="fill-opacity-slider" min="0" max="50" value="6">
+            </div>
+
+            <div class="control-group checkbox-group">
+                <input type="checkbox" id="trail-checkbox">
+                <label for="trail-checkbox">Show All Trails</label>
+            </div>
+
+            <div class="control-group checkbox-group">
+                <input type="checkbox" id="diag-checkbox" checked>
+                <label for="diag-checkbox">Show Diagonals</label>
+            </div>
+
+            <div class="control-group checkbox-group">
+                <input type="checkbox" id="triangulation-checkbox" checked>
+                <label for="triangulation-checkbox">Show Triangulation</label>
+            </div>
+
+            <div class="control-group checkbox-group">
+                <input type="checkbox" id="glow-checkbox" checked>
+                <label for="glow-checkbox">Glow Effect</label>
+            </div>
+
+            <div class="control-group checkbox-group">
+                <input type="checkbox" id="gradient-trail-checkbox">
+                <label for="gradient-trail-checkbox">Rainbow Trail Gradient</label>
+            </div>
+        </div>
+
+        <!-- Animate Tab -->
+        <div class="tab-content" id="tab-animate">
+            <div class="control-group">
+                <label>Iteration Speed <span id="speed-val" class="accent">5</span>/s</label>
+                <input type="range" id="speed-slider" min="1" max="120" value="5">
+            </div>
+
+            <div class="control-group">
+                <label>Max Trail Length <span id="max-trail-val" class="accent">200</span></label>
+                <input type="range" id="max-trail-slider" min="10" max="2000" value="200" step="10">
+            </div>
+
+            <div class="control-group checkbox-group">
+                <input type="checkbox" id="morph-checkbox">
+                <label for="morph-checkbox">Smooth Morphing</label>
+            </div>
+
+            <div class="control-group">
+                <label>Morph Duration <span id="morph-val" class="accent">300</span>ms</label>
+                <input type="range" id="morph-slider" min="50" max="1500" value="300" step="50">
+            </div>
+
+            <div class="control-group checkbox-group">
+                <input type="checkbox" id="auto-rotate-checkbox">
+                <label for="auto-rotate-checkbox">Auto-Rotate Base</label>
+            </div>
+
+            <div class="control-group">
+                <label>Rotation Speed <span id="rotate-speed-val" class="accent">0.2</span>°/f</label>
+                <input type="range" id="rotate-speed-slider" min="1" max="50" value="2">
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="button-group">
+            <button id="play-btn" class="btn btn-primary">
+                <span class="btn-icon">▶</span> Play
+            </button>
+            <button id="step-btn" class="btn btn-secondary">Step</button>
+            <button id="reset-btn" class="btn btn-outline">Reset</button>
+        </div>
+
+        <div class="button-group">
+            <button id="export-btn" class="btn btn-outline btn-small">Export PNG</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penrose Tiling — Interactive Generator</title>
+    <meta name="description"
+        content="An interactive generator for aperiodic Penrose tilings using Robinson triangle subdivision. Adjust depth, colors, and explore infinite non-repeating patterns.">
+    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <canvas id="penrose-canvas"></canvas>
+
+    <div id="ui-overlay">
+        <div id="title-bar">
+            <h1>Penrose Tiling</h1>
+            <p class="subtitle">Aperiodic · Five-fold · Non-repeating</p>
+        </div>
+
+        <div id="controls-toggle" title="Toggle Controls">⚙</div>
+
+        <div id="controls-panel">
+            <div class="control-section">
+                <h3>Generation</h3>
+                <div class="control-row">
+                    <label>Subdivisions</label>
+                    <input type="range" id="depth" min="0" max="8" value="5" step="1">
+                    <span class="val" id="depth-val">5</span>
+                </div>
+                <div class="control-row">
+                    <label>Tiling Type</label>
+                    <select id="tiling-type">
+                        <option value="p3" selected>P3 — Rhombus</option>
+                        <option value="p2">P2 — Kite & Dart</option>
+                    </select>
+                </div>
+                <div class="control-row">
+                    <label>Initial Shape</label>
+                    <select id="init-shape">
+                        <option value="star" selected>Star (Decagon)</option>
+                        <option value="sun">Sun</option>
+                        <option value="single">Single Triangle</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Appearance</h3>
+                <div class="control-row">
+                    <label>Color Scheme</label>
+                    <select id="color-scheme">
+                        <option value="classic" selected>Classic</option>
+                        <option value="warm">Warm Sunset</option>
+                        <option value="ocean">Deep Ocean</option>
+                        <option value="neon">Neon</option>
+                        <option value="pastel">Pastel</option>
+                        <option value="monochrome">Monochrome</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+                <div id="custom-colors" class="hidden">
+                    <div class="control-row">
+                        <label>Thin 1</label>
+                        <input type="color" id="color-thin1" value="#e8a87c">
+                    </div>
+                    <div class="control-row">
+                        <label>Thin 2</label>
+                        <input type="color" id="color-thin2" value="#d17b56">
+                    </div>
+                    <div class="control-row">
+                        <label>Thick 1</label>
+                        <input type="color" id="color-thick1" value="#41b3a3">
+                    </div>
+                    <div class="control-row">
+                        <label>Thick 2</label>
+                        <input type="color" id="color-thick2" value="#2d8a7e">
+                    </div>
+                </div>
+                <div class="control-row">
+                    <label>Stroke</label>
+                    <input type="range" id="stroke-width" min="0" max="4" value="1.2" step="0.1">
+                    <span class="val" id="stroke-val">1.2</span>
+                </div>
+                <div class="control-row">
+                    <label>Stroke Color</label>
+                    <input type="color" id="stroke-color" value="#1a1a2e">
+                </div>
+                <div class="control-row">
+                    <label>Show Arcs</label>
+                    <input type="checkbox" id="show-arcs">
+                </div>
+                <div class="control-row">
+                    <label>Fill Mode</label>
+                    <select id="fill-mode">
+                        <option value="solid" selected>Solid</option>
+                        <option value="gradient">Gradient</option>
+                        <option value="wireframe">Wireframe</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Transform</h3>
+                <div class="control-row">
+                    <label>Rotation</label>
+                    <input type="range" id="rotation" min="0" max="360" value="0" step="1">
+                    <span class="val" id="rotation-val">0°</span>
+                </div>
+                <div class="control-row">
+                    <label>Scale</label>
+                    <input type="range" id="scale" min="0.1" max="5" value="1" step="0.05">
+                    <span class="val" id="scale-val">1.0</span>
+                </div>
+                <div class="control-row">
+                    <label>Animate</label>
+                    <input type="checkbox" id="animate-rotation">
+                </div>
+                <div class="control-row">
+                    <label>Speed</label>
+                    <input type="range" id="anim-speed" min="0.1" max="5" value="1" step="0.1">
+                    <span class="val" id="speed-val">1.0</span>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <div class="button-row">
+                    <button id="reset-btn" class="btn">Reset View</button>
+                    <button id="export-btn" class="btn btn-accent">Export PNG</button>
+                </div>
+            </div>
+
+            <div class="control-section info-section">
+                <h3>Info</h3>
+                <p id="tile-count" class="info-text">Tiles: 0</p>
+                <p id="tile-ratio" class="info-text">Ratio: —</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="tooltip" class="hidden">Scroll to zoom · Drag to pan</div>
+
+    <script src="penrose.js"></script>
+</body>
+
+</html>

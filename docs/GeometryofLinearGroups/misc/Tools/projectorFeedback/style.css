@@ -1,0 +1,248 @@
+:root {
+    --glass: rgba(16, 16, 28, 0.7);
+    --border: rgba(255, 255, 255, 0.08);
+    --text: #e0e0f0;
+    --dim: #6668;
+    --accent: #5533ff;
+    --font: 'Inter', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+}
+
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #060610;
+    font-family: var(--font);
+    color: var(--text);
+}
+
+#container {
+    width: 100%;
+    height: 100%;
+}
+
+#container canvas {
+    display: block;
+}
+
+#ui-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+
+#title-bar {
+    position: absolute;
+    top: 20px;
+    left: 24px;
+    pointer-events: auto;
+}
+
+#title-bar h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-shadow: 0 0 20px rgba(100, 80, 255, 0.4);
+}
+
+.subtitle {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--dim);
+    margin-top: 3px;
+}
+
+#controls-toggle {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    cursor: pointer;
+    pointer-events: auto;
+    font-size: 18px;
+    backdrop-filter: blur(12px);
+    transition: 0.2s;
+    color: var(--dim);
+}
+
+#controls-toggle:hover {
+    color: #fff;
+    transform: rotate(60deg);
+}
+
+#controls-panel {
+    position: absolute;
+    top: 72px;
+    right: 24px;
+    width: 280px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    backdrop-filter: blur(16px);
+    pointer-events: auto;
+    padding: 16px;
+}
+
+#controls-panel.hidden {
+    display: none;
+}
+
+#controls-panel::-webkit-scrollbar {
+    width: 3px;
+}
+
+#controls-panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+}
+
+.control-section {
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.control-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.control-section h3 {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    margin-bottom: 8px;
+}
+
+.control-row,
+.proj-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.control-row label,
+.proj-row label {
+    font-size: 11px;
+    color: #888;
+    min-width: 55px;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ccc;
+    cursor: pointer;
+}
+
+.val {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--dim);
+    min-width: 28px;
+    text-align: right;
+}
+
+input[type="color"] {
+    -webkit-appearance: none;
+    width: 28px;
+    height: 24px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    padding: 2px;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 3px;
+}
+
+.button-row {
+    display: flex;
+    gap: 6px;
+}
+
+.btn {
+    flex: 1;
+    padding: 7px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--font);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #888;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.btn-accent {
+    background: rgba(85, 51, 255, 0.12);
+    border-color: rgba(85, 51, 255, 0.25);
+    color: #99f;
+}
+
+.btn-accent:hover {
+    background: rgba(85, 51, 255, 0.2);
+}
+
+#fps {
+    position: absolute;
+    bottom: 16px;
+    right: 24px;
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--dim);
+}

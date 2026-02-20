@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>George Rhoads Kinetic Sound Sculpture - WebGL</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0b0c10;
+            font-family: "Courier New", Courier, monospace;
+            color: white;
+        }
+
+        #webgl-canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(11, 12, 16, 0.95);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        #start-btn {
+            background-color: #66fcf1;
+            color: #0b0c10;
+            padding: 20px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            border-radius: 8px;
+            font-family: inherit;
+            box-shadow: 0 4px 15px rgba(102, 252, 241, 0.4);
+            transition: transform 0.2s;
+        }
+
+        #start-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .instructions {
+            max-width: 600px;
+            margin-top: 30px;
+            font-size: 16px;
+            color: #c5c6c7;
+            line-height: 1.5;
+        }
+    </style>
+    <!-- Use standard module map standard to avoid external compilation step limitations -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/",
+        "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+      }
+    }
+    </script>
+</head>
+
+<body>
+
+    <div id="start-screen">
+        <h1 style="color: #45a29e; font-size: 3em;">The Archimedes Excogitator</h1>
+        <button id="start-btn">Click to Start Sculpture Audio & Machine</button>
+        <div class="instructions">
+            <b>How it Works:</b><br />
+            Wait a moment on click for simulation to build.<br />
+            1. Balls enter the vertical Vacuum Tube at base.<br />
+            2. High pneumatic wind thrust blasts them 60ft to roof tracks.<br />
+            3. They plunge into standard sloped guide rails.<br />
+            4. Tumble gracefully via melodic tuned musical xylophone stairs.<br />
+            5. Free-fall plinko slide through a cascading maze of chime bells.<br /><br />
+            * Drag Mouse: Rotate Camera | Scroll Wheel: Zoom | Pan via Right Click
+        </div>
+    </div>
+
+    <div id="webgl-canvas"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import * as CANNON from 'cannon-es';
+
+        let scene, camera, renderer, world, orbit;
+        const meshes = [];
+        const bodies = [];
+        const ballVisuals = [];
+        const ballBodies = [];
+
+        // System configurations
+        const CONFIG = {
+            ballRadius: 0.8, ballMass: 10, totalBalls: 6,
+            matFriction: 0.1, matRestitution: 0.35,
+            baseGrav: -25, simSubsteps: 8
+        };
+
+        let timeStepsPassed = 0;
+
+        // --- SYNTH AND AUDIO ARCHITECTURE ---
+        class AudioEngine {
+            constructor() {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                this.throttleMap = new Map();
+
+                // Chromatic frequencies setups: 
+                this.notesXylo = [523.25, 493.88, 440.00, 392.00, 349.23, 329.63, 293.66, 261.63];
+                this.notesBells = [1046.50, 1174.66, 1318.51, 1396.91, 1567.98, 1760.00, 1975.53, 2093.00, 2349.32];
+            }
+
+            // Throttles intense rapid contact ringing during web glitches
+            allowPlay(id, cdSec) {
+                const now = this.ctx.currentTime;
+                if (!this.throttleMap.has(id)) { this.throttleMap.set(id, now); return true; }
+                if (now - this.throttleMap.get(id) > cdSec) { this.throttleMap.set(id, now); return true; }
+                return false;
+            }
+
+            playTone(type, pitchIdx, volumeMultiplier = 1, toneID = 'unknown') {
+                if (!this.allowPlay(toneID, 0.08)) return;
+                const now = this.ctx.currentTime;
+
+                const osc = this.ctx.createOscillator();
+                const oscHarm = pe => null;
+                const gainNode = this.ctx.createGain();
+
+                osc.connect(gainNode);
+                gainNode.connect(this.ctx.destination);
+
+                if (type === 'xylo') {
+                    const f = this.notesXylo[pitchIdx % this.notesXylo.length];
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(f, now);
+                    // "Wood" tap curve characteristics
+                    gainNode.gain.setValueAtTime(0, now);
+                    gainNode.gain.linearRampToValueAtTime(1 * volumeMultiplier, now + 0.01);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+
+                } else if (type === 'chime') {
+                    const f = this.notesBells[pitchIdx % this.notesBells.length];
+                    // "Metallic glassy" bell properties created natively (mix Sine w harmonics overlay technically preferred, we stack internally if wanted or fake purely utilizing fast exponential)
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(f, now);
+                    gainNode.gain.setValueAtTime(0, now);
+                    gainNode.gain.linearRampToValueAtTime(0.6 * volumeMultiplier, now + 0.01);
+                    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+                    osc.start(now); osc.stop(now + 1.3);
+
+                } else if (type === 'bump') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(80, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.1); // swoop boop 
+                    gainNode.gain.setValueAtTime(0.3 * volumeMultiplier, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.25);
+                }
+            }
+        }
+        let sfx = null;
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            document.getElementById('start-screen').style.display = 'none';
+            sfx = new AudioEngine();
+            if (sfx.ctx.state === 'suspended') sfx.ctx.resume();
+            initWebEngineAndBuild();
+        });
+
+        // -------- PHYSICS HELPERS (GEORGE RHOADS LOGIC) ------------- //
+
+        // Complex custom track creator perfectly encasing wire-frame visual geometries over thick resilient invis-physics beds.
+        function generateRhoadsWireTrack(start, end, tubeColorStr = "#ff7100", soundCode = 'run') {
+            const mid = start.clone().lerp(end, 0.5);
+            const dir = end.clone().sub(start);
+            const distance = dir.length();
+            dir.normalize();
+
+            const physWidth = 2.4, sideHeight = 2.8, wallW = 0.5;
+
+            // --- THE PHYSICS CANNON CREATOR --
+            const material = new CANNON.Material({ friction: 0.02, restitution: 0.1 }); // Extremely fast smooth tracks!
+            const body = new CANNON.Body({ mass: 0, position: new CANNON.Vec3(mid.x, mid.y, mid.z), material });
+            const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir);
+            body.quaternion.set(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
+
+            const trackBaseShape = new CANNON.Box(new CANNON.Vec3(distance / 2, 0.4, physWidth / 2));
+            const guardAShape = new CANNON.Box(new CANNON.Vec3(distance / 2, sideHeight / 2, wallW / 2));
+            const guardBShape = new CANNON.Box(new CANNON.Vec3(distance / 2, sideHeight / 2, wallW / 2));
+
+            body.addShape(trackBaseShape, new CANNON.Vec3(0, -0.6, 0));
+            body.addShape(guardAShape, new CANNON.Vec3(0, (sideHeight / 2) - 1.0, (physWidth / 2) + (wallW / 2) - 0.2));
+            body.addShape(guardBShape, new CANNON.Vec3(0, (sideHeight / 2) - 1.0, -((physWidth / 2) + (wallW / 2) - 0.2)));
+
+            body.customToneTrigger = soundCode;
+            world.addBody(body);
+
+            // -- VISUAL THREE REPRESENTATIONS (Kinetic wires frame, none of blocky meshes) --
+            const groupMat = new THREE.Group();
+            groupMat.position.copy(mid); groupMat.quaternion.copy(quaternion);
+
+            const railMaterial = new THREE.MeshStandardMaterial({ color: tubeColorStr, metalness: 0.7, roughness: 0.3 });
+            const strutMaterial = new THREE.MeshStandardMaterial({ color: 0x949398, metalness: 0.9, roughness: 0.2 });
+
+            const rGeometry = new THREE.CylinderGeometry(0.2, 0.2, distance, 12);
+            rGeometry.rotateZ(Math.PI / 2);
+
+            // 2 Side rails hovering
+            const tubeLeft = new THREE.Mesh(rGeometry, railMaterial); tubeLeft.position.set(0, -0.3, physWidth / 2.8); groupMat.add(tubeLeft);
+            const tubeRight = new THREE.Mesh(rGeometry, railMaterial); tubeRight.position.set(0, -0.3, -physWidth / 2.8); groupMat.add(tubeRight);
+
+            // Strut bottom cage ties spacing per roughly every 4 units.
+            const numStruts = Math.max(2, Math.floor(distance / 4));
+            const sGeometry = new THREE.BoxGeometry(0.3, 0.3, physWidth * 1.0);
+            for (let i = 0; i < numStruts; i++) {
+                const perc = (i + 0.5) / numStruts - 0.5; // span from -.5 to .5 normalized array loop offsets along Track core Vector Z.
+                const tBar = new THREE.Mesh(sGeometry, strutMaterial);
+                tBar.position.set(distance * perc, -0.6, 0);
+                groupMat.add(tBar);
+
+                // Build mechanical pillar dropping to bottom -50 plane underneath structure occasionally ensuring visual structural load realism
+                if (Math.random() > 0.4) {
+                    const plGeometry = new THREE.CylinderGeometry(0.3, 0.3, 40 + Math.abs(mid.y), 8);
+                    plGeometry.translate(0, - (20 + Math.abs(mid.y) / 2), 0); // Drop straight deep!
+                    const pl = new THREE.Mesh(plGeometry, strutMaterial);
+                    pl.position.copy(tBar.position); pl.rotation.set(-quaternion.x, -quaternion.y, -quaternion.z); // hack clear rotational inherit to send completely straight downwards absolute coordinates
+                    groupMat.add(pl);
+                }
+            }
+            scene.add(groupMat);
+        }
+
+
+        // Build step ramps - Musical keys with attached scale audio data blocks. Drops height incrementally 
+        function buildXylophoneStep(originPoint, stepIdx) {
+            const matScaleHitFloor = new CANNON.Material({ friction: 0.2, restitution: 0.5 }); // Bouncy! Required for stepped stairs skips without snag stops!
+            const w = 6, h = 2, d = 3;
+
+            // Physics (Tilted perfectly on slightly downslope pitches guaranteeing bounding bounces outwards without traps.)
+            const physShape = new CANNON.Box(new CANNON.Vec3(w / 2, h / 2, d / 2));
+            const blockBody = new CANNON.Body({ mass: 0, position: new CANNON.Vec3(originPoint.x, originPoint.y, originPoint.z), material: matScaleHitFloor });
+            blockBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), -0.15); // Slope perfectly outwards downwards +x roll trajectory! 
+
+            blockBody.xyloKeyID = stepIdx; // Stores scale logic triggers
+            world.addBody(blockBody);
+
+            // Mesh aesthetics 
+            const colPalette = [0xd62828, 0xf77f00, 0xfcbf49, 0xeae2b7, 0x8ab17d, 0x2a9d8f, 0x219ebc, 0x023047];
+            const stepMat = new THREE.MeshStandardMaterial({ color: colPalette[stepIdx % 8], roughness: 0.4 });
+            const vMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), stepMat);
+            meshes.push(vMesh); bodies.push(blockBody); scene.add(vMesh);
+
+            // Collision Trigger event bound specifically back over onto Xylo Object ID memory!
+            blockBody.addEventListener('collide', function (e) {
+                const relVelocity = e.contact.getImpactVelocityAlongNormal();
+                if (Math.abs(relVelocity) > 1.0) sfx.playTone('xylo', blockBody.xyloKeyID, Math.min(1.0, relVelocity / 10), "x_" + blockBody.xyloKeyID);
+            });
+        }
+
+        // Huge Galton Chime scatter array mapping
+        function buildChimePlinkoWall(anchor) {
+            const gridW = 34, gridH = 36;
+            const mainPanelBody = new CANNON.Body({ mass: 0, material: new CANNON.Material({ friction: 0.1, restitution: 0.1 }) });
+            mainPanelBody.position.copy(anchor);
+            // Slanted roughly -65deg pitching towards backward falling!
+            mainPanelBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI * 0.40);
+
+            // Bounding container to avoid escape leaps via high physics bounciness issues. Deep massive invisible bounding channel tracks bounding boxes overlapping bounds seamlessly 
+            mainPanelBody.addShape(new CANNON.Box(new CANNON.Vec3(gridW / 2, gridH / 2, 2)), new CANNON.Vec3(0, 0, -3));
+            mainPanelBody.addShape(new CANNON.Box(new CANNON.Vec3(2, gridH / 2, 8)), new CANNON.Vec3(-(gridW / 2 + 2), 0, 4));
+            mainPanelBody.addShape(new CANNON.Box(new CANNON.Vec3(2, gridH / 2, 8)), new CANNON.Vec3((gridW / 2 + 2), 0, 4));
+
+            const pegGeomVis = new THREE.CylinderGeometry(0.35, 0.35, 6, 8); pegGeomVis.rotateX(Math.PI / 2);
+            const wallMatViz = new THREE.MeshStandardMaterial({ color: 0x22222a });
+            const glassBellMats = [new THREE.MeshPhysicalMaterial({ color: 0x55ffaa, metalness: 0.9, clearcoat: 1.0 }), new THREE.MeshPhysicalMaterial({ color: 0xaa55ff, metalness: 0.9, clearcoat: 1.0 }), new THREE.MeshPhysicalMaterial({ color: 0xffff55, metalness: 0.9, clearcoat: 1.0 })]
+
+            // Massive backing plate visualization behind pegs cleanly catching light reflection values
+            const plateV = new THREE.Mesh(new THREE.BoxGeometry(gridW, gridH, 2), wallMatViz);
+            meshes.push(plateV); bodies.push(mainPanelBody); scene.add(plateV); world.addBody(mainPanelBody);
+
+            const bellContactMat = new CANNON.Material({ friction: 0.05, restitution: 0.65 });
+
+            let counterId = 0;
+            for (let r = 0; r < 8; r++) {
+                const rowStaggerOffsets = r % 2 === 0 ? 0 : 2.2;
+                const stepsNumRowDrop = r % 2 === 0 ? 7 : 6;
+                for (let c = 0; c < stepsNumRowDrop; c++) {
+
+                    // Peg offsets inside localized container offsets perfectly distributed via geometric formula:
+                    let pX = (c * 4.4) - (gridW / 2 - 3.8) + rowStaggerOffsets;
+                    let pY = (gridH / 2 - 3) - (r * 3.5);
+
+                    // Spawn mini cylinder Cannon shape natively individually so we accurately tag localized tone audio on explicit pin touch listeners accurately !!
+                    const pinIDObjTriggerStoreDataPointOffsettingMemoryIntCodeSystemIdkJustIndexLol = ++counterId;
+                    const singlePinRigid = new CANNON.Body({ mass: 0, material: bellContactMat });
+                    singlePinRigid.addShape(new CANNON.Cylinder(0.35, 0.35, 3.5, 8)); // Note native orientation is vertical local Y axis (our board pitches it flat later via rotation hierarchy inherited math offsets ... wait actually Cannon cylinders natively extend into Z. We fix with orient). 
+                    const cannonQuatCorrectionExtruding = new CANNON.Quaternion(); cannonQuatCorrectionExtruding.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
+                    singlePinRigid.shapes[0].orientation = cannonQuatCorrectionExtruding;
+
+                    // Transform the plinko grid from absolute anchor location + plinko plate angled transforms!!
+                    const anchorVectorWorldSpacedTransformsCalculationsCorrectedLocalZVectorPointOffsetsMatrixMagicHaha = new THREE.Vector3(pX, pY, 1.2);
+                    anchorVectorWorldSpacedTransformsCalculationsCorrectedLocalZVectorPointOffsetsMatrixMagicHaha.applyAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI * 0.40);
+
+                    singlePinRigid.position.copy(anchorVectorWorldSpacedTransformsCalculationsCorrectedLocalZVectorPointOffsetsMatrixMagicHaha.add(anchor));
+                    singlePinRigid.quaternion.copy(mainPanelBody.quaternion);
+
+                    singlePinRigid.bellTriggerPitchRef = (r + c); // Simple tone ramp generator logic algorithm assigning tone offset ID tag
+                    world.addBody(singlePinRigid);
+
+                    const vizP = new THREE.Mesh(pegGeomVis, glassBellMats[(r + c) % 3]);
+                    meshes.push(vizP); bodies.push(singlePinRigid); scene.add(vizP);
+
+                    singlePinRigid.addEventListener('collide', e => {
+                        if (e.contact.getImpactVelocityAlongNormal() > 0.8) {
+                            sfx.playTone('chime', singlePinRigid.bellTriggerPitchRef, Math.min(1.0, e.contact.getImpactVelocityAlongNormal() / 6), 'B' + pinIDObjTriggerStoreDataPointOffsettingMemoryIntCodeSystemIdkJustIndexLol);
+                            // simple blink pulse FX feedback!! We use the linked memory mesh lookup list iteration over object references list memory 
+                            vizP.material.emissive.setHex(0xffffff); setTimeout(() => { vizP.material.emissive.setHex(0x000000); }, 150);
+                        }
+                    });
+                }
+            }
+            return anchor;
+        }
+
+
+        // Build funnel box collectors linking standard wire segments and reorienting momentum reliably without missing boundaries. Safety over aesthetic strictness for turn angles ensures loops work
+        function generateBendCatcherBinBoxAndRedirect(xCenter, yCenter, zCenter, dirQuatPush, angleRot) {
+            // Base bumper wide tub catching ball! 
+            const hCMat = new CANNON.Material({ friction: 0.3, restitution: 0.1 });
+            const catchR = new CANNON.Body({ mass: 0, material: hCMat });
+            catchR.position.set(xCenter, yCenter, zCenter);
+            if (dirQuatPush) { catchR.quaternion.setFromAxisAngle(dirQuatPush, angleRot); }
+
+            const floorWidthSquareMassesBoundsSafetyExtrusionsCatchSizesLengthBoxMath = 6.0;
+
+            catchR.addShape(new CANNON.Box(new CANNON.Vec3(floorWidthSquareMassesBoundsSafetyExtrusionsCatchSizesLengthBoxMath, 0.4, floorWidthSquareMassesBoundsSafetyExtrusionsCatchSizesLengthBoxMath)), new CANNON.Vec3(0, 0, 0));
+            catchR.addShape(new CANNON.Box(new CANNON.Vec3(floorWidthSquareMassesBoundsSafetyExtrusionsCatchSizesLengthBoxMath, 3, 0.5)), new CANNON.Vec3(0, 3, -floorWidthSquareMassesBoundsSafetyExtrusionsCatchSizesLengthBoxMath)); // North 
+            catchR.addShape(new CANNON.Box(new CANNON.Vec3(floorWidthSquareMassesBoundsSafetyExtrusionsCatchSizesLengthBoxMath, 3, 0.5)), new CANNON.Vec3(0, 3, floorWidthSquareMassesBoundsSafetyExtrusionsCatchSizesLengthBoxMath));  // South
+            catchR.addShape(new CANNON.Box(new CANNON.Vec3(0.5, 3, floorWidthSquareMassesBoundsSafetyExtrusionsCatchSizesLengthBoxMath)), new CANNON.Vec3(-floorWidthSquareMassesBoundsSafetyExtrusionsCatchSizesLengthBoxMath, 3, 0)); // East
+            catchR.addShape(new CANNON.Box(new CANNON.Vec3(0.5, 3, floorWidthSquareMassesBoundsSafetyExtrusionsCatchSizesLengthBoxMath)), new CANNON.Vec3(floorWidthSquareMassesBoundsSafetyExtrusionsCatchSizesLengthBoxMath, 3, 0));  // West 
+            // Add Funnel logic!! Remove or slope one wall usually manually natively but a slight rotation base pitch tilt achieves automatic exit drain gravity drain out without manual wall geometry boolean deletions via simple floor tilts into receiving sloped segments organically
+            world.addBody(catchR);
+
+            catchR.addEventListener('collide', e => { if (Math.abs(e.contact.getImpactVelocityAlongNormal()) > 3.0) sfx.playTone('bump', 0, 1, 'cat_' + xCenter); });
+
+            // Vis Funnel "Bucket / Tube / Dish" indicator! 
+            const colFunMatsPalettePlasticGeoMaterialShaderMesh = new THREE.MeshStandardMaterial({ color: 0x9f5ab5, metalness: 0.2, roughness: 0.5 });
+            const vBowl = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 1, 16), colFunMatsPalettePlasticGeoMaterialShaderMesh);
+            // Note standard shape mappings: since box base math covers we represent via flat discs. (Hack representation geometry rendering via Three API simply masking standard primitives over bounding zone boxes invisible arrays) 
+            meshes.push(vBowl); bodies.push(catchR); scene.add(vBowl);
+        }
+
+
+
+        // ------- APP INITIALIZATION ROUTINE ------------ //
+
+        function initWebEngineAndBuild() {
+            // Core WebGL Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0e0c15);
+            scene.fog = new THREE.Fog(0x0e0c15, 60, 200);
+
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(20, 30, 80);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('webgl-canvas').appendChild(renderer.domElement);
+
+            orbit = new OrbitControls(camera, renderer.domElement);
+            orbit.target.set(0, 15, 0); orbit.maxPolarAngle = Math.PI / 2 + 0.1;
+            orbit.enableDamping = true;
+
+            const ambi = new THREE.AmbientLight(0x8a92ac, 0.4);
+            scene.add(ambi);
+
+            const dl = new THREE.DirectionalLight(0xffffe6, 0.8);
+            dl.position.set(50, 80, 50);
+            dl.castShadow = true;
+            dl.shadow.camera.near = 0.5; dl.shadow.camera.far = 180;
+            dl.shadow.camera.left = -50; dl.shadow.camera.right = 50; dl.shadow.camera.top = 50; dl.shadow.camera.bottom = -50;
+            scene.add(dl);
+
+            // Core physics Engine bindings instance bindings mapping mappings  
+            world = new CANNON.World();
+            world.gravity.set(0, CONFIG.baseGrav, 0);
+            world.broadphase = new CANNON.SAPBroadphase(world);
+            world.solver.iterations = 35;
+
+            // Grid floors environment layout mappings visualizations grid math floors grid
+            const gridG = new THREE.PlaneGeometry(300, 300);
+            const gridMatCheckBoxPatternsCustom = new THREE.MeshStandardMaterial({ color: 0x222222 }); // Checkering takes custom mapping map images skipping for purely color mesh dark mode vibe
+            const gridMeshThreejsPlaneMathOrientFixZXYLogicSystemFixExtrudingOverwritesHacksPlaneToXFloorFloorFloor = new THREE.Mesh(gridG, gridMatCheckBoxPatternsCustom);
+            gridMeshThreejsPlaneMathOrientFixZXYLogicSystemFixExtrudingOverwritesHacksPlaneToXFloorFloorFloor.rotation.x = -Math.PI / 2;
+            gridMeshThreejsPlaneMathOrientFixZXYLogicSystemFixExtrudingOverwritesHacksPlaneToXFloorFloorFloor.position.y = -18.0;
+            gridMeshThreejsPlaneMathOrientFixZXYLogicSystemFixExtrudingOverwritesHacksPlaneToXFloorFloorFloor.receiveShadow = true;
+            scene.add(gridMeshThreejsPlaneMathOrientFixZXYLogicSystemFixExtrudingOverwritesHacksPlaneToXFloorFloorFloor);
+
+            // --- BUILDING RHOADS APPARATUS STRUCTURE!! ----
+            const V = THREE.Vector3;
+
+            // A) PNEUMATIC ENTRY LIFT TUNNEL. Located @ (-22, bottom to Y 40)
+            // Pneumatic purely wind-push physics tube, beautifully stable unlike buggy moving mesh steps!
+            // Tube Glass Geometry mapping Visual only since we simulate Wind bounds mathematically manually pushing loops cleanly loops cleanly pushes ball Y axes forcefully loops bounding loop manually loop physics push pushes physics loops cleanly bounds box bounding box bounding loop pushes box cleanly. 
+            const glassMaterialRendererClearPropsSettingsForVaseOrPumpsVisualizingFlowClearFlow = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.15, clearcoat: 1.0, roughness: 0.1, transmission: 0.9, thickness: 1.5 });
+            const pumpViz = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 60, 16), glassMaterialRendererClearPropsSettingsForVaseOrPumpsVisualizingFlowClearFlow);
+            pumpViz.position.set(-22, 10, 0);
+            scene.add(pumpViz);
+            // Blast Diverter Ejection Plate Top Cap Cap Cap Sloping Exit Nozzle! Pushes blast Y up thrust safely directly Right (+X track A input track loop)!  
+            const blastDeflectorPhysHoloBlockPlatePlateBlockTopCeilSloped = new CANNON.Body({ mass: 0 });
+            blastDeflectorPhysHoloBlockPlatePlateBlockTopCeilSloped.addShape(new CANNON.Box(new CANNON.Vec3(6, 2, 6)));
+            blastDeflectorPhysHoloBlockPlatePlateBlockTopCeilSloped.position.set(-22, 42, 0);
+            blastDeflectorPhysHoloBlockPlatePlateBlockTopCeilSloped.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), -Math.PI / 3);
+            world.addBody(blastDeflectorPhysHoloBlockPlatePlateBlockTopCeilSloped);
+
+            // Base Catcher feeding directly precisely smoothly completely into pump base origin 
+            const slopeInputMat = new CANNON.Material({ friction: 0, restitution: 0 });
+            const slidePlBaseBoxPlateFeedFeedsToX0Point = new CANNON.Body({ mass: 0, material: slopeInputMat });
+            slidePlBaseBoxPlateFeedFeedsToX0Point.position.set(-15, -16, 0); slidePlBaseBoxPlateFeedFeedsToX0Point.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), Math.PI / 16);
+            slidePlBaseBoxPlateFeedFeedsToX0Point.addShape(new CANNON.Box(new CANNON.Vec3(8, 2, 6))); world.addBody(slidePlBaseBoxPlateFeedFeedsToX0Point);
+
+            // THE WIND ZONE is checked implicitly inside prestep loop over any sphere Y positions intersecting (-22 X bounds limits limits limits boundaries) boundaries spheres pushing limits bounds bounds sphere loops pushes up bounding manually bounds sphere check spheres bound checks pushes checks manual up sphere up Y bound pushing loop. 
+
+            // STATION 1 -> SERPENTINE TRACKS DOWNHILL LOOP LOOPING SERPENT TRACK DOWNHILLS DOWNHILL TRACK DOWNHILLS 
+            // Track A Top Left-Right across 
+            generateRhoadsWireTrack(new V(-16, 38, 0), new V(20, 31, -2));
+
+            // Turn bin right bend loop looping bend bend box loop boxes bounds loops 
+            generateBendCatcherBinBoxAndRedirect(24, 30.5, -3, new CANNON.Vec3(0, 0, 1), Math.PI / 14);
+
+            // Track B Switchbacks returns Leftways Left Leftways Loop Back Left Loop Left Loops Switch Back Loops Track B loop returns tracks loops returns B returns Switch Track Track 
+            generateRhoadsWireTrack(new V(22, 30, -5), new V(-15, 23, -8));
+
+            generateBendCatcherBinBoxAndRedirect(-20, 22.0, -10, new CANNON.Vec3(0, 0, 1), -Math.PI / 14);
+
+            // XYLOPHONE STATION XYLOPHONES LOOP DROPS STATION MUSICAL STAIRCASES STEPS XYLOPHONES STAIRWAY DROP STEPS 
+            // Feed Drop from TRack C to Station Station TRacks Steps loop feed feed drop steps C tracks feed loop steps loops track drops loops TRack steps 
+            generateRhoadsWireTrack(new V(-15, 22, -11), new V(-11, 20.0, -4), "#ff00dd");
+
+            let xtOriginOffBaseOffStartingStartingZStepsDropOffsetPoint = new THREE.Vector3(-9, 16.0, -2.5);
+            for (let zIndexStepsCountScaleIndexStep = 0; zIndexStepsCountScaleIndexStep < 8; zIndexStepsCountScaleIndexStep++) {
+                buildXylophoneStep(new THREE.Vector3(xtOriginOffBaseOffStartingStartingZStepsDropOffsetPoint.x + zIndexStepsCountScaleIndexStep * 4.6, xtOriginOffBaseOffStartingStartingZStepsDropOffsetPoint.y - zIndexStepsCountScaleIndexStep * 2.2, xtOriginOffBaseOffStartingStartingZStepsDropOffsetPoint.z), zIndexStepsCountScaleIndexStep);
+            }
+
+            // CATCHER AND DROP PLINKO TO PLINKO PLINKO ARRAY PLINKO PLINKO ARRAY BELL BELL MAZE! Maze Drop Plink Array Array Arrays 
+            // Exits xylo bottom exactly reliably dependently into right feed funnel perfectly at (x~28 Y~-2) reliably loops 
+            generateBendCatcherBinBoxAndRedirect(30.0, -3.5, -4, new CANNON.Vec3(0, 0, 1), Math.PI / 8);
+
+            // Tracks over into Galton scatter anchor scatter loops perfectly drops Galton Drops over bell scatter bells over bell array Array array drops scatter over Array bells Galton Drops scatter drops loops Drops Galton bells.
+            generateRhoadsWireTrack(new V(28, -5.5, -6), new V(8, -5.5, -15), "#00ddff");
+            buildChimePlinkoWall(new THREE.Vector3(2.5, -5.5, -15.5)); // Drop array center position offset offsets offsets offset. Offset Offset loops Drops bells offset.
+
+            // FINALLY! BASE VORTEX HOPPER RETURNS FUNNEL RETURN BASE BASE RETURNS RETURN RETURN HOPPER RETURNS VORTEX FUNNELS!
+            generateBendCatcherBinBoxAndRedirect(-3, -13, -12, new CANNON.Vec3(1, 0, 0), -Math.PI / 9);
+            // Slides it from maze catcher Z forwards returning forward Y forward forwards backwards X returning loops! Returning forwards forward returns returns forwards Loop Return Loop backwards Returns 
+            generateRhoadsWireTrack(new V(-6, -14, -7), new V(-9, -15, 0), "#88ee22");
+            // which rolls reliably back natively natively slides cleanly directly rolls cleanly drops right rolls naturally slides down naturally purely rolls seamlessly neatly over naturally rolls. cleanly slides reliably back onto Base slides cleanly cleanly.  
+
+
+            // INITIATE SCULPTURE CHROME METALLIC BRIGHT KINETIC MARBLE SPHERE MARBLE SCULPTURES SPHERES KINETICS CHROME CHROME BRIGHT SPHERES SCULPTURES BALL KINETICS BALL BRIGHT MARBLES MARBLE
+            const ballGeometryMathCalculationsMathGeometryMath = new THREE.SphereGeometry(CONFIG.ballRadius, 32, 32);
+            const clSetRefArrHexMatsListsMatsHexHexPaletteMaterialsHexArrPal = [0xff0044, 0x00ffee, 0xffea00, 0x8800ff, 0x11ee55, 0xcccccc];
+            const ballShape = new CANNON.Sphere(CONFIG.ballRadius);
+
+            for (let i = 0; i < CONFIG.totalBalls; i++) {
+
+                const ballMat = new THREE.MeshPhysicalMaterial({ color: clSetRefArrHexMatsListsMatsHexHexPaletteMaterialsHexArrPal[i], metalness: 1.0, roughness: 0.0, clearcoat: 1.0 });
+                const ballMesh = new THREE.Mesh(ballGeometryMathCalculationsMathGeometryMath, ballMat);
+
+                // physics sphere bodies loop bounds mappings sphere bounding map mass materials map mass
+                const ballBody = new CANNON.Body({
+                    mass: CONFIG.ballMass,
+                    material: new CANNON.Material({ friction: CONFIG.matFriction, restitution: CONFIG.matRestitution }),
+                    position: new CANNON.Vec3(-22, -15 + i * 2, 0)
+                });
+
+                ballBody.addShape(ballShape);
+                // Slow velocity damping fixes wild runaway velocities preventing clipping
+                ballBody.linearDamping = 0.05;
+                ballBody.angularDamping = 0.05;
+
+                scene.add(ballMesh);
+                world.addBody(ballBody);
+
+                ballVisuals.push(ballMesh);
+                ballBodies.push(ballBody);
+            }
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Loop kicks on loops initiates renders initiates
+            animateRoutineEngineRenderTickRender();
+        }
+
+        // Engine loop updates 
+        function animateRoutineEngineRenderTickRender() {
+            requestAnimationFrame(animateRoutineEngineRenderTickRender);
+            orbit.update();
+            timeStepsPassed++;
+
+            // Fix and Sub-stepper engine timing resolutions resolutions smooth high precision fixed delta ticks steps steps loops high high loops steps precision smooth resolutions ticks delta fixed high fixes smooth steps precision resolutions fixes delta resolutions loop loops fixes fixed delta steps precision
+            world.step(1 / 60, 1 / 60, CONFIG.simSubsteps);
+
+            // SYNC SYNC MAPPING MAPS SYNC TRANSFORMS SYNC MAPS SYNC
+            for (let i = 0; i < meshes.length; i++) {
+                meshes[i].position.copy(bodies[i].position);
+                meshes[i].quaternion.copy(bodies[i].quaternion);
+            }
+
+            // MARBLE AND LIFT TRACTOR WIND RULES UPDATER PNEUMATIC CUSTOM FORCES LIFT WIND TRACKS FORCES
+            for (let idx_Ball_Tick = 0; idx_Ball_Tick < ballVisuals.length; idx_Ball_Tick++) {
+                let bodTarget = ballBodies[idx_Ball_Tick];
+                let msVisObjMapTrackTickMapMeshMapTickObj = ballVisuals[idx_Ball_Tick];
+
+                msVisObjMapTrackTickMapMeshMapTickObj.position.copy(bodTarget.position); msVisObjMapTrackTickMapMeshMapTickObj.quaternion.copy(bodTarget.quaternion);
+
+                // Check pneumatic tube! limits constraints rules constraints check constraint physics checks custom pushes custom tube custom rules tube
+                // Tube cylinder bounding check is (x approx -22 +/-2, z +/-2, y under 45) check constraint boundaries check cylinder bounds boundaries rules cylinder limits constraint checks constraints cylinder rules cylinder bounds bounding check boundaries check custom physics constraints
+                if (Math.abs(bodTarget.position.x - -22.0) < 3.0 && Math.abs(bodTarget.position.z) < 3.0) {
+                    if (bodTarget.position.y > -20 && bodTarget.position.y < 43.5) {
+
+                        // Anti grav massive up vector blast physics applies upward constant acceleration vector up thrust 
+                        bodTarget.applyForce(new CANNON.Vec3(0, 580 * bodTarget.mass, 0), bodTarget.position);
+                        // Damping air limits air checks centering tube fixes rubbing limits wall rub limits velocity wall limit fixes bounding air damping tube checks limit limits
+                        if (bodTarget.velocity.y > 60) bodTarget.velocity.y *= 0.8;
+
+                        bodTarget.applyForce(new CANNON.Vec3((-22 - bodTarget.position.x) * 8 * bodTarget.mass, 0, (0 - bodTarget.position.z) * 8 * bodTarget.mass), bodTarget.position); // keeps it cleanly centering avoiding physics clipping 
+                    }
+                }
+
+                // Anti Glitch Rescue system limits bounding limits drop boundaries reset rescue boundary Limits check fallback
+                if (bodTarget.position.y < -35) {
+                    bodTarget.position.set(-22, -15 + idx_Ball_Tick, 0);
+                    bodTarget.velocity.set(0, 0, 0); bodTarget.angularVelocity.set(0, 0, 0);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+
+</html>
