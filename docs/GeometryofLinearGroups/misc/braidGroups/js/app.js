@@ -24,6 +24,8 @@ import {
 import { FlashBeamSolver } from './flashbeam.js';
 import { BraidVisualizer, getStrandColor } from './braidVisualizer.js';
 import { DiskVisualizer } from './diskVisualizer.js';
+import { handleReduction, formatHandleReductionResult } from './handleReduction.js';
+import { inducedPermutation, isIdentityPermutation, permutationToCycleNotation } from './inducedPermutation.js';
 
 
 // ============================================================
@@ -74,6 +76,15 @@ const builderMatrixEl = document.getElementById('builder-matrix');
 const builderVerdictEl = document.getElementById('builder-verdict');
 const btnUndoLetter = document.getElementById('btn-undo-letter');
 const btnClearWord = document.getElementById('btn-clear-word');
+
+// Permutation & handle reduction (Theory tab)
+const builderExtras = document.getElementById('builder-extras');
+const builderPermutation = document.getElementById('builder-permutation');
+const handleReduceToggle = document.getElementById('handle-reduce-toggle');
+const builderHandleResult = document.getElementById('builder-handle-result');
+
+// Handle reduction toggle (Word Calculator tab)
+const calcHandleReduceToggle = document.getElementById('calc-handle-reduce-toggle');
 
 // Relations panel
 const relationsSection = document.getElementById('builder-relations-section');
@@ -239,6 +250,11 @@ function init() {
 
     if (btnCompute) {
         btnCompute.addEventListener('click', computeWord);
+    }
+
+    // Handle reduction toggle — re-render builder when toggled
+    if (handleReduceToggle) {
+        handleReduceToggle.addEventListener('change', () => builderRender());
     }
 
     // Typeset initial MathJax
@@ -507,7 +523,8 @@ function builderComputeMatrix() {
 /** Render the word builder display */
 function builderRender(transitionType = 'add') {
     const empty = builderSymbols.length === 0;
-    const dim = getStrandCount() - 1;
+    const n = getStrandCount();
+    const dim = n - 1;
 
     // Update buttons
     btnUndoLetter.disabled = empty;
@@ -519,6 +536,7 @@ function builderRender(transitionType = 'add') {
         builderMatrixEl.innerHTML = '';
         builderVerdictEl.className = 'word-builder-verdict';
         builderVerdictEl.textContent = '';
+        if (builderExtras) builderExtras.style.display = 'none';
         if (braidViz) braidViz.clear();
         if (diskViz) diskViz.clear();
         renderRelations([]);
@@ -565,6 +583,32 @@ function builderRender(transitionType = 'add') {
     // Typeset
     if (window.MathJax && window.MathJax.typesetPromise) {
         MathJax.typesetPromise([builderMatrixEl]);
+    }
+
+    // --- Induced permutation ---
+    if (builderExtras) {
+        builderExtras.style.display = '';
+        const perm = inducedPermutation(builderSymbols, n);
+        const isPure = isIdentityPermutation(perm);
+        const cycleStr = permutationToCycleNotation(perm);
+
+        builderPermutation.innerHTML = isPure
+            ? `<span class="perm-badge pure">🔗 Permutation: <strong>e</strong> (identity) — <em>pure braid</em></span>`
+            : `<span class="perm-badge">🔗 Permutation: <strong>${cycleStr}</strong></span>`;
+    }
+
+    // --- Handle reduction ---
+    if (builderHandleResult && handleReduceToggle) {
+        if (handleReduceToggle.checked) {
+            const hrResult = handleReduction(builderSymbols, n);
+            const formattedHR = formatHandleReductionResult(hrResult);
+            builderHandleResult.innerHTML = hrResult.isTrivial
+                ? `<span class="hr-badge trivial">✅ ${formattedHR}</span>`
+                : `<span class="hr-badge nontrivial">🔶 ${formattedHR}</span>`;
+            builderHandleResult.style.display = '';
+        } else {
+            builderHandleResult.style.display = 'none';
+        }
     }
 
     // Update braid visualizer
@@ -907,20 +951,25 @@ function computeWord() {
 
     const tokens = input.split(/\s+/);
     const genMap = {};
+    const symMap = {}; // token → canonical symbol for handle reduction
     for (const g of generators) {
         genMap[g.symbol] = g.matrix;
         genMap[g.name] = g.matrix;
+        symMap[g.symbol] = g.symbol;
+        symMap[g.name] = g.symbol;
     }
     // Also allow common aliases for the first 3 generators
-    if (genMap['s1']) { genMap['a'] = genMap['s1']; genMap['A'] = genMap['S1']; }
-    if (genMap['s2']) { genMap['b'] = genMap['s2']; genMap['B'] = genMap['S2']; }
-    if (genMap['s3']) { genMap['c'] = genMap['s3']; genMap['C'] = genMap['S3']; }
+    if (genMap['s1']) { genMap['a'] = genMap['s1']; genMap['A'] = genMap['S1']; symMap['a'] = 's1'; symMap['A'] = 'S1'; }
+    if (genMap['s2']) { genMap['b'] = genMap['s2']; genMap['B'] = genMap['S2']; symMap['b'] = 's2'; symMap['B'] = 'S2'; }
+    if (genMap['s3']) { genMap['c'] = genMap['s3']; genMap['C'] = genMap['S3']; symMap['c'] = 's3'; symMap['C'] = 'S3'; }
 
     // Get current ring (including custom)
     const ring = getActiveRing();
-    const dim = getStrandCount() - 1;
+    const n = getStrandCount();
+    const dim = n - 1;
 
     let result = matIdentity(dim);
+    const canonicalSymbols = []; // for permutation and handle reduction
     for (const tok of tokens) {
         const mat = genMap[tok];
         if (!mat) {
@@ -930,16 +979,38 @@ function computeWord() {
         let m = mat;
         if (ring) m = ring.reduceMatrix(m);
         result = matMul(result, m, ring);
+        canonicalSymbols.push(symMap[tok] || tok);
     }
 
     const isId = matEquals(result, matIdentity(dim));
     const latex = matToLatex(result);
+
+    // Induced permutation
+    const perm = inducedPermutation(canonicalSymbols, n);
+    const isPure = isIdentityPermutation(perm);
+    const cycleStr = permutationToCycleNotation(perm);
+    const permHtml = isPure
+        ? `<span class="perm-badge pure">🔗 Permutation: <strong>e</strong> (identity) — <em>pure braid</em></span>`
+        : `<span class="perm-badge">🔗 Permutation: <strong>${cycleStr}</strong></span>`;
+
+    // Handle reduction (if toggled on)
+    let hrHtml = '';
+    if (calcHandleReduceToggle && calcHandleReduceToggle.checked) {
+        const hrResult = handleReduction(canonicalSymbols, n);
+        const formattedHR = formatHandleReductionResult(hrResult);
+        hrHtml = hrResult.isTrivial
+            ? `<div style="margin-top: 0.75rem;"><span class="hr-badge trivial">✅ Handle Reduction: ${formattedHR}</span></div>`
+            : `<div style="margin-top: 0.75rem;"><span class="hr-badge nontrivial">🔶 Handle Reduction: ${formattedHR}</span></div>`;
+    }
+
     manualResultEl.innerHTML = `
     <p>Result of <code>${input}</code>:</p>
     <div class="math-block">\\(${latex}\\)</div>
     <p style="color: ${isId ? 'var(--accent-green)' : 'var(--text-secondary)'}">
       ${isId ? '✅ This is the identity — relation found!' : '❌ Not the identity'}
     </p>
+    <div style="margin-top: 0.75rem;">${permHtml}</div>
+    ${hrHtml}
   `;
 
     if (window.MathJax && window.MathJax.typesetPromise) {

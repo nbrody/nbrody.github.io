@@ -1,0 +1,828 @@
+/* ============================================================
+   Coxeter Group Explorer
+   Premium Glassmorphic Design System
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+    /* Color Palette */
+    --bg-deep: #0a0b14;
+    --bg-mid: #12131f;
+    --bg-surface: rgba(255, 255, 255, 0.04);
+    --bg-surface-hover: rgba(255, 255, 255, 0.08);
+    --border-glass: rgba(255, 255, 255, 0.08);
+    --border-glass-bright: rgba(255, 255, 255, 0.15);
+
+    /* Accent colors */
+    --accent-cyan: #00e5ff;
+    --accent-cyan-glow: rgba(0, 229, 255, 0.3);
+    --accent-purple: #b388ff;
+    --accent-purple-glow: rgba(179, 136, 255, 0.3);
+    --accent-green: #69f0ae;
+    --accent-green-glow: rgba(105, 240, 174, 0.25);
+    --accent-orange: #ffab40;
+    --accent-orange-glow: rgba(255, 171, 64, 0.25);
+    --accent-red: #ff5252;
+    --accent-red-glow: rgba(255, 82, 82, 0.3);
+    --accent-gold: #ffd740;
+    --accent-gold-glow: rgba(255, 215, 64, 0.25);
+    --accent-pink: #ff80ab;
+    --accent-pink-glow: rgba(255, 128, 171, 0.25);
+
+    /* Text */
+    --text-primary: rgba(255, 255, 255, 0.92);
+    --text-secondary: rgba(255, 255, 255, 0.6);
+    --text-muted: rgba(255, 255, 255, 0.35);
+
+    /* Spacing */
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+
+    /* Transitions */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    line-height: 1.7;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Ambient Background */
+body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 25% 15%, rgba(0, 229, 255, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 75% 55%, rgba(179, 136, 255, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 40% 85%, rgba(255, 215, 64, 0.03) 0%, transparent 40%);
+    pointer-events: none;
+    z-index: 0;
+    animation: ambientDrift 25s ease-in-out infinite alternate;
+}
+
+@keyframes ambientDrift {
+    0% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+
+    100% {
+        transform: translate(-3%, 2%) rotate(3deg);
+    }
+}
+
+/* ============================================================
+   Layout
+   ============================================================ */
+
+.container {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem 1.5rem 4rem;
+}
+
+.main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+@media (max-width: 1024px) {
+    .main-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================================
+   Header
+   ============================================================ */
+
+.hero {
+    text-align: center;
+    padding: 2rem 0 1.5rem;
+}
+
+.hero h1 {
+    font-size: 2.6rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, var(--accent-cyan) 0%, var(--accent-purple) 50%, var(--accent-gold) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.4rem;
+}
+
+.hero .subtitle {
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    font-weight: 300;
+}
+
+/* ============================================================
+   Glass Panel
+   ============================================================ */
+
+.glass-panel {
+    background: var(--bg-surface);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: border-color 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
+}
+
+.glass-panel:hover {
+    border-color: var(--border-glass-bright);
+    box-shadow: 0 0 40px rgba(0, 229, 255, 0.03);
+}
+
+.glass-panel h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 0.8rem;
+    color: var(--accent-cyan);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.glass-panel h2 .icon {
+    font-size: 1.1rem;
+    opacity: 0.8;
+}
+
+.glass-panel h3 {
+    font-size: 1rem;
+    font-weight: 500;
+    margin: 0.8rem 0 0.4rem;
+    color: var(--accent-purple);
+}
+
+.glass-panel p,
+.glass-panel li {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.7;
+}
+
+/* ============================================================
+   Graph Canvas
+   ============================================================ */
+
+#graph-canvas {
+    width: 100%;
+    height: 500px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    cursor: crosshair;
+    touch-action: none;
+    position: relative;
+}
+
+#graph-canvas.dragging {
+    cursor: grabbing;
+}
+
+#graph-canvas.edge-mode {
+    cursor: pointer;
+}
+
+/* ============================================================
+   Toolbar
+   ============================================================ */
+
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+    align-items: center;
+}
+
+.toolbar-group {
+    display: flex;
+    gap: 0.3rem;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+}
+
+.tool-btn {
+    padding: 0.4rem 0.75rem;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s var(--ease-out);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.tool-btn:hover:not(.active) {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.tool-btn.active {
+    background: rgba(0, 229, 255, 0.12);
+    color: var(--accent-cyan);
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.1);
+}
+
+.tool-btn.danger {
+    color: var(--accent-red);
+}
+
+.tool-btn.danger:hover {
+    background: rgba(255, 82, 82, 0.12);
+}
+
+/* ============================================================
+   Preset Gallery
+   ============================================================ */
+
+.preset-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
+
+.preset-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    padding: 0.3rem 0.65rem;
+    background: rgba(179, 136, 255, 0.08);
+    border: 1px solid rgba(179, 136, 255, 0.2);
+    border-radius: 5px;
+    color: var(--accent-purple);
+    cursor: pointer;
+    transition: all 0.2s var(--ease-out);
+    user-select: none;
+}
+
+.preset-chip:hover {
+    background: rgba(179, 136, 255, 0.18);
+    border-color: var(--accent-purple);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 12px rgba(179, 136, 255, 0.15);
+}
+
+.preset-chip.active {
+    background: rgba(179, 136, 255, 0.2);
+    border-color: var(--accent-purple);
+    color: #fff;
+}
+
+/* ============================================================
+   Classification Badge
+   ============================================================ */
+
+.classification-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 1rem;
+    border-radius: var(--radius-sm);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 1rem;
+    border: 1px solid;
+    transition: all 0.3s var(--ease-out);
+}
+
+.classification-badge.finite {
+    background: rgba(105, 240, 174, 0.1);
+    border-color: rgba(105, 240, 174, 0.3);
+    color: var(--accent-green);
+    box-shadow: 0 0 20px rgba(105, 240, 174, 0.08);
+}
+
+.classification-badge.infinite {
+    background: rgba(255, 171, 64, 0.1);
+    border-color: rgba(255, 171, 64, 0.3);
+    color: var(--accent-orange);
+    box-shadow: 0 0 20px rgba(255, 171, 64, 0.08);
+}
+
+.classification-badge.unknown {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--border-glass);
+    color: var(--text-muted);
+}
+
+/* ============================================================
+   Properties Grid
+   ============================================================ */
+
+.props-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+}
+
+.prop-card {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 0.7rem 0.8rem;
+    text-align: center;
+    transition: border-color 0.2s var(--ease-out);
+}
+
+.prop-card:hover {
+    border-color: var(--border-glass-bright);
+}
+
+.prop-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+}
+
+.prop-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    margin-top: 0.15rem;
+}
+
+.prop-value.gold {
+    color: var(--accent-gold);
+}
+
+.prop-value.purple {
+    color: var(--accent-purple);
+}
+
+.prop-value.green {
+    color: var(--accent-green);
+}
+
+.prop-value.orange {
+    color: var(--accent-orange);
+}
+
+/* ============================================================
+   Presentation Display
+   ============================================================ */
+
+.presentation-block {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 1rem 1.2rem;
+    margin: 0.6rem 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    line-height: 1.8;
+    color: var(--text-secondary);
+}
+
+.presentation-block .gen-symbol {
+    color: var(--accent-cyan);
+    font-weight: 600;
+}
+
+.presentation-block .relation {
+    color: var(--accent-purple);
+}
+
+.presentation-block .separator {
+    color: var(--text-muted);
+    margin: 0 0.3rem;
+}
+
+/* ============================================================
+   Matrix Display
+   ============================================================ */
+
+.matrix-container {
+    overflow-x: auto;
+    margin: 0.6rem 0;
+    padding: 0.5rem;
+}
+
+.matrix-table {
+    border-collapse: collapse;
+    margin: 0 auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+}
+
+.matrix-table th {
+    padding: 0.4rem 0.7rem;
+    color: var(--accent-cyan);
+    font-weight: 600;
+    font-size: 0.75rem;
+    border-bottom: 1px solid var(--border-glass);
+}
+
+.matrix-table td {
+    padding: 0.4rem 0.7rem;
+    text-align: center;
+    color: var(--text-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background 0.15s;
+}
+
+.matrix-table td.diag {
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.matrix-table td.infinity {
+    color: var(--accent-orange);
+    font-weight: 600;
+}
+
+.matrix-table td.highlight {
+    color: var(--accent-purple);
+    font-weight: 600;
+    background: rgba(179, 136, 255, 0.06);
+}
+
+.matrix-table tr:hover td:not(.diag) {
+    background: rgba(0, 229, 255, 0.04);
+}
+
+/* ============================================================
+   Tab System
+   ============================================================ */
+
+.tab-bar {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border-glass);
+}
+
+.tab-btn {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s var(--ease-out);
+}
+
+.tab-btn:hover {
+    color: var(--text-secondary);
+}
+
+.tab-btn.active {
+    color: var(--accent-cyan);
+    border-bottom-color: var(--accent-cyan);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s var(--ease-out);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================================
+   Edge Weight Modal
+   ============================================================ */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s var(--ease-out);
+}
+
+.modal-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-card {
+    background: var(--bg-mid);
+    border: 1px solid var(--border-glass-bright);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem 2rem;
+    min-width: 280px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    transform: scale(0.9);
+    transition: transform 0.3s var(--ease-out);
+}
+
+.modal-overlay.visible .modal-card {
+    transform: scale(1);
+}
+
+.modal-card h3 {
+    font-size: 1rem;
+    color: var(--accent-cyan);
+    margin-bottom: 0.8rem;
+}
+
+.modal-card label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.3rem;
+}
+
+.modal-card input[type="number"],
+.modal-card select {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.modal-card input:focus,
+.modal-card select:focus {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 3px var(--accent-cyan-glow);
+}
+
+.modal-card select option {
+    background: var(--bg-mid);
+}
+
+.modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    justify-content: flex-end;
+}
+
+.modal-btn {
+    padding: 0.45rem 1rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s var(--ease-out);
+}
+
+.modal-btn.primary {
+    background: linear-gradient(135deg, var(--accent-cyan), #00b8d4);
+    color: var(--bg-deep);
+}
+
+.modal-btn.primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px var(--accent-cyan-glow);
+}
+
+.modal-btn.secondary {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-glass);
+}
+
+.modal-btn.secondary:hover {
+    color: var(--text-primary);
+    border-color: var(--border-glass-bright);
+}
+
+.modal-btn.danger {
+    background: rgba(255, 82, 82, 0.15);
+    color: var(--accent-red);
+    border: 1px solid rgba(255, 82, 82, 0.3);
+}
+
+.modal-btn.danger:hover {
+    background: rgba(255, 82, 82, 0.25);
+}
+
+/* ============================================================
+   Dynkin Diagram SVG in Presentation
+   ============================================================ */
+
+.dynkin-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0.8rem 0;
+    padding: 0.8rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* ============================================================
+   Irreducible Components
+   ============================================================ */
+
+.component-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
+
+.component-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.3rem 0.7rem;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.component-tag.finite {
+    background: rgba(105, 240, 174, 0.1);
+    border: 1px solid rgba(105, 240, 174, 0.25);
+    color: var(--accent-green);
+}
+
+.component-tag.affine {
+    background: rgba(0, 229, 255, 0.1);
+    border: 1px solid rgba(0, 229, 255, 0.25);
+    color: var(--accent-cyan);
+}
+
+.component-tag.indefinite {
+    background: rgba(255, 171, 64, 0.1);
+    border: 1px solid rgba(255, 171, 64, 0.25);
+    color: var(--accent-orange);
+}
+
+/* ============================================================
+   Canvas Instructions
+   ============================================================ */
+
+.canvas-help {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+    line-height: 1.6;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+}
+
+.help-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.help-key {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    padding: 0.15rem 0.4rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border-glass);
+    border-radius: 4px;
+    color: var(--text-secondary);
+}
+
+/* ============================================================
+   Scrollbar
+   ============================================================ */
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-glass-bright);
+    border-radius: 3px;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+
+@media (max-width: 768px) {
+    .hero h1 {
+        font-size: 1.8rem;
+    }
+
+    .container {
+        padding: 1rem;
+    }
+
+    .glass-panel {
+        padding: 1rem;
+    }
+
+    #graph-canvas {
+        height: 350px;
+    }
+
+    .toolbar {
+        gap: 0.3rem;
+    }
+
+    .props-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ============================================================
+   Tooltip
+   ============================================================ */
+
+.tooltip {
+    position: absolute;
+    background: var(--bg-mid);
+    border: 1px solid var(--border-glass-bright);
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-primary);
+    pointer-events: none;
+    z-index: 50;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    white-space: nowrap;
+}
+
+/* ============================================================
+   MathJax overrides
+   ============================================================ */
+
+mjx-container {
+    color: var(--text-secondary) !important;
+}

@@ -42,6 +42,7 @@ export class DiskVisualizer {
         this.twistInfo = null;
         this.numStrands = getStrandCount();
         this.punctures = getPuncturePositions(this.numStrands);
+        this.wordLength = 0;
 
         this._initCanvas();
         this.animator = new DiskAnimator(this);
@@ -88,10 +89,12 @@ export class DiskVisualizer {
     // --- Public API ---
 
     setCrossings(symbols, transitionType = 'add') {
+        this.wordLength = symbols.length;
         this.animator.transitionTo(symbols, transitionType);
     }
 
     clear() {
+        this.wordLength = 0;
         this.animator.reset();
     }
 
@@ -213,6 +216,9 @@ export class DiskVisualizer {
         const ctx = this.ctx;
         const arcs = this.currentArcs;
 
+        // Arc width tapers as the word gets longer
+        const arcWidth = Math.max(0.6, ARC_WIDTH / (1 + this.wordLength * 0.15));
+
         for (let a = 0; a < arcs.length; a++) {
             const arc = arcs[a];
             const color = ARC_PALETTE[a % ARC_PALETTE.length];
@@ -224,7 +230,7 @@ export class DiskVisualizer {
                 i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
             }
             ctx.strokeStyle = color.replace(')', ',0.2)').replace('rgb', 'rgba');
-            ctx.lineWidth = ARC_WIDTH + 4;
+            ctx.lineWidth = arcWidth + 4;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             ctx.stroke();
@@ -236,7 +242,7 @@ export class DiskVisualizer {
                 i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
             }
             ctx.strokeStyle = color;
-            ctx.lineWidth = ARC_WIDTH;
+            ctx.lineWidth = arcWidth;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             ctx.stroke();

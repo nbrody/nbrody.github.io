@@ -26,8 +26,8 @@ const PUNCTURE_SPACING = 1.0;
 const POINTS_PER_ARC = 1600;
 
 // Twist support radii
-const TWIST_R_INNER = 0.52;   // full-twist region
-export const TWIST_R_OUTER = 0.78;  // fade-out boundary
+const TWIST_R_INNER = 0.5;   // full-twist region
+export const TWIST_R_OUTER = 1.5;  // fade-out boundary
 
 const ANIM_DURATION_TWIST = 600;  // ms per half-twist
 const ANIM_DURATION_FADE = 350;   // ms for cross-fade

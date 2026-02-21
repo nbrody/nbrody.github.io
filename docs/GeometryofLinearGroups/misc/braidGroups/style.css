@@ -1286,6 +1286,77 @@ body::before {
 }
 
 /* ============================================================
+   Permutation & Handle Reduction (Builder Extras)
+   ============================================================ */
+
+.builder-extras {
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--border-glass);
+    animation: fadeIn 0.25s var(--ease-out);
+}
+
+.builder-permutation {
+    margin-bottom: 0.6rem;
+}
+
+.perm-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.9rem;
+    background: rgba(0, 229, 255, 0.06);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', 'Inter', monospace;
+    font-size: 0.8rem;
+    color: var(--accent-cyan);
+    transition: all 0.2s var(--ease-out);
+}
+
+.perm-badge strong {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.perm-badge.pure {
+    background: rgba(105, 240, 174, 0.06);
+    border-color: rgba(105, 240, 174, 0.2);
+    color: var(--accent-green);
+}
+
+.perm-badge.pure strong {
+    color: var(--accent-green);
+}
+
+.builder-handle-section {
+    margin-top: 0.4rem;
+}
+
+.hr-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', 'Inter', monospace;
+    font-size: 0.78rem;
+    transition: all 0.2s var(--ease-out);
+}
+
+.hr-badge.trivial {
+    background: rgba(105, 240, 174, 0.06);
+    border: 1px solid rgba(105, 240, 174, 0.2);
+    color: var(--accent-green);
+}
+
+.hr-badge.nontrivial {
+    background: rgba(255, 183, 77, 0.06);
+    border: 1px solid rgba(255, 183, 77, 0.2);
+    color: #ffb74d;
+}
+
+/* ============================================================
    Responsive
    ============================================================ */
 

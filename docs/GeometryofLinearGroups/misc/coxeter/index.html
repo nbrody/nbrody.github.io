@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coxeter Group Explorer</title>
+    <meta name="description"
+        content="Interactive tool for building Coxeter graphs and studying the Coxeter and Artin groups they determine.">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- MathJax 3 for LaTeX rendering -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$']], displayMath: [['$$', '$$']] },
+            startup: { typeset: false }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- ============================================================
+           Hero Header
+           ============================================================ -->
+        <header class="hero">
+            <h1>Coxeter Group Explorer</h1>
+            <p class="subtitle">Build defining graphs · Study Coxeter &amp; Artin groups</p>
+        </header>
+
+
+        <!-- ============================================================
+           Main Two-Column Layout
+           ============================================================ -->
+        <div class="main-grid">
+
+            <!-- ── Left Column: Graph Editor ── -->
+            <div class="editor-column">
+                <section class="glass-panel" id="editor-panel">
+                    <h2><span class="icon">◆</span> Defining Graph</h2>
+
+                    <!-- Toolbar -->
+                    <div class="toolbar">
+                        <div class="toolbar-group">
+                            <button class="tool-btn active" data-mode="add-node">
+                                <span>＋</span> Node
+                            </button>
+                            <button class="tool-btn" data-mode="add-edge">
+                                <span>⟷</span> Edge
+                            </button>
+                            <button class="tool-btn" data-mode="move">
+                                <span>✥</span> Move
+                            </button>
+                            <button class="tool-btn danger" data-mode="delete">
+                                <span>✕</span> Delete
+                            </button>
+                        </div>
+                        <button class="tool-btn danger" id="btn-clear-all">Clear All</button>
+                    </div>
+
+                    <!-- Canvas -->
+                    <canvas id="graph-canvas"></canvas>
+
+                    <!-- Help -->
+                    <div class="canvas-help">
+                        <span class="help-item"><span class="help-key">Click</span> add / select</span>
+                        <span class="help-item"><span class="help-key">Drag</span> move node</span>
+                        <span class="help-item"><span class="help-key">Dbl-click edge</span> edit weight</span>
+                    </div>
+
+                    <!-- Presets -->
+                    <div style="margin-top: 0.8rem;">
+                        <h3
+                            style="font-size:0.82rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:600;margin-bottom:0.4rem">
+                            Presets</h3>
+                        <div class="preset-gallery" id="preset-gallery">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                </section>
+            </div>
+
+
+            <!-- ── Right Column: Analysis ── -->
+            <div class="analysis-column">
+
+                <!-- Classification -->
+                <section class="glass-panel" id="classification-panel">
+                    <h2><span class="icon">⬡</span> Classification</h2>
+                    <div id="classification-content">
+                        <p style="color:var(--text-muted);text-align:center;padding:1rem 0">Add nodes to begin</p>
+                    </div>
+                </section>
+
+                <!-- Presentations & Matrix (tabbed) -->
+                <section class="glass-panel" id="details-panel">
+                    <div class="tab-bar">
+                        <button class="tab-btn active" data-tab="coxeter">Coxeter Group</button>
+                        <button class="tab-btn" data-tab="artin">Artin Group</button>
+                        <button class="tab-btn" data-tab="matrix">Coxeter Matrix</button>
+                    </div>
+
+                    <div class="tab-content active" id="tab-coxeter">
+                        <div class="presentation-block" id="coxeter-tex"></div>
+                    </div>
+
+                    <div class="tab-content" id="tab-artin">
+                        <div class="presentation-block" id="artin-tex"></div>
+                    </div>
+
+                    <div class="tab-content" id="tab-matrix">
+                        <div class="matrix-container"></div>
+                    </div>
+                </section>
+
+            </div>
+
+        </div>
+        <!-- /main-grid -->
+
+    </div>
+    <!-- /container -->
+
+
+    <!-- ============================================================
+       Edge Weight Modal
+       ============================================================ -->
+    <div class="modal-overlay" id="edge-modal">
+        <div class="modal-card">
+            <h3 id="modal-title">Edge Weight</h3>
+            <label for="weight-select">Order m<sub>ij</sub></label>
+            <select id="weight-select">
+                <option value="3">3 (braid relation)</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="10">10</option>
+                <option value="12">12</option>
+                <option value="Infinity">∞ (free product)</option>
+            </select>
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="modal-cancel">Cancel</button>
+                <button class="modal-btn danger" id="modal-delete" style="display:none">Delete</button>
+                <button class="modal-btn primary" id="modal-confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="coxeter.js"></script>
+
+</body>
+
+</html>

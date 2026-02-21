@@ -216,6 +216,18 @@
                         <!-- Matrix shown here after first click -->
                     </div>
                     <div class="word-builder-verdict" id="builder-verdict"></div>
+
+                    <!-- Permutation & Handle Reduction -->
+                    <div class="builder-extras" id="builder-extras" style="display: none;">
+                        <div class="builder-permutation" id="builder-permutation"></div>
+                        <div class="builder-handle-section">
+                            <label class="checkbox-label active" style="margin-bottom: 0.5rem; cursor: pointer;">
+                                <input type="checkbox" id="handle-reduce-toggle" checked>
+                                <span>🔧 Dehornoy Handle Reduction</span>
+                            </label>
+                            <div class="builder-handle-result" id="builder-handle-result"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <h3>Faithfulness and the Kernel</h3>
@@ -457,6 +469,13 @@
                     <button class="btn btn-primary" id="btn-compute">
                         Compute
                     </button>
+                </div>
+
+                <div class="calc-options" style="margin-top: 1rem; margin-bottom: 0.5rem;">
+                    <label class="checkbox-label active" style="cursor: pointer;">
+                        <input type="checkbox" id="calc-handle-reduce-toggle" checked>
+                        <span>🔧 Run Handle Reduction</span>
+                    </label>
                 </div>
 
                 <div id="manual-result" style="margin-top: 1.5rem;">

@@ -40,6 +40,8 @@
     const speedVal = $('speed-val');
     const maxTrailSlider = $('max-trail-slider');
     const maxTrailVal = $('max-trail-val');
+    const spiralCB = $('spiral-checkbox');
+    const autoZoomCB = $('auto-zoom-checkbox');
     const morphCB = $('morph-checkbox');
     const morphSlider = $('morph-slider');
     const morphVal = $('morph-val');
@@ -165,6 +167,7 @@
     let timeAccumulator = 0;
     let dragNodeIndex = -1;
     let isDragging = false;
+    let spiralCounter = 0;
 
     // Morph state
     let morphFrom = null;
@@ -341,6 +344,7 @@
         currentIteration = 0;
         morphing = false;
         rotAngle = 0;
+        spiralCounter = 0;
         rebuildHistory();
     }
 
@@ -363,7 +367,7 @@
         return c[iterIndex % c.length];
     }
 
-    function drawPolygon(polygon, pal, iterIndex, totalIters, isCurrent, isBase) {
+    function drawPolygon(polygon, pal, iterIndex, totalIters, isCurrent, isBase, spiralLimit) {
         if (polygon.length < 3) return;
         const n = polygon.length;
 
@@ -418,10 +422,12 @@
         }
 
         // Diagonals
-        if (isCurrent && diagCB.checked) {
+        if (isCurrent && (diagCB.checked || spiralLimit !== undefined)) {
             const skip = parseInt(skipSlider.value);
+            const limit = spiralLimit !== undefined ? spiralLimit : n;
+
             ctx.beginPath();
-            for (let i = 0; i < n; i++) {
+            for (let i = 0; i < limit; i++) {
                 ctx.moveTo(polygon[i].x, polygon[i].y);
                 ctx.lineTo(polygon[(i + skip) % n].x, polygon[(i + skip) % n].y);
             }
@@ -432,6 +438,41 @@
             ctx.stroke();
             ctx.setLineDash([]);
             ctx.globalAlpha = 1;
+
+            if (spiralLimit !== undefined && spiralLimit > 0) {
+                const innerPoints = [];
+                for (let i = 0; i < limit; i++) {
+                    const a1 = polygon[i];
+                    const a2 = polygon[(i + skip) % n];
+                    const b1 = polygon[(i + 1) % n];
+                    const b2 = polygon[(i + 1 + skip) % n];
+                    if (i < limit - 1 || limit === n) {
+                        innerPoints.push(getIntersection(a1, a2, b1, b2));
+                    }
+                }
+
+                if (innerPoints.length > 0) {
+                    ctx.globalAlpha = 1;
+                    const nextColor = paletteEdgeColor(pal, iterIndex + 1);
+                    ctx.strokeStyle = nextColor;
+                    ctx.lineWidth = lineW;
+
+                    ctx.beginPath();
+                    ctx.moveTo(innerPoints[0].x, innerPoints[0].y);
+                    for (let i = 1; i < innerPoints.length; i++) {
+                        ctx.lineTo(innerPoints[i].x, innerPoints[i].y);
+                    }
+                    if (limit === n) ctx.closePath();
+                    ctx.stroke();
+
+                    ctx.fillStyle = nextColor;
+                    for (let i = 0; i < innerPoints.length; i++) {
+                        ctx.beginPath();
+                        ctx.arc(innerPoints[i].x, innerPoints[i].y, vertexR, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
         }
 
         // Vertices
@@ -563,10 +604,19 @@
         // Auto-play iterations
         if (isPlaying && !morphing) {
             const speed = parseFloat(speedSlider.value);
-            const interval = 1000 / speed;
+            const n = basePolygon.length;
+            const interval = spiralCB.checked ? 1000 / (speed * n) : 1000 / speed;
             timeAccumulator += dt;
             while (timeAccumulator > interval) {
-                advanceStep();
+                if (spiralCB.checked) {
+                    spiralCounter++;
+                    if (spiralCounter >= n) {
+                        advanceStep();
+                        spiralCounter = 0;
+                    }
+                } else {
+                    advanceStep();
+                }
                 timeAccumulator -= interval;
             }
         }
@@ -583,6 +633,41 @@
             if (t >= 1) morphing = false;
         }
 
+        // Auto-Zoom
+        if (autoZoomCB.checked && displayPolygons.length > 0 && !isDragging && !isOrbiting && !isPanningView) {
+            const currPoly = displayPolygons[displayPolygons.length - 1];
+            const nCoords = currPoly.length;
+            if (nCoords > 0) {
+                let cx = 0, cy = 0;
+                for (let i = 0; i < nCoords; i++) {
+                    cx += currPoly[i].x;
+                    cy += currPoly[i].y;
+                }
+                cx /= nCoords;
+                cy /= nCoords;
+
+                let maxR = 0;
+                for (let i = 0; i < nCoords; i++) {
+                    const r = Math.hypot(currPoly[i].x - cx, currPoly[i].y - cy);
+                    if (r > maxR) maxR = r;
+                }
+                if (maxR < 1e-6) maxR = 1;
+
+                const targetR = Math.min(W, H) * 0.32;
+                const targetScale = targetR / maxR;
+
+                const cos = Math.cos(view.rotation);
+                const sin = Math.sin(view.rotation);
+                const targetX = -(cx * cos - cy * sin) * targetScale;
+                const targetY = -(cx * sin + cy * cos) * targetScale;
+
+                const lerpT = 1 - Math.exp(-dt * 0.005);
+                view.scale += (targetScale - view.scale) * lerpT;
+                view.x += (targetX - view.x) * lerpT;
+                view.y += (targetY - view.y) * lerpT;
+            }
+        }
+
         // Draw
         const showTrails = trailCB.checked;
         const showTri = triCB.checked;
@@ -593,8 +678,9 @@
 
         // --- Triangulation layer (drawn first, behind edges) ---
         if (showTri && displayPolygons.length >= 2) {
-            const start = showTrails ? Math.max(0, totalIters - maxTrails) : totalIters - 2;
-            for (let i = start; i < totalIters - 1; i++) {
+            let limitIters = totalIters - 1;
+            const start = showTrails ? Math.max(0, limitIters - maxTrails) : Math.max(0, limitIters - 1);
+            for (let i = start; i < limitIters; i++) {
                 drawTriangulation(displayPolygons[i], displayPolygons[i + 1], pal, i, totalIters);
             }
         }
@@ -615,6 +701,7 @@
                 pal, totalIters - 1, totalIters,
                 true,
                 totalIters === 1,
+                spiralCB.checked ? spiralCounter : undefined
             );
         }
 
@@ -834,7 +921,18 @@
     }
 
     playBtn.addEventListener('click', () => { isPlaying = !isPlaying; updatePlayBtn(); });
-    stepBtn.addEventListener('click', () => { advanceStep(); });
+    stepBtn.addEventListener('click', () => {
+        if (spiralCB.checked) {
+            spiralCounter++;
+            if (spiralCounter >= basePolygon.length) {
+                advanceStep();
+                spiralCounter = 0;
+            }
+        } else {
+            advanceStep();
+            spiralCounter = 0;
+        }
+    });
     resetBtn.addEventListener('click', () => { initBasePolygon(); });
 
     // Slider readouts
@@ -861,6 +959,9 @@
 
     shapeSelect.addEventListener('change', () => initBasePolygon());
     normCB.addEventListener('change', () => rebuildHistory());
+    spiralCB.addEventListener('change', () => {
+        if (!spiralCB.checked) spiralCounter = 0;
+    });
 
     // Keep skip max coherent with n
     function syncSkipMax() {

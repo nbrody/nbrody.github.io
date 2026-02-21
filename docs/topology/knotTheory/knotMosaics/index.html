@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knot Mosaic Playground</title>
+    <meta name="description"
+        content="Interactive knot mosaic builder — place tiles on disk, sphere, or torus surfaces to create knot diagrams.">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+
+    <!-- Header HUD -->
+    <div id="header-hud">
+        <span id="hud-label">Knot Mosaic</span>
+        <span id="hud-info">Disk · 5×5</span>
+    </div>
+
+    <!-- Toggle Panel Button -->
+    <button id="toggle-panel-btn" title="Toggle Controls">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+    </button>
+
+    <!-- Control Panel -->
+    <div id="ui-panel" class="glass-panel">
+        <div class="panel-header">
+            <div>
+                <h1>Knot Mosaics</h1>
+            </div>
+            <button id="close-panel-btn" class="icon-btn" title="Close Panel">&times;</button>
+        </div>
+
+        <!-- Surface Selector -->
+        <div class="surface-tabs">
+            <button class="surface-tab active" data-surface="disk">
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                    <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5" fill="none" />
+                </svg>
+                Disk
+            </button>
+            <button class="surface-tab" data-surface="sphere">
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                    <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5" fill="none" />
+                    <ellipse cx="9" cy="9" rx="7" ry="3" stroke="currentColor" stroke-width="0.8" fill="none"
+                        opacity="0.5" />
+                    <line x1="9" y1="2" x2="9" y2="16" stroke="currentColor" stroke-width="0.8" opacity="0.5" />
+                </svg>
+                Sphere
+            </button>
+            <button class="surface-tab" data-surface="torus">
+                <svg width="18" height="18" viewBox="0 0 18 18">
+                    <ellipse cx="9" cy="9" rx="8" ry="5" stroke="currentColor" stroke-width="1.5" fill="none" />
+                    <ellipse cx="9" cy="9" rx="3" ry="1.5" stroke="currentColor" stroke-width="1" fill="none" />
+                </svg>
+                Torus
+            </button>
+        </div>
+
+        <!-- Scrollable content area -->
+        <div class="panel-scroll-area">
+            <div class="control-group">
+                <label>Grid Size <span id="grid-size-val" class="accent">5</span></label>
+                <input type="range" id="grid-size-slider" min="3" max="10" value="5">
+            </div>
+
+            <div class="control-group" id="face-size-group" style="display: none;">
+                <label>Face Subdivisions <span id="face-size-val" class="accent">3</span></label>
+                <input type="range" id="face-size-slider" min="2" max="6" value="3">
+                <p class="hint">Squares per face edge of the polyhedron</p>
+            </div>
+
+            <div class="control-group">
+                <label>Examples</label>
+                <select id="example-select">
+                    <option value="">— Choose a preset —</option>
+                </select>
+            </div>
+
+            <div class="control-group checkbox-group">
+                <input type="checkbox" id="show-connections-checkbox" checked>
+                <label for="show-connections-checkbox">Highlight Mismatches</label>
+            </div>
+
+            <div class="control-group">
+                <label>Strand Color</label>
+                <div class="color-row">
+                    <button class="color-swatch active" data-color="#6c8aff" style="background: #6c8aff;"></button>
+                    <button class="color-swatch" data-color="#f472b6" style="background: #f472b6;"></button>
+                    <button class="color-swatch" data-color="#22d3ee" style="background: #22d3ee;"></button>
+                    <button class="color-swatch" data-color="#a78bfa" style="background: #a78bfa;"></button>
+                    <button class="color-swatch" data-color="#34d399" style="background: #34d399;"></button>
+                    <button class="color-swatch" data-color="#fbbf24" style="background: #fbbf24;"></button>
+                    <button class="color-swatch" data-color="#fb923c" style="background: #fb923c;"></button>
+                    <button class="color-swatch" data-color="#e8ecf4" style="background: #e8ecf4;"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="button-group">
+            <button id="clear-btn" class="btn btn-outline">Clear</button>
+            <button id="fit-btn" class="btn btn-secondary">Fit View</button>
+            <button id="export-btn" class="btn btn-primary">
+                <span class="btn-icon">⬇</span> Export
+            </button>
+        </div>
+        <div class="button-group" id="fold-group" style="display: none;">
+            <button id="fold-btn" class="btn btn-primary" style="flex:1">
+                <span class="btn-icon">🧊</span> Fold Cube
+            </button>
+        </div>
+        <div class="button-group" id="fold-torus-group" style="display: none;">
+            <button id="fold-torus-btn" class="btn btn-primary" style="flex:1">
+                <span class="btn-icon">🍩</span> Fold Torus
+            </button>
+        </div>
+    </div>
+
+    <!-- Tile Palette -->
+    <div id="tile-palette">
+        <div class="palette-label">Tiles</div>
+        <div id="palette-tiles" class="palette-tiles-row"></div>
+        <div class="palette-hint">Click or drag to place · Right-click to erase</div>
+    </div>
+
+    <!-- 3D Cube Overlay -->
+    <div id="cube-overlay">
+        <canvas id="cube-canvas"></canvas>
+        <div id="cube-toolbar">
+            <div class="cube-toolbar-inner">
+                <label class="cube-toggle">
+                    <input type="checkbox" id="cube-hide-grid">
+                    <span>Hide Grid</span>
+                </label>
+                <button id="cube-unfold-btn" class="btn btn-secondary">Unfold</button>
+                <button id="cube-close-btn" class="btn btn-outline">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="tiles.js"></script>
+    <script src="exampleLibrary.js"></script>
+    <script src="app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="cube3d.js"></script>
+    <script src="torus3d.js"></script>
+</body>
+
+</html>

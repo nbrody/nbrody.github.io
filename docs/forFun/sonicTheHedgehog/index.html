@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sonic the Hedgehog - Green Hill Zone</title>
+    <meta name="description"
+        content="A browser-based Sonic the Hedgehog clone featuring Green Hill Zone with rings, enemies, loops, and classic momentum-based physics.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+
+        <!-- HUD Overlay -->
+        <div id="hud">
+            <div id="hud-left">
+                <div class="hud-item" id="hud-score">
+                    <span class="hud-label">SCORE</span>
+                    <span class="hud-value" id="score-value">0</span>
+                </div>
+                <div class="hud-item" id="hud-time">
+                    <span class="hud-label">TIME</span>
+                    <span class="hud-value" id="time-value">0:00</span>
+                </div>
+            </div>
+            <div id="hud-right">
+                <div class="hud-item" id="hud-rings">
+                    <span class="hud-label">RINGS</span>
+                    <span class="hud-value" id="rings-value">0</span>
+                </div>
+                <div class="hud-item" id="hud-lives">
+                    <span class="hud-label">LIVES</span>
+                    <span class="hud-value" id="lives-value">3</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Title Screen -->
+        <div id="title-screen">
+            <div id="title-content">
+                <div id="title-logo">
+                    <h1>SONIC</h1>
+                    <h2>THE HEDGEHOG</h2>
+                </div>
+                <div id="title-zone">GREEN HILL ZONE</div>
+                <div id="title-prompt" class="blink">PRESS ENTER OR TAP TO START</div>
+                <div id="title-controls">
+                    <p>← → ARROW KEYS TO MOVE</p>
+                    <p>SPACE TO JUMP</p>
+                    <p>↓ TO ROLL / SPIN DASH</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="hidden">
+            <div id="gameover-content">
+                <h1>GAME OVER</h1>
+                <div id="final-score"></div>
+                <div class="blink">PRESS ENTER TO RETRY</div>
+            </div>
+        </div>
+
+        <!-- Victory Screen -->
+        <div id="victory-screen" class="hidden">
+            <div id="victory-content">
+                <h1>ACT CLEAR!</h1>
+                <div id="victory-stats"></div>
+                <div class="blink">PRESS ENTER TO PLAY AGAIN</div>
+            </div>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div id="mobile-controls">
+            <div id="dpad">
+                <button id="btn-left" class="dpad-btn">◀</button>
+                <button id="btn-down" class="dpad-btn">▼</button>
+                <button id="btn-right" class="dpad-btn">▶</button>
+            </div>
+            <button id="btn-jump" class="action-btn">A</button>
+        </div>
+    </div>
+
+    <script src="audio.js"></script>
+    <script src="renderer.js"></script>
+    <script src="level.js"></script>
+    <script src="entities.js"></script>
+    <script src="sonic.js"></script>
+    <script src="game.js"></script>
+</body>
+
+</html>
