@@ -311,8 +311,8 @@ function drawTorusArrows(ox, oy, w, h) {
     drawArrowPair(midX, oy + h + 6, arrowLen, 0, 'rgba(244, 114, 182, 0.5)');
 
     // Vertical identification (left & right edges)
-    drawArrowPair(ox - 6, midY, arrowLen, Math.PI / 2, 'rgba(34, 211, 238, 0.5)');
-    drawArrowPair(ox + w + 6, midY, arrowLen, Math.PI / 2, 'rgba(34, 211, 238, 0.5)');
+    drawArrowPair(ox - 6, midY, arrowLen, -Math.PI / 2, 'rgba(34, 211, 238, 0.5)');
+    drawArrowPair(ox + w + 6, midY, arrowLen, -Math.PI / 2, 'rgba(34, 211, 238, 0.5)');
 }
 
 function drawArrowPair(cx, cy, len, angle, color) {
