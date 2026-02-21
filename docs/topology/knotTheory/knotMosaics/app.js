@@ -17,7 +17,8 @@ const state = {
     gridSize: 5,
     faceSize: 3,
     grid: null,
-    selectedTile: -1,
+    grid: null,
+    selectedTile: 0,
     strandColor: '#6c8aff',
     strandWidth: 3,
     showGrid: true,
@@ -28,10 +29,9 @@ const state = {
     zoom: 1,
 
     // interaction
-    isPanning: false,
     isPainting: false,
     lastMouse: null,
-    dragTile: -1,
+    dragTile: 0,
     ghostEl: null,
     selectedCell: null,  // {row, col} or {face, row, col} — the cell selected for rotation
 };
@@ -681,26 +681,38 @@ function setSelectedCellTile(tileIndex) {
 // ============================================================
 // Palette
 // ============================================================
+const TILE_FAMILIES = [
+    [0],
+    [1, 2],
+    [3, 4, 5, 6],
+    [9, 10],
+    [7, 8]
+];
+
 function buildPalette() {
     paletteTiles.innerHTML = '';
+    const showAll = document.getElementById('show-orientations-toggle')?.checked;
 
-    // Eraser
-    const eraserEl = createPaletteTile(-1);
-    paletteTiles.appendChild(eraserEl);
-
-    // All tile types
-    TILE_TYPES.forEach((tile, i) => {
-        const el = createPaletteTile(i);
-        paletteTiles.appendChild(el);
+    TILE_FAMILIES.forEach(family => {
+        const col = document.createElement('div');
+        col.className = 'palette-col';
+        if (showAll) {
+            family.forEach(idx => col.appendChild(createPaletteTile(idx)));
+        } else {
+            col.appendChild(createPaletteTile(family[0]));
+        }
+        paletteTiles.appendChild(col);
     });
+
+    // Ensure the currently selected tile is still marked
+    selectTile(state.selectedTile);
 }
 
 function createPaletteTile(index) {
     const el = document.createElement('div');
-    const isEraser = index === -1;
-    el.className = 'palette-tile' +
-        (isEraser ? ' eraser-tile' : '') +
-        (state.selectedTile === index ? ' selected' : '');
+    el.className = 'palette-tile';
+    if (state.selectedTile === index) el.classList.add('selected');
+    el.setAttribute('data-index', index);
 
     const tileCanvas = document.createElement('canvas');
     const dpr = window.devicePixelRatio || 1;
@@ -712,18 +724,7 @@ function createPaletteTile(index) {
     const tctx = tileCanvas.getContext('2d');
     tctx.scale(dpr, dpr);
 
-    if (isEraser) {
-        // Draw X
-        tctx.strokeStyle = 'rgba(244,63,94,0.7)';
-        tctx.lineWidth = 2;
-        tctx.lineCap = 'round';
-        tctx.beginPath();
-        tctx.moveTo(14, 14);
-        tctx.lineTo(34, 34);
-        tctx.moveTo(34, 14);
-        tctx.lineTo(14, 34);
-        tctx.stroke();
-    } else if (index === 0) {
+    if (index === 0) {
         // Blank: subtle dot
         tctx.fillStyle = 'rgba(255,255,255,0.15)';
         tctx.beginPath();
@@ -735,11 +736,6 @@ function createPaletteTile(index) {
 
     el.appendChild(tileCanvas);
 
-    const label = document.createElement('span');
-    label.className = 'tile-label';
-    label.textContent = isEraser ? '✕' : TILE_TYPES[index].name;
-    el.appendChild(label);
-
     el.addEventListener('click', () => selectTile(index));
     el.addEventListener('mousedown', (e) => startDrag(e, index));
 
@@ -749,8 +745,8 @@ function createPaletteTile(index) {
 function selectTile(index) {
     state.selectedTile = index;
     const tiles = paletteTiles.querySelectorAll('.palette-tile');
-    tiles.forEach((el, i) => {
-        const elIndex = i === 0 ? -1 : i - 1;
+    tiles.forEach(el => {
+        const elIndex = parseInt(el.getAttribute('data-index'));
         el.classList.toggle('selected', elIndex === index);
     });
 }
@@ -774,23 +770,13 @@ function startDrag(e, tileIndex) {
     const gctx = ghost.getContext('2d');
     gctx.scale(dpr, dpr);
 
-    if (tileIndex >= 0 && tileIndex > 0) {
+    if (tileIndex > 0) {
         TILE_TYPES[tileIndex].draw(gctx, 6, 6, sz - 12, state.strandColor, 2.5, '#0a0e1a');
-    } else if (tileIndex === 0) {
+    } else {
         gctx.fillStyle = 'rgba(255,255,255,0.15)';
         gctx.beginPath();
         gctx.arc(sz / 2, sz / 2, 3, 0, Math.PI * 2);
         gctx.fill();
-    } else {
-        gctx.strokeStyle = 'rgba(244,63,94,0.7)';
-        gctx.lineWidth = 2;
-        gctx.lineCap = 'round';
-        gctx.beginPath();
-        gctx.moveTo(16, 16);
-        gctx.lineTo(sz - 16, sz - 16);
-        gctx.moveTo(sz - 16, 16);
-        gctx.lineTo(16, sz - 16);
-        gctx.stroke();
     }
 
     ghost.style.left = e.clientX + 'px';
@@ -842,7 +828,7 @@ canvas.addEventListener('mousedown', (e) => {
 
     const hit = hitTest(e.clientX, e.clientY);
     if (hit) {
-        const ti = state.selectedTile === -1 ? 0 : state.selectedTile;
+        const ti = state.selectedTile;
         placeTile(hit, ti);
         state.selectedCell = hit; // track for arrow-key rotation
         state.isPainting = true;
@@ -1165,16 +1151,14 @@ document.addEventListener('keydown', (e) => {
     // Number keys to select tiles: 0-9
     const num = parseInt(e.key);
     if (!isNaN(num)) {
-        if (num === 0) {
-            selectTile(-1); // eraser
-        } else if (num - 1 < TILE_TYPES.length) {
-            selectTile(num - 1);
+        if (num < TILE_TYPES.length) {
+            selectTile(num);
         }
         return;
     }
 
     if (e.key === 'Escape') {
-        selectTile(-1);
+        selectTile(0);
         state.selectedCell = null;
         render();
     } else if (e.key === 'ArrowRight') {
@@ -1336,3 +1320,5 @@ buildPalette();
 resizeCanvas();
 updateHud();
 requestAnimationFrame(() => fitView());
+
+document.getElementById('show-orientations-toggle')?.addEventListener('change', buildPalette);

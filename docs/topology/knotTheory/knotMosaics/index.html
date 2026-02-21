@@ -124,7 +124,14 @@
 
     <!-- Tile Palette -->
     <div id="tile-palette">
-        <div class="palette-label">Tiles</div>
+        <div class="palette-header"
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div class="palette-label">Tiles</div>
+            <label class="cube-toggle">
+                <input type="checkbox" id="show-orientations-toggle">
+                <span>All orientations</span>
+            </label>
+        </div>
         <div id="palette-tiles" class="palette-tiles-row"></div>
         <div class="palette-hint">Click or drag to place · Right-click to erase</div>
     </div>

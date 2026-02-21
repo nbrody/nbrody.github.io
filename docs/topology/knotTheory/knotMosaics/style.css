@@ -37,7 +37,7 @@ body {
 }
 
 /* ===== Canvas ===== */
-canvas {
+#canvas {
     position: fixed;
     inset: 0;
     width: 100%;
@@ -47,7 +47,7 @@ canvas {
     transition: background-color 0.8s ease;
 }
 
-canvas:active {
+#canvas:active {
     cursor: grabbing;
 }
 
@@ -514,8 +514,14 @@ input[type="checkbox"]:checked::after {
 
 .palette-tiles-row {
     display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.palette-col {
+    display: flex;
+    flex-direction: column;
     gap: 6px;
-    align-items: center;
 }
 
 .palette-hint {
@@ -559,31 +565,7 @@ input[type="checkbox"]:checked::after {
     pointer-events: none;
 }
 
-.palette-tile .tile-label {
-    position: absolute;
-    bottom: 2px;
-    right: 4px;
-    font-size: 0.55rem;
-    color: var(--text-hint);
-    font-weight: 500;
-}
 
-/* Eraser tile */
-.palette-tile.eraser-tile {
-    background: rgba(244, 63, 94, 0.08);
-    border-color: rgba(244, 63, 94, 0.15);
-}
-
-.palette-tile.eraser-tile:hover {
-    background: rgba(244, 63, 94, 0.15);
-    border-color: rgba(244, 63, 94, 0.4);
-}
-
-.palette-tile.eraser-tile.selected {
-    border-color: var(--danger);
-    background: rgba(244, 63, 94, 0.2);
-    box-shadow: 0 0 16px rgba(244, 63, 94, 0.35);
-}
 
 /* Drag ghost */
 .drag-ghost {
