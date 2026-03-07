@@ -522,14 +522,17 @@ window.addEventListener('message', (event) => {
         if (actionData && currentStep < actionData.steps.length - 1) {
             currentStep++;
             updateDisplay();
-        } else if (actionData) {
-            currentStep = 0;
-            updateDisplay();
+            window.parent.postMessage('action-stepped', '*');
+        } else {
+            window.parent.postMessage('action-at-end', '*');
         }
     } else if (event.data === 'prev') {
         if (actionData && currentStep > 0) {
             currentStep--;
             updateDisplay();
+            window.parent.postMessage('action-stepped', '*');
+        } else {
+            window.parent.postMessage('action-at-start', '*');
         }
     }
 });

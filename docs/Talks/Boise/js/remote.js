@@ -48,20 +48,58 @@ function handleCommand(cmd) {
     // Set a flag so onLeave knows this is a sequential 'remote' action
     window.isRemoteAction = true;
 
+    // Helper: check if we're on the p-adic action slide and delegate to iframe
+    function tryDelegateToActionIframe(direction) {
+        const activeSection = document.querySelector('.section.active');
+        const activeSlide = activeSection.querySelector('.slide.active') || activeSection;
+        if (activeSlide && activeSlide.getAttribute('data-anchor') === 'padic-action-desc') {
+            const actionIframe = document.getElementById('action-frame');
+            if (actionIframe) {
+                // Set up a one-time listener for the iframe response
+                const handler = (event) => {
+                    if (event.data === 'action-stepped') {
+                        // iframe handled it, do nothing
+                        window.removeEventListener('message', handler);
+                    } else if (event.data === 'action-at-end' && direction === 'next') {
+                        // iframe is at the end, advance past the slide
+                        window.removeEventListener('message', handler);
+                        const slides = activeSection.querySelectorAll('.slide');
+                        const activeIndex = Array.from(slides).indexOf(activeSlide);
+                        if (activeIndex < slides.length - 1) {
+                            api.moveSlideRight();
+                        } else {
+                            api.moveSectionDown();
+                        }
+                    } else if (event.data === 'action-at-start' && direction === 'prev') {
+                        // iframe is at the start, go back
+                        window.removeEventListener('message', handler);
+                        const slides = activeSection.querySelectorAll('.slide');
+                        const activeIndex = Array.from(slides).indexOf(activeSlide);
+                        if (activeIndex > 0) {
+                            api.moveSlideLeft();
+                        } else {
+                            api.moveSectionUp();
+                        }
+                    }
+                };
+                window.addEventListener('message', handler);
+                // Clean up if no response within 500ms
+                setTimeout(() => window.removeEventListener('message', handler), 500);
+                actionIframe.contentWindow.postMessage(direction, '*');
+                return true; // delegated
+            }
+        }
+        return false; // not on action slide
+    }
+
     switch (cmd) {
         case 'next':
         case 'smartNext': {
+            if (tryDelegateToActionIframe('next')) break;
+
             const activeSection = document.querySelector('.section.active');
             const slides = activeSection.querySelectorAll('.slide');
             const activeSlide = activeSection.querySelector('.slide.active') || slides[0];
-
-            if (activeSlide && activeSlide.getAttribute('data-anchor') === 'padic-action-desc') {
-                const actionIframe = document.getElementById('action-frame');
-                if (actionIframe) {
-                    actionIframe.contentWindow.postMessage('next', '*');
-                    break;
-                }
-            }
 
             if (slides.length > 0) {
                 const activeIndex = Array.from(slides).indexOf(activeSlide);
@@ -77,17 +115,11 @@ function handleCommand(cmd) {
         }
         case 'prev':
         case 'smartPrev': {
+            if (tryDelegateToActionIframe('prev')) break;
+
             const activeSection = document.querySelector('.section.active');
             const slides = activeSection.querySelectorAll('.slide');
             const activeSlide = activeSection.querySelector('.slide.active') || slides[0];
-
-            if (activeSlide && activeSlide.getAttribute('data-anchor') === 'padic-action-desc') {
-                const actionIframe = document.getElementById('action-frame');
-                if (actionIframe) {
-                    actionIframe.contentWindow.postMessage('prev', '*');
-                    break;
-                }
-            }
 
             if (slides.length > 0) {
                 const activeIndex = Array.from(slides).indexOf(activeSlide);
