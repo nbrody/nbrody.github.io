@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlashBeam — Burau Relation Search</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            startup: { typeset: true }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+    <style>
+        :root {
+            --bg-deep: #0b0d1a;
+            --bg-mid: #111428;
+            --glass-bg: rgba(255, 255, 255, 0.04);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-hover: rgba(255, 255, 255, 0.07);
+            --accent: #00d4ff;
+            --accent-glow: rgba(0, 212, 255, 0.3);
+            --accent2: #a855f7;
+            --accent2-glow: rgba(168, 85, 247, 0.3);
+            --green: #22c55e;
+            --green-glow: rgba(34, 197, 94, 0.3);
+            --red: #ef4444;
+            --gold: #f59e0b;
+            --text: #e2e8f0;
+            --text-dim: #64748b;
+            --text-bright: #f8fafc;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Inter', system-ui, sans-serif;
+            --radius: 16px;
+            --radius-sm: 10px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg-deep);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse at 20% 30%, rgba(0, 212, 255, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 70%, rgba(168, 85, 247, 0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0) 0%, var(--bg-deep) 100%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .app {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        /* ── Header ── */
+        .header {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .header .subtitle {
+            font-size: 0.95rem;
+            color: var(--text-dim);
+            font-weight: 300;
+        }
+
+        .header .math-info {
+            margin-top: 16px;
+            padding: 16px 24px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            backdrop-filter: blur(12px);
+            display: inline-block;
+            text-align: left;
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            line-height: 1.7;
+        }
+
+        .header .math-info .gen-label {
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        /* ── Glass Panel ── */
+        .panel {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            backdrop-filter: blur(12px);
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .panel-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+
+        /* ── Controls Grid ── */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+
+        .control-group select,
+        .control-group input {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            color: var(--text-bright);
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .control-group select:focus,
+        .control-group input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .control-group select option {
+            background: var(--bg-mid);
+        }
+
+        /* ── Algorithm Toggle ── */
+        .algo-toggle {
+            display: flex;
+            gap: 0;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--glass-border);
+        }
+
+        .algo-toggle button {
+            flex: 1;
+            padding: 12px 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border: none;
+            color: var(--text-dim);
+            font-family: var(--sans);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s;
+            position: relative;
+        }
+
+        .algo-toggle button.active {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(168, 85, 247, 0.1));
+            color: var(--text-bright);
+        }
+
+        .algo-toggle button.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 20%;
+            right: 20%;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            border-radius: 1px;
+        }
+
+        .algo-toggle button:hover:not(.active) {
+            background: var(--glass-hover);
+        }
+
+        /* ── Action Buttons ── */
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: var(--sans);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, var(--accent), #0099cc);
+            color: #000;
+            flex: 1;
+        }
+
+        .btn-start:hover {
+            box-shadow: 0 4px 20px var(--accent-glow);
+            transform: translateY(-1px);
+        }
+
+        .btn-start:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-stop {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--red);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-stop:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+
+        /* ── Telemetry ── */
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 12px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            text-align: center;
+        }
+
+        .stat-card .stat-value {
+            font-family: var(--mono);
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--text-bright);
+            line-height: 1;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            margin-top: 6px;
+        }
+
+        .stat-card.accent .stat-value {
+            color: var(--accent);
+        }
+
+        .stat-card.green .stat-value {
+            color: var(--green);
+        }
+
+        .stat-card.gold .stat-value {
+            color: var(--gold);
+        }
+
+        .stat-card.purple .stat-value {
+            color: var(--accent2);
+        }
+
+        /* ── Status indicator ── */
+        .status-line {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--glass-border);
+            margin-bottom: 16px;
+            font-size: 0.82rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            transition: all 0.3s;
+        }
+
+        .status-dot.running {
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green-glow);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .status-dot.finished {
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        .status-label {
+            color: var(--text-dim);
+        }
+
+        .status-label.running {
+            color: var(--green);
+            font-weight: 500;
+        }
+
+        /* ── Best word display ── */
+        .best-word-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            margin-top: 12px;
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            word-break: break-all;
+            max-height: 60px;
+            overflow: hidden;
+        }
+
+        .best-word-box span {
+            color: var(--accent);
+        }
+
+        /* ── Flash monitor ── */
+        .flash-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .flash-tag {
+            padding: 4px 10px;
+            background: rgba(168, 85, 247, 0.1);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 6px;
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--accent2);
+        }
+
+        .flash-tag .score {
+            color: var(--text-dim);
+            margin-left: 4px;
+        }
+
+        /* ── Solutions ── */
+        .solutions-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .solutions-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .solutions-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .solutions-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .solution-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 14px 16px;
+            background: rgba(34, 197, 94, 0.04);
+            border: 1px solid rgba(34, 197, 94, 0.15);
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .solution-badge {
+            background: linear-gradient(135deg, var(--green), #16a34a);
+            color: #000;
+            font-weight: 700;
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .solution-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .solution-word {
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            color: var(--text-bright);
+            word-break: break-all;
+            margin-bottom: 4px;
+        }
+
+        .solution-meta {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        .empty-state .icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            opacity: 0.3;
+        }
+
+        /* ── Generator matrices ── */
+        .gen-matrices {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        .gen-mat-card {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            padding: 14px;
+        }
+
+        .gen-mat-card .name {
+            font-family: var(--mono);
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .gen-mat-card .name .dist {
+            color: var(--text-dim);
+            font-weight: 400;
+            font-size: 0.72rem;
+        }
+
+        .matrix-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 2px;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            text-align: center;
+        }
+
+        .matrix-grid .cell {
+            padding: 6px 4px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            color: var(--text);
+        }
+
+        /* ── Layout ── */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+
+            .gen-matrices {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── Flash size field toggle ── */
+        .flash-field {
+            transition: opacity 0.3s;
+        }
+
+        .flash-field.hidden {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <!-- Header -->
+        <div class="header">
+            <h1>FlashBeam Relation Search</h1>
+            <p class="subtitle">Finding relations in the Burau image of F₂ &subset; B₄ &nbsp;·&nbsp; Birman Prop. 3.19
+            </p>
+            <div class="math-info">
+                <span class="gen-label">X</span> = σ₃σ₁⁻¹ &nbsp;&nbsp;&nbsp;
+                <span class="gen-label">Y</span> = σ₂σ₃σ₁⁻¹σ₂⁻¹
+                <br>
+                Searching for words $W(X, Y, X^{-1}, Y^{-1}) = I$ in $\mathrm{GL}_3$
+            </div>
+        </div>
+
+        <!-- Config Panel -->
+        <div class="panel">
+            <div class="panel-title"><span class="dot"></span> Configuration</div>
+
+            <!-- Algorithm Toggle -->
+            <div style="margin-bottom: 20px;">
+                <label
+                    style="display:block;font-size:0.72rem;font-weight:500;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:8px;">Algorithm</label>
+                <div class="algo-toggle">
+                    <button id="btn-flashbeam" class="active" onclick="setAlgorithm('flashbeam')">
+                        ⚡ FlashBeam
+                    </button>
+                    <button id="btn-beam" onclick="setAlgorithm('beam')">
+                        ◇ Beam Search
+                    </button>
+                </div>
+            </div>
+
+            <div class="controls-grid">
+                <div class="control-group">
+                    <label>Specialization t</label>
+                    <select id="t-val" onchange="loadGenerators()">
+                        <option value="-1" selected>t = −1 &nbsp;(integer matrices)</option>
+                        <option value="i">t = i &nbsp;(Gaussian integers)</option>
+                        <option value="-i">t = −i</option>
+                        <option value="2">t = 2</option>
+                        <option value="-2">t = −2</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Beam Width (W)</label>
+                    <input type="number" id="beam-width" value="3000" min="100" max="50000" step="500">
+                </div>
+                <div class="control-group flash-field" id="flash-field">
+                    <label>Flash Size (F)</label>
+                    <input type="number" id="flash-size" value="60" min="0" max="500" step="10">
+                </div>
+                <div class="control-group">
+                    <label>Max Iterations</label>
+                    <input type="number" id="max-iters" value="100" min="5" max="1000" step="10">
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-start" id="btn-start" onclick="startSearch()">
+                    ▶ Launch Search
+                </button>
+                <button class="btn btn-stop" id="btn-stop" onclick="stopSearch()" style="display:none;">
+                    ■ Stop
+                </button>
+            </div>
+        </div>
+
+        <!-- Generator Matrices -->
+        <div class="panel" id="gen-panel">
+            <div class="panel-title"><span class="dot"></span> Generator Matrices at <span id="gen-t-label">t =
+                    −1</span></div>
+            <div class="gen-matrices" id="gen-matrices">
+                <!-- filled by JS -->
+            </div>
+        </div>
+
+        <!-- Telemetry -->
+        <div class="panel" id="telemetry-panel" style="display:none;">
+            <div class="panel-title"><span class="dot"></span> Live Telemetry</div>
+
+            <div class="status-line">
+                <div class="status-dot" id="status-dot"></div>
+                <span class="status-label" id="status-label">Idle</span>
+                <span style="margin-left:auto;font-family:var(--mono);font-size:0.8rem;color:var(--text-dim);"
+                    id="algo-label"></span>
+            </div>
+
+            <div class="telemetry-grid">
+                <div class="stat-card accent">
+                    <div class="stat-value" id="stat-iter">0</div>
+                    <div class="stat-label">Iteration</div>
+                </div>
+                <div class="stat-card gold">
+                    <div class="stat-value" id="stat-best">—</div>
+                    <div class="stat-label">Best Dist</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-beam">0</div>
+                    <div class="stat-label">Beam Size</div>
+                </div>
+                <div class="stat-card purple" id="flash-stat-card">
+                    <div class="stat-value" id="stat-flash">0</div>
+                    <div class="stat-label">Flash Size</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-visited">0</div>
+                    <div class="stat-label">Visited</div>
+                </div>
+                <div class="stat-card green">
+                    <div class="stat-value" id="stat-sols">0</div>
+                    <div class="stat-label">Solutions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-time">0.0s</div>
+                    <div class="stat-label">Elapsed</div>
+                </div>
+            </div>
+
+            <div class="best-word-box" id="best-word-box">
+                <span>Best word:</span> <span id="best-word" style="color:var(--text);">—</span>
+            </div>
+
+            <!-- Flash Monitor -->
+            <div id="flash-monitor" style="margin-top:14px;">
+                <div
+                    style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:6px;">
+                    Flash Pool</div>
+                <div class="flash-items" id="flash-items"></div>
+            </div>
+        </div>
+
+        <!-- Solutions -->
+        <div class="panel" id="solutions-panel" style="display:none;">
+            <div class="panel-title"><span class="dot" style="background:var(--green);"></span> Discovered Relations
+            </div>
+            <div class="solutions-list" id="solutions-list">
+                <div class="empty-state">
+                    <div class="icon">🔍</div>
+                    No relations found yet
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── State ──
+        let algorithm = 'flashbeam';
+        let polling = null;
+        let prevSolCount = 0;
+
+        // ── Algorithm Toggle ──
+        function setAlgorithm(algo) {
+            algorithm = algo;
+            document.getElementById('btn-flashbeam').classList.toggle('active', algo === 'flashbeam');
+            document.getElementById('btn-beam').classList.toggle('active', algo === 'beam');
+            document.getElementById('flash-field').classList.toggle('hidden', algo === 'beam');
+        }
+
+        // ── Load generators for display ──
+        function loadGenerators() {
+            const t = document.getElementById('t-val').value;
+            const labels = { '-1': 't = −1', 'i': 't = i', '-i': 't = −i', '2': 't = 2', '-2': 't = −2' };
+            document.getElementById('gen-t-label').textContent = labels[t] || `t = ${t}`;
+
+            fetch(`/generators?t=${encodeURIComponent(t)}`)
+                .then(r => r.json())
+                .then(gens => {
+                    const container = document.getElementById('gen-matrices');
+                    container.innerHTML = '';
+                    for (const g of gens) {
+                        const card = document.createElement('div');
+                        card.className = 'gen-mat-card';
+                        let gridHtml = '';
+                        for (const row of g.matrix) {
+                            for (const cell of row) {
+                                gridHtml += `<div class="cell">${cell}</div>`;
+                            }
+                        }
+                        card.innerHTML = `
+                        <div class="name">${g.name} <span class="dist">dist = ${g.dist}</span></div>
+                        <div class="matrix-grid">${gridHtml}</div>
+                    `;
+                        container.appendChild(card);
+                    }
+                });
+        }
+
+        // ── Start Search ──
+        function startSearch() {
+            const params = {
+                algorithm: algorithm,
+                t_val: document.getElementById('t-val').value,
+                beam_width: document.getElementById('beam-width').value,
+                flash_size: document.getElementById('flash-size').value,
+                max_iters: document.getElementById('max-iters').value,
+            };
+
+            fetch('/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('btn-start').disabled = true;
+                        document.getElementById('btn-stop').style.display = '';
+                        document.getElementById('telemetry-panel').style.display = '';
+                        document.getElementById('solutions-panel').style.display = '';
+                        document.getElementById('status-dot').className = 'status-dot running';
+                        document.getElementById('status-label').textContent = 'Searching…';
+                        document.getElementById('status-label').className = 'status-label running';
+                        document.getElementById('algo-label').textContent =
+                            algorithm === 'flashbeam' ? '⚡ FlashBeam' : '◇ Beam Search';
+
+                        // Show/hide flash elements based on algorithm
+                        document.getElementById('flash-monitor').style.display =
+                            algorithm === 'flashbeam' ? '' : 'none';
+                        document.getElementById('flash-stat-card').style.display =
+                            algorithm === 'flashbeam' ? '' : 'none';
+
+                        prevSolCount = 0;
+                        document.getElementById('solutions-list').innerHTML =
+                            '<div class="empty-state"><div class="icon">🔍</div>Searching…</div>';
+                        startPolling();
+                    }
+                });
+        }
+
+        // ── Stop Search ──
+        function stopSearch() {
+            fetch('/stop', { method: 'POST' });
+            stopPolling();
+            document.getElementById('btn-start').disabled = false;
+            document.getElementById('btn-stop').style.display = 'none';
+            document.getElementById('status-dot').className = 'status-dot finished';
+            document.getElementById('status-label').textContent = 'Stopped';
+            document.getElementById('status-label').className = 'status-label';
+        }
+
+        // ── Polling ──
+        function startPolling() {
+            if (polling) clearInterval(polling);
+            polling = setInterval(pollStatus, 400);
+        }
+        function stopPolling() {
+            if (polling) { clearInterval(polling); polling = null; }
+        }
+
+        function pollStatus() {
+            fetch('/status')
+                .then(r => r.json())
+                .then(s => {
+                    // Stats
+                    document.getElementById('stat-iter').textContent = s.iteration;
+                    document.getElementById('stat-best').textContent =
+                        s.best_score < 999 ? s.best_score.toFixed(1) : '—';
+                    document.getElementById('stat-beam').textContent = s.beam_size.toLocaleString();
+                    document.getElementById('stat-flash').textContent = s.flash_size_actual;
+                    document.getElementById('stat-visited').textContent = s.visited.toLocaleString();
+                    document.getElementById('stat-sols').textContent = s.solutions.length;
+                    document.getElementById('stat-time').textContent = s.elapsed.toFixed(1) + 's';
+
+                    // Best word
+                    const bw = s.best_word || '—';
+                    document.getElementById('best-word').textContent =
+                        bw.length > 100 ? bw.slice(0, 97) + '…' : bw;
+
+                    // Flash tags
+                    const flashEl = document.getElementById('flash-items');
+                    flashEl.innerHTML = '';
+                    for (const f of (s.flash_top || [])) {
+                        const tag = document.createElement('span');
+                        tag.className = 'flash-tag';
+                        tag.innerHTML = `${f.word} <span class="score">${f.score}</span>`;
+                        flashEl.appendChild(tag);
+                    }
+
+                    // Solutions
+                    if (s.solutions.length > prevSolCount) {
+                        const list = document.getElementById('solutions-list');
+                        if (prevSolCount === 0) list.innerHTML = '';
+                        for (let i = prevSolCount; i < s.solutions.length; i++) {
+                            const sol = s.solutions[i];
+                            const card = document.createElement('div');
+                            card.className = 'solution-card';
+                            // Format word: X in cyan, x in purple, Y in green, y in gold
+                            const colorWord = sol.word.split(' ').map(sym => {
+                                const colors = { 'X': '#00d4ff', 'x': '#a855f7', 'Y': '#22c55e', 'y': '#f59e0b' };
+                                return `<span style="color:${colors[sym] || '#e2e8f0'}">${sym}</span>`;
+                            }).join(' ');
+                            card.innerHTML = `
+                            <div class="solution-badge">★ #${i + 1}</div>
+                            <div class="solution-info">
+                                <div class="solution-word">${colorWord}</div>
+                                <div class="solution-meta">
+                                    Length ${sol.length} · Iteration ${sol.iteration} · ${sol.time}s
+                                </div>
+                            </div>
+                        `;
+                            list.appendChild(card);
+                        }
+                        prevSolCount = s.solutions.length;
+                    }
+
+                    // Finished?
+                    if (s.finished || !s.running) {
+                        stopPolling();
+                        document.getElementById('btn-start').disabled = false;
+                        document.getElementById('btn-stop').style.display = 'none';
+                        document.getElementById('status-dot').className = 'status-dot finished';
+                        document.getElementById('status-label').textContent =
+                            `Done — ${s.solutions.length} relation(s)`;
+                        document.getElementById('status-label').className = 'status-label';
+                    }
+                })
+                .catch(() => { });
+        }
+
+        // ── Init ──
+        loadGenerators();
+    </script>
+</body>
+
+</html>

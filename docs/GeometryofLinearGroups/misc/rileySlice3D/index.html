@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riley Slice 3D — SL(3,R)</title>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        MathJax = { tex: { inlineMath: [['$', '$']] }, svg: { fontCache: 'global' } };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="viewer"></div>
+
+    <div id="ui-panel">
+        <div class="panel-title">Riley Slice 3D</div>
+        <div class="panel-subtitle">Discreteness in $\mathrm{SL}(3,\mathbb{R})$</div>
+
+        <!-- Math description -->
+        <div style="font-size:0.72rem; color:var(--text-secondary); margin-bottom:12px; line-height:1.6;">
+            $U = \begin{pmatrix}1&a&b\\0&1&c\\0&0&1\end{pmatrix}$, &ensp;
+            $L = U^\top$<br>
+            Color by $\log\!\min_{|w|\le N}\|w(U,L)-I\|_F$
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Resolution -->
+        <div class="control-group">
+            <span class="control-label">Grid Resolution</span>
+            <select id="resolution">
+                <option value="32">32&sup3; (fast)</option>
+                <option value="48" selected>48&sup3; (balanced)</option>
+                <option value="64">64&sup3; (detailed)</option>
+                <option value="80">80&sup3; (slow)</option>
+            </select>
+        </div>
+
+        <!-- Word Depth -->
+        <div class="control-group">
+            <span class="control-label">Word Depth</span>
+            <div class="slider-row">
+                <input type="range" id="depth" min="4" max="10" step="1" value="8">
+                <span class="slider-value" id="depthVal">8</span>
+            </div>
+        </div>
+
+        <!-- Compute -->
+        <button class="btn-compute" id="computeBtn">Compute</button>
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-track">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <span class="progress-text" id="progressText">0%</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Threshold -->
+        <div class="control-group">
+            <span class="control-label">Threshold Low (log min dist)</span>
+            <div class="slider-row">
+                <input type="range" id="threshLow" min="-10" max="2" step="0.1" value="-3">
+                <span class="slider-value" id="threshLowVal">-3.0</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <span class="control-label">Threshold High</span>
+            <div class="slider-row">
+                <input type="range" id="threshHigh" min="-10" max="2" step="0.1" value="1.0">
+                <span class="slider-value" id="threshHighVal">1.0</span>
+            </div>
+        </div>
+
+        <!-- Point Size -->
+        <div class="control-group">
+            <span class="control-label">Point Size</span>
+            <div class="slider-row">
+                <input type="range" id="pointSize" min="0.3" max="2.0" step="0.05" value="0.9">
+                <span class="slider-value" id="pointSizeVal">0.9</span>
+            </div>
+        </div>
+
+        <!-- Opacity -->
+        <div class="control-group">
+            <span class="control-label">Opacity</span>
+            <div class="slider-row">
+                <input type="range" id="opacity" min="0.1" max="1.0" step="0.05" value="0.85">
+                <span class="slider-value" id="opacityVal">0.85</span>
+            </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Clipping Plane -->
+        <div class="control-group">
+            <span class="control-label">Clipping Plane</span>
+            <div class="toggle-row">
+                <input type="checkbox" id="clipEnabled">
+                <span class="toggle-label">Enable</span>
+            </div>
+            <select id="clipAxis" style="margin-bottom:6px;">
+                <option value="a">a-axis</option>
+                <option value="b" selected>b-axis</option>
+                <option value="c">c-axis</option>
+            </select>
+            <div class="slider-row">
+                <input type="range" id="clipPos" min="-2" max="2" step="0.05" value="0">
+                <span class="slider-value" id="clipPosVal">0.00</span>
+            </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Colormap -->
+        <div class="control-group">
+            <span class="control-label">Colormap</span>
+            <select id="colormap">
+                <option value="viridis">Viridis</option>
+                <option value="inferno">Inferno</option>
+            </select>
+        </div>
+
+        <div class="panel-footer">
+            Drag to rotate &middot; Scroll to zoom<br>
+            Points where $\langle U, L\rangle$ is non-discrete shown.
+        </div>
+    </div>
+
+    <div id="info-bar">Computed: &mdash;</div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gromov–Piatetski-Shapiro Manifolds</title>
+    <meta name="description"
+        content="Interactive Three.js visualization of Gromov–Piatetski-Shapiro non-arithmetic hyperbolic manifolds via interbreeding of arithmetic pieces.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <canvas id="gpsCanvas"></canvas>
+
+    <!-- ─── Control Panel ─── -->
+    <div id="controls" class="controls">
+        <h1 id="title">GPS Manifolds</h1>
+        <p class="subtitle">Gromov–Piatetski-Shapiro Interbreeding</p>
+
+        <div class="control-group">
+            <label for="presetSelect">Example</label>
+            <select id="presetSelect"></select>
+        </div>
+
+        <div class="control-group">
+            <label>Piece Separation <span id="separationValue" class="value-badge">0.00</span></label>
+            <input type="range" id="separationSlider" min="0" max="2" step="0.01" value="0">
+        </div>
+
+        <div class="control-group">
+            <label>Opacity <span id="opacityValue" class="value-badge">0.70</span></label>
+            <input type="range" id="opacitySlider" min="0.05" max="1" step="0.01" value="0.7">
+        </div>
+
+        <div class="separator"></div>
+
+        <div class="control-group toggle-row">
+            <label for="showHypersurface">Cutting Hypersurface Σ</label>
+            <input type="checkbox" id="showHypersurface" checked>
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="showWireframe">Wireframe</label>
+            <input type="checkbox" id="showWireframe">
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="autoRotate">Auto Rotate</label>
+            <input type="checkbox" id="autoRotate" checked>
+        </div>
+
+        <div class="separator"></div>
+
+        <div class="control-group">
+            <label for="colorScheme">Color Scheme</label>
+            <select id="colorScheme">
+                <option value="0">Amethyst / Sapphire</option>
+                <option value="1">Ember / Ocean</option>
+                <option value="2">Jade / Rose</option>
+                <option value="3">Monochrome</option>
+            </select>
+        </div>
+
+        <div class="stats" id="stats">
+            <span id="fpsCounter">60 fps</span>
+            <span id="manifoldInfo">Tiles: 0</span>
+        </div>
+
+        <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
+    </div>
+
+    <!-- ─── Info Panel ─── -->
+    <div id="infoPanel" class="info-panel">
+        <h2 id="infoTitle">Interbreeding Construction</h2>
+        <div id="infoContent"></div>
+        <button id="toggleInfo" class="toggle-info-btn">▾</button>
+    </div>
+
+    <!-- ─── Instructions ─── -->
+    <div id="instructions" class="instructions">
+        <span>🖱️ Drag to orbit · Scroll to zoom · <kbd>H</kbd> toggle panel · <kbd>I</kbd> toggle info</span>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>

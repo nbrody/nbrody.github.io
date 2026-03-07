@@ -1,0 +1,377 @@
+/* ──────────────────── Reset & Base ──────────────────── */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #000;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    color: #e0e0e8;
+}
+
+#glCanvas {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+}
+
+/* ──────────────────── Control Panel ──────────────────── */
+.controls {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    width: 290px;
+    padding: 24px;
+    background: rgba(10, 10, 18, 0.72);
+    backdrop-filter: blur(28px) saturate(1.5);
+    -webkit-backdrop-filter: blur(28px) saturate(1.5);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 18px;
+    z-index: 10;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    box-shadow:
+        0 8px 40px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    animation: fadeIn 0.6s ease-out;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+}
+
+.controls::-webkit-scrollbar {
+    width: 4px;
+}
+
+.controls::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.controls::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.controls.hidden {
+    opacity: 0;
+    transform: translateX(-24px);
+    pointer-events: none;
+}
+
+.controls h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #f0a060, #e06848, #c05080);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 2px;
+}
+
+.subtitle {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.32);
+    margin-bottom: 20px;
+    font-weight: 300;
+    line-height: 1.5;
+}
+
+.subtitle a {
+    color: rgba(240, 160, 96, 0.65);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.subtitle a:hover {
+    color: rgba(240, 160, 96, 1);
+}
+
+/* ──────────────────── Section Divider ──────────────────── */
+.section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.2);
+    margin-top: 18px;
+    margin-bottom: 10px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ──────────────────── Control Groups ──────────────────── */
+.control-group {
+    margin-bottom: 14px;
+}
+
+.control-group label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 6px;
+    letter-spacing: 0.3px;
+}
+
+.value-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 2px 7px;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+/* ──────────────────── Range Sliders ──────────────────── */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 4px;
+    outline: none;
+    transition: background 0.2s;
+}
+
+input[type="range"]:hover {
+    background: rgba(255, 255, 255, 0.11);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f0a060, #e06848);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(240, 160, 96, 0.35);
+    transition: box-shadow 0.2s, transform 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 16px rgba(240, 160, 96, 0.65);
+    transform: scale(1.15);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: none;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f0a060, #e06848);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(240, 160, 96, 0.35);
+}
+
+/* ──────────────────── Select ──────────────────── */
+select {
+    width: 100%;
+    padding: 7px 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    color: #d0d0e0;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+select:hover,
+select:focus {
+    border-color: rgba(240, 160, 96, 0.4);
+}
+
+select option {
+    background: #1a1a2e;
+    color: #e0e0e8;
+}
+
+/* ──────────────────── Toggle Row ──────────────────── */
+.toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.toggle-row label {
+    margin-bottom: 0;
+}
+
+input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 36px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.25s;
+    flex-shrink: 0;
+}
+
+input[type="checkbox"]::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    top: 2px;
+    left: 2px;
+    transition: transform 0.25s, background 0.25s;
+}
+
+input[type="checkbox"]:checked {
+    background: rgba(240, 160, 96, 0.35);
+}
+
+input[type="checkbox"]:checked::after {
+    transform: translateX(16px);
+    background: #f0a060;
+    box-shadow: 0 0 6px rgba(240, 160, 96, 0.55);
+}
+
+/* ──────────────────── Color Swatch Row ──────────────────── */
+.color-swatch-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.color-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+    position: relative;
+}
+
+.color-swatch:hover {
+    transform: scale(1.12);
+}
+
+.color-swatch.active {
+    border-color: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
+}
+
+/* ──────────────────── Stats ──────────────────── */
+.stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.28);
+}
+
+/* ──────────────────── Screenshot Button ──────────────────── */
+.screenshot-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 8px 0;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.45);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.screenshot-btn:hover {
+    background: rgba(240, 160, 96, 0.1);
+    border-color: rgba(240, 160, 96, 0.3);
+    color: rgba(255, 255, 255, 0.75);
+}
+
+/* ──────────────────── Pause Button ──────────────────── */
+.pause-btn {
+    width: 100%;
+    margin-top: 6px;
+    padding: 8px 0;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.45);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pause-btn:hover {
+    background: rgba(240, 160, 96, 0.1);
+    border-color: rgba(240, 160, 96, 0.3);
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.pause-btn.paused {
+    background: rgba(240, 96, 72, 0.12);
+    border-color: rgba(240, 96, 72, 0.3);
+    color: rgba(255, 200, 160, 0.8);
+}
+
+/* ──────────────────── Instructions ──────────────────── */
+.instructions {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    background: rgba(10, 10, 18, 0.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.35);
+    z-index: 10;
+    transition: opacity 2s ease;
+    pointer-events: none;
+    animation: fadeIn 0.8s ease-out 0.3s both;
+}
+
+.instructions kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ──────────────────── Animations ──────────────────── */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

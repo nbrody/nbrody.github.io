@@ -227,84 +227,244 @@ function exploreMatrixKey(m) {
     return `[${fmt(a)}|${fmt(b)}|${fmt(c)}|${fmt(d)}]`;
 }
 
+// --- Dirichlet domain utilities ---
+
 /**
- * Compute Dirichlet domain faces for the given generators.
- * Uses matrix-based exploration to handle generators that fix the basepoint.
- * @param {Matrix2x2[]} generators - Array of generators (including inverses)
- * @param {Matrix2x2} viewMat - Current view matrix
- * @param {number} maxFaces - Maximum number of faces to return
+ * Monotone proxy for hyperbolic distance in the Poincaré ball model.
+ * cosh(d(p,q)) = 1 + 2|p-q|^2 / ((1-|p|^2)(1-|q|^2))
+ * We return the ratio, which is monotone in d and avoids acosh.
  */
-export function getDirichletFaces(generators = [], viewMat = new Matrix2x2(1, 0, 0, 1), maxFaces = 100) {
-    // If no generators provided, return empty
-    if (!generators || generators.length === 0) {
-        const result = [];
-        for (let i = 0; i < 256; i++) {
-            result.push(new THREE.Vector4(10, 0, 0, 0.1));
-        }
-        return { faces: result, count: 0 };
+function hypDistProxy(p, q) {
+    const dx = p.x - q.x, dy = p.y - q.y, dz = p.z - q.z;
+    const distSq = dx * dx + dy * dy + dz * dz;
+    const pNormSq = p.x * p.x + p.y * p.y + p.z * p.z;
+    const qNormSq = q.x * q.x + q.y * q.y + q.z * q.z;
+    const denom = (1 - pNormSq) * (1 - qNormSq);
+    if (denom <= 0) return Infinity;
+    return distSq / denom;
+}
+
+/**
+ * Signed distance from a point to a face (bisector sphere) in the ball model.
+ * Matches the shader's sdFace function.
+ */
+export function sdFace(p, face) {
+    const cx = face.x, cy = face.y, cz = face.z;
+    const r = face.w;
+    const s = r > 0 ? 1 : -1;
+    const dx = p.x - cx, dy = p.y - cy, dz = p.z - cz;
+    return s * (Math.sqrt(dx * dx + dy * dy + dz * dz) - Math.abs(r));
+}
+
+/**
+ * Check if a point is inside the current domain (unit ball ∩ all accepted half-spaces).
+ */
+function isInsideDomain(px, py, pz, acceptedFaces, numFaces) {
+    if (px * px + py * py + pz * pz >= 1.0) return false;
+    for (let i = 0; i < numFaces; i++) {
+        const f = acceptedFaces[i];
+        const dx = px - f.x, dy = py - f.y, dz = pz - f.z;
+        const r = f.w;
+        const s = r > 0 ? 1 : -1;
+        if (s * (Math.sqrt(dx * dx + dy * dy + dz * dz) - Math.abs(r)) > 1e-6) return false;
+    }
+    return true;
+}
+
+/**
+ * Check if a bisector sphere is redundant (doesn't intersect the current domain).
+ * Tests the closest point to basepoint on the sphere, plus a ring of 8 samples.
+ */
+function isFaceRedundant(bisector, acceptedFaces, numFaces, basepoint) {
+    if (numFaces === 0) return false;
+
+    const cx = bisector.x, cy = bisector.y, cz = bisector.z;
+    const R = Math.abs(bisector.w);
+    if (R < 1e-12) return true;
+
+    // Direction from sphere center toward basepoint
+    let dx = basepoint.x - cx, dy = basepoint.y - cy, dz = basepoint.z - cz;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (dist < 1e-12) return true;
+    dx /= dist; dy /= dist; dz /= dist;
+
+    // Primary sample: closest point on sphere to basepoint
+    const px = cx + R * dx, py = cy + R * dy, pz = cz + R * dz;
+    if (isInsideDomain(px, py, pz, acceptedFaces, numFaces)) return false;
+
+    // Build tangent frame at the primary point for ring samples
+    // Choose an "up" vector not parallel to dir
+    let ux, uy, uz;
+    if (Math.abs(dx) < 0.9) {
+        // Cross dir with (1,0,0)
+        ux = 0; uy = dz; uz = -dy;
+    } else {
+        // Cross dir with (0,1,0)
+        ux = -dz; uy = 0; uz = dx;
+    }
+    let len = Math.sqrt(ux * ux + uy * uy + uz * uz);
+    ux /= len; uy /= len; uz /= len;
+    // Second tangent: dir × u
+    const vx = dy * uz - dz * uy, vy = dz * ux - dx * uz, vz = dx * uy - dy * ux;
+
+    // Ring at ~30° from primary direction
+    const cosA = Math.cos(Math.PI / 6);  // cos(30°)
+    const sinA = Math.sin(Math.PI / 6);  // sin(30°)
+
+    for (let k = 0; k < 8; k++) {
+        const theta = k * Math.PI * 0.25;
+        const ct = Math.cos(theta), st = Math.sin(theta);
+        // Direction on sphere: cosA * dir + sinA * (cos(theta)*u + sin(theta)*v)
+        const rx = cosA * dx + sinA * (ct * ux + st * vx);
+        const ry = cosA * dy + sinA * (ct * uy + st * vy);
+        const rz = cosA * dz + sinA * (ct * uz + st * vz);
+        const rl = Math.sqrt(rx * rx + ry * ry + rz * rz);
+        const sx = cx + R * rx / rl, sy = cy + R * ry / rl, sz = cz + R * rz / rl;
+        if (isInsideDomain(sx, sy, sz, acceptedFaces, numFaces)) return false;
     }
 
-    const queue = [{ matrix: viewMat, depth: 0 }];
-    const faces = [];
-    const seenMatrices = new Set();  // Track explored matrices
-    const seenFaces = new Set();     // Track unique face locations
+    return true;
+}
 
-    // Basepoint translated by viewMat
-    const startQ = uhsToBall(imageOfOriginUHS(viewMat));
+// Pre-allocated buffer to avoid GC pressure during animation
+const _paddedBuffer = new Array(256);
+for (let i = 0; i < 256; i++) _paddedBuffer[i] = new THREE.Vector4(10, 0, 0, 0.1);
+
+/**
+ * Compute the Dirichlet domain using beam search with redundancy detection.
+ * Returns both faces (for shader) and face-pairing elements (for UI).
+ *
+ * @param {Matrix2x2[]} generators - [g1, g1^-1, g2, g2^-1, ...]
+ * @param {Matrix2x2} viewMat - Current view isometry
+ * @param {number} maxFaces - Hard cap on accepted faces
+ * @param {Object} [options] - { maxDepth: 25, beamWidth: 1024, barrenLimit: 3 }
+ * @returns {{ faces: THREE.Vector4[], count: number, pairings: Array, stabilizers: Array }}
+ */
+export function computeDirichletDomain(generators = [], viewMat = new Matrix2x2(1, 0, 0, 1), maxFaces = 64, options = {}) {
+    const { maxDepth = 25, beamWidth = 1024, barrenLimit = 3 } = options;
+
+    if (!generators || generators.length === 0) {
+        for (let i = 0; i < 256; i++) _paddedBuffer[i].set(10, 0, 0, 0.1);
+        return { faces: _paddedBuffer, count: 0, pairings: [], stabilizers: [] };
+    }
+
+    const numGens = generators.length;
+    const basepoint = uhsToBall(imageOfOriginUHS(viewMat));
+
+    const seenMatrices = new Set();
     seenMatrices.add(exploreMatrixKey(viewMat));
 
-    let head = 0;
-    while (head < queue.length) {
-        const { matrix, depth } = queue[head++];
-        if (depth >= 8) continue;
+    const acceptedFaces = [];
+    const pairings = [];
+    const stabilizers = [];
 
-        for (const g of generators) {
-            const next = matrix.mul(g);
-            const matKey = exploreMatrixKey(next);
+    // Beam: starts with identity (viewMat)
+    let beam = [{ matrix: viewMat, wordArr: [], lastGenIdx: -1 }];
+    let depthsWithoutNewFace = 0;
 
-            if (!seenMatrices.has(matKey)) {
+    for (let depth = 1; depth <= maxDepth; depth++) {
+        // 1. EXPAND: multiply every beam element by every generator
+        const candidates = [];
+
+        for (const entry of beam) {
+            for (let i = 0; i < numGens; i++) {
+                // Generators are interleaved: [g1, g1^-1, g2, g2^-1, ...]
+                // The inverse of index i is i^1 (XOR): 0↔1, 2↔3, etc.
+                if (entry.lastGenIdx >= 0 && i === (entry.lastGenIdx ^ 1)) continue;
+
+                const next = entry.matrix.mul(generators[i]);
+                const matKey = exploreMatrixKey(next);
+                if (seenMatrices.has(matKey)) continue;
                 seenMatrices.add(matKey);
-                queue.push({ matrix: next, depth: depth + 1 });
 
-                // Get the orbit point for this matrix
-                const q = uhsToBall(imageOfOriginUHS(next));
+                const orbitPt = uhsToBall(imageOfOriginUHS(next));
+                const dist = hypDistProxy(basepoint, orbitPt);
 
-                // Only create face if this point is different from basepoint
-                const distSq = q.clone().sub(startQ).lengthSq();
-                if (distSq > 1e-8) {
-                    // Create face key based on the orbit point location
-                    const faceKey = `${q.x.toFixed(5)},${q.y.toFixed(5)},${q.z.toFixed(5)}`;
+                // Word index: generators [g1, g1^-1, g2, g2^-1, ...]
+                // Even indices are generators (positive), odd are inverses (negative)
+                const base = (i >> 1) + 1;  // 1-based generator number
+                const genIdx = (i & 1) === 0 ? base : -base;
 
-                    if (!seenFaces.has(faceKey)) {
-                        seenFaces.add(faceKey);
-                        faces.push(getBisectorSphere(startQ, q));
-                    }
-                }
+                candidates.push({
+                    matrix: next,
+                    wordArr: [...entry.wordArr, genIdx],
+                    lastGenIdx: i,
+                    orbitPt,
+                    dist
+                });
             }
+        }
+
+        if (candidates.length === 0) break;
+
+        // 2. SORT by hyperbolic distance proxy
+        candidates.sort((a, b) => a.dist - b.dist);
+
+        // 3. PRUNE to beam width
+        beam = candidates.slice(0, beamWidth);
+
+        // 4. CHECK each beam element for face contribution
+        let newFacesThisDepth = 0;
+
+        for (const entry of beam) {
+            if (acceptedFaces.length >= maxFaces) break;
+
+            const orbitPt = entry.orbitPt;
+            const dx = orbitPt.x - basepoint.x;
+            const dy = orbitPt.y - basepoint.y;
+            const dz = orbitPt.z - basepoint.z;
+            const distSq = dx * dx + dy * dy + dz * dz;
+
+            // Stabilizer check
+            if (distSq < 1e-8) {
+                stabilizers.push({
+                    matrix: entry.matrix,
+                    wordArr: entry.wordArr,
+                    isStabilizer: true,
+                    face: null
+                });
+                continue;
+            }
+
+            const bisector = getBisectorSphere(basepoint, orbitPt);
+
+            if (!isFaceRedundant(bisector, acceptedFaces, acceptedFaces.length, basepoint)) {
+                const faceIndex = acceptedFaces.length;
+                acceptedFaces.push(bisector);
+                pairings.push({
+                    matrix: entry.matrix,
+                    wordArr: entry.wordArr,
+                    face: bisector,
+                    faceIndex,
+                    isParabolic: orbitPt.lengthSq() > 0.9025,
+                    isStabilizer: false
+                });
+                newFacesThisDepth++;
+            }
+        }
+
+        // 5. EARLY TERMINATION
+        if (newFacesThisDepth === 0) {
+            depthsWithoutNewFace++;
+            if (depthsWithoutNewFace >= barrenLimit) break;
+        } else {
+            depthsWithoutNewFace = 0;
+        }
+
+        if (acceptedFaces.length >= maxFaces) break;
+    }
+
+    // Package results into the 256-entry buffer
+    const count = acceptedFaces.length;
+    for (let i = 0; i < 256; i++) {
+        if (i < count) {
+            _paddedBuffer[i].copy(acceptedFaces[i]);
+        } else {
+            _paddedBuffer[i].set(10, 0, 0, 0.1);
         }
     }
 
-    // Sort by geodesic distance to the basepoint
-    faces.sort((f1, f2) => {
-        const c1 = new THREE.Vector3(f1.x, f1.y, f1.z);
-        const r1 = Math.abs(f1.w);
-        const d1 = Math.abs(c1.distanceTo(startQ) - r1);
-
-        const c2 = new THREE.Vector3(f2.x, f2.y, f2.z);
-        const r2 = Math.abs(f2.w);
-        const d2 = Math.abs(c2.distanceTo(startQ) - r2);
-
-        return d1 - d2;
-    });
-
-    const totalBuffer = 256;
-    const actualCount = Math.min(maxFaces, faces.length);
-    const result = faces.slice(0, actualCount);
-
-    while (result.length < totalBuffer) {
-        result.push(new THREE.Vector4(10, 0, 0, 0.1));
-    }
-    return { faces: result, count: actualCount };
+    return { faces: _paddedBuffer, count, pairings, stabilizers };
 }
 
 /**
@@ -334,127 +494,6 @@ export function reduceWord(wordArr) {
     return result;
 }
 
-/**
- * Find standard generators: group elements that map the polyhedron to share a face with itself.
- * These are the elements g such that the bisector between basepoint and g(basepoint)
- * is a face of the Dirichlet domain.
- * @param {Matrix2x2[]} generators - Array of generators (including inverses)
- * @param {Matrix2x2} viewMat - Current view matrix
- * @param {number} maxFaces - Maximum number of faces to consider
- * @returns {Array} Array of {matrix, word, face, isStabilizer} objects
- */
-export function getStdGenerators(generators = [], viewMat = new Matrix2x2(1, 0, 0, 1), maxFaces = 100) {
-    if (!generators || generators.length === 0) {
-        return [];
-    }
-
-    const numGens = generators.length;
-    const halfGens = numGens / 2;  // Generators are [g1, g2, ..., g1^-1, g2^-1, ...]
-
-    const queue = [{ matrix: viewMat, depth: 0, wordArr: [], lastGenIdx: -1 }];
-    const allCandidates = [];  // All potential face-pairing elements
-    const stabilizers = [];     // Elements that fix the basepoint
-    const seenMatrices = new Set();
-    const seenFaces = new Set();
-
-    const startQ = uhsToBall(imageOfOriginUHS(viewMat));
-    seenMatrices.add(exploreMatrixKey(viewMat));
-
-    let head = 0;
-    while (head < queue.length) {
-        const { matrix, depth, wordArr, lastGenIdx } = queue[head++];
-        if (depth >= 8) continue;
-
-        for (let i = 0; i < numGens; i++) {
-            // Skip if this generator is the inverse of the last one (aA, Aa, bB, Bb, etc.)
-            if (lastGenIdx >= 0) {
-                const isInversePair = (lastGenIdx < halfGens && i === lastGenIdx + halfGens) ||
-                    (lastGenIdx >= halfGens && i === lastGenIdx - halfGens);
-                if (isInversePair) continue;
-            }
-
-            const g = generators[i];
-            const next = matrix.mul(g);
-            const matKey = exploreMatrixKey(next);
-            // Use indices for labels: positive for generators, negative for inverses
-            // This allows easy MathJax formatting later: g_1, g_1^{-1}, etc.
-            const genIdx = i < halfGens ? (i + 1) : -(i - halfGens + 1);
-            const nextWordArr = [...wordArr, genIdx];
-
-            if (!seenMatrices.has(matKey)) {
-                seenMatrices.add(matKey);
-                queue.push({ matrix: next, depth: depth + 1, wordArr: nextWordArr, lastGenIdx: i });
-
-                const q = uhsToBall(imageOfOriginUHS(next));
-                const distSq = q.clone().sub(startQ).lengthSq();
-                const qLength = q.length();
-
-                // Check if this is a stabilizer (fixes basepoint)
-                if (distSq < 1e-8) {
-                    stabilizers.push({
-                        matrix: next,
-                        wordArr: nextWordArr,
-                        isStabilizer: true,
-                        face: null,
-                        distance: 0
-                    });
-                } else {
-                    // For parabolic elements (orbit point near boundary), use the direction
-                    // to the ideal point as the key. This ensures only one element per cusp
-                    // (powers of the same parabolic all approach the same ideal point).
-                    let faceKey;
-                    if (qLength > 0.95) {
-                        // Near boundary - use normalized direction with low precision
-                        const dir = q.clone().normalize();
-                        faceKey = `dir:${dir.x.toFixed(2)},${dir.y.toFixed(2)},${dir.z.toFixed(2)}`;
-                    } else {
-                        // Interior point - use position with high precision
-                        faceKey = `pos:${q.x.toFixed(5)},${q.y.toFixed(5)},${q.z.toFixed(5)}`;
-                    }
-
-                    if (!seenFaces.has(faceKey)) {
-                        seenFaces.add(faceKey);
-                        const face = getBisectorSphere(startQ, q);
-
-                        // Calculate distance from basepoint to face
-                        const faceCenter = new THREE.Vector3(face.x, face.y, face.z);
-                        const faceRadius = Math.abs(face.w);
-                        const distToFace = Math.abs(faceCenter.distanceTo(startQ) - faceRadius);
-
-                        allCandidates.push({
-                            matrix: next,
-                            wordArr: nextWordArr,
-                            isStabilizer: false,
-                            face: face,
-                            distance: distToFace,
-                            isParabolic: qLength > 0.95
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    // Sort candidates by distance to basepoint (closest faces are visible)
-    allCandidates.sort((a, b) => a.distance - b.distance);
-
-    // Take only the first maxFaces - these are the actual visible faces
-    const visibleFaces = allCandidates.slice(0, maxFaces);
-
-    // Combine stabilizers with visible face pairings
-    const result = [...stabilizers, ...visibleFaces];
-
-    // Sort by word length, then by first generator index
-    result.sort((a, b) => {
-        if (a.wordArr.length !== b.wordArr.length) return a.wordArr.length - b.wordArr.length;
-        for (let i = 0; i < a.wordArr.length; i++) {
-            if (a.wordArr[i] !== b.wordArr[i]) return a.wordArr[i] - b.wordArr[i];
-        }
-        return 0;
-    });
-
-    return result;
-}
 
 /**
  * Create a normalized key for a matrix in PSL(2,C).

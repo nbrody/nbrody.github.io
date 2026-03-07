@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="2D top-down mini golf game with 9 holes. Click, drag back, and release to putt!">
+    <title>Mini Golf</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Title / Menu overlay -->
+    <div id="menu-overlay">
+        <div class="menu-card">
+            <h1 class="menu-title">MINI GOLF</h1>
+            <p class="menu-sub">Click • Drag • Putt</p>
+            <button id="start-btn" class="glow-btn">PLAY</button>
+        </div>
+    </div>
+
+    <!-- In-game HUD -->
+    <div id="hud" class="hidden">
+        <div class="hud-item">
+            <span class="hud-label">HOLE</span>
+            <span class="hud-value" id="hole-num">1</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">PAR</span>
+            <span class="hud-value" id="hole-par">3</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">STROKES</span>
+            <span class="hud-value" id="stroke-count">0</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">TOTAL</span>
+            <span class="hud-value" id="total-strokes">0</span>
+        </div>
+    </div>
+
+    <!-- Hole Complete overlay -->
+    <div id="hole-overlay" class="hidden">
+        <div class="menu-card">
+            <div class="win-stars" id="hole-stars">★★★</div>
+            <h1 class="win-title" id="hole-result-text">Birdie!</h1>
+            <p class="win-stats" id="hole-stats"></p>
+            <button id="next-hole-btn" class="glow-btn">NEXT HOLE</button>
+        </div>
+    </div>
+
+    <!-- Game Over / Scorecard overlay -->
+    <div id="score-overlay" class="hidden">
+        <div class="menu-card wide">
+            <h1 class="win-title">SCORECARD</h1>
+            <div id="scorecard"></div>
+            <div class="final-score">
+                <span class="info-label">FINAL SCORE</span>
+                <span class="info-value" id="final-score">0</span>
+            </div>
+            <button id="play-again-btn" class="glow-btn">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <!-- Game canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Floating menu button -->
+    <button id="back-btn" class="icon-btn hidden" title="Menu">☰</button>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

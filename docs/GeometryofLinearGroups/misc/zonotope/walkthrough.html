@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Longest Word — A Walkthrough</title>
+    <meta name="description"
+        content="An interactive walkthrough connecting reduced words in symmetric groups, rhombus tilings, and monotone paths in the n-cube.">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})"></script>
+    <style>
+        /* ── Reset & Base ──────────────────────────── */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #080c18;
+            --surface: #0f1629;
+            --panel: rgba(15, 22, 41, 0.88);
+            --border: rgba(100, 120, 255, 0.12);
+            --text: #f1f5f9;
+            --dim: #94a3b8;
+            --accent: #6e8efb;
+            --accent2: #a777e3;
+            --gold: #f5b942;
+            --glow: rgba(110, 142, 251, 0.2);
+            --radius: 14px;
+            --font: 'Inter', -apple-system, sans-serif;
+            --mono: 'JetBrains Mono', monospace;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        /* ── Layout: two-panel ──────────────────────── */
+        #app {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #narrative-panel {
+            width: 420px;
+            min-width: 340px;
+            max-width: 480px;
+            height: 100vh;
+            overflow: hidden;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 20;
+            position: relative;
+        }
+
+        #canvas-panel {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        /* ── Narrative Header ──────────────────────── */
+        #narrative-header {
+            padding: 24px 28px 16px;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(110, 142, 251, 0.06) 0%, transparent 100%);
+        }
+
+        #narrative-header h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        #narrative-header .subtitle {
+            font-size: 0.78rem;
+            color: var(--dim);
+            margin-top: 2px;
+            font-weight: 300;
+            letter-spacing: 0.06em;
+        }
+
+        /* ── Slide Viewport ────────────────────────── */
+        #slide-viewport {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .slide {
+            position: absolute;
+            inset: 0;
+            padding: 28px 28px 80px;
+            overflow-y: auto;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+            pointer-events: none;
+        }
+
+        .slide.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: all;
+        }
+
+        .slide.exit-up {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+
+        .slide.exit-down {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .slide.enter-from-below {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: none;
+        }
+
+        .slide.enter-from-above {
+            opacity: 0;
+            transform: translateY(-30px);
+            transition: none;
+        }
+
+        /* ── Slide Content ─────────────────────────── */
+        .slide h2 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 14px;
+            letter-spacing: 0.01em;
+        }
+
+        .slide p {
+            margin-bottom: 14px;
+            color: var(--text);
+            font-size: 0.92rem;
+            line-height: 1.72;
+        }
+
+        .slide .lead {
+            font-size: 1.02rem;
+            color: var(--text);
+            font-weight: 400;
+            line-height: 1.75;
+        }
+
+        .slide .dim {
+            color: var(--dim);
+        }
+
+        .slide .highlight {
+            color: var(--gold);
+            font-weight: 500;
+        }
+
+        .slide .accent {
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .separator {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border), transparent);
+            margin: 18px 0;
+        }
+
+        /* Reveal lists */
+        .reveal-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .reveal-list li {
+            opacity: 0;
+            transform: translateX(-12px);
+            transition: opacity 0.4s, transform 0.4s;
+            padding: 6px 0 6px 18px;
+            position: relative;
+            font-size: 0.9rem;
+            color: var(--dim);
+        }
+
+        .reveal-list li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .reveal-list li.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Interactive prompts */
+        .interact-prompt {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            padding: 8px 14px;
+            background: rgba(110, 142, 251, 0.1);
+            border: 1px solid rgba(110, 142, 251, 0.2);
+            border-radius: 8px;
+            font-size: 0.82rem;
+            color: var(--accent);
+            cursor: pointer;
+            transition: all 0.2s;
+            animation: pulse-border 2s ease-in-out infinite;
+        }
+
+        .interact-prompt:hover {
+            background: rgba(110, 142, 251, 0.18);
+            border-color: var(--accent);
+        }
+
+        @keyframes pulse-border {
+
+            0%,
+            100% {
+                border-color: rgba(110, 142, 251, 0.2);
+            }
+
+            50% {
+                border-color: rgba(110, 142, 251, 0.5);
+            }
+        }
+
+        /* Math blocks */
+        .math-block {
+            background: rgba(110, 142, 251, 0.06);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin: 14px 0;
+            text-align: center;
+            font-size: 1.05rem;
+        }
+
+        .word-display {
+            font-family: var(--mono);
+            font-size: 0.88rem;
+            color: var(--accent);
+            background: rgba(110, 142, 251, 0.08);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin: 10px 0;
+            word-break: break-all;
+            line-height: 1.8;
+        }
+
+        /* ── Navigation Bar ────────────────────────── */
+        #slide-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 24px;
+            border-top: 1px solid var(--border);
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+        }
+
+        .nav-btn {
+            padding: 8px 18px;
+            font-size: 0.82rem;
+            font-family: var(--font);
+            font-weight: 500;
+            color: var(--text);
+            background: rgba(20, 20, 50, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover {
+            background: rgba(40, 40, 80, 0.8);
+            border-color: var(--accent);
+            box-shadow: 0 0 10px var(--glow);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .nav-btn.primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-color: transparent;
+            color: white;
+        }
+
+        .progress-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .progress-dots .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(100, 120, 255, 0.2);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .progress-dots .dot.active {
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--glow);
+            transform: scale(1.2);
+        }
+
+        .progress-dots .dot:hover {
+            background: rgba(100, 120, 255, 0.5);
+        }
+
+        /* ── Canvas overlay badges ─────────────────── */
+        #canvas-badge {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 16px;
+            backdrop-filter: blur(10px);
+            font-size: 0.78rem;
+            color: var(--dim);
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        #canvas-badge .badge-label {
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* n-selector inline */
+        .n-selector {
+            display: flex;
+            gap: 6px;
+            margin: 10px 0;
+        }
+
+        .n-selector button {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(20, 20, 50, 0.5);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .n-selector button:hover {
+            border-color: var(--accent);
+            background: rgba(40, 40, 80, 0.6);
+        }
+
+        .n-selector button.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Scrollbar */
+        .slide::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .slide::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .slide::-webkit-scrollbar-thumb {
+            background: rgba(100, 120, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        @media (max-width: 800px) {
+            #app {
+                flex-direction: column;
+            }
+
+            #narrative-panel {
+                width: 100%;
+                max-width: 100%;
+                height: 45vh;
+                min-width: unset;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            #canvas-panel {
+                height: 55vh;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <!-- LEFT: Narrative panel with slides -->
+        <div id="narrative-panel">
+            <div id="narrative-header">
+                <h1>The Longest Word</h1>
+                <p class="subtitle">Factorizations, tilings, and the symmetric group</p>
+            </div>
+
+            <div id="slide-viewport">
+                <!-- SLIDE 0: The Reversal Permutation -->
+                <div class="slide active" data-slide="0" data-canvas="perm-intro">
+                    <h2>The Reversal</h2>
+                    <p class="lead">Consider the simplest dramatic thing you can do to a sequence: <span
+                            class="highlight">reverse it</span>.</p>
+                    <div class="math-block">$w_0 : (1, 2, 3, \ldots, n) \;\mapsto\; (n, \ldots, 3, 2, 1)$</div>
+                    <p>This is the <span class="accent">longest element</span> $w_0$ of the symmetric group $S_n$. It
+                        sends every element as far away as possible from where it started.</p>
+                    <div class="separator"></div>
+                    <p>Can we build $w_0$ from simpler pieces? The symmetric group is generated by <span
+                            class="highlight">adjacent transpositions</span>:</p>
+                    <div class="math-block">$s_i \;:\; i \leftrightarrow i\!+\!1$</div>
+                    <p class="dim">Choose $n$ to explore:</p>
+                    <div class="n-selector" id="n-selector">
+                        <button data-n="3">3</button>
+                        <button data-n="4" class="active">4</button>
+                        <button data-n="5">5</button>
+                        <button data-n="6">6</button>
+                    </div>
+                </div>
+
+                <!-- SLIDE 1: Building a Factorization -->
+                <div class="slide" data-slide="1" data-canvas="build-word">
+                    <h2>Factorizing $w_0$</h2>
+                    <p class="lead">We need to write $w_0$ as a product of adjacent transpositions $s_i$, using as few
+                        as possible.</p>
+                    <p>For $n = 4$, the reversal $(1234) \to (4321)$ requires exactly <span
+                            class="highlight">$\binom{n}{2} = 6$</span> swaps — one for each pair of elements that need
+                        to cross.</p>
+                    <div class="separator"></div>
+                    <p>Here is one way to do it. Read right to left:</p>
+                    <div class="word-display" id="word-display-1">s₁ · s₂ · s₁ · s₃ · s₂ · s₁</div>
+                    <p class="dim">Each $s_i$ swaps neighbors $i$ and $i\!+\!1$. The <span class="accent">arc
+                            diagram</span> to the right shows each crossing.</p>
+                    <div class="interact-prompt" id="show-other-word">✦ See a different factorization</div>
+                </div>
+
+                <!-- SLIDE 2: Are all factorizations equivalent? -->
+                <div class="slide" data-slide="2" data-canvas="two-words">
+                    <h2>Many Factorizations</h2>
+                    <p class="lead">There are <em>many</em> reduced words for $w_0$. For $n = 4$, there are <span
+                            class="highlight">16</span> of them.</p>
+                    <p>A natural question arises:</p>
+                    <div class="math-block"
+                        style="border-color: rgba(245,185,66,0.3); background: rgba(245,185,66,0.06);">
+                        Can any two reduced factorizations be connected by <em>local moves</em>?
+                    </div>
+                    <p>There are two kinds of local moves on reduced words:</p>
+                    <ul class="reveal-list" id="moves-list">
+                        <li><span class="accent">Commutation:</span> $s_i s_j = s_j s_i$ when $|i - j| \geq 2$</li>
+                        <li><span class="highlight">Braid move:</span> $s_i s_{i+1} s_i = s_{i+1} s_i s_{i+1}$</li>
+                    </ul>
+                    <div class="separator"></div>
+                    <p><strong>Matsumoto's Theorem:</strong> <em>Yes!</em> Any two reduced words for $w_0$ are connected
+                        by a sequence of commutation and braid moves.</p>
+                    <p class="dim">But what does the space of all such factorizations <em>look like</em>?</p>
+                </div>
+
+                <!-- SLIDE 3: Tilings enter the picture -->
+                <div class="slide" data-slide="3" data-canvas="tiling-intro">
+                    <h2>Enter: Rhombus Tilings</h2>
+                    <p class="lead">There is a beautiful bijection between reduced words for $w_0 \in S_n$ and <span
+                            class="highlight">rhombus tilings</span> of the regular $2n$-gon.</p>
+                    <p>Each tiling decomposes the $2n$-gon into $\binom{n}{2}$ rhombi — exactly one for each pair of
+                        vectors.</p>
+                    <div class="separator"></div>
+                    <ul class="reveal-list" id="tiling-facts">
+                        <li>Each <span class="accent">rhombus</span> corresponds to a transposition $s_i$ in the word
+                        </li>
+                        <li>Reading order through the tiling gives the factorization</li>
+                        <li>A <span class="highlight">braid move</span> $s_i s_{i+1} s_i \leftrightarrow s_{i+1} s_i
+                            s_{i+1}$ corresponds to <em>flipping a cube</em></li>
+                    </ul>
+                    <div class="separator"></div>
+                    <div class="interact-prompt" id="try-flip">⟳ Click a highlighted vertex on the tiling to flip</div>
+                </div>
+
+                <!-- SLIDE 4: Monotone paths in the n-cube -->
+                <div class="slide" data-slide="4" data-canvas="cube-paths">
+                    <h2>Paths in the $n$-Cube</h2>
+                    <p class="lead">There is another way to see these tilings: as <span class="accent">monotone
+                            paths</span> across a projected $n$-cube.</p>
+                    <p>The $2n$-gon is the image of the $n$-cube under a projection $\mathbb{R}^n \to \mathbb{R}^2$.
+                        Each tiling lifts to a <span class="highlight">monotone path</span> from the "top" vertex
+                        $(1,1,\ldots,1)$ to the "bottom" vertex $(0,0,\ldots,0)$.</p>
+                    <div class="separator"></div>
+                    <ul class="reveal-list" id="path-facts">
+                        <li>The <span class="accent">top tiling</span> corresponds to one extremal path</li>
+                        <li>The <span class="accent">bottom tiling</span> corresponds to the other</li>
+                        <li>All paths are connected by <span class="highlight">square flips</span> — crossing a 2-face
+                            of the cube</li>
+                    </ul>
+                    <div class="separator"></div>
+                    <p>The graph of all tilings, connected by flips, is a <span class="highlight">flip graph</span> —
+                        and it is always connected. This is precisely the content of Matsumoto's Theorem, seen
+                        geometrically!</p>
+                    <div class="interact-prompt" id="animate-full-path">▶ Animate top → bottom path</div>
+                </div>
+
+                <!-- SLIDE 5: The Big Picture / Lab -->
+                <div class="slide" data-slide="5" data-canvas="lab">
+                    <h2>Explore</h2>
+                    <p class="lead">You now have a complete picture connecting three worlds:</p>
+                    <ul class="reveal-list" id="summary-list">
+                        <li><span class="accent">Algebra:</span> Reduced words for $w_0 \in S_n$</li>
+                        <li><span class="highlight">Combinatorics:</span> Rhombus tilings of the $2n$-gon</li>
+                        <li><span class="accent">Geometry:</span> Monotone paths in the $n$-cube</li>
+                    </ul>
+                    <div class="separator"></div>
+                    <p class="dim">Use the canvas to freely explore. Click vertices to flip, toggle the arc diagram to
+                        see the word, or animate through all tilings.</p>
+                    <div class="n-selector" id="n-selector-lab">
+                        <button data-n="3">3</button>
+                        <button data-n="4" class="active">4</button>
+                        <button data-n="5">5</button>
+                        <button data-n="6">6</button>
+                        <button data-n="7">7</button>
+                        <button data-n="8">8</button>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+                        <div class="interact-prompt" id="lab-top">⬆ Top</div>
+                        <div class="interact-prompt" id="lab-bottom">⬇ Bottom</div>
+                        <div class="interact-prompt" id="lab-random">⟳ Random</div>
+                        <div class="interact-prompt" id="lab-arc">⌒ Arc Diagram</div>
+                        <div class="interact-prompt" id="lab-animate">▶ Animate</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <div id="slide-nav">
+                <button class="nav-btn" id="prev-btn" disabled>← Back</button>
+                <div class="progress-dots" id="progress-dots"></div>
+                <button class="nav-btn primary" id="next-btn">Next →</button>
+            </div>
+        </div>
+
+        <!-- RIGHT: Canvas panel -->
+        <div id="canvas-panel">
+            <canvas id="zonotope-canvas"></canvas>
+            <div id="canvas-badge">
+                <div class="badge-label">Visualization</div>
+                <div id="badge-text">Tiling · n = 4</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (() => {
+            'use strict';
+            const PI = Math.PI, TAU = 2 * PI;
+            const $ = id => document.getElementById(id);
+
+            // ── WALKTHROUGH STATE ─────────────────────────────────
+            let currentSlide = 0;
+            const totalSlides = 6;
+            const slides = document.querySelectorAll('.slide');
+
+            // Build progress dots
+            const dotsEl = $('progress-dots');
+            for (let i = 0; i < totalSlides; i++) {
+                const d = document.createElement('div');
+                d.className = 'dot' + (i === 0 ? ' active' : '');
+                d.addEventListener('click', () => goToSlide(i));
+                dotsEl.appendChild(d);
+            }
+
+            function resetSlideAnimations(slideEl) {
+                slideEl.querySelectorAll('.reveal-list li, .stagger').forEach(el => el.classList.remove('visible'));
+            }
+            function triggerSlideAnimations(slideEl) {
+                slideEl.querySelectorAll('.reveal-list li').forEach((li, i) => setTimeout(() => li.classList.add('visible'), 300 + i * 250));
+            }
+
+            function goToSlide(index) {
+                if (index < 0 || index >= totalSlides || index === currentSlide) return;
+                const prev = slides[currentSlide];
+                const next = slides[index];
+                const forward = index > currentSlide;
+
+                resetSlideAnimations(prev);
+                prev.classList.remove('active');
+                prev.classList.add(forward ? 'exit-up' : 'exit-down');
+                setTimeout(() => prev.classList.remove('exit-up', 'exit-down'), 600);
+
+                const entryClass = forward ? 'enter-from-below' : 'enter-from-above';
+                next.classList.add(entryClass);
+                void next.offsetHeight;
+                next.classList.remove(entryClass);
+                next.classList.add('active');
+
+                currentSlide = index;
+                $('prev-btn').disabled = index === 0;
+                $('next-btn').disabled = index === totalSlides - 1;
+                dotsEl.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === index));
+
+                // Sync canvas to slide
+                syncCanvasToSlide(index);
+                triggerSlideAnimations(next);
+            }
+
+            $('prev-btn').addEventListener('click', () => goToSlide(currentSlide - 1));
+            $('next-btn').addEventListener('click', () => goToSlide(currentSlide + 1));
+
+            // Keyboard navigation
+            document.addEventListener('keydown', e => {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); goToSlide(currentSlide + 1); }
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); goToSlide(currentSlide - 1); }
+            });
+
+            // ── ZONOTOPE ENGINE (from zonotope.js) ────────────────
+            let n = 4, vectors = [], tiles = [], currentWord = [], flipCount = 0, animating = false;
+            let vx = 0, vy = 0, vs = 1, dragging = false, dsx = 0, dsy = 0, dvx = 0, dvy = 0;
+            const canvas = $('zonotope-canvas'), ctx = canvas.getContext('2d');
+            let dpr = 1, flippableVerts = [], flipAnim = null, onFlipDone = null, pathAnimActive = false, hoveredVert = null;
+            let morphProgress = 0, morphTarget = 0, morphAnim = null;
+            let showWalls = false, showZones = false, showFlippable = true, colorMode = 'depth';
+
+            function strandHue(k) { return (k / n) * 330 + 30; }
+            function tileHSL(i, j) {
+                const a = Math.min(i, j), b = Math.max(i, j), k = a * (2 * n - a - 1) / 2 + (b - a - 1);
+                if (colorMode === 'monochrome') return [230, 12, 25 + (k % 5) * 8];
+                if (colorMode === 'depth') { const t = (b - a) / (n - 1); return [210 + t * 140, 45 + t * 30, 28 + t * 18]; }
+                const h = (k / (n * (n - 1) / 2)) * 330 + 195;
+                return [h % 360, 55 + 15 * Math.sin(k * 1.2), 34 + 8 * Math.cos(k * 0.7)];
+            }
+            function tileColor(i, j) { const [h, s, l] = tileHSL(i, j); return `hsl(${h}, ${s}%, ${l * ((showWalls || showZones) ? 0.8 : 1)}%)`; }
+            function tileColorBright(i, j) { const [h, s, l] = tileHSL(i, j); return `hsl(${h}, ${Math.min(95, s + 20)}%, ${Math.min(70, l + 20)}%)`; }
+
+            function computeVectors() { vectors = []; for (let k = 0; k < n; k++) vectors.push([Math.cos(PI * k / n), Math.sin(PI * k / n)]); }
+            function topWord() { const w = []; for (let k = 0; k < n - 1; k++) for (let j = k; j >= 0; j--) w.push(j); return w; }
+            function bottomWord() { const w = []; for (let k = n - 2; k >= 0; k--) for (let j = k; j <= n - 2; j++) w.push(j); return w; }
+
+            function computeTiles(w) {
+                currentWord = [...w];
+                const res = [], wireAt = Array.from({ length: n }, (_, i) => i);
+                let cx = 0, cy = 0; for (let k = 0; k < n; k++) { cx += vectors[k][0]; cy += vectors[k][1]; }
+                cx /= 2; cy /= 2;
+                const front = new Array(n + 1); front[0] = [-cx, -cy];
+                for (let k = 0; k < n; k++) front[k + 1] = [front[k][0] + vectors[wireAt[k]][0], front[k][1] + vectors[wireAt[k]][1]];
+                for (const s of w) {
+                    const a = wireAt[s], b = wireAt[s + 1], f = front[s], va = vectors[a], vb = vectors[b];
+                    res.push({ i: Math.min(a, b), j: Math.max(a, b), verts: [[f[0], f[1]], [f[0] + va[0], f[1] + va[1]], [f[0] + va[0] + vb[0], f[1] + va[1] + vb[1]], [f[0] + vb[0], f[1] + vb[1]]] });
+                    front[s + 1] = [f[0] + vb[0], f[1] + vb[1]]; wireAt[s] = b; wireAt[s + 1] = a;
+                }
+                return res;
+            }
+            function vkey(x, y) { return `${Math.round(x * 2000)},${Math.round(y * 2000)}`; }
+            function detectFillType(V, threeTiles, dirs) {
+                let count = 0;
+                for (const d of dirs) { const vd = vectors[d], tx = V[0] + vd[0], ty = V[1] + vd[1]; for (const t of threeTiles) for (const p of t.verts) if (Math.abs(p[0] - tx) < 0.005 && Math.abs(p[1] - ty) < 0.005) { count++; break; } }
+                return count === 3 ? 'A' : 'B';
+            }
+            function findFlippable(list) {
+                const res = [], vMap = new Map();
+                for (let ti = 0; ti < list.length; ti++) for (const v of list[ti].verts) { const k = vkey(v[0], v[1]); if (!vMap.has(k)) vMap.set(k, new Set()); vMap.get(k).add(ti); }
+                let bx = 0, by = 0; for (let k = 0; k < n; k++) { bx -= vectors[k][0] / 2; by -= vectors[k][1] / 2; }
+                const bv = new Set();
+                for (let k = 0; k < n; k++) { bv.add(vkey(bx, by)); bx += vectors[k][0]; by += vectors[k][1]; }
+                for (let k = 0; k < n; k++) { bv.add(vkey(bx, by)); bx -= vectors[k][0]; by -= vectors[k][1]; }
+                for (const [key, tSet] of vMap) {
+                    if (bv.has(key)) continue; const unique = [...tSet]; if (unique.length !== 3) continue;
+                    const dSet = new Set(); for (const ti of unique) { dSet.add(list[ti].i); dSet.add(list[ti].j); }
+                    if (dSet.size !== 3) continue;
+                    const d = [...dSet].sort((a, b) => a - b), pts = key.split(','), px = parseFloat(pts[0]) / 2000, py = parseFloat(pts[1]) / 2000;
+                    res.push({ x: px, y: py, key, tileIndices: unique, dirs: d, fillType: detectFillType([px, py], unique.map(ti => list[ti]), d) });
+                }
+                return res;
+            }
+            function computeFlipResult(V, threeTiles) {
+                const vk = vkey(V[0], V[1]), bnd = new Map();
+                for (const t of threeTiles) for (const p of t.verts) if (vkey(p[0], p[1]) !== vk) bnd.set(vkey(p[0], p[1]), p);
+                const P = [...bnd.values()]; let mx = 0, my = 0; for (const p of P) { mx += p[0]; my += p[1]; } mx /= 6; my /= 6;
+                P.sort((a, b) => Math.atan2(a[1] - my, a[0] - mx) - Math.atan2(b[1] - my, b[0] - mx));
+                const isN = new Array(6).fill(false);
+                for (const t of threeTiles) for (let i = 0; i < 4; i++) { const c = t.verts[i]; if (Math.abs(c[0] - V[0]) > 0.005 || Math.abs(c[1] - V[1]) > 0.005) continue; const n1 = t.verts[(i + 1) % 4], n2 = t.verts[(i + 3) % 4]; for (let bi = 0; bi < 6; bi++) { if (Math.abs(P[bi][0] - n1[0]) < 0.005 && Math.abs(P[bi][1] - n1[1]) < 0.005) isN[bi] = true; if (Math.abs(P[bi][0] - n2[0]) < 0.005 && Math.abs(P[bi][1] - n2[1]) < 0.005) isN[bi] = true; } }
+                let off = 0; for (let i = 0; i < 6; i++) if (isN[i] && !isN[(i + 5) % 6]) { off = i; break; }
+                const SortedP = []; for (let i = 0; i < 6; i++) SortedP.push(P[(i + off) % 6]);
+                const Vp = [SortedP[0][0] + SortedP[3][0] - V[0], SortedP[0][1] + SortedP[3][1] - V[1]];
+                const newTiles = [];
+                for (let k = 0; k < 3; k++) { const p1 = SortedP[(2 * k + 5) % 6], p2 = SortedP[2 * k], p3 = SortedP[2 * k + 1], p4 = Vp; const e1 = [p2[0] - p1[0], p2[1] - p1[1]], e2 = [p3[0] - p2[0], p3[1] - p2[1]]; let ti = -1, tj = -1; for (let d = 0; d < n; d++) { const vk2 = vectors[d]; if (Math.abs(e1[0] * vk2[1] - e1[1] * vk2[0]) < 0.001 && (e1[0] * vk2[0] + e1[1] * vk2[1]) !== 0) { if (ti < 0) ti = d; else tj = d; } if (Math.abs(e2[0] * vk2[1] - e2[1] * vk2[0]) < 0.001 && (e2[0] * vk2[0] + e2[1] * vk2[1]) !== 0) { if (ti < 0) ti = d; else if (tj < 0 && d !== ti) tj = d; } } if (ti > tj) [ti, tj] = [tj, ti]; newTiles.push({ i: ti, j: tj, verts: [p1, p2, p3, p4] }); }
+                return { newTiles, center: [(V[0] + Vp[0]) / 2, (V[1] + Vp[1]) / 2] };
+            }
+            function performFlip(fv, animate, cb) {
+                if (animating) return;
+                const { newTiles, center } = computeFlipResult([fv.x, fv.y], fv.tileIndices.map(ti => tiles[ti]));
+                if (animate) {
+                    animating = true;
+                    flipAnim = { progress: 0, duration: 450 / animSpeed, oldTiles: fv.tileIndices.map(ti => ({ i: tiles[ti].i, j: tiles[ti].j, verts: tiles[ti].verts })), newTiles, tileIndices: [...fv.tileIndices].sort((a, b) => b - a), center, startTime: performance.now(), fv };
+                    onFlipDone = cb;
+                } else {
+                    const sorted = [...fv.tileIndices].sort((a, b) => b - a); for (const i of sorted) tiles.splice(i, 1); tiles.push(...newTiles);
+                    updateWordOnFlip(fv); flipCount++; refreshFlippable(); updateBadge(); if (cb) cb();
+                }
+            }
+            function updateWordOnFlip(fv) {
+                const sortedTi = [...fv.tileIndices].sort((a, b) => a - b);
+                const s1 = currentWord[sortedTi[0]], s2 = currentWord[sortedTi[1]];
+                currentWord[sortedTi[0]] = s2; currentWord[sortedTi[1]] = s1; currentWord[sortedTi[2]] = s2;
+            }
+            function finishFlipAnim() {
+                if (!flipAnim) return; for (const i of flipAnim.tileIndices) tiles.splice(i, 1); tiles.push(...flipAnim.newTiles);
+                if (flipAnim.fv) updateWordOnFlip(flipAnim.fv);
+                flipAnim = null; animating = false; flipCount++; refreshFlippable(); updateBadge();
+                if (onFlipDone) { const c = onFlipDone; onFlipDone = null; c(); }
+            }
+            function randomWord() { let w = topWord(); for (let m = 0; m < n * n * 10; m++) { const p = Math.floor(Math.random() * (w.length - 1)); if (p < w.length - 2 && w[p] === w[p + 2] && Math.abs(w[p] - w[p + 1]) === 1) { const a = w[p], b = w[p + 1]; w[p] = b; w[p + 1] = a; w[p + 2] = b; } else if (Math.abs(w[p] - w[p + 1]) >= 2) [w[p], w[p + 1]] = [w[p + 1], w[p]]; } return w; }
+
+            function refreshFlippable() { flippableVerts = findFlippable(tiles); }
+            let animSpeed = 1;
+            function autoScale() {
+                let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+                for (const t of tiles) for (const v of t.verts) { x0 = Math.min(x0, v[0]); x1 = Math.max(x1, v[0]); y0 = Math.min(y0, v[1]); y1 = Math.max(y1, v[1]); }
+                const cw = canvas.width / dpr, ch = canvas.height / dpr, w = x1 - x0 || 1, h = y1 - y0 || 1;
+                vs = Math.min(cw / (w + 0.3), ch / (h + 0.3)) * 0.78; vx = 0; vy = 0;
+            }
+            function initEngine(fn) { computeVectors(); tiles = computeTiles(fn ? fn() : topWord()); flipCount = 0; refreshFlippable(); autoScale(); updateBadge(); }
+            function resize() { dpr = window.devicePixelRatio || 1; const p = $('canvas-panel'); canvas.width = p.clientWidth * dpr; canvas.height = p.clientHeight * dpr; canvas.style.width = p.clientWidth + 'px'; canvas.style.height = p.clientHeight + 'px'; }
+
+            function updateBadge() {
+                const wStr = currentWord.map(s => `s${s + 1}`).join('·');
+                $('badge-text').textContent = morphProgress > 0.5 ? `Arc Diagram · n = ${n}` : `${2 * n}-gon · ${n * (n - 1) / 2} rhombi · Flippable: ${flippableVerts.length}`;
+                const wd1 = $('word-display-1');
+                if (wd1) wd1.textContent = currentWord.map(s => `s${s + 1}`).join(' · ');
+            }
+
+            // ── ARC DIAGRAM ───────────────────────────────────────
+            function drawArcDiagram(c, alpha) {
+                if (currentWord.length === 0) return;
+                const W = canvas.width / dpr, H = canvas.height / dpr, padX = 60, padY = 80;
+                const strandSpacing = Math.max(28, Math.min(64, (H - 2 * padY) / (n - 1)));
+                const baseY = H / 2 + strandSpacing * (n - 1) / 2;
+                const letterSpacing = Math.max(10, Math.min(40, (W - 2 * padX) / (currentWord.length + 1)));
+                const startX = padX + letterSpacing * 0.5;
+                const sy = k => baseY - k * strandSpacing, sx = idx => startX + idx * letterSpacing;
+                c.save(); c.globalAlpha = alpha;
+                const perm = Array.from({ length: n }, (_, i) => i);
+                const arcs = currentWord.map((s, idx) => { const lo = perm[s], hi = perm[s + 1], yLo = sy(s), yHi = sy(s + 1), cx2 = sx(idx + 1), cy2 = (yLo + yHi) / 2, rx = letterSpacing * 0.46, ry = Math.abs(yLo - yHi) / 2, ci = Math.min(lo, hi);[perm[s], perm[s + 1]] = [perm[s + 1], perm[s]]; return { cx: cx2, cy: cy2, rx, ry, colorIdx: ci }; });
+                for (let k = 0; k < n; k++) { const y = sy(k), hue = strandHue(k); c.beginPath(); c.moveTo(padX * 0.4, y); c.lineTo(W - padX * 0.4, y); c.strokeStyle = `hsla(${hue},60%,50%,0.22)`; c.lineWidth = 1.5; c.setLineDash([4, 6]); c.stroke(); c.setLineDash([]); c.fillStyle = `hsla(${hue},80%,70%,0.85)`; c.font = `bold ${Math.min(14, strandSpacing * 0.38)}px Inter, sans-serif`; c.textAlign = 'right'; c.textBaseline = 'middle'; c.fillText(`${k + 1}`, padX * 0.35, y); }
+                const fp = Array.from({ length: n }, (_, i) => i); for (const s of currentWord) { [fp[s], fp[s + 1]] = [fp[s + 1], fp[s]]; }
+                for (let k = 0; k < n; k++) { const y = sy(k), sid = fp[k], hue = strandHue(sid); c.fillStyle = `hsla(${hue},85%,72%,0.85)`; c.font = `bold ${Math.min(14, strandSpacing * 0.38)}px Inter, sans-serif`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(`${sid + 1}`, W - padX * 0.3, y); }
+                for (const arc of arcs) { const { cx: cx2, cy: cy2, rx, ry, colorIdx } = arc; const hue = strandHue(colorIdx); c.shadowBlur = 12; c.shadowColor = `hsla(${hue},90%,65%,0.6)`; c.beginPath(); c.ellipse(cx2, cy2, rx, ry, 0, 0, TAU); c.strokeStyle = `hsla(${hue},88%,68%,0.85)`; c.lineWidth = 2.4; c.stroke(); c.shadowBlur = 0; c.beginPath(); c.arc(cx2, cy2, 3.5, 0, TAU); c.fillStyle = `hsla(${hue},90%,80%,0.9)`; c.fill(); }
+                for (let idx = 0; idx < currentWord.length; idx++) { const s = currentWord[idx], x = sx(idx + 1), y = baseY + 18; c.fillStyle = `hsla(${strandHue(s)},75%,65%,0.7)`; c.font = `${Math.min(11, strandSpacing * 0.28)}px Inter, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'top'; c.fillText(`s${s + 1}`, x, y); }
+                c.fillStyle = `rgba(160,170,255,${0.7 * alpha})`; c.font = '600 14px Inter, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'bottom'; c.fillText(`Reduced word for w₀ ∈ S${n}  ·  ${currentWord.length} crossings`, W / 2, H - 12);
+                c.restore();
+            }
+
+            // ── TILING DRAW ───────────────────────────────────────
+            function drawStrands() {
+                ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; const lw = 3.8 / vs;
+                for (let k = 0; k < n; k++) { const vk = vectors[k], hue = strandHue(k); ctx.strokeStyle = `hsla(${hue},85%,65%,0.85)`; ctx.lineWidth = lw; ctx.shadowBlur = 8; ctx.shadowColor = `hsla(${hue},85%,65%,0.4)`; for (const t of tiles) { if (t.i !== k && t.j !== k) continue; const m = []; for (let i = 0; i < 4; i++) { const p1 = t.verts[i], p2 = t.verts[(i + 1) % 4], dx = p2[0] - p1[0], dy = p2[1] - p1[1]; if (Math.abs(dx * vk[1] - dy * vk[0]) > 0.01) m.push([(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2]); } if (m.length >= 2) { ctx.beginPath(); ctx.moveTo(m[0][0], m[0][1]); ctx.lineTo(m[1][0], m[1][1]); ctx.stroke(); } } }
+                ctx.restore();
+            }
+            function drawSkeleton() {
+                ctx.save(); const ed = new Map(); for (const t of tiles) for (let k = 0; k < 4; k++) { const p1 = t.verts[k], p2 = t.verts[(k + 1) % 4], key = [vkey(p1[0], p1[1]), vkey(p2[0], p2[1])].sort().join('|'); if (!ed.has(key)) ed.set(key, [p1, p2]); }
+                ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1.3 / vs; for (const [p1, p2] of ed.values()) { ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.stroke(); } ctx.restore();
+            }
+            function drawBoundary() {
+                let bx = 0, by = 0; for (let k = 0; k < n; k++) { bx -= vectors[k][0] / 2; by -= vectors[k][1] / 2; }
+                ctx.beginPath(); ctx.moveTo(bx, by); for (let k = 0; k < n; k++) { bx += vectors[k][0]; by += vectors[k][1]; ctx.lineTo(bx, by); } for (let k = 0; k < n; k++) { bx -= vectors[k][0]; by -= vectors[k][1]; ctx.lineTo(bx, by); }
+                ctx.closePath(); ctx.strokeStyle = 'rgba(110,142,251,0.6)'; ctx.lineWidth = 2.5 / vs; ctx.stroke();
+            }
+
+            function renderTiling(alpha) {
+                if (alpha <= 0.001) return; const W = canvas.width, H = canvas.height; ctx.save(); ctx.globalAlpha = alpha;
+                ctx.translate(W / 2, H / 2); ctx.scale(dpr, dpr); ctx.translate(vx, vy); ctx.scale(vs, -vs);
+                const aSet = flipAnim ? new Set(flipAnim.tileIndices) : null;
+                for (let i = 0; i < tiles.length; i++) if (!aSet || !aSet.has(i)) { const t = tiles[i]; ctx.beginPath(); ctx.moveTo(t.verts[0][0], t.verts[0][1]); ctx.lineTo(t.verts[1][0], t.verts[1][1]); ctx.lineTo(t.verts[2][0], t.verts[2][1]); ctx.lineTo(t.verts[3][0], t.verts[3][1]); ctx.closePath(); ctx.fillStyle = tileColor(t.i, t.j); ctx.fill(); ctx.strokeStyle = 'rgba(160,170,255,0.2)'; ctx.lineWidth = 0.8 / vs; ctx.stroke(); }
+                if (flipAnim) { const e = flipAnim.progress < 0.5 ? 2 * flipAnim.progress ** 2 : 1 - (-2 * flipAnim.progress + 2) ** 2 / 2; const sa = Math.sin(e * PI), ca = Math.cos(e * PI), cx2 = flipAnim.center[0], cy2 = flipAnim.center[1]; for (const t of flipAnim.oldTiles) { ctx.beginPath(); for (let i = 0; i < 4; i++) { const dx = t.verts[i][0] - cx2, dy = t.verts[i][1] - cy2, rx = cx2 + dx * ca - dy * sa, ry = cy2 + dx * sa + dy * ca; if (i === 0) ctx.moveTo(rx, ry); else ctx.lineTo(rx, ry); } ctx.closePath(); ctx.fillStyle = tileColorBright(t.i, t.j); ctx.fill(); ctx.strokeStyle = 'rgba(225,230,255,0.6)'; ctx.lineWidth = 1.8 / vs; ctx.stroke(); } }
+                if (showWalls) drawStrands(); if (showZones) drawSkeleton(); drawBoundary();
+                if (showFlippable && !animating) { for (const f of flippableVerts) { const isH = hoveredVert === f, r = (isH ? 8 : 5.5) / vs; ctx.beginPath(); ctx.arc(f.x, f.y, r * 2.5, 0, TAU); ctx.fillStyle = isH ? 'rgba(110,142,251,0.25)' : 'rgba(110,142,251,0.1)'; ctx.fill(); ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, TAU); ctx.fillStyle = f.fillType === 'A' ? (isH ? 'rgba(130,160,255,1)' : 'rgba(100,135,245,0.85)') : (isH ? 'rgba(255,185,80,1)' : 'rgba(230,160,60,0.85)'); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.2 / vs; ctx.stroke(); } }
+                ctx.restore();
+            }
+
+            function render() {
+                const W = canvas.width, H = canvas.height; ctx.fillStyle = '#08081a'; ctx.fillRect(0, 0, W, H);
+                const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.5); g.addColorStop(0, 'rgba(60,50,120,0.1)'); g.addColorStop(1, 'rgba(8,8,26,0)');
+                ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+                const mp = morphProgress;
+                const tilingAlpha = mp < 0.5 ? 1 : 1 - (mp - 0.5) * 2;
+                renderTiling(tilingAlpha);
+                if (mp > 0.01) { const arcAlpha = mp < 0.5 ? mp * 2 : 1; ctx.save(); drawArcDiagram(ctx, arcAlpha); ctx.restore(); }
+            }
+
+            function startMorph(toArc) { morphTarget = toArc ? 1 : 0; morphAnim = { startTime: null, from: morphProgress, to: morphTarget, duration: 700 }; }
+            function updateMorph(now) { if (!morphAnim) return; if (!morphAnim.startTime) morphAnim.startTime = now; const t = Math.min(1, (now - morphAnim.startTime) / morphAnim.duration); const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; morphProgress = morphAnim.from + (morphAnim.to - morphAnim.from) * e; if (t >= 1) { morphProgress = morphAnim.to; morphAnim = null; } updateBadge(); }
+
+            let pathFlipType = null;
+            function startPath() { stopPath(); initEngine(topWord); if (flippableVerts.length === 0) return; pathFlipType = flippableVerts[0].fillType; pathAnimActive = true; setTimeout(pathStep, 300); }
+            function pathStep() { if (!pathAnimActive) return; const targets = flippableVerts.filter(v => v.fillType === pathFlipType); if (targets.length === 0) { stopPath(); return; } targets.sort((a, b) => (a.x * a.x + a.y * a.y) - (b.x * b.x + b.y * b.y)); performFlip(targets[0], true, () => { if (pathAnimActive) setTimeout(pathStep, Math.max(50, 200 / animSpeed)); }); }
+            function stopPath() { pathAnimActive = false; }
+
+            function screenToWorld(sx, sy) { const r = canvas.getBoundingClientRect(); let wx = sx - r.left - r.width / 2 - vx / dpr, wy = sy - r.top - r.height / 2 - vy / dpr; return [wx * dpr / vs / dpr, wy * dpr / -vs / dpr]; }
+
+            canvas.addEventListener('mousedown', e => { if (morphProgress > 0.5) return; dragging = true; dsx = e.clientX; dsy = e.clientY; dvx = vx; dvy = vy; });
+            canvas.addEventListener('mousemove', e => {
+                if (morphProgress > 0.5) { hoveredVert = null; return; } if (dragging) { vx = dvx + e.clientX - dsx; vy = dvy + e.clientY - dsy; return; } if (animating) { hoveredVert = null; return; }
+                const [wx, wy] = screenToWorld(e.clientX, e.clientY); let best = null, dMin = 12 / vs;
+                for (const f of flippableVerts) { const d = Math.hypot(f.x - wx, f.y - wy); if (d < dMin) { dMin = d; best = f; } } hoveredVert = best; canvas.style.cursor = best ? 'pointer' : 'crosshair';
+            });
+            canvas.addEventListener('mouseup', e => {
+                const drag = Math.abs(e.clientX - dsx) > 3 || Math.abs(e.clientY - dsy) > 3; dragging = false;
+                if (morphProgress > 0.5) return;
+                if (!drag && !animating) { const [wx, wy] = screenToWorld(e.clientX, e.clientY); let b = null, dm = 12 / vs; for (const f of flippableVerts) { const d = Math.hypot(f.x - wx, f.y - wy); if (d < dm) { dm = d; b = f; } } if (b) performFlip(b, true); }
+            });
+            canvas.addEventListener('wheel', e => { if (morphProgress > 0.5) return; e.preventDefault(); const f = e.deltaY > 0 ? 0.9 : 1.1, old = vs; vs = Math.max(0.1, Math.min(300, vs * f)); const r = canvas.getBoundingClientRect(), cx2 = e.clientX - r.left - r.width / 2, cy2 = e.clientY - r.top - r.height / 2; vx = cx2 - (cx2 - vx) * (vs / old); vy = cy2 - (cy2 - vy) * (vs / old); }, { passive: false });
+
+            // ── CANVAS-SLIDE SYNC ─────────────────────────────────
+            function setN(newN) {
+                n = newN; initEngine();
+                document.querySelectorAll('.n-selector button').forEach(b => b.classList.toggle('active', parseInt(b.dataset.n) === n));
+            }
+
+            function syncCanvasToSlide(idx) {
+                stopPath();
+                switch (idx) {
+                    case 0: // perm-intro: show arc diagram for n=4, top word
+                        showFlippable = false; showWalls = false; showZones = false;
+                        startMorph(true);
+                        break;
+                    case 1: // build-word: arc diagram, same n
+                        showFlippable = false; showWalls = false; showZones = false;
+                        startMorph(true);
+                        break;
+                    case 2: // two-words: still arc, emphasis on moves
+                        showFlippable = false; showWalls = false; showZones = false;
+                        if (morphProgress < 0.5) startMorph(true);
+                        break;
+                    case 3: // tiling-intro: morph BACK to tiling, show flippable
+                        showFlippable = true; showWalls = true; showZones = false;
+                        startMorph(false);
+                        break;
+                    case 4: // cube-paths: tiling with skeleton
+                        showFlippable = true; showWalls = false; showZones = true;
+                        startMorph(false);
+                        break;
+                    case 5: // lab: tiling, full controls
+                        showFlippable = true; showWalls = false; showZones = false;
+                        startMorph(false);
+                        break;
+                }
+                updateBadge();
+            }
+
+            // ── INTERACTIVE PROMPTS ───────────────────────────────
+            document.querySelectorAll('.n-selector button').forEach(btn => {
+                btn.addEventListener('click', () => setN(parseInt(btn.dataset.n)));
+            });
+
+            const showOther = $('show-other-word');
+            if (showOther) showOther.addEventListener('click', () => { initEngine(bottomWord); updateBadge(); });
+
+            const tryFlip = $('try-flip');
+            if (tryFlip) tryFlip.addEventListener('click', () => { /* just a hint, user clicks canvas */ });
+
+            const animBtn = $('animate-full-path');
+            if (animBtn) animBtn.addEventListener('click', () => startPath());
+
+            // Lab controls
+            const labTop = $('lab-top'); if (labTop) labTop.addEventListener('click', () => initEngine(topWord));
+            const labBottom = $('lab-bottom'); if (labBottom) labBottom.addEventListener('click', () => initEngine(bottomWord));
+            const labRandom = $('lab-random'); if (labRandom) labRandom.addEventListener('click', () => initEngine(randomWord));
+            const labArc = $('lab-arc'); if (labArc) labArc.addEventListener('click', () => startMorph(morphProgress < 0.5));
+            const labAnimate = $('lab-animate'); if (labAnimate) labAnimate.addEventListener('click', () => startPath());
+
+            // ── BOOT ──────────────────────────────────────────────
+            window.addEventListener('resize', () => { resize(); autoScale(); });
+            resize(); initEngine();
+            syncCanvasToSlide(0);
+            triggerSlideAnimations(slides[0]);
+
+            requestAnimationFrame(function L(t) {
+                updateMorph(t);
+                if (flipAnim) { flipAnim.progress = Math.min(1, (t - flipAnim.startTime) / flipAnim.duration); if (flipAnim.progress >= 1) finishFlipAnim(); }
+                render();
+                requestAnimationFrame(L);
+            });
+
+        })();
+    </script>
+</body>
+
+</html>

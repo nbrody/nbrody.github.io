@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Martelli 5-Manifold — Interactive Construction</title>
+    <meta name="description"
+        content="An interactive exploration of Bruno Martelli's hyperbolic 5-manifold that fibers over the circle, featuring visualizations of Anosov maps, Hantzsche-Wendt manifolds, and Coxeter groups.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(', '\\)'], ['$', '$']],
+                displayMath: [['\\[', '\\]'], ['$$', '$$']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+    <!-- Animated background orbs -->
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+
+    <header class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                <span class="title-accent">The Martelli</span>
+                <span class="title-main">5-Manifold</span>
+            </h1>
+            <p class="hero-subtitle">
+                An interactive construction of the first known hyperbolic 5-manifold that fibers over the circle
+            </p>
+            <a href="https://arxiv.org/abs/2511.10530" target="_blank" class="paper-link" id="paper-link">
+                <span class="link-icon">📄</span> Read the paper (arXiv:2511.10530)
+            </a>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="intro-card glass-card">
+            <p>
+                This interactive webpage explores the construction of a remarkable hyperbolic 5-manifold
+                described by <strong>Bruno Martelli</strong>. The manifold \(M^5\) is the first known
+                example of a hyperbolic 5-manifold that fibers over the circle \(S^1\):
+            </p>
+            <div class="math-display">
+                \[F^4 \hookrightarrow M^5 \to S^1\]
+            </div>
+            <p>
+                Its construction brings together <em>number theory</em> (\(\mathbb{Z}[\zeta_5]\)),
+                <em>dynamical systems</em> (Anosov maps), and <em>geometric topology</em>
+                (Hantzsche-Wendt and Ratcliffe-Tschanz manifolds).
+            </p>
+        </div>
+
+        <!-- Section 1: Cyclotomic Field -->
+        <section class="section glass-card" id="section-roots">
+            <div class="section-header" onclick="toggleSection(this)" id="header-roots">
+                <div class="section-number">01</div>
+                <div class="section-title-group">
+                    <h2>\(\mathbb{Z}[\zeta_5]\) — The Cyclotomic Ring</h2>
+                    <p class="section-subtitle">Roots of unity and the golden ratio</p>
+                </div>
+                <span class="toggle-chevron">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </span>
+            </div>
+            <div class="section-content">
+                <div class="content-grid">
+                    <div class="text-col">
+                        <p>
+                            The ring \(\mathbb{Z}[\zeta_5]\) is the ring of integers in the cyclotomic field
+                            \(\mathbb{Q}(\zeta_5)\), where \(\zeta_5 = e^{2\pi i/5}\) is a primitive
+                            fifth root of unity. Its minimal polynomial is the 5th cyclotomic polynomial:
+                        </p>
+                        <div class="math-display">
+                            \[\Phi_5(z) = z^4 + z^3 + z^2 + z + 1\]
+                        </div>
+                        <p>
+                            The element \(\lambda = \zeta_5 + \zeta_5^{-1} = \frac{1+\sqrt{5}}{2}\) is the
+                            <strong>golden ratio</strong> \(\varphi\). Key properties:
+                        </p>
+                        <ul class="styled-list">
+                            <li>Dedekind domain with class number 1 (UFD)</li>
+                            <li>Unit group of rank 2</li>
+                            <li>Full ring of integers of \(\mathbb{Q}(\zeta_5)\)</li>
+                            <li>\(\text{Gal}(\mathbb{Q}(\zeta_5)/\mathbb{Q}) \cong (\mathbb{Z}/5\mathbb{Z})^\times \cong
+                                \mathbb{Z}/4\mathbb{Z}\)</li>
+                        </ul>
+                    </div>
+                    <div class="vis-col">
+                        <canvas id="rootsCanvas" width="500" height="500"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Anosov Map -->
+        <section class="section glass-card" id="section-anosov">
+            <div class="section-header" onclick="toggleSection(this)" id="header-anosov">
+                <div class="section-number">02</div>
+                <div class="section-title-group">
+                    <h2>The Anosov Map</h2>
+                    <p class="section-subtitle">Hyperbolic dynamics on the torus</p>
+                </div>
+                <span class="toggle-chevron">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </span>
+            </div>
+            <div class="section-content">
+                <p>
+                    An <strong>Anosov diffeomorphism</strong> is a hyperbolic dynamical system on a compact manifold.
+                    One of the simplest examples is given by the matrix
+                </p>
+                <div class="math-display">
+                    \[A = \begin{pmatrix} 1 & 1 \\ 1 & 0 \end{pmatrix}\]
+                </div>
+                <p>
+                    which acts on the 2-torus \(T^2 = \mathbb{R}^2/\mathbb{Z}^2\). This matrix has eigenvalues
+                    \(\varphi = \frac{1+\sqrt{5}}{2}\) and \(\psi = \frac{1-\sqrt{5}}{2}\). Since
+                    \(|\varphi| > 1\) and \(|\psi| < 1\), the map expands along one eigendirection and contracts along
+                        the other. </p>
+
+                        <div class="legend-grid">
+                            <div class="legend-item">
+                                <span class="legend-swatch" style="background: #60a5fa;"></span>
+                                <span>Expanding eigenspace \(v_+ = (\varphi, 1)\), eigenvalue \(\varphi \approx
+                                    1.618\)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-swatch" style="background: #f97316;"></span>
+                                <span>Contracting eigenspace \(v_- = (\psi, 1)\), eigenvalue \(\psi \approx
+                                    -0.618\)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-swatch" style="background: #ef4444;"></span>
+                                <span>Basis vector \(e_1 = (1,0)\)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-swatch" style="background: #a78bfa;"></span>
+                                <span>Basis vector \(e_2 = (0,1)\)</span>
+                            </div>
+                        </div>
+
+                        <p>
+                            The five <strong>fixed points</strong> \(P_1, \ldots, P_5\) of the map on \(T^2\)
+                            (from Theorem 7 of the paper) are tracked throughout. The animation shows:
+                        </p>
+                        <ol class="styled-list">
+                            <li>The linear map stretching the unit square into a parallelogram</li>
+                            <li>Cutting at \(x = 1\) and translating the overflow back (mod \(\mathbb{Z}^2\))</li>
+                            <li>The result: the Anosov diffeomorphism on \(T^2\)</li>
+                        </ol>
+
+                        <div class="canvas-controls">
+                            <button id="playBtn" class="btn btn-primary" onclick="toggleAnimation()">
+                                <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                                Play Animation
+                            </button>
+                            <button id="resetBtn" class="btn btn-secondary" onclick="resetAnimation()">
+                                <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <polyline points="1 4 1 10 7 10"></polyline>
+                                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                                </svg>
+                                Reset
+                            </button>
+                        </div>
+                        <canvas id="anosovCanvas" width="700" height="700"></canvas>
+            </div>
+        </section>
+
+        <!-- Section 3: Hantzsche-Wendt Manifold -->
+        <section class="section glass-card" id="section-hw">
+            <div class="section-header" onclick="toggleSection(this)" id="header-hw">
+                <div class="section-number">03</div>
+                <div class="section-title-group">
+                    <h2>The Hantzsche-Wendt Manifold</h2>
+                    <p class="section-subtitle">A flat 3-manifold from two cubes</p>
+                </div>
+                <span class="toggle-chevron">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </span>
+            </div>
+            <div class="section-content">
+                <p>
+                    The <strong>Hantzsche-Wendt manifold</strong> is a closed, flat 3-manifold with holonomy group
+                    \(\mathbb{Z}_2 \times \mathbb{Z}_2\). It is constructed from <strong>two identical cubes</strong>
+                    forming a domain of size \(2 \times 1 \times 1\), with faces identified by four isometries —
+                    each of which moves the entire domain off of itself to tile \(\mathbb{R}^3\).
+                </p>
+                <p>
+                    The four face-pairing isometries are:
+                </p>
+                <ul class="styled-list">
+                    <li><strong>Ends:</strong> \((x,y,z) \mapsto (x+2,\; y,\; z)\) — translation</li>
+                    <li><strong>Top/Bottom:</strong> \((x,y,z) \mapsto (2-x,\; y+1,\; 1-z)\)
+                        — 180° rotation about \(y\)-axis + shift up</li>
+                    <li><strong>Diagonal 1:</strong> \((x,y,z) \mapsto (x+1,\; 1-y,\; 1-z)\)
+                        — 180° rotation about \(x\)-axis + shift right (Front₁ ↔ Back₂)</li>
+                    <li><strong>Diagonal 2:</strong> \((x,y,z) \mapsto (x-1,\; 1-y,\; 1-z)\)
+                        — inverse of Diagonal 1 (Front₂ ↔ Back₁)</li>
+                </ul>
+
+                <div class="hw-layout">
+                    <div id="hwContainer" class="three-container"></div>
+                    <div class="hw-controls">
+                        <h4>Gluing Isometries</h4>
+                        <button onclick="animateGluingType('ends')" class="btn btn-glue btn-red" id="btn-ends">
+                            <span class="btn-label">Ends</span>
+                            <span class="btn-desc">Translation by (2, 0, 0)</span>
+                        </button>
+                        <button onclick="animateGluingType('rotation')" class="btn btn-glue btn-green"
+                            id="btn-rotation">
+                            <span class="btn-label">Top ↔ Bottom</span>
+                            <span class="btn-desc">180° screw + shift up</span>
+                        </button>
+                        <button onclick="animateGluingType('glide1')" class="btn btn-glue btn-orange" id="btn-glide1">
+                            <span class="btn-label">Front₁ ↔ Back₂</span>
+                            <span class="btn-desc">180° screw + shift right</span>
+                        </button>
+                        <button onclick="animateGluingType('glide2')" class="btn btn-glue btn-amber" id="btn-glide2">
+                            <span class="btn-label">Front₂ ↔ Back₁</span>
+                            <span class="btn-desc">180° screw + shift left</span>
+                        </button>
+                        <p class="controls-hint">
+                            <strong>Controls:</strong> Drag to rotate · Scroll to zoom · Right-drag to pan
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Ratcliffe-Tschanz -->
+        <section class="section glass-card" id="section-rt">
+            <div class="section-header" onclick="toggleSection(this)" id="header-rt">
+                <div class="section-number">04</div>
+                <div class="section-title-group">
+                    <h2>The Ratcliffe-Tschanz Manifold</h2>
+                    <p class="section-subtitle">Coxeter groups and hyperbolic reflections</p>
+                </div>
+                <span class="toggle-chevron">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </span>
+            </div>
+            <div class="section-content">
+                <p>
+                    The Ratcliffe-Tschanz manifold is constructed using the orthogonal group
+                    \(O(5,1;\mathbb{Z})\), which acts on hyperbolic 5-space \(\mathbb{H}^5\) by isometries.
+                    This group has a natural presentation as a <strong>Coxeter group</strong>.
+                </p>
+
+                <h3>The Coxeter Diagram</h3>
+                <p>Click on a vertex to see its root vector and reflection matrix.</p>
+                <div class="diagram-container">
+                    <svg id="coxeterDiagram" width="600" height="180"></svg>
+                </div>
+                <div id="rootDisplay" class="root-display" style="display:none;">
+                    <h4>Reflection <span id="reflectionLabel"></span></h4>
+                    <p><strong>Root vector:</strong> <span id="rootVector"></span></p>
+                    <p><strong>Reflection matrix:</strong></p>
+                    <div id="reflectionMatrix" class="matrix-display"></div>
+                </div>
+
+                <h3>Simplex Fundamental Domain</h3>
+                <p>
+                    The fundamental domain for this reflection group on \(\mathbb{H}^5\) is a simplex
+                    bounded by 6 hyperplanes. It has 5 finite vertices on the hyperboloid
+                    \(\{x \in \mathbb{R}^6 : \langle x, x \rangle = -1\}\) and 1 ideal vertex at infinity:
+                </p>
+                <div class="math-display vertices-display">
+                    \[
+                    \begin{pmatrix} 0 \\ 0 \\ 0 \\ 0 \\ 0 \\ 1 \end{pmatrix}, \quad
+                    \frac{1}{\sqrt{6}} \begin{pmatrix} 1 \\ 1 \\ 1 \\ 0 \\ 0 \\ 3 \end{pmatrix}, \quad
+                    \frac{1}{\sqrt{2}} \begin{pmatrix} 1 \\ 1 \\ 0 \\ 0 \\ 0 \\ 2 \end{pmatrix}, \quad
+                    \frac{1}{\sqrt{5}} \begin{pmatrix} 1 \\ 1 \\ 1 \\ 1 \\ 0 \\ 3 \end{pmatrix}, \quad
+                    \frac{1}{2} \begin{pmatrix} 1 \\ 1 \\ 1 \\ 1 \\ 1 \\ 3 \end{pmatrix}, \quad
+                    \underset{\text{ideal}}{\begin{pmatrix} 1 \\ 0 \\ 0 \\ 0 \\ 0 \\ 1 \end{pmatrix}}
+                    \]
+                </div>
+
+                <h3>Parabolic Subgroup</h3>
+                <p>
+                    Deleting vertex \(r_5\) gives a parabolic subgroup — the stabilizer of the ideal vertex
+                    \(v = \left(\tfrac{1}{2}, \tfrac{1}{2}, \tfrac{1}{2}, \tfrac{1}{2}, \tfrac{1}{2},
+                    \tfrac{3}{2}\right)\).
+                </p>
+                <div class="diagram-container">
+                    <svg id="coxeterDiagramReduced" width="600" height="180"></svg>
+                </div>
+                <div id="rootDisplayReduced" class="root-display" style="display:none;">
+                    <h4>Reflection <span id="reflectionLabelReduced"></span></h4>
+                    <p><strong>Root vector:</strong> <span id="rootVectorReduced"></span></p>
+                    <p><strong>Reflection matrix:</strong></p>
+                    <div id="reflectionMatrixReduced" class="matrix-display"></div>
+                </div>
+
+                <h3>The 10 Ideal Vertices</h3>
+                <p>
+                    Setting \(w = (1,1,1,1,1,2)\), the 10 ideal vertices (null vectors with \(\langle v,v\rangle = 0\))
+                    are:
+                </p>
+                <div class="vertices-grid">
+                    <div class="vertex-group">
+                        <h5>\(v_i = e_i + e_6\)</h5>
+                        <div class="vertex">\(v_1 = (1,0,0,0,0,1)\)</div>
+                        <div class="vertex">\(v_2 = (0,1,0,0,0,1)\)</div>
+                        <div class="vertex">\(v_3 = (0,0,1,0,0,1)\)</div>
+                        <div class="vertex">\(v_4 = (0,0,0,1,0,1)\)</div>
+                        <div class="vertex">\(v_5 = (0,0,0,0,1,1)\)</div>
+                    </div>
+                    <div class="vertex-group">
+                        <h5>\(w_i = w - e_i\)</h5>
+                        <div class="vertex">\(w_1 = (0,1,1,1,1,2)\)</div>
+                        <div class="vertex">\(w_2 = (1,0,1,1,1,2)\)</div>
+                        <div class="vertex">\(w_3 = (1,1,0,1,1,2)\)</div>
+                        <div class="vertex">\(w_4 = (1,1,1,0,1,2)\)</div>
+                        <div class="vertex">\(w_5 = (1,1,1,1,0,2)\)</div>
+                    </div>
+                </div>
+
+                <p>
+                    The reflection group generated by this Coxeter diagram is precisely the
+                    <strong>principal congruence subgroup of level 2</strong>, \(\Gamma(2) \leq O(5,1;\mathbb{Z})\),
+                    consisting of matrices \(A \equiv I \pmod{2}\).
+                </p>
+            </div>
+        </section>
+
+        <!-- Section 5: Figure-Eight Knot -->
+        <section class="section glass-card" id="section-knot">
+            <div class="section-header" onclick="toggleSection(this)" id="header-knot">
+                <div class="section-number">05</div>
+                <div class="section-title-group">
+                    <h2>The Figure-Eight Knot Connection</h2>
+                    <p class="section-subtitle">Branched covers and knot complements</p>
+                </div>
+                <span class="toggle-chevron">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </span>
+            </div>
+            <div class="section-content">
+                <p>
+                    The Hantzsche-Wendt manifold is the <strong>3-fold cyclic branched cover</strong>
+                    of \(S^3\) branched over the figure-eight knot \(4_1\).
+                </p>
+                <div id="figureEightContainer" class="three-container three-container-wide"></div>
+                <div class="knot-explanation">
+                    <h4>What does this mean?</h4>
+                    <ul class="styled-list">
+                        <li>Take 3 copies of \(S^3\), each cut along a Seifert surface bounded by the knot</li>
+                        <li>Glue these copies together cyclically along the cut surfaces</li>
+                        <li>The result is a manifold that "wraps around" the knot 3 times</li>
+                    </ul>
+                    <p>
+                        The complement of the figure-eight knot in \(S^3\) carries a hyperbolic structure
+                        (decomposable into two ideal tetrahedra). The Hantzsche-Wendt manifold inherits
+                        geometric properties from this construction, bridging flat geometry with the
+                        hyperbolic geometry of the knot complement.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 6: Synthesis -->
+        <section class="section glass-card" id="section-synthesis">
+            <div class="section-header" onclick="toggleSection(this)" id="header-synthesis">
+                <div class="section-number">06</div>
+                <div class="section-title-group">
+                    <h2>Synthesis: The Martelli 5-Manifold</h2>
+                    <p class="section-subtitle">Bringing it all together</p>
+                </div>
+                <span class="toggle-chevron">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </span>
+            </div>
+            <div class="section-content">
+                <p>
+                    The Martelli 5-manifold \(M^5\) is a specific finite cover of the Ratcliffe-Tschanz manifold.
+                    Its most striking property is the fibration:
+                </p>
+                <div class="math-display fibration-display">
+                    \[F^4 \hookrightarrow M^5 \xrightarrow{\;\;\pi\;\;} S^1\]
+                </div>
+
+                <div class="synthesis-cards">
+                    <div class="synthesis-card">
+                        <div class="synthesis-icon">🔷</div>
+                        <h4>Hyperbolic Geometry</h4>
+                        <p>
+                            \(M^5\) has constant negative curvature, constructed as a quotient of \(\mathbb{H}^5\)
+                            by a subgroup of \(O(5,1;\mathbb{Z})\).
+                        </p>
+                    </div>
+                    <div class="synthesis-card">
+                        <div class="synthesis-icon">🌀</div>
+                        <h4>Pseudo-Anosov Monodromy</h4>
+                        <p>
+                            The monodromy \(\phi: F^4 \to F^4\) is pseudo-Anosov — the 4-dimensional
+                            analogue of the 2D Anosov map on the torus shown in Section 02.
+                        </p>
+                    </div>
+                    <div class="synthesis-card">
+                        <div class="synthesis-icon">♾️</div>
+                        <h4>Hantzsche-Wendt Cusps</h4>
+                        <p>
+                            The manifold has cusps extending to infinity whose cross-sections are flat 4-manifolds
+                            related to the Hantzsche-Wendt manifold × \(S^1\).
+                        </p>
+                    </div>
+                </div>
+
+                <div class="consequences">
+                    <h3>Consequences</h3>
+                    <ol class="styled-list">
+                        <li>
+                            There exists a compact smooth 4-manifold \(M\) such that no non-trivial class in \(H_2(M)\)
+                            is represented by immersed tori, yet infinitely many classes are represented by smoothly
+                            embedded genus-2 surfaces.
+                        </li>
+                        <li>
+                            There exists a compact locally CAT(0) space \(Y\) such that \(\pi_1(Y)\) is not hyperbolic
+                            and does not contain \(\mathbb{Z} \times \mathbb{Z}\). This answers Gromov's
+                            <strong>Closing Flat Problem</strong>.
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>
+            Based on <a href="https://arxiv.org/abs/2511.10530" target="_blank">arXiv:2511.10530</a>
+            by Bruno Martelli
+        </p>
+    </footer>
+
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>

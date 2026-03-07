@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mandelbrot Explorer</title>
+    <meta name="description"
+        content="GPU-accelerated Mandelbrot set explorer with live Julia set preview, smooth coloring, orbit tracing, and infinite zoom.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Main Mandelbrot canvas (WebGL) -->
+    <canvas id="mandelbrotCanvas"></canvas>
+
+    <!-- Julia set preview canvas (WebGL) -->
+    <div id="juliaPanel" class="julia-panel">
+        <div class="julia-header">
+            <span class="julia-title">Julia Set</span>
+            <span id="juliaCoord" class="julia-coord">c = 0 + 0i</span>
+        </div>
+        <canvas id="juliaCanvas"></canvas>
+    </div>
+
+    <!-- Orbit overlay canvas (2D) -->
+    <canvas id="orbitCanvas"></canvas>
+
+    <!-- Minimap -->
+    <div id="minimapPanel" class="minimap-panel">
+        <canvas id="minimapCanvas"></canvas>
+        <div id="minimapViewport" class="minimap-viewport"></div>
+    </div>
+
+    <!-- Control Panel -->
+    <div id="controls" class="controls">
+        <h1 id="title">Mandelbrot Explorer</h1>
+        <p class="subtitle">GPU-accelerated fractal explorer</p>
+
+        <div class="control-group">
+            <label for="colorScheme">Color Palette</label>
+            <select id="colorScheme">
+                <option value="0">Ultraviolet</option>
+                <option value="1">Magma</option>
+                <option value="2">Ocean Abyss</option>
+                <option value="3">Electric Neon</option>
+                <option value="4">Sunset</option>
+                <option value="5">Monochrome</option>
+                <option value="6">Psychedelic</option>
+                <option value="7">Frozen</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="iterSlider">Max Iterations <span id="iterValue" class="value-badge">256</span></label>
+            <input type="range" id="iterSlider" min="64" max="4096" step="64" value="256">
+        </div>
+
+        <div class="control-group">
+            <label for="colorCycleSlider">Color Cycle Speed <span id="colorCycleValue"
+                    class="value-badge">0.0</span></label>
+            <input type="range" id="colorCycleSlider" min="0" max="2" step="0.01" value="0">
+        </div>
+
+        <div class="control-group">
+            <label for="smoothSlider">Color Smoothness <span id="smoothValue" class="value-badge">1.0</span></label>
+            <input type="range" id="smoothSlider" min="0.1" max="5" step="0.1" value="1.0">
+        </div>
+
+        <div class="control-group">
+            <label for="bailoutSlider">Bailout Radius <span id="bailoutValue" class="value-badge">4.0</span></label>
+            <input type="range" id="bailoutSlider" min="2" max="1000" step="1" value="4">
+        </div>
+
+        <div class="control-group">
+            <label for="exponentSlider">Exponent (z^n) <span id="exponentValue" class="value-badge">2.0</span></label>
+            <input type="range" id="exponentSlider" min="2" max="8" step="0.1" value="2">
+        </div>
+
+        <div class="control-section-title">Features</div>
+
+        <div class="control-group toggle-row">
+            <label for="juliaToggle">Live Julia Preview</label>
+            <input type="checkbox" id="juliaToggle" checked>
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="orbitToggle">Show Orbit</label>
+            <input type="checkbox" id="orbitToggle">
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="minimapToggle">Minimap</label>
+            <input type="checkbox" id="minimapToggle" checked>
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="crosshairToggle">Crosshair</label>
+            <input type="checkbox" id="crosshairToggle">
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="interiorToggle">Interior Shading</label>
+            <input type="checkbox" id="interiorToggle">
+        </div>
+
+        <div class="control-section-title">Auto-Zoom</div>
+
+        <div class="control-group">
+            <label for="zoomTarget">Zoom Target</label>
+            <select id="zoomTarget">
+                <option value="seahorse">Seahorse Valley</option>
+                <option value="elephant">Elephant Valley</option>
+                <option value="spiral">Spiral Galaxy</option>
+                <option value="lightning">Lightning Bolt</option>
+                <option value="minibrot">Deep Minibrot</option>
+                <option value="custom">Current View</option>
+            </select>
+        </div>
+
+        <div class="button-row">
+            <button id="autoZoomBtn" class="action-btn">▶ Auto-Zoom</button>
+            <button id="resetBtn" class="action-btn secondary">↺ Reset</button>
+        </div>
+
+        <div class="stats" id="stats">
+            <span id="fpsCounter">60 fps</span>
+            <span id="zoomLevel">1×</span>
+        </div>
+
+        <div class="coord-display" id="coordDisplay">
+            <span id="coordText">c = -0.5 + 0i</span>
+        </div>
+
+        <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
+    </div>
+
+    <!-- Instructions overlay -->
+    <div id="instructions" class="instructions">
+        <span>🖱️ Scroll to zoom · Drag to pan · <kbd>H</kbd> toggle panel · <kbd>J</kbd> Julia · <kbd>Space</kbd>
+            auto-zoom</span>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+
+</html>

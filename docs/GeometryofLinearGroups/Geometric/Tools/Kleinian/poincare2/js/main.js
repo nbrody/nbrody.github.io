@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { getDirichletFaces, getCayleyGraph, getStdGenerators, formatWordMathJax, reduceWord, Matrix2x2, getBisectorSphere } from './math.js';
+import { computeDirichletDomain, sdFace, getCayleyGraph, formatWordMathJax, reduceWord, Matrix2x2, getBisectorSphere } from './math.js';
 import { vertexShader, fragmentShader } from './shaders.js';
 import { setupMatrixInput, getGeneratorsFromUI, getMatricesFromUI } from './matrixInput.js';
 import { setupControlPanel, updateToggleBtn, colorPalettes, getPaletteSettings } from './controlPanel.js';
@@ -44,7 +44,7 @@ let animatingIsometry = false;
 let currentGenerators = [];
 let currentMatrices = [];
 
-const { faces: facesArr, count: actualCount } = getDirichletFaces([], viewMatrix, currentMaxFaces);
+const { faces: facesArr, count: actualCount } = computeDirichletDomain([], viewMatrix, currentMaxFaces);
 
 // Initial palette settings
 const initialPalette = getPaletteSettings();
@@ -350,16 +350,17 @@ function updateIsometryButtons() {
 }
 
 
-function updateDomain() {
-    const { faces, count } = getDirichletFaces(currentGenerators, viewMatrix, currentMaxFaces);
-    material.uniforms.u_faces.value = faces;
-    material.uniforms.u_faceCount.value = count;
-    return count;  // Return actual face count
-}
-
-// Store standard generators for animation
+// Store cached domain result and standard generators
+let cachedDomain = null;
 let stdGenerators = [];
 let actualFaceCount = 0;
+
+function updateDomain() {
+    cachedDomain = computeDirichletDomain(currentGenerators, viewMatrix, currentMaxFaces);
+    material.uniforms.u_faces.value = cachedDomain.faces;
+    material.uniforms.u_faceCount.value = cachedDomain.count;
+    return cachedDomain.count;
+}
 let cumulativeWord = [];  // Track the word representing the current viewMatrix
 
 function updateCurrentElementDisplay() {
@@ -380,26 +381,24 @@ function updateStdGeneratorsList() {
     const container = document.getElementById('std-generators-list');
     if (!container) return;
 
-    // Use the actual face count, not maxFaces
-    stdGenerators = getStdGenerators(currentGenerators, viewMatrix, actualFaceCount);
+    // Build stdGenerators from cached domain result
+    if (!cachedDomain) return;
 
-    // Associate each generator's face with its index in u_faces
-    const uniformFaces = material.uniforms.u_faces.value;
-    stdGenerators.forEach(gen => {
-        if (gen.face) {
-            // Find matching face in uniforms
-            for (let i = 0; i < actualFaceCount; i++) {
-                const uf = uniformFaces[i];
-                const dx = Math.abs(gen.face.x - uf.x);
-                const dy = Math.abs(gen.face.y - uf.y);
-                const dz = Math.abs(gen.face.z - uf.z);
-                const dr = Math.abs(Math.abs(gen.face.w) - Math.abs(uf.w));
-                if (dx < 0.001 && dy < 0.001 && dz < 0.001 && dr < 0.001) {
-                    gen.faceUniformIdx = i;
-                    break;
-                }
-            }
+    stdGenerators = [
+        ...cachedDomain.stabilizers.map(s => ({ ...s, isStabilizer: true, face: null, faceUniformIdx: undefined })),
+        ...cachedDomain.pairings.map(p => ({
+            ...p,
+            faceUniformIdx: p.faceIndex  // Direct index — no matching needed
+        }))
+    ];
+
+    // Sort by word length, then lexicographic
+    stdGenerators.sort((a, b) => {
+        if (a.wordArr.length !== b.wordArr.length) return a.wordArr.length - b.wordArr.length;
+        for (let i = 0; i < a.wordArr.length; i++) {
+            if (a.wordArr[i] !== b.wordArr[i]) return a.wordArr[i] - b.wordArr[i];
         }
+        return 0;
     });
 
     container.innerHTML = '';
@@ -530,15 +529,6 @@ function animateStdGenerator(idx, event) {
 }
 
 // --- Double-click to animate face pairing ---
-function sdFace(p, face) {
-    // Signed distance to a face (bisector sphere)
-    // Matches shader: s * (length(p - c) - abs(r))
-    const center = new THREE.Vector3(face.x, face.y, face.z);
-    const r = face.w;
-    const s = r > 0 ? 1 : -1;
-    return s * (p.distanceTo(center) - Math.abs(r));
-}
-
 function mapSDF(p, faces, faceCount) {
     // Returns {d, bestId} - matches shader map() function
     // Domain is intersection of half-spaces, so we use max

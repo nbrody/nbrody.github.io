@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Surface Groups in PGL₂(Z[1/p]) — Explorer</title>
+  <meta name="description"
+    content="Interactive construction of explicit surface groups in PGL₂(Z[1/p]) via transitive permutation representations and Dirichlet domain tilings of the upper half-plane." />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <h1>Surface Groups in <span class="math-inline">PGL₂(ℤ[1/p])</span></h1>
+    <p class="subtitle">
+      Construct explicit surface groups by searching for a transitive permutation
+      representation of <span class="math-inline">F₂ = ⟨a,b⟩</span> of degree
+      <span class="math-inline">2p+2</span> whose commutator
+      <span class="math-inline">u=[a,b]</span> has cycle type
+      <span class="math-inline">(2)(2p)</span>.
+      The resulting subgroup <span class="math-inline">H &lt; ⟨A,B⟩</span>
+      has two cusps, which are glued by
+      <span class="math-inline">τ = diag(p,1)</span>
+      to produce a closed surface group.
+    </p>
+  </header>
+
+  <!-- Main layout -->
+  <div class="app-wrap">
+    <div class="main-grid">
+
+      <!-- ===== Sidebar ===== -->
+      <aside class="sidebar">
+
+        <!-- Controls card -->
+        <div class="card">
+          <div class="card-title"><span class="icon">⚙</span> Parameters</div>
+
+          <label class="field-label" for="primeInput">Prime p</label>
+          <input id="primeInput" type="number" value="2" min="2" step="1" />
+
+          <div class="input-row" style="margin-top:10px;">
+            <div>
+              <label class="field-label" for="attemptsInput">Max attempts</label>
+              <input id="attemptsInput" type="number" value="5000" min="100" step="100" />
+            </div>
+            <div>
+              <label class="field-label" for="seedInput">Seed</label>
+              <input id="seedInput" type="number" value="1" min="1" step="1" />
+            </div>
+          </div>
+
+          <div class="btn-group">
+            <button id="runBtn" class="btn btn-primary">Construct</button>
+            <button id="exampleBtn" class="btn btn-secondary">p = 2 demo</button>
+          </div>
+
+          <div id="status" class="status-bar"></div>
+          <div id="diag" class="diag-text"></div>
+        </div>
+
+        <!-- Base matrices card -->
+        <div class="card">
+          <div class="card-title"><span class="icon">𝐌</span> Base Matrices</div>
+          <div class="matrix-display">A = [[2, 1], [1, 1]]
+            B = [[2, -1], [-1, 1]]
+            U = [A,B] = [[1, 6], [0, 1]]
+            τ = [[p, 0], [0, 1]]</div>
+          <p class="info-note">
+            The subgroup <span class="math-inline">H</span> is computed via a
+            Schreier transversal. Its generators are given as words in
+            <span class="math-inline">A, B</span> and as explicit integer matrices.
+          </p>
+        </div>
+      </aside>
+
+      <!-- ===== Results ===== -->
+      <main class="results-area">
+
+        <!-- Topology KPIs -->
+        <div class="card">
+          <div class="card-title"><span class="icon">◎</span> Topological Type</div>
+          <div class="kpi-row">
+            <div class="kpi">
+              <div class="kpi-label">Index [Δ : H]</div>
+              <div class="kpi-value" id="kpiIndex">–</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Open surface</div>
+              <div class="kpi-value" id="kpiOpen">–</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Closed (after gluing)</div>
+              <div class="kpi-value" id="kpiClosed">–</div>
+            </div>
+          </div>
+          <div id="topologyText" class="mono-block" style="margin-top:14px;">No construction yet.</div>
+        </div>
+
+        <!-- Visualizations (tabbed) -->
+        <div class="card">
+          <div class="card-title"><span class="icon">◈</span> Visualization</div>
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="panelGraph">Coset Graph</button>
+            <button class="tab-btn" data-tab="panelDirichlet">Dirichlet Tiling</button>
+          </div>
+
+          <!-- Coset graph panel -->
+          <div id="panelGraph" class="tab-panel active">
+            <div class="graph-legend">
+              <span><span class="legend-dot" style="background:var(--edgeA)"></span>a-edges</span>
+              <span><span class="legend-dot" style="background:var(--edgeB)"></span>b-edges</span>
+              <span style="color:var(--dim)">white arrows = commutator cycles</span>
+            </div>
+            <svg id="graphSvg" class="graph-svg" viewBox="0 0 760 480"></svg>
+            <div id="graphCaption" class="graph-caption"></div>
+          </div>
+
+          <!-- Dirichlet domain panel -->
+          <div id="panelDirichlet" class="tab-panel">
+            <p class="info-note" style="margin-bottom:10px;">
+              Dirichlet domain tiling of <span class="math-inline">ℍ</span> for the group
+              <span class="math-inline">Δ = ⟨A,B⟩</span>.
+              Tiles are colored by <span class="math-inline">H</span>-coset.
+              Scroll to zoom, drag to pan.
+            </p>
+            <canvas id="hypCanvas" class="hyp-canvas"></canvas>
+            <div class="canvas-controls">
+              <label class="toggle-control"><input type="checkbox" id="checkTiling" checked /> Tiling</label>
+              <label class="toggle-control"><input type="checkbox" id="checkOrbit" /> Orbit</label>
+              <button id="resetViewBtn">Reset view</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Boundary cycles -->
+        <div class="card">
+          <div class="card-title"><span class="icon">↻</span> Boundary Cycle Data</div>
+          <div id="cycleText" class="mono-block">–</div>
+        </div>
+
+        <!-- Generators (collapsible) -->
+        <div class="card">
+          <div class="card-title"><span class="icon">⟨⟩</span> Generators for H</div>
+          <p class="info-note" style="margin-bottom:10px;">
+            Schreier generators for the finite-index subgroup H, written as words in A, B.
+          </p>
+          <div class="scroll-wrap">
+            <table class="gen-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Word in A, B</th>
+                  <th>Matrix</th>
+                </tr>
+              </thead>
+              <tbody id="generatorsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Final group -->
+        <div class="card">
+          <button class="accordion-toggle" id="groupToggle">
+            <span>Resulting closed surface group in PGL₂(ℤ[1/p])</span>
+            <span class="arrow">▾</span>
+          </button>
+          <div class="accordion-body" id="groupBody">
+            <div id="groupText" class="mono-block" style="margin-top:12px;">–</div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

@@ -36,7 +36,7 @@ body {
 }
 
 /* ===== Canvas ===== */
-canvas {
+canvas#canvas {
     position: fixed;
     inset: 0;
     width: 100%;
@@ -44,6 +44,62 @@ canvas {
     z-index: 1;
     cursor: crosshair;
     transition: background-color 0.8s ease;
+}
+
+/* ===== 3D Container ===== */
+#canvas3d-container {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    display: none;
+    /* hidden until 3D mode activated */
+}
+
+#canvas3d-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+    position: relative;
+    z-index: 2;
+    transition: none;
+    background: transparent;
+    cursor: grab;
+}
+
+#canvas3d-container canvas:active {
+    cursor: grabbing;
+}
+
+/* ===== Mode Toggle Button ===== */
+#mode-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 8px;
+    padding: 4px 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    font-family: inherit;
+    background: rgba(108, 138, 255, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(108, 138, 255, 0.35);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    pointer-events: all;
+}
+
+#mode-toggle-btn:hover {
+    background: rgba(108, 138, 255, 0.28);
+    border-color: var(--accent);
+}
+
+#mode-toggle-btn.active {
+    background: linear-gradient(135deg, #6c8aff, #8b5cf6);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 2px 12px rgba(108, 138, 255, 0.4);
 }
 
 /* ===== Iteration HUD ===== */
@@ -266,6 +322,7 @@ h1 {
 /* ===== Range ===== */
 input[type="range"] {
     -webkit-appearance: none;
+    appearance: none;
     width: 100%;
     height: 5px;
     background: var(--control-bg);

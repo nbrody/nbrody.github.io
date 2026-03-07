@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced WebGL Fluid Fire Simulation</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <canvas id="glcanvas"></canvas>
+
+    <div id="ui-container">
+        <h1>Combustion Engine</h1>
+        <p class="subtitle">Navier-Stokes PDE Flame Solver</p>
+
+        <div class="control-group">
+            <label>Viscosity (Diffusion)</label>
+            <input type="range" id="viscosity" min="0" max="2" step="0.01" value="0.3">
+        </div>
+
+        <div class="control-group">
+            <label>Vorticity (Turbulence)</label>
+            <input type="range" id="vorticity" min="0" max="50" step="1" value="25">
+        </div>
+
+        <div class="control-group">
+            <label>Buoyancy</label>
+            <input type="range" id="buoyancy" min="0" max="5" step="0.1" value="1.8">
+        </div>
+
+        <div class="control-group">
+            <label>Cooling Rate</label>
+            <input type="range" id="cooling" min="0.9" max="1.0" step="0.001" value="0.995">
+        </div>
+
+        <div class="control-group checkbox-group">
+            <label class="switch">
+                <input type="checkbox" id="bloom" checked>
+                <span class="slider"></span>
+            </label>
+            <span>Enable Bloom Glow</span>
+        </div>
+
+        <button id="reset-btn">Extinguish</button>
+
+        <div class="interaction-hint">
+            Drag mouse or touch to add fuel and velocity.
+        </div>
+    </div>
+
+    <!-- Shaders and Logic -->
+    <script src="shaders.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

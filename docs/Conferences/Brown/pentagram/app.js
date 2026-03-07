@@ -28,7 +28,7 @@
     const trailOpVal = $('trail-opacity-val');
     const fillOpSlider = $('fill-opacity-slider');
     const fillOpVal = $('fill-opacity-val');
-    const trailCB = $('trail-checkbox');
+
     const diagCB = $('diag-checkbox');
     const glowCB = $('glow-checkbox');
     const gradientTrailCB = $('gradient-trail-checkbox');
@@ -53,8 +53,11 @@
     const stepBtn = $('step-btn');
     const resetBtn = $('reset-btn');
     const exportBtn = $('export-btn');
+    const modeToggleBtn = $('mode-toggle-btn');
 
     const iterCount = $('iter-count');
+
+    let is3D = false;
 
     // ─── Palettes (12 curated palettes) ──────────────────────
     const PALETTES = {
@@ -373,8 +376,8 @@
 
         const trailOpacity = parseFloat(trailOpSlider.value) / 100;
         const fillOpacity = parseFloat(fillOpSlider.value) / 100;
-        const lineW = parseFloat(lineWSlider.value);
-        const vertexR = parseFloat(vertexRSlider.value);
+        const lineW = parseFloat(lineWSlider.value) / view.scale;
+        const vertexR = parseFloat(vertexRSlider.value) / view.scale;
         const showGlow = glowCB.checked;
         const rainbowTrail = gradientTrailCB.checked;
 
@@ -402,7 +405,7 @@
             if (showGlow) {
                 ctx.save();
                 ctx.shadowColor = edgeColor;
-                ctx.shadowBlur = 18;
+                ctx.shadowBlur = 18 / view.scale;
                 ctx.lineWidth = lineW;
                 ctx.strokeStyle = edgeColor;
                 ctx.stroke();
@@ -414,7 +417,7 @@
             ctx.stroke();
         } else {
             const alpha = isBase ? trailOpacity * 1.2 : trailOpacity;
-            ctx.lineWidth = Math.max(0.5, lineW * 0.5);
+            ctx.lineWidth = Math.max(0.5 / view.scale, lineW * 0.5);
             ctx.globalAlpha = Math.min(1, alpha);
             ctx.strokeStyle = edgeColor;
             ctx.stroke();
@@ -431,10 +434,10 @@
                 ctx.moveTo(polygon[i].x, polygon[i].y);
                 ctx.lineTo(polygon[(i + skip) % n].x, polygon[(i + skip) % n].y);
             }
-            ctx.lineWidth = 0.6;
+            ctx.lineWidth = 0.6 / view.scale;
             ctx.globalAlpha = 0.25;
             ctx.strokeStyle = edgeColor;
-            ctx.setLineDash([5, 5]);
+            ctx.setLineDash([5 / view.scale, 5 / view.scale]);
             ctx.stroke();
             ctx.setLineDash([]);
             ctx.globalAlpha = 1;
@@ -482,7 +485,7 @@
                 ctx.arc(polygon[i].x, polygon[i].y, isCurrent ? vertexR : vertexR * 0.7, 0, Math.PI * 2);
                 if (showGlow && isCurrent) {
                     ctx.shadowColor = pal.vertex;
-                    ctx.shadowBlur = 10;
+                    ctx.shadowBlur = 10 / view.scale;
                 }
                 ctx.fillStyle = pal.vertex;
                 if (!isCurrent) ctx.globalAlpha = 0.35;
@@ -568,7 +571,7 @@
             ctx.moveTo(inner[j].x, inner[j].y);
             ctx.lineTo(outer[mod(j + skip)].x, outer[mod(j + skip)].y);
         }
-        ctx.lineWidth = 0.6;
+        ctx.lineWidth = 0.6 / view.scale;
         ctx.globalAlpha = trailOpacity * 0.6;
         ctx.strokeStyle = pal.colors[iterIndex % pal.colors.length];
         ctx.stroke();
@@ -588,6 +591,19 @@
         if (!lastTime) lastTime = timestamp;
         const dt = timestamp - lastTime;
         lastTime = timestamp;
+
+        // ── Publish shared state for scene3d.js ──
+        window.PentagramState = {
+            polygonHistory,
+            spiralCounter,
+            currentPaletteKey,
+            PALETTES,
+            skipValue: parseInt(skipSlider.value),
+            spiralMode: spiralCB.checked,
+            autoZoom: autoZoomCB.checked,
+            isPlaying,
+            is3D,
+        };
 
         const pal = PALETTES[currentPaletteKey];
         canvas.style.backgroundColor = pal.bg;
@@ -669,7 +685,7 @@
         }
 
         // Draw
-        const showTrails = trailCB.checked;
+        const showTrails = true;
         const showTri = triCB.checked;
         const maxTrails = parseInt(maxTrailSlider.value);
         const totalIters = displayPolygons.length;
@@ -983,11 +999,59 @@
         a.click();
     });
 
+    // ─── Mode Toggle (2D ↔ 3D) ───────────────────────────────
+    function initModeToggle() {
+        const container3d = $('canvas3d-container');
+        modeToggleBtn.addEventListener('click', () => {
+            is3D = !is3D;
+            if (is3D) {
+                // Ensure there are enough iterations for a visible tunnel
+                if (currentIteration < 5) {
+                    while (currentIteration < 5) {
+                        currentIteration++;
+                    }
+                    rebuildHistory();
+                }
+
+                canvas.style.display = 'none';
+                container3d.style.display = 'block';
+                modeToggleBtn.textContent = '2D';
+                modeToggleBtn.classList.add('active');
+
+                // Publish state immediately so Scene3D has data
+                window.PentagramState = {
+                    polygonHistory,
+                    spiralCounter,
+                    currentPaletteKey,
+                    PALETTES,
+                    skipValue: parseInt(skipSlider.value),
+                    spiralMode: spiralCB.checked,
+                    autoZoom: autoZoomCB.checked,
+                    isPlaying,
+                    is3D,
+                };
+
+                // Lazy-init the Three.js scene on first activation
+                if (window.Scene3D) {
+                    window.Scene3D.init();
+                    // Force a rebuild after init in case state was stale
+                    window.Scene3D.rebuildScene();
+                }
+            } else {
+                canvas.style.display = '';
+                container3d.style.display = 'none';
+                modeToggleBtn.textContent = '3D';
+                modeToggleBtn.classList.remove('active');
+            }
+        });
+    }
+
     // ─── Boot ────────────────────────────────────────────────
     window.addEventListener('resize', resize);
     buildPaletteGrid();
     initTabs();
     initPanelToggle();
+    initModeToggle();
     syncSkipMax();
     resize();
     requestAnimationFrame(update);

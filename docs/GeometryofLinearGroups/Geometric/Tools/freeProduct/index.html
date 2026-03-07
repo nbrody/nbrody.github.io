@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z² ∗ Z in SL₃(Z[1/2])</title>
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(','\\)'], ['$','$']] },
+            startup: { pageReady: () => MathJax.startup.defaultPageReady() }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="viz-container"></div>
+
+    <div id="control-panel">
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="group">Group</button>
+            <button class="tab-btn" data-tab="explore">Explore</button>
+            <button class="tab-btn" data-tab="evidence">Evidence</button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse">
+                <span>&times;</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- Group Tab -->
+            <div id="tab-group" class="tab-content active">
+                <div>
+                    <h2 class="panel-title">\(\mathbb{Z}^2 \ast \mathbb{Z}\) in \(\mathrm{SL}_3(\mathbb{Z}[\tfrac{1}{2}])\)</h2>
+                    <p class="panel-subtitle">
+                        Generators \(a, b\) (diagonal, commuting) and \(t\) (non-diagonal)
+                        with \(\langle a, b, t \rangle \cong \mathbb{Z}^2 \ast \mathbb{Z}\).
+                    </p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Generators</label>
+                    <div id="gen-display"></div>
+                </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">Why \(\mathbb{Z}^2 \ast \mathbb{Z}\)?</h3>
+                    <p>\(a\) and \(b\) commute (both diagonal), so \(\langle a,b\rangle \cong \mathbb{Z}^2\).
+                       The matrix \(t\) has eigenvalues \(1, 2\pm\sqrt{3}\) with eigenvectors
+                       not aligned to any coordinate axis.</p>
+                    <p>A <strong>ping-pong argument on \(\mathbb{RP}^2\)</strong>:
+                       diagonal elements attract toward coordinate directions (red/green/blue dots),
+                       while \(t\) attracts toward its own eigenvectors (orange/purple dots).
+                       These regions are disjoint, so no reduced word in the free product can equal the identity.</p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Legend (on sphere)</label>
+                    <div class="legend">
+                        <div class="legend-item"><span class="legend-dot" style="background:#ef4444"></span> \(e_1\)</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#22c55e"></span> \(e_2\)</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span> \(e_3\)</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#fbbf24"></span> \(t\)-attract</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#f97316"></span> \(t\)-repel</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#a78bfa"></span> \(t\)-neutral</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Explore Tab -->
+            <div id="tab-explore" class="tab-content">
+                <div>
+                    <h2 class="panel-title">Orbit Explorer</h2>
+                    <p class="panel-subtitle">Visualize the group action on \(S^2\) or the Cayley graph.</p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Visualization</label>
+                    <div class="mode-row">
+                        <button class="mode-btn active" data-mode="sphere">Sphere Orbit</button>
+                        <button class="mode-btn" data-mode="cayley">Cayley Graph</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-row">
+                        <label class="control-label" for="wordLength">Word Length</label>
+                        <input id="wordLength" type="number" value="4" min="1" max="7" step="1" class="number-input">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Ping-Pong Dynamics</label>
+                    <p class="panel-subtitle" style="margin-bottom:8px">
+                        Animate alternating diagonal and \(t\) moves on \(S^2\).
+                        Blue = diagonal move, gold = \(t\) move.
+                    </p>
+                    <button id="pingpong-btn" class="toggle-btn">Ping-Pong</button>
+                </div>
+
+                <div class="control-group">
+                    <button id="auto-rotate" class="toggle-btn active">Auto-rotate</button>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Orbit coloring (by #t in word)</label>
+                    <div class="legend">
+                        <div class="legend-item"><span class="legend-dot" style="background:#38bdf8"></span> 0</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#f472b6"></span> 1</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#fbbf24"></span> 2</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#22c55e"></span> 3</div>
+                        <div class="legend-item"><span class="legend-dot" style="background:#a78bfa"></span> 4+</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Evidence Tab -->
+            <div id="tab-evidence" class="tab-content">
+                <div>
+                    <h2 class="panel-title">No Extra Relations</h2>
+                    <p class="panel-subtitle">
+                        Evidence that the only relation is \([a,b] = e\).
+                    </p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Growth Function</label>
+                    <canvas id="growth-chart"></canvas>
+                    <p class="panel-subtitle">
+                        Exponential growth confirms free product structure.
+                        Polynomial growth would indicate extra relations.
+                    </p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Word Evaluator</label>
+                    <div class="word-input-row">
+                        <input id="word-input" type="text" class="word-text-input"
+                               placeholder="e.g. a t b^-1 t^-1">
+                        <button id="eval-btn" class="eval-btn">Eval</button>
+                    </div>
+                    <div id="word-result">
+                        <span class="dim">Enter a word to evaluate</span>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">How to verify</h3>
+                    <p>Enter any reduced word in \(\{a,b,t\}\) and check it is never the identity.
+                       For example, try commutators like <code>a t a^-1 t^-1</code>
+                       or longer words. In a free product \(\mathbb{Z}^2 \ast \mathbb{Z}\),
+                       the only relation is \(ab = ba\).</p>
+                    <p>Syntax: <code>a b t a^-1 b^2 t^-1</code> (space-separated).</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

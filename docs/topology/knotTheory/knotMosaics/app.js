@@ -33,7 +33,7 @@ const state = {
     lastMouse: null,
     dragTile: 0,
     ghostEl: null,
-    selectedCell: null,  // {row, col} or {face, row, col} — the cell selected for rotation
+    selectedCells: [],  // [{row, col}, ...] or [{face, row, col}, ...]
 };
 
 // ============================================================
@@ -55,6 +55,11 @@ function resizeCanvas() {
     render();
 }
 window.addEventListener('resize', resizeCanvas);
+
+function isSameCell(c1, c2) {
+    if (!c1 || !c2) return false;
+    return c1.row === c2.row && c1.col === c2.col && c1.face === c2.face;
+}
 
 // ============================================================
 // Grid management
@@ -506,10 +511,11 @@ function renderSphere() {
         }
 
         // Selected cell highlight (sphere)
-        if (state.selectedCell && state.selectedCell.face === face) {
-            const sc = state.selectedCell;
-            drawCellHighlight(fOx + sc.col * cs, fOy + sc.row * cs, cs);
-        }
+        state.selectedCells.forEach(sc => {
+            if (sc.face === face) {
+                drawCellHighlight(fOx + sc.col * cs, fOy + sc.row * cs, cs);
+            }
+        });
     }
 
     // Fold indicators between adjacent net faces
@@ -642,9 +648,11 @@ function placeTile(hit, tileIndex) {
 // Selected cell highlight
 // ============================================================
 function drawSelectedCellHighlight(ox, oy, cs) {
-    const sc = state.selectedCell;
-    if (!sc || sc.face) return; // skip if null or sphere cell
-    drawCellHighlight(ox + sc.col * cs, oy + sc.row * cs, cs);
+    state.selectedCells.forEach(sc => {
+        if (!sc.face) {
+            drawCellHighlight(ox + sc.col * cs, oy + sc.row * cs, cs);
+        }
+    });
 }
 
 function drawCellHighlight(x, y, cs) {
@@ -658,24 +666,21 @@ function drawCellHighlight(x, y, cs) {
     ctx.restore();
 }
 
-function getSelectedCellTile() {
-    const sc = state.selectedCell;
-    if (!sc) return -1;
+function getTileAt(cell) {
+    if (!cell) return -1;
     if (state.surface === 'sphere') {
-        return state.grid[sc.face]?.[sc.row]?.[sc.col] ?? -1;
+        return state.grid[cell.face]?.[cell.row]?.[cell.col] ?? -1;
     }
-    return state.grid[sc.row]?.[sc.col] ?? -1;
+    return state.grid[cell.row]?.[cell.col] ?? -1;
 }
 
-function setSelectedCellTile(tileIndex) {
-    const sc = state.selectedCell;
-    if (!sc) return;
+function setTileAt(cell, tileIndex) {
+    if (!cell) return;
     if (state.surface === 'sphere') {
-        state.grid[sc.face][sc.row][sc.col] = tileIndex;
+        state.grid[cell.face][cell.row][cell.col] = tileIndex;
     } else {
-        state.grid[sc.row][sc.col] = tileIndex;
+        state.grid[cell.row][cell.col] = tileIndex;
     }
-    render();
 }
 
 // ============================================================
@@ -799,10 +804,10 @@ function startDrag(e, tileIndex) {
         if (hit) {
             const ti = tileIndex >= 0 ? tileIndex : 0;
             placeTile(hit, ti);
-            state.selectedCell = hit;
+            state.selectedCells = [hit];
             selectTile(tileIndex);
         }
-        state.dragTile = -1;
+        state.dragTile = 0;
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -812,29 +817,42 @@ function startDrag(e, tileIndex) {
 // Canvas interaction (pan, zoom, click-to-place)
 // ============================================================
 canvas.addEventListener('mousedown', (e) => {
+    const multi = e.metaKey || e.ctrlKey;
+    const hit = hitTest(e.clientX, e.clientY);
+
     if (e.button === 2) {
         e.preventDefault();
-        const hit = hitTest(e.clientX, e.clientY);
         if (hit) {
             placeTile(hit, 0);
-            state.selectedCell = hit;
+            state.selectedCells = [hit];
         } else {
-            state.selectedCell = null;
+            state.selectedCells = [];
             render();
         }
         return;
     }
+
     if (e.button !== 0) return;
 
-    const hit = hitTest(e.clientX, e.clientY);
+    if (multi && hit) {
+        const idx = state.selectedCells.findIndex(c => isSameCell(c, hit));
+        if (idx >= 0) {
+            state.selectedCells.splice(idx, 1);
+        } else {
+            state.selectedCells.push(hit);
+        }
+        render();
+        return;
+    }
+
     if (hit) {
         const ti = state.selectedTile;
         placeTile(hit, ti);
-        state.selectedCell = hit; // track for arrow-key rotation
+        state.selectedCells = [hit]; // reset selection to current cell
         state.isPainting = true;
         state.isPanning = false;
     } else {
-        state.selectedCell = null;
+        state.selectedCells = [];
         state.isPanning = true;
         state.lastMouse = { x: e.clientX, y: e.clientY };
         canvas.style.cursor = 'grabbing';
@@ -1088,7 +1106,7 @@ exampleSelect.addEventListener('change', () => {
         state.grid = ex.grid.map(row => [...row]);
     }
 
-    state.selectedCell = null;
+    state.selectedCells = [];
     updateHud();
     fitView();
 });
@@ -1158,21 +1176,28 @@ document.addEventListener('keydown', (e) => {
     }
 
     if (e.key === 'Escape') {
-        selectTile(0);
-        state.selectedCell = null;
+        state.selectedCells = [];
         render();
     } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        const ct = getSelectedCellTile();
-        if (ct > 0) {
-            setSelectedCellTile(rotateTileCW(ct));
-        }
+        state.selectedCells.forEach(sc => {
+            const ct = getTileAt(sc);
+            if (ct > 0) setTileAt(sc, rotateTileCW(ct));
+        });
+        render();
     } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        const ct = getSelectedCellTile();
-        if (ct > 0) {
-            setSelectedCellTile(rotateTileCCW(ct));
-        }
+        state.selectedCells.forEach(sc => {
+            const ct = getTileAt(sc);
+            if (ct > 0) setTileAt(sc, rotateTileCCW(ct));
+        });
+        render();
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        state.selectedCells.forEach(sc => {
+            setTileAt(sc, 0);
+        });
+        render();
     } else if (e.key === 'f' || e.key === 'F') {
         fitView();
     } else if ((e.key === 'c' || e.key === 'C') && !e.metaKey && !e.ctrlKey) {

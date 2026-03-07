@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hat Monotile — Aperiodic Tiling Generator</title>
+    <meta name="description"
+        content="Interactive generator for the Hat aperiodic monotile discovered in 2023. Explore substitution levels, color palettes, and pan/zoom through infinite non-periodic tilings.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <canvas id="tilingCanvas"></canvas>
+
+    <!-- Control Panel -->
+    <div id="controls" class="controls">
+        <h1 id="title">Hat Monotile</h1>
+        <div class="subtitle">
+            Aperiodic Tiling Generator<br>
+            <a href="https://cs.uwaterloo.ca/~csk/hat/" target="_blank" rel="noopener">Smith, Myers, Kaplan &
+                Goodman-Strauss (2023)</a>
+        </div>
+
+        <div class="section-label">Substitution</div>
+
+        <div class="control-group">
+            <label>Level <span id="levelValue" class="value-badge">3</span></label>
+            <div class="level-buttons">
+                <button id="levelDown" class="level-btn" title="Decrease level">−</button>
+                <button id="levelUp" class="level-btn" title="Increase level">+</button>
+            </div>
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="drawHatsToggle">Draw Hats</label>
+            <input type="checkbox" id="drawHatsToggle" checked>
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="drawOutlinesToggle">Supertile Outlines</label>
+            <input type="checkbox" id="drawOutlinesToggle">
+        </div>
+
+        <div class="section-label">Palette</div>
+
+        <div class="control-group">
+            <label>Color Scheme</label>
+            <div class="color-swatch-row" id="paletteSwatches">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label for="strokeSlider">Stroke Width <span id="strokeValue" class="value-badge">1.0</span></label>
+            <input type="range" id="strokeSlider" min="0" max="3" step="0.1" value="1.0">
+        </div>
+
+        <div class="control-group">
+            <label for="bgPicker">Background</label>
+            <input type="color" id="bgPicker" value="#0a0a1a">
+        </div>
+
+        <div class="section-label">View</div>
+
+        <div class="control-group toggle-row">
+            <label for="animateToggle">Animate Rotation</label>
+            <input type="checkbox" id="animateToggle">
+        </div>
+
+        <div class="control-group">
+            <label for="rotSpeedSlider">Rotation Speed <span id="rotSpeedValue" class="value-badge">0.10</span></label>
+            <input type="range" id="rotSpeedSlider" min="0.01" max="0.5" step="0.01" value="0.10">
+        </div>
+
+        <div class="stats" id="stats">
+            <span id="tileCount">0 tiles</span>
+            <span id="resolution">1920×1080</span>
+        </div>
+
+        <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
+        <button id="resetBtn" class="reset-btn">↺ Reset View</button>
+    </div>
+
+    <!-- Instructions overlay -->
+    <div id="instructions" class="instructions">
+        <span>🖱️ Drag to pan · Scroll to zoom · <kbd>H</kbd> toggle panel · <kbd>+</kbd>/<kbd>−</kbd> levels</span>
+    </div>
+
+    <script src="geometry.js"></script>
+    <script src="hat.js"></script>
+    <script src="renderer.js"></script>
+</body>
+
+</html>

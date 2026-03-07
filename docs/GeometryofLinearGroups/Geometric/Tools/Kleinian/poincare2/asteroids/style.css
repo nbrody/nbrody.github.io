@@ -1,0 +1,83 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    overflow: hidden;
+    background: #000;
+    font-family: "Courier New", monospace;
+    color: #fff;
+    cursor: crosshair;
+}
+
+#game-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+}
+
+#game-container canvas {
+    display: block;
+}
+
+#hud-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 10;
+}
+
+#title-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    background: rgba(0, 0, 0, 0.85);
+}
+
+#title-screen h1 {
+    font-size: 72px;
+    letter-spacing: 16px;
+    margin-bottom: 4px;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+}
+
+#title-screen h2 {
+    font-size: 24px;
+    letter-spacing: 8px;
+    color: #888;
+    margin-bottom: 60px;
+}
+
+.controls-info {
+    margin-bottom: 40px;
+    text-align: center;
+    line-height: 2;
+    color: #666;
+    font-size: 14px;
+    letter-spacing: 2px;
+}
+
+.blink {
+    animation: blink 1.2s step-end infinite;
+    font-size: 18px;
+    letter-spacing: 4px;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}

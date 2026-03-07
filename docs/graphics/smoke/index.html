@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domain Warping — IQ Smoke</title>
+    <meta name="description"
+        content="Interactive real-time domain warping shader inspired by Inigo Quilez's fbm warping technique. Procedural smoke with tunable noise, lighting, and color palettes.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <canvas id="glCanvas"></canvas>
+
+    <!-- Control Panel -->
+    <div id="controls" class="controls">
+        <h1 id="title">Domain Warping</h1>
+        <div class="subtitle">
+            IQ's fbm-based domain warp<br>
+            <a href="https://iquilezles.org/articles/warp" target="_blank"
+                rel="noopener">iquilezles.org/articles/warp</a>
+        </div>
+
+        <div class="section-label">Noise</div>
+
+        <div class="control-group">
+            <label for="scaleSlider">Pattern Scale <span id="scaleValue" class="value-badge">0.90</span></label>
+            <input type="range" id="scaleSlider" min="0.2" max="3.0" step="0.01" value="0.90">
+        </div>
+
+        <div class="control-group">
+            <label for="warpStrSlider">Warp Strength <span id="warpStrValue" class="value-badge">3.00</span></label>
+            <input type="range" id="warpStrSlider" min="0.0" max="8.0" step="0.05" value="3.00">
+        </div>
+
+        <div class="control-group">
+            <label for="speedSlider">Speed <span id="speedValue" class="value-badge">1.00</span></label>
+            <input type="range" id="speedSlider" min="0.0" max="3.0" step="0.01" value="1.00">
+        </div>
+
+        <div class="control-group">
+            <label for="turbSlider">Turbulence <span id="turbValue" class="value-badge">0.03</span></label>
+            <input type="range" id="turbSlider" min="0.0" max="0.15" step="0.001" value="0.03">
+        </div>
+
+        <div class="section-label">Lighting</div>
+
+        <div class="control-group toggle-row">
+            <label for="lightingToggle">Relief Lighting</label>
+            <input type="checkbox" id="lightingToggle" checked>
+        </div>
+
+        <div class="control-group" id="lightAngleGroup">
+            <label for="lightAngleSlider">Light Angle <span id="lightAngleValue" class="value-badge">0°</span></label>
+            <input type="range" id="lightAngleSlider" min="0" max="360" step="1" value="0">
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="invertToggle">Invert Colors</label>
+            <input type="checkbox" id="invertToggle" checked>
+        </div>
+
+        <div class="section-label">Palette</div>
+
+        <div class="control-group">
+            <label>Color Scheme</label>
+            <div class="color-swatch-row" id="paletteSwatches">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label for="contrastSlider">Contrast <span id="contrastValue" class="value-badge">2.00</span></label>
+            <input type="range" id="contrastSlider" min="0.5" max="4.0" step="0.05" value="2.00">
+        </div>
+
+        <div class="control-group">
+            <label for="brightnessSlider">Brightness <span id="brightnessValue" class="value-badge">1.10</span></label>
+            <input type="range" id="brightnessSlider" min="0.3" max="2.0" step="0.01" value="1.10">
+        </div>
+
+        <div class="stats" id="stats">
+            <span id="fpsCounter">60 fps</span>
+            <span id="resolution">1920×1080</span>
+        </div>
+
+        <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
+        <button id="pauseBtn" class="pause-btn">⏸ Pause</button>
+    </div>
+
+    <!-- Instructions overlay -->
+    <div id="instructions" class="instructions">
+        <span>🖱️ Drag to pan · Scroll to zoom · <kbd>H</kbd> toggle panel · <kbd>Space</kbd> pause</span>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+
+</html>

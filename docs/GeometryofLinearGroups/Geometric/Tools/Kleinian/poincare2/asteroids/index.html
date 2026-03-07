@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroids in T³</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container"></div>
+    <canvas id="hud-canvas"></canvas>
+
+    <div id="title-screen">
+        <h1>ASTEROIDS</h1>
+        <h2>IN THE 3-TORUS</h2>
+        <div class="controls-info">
+            <p>MOUSE — AIM</p>
+            <p>WASD — ROTATE &nbsp; Q/E — ROLL</p>
+            <p>SPACE — THRUST &nbsp; CLICK/F — FIRE</p>
+        </div>
+        <p class="blink">CLICK TO START</p>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

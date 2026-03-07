@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "rileySlice3D",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/misc/rileySlice3D && exec python3 -m http.server 8090"],
+      "port": 8090
+    },
+    {
+      "name": "freeProduct",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/freeProduct && exec python3 -m http.server 8091"],
+      "port": 8091
+    }
+  ]
+}

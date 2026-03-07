@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Interactive Towers of Hanoi puzzle game with drag-and-drop controls.">
+    <title>Towers of Hanoi</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <!-- Menu overlay -->
+    <div id="menu-overlay">
+        <div class="menu-card">
+            <h1 class="menu-title">HANOI</h1>
+            <p class="menu-sub">Stack the Disks • Solve the Puzzle</p>
+
+            <div class="setting-group">
+                <label for="disk-count">Disks</label>
+                <div class="score-selector">
+                    <button class="score-btn" id="disk-minus">−</button>
+                    <span id="disk-count">4</span>
+                    <button class="score-btn" id="disk-plus">+</button>
+                </div>
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Minimum moves:</span>
+                <span class="info-value" id="min-moves">15</span>
+            </div>
+
+            <button id="start-btn" class="glow-btn">START</button>
+        </div>
+    </div>
+
+    <!-- In-game HUD -->
+    <div id="hud">
+        <div class="hud-item">
+            <span class="hud-label">MOVES</span>
+            <span class="hud-value" id="move-count">0</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">BEST</span>
+            <span class="hud-value" id="best-possible">15</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">TIME</span>
+            <span class="hud-value" id="timer">0:00</span>
+        </div>
+    </div>
+
+    <!-- Win overlay -->
+    <div id="win-overlay" class="hidden">
+        <div class="menu-card">
+            <div class="win-stars" id="win-stars">★★★</div>
+            <h1 class="win-title" id="win-text">Puzzle Solved!</h1>
+            <p class="win-stats" id="win-stats"></p>
+            <button id="play-again-btn" class="glow-btn">PLAY AGAIN</button>
+            <button id="menu-btn" class="glow-btn outline">MENU</button>
+        </div>
+    </div>
+
+    <!-- Game canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Floating menu button -->
+    <button id="back-btn" class="icon-btn" title="Menu">☰</button>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

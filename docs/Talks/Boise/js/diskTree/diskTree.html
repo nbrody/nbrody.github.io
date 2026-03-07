@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bruhat-Tits Tree: Poincaré Disk Model</title>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg: #020617;
+            --ink: #f8fafc;
+            --accent: #6366f1;
+            --paper: rgba(30, 41, 59, 0.7);
+            --border: rgba(51, 65, 85, 0.5);
+            --font: 'Outfit', 'Inter', -apple-system, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--ink);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            width: 320px;
+            padding: 1.5rem;
+            background: var(--paper);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            z-index: 10;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            margin: 0 0 1.5rem 0;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        .control-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input {
+            flex: 1;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            padding: 8px 12px;
+            font-size: 1rem;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+        }
+
+        button {
+            width: 100%;
+            padding: 1rem;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.5);
+            filter: brightness(1.1);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .matrix-input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.3);
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .matrix-input-grid input {
+            text-align: center;
+            font-family: monospace;
+        }
+
+        .button-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        }
+
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            cursor: move;
+        }
+
+        #tooltip {
+            position: absolute;
+            background: var(--paper);
+            border: 1px solid var(--accent);
+            color: var(--ink);
+            padding: 12px;
+            border-radius: 12px;
+            pointer-events: none;
+            display: none;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            backdrop-filter: blur(8px);
+            font-size: 0.9rem;
+        }
+
+        .hint {
+            margin-top: 1.5rem;
+            font-size: 0.75rem;
+            color: #64748b;
+            line-height: 1.4;
+        }
+
+        .formula {
+            font-family: 'serif';
+            font-style: italic;
+            color: #818cf8;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div id="canvas-container">
+        <canvas id="treeCanvas"></canvas>
+        <div id="tooltip"></div>
+    </div>
+
+    <div id="ui-overlay">
+        <h1>Bruhat-Tits Tree \(\mathcal{T}_p\)</h1>
+
+        <div class="control-group">
+            <label>Prime \( p \)</label>
+            <input type="number" id="prime-p" value="3" min="2" max="11">
+        </div>
+
+        <div class="control-group">
+            <label>Max Depth / Step Size</label>
+            <div class="input-row">
+                <input type="number" id="max-depth" value="4" min="0" max="7">
+                <input type="number" id="step-dist" value="0.8" step="0.1" min="0.1" max="3.0">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Matrix Action \( g \in \mathsf{PGL}_2(\mathbb{Q}) \)</label>
+            <div class="matrix-input-grid">
+                <input type="text" id="g-a" value="1">
+                <input type="text" id="g-b" value="0">
+                <input type="text" id="g-c" value="0">
+                <input type="text" id="g-d" value="p">
+            </div>
+        </div>
+
+        <div class="button-stack">
+            <button onclick="startAction()" class="primary">Animate Action</button>
+            <button onclick="updateTree()">Regenerate Tree</button>
+            <button onclick="resetView()">Reset View</button>
+        </div>
+    </div>
+
+    <script src="../math.js"></script>
+    <script src="diskTree.js"></script>
+    <script>
+        let treeViz;
+
+        function parseVal(val) {
+            const p = document.getElementById('prime-p').value;
+            const sanitized = val.trim().replace(/\bp\b/g, p);
+            return new BigFrac(sanitized);
+        }
+
+        function updateTree() {
+            if (treeViz) treeViz.reset();
+        }
+
+        function resetView() {
+            if (treeViz) {
+                treeViz.view.x = 0;
+                treeViz.view.y = 0;
+                treeViz.view.rotation = 0;
+                treeViz.view.scale = 0.9;
+            }
+        }
+
+        function startAction() {
+            const p = parseInt(document.getElementById('prime-p').value);
+            const g = [
+                parseVal(document.getElementById('g-a').value),
+                parseVal(document.getElementById('g-b').value),
+                parseVal(document.getElementById('g-c').value),
+                parseVal(document.getElementById('g-d').value)
+            ];
+            treeViz.animateAction(g, p);
+        }
+
+        window.addEventListener('load', () => {
+            const canvas = document.getElementById('treeCanvas');
+            treeViz = new DiskTreeViz(canvas);
+        });
+    </script>
+</body>
+
+</html>

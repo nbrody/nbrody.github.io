@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A Theory of Harmony — Why the Major Scale?</title>
+    <meta name="description"
+        content="An interactive deduction of the major scale from two empirical observations and two aesthetic values." />
+    <link rel="stylesheet" href="style.css" />
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                macros: { R: '\\mathbb{R}', Z: '\\mathbb{Z}', N: '\\mathbb{N}' }
+            },
+            options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+    <div id="app">
+
+        <!-- ======================================================
+         LEFT: WALKTHROUGH SLIDES
+         ====================================================== -->
+        <div id="walkthrough">
+            <div id="slide-viewport">
+
+                <!-- ===================== SLIDE 0: INTRO ===================== -->
+                <div class="slide active" data-slide="0">
+                    <div class="chapter-label">Introduction</div>
+                    <h1>A Theory of <span class="highlight">Harmony</span></h1>
+
+                    <p>
+                        Why does Western music use the <strong>major scale</strong>? Is it arbitrary — a cultural
+                        accident — or is there something <em>inevitable</em> about it?
+                    </p>
+
+                    <div class="big-question">
+                        Can we <em>deduce</em> the major scale from basic physics and a couple of aesthetic values?
+                    </div>
+
+                    <p>
+                        We'll start from two <strong>empirical observations</strong> about how sound works, add two
+                        <strong>values</strong> about what we want from music, and watch the major scale emerge as the
+                        optimal solution.
+                    </p>
+
+                    <div class="observation-box">
+                        <div class="obs-label">Observation 1</div>
+                        <p>Two sine waves at <strong>nearby frequencies</strong> produce an unpleasant <em>beating</em>
+                            — they sound <strong>dissonant</strong>.</p>
+                    </div>
+
+                    <div class="observation-box">
+                        <div class="obs-label">Observation 2</div>
+                        <p>A vibrating string doesn't vibrate as a simple sine wave — it produces a rich spectrum of
+                            <strong>overtones</strong> at integer multiples of the fundamental frequency.
+                        </p>
+                    </div>
+
+                    <div class="value-box">
+                        <div class="value-label">Value 1</div>
+                        <p>We want notes that <strong>sound good together</strong> — harmony (chords).</p>
+                    </div>
+
+                    <div class="value-box">
+                        <div class="value-label">Value 2</div>
+                        <p>We want chords that <strong>sound good together</strong> — chord progressions.</p>
+                    </div>
+
+                    <div class="interact-prompt">
+                        Press <span class="key-hint">→</span> or click <strong>Next</strong> to begin
+                    </div>
+                </div>
+
+                <!-- ===================== SLIDE 1: DISSONANCE ===================== -->
+                <div class="slide" data-slide="1">
+                    <div class="chapter-label">Observation 1 · Beating</div>
+                    <h2>Nearby Frequencies Sound <span class="highlight">Dissonant</span></h2>
+
+                    <p>
+                        When two sine waves have <strong>nearly the same frequency</strong>, they alternately reinforce
+                        and cancel each other. You hear a pulsating "wah-wah-wah" called <em>beating</em>.
+                    </p>
+
+                    <div class="math-block">
+                        $\sin(2\pi f_1 t) + \sin(2\pi f_2 t) = 2\cos\!\bigl(\pi(f_1 - f_2)t\bigr)\,\sin\!\bigl(\pi(f_1 +
+                        f_2)t\bigr)$
+                    </div>
+
+                    <p>
+                        The <em>envelope</em> oscillates at the <strong>difference frequency</strong> $|f_1 - f_2|$.
+                        When this is in the range of roughly 20–50 Hz, the result is perceived as <strong>rough</strong>
+                        and unpleasant.
+                    </p>
+
+                    <div class="insight">
+                        <p>
+                            <strong>Key insight:</strong> Dissonance isn't about absolute pitch — it's about
+                            <em>proximity</em>. Two sine waves are consonant when they're either identical or far enough
+                            apart. The "danger zone" is the <strong>critical bandwidth</strong>.
+                        </p>
+                    </div>
+
+                    <p>
+                        Drag the <strong>frequency orbs</strong> on the canvas to hear this for yourself. Start
+                        with both at 440 Hz, then slowly pull them apart.
+                    </p>
+
+                    <div class="interact-prompt">
+                        Drag the orbs up or down to change frequency
+                    </div>
+                </div>
+
+                <!-- ===================== SLIDE 2: VIBRATING STRING ===================== -->
+                <div class="slide" data-slide="2">
+                    <div class="chapter-label">Observation 2 · Overtones</div>
+                    <h2>The Harmonic <span class="highlight">Series</span></h2>
+
+                    <p>
+                        A string fixed at both ends doesn't vibrate in just one simple pattern. It simultaneously
+                        vibrates in <em>all possible standing wave modes</em>:
+                    </p>
+
+                    <div class="math-block">
+                        $y(x,t) = \sum_{n=1}^{\infty} A_n \sin\!\left(\frac{n\pi x}{L}\right)\cos(2\pi n f_0 t)$
+                    </div>
+
+                    <p>
+                        The frequencies are <strong>integer multiples</strong> of the fundamental $f_0$: the
+                        <em>harmonic series</em>.
+                    </p>
+
+                    <ol class="overtone-list">
+                        <li><strong>$f_0$</strong> — the fundamental (the note you "hear")</li>
+                        <li><strong>$2f_0$</strong> — one octave above</li>
+                        <li><strong>$3f_0$</strong> — an octave + a fifth (the "twelfth")</li>
+                        <li><strong>$4f_0$</strong> — two octaves above</li>
+                        <li><strong>$5f_0$</strong> — two octaves + a major third</li>
+                        <li><strong>$6f_0$</strong> — two octaves + a fifth</li>
+                    </ol>
+
+                    <p>
+                        Watch the string on the right — it's decomposed into its first harmonics. Each colored curve is
+                        a separate overtone, and their sum produces the realistic string shape.
+                    </p>
+
+                    <div class="interact-prompt">
+                        Drag the string on the canvas to pluck it
+                    </div>
+                </div>
+
+                <!-- ===================== SLIDE 3: PAIRS OF STRINGS ===================== -->
+                <div class="slide" data-slide="3">
+                    <div class="chapter-label">Value 1 · Consonance</div>
+                    <h2>Notes That <span class="highlight">Sound Good</span> Together</h2>
+
+                    <p>
+                        Given Observation 1 (nearby frequencies beat) and Observation 2 (real tones have overtones),
+                        when do two notes <em>not</em> clash?
+                    </p>
+
+                    <p>
+                        Two notes sound <strong>consonant</strong> when their overtones <em>align</em> rather than
+                        sitting in each other's critical bandwidths. This happens when the frequency ratio is a
+                        <strong>simple fraction</strong>:
+                    </p>
+
+                    <div class="ratio-grid stagger" id="ratio-cards">
+                        <div class="ratio-card" data-ratio="2/1">
+                            <div class="ratio-value">2:1</div>
+                            <div class="ratio-name">Octave</div>
+                            <div class="ratio-desc">Every overtone aligns</div>
+                        </div>
+                        <div class="ratio-card" data-ratio="3/2">
+                            <div class="ratio-value">3:2</div>
+                            <div class="ratio-name">Perfect Fifth</div>
+                            <div class="ratio-desc">Every other overtone aligns</div>
+                        </div>
+                        <div class="ratio-card" data-ratio="4/3">
+                            <div class="ratio-value">4:3</div>
+                            <div class="ratio-name">Perfect Fourth</div>
+                            <div class="ratio-desc">Strong alignment at 3rd, 4th</div>
+                        </div>
+                        <div class="ratio-card" data-ratio="5/4">
+                            <div class="ratio-value">5:4</div>
+                            <div class="ratio-name">Major Third</div>
+                            <div class="ratio-desc">Alignment at 4th, 5th harmonics</div>
+                        </div>
+                        <div class="ratio-card" data-ratio="6/5">
+                            <div class="ratio-value">6:5</div>
+                            <div class="ratio-name">Minor Third</div>
+                            <div class="ratio-desc">Alignment at 5th, 6th harmonics</div>
+                        </div>
+                        <div class="ratio-card" data-ratio="5/3">
+                            <div class="ratio-value">5:3</div>
+                            <div class="ratio-name">Major Sixth</div>
+                            <div class="ratio-desc">3rd and 5th overtone match</div>
+                        </div>
+                    </div>
+
+                    <p>
+                        Drag the <strong>frequency orbs</strong> on the canvas to explore intervals between
+                        strings. The <strong>dissonance score</strong> (a weighted sum of roughness across all
+                        overtone pairs) tells you quantitatively how consonant two notes are.
+                    </p>
+
+                    <p>
+                        Click a ratio card below to snap to an exact interval — the simpler the ratio, the lower the
+                        dissonance. Use the <strong>+</strong> button to add a third string.
+                    </p>
+
+                    <div class="insight">
+                        <p>
+                            <strong>The simpler the ratio, the more consonant the interval.</strong> Simple ratios mean
+                            more shared overtones and fewer near-collisions in the critical bandwidth.
+                        </p>
+                    </div>
+
+                    <div class="interact-prompt">
+                        Drag frequency orbs or click ratio presets
+                    </div>
+                </div>
+
+                <!-- ===================== SLIDE 4: CHORDS ===================== -->
+                <div class="slide" data-slide="4">
+                    <div class="chapter-label">Value 2 · Progression</div>
+                    <h2>Chords That <span class="highlight">Sound Good</span> Together</h2>
+
+                    <p>
+                        Now we want more than just pairs of notes — we want <strong>chords</strong> (triads), and we
+                        want multiple chords that share notes so we can move smoothly between them.
+                    </p>
+
+                    <p>
+                        The most consonant triad is the <strong>major triad</strong>: ratios <em>4:5:6</em>. Starting
+                        from a root, we take a major third (5/4) and a perfect fifth (3/2).
+                    </p>
+
+                    <p>
+                        To build chord <em>progressions</em>, we want several major (or minor) triads that all use notes
+                        from the <strong>same scale</strong>. Let's build triads on the 1st, 4th, and 5th scale degrees:
+                    </p>
+
+                    <div class="chord-grid stagger" id="chord-cards">
+                        <div class="chord-card" data-chord="I">
+                            <div class="chord-name">I — Tonic</div>
+                            <div class="chord-notes">C E G</div>
+                            <div class="chord-ratios">4 : 5 : 6</div>
+                        </div>
+                        <div class="chord-card" data-chord="IV">
+                            <div class="chord-name">IV — Subdominant</div>
+                            <div class="chord-notes">F A C</div>
+                            <div class="chord-ratios">4 : 5 : 6</div>
+                        </div>
+                        <div class="chord-card" data-chord="V">
+                            <div class="chord-name">V — Dominant</div>
+                            <div class="chord-notes">G B D</div>
+                            <div class="chord-ratios">4 : 5 : 6</div>
+                        </div>
+                        <div class="chord-card" data-chord="vi">
+                            <div class="chord-name">vi — Relative Minor</div>
+                            <div class="chord-notes">A C E</div>
+                            <div class="chord-ratios">10 : 12 : 15</div>
+                        </div>
+                        <div class="chord-card" data-chord="ii">
+                            <div class="chord-name">ii — Supertonic</div>
+                            <div class="chord-notes">D F A</div>
+                            <div class="chord-ratios">10 : 12 : 15</div>
+                        </div>
+                        <div class="chord-card" data-chord="iii">
+                            <div class="chord-name">iii — Mediant</div>
+                            <div class="chord-notes">E G B</div>
+                            <div class="chord-ratios">10 : 12 : 15</div>
+                        </div>
+                    </div>
+
+                    <p>
+                        Click a chord card to hear it and see the combined waveforms. Notice how the three <strong>major
+                            chords</strong> (I, IV, V) together use exactly <em>7 notes</em> — the major scale!
+                    </p>
+
+                    <div class="insight">
+                        <p>
+                            <strong>The major scale is the union of three major triads built on notes related by
+                                fifths.</strong> $C = \{C,E,G\}$, $F = \{F,A,C\}$, $G = \{G,B,D\}$ →
+                            $\{C,D,E,F,G,A,B\}$.
+                        </p>
+                    </div>
+
+                    <div class="interact-prompt">
+                        Click chord cards to hear the harmony
+                    </div>
+                </div>
+
+                <!-- ===================== SLIDE 5: CONCLUSION ===================== -->
+                <div class="slide" data-slide="5">
+                    <div class="chapter-label">Conclusion</div>
+                    <h2>The Major Scale <span class="highlight">Emerges</span></h2>
+
+                    <p>
+                        Let's retrace the logic:
+                    </p>
+
+                    <div class="observation-box">
+                        <div class="obs-label">Physics</div>
+                        <p><strong>Nearby sine waves beat</strong> (dissonance), and <strong>real tones have
+                                overtones</strong> at integer multiples. Therefore, consonant intervals have <em>simple
+                                frequency ratios</em>.</p>
+                    </div>
+
+                    <div class="value-box">
+                        <div class="value-label">Aesthetic</div>
+                        <p>We want <strong>consonant chords</strong> (triads with simple ratios = major triad 4:5:6),
+                            and we want <strong>several such chords</strong> sharing a common pool of notes (chord
+                            progressions).</p>
+                    </div>
+
+                    <p>
+                        The simplest way to get multiple major triads is to stack them by <strong>fifths</strong>: take
+                        a root chord (I), go up a fifth (V), and down a fifth (IV). The union of these three triads
+                        gives exactly <strong>seven notes</strong>.
+                    </p>
+
+                    <div class="math-block">
+                        $\{C,E,G\} \cup \{G,B,D\} \cup \{F,A,C\} = \{C,D,E,F,G,A,B\}$
+                    </div>
+
+                    <p>
+                        That's the <strong>major scale</strong>. It isn't an arbitrary choice — it's the <em>most
+                            harmonious</em> 7-note scale, deduced from basic physics and the desire for rich harmonic
+                        relationships.
+                    </p>
+
+                    <div class="big-question">
+                        The major scale is not a cultural accident — it is the <em>optimal solution</em> to the problem
+                        of finding notes that sound good together, with chords that sound good together.
+                    </div>
+
+                    <p>
+                        Click the play button on the right to hear all seven major-scale triads resolve beautifully back
+                        to the tonic.
+                    </p>
+
+                    <div class="interact-prompt">
+                        Hear the full progression on the canvas
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- NAV -->
+            <div id="slide-nav">
+                <button class="nav-btn" id="btn-prev" disabled>
+                    <span class="arrow">←</span> Prev
+                </button>
+                <div class="progress-dots" id="progress-dots">
+                    <button class="progress-dot active" data-slide="0"></button>
+                    <button class="progress-dot" data-slide="1"></button>
+                    <button class="progress-dot" data-slide="2"></button>
+                    <button class="progress-dot" data-slide="3"></button>
+                    <button class="progress-dot" data-slide="4"></button>
+                    <button class="progress-dot" data-slide="5"></button>
+                </div>
+                <button class="nav-btn" id="btn-next">
+                    Next <span class="arrow">→</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ======================================================
+         RIGHT: INTERACTIVE CANVAS
+         ====================================================== -->
+        <div id="canvas-container">
+            <canvas id="main-canvas"></canvas>
+
+            <!-- Floating controls — shown/hidden per slide -->
+
+            <div id="string-controls">
+                <button class="play-btn" id="pluck-btn">
+                    <span class="play-icon">▶</span> Pluck
+                </button>
+            </div>
+
+            <div id="canvas-info">
+                <div class="info-badge" id="canvas-label">Theory of Harmony</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+
+</html>

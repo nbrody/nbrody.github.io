@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fractal Raymarcher</title>
+    <meta name="description"
+        content="Real-time fractal raymarcher using signed distance functions, orbit traps, and volumetric rendering techniques.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <canvas id="glCanvas"></canvas>
+
+    <!-- Control Panel -->
+    <div id="controls" class="controls">
+        <h1 id="title">Fractal Raymarcher</h1>
+
+        <div class="control-group">
+            <label for="fractalSelect">Fractal</label>
+            <select id="fractalSelect">
+                <option value="0">Mandelbulb</option>
+                <option value="1">Mandelbox</option>
+                <option value="2">Kaleidoscopic IFS</option>
+                <option value="3">Sierpinski Tetrahedron</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="powerSlider">Power <span id="powerValue" class="value-badge">8.0</span></label>
+            <input type="range" id="powerSlider" min="2" max="16" step="0.1" value="8">
+        </div>
+
+        <div class="control-group">
+            <label for="iterSlider">Iterations <span id="iterValue" class="value-badge">12</span></label>
+            <input type="range" id="iterSlider" min="2" max="24" step="1" value="12">
+        </div>
+
+        <div class="control-group">
+            <label for="aoSlider">Ambient Occlusion <span id="aoValue" class="value-badge">0.8</span></label>
+            <input type="range" id="aoSlider" min="0" max="1" step="0.01" value="0.8">
+        </div>
+
+        <div class="control-group">
+            <label for="glowSlider">Glow Intensity <span id="glowValue" class="value-badge">0.5</span></label>
+            <input type="range" id="glowSlider" min="0" max="1.5" step="0.01" value="0.5">
+        </div>
+
+        <div class="control-group">
+            <label for="colorScheme">Color Scheme</label>
+            <select id="colorScheme">
+                <option value="0">Magma</option>
+                <option value="1">Ocean Deep</option>
+                <option value="2">Neon Circuit</option>
+                <option value="3">Sunrise</option>
+                <option value="4">Monochrome</option>
+            </select>
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="autoRotate">Auto Rotate</label>
+            <input type="checkbox" id="autoRotate" checked>
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="softShadows">Soft Shadows</label>
+            <input type="checkbox" id="softShadows" checked>
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="orbitTrap">Orbit Trap Coloring</label>
+            <input type="checkbox" id="orbitTrap" checked>
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="domainWarp">Domain Warp</label>
+            <input type="checkbox" id="domainWarp">
+        </div>
+
+        <div class="control-group" id="warpAmountGroup" style="display:none;">
+            <label for="warpSlider">Warp Amount <span id="warpValue" class="value-badge">0.15</span></label>
+            <input type="range" id="warpSlider" min="0" max="0.5" step="0.005" value="0.15">
+        </div>
+
+        <div class="stats" id="stats">
+            <span id="fpsCounter">60 fps</span>
+            <span id="resolution">1920×1080</span>
+        </div>
+
+        <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
+    </div>
+
+    <!-- Instructions overlay -->
+    <div id="instructions" class="instructions">
+        <span>🖱️ Drag to orbit · Scroll to zoom · <kbd>H</kbd> toggle panel</span>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+
+</html>
