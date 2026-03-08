@@ -131,9 +131,9 @@ class PAdicTower3D {
             div.style.opacity = '0.8';
 
             let labelStr;
-            if (n === 0) labelStr = "\\(\\mathbb{R}/\\mathbb{Z}\\)";
-            else if (n > 0) labelStr = `\\(\\mathbb{R}/p^{${n}}\\mathbb{Z}\\)`;
-            else labelStr = `\\(\\mathbb{R}/p^{${n}}\\mathbb{Z}\\)`; // Handling negative n consistently
+            if (n === 0) labelStr = "\\(\\mathbb{Z}[\\frac{1}{p}]/\\mathbb{Z}\\)";
+            else if (n > 0) labelStr = `\\(\\mathbb{Z}[\\frac{1}{p}]/p^{${n}}\\mathbb{Z}\\)`;
+            else labelStr = `\\(\\mathbb{Z}[\\frac{1}{p}]/p^{${n}}\\mathbb{Z}\\)`; // Handling negative n consistently
 
             div.innerHTML = labelStr;
             overlay.appendChild(div);

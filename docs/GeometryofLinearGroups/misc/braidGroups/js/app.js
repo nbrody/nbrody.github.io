@@ -69,6 +69,7 @@ const tabContents = document.querySelectorAll('.tab-content');
 const wordInputEl = document.getElementById('word-input');
 const btnCompute = document.getElementById('btn-compute');
 const manualResultEl = document.getElementById('manual-result');
+const wordBuilderEl = document.getElementById('word-builder');
 
 // Word builder (Theory tab)
 const builderWordEl = document.getElementById('builder-word');
@@ -251,6 +252,10 @@ function init() {
     if (btnCompute) {
         btnCompute.addEventListener('click', computeWord);
     }
+
+    document.querySelectorAll('[data-import-word-source]').forEach(btn => {
+        btn.addEventListener('click', handleExampleWordImport);
+    });
 
     // Handle reduction toggle — re-render builder when toggled
     if (handleReduceToggle) {
@@ -505,6 +510,61 @@ function builderUndo() {
 function builderClear() {
     builderSymbols = [];
     builderRender();
+}
+
+/** Replace the current builder word in one step. */
+function builderSetWord(symbols, transitionType = 'snap') {
+    builderSymbols = [...symbols];
+    builderRender(transitionType);
+}
+
+/**
+ * Expand the Birman-subgroup notation used in the local repo into braid generators.
+ * Here uppercase X,Y denote the subgroup generators and lowercase x,y their inverses:
+ *   X = σ₃σ₁⁻¹,  x = σ₁σ₃⁻¹
+ *   Y = σ₂σ₃σ₁⁻¹σ₂⁻¹,  y = σ₂σ₁σ₃⁻¹σ₂⁻¹
+ */
+function expandRepoBirmanWord(word) {
+    const tokenMap = {
+        'X': ['s3', 'S1'],
+        'x': ['s1', 'S3'],
+        'Y': ['s2', 's3', 'S1', 'S2'],
+        'y': ['s2', 's1', 'S3', 'S2']
+    };
+    const expanded = [];
+
+    for (const tok of word.trim().split(/\s+/).filter(Boolean)) {
+        const block = tokenMap[tok];
+        if (!block) return null;
+        expanded.push(...block);
+    }
+
+    return expanded;
+}
+
+/** Import an example word into the theory-tab braid builder and visualizers. */
+function handleExampleWordImport(event) {
+    const btn = event.currentTarget;
+    const sourceId = btn.dataset.importWordSource;
+    const notation = btn.dataset.importWordNotation;
+    const sourceEl = sourceId ? document.getElementById(sourceId) : null;
+    if (!sourceEl) return;
+
+    const rawWord = sourceEl.textContent.replace(/\s+/g, ' ').trim();
+    if (!rawWord) return;
+
+    if (getStrandCount() !== 4) {
+        if (strandSlider) strandSlider.value = '4';
+        handleStrandCountChange(4);
+    }
+
+    const symbols = notation === 'repo-birman-f2'
+        ? expandRepoBirmanWord(rawWord)
+        : rawWord.split(/\s+/).filter(Boolean);
+    if (!symbols || symbols.length === 0) return;
+
+    builderSetWord(symbols, 'snap');
+    wordBuilderEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 /** Compute the matrix product for the current word */

@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SL₃(ℤ[½]) Dynamics: ℝ³ vs ℙ² - Geometry of Linear Groups</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #64ffda;
+            --secondary: #0a192f;
+            --accent: #ff5555;
+            --highlight: #55ff55;
+            --bg-dark: #0a192f;
+            --bg-light: #112240;
+            --text-main: #ccd6f6;
+            --text-dim: #8892b0;
+            --glass: rgba(10, 25, 47, 0.85);
+            --border: rgba(100, 255, 218, 0.2);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Outfit', sans-serif;
+            overflow: hidden;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            padding: 30px;
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            max-width: 420px;
+            z-index: 100;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 1.8rem;
+            margin: 0 0 15px 0;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        p {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text-dim);
+            margin-bottom: 15px;
+        }
+
+        .matrix-display {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 15px;
+            border-radius: 12px;
+            margin: 15px 0;
+            font-size: 0.8rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--primary);
+            line-height: 1.4;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 25px;
+        }
+
+        button {
+            background: rgba(100, 255, 218, 0.05);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 12px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background: var(--primary);
+            color: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(100, 255, 218, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.special {
+            background: var(--primary);
+            color: var(--secondary);
+        }
+
+        button.toggle-btn {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+
+        button.toggle-btn.active {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(100, 255, 218, 0.1);
+        }
+
+        #legend {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: var(--glass);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid var(--border);
+            font-size: 0.85rem;
+            backdrop-filter: blur(8px);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            color: var(--text-main);
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
+            margin-right: 12px;
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        #word-tracker {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--glass);
+            padding: 12px 25px;
+            border-radius: 40px;
+            border: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            color: var(--primary);
+            z-index: 200;
+            max-width: 60vw;
+            overflow-x: auto;
+            white-space: nowrap;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #word-tracker span {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui-overlay">
+        <h1>SL₃(ℤ[½]) Dynamics</h1>
+
+        <div class="mode-selector">
+            <button id="btn-r3" class="toggle-btn active" onclick="setMode('r3')">ℝ³ Space</button>
+            <button id="btn-p2" class="toggle-btn" onclick="setMode('p2')">ℙ² Projective</button>
+        </div>
+
+        <p id="description">
+            Visualizing the action of \( SL_3(\mathbb{Z}[1/2]) \) on \( \mathbb{R}^3 \).
+            Points represent vectors being transformed by linear maps.
+        </p>
+
+        <div class="matrix-display" id="matrix-m">
+            \[ A = \left( \begin{smallmatrix} 1/4 & 0 & 0 \\ 0 & 2 & 0 \\ 0 & 0 & 2 \end{smallmatrix} \right) , \quad
+            B = \left( \begin{smallmatrix} 2 & 0 & 0 \\ 0 & 1/4 & 0 \\ 0 & 0 & 2 \end{smallmatrix} \right) \]
+            \[ M = \left( \begin{smallmatrix} 8 & -7 & -7 \\ 4 & -3 & -4 \\ 3 & -3 & -2 \end{smallmatrix} \right) \]
+        </div>
+
+        <div class="controls">
+            <button onclick="applyA(event)">Apply A</button>
+            <button onclick="applyB(event)">Apply B</button>
+            <button onclick="applyM(event)">Apply M</button>
+            <button onclick="resetPoints()">Reset</button>
+            <button class="special" onclick="runPingPongSequence()" style="grid-column: span 2;">Simulate
+                Orbits</button>
+        </div>
+    </div>
+
+    <div id="word-tracker">
+        <span>Current Word:</span>
+        <div id="current-word">e</div>
+    </div>
+
+    <div id="legend">
+        <div id="p-label" class="legend-item">
+            <div class="dot" style="background: var(--accent); color: var(--accent);"></div> Attracting Direction P
+        </div>
+        <div id="l-label" class="legend-item">
+            <div class="dot" style="background: var(--highlight); color: var(--highlight);"></div> Invariant Plane L
+        </div>
+        <div class="legend-item">
+            <div class="dot" style="background: #ffffff; color: #ffffff;"></div> Sample Points
+        </div>
+    </div>
+
+    <canvas id="container"></canvas>
+
+    <script>
+        let scene, camera, renderer, controls;
+        let points = [];
+        let pointGroup;
+        let lineMesh, pMesh, grid, planeMesh, invariantPlane;
+        let isProjective = false;
+
+        // Matrices
+        const A = [[0.25, 0, 0], [0, 2, 0], [0, 0, 2]];
+        const B = [[2, 0, 0], [0, 0.25, 0], [0, 0, 2]];
+        const M = [[8, -7, -7], [4, -3, -4], [3, -3, -2]];
+
+        // Inverses
+        const Ai = [[4, 0, 0], [0, 0.5, 0], [0, 0, 0.5]];
+        const Bi = [[0.5, 0, 0], [0, 4, 0], [0, 0, 0.5]];
+        const Mi = [[-6, 7, 7], [-4, 5, 4], [-3, 3, 4]];
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050a15);
+            scene.fog = new THREE.FogExp2(0x050a15, 0.02);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(15, 12, 20);
+
+            renderer = new THREE.WebGLRenderer({
+                canvas: document.getElementById('container'),
+                antialias: true,
+                alpha: true
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+            scene.add(ambientLight);
+
+            const pointLight = new THREE.PointLight(0x64ffda, 1.5, 100);
+            pointLight.position.set(10, 10, 15);
+            scene.add(pointLight);
+
+            // Plane Z=1 for P2 mode
+            const planeGeom = new THREE.PlaneGeometry(100, 100);
+            const planeMat = new THREE.MeshStandardMaterial({
+                color: 0x112240,
+                transparent: true,
+                opacity: 0,
+                side: THREE.DoubleSide
+            });
+            planeMesh = new THREE.Mesh(planeGeom, planeMat);
+            planeMesh.position.z = 1;
+            scene.add(planeMesh);
+
+            grid = new THREE.GridHelper(100, 50, 0x64ffda, 0x1d2d44);
+            grid.rotation.x = Math.PI / 2;
+            grid.position.z = 1;
+            grid.material.transparent = true;
+            grid.material.opacity = 0;
+            scene.add(grid);
+
+            // Origin axes
+            const axes = new THREE.AxesHelper(10);
+            scene.add(axes);
+
+            // Attracting Point P direction
+            const pGeom = new THREE.SphereGeometry(0.3, 32, 32);
+            const pMat = new THREE.MeshStandardMaterial({
+                color: 0xff5555,
+                emissive: 0xff0000,
+                emissiveIntensity: 2
+            });
+            pMesh = new THREE.Mesh(pGeom, pMat);
+            scene.add(pMesh);
+
+            // Line L / Plane L (x-y-z=0)
+            const lineGeom = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-20, -20, 0),
+                new THREE.Vector3(20, 20, 0)
+            ]);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x55ff55, linewidth: 2 });
+            lineMesh = new THREE.Line(lineGeom, lineMat);
+            scene.add(lineMesh);
+
+            const invPlaneGeom = new THREE.PlaneGeometry(30, 30);
+            const invPlaneMat = new THREE.MeshStandardMaterial({
+                color: 0x55ff55,
+                transparent: true,
+                opacity: 0.1,
+                side: THREE.DoubleSide
+            });
+            invariantPlane = new THREE.Mesh(invPlaneGeom, invPlaneMat);
+            // x-y-z=0 is normal to (1, -1, -1)
+            const normal = new THREE.Vector3(1, -1, -1).normalize();
+            invariantPlane.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+            scene.add(invariantPlane);
+
+            pointGroup = new THREE.Group();
+            scene.add(pointGroup);
+            createSamplePoints();
+
+            animate();
+        }
+
+        function createSamplePoints() {
+            while (pointGroup.children.length > 0) pointGroup.remove(pointGroup.children[0]);
+            points = [];
+
+            const mat = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                emissive: 0x64ffda,
+                emissiveIntensity: 0.3,
+                metalness: 1,
+                roughness: 0
+            });
+            const geom = new THREE.SphereGeometry(0.15, 16, 16);
+
+            for (let i = 0; i < 60; i++) {
+                // Generate points in a 3D volume
+                let r = 5 + Math.random() * 5;
+                let theta = Math.random() * Math.PI * 2;
+                let phi = Math.random() * Math.PI;
+
+                let v = new THREE.Vector3(
+                    r * Math.sin(phi) * Math.cos(theta),
+                    r * Math.sin(phi) * Math.sin(theta),
+                    r * Math.cos(phi)
+                );
+
+                let mesh = new THREE.Mesh(geom, mat);
+                mesh.position.copy(v);
+                pointGroup.add(mesh);
+                points.push({ actual: v.clone(), display: v.clone(), mesh: mesh });
+            }
+        }
+
+        function setMode(mode) {
+            isProjective = (mode === 'p2');
+            document.getElementById('btn-r3').classList.toggle('active', !isProjective);
+            document.getElementById('btn-p2').classList.toggle('active', isProjective);
+
+            const desc = document.getElementById('description');
+            if (isProjective) {
+                desc.innerHTML = "Visualizing the action on the projective plane \( \mathbb{P}^2 \). Points are projected onto the \( Z=1 \) patch by dividing by the Z-coordinate.";
+                grid.material.opacity = 0.2;
+                planeMesh.material.opacity = 0.1;
+                lineMesh.visible = true;
+                invariantPlane.visible = false;
+                document.getElementById('p-label').innerText = "Attracting Point P";
+                document.getElementById('l-label').innerText = "Axis Line L";
+            } else {
+                desc.innerHTML = "Visualizing the full linear action on \( \mathbb{R}^3 \). Each matrix is interpreted as a direct 3D coordinate transformation.";
+                grid.material.opacity = 0;
+                planeMesh.material.opacity = 0;
+                lineMesh.visible = false;
+                invariantPlane.visible = true;
+                document.getElementById('p-label').innerText = "Attracting Direction P";
+                document.getElementById('l-label').innerText = "Invariant Plane L";
+            }
+        }
+
+        function multiply(m, v) {
+            const x = m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z;
+            const y = m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z;
+            const z = m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z;
+            return new THREE.Vector3(x, y, z);
+        }
+
+        function applyTransform(m) {
+            points.forEach(p => {
+                p.actual.copy(multiply(m, p.actual));
+                // Clamp scale for visualization if it gets too huge or tiny
+                const len = p.actual.length();
+                if (len > 100) p.actual.setLength(100);
+                if (len < 0.01) p.actual.setLength(0.01);
+            });
+        }
+
+        let wordTerms = []; // Array of {type: 'AB', a: 0, b:0} or {type: 'M', p: 0}
+
+        function pushToWord(symbol) {
+            let type, power;
+            if (symbol === 'A') { type = 'AB'; power = { a: 1, b: 0 }; }
+            else if (symbol === 'A⁻¹') { type = 'AB'; power = { a: -1, b: 0 }; }
+            else if (symbol === 'B') { type = 'AB'; power = { a: 0, b: 1 }; }
+            else if (symbol === 'B⁻¹') { type = 'AB'; power = { a: 0, b: -1 }; }
+            else if (symbol === 'M') { type = 'M'; power = 1; }
+            else if (symbol === 'M⁻¹') { type = 'M'; power = -1; }
+
+            // New word = symbol * CurrentWord. Prepend/Merge to the front.
+            if (wordTerms.length === 0) {
+                if (type === 'AB') wordTerms.push({ type: 'AB', a: power.a, b: power.b });
+                else wordTerms.push({ type: 'M', p: power });
+            } else {
+                let first = wordTerms[0];
+                if (first.type === type) {
+                    if (type === 'AB') {
+                        first.a += power.a;
+                        first.b += power.b;
+                        if (first.a === 0 && first.b === 0) wordTerms.shift();
+                    } else {
+                        first.p += power;
+                        if (first.p === 0) wordTerms.shift();
+                    }
+                } else {
+                    if (type === 'AB') wordTerms.unshift({ type: 'AB', a: power.a, b: power.b });
+                    else wordTerms.unshift({ type: 'M', p: power });
+                }
+            }
+            renderWord();
+        }
+
+        function renderWord() {
+            const el = document.getElementById('current-word');
+            if (wordTerms.length === 0) {
+                el.textContent = "e";
+                return;
+            }
+            let parts = wordTerms.map(t => {
+                if (t.type === 'AB') {
+                    let s = "";
+                    if (t.a !== 0) s += "A" + (t.a === 1 ? "" : (t.a === -1 ? "⁻¹" : toSuperscript(t.a)));
+                    if (t.b !== 0) s += (s ? "" : "") + "B" + (t.b === 1 ? "" : (t.b === -1 ? "⁻¹" : toSuperscript(t.b)));
+                    return s;
+                } else {
+                    return "M" + (t.p === 1 ? "" : (t.p === -1 ? "⁻¹" : toSuperscript(t.p)));
+                }
+            });
+            el.textContent = parts.join(" ");
+        }
+
+        function toSuperscript(n) {
+            const sups = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹', '-': '⁻' };
+            return String(n).split('').map(c => sups[c] || c).join('');
+        }
+
+        function applyA(e) {
+            const isInv = e && (e.metaKey || e.ctrlKey);
+            applyTransform(isInv ? Ai : A);
+            pushToWord(isInv ? "A⁻¹" : "A");
+        }
+        function applyB(e) {
+            const isInv = e && (e.metaKey || e.ctrlKey);
+            applyTransform(isInv ? Bi : B);
+            pushToWord(isInv ? "B⁻¹" : "B");
+        }
+        function applyM(e) {
+            const isInv = e && (e.metaKey || e.ctrlKey);
+            applyTransform(isInv ? Mi : M);
+            pushToWord(isInv ? "M⁻¹" : "M");
+        }
+        function resetPoints() {
+            createSamplePoints();
+            wordTerms = [];
+            document.getElementById('current-word').textContent = "e";
+        }
+
+        function runPingPongSequence() {
+            let step = 0;
+            const seq = [
+                { m: A, s: "A" },
+                { m: Ai, s: "A⁻¹" },
+                { m: B, s: "B" },
+                { m: Bi, s: "B⁻¹" },
+                { m: M, s: "M" },
+                { m: Mi, s: "M⁻¹" }
+            ];
+            const interval = setInterval(() => {
+                applyTransform(seq[step].m);
+                pushToWord(seq[step].s);
+                step++;
+                if (step >= seq.length) clearInterval(interval);
+            }, 800);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            // Update pMesh and lineMesh based on mode
+            if (isProjective) {
+                pMesh.position.set(7 / 3, 4 / 3, 1);
+                lineMesh.geometry.setFromPoints([
+                    new THREE.Vector3(-50, -51, 1.02),
+                    new THREE.Vector3(50, 49, 1.02)
+                ]);
+            } else {
+                // In R3, P is a ray through (7,4,3)
+                pMesh.position.set(7, 4, 3);
+                lineMesh.geometry.setFromPoints([
+                    new THREE.Vector3(-20, -20, -20),
+                    new THREE.Vector3(20, 20, 20)
+                ]);
+            }
+
+            points.forEach(p => {
+                if (isProjective) {
+                    const z = p.actual.z;
+                    if (Math.abs(z) > 0.001) {
+                        const s = 1 / z;
+                        p.display.set(p.actual.x * s, p.actual.y * s, 1);
+                    } else {
+                        p.display.copy(p.actual).normalize().multiplyScalar(50);
+                    }
+                } else {
+                    p.display.copy(p.actual);
+                }
+                p.mesh.position.lerp(p.display, 0.1);
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        init();
+    </script>
+</body>
+
+</html>

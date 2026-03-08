@@ -550,8 +550,10 @@
                                     primes</li>
                                 <li class="fragment" data-fragment-group="tugp">a relation in the totally unitary group
                                 </li>
-                                <li class="fragment" data-fragment-group="z2z">relations in \(\Z/2\Z * \Z\)</li>
-                                <li class="fragment" data-fragment-group="burau">a relation in the Burau representation
+                                <li class="fragment" data-fragment-group="z2z">a relation in a representation of \(\Z^2
+                                    * \Z\)</li>
+                                <li class="fragment" data-fragment-group="burau">a relation in the \(t=2\) Burau
+                                    representation
                                     of \(B_4\)</li>
                                 <li class="fragment" data-fragment-group="more">and more...</li>
                             </ul>
@@ -568,6 +570,15 @@
                                 style="position: absolute; max-width: 100%; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
                         </div>
                     </div>
+                </div>
+            </div>
+            <div class="slide" data-anchor="kernel-braid">
+                <div class="full-viz-container animate-up">
+                    <div class="viz-controls">
+                        <button class="minimal-btn" onclick="toggleViz('kernel-braid-frame', this)">Pause</button>
+                    </div>
+                    <iframe id="kernel-braid-frame" data-src="js/kernelBraid/kernelBraid.html?embed=true"
+                        class="viz-frame"></iframe>
                 </div>
             </div>
 
@@ -747,6 +758,11 @@
                 afterSlideLoad: function (section, origin, destination) {
                     lazyLoadIframes(destination.item);
                     if (window.syncRemoteState) window.syncRemoteState();
+                    // Restart kernel braid fly-through when its slide becomes active
+                    const kbFrame = destination.item.querySelector('#kernel-braid-frame');
+                    if (kbFrame && kbFrame.contentWindow) {
+                        setTimeout(() => kbFrame.contentWindow.postMessage('play', '*'), 200);
+                    }
                 }
             });
 

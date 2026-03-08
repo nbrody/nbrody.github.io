@@ -37,7 +37,8 @@ export function getStrandColor(i) {
 
 const STRAND_RADIUS = 0.06;
 const STRAND_SPACING = 0.5;
-const TUBE_SEGMENTS = 48;
+const BASE_TUBE_SEGMENTS = 96;
+const MAX_TUBE_SEGMENTS = 768;
 const RADIAL_SEGMENTS = 12;
 
 // ============================================================
@@ -58,6 +59,7 @@ export class BraidVisualizer {
 
         // Smooth-zoom target (lerped toward each frame)
         this._zoomTarget = 4;
+        this._autoFrameTicks = 0;
 
         this._animate();
     }
@@ -76,16 +78,25 @@ export class BraidVisualizer {
 
         this.scene = new THREE.Scene();
 
-        this.camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
-        this.camera.position.set(0, 0.5, 4);
+        this.camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 600);
+        this.camera.position.set(0, 0.2, 4);
         this.camera.lookAt(0, 0, 0);
 
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.08;
         this.controls.enablePan = true;
+        this.controls.screenSpacePanning = true;
+        this.controls.zoomSpeed = 1.1;
+        this.controls.panSpeed = 1.15;
         this.controls.minDistance = 1.5;
-        this.controls.maxDistance = 25;
+        this.controls.maxDistance = 80;
+        this.controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+        this.controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
+        this.controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
+        this.controls.addEventListener('start', () => {
+            this._autoFrameTicks = 0;
+        });
 
         // Lighting
         this.scene.add(new THREE.AmbientLight(0xffffff, 0.5));
@@ -107,6 +118,24 @@ export class BraidVisualizer {
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(w, h);
+    }
+
+    _computeFitDistance(totalLength) {
+        const totalWidth = (this.numStrands - 1) * STRAND_SPACING + 1.0;
+        const verticalFov = THREE.MathUtils.degToRad(this.camera.fov);
+        const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * this.camera.aspect);
+
+        const heightDistance = ((totalLength / 2) * 1.12) / Math.tan(verticalFov / 2);
+        const widthDistance = ((totalWidth / 2) * 1.25) / Math.tan(horizontalFov / 2);
+
+        return Math.max(3.2, heightDistance, widthDistance);
+    }
+
+    _getTubeSegments(pointCount) {
+        return Math.min(
+            MAX_TUBE_SEGMENTS,
+            Math.max(BASE_TUBE_SEGMENTS, Math.floor(pointCount * 0.7))
+        );
     }
 
     /** Create persistent strand meshes (geometry swapped each frame). */
@@ -226,8 +255,9 @@ export class BraidVisualizer {
                 continue;
             }
             const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.5);
+            const tubeSegments = this._getTubeSegments(pts.length);
             const newGeo = new THREE.TubeGeometry(
-                curve, TUBE_SEGMENTS, STRAND_RADIUS, RADIAL_SEGMENTS, false
+                curve, tubeSegments, STRAND_RADIUS, RADIAL_SEGMENTS, false
             );
             const oldGeo = this.strandMeshes[i].geometry;
             this.strandMeshes[i].geometry = newGeo;
@@ -256,8 +286,14 @@ export class BraidVisualizer {
 
     /** Set a zoom target that the camera smoothly approaches. */
     smoothZoom(totalLength) {
-        const totalWidth = (this.numStrands - 1) * STRAND_SPACING;
-        this._zoomTarget = Math.max(totalLength * 1.1, totalWidth * 2.5, 2.5);
+        const fitDistance = this._computeFitDistance(totalLength);
+        this._zoomTarget = fitDistance;
+        this.controls.target.set(0, 0, 0);
+        this.controls.minDistance = Math.max(1.5, fitDistance * 0.08);
+        this.controls.maxDistance = Math.max(80, fitDistance * 6);
+        this.camera.far = Math.max(600, fitDistance * 10, totalLength * 5);
+        this.camera.updateProjectionMatrix();
+        this._autoFrameTicks = 90;
     }
 
     // ========== Animation Loop ==========
@@ -269,9 +305,12 @@ export class BraidVisualizer {
         this.animator.update();
 
         // Smooth camera zoom
-        const dz = this._zoomTarget - this.camera.position.z;
-        if (Math.abs(dz) > 0.005) {
-            this.camera.position.z += dz * 0.07;
+        if (this._autoFrameTicks > 0) {
+            const dz = this._zoomTarget - this.camera.position.z;
+            if (Math.abs(dz) > 0.005) {
+                this.camera.position.z += dz * 0.09;
+            }
+            this._autoFrameTicks -= 1;
         }
 
         this.controls.update();

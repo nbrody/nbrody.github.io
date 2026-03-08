@@ -18,7 +18,9 @@ const CROSSING_LENGTH = 0.8;
 const STRAIGHT_LENGTH = 0.15;
 const ARC_HEIGHT = 0.22;
 
-const SAMPLES_PER_STRAND = 80;
+const BASE_SAMPLES_PER_STRAND = 96;
+const SAMPLES_PER_CROSSING = 3;
+const MAX_SAMPLES_PER_STRAND = 960;
 
 const DURATION_ADD = 320;       // ms — adding/removing a generator
 const DURATION_RELATION = 500;  // ms — applying a braid relation
@@ -31,6 +33,13 @@ const DURATION_RELATION = 500;  // ms — applying a braid relation
 export function computeBraidLength(numCrossings) {
     if (numCrossings === 0) return 1.0;
     return STRAIGHT_LENGTH + numCrossings * (CROSSING_LENGTH + STRAIGHT_LENGTH);
+}
+
+function getSampleCount(numCrossings) {
+    return Math.min(
+        MAX_SAMPLES_PER_STRAND,
+        BASE_SAMPLES_PER_STRAND + numCrossings * SAMPLES_PER_CROSSING
+    );
 }
 
 /**
@@ -104,9 +113,21 @@ export function computeStrandPaths(crossings, numStrands) {
  * Resample raw waypoint paths to fixed-size Vector3 arrays.
  * This normalises point count so we can lerp between any two states.
  */
-export function resamplePaths(rawPaths, n = SAMPLES_PER_STRAND) {
+export function resamplePaths(rawPaths, n = BASE_SAMPLES_PER_STRAND) {
     return rawPaths.map(path => {
         const pts = path.map(p => new THREE.Vector3(p.x, p.y, p.z));
+        if (pts.length < 2) {
+            const v = pts.length ? pts[0].clone() : new THREE.Vector3();
+            return Array.from({ length: n }, () => v.clone());
+        }
+        const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.3);
+        return Array.from({ length: n }, (_, i) => curve.getPoint(i / (n - 1)));
+    });
+}
+
+function resampleVectorPaths(paths, n) {
+    return paths.map(path => {
+        const pts = path.map(p => p.clone());
         if (pts.length < 2) {
             const v = pts.length ? pts[0].clone() : new THREE.Vector3();
             return Array.from({ length: n }, () => v.clone());
@@ -132,6 +153,7 @@ export class BraidAnimator {
     constructor(visualizer) {
         this.viz = visualizer;
         this.numStrands = getStrandCount();
+        this.sampleCount = getSampleCount(0);
 
         this.currentSamples = null;   // [numStrands][SAMPLES] of Vector3
         this.sourceSamples = null;
@@ -153,7 +175,7 @@ export class BraidAnimator {
     _renderIdentity() {
         const len = computeBraidLength(0);
         const { paths: raw, perm } = computeStrandPaths([], this.numStrands);
-        const samples = resamplePaths(raw);
+        const samples = resamplePaths(raw, this.sampleCount);
         this.currentSamples = samples;
         this.currentLength = len;
         this.viz.updateStrands(samples);
@@ -176,7 +198,8 @@ export class BraidAnimator {
     transitionTo(crossings, type = 'add') {
         const len = computeBraidLength(crossings.length);
         const { paths: raw, perm } = computeStrandPaths(crossings, this.numStrands);
-        const samples = resamplePaths(raw);
+        const targetSampleCount = getSampleCount(crossings.length);
+        let samples = resamplePaths(raw, targetSampleCount);
 
         // If animating, snap current state to wherever we are now
         if (this.animating) {
@@ -184,6 +207,17 @@ export class BraidAnimator {
             this.currentLength = this._interpolatedLength(this._progress());
             this.animating = false;
         }
+
+        const currentSampleCount = this.currentSamples?.[0]?.length || targetSampleCount;
+        const transitionSampleCount = Math.max(currentSampleCount, targetSampleCount);
+
+        if (this.currentSamples && currentSampleCount !== transitionSampleCount) {
+            this.currentSamples = resampleVectorPaths(this.currentSamples, transitionSampleCount);
+        }
+        if (targetSampleCount !== transitionSampleCount) {
+            samples = resampleVectorPaths(samples, transitionSampleCount);
+        }
+        this.sampleCount = transitionSampleCount;
 
         if (!this.currentSamples || type === 'snap') {
             // First render or explicit snap — no animation
@@ -249,7 +283,8 @@ export class BraidAnimator {
         const out = [];
         for (let s = 0; s < this.numStrands; s++) {
             const arr = [];
-            for (let i = 0; i < SAMPLES_PER_STRAND; i++) {
+            const pointCount = this.sourceSamples[s].length;
+            for (let i = 0; i < pointCount; i++) {
                 arr.push(new THREE.Vector3().lerpVectors(
                     this.sourceSamples[s][i],
                     this.targetSamples[s][i],
