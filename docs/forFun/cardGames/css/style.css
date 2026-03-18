@@ -1,0 +1,258 @@
+/* ===== CARD TABLE - Premium Casino Aesthetic ===== */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ===== CSS VARIABLES ===== */
+:root {
+  --felt: #1a4a2e;
+  --felt-light: #245c3a;
+  --felt-dark: #0f2e1b;
+  --gold: #c9a84c;
+  --gold-light: #e8c97a;
+  --gold-dark: #9b7c2e;
+  --card-white: #f8f4ec;
+  --card-back: #1a237e;
+  --red: #c0392b;
+  --bg-dark: #0a0f0d;
+  --glass: rgba(255,255,255,0.05);
+  --glass-border: rgba(201,168,76,0.3);
+  --shadow: 0 8px 32px rgba(0,0,0,0.6);
+  --radius: 12px;
+  --font-display: 'Cinzel', serif;
+  --font-body: 'Inter', sans-serif;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== RESET ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg-dark);
+  color: #e8e8e8;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ===== PLAYING CARD ===== */
+.card {
+  width: 70px;
+  height: 100px;
+  border-radius: 8px;
+  background: var(--card-white);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.3);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transform-style: preserve-3d;
+  font-family: var(--font-display);
+}
+.card:active { transform: scale(0.96) translateY(-2px); }
+.card.selected { transform: translateY(-18px); box-shadow: 0 12px 28px rgba(201,168,76,0.5); }
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 4px 6px;
+  backface-visibility: hidden;
+}
+.card-tl, .card-br {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  font-size: 14px;
+  font-weight: 700;
+}
+.card-br { transform: rotate(180deg); }
+.card-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+.red-suit { color: var(--red); }
+.black-suit { color: #1a1a1a; }
+.rank { font-size: 15px; font-weight: 900; }
+.suit-sm { font-size: 11px; }
+
+.card-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #1a237e 100%);
+  border: 3px solid rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: rgba(255,255,255,0.3);
+  overflow: hidden;
+}
+.card-back::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 5px;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 6px,
+    rgba(255,255,255,0.04) 6px,
+    rgba(255,255,255,0.04) 12px
+  );
+}
+
+/* ===== CARD SIZED PLACEHOLDER ===== */
+.card-slot {
+  width: 70px; height: 100px;
+  border-radius: 8px;
+  border: 2px dashed rgba(201,168,76,0.25);
+  background: rgba(0,0,0,0.15);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: rgba(201,168,76,0.2);
+}
+
+/* ===== GLASSMORPHIC PANEL ===== */
+.glass-panel {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--shadow);
+}
+
+/* ===== BUTTON STYLES ===== */
+.btn {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: var(--transition);
+  text-transform: uppercase;
+}
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold) 50%, var(--gold-light) 100%);
+  color: #0a0f0d;
+  box-shadow: 0 4px 16px rgba(201,168,76,0.35);
+}
+.btn-gold:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(201,168,76,0.5); }
+.btn-gold:active { transform: translateY(0); }
+.btn-glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  color: var(--gold);
+}
+.btn-glass:hover { background: rgba(201,168,76,0.1); }
+.btn-red {
+  background: linear-gradient(135deg, #8b1a1a, #c0392b);
+  color: white;
+  box-shadow: 0 4px 16px rgba(192,57,43,0.35);
+}
+.btn-red:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(192,57,43,0.5); }
+.btn-green {
+  background: linear-gradient(135deg, #1a5c2e, #27ae60);
+  color: white;
+  box-shadow: 0 4px 16px rgba(39,174,96,0.35);
+}
+.btn-green:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(39,174,96,0.5); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+/* ===== CHIP ===== */
+.chip {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  border: 4px dashed rgba(255,255,255,0.4);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.chip-white { background: #f0ece0; color: #1a1a1a; border-color: rgba(0,0,0,0.2); }
+.chip-red { background: #c0392b; color: white; border-color: rgba(255,255,255,0.4); }
+.chip-blue { background: #2980b9; color: white; border-color: rgba(255,255,255,0.4); }
+.chip-green { background: #27ae60; color: white; border-color: rgba(255,255,255,0.4); }
+.chip-black { background: #1a1a1a; color: white; border-color: rgba(255,255,255,0.4); }
+
+/* ===== STATUS BADGE ===== */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.badge-active { background: rgba(39,174,96,0.2); color: #2ecc71; border: 1px solid rgba(39,174,96,0.4); }
+.badge-waiting { background: rgba(201,168,76,0.2); color: var(--gold); border: 1px solid rgba(201,168,76,0.4); }
+.badge-folded { background: rgba(192,57,43,0.2); color: #e74c3c; border: 1px solid rgba(192,57,43,0.4); }
+
+/* ===== PULSE ANIMATION ===== */
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+@keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
+@keyframes dealIn {
+  from { transform: translateY(-40px) scale(0.7) rotate(-10deg); opacity:0; }
+  to { transform: translateY(0) scale(1) rotate(0deg); opacity:1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.deal-anim { animation: dealIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.slide-up { animation: slideUp 0.4s ease both; }
+
+/* ===== OVERLAY ===== */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.overlay.hidden { display: none; }
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.3); border-radius: 2px; }
+
+/* ===== TOAST NOTIFICATION ===== */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+  background: rgba(15,30,20,0.95);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gold-light);
+  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  z-index: 9000;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+}
+#toast.show { transform: translateX(-50%) translateY(0); }

@@ -1,12 +1,13 @@
 /*
 Created by soma_arc - 2016
+Adapted for a preset-driven 4D Kleinian limit set explorer.
 This work is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported.
 */
 precision highp float;
 
 uniform vec3 iResolution;
-uniform float sphereRadius;
 uniform float kleinSphereR;
+uniform float seedRadius;
 uniform int maxIterations;
 uniform int maxMarchSteps;
 uniform float scalingFactor;
@@ -20,171 +21,213 @@ uniform int modulus;
 uniform int numSpheres;
 uniform vec3 spherePositions[20];
 uniform float sphereRadii[20];
+uniform int numSeedCenters;
+uniform vec3 seedCenters[8];
 
 varying vec2 vUv;
 
-vec3 sphereInvert(vec3 pos, vec3 circlePos, float circleR){
-    vec3 diff = pos - circlePos;
-    float dist2 = dot(diff, diff); // More efficient than distance squared
-    return (diff * circleR * circleR) / dist2 + circlePos;
+float loopNum = 0.0;
+
+vec3 sphereInvert(vec3 pos, vec3 sphereCenter, float sphereRadius) {
+    vec3 diff = pos - sphereCenter;
+    float dist2 = max(dot(diff, diff), 0.00001);
+    return (diff * sphereRadius * sphereRadius) / dist2 + sphereCenter;
 }
 
-float loopNum = 0.;
+float distKlein(vec3 pos) {
+    loopNum = 0.0;
+    float dr = 1.0;
 
-float distKlein(vec3 pos){
-    loopNum = 0.;
-    float dr = 1.;
-    bool loopEnd = true;
+    for (int iteration = 0; iteration < 200; iteration++) {
+        if (iteration >= maxIterations) {
+            break;
+        }
 
-    for(int i = 0 ; i < 200 ; i++){
-        if(i >= maxIterations) break;
+        bool loopEnded = true;
 
-        loopEnd = true;
+        for (int sphereIndex = 0; sphereIndex < 20; sphereIndex++) {
+            if (sphereIndex >= numSpheres) {
+                break;
+            }
 
-        // Loop through all active spheres
-        for(int j = 0; j < 20; j++){
-            if(j >= numSpheres) break;
+            vec3 diff = pos - spherePositions[sphereIndex];
+            float sphereRadius = sphereRadii[sphereIndex];
+            float radiusSquared = sphereRadius * sphereRadius;
+            float dist2 = dot(diff, diff);
 
-            vec3 diff = pos - spherePositions[j];
-            float dist2 = dot(diff, diff); // Cache distance squared
-            float SPHERE_R = sphereRadii[j];
-            float SPHERE_R2 = SPHERE_R * SPHERE_R;
-
-            if(dist2 < SPHERE_R2){
-                dr *= SPHERE_R2 / dist2;
-                pos = (diff * SPHERE_R2) / dist2 + spherePositions[j];
-                loopEnd = false;
-                loopNum++;
-                break; // Only invert once per iteration
+            if (dist2 < radiusSquared) {
+                float scale = radiusSquared / max(dist2, 0.00001);
+                dr *= scale;
+                pos = sphereInvert(pos, spherePositions[sphereIndex], sphereRadius);
+                loopNum += 1.0;
+                loopEnded = false;
+                break;
             }
         }
 
-        if(loopEnd == true) break;
+        if (loopEnded) {
+            break;
+        }
     }
 
-    // Compute distance to limit sets (use first few spheres if available)
-    vec3 center1 = numSpheres >= 3 ? (spherePositions[0] + spherePositions[1] + spherePositions[2]) / 3.0 : vec3(0.0);
-    vec3 center2 = numSpheres >= 6 ? (spherePositions[3] + spherePositions[4] + spherePositions[5]) / 3.0 : vec3(0.0);
+    float seedDistance = 1000.0;
+    for (int seedIndex = 0; seedIndex < 8; seedIndex++) {
+        if (seedIndex >= numSeedCenters) {
+            break;
+        }
 
-    float f = (length(pos - center1) - 50.) / abs(dr) * scalingFactor;
-    float f2 = (length(pos - center2) - 50.) / abs(dr) * scalingFactor;
+        seedDistance = min(seedDistance, length(pos - seedCenters[seedIndex]) - seedRadius);
+    }
 
-    return min(f2, min(f, (length(pos) - kleinSphereR) / abs(dr) * scalingFactor));
+    float shellDistance = length(pos) - kleinSphereR;
+    float baseDistance = min(seedDistance, shellDistance);
+    return baseDistance / max(abs(dr), 0.0001) * scalingFactor;
 }
 
-vec3 calcRay (const vec3 eye, const vec3 target, const vec3 up, const float fov,
-            const float width, const float height, const vec2 coord){
-    float imagePlane = (height * .5) / tan(fov * .5);
-    vec3 v = normalize(target - eye);
-    vec3 xaxis = normalize(cross(v, up));
-    vec3 yaxis =  normalize(cross(v, xaxis));
-    vec3 center = v * imagePlane;
-    vec3 origin = center - (xaxis * (width  *.5)) - (yaxis * (height * .5));
-    return normalize(origin + (xaxis * coord.x) + (yaxis * (height - coord.y)));
+vec3 calcRay(
+    const vec3 rayEye,
+    const vec3 rayTarget,
+    const vec3 rayUp,
+    const float fov,
+    const float width,
+    const float height,
+    const vec2 coord
+) {
+    float imagePlane = (height * 0.5) / tan(fov * 0.5);
+    vec3 forward = normalize(rayTarget - rayEye);
+    vec3 xAxis = normalize(cross(forward, rayUp));
+    vec3 yAxis = normalize(cross(forward, xAxis));
+    vec3 center = forward * imagePlane;
+    vec3 origin = center - (xAxis * (width * 0.5)) - (yAxis * (height * 0.5));
+    return normalize(origin + (xAxis * coord.x) + (yAxis * (height - coord.y)));
 }
 
-const vec4 K = vec4(1.0, .666666, .333333, 3.0);
-vec3 hsv2rgb(const vec3 c){
+const vec4 K = vec4(1.0, 0.666666, 0.333333, 3.0);
+vec3 hsv2rgb(const vec3 c) {
     vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
 // PALETTE_SHADER_CODE_INJECTION_POINT_START
-// Stub function (will be replaced at runtime by generated code)
 vec3 getPaletteColor(float t, int palette) {
-    return vec3(t); // Fallback: grayscale
+    return vec3(t);
 }
 // PALETTE_SHADER_CODE_INJECTION_POINT_END
 
-float distFunc(vec3 p){
+float distFunc(vec3 p) {
     return distKlein(p);
 }
 
-const vec2 d = vec2(0.01, 0.);
-vec3 getNormal(const vec3 p){
-    return normalize(vec3(distFunc(p + d.xyy) - distFunc(p - d.xyy),
-                        distFunc(p + d.yxy) - distFunc(p - d.yxy),
-                        distFunc(p + d.yyx) - distFunc(p - d.yyx)));
+const vec2 normalStep = vec2(0.0025, 0.0);
+vec3 getNormal(const vec3 p) {
+    return normalize(vec3(
+        distFunc(p + normalStep.xyy) - distFunc(p - normalStep.xyy),
+        distFunc(p + normalStep.yxy) - distFunc(p - normalStep.yxy),
+        distFunc(p + normalStep.yyx) - distFunc(p - normalStep.yyx)
+    ));
 }
 
-const float PI_4 = 12.566368;
-const vec3 LIGHTING_FACT = vec3(0.1);
-vec3 diffuseLighting(const vec3 p, const vec3 n, const vec3 diffuseColor,
-                    const vec3 lightPos, const vec3 lightPower){
-    vec3 v = lightPos - p;
-    float dot = dot(n, normalize(v));
-    float r = length(v);
-    return (dot > 0.) ?
-        (lightPower * (dot / (PI_4 * r * r))) * diffuseColor
-        : LIGHTING_FACT * diffuseColor;
+vec3 backgroundColor(vec3 ray) {
+    float horizon = clamp(ray.y * 0.5 + 0.5, 0.0, 1.0);
+    vec3 base = mix(vec3(0.014, 0.018, 0.028), vec3(0.032, 0.055, 0.082), pow(horizon, 1.4));
+    float halo = pow(max(0.0, 1.0 - abs(ray.z)), 8.0) * 0.12;
+    float floorGlow = pow(max(0.0, 1.0 - horizon), 2.3) * 0.045;
+    return base + vec3(halo * 0.5, halo * 0.65, halo) + floorGlow;
 }
 
-const vec3 lightPos = vec3(400, 0, 500);
-const vec3 lightPos2 = vec3(-300., -300., -300);
-const vec3 lightPower = vec3(800000.);
-const vec3 lightPower2 = vec3(10000.);
+vec3 lightContribution(vec3 p, vec3 n, vec3 viewDir, vec3 lightPos, vec3 lightColor, vec3 baseColor) {
+    vec3 lightDir = normalize(lightPos - p);
+    float diffuse = max(dot(n, lightDir), 0.0);
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float specular = pow(max(dot(n, halfwayDir), 0.0), 32.0);
+    return baseColor * lightColor * diffuse + lightColor * specular * 0.16;
+}
 
-vec2 march(const vec3 origin, const  vec3 ray, const float threshold){
+vec2 march(const vec3 origin, const vec3 ray, const float threshold) {
     vec3 rayPos = origin;
-    float dist;
-    float rayLength = 0.;
-    const float maxDist = 2000.0; // Early exit for rays going nowhere
-    for(int i = 0 ; i < 2000 ; i++){
-        if(i >= maxMarchSteps) break;
+    float rayLength = 0.0;
+    float dist = 0.0;
+    const float maxDist = 14.0;
+
+    for (int step = 0; step < 2000; step++) {
+        if (step >= maxMarchSteps) {
+            break;
+        }
+
         dist = distFunc(rayPos);
 
-        // Early exit conditions
-        if(dist < threshold) break;
-        if(rayLength > maxDist) break;
+        if (dist < threshold || rayLength > maxDist) {
+            break;
+        }
 
-        // Adaptive step size with slight overstep for faster convergence
-        rayLength += dist * 0.9;
+        rayLength += dist * 0.92;
         rayPos = origin + ray * rayLength;
     }
+
     return vec2(dist, rayLength);
 }
 
-const vec3 BLACK = vec3(0);
-vec3 calcColor(vec3 eye, vec3 ray){
-    vec3 l = BLACK;
-    float coeff = 1.;
-    vec2 result = march(eye, ray, 0.01);
-    vec3 intersection = eye + ray * result.y;
-    vec3 matColor = vec3(0);
-    vec3 normal = getNormal(intersection);
+vec3 shadeSurface(vec3 p, vec3 n, vec3 ray, vec3 baseColor) {
+    vec3 viewDir = normalize(eye - p);
+    vec3 color = baseColor * 0.12;
+    color += lightContribution(p, n, viewDir, vec3(2.8, 1.4, 3.6), vec3(1.0, 0.95, 0.9) * 1.45, baseColor);
+    color += lightContribution(p, n, viewDir, vec3(-2.2, -1.5, -1.8), vec3(0.35, 0.5, 0.9) * 0.45, baseColor);
+    color += lightContribution(p, n, viewDir, vec3(-0.4, 2.6, 0.6), vec3(1.0, 0.72, 0.4) * 0.35, baseColor);
 
-    if(result.x < 0.01){
-        // COLOR_SCHEME_CODE_INJECTION_POINT_START
-        // Stub variable (will be replaced at runtime by generated code)
-        float colorT = mod(loopNum * 0.08, 1.0); // Fallback: iteration count
-        // COLOR_SCHEME_CODE_INJECTION_POINT_END
+    float fresnel = pow(1.0 - max(dot(n, viewDir), 0.0), 3.0);
+    color += baseColor * fresnel * 0.25;
 
-        // Get color from selected palette
-        matColor = getPaletteColor(colorT, colorPalette);
-
-        // Add some subtle variation based on position for visual interest
-        float posVariation = sin(intersection.x * 0.01) * 0.5 + 0.5;
-        matColor = mix(matColor, matColor * 1.2, posVariation * 0.15);
-
-        l += diffuseLighting(intersection, normal, matColor, lightPos, lightPower);
-        l += diffuseLighting(intersection, normal, matColor, lightPos2, lightPower2);
-    }
-    return l;
+    return color;
 }
 
-const float DISPLAY_GAMMA_COEFF = 1. / 2.2;
+vec3 calcColor(vec3 rayEye, vec3 ray) {
+    vec3 bg = backgroundColor(ray);
+    vec2 result = march(rayEye, ray, 0.0028);
+
+    if (result.x < 0.003) {
+        vec3 intersection = rayEye + ray * result.y;
+        vec3 normal = getNormal(intersection);
+
+        // COLOR_SCHEME_CODE_INJECTION_POINT_START
+        float colorT = fract(loopNum * 0.11);
+        // COLOR_SCHEME_CODE_INJECTION_POINT_END
+
+        vec3 baseColor = getPaletteColor(colorT, colorPalette);
+        float localVariation = 0.5 + 0.5 * sin(intersection.x * 2.3 + intersection.z * 1.7);
+        baseColor = mix(baseColor, baseColor.bgr, localVariation * 0.08);
+
+        vec3 lit = shadeSurface(intersection, normal, ray, baseColor);
+        float fog = exp(-0.045 * result.y * result.y);
+        return mix(bg, lit, clamp(fog, 0.0, 1.0));
+    }
+
+    return bg;
+}
+
+const float DISPLAY_GAMMA_COEFF = 1.0 / 2.2;
 vec3 gammaCorrect(vec3 rgb) {
-    return vec3((min(pow(rgb.r, DISPLAY_GAMMA_COEFF), 1.)),
-                (min(pow(rgb.g, DISPLAY_GAMMA_COEFF), 1.)),
-                (min(pow(rgb.b, DISPLAY_GAMMA_COEFF), 1.)));
+    return vec3(
+        min(pow(max(rgb.r, 0.0), DISPLAY_GAMMA_COEFF), 1.0),
+        min(pow(max(rgb.g, 0.0), DISPLAY_GAMMA_COEFF), 1.0),
+        min(pow(max(rgb.b, 0.0), DISPLAY_GAMMA_COEFF), 1.0)
+    );
 }
 
 void main() {
-    const vec2 coordOffset = vec2(0.5);
     vec2 fragCoord = vUv * iResolution.xy;
-    vec3 ray = calcRay(eye, target, up, fovRadians,
-                    iResolution.x, iResolution.y,
-                    fragCoord + coordOffset);
+    vec3 ray = calcRay(
+        eye,
+        target,
+        up,
+        fovRadians,
+        iResolution.x,
+        iResolution.y,
+        fragCoord + vec2(0.5)
+    );
 
-    gl_FragColor = vec4(gammaCorrect(calcColor(eye, ray)), 1.);
+    vec3 color = calcColor(eye, ray);
+    float vignette = smoothstep(1.28, 0.24, length(vUv - 0.5) * 1.22);
+    color *= vignette + 0.18;
+
+    gl_FragColor = vec4(gammaCorrect(color), 1.0);
 }

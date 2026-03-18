@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Three.js: p-to-1 map S¹→S¹</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            overflow: hidden;
+            background: #0b0d12;
+            color: #e9eef5;
+        }
+
+        #ui {
+            position: fixed;
+            left: 14px;
+            top: 14px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: 12px;
+            padding: 12px;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            backdrop-filter: blur(6px);
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #ui button {
+            background: rgba(255, 255, 255, 0.08);
+            color: #e9eef5;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 7px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        #ui button:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        input[type="range"] {
+            cursor: pointer;
+        }
+    </style>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('embed') === 'true') {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.classList.add('embedded');
+            });
+        }
+    </script>
+</head>
+
+<body>
+    <div id="ui">
+        <div class="row" style="margin: 0; gap: 8px;">
+            <input id="pInput" type="number" value="3" min="1" max="25"
+                style="width: 38px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 6px; padding: 4px 6px; font-size: 13px;">
+
+            <button id="fiberBtn" title="Animate Fiber (rotation)" style="min-width: 34px; padding: 4px;">⟳</button>
+            <button id="playBtn" title="Animate Mapping (t)" style="min-width: 34px; padding: 4px;">▶</button>
+
+            <input id="tSlider" type="range" min="0" max="1" step="0.001" value="1"
+                style="width: 140px; margin: 0 4px;">
+
+            <button id="addLayerBtn" title="Add Layer"
+                style="min-width: 34px; background: rgba(255,255,255,0.15); padding: 4px;">+</button>
+        </div>
+    </div>
+
+    <script type="module" src="pto1Map.js"></script>
+</body>
+
+</html>

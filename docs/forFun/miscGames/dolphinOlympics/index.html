@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dolphin Olympics</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+
+        <div id="hud">
+            <div id="hud-left">
+                <div class="hud-item">
+                    <span class="hud-label">SCORE</span>
+                    <span class="hud-value" id="score-value">0</span>
+                </div>
+                <div class="hud-item">
+                    <span class="hud-label">TIME</span>
+                    <span class="hud-value" id="time-value">2:00</span>
+                </div>
+            </div>
+            <div id="hud-right">
+                <div class="hud-item">
+                    <span class="hud-label">SPEED</span>
+                    <span class="hud-value" id="speed-value">0</span>
+                </div>
+                <div class="hud-item">
+                    <span class="hud-label">BEST</span>
+                    <span class="hud-value" id="best-value">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="trick-display"></div>
+        <div id="combo-display"></div>
+        <div id="height-display"></div>
+
+        <div id="title-screen">
+            <h1>DOLPHIN<br>OLYMPICS</h1>
+            <p class="subtitle">A Tribute to the Classic Flash Game</p>
+            <div class="controls-info">
+                <p><strong>ARROW KEYS</strong> to swim & steer</p>
+                <p><strong>Build speed</strong> underwater</p>
+                <p><strong>Launch</strong> out of the water</p>
+                <p><strong>Do flips</strong> in the air for points</p>
+            </div>
+            <button id="start-btn">START GAME</button>
+        </div>
+
+        <div id="game-over-screen" class="hidden">
+            <h1>TIME'S UP!</h1>
+            <div id="final-stats">
+                <p>Final Score: <span id="final-score">0</span></p>
+                <p>Best Trick: <span id="final-best-trick">0</span></p>
+                <p>Max Height: <span id="final-max-height">0</span></p>
+                <p>Total Flips: <span id="final-flips">0</span></p>
+            </div>
+            <button id="restart-btn">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

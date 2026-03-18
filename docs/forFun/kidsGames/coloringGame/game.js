@@ -1,412 +1,492 @@
-// ──────── Coloring Book Game ────────
+const CANVAS_WIDTH = 1600;
+const CANVAS_HEIGHT = 1200;
+const STAGE_ASPECT = CANVAS_WIDTH / CANVAS_HEIGHT;
 
-// ── Color Palette ──
 const COLORS = [
-    { name: 'Red', hex: '#ff6b6b' },
-    { name: 'Coral', hex: '#ff8a5c' },
-    { name: 'Orange', hex: '#ffa502' },
-    { name: 'Sunflower', hex: '#ffd32a' },
-    { name: 'Yellow', hex: '#fff200' },
-    { name: 'Lime', hex: '#7bed9f' },
-    { name: 'Green', hex: '#2ed573' },
-    { name: 'Forest', hex: '#26de81' },
-    { name: 'Teal', hex: '#4ecdc4' },
-    { name: 'Sky', hex: '#70a1ff' },
-    { name: 'Blue', hex: '#5352ed' },
-    { name: 'Purple', hex: '#a29bfe' },
-    { name: 'Violet', hex: '#8854d0' },
-    { name: 'Pink', hex: '#f78fb3' },
-    { name: 'Hot Pink', hex: '#fd79a8' },
-    { name: 'Brown', hex: '#cd8c52' },
-    { name: 'Tan', hex: '#f5cd79' },
-    { name: 'Gray', hex: '#a4b0be' },
-    { name: 'Dark', hex: '#57606f' },
-    { name: 'White', hex: '#ffffff' },
+    { id: "rainbow", label: "Rainbow", mode: "rainbow" },
+    { id: "red", label: "Red", hex: "#ff6b6b", mode: "solid" },
+    { id: "orange", label: "Orange", hex: "#ff9f43", mode: "solid" },
+    { id: "yellow", label: "Yellow", hex: "#ffd93d", mode: "solid" },
+    { id: "green", label: "Green", hex: "#61d095", mode: "solid" },
+    { id: "teal", label: "Teal", hex: "#4ecdc4", mode: "solid" },
+    { id: "blue", label: "Blue", hex: "#5b8cff", mode: "solid" },
+    { id: "purple", label: "Purple", hex: "#b084f5", mode: "solid" },
+    { id: "pink", label: "Pink", hex: "#ff7eb6", mode: "solid" },
 ];
 
-// ── Stencil Definitions ──
-// Each stencil has regions (fillable) and outlines (decorative, non-interactive)
-const STENCILS = {
+const BRUSHES = [
+    { id: "small", label: "Small", radius: 16, dotClass: "size-small" },
+    { id: "medium", label: "Medium", radius: 28, dotClass: "size-medium" },
+    { id: "large", label: "Large", radius: 44, dotClass: "size-large" },
+];
 
-    // ─── BUTTERFLY ───
-    butterfly: {
-        viewBox: '0 0 600 500',
-        regions: [
-            // Left upper wing
-            { id: 'b-luw', d: 'M300,200 C280,170 240,100 180,80 C120,60 60,80 50,140 C40,200 80,250 140,260 C180,265 260,240 300,220 Z' },
-            // Left lower wing
-            { id: 'b-llw', d: 'M300,220 C260,250 180,290 140,320 C100,350 70,380 80,420 C90,460 140,470 190,440 C240,410 280,350 300,300 Z' },
-            // Right upper wing
-            { id: 'b-ruw', d: 'M300,200 C320,170 360,100 420,80 C480,60 540,80 550,140 C560,200 520,250 460,260 C420,265 340,240 300,220 Z' },
-            // Right lower wing
-            { id: 'b-rlw', d: 'M300,220 C340,250 420,290 460,320 C500,350 530,380 520,420 C510,460 460,470 410,440 C360,410 320,350 300,300 Z' },
-            // Body
-            { id: 'b-body', d: 'M290,160 Q295,150 300,140 Q305,150 310,160 L312,400 Q306,420 300,425 Q294,420 288,400 Z' },
-            // Left wing inner spot
-            { id: 'b-lis', d: 'M220,160 C200,140 170,140 160,160 C150,180 170,200 190,200 C210,200 230,180 220,160 Z' },
-            // Right wing inner spot
-            { id: 'b-ris', d: 'M380,160 C400,140 430,140 440,160 C450,180 430,200 410,200 C390,200 370,180 380,160 Z' },
-            // Left wing lower spot
-            { id: 'b-lls', d: 'M180,330 C160,320 140,330 140,350 C140,370 160,380 180,370 C200,360 200,340 180,330 Z' },
-            // Right wing lower spot
-            { id: 'b-rls', d: 'M420,330 C440,320 460,330 460,350 C460,370 440,380 420,370 C400,360 400,340 420,330 Z' },
-        ],
-        outlines: [
-            // Antennae
-            { d: 'M300,160 C290,120 260,70 240,50' },
-            { d: 'M300,160 C310,120 340,70 360,50' },
-            // Antennae tips
-            { d: 'M240,50 C235,42 232,38 238,35 C244,32 248,38 244,46' },
-            { d: 'M360,50 C365,42 368,38 362,35 C356,32 352,38 356,46' },
-        ]
+const PAGES = [
+    {
+        id: "duck",
+        emoji: "🦆",
+        name: "Duck Pond",
+        accent: "#ffd37d",
+        art: `
+            <circle cx="145" cy="130" r="58" />
+            <path d="M145 20 V0 M90 40 L64 14 M200 40 L226 14 M60 130 H20 M270 130 H230 M90 220 L62 248 M200 220 L228 248" />
+            <ellipse cx="430" cy="430" rx="210" ry="150" />
+            <circle cx="640" cy="290" r="115" />
+            <path d="M730 300 Q820 300 860 340 Q820 380 730 382 Q766 342 730 300 Z" />
+            <path d="M342 430 Q432 356 520 430 Q430 502 342 430 Z" />
+            <circle cx="672" cy="266" r="12" fill="#26334d" />
+            <path d="M356 570 Q348 652 322 716" />
+            <path d="M474 570 Q486 648 502 716" />
+            <path d="M74 635 Q236 604 366 632" />
+            <path d="M530 642 Q688 614 894 650" />
+            <path d="M120 696 Q260 676 416 700" />
+            <path d="M540 704 Q710 684 930 710" />
+            <path d="M614 360 Q654 372 680 400" />
+        `,
     },
-
-    // ─── DINOSAUR ───
-    dinosaur: {
-        viewBox: '0 0 600 500',
-        regions: [
-            // Body
-            { id: 'd-body', d: 'M180,280 C180,230 200,180 260,170 C320,160 380,170 420,200 C460,230 480,280 470,330 C460,380 420,400 360,410 C300,420 220,410 190,380 C170,360 180,320 180,280 Z' },
-            // Head
-            { id: 'd-head', d: 'M420,200 C440,170 470,140 510,130 C550,120 570,140 570,170 C570,200 550,230 520,240 C490,250 460,240 440,230 C430,220 420,210 420,200 Z' },
-            // Tail
-            { id: 'd-tail', d: 'M190,340 C160,330 130,310 100,320 C70,330 50,370 40,400 C35,420 50,430 70,420 C90,410 120,380 160,380 C180,380 190,370 190,340 Z' },
-            // Left front leg
-            { id: 'd-lfl', d: 'M280,400 C275,420 270,450 265,470 C260,485 275,490 285,480 C290,470 295,440 300,420 C300,410 290,400 280,400 Z' },
-            // Right front leg
-            { id: 'd-rfl', d: 'M350,405 C345,425 340,455 335,475 C330,490 345,495 355,485 C360,475 365,445 370,425 C370,415 360,405 350,405 Z' },
-            // Left back leg
-            { id: 'd-lbl', d: 'M210,380 C205,400 200,430 195,460 C190,480 205,485 215,475 C220,465 225,435 230,410 C230,400 220,385 210,380 Z' },
-            // Right back leg
-            { id: 'd-rbl', d: 'M420,380 C415,400 410,435 405,465 C400,480 415,490 425,480 C430,468 435,435 440,405 C440,395 430,385 420,380 Z' },
-            // Belly
-            { id: 'd-belly', d: 'M240,300 C260,340 320,360 380,340 C400,330 410,310 400,290 C380,280 340,300 300,310 C260,315 240,310 240,300 Z' },
-            // Back plates
-            { id: 'd-p1', d: 'M260,170 C262,148 275,130 290,128 C300,130 295,155 285,170 Z' },
-            { id: 'd-p2', d: 'M310,163 C315,135 330,115 348,112 C358,116 350,148 340,165 Z' },
-            { id: 'd-p3', d: 'M365,172 C372,148 388,130 405,130 C412,136 403,160 395,180 Z' },
-        ],
-        outlines: [
-            // Eye
-            { d: 'M530,155 C535,155 540,160 538,165 C536,170 530,170 528,165 C526,160 528,155 530,155 Z' },
-            // Mouth
-            { d: 'M540,185 C555,190 565,195 560,200' },
-            // Nostril
-            { d: 'M560,165 C563,163 565,166 563,168' },
-        ]
+    {
+        id: "fish",
+        emoji: "🐠",
+        name: "Happy Fish",
+        accent: "#8de0d8",
+        art: `
+            <ellipse cx="420" cy="370" rx="240" ry="158" />
+            <path d="M652 370 L860 232 L860 508 Z" />
+            <path d="M346 224 Q402 146 492 156 Q560 164 620 228" />
+            <path d="M346 516 Q418 586 514 574 Q582 566 640 514" />
+            <circle cx="308" cy="338" r="20" />
+            <circle cx="312" cy="338" r="8" fill="#26334d" />
+            <path d="M236 424 Q304 466 362 434" />
+            <path d="M446 236 Q448 370 444 520" />
+            <path d="M536 262 Q534 372 532 482" />
+            <path d="M624 286 Q620 372 620 456" />
+            <path d="M208 628 Q264 566 252 494" />
+            <path d="M246 648 Q316 572 306 468" />
+            <path d="M788 632 Q732 564 740 494" />
+            <path d="M826 648 Q758 566 768 462" />
+            <circle cx="770" cy="146" r="24" />
+            <circle cx="832" cy="96" r="36" />
+            <circle cx="886" cy="164" r="18" />
+            <path d="M70 706 Q216 676 346 698 Q472 718 616 696 Q760 674 928 706" />
+        `,
     },
-
-    // ─── HOUSE ───
-    house: {
-        viewBox: '0 0 600 500',
-        regions: [
-            // Main wall
-            { id: 'h-wall', d: 'M120,230 L480,230 L480,440 L120,440 Z' },
-            // Roof
-            { id: 'h-roof', d: 'M100,230 L300,80 L500,230 Z' },
-            // Door
-            { id: 'h-door', d: 'M260,320 L340,320 L340,440 L260,440 Z' },
-            // Left window
-            { id: 'h-lwin', d: 'M150,270 L230,270 L230,340 L150,340 Z' },
-            // Right window
-            { id: 'h-rwin', d: 'M370,270 L450,270 L450,340 L370,340 Z' },
-            // Chimney
-            { id: 'h-chim', d: 'M400,80 L440,80 L440,170 L400,170 Z' },
-            // Chimney smoke cloud 1
-            { id: 'h-sm1', d: 'M415,70 C400,55 405,35 420,30 C435,25 445,40 440,55 C438,63 425,72 415,70 Z' },
-            // Chimney smoke cloud 2
-            { id: 'h-sm2', d: 'M430,35 C425,20 435,5 450,5 C465,5 470,20 462,30 C458,36 438,38 430,35 Z' },
-            // Sun
-            { id: 'h-sun', d: 'M80,60 C80,35 100,20 120,20 C140,20 155,35 155,60 C155,85 140,100 120,100 C100,100 80,85 80,60 Z' },
-            // Ground / grass
-            { id: 'h-grass', d: 'M0,440 L600,440 L600,500 L0,500 Z' },
-            // Doorstep
-            { id: 'h-step', d: 'M250,440 L350,440 L350,460 L250,460 Z' },
-            // Left bush
-            { id: 'h-lbush', d: 'M60,440 C50,420 65,395 90,390 C115,385 140,400 145,420 C148,435 140,440 120,440 Z' },
-            // Right bush
-            { id: 'h-rbush', d: 'M460,440 C450,420 465,395 490,390 C515,385 540,400 545,420 C548,435 540,440 520,440 Z' },
-        ],
-        outlines: [
-            // Door knob
-            { d: 'M325,385 C330,385 333,390 330,395 C327,398 322,395 325,385 Z' },
-            // Window cross left
-            { d: 'M190,270 L190,340' },
-            { d: 'M150,305 L230,305' },
-            // Window cross right
-            { d: 'M410,270 L410,340' },
-            { d: 'M370,305 L450,305' },
-            // Path
-            { d: 'M280,440 C275,460 260,490 240,500' },
-            { d: 'M320,440 C325,460 340,490 360,500' },
-        ]
+    {
+        id: "flower",
+        emoji: "🌼",
+        name: "Sunny Flower",
+        accent: "#ffcb6a",
+        art: `
+            <circle cx="500" cy="300" r="88" />
+            <circle cx="500" cy="132" r="86" />
+            <circle cx="650" cy="196" r="86" />
+            <circle cx="650" cy="362" r="86" />
+            <circle cx="500" cy="468" r="86" />
+            <circle cx="350" cy="362" r="86" />
+            <circle cx="350" cy="196" r="86" />
+            <path d="M500 388 V694" />
+            <path d="M500 512 Q408 468 320 500 Q284 520 258 562 Q326 578 396 562 Q462 548 500 520" />
+            <path d="M500 586 Q594 542 676 574 Q720 592 748 634 Q666 646 600 632 Q544 618 500 594" />
+            <path d="M0 706 Q154 674 326 696 Q492 716 658 698 Q814 680 1000 706" />
+            <path d="M122 154 Q170 104 224 144 Q262 172 254 228 Q198 228 162 214 Q128 198 122 154 Z" />
+            <path d="M178 150 Q232 108 280 150" />
+            <circle cx="182" cy="164" r="10" fill="#26334d" />
+            <circle cx="230" cy="164" r="10" fill="#26334d" />
+        `,
     },
-
-    // ─── ROCKET ───
-    rocket: {
-        viewBox: '0 0 600 500',
-        regions: [
-            // Main body
-            { id: 'r-body', d: 'M260,60 C260,60 250,100 245,160 L240,280 L240,380 L360,380 L360,280 L355,160 C350,100 340,60 340,60 C320,20 280,20 260,60 Z' },
-            // Nose cone window
-            { id: 'r-window', d: 'M280,130 C280,110 290,100 300,100 C310,100 320,110 320,130 C320,150 310,160 300,160 C290,160 280,150 280,130 Z' },
-            // Left fin
-            { id: 'r-lfin', d: 'M240,300 C220,310 180,350 170,400 C165,420 180,430 200,420 C220,410 240,390 240,380 Z' },
-            // Right fin
-            { id: 'r-rfin', d: 'M360,300 C380,310 420,350 430,400 C435,420 420,430 400,420 C380,410 360,390 360,380 Z' },
-            // Bottom fin center
-            { id: 'r-bfin', d: 'M270,380 L300,440 L330,380 Z' },
-            // Flame outer
-            { id: 'r-flout', d: 'M250,380 C250,410 260,445 270,460 C280,475 290,490 300,500 C310,490 320,475 330,460 C340,445 350,410 350,380 C340,395 320,400 300,400 C280,400 260,395 250,380 Z' },
-            // Flame inner
-            { id: 'r-flin', d: 'M275,390 C278,410 285,440 295,465 C298,470 302,470 305,465 C315,440 322,410 325,390 C318,398 310,402 300,402 C290,402 282,398 275,390 Z' },
-            // Body stripe top
-            { id: 'r-stripe1', d: 'M248,200 L352,200 L354,220 L247,220 Z' },
-            // Body stripe bottom
-            { id: 'r-stripe2', d: 'M242,330 L358,330 L359,350 L241,350 Z' },
-            // Stars
-            { id: 'r-star1', d: 'M80,80 L88,100 L110,100 L92,112 L100,135 L80,120 L60,135 L68,112 L50,100 L72,100 Z' },
-            { id: 'r-star2', d: 'M520,150 L526,165 L542,165 L530,174 L535,190 L520,180 L505,190 L510,174 L498,165 L514,165 Z' },
-            { id: 'r-star3', d: 'M100,350 L106,365 L122,365 L110,374 L115,390 L100,380 L85,390 L90,374 L78,365 L94,365 Z' },
-        ],
-        outlines: [
-            // Rivets
-            { d: 'M290,240 C292,238 296,238 296,242 C296,246 292,246 290,242 Z' },
-            { d: 'M304,240 C306,238 310,238 310,242 C310,246 306,246 304,242 Z' },
-            { d: 'M290,270 C292,268 296,268 296,272 C296,276 292,276 290,272 Z' },
-            { d: 'M304,270 C306,268 310,268 310,272 C310,276 306,276 304,272 Z' },
-        ]
+    {
+        id: "rocket",
+        emoji: "🚀",
+        name: "Rocket Ride",
+        accent: "#ff9d8a",
+        art: `
+            <path d="M500 86 Q610 166 610 338 V520 H390 V338 Q390 166 500 86 Z" />
+            <circle cx="500" cy="264" r="72" />
+            <path d="M390 360 L270 470 L390 492" />
+            <path d="M610 360 L730 470 L610 492" />
+            <path d="M446 520 L398 672 Q452 640 500 712 Q548 640 602 672 L554 520" />
+            <path d="M454 520 Q468 584 500 622 Q532 584 546 520" />
+            <path d="M420 198 H580" />
+            <path d="M408 428 H592" />
+            <path d="M130 134 L148 176 L194 180 L158 208 L170 252 L130 226 L90 252 L102 208 L66 180 L112 176 Z" />
+            <path d="M828 194 L842 228 L878 232 L850 254 L860 290 L828 272 L796 290 L806 254 L778 232 L814 228 Z" />
+            <path d="M200 604 L214 638 L250 642 L222 664 L232 700 L200 682 L168 700 L178 664 L150 642 L186 638 Z" />
+        `,
     },
+    {
+        id: "car",
+        emoji: "🚗",
+        name: "Road Trip",
+        accent: "#9bc4ff",
+        art: `
+            <path d="M154 462 V354 Q154 316 192 316 H342 L420 224 H658 Q716 224 754 278 L810 354 H846 Q894 354 894 402 V462 Z" />
+            <path d="M314 316 L396 250 H626 Q676 250 714 308" />
+            <circle cx="300" cy="462" r="92" />
+            <circle cx="300" cy="462" r="38" />
+            <circle cx="742" cy="462" r="92" />
+            <circle cx="742" cy="462" r="38" />
+            <path d="M446 340 H578" />
+            <path d="M624 338 H748" />
+            <path d="M820 392 H860" />
+            <path d="M116 604 Q228 588 338 602 Q448 616 564 600 Q684 584 812 604 Q908 618 1000 606" />
+            <path d="M152 120 Q184 70 248 78 Q298 82 324 122 Q372 88 426 102 Q494 118 498 188 Q468 212 420 208 H200 Q146 208 126 176 Q114 156 116 132 Z" />
+        `,
+    },
+    {
+        id: "house",
+        emoji: "🏡",
+        name: "Cozy House",
+        accent: "#ffc48f",
+        art: `
+            <path d="M186 328 L500 100 L814 328" />
+            <rect x="236" y="328" width="528" height="292" rx="8" />
+            <rect x="440" y="438" width="124" height="182" rx="14" />
+            <rect x="292" y="392" width="108" height="108" rx="10" />
+            <path d="M346 392 V500 M292 446 H400" />
+            <rect x="600" y="392" width="108" height="108" rx="10" />
+            <path d="M654 392 V500 M600 446 H708" />
+            <rect x="628" y="184" width="64" height="110" rx="8" />
+            <path d="M124 706 Q280 678 432 696 Q600 716 764 694 Q882 678 1000 708" />
+            <path d="M118 610 Q92 548 118 482 Q146 420 212 402" />
+            <path d="M104 502 Q56 490 40 438 Q30 400 46 370 Q66 334 108 334 Q134 286 192 300 Q240 312 252 356 Q314 360 332 410 Q348 452 326 498 Q302 548 242 548 H132 Q106 548 94 532" />
+            <circle cx="148" cy="176" r="54" />
+            <path d="M148 72 V42 M90 96 L68 74 M206 96 L228 74 M60 176 H28 M268 176 H236 M94 234 L70 258 M202 234 L226 258" />
+        `,
+    },
+];
 
-    // ─── FISH (Underwater Scene) ───
-    fish: {
-        viewBox: '0 0 600 500',
-        regions: [
-            // Big fish body
-            { id: 'f-body', d: 'M150,200 C180,150 260,120 340,140 C400,155 430,190 440,230 C450,270 430,310 380,330 C320,355 240,340 190,310 C150,285 130,245 150,200 Z' },
-            // Big fish tail
-            { id: 'f-tail', d: 'M150,200 C120,170 90,140 70,120 C65,150 70,190 80,220 C70,230 65,270 70,310 C90,290 120,260 150,230 C148,220 148,210 150,200 Z' },
-            // Big fish eye
-            { id: 'f-eye', d: 'M370,200 C380,195 390,200 390,210 C390,220 380,225 370,220 C360,215 360,205 370,200 Z' },
-            // Big fish fin top
-            { id: 'f-ftop', d: 'M250,140 C260,100 290,80 310,90 C320,98 305,130 290,145 Z' },
-            // Big fish fin bottom
-            { id: 'f-fbot', d: 'M260,330 C265,360 280,385 300,380 C310,375 300,350 285,330 Z' },
-            // Big fish stripe 1
-            { id: 'f-s1', d: 'M280,155 C275,180 275,230 280,260 C290,265 300,255 305,240 C310,210 310,180 305,165 C300,155 290,152 280,155 Z' },
-            // Big fish stripe 2
-            { id: 'f-s2', d: 'M220,175 C215,200 218,260 225,290 C235,295 245,280 248,260 C252,230 250,195 245,180 C240,172 230,170 220,175 Z' },
-            // Small fish body
-            { id: 'f-sm-body', d: 'M430,360 C445,340 480,330 510,340 C530,348 540,365 535,385 C528,405 505,415 480,410 C455,405 425,385 430,360 Z' },
-            // Small fish tail
-            { id: 'f-sm-tail', d: 'M430,360 C415,345 400,330 390,320 C393,345 398,365 400,380 C395,388 393,405 400,415 C410,400 418,385 430,375 Z' },
-            // Water / background
-            { id: 'f-water', d: 'M0,0 L600,0 L600,500 L0,500 Z' },
-            // Seaweed 1
-            { id: 'f-sw1', d: 'M80,500 C75,470 90,440 85,410 C80,380 95,350 90,330 C95,315 100,325 95,345 C100,375 85,405 90,435 C95,460 85,480 90,500 Z' },
-            // Seaweed 2
-            { id: 'f-sw2', d: 'M520,500 C515,475 530,450 525,420 C520,395 535,370 530,350 C535,340 540,350 535,365 C540,390 525,415 530,440 C535,465 525,485 530,500 Z' },
-            // Bubble 1
-            { id: 'f-bub1', d: 'M450,180 C450,168 460,160 470,160 C480,160 490,168 490,180 C490,192 480,200 470,200 C460,200 450,192 450,180 Z' },
-            // Bubble 2
-            { id: 'f-bub2', d: 'M460,120 C460,112 466,106 474,106 C482,106 488,112 488,120 C488,128 482,134 474,134 C466,134 460,128 460,120 Z' },
-            // Bubble 3
-            { id: 'f-bub3', d: 'M438,140 C438,135 442,131 447,131 C452,131 456,135 456,140 C456,145 452,149 447,149 C442,149 438,145 438,140 Z' },
-            // Starfish
-            { id: 'f-star', d: 'M300,460 L308,475 L325,478 L313,490 L318,500 L300,492 L282,500 L287,490 L275,478 L292,475 Z' },
-        ],
-        outlines: [
-            // Small fish eye
-            { d: 'M510,365 C513,362 518,365 516,369 C514,373 509,370 510,365 Z' },
-            // Mouth of big fish
-            { d: 'M420,250 C430,255 435,260 432,265' },
-            // Small fish mouth
-            { d: 'M530,375 C535,378 536,382 533,384' },
-            // Sand bottom texture
-            { d: 'M0,480 C40,475 80,478 120,476 C160,474 200,478 240,476 C280,474 320,478 360,477 C400,476 440,479 480,477 C520,475 560,478 600,476' },
-        ]
-    }
-};
+const pageLayers = {};
+let currentPageId = PAGES[0].id;
+let currentColorId = "red";
+let currentBrushId = "large";
+let isDrawing = false;
+let lastPoint = null;
+let rainbowHue = 0;
 
-// ── State ──
-let currentColor = COLORS[0].hex;
-let currentStencil = 'butterfly';
-let isEraser = false;
+const paintCanvas = document.getElementById("paint-canvas");
+const paintCtx = paintCanvas.getContext("2d");
+const pictureStrip = document.getElementById("picture-strip");
+const colorPalette = document.getElementById("color-palette");
+const sizePicker = document.getElementById("size-picker");
+const lineArt = document.getElementById("line-art");
+const stageFrame = document.getElementById("stage-frame");
+const stageFit = document.getElementById("stage-fit");
+const pageEmoji = document.getElementById("page-emoji");
+const pageName = document.getElementById("page-name");
+const helperBubble = document.getElementById("helper-bubble");
+const clearButton = document.getElementById("clear-btn");
+const surpriseButton = document.getElementById("surprise-btn");
 
-// ── DOM ──
-const svg = document.getElementById('coloring-canvas');
-const palette = document.getElementById('color-palette');
-const eraserBtn = document.getElementById('eraser-btn');
-const clearBtn = document.getElementById('clear-btn');
-const saveBtn = document.getElementById('save-btn');
-
-// ── Init ──
-function init() {
-    buildPalette();
-    loadStencil(currentStencil);
-    bindStencilPicker();
-    bindTools();
+function createLayer() {
+    const canvas = document.createElement("canvas");
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+    const ctx = canvas.getContext("2d");
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    return { canvas, ctx };
 }
 
-// ── Build Color Palette ──
+function getPage(pageId) {
+    return PAGES.find((page) => page.id === pageId);
+}
+
+function getColor(colorId) {
+    return COLORS.find((color) => color.id === colorId);
+}
+
+function getBrush(brushId) {
+    return BRUSHES.find((brush) => brush.id === brushId);
+}
+
+function buildPictureStrip() {
+    pictureStrip.innerHTML = "";
+
+    PAGES.forEach((page) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "picture-btn";
+        button.dataset.page = page.id;
+        button.style.setProperty("--page-accent", page.accent);
+        button.setAttribute("aria-label", page.name);
+        button.innerHTML = `
+            <span class="picture-emoji" aria-hidden="true">${page.emoji}</span>
+            <span class="picture-label">${page.name}</span>
+        `;
+        button.addEventListener("click", () => setPage(page.id));
+        pictureStrip.appendChild(button);
+    });
+}
+
 function buildPalette() {
-    palette.innerHTML = '';
-    COLORS.forEach((c, i) => {
-        const swatch = document.createElement('button');
-        swatch.className = 'color-swatch' + (i === 0 ? ' active' : '');
-        swatch.style.background = c.hex;
-        if (c.hex === '#ffffff') {
-            swatch.style.border = '4px solid #ddd';
+    colorPalette.innerHTML = "";
+
+    COLORS.forEach((color) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `color-btn${color.mode === "rainbow" ? " rainbow" : ""}`;
+        button.dataset.color = color.id;
+        button.setAttribute("aria-label", color.label);
+        button.title = color.label;
+
+        if (color.mode === "solid") {
+            button.style.background = color.hex;
         }
-        swatch.title = c.name;
-        swatch.setAttribute('aria-label', c.name);
-        swatch.addEventListener('click', () => selectColor(c.hex, swatch));
-        palette.appendChild(swatch);
+
+        button.addEventListener("click", () => setColor(color.id));
+        colorPalette.appendChild(button);
     });
 }
 
-// ── Select Color ──
-function selectColor(hex, el) {
-    currentColor = hex;
-    isEraser = false;
-    eraserBtn.classList.remove('active');
-    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
-    el.classList.add('active');
+function buildSizePicker() {
+    sizePicker.innerHTML = "";
+
+    BRUSHES.forEach((brush) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "size-btn";
+        button.dataset.brush = brush.id;
+        button.setAttribute("aria-label", brush.label);
+        button.title = brush.label;
+        button.innerHTML = `<span class="size-dot ${brush.dotClass}" aria-hidden="true"></span>`;
+        button.addEventListener("click", () => setBrush(brush.id));
+        sizePicker.appendChild(button);
+    });
 }
 
-// ── Load Stencil ──
-function loadStencil(name) {
-    const stencil = STENCILS[name];
-    if (!stencil) return;
+function buildLineArt(page) {
+    return `
+        <svg viewBox="0 0 1000 750" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+            <g fill="none" stroke="#26334d" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+                ${page.art}
+            </g>
+        </svg>
+    `;
+}
 
-    currentStencil = name;
-    svg.setAttribute('viewBox', stencil.viewBox);
-    svg.innerHTML = '';
-
-    // Draw regions (fillable areas) — draw in order; the fish water goes behind everything
-    stencil.regions.forEach(region => {
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', region.d);
-        path.setAttribute('id', region.id);
-        path.classList.add('region');
-        path.addEventListener('click', () => fillRegion(path));
-        path.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            fillRegion(path);
-        });
-        svg.appendChild(path);
+function syncPageButtons() {
+    document.querySelectorAll(".picture-btn").forEach((button) => {
+        button.classList.toggle("active", button.dataset.page === currentPageId);
     });
+}
 
-    // Draw outlines (decorative, non-interactive)
-    if (stencil.outlines) {
-        stencil.outlines.forEach(outline => {
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', outline.d);
-            path.classList.add('outline-only');
-            svg.appendChild(path);
-        });
+function syncColorButtons() {
+    document.querySelectorAll(".color-btn").forEach((button) => {
+        const isActive = button.dataset.color === currentColorId;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+    });
+}
+
+function syncBrushButtons() {
+    document.querySelectorAll(".size-btn").forEach((button) => {
+        const isActive = button.dataset.brush === currentBrushId;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+    });
+}
+
+function redrawVisibleLayer() {
+    paintCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    paintCtx.drawImage(pageLayers[currentPageId].canvas, 0, 0);
+}
+
+function setPage(pageId) {
+    const page = getPage(pageId);
+    if (!page) return;
+
+    currentPageId = pageId;
+    lineArt.innerHTML = buildLineArt(page);
+    pageEmoji.textContent = page.emoji;
+    pageName.textContent = page.name;
+    stageFrame.style.setProperty("--page-accent", page.accent);
+    stageFrame.classList.remove("page-flash");
+    void stageFrame.offsetWidth;
+    stageFrame.classList.add("page-flash");
+    syncPageButtons();
+    redrawVisibleLayer();
+}
+
+function setColor(colorId) {
+    if (!getColor(colorId)) return;
+    currentColorId = colorId;
+    syncColorButtons();
+}
+
+function setBrush(brushId) {
+    if (!getBrush(brushId)) return;
+    currentBrushId = brushId;
+    syncBrushButtons();
+}
+
+function clearCurrentPage() {
+    const { ctx } = pageLayers[currentPageId];
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    redrawVisibleLayer();
+}
+
+function surprisePage() {
+    const choices = PAGES.filter((page) => page.id !== currentPageId);
+    const randomPage = choices[Math.floor(Math.random() * choices.length)];
+    setPage(randomPage.id);
+}
+
+function fitStage() {
+    const bounds = stageFit.getBoundingClientRect();
+    const maxWidth = Math.max(0, bounds.width - 4);
+    const maxHeight = Math.max(0, bounds.height - 4);
+
+    if (!maxWidth || !maxHeight) return;
+
+    let frameWidth = maxWidth;
+    let frameHeight = frameWidth / STAGE_ASPECT;
+
+    if (frameHeight > maxHeight) {
+        frameHeight = maxHeight;
+        frameWidth = frameHeight * STAGE_ASPECT;
     }
 
-    // Update stencil picker buttons
-    document.querySelectorAll('.stencil-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.stencil === name);
-    });
+    stageFrame.style.width = `${Math.floor(frameWidth)}px`;
+    stageFrame.style.height = `${Math.floor(frameHeight)}px`;
 }
 
-// ── Fill a Region ──
-function fillRegion(pathEl) {
-    if (isEraser) {
-        pathEl.style.fill = 'white';
-        pathEl.style.transition = 'fill 0.15s ease';
-    } else {
-        pathEl.style.fill = currentColor;
-        pathEl.style.transition = 'fill 0.15s ease';
-        // Fun pop animation
-        pathEl.style.transform = 'scale(1.03)';
-        pathEl.style.transformOrigin = 'center';
-        setTimeout(() => { pathEl.style.transform = 'scale(1)'; }, 150);
-    }
-}
-
-// ── Stencil Picker ──
-function bindStencilPicker() {
-    document.querySelectorAll('.stencil-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            loadStencil(btn.dataset.stencil);
-        });
-    });
-}
-
-// ── Tools ──
-function bindTools() {
-    // Eraser
-    eraserBtn.addEventListener('click', () => {
-        isEraser = !isEraser;
-        eraserBtn.classList.toggle('active', isEraser);
-        if (isEraser) {
-            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
-        }
-    });
-
-    // Clear all
-    clearBtn.addEventListener('click', () => {
-        document.querySelectorAll('.region').forEach(r => {
-            r.style.fill = 'white';
-            r.style.transition = 'fill 0.3s ease';
-        });
-        showToast('🧹 All cleared!');
-    });
-
-    // Save as image
-    saveBtn.addEventListener('click', () => saveSVGAsImage());
-}
-
-// ── Save SVG as PNG ──
-function saveSVGAsImage() {
-    const svgClone = svg.cloneNode(true);
-    // Remove hover outlines for clean export
-    svgClone.querySelectorAll('.outline-only').forEach(el => {
-        el.style.fill = 'none';
-    });
-
-    const serializer = new XMLSerializer();
-    const svgString = serializer.serializeToString(svgClone);
-    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 1000;
-    const ctx = canvas.getContext('2d');
-
-    const img = new Image();
-    img.onload = () => {
-        ctx.fillStyle = '#fffef7';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
-
-        const link = document.createElement('a');
-        link.download = `coloring-${currentStencil}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        showToast('💾 Saved!');
+function getCanvasPoint(event) {
+    const rect = paintCanvas.getBoundingClientRect();
+    return {
+        x: ((event.clientX - rect.left) / rect.width) * CANVAS_WIDTH,
+        y: ((event.clientY - rect.top) / rect.height) * CANVAS_HEIGHT,
     };
-    img.src = url;
 }
 
-// ── Toast ──
-function showToast(message) {
-    let toast = document.querySelector('.toast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.className = 'toast';
-        document.body.appendChild(toast);
+function getStrokeStyle() {
+    const color = getColor(currentColorId);
+    if (!color) return "#ff6b6b";
+
+    if (color.mode === "rainbow") {
+        rainbowHue = (rainbowHue + 12) % 360;
+        return `hsl(${rainbowHue} 90% 62%)`;
     }
-    toast.textContent = message;
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2000);
+
+    return color.hex;
 }
 
-// ── Start ──
+function drawCircle(context, point, radius, fillStyle) {
+    context.save();
+    context.fillStyle = fillStyle;
+    context.beginPath();
+    context.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+}
+
+function drawSegment(from, to) {
+    const brush = getBrush(currentBrushId);
+    const radius = brush ? brush.radius : 28;
+    const strokeStyle = getStrokeStyle();
+    const contexts = [paintCtx, pageLayers[currentPageId].ctx];
+
+    contexts.forEach((context) => {
+        context.save();
+        context.strokeStyle = strokeStyle;
+        context.lineWidth = radius * 2;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.beginPath();
+        context.moveTo(from.x, from.y);
+        context.lineTo(to.x, to.y);
+        context.stroke();
+        context.restore();
+    });
+}
+
+function stampPoint(point) {
+    const brush = getBrush(currentBrushId);
+    const radius = brush ? brush.radius : 28;
+    const fillStyle = getStrokeStyle();
+    drawCircle(paintCtx, point, radius, fillStyle);
+    drawCircle(pageLayers[currentPageId].ctx, point, radius, fillStyle);
+}
+
+function startDrawing(event) {
+    event.preventDefault();
+    helperBubble.classList.add("hidden");
+    isDrawing = true;
+    lastPoint = getCanvasPoint(event);
+    stampPoint(lastPoint);
+
+    if (paintCanvas.setPointerCapture) {
+        paintCanvas.setPointerCapture(event.pointerId);
+    }
+}
+
+function moveDrawing(event) {
+    if (!isDrawing) return;
+    event.preventDefault();
+
+    const nextPoint = getCanvasPoint(event);
+    drawSegment(lastPoint, nextPoint);
+    lastPoint = nextPoint;
+}
+
+function endDrawing(event) {
+    if (!isDrawing) return;
+    isDrawing = false;
+    lastPoint = null;
+
+    if (paintCanvas.releasePointerCapture) {
+        try {
+            paintCanvas.releasePointerCapture(event.pointerId);
+        } catch (error) {
+            // Safari can throw if capture is already released.
+        }
+    }
+}
+
+function bindCanvas() {
+    paintCanvas.addEventListener("pointerdown", startDrawing);
+    paintCanvas.addEventListener("pointermove", moveDrawing);
+    paintCanvas.addEventListener("pointerup", endDrawing);
+    paintCanvas.addEventListener("pointercancel", endDrawing);
+    paintCanvas.addEventListener("pointerleave", endDrawing);
+}
+
+function initLayers() {
+    PAGES.forEach((page) => {
+        pageLayers[page.id] = createLayer();
+    });
+}
+
+function bindActions() {
+    clearButton.addEventListener("click", clearCurrentPage);
+    surpriseButton.addEventListener("click", surprisePage);
+    stageFrame.addEventListener("animationend", () => {
+        stageFrame.classList.remove("page-flash");
+    });
+}
+
+function preventGestureZoom() {
+    document.addEventListener("gesturestart", (event) => event.preventDefault());
+    document.addEventListener("gesturechange", (event) => event.preventDefault());
+}
+
+function init() {
+    initLayers();
+    buildPictureStrip();
+    buildPalette();
+    buildSizePicker();
+    bindCanvas();
+    bindActions();
+    preventGestureZoom();
+    setColor(currentColorId);
+    setBrush(currentBrushId);
+    setPage(currentPageId);
+    fitStage();
+
+    if ("ResizeObserver" in window) {
+        const observer = new ResizeObserver(() => fitStage());
+        observer.observe(stageFit);
+    }
+
+    window.addEventListener("resize", fitStage);
+    window.addEventListener("orientationchange", fitStage);
+}
+
 init();

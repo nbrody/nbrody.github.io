@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surface Groups + Products of Trees</title>
+
+    <!-- MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                macros: {
+                    N: "\\mathbb{N}",
+                    Z: "\\mathbb{Z}",
+                    Q: "\\mathbb{Q}",
+                    R: "\\mathbb{R}",
+                    C: "\\mathbb{C}",
+                    bbA: "\\mathbb{A}",
+                    bbF: "\\mathbb{F}",
+                    bbG: "\\mathbb{G}",
+                    bbH: "\\mathbb{H}",
+                    bbX: "\\mathbb{X}",
+                    GL: "\\mathsf{GL}",
+                    PGL: "\\mathsf{PGL}",
+                    SL: "\\mathsf{SL}",
+                    PSL: "\\mathsf{PSL}",
+                    Aut: "\\mathsf{Aut}",
+                    Hom: "\\mathsf{Hom}",
+                    Mod: "\\mathsf{Mod}"
+                }
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="app">
+
+        <!-- Mobile tab bar -->
+        <div id="mobile-tab-bar">
+            <button class="mobile-tab active" data-panel="read" id="tab-read">📖 Read</button>
+            <button class="mobile-tab" data-panel="play" id="tab-play">🔬 Explore</button>
+        </div>
+
+
+        <!-- ======================================================
+         LEFT: WALKTHROUGH SLIDES
+         ====================================================== -->
+        <div id="walkthrough">
+            <div id="slide-viewport">
+
+                <!-- Slide 0: Title -->
+                <div class="slide active" data-viz="bg" data-bg="assets/transitionImages/Title.png">
+                    <div class="tag">GALLERY33</div>
+                    <h1>Surface Groups <span class="highlight">and</span> Products of Trees</h1>
+                </div>
+
+                <!-- Slide 1: Background chapter -->
+                <div class="slide chapter-slide" data-viz="bg" data-bg="assets/transitionImages/Background.png">
+                    <div class="chapter-number">Chapter I</div>
+                    <h2>Background</h2>
+                </div>
+
+                <!-- Slide 2: Questions -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Background.png">
+                    <div class="chapter-label">Background</div>
+                    <p>Suppose that \(G\) is a finitely generated group, and \(X\) is a proper metric space.</p>
+                    <ul>
+                        <li>When does \(G\) act faithfully on \(X\)?</li>
+                        <li>When does \(G\) act properly on \(X\)?</li>
+                    </ul>
+                    <p>More broadly, given a group \(G\) can we classify the metric spaces \(X\) on which \(G\) acts?
+                        Or given a space, can we classify the groups that can act on it?</p>
+                </div>
+
+                <!-- Slide 3: Examples -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Background.png">
+                    <div class="chapter-label">Background</div>
+                    <h2>Examples</h2>
+                    <p>If \(X\) is a tree, then any group which acts properly on \(X\) is virtually free.</p>
+                    <p>If \(G\) is a lattice in a higher rank Lie group, then Margulis superrigidity gives extremely
+                        strong constraints on the possible spaces \(X\).</p>
+                    <p>The virtual cohomological dimension of a group gives a lower bound on the dimension of the spaces
+                        on which it can act nicely.</p>
+                </div>
+
+                <!-- Slide 4: Motivating Questions -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Background.png">
+                    <div class="chapter-label">Background</div>
+                    <h2>Questions</h2>
+                    <p>Now suppose that \(G\) is the fundamental group of a finite-volume hyperbolic \(n\)-manifold. Can
+                        \(G\) ever act faithfully on a lower-dimensional hyperbolic space? Can it act properly on a
+                        product of such spaces?</p>
+                    <p>In the absence of superrigidity, we don't have an immediate obstruction to faithful actions. And
+                        by taking products of lower-dimensional spaces, there's not an obvious way that virtual
+                        cohomological dimension would prevent proper actions.</p>
+                </div>
+
+                <!-- Slide 5: Main Question -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Background.png">
+                    <div class="chapter-label">Background</div>
+                    <div class="main-question" data-label="Main Question">
+                        <p>Can a surface group act properly on a locally compact product of trees?</p>
+                    </div>
+                </div>
+
+                <!-- Slide 6: Torus Orbifold viz -->
+                <div class="slide" data-viz="iframe" data-iframe="viz-orbifold">
+                    <div class="chapter-label">Background · Visualization</div>
+                    <h2>Orbifold Quotient</h2>
+                    <p>A torus with a cone point of order 2, whose fundamental group is
+                        \(\langle a,b \mid [a,b]^2 = 1\rangle\).</p>
+                    <div class="interact-prompt">Interactive visualization →</div>
+                    <button class="viz-btn" onclick="toggleVizIframe('viz-orbifold', this)">▶ Play</button>
+                </div>
+
+                <!-- Slide 7: Product of Trees viz -->
+                <div class="slide" data-viz="iframe" data-iframe="viz-trees">
+                    <div class="chapter-label">Background · Visualization</div>
+                    <h2>Product of Trees</h2>
+                    <p>A discrete group acting on a product of two trees, visualized as a lattice in the product.</p>
+                    <div class="interact-prompt">Interactive visualization →</div>
+                    <button class="viz-btn" onclick="postToVizIframe('viz-trees', 'toggle-link')">🔗 Link</button>
+                    <button class="viz-btn" onclick="toggleVizIframe('viz-trees', this)">⏸ Pause</button>
+                </div>
+
+                <!-- Slide 8: Mountain Climbers viz -->
+                <div class="slide" data-viz="iframe" data-iframe="viz-mountain">
+                    <div class="chapter-label">Background · Visualization</div>
+                    <h2>Mountain Climbers</h2>
+                    <p>The mountain climber story describes a map of a genus two surface into a product of graphs.</p>
+                    <div class="interact-prompt">Interactive visualization →</div>
+                    <button class="viz-btn" onclick="toggleVizIframe('viz-mountain', this)">▶ Play</button>
+                </div>
+
+                <!-- Slide 9: Mountain Climbers Summary -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Background.png">
+                    <div class="chapter-label">Background</div>
+                    <h2>Mountain Climbers</h2>
+                    <p>The mountain climber story describes a map of a genus two surface into a product of graphs, and
+                        consequently, an action of a surface group on a product of trees.</p>
+                    <p>However, this action is not faithful! In fact, the action comes from a map to a product of free
+                        groups, and finitely presented subgroups of products of free groups are products of free
+                        groups.</p>
+                    <p>This means the map has kernel. This CAN be rectified by using infinitely many free groups, and we
+                        can actually get a proper action on an infinite product of trees!</p>
+                </div>
+
+                <!-- Slide 10: Geometry chapter -->
+                <div class="slide chapter-slide" data-viz="bg" data-bg="assets/transitionImages/Geometry.png">
+                    <div class="chapter-number">Chapter II</div>
+                    <h2>Geometry</h2>
+                </div>
+
+                <!-- Slide 11: Circle Map viz -->
+                <div class="slide" data-viz="iframe" data-iframe="viz-pto1">
+                    <div class="chapter-label">Geometry · Visualization</div>
+                    <h2>Iterated Circle Map</h2>
+                    <p>Visualizing the action of \(\PGL_2\) on the projective line via iterated compositions.</p>
+                    <div class="interact-prompt">Interactive visualization →</div>
+                    <button class="viz-btn" onclick="postToVizIframe('viz-pto1', 'rotate')">⟳ Rotate</button>
+                    <button class="viz-btn" onclick="toggleVizIframe('viz-pto1', this)">▶ Play</button>
+                    <button class="viz-btn" onclick="postToVizIframe('viz-pto1', 'add')">+ Layer</button>
+                </div>
+
+                <!-- Slide 12: p-adic Tower viz -->
+                <div class="slide" data-viz="iframe" data-iframe="viz-tower">
+                    <div class="chapter-label">Geometry · Visualization</div>
+                    <h2>p-adic Tower</h2>
+                    <p>The Bruhat–Tits tree for \(\PGL_2(\Q_p)\), built as a tower of covers.</p>
+                    <div class="interact-prompt">Interactive visualization →</div>
+                    <button class="viz-btn" onclick="toggleVizIframe('viz-tower', this)">▶ Play</button>
+                    <button class="viz-btn" onclick="postToVizIframe('viz-tower', 'grow')">+ Grow</button>
+                </div>
+
+                <!-- Slide 13: p-adic Action viz -->
+                <div class="slide" data-viz="iframe" data-iframe="viz-action">
+                    <div class="chapter-label">Geometry · Visualization</div>
+                    <h2>p-adic Action</h2>
+                    <p>How elements of \(\PGL_2(\Q_p)\) act on the Bruhat–Tits tree.</p>
+                    <div class="interact-prompt">Interactive visualization →</div>
+                    <button class="viz-btn" onclick="postToVizIframe('viz-action', 'prev')">← Prev</button>
+                    <button class="viz-btn" onclick="postToVizIframe('viz-action', 'next')">Next →</button>
+                </div>
+
+                <!-- Slide 14: Arithmetic Methods -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Geometry.png">
+                    <div class="chapter-label">Geometry</div>
+                    <h2>Arithmetic Methods</h2>
+                    <p>The <strong>Minkowski embedding</strong> allows us to find discrete embeddings of subrings of
+                        \(\overline{\Q}\) into products of fields. In turn, we obtain actions on locally compact spaces.
+                        For example</p>
+                    <formula>
+                        \[ \PGL_2(\Q) \hookrightarrow \PGL_2(\R) \times \prod_{p} \PGL_2(\Q_p) \]
+                    </formula>
+                    <p>This gives us a discrete action of \(\PGL_2(\Q)\) on \(\bbH^2 \times \prod_{p}' T_{p+1}\).</p>
+                </div>
+
+                <!-- Slide 15: Actions chapter -->
+                <div class="slide chapter-slide" data-viz="bg" data-bg="assets/transitionImages/Actions.png">
+                    <div class="chapter-number">Chapter III</div>
+                    <h2>Actions</h2>
+                </div>
+
+                <!-- Slide 16: Three Approaches -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Actions.png">
+                    <div class="chapter-label">Actions</div>
+                    <h2>Three Approaches</h2>
+                    <p>Suppose \(\Gamma\) is a surface group. We will try to find a discrete and faithful
+                        representation of \(\Gamma\) into \(\Aut(\bbX)\), where \(\bbX\) is a product of trees.</p>
+                    <ul>
+                        <li>\(\Gamma\leq \PGL_2(\Q)\) with \(\Gamma\cap \PGL_2(\Z)=I\)</li>
+                        <li>\(\Gamma\leq \PGL_2(\bbF_p(t))\)</li>
+                        <li>\(\Gamma \leq \mathsf{SO}_3(\Q)\)</li>
+                    </ul>
+                </div>
+
+                <!-- Slide 17: Long-Reid Group -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Actions.png">
+                    <div class="chapter-label">Actions</div>
+                    <h2>Long-Reid Group</h2>
+                    <p>Let \(\Gamma=\langle a,b\mid [a,b]^2=1\rangle\); this is the fundamental group of an orbifold
+                        which is a torus with a cone point of order 2. We get a representation of \(\Gamma\) into
+                        \(\PGL_2(\Q(t))\) by taking</p>
+                    <formula>
+                        \(\left\langle \begin{pmatrix} t & 0 \\ 0 & 1 \end{pmatrix}, \begin{pmatrix} t^2+1 & 2 \\ t
+                        & 1 \end{pmatrix} \right\rangle \leq \PGL_2(\Z[t,\frac{1}{t},\frac{1}{t-1}])\)
+                    </formula>
+                    <p>Specializing \(t\in\Q\), we can obtain a subgroup of \(\PGL_2(\Q)\). This determines a proper
+                        action on a product of trees if and only if the representation is faithful and \(\Gamma_t\cap
+                        \PGL_2(\Z)\) is finite.</p>
+                    <p style="color: var(--primary); font-weight: 600;">The particular case \(t=9\) gives a surface
+                        group acting on the product of the 2-adic and 3-adic trees.</p>
+                </div>
+
+                <!-- Slide 18: FLSS -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Actions.png">
+                    <div class="chapter-label">Actions</div>
+                    <h2>Fisher-Larsen-Spatzier-Stover</h2>
+                    <p>Suppose \(\Gamma\leq \PGL_2(\bbF_p(t))\) is a surface group. Since \(\Gamma\) is finitely
+                        generated, it is contained in \(\PGL_2(A)\) for some finitely generated subring \(A\) of
+                        \(\bbF_p(t)\). Such a ring is of the form
+                        \(A=\bbF_p[t,\frac{1}{f_1},...,\frac{1}{f_k}]\) for some irreducible polynomials \(f_i\in
+                        \bbF_p[t]\).</p>
+                    <p>We can obtain a representation of \(\Gamma\) into \(\PGL_2(\bbF_p(t))\) by taking a
+                        representation of \(\Gamma\) into \(\PGL_2(\Q(t))\) which is \(p\)-integral, and composing with
+                        the reduction map to \(\bbF_p(t)\). If we can find a faithful such representation, we've
+                        succeeded!</p>
+                </div>
+
+                <!-- Slide 19: Totally Unitary -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Actions.png">
+                    <div class="chapter-label">Actions</div>
+                    <h2>Totally Unitary Representations</h2>
+                    <p>Suppose \(k\) is a number field, and \(\Gamma\) is a group. We say that a representation
+                        \(\rho\colon \Gamma\to \PGL_2(k)\) is <strong>totally unitary</strong> if for every archimedean
+                        place \(v\colon k\to \C\), \(\rho(\Gamma)\) is precompact.</p>
+                    <div class="theorem" data-label="Proposition">
+                        <p>Let \(\rho\colon \Gamma\to \PGL_2(k)\) be a faithful totally unitary representation. Then
+                            \(\rho\) induces a proper action of \(\Gamma\) on a locally compact product of trees.</p>
+                    </div>
+                </div>
+
+                <!-- Slide 20: Example Representation -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Actions.png">
+                    <div class="chapter-label">Actions</div>
+                    <h2>Example Representation</h2>
+                    <p>Thus, if we can find a faithful and totally unitary surface group representation, we've
+                        succeeded!</p>
+                    <p>We try to find surface subgroups of \(\mathsf{PU}_2(\Q(i))\). Let's seek matrices
+                        \(g=\begin{pmatrix} x & y \\ -y & x\end{pmatrix}\) and \(h=\begin{pmatrix} a+bi & c+di \\
+                        -c+di & a-bi\end{pmatrix}\) where \([g,h]\) has trace zero.</p>
+                    <formula>\((x^2+y^2)(a^2+c^2)+(x^2-y^2)(b^2+d^2)=0\)</formula>
+                    <p>We find a particular integer solution \(x=4,\; y=5,\; a=3,\; b=1,\; c=3,\; d=9\), giving</p>
+                    <formula>
+                        \[g=\begin{pmatrix} 4 & 5 \\ -5 & 4\end{pmatrix}, \quad h=\begin{pmatrix} 3+i & 3+9i \\
+                        -3+9i & 3-i\end{pmatrix}\]
+                    </formula>
+                    <p>Indeed, the commutator has trace zero:</p>
+                    <formula>
+                        \[[g,h]=\begin{pmatrix} -\frac{27}{5\cdot 41}i & \frac{4}{5}-\frac{24}{41}i \\
+                        -\frac{4}{5}-\frac{24}{41}i & \frac{27}{5\cdot 41}i\end{pmatrix}\]
+                    </formula>
+                </div>
+
+                <!-- Slide 21: Computation chapter -->
+                <div class="slide chapter-slide" data-viz="bg" data-bg="assets/transitionImages/Search.png">
+                    <div class="chapter-number">Chapter IV</div>
+                    <h2>Computation</h2>
+                </div>
+
+                <!-- Slide 22: Goals -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Search.png">
+                    <div class="chapter-label">Computation</div>
+                    <p>Suppose that \(G\) is a finitely generated group, and \(C\colon G\to \R_{\geq0}\) is a cost
+                        function.</p>
+                    <p>For example, the cost might be a norm on the group, or the size of the denominator of an
+                        element.</p>
+                    <p>We want to somehow efficiently navigate the group to find elements with small cost.</p>
+                </div>
+
+                <!-- Slide 23: BFS -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Search.png">
+                    <div class="chapter-label">Computation</div>
+                    <h2>Breadth-First Search</h2>
+                    <p>Explore the Cayley graph layer by layer.</p>
+                    <formula>
+                        \[ \mathcal{B}_0 = \{id_G\} \]
+                        \[ \mathcal{B}_{k+1} = \mathcal{B}_{k}\cdot S \]
+                    </formula>
+                    <ul>
+                        <li><strong>Pros:</strong> Guaranteed to find a solution if one exists.</li>
+                        <li><strong>Cons:</strong> Each successive iteration takes \(|S|\) times longer than the
+                            previous one.</li>
+                    </ul>
+                </div>
+
+                <!-- Slide 24: Greedy -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Search.png">
+                    <div class="chapter-label">Computation</div>
+                    <h2>Greedy Algorithms</h2>
+                    <p>Always extend the "best" candidate according to the cost function \(C\).</p>
+                    <formula>
+                        \[g_0=id_G\]
+                        \[ g_{n+1} = g_n s_i, \text{ where } s_i \in S \text{ minimizes } C(g_ns). \]
+                    </formula>
+                    <ul>
+                        <li><strong>Pros:</strong> Extremely fast — we only keep track of one element at a time.</li>
+                        <li><strong>Cons:</strong> Nearly guaranteed to fail.</li>
+                    </ul>
+                </div>
+
+                <!-- Slide 25: Beam Search -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Search.png">
+                    <div class="chapter-label">Computation</div>
+                    <h2>Beam Search</h2>
+                    <p>We first choose a beam width \(W\). We initialize the <em>beam</em> \(B_0=\{I\}\).</p>
+                    <p>Given the current beam \(B_n\), we first build the set \(B_{n+1}'=B_n\cdot S\), the
+                        <em>extended beam</em>. We then prune this set to \(B_{n+1}\) by taking the top \(W\) elements
+                        with the smallest cost. Let \(\mathsf{WMin}(X)\) denote this operation.
+                    </p>
+                    <formula>\[ B_{n+1} = \mathsf{WMin}(B_n\cdot S). \]</formula>
+                    <ul>
+                        <li><strong>Pros:</strong> An excellent compromise of speed and success rate. Each iteration
+                            takes a constant amount of time.</li>
+                        <li><strong>Cons:</strong> If the minimal length of a successful word is \(k\), we will require
+                            at least \(k\) iterations.</li>
+                    </ul>
+                </div>
+
+                <!-- Slide 26: FlashBeam -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Search.png">
+                    <div class="chapter-label">Computation</div>
+                    <h2>FlashBeam Search</h2>
+                    <p>We first choose a beam width \(W\) and a flash size \(F\). We initialize the <em>flash</em>
+                        \(F_0\) to consist of the generating set, and set \(B_0 = \{I\}\).</p>
+                    <p>Given the current beam \(B_n\) and flash \(F_n\), we define the <em>extended beam</em>
+                        \(B_{n+1}\) to be the set of elements of the form \(w \cdot s\) where \(w \in B_n\) and
+                        \(s \in F_n\).</p>
+                    <p>We then prune the extended beam by taking the top \(W\) elements with the smallest cost, and
+                        prune the flash by taking the \(F\) elements with the smallest cost.</p>
+                    <formula>
+                        \[ B_0=\{I\}, F_0=S. \]
+                        \[ B_{n+1} = \mathsf{WMin}(B_n\cdot F_n). \]
+                        \[ F_{n+1} = \mathsf{FMin}(F_n\cdot S). \]
+                    </formula>
+                    <ul>
+                        <li><strong>Pros:</strong> This can find a solution of length \(k\) in \(\log k\) iterations.
+                        </li>
+                        <li><strong>Cons:</strong> A large flash size slows down the algorithm.</li>
+                    </ul>
+                </div>
+
+                <!-- Slide 27: FlashBeam Dynamic -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Search.png">
+                    <div class="chapter-label">Computation</div>
+                    <h2>FlashBeam Search</h2>
+                    <p>We can think of the flashbeam search as exploring the Cayley graph of the group, but the
+                        generators vary as we explore it!</p>
+                    <p>This can be useful in finding "optimal" generators for a group, such as computing Dirichlet
+                        domains.</p>
+                </div>
+
+                <!-- Slide 28: Search Comparison -->
+                <div class="slide" data-viz="image" data-image="viz-search-gif">
+                    <div class="chapter-label">Computation · Comparison</div>
+                    <h2>Search Comparison</h2>
+                    <p>A comparison of BFS, Greedy, Beam Search, and FlashBeam on a group search problem.</p>
+                    <div class="interact-prompt">Animated comparison →</div>
+                </div>
+
+                <!-- Slide 29: Dirichlet Demo -->
+                <div class="slide" data-viz="iframe" data-iframe="viz-dirichlet">
+                    <div class="chapter-label">Computation · Visualization</div>
+                    <h2>Dirichlet Domain</h2>
+                    <p>FlashBeam constructs an approximate Dirichlet fundamental domain by iteratively finding group
+                        elements close to the basepoint.</p>
+                    <div class="interact-prompt">Interactive visualization →</div>
+                    <button class="viz-btn" onclick="toggleVizIframe('viz-dirichlet', this)">▶ Play</button>
+                </div>
+
+                <!-- Slide 30: Conclusions chapter -->
+                <div class="slide chapter-slide" data-viz="bg" data-bg="assets/transitionImages/Summary.png">
+                    <div class="chapter-number">Chapter V</div>
+                    <h2>Conclusions</h2>
+                </div>
+
+                <!-- Slide 31: Summary -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Summary.png">
+                    <div class="chapter-label">Conclusions</div>
+                    <h2>Results</h2>
+                    <p>The FlashBeam search succeeds in finding:</p>
+                    <ul>
+                        <li>an integer matrix in the Long-Reid group</li>
+                        <li>relations in the Fisher-Larsen-Spatzier-Stover groups, for many small primes</li>
+                        <li>a relation in the totally unitary group</li>
+                        <li>a relation in a representation of \(\Z^2 * \Z\)</li>
+                        <li>a relation in the \(t=2\) Burau representation of \(B_4\)</li>
+                        <li>and more...</li>
+                    </ul>
+                    <div class="image-row">
+                        <img src="assets/FLSS.jpg" alt="FLSS result">
+                        <img src="assets/TUgp.jpg" alt="TU group result">
+                    </div>
+                </div>
+
+                <!-- Slide 32: Kernel Braid viz -->
+                <div class="slide" data-viz="iframe" data-iframe="viz-braid">
+                    <div class="chapter-label">Conclusions · Visualization</div>
+                    <h2>Kernel Braid</h2>
+                    <p>The kernel element found by FlashBeam in the \(t=2\) Burau representation of \(B_4\),
+                        visualized as a braid.</p>
+                    <div class="interact-prompt">Interactive visualization →</div>
+                    <button class="viz-btn" onclick="toggleVizIframe('viz-braid', this)">⏸ Pause</button>
+                </div>
+
+                <!-- Slide 33: Open Questions -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Summary.png">
+                    <div class="chapter-label">Conclusions</div>
+                    <h2>Open Questions</h2>
+                    <p>We consider this as fairly discouraging evidence for the general approach. Indeed, we suspect
+                        that <em>none of these approaches will ever work!</em></p>
+                    <div class="image-row">
+                        <img src="assets/transitionImages/Borromean.png" alt="Borromean">
+                        <img src="assets/transitionImages/Sierpinskiesque.png" alt="Sierpinskiesque">
+                    </div>
+                </div>
+
+                <!-- Slide 34: Conjecture -->
+                <div class="slide" data-viz="bg" data-bg="assets/transitionImages/Summary.png">
+                    <div class="chapter-label">Conclusions</div>
+                    <div class="theorem" data-label="Conjecture">
+                        <p>Suppose \(k\) is a number field and \(\bbG\) is a simple \(k\)-algebraic group. A subgroup
+                            \(\Gamma \leq \bbG(k)\) is:</p>
+                        <p>\(\bullet\) <strong>algebraic</strong> if \(\Gamma\) is contained in
+                            \(\bbH(\Q)\lneq\mathsf{Res}_{k/\Q}(\bbG)(\Q)\) for some proper algebraic subgroup of
+                            \(\bbG(k)\).</p>
+                        <p>\(\bullet\) <strong>geometric</strong> if there is some place \(v\) such that \(\Gamma\) is
+                            discrete in \(\bbG(k_v)\).</p>
+                        <p>\(\bullet\) <strong>arithmetic</strong> if \(\Gamma\) is commensurable with \(\bbG(A)\) for
+                            some subring \(A \leq k\).</p>
+                        <p style="color: var(--text); font-weight: 700; margin-top: 12px;">
+                            Conj: Every subgroup \(\Gamma\) is either algebraic, geometric, or arithmetic.</p>
+                    </div>
+                </div>
+
+                <!-- Slide 35: Thank You -->
+                <div class="slide chapter-slide" data-viz="bg" data-bg="assets/transitionImages/Tiedye.png">
+                    <h2>Thank You!</h2>
+                </div>
+
+            </div>
+
+            <!-- Navigation -->
+            <nav id="slide-nav">
+                <button class="nav-btn" id="btn-prev" disabled>
+                    <span class="arrow">←</span> Prev
+                </button>
+                <div class="progress-dots" id="progress-dots"></div>
+                <button class="nav-btn" id="btn-next">
+                    Next <span class="arrow">→</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- ======================================================
+         RIGHT: VISUALIZATION PANEL
+         ====================================================== -->
+        <div id="viz-container">
+            <!-- Background image -->
+            <img id="viz-bg-img" class="viz-bg" src="assets/transitionImages/Title.png" alt="">
+
+            <!-- Iframe visualizations (lazy-loaded) -->
+            <iframe class="viz-frame" id="viz-orbifold"
+                data-src="js/torusOrbifold/torusOrbifold.html?embed=true"></iframe>
+            <iframe class="viz-frame" id="viz-trees"
+                data-src="js/productOfTrees/productOfTrees.html?embed=true"></iframe>
+            <iframe class="viz-frame" id="viz-mountain"
+                data-src="js/mountainClimbers/mountainClimbers.html?embed=true"></iframe>
+            <iframe class="viz-frame" id="viz-pto1" data-src="js/pto1Map/pto1Map.html?embed=true"></iframe>
+            <iframe class="viz-frame" id="viz-tower" data-src="js/padicTower/padic.html?embed=true&grow=1"></iframe>
+            <iframe class="viz-frame" id="viz-action" data-src="js/padicAction/action.html?embed=true"></iframe>
+            <iframe class="viz-frame" id="viz-dirichlet"
+                data-src="js/BHCTest.html?preset=dirichlet&embed=true"></iframe>
+            <iframe class="viz-frame" id="viz-braid" data-src="js/kernelBraid/kernelBraid.html?embed=true"></iframe>
+
+            <!-- Special images -->
+            <img class="viz-image" id="viz-search-gif" src="assets/SearchComparison.gif" alt="Search Comparison">
+        </div>
+
+    </div>
+
+    <!-- ======================================================
+     NAVIGATION + VIZ LOGIC
+     ====================================================== -->
+    <script>
+        (function () {
+            const TOTAL_SLIDES = 36;
+            let currentSlide = 0;
+            const visited = new Set([0]);
+            const slides = document.querySelectorAll('#slide-viewport .slide');
+            const btnPrev = document.getElementById('btn-prev');
+            const btnNext = document.getElementById('btn-next');
+            const dotsContainer = document.getElementById('progress-dots');
+            const vizBgImg = document.getElementById('viz-bg-img');
+
+            // Build progress dots
+            slides.forEach((_, i) => {
+                const dot = document.createElement('button');
+                dot.className = 'progress-dot' + (i === 0 ? ' active' : '');
+                dot.dataset.slide = i;
+                dot.addEventListener('click', () => goToSlide(i));
+                dotsContainer.appendChild(dot);
+            });
+
+            const dots = document.querySelectorAll('.progress-dot');
+
+            function goToSlide(n, direction = null) {
+                if (n < 0 || n >= slides.length || n === currentSlide) return;
+                const dir = direction || (n > currentSlide ? 'down' : 'up');
+
+                const curSlide = slides[currentSlide];
+                curSlide.classList.remove('active');
+                curSlide.classList.add(dir === 'down' ? 'exit-up' : 'exit-down');
+
+                const newSlide = slides[n];
+                newSlide.classList.remove('exit-up', 'exit-down');
+                newSlide.classList.add(dir === 'down' ? 'enter-from-below' : 'enter-from-above');
+                void newSlide.offsetHeight;
+                newSlide.classList.remove('enter-from-below', 'enter-from-above');
+                newSlide.classList.add('active');
+
+                setTimeout(() => curSlide.classList.remove('exit-up', 'exit-down'), 600);
+
+                visited.add(n);
+                currentSlide = n;
+                updateNav();
+                updateViz(n);
+            }
+
+            function updateNav() {
+                btnPrev.disabled = currentSlide === 0;
+                btnNext.disabled = currentSlide === slides.length - 1;
+                dots.forEach((d, i) => {
+                    d.classList.toggle('active', i === currentSlide);
+                    d.classList.toggle('visited', visited.has(i) && i !== currentSlide);
+                });
+            }
+
+            // ─── Viz Panel Logic ─────────────────────────────
+            const loadedIframes = new Set();
+
+            function updateViz(n) {
+                const slide = slides[n];
+                const vizType = slide.dataset.viz;
+
+                // Hide all active iframes and images
+                document.querySelectorAll('.viz-frame.active, .viz-image.active')
+                    .forEach(el => el.classList.remove('active'));
+
+                if (vizType === 'iframe') {
+                    const iframeId = slide.dataset.iframe;
+                    const iframe = document.getElementById(iframeId);
+                    if (iframe) {
+                        // Lazy load
+                        if (!loadedIframes.has(iframeId) && iframe.dataset.src) {
+                            iframe.src = iframe.dataset.src;
+                            iframe.removeAttribute('data-src');
+                            loadedIframes.add(iframeId);
+                        }
+                        iframe.classList.add('active');
+                        vizBgImg.style.opacity = '0';
+
+                        // Auto-play kernel braid
+                        if (iframeId === 'viz-braid' && iframe.contentWindow) {
+                            setTimeout(() => iframe.contentWindow.postMessage('play', '*'), 300);
+                        }
+                    }
+                } else if (vizType === 'image') {
+                    const imageId = slide.dataset.image;
+                    const img = document.getElementById(imageId);
+                    if (img) {
+                        img.classList.add('active');
+                        vizBgImg.style.opacity = '0.15';
+                    }
+                } else {
+                    // Background image
+                    const bgSrc = slide.dataset.bg;
+                    if (bgSrc) {
+                        vizBgImg.src = bgSrc;
+                        vizBgImg.style.opacity = '1';
+                    }
+                }
+            }
+
+            // ─── Keyboard Navigation ────────────────────────
+            document.addEventListener('keydown', e => {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    e.preventDefault(); goToSlide(currentSlide + 1);
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault(); goToSlide(currentSlide - 1);
+                }
+            });
+
+            btnPrev.addEventListener('click', () => goToSlide(currentSlide - 1));
+            btnNext.addEventListener('click', () => goToSlide(currentSlide + 1));
+
+            // ─── Mobile Tab Switching ────────────────────────
+            const tabRead = document.getElementById('tab-read');
+            const tabPlay = document.getElementById('tab-play');
+            const walkthrough = document.getElementById('walkthrough');
+            const vizContainer = document.getElementById('viz-container');
+
+            function switchPanel(panel) {
+                if (panel === 'read') {
+                    tabRead.classList.add('active');
+                    tabPlay.classList.remove('active');
+                    walkthrough.classList.remove('mobile-hidden');
+                    vizContainer.classList.add('mobile-hidden');
+                } else {
+                    tabPlay.classList.add('active');
+                    tabRead.classList.remove('active');
+                    vizContainer.classList.remove('mobile-hidden');
+                    walkthrough.classList.add('mobile-hidden');
+                }
+            }
+
+            tabRead.addEventListener('click', () => switchPanel('read'));
+            tabPlay.addEventListener('click', () => switchPanel('play'));
+
+            if (window.innerWidth <= 768) switchPanel('read');
+
+            // ─── Swipe Navigation ────────────────────────────
+            let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+            walkthrough.addEventListener('touchstart', e => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                touchStartTime = Date.now();
+            }, { passive: true });
+
+            walkthrough.addEventListener('touchend', e => {
+                const dx = e.changedTouches[0].clientX - touchStartX;
+                const dy = e.changedTouches[0].clientY - touchStartY;
+                const dt = Date.now() - touchStartTime;
+                if (dt > 500 || Math.abs(dy) > Math.abs(dx) || Math.abs(dx) < 50) return;
+                if (dx < 0) goToSlide(currentSlide + 1);
+                else goToSlide(currentSlide - 1);
+            }, { passive: true });
+
+            // ─── Global viz helpers ──────────────────────────
+            window.toggleVizIframe = function (id, btn) {
+                const iframe = document.getElementById(id);
+                if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.postMessage('toggle', '*');
+                    const isPlay = btn.textContent.includes('▶');
+                    btn.textContent = isPlay ? '⏸ Pause' : '▶ Play';
+                }
+            };
+
+            window.postToVizIframe = function (id, msg) {
+                const iframe = document.getElementById(id);
+                if (iframe && iframe.contentWindow) {
+                    iframe.contentWindow.postMessage(msg, '*');
+                }
+            };
+
+            // Initial state
+            updateViz(0);
+        })();
+    </script>
+
+
+</body>
+
+</html>

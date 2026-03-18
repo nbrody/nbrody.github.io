@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P-adic Tree Action - Animated</title>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@300;500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #020617;
+            --panel: rgba(15, 23, 42, 0.7);
+            --border: rgba(99, 102, 241, 0.3);
+            --accent: #6366f1;
+            --text: #f8fafc;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #ui-panel {
+            padding: 1.5rem 2rem;
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem 0.8rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+
+        .matrix-input-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 60px);
+            gap: 5px;
+        }
+
+        .matrix-input-grid input {
+            width: 100%;
+            text-align: center;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        #stage {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .display-box {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            padding: 3rem;
+            border-radius: 32px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #explanation {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            min-height: 4.5rem;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+
+        /* ANIMATION CONTAINER */
+        #math-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            position: relative;
+            width: 100%;
+        }
+
+        /* COMPONENT STYLES */
+        .matrix-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.5s ease-in-out;
+        }
+
+        .matrix-body {
+            display: flex;
+            gap: 30px;
+            padding: 0 15px;
+            position: relative;
+        }
+
+        .matrix-bracket {
+            font-size: 6rem;
+            font-weight: 200;
+            color: var(--accent);
+            user-select: none;
+            display: flex;
+            align-items: center;
+        }
+
+        .matrix-bracket:before {
+            content: '(';
+        }
+
+        .matrix-bracket.right:before {
+            content: ')';
+        }
+
+        /* Morphing Styles */
+        .morph-box {
+            position: relative;
+            min-width: 280px;
+            height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.6s ease;
+            overflow: hidden;
+        }
+
+        .floor-bracket {
+            font-size: 6rem;
+            color: var(--accent);
+            position: absolute;
+            transition: all 0.6s ease;
+            user-select: none;
+        }
+
+        .floor-bracket.left {
+            left: 85px;
+        }
+
+        .floor-bracket.right {
+            right: 85px;
+        }
+
+        .result-equation {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            font-size: 2.2rem;
+            width: 100%;
+        }
+
+        .morph-item {
+            position: absolute;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 80px;
+        }
+
+        .hidden-morph {
+            opacity: 0;
+            transform: scale(0.5);
+            pointer-events: none;
+        }
+
+        .matrix-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            align-items: center;
+        }
+
+        .matrix-cell {
+            min-width: 80px;
+            height: 60px;
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            white-space: nowrap;
+        }
+
+        .formula-mode .matrix-cell {
+            min-width: 180px;
+            font-size: 1.8rem;
+        }
+
+        .formula-mode .matrix-body {
+            gap: 60px;
+        }
+
+        .operator {
+            margin: 0 20px;
+            color: var(--text);
+            opacity: 0.8;
+        }
+
+        .vertex-notation {
+            font-size: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tag {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            color: var(--accent);
+            font-weight: 700;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .step-controls {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .ghost-cell {
+            position: absolute;
+            font-size: 1.5rem;
+            color: var(--accent);
+            opacity: 0.8;
+            pointer-events: none;
+            z-index: 5;
+            transition: all 1s cubic-bezier(0.5, 0, 0.5, 1);
+        }
+
+        .multiplier-tag {
+            position: absolute;
+            font-size: 1.2rem;
+            color: var(--accent);
+            background: rgba(15, 23, 42, 0.8);
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            z-index: 10;
+        }
+
+        body.embedded #ui-panel,
+        body.embedded #step-count,
+        body.embedded .step-controls {
+            display: none;
+        }
+
+        body.embedded #stage {
+            padding: 1rem;
+        }
+
+        body.embedded .display-box {
+            padding: 1.5rem;
+            min-height: auto;
+        }
+    </style>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('embed') === 'true') {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.classList.add('embedded');
+            });
+        }
+    </script>
+</head>
+
+<body>
+    <div id="ui-panel">
+        <div class="input-group">
+            <span class="tag">Prime</span>
+            <input type="number" id="prime-p" value="2" min="2" max="97" style="width: 50px;">
+        </div>
+        <div class="input-group">
+            <span class="tag">Vertex \(\lfloor q \rfloor_n\)</span>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="vertex-q" placeholder="q" value="1/2" style="width: 70px;">
+                <input type="number" id="vertex-n" placeholder="n" value="-1" style="width: 50px;">
+            </div>
+        </div>
+        <div class="input-group">
+            <span class="tag">Matrix \( g \)</span>
+            <div class="matrix-input-grid">
+                <input type="text" id="g-a" value="7">
+                <input type="text" id="g-b" value="5/2">
+                <input type="text" id="g-c" value="4">
+                <input type="text" id="g-d" value="2">
+            </div>
+        </div>
+        <button id="start-btn">Start Action</button>
+    </div>
+
+    <div id="stage">
+        <div class="display-box">
+            <span id="step-count" class="tag">Step 0</span>
+            <div id="explanation">Setting up the action...</div>
+            <div id="math-content">
+                <!-- Dynamic content here -->
+            </div>
+            <div class="step-controls">
+                <button id="prev-btn"
+                    style="background: transparent; border: 1px solid var(--border); color: #64748b;">Back</button>
+                <button id="next-btn" style="flex: 1;">Next Step</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../math.js"></script>
+    <script src="action.js"></script>
+</body>
+
+</html>

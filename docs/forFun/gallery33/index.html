@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gallery 33 — Interactive Math Exhibit</title>
+    <meta name="description" content="Gallery 33 is an interactive math exhibit featuring topology, music theory, surface groups, and fractals.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100;200;300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --font-main: 'Outfit', sans-serif;
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: var(--font-main);
+        }
+
+        /* ─── Background Image ─── */
+        #bg-image {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0;
+            transform: scale(1.08);
+            transition: opacity 2s ease, transform 12s linear;
+        }
+
+        #bg-image.visible {
+            opacity: 1;
+            transform: scale(1.0);
+        }
+
+        /* Dark overlay on the image */
+        #bg-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            background: radial-gradient(ellipse at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%);
+            opacity: 0;
+            transition: opacity 2s ease;
+        }
+        #bg-overlay.visible {
+            opacity: 1;
+        }
+
+        /* ─── Main Content Container ─── */
+        #content {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+        }
+
+        /* ─── Title ─── */
+        #title-container {
+            text-align: center;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 1.8s var(--ease-out-expo), transform 1.8s var(--ease-out-expo);
+        }
+
+        #title-container.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        h1 {
+            font-family: var(--font-main);
+            font-weight: 100;
+            font-size: clamp(4rem, 14vw, 12rem);
+            color: #fff;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            line-height: 1;
+            text-shadow: 0 0 80px rgba(255,255,255,0.15);
+            user-select: none;
+        }
+
+        h1 .num {
+            font-weight: 200;
+            letter-spacing: 0.15em;
+        }
+
+        /* Subtle divider line */
+        .divider {
+            width: 60px;
+            height: 1px;
+            background: rgba(255,255,255,0.4);
+            margin: 1.5rem auto 0;
+            opacity: 0;
+            transform: scaleX(0);
+            transition: opacity 1.2s ease 0.6s, transform 1.2s var(--ease-out-expo) 0.6s;
+        }
+
+        #title-container.visible .divider {
+            opacity: 1;
+            transform: scaleX(1);
+        }
+
+        .subtitle {
+            font-weight: 300;
+            font-size: clamp(0.7rem, 1.5vw, 1rem);
+            color: rgba(255,255,255,0.5);
+            letter-spacing: 0.5em;
+            text-transform: uppercase;
+            margin-top: 1rem;
+            opacity: 0;
+            transition: opacity 1.5s ease 0.9s;
+        }
+
+        #title-container.visible .subtitle {
+            opacity: 1;
+        }
+
+        /* ─── Room Cards ─── */
+        #cards-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: clamp(12px, 2vw, 24px);
+            padding: 0 clamp(20px, 5vw, 80px);
+            margin-top: clamp(2rem, 5vh, 4rem);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .room-card {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: clamp(1.2rem, 3vh, 2rem) clamp(0.5rem, 1vw, 1rem);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            text-decoration: none;
+            color: #fff;
+            cursor: pointer;
+            overflow: hidden;
+            transition: transform 0.4s var(--ease-out-quart),
+                        background 0.4s ease,
+                        border-color 0.4s ease,
+                        box-shadow 0.4s ease;
+        }
+
+        .room-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .room-card:hover {
+            transform: translateY(-6px) scale(1.03);
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.25);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4),
+                        0 0 40px rgba(255,255,255,0.05);
+        }
+
+        .room-card:hover::before {
+            opacity: 1;
+        }
+
+        .room-icon {
+            font-size: clamp(1.6rem, 4vw, 2.2rem);
+            margin-bottom: 0.6rem;
+            transition: transform 0.4s var(--ease-out-quart);
+        }
+
+        .room-card:hover .room-icon {
+            transform: scale(1.15);
+        }
+
+        .room-name {
+            font-weight: 400;
+            font-size: clamp(0.75rem, 1.6vw, 1rem);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        /* Staggered card entrance */
+        .room-card {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        #cards-container.visible .room-card {
+            animation: cardIn 0.8s var(--ease-out-expo) forwards;
+        }
+
+        #cards-container.visible .room-card:nth-child(1) { animation-delay: 0s; }
+        #cards-container.visible .room-card:nth-child(2) { animation-delay: 0.12s; }
+        #cards-container.visible .room-card:nth-child(3) { animation-delay: 0.24s; }
+        #cards-container.visible .room-card:nth-child(4) { animation-delay: 0.36s; }
+
+        @keyframes cardIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ─── Bottom accent line ─── */
+        .bottom-accent {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            z-index: 3;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(255,255,255,0.15) 20%,
+                rgba(255,255,255,0.3) 50%,
+                rgba(255,255,255,0.15) 80%,
+                transparent 100%
+            );
+            opacity: 0;
+            transition: opacity 2s ease 4s;
+        }
+
+        .bottom-accent.visible {
+            opacity: 1;
+        }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 600px) {
+            #cards-container {
+                grid-template-columns: repeat(2, 1fr);
+                max-width: 400px;
+            }
+
+            h1 {
+                letter-spacing: 0.15em;
+            }
+        }
+
+        @media (max-height: 500px) {
+            h1 {
+                font-size: clamp(2rem, 8vw, 5rem);
+            }
+            #cards-container {
+                margin-top: 1rem;
+            }
+            .room-card {
+                padding: 0.8rem 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background math image -->
+    <div id="bg-image"></div>
+    <div id="bg-overlay"></div>
+
+    <!-- Main content -->
+    <div id="content">
+        <div id="title-container">
+            <h1>Gallery <span class="num">33</span></h1>
+            <div class="divider"></div>
+            <div class="subtitle">interactive math exhibit</div>
+        </div>
+
+        <div id="cards-container">
+            <a href="topology/index.html" class="room-card" id="card-living-room">
+                <div class="room-icon">🛋️</div>
+                <div class="room-name">Living Room</div>
+            </a>
+            <a href="music/index.html" class="room-card" id="card-garage">
+                <div class="room-icon">🏠</div>
+                <div class="room-name">Garage</div>
+            </a>
+            <a href="surfaceGroups/index.html" class="room-card" id="card-patio">
+                <div class="room-icon">🌿</div>
+                <div class="room-name">Patio</div>
+            </a>
+            <a href="fractals/index.html" class="room-card" id="card-bedroom">
+                <div class="room-icon">🛏️</div>
+                <div class="room-name">Bedroom</div>
+            </a>
+        </div>
+    </div>
+
+    <div class="bottom-accent"></div>
+
+    <script>
+        // ─── Math Image Library ───
+        // Relative paths to your existing math images
+        const mathImages = [
+            '../../Talks/KIAS/assets/transitionImages/Title.png',
+            '../../Talks/KIAS/assets/transitionImages/Geometry.png',
+            '../../Talks/KIAS/assets/transitionImages/Actions.png',
+            '../../Talks/KIAS/assets/transitionImages/Search.png',
+            '../../Talks/KIAS/assets/transitionImages/Background.png',
+            '../../Talks/KIAS/assets/transitionImages/Summary.png',
+            '../../Talks/KIAS/assets/FLSS.jpg'
+        ];
+
+        // Pick a random image
+        const chosenImage = mathImages[Math.floor(Math.random() * mathImages.length)];
+
+        // ─── Animation Sequence ───
+        const bgImage = document.getElementById('bg-image');
+        const bgOverlay = document.getElementById('bg-overlay');
+        const titleContainer = document.getElementById('title-container');
+        const cardsContainer = document.getElementById('cards-container');
+        const bottomAccent = document.querySelector('.bottom-accent');
+
+        // Phase 1: Show background image immediately on load
+        bgImage.style.backgroundImage = `url('${chosenImage}')`;
+
+        // Wait for image to load, then start the reveal
+        const img = new Image();
+        img.onload = () => {
+            // Fade in the background image
+            requestAnimationFrame(() => {
+                bgImage.classList.add('visible');
+                bgOverlay.classList.add('visible');
+            });
+
+            // Phase 2: After 1.2s, reveal "GALLERY 33"
+            setTimeout(() => {
+                titleContainer.classList.add('visible');
+            }, 1200);
+
+            // Phase 3: After 3.5s total, reveal the room cards
+            setTimeout(() => {
+                cardsContainer.classList.add('visible');
+                bottomAccent.classList.add('visible');
+            }, 3500);
+        };
+
+        img.onerror = () => {
+            // If image fails to load, still show content with a dark gradient
+            bgImage.style.background = 'linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #0a1a1a 100%)';
+            bgImage.classList.add('visible');
+            bgOverlay.classList.add('visible');
+
+            setTimeout(() => titleContainer.classList.add('visible'), 800);
+            setTimeout(() => {
+                cardsContainer.classList.add('visible');
+                bottomAccent.classList.add('visible');
+            }, 2500);
+        };
+
+        img.src = chosenImage;
+    </script>
+</body>
+</html>

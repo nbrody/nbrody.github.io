@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Card Table — Your Hand</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at 50% 100%, rgba(26,74,46,0.3) 0%, transparent 60%),
+        #0a0f0d;
+      overflow: hidden;
+    }
+
+    /* ===== HEADER ===== */
+    #hand-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(201,168,76,0.15);
+      background: rgba(0,0,0,0.4);
+      flex-shrink: 0;
+    }
+    .hand-title {
+      font-family: var(--font-display);
+      font-size: 14px;
+      letter-spacing: 3px;
+      color: var(--gold);
+    }
+    .player-chip-display {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--gold-light);
+      background: rgba(201,168,76,0.1);
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: 16px;
+      padding: 4px 12px;
+      font-family: var(--font-display);
+    }
+
+    /* ===== GAME STATUS (broadcast from table) ===== */
+    #game-status-banner {
+      padding: 10px 20px;
+      background: rgba(201,168,76,0.06);
+      border-bottom: 1px solid rgba(201,168,76,0.1);
+      font-size: 13px;
+      color: rgba(201,168,76,0.8);
+      text-align: center;
+      font-family: var(--font-display);
+      letter-spacing: 1px;
+      min-height: 42px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.3s;
+    }
+    #game-status-banner.my-turn {
+      background: rgba(201,168,76,0.15);
+      color: var(--gold-light);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    /* ===== TABLE VIEW MINI (what's on the table) ===== */
+    #table-peek {
+      padding: 12px 16px;
+      background: rgba(26,74,46,0.15);
+      border-bottom: 1px solid rgba(201,168,76,0.08);
+      flex-shrink: 0;
+    }
+    .peek-label {
+      font-size: 9px; letter-spacing: 2px; color: #555; text-transform: uppercase;
+      margin-bottom: 8px; font-family: var(--font-display);
+    }
+    #table-cards-row {
+      display: flex; gap: 6px; align-items: center; overflow-x: auto;
+      scrollbar-width: none;
+    }
+    #table-cards-row::-webkit-scrollbar { display: none; }
+
+    /* ===== YOUR HAND ===== */
+    #hand-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      overflow: hidden;
+    }
+    .hand-label {
+      font-size: 9px; letter-spacing: 3px; color: rgba(201,168,76,0.4);
+      text-transform: uppercase; margin-bottom: 12px;
+      font-family: var(--font-display); text-align: center;
+    }
+    #hand-cards {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      flex: 1;
+      overflow: hidden;
+    }
+    /* Fan effect for large hand */
+    #hand-cards.fan-mode {
+      position: relative;
+      justify-content: center;
+    }
+
+    /* ===== TOTAL BADGE ===== */
+    #hand-total {
+      text-align: center;
+      font-family: var(--font-display);
+      font-size: 32px;
+      color: var(--gold);
+      letter-spacing: 2px;
+      margin: 8px 0;
+    }
+    #hand-total.bust { color: #e74c3c; }
+    #hand-total.twenty-one { color: #2ecc71; }
+
+    /* ===== ACTION BUTTONS ===== */
+    #action-area {
+      padding: 16px 16px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-shrink: 0;
+      border-top: 1px solid rgba(201,168,76,0.1);
+    }
+    #primary-actions { display: flex; gap: 10px; }
+    #primary-actions .btn { flex: 1; padding: 18px 12px; font-size: 14px; }
+    #secondary-actions { display: flex; gap: 8px; justify-content: center; }
+    #secondary-actions .btn { padding: 10px 18px; font-size: 12px; }
+
+    /* ===== WAITING STATE ===== */
+    #waiting-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      text-align: center;
+    }
+    .waiting-icon { font-size: 48px; margin-bottom: 12px; animation: float 3s ease-in-out infinite; }
+    .waiting-title { font-family: var(--font-display); font-size: 18px; letter-spacing: 2px; color: var(--gold); margin-bottom: 8px; }
+    .waiting-sub { font-size: 13px; color: #555; line-height: 1.6; }
+
+    /* ===== RESULT OVERLAY ===== */
+    #result-screen {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.9);
+      backdrop-filter: blur(20px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      z-index: 500;
+      padding: 32px;
+    }
+    #result-screen.visible { display: flex; }
+    .result-card {
+      padding: 40px 32px;
+      max-width: 340px;
+      width: 100%;
+    }
+
+    /* ===== GO FISH UI ===== */
+    #gofish-ui { display: none; flex-direction: column; gap: 12px; }
+    #gofish-ui.active { display: flex; }
+    .rank-picker {
+      display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+    }
+    .rank-btn {
+      width: 44px; height: 44px;
+      border-radius: 8px;
+      border: 1px solid rgba(201,168,76,0.25);
+      background: rgba(255,255,255,0.04);
+      color: var(--gold);
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .rank-btn:hover, .rank-btn.selected { background: rgba(201,168,76,0.15); border-color: var(--gold); }
+    .rank-btn.in-hand { background: rgba(201,168,76,0.2); }
+
+    .player-picker {
+      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+    }
+    .player-btn {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(201,168,76,0.25);
+      background: rgba(255,255,255,0.04);
+      color: #aaa;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .player-btn:hover, .player-btn.selected { background: rgba(201,168,76,0.15); border-color: var(--gold); color: var(--gold); }
+
+    /* ===== CONNECTION STATUS ===== */
+    #conn-status {
+      position: fixed;
+      top: 8px; right: 12px;
+      font-size: 10px;
+      letter-spacing: 1px;
+      display: flex; align-items: center; gap: 4px;
+      z-index: 200;
+    }
+    .conn-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #2ecc71;
+      animation: pulse 2s ease infinite;
+    }
+    .conn-dot.disconnected { background: #e74c3c; animation: none; }
+    .conn-label { color: #555; }
+
+    /* ===== LOADING ===== */
+    #loading-screen {
+      position: fixed; inset: 0;
+      background: #0a0f0d;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; z-index: 999;
+    }
+    .loading-suits { font-size: 40px; letter-spacing: 12px; animation: pulse 1s ease-in-out infinite; color: var(--gold); }
+    .loading-label { font-family: var(--font-display); font-size: 12px; letter-spacing: 4px; color: rgba(201,168,76,0.5); margin-top: 16px; }
+  </style>
+</head>
+<body>
+
+  <div id="loading-screen">
+    <div class="loading-suits">♠ ♥ ♦ ♣</div>
+    <div class="loading-label">Joining table…</div>
+  </div>
+
+  <div id="toast">Ready!</div>
+
+  <!-- Connection status -->
+  <div id="conn-status">
+    <div class="conn-dot" id="conn-dot"></div>
+    <span class="conn-label" id="conn-label">Connecting…</span>
+  </div>
+
+  <!-- HEADER -->
+  <div id="hand-header">
+    <div class="hand-title" id="player-name-header">YOUR HAND</div>
+    <div class="player-chip-display" id="chip-display">💰 100</div>
+  </div>
+
+  <!-- Game status banner (what's happening at the table) -->
+  <div id="game-status-banner">Waiting for game to start…</div>
+
+  <!-- Table peek (dealer / community cards) -->
+  <div id="table-peek">
+    <div class="peek-label">Table</div>
+    <div id="table-cards-row">
+      <div class="card-slot" style="width:45px;height:64px;font-size:14px;">🂠</div>
+    </div>
+  </div>
+
+  <!-- Hand area -->
+  <div id="hand-area">
+    <div class="hand-label">YOUR CARDS</div>
+    <div id="hand-total">—</div>
+    <div id="hand-cards"></div>
+  </div>
+
+  <!-- Go Fish special UI -->
+  <div id="gofish-ui">
+    <div style="font-size:11px; color:#666; text-align:center; letter-spacing:1px; font-family:var(--font-display)">ASK FOR A RANK</div>
+    <div class="rank-picker" id="rank-picker"></div>
+    <div style="font-size:11px; color:#666; text-align:center; letter-spacing:1px; font-family:var(--font-display); margin-top:4px">ASK WHO</div>
+    <div class="player-picker" id="player-picker"></div>
+    <button class="btn btn-gold" id="btn-ask" onclick="askCard()" disabled style="margin:0 16px">Ask →</button>
+  </div>
+
+  <!-- Action buttons -->
+  <div id="action-area">
+    <!-- Blackjack / War buttons built dynamically -->
+    <div id="primary-actions"></div>
+    <div id="secondary-actions"></div>
+  </div>
+
+  <!-- Result Screen -->
+  <div id="result-screen">
+    <div class="result-card glass-panel">
+      <div class="result-emoji" id="res-emoji" style="font-size:64px; margin-bottom:8px;">🃏</div>
+      <div style="font-family:var(--font-display); font-size:28px; letter-spacing:3px; color:var(--gold)" id="res-title">—</div>
+      <div style="font-size:14px; color:#888; margin-top:8px; line-height:1.5" id="res-sub"></div>
+      <div style="margin-top:24px; display:flex; gap:10px; justify-content:center;">
+        <button class="btn btn-gold" onclick="dismissResult()">Next Round</button>
+        <button class="btn btn-glass" onclick="backToLobby()">Lobby</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { renderCard, renderCardLarge, blackjackTotal } from '../js/deck.js';
+    window._deck = { renderCard, renderCardLarge, blackjackTotal };
+
+    const BC = new BroadcastChannel('card-table-sync');
+
+    const session = {
+      room: sessionStorage.getItem('cg_room') || '',
+      name: sessionStorage.getItem('cg_name') || 'Player',
+      pid: sessionStorage.getItem('cg_pid') || ('player_' + Date.now()),
+    };
+
+    let gameState = null;
+    let gameId = null;
+    let playerNames = {};
+    let connected = false;
+
+    // Go Fish selections
+    let selectedRank = null;
+    let selectedTarget = null;
+
+    // ===== INIT =====
+    function init() {
+      document.getElementById('player-name-header').textContent = session.name.toUpperCase();
+
+      if (!session.room) {
+        showStatus('No room code — go back to lobby', false);
+        return;
+      }
+
+      BC.onmessage = handleTableMessage;
+
+      // Announce presence to table
+      BC.postMessage({ type: 'player-join', roomCode: session.room, playerId: session.pid, name: session.name });
+
+      // Request current state
+      setTimeout(() => {
+        BC.postMessage({ type: 'request-state', roomCode: session.room });
+      }, 500);
+
+      // Hide loading after short delay
+      setTimeout(() => {
+        const ls = document.getElementById('loading-screen');
+        ls.style.transition = 'opacity 0.4s';
+        ls.style.opacity = '0';
+        setTimeout(() => ls.style.display = 'none', 400);
+      }, 1000);
+
+      buildGoFishUI();
+      showStatus('Connecting to table…', false);
+    }
+
+    // ===== RECEIVE STATE FROM TABLE =====
+    function handleTableMessage(evt) {
+      const msg = evt.data;
+      if (!msg) return;
+
+      if (msg.type === 'state-update' && msg.roomCode === session.room) {
+        connected = true;
+        gameState = msg.state;
+        gameId = msg.game;
+        playerNames = msg.playerNames || {};
+        setConnected(true);
+        renderHand();
+      }
+    }
+
+    // ===== RENDER HAND =====
+    function renderHand() {
+      if (!gameState) return;
+      const player = gameState.players?.[session.pid];
+      const isCurrent = gameState.currentPlayer === session.pid;
+
+      // Status banner
+      const banner = document.getElementById('game-status-banner');
+      banner.textContent = gameState.message || '';
+      banner.className = isCurrent && gameState.phase === 'playing'
+        ? 'my-turn' : '';
+
+      // Table peek (dealer cards for blackjack)
+      const tableRow = document.getElementById('table-cards-row');
+      tableRow.innerHTML = '';
+      if (gameId === 'blackjack' && gameState.dealer?.hand?.length) {
+        gameState.dealer.hand.forEach((card, i) => {
+          const faceDown = gameState.phase === 'playing' && i === 1;
+          const el = renderCard(faceDown ? null : card, { faceDown, delay: i * 60 });
+          el.style.width = '45px'; el.style.height = '64px';
+          tableRow.appendChild(el);
+        });
+      } else if (gameId === 'war' && gameState.playerOrder) {
+        // Show all played cards
+        for (const pid of gameState.playerOrder) {
+          const played = gameState.players?.[pid]?.played;
+          if (played) {
+            const el = renderCard(played, { delay: 0 });
+            el.style.width = '45px'; el.style.height = '64px';
+            tableRow.appendChild(el);
+          } else {
+            tableRow.innerHTML += '<div class="card-slot" style="width:45px;height:64px;font-size:14px;">?</div>';
+          }
+        }
+      } else {
+        tableRow.innerHTML = '<div class="card-slot" style="width:45px;height:64px;font-size:14px;">🂠</div>';
+      }
+
+      // Hand cards
+      const handCards = document.getElementById('hand-cards');
+      handCards.innerHTML = '';
+      const totalEl = document.getElementById('hand-total');
+
+      if (!player) {
+        handCards.innerHTML = '<div style="color:#555; font-size:13px; text-align:center;">Waiting to be dealt in…</div>';
+        totalEl.textContent = '—';
+        totalEl.className = '';
+        return;
+      }
+
+      const hand = player.hand || [];
+
+      if (gameId === 'blackjack') {
+        const total = blackjackTotal(hand);
+        totalEl.textContent = hand.length ? (total > 21 ? `${total} 💀` : total) : '—';
+        totalEl.className = total > 21 ? 'bust' : (total === 21 ? 'twenty-one' : '');
+        hand.forEach((card, i) => {
+          handCards.appendChild(renderCardLarge(card, { delay: i * 100 }));
+        });
+
+        // Chip count
+        document.getElementById('chip-display').textContent = `💰 ${player.chips || 0}`;
+      } else if (gameId === 'gofish') {
+        totalEl.textContent = hand.length ? `${hand.length} cards` : '—';
+        totalEl.className = '';
+        // Group by rank
+        const grouped = {};
+        for (const c of hand) grouped[c.rank] = (grouped[c.rank] || []).concat(c);
+        Object.values(grouped).forEach(cards => {
+          cards.forEach((card, i) => {
+            const el = renderCardLarge(card, { delay: i * 60 });
+            handCards.appendChild(el);
+          });
+        });
+        // Update rank picker to show which ranks you have
+        updateGoFishRankPicker(hand);
+      } else if (gameId === 'war') {
+        const deck = player.deck || [];
+        totalEl.textContent = `${deck.length} cards`;
+        totalEl.className = '';
+        const played = player.played;
+        if (played) {
+          handCards.appendChild(renderCardLarge(played, { delay: 0 }));
+        } else {
+          // Show top card face-down
+          const back = renderCardLarge(null, { faceDown: true, delay: 0 });
+          handCards.appendChild(back);
+        }
+      }
+
+      // Action buttons  
+      buildActions(player, isCurrent);
+
+      // Game over UI
+      if (gameState.phase === 'done') {
+        showResult(player);
+      } else {
+        document.getElementById('result-screen').classList.remove('visible');
+      }
+    }
+
+    function buildActions(player, isCurrent) {
+      const primary = document.getElementById('primary-actions');
+      const secondary = document.getElementById('secondary-actions');
+      const gofishUI = document.getElementById('gofish-ui');
+      primary.innerHTML = '';
+      secondary.innerHTML = '';
+      gofishUI.classList.remove('active');
+
+      if (gameState.phase !== 'playing') return;
+
+      if (gameId === 'blackjack') {
+        if (!isCurrent) {
+          primary.innerHTML = '<div style="text-align:center; color:#555; font-size:13px; letter-spacing:1px; font-family:var(--font-display); padding:8px;">Waiting your turn…</div>';
+          return;
+        }
+        const total = blackjackTotal(player.hand || []);
+        if (total <= 21) {
+          addAction(primary, 'Hit', 'btn-red', () => sendAction('hit'));
+          addAction(primary, 'Stand', 'btn-green', () => sendAction('stand'));
+          if (player.hand?.length === 2 && player.chips >= player.bet) {
+            addAction(secondary, '2× Double Down', 'btn-glass', () => sendAction('double'));
+          }
+        }
+      } else if (gameId === 'war') {
+        const hasPlayed = !!player.played;
+        if (!hasPlayed) {
+          addAction(primary, '⚔️ Play Card', 'btn-gold', () => sendAction('play'));
+        } else {
+          primary.innerHTML = '<div style="text-align:center; color:rgba(201,168,76,0.6); font-size:13px; font-family:var(--font-display); padding:8px;">Card played — waiting…</div>';
+        }
+      } else if (gameId === 'gofish') {
+        if (!isCurrent) {
+          primary.innerHTML = '<div style="text-align:center; color:#555; font-size:13px; letter-spacing:1px; font-family:var(--font-display); padding:8px;">Not your turn</div>';
+          return;
+        }
+        gofishUI.classList.add('active');
+        updateGoFishPlayerPicker();
+      }
+    }
+
+    function addAction(container, label, btnClass, handler) {
+      const btn = document.createElement('button');
+      btn.className = `btn ${btnClass}`;
+      btn.textContent = label;
+      btn.onclick = handler;
+      container.appendChild(btn);
+    }
+
+    // ===== GO FISH UI =====
+    function buildGoFishUI() {
+      const picker = document.getElementById('rank-picker');
+      picker.innerHTML = '';
+      const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+      for (const rank of RANKS) {
+        const btn = document.createElement('button');
+        btn.className = 'rank-btn'; btn.id = `rank-${rank}`;
+        btn.textContent = rank;
+        btn.onclick = () => {
+          selectedRank = rank;
+          document.querySelectorAll('.rank-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          checkAskReady();
+        };
+        picker.appendChild(btn);
+      }
+    }
+
+    function updateGoFishRankPicker(hand) {
+      const myRanks = new Set(hand.map(c => c.rank));
+      document.querySelectorAll('.rank-btn').forEach(btn => {
+        const rank = btn.textContent;
+        btn.classList.toggle('in-hand', myRanks.has(rank));
+      });
+    }
+
+    function updateGoFishPlayerPicker() {
+      const picker = document.getElementById('player-picker');
+      picker.innerHTML = '';
+      for (const [pid, name] of Object.entries(playerNames)) {
+        if (pid === session.pid) continue;
+        const btn = document.createElement('button');
+        btn.className = 'player-btn';
+        btn.textContent = name;
+        btn.onclick = () => {
+          selectedTarget = pid;
+          document.querySelectorAll('.player-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          checkAskReady();
+        };
+        picker.appendChild(btn);
+      }
+    }
+
+    function checkAskReady() {
+      document.getElementById('btn-ask').disabled = !(selectedRank && selectedTarget);
+    }
+
+    window.askCard = function() {
+      if (!selectedRank || !selectedTarget) return;
+      sendAction('ask', { target: selectedTarget, rank: selectedRank });
+      selectedRank = null; selectedTarget = null;
+      document.querySelectorAll('.rank-btn, .player-btn').forEach(b => b.classList.remove('selected'));
+      document.getElementById('btn-ask').disabled = true;
+    };
+
+    // ===== SEND ACTION TO TABLE =====
+    function sendAction(action, extras = {}) {
+      BC.postMessage({
+        type: 'player-action',
+        roomCode: session.room,
+        playerId: session.pid,
+        action,
+        ...extras
+      });
+      toast(action === 'hit' ? 'Hit!' : action === 'stand' ? 'Standing…' : action === 'double' ? 'Doubled down!' : action === 'play' ? '⚔️ Card played!' : action === 'ask' ? `Asking for ${extras.rank}s…` : '…');
+    }
+
+    // ===== RESULT SCREEN =====
+    function showResult(player) {
+      const screen = document.getElementById('result-screen');
+      screen.classList.add('visible');
+      const result = player?.result;
+      const resultEmoji = { win:'🎉', lose:'😔', push:'🤝', bust:'💀' };
+      document.getElementById('res-emoji').textContent = resultEmoji[result] || '🃏';
+      document.getElementById('res-title').textContent = result ? result.toUpperCase() : 'GAME OVER';
+      document.getElementById('res-sub').textContent = gameState.message || '';
+    }
+
+    window.dismissResult = function() {
+      document.getElementById('result-screen').classList.remove('visible');
+      BC.postMessage({ type: 'request-state', roomCode: session.room });
+    };
+
+    window.backToLobby = function() { window.location.href = '../index.html'; };
+
+    // ===== HELPERS =====
+    function setConnected(state) {
+      const dot = document.getElementById('conn-dot');
+      const label = document.getElementById('conn-label');
+      dot.className = 'conn-dot' + (state ? '' : ' disconnected');
+      label.textContent = state ? 'Connected' : 'Offline';
+    }
+
+    function showStatus(msg, pulse = true) {
+      const banner = document.getElementById('game-status-banner');
+      banner.textContent = msg;
+      banner.className = pulse ? 'my-turn' : '';
+    }
+
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(t._timeout);
+      t._timeout = setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    // ===== GO =====
+    document.getElementById('loading-screen').style.transition = 'opacity 0.4s ease';
+    init();
+  </script>
+</body>
+</html>

@@ -462,10 +462,10 @@ export function hermiteNormalForm3(matrix, p) {
     }
 
     let diagonalVals = [0, 1, 2].map((idx) => val(work[idx][idx], prime));
-    const minDiagonal = Math.min(...diagonalVals);
-    if (minDiagonal !== 0) {
-        scaleMatrix(work, stepRational(prime, -minDiagonal));
-        diagonalVals = diagonalVals.map((entry) => entry - minDiagonal);
+    const bottomRightVal = diagonalVals[2];
+    if (bottomRightVal !== 0) {
+        scaleMatrix(work, stepRational(prime, -bottomRightVal));
+        diagonalVals = diagonalVals.map((entry) => entry - bottomRightVal);
     }
 
     for (let col = 1; col < 3; col += 1) {
@@ -511,6 +511,12 @@ export function canonicalizeLatticeClass(matrix, p) {
         type,
         rows: matrixToRows(canonicalMatrix),
     };
+}
+
+export function isInStandardApartment(vertex) {
+    return vertex.matrix[0][1].isZero() &&
+           vertex.matrix[0][2].isZero() &&
+           vertex.matrix[1][2].isZero();
 }
 
 function hashTemplateKey(parts) {
@@ -905,21 +911,13 @@ export function buildBuildingModel({
         }
     }
 
-    const nodes = new Map();
-    for (const vertexId of orbitMap.keys()) {
-        nodes.set(vertexId, vertexPool.get(vertexId));
-    }
+    const patchDistance = new Map();
+    const nodes = new Map([[baseVertex.id, baseVertex]]);
+    const patchQueue = [baseVertex.id];
+    patchDistance.set(baseVertex.id, 0);
 
     const edges = new Map();
     const chambers = new Set();
-    const patchDistance = new Map();
-    const patchQueue = [];
-
-    for (const vertexId of orbitMap.keys()) {
-        patchDistance.set(vertexId, 0);
-        patchQueue.push(vertexId);
-    }
-
     const neighborhoodCache = new Map();
     let patchLimitHit = false;
 
@@ -936,36 +934,43 @@ export function buildBuildingModel({
             if (!vertexPool.has(neighbor.vertex.id)) {
                 vertexPool.set(neighbor.vertex.id, neighbor.vertex);
             }
-            if (!nodes.has(neighbor.vertex.id)) {
-                nodes.set(neighbor.vertex.id, neighbor.vertex);
-                if (nodes.size >= maxPatchVertices) {
-                    patchLimitHit = true;
-                    warnings.push(`Local building patch truncated after ${maxPatchVertices} vertices. Reduce the radius or word length to keep the picture legible.`);
-                    break;
-                }
+
+            const nextDist = dist + 1;
+            if (nextDist > neighborRadius || patchDistance.has(neighbor.vertex.id)) {
+                continue;
             }
 
-            const key = edgeKey(originId, neighbor.vertex.id);
+            nodes.set(neighbor.vertex.id, neighbor.vertex);
+            patchDistance.set(neighbor.vertex.id, nextDist);
+            patchQueue.push(neighbor.vertex.id);
+
+            if (nodes.size >= maxPatchVertices) {
+                patchLimitHit = true;
+                warnings.push(`Local building ball truncated after ${maxPatchVertices} vertices. Reduce the radius or word length to keep the picture legible.`);
+                break;
+            }
+        }
+    }
+
+    for (const [vertexId, vertex] of nodes) {
+        const neighborhood = getNeighborhood(vertex, p, templates, neighborhoodCache);
+
+        for (const neighbor of neighborhood.neighbors) {
+            if (!nodes.has(neighbor.vertex.id)) {
+                continue;
+            }
+            const key = edgeKey(vertexId, neighbor.vertex.id);
             if (!edges.has(key)) {
                 edges.set(key, {
                     id: key,
-                    source: originId,
+                    source: vertexId,
                     target: neighbor.vertex.id,
                 });
             }
-
-            if (!patchDistance.has(neighbor.vertex.id)) {
-                patchDistance.set(neighbor.vertex.id, dist + 1);
-                patchQueue.push(neighbor.vertex.id);
-            }
-        }
-
-        if (patchLimitHit) {
-            break;
         }
 
         for (const chamber of neighborhood.chambers) {
-            if (chamber.every((vertexId) => nodes.has(vertexId))) {
+            if (chamber.every((memberId) => nodes.has(memberId))) {
                 chambers.add(chamber.slice().sort().join('::'));
             }
         }
@@ -976,6 +981,7 @@ export function buildBuildingModel({
         return {
             ...vertex,
             inOrbit: Boolean(orbitEntry),
+            distance: patchDistance.get(vertex.id) ?? Infinity,
             minLength: orbitEntry ? orbitEntry.minLength : Infinity,
             words: orbitEntry ? orbitEntry.words.slice() : [],
             wordCount: orbitEntry ? orbitEntry.wordCount : 0,
@@ -996,6 +1002,7 @@ export function buildBuildingModel({
         edges: Array.from(edges.values()),
         chambers: chamberList,
         orbitMap,
+        patchTruncated: patchLimitHit,
         states,
         vertexPool,
     };

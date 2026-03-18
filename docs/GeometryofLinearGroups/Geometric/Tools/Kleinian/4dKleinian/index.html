@@ -4,145 +4,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>4D Kleinian Group Visualizer</title>
-    <link rel="stylesheet" href="liquidGlass.css">
+    <title>4D Kleinian Limit Sets</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="4dKleinian.css">
 </head>
 
 <body>
     <div id="container"></div>
-    <div id="stats">FPS: 0</div>
 
-    <div class="controls" id="controlPanel">
-        <div class="tabbar">
-            <button class="tab-btn active" data-page="spheres">Spheres</button>
-            <button class="tab-btn" data-page="render">Render</button>
-            <button class="tab-btn" data-page="camera">Presets</button>
-            <button id="refresh-btn" class="collapse-btn" title="Reset Camera">
-                <span class="collapse-icon">⟳</span>
-            </button>
-            <button id="collapse-btn" class="collapse-btn" title="Hide panel">
-                <span class="collapse-icon collapse-x">×</span>
-                <span class="collapse-icon collapse-plus">+</span>
-            </button>
-        </div>
+    <div id="stats" aria-live="polite">FPS 0</div>
 
-        <div class="panel-page active" id="page-render">
-        <div class="info">
-            <strong>Drag fractal</strong> to rotate, <strong>scroll</strong> to zoom, <strong>right-click drag</strong> to pan.
-        </div>
-
-        <h3>Rendering</h3>
-
-        <div class="control-group">
-            <label>Performance Mode</label>
-            <select id="performanceMode">
-                <option value="fast" selected>Fast (Fixed Spheres)</option>
-                <option value="flexible">Flexible (Editable Spheres)</option>
-            </select>
-            <div class="info" style="font-size: 0.85em; margin-top: 4px;">
-                <strong>Fast:</strong> 2-3x faster, uses default sphere preset<br>
-                <strong>Flexible:</strong> Edit sphere positions freely
+    <aside class="hud" id="hud">
+        <div class="hud-header">
+            <div>
+                <p class="eyebrow">GPU Shader Visualizer</p>
+                <h1>4D Kleinian Limit Sets</h1>
             </div>
+            <button id="hideHud" class="icon-button" type="button" aria-label="Hide controls">Hide</button>
         </div>
 
-        <div class="control-group">
-            <label>Quality Preset</label>
-            <select id="qualityPreset">
-                <option value="low">Low (Fast)</option>
-                <option value="medium" selected>Medium (Balanced)</option>
-                <option value="high">High (Quality)</option>
-                <option value="ultra">Ultra (Slow)</option>
-                <option value="custom">Custom</option>
-            </select>
-        </div>
+        <p id="groupDescription" class="hud-description">
+            Curated inversion-sphere groups rendered as a ray-marched limit set in the boundary of hyperbolic 4-space.
+        </p>
 
-        <div class="control-group">
-            <label>Max Iterations: <span id="maxIterValue" class="value-display">25</span></label>
-            <input type="range" id="maxIterations" min="1" max="200" value="25" step="1">
-        </div>
+        <div class="quick-grid">
+            <label class="field">
+                <span>Group</span>
+                <select id="groupSelect"></select>
+            </label>
 
-        <div class="control-group">
-            <label>Max March Steps: <span id="maxMarchValue" class="value-display">300</span></label>
-            <input type="range" id="maxMarchSteps" min="100" max="2000" value="300" step="50">
-        </div>
+            <label class="field">
+                <span>Palette</span>
+                <select id="colorPalette"></select>
+            </label>
 
-        <h3>Colors</h3>
+            <label class="field">
+                <span>Coloring</span>
+                <select id="colorScheme"></select>
+            </label>
 
-        <div class="control-group">
-            <label>Color Palette</label>
-            <select id="colorPalette">
-                <!-- Options will be populated dynamically -->
-            </select>
-        </div>
-
-        <div class="control-group">
-            <label>Coloring Scheme</label>
-            <select id="colorScheme">
-                <!-- Options will be populated dynamically -->
-            </select>
-        </div>
-
-        <div class="control-group" id="modulusControl" style="display: none;">
-            <label>Modulus Value: <span id="modulusValue" class="value-display">2</span></label>
-            <input type="range" id="modulus" min="2" max="20" value="2" step="1">
-        </div>
-        </div>
-
-        <div class="panel-page" id="page-spheres">
-            <h3>Sphere Configuration</h3>
-
-            <div class="control-group">
-                <label>Preset</label>
-                <select id="spherePreset">
-                    <!-- Options will be populated dynamically -->
+            <label class="field">
+                <span>Quality</span>
+                <select id="qualityPreset">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high" selected>High</option>
+                    <option value="ultra">Ultra</option>
+                    <option value="custom">Custom</option>
                 </select>
-            </div>
-
-            <div class="info">
-                <strong>Spheres:</strong> <span id="sphereCount">8</span>
-            </div>
-
-            <div id="sphereList" style="max-height: 300px; overflow-y: auto;"></div>
-
-            <button id="addSphere">+ Add Sphere</button>
-
-            <h3>Geometry Parameters</h3>
-            <div class="control-group">
-                <label>Sphere Radius: <span id="sphereRValue" class="value-display">300.0</span></label>
-                <input type="range" id="sphereRadius" min="50" max="500" value="300" step="10">
-            </div>
-            <div class="control-group">
-                <label>Klein Sphere Radius: <span id="kleinRValue" class="value-display">125.0</span></label>
-                <input type="range" id="kleinSphereRadius" min="50" max="400" value="125" step="5">
-            </div>
-            <div class="control-group">
-                <label>Scaling Factor: <span id="scalingValue" class="value-display">0.08</span></label>
-                <input type="range" id="scalingFactor" min="0.01" max="0.2" value="0.08" step="0.01">
-            </div>
+            </label>
         </div>
 
-        <div class="panel-page" id="page-camera">
-        <h3>Camera</h3>
-
-        <div class="control-group">
-            <label>FOV: <span id="fovValue" class="value-display">60°</span></label>
-            <input type="range" id="fov" min="30" max="120" value="60" step="5">
+        <div class="chip-row">
+            <span id="groupFamily" class="chip">Classical Arrangements</span>
+            <span id="sphereCount" class="chip">0 inversion spheres</span>
+            <span class="chip">Drag to orbit</span>
+            <span class="chip">H to hide</span>
         </div>
 
-        <button id="resetCamera">Reset Camera</button>
+        <details class="advanced-panel" id="advancedPanel">
+            <summary>Advanced</summary>
 
-        <h3>Presets</h3>
-        <button id="preset1">Default (Cyan/Purple)</button>
-        <button id="preset2" class="secondary">Tight + Fire Bands</button>
-        <button id="preset3" class="secondary">Wide + Ocean Flow</button>
+            <div class="advanced-grid">
+                <label class="field">
+                    <span>Iterations <em id="maxIterValue">36</em></span>
+                    <input type="range" id="maxIterations" min="12" max="80" value="36" step="1">
+                </label>
 
-        <div class="info" style="margin-top: 12px;">
-            <strong>Credit:</strong> Shader by soma_arc (2016)<br>
-            Licensed under CC BY-NC-SA 3.0
-        </div>
-        </div>
-    </div>
+                <label class="field">
+                    <span>March Steps <em id="maxMarchValue">420</em></span>
+                    <input type="range" id="maxMarchSteps" min="180" max="900" value="420" step="20">
+                </label>
+
+                <label class="field">
+                    <span>Distance Scale <em id="scalingValue">0.084</em></span>
+                    <input type="range" id="scalingFactor" min="0.040" max="0.140" value="0.084" step="0.002">
+                </label>
+
+                <label class="field">
+                    <span>Klein Radius <em id="kleinRValue">0.420</em></span>
+                    <input type="range" id="kleinSphereRadius" min="0.200" max="0.900" value="0.420" step="0.01">
+                </label>
+
+                <label class="field">
+                    <span>Seed Radius <em id="seedRadiusValue">0.170</em></span>
+                    <input type="range" id="seedRadius" min="0.050" max="0.300" value="0.170" step="0.005">
+                </label>
+
+                <label class="field">
+                    <span>Field of View <em id="fovValue">58°</em></span>
+                    <input type="range" id="fov" min="35" max="90" value="58" step="1">
+                </label>
+
+                <label class="field" id="modulusControl" hidden>
+                    <span>Modulo Bands <em id="modulusValue">6</em></span>
+                    <input type="range" id="modulus" min="2" max="16" value="6" step="1">
+                </label>
+            </div>
+
+            <div class="action-row">
+                <button id="resetView" type="button">Reset View</button>
+                <button id="groupDefaults" type="button">Group Defaults</button>
+            </div>
+        </details>
+    </aside>
+
+    <button id="showHud" class="show-hud" type="button" hidden>Controls</button>
+
+    <p class="screen-hint">orbit: drag · zoom: wheel · pan: right-drag</p>
 
     <script type="importmap">
     {

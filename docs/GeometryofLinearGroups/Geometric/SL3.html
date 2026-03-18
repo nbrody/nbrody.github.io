@@ -12,214 +12,252 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/pgl3-building.css">
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+            options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'code'] }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 
 <body>
-    <div class="page-shell">
-        <header class="topbar">
-            <div>
-                <nav class="breadcrumbs">
-                    <a href="index.html">Geometric</a>
-                    <span>/</span>
-                    <span>PGL_3(Q_p) Building</span>
-                </nav>
-                <h1>Bruhat-Tits Building for PGL_3(Q_p)</h1>
-                <p>
-                    Enter generators in <code>PGL_3(Q)</code>, build a finite chamber patch around the orbit of the
-                    base lattice, and animate reduced words directly on that patch.
-                </p>
+    <!-- Full-screen visualizer -->
+    <div class="visual-stage" id="visualStage">
+        <div id="building-vis" role="img" aria-label="PGL_3 building visualization"></div>
+
+        <div class="legend">
+            <div class="legend-row">
+                <div class="legend-dot" style="background: var(--type-0);"></div>
+                <span>Type 0</span>
             </div>
-
-            <div class="topbar-meta">
-                <div class="meta-pill">Vertices = lattice classes</div>
-                <div class="meta-pill">Neighbors = lines and planes in L / pL</div>
-                <div class="meta-pill">Best with small primes</div>
+            <div class="legend-row">
+                <div class="legend-dot" style="background: var(--type-1);"></div>
+                <span>Type 1</span>
             </div>
-        </header>
+            <div class="legend-row">
+                <div class="legend-dot" style="background: var(--type-2);"></div>
+                <span>Type 2</span>
+            </div>
+            <div class="legend-row">
+                <div class="legend-line"></div>
+                <span>Edge</span>
+            </div>
+            <div class="legend-row">
+                <div class="legend-triangle"></div>
+                <span>Chamber</span>
+            </div>
+        </div>
 
-        <main class="workspace">
-            <aside class="control-panel">
-                <div class="panel-tabs">
-                    <button class="tab-button active" data-tab="action">Action</button>
-                    <button class="tab-button" data-tab="building">Building</button>
-                    <button class="tab-button" data-tab="info">Info</button>
+        <div class="status-banner">
+            <span>Current Vertex</span>
+            <strong id="currentVertexSummary">\([\mathbb{Z}_p^3]\)</strong>
+        </div>
+
+        <div class="word-tracker">
+            <div class="word-track-copy">
+                <span>Current Reduced Word</span>
+                <strong id="currentWord">e</strong>
+            </div>
+            <div class="word-track-meta" id="wordMeta">Basepoint selected</div>
+        </div>
+    </div>
+
+    <!-- Floating title bar -->
+    <div class="floating-titlebar" id="floatingTitle">
+        <div class="titlebar-content">
+            <nav class="breadcrumbs">
+                <a href="index.html">Geometric</a>
+                <span>/</span>
+                <span>\(\mathrm{PGL}_3(\mathbb{Q}_p)\) Building</span>
+            </nav>
+            <h1>Bruhat-Tits Building for \(\mathrm{PGL}_3(\mathbb{Q}_p)\)</h1>
+        </div>
+        <button class="panel-toggle-btn" id="toggleTitleBtn" type="button" aria-label="Toggle title bar">▾</button>
+    </div>
+
+    <!-- Floating control panel -->
+    <div class="floating-controls" id="floatingControls">
+        <div class="floating-controls-header">
+            <div class="panel-tabs">
+                <button class="tab-button active" data-tab="action">Action</button>
+                <button class="tab-button" data-tab="building">Building</button>
+                <button class="tab-button" data-tab="info">Info</button>
+            </div>
+            <button class="panel-toggle-btn" id="toggleControlsBtn" type="button" aria-label="Toggle controls">◀</button>
+        </div>
+
+        <div class="panel-body">
+            <section class="tab-panel active" id="tab-action">
+                <div class="section-card">
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="prime">Prime \(p\)</label>
+                            <input id="prime" type="number" min="2" step="1" value="3">
+                        </div>
+                        <div class="field">
+                            <label for="wordLength">Word Length</label>
+                            <input id="wordLength" type="number" min="0" max="8" step="1" value="3">
+                        </div>
+                    </div>
+                    <p class="mini-note" style="margin-top: 10px;">
+                        Matrix entries are parsed as integers or fractions \(a/b\). The renderer is
+                        tuned for small primes and modest word lengths.
+                    </p>
                 </div>
 
-                <div class="panel-body">
-                    <section class="tab-panel active" id="tab-action">
-                        <div class="section-card">
-                            <div class="field-grid">
-                                <div class="field">
-                                    <label for="prime">Prime p</label>
-                                    <input id="prime" type="number" min="2" step="1" value="3">
-                                </div>
-                                <div class="field">
-                                    <label for="wordLength">Word Length</label>
-                                    <input id="wordLength" type="number" min="0" max="8" step="1" value="3">
-                                </div>
-                                <div class="field">
-                                    <label for="neighborRadius">Patch Radius</label>
-                                    <input id="neighborRadius" type="number" min="0" max="2" step="1" value="1">
-                                </div>
-                            </div>
-                            <p class="mini-note" style="margin-top: 10px;">
-                                Matrix entries are parsed as integers or fractions <code>a/b</code>. The renderer is
-                                tuned for small primes and modest word lengths.
+                <div class="section-card">
+                    <div class="matrix-topline">
+                        <div>
+                            <div class="matrix-header">Generators</div>
+                            <p class="help-text">Use invertible \(3 \times 3\) matrices. The basepoint is the class of
+                                \(\mathbb{Z}_p^3\).
                             </p>
                         </div>
-
-                        <div class="section-card">
-                            <div class="matrix-topline">
-                                <div>
-                                    <div class="matrix-header">Generators</div>
-                                    <p class="help-text">Use invertible 3x3 matrices. The basepoint is the class of
-                                        <code>Z_p^3</code>.
-                                    </p>
-                                </div>
-                                <button class="ghost-button" id="addMatrixBtn" type="button">Add Matrix</button>
-                            </div>
-                            <div id="matrixInputs" class="matrix-list"></div>
-                        </div>
-
-                        <div class="section-card">
-                            <div class="matrix-header">Apply Generators</div>
-                            <div id="generatorControls" class="generator-controls"></div>
-                        </div>
-
-                        <div class="section-card">
-                            <div class="field">
-                                <label for="sequenceInput">Sequence</label>
-                                <textarea id="sequenceInput"
-                                    placeholder="g1 g2^-1 g1"></textarea>
-                            </div>
-                            <div class="button-row" style="margin-top: 10px;">
-                                <button class="primary-button" id="calculateBtn" type="button">Rebuild Orbit</button>
-                                <button class="ghost-button" id="animateSequenceBtn" type="button">Animate
-                                    Sequence</button>
-                                <button class="ghost-button" id="resetWordBtn" type="button">Reset Word</button>
-                            </div>
-                        </div>
-
-                        <div class="section-card">
-                            <div class="matrix-header">Warnings</div>
-                            <div id="warningList" class="warning-list"></div>
-                        </div>
-
-                        <div class="section-card">
-                            <div class="matrix-header">Summary</div>
-                            <div id="orbitSummary" class="summary-grid"></div>
-                        </div>
-
-                        <div class="section-card">
-                            <div class="matrix-header">Selected Vertex</div>
-                            <div id="selectedVertex" class="vertex-card"></div>
-                        </div>
-                    </section>
-
-                    <section class="tab-panel" id="tab-building">
-                        <div class="section-card">
-                            <h2>Display</h2>
-                            <div class="toggle-row">
-                                <label class="toggle">
-                                    <input id="toggleNeighborhood" type="checkbox" checked>
-                                    <span>Show local building patch</span>
-                                </label>
-                                <label class="toggle">
-                                    <input id="toggleChambers" type="checkbox" checked>
-                                    <span>Show chambers</span>
-                                </label>
-                            </div>
-                            <div class="button-row" style="margin-top: 14px;">
-                                <button class="ghost-button" id="resetZoomBtn" type="button">Reset Zoom</button>
-                                <button class="ghost-button" id="recenterBtn" type="button">Recenter Layout</button>
-                            </div>
-                        </div>
-
-                        <div class="section-card">
-                            <h2>How To Read The Picture</h2>
-                            <ul>
-                                <li>Colored vertices are lattice classes, with color determined by type modulo 3.</li>
-                                <li>The faint chamber mesh is generated from lines and planes in <code>L / pL</code>
-                                    around orbit vertices.</li>
-                                <li>The bright path tracks the reduced word currently applied to the basepoint.</li>
-                                <li>Click a vertex to inspect its canonical upper-triangular representative.</li>
-                            </ul>
-                        </div>
-                    </section>
-
-                    <section class="tab-panel" id="tab-info">
-                        <div class="section-card">
-                            <h2>Model</h2>
-                            <p>
-                                A vertex in the building of <code>PGL_3(Q_p)</code> is a homothety class of rank-3
-                                lattices in <code>Q_p^3</code>. This viewer keeps a canonical upper-triangular
-                                representative for each lattice class and uses your matrices to act on the base
-                                lattice.
-                            </p>
-                        </div>
-
-                        <div class="section-card">
-                            <h2>Neighborhoods</h2>
-                            <p>
-                                Around a lattice <code>L</code>, adjacent vertices come from nontrivial proper
-                                subspaces of <code>L / pL</code>. For rank 3 those are lines and planes, and chambers
-                                come from flags <code>line ⊂ plane</code>.
-                            </p>
-                        </div>
-
-                        <div class="section-card">
-                            <h2>Animation</h2>
-                            <p>
-                                Generator buttons append or cancel letters in a reduced word. The highlighted tracker
-                                shows the corresponding orbit path for the basepoint. Sequence animation accepts tokens
-                                such as <code>g1</code> and <code>g2^-1</code>.
-                            </p>
-                        </div>
-                    </section>
+                        <button class="ghost-button" id="addMatrixBtn" type="button">Add Matrix</button>
+                    </div>
+                    <div id="matrixInputs" class="matrix-list"></div>
                 </div>
-            </aside>
 
-            <section class="visual-stage" id="visualStage">
-                <div class="legend">
-                    <div class="legend-row">
-                        <div class="legend-dot" style="background: var(--type-0);"></div>
-                        <span>Type 0 vertex</span>
+                <div class="section-card">
+                    <div class="matrix-header">Apply Generators</div>
+                    <div id="generatorControls" class="generator-controls"></div>
+                </div>
+
+                <div class="section-card">
+                    <div class="field">
+                        <label for="sequenceInput">Sequence</label>
+                        <textarea id="sequenceInput"
+                            placeholder="g1 g2^-1 g1"></textarea>
                     </div>
-                    <div class="legend-row">
-                        <div class="legend-dot" style="background: var(--type-1);"></div>
-                        <span>Type 1 vertex</span>
-                    </div>
-                    <div class="legend-row">
-                        <div class="legend-dot" style="background: var(--type-2);"></div>
-                        <span>Type 2 vertex</span>
-                    </div>
-                    <div class="legend-row">
-                        <div class="legend-line"></div>
-                        <span>Building edge</span>
-                    </div>
-                    <div class="legend-row">
-                        <div class="legend-triangle"></div>
-                        <span>Chamber</span>
+                    <div class="button-row" style="margin-top: 10px;">
+                        <button class="primary-button" id="calculateBtn" type="button">Rebuild Orbit</button>
+                        <button class="ghost-button" id="animateSequenceBtn" type="button">Animate
+                            Sequence</button>
+                        <button class="ghost-button" id="resetWordBtn" type="button">Reset Word</button>
                     </div>
                 </div>
 
-                <div class="status-banner">
-                    <span>Current Vertex</span>
-                    <strong id="currentVertexSummary">[Z_p^3]</strong>
+                <div class="section-card">
+                    <div class="matrix-header">Warnings</div>
+                    <div id="warningList" class="warning-list"></div>
                 </div>
 
-                <svg id="building-vis" aria-label="PGL_3 building visualization"></svg>
+                <div class="section-card">
+                    <div class="matrix-header">Summary</div>
+                    <div id="orbitSummary" class="summary-grid"></div>
+                </div>
 
-                <div class="word-tracker">
-                    <div class="word-track-copy">
-                        <span>Current Reduced Word</span>
-                        <strong id="currentWord">e</strong>
-                    </div>
-                    <div class="word-track-meta" id="wordMeta">Basepoint selected</div>
+                <div class="section-card">
+                    <div class="matrix-header">Selected Vertex</div>
+                    <div id="selectedVertex" class="vertex-card"></div>
                 </div>
             </section>
-        </main>
+
+            <section class="tab-panel" id="tab-building">
+                <div class="section-card">
+                    <h2>Patch Radius</h2>
+                    <p class="help-text">Show the graph ball around \([\mathbb{Z}_p^3]\). Radius 0 shows only the standard vertex.</p>
+                    <div class="button-row" id="radiusButtons">
+                        <button class="chip-button" data-radius="0" type="button">r = 0</button>
+                        <button class="chip-button active" data-radius="1" type="button">r = 1</button>
+                        <button class="chip-button" data-radius="2" type="button">r = 2</button>
+                        <button class="chip-button" data-radius="3" type="button">r = 3</button>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h2>Apartment</h2>
+                    <div class="toggle-row">
+                        <label class="toggle">
+                            <input id="toggleApartment" type="checkbox">
+                            <span>Highlight standard apartment</span>
+                        </label>
+                    </div>
+                    <p class="help-text">
+                        Show only chambers and edges in the standard apartment:
+                        diagonal vertices \(\mathrm{diag}(p^x,\, p^y,\, 1)\).
+                    </p>
+                </div>
+
+                <div class="section-card">
+                    <h2>Display</h2>
+                    <div class="toggle-row">
+                        <label class="toggle">
+                            <input id="toggleNeighborhood" type="checkbox" checked>
+                            <span>Show local building patch</span>
+                        </label>
+                        <label class="toggle">
+                            <input id="toggleChambers" type="checkbox" checked>
+                            <span>Show chambers</span>
+                        </label>
+                    </div>
+                    <div class="button-row" style="margin-top: 14px;">
+                        <button class="ghost-button" id="resetZoomBtn" type="button">Reset Zoom</button>
+                        <button class="ghost-button" id="recenterBtn" type="button">Recenter Layout</button>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h2>How To Read The Picture</h2>
+                    <ul>
+                        <li>Colored vertices are lattice classes, with color determined by type modulo 3.</li>
+                        <li>Radial distance from the center records graph distance from the standard vertex \([\mathbb{Z}_p^3]\).</li>
+                        <li>The chamber mesh is drawn from the ball of radius \(r\) around the standard vertex, using lines and planes in \(L/pL\).</li>
+                        <li>The bright path tracks the reduced word currently applied to the basepoint.</li>
+                        <li>Click a vertex to inspect its canonical upper-triangular representative and its visible distance from the basepoint.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="tab-panel" id="tab-info">
+                <div class="section-card">
+                    <h2>Model</h2>
+                    <p>
+                        A vertex in the building of \(\mathrm{PGL}_3(\mathbb{Q}_p)\) is a homothety class of rank-3
+                        lattices in \(\mathbb{Q}_p^3\). This viewer keeps a canonical upper-triangular
+                        representative for each lattice class and uses your matrices to act on the base
+                        lattice.
+                    </p>
+                </div>
+
+                <div class="section-card">
+                    <h2>Canonical Form</h2>
+                    <p>
+                        Each vertex is represented by a unique upper-triangular matrix
+                        \[
+                        \begin{pmatrix} p^x & a & b \\ 0 & p^y & c \\ 0 & 0 & 1 \end{pmatrix}
+                        \]
+                        where \(x, y \in \mathbb{Z}\), the entries
+                        \(a, b \in \mathbb{Z}[1/p]\,/\,p^x\mathbb{Z}\) are chosen in
+                        \([0, p^x)\), and \(c \in \mathbb{Z}[1/p]\,/\,p^y\mathbb{Z}\) is chosen in
+                        \([0, p^y)\). The bottom-right entry is fixed to \(1\) by the
+                        homothety normalization. Two lattice bases define the same vertex
+                        exactly when they yield the same canonical matrix.
+                    </p>
+                </div>
+
+                <div class="section-card">
+                    <h2>Neighborhoods</h2>
+                    <p>
+                        Around a lattice \(L\), adjacent vertices come from nontrivial proper
+                        subspaces of \(L/pL\). For rank 3 those are lines and planes, and chambers
+                        come from flags \(\text{line} \subset \text{plane}\).
+                    </p>
+                </div>
+
+                <div class="section-card">
+                    <h2>Animation</h2>
+                    <p>
+                        Generator buttons append or cancel letters in a reduced word. The highlighted tracker
+                        shows the corresponding orbit path for the basepoint. Sequence animation accepts tokens
+                        such as <code>g1</code> and <code>g2^-1</code>.
+                    </p>
+                </div>
+            </section>
+        </div>
     </div>
 
     <script type="module" src="../assets/js/pgl3-building.js"></script>

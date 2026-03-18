@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Tiny Tap Numbers — audio, touch play, counting, and number matching for toddlers.">
+  <title>Tiny Tap Numbers</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --radius-card: 2rem;
+      --radius-btn: 1.5rem;
+      --shadow-card: 0 8px 32px rgba(0,0,0,.10);
+      --font: 'Nunito', 'Baloo 2', sans-serif;
+      --clr-fuchsia: #d946ef;
+      --clr-fuchsia-light: #fdf4ff;
+      --clr-sky: #0ea5e9;
+      --clr-emerald: #10b981;
+      --clr-yellow: #facc15;
+      --clr-slate: #1e293b;
+      --clr-slate-mid: #64748b;
+      --bg: linear-gradient(160deg, #fef9c3 0%, #fff7ed 45%, #e0f2fe 100%);
+    }
+
+    body {
+      font-family: var(--font);
+      min-height: 100svh;
+      background: var(--bg);
+      color: var(--clr-slate);
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+      padding: 0;
+    }
+
+    /* ---- THEMES ---- */
+    body.theme-ocean { --bg: linear-gradient(160deg, #cffafe 0%, #e0f2fe 45%, #e0e7ff 100%); }
+    body.theme-garden { --bg: linear-gradient(160deg, #d9f99d 0%, #ecfdf5 45%, #ccfbf1 100%); }
+
+    .app { max-width: 1100px; margin: 0 auto; padding: 16px; }
+
+    /* ---- HEADER ---- */
+    .header-card {
+      background: rgba(255,255,255,.82);
+      backdrop-filter: blur(14px);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .header-top {
+      display: flex; align-items: center; gap: 14px;
+      flex-wrap: wrap; justify-content: space-between;
+    }
+    .header-brand { display: flex; align-items: center; gap: 14px; }
+    .header-emoji { font-size: 2.8rem; }
+    .header-title { font-size: clamp(1.7rem, 4vw, 2.6rem); font-weight: 900; color: var(--clr-slate); line-height: 1.1; }
+    .header-sub { font-size: clamp(.85rem, 2vw, 1rem); color: var(--clr-slate-mid); margin-top: 2px; }
+
+    .header-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--font); font-weight: 800; font-size: 1.05rem;
+      border: none; cursor: pointer; border-radius: var(--radius-btn);
+      padding: 0 22px; height: 52px; transition: transform .12s, box-shadow .12s, filter .12s;
+      user-select: none; -webkit-user-select: none;
+    }
+    .btn:active { transform: scale(.93); }
+    .btn-primary { background: var(--clr-fuchsia); color: #fff; box-shadow: 0 4px 14px rgba(217,70,239,.35); }
+    .btn-primary:hover { filter: brightness(1.07); }
+    .btn-secondary { background: rgba(255,255,255,.85); color: var(--clr-slate); box-shadow: 0 2px 8px rgba(0,0,0,.08); border: 2px solid rgba(0,0,0,.06); }
+    .btn-secondary:hover { background: #fff; }
+    .btn-icon { font-size: 1.2rem; }
+    .btn-muted { opacity: .55; }
+
+    .progress-row {
+      margin-top: 16px; display: grid; gap: 12px;
+      grid-template-columns: 1fr auto; align-items: center;
+    }
+    .progress-label { display: flex; justify-content: space-between; font-size: .92rem; color: var(--clr-slate-mid); margin-bottom: 6px; }
+    .progress-track {
+      height: 14px; border-radius: 99px; background: rgba(0,0,0,.08); overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; border-radius: 99px;
+      background: linear-gradient(90deg, var(--clr-fuchsia), var(--clr-sky));
+      transition: width .5s cubic-bezier(.34,1.56,.64,1);
+    }
+    .stars-chip {
+      display: flex; align-items: center; gap: 6px;
+      background: #fefce8; border-radius: 1.2rem;
+      padding: 8px 16px; box-shadow: 0 2px 6px rgba(0,0,0,.07);
+      font-weight: 800; font-size: 1.1rem;
+    }
+    .star-icon { color: #facc15; font-size: 1.3rem; }
+
+    /* ---- MAIN GRID ---- */
+    .grid-main { display: grid; gap: 14px; grid-template-columns: 1fr; }
+    @media(min-width:820px) { .grid-main { grid-template-columns: 1.25fr .75fr; } }
+
+    /* ---- MAIN CARD ---- */
+    .main-card {
+      background: rgba(255,255,255,.88);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      padding: 24px;
+      position: relative; overflow: hidden;
+    }
+
+    .mode-tabs { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+    .mode-tab {
+      font-family: var(--font); font-weight: 800; font-size: .98rem;
+      border: none; cursor: pointer; border-radius: 1.2rem;
+      padding: 10px 22px; transition: all .15s;
+      background: rgba(0,0,0,.06); color: var(--clr-slate-mid);
+    }
+    .mode-tab.active {
+      background: var(--clr-fuchsia); color: #fff;
+      box-shadow: 0 4px 14px rgba(217,70,239,.3);
+    }
+
+    .number-display { text-align: center; padding: 0 0 8px; }
+    .number-big {
+      font-size: clamp(5rem, 18vw, 9rem); font-weight: 900;
+      color: var(--clr-fuchsia); line-height: 1;
+      animation: popIn .35s cubic-bezier(.34,1.56,.64,1);
+    }
+    .number-word {
+      font-size: clamp(1.6rem, 5vw, 2.8rem); font-weight: 800;
+      color: var(--clr-slate); margin-top: 4px; text-transform: capitalize;
+      animation: popIn .35s cubic-bezier(.34,1.56,.64,1);
+    }
+    .number-emoji {
+      font-size: clamp(2.4rem, 8vw, 4.5rem); margin-top: 6px;
+      animation: popIn .38s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(.82); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .interaction-zone {
+      margin-top: 18px; background: #f0f9ff;
+      border-radius: var(--radius-card); padding: 20px;
+    }
+    .zone-label {
+      display: flex; align-items: center; gap: 8px;
+      font-weight: 800; font-size: 1rem; color: var(--clr-slate-mid);
+      margin-bottom: 16px; justify-content: center;
+    }
+
+    /* Learn mode */
+    .learn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .say-btn {
+      height: 80px; font-size: 1.4rem; background: var(--clr-sky); color: #fff;
+      border-radius: var(--radius-card); border: none; cursor: pointer;
+      font-family: var(--font); font-weight: 800;
+      box-shadow: 0 4px 16px rgba(14,165,233,.3);
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: transform .12s, filter .12s;
+    }
+    .say-btn:active { transform: scale(.93); }
+    .say-btn:hover { filter: brightness(1.07); }
+    .dots-box {
+      background: #fff; border-radius: var(--radius-card);
+      padding: 16px; display: flex; flex-wrap: wrap;
+      align-items: center; justify-content: center; gap: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    }
+    .dot-emoji {
+      font-size: clamp(1.6rem, 5vw, 2.8rem);
+      animation: dotPop .3s cubic-bezier(.34,1.56,.64,1) backwards;
+    }
+    @keyframes dotPop {
+      from { opacity: 0; transform: scale(.4); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    /* Count mode */
+    .count-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(90px, 100%), 1fr));
+      gap: 12px;
+    }
+    .count-tile {
+      aspect-ratio: 1; border-radius: 1.5rem;
+      border: 4px solid #fff; background: #fff;
+      font-size: clamp(2rem, 7vw, 3.5rem);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: border-color .2s, background .2s, transform .1s;
+      box-shadow: 0 3px 10px rgba(0,0,0,.08);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .count-tile:active { transform: scale(.88); }
+    .count-tile.tapped {
+      border-color: var(--clr-emerald);
+      background: #d1fae5;
+    }
+
+    /* Find mode */
+    .find-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .find-tile {
+      border-radius: var(--radius-card); border: 4px solid #fff;
+      background: #fff; font-size: clamp(2.4rem, 9vw, 4rem);
+      font-weight: 900; padding: 20px 8px;
+      text-align: center; cursor: pointer;
+      transition: border-color .15s, background .15s, transform .1s;
+      box-shadow: 0 3px 10px rgba(0,0,0,.08);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .find-tile:active { transform: scale(.9); }
+    .find-tile.selected { border-color: var(--clr-fuchsia); background: #fdf4ff; }
+    .find-tile.correct  { border-color: var(--clr-emerald); background: #d1fae5; }
+    .find-tile.wrong    { border-color: #f87171; background: #fef2f2; }
+
+    /* ---- SIDE PANEL ---- */
+    .side-panel { display: grid; gap: 14px; align-content: start; }
+
+    .card {
+      background: rgba(255,255,255,.88);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      padding: 20px 22px;
+    }
+    .card-title { font-size: 1.18rem; font-weight: 900; color: var(--clr-slate); display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+
+    /* Coach bubble */
+    .bubble {
+      background: #fdf4ff; border-radius: 1.4rem;
+      padding: 14px 16px; font-size: 1.05rem; font-weight: 700;
+      color: var(--clr-slate); box-shadow: 0 2px 8px rgba(0,0,0,.06);
+      transition: opacity .2s;
+    }
+    .bubble.flash { animation: bubbleFlash .3s ease; }
+    @keyframes bubbleFlash { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    .nav-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+
+    /* Rewards */
+    .rewards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .reward-box {
+      border-radius: 1.4rem; padding: 14px 10px; text-align: center;
+    }
+    .reward-box.stars-box { background: #fefce8; }
+    .reward-box.streak-box { background: #ecfdf5; }
+    .reward-big { font-size: 2rem; font-weight: 900; margin-top: 4px; }
+    .reward-label { font-size: .82rem; color: var(--clr-slate-mid); font-weight: 700; margin-top: 2px; }
+    .star-strip { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 12px; }
+    .star-strip span { font-size: 1.3rem; }
+
+    /* Celebration card */
+    .celebrate-card {
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      padding: 24px 20px; text-align: center;
+      transition: background .5s;
+    }
+    .celebrate-card.idle { background: rgba(255,255,255,.88); }
+    .celebrate-card.win  { background: linear-gradient(135deg, #e879f9 0%, #fde68a 50%, #67e8f9 100%); }
+    .celebrate-big { font-size: 3rem; }
+    .celebrate-text { font-size: 1.4rem; font-weight: 900; margin-top: 8px; color: var(--clr-slate); }
+    .celebrate-sub  { font-size: .95rem; font-weight: 700; margin-top: 4px; color: var(--clr-slate-mid); }
+
+    /* ---- CONFETTI ---- */
+    #confetti-layer {
+      position: fixed; inset: 0; pointer-events: none; z-index: 999; overflow: hidden;
+    }
+    .confetto {
+      position: absolute; top: -30px; border-radius: 50%;
+      opacity: 0; animation: confettoFall linear forwards;
+    }
+    @keyframes confettoFall {
+      0%   { opacity: 1; transform: translateY(0) rotate(0deg); }
+      100% { opacity: 0; transform: translateY(105vh) rotate(720deg); }
+    }
+
+    /* Parent Notes */
+    .notes-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .notes-list li { font-size: .92rem; color: var(--clr-slate-mid); font-weight: 700; }
+    .notes-list li::before { content: "• "; }
+
+    /* Responsive tweaks */
+    @media(max-width: 480px) {
+      .learn-grid { grid-template-columns: 1fr; }
+      .find-grid   { grid-template-columns: repeat(3, 1fr); }
+      .header-title { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+<div id="confetti-layer"></div>
+
+<div class="app">
+  <!-- HEADER -->
+  <div class="header-card">
+    <div class="header-top">
+      <div class="header-brand">
+        <div class="header-emoji" id="theme-emoji">☀️</div>
+        <div>
+          <h1 class="header-title">Tiny Tap Numbers</h1>
+          <p class="header-sub">Audio, touch play, counting, and number matching for toddlers.</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary" id="start-btn" onclick="begin()">
+          <span class="btn-icon">▶</span> Start
+        </button>
+        <button class="btn btn-secondary" onclick="replay()">
+          <span class="btn-icon">🔊</span> Replay
+        </button>
+        <button class="btn btn-secondary" id="mute-btn" onclick="toggleMute()">
+          <span class="btn-icon">🎵</span> <span id="mute-label">Mute</span>
+        </button>
+      </div>
+    </div>
+    <div class="progress-row">
+      <div>
+        <div class="progress-label">
+          <span>Number journey</span>
+          <span id="progress-text">1 / 10</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill" style="width:10%"></div>
+        </div>
+      </div>
+      <div class="stars-chip">
+        <span class="star-icon">⭐</span>
+        <span id="header-stars">0</span>
+        <span style="font-size:.85rem;color:var(--clr-slate-mid)">stars</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="grid-main">
+    <!-- LEFT: Main card -->
+    <div class="main-card">
+      <!-- Mode tabs -->
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tab-learn" onclick="setMode('learn')">Learn</button>
+        <button class="mode-tab"        id="tab-count" onclick="setMode('count')">Count</button>
+        <button class="mode-tab"        id="tab-find"  onclick="setMode('find')">Find It</button>
+      </div>
+
+      <!-- Number display -->
+      <div class="number-display" id="number-display">
+        <div class="number-big" id="num-big">1</div>
+        <div class="number-word" id="num-word">one</div>
+        <div class="number-emoji" id="num-emoji">🍎</div>
+      </div>
+
+      <!-- Interaction zone -->
+      <div class="interaction-zone">
+        <div class="zone-label" id="zone-label">👆 Tap the big button to hear one</div>
+
+        <!-- Learn mode content -->
+        <div id="mode-learn">
+          <div class="learn-grid">
+            <button class="say-btn" id="say-btn" onclick="sayNumber()">
+              <span>🔊</span> <span id="say-word">Say one</span>
+            </button>
+            <div class="dots-box" id="dots-box"></div>
+          </div>
+        </div>
+
+        <!-- Count mode content -->
+        <div id="mode-count" style="display:none">
+          <div class="count-grid" id="count-grid"></div>
+        </div>
+
+        <!-- Find mode content -->
+        <div id="mode-find" style="display:none">
+          <div class="find-grid" id="find-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Side panel -->
+    <div class="side-panel">
+      <!-- Coach -->
+      <div class="card">
+        <div class="card-title"><span>✨</span> Little Coach</div>
+        <div class="bubble" id="bubble">Tap Start to hear the number!</div>
+        <div class="nav-grid">
+          <button class="btn btn-secondary" onclick="resetCurrent()" style="font-size:.95rem;">↺ Reset</button>
+          <button class="btn btn-secondary" onclick="nextNumber()"  style="font-size:.95rem;">Next →</button>
+          <button class="btn btn-secondary" onclick="prevNumber()"  style="font-size:.95rem;">← Back</button>
+          <button class="btn btn-secondary" onclick="nextTheme()"   style="font-size:.95rem;">🎨 Theme</button>
+        </div>
+      </div>
+
+      <!-- Rewards -->
+      <div class="card">
+        <div class="card-title"><span>🏆</span> Rewards</div>
+        <div class="rewards-grid">
+          <div class="reward-box stars-box">
+            <div style="font-size:2rem">⭐</div>
+            <div class="reward-big" id="reward-stars">0</div>
+            <div class="reward-label">stars earned</div>
+          </div>
+          <div class="reward-box streak-box">
+            <div style="font-size:2rem">🔥</div>
+            <div class="reward-big" id="reward-streak">0</div>
+            <div class="reward-label">win streak</div>
+          </div>
+        </div>
+        <div class="star-strip" id="star-strip"></div>
+      </div>
+
+      <!-- Celebrate card -->
+      <div class="celebrate-card idle" id="celebrate-card">
+        <div class="celebrate-big" id="celebrate-icon">✅</div>
+        <div class="celebrate-text" id="celebrate-text">Ready to play</div>
+        <div class="celebrate-sub"  id="celebrate-sub">Use audio, touch, and repetition.</div>
+      </div>
+
+      <!-- Parent notes -->
+      <div class="card">
+        <div class="card-title"><span>❤️</span> Parent Notes</div>
+        <ul class="notes-list">
+          <li>Tap <strong>Start</strong> first so phones allow sound playback.</li>
+          <li><strong>Learn</strong> shows the numeral, word, and matching amount.</li>
+          <li><strong>Count</strong> builds one-to-one tapping.</li>
+          <li><strong>Find It</strong> adds simple number recognition.</li>
+          <li>Built for big fingers, simple choices, and very short spoken prompts.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- DATA ----
+const ITEMS = [
+  { n:1,  emoji:'🍎', word:'one',    label:'apple'    },
+  { n:2,  emoji:'🦆', word:'two',    label:'ducks'    },
+  { n:3,  emoji:'⭐', word:'three',  label:'stars'    },
+  { n:4,  emoji:'🐻', word:'four',   label:'bears'    },
+  { n:5,  emoji:'🚗', word:'five',   label:'cars'     },
+  { n:6,  emoji:'🌼', word:'six',    label:'flowers'  },
+  { n:7,  emoji:'🎈', word:'seven',  label:'balloons' },
+  { n:8,  emoji:'🐠', word:'eight',  label:'fish'     },
+  { n:9,  emoji:'🧸', word:'nine',   label:'teddies'  },
+  { n:10, emoji:'🌈', word:'ten',    label:'rainbows' },
+];
+
+const THEMES = [
+  { name:'Sunny',  emoji:'☀️', cls:''            },
+  { name:'Ocean',  emoji:'🌊', cls:'theme-ocean'  },
+  { name:'Garden', emoji:'🌼', cls:'theme-garden' },
+];
+
+// ---- STATE ----
+let current    = 0;
+let mode       = 'learn';
+let muted      = false;
+let stars      = 0;
+let streak     = 0;
+let tapped     = [];        // for count mode
+let targetChoice = null;   // for find mode
+let celebrating = false;
+let advanceTimer = null;
+let themeIndex = 0;
+
+// ---- AUDIO ----
+function speak(text, slow=false) {
+  if (muted || !('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate  = slow ? 0.72 : 0.86;
+  u.pitch = 1.18;
+  u.volume = 1;
+  const preferred = window.speechSynthesis.getVoices()
+    .find(v => /Samantha|Moira|Karen|Google US English|Jenny|Ava/i.test(v.name));
+  if (preferred) u.voice = preferred;
+  window.speechSynthesis.speak(u);
+}
+
+function chime(freq=660, dur=0.18, type='sine') {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  const ctx = new AC();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + dur + 0.02);
+  osc.onended = () => ctx.close();
+}
+
+function jingle() {
+  chime(523,.14); setTimeout(()=>chime(659,.14),120); setTimeout(()=>chime(784,.22),240);
+}
+
+// ---- CONFETTI ----
+const CONFETTI_COLORS = ['#f472b6','#facc15','#67e8f9','#86efac','#a78bfa','#fb923c','#34d399'];
+function launchConfetti(n=22) {
+  const layer = document.getElementById('confetti-layer');
+  layer.innerHTML = '';
+  for (let i=0; i<n; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetto';
+    const sz = 10 + Math.random()*20;
+    el.style.width = sz+'px'; el.style.height = sz+'px';
+    el.style.left  = (Math.random()*100)+'%';
+    el.style.background = CONFETTI_COLORS[Math.floor(Math.random()*CONFETTI_COLORS.length)];
+    const dur = 1.5 + Math.random()*1.2;
+    el.style.animationDuration = dur+'s';
+    el.style.animationDelay   = (Math.random()*0.5)+'s';
+    layer.appendChild(el);
+    setTimeout(()=>el.remove(), (dur+0.8)*1000);
+  }
+}
+
+// ---- UI HELPERS ----
+function setBubble(text) {
+  const el = document.getElementById('bubble');
+  el.textContent = text;
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+}
+
+function updateDisplay() {
+  const item = ITEMS[current];
+  document.getElementById('num-big').textContent   = item.n;
+  document.getElementById('num-word').textContent  = item.word;
+  document.getElementById('num-emoji').textContent = item.emoji;
+  document.getElementById('say-word').textContent  = 'Say ' + item.word;
+  document.getElementById('progress-text').textContent = (current+1) + ' / ' + ITEMS.length;
+  const pct = ((current+1)/ITEMS.length*100).toFixed(0);
+  document.getElementById('progress-fill').style.width = pct+'%';
+  renderStars();
+}
+
+function renderStars() {
+  document.getElementById('header-stars').textContent  = stars;
+  document.getElementById('reward-stars').textContent  = stars;
+  document.getElementById('reward-streak').textContent = streak;
+  const strip = document.getElementById('star-strip');
+  strip.innerHTML = '';
+  for (let i=0; i<Math.min(stars,12); i++) {
+    const s = document.createElement('span');
+    s.textContent = '⭐';
+    strip.appendChild(s);
+  }
+}
+
+function setModeUI() {
+  ['learn','count','find'].forEach(m => {
+    document.getElementById('tab-'+m).classList.toggle('active', m===mode);
+    document.getElementById('mode-'+m).style.display = m===mode ? '' : 'none';
+  });
+}
+
+function setCelebration(win) {
+  celebrating = win;
+  const card = document.getElementById('celebrate-card');
+  if (win) {
+    card.className = 'celebrate-card win';
+    document.getElementById('celebrate-icon').textContent = '🎉';
+    document.getElementById('celebrate-text').textContent = 'Awesome!';
+    document.getElementById('celebrate-sub').textContent  = 'You got ' + ITEMS[current].word + ' right.';
+  } else {
+    card.className = 'celebrate-card idle';
+    document.getElementById('celebrate-icon').textContent = '✅';
+    document.getElementById('celebrate-text').textContent = 'Ready to play';
+    document.getElementById('celebrate-sub').textContent  = 'Use audio, touch, and repetition.';
+  }
+}
+
+// ---- LEARN MODE ----
+function renderLearnDots() {
+  const box  = document.getElementById('dots-box');
+  const item = ITEMS[current];
+  box.innerHTML = '';
+  for (let i=0; i<item.n; i++) {
+    const d = document.createElement('span');
+    d.className = 'dot-emoji';
+    d.textContent = item.emoji;
+    d.style.animationDelay = (i*0.06)+'s';
+    box.appendChild(d);
+  }
+}
+
+function sayNumber() {
+  const item = ITEMS[current];
+  chime(540,.1);
+  speak(item.word + '. ' + item.n + '.', true);
+}
+
+// ---- COUNT MODE ----
+let tileOrder = [];
+function renderCountGrid() {
+  const item = ITEMS[current];
+  tapped = [];
+  const grid = document.getElementById('count-grid');
+  grid.innerHTML = '';
+  tileOrder = shuffle(Array.from({length:item.n},(_,i)=>i));
+  tileOrder.forEach(id => {
+    const btn = document.createElement('button');
+    btn.className = 'count-tile';
+    btn.dataset.id = id;
+    btn.textContent = item.emoji;
+    btn.addEventListener('click', () => tapCountTile(id, btn));
+    grid.appendChild(btn);
+  });
+}
+
+function tapCountTile(id, btn) {
+  if (tapped.includes(id) || celebrating) return;
+  tapped.push(id);
+  btn.classList.add('tapped');
+  chime(520 + tapped.length*45, 0.1);
+  const item = ITEMS[current];
+  if (tapped.length < item.n) {
+    setBubble(tapped.length + '! Keep going!');
+    speak(String(tapped.length));
+  } else {
+    setBubble('You counted ' + item.word + '!');
+    celebrateWin(item.word + '! Great job!');
+  }
+}
+
+// ---- FIND MODE ----
+let findChoices = [];
+function renderFindGrid() {
+  targetChoice = null;
+  const item = ITEMS[current];
+  findChoices = makeChoices(current);
+  const grid = document.getElementById('find-grid');
+  grid.innerHTML = '';
+  findChoices.forEach(n => {
+    const btn = document.createElement('button');
+    btn.className = 'find-tile';
+    btn.dataset.n = n;
+    btn.textContent = n;
+    btn.addEventListener('click', () => chooseNumber(n, btn));
+    grid.appendChild(btn);
+  });
+}
+
+function chooseNumber(value, btn) {
+  if (celebrating) return;
+  targetChoice = value;
+  const item = ITEMS[current];
+  document.querySelectorAll('.find-tile').forEach(t=>t.classList.remove('selected','correct','wrong'));
+  if (value === item.n) {
+    btn.classList.add('correct');
+    setBubble('Yes! That is ' + item.word + '.');
+    celebrateWin('Yes! ' + item.word + '!');
+  } else {
+    btn.classList.add('wrong');
+    chime(220,.18,'triangle');
+    streak = 0;
+    setBubble("Nice try. Let's find " + item.word + '.');
+    speak('Try again. Find ' + item.word + '.', true);
+    renderStars();
+  }
+}
+
+function makeChoices(idx) {
+  const correct = ITEMS[idx].n;
+  const pool    = ITEMS.map(x=>x.n).filter(x=>x!==correct);
+  return shuffle([correct, ...shuffle(pool).slice(0,2)]);
+}
+
+// ---- CELEBRATION ----
+function celebrateWin(msg) {
+  celebrating = true;
+  streak++;
+  stars++;
+  setCelebration(true);
+  launchConfetti(22);
+  jingle();
+  speak(msg);
+  renderStars();
+  if (advanceTimer) clearTimeout(advanceTimer);
+  advanceTimer = setTimeout(() => {
+    current = (current+1) % ITEMS.length;
+    celebrating = false;
+    setCelebration(false);
+    renderCurrent();
+  }, 2000);
+}
+
+// ---- CONTROLS ----
+function begin() {
+  chime(440,.08);
+  const item = ITEMS[current];
+  speak("Hello! Let's learn numbers. " + item.word + '.', true);
+  setBubble('Yay! Let's learn ' + item.word + '.');
+}
+
+function replay() {
+  const item = ITEMS[current];
+  if (mode==='learn') speak(item.word+'. '+item.n+'.'+item.emoji);
+  if (mode==='count') speak('Tap '+item.word+'. Count the '+item.label+'.', true);
+  if (mode==='find')  speak('Can you find '+item.word+'?', true);
+}
+
+function toggleMute() {
+  muted = !muted;
+  document.getElementById('mute-label').textContent = muted ? 'Unmute' : 'Mute';
+  document.getElementById('mute-btn').classList.toggle('btn-muted', muted);
+}
+
+function setMode(m) {
+  if (celebrating) return;
+  mode = m;
+  setModeUI();
+  renderCurrent();
+}
+
+function resetCurrent() {
+  if (advanceTimer) clearTimeout(advanceTimer);
+  celebrating = false;
+  setCelebration(false);
+  tapped = []; targetChoice = null;
+  setBubble("Let's try " + ITEMS[current].word + ' again.');
+  speak("Let's try again. " + ITEMS[current].word + '.', true);
+  renderInteraction();
+}
+
+function nextNumber() {
+  if (advanceTimer) clearTimeout(advanceTimer);
+  celebrating = false;
+  current = (current+1) % ITEMS.length;
+  renderCurrent();
+}
+
+function prevNumber() {
+  if (advanceTimer) clearTimeout(advanceTimer);
+  celebrating = false;
+  current = (current-1+ITEMS.length) % ITEMS.length;
+  renderCurrent();
+}
+
+function nextTheme() {
+  themeIndex = (themeIndex+1) % THEMES.length;
+  const t = THEMES[themeIndex];
+  document.body.className = t.cls;
+  document.getElementById('theme-emoji').textContent = t.emoji;
+  chime(660,.08);
+}
+
+// ---- RENDER ----
+function renderCurrent() {
+  const item = ITEMS[current];
+  updateDisplay();
+  setModeUI();
+  if (mode==='learn') setBubble('This is ' + item.word + '.');
+  if (mode==='count') setBubble('Tap all ' + item.word + ' ' + item.label + '.');
+  if (mode==='find')  setBubble('Which one is ' + item.word + '?');
+  renderInteraction();
+  // animate number display
+  ['num-big','num-word','num-emoji'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.style.animation='none'; void el.offsetWidth; el.style.animation='';
+  });
+}
+
+function renderInteraction() {
+  if (mode==='learn') {
+    renderLearnDots();
+    const item = ITEMS[current];
+    document.getElementById('zone-label').textContent = '👆 Tap the big button to hear ' + item.word;
+  }
+  if (mode==='count') {
+    renderCountGrid();
+    const item = ITEMS[current];
+    document.getElementById('zone-label').textContent = '👆 Tap all ' + item.n + ' ' + item.label;
+  }
+  if (mode==='find') {
+    renderFindGrid();
+    const item = ITEMS[current];
+    document.getElementById('zone-label').textContent = '👆 Tap the number ' + item.word;
+  }
+}
+
+// ---- UTILS ----
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+// ---- INIT ----
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+  window.speechSynthesis.getVoices();
+}
+renderCurrent();
+</script>
+</body>
+</html>

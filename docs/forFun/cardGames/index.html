@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="../auth.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Card Table — Multiplayer Card Games</title>
+  <meta name="description" content="A multiplayer card game platform. Host on your iPad, play on your phone. Choose from Blackjack, War, Go Fish, and more.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: auto;
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 30% 100%, rgba(26,74,46,0.4) 0%, transparent 60%),
+        #0a0f0d;
+    }
+
+    .lobby-container {
+      width: 100%;
+      max-width: 520px;
+      padding: 32px 24px;
+      text-align: center;
+    }
+
+    /* ===== LOGO ===== */
+    .logo-area { margin-bottom: 32px; }
+    .logo-suits { font-size: 32px; letter-spacing: 8px; margin-bottom: 8px; filter: drop-shadow(0 0 12px rgba(201,168,76,0.4)); }
+    .logo-title {
+      font-family: var(--font-display);
+      font-size: 42px;
+      font-weight: 900;
+      letter-spacing: 6px;
+      background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold-light) 50%, var(--gold-dark) 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 3s linear infinite;
+      text-transform: uppercase;
+    }
+    .logo-sub {
+      font-size: 12px;
+      letter-spacing: 4px;
+      color: rgba(201,168,76,0.5);
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* ===== ROLE SELECTION ===== */
+    .role-section { margin-bottom: 28px; }
+    .section-label {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: rgba(201,168,76,0.5);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      font-family: var(--font-display);
+    }
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .role-card {
+      padding: 24px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      border: 1px solid rgba(201,168,76,0.2);
+      background: rgba(255,255,255,0.03);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .role-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(201,168,76,0.05), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .role-card:hover { border-color: rgba(201,168,76,0.5); transform: translateY(-3px); }
+    .role-card:hover::before { opacity: 1; }
+    .role-card.selected { border-color: var(--gold); background: rgba(201,168,76,0.08); }
+    .role-icon { font-size: 36px; margin-bottom: 10px; display: block; }
+    .role-name { font-family: var(--font-display); font-size: 14px; letter-spacing: 2px; color: var(--gold); }
+    .role-desc { font-size: 11px; color: #888; margin-top: 4px; line-height: 1.4; }
+
+    /* ===== GAME SELECTION ===== */
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .game-card {
+      padding: 18px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      border: 1px solid rgba(201,168,76,0.15);
+      background: rgba(255,255,255,0.02);
+      transition: all 0.25s ease;
+      text-align: center;
+    }
+    .game-card:hover { border-color: rgba(201,168,76,0.4); background: rgba(201,168,76,0.05); transform: scale(1.02); }
+    .game-card.selected { border-color: var(--gold); background: rgba(201,168,76,0.1); }
+    .game-icon { font-size: 28px; display: block; margin-bottom: 6px; }
+    .game-name { font-family: var(--font-display); font-size: 13px; color: var(--gold); letter-spacing: 1px; }
+    .game-badge { font-size: 10px; color: #666; margin-top: 3px; }
+
+    /* ===== JOIN CODE ===== */
+    .join-section { margin-bottom: 24px; }
+    .code-input-wrap {
+      position: relative;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .code-input {
+      flex: 1;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 8px;
+      color: var(--gold-light);
+      font-family: var(--font-display);
+      font-size: 28px;
+      letter-spacing: 8px;
+      text-align: center;
+      padding: 14px;
+      outline: none;
+      text-transform: uppercase;
+      transition: border-color 0.3s;
+    }
+    .code-input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(201,168,76,0.15); }
+    .code-input::placeholder { color: rgba(201,168,76,0.25); letter-spacing: 6px; font-size: 18px; }
+
+    /* ===== NAME INPUT ===== */
+    .name-input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(201,168,76,0.25);
+      border-radius: 8px;
+      color: #e8e8e8;
+      font-family: var(--font-body);
+      font-size: 16px;
+      text-align: center;
+      padding: 12px;
+      outline: none;
+      transition: border-color 0.3s;
+      margin-bottom: 16px;
+    }
+    .name-input:focus { border-color: var(--gold); }
+    .name-input::placeholder { color: #555; }
+
+    /* ===== ACTIONS ===== */
+    .action-row { display: flex; gap: 10px; justify-content: center; }
+    .action-row .btn { flex: 1; max-width: 220px; padding: 16px; font-size: 13px; }
+
+    /* ===== DIVIDER ===== */
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 24px 0; color: #444; font-size: 12px; letter-spacing: 2px;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px; background: rgba(201,168,76,0.15);
+    }
+
+    /* ===== ROOM CODE DISPLAY ===== */
+    .room-code-display {
+      font-family: var(--font-display);
+      font-size: 48px;
+      letter-spacing: 16px;
+      color: var(--gold);
+      text-shadow: 0 0 24px rgba(201,168,76,0.4);
+      padding: 16px;
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 12px;
+      background: rgba(201,168,76,0.05);
+      margin: 16px 0;
+    }
+    .room-code-label { font-size: 10px; letter-spacing: 4px; color: rgba(201,168,76,0.5); text-transform: uppercase; margin-bottom: 4px; }
+
+    /* ===== QR CODE ===== */
+    .qr-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 16px 0;
+    }
+    .qr-wrap img {
+      border-radius: 8px;
+      border: 4px solid var(--felt);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      width: 160px; height: 160px;
+    }
+    .qr-note { font-size: 11px; color: #666; margin-top: 8px; }
+
+    /* ===== PLAYER LIST ===== */
+    .players-waiting {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 16px 0;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .player-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(201,168,76,0.15);
+      border-radius: 8px;
+    }
+    .player-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 700; color: #0a0f0d;
+      font-family: var(--font-display);
+    }
+    .player-name { flex: 1; font-size: 14px; }
+    .player-status { font-size: 10px; }
+
+    /* ===== VIEW STATES ===== */
+    .view { display: none; }
+    .view.active { display: block; animation: slideUp 0.4s ease; }
+
+    /* ===== FELT TEXTURE ===== */
+    .felt-divider {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(201,168,76,0.3), transparent);
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="toast">♠ Dealt!</div>
+  <div class="lobby-container">
+
+    <!-- LOGO -->
+    <div class="logo-area">
+      <div class="logo-suits">♠ ♥ ♦ ♣</div>
+      <div class="logo-title">Card Table</div>
+      <div class="logo-sub">Multiplayer · Any Device</div>
+    </div>
+
+    <!-- VIEW: INITIAL CHOICE -->
+    <div id="view-start" class="view active">
+      <div class="section-label">I am playing on a…</div>
+      <div class="role-grid">
+        <div class="role-card" id="role-table" onclick="selectRole('table')">
+          <span class="role-icon">📱→🖥️</span>
+          <div class="role-name">Table</div>
+          <div class="role-desc">iPad or desktop — the shared game board</div>
+        </div>
+        <div class="role-card" id="role-hand" onclick="selectRole('hand')">
+          <span class="role-icon">🤚</span>
+          <div class="role-name">Hand</div>
+          <div class="role-desc">Phone — your private cards &amp; controls</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW: TABLE HOST SETUP -->
+    <div id="view-table-setup" class="view">
+      <div class="section-label">Choose a game</div>
+      <div class="games-grid" id="game-grid"></div>
+
+      <input class="name-input" id="host-name" type="text" placeholder="Your nickname (optional)" maxlength="16">
+
+      <div class="action-row">
+        <button class="btn btn-gold" id="btn-host" onclick="hostTable()" disabled>🃏 Host Table</button>
+      </div>
+      <div class="felt-divider" style="margin-top:20px"></div>
+      <button class="btn btn-glass" onclick="goBack()" style="width:100%; margin-top:8px; font-size:12px">← Back</button>
+    </div>
+
+    <!-- VIEW: TABLE WAITING (show QR + code) -->
+    <div id="view-table-waiting" class="view">
+      <div class="section-label">Share this code</div>
+      <div class="room-code-label">Room Code</div>
+      <div class="room-code-display" id="display-room-code">····</div>
+
+      <div class="qr-wrap">
+        <img id="qr-img" src="" alt="QR Code to join">
+        <div class="qr-note">Players scan to join with their phone</div>
+      </div>
+
+      <div class="section-label" style="margin-top:16px">Players joined</div>
+      <div class="players-waiting" id="waiting-players-list"></div>
+
+      <div class="action-row" style="margin-top:16px">
+        <button class="btn btn-gold" id="btn-start-game" onclick="startGame()" disabled>▶ Start Game</button>
+        <button class="btn btn-glass" onclick="resetToStart()" style="max-width:100px">✕ Cancel</button>
+      </div>
+    </div>
+
+    <!-- VIEW: HAND JOIN -->
+    <div id="view-hand-join" class="view">
+      <div class="section-label">Enter the room code</div>
+      <input class="code-input" id="join-code" type="text" maxlength="4" placeholder="···· " oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+      <input class="name-input" id="join-name" type="text" placeholder="Your nickname" maxlength="16" style="margin-top:12px">
+
+      <div class="action-row" style="margin-top:16px">
+        <button class="btn btn-gold" onclick="joinTable()">Join Game →</button>
+      </div>
+      <div class="felt-divider"></div>
+      <button class="btn btn-glass" onclick="goBack()" style="width:100%; font-size:12px">← Back</button>
+    </div>
+
+  </div>
+
+  <script>
+    // ===== SYNC (BroadcastChannel — no Firebase needed for initial lobby demo) =====
+    const BC = new BroadcastChannel('card-table-sync');
+    let _role = null;
+    let _roomCode = null;
+    let _selectedGame = null;
+    let _playerName = null;
+    let _playerList = {}; // { playerId: name }
+    let _playerId = null;
+
+    // GAME CATALOG
+    const GAMES = [
+      { id: 'blackjack', name: 'Blackjack', icon: '🃏', badge: '1–6 players', desc: 'Beat the dealer' },
+      { id: 'war',       name: 'War',       icon: '⚔️', badge: '2–4 players', desc: 'Highest card wins' },
+      { id: 'gofish',    name: 'Go Fish',   icon: '🐟', badge: '2–5 players', desc: 'Collect sets of 4' },
+      { id: 'snap',      name: 'Snap',      icon: '👆', badge: '2–6 players', desc: 'Shout SNAP fastest' },
+    ];
+
+    // ===== INIT =====
+    function init() {
+      // Check if arriving from QR code (?join=XXXX)
+      const params = new URLSearchParams(window.location.search);
+      const joinCode = params.get('join');
+      if (joinCode) {
+        selectRole('hand');
+        document.getElementById('join-code').value = joinCode.toUpperCase();
+      }
+      buildGameGrid();
+      // Listen for join requests (table listens for players)
+      BC.onmessage = handleBCMessage;
+    }
+
+    function buildGameGrid() {
+      const grid = document.getElementById('game-grid');
+      grid.innerHTML = '';
+      for (const g of GAMES) {
+        const card = document.createElement('div');
+        card.className = 'game-card';
+        card.id = 'game-' + g.id;
+        card.onclick = () => selectGame(g.id);
+        card.innerHTML = `
+          <span class="game-icon">${g.icon}</span>
+          <div class="game-name">${g.name}</div>
+          <div class="game-badge">${g.badge}</div>`;
+        grid.appendChild(card);
+      }
+    }
+
+    // ===== VIEW NAVIGATION =====
+    function showView(id) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function selectRole(role) {
+      _role = role;
+      document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+      document.getElementById('role-' + role).classList.add('selected');
+      setTimeout(() => {
+        if (role === 'table') showView('view-table-setup');
+        else showView('view-hand-join');
+      }, 180);
+    }
+
+    function goBack() {
+      _selectedGame = null;
+      document.querySelectorAll('.game-card').forEach(c => c.classList.remove('selected'));
+      showView('view-start');
+    }
+
+    function selectGame(id) {
+      _selectedGame = id;
+      document.querySelectorAll('.game-card').forEach(c => c.classList.remove('selected'));
+      document.getElementById('game-' + id).classList.add('selected');
+      document.getElementById('btn-host').disabled = false;
+    }
+
+    // ===== HOST TABLE =====
+    function hostTable() {
+      if (!_selectedGame) { toast('Pick a game first!'); return; }
+      _roomCode = generateCode();
+      _playerName = document.getElementById('host-name').value.trim() || 'Host';
+      _playerId = 'host';
+      _playerList = { host: _playerName };
+
+      const joinUrl = buildJoinUrl(_roomCode);
+      showView('view-table-waiting');
+      document.getElementById('display-room-code').textContent = _roomCode;
+      loadQR(joinUrl);
+      updateWaitingList();
+
+      // Broadcast that this table is open
+      BC.postMessage({ type: 'table-open', roomCode: _roomCode, game: _selectedGame, host: _playerName });
+      // Save to sessionStorage for the table view
+      sessionStorage.setItem('cg_role', 'table');
+      sessionStorage.setItem('cg_room', _roomCode);
+      sessionStorage.setItem('cg_game', _selectedGame);
+      sessionStorage.setItem('cg_name', _playerName);
+      sessionStorage.setItem('cg_players', JSON.stringify(_playerList));
+    }
+
+    function startGame() {
+      sessionStorage.setItem('cg_players', JSON.stringify(_playerList));
+      window.location.href = 'table/index.html';
+    }
+
+    // ===== JOIN TABLE =====
+    function joinTable() {
+      const code = document.getElementById('join-code').value.trim().toUpperCase();
+      const name = document.getElementById('join-name').value.trim() || 'Player';
+      if (code.length !== 4) { toast('Enter a 4-character code'); return; }
+
+      _roomCode = code;
+      _playerName = name;
+      _playerId = 'player_' + Date.now();
+
+      sessionStorage.setItem('cg_role', 'hand');
+      sessionStorage.setItem('cg_room', code);
+      sessionStorage.setItem('cg_name', name);
+      sessionStorage.setItem('cg_pid', _playerId);
+
+      // Notify table
+      BC.postMessage({ type: 'player-join', roomCode: code, playerId: _playerId, name });
+      toast(`Joining ${code}…`);
+
+      setTimeout(() => { window.location.href = 'hand/index.html'; }, 600);
+    }
+
+    // ===== BROADCAST HANDLING =====
+    function handleBCMessage(evt) {
+      const msg = evt.data;
+      if (!msg) return;
+      if (msg.type === 'player-join' && msg.roomCode === _roomCode) {
+        _playerList[msg.playerId] = msg.name;
+        sessionStorage.setItem('cg_players', JSON.stringify(_playerList));
+        updateWaitingList();
+        const count = Object.keys(_playerList).length;
+        document.getElementById('btn-start-game').disabled = count < 2;
+        toast(`${msg.name} joined! (${count} players)`);
+      }
+    }
+
+    function updateWaitingList() {
+      const list = document.getElementById('waiting-players-list');
+      if (!list) return;
+      list.innerHTML = '';
+      for (const [pid, name] of Object.entries(_playerList)) {
+        const row = document.createElement('div');
+        row.className = 'player-row';
+        const initial = name[0].toUpperCase();
+        row.innerHTML = `
+          <div class="player-avatar">${initial}</div>
+          <div class="player-name">${name}</div>
+          <div class="player-status badge badge-active">Ready</div>`;
+        list.appendChild(row);
+      }
+      const count = Object.keys(_playerList).length;
+      document.getElementById('btn-start-game').disabled = count < 2;
+    }
+
+    function resetToStart() {
+      _roomCode = null; _selectedGame = null; _role = null; _playerList = {};
+      document.querySelectorAll('.game-card, .role-card').forEach(c => c.classList.remove('selected'));
+      showView('view-start');
+    }
+
+    // ===== HELPERS =====
+    function generateCode() {
+      const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      return Array.from({length:4}, () => c[Math.floor(Math.random()*c.length)]).join('');
+    }
+
+    function buildJoinUrl(code) {
+      const base = window.location.href.split('?')[0];
+      return base + '?join=' + code;
+    }
+
+    function loadQR(url) {
+      const img = document.getElementById('qr-img');
+      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}&bgcolor=0a0f0d&color=c9a84c&margin=8`;
+      img.onerror = () => {
+        img.src = `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(url)}`;
+      };
+    }
+
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(t._timeout);
+      t._timeout = setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -3,88 +3,95 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="description"
-        content="A fun coloring book game for kids! Choose colors and fill in beautiful stencil pictures.">
-    <title>Coloring Book</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="theme-color" content="#fff1d5">
+    <meta name="description" content="A simple coloring app with big touch targets for toddlers on iPad.">
+    <title>Color Parade</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Outfit:wght@400;700;900&display=swap"
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@700;900&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <!-- Fun background blobs -->
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
-    <div class="blob blob-3"></div>
+    <div class="app-shell">
+        <header class="top-bar">
+            <div class="title-chip">
+                <span class="title-emoji" aria-hidden="true">🎨</span>
+                <div>
+                    <p class="eyebrow">Finger paint fun</p>
+                    <h1>Color Parade</h1>
+                </div>
+            </div>
 
-    <!-- Header -->
-    <header>
-        <h1>🎨 Coloring Book</h1>
-        <p class="subtitle">Pick a picture and color it in!</p>
-    </header>
+            <div class="action-row">
+                <button id="surprise-btn" class="action-btn action-btn-warm" type="button" aria-label="Choose a new picture">
+                    <span aria-hidden="true">🎲</span>
+                    <span>New picture</span>
+                </button>
+                <button id="clear-btn" class="action-btn action-btn-soft" type="button" aria-label="Clear the current picture">
+                    <span aria-hidden="true">🫧</span>
+                    <span>Wipe clean</span>
+                </button>
+            </div>
+        </header>
 
-    <!-- Stencil Picker -->
-    <div id="stencil-picker" class="stencil-picker">
-        <button class="stencil-btn active" data-stencil="butterfly">
-            <span class="stencil-icon">🦋</span>
-            <span class="stencil-label">Butterfly</span>
-        </button>
-        <button class="stencil-btn" data-stencil="dinosaur">
-            <span class="stencil-icon">🦕</span>
-            <span class="stencil-label">Dinosaur</span>
-        </button>
-        <button class="stencil-btn" data-stencil="house">
-            <span class="stencil-icon">🏠</span>
-            <span class="stencil-label">House</span>
-        </button>
-        <button class="stencil-btn" data-stencil="rocket">
-            <span class="stencil-icon">🚀</span>
-            <span class="stencil-label">Rocket</span>
-        </button>
-        <button class="stencil-btn" data-stencil="fish">
-            <span class="stencil-icon">🐠</span>
-            <span class="stencil-label">Fish</span>
-        </button>
+        <main class="workspace">
+            <aside class="picture-rail" aria-label="Picture choices">
+                <div class="rail-heading">
+                    <span class="rail-heading-icon" aria-hidden="true">🖼️</span>
+                    <span>Pictures</span>
+                </div>
+                <div id="picture-strip" class="picture-strip"></div>
+            </aside>
+
+            <section class="stage-panel" aria-label="Coloring area">
+                <div class="stage-card">
+                    <div id="stage-fit" class="stage-fit">
+                        <div id="stage-frame" class="stage-frame">
+                            <canvas id="paint-canvas" width="1600" height="1200" aria-label="Coloring canvas"></canvas>
+                            <div id="line-art" class="line-art" aria-hidden="true"></div>
+                            <div id="helper-bubble" class="helper-bubble" aria-hidden="true">
+                                <span>👇</span>
+                                <span>🎨</span>
+                                <span>✨</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stage-caption">
+                        <span id="page-emoji" class="page-emoji" aria-hidden="true">🦆</span>
+                        <div>
+                            <p id="page-name" class="page-name">Duck Pond</p>
+                            <p class="page-hint">Tap a color, then draw anywhere.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="tray-panel" aria-label="Painting tools">
+                <section class="tray-card">
+                    <div class="tray-heading">
+                        <span class="tray-icon" aria-hidden="true">🌈</span>
+                        <span>Colors</span>
+                    </div>
+                    <div id="color-palette" class="color-palette"></div>
+                </section>
+
+                <section class="tray-card">
+                    <div class="tray-heading">
+                        <span class="tray-icon" aria-hidden="true">🖍️</span>
+                        <span>Brush size</span>
+                    </div>
+                    <div id="size-picker" class="size-picker"></div>
+                </section>
+            </aside>
+        </main>
     </div>
-
-    <!-- Main Canvas Area -->
-    <main class="canvas-area">
-        <div class="canvas-container">
-            <svg id="coloring-canvas" viewBox="0 0 600 500" xmlns="http://www.w3.org/2000/svg">
-                <!-- Stencil paths injected by JS -->
-            </svg>
-        </div>
-    </main>
-
-    <!-- Color Palette -->
-    <div id="color-palette" class="color-palette">
-        <!-- Colors injected by JS -->
-    </div>
-
-    <!-- Tool Bar -->
-    <div class="toolbar">
-        <button id="eraser-btn" class="tool-btn" title="Eraser">
-            <span>🧹</span>
-            <span class="tool-label">Eraser</span>
-        </button>
-        <button id="clear-btn" class="tool-btn" title="Clear All">
-            <span>🗑️</span>
-            <span class="tool-label">Clear</span>
-        </button>
-        <button id="save-btn" class="tool-btn" title="Save Drawing">
-            <span>💾</span>
-            <span class="tool-label">Save</span>
-        </button>
-    </div>
-
-    <footer>
-        <p>&copy; 2026 Fun Hub for Kids</p>
-    </footer>
 
     <script src="game.js"></script>
 </body>

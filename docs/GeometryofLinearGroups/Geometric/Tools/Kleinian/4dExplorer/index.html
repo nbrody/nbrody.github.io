@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4D Kleinian Group Explorer</title>
+
+<!-- Tweakpane v4 -->
+<script type="module">
+import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.5/dist/tweakpane.min.js';
+window.Pane = Pane;
+window.dispatchEvent(new Event('tweakpane-ready'));
+</script>
+
+<style>
+/* ── Reset & Full-screen canvas ── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+canvas { display: block; width: 100%; height: 100%; }
+
+/* ── Glassmorphism UI container ── */
+#ui-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 100;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+#ui-container.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(20px);
+}
+
+/* Override Tweakpane theme for glassmorphism */
+:root {
+  --tp-base-background-color: hsla(230, 20%, 11%, 0.55);
+  --tp-base-shadow-color: hsla(0, 0%, 0%, 0.2);
+  --tp-button-background-color: hsla(230, 20%, 30%, 0.5);
+  --tp-button-background-color-active: hsla(230, 20%, 40%, 0.6);
+  --tp-button-background-color-focus: hsla(230, 20%, 35%, 0.55);
+  --tp-button-background-color-hover: hsla(230, 20%, 35%, 0.55);
+  --tp-button-foreground-color: hsla(230, 20%, 90%, 0.9);
+  --tp-container-background-color: hsla(230, 15%, 15%, 0.35);
+  --tp-container-background-color-active: hsla(230, 15%, 20%, 0.45);
+  --tp-container-background-color-focus: hsla(230, 15%, 18%, 0.4);
+  --tp-container-background-color-hover: hsla(230, 15%, 18%, 0.4);
+  --tp-container-foreground-color: hsla(230, 10%, 80%, 0.85);
+  --tp-groove-foreground-color: hsla(230, 15%, 30%, 0.5);
+  --tp-input-background-color: hsla(230, 15%, 15%, 0.45);
+  --tp-input-background-color-active: hsla(230, 15%, 20%, 0.55);
+  --tp-input-background-color-focus: hsla(230, 15%, 18%, 0.5);
+  --tp-input-background-color-hover: hsla(230, 15%, 18%, 0.5);
+  --tp-input-foreground-color: hsla(230, 10%, 85%, 0.9);
+  --tp-label-foreground-color: hsla(230, 10%, 70%, 0.8);
+  --tp-monitor-background-color: hsla(230, 15%, 12%, 0.4);
+  --tp-monitor-foreground-color: hsla(230, 10%, 75%, 0.85);
+}
+
+/* Glass blur on the pane root */
+#ui-container .tp-dfwv {
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid hsla(230, 20%, 50%, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px hsla(0, 0%, 0%, 0.4);
+}
+
+/* Toggle hint */
+#toggle-hint {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  z-index: 101;
+  color: hsla(0, 0%, 80%, 0.5);
+  font: 12px/1.4 'SF Mono', 'Fira Code', monospace;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+#toggle-hint.hidden { opacity: 0; }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+<div id="ui-container"></div>
+<div id="toggle-hint">Press <b>H</b> to toggle UI</div>
+
+<script type="module">
+// ══════════════════════════════════════════════════════════════════════════
+// GLSL Shaders
+// ══════════════════════════════════════════════════════════════════════════
+
+const vertexShaderSrc = `#version 300 es
+precision highp float;
+in vec2 aPosition;
+void main() {
+    gl_Position = vec4(aPosition, 0.0, 1.0);
+}
+`;
+
+const fragmentShaderSrc = `#version 300 es
+precision highp float;
+out vec4 fragColor;
+
+// ── Uniforms ──
+uniform vec2  uResolution;
+uniform float uTime;
+uniform vec3  uCamPos;       // Camera position in world space
+uniform vec3  uCamTarget;    // Look-at target
+uniform float uCamFov;       // Field of view (radians)
+uniform int   uGroup;        // 0=Apollonian, 1=Schottky, 2=Sierpinski-Octa, 3=Tangent Pearls
+uniform int   uColoring;     // 0=Orbit Trap, 1=Smooth Iter, 2=Generator Parity, 3=Normals
+uniform int   uPalette;      // 0=Abyss, 1=Cyberpunk, 2=Molten, 3=Mono
+uniform int   uMaxIter;      // IFS max iterations
+uniform float uSeparation;   // Schottky sphere separation
+
+// ── Constants ──
+#define PI 3.14159265359
+#define MAX_MARCH_STEPS 128
+#define MAX_DIST 20.0
+#define SURF_DIST 0.0005
+#define NORM_EPS 0.0005
+
+// ══════════════════════════════════════════════════════════════════════════
+// Procedural color palettes (Inigo Quilez cosine palette)
+//   color = a + b * cos(2π(c*t + d))
+// ══════════════════════════════════════════════════════════════════════════
+
+vec3 palette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
+    return a + b * cos(6.28318 * (c * t + d));
+}
+
+vec3 getPaletteColor(float t) {
+    // Bioluminescent Abyss: deep navy → teal → seafoam
+    if (uPalette == 0)
+        return palette(t,
+            vec3(0.05, 0.12, 0.22),   // dark navy base
+            vec3(0.15, 0.45, 0.40),   // teal amplitude
+            vec3(1.0, 1.0, 0.8),      // frequency
+            vec3(0.0, 0.15, 0.20));   // phase → shifts green
+
+    // Cyberpunk: dark bg with neon magenta, electric cyan, deep purple
+    if (uPalette == 1)
+        return palette(t,
+            vec3(0.15, 0.05, 0.20),   // dark purple base
+            vec3(0.60, 0.40, 0.55),   // vibrant amplitude
+            vec3(1.0, 1.0, 1.0),      // frequency
+            vec3(0.80, 0.10, 0.50));  // phase → magenta/cyan split
+
+    // Molten Gold: obsidian → amber → orange → gold
+    if (uPalette == 2)
+        return palette(t,
+            vec3(0.15, 0.08, 0.02),   // obsidian base
+            vec3(0.60, 0.40, 0.15),   // warm amplitude
+            vec3(1.0, 0.7, 0.4),      // frequency
+            vec3(0.0, 0.05, 0.10));   // phase
+
+    // Monochrome Electron: pure grayscale
+    return palette(t,
+        vec3(0.35, 0.35, 0.35),   // mid gray base
+        vec3(0.35, 0.35, 0.35),   // gray amplitude
+        vec3(1.0, 1.0, 1.0),      // frequency
+        vec3(0.0, 0.0, 0.0));     // no phase offset
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// Sphere inversion primitive
+//
+// Given a point p, a sphere center c and radius r:
+//   p' = c + (p - c) * r² / |p - c|²
+//
+// The local scaling factor is r² / |p - c|², which we accumulate
+// to compute the final distance estimate.
+// ══════════════════════════════════════════════════════════════════════════
+
+// Invert point p through sphere (center, radius). Returns new p.
+// 'scale' is accumulated derivative scaling.
+vec3 sphereInvert(vec3 p, vec3 center, float radius, inout float scale) {
+    vec3 d = p - center;
+    float r2 = radius * radius;
+    float d2 = dot(d, d);
+    float ratio = r2 / d2;
+    scale *= ratio;        // chain-rule: accumulate scaling
+    return center + d * ratio;
+}
+
+// Fold point across a plane defined by normal n and offset d
+vec3 planeFold(vec3 p, vec3 n, float d) {
+    float t = dot(p, n) - d;
+    if (t < 0.0) p -= 2.0 * t * n;
+    return p;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// GROUP 0: Apollonian Gasket
+//
+// 5 mutually tangent spheres: 4 at tetrahedron vertices + 1 outer.
+// The fractal is the closure of all sphere inversions.
+// ══════════════════════════════════════════════════════════════════════════
+
+float apollonianDE(vec3 p, out float trapDist, out float iterCount, out int lastGen) {
+    float scale = 1.0;
+    trapDist = 1e10;
+    lastGen = 0;
+
+    // Tetrahedron vertices (unit circumradius)
+    // v0=(1,1,1)/√3, v1=(1,-1,-1)/√3, v2=(-1,1,-1)/√3, v3=(-1,-1,1)/√3
+    float s3 = 1.0 / sqrt(3.0);
+    vec3 c0 = vec3( s3,  s3,  s3);
+    vec3 c1 = vec3( s3, -s3, -s3);
+    vec3 c2 = vec3(-s3,  s3, -s3);
+    vec3 c3 = vec3(-s3, -s3,  s3);
+
+    // Sphere radius chosen so they are mutually tangent
+    // Distance between any two centers = 2/√3 ≈ 1.1547
+    // For tangency: 2r = dist → r ≈ 0.5774
+    float r = 1.0 / sqrt(3.0);
+
+    // Outer inverting sphere centered at origin
+    float rOuter = 1.8;
+
+    for (int i = 0; i < 80; i++) {
+        if (i >= uMaxIter) break;
+
+        // Find the sphere whose center is closest to p
+        float d0 = length(p - c0) - r;
+        float d1 = length(p - c1) - r;
+        float d2 = length(p - c2) - r;
+        float d3 = length(p - c3) - r;
+
+        float dMin = d0;
+        int gen = 0;
+        if (d1 < dMin) { dMin = d1; gen = 1; }
+        if (d2 < dMin) { dMin = d2; gen = 2; }
+        if (d3 < dMin) { dMin = d3; gen = 3; }
+
+        // If inside sphere, invert
+        if (dMin < 0.0) {
+            vec3 cen = (gen == 0) ? c0 : (gen == 1) ? c1 : (gen == 2) ? c2 : c3;
+            p = sphereInvert(p, cen, r, scale);
+            lastGen = gen;
+        }
+
+        // Outer inversion: if outside the bounding sphere, invert back in
+        float dOuter = length(p) - rOuter;
+        if (dOuter > 0.0) {
+            p = sphereInvert(p, vec3(0.0), rOuter, scale);
+            lastGen = 4;
+        }
+
+        // Orbit trap: distance to origin
+        trapDist = min(trapDist, length(p));
+        iterCount = float(i);
+    }
+
+    // Distance estimate: SDF of remaining geometry / accumulated scale
+    float baseDist = length(p) - r * 0.5;
+    return baseDist / scale;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// GROUP 1: Schottky Group (Cantor Dust)
+//
+// 6 disjoint spheres on ±x, ±y, ±z axes. Adjust separation to morph
+// from disconnected dust to connected fractal.
+// ══════════════════════════════════════════════════════════════════════════
+
+float schottkyDE(vec3 p, out float trapDist, out float iterCount, out int lastGen) {
+    float scale = 1.0;
+    trapDist = 1e10;
+    lastGen = 0;
+
+    float sep = uSeparation;   // Distance from origin to sphere center
+    float rad = 0.5;           // Sphere radius
+
+    // 6 sphere centers along coordinate axes
+    vec3 centers[6];
+    centers[0] = vec3( sep, 0.0, 0.0);
+    centers[1] = vec3(-sep, 0.0, 0.0);
+    centers[2] = vec3(0.0,  sep, 0.0);
+    centers[3] = vec3(0.0, -sep, 0.0);
+    centers[4] = vec3(0.0, 0.0,  sep);
+    centers[5] = vec3(0.0, 0.0, -sep);
+
+    for (int i = 0; i < 80; i++) {
+        if (i >= uMaxIter) break;
+
+        // Find closest sphere
+        float bestD = 1e10;
+        int bestGen = 0;
+        for (int j = 0; j < 6; j++) {
+            float d = length(p - centers[j]) - rad;
+            if (d < bestD) { bestD = d; bestGen = j; }
+        }
+
+        // If inside any sphere, invert through it
+        if (bestD < 0.0) {
+            p = sphereInvert(p, centers[bestGen], rad, scale);
+            lastGen = bestGen;
+        }
+
+        trapDist = min(trapDist, length(p));
+        iterCount = float(i);
+    }
+
+    float baseDist = length(p) - rad * 0.3;
+    return baseDist / scale;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// GROUP 2: Sierpinski-Octahedron
+//
+// Fold across octahedral symmetry planes, then invert through a
+// central sphere. Produces a Sierpinski-tetrahedron/octahedron fractal.
+// ══════════════════════════════════════════════════════════════════════════
+
+float sierpinskiOctaDE(vec3 p, out float trapDist, out float iterCount, out int lastGen) {
+    float scale = 1.0;
+    trapDist = 1e10;
+    lastGen = 0;
+
+    float foldScale = 2.0;
+    vec3 offset = vec3(1.0, 1.0, 1.0);
+
+    for (int i = 0; i < 80; i++) {
+        if (i >= uMaxIter) break;
+
+        // Fold across coordinate planes (octahedral reflections)
+        p = abs(p);
+        lastGen = 0;
+
+        // Fold across the plane x = y
+        if (p.x < p.y) { p.xy = p.yx; lastGen = 1; }
+        // Fold across the plane y = z
+        if (p.y < p.z) { p.yz = p.zy; lastGen = 2; }
+        // Fold across the plane x = y again
+        if (p.x < p.y) { p.xy = p.yx; lastGen = 3; }
+
+        // Scale and translate (IFS contraction)
+        p = p * foldScale - offset * (foldScale - 1.0);
+        scale *= foldScale;
+
+        // Central sphere inversion for the 4D Kleinian character
+        float r2 = dot(p, p);
+        float invR = 1.2;
+        if (r2 < invR * invR) {
+            float ratio = (invR * invR) / r2;
+            p *= ratio;
+            scale *= ratio;
+            lastGen = 4;
+        }
+
+        trapDist = min(trapDist, length(p) / scale);
+        iterCount = float(i);
+    }
+
+    // Distance to a small sphere at the origin
+    return (length(p) - 0.5) / scale;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// GROUP 3: Tangent Pearls (Necklace)
+//
+// A ring of tangent spheres forming a necklace along a circle.
+// Inversions through these spheres plus a central inversion produce
+// a beautiful fractal chain.
+// ══════════════════════════════════════════════════════════════════════════
+
+float tangentPearlsDE(vec3 p, out float trapDist, out float iterCount, out int lastGen) {
+    float scale = 1.0;
+    trapDist = 1e10;
+    lastGen = 0;
+
+    int nPearls = 6;
+    float ringRadius = 1.0;       // Radius of the necklace circle
+    // Pearl radius so they are tangent: 2r sin(π/n) = gap between centers on ring
+    // center-to-center = 2 ringRadius sin(π/n), tangent → sphereRadius = ringRadius sin(π/n)
+    float pearlRadius = ringRadius * sin(PI / float(nPearls));
+
+    for (int i = 0; i < 80; i++) {
+        if (i >= uMaxIter) break;
+
+        // Find closest pearl
+        float bestD = 1e10;
+        int bestGen = 0;
+        vec3 bestCenter;
+        for (int j = 0; j < 6; j++) {
+            float angle = 2.0 * PI * float(j) / float(nPearls);
+            vec3 c = vec3(ringRadius * cos(angle), ringRadius * sin(angle), 0.0);
+            float d = length(p - c) - pearlRadius;
+            if (d < bestD) {
+                bestD = d;
+                bestGen = j;
+                bestCenter = c;
+            }
+        }
+
+        // If inside a pearl, invert through it
+        if (bestD < 0.0) {
+            p = sphereInvert(p, bestCenter, pearlRadius, scale);
+            lastGen = bestGen;
+        }
+
+        // Central inversion sphere (inside the ring)
+        float centralR = ringRadius - pearlRadius;
+        float dCenter = length(p) - centralR;
+        if (dCenter > 0.0) {
+            // Invert outside points back in
+            float r2 = centralR * centralR;
+            float d2 = dot(p, p);
+            float ratio = r2 / d2;
+            p *= ratio;
+            scale *= ratio;
+            lastGen = nPearls;
+        }
+
+        trapDist = min(trapDist, length(p));
+        iterCount = float(i);
+    }
+
+    return (length(p) - pearlRadius * 0.4) / scale;
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// Unified Distance Estimator
+// ══════════════════════════════════════════════════════════════════════════
+
+float fractalDE(vec3 p, out float trapDist, out float iterCount, out int lastGen) {
+    if (uGroup == 0) return apollonianDE(p, trapDist, iterCount, lastGen);
+    if (uGroup == 1) return schottkyDE(p, trapDist, iterCount, lastGen);
+    if (uGroup == 2) return sierpinskiOctaDE(p, trapDist, iterCount, lastGen);
+    return tangentPearlsDE(p, trapDist, iterCount, lastGen);
+}
+
+// Overload without extras for normal computation
+float fractalDE(vec3 p) {
+    float t; float ic; int lg;
+    return fractalDE(p, t, ic, lg);
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// Surface normal via central differences of the SDF
+// ══════════════════════════════════════════════════════════════════════════
+
+vec3 calcNormal(vec3 p) {
+    vec2 e = vec2(NORM_EPS, 0.0);
+    return normalize(vec3(
+        fractalDE(p + e.xyy) - fractalDE(p - e.xyy),
+        fractalDE(p + e.yxy) - fractalDE(p - e.yxy),
+        fractalDE(p + e.yyx) - fractalDE(p - e.yyx)
+    ));
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// Soft shadow via raymarching from surface toward light
+// ══════════════════════════════════════════════════════════════════════════
+
+float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
+    float res = 1.0;
+    float t = mint;
+    for (int i = 0; i < 48; i++) {
+        float d = fractalDE(ro + rd * t);
+        if (d < SURF_DIST * 0.5) return 0.0;
+        res = min(res, k * d / t);
+        t += clamp(d, 0.002, 0.2);
+        if (t > maxt) break;
+    }
+    return clamp(res, 0.0, 1.0);
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// Camera ray generation
+// ══════════════════════════════════════════════════════════════════════════
+
+mat3 getCameraMatrix(vec3 eye, vec3 target) {
+    vec3 fwd = normalize(target - eye);
+    vec3 right = normalize(cross(fwd, vec3(0.0, 1.0, 0.0)));
+    vec3 up = cross(right, fwd);
+    return mat3(right, up, fwd);
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// Main rendering
+// ══════════════════════════════════════════════════════════════════════════
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
+
+    // Camera setup
+    mat3 camMat = getCameraMatrix(uCamPos, uCamTarget);
+    float focalLen = 1.0 / tan(uCamFov * 0.5);
+    vec3 rd = normalize(camMat * vec3(uv, focalLen));
+    vec3 ro = uCamPos;
+
+    // ── Raymarching ──
+    float t = 0.0;
+    float trapDist, iterCount;
+    int lastGen;
+    float minTrap = 1e10;
+    float totalIter = 0.0;
+    int finalGen = 0;
+    bool hit = false;
+
+    for (int i = 0; i < MAX_MARCH_STEPS; i++) {
+        vec3 p = ro + rd * t;
+        float trap, ic;
+        int lg;
+        float d = fractalDE(p, trap, ic, lg);
+
+        minTrap = min(minTrap, trap);
+        totalIter = ic;
+        finalGen = lg;
+
+        if (d < SURF_DIST) {
+            hit = true;
+            break;
+        }
+        if (t > MAX_DIST) break;
+
+        t += d * 0.8; // Slight under-step for safety
+    }
+
+    vec3 col = vec3(0.0);
+
+    if (hit) {
+        vec3 p = ro + rd * t;
+        vec3 n = calcNormal(p);
+
+        // ── Lighting ──
+        vec3 lightDir = normalize(vec3(0.8, 1.2, -0.5));
+        float diff = max(dot(n, lightDir), 0.0);
+        float spec = pow(max(dot(reflect(-lightDir, n), -rd), 0.0), 32.0);
+
+        // Iteration-based Ambient Occlusion
+        float ao = 1.0 - totalIter / float(uMaxIter);
+        ao = mix(0.2, 1.0, ao * ao);
+
+        // Soft shadows
+        float shad = softShadow(p + n * 0.002, lightDir, 0.01, 5.0, 8.0);
+
+        // ── Coloring ──
+        float colorParam = 0.0;
+
+        if (uColoring == 0) {
+            // Orbit Trap: distance to origin during iteration
+            colorParam = clamp(minTrap * 1.5, 0.0, 1.0);
+        }
+        else if (uColoring == 1) {
+            // Smooth Iteration Count
+            colorParam = totalIter / float(uMaxIter);
+        }
+        else if (uColoring == 2) {
+            // Generator Parity (Domain Tracking)
+            colorParam = float(finalGen) / 6.0;
+        }
+        else {
+            // Surface Normals (MatCap-style) — use normals directly as color
+            col = n * 0.5 + 0.5;
+            // Apply AO and basic shading
+            col *= (0.3 + 0.7 * diff) * ao * (0.3 + 0.7 * shad);
+            fragColor = vec4(col, 1.0);
+            return;
+        }
+
+        vec3 baseCol = getPaletteColor(colorParam);
+
+        // Combine lighting
+        vec3 ambient = baseCol * 0.15;
+        vec3 diffuse = baseCol * diff * 0.75;
+        vec3 specular = vec3(0.4) * spec;
+
+        col = (ambient + diffuse + specular) * ao * (0.3 + 0.7 * shad);
+    }
+    else {
+        // Background: subtle gradient
+        col = mix(vec3(0.01, 0.01, 0.02), vec3(0.04, 0.03, 0.06), uv.y + 0.5);
+    }
+
+    // Gamma correction
+    col = pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2));
+
+    fragColor = vec4(col, 1.0);
+}
+`;
+
+// ══════════════════════════════════════════════════════════════════════════
+// WebGL2 Setup
+// ══════════════════════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: false });
+
+if (!gl) {
+    document.body.innerHTML = '<p style="color:#fff;padding:2em;">WebGL2 not supported.</p>';
+    throw new Error('No WebGL2');
+}
+
+function compileShader(src, type) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(s));
+        throw new Error('Shader compile failed');
+    }
+    return s;
+}
+
+function createProgram(vSrc, fSrc) {
+    const prog = gl.createProgram();
+    gl.attachShader(prog, compileShader(vSrc, gl.VERTEX_SHADER));
+    gl.attachShader(prog, compileShader(fSrc, gl.FRAGMENT_SHADER));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        console.error(gl.getProgramInfoLog(prog));
+        throw new Error('Program link failed');
+    }
+    return prog;
+}
+
+const program = createProgram(vertexShaderSrc, fragmentShaderSrc);
+gl.useProgram(program);
+
+// Full-screen quad (two triangles)
+const quadVerts = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+const vao = gl.createVertexArray();
+gl.bindVertexArray(vao);
+const vbo = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
+const aPos = gl.getAttribLocation(program, 'aPosition');
+gl.enableVertexAttribArray(aPos);
+gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+// Uniform locations
+const loc = {};
+['uResolution','uTime','uCamPos','uCamTarget','uCamFov',
+ 'uGroup','uColoring','uPalette','uMaxIter','uSeparation'].forEach(name => {
+    loc[name] = gl.getUniformLocation(program, name);
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// Camera (orbital)
+// ══════════════════════════════════════════════════════════════════════════
+
+const camera = {
+    theta: 0.8,      // azimuth (yaw)
+    phi: 0.4,        // elevation (pitch)
+    dist: 4.5,       // distance from target
+    target: [0, 0, 0],
+    fov: 1.2,        // radians
+
+    getPosition() {
+        const cp = Math.cos(this.phi), sp = Math.sin(this.phi);
+        const ct = Math.cos(this.theta), st = Math.sin(this.theta);
+        return [
+            this.target[0] + this.dist * cp * st,
+            this.target[1] + this.dist * sp,
+            this.target[2] + this.dist * cp * ct
+        ];
+    }
+};
+
+// Mouse drag for rotation
+let isDragging = false, lastMX = 0, lastMY = 0;
+
+canvas.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    lastMX = e.clientX;
+    lastMY = e.clientY;
+});
+window.addEventListener('mouseup', () => isDragging = false);
+window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastMX;
+    const dy = e.clientY - lastMY;
+    lastMX = e.clientX;
+    lastMY = e.clientY;
+    camera.theta -= dx * 0.005;
+    camera.phi += dy * 0.005;
+    camera.phi = Math.max(-1.5, Math.min(1.5, camera.phi));
+});
+
+// Scroll to zoom
+canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    camera.dist *= 1.0 + e.deltaY * 0.001;
+    camera.dist = Math.max(0.5, Math.min(30.0, camera.dist));
+}, { passive: false });
+
+// Touch support
+let lastTouchDist = 0;
+canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+        isDragging = true;
+        lastMX = e.touches[0].clientX;
+        lastMY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+        const dx = e.touches[1].clientX - e.touches[0].clientX;
+        const dy = e.touches[1].clientY - e.touches[0].clientY;
+        lastTouchDist = Math.sqrt(dx*dx + dy*dy);
+    }
+}, { passive: true });
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isDragging) {
+        const dx = e.touches[0].clientX - lastMX;
+        const dy = e.touches[0].clientY - lastMY;
+        lastMX = e.touches[0].clientX;
+        lastMY = e.touches[0].clientY;
+        camera.theta -= dx * 0.005;
+        camera.phi += dy * 0.005;
+        camera.phi = Math.max(-1.5, Math.min(1.5, camera.phi));
+    } else if (e.touches.length === 2) {
+        const dx = e.touches[1].clientX - e.touches[0].clientX;
+        const dy = e.touches[1].clientY - e.touches[0].clientY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        camera.dist *= lastTouchDist / dist;
+        camera.dist = Math.max(0.5, Math.min(30.0, camera.dist));
+        lastTouchDist = dist;
+    }
+}, { passive: false });
+canvas.addEventListener('touchend', () => isDragging = false);
+
+// ══════════════════════════════════════════════════════════════════════════
+// Resize
+// ══════════════════════════════════════════════════════════════════════════
+
+function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ══════════════════════════════════════════════════════════════════════════
+// Parameters (bound to Tweakpane)
+// ══════════════════════════════════════════════════════════════════════════
+
+const params = {
+    group: 0,
+    coloring: 0,
+    palette: 0,
+    maxIter: 20,
+    separation: 0.9,
+};
+
+// ══════════════════════════════════════════════════════════════════════════
+// Render loop
+// ══════════════════════════════════════════════════════════════════════════
+
+function render(time) {
+    const t = time * 0.001;
+    const camPos = camera.getPosition();
+
+    gl.uniform2f(loc.uResolution, canvas.width, canvas.height);
+    gl.uniform1f(loc.uTime, t);
+    gl.uniform3f(loc.uCamPos, camPos[0], camPos[1], camPos[2]);
+    gl.uniform3f(loc.uCamTarget, camera.target[0], camera.target[1], camera.target[2]);
+    gl.uniform1f(loc.uCamFov, camera.fov);
+    gl.uniform1i(loc.uGroup, params.group);
+    gl.uniform1i(loc.uColoring, params.coloring);
+    gl.uniform1i(loc.uPalette, params.palette);
+    gl.uniform1i(loc.uMaxIter, params.maxIter);
+    gl.uniform1f(loc.uSeparation, params.separation);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+
+// ══════════════════════════════════════════════════════════════════════════
+// Tweakpane UI (loaded async via module)
+// ══════════════════════════════════════════════════════════════════════════
+
+function setupUI() {
+    const container = document.getElementById('ui-container');
+    const pane = new window.Pane({ container, title: '4D Kleinian Explorer' });
+
+    pane.addBinding(params, 'group', {
+        label: 'Group',
+        options: {
+            'Apollonian Gasket': 0,
+            'Schottky (Cantor Dust)': 1,
+            'Sierpinski-Octahedron': 2,
+            'Tangent Pearls': 3,
+        }
+    });
+
+    const sepBinding = pane.addBinding(params, 'separation', {
+        label: 'Separation',
+        min: 0.55, max: 1.8, step: 0.01,
+    });
+
+    // Show/hide separation slider based on group
+    function updateSepVisibility() {
+        sepBinding.hidden = (params.group !== 1);
+    }
+    updateSepVisibility();
+    pane.on('change', (ev) => {
+        if (ev.presetKey === 'group') updateSepVisibility();
+    });
+
+    pane.addBinding(params, 'coloring', {
+        label: 'Coloring',
+        options: {
+            'Orbit Trap': 0,
+            'Smooth Iteration': 1,
+            'Generator Parity': 2,
+            'Surface Normals': 3,
+        }
+    });
+
+    pane.addBinding(params, 'palette', {
+        label: 'Palette',
+        options: {
+            'Bioluminescent Abyss': 0,
+            'Cyberpunk': 1,
+            'Molten Gold': 2,
+            'Monochrome Electron': 3,
+        }
+    });
+
+    pane.addBinding(params, 'maxIter', {
+        label: 'Max Iterations',
+        min: 4, max: 60, step: 1,
+    });
+
+    // Hide UI button
+    const btn = pane.addButton({ title: 'Hide UI  (H)' });
+    btn.on('click', toggleUI);
+}
+
+// ── Toggle UI visibility ──
+const uiContainer = document.getElementById('ui-container');
+const toggleHint = document.getElementById('toggle-hint');
+let uiVisible = true;
+
+function toggleUI() {
+    uiVisible = !uiVisible;
+    uiContainer.classList.toggle('hidden', !uiVisible);
+    toggleHint.classList.toggle('hidden', !uiVisible);
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'h' || e.key === 'H') {
+        // Don't toggle if user is typing in an input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        toggleUI();
+    }
+});
+
+// Wait for Tweakpane to load
+if (window.Pane) {
+    setupUI();
+} else {
+    window.addEventListener('tweakpane-ready', setupUI);
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Michael vs. Phenomenon — The Travolta Trivia Showdown</title>
+    <meta name="description"
+        content="A two-player trivia game about John Travolta's 1996 movies Michael and Phenomenon. Points go to the movies, not the players. Scored on a napkin.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Outfit:wght@300;400;600;700;800&family=Homemade+Apple&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- INTRO SCREEN -->
+    <div id="intro-screen" class="screen active">
+        <div class="intro-content">
+            <div class="intro-glow"></div>
+            <h1 class="intro-title">
+                <span class="title-michael">Michael</span>
+                <span class="title-vs">vs.</span>
+                <span class="title-phenomenon">Phenomenon</span>
+            </h1>
+            <p class="intro-subtitle">The Travolta Trivia Showdown</p>
+            <p class="intro-flavor">"Both released in 1996. Both starring John Travolta. One has angels. One has
+                telekinesis. Neither asked for this."</p>
+            <div class="player-setup">
+                <div class="player-input-group">
+                    <label for="player1-name">Player 1</label>
+                    <input type="text" id="player1-name" placeholder="e.g. Brian" maxlength="12">
+                </div>
+                <div class="player-input-group">
+                    <label for="player2-name">Player 2</label>
+                    <input type="text" id="player2-name" placeholder="e.g. Chelsea" maxlength="12">
+                </div>
+            </div>
+            <button id="start-btn" class="big-btn">
+                <span>Let's Settle This</span>
+                <span class="btn-sparkle">✦</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="game-screen" class="screen">
+        <div class="game-layout">
+            <!-- NAPKIN SCOREBOARD -->
+            <div class="napkin-container">
+                <div class="napkin" id="napkin">
+                    <div class="napkin-texture"></div>
+                    <div class="napkin-stain stain-1"></div>
+                    <div class="napkin-stain stain-2"></div>
+                    <div class="napkin-stain stain-3"></div>
+                    <div class="napkin-header">Scores</div>
+                    <div class="napkin-scores">
+                        <div class="napkin-movie">
+                            <span class="napkin-movie-name">Michael</span>
+                            <span class="napkin-tally" id="michael-score">—</span>
+                        </div>
+                        <div class="napkin-divider"></div>
+                        <div class="napkin-movie">
+                            <span class="napkin-movie-name">Phenomenon</span>
+                            <span class="napkin-tally" id="phenomenon-score">—</span>
+                        </div>
+                    </div>
+                    <div class="napkin-doodle" id="napkin-doodle"></div>
+                </div>
+            </div>
+
+            <!-- QUESTION AREA -->
+            <div class="question-area">
+                <div class="round-indicator">
+                    <span id="round-number">1</span> / <span id="total-rounds">15</span>
+                </div>
+                <div class="turn-indicator" id="turn-indicator">Player 1's turn</div>
+                <div class="question-card" id="question-card">
+                    <div class="question-category" id="question-category">Category</div>
+                    <div class="question-text" id="question-text">Loading question...</div>
+                </div>
+                <div class="answers-container" id="answers-container">
+                    <button class="answer-btn" data-answer="michael" id="answer-michael">
+                        <span class="answer-movie">Michael</span>
+                        <span class="answer-year">(1996)</span>
+                    </button>
+                    <button class="answer-btn" data-answer="phenomenon" id="answer-phenomenon">
+                        <span class="answer-movie">Phenomenon</span>
+                        <span class="answer-year">(1996)</span>
+                    </button>
+                    <button class="answer-btn answer-both" data-answer="both" id="answer-both">
+                        <span class="answer-movie">Both, Obviously</span>
+                    </button>
+                </div>
+                <div class="feedback-area" id="feedback-area">
+                    <div class="feedback-text" id="feedback-text"></div>
+                    <div class="feedback-detail" id="feedback-detail"></div>
+                    <button class="next-btn" id="next-btn">Next Question →</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- END SCREEN -->
+    <div id="end-screen" class="screen">
+        <div class="end-content">
+            <div class="end-glow"></div>
+            <h2 class="end-title" id="end-title">It's Over</h2>
+            <div class="end-napkin-container">
+                <div class="napkin napkin-final" id="napkin-final">
+                    <div class="napkin-texture"></div>
+                    <div class="napkin-stain stain-1"></div>
+                    <div class="napkin-stain stain-2"></div>
+                    <div class="napkin-stain stain-4"></div>
+                    <div class="napkin-header">Final Tally</div>
+                    <div class="napkin-scores">
+                        <div class="napkin-movie">
+                            <span class="napkin-movie-name" id="final-michael-label">Michael</span>
+                            <span class="napkin-tally" id="final-michael-score">—</span>
+                        </div>
+                        <div class="napkin-divider"></div>
+                        <div class="napkin-movie">
+                            <span class="napkin-movie-name" id="final-phenomenon-label">Phenomenon</span>
+                            <span class="napkin-tally" id="final-phenomenon-score">—</span>
+                        </div>
+                    </div>
+                    <div class="napkin-verdict" id="napkin-verdict"></div>
+                </div>
+            </div>
+            <p class="end-flavor" id="end-flavor"></p>
+            <div class="end-stats" id="end-stats"></div>
+            <button class="big-btn" id="replay-btn">
+                <span>Run It Back</span>
+                <span class="btn-sparkle">✦</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

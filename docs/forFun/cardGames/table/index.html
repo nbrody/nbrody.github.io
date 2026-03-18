@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Card Table — Game Board</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    body {
+      background:
+        radial-gradient(ellipse at 50% 50%, rgba(36,92,58,0.5) 0%, transparent 70%),
+        repeating-linear-gradient(
+          0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 40px
+        ),
+        repeating-linear-gradient(
+          90deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 40px
+        ),
+        #0a1a10;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ===== HEADER ===== */
+    #table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: rgba(0,0,0,0.4);
+      border-bottom: 1px solid rgba(201,168,76,0.2);
+      flex-shrink: 0;
+    }
+    .header-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      letter-spacing: 4px;
+      background: linear-gradient(135deg, var(--gold-dark), var(--gold-light));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: rgba(201,168,76,0.6);
+      letter-spacing: 1px;
+    }
+    .room-pill {
+      background: rgba(201,168,76,0.1);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-family: var(--font-display);
+      font-size: 14px;
+      color: var(--gold);
+      letter-spacing: 3px;
+      cursor: pointer;
+    }
+
+    /* ===== FELT TABLE ===== */
+    #felt-table {
+      flex: 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Green felt oval in the center */
+    #felt-table::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 85%;
+      height: 75%;
+      background: radial-gradient(ellipse at 50% 40%, var(--felt-light) 0%, var(--felt) 60%, var(--felt-dark) 100%);
+      border-radius: 45%;
+      border: 8px solid #2a1a0a;
+      box-shadow:
+        0 0 0 4px #3d2b10,
+        0 0 0 6px #2a1a0a,
+        inset 0 4px 40px rgba(0,0,0,0.3),
+        0 20px 60px rgba(0,0,0,0.8);
+    }
+
+    /* ===== DEALER ZONE (top center) ===== */
+    #dealer-zone {
+      position: absolute;
+      top: 8%;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 10;
+      min-width: 280px;
+    }
+    .zone-label {
+      font-family: var(--font-display);
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: rgba(201,168,76,0.5);
+      margin-bottom: 8px;
+    }
+    .card-row { display: flex; gap: 8px; justify-content: center; align-items: flex-end; }
+
+    /* ===== COMMUNITY ZONE (center) ===== */
+    #community-zone {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 10;
+    }
+
+    /* ===== PLAYER SEATS (arranged around the table) ===== */
+    .player-seat {
+      position: absolute;
+      z-index: 10;
+      text-align: center;
+      transition: all 0.4s ease;
+    }
+
+    /* Seat positions for up to 6 players */
+    .seat-0 { bottom: 6%; left: 50%; transform: translateX(-50%); }
+    .seat-1 { bottom: 20%; left: 4%; }
+    .seat-2 { top: 20%; left: 4%; }
+    .seat-3 { top: 6%; left: 50%; transform: translateX(-50%); }
+    .seat-4 { top: 20%; right: 4%; }
+    .seat-5 { bottom: 20%; right: 4%; }
+
+    .seat-name {
+      font-family: var(--font-display);
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      margin-bottom: 6px;
+      transition: color 0.3s;
+    }
+    .seat-name.active { color: var(--gold); }
+    .seat-name.inactive { color: #555; }
+
+    .seat-cards { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
+    .seat-info { font-size: 10px; color: #888; margin-top: 4px; }
+
+    /* ===== GAME STATUS BAR ===== */
+    #status-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0; right: 0;
+      padding: 12px 20px;
+      background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 20;
+    }
+
+    #game-message {
+      font-size: 14px;
+      color: rgba(201,168,76,0.9);
+      font-family: var(--font-display);
+      letter-spacing: 1px;
+      max-width: 60%;
+      text-align: center;
+      flex: 1;
+    }
+    #status-bar .btn { font-size: 11px; padding: 8px 14px; }
+
+    /* ===== DECK PILE ===== */
+    #deck-pile {
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-80px, -50px);
+      cursor: pointer;
+      z-index: 15;
+    }
+    #deck-pile .deck-stack {
+      position: relative;
+      width: 70px; height: 100px;
+    }
+    .deck-card {
+      position: absolute;
+      width: 70px; height: 100px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #1a237e, #283593);
+      border: 2px solid rgba(255,255,255,0.15);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    .deck-count {
+      position: absolute;
+      bottom: -20px;
+      width: 100%;
+      text-align: center;
+      font-size: 10px;
+      color: rgba(201,168,76,0.6);
+      letter-spacing: 1px;
+    }
+
+    /* ===== DISCARD PILE ===== */
+    #discard-pile {
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(16px, -50px);
+      z-index: 15;
+    }
+
+    /* ===== OVERLAY SCREENS ===== */
+    #game-over-overlay, #round-result-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+      flex-direction: column;
+      text-align: center;
+    }
+    #game-over-overlay.visible, #round-result-overlay.visible { display: flex; }
+
+    .result-content {
+      padding: 40px;
+      max-width: 480px;
+    }
+    .result-emoji { font-size: 64px; margin-bottom: 8px; }
+    .result-title {
+      font-family: var(--font-display);
+      font-size: 32px;
+      letter-spacing: 4px;
+      background: linear-gradient(135deg, var(--gold-dark), var(--gold-light));
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .result-subtitle { font-size: 16px; color: #aaa; margin-bottom: 24px; line-height: 1.5; }
+
+    /* ===== PLAYER CHIP COUNTER ===== */
+    .chip-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--gold);
+      background: rgba(201,168,76,0.1);
+      border-radius: 12px;
+      padding: 2px 8px;
+      margin-top: 4px;
+    }
+
+    /* ===== CURRENT TURN GLOW ===== */
+    .seat-current .seat-cards .card {
+      box-shadow: 0 0 20px rgba(201,168,76,0.6), 0 4px 16px rgba(0,0,0,0.5);
+    }
+
+    /* ===== LOADING ===== */
+    #loading-screen {
+      position: fixed; inset: 0;
+      background: #0a0f0d;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      z-index: 999;
+    }
+    .loading-suits { font-size: 40px; letter-spacing: 12px; animation: pulse 1s ease-in-out infinite; color: var(--gold); }
+    .loading-label { font-family: var(--font-display); font-size: 12px; letter-spacing: 4px; color: rgba(201,168,76,0.5); margin-top: 16px; }
+
+    /* ===== SMALL HIDDEN QR IN CORNER ===== */
+    #corner-qr {
+      position: fixed;
+      bottom: 70px; right: 16px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    #corner-qr img {
+      width: 72px; height: 72px;
+      border-radius: 6px;
+      border: 2px solid rgba(201,168,76,0.3);
+      opacity: 0.7;
+      transition: opacity 0.3s;
+    }
+    #corner-qr:hover img { opacity: 1; }
+    #corner-qr .qr-hint { font-size: 9px; letter-spacing: 1px; color: rgba(201,168,76,0.4); text-transform: uppercase; }
+
+    /* ===== ACTION BUTTONS PANEL ===== */
+    #action-panel {
+      position: fixed;
+      bottom: 60px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 10px;
+      z-index: 50;
+    }
+    #action-panel.hidden { display: none; }
+    #action-panel .btn { padding: 14px 22px; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+  <!-- Loading -->
+  <div id="loading-screen">
+    <div class="loading-suits">♠ ♥ ♦ ♣</div>
+    <div class="loading-label">Dealing cards…</div>
+  </div>
+
+  <div id="toast">Ready!</div>
+
+  <!-- HEADER -->
+  <div id="table-header">
+    <div class="header-title">CARD TABLE</div>
+    <div class="header-info">
+      <span id="game-name-label">Blackjack</span>
+      <span class="room-pill" id="room-code-pill" onclick="showQRModal()" title="Click to show join QR">···</span>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-glass" id="btn-deal" onclick="dealCards()" style="font-size:11px; padding:8px 14px">🃏 Deal</button>
+      <button class="btn btn-glass" onclick="showQRModal()" style="font-size:11px; padding:8px 12px" title="Show QR code">QR</button>
+    </div>
+  </div>
+
+  <!-- FELT TABLE -->
+  <div id="felt-table">
+
+    <!-- Deck pile -->
+    <div id="deck-pile" onclick="drawFromDeck()">
+      <div class="deck-stack">
+        <div class="deck-card" style="top:6px; left:3px; opacity:0.4;"></div>
+        <div class="deck-card" style="top:3px; left:1px; opacity:0.6;"></div>
+        <div class="deck-card" style="top:0; left:0;"></div>
+      </div>
+      <div class="deck-count" id="deck-count">52</div>
+    </div>
+
+    <!-- Discard pile -->
+    <div id="discard-pile"></div>
+
+    <!-- Dealer zone (shown for Blackjack) -->
+    <div id="dealer-zone">
+      <div class="zone-label">DEALER</div>
+      <div class="card-row" id="dealer-cards"></div>
+      <div id="dealer-total" style="font-size:12px; color:#888; margin-top:4px;"></div>
+    </div>
+
+    <!-- Community zone (shown for Poker etc) -->
+    <div id="community-zone" style="display:none">
+      <div class="zone-label">COMMUNITY</div>
+      <div class="card-row" id="community-cards"></div>
+    </div>
+
+    <!-- Player seats — populated dynamically -->
+    <div id="seats-container"></div>
+
+    <!-- Message -->
+    <div id="status-bar">
+      <button class="btn btn-glass" onclick="prevRound()" id="btn-prev">↩ Redo</button>
+      <div id="game-message">Waiting for players…</div>
+      <button class="btn btn-gold" onclick="nextAction()" id="btn-next">Next →</button>
+    </div>
+  </div>
+
+  <!-- Game Over Overlay -->
+  <div id="game-over-overlay">
+    <div class="result-content glass-panel">
+      <div class="result-emoji" id="result-emoji">🏆</div>
+      <div class="result-title" id="result-title">Game Over</div>
+      <div class="result-subtitle" id="result-subtitle"></div>
+      <div style="display:flex; gap:12px; justify-content:center; margin-top:8px;">
+        <button class="btn btn-gold" onclick="newRound()">▶ New Round</button>
+        <button class="btn btn-glass" onclick="backToLobby()">← Lobby</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Corner QR (always visible for latecomers) -->
+  <div id="corner-qr" onclick="showQRModal()">
+    <img id="corner-qr-img" src="" alt="Join QR">
+    <div class="qr-hint">Join</div>
+  </div>
+
+  <!-- QR Modal -->
+  <div class="overlay hidden" id="qr-modal" onclick="this.classList.add('hidden')">
+    <div class="glass-panel" style="padding:32px; text-align:center; max-width:340px;" onclick="event.stopPropagation()">
+      <div style="font-family:var(--font-display); font-size:10px; letter-spacing:3px; color:rgba(201,168,76,0.5); margin-bottom:8px;">JOIN THE GAME</div>
+      <div style="font-family:var(--font-display); font-size:40px; letter-spacing:12px; color:var(--gold); margin-bottom:16px;" id="modal-code">····</div>
+      <img id="modal-qr-img" src="" alt="QR Code" style="width:200px; height:200px; border-radius:8px; border:4px solid var(--felt);">
+      <div style="font-size:12px; color:#666; margin-top:12px;">Scan to join on your phone</div>
+      <a id="modal-join-link" href="#" style="display:block; font-size:11px; color:rgba(201,168,76,0.5); margin-top:8px; word-break:break-all;" target="_blank"></a>
+      <button class="btn btn-glass" onclick="document.getElementById('qr-modal').classList.add('hidden')" style="margin-top:16px; width:100%">Close</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createDeck, shuffle, renderCard, blackjackTotal, renderCardLarge } from '../js/deck.js';
+    import * as Blackjack from '../js/games/blackjack.js';
+    import * as War from '../js/games/war.js';
+    import * as GoFish from '../js/games/gofish.js';
+
+    // Make deck functions available globally for card rendering in game modules
+    window._deck = { renderCard, renderCardLarge, blackjackTotal };
+
+    // ===== STATE =====
+    const BC = new BroadcastChannel('card-table-sync');
+    let session = {
+      role: sessionStorage.getItem('cg_role') || 'table',
+      room: sessionStorage.getItem('cg_room') || '????',
+      game: sessionStorage.getItem('cg_game') || 'blackjack',
+      name: sessionStorage.getItem('cg_name') || 'Host',
+      players: JSON.parse(sessionStorage.getItem('cg_players') || '{"host":"Host"}'),
+    };
+
+    const ENGINES = { blackjack: Blackjack, war: War, gofish: GoFish };
+    let engine = ENGINES[session.game] || Blackjack;
+    let gameState = null;
+    let stateHistory = [];
+
+    // ===== INIT =====
+    function init() {
+      // Update UI
+      document.getElementById('game-name-label').textContent = engine.DISPLAY_NAME;
+      document.getElementById('room-code-pill').textContent = session.room;
+      document.getElementById('modal-code').textContent = session.room;
+
+      // Load QR
+      const joinUrl = buildJoinUrl(session.room);
+      loadQR(joinUrl);
+      document.getElementById('modal-join-link').href = joinUrl;
+      document.getElementById('modal-join-link').textContent = joinUrl;
+
+      // Listen for player actions from phone
+      BC.onmessage = handleHandMessage;
+
+      // Initialize game state
+      const playerIds = Object.keys(session.players);
+      gameState = engine.initState(playerIds);
+
+      // Render seats
+      renderSeats();
+
+      // Hide loading
+      setTimeout(() => {
+        document.getElementById('loading-screen').style.opacity = '0';
+        setTimeout(() => document.getElementById('loading-screen').style.display = 'none', 400);
+      }, 800);
+
+      updateTableView();
+    }
+
+    // ===== RENDER ===== 
+    function renderSeats() {
+      const container = document.getElementById('seats-container');
+      container.innerHTML = '';
+      const players = Object.entries(session.players);
+
+      // Show/hide dealer zone based on game
+      document.getElementById('dealer-zone').style.display =
+        session.game === 'blackjack' ? 'block' : 'none';
+
+      players.forEach(([pid, name], idx) => {
+        const seat = document.createElement('div');
+        seat.className = `player-seat seat-${idx}`;
+        seat.id = `seat-${pid}`;
+        seat.innerHTML = `
+          <div class="seat-name inactive" id="seat-name-${pid}">${name}</div>
+          <div class="seat-cards" id="seat-cards-${pid}"></div>
+          <div class="seat-info" id="seat-info-${pid}"></div>`;
+        container.appendChild(seat);
+      });
+    }
+
+    function updateTableView() {
+      if (!gameState) return;
+      const playerNames = session.players;
+
+      // Update game message
+      document.getElementById('game-message').textContent = gameState.message || '';
+
+      // Update dealt cards areas
+      const tableArea = document.getElementById('dealer-cards');
+
+      if (session.game === 'blackjack') {
+        // Dealer hand
+        tableArea.innerHTML = '';
+        if (gameState.dealer?.hand?.length) {
+          gameState.dealer.hand.forEach((card, i) => {
+            const faceDown = gameState.phase === 'playing' && i === 1;
+            tableArea.appendChild(renderCard(faceDown ? null : card, { faceDown, delay: i * 60 }));
+          });
+          const total = blackjackTotal(gameState.dealer.hand);
+          document.getElementById('dealer-total').textContent =
+            gameState.phase !== 'playing' ? `${total > 21 ? 'BUST' : total}` : '?';
+        } else {
+          tableArea.innerHTML = '<div class="card-slot">🂠</div><div class="card-slot">🂠</div>';
+        }
+      }
+
+      // Deck count
+      document.getElementById('deck-count').textContent = gameState.deck?.length || 0;
+
+      // Player seats
+      const playerEntries = Object.entries(session.players);
+      playerEntries.forEach(([pid, name]) => {
+        const nameEl = document.getElementById(`seat-name-${pid}`);
+        const cardsEl = document.getElementById(`seat-cards-${pid}`);
+        const infoEl = document.getElementById(`seat-info-${pid}`);
+        if (!nameEl) return;
+
+        const player = gameState.players?.[pid];
+        const isCurrent = gameState.currentPlayer === pid;
+
+        nameEl.className = `seat-name ${isCurrent ? 'active' : 'inactive'}`;
+
+        if (cardsEl) {
+          cardsEl.innerHTML = '';
+          const hand = player?.hand || [];
+          if (hand.length) {
+            hand.forEach((card, i) => {
+              // Show face-down for Go Fish (private hands) / War
+              const faceDown = session.game !== 'blackjack';
+              cardsEl.appendChild(renderCard(faceDown ? null : card, { faceDown: session.game === 'gofish' || session.game === 'war', delay: i * 60 }));
+            });
+          } else if (player?.deck?.length) {
+            // War: show deck count
+            const mini = document.createElement('div');
+            mini.style.cssText = 'font-size:11px; color:#888; margin-top:4px;';
+            mini.textContent = `${player.deck.length} cards`;
+            cardsEl.appendChild(mini);
+          } else {
+            cardsEl.innerHTML = '<div class="card-slot" style="width:40px;height:55px;font-size:14px">?</div>';
+          }
+        }
+
+        if (infoEl) {
+          if (session.game === 'blackjack') {
+            const total = blackjackTotal(player?.hand || []);
+            const result = player?.result;
+            const chips = player?.chips || 100;
+            infoEl.innerHTML = hand.length
+              ? `<div>${total > 21 ? '💀BUST' : total}</div><div class="chip-count">💰${chips}</div>`
+              : `<div class="chip-count">💰${chips}</div>`;
+          } else if (session.game === 'gofish') {
+            infoEl.textContent = player?.books?.length ? `📚 ${player.books.length} books` : '';
+          } else if (session.game === 'war') {
+            infoEl.textContent = player?.deck?.length ? `${player.deck.length} cards` : '❌ Out';
+          }
+        }
+
+        const hand = player?.hand;
+      });
+
+      // Game over check
+      if (gameState.phase === 'done') showGameOver();
+
+      // Sync state to phones
+      broadcastState();
+    }
+
+    // ===== GAME ACTIONS =====
+    window.dealCards = function() {
+      if (!engine.dealRound) { toast('Click "Next" to proceed'); return; }
+      stateHistory.push(JSON.parse(JSON.stringify(gameState)));
+      gameState = engine.dealRound(gameState);
+      updateTableView();
+      toast('Cards dealt!');
+    };
+
+    window.nextAction = function() {
+      if (gameState.phase === 'done') { newRound(); return; }
+      if (session.game === 'blackjack' && gameState.phase === 'betting') {
+        dealCards();
+        return;
+      }
+      toast('Waiting for players…');
+    };
+
+    window.prevRound = function() {
+      if (stateHistory.length) {
+        gameState = stateHistory.pop();
+        updateTableView();
+        toast('Reverted');
+      }
+    };
+
+    window.drawFromDeck = function() {
+      // Table-side deck draw (for games where it makes sense)
+      if (!gameState.deck?.length) { toast('Deck is empty!'); return; }
+      const card = gameState.deck.pop();
+      const discard = document.getElementById('discard-pile');
+      discard.innerHTML = '';
+      discard.appendChild(renderCard(card));
+      updateTableView();
+    };
+
+    window.newRound = function() {
+      document.getElementById('game-over-overlay').classList.remove('visible');
+      const playerIds = Object.keys(session.players);
+      gameState = engine.initState(playerIds);
+      renderSeats();
+      updateTableView();
+      toast('New round!');
+    };
+
+    window.backToLobby = function() {
+      window.location.href = '../index.html';
+    };
+
+    window.showQRModal = function() {
+      document.getElementById('qr-modal').classList.remove('hidden');
+    };
+
+    function showGameOver() {
+      const overlay = document.getElementById('game-over-overlay');
+      overlay.classList.add('visible');
+      const msg = gameState.message || 'Game Over!';
+      document.getElementById('result-subtitle').textContent = msg;
+
+      // Try to find a winner name
+      if (session.game === 'war') {
+        const winner = gameState.playerOrder?.find(pid => gameState.players?.[pid]?.deck?.length > 0);
+        if (winner) {
+          document.getElementById('result-title').textContent = `${session.players[winner] || winner} Wins!`;
+          document.getElementById('result-emoji').textContent = '⚔️';
+        }
+      } else if (session.game === 'blackjack') {
+        document.getElementById('result-title').textContent = 'Round Complete';
+        document.getElementById('result-emoji').textContent = '🃏';
+      } else if (session.game === 'gofish') {
+        document.getElementById('result-title').textContent = 'Books Collected!';
+        document.getElementById('result-emoji').textContent = '🐟';
+      }
+    }
+
+    // ===== BROADCAST =====
+    function broadcastState() {
+      BC.postMessage({
+        type: 'state-update',
+        roomCode: session.room,
+        game: session.game,
+        state: gameState,
+        playerNames: session.players
+      });
+    }
+
+    function handleHandMessage(evt) {
+      const msg = evt.data;
+      if (!msg) return;
+
+      if (msg.type === 'player-join' && msg.roomCode === session.room) {
+        session.players[msg.playerId] = msg.name;
+        sessionStorage.setItem('cg_players', JSON.stringify(session.players));
+        toast(`${msg.name} joined!`);
+        // Add them to game state if not started yet
+        if (gameState.phase === 'betting' || gameState.phase === 'playing') {
+          updateTableView();
+        }
+        return;
+      }
+
+      if (msg.type === 'player-action' && msg.roomCode === session.room) {
+        const { playerId, action, ...params } = msg;
+        stateHistory.push(JSON.parse(JSON.stringify(gameState)));
+
+        if (session.game === 'blackjack') {
+          gameState = Blackjack.playerAction(gameState, playerId, action);
+        } else if (session.game === 'war') {
+          gameState = War.playCard(gameState, playerId);
+        } else if (session.game === 'gofish') {
+          gameState = GoFish.askForRank(gameState, playerId, params.target, params.rank);
+        }
+        updateTableView();
+      }
+
+      if (msg.type === 'request-state' && msg.roomCode === session.room) {
+        broadcastState();
+      }
+    }
+
+    // ===== HELPERS =====
+    function buildJoinUrl(code) {
+      const base = window.location.href.split('table/')[0];
+      return base + 'index.html?join=' + code;
+    }
+
+    function loadQR(url) {
+      const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}&bgcolor=0a0f0d&color=c9a84c&margin=8`;
+      document.getElementById('corner-qr-img').src = qrSrc;
+      document.getElementById('modal-qr-img').src = qrSrc;
+    }
+
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(t._timeout);
+      t._timeout = setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    window.toast = toast;
+
+    // Loading screen transition
+    document.getElementById('loading-screen').style.transition = 'opacity 0.4s ease';
+    init();
+  </script>
+</body>
+</html>
