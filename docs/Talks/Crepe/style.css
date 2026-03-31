@@ -1,0 +1,524 @@
+/* ================================================================
+   Science on Tap — Geometric Group Theory & Banach–Tarski
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+
+/* ── Design Tokens ──────────────────────────────────── */
+:root {
+    --bg-deep:    #060a14;
+    --bg-surface: #0d1321;
+    --bg-card:    rgba(13, 19, 33, 0.88);
+    --text-primary:  #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted:    #64748b;
+    --accent:       #7c8aff;
+    --accent-warm:  #f59e0b;
+    --accent-rose:  #f472b6;
+    --accent-teal:  #2dd4bf;
+    --border:       rgba(124, 138, 255, 0.15);
+    --border-warm:  rgba(245, 158, 11, 0.25);
+    --glow:         rgba(124, 138, 255, 0.35);
+    --radius-sm:    8px;
+    --radius-md:    16px;
+    --radius-lg:    24px;
+    --font-body:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-display: 'Playfair Display', Georgia, serif;
+}
+
+/* ── Reset & Base ───────────────────────────────────── */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-body);
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+}
+
+/* ── fullPage overrides ─────────────────────────────── */
+.fp-watermark { display: none !important; }
+.fp-overflow { overflow: hidden !important; }
+
+#fp-nav ul li a span,
+.fp-slidesNav ul li a span {
+    background: var(--accent) !important;
+    opacity: 0.5;
+    width: 8px !important;
+    height: 8px !important;
+}
+#fp-nav ul li a.active span,
+.fp-slidesNav ul li a.active span {
+    opacity: 1;
+    box-shadow: 0 0 12px var(--glow);
+}
+#fp-nav ul li .fp-tooltip {
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+}
+.fp-controlArrow {
+    border-color: transparent !important;
+}
+.fp-controlArrow.fp-prev {
+    border-right-color: rgba(124,138,255,0.5) !important;
+}
+.fp-controlArrow.fp-next {
+    border-left-color: rgba(124,138,255,0.5) !important;
+}
+
+/* ── Section / Slide Containers ─────────────────────── */
+.section {
+    background: var(--bg-deep);
+}
+
+.slide {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ── Transition Slides (Section Openers) ────────────── */
+.transition-slide {
+    position: relative;
+    overflow: hidden;
+}
+.transition-slide::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    z-index: 0;
+    opacity: 0.4;
+    filter: blur(2px) saturate(1.2);
+}
+.transition-slide::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(6,10,20,0.5) 0%, rgba(6,10,20,0.85) 100%);
+    z-index: 1;
+}
+.transition-slide > * {
+    position: relative;
+    z-index: 2;
+}
+
+/* Section-specific backgrounds */
+.bg-title::before {
+    background: linear-gradient(135deg, #1a1145 0%, #0d2847 50%, #0a2239 100%);
+    opacity: 1;
+    filter: none;
+}
+.bg-metric::before {
+    background-image: url('assets/bg_metric.png');
+}
+.bg-sphere::before {
+    background-image: url('assets/bg_sphere.png');
+}
+.bg-padic::before {
+    background-image: url('assets/bg_padic.png');
+}
+.bg-banachtarski::before {
+    background-image: url('assets/bg_banachtarski.png');
+}
+
+/* ── Content Box (glassmorphic) ─────────────────────── */
+.content-box {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 3rem 3.5rem;
+    background: var(--bg-card);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 48px rgba(0,0,0,0.4);
+}
+.content-box.tight {
+    padding: 2rem 2.5rem;
+}
+.content-box.wide {
+    max-width: 1100px;
+}
+.content-box.transparent {
+    background: transparent;
+    backdrop-filter: none;
+    border: none;
+    box-shadow: none;
+}
+
+/* ── Typography ─────────────────────────────────────── */
+h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 5vw, 4rem);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 40%, var(--accent-warm) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+h2.slide-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.6rem, 3.5vw, 2.8rem);
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+}
+
+h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--accent);
+}
+
+p {
+    font-size: clamp(1rem, 1.6vw, 1.2rem);
+    line-height: 1.75;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+}
+p:last-child { margin-bottom: 0; }
+
+.lead {
+    font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+    color: var(--text-secondary);
+    line-height: 1.8;
+}
+
+.tag {
+    display: inline-block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    margin-bottom: 1.2rem;
+    padding: 0.35rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    background: rgba(124,138,255,0.08);
+}
+
+.subtitle {
+    font-size: clamp(1rem, 1.5vw, 1.2rem);
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* ── Lists ──────────────────────────────────────────── */
+ul, ol {
+    margin: 1rem 0 1rem 1.5rem;
+    font-size: clamp(1rem, 1.5vw, 1.15rem);
+}
+li {
+    margin-bottom: 0.6rem;
+    line-height: 1.7;
+}
+li::marker {
+    color: var(--accent);
+}
+
+/* ── Theorem / Definition / Remark boxes ────────────── */
+.theorem {
+    position: relative;
+    margin: 1.5rem 0;
+    padding: 1.5rem 2rem;
+    background: rgba(124,138,255,0.06);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.theorem::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+}
+
+.definition {
+    position: relative;
+    margin: 1.5rem 0;
+    padding: 1.5rem 2rem;
+    background: rgba(45,212,191,0.06);
+    border-left: 3px solid var(--accent-teal);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.definition::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent-teal);
+    margin-bottom: 0.75rem;
+}
+
+.remark {
+    position: relative;
+    margin: 1.5rem 0;
+    padding: 1.5rem 2rem;
+    background: rgba(245,158,11,0.06);
+    border-left: 3px solid var(--accent-warm);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.remark::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent-warm);
+    margin-bottom: 0.75rem;
+}
+
+.main-question-container {
+    padding: 2.5rem 3rem;
+    text-align: center;
+    font-size: clamp(1.2rem, 2vw, 1.6rem);
+    line-height: 1.8;
+    border-left: none;
+    border: 2px solid var(--accent);
+    border-radius: var(--radius-md);
+    background: rgba(124,138,255,0.04);
+}
+
+/* ── Fragments ──────────────────────────────────────── */
+.fragment {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.5s cubic-bezier(0.2,0.8,0.2,1),
+                transform 0.5s cubic-bezier(0.2,0.8,0.2,1);
+}
+.fragment.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Animate-up: for the content-box itself on slide entry */
+.animate-up {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.8s cubic-bezier(0.2,0.8,0.2,1);
+}
+.active .animate-up,
+.fp-section.active .animate-up {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ── Emoji / Icon Badges ────────────────────────────── */
+.example-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+/* ── Example Cards Grid ─────────────────────────────── */
+.example-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+}
+.example-card {
+    background: rgba(124,138,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+.example-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(124,138,255,0.15);
+}
+.example-card h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+}
+.example-card p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* ── Interactive Canvas / SVG Areas ─────────────────── */
+.viz-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 1.5rem auto;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,0.3);
+}
+
+.full-viz-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+.full-viz-container canvas,
+.full-viz-container svg {
+    max-width: 100%;
+    max-height: 80vh;
+    border-radius: var(--radius-md);
+}
+
+/* ── Interactive SVG diagrams ───────────────────────── */
+.diagram-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3rem;
+    margin: 2rem 0;
+    flex-wrap: wrap;
+}
+.diagram-wrap svg {
+    flex-shrink: 0;
+}
+
+/* ── Separator ──────────────────────────────────────── */
+.separator {
+    width: 60%;
+    height: 1px;
+    margin: 2rem auto;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+/* ── Two-column layouts ─────────────────────────────── */
+.two-col {
+    display: flex;
+    gap: 3rem;
+    align-items: center;
+}
+.two-col > * {
+    flex: 1;
+}
+
+/* ── Emphasis highlights ────────────────────────────── */
+.highlight {
+    color: var(--accent);
+    font-weight: 600;
+}
+.highlight-warm {
+    color: var(--accent-warm);
+    font-weight: 600;
+}
+.highlight-teal {
+    color: var(--accent-teal);
+    font-weight: 600;
+}
+.highlight-rose {
+    color: var(--accent-rose);
+    font-weight: 600;
+}
+
+/* ── Thank You slide ────────────────────────────────── */
+.thanks-slide {
+    position: relative;
+    overflow: hidden;
+}
+.thanks-slide .bg-img {
+    position: absolute;
+    inset: 0;
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+.thanks-slide .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(6,10,20,0.5);
+    z-index: 1;
+}
+.thanks-slide .content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+    .content-box {
+        padding: 2rem 1.5rem;
+        margin: 0 1rem;
+    }
+    .two-col {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    .example-grid {
+        grid-template-columns: 1fr;
+    }
+    .diagram-wrap {
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    .theorem, .definition, .remark {
+        padding: 1rem 1.2rem;
+    }
+}
+
+/* ── MathJax overrides ──────────────────────────────── */
+mjx-container {
+    color: var(--text-primary) !important;
+}
+mjx-container[display="true"] {
+    margin: 1.2rem 0 !important;
+}
+
+/* ── Animated background particles (title slide) ───── */
+@keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
+    50% { transform: translateY(-30px) rotate(180deg); opacity: 0.6; }
+}
+.particle {
+    position: absolute;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: float linear infinite;
+    pointer-events: none;
+}
+
+/* ── Slide number badge ─────────────────────────────── */
+.slide-counter {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    z-index: 100;
+    font-variant-numeric: tabular-nums;
+}

@@ -183,56 +183,83 @@ h1 {
     margin-top: 4px;
 }
 
-/* ===== Surface Tabs ===== */
-.surface-tabs {
-    display: flex;
-    gap: 4px;
-    padding: 0 20px;
-    margin-bottom: 4px;
+/* ===== Surface Selector ===== */
+.surface-select-wrapper {
+    position: relative;
     flex-shrink: 0;
 }
 
-.surface-tab {
-    flex: 1;
-    padding: 8px 0;
+#surface-select {
+    width: 100%;
+    padding: 10px 36px 10px 14px;
+    background: rgba(108, 138, 255, 0.08);
+    border: 1.5px solid rgba(108, 138, 255, 0.25);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236c8aff' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    transition: all 0.25s ease;
+}
+
+#surface-select:hover {
+    background-color: rgba(108, 138, 255, 0.14);
+    border-color: rgba(108, 138, 255, 0.4);
+}
+
+#surface-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(108, 138, 255, 0.2);
+}
+
+#surface-select option {
+    background: #1a1f35;
+    color: var(--text-primary);
+    padding: 8px 12px;
+    font-size: 0.85rem;
+}
+
+/* ===== Render Mode Toggle (Tiles/Tubes) ===== */
+.render-mode-toggle {
+    display: flex;
+    gap: 2px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 2px;
+    border: 1px solid var(--control-border);
+}
+
+.render-mode-btn {
+    padding: 6px 14px;
     background: transparent;
     border: none;
+    border-radius: 6px;
     color: var(--text-secondary);
-    font-size: 0.72rem;
+    font-family: inherit;
+    font-size: 0.78rem;
     font-weight: 600;
-    letter-spacing: 0.02em;
     cursor: pointer;
-    border-radius: 8px;
-    transition: all 0.2s;
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
-.surface-tab svg {
-    opacity: 0.6;
-    transition: opacity 0.2s;
-}
-
-.surface-tab:hover {
+.render-mode-btn:hover {
     color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.05);
 }
 
-.surface-tab:hover svg {
-    opacity: 1;
-}
-
-.surface-tab.active {
-    color: var(--accent);
-    background: rgba(108, 138, 255, 0.1);
-}
-
-.surface-tab.active svg {
-    opacity: 1;
-    color: var(--accent);
+.render-mode-btn.active {
+    color: var(--text-primary);
+    background: rgba(108, 138, 255, 0.2);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* ===== Panel Scroll Area ===== */
@@ -413,6 +440,58 @@ input[type="checkbox"]:checked::after {
     border-color: var(--text-primary);
     box-shadow: 0 0 10px var(--accent-glow);
     transform: scale(1.1);
+}
+
+/* ===== Background Toggle ===== */
+.bg-toggle-row {
+    display: flex;
+    gap: 8px;
+}
+
+.bg-toggle {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--control-bg);
+    border: 1.5px solid var(--control-border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.bg-toggle:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    color: var(--text-primary);
+}
+
+.bg-toggle.active {
+    border-color: var(--accent);
+    color: var(--text-primary);
+    background: rgba(108, 138, 255, 0.1);
+}
+
+.bg-preview {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    flex-shrink: 0;
+}
+
+.bg-preview-black {
+    background: #0a0e1a;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.bg-preview-white {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.15);
 }
 
 /* ===== Buttons ===== */

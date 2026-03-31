@@ -80,7 +80,6 @@ export function setupControlPanel(handlers) {
         onOpacityChange,
         onPolyhedronOpacity,
         onWallsOpacity,
-        onCayleyToggle,
         onTiedyeToggle,
         onAutoRotateToggle,
         onResetCamera,
@@ -152,11 +151,15 @@ export function setupControlPanel(handlers) {
         });
     }
 
-    // Cayley toggle
-    const toggleCayleyBtn = document.getElementById('toggle-cayley');
-    if (toggleCayleyBtn && onCayleyToggle) {
-        toggleCayleyBtn.addEventListener('click', () => {
-            onCayleyToggle(toggleCayleyBtn);
+    // Cayley mode selector (Off / S / T)
+    const cayleyOpts = document.querySelectorAll('.cayley-opt');
+    if (cayleyOpts.length && handlers.onCayleyModeChange) {
+        cayleyOpts.forEach(btn => {
+            btn.addEventListener('click', () => {
+                cayleyOpts.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                handlers.onCayleyModeChange(btn.dataset.mode);
+            });
         });
     }
 

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SO₃(Z[∛2]) Cayley Graph in the Poincaré Ball</title>
+  <style>
+    html, body { margin:0; height:100%; overflow:hidden; background:#0b1020; color:#e7ecff; font-family: Helvetica, Arial, sans-serif; }
+    #app { position:fixed; inset:0; }
+    #panel {
+      position: fixed; top: 14px; left: 14px; width: 370px; max-width: calc(100vw - 28px);
+      background: rgba(10,14,28,0.88); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 14px 14px 12px 14px;
+      box-shadow: 0 12px 35px rgba(0,0,0,0.35); z-index: 5;
+    }
+    #panel h1 { font-size: 19px; margin: 0 0 8px 0; font-weight: 700; }
+    #panel p { margin: 6px 0; line-height: 1.35; font-size: 13px; color: #d7defa; }
+    #panel .small { font-size: 12px; color:#b7c2f5; }
+    .row { display:flex; gap:10px; align-items:center; margin: 10px 0; flex-wrap: wrap; }
+    .row label { font-size: 13px; }
+    input[type="range"] { width: 150px; }
+    button {
+      background:#6ea8fe; color:#09111f; border:none; border-radius:10px; padding:8px 12px;
+      font-weight:700; cursor:pointer;
+    }
+    button:hover { filter: brightness(1.08); }
+    .pill {
+      display:inline-block; padding:4px 8px; border-radius:999px; background:rgba(255,255,255,0.08);
+      font-size:12px; margin-right:6px; margin-bottom:6px;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px; color:#dff3ff; background: rgba(255,255,255,0.06); padding:2px 5px; border-radius:6px;
+    }
+    #stats { margin-top: 6px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); }
+    #legend { position: fixed; right: 14px; top: 14px; z-index: 5; background: rgba(10,14,28,0.78); border-radius:14px; padding:10px 12px; border: 1px solid rgba(255,255,255,0.10); }
+    #legend div { font-size: 12px; margin: 4px 0; }
+    .swatch { display:inline-block; width: 11px; height: 11px; border-radius: 999px; margin-right: 7px; vertical-align: middle; }
+    #footer {
+      position: fixed; right: 14px; bottom: 14px; z-index: 5; font-size: 12px;
+      background: rgba(10,14,28,0.72); border:1px solid rgba(255,255,255,0.1); padding:9px 11px; border-radius: 12px;
+      color:#cad5ff;
+    }
+    a { color:#9ed0ff; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="panel">
+    <h1>Cayley graph from explicit elements of SO₃(ℤ[∛2])</h1>
+    <p>This version uses an actual <code>SL₂(ℂ)</code> action on hyperbolic space. A word <code>g</code> acts on the basepoint via <code>X ↦ g X g*</code> in the Hermitian model of <code>H³</code>, then the resulting point is sent to the Poincaré ball.</p>
+    <p class="small">Here ∛2 is embedded into ℂ by 
+      <code>α ↦ 2^(1/3) e^{2π i / 3}</code>, and we use the nontrivial identity
+      <code>(2-α)² + (1+α-α²)² = 1</code>.
+    </p>
+    <div class="row">
+      <label for="depth">Depth: <span id="depthVal">3</span></label>
+      <input id="depth" type="range" min="1" max="5" step="1" value="3" />
+      <button id="rebuild">Rebuild</button>
+    </div>
+    <div class="row">
+      <label><input id="edgesToggle" type="checkbox" checked /> edges</label>
+      <label><input id="ballToggle" type="checkbox" checked /> boundary sphere</label>
+      <label><input id="labelsToggle" type="checkbox" /> labels</label>
+    </div>
+    <div>
+      <span class="pill">g₁ = q(x,y,0)</span>
+      <span class="pill">g₂ = q(x,0,y)</span>
+      <span class="pill">g₃ = q(0,x,y)</span>
+    </div>
+    <p class="small">with <code>x = 2-α</code>, <code>y = 1+α-α²</code>, and <code>q(b,c,d)</code> the pure unit quaternion <code>bi+cj+dk</code>, mapped to <code>SL₂(ℂ)</code>.</p>
+    <div id="stats"></div>
+  </div>
+  <div id="legend">
+    <div><span class="swatch" style="background:#7dd3fc"></span>vertices</div>
+    <div><span class="swatch" style="background:#fca5a5"></span>g₁ edges</div>
+    <div><span class="swatch" style="background:#86efac"></span>g₂ edges</div>
+    <div><span class="swatch" style="background:#fcd34d"></span>g₃ edges</div>
+  </div>
+  <div id="footer">Drag to rotate. Scroll to zoom. Double-click to recenter.</div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    class Complex {
+      constructor(re=0, im=0) { this.re = re; this.im = im; }
+      add(z){ return new Complex(this.re + z.re, this.im + z.im); }
+      sub(z){ return new Complex(this.re - z.re, this.im - z.im); }
+      mul(z){ return new Complex(this.re*z.re - this.im*z.im, this.re*z.im + this.im*z.re); }
+      scale(s){ return new Complex(this.re*s, this.im*s); }
+      div(z){ const d = z.re*z.re + z.im*z.im; return new Complex((this.re*z.re + this.im*z.im)/d, (this.im*z.re - this.re*z.im)/d); }
+      conj(){ return new Complex(this.re, -this.im); }
+      abs2(){ return this.re*this.re + this.im*this.im; }
+      toString(prec=3){
+        const r = Math.abs(this.re) < 1e-12 ? 0 : this.re;
+        const i = Math.abs(this.im) < 1e-12 ? 0 : this.im;
+        if (i === 0) return r.toFixed(prec);
+        if (r === 0) return `${i.toFixed(prec)}i`;
+        return `${r.toFixed(prec)} ${i >= 0 ? '+' : '-'} ${Math.abs(i).toFixed(prec)}i`;
+      }
+      static fromReal(x){ return new Complex(x,0); }
+      static get I(){ return new Complex(0,1); }
+    }
+
+    function c(re,im=0){ return new Complex(re,im); }
+
+    function matMul(A,B){
+      return [
+        [A[0][0].mul(B[0][0]).add(A[0][1].mul(B[1][0])), A[0][0].mul(B[0][1]).add(A[0][1].mul(B[1][1]))],
+        [A[1][0].mul(B[0][0]).add(A[1][1].mul(B[1][0])), A[1][0].mul(B[0][1]).add(A[1][1].mul(B[1][1]))]
+      ];
+    }
+
+    function matAdjoint(A){
+      return [
+        [A[0][0].conj(), A[1][0].conj()],
+        [A[0][1].conj(), A[1][1].conj()]
+      ];
+    }
+
+    function quatToSL2(a,b,cq,d){
+      // a + b i + c j + d k  ->  [[a+bi, c+di],[-c+di, a-bi]]
+      return [
+        [a.add(b.mul(Complex.I)), cq.add(d.mul(Complex.I))],
+        [cq.scale(-1).add(d.mul(Complex.I)), a.sub(b.mul(Complex.I))]
+      ];
+    }
+
+    function hyperboloidFromHermitian(X){
+      const A = X[0][0].re;
+      const D = X[1][1].re;
+      const B = X[0][1];
+      const t = 0.5*(A + D);
+      const z = 0.5*(A - D);
+      const x = B.re;
+      const y = B.im;
+      return {x,y,z,t};
+    }
+
+    function pointFromMatrix(g){
+      const gg = matMul(g, matAdjoint(g));
+      return hyperboloidFromHermitian(gg);
+    }
+
+    function ballFromHyperboloid(p){
+      const denom = p.t + 1;
+      return new THREE.Vector3(p.x/denom, p.y/denom, p.z/denom);
+    }
+
+    function minkowskiDot(p,q){
+      return p.t*q.t - p.x*q.x - p.y*q.y - p.z*q.z;
+    }
+
+    function geodesicPoints(p,q,segments=24){
+      let ip = minkowskiDot(p,q);
+      if (ip < 1) ip = 1;
+      const d = Math.acosh(ip);
+      const pts = [];
+      if (d < 1e-9) {
+        pts.push(ballFromHyperboloid(p), ballFromHyperboloid(q));
+        return pts;
+      }
+      const sd = Math.sinh(d);
+      for (let i=0;i<=segments;i++){
+        const s = i/segments;
+        const a = Math.sinh((1-s)*d)/sd;
+        const b = Math.sinh(s*d)/sd;
+        const r = {
+          x: a*p.x + b*q.x,
+          y: a*p.y + b*q.y,
+          z: a*p.z + b*q.z,
+          t: a*p.t + b*q.t
+        };
+        pts.push(ballFromHyperboloid(r));
+      }
+      return pts;
+    }
+
+    function keyFromBall(v){
+      return `${v.x.toFixed(6)},${v.y.toFixed(6)},${v.z.toFixed(6)}`;
+    }
+
+    function matrixKey(M){
+      return M.flat().map(z => `${z.re.toFixed(8)},${z.im.toFixed(8)}`).join('|');
+    }
+
+    function inverseSL2(M){
+      // det = 1 in our examples
+      return [
+        [M[1][1], M[0][1].scale(-1)],
+        [M[1][0].scale(-1), M[0][0]]
+      ];
+    }
+
+    // ===== arithmetic data =====
+    const alphaAbs = Math.cbrt(2);
+    const alphaArg = 2*Math.PI/3;
+    const alpha = c(alphaAbs*Math.cos(alphaArg), alphaAbs*Math.sin(alphaArg));
+    const alpha2 = alpha.mul(alpha);
+    const x = c(2,0).sub(alpha);
+    const y = c(1,0).add(alpha).sub(alpha2);
+
+    function pureQuatGen(b,cq,d){
+      return quatToSL2(c(0,0), b, cq, d);
+    }
+
+    const gens = [
+      { name: 'g₁', color: 0xfca5a5, M: pureQuatGen(x,y,c(0,0)) },
+      { name: 'g₂', color: 0x86efac, M: pureQuatGen(x,c(0,0),y) },
+      { name: 'g₃', color: 0xfcd34d, M: pureQuatGen(c(0,0),x,y) },
+    ];
+    gens.forEach(g => g.inv = inverseSL2(g.M));
+
+    // ===== three.js scene =====
+    const app = document.getElementById('app');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1020);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.01, 100);
+    camera.position.set(0,0,3.1);
+
+    const renderer = new THREE.WebGLRenderer({ antialias:true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    app.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.minDistance = 1.5;
+    controls.maxDistance = 8;
+    controls.target.set(0,0,0);
+    renderer.domElement.addEventListener('dblclick', () => {
+      controls.target.set(0,0,0);
+      camera.position.set(0,0,3.1);
+    });
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.95));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.85);
+    dir.position.set(3,4,5);
+    scene.add(dir);
+
+    const ballGeom = new THREE.SphereGeometry(1, 64, 64);
+    const ballMat = new THREE.MeshPhysicalMaterial({
+      color: 0x6ea8fe,
+      transparent: true,
+      opacity: 0.08,
+      roughness: 0.2,
+      metalness: 0.0,
+      clearcoat: 0.9,
+      side: THREE.DoubleSide
+    });
+    const ballMesh = new THREE.Mesh(ballGeom, ballMat);
+    scene.add(ballMesh);
+
+    const wire = new THREE.LineSegments(
+      new THREE.WireframeGeometry(new THREE.SphereGeometry(1, 24, 16)),
+      new THREE.LineBasicMaterial({ color: 0x89a6ff, transparent: true, opacity: 0.18 })
+    );
+    scene.add(wire);
+
+    const axisHelper = new THREE.AxesHelper(1.25);
+    axisHelper.material.transparent = true;
+    axisHelper.material.opacity = 0.35;
+    scene.add(axisHelper);
+
+    const graphGroup = new THREE.Group();
+    scene.add(graphGroup);
+
+    function clearGroup(group){ while(group.children.length) group.remove(group.children[0]); }
+
+    function bfs(depth){
+      const I = [[c(1,0),c(0,0)],[c(0,0),c(1,0)]];
+      const queue = [{ M:I, word:'', depth:0 }];
+      const seen = new Map();
+      const vertices = [];
+      const edges = [];
+
+      while (queue.length){
+        const node = queue.shift();
+        const key = matrixKey(node.M);
+        if (seen.has(key)) continue;
+        const idx = vertices.length;
+        const hyper = pointFromMatrix(node.M);
+        const ball = ballFromHyperboloid(hyper);
+        seen.set(key, idx);
+        vertices.push({ M:node.M, hyper, ball, word:node.word, depth:node.depth });
+        if (node.depth >= depth) continue;
+
+        gens.forEach((g,gi) => {
+          [
+            {suffix:g.name, mat:g.M, sign:1},
+            {suffix:g.name+'⁻¹', mat:g.inv, sign:-1}
+          ].forEach(info => {
+            const M2 = matMul(node.M, info.mat);
+            queue.push({ M:M2, word: node.word ? `${node.word} ${info.suffix}` : info.suffix, depth: node.depth+1 });
+            edges.push({ fromKey:key, toM:M2, genIndex:gi, sign:info.sign });
+          });
+        });
+      }
+
+      const realizedEdges = [];
+      edges.forEach(e => {
+        const i = seen.get(e.fromKey);
+        const j = seen.get(matrixKey(e.toM));
+        if (i !== undefined && j !== undefined && i < j) {
+          realizedEdges.push({ i,j, genIndex:e.genIndex });
+        }
+      });
+
+      return { vertices, edges: realizedEdges };
+    }
+
+    function makeTextSprite(text){
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.font = '24px Helvetica';
+      const w = Math.ceil(ctx.measureText(text).width) + 20;
+      canvas.width = w;
+      canvas.height = 42;
+      ctx.font = '24px Helvetica';
+      ctx.fillStyle = 'rgba(11,16,32,0.9)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.strokeRect(0.5,0.5,canvas.width-1,canvas.height-1);
+      ctx.fillStyle = '#e7ecff';
+      ctx.fillText(text, 10, 28);
+      const tex = new THREE.CanvasTexture(canvas);
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(canvas.width/260, canvas.height/260, 1);
+      return sprite;
+    }
+
+    function buildGraph(depth){
+      clearGroup(graphGroup);
+      const { vertices, edges } = bfs(depth);
+
+      const edgesOn = document.getElementById('edgesToggle').checked;
+      const labelsOn = document.getElementById('labelsToggle').checked;
+      ballMesh.visible = wire.visible = document.getElementById('ballToggle').checked;
+
+      if (edgesOn) {
+        gens.forEach((g,gi) => {
+          const edgeGroup = new THREE.Group();
+          const mat = new THREE.LineBasicMaterial({ color: g.color, transparent: true, opacity: 0.72 });
+          edges.filter(e => e.genIndex === gi).forEach(e => {
+            const p = vertices[e.i].hyper;
+            const q = vertices[e.j].hyper;
+            const pts = geodesicPoints(p,q,20);
+            const geom = new THREE.BufferGeometry().setFromPoints(pts);
+            edgeGroup.add(new THREE.Line(geom, mat));
+          });
+          graphGroup.add(edgeGroup);
+        });
+      }
+
+      const positions = [];
+      vertices.forEach(v => positions.push(v.ball.x, v.ball.y, v.ball.z));
+      const vg = new THREE.BufferGeometry();
+      vg.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      const vm = new THREE.PointsMaterial({ size: 0.038, color: 0x7dd3fc, sizeAttenuation: true });
+      graphGroup.add(new THREE.Points(vg, vm));
+
+      if (labelsOn) {
+        vertices.forEach(v => {
+          if (!v.word || v.depth > 2) return;
+          const s = makeTextSprite(v.word);
+          s.position.copy(v.ball.clone().multiplyScalar(1.06));
+          graphGroup.add(s);
+        });
+      }
+
+      const stats = document.getElementById('stats');
+      stats.innerHTML = `
+        <p><strong>Embedded generator data</strong></p>
+        <p class="small"><code>α ≈ ${alpha.toString(4)}</code></p>
+        <p class="small"><code>x = 2-α ≈ ${x.toString(4)}</code></p>
+        <p class="small"><code>y = 1+α-α² ≈ ${y.toString(4)}</code></p>
+        <p><strong>Vertices:</strong> ${vertices.length}<br><strong>Edges:</strong> ${edges.length}</p>
+        <p class="small">This is the finite ball of radius ${depth} in the Cayley graph of the subgroup generated by <code>g₁,g₂,g₃</code> and their inverses, modulo collisions visible in <code>SL₂(ℂ)</code>.</p>
+      `;
+    }
+
+    function animate(){
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    document.getElementById('rebuild').addEventListener('click', () => buildGraph(+document.getElementById('depth').value));
+    document.getElementById('depth').addEventListener('input', (e) => {
+      document.getElementById('depthVal').textContent = e.target.value;
+    });
+    ['edgesToggle','ballToggle','labelsToggle'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => buildGraph(+document.getElementById('depth').value));
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    buildGraph(3);
+    animate();
+  </script>
+</body>
+</html>

@@ -37,7 +37,7 @@ const EXAMPLES = {
             ]
         },
         {
-            name: 'Double Loop (Link)',
+            name: 'Unlink',
             gridSize: 5,
             grid: [
                 [5, 6, 0, 0, 0],
@@ -106,7 +106,7 @@ const EXAMPLES = {
             }
         },
         {
-            name: 'Two Equators (Link)',
+            name: 'Unlink',
             faceSize: 4,
             grid: {
                 top: [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],

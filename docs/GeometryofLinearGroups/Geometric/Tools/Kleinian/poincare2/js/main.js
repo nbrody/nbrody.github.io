@@ -76,6 +76,7 @@ const material = new THREE.ShaderMaterial({
 });
 
 const mesh = new THREE.Mesh(geometry, material);
+mesh.renderOrder = -1;  // Render polyhedron first so Cayley graph overlays correctly
 scene.add(mesh);
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -88,7 +89,7 @@ scene.add(pointLight);
 const cayleyGroup = new THREE.Group();
 cayleyGroup.visible = false;
 scene.add(cayleyGroup);
-let showCayley = false;
+let cayleyMode = 'off';  // 'off', 'S', or 'T'
 let showPolyhedron = true;
 
 // Walls Group (hemisphere bisectors)
@@ -150,16 +151,69 @@ function getHyperbolicGeodesic(p1, p2, segments = 16) {
     return arcPoints;
 }
 
+function buildTGenerators() {
+    // Build generators list from standard generators (face pairings)
+    // Each std generator t gets paired with its inverse: [t1, t1^-1, t2, t2^-1, ...]
+    // We skip stabilizers — only face pairings contribute edges
+    const tGens = [];
+    const seen = new Set();
+
+    for (const gen of stdGenerators) {
+        if (gen.isStabilizer) continue;
+        // Use word as a dedup key (avoid adding both t and t^{-1} as separate generators)
+        const wordKey = gen.wordArr.join(',');
+        const invWordKey = gen.wordArr.slice().reverse().map(i => -i).join(',');
+        if (seen.has(wordKey) || seen.has(invWordKey)) continue;
+        seen.add(wordKey);
+        tGens.push({ matrix: gen.matrix, wordArr: gen.wordArr });
+    }
+
+    // Build interleaved [g, g^-1, ...] array
+    const generators = [];
+    for (const g of tGens) {
+        generators.push(g.matrix);
+        generators.push(g.matrix.inv());
+    }
+    return { generators, numTypes: tGens.length };
+}
+
 function updateCayley() {
     cayleyGroup.clear();
-    if (currentGenerators.length === 0) return;
+    if (cayleyMode === 'off') return;
 
-    const { points, edges } = getCayleyGraph(currentGenerators, currentDepth, viewMatrix);
+    let generators, numTypes;
+
+    let depth = currentDepth;
+
+    if (cayleyMode === 'T') {
+        // Use standard generators (face pairings)
+        if (stdGenerators.length === 0) return;
+        const tResult = buildTGenerators();
+        generators = tResult.generators;
+        numTypes = tResult.numTypes;
+        // Auto-clamp depth for T generators to prevent combinatorial explosion
+        // With n generators (2n with inverses), BFS grows as ~(2n-1)^depth
+        if (numTypes > 20) depth = Math.min(depth, 2);
+        else if (numTypes > 10) depth = Math.min(depth, 3);
+        else if (numTypes > 5) depth = Math.min(depth, 4);
+    } else {
+        // Use input generators (S)
+        if (currentGenerators.length === 0) return;
+        generators = currentGenerators;
+        numTypes = currentMatrices.length;
+    }
+
+    if (generators.length === 0) return;
+
+    const maxNodes = cayleyMode === 'T' ? 15000 : 15000;
+    const { points, edges } = getCayleyGraph(generators, depth, viewMatrix, maxNodes);
 
     // Vertices - deduplicate by position for visualization
     const ptGeom = new THREE.SphereGeometry(0.015, 8, 8);
     const ptMat = new THREE.MeshBasicMaterial({
         color: 0xffffff,
+        transparent: true,
+        opacity: 1.0,
         depthTest: true,
         depthWrite: false
     });
@@ -173,15 +227,13 @@ function updateCayley() {
             pt.position.copy(p);
             const distToBoundary = 1.0 - p.length();
             pt.scale.setScalar(Math.max(0.1, distToBoundary * 1.5));
+            pt.renderOrder = 1;
             cayleyGroup.add(pt);
         }
     });
 
-    // Determine number of generator types (half the generators since we have inverses)
-    const numMatrices = currentMatrices.length;
-
-    // Create a separate LineSegments object for each type
-    for (let type = 0; type < numMatrices; type++) {
+    // Create a separate LineSegments object for each generator type
+    for (let type = 0; type < numTypes; type++) {
         const typeEdges = edges.filter(e => e.type === type);
         if (typeEdges.length === 0) continue;
 
@@ -205,9 +257,10 @@ function updateCayley() {
             transparent: true,
             opacity: 0.8,
             depthTest: true,
-            depthWrite: false  // Don't write to depth but do read it
+            depthWrite: false
         });
         const lines = new THREE.LineSegments(lineGeom, lineMat);
+        lines.renderOrder = 1;
         cayleyGroup.add(lines);
     }
 }
@@ -509,7 +562,7 @@ function animateStdGenerator(idx, event) {
             viewMatrix = startView.mul(gt);
 
             updateDomain();
-            if (showCayley) updateCayley();
+            if (cayleyMode !== 'off') updateCayley();
             if (wallsOpacity > 0) updateWalls();
 
             if (t < 1) {
@@ -635,7 +688,7 @@ function refreshFromUI() {
         updateIsometryButtons();
         updateStdGeneratorsList();
         if (!mirrorMode) setMirrorStatus('');
-        if (showCayley) updateCayley();
+        if (cayleyMode !== 'off') updateCayley();
         if (wallsOpacity > 0) updateWalls();
     } catch (e) {
         if (errorEl) errorEl.textContent = e.message;
@@ -672,7 +725,7 @@ function animateIsometry(genIndex, event) {
             viewMatrix = startView.mul(gt);
 
             updateDomain();
-            if (showCayley) updateCayley();
+            if (cayleyMode !== 'off') updateCayley();
             if (wallsOpacity > 0) updateWalls();
 
             if (t < 1) {
@@ -713,11 +766,10 @@ function initUI() {
                 updateWalls();
             }
         },
-        onCayleyToggle: (btn) => {
-            showCayley = !showCayley;
-            cayleyGroup.visible = showCayley;
-            updateToggleBtn(btn, showCayley);
-            if (showCayley) updateCayley();
+        onCayleyModeChange: (mode) => {
+            cayleyMode = mode;
+            cayleyGroup.visible = mode !== 'off';
+            if (mode !== 'off') updateCayley();
         },
         onTiedyeToggle: (btn) => {
             showTiedye = !showTiedye;
@@ -741,7 +793,7 @@ function initUI() {
         },
         onWordLengthChange: (depth) => {
             currentDepth = depth;
-            if (showCayley) updateCayley();
+            if (cayleyMode !== 'off') updateCayley();
             if (wallsOpacity > 0) updateWalls();
         },
         onPaletteChange: (paletteKey) => {

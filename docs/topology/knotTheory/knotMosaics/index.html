@@ -37,43 +37,26 @@
         </div>
 
         <!-- Surface Selector -->
-        <div class="surface-tabs">
-            <button class="surface-tab active" data-surface="disk">
-                <svg width="18" height="18" viewBox="0 0 18 18">
-                    <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5" fill="none" />
-                </svg>
-                Disk
-            </button>
-            <button class="surface-tab" data-surface="sphere">
-                <svg width="18" height="18" viewBox="0 0 18 18">
-                    <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5" fill="none" />
-                    <ellipse cx="9" cy="9" rx="7" ry="3" stroke="currentColor" stroke-width="0.8" fill="none"
-                        opacity="0.5" />
-                    <line x1="9" y1="2" x2="9" y2="16" stroke="currentColor" stroke-width="0.8" opacity="0.5" />
-                </svg>
-                Sphere
-            </button>
-            <button class="surface-tab" data-surface="torus">
-                <svg width="18" height="18" viewBox="0 0 18 18">
-                    <ellipse cx="9" cy="9" rx="8" ry="5" stroke="currentColor" stroke-width="1.5" fill="none" />
-                    <ellipse cx="9" cy="9" rx="3" ry="1.5" stroke="currentColor" stroke-width="1" fill="none" />
-                </svg>
-                Torus
-            </button>
+        <div class="control-group" style="padding: 0 20px; margin-bottom: 4px;">
+            <div class="surface-select-wrapper">
+                <select id="surface-select">
+                    <option value="disk" data-icon="⊙">Disk</option>
+                    <option value="sphere" data-icon="🌐">Sphere</option>
+                    <option value="torus" data-icon="🍩">Torus</option>
+                    <option value="projective" data-icon="⊕">Projective Plane</option>
+                    <option value="cylinder" data-icon="◎">Cylinder</option>
+                    <option value="mobius" data-icon="∞">Möbius Band</option>
+                </select>
+            </div>
         </div>
 
         <!-- Scrollable content area -->
         <div class="panel-scroll-area">
             <div class="control-group">
                 <label>Grid Size <span id="grid-size-val" class="accent">5</span></label>
-                <input type="range" id="grid-size-slider" min="3" max="10" value="5">
+                <input type="range" id="grid-size-slider" min="1" max="10" value="5">
             </div>
 
-            <div class="control-group" id="face-size-group" style="display: none;">
-                <label>Face Subdivisions <span id="face-size-val" class="accent">3</span></label>
-                <input type="range" id="face-size-slider" min="2" max="6" value="3">
-                <p class="hint">Squares per face edge of the polyhedron</p>
-            </div>
 
             <div class="control-group">
                 <label>Examples</label>
@@ -98,6 +81,22 @@
                     <button class="color-swatch" data-color="#fbbf24" style="background: #fbbf24;"></button>
                     <button class="color-swatch" data-color="#fb923c" style="background: #fb923c;"></button>
                     <button class="color-swatch" data-color="#e8ecf4" style="background: #e8ecf4;"></button>
+                    <button class="color-swatch" data-color="#111111"
+                        style="background: #111111; border: 1px solid rgba(255,255,255,0.15);"></button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Background</label>
+                <div class="bg-toggle-row">
+                    <button class="bg-toggle active" data-bg="black" title="Dark background">
+                        <span class="bg-preview bg-preview-black"></span>
+                        Black
+                    </button>
+                    <button class="bg-toggle" data-bg="white" title="Light background">
+                        <span class="bg-preview bg-preview-white"></span>
+                        White
+                    </button>
                 </div>
             </div>
         </div>
@@ -112,12 +111,7 @@
         </div>
         <div class="button-group" id="fold-group" style="display: none;">
             <button id="fold-btn" class="btn btn-primary" style="flex:1">
-                <span class="btn-icon">🧊</span> Fold Cube
-            </button>
-        </div>
-        <div class="button-group" id="fold-torus-group" style="display: none;">
-            <button id="fold-torus-btn" class="btn btn-primary" style="flex:1">
-                <span class="btn-icon">🍩</span> Fold Torus
+                <span class="btn-icon">🔮</span> Fold
             </button>
         </div>
     </div>
@@ -145,6 +139,10 @@
                     <input type="checkbox" id="cube-hide-grid">
                     <span>Hide Grid</span>
                 </label>
+                <div class="render-mode-toggle">
+                    <button class="render-mode-btn" data-mode="tiles">Tiles</button>
+                    <button class="render-mode-btn active" data-mode="tubes">Tubes</button>
+                </div>
                 <button id="cube-unfold-btn" class="btn btn-secondary">Unfold</button>
                 <button id="cube-close-btn" class="btn btn-outline">Close</button>
             </div>

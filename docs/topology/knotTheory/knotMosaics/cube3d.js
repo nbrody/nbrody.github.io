@@ -6,6 +6,7 @@
     let scene, camera, renderer, controls;
     let cubeGroup, pivots = {}, meshes = {}, strandGroups = {}, elbowGroup;
     let animId = null, isFolded = false;
+    let renderMode = 'tubes'; // 'tiles' or 'tubes'
 
     const FOLD_DURATION = 1500;
     const FACES = ['front', 'top', 'bottom', 'left', 'right', 'back'];
@@ -83,6 +84,7 @@
 
         buildStrands();
         buildElbows();
+        applyRenderMode();
         isFolded = false;
         Object.keys(pivots).forEach(n => pivots[n].rotation.set(0, 0, 0));
     }
@@ -155,9 +157,6 @@
     }
 
     // ── Elbow connectors ──
-    // For each strand endpoint at a face edge, add a quarter-circle tube
-    // curving from z=zBase to z=0, extending slightly past the edge.
-    // When folded, elbows from adjacent faces meet at cube edges.
     function buildElbows() {
         if (elbowGroup) { elbowGroup.parent?.remove(elbowGroup); }
         const st = window.getAppState();
@@ -182,7 +181,6 @@
                     const h = cs / 2;
                     const x0 = -0.5 + c * cs, y0 = 0.5 - r * cs;
 
-                    // Check each edge: if tile connects AND cell is at face boundary
                     if (tile.connections.N && r === 0) {
                         addElbow(g, x0 + h, 0.5, zB, tubeR, 'N', mat);
                     }
@@ -201,12 +199,11 @@
     }
 
     function addElbow(group, ex, ey, zB, tubeR, edge, mat) {
-        // Quarter-circle from (ex, ey, zB) curving out past the edge to (ex±zB, ey, 0)
         const pts = [];
         const n = 10;
         for (let i = 0; i <= n; i++) {
             const t = i / n;
-            const angle = (Math.PI / 2) * (1 - t); // from 90° down to 0°
+            const angle = (Math.PI / 2) * (1 - t);
             const z = zB * Math.sin(angle);
             const outward = zB * Math.cos(angle);
             let x = ex, y = ey;
@@ -219,6 +216,20 @@
         const curve = new THREE.CatmullRomCurve3(pts);
         const tube = new THREE.TubeGeometry(curve, 10, tubeR, 8, false);
         group.add(new THREE.Mesh(tube, mat));
+    }
+
+    // ── Render Mode ──
+    function applyRenderMode() {
+        const showTubes = renderMode === 'tubes';
+        FACES.forEach(n => {
+            if (strandGroups[n]) strandGroups[n].visible = showTubes;
+            // In tiles mode, always show the face textures
+            if (meshes[n]) {
+                if (!showTubes) {
+                    meshes[n].visible = true;
+                }
+            }
+        });
     }
 
     // ── Fold Animation ──
@@ -261,6 +272,7 @@
 
     // ── Toggle Grid ──
     function setStrandsOnly(on) {
+        if (renderMode === 'tiles') return; // In tiles mode, always show faces
         FACES.forEach(n => { meshes[n].visible = !on; });
     }
 
@@ -288,5 +300,18 @@
     document.getElementById('cube-close-btn').addEventListener('click', window.closeCubeFold);
     document.getElementById('cube-unfold-btn').addEventListener('click', () => animateFold(!isFolded));
     document.getElementById('cube-hide-grid').addEventListener('change', e => setStrandsOnly(e.target.checked));
+
+    // Render mode toggle (tiles/tubes) — wired up in cube3d since it loads first
+    document.querySelectorAll('.render-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.render-mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderMode = btn.dataset.mode;
+            if (cubeGroup) applyRenderMode();
+            // Notify torus3d of render mode change
+            if (window._torusSetRenderMode) window._torusSetRenderMode(btn.dataset.mode);
+        });
+    });
+
     window.addEventListener('resize', onResize);
 })();

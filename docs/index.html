@@ -1,13 +1,741 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta http-equiv="refresh" content="0; url=GeometryofLinearGroups/index.html" />
-    <script>
-      window.location.href = "GeometryofLinearGroups/index.html";
-    </script>
-    <title>Redirecting...</title>
-  </head>
-  <body>
-    If you are not redirected, <a href="GeometryofLinearGroups/index.html">click here</a>.
-  </body>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nic Brody — Mathematics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Josefin+Sans:wght@300;400&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1a1810;
+      --cream: #f5f0e8;
+      --warm-white: #faf8f4;
+      --accent: #8b4513;
+      --accent-light: #c4783a;
+      --muted: #7a7060;
+      --rule: #d4cfc4;
+      --paper: #f0ebe0;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--warm-white);
+      color: var(--ink);
+      font-family: 'Crimson Pro', Georgia, serif;
+      font-size: 18px;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.1rem 3rem;
+      background: rgba(250, 248, 244, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .nav-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 500;
+      font-size: 1.1rem;
+      letter-spacing: 0.02em;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2.5rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--ink);
+    }
+
+    /* ── HERO ── */
+    #home {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-left {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 8rem 4rem 6rem 5rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .hero-institution {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 300;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.2rem;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.2s forwards;
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: clamp(3.5rem, 6vw, 5.5rem);
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin-bottom: 0.3rem;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.35s forwards;
+    }
+
+    .hero-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-weight: 300;
+      font-size: 1.15rem;
+      color: var(--muted);
+      margin-bottom: 2.5rem;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.5s forwards;
+    }
+
+    .hero-bio {
+      font-size: 1.05rem;
+      line-height: 1.8;
+      color: #3a3428;
+      max-width: 480px;
+      margin-bottom: 2.5rem;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.65s forwards;
+    }
+
+    .hero-bio em {
+      font-style: italic;
+      color: var(--muted);
+    }
+
+    .hero-contact {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      opacity: 0;
+      animation: fadeUp 0.8s 0.8s forwards;
+    }
+
+    .hero-contact a {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 300;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid var(--accent-light);
+      padding-bottom: 1px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .hero-contact a:hover {
+      color: var(--ink);
+      border-color: var(--ink);
+    }
+
+    .hero-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8rem 4rem 6rem 2rem;
+      position: relative;
+    }
+
+    /* Hero photo */
+    .hero-photo {
+      position: relative;
+      width: 340px;
+      height: 440px;
+      opacity: 0;
+      animation: fadeIn 1.2s 0.6s forwards;
+    }
+
+    .hero-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      border-radius: 12px;
+      filter: drop-shadow(0 12px 40px rgba(139, 69, 19, 0.15));
+    }
+
+    /* ── SECTION COMMON ── */
+    section {
+      padding: 6rem 0;
+      position: relative;
+    }
+
+    .section-inner {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 3rem;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      gap: 1.5rem;
+      margin-bottom: 3.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .section-label {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.62rem;
+      font-weight: 300;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 400;
+      font-size: 2.4rem;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+
+    /* ── RESEARCH ── */
+    #research {
+      background: var(--warm-white);
+    }
+
+    .paper-list {
+      list-style: none;
+    }
+
+    .paper-item {
+      display: grid;
+      grid-template-columns: 2.5rem 1fr;
+      gap: 0 1.2rem;
+      align-items: baseline;
+      padding: 1.5rem 0;
+      border-bottom: 1px solid var(--rule);
+      transition: background 0.15s;
+    }
+
+    .paper-item:first-child {
+      border-top: none;
+    }
+
+    .paper-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 300;
+      text-align: right;
+      padding-top: 2px;
+    }
+
+    .paper-content {}
+
+    .paper-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 500;
+      font-size: 1.18rem;
+      line-height: 1.4;
+      color: var(--ink);
+      text-decoration: none;
+      transition: color 0.2s;
+      display: inline;
+    }
+
+    .paper-title:hover {
+      color: var(--accent);
+    }
+
+    .paper-title.no-link {
+      cursor: default;
+    }
+
+    .paper-title.no-link:hover {
+      color: var(--ink);
+    }
+
+    .paper-meta {
+      display: block;
+      margin-top: 0.25rem;
+      font-style: italic;
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight: 300;
+    }
+
+    .paper-badge {
+      display: inline-block;
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.55rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      background: var(--paper);
+      color: var(--accent);
+      border: 1px solid var(--rule);
+      border-radius: 2px;
+      padding: 2px 6px;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+
+    /* ── EXPOSITORY ── */
+    #expository {
+      background: var(--cream);
+    }
+
+    .talk-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .talk-card {
+      background: var(--warm-white);
+      border: 1px solid var(--rule);
+      padding: 1.6rem 1.8rem;
+      transition: box-shadow 0.2s, transform 0.2s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+
+    .talk-card:hover {
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.07);
+      transform: translateY(-2px);
+    }
+
+    .talk-card-label {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.58rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent-light);
+      margin-bottom: 0.5rem;
+    }
+
+    .talk-card-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 500;
+      font-size: 1.1rem;
+      color: var(--ink);
+      line-height: 1.3;
+    }
+
+    .talk-card-no-link {
+      background: var(--warm-white);
+      border: 1px solid var(--rule);
+      padding: 1.6rem 1.8rem;
+      opacity: 0.7;
+    }
+
+    /* ── TEACHING ── */
+    #teaching {
+      background: var(--warm-white);
+    }
+
+    .teaching-body {
+      font-size: 1.05rem;
+      line-height: 1.9;
+      color: #3a3428;
+      max-width: 680px;
+      margin-bottom: 3rem;
+    }
+
+    .teaching-body p+p {
+      margin-top: 1.2rem;
+    }
+
+    .advised-header {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.62rem;
+      font-weight: 300;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .student-entry {
+      padding: 1.2rem 0;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .student-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 500;
+      font-size: 1.1rem;
+      color: var(--ink);
+    }
+
+    .student-thesis {
+      font-style: italic;
+      font-size: 0.97rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--ink);
+      color: rgba(245, 240, 232, 0.5);
+      padding: 2.5rem 5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    footer a {
+      color: rgba(245, 240, 232, 0.7);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--cream);
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    /* scroll-reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      #home {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+
+      .hero-right {
+        display: none;
+      }
+
+      .hero-left {
+        padding: 7rem 2rem 4rem;
+      }
+
+      nav {
+        padding: 1rem 1.5rem;
+      }
+
+      .nav-links {
+        gap: 1.5rem;
+      }
+
+      .talk-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-inner {
+        padding: 0 1.5rem;
+      }
+
+      footer {
+        padding: 2rem 1.5rem;
+        flex-direction: column;
+        gap: 0.8rem;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <nav>
+    <a class="nav-name" href="#home">Nic Brody</a>
+    <a class="nav-name" href="GeometryofLinearGroups/index.html" style="margin-left: 1.5rem; font-size: 0.7rem; font-family: 'Josefin Sans', sans-serif; font-weight: 300; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); text-decoration: none;">GOLG</a>
+    <ul class="nav-links">
+      <li><a href="#research">Research</a></li>
+      <li><a href="#expository">Expository</a></li>
+      <li><a href="#teaching">Teaching</a></li>
+
+      <li><a href="mailto:nic@ucsc.edu">Contact</a></li>
+    </ul>
+  </nav>
+
+  <!-- ── HERO ── -->
+  <section id="home">
+    <div class="hero-left">
+      <div class="hero-institution">UC Santa Cruz · Mathematics</div>
+      <h1>Nic Brody</h1>
+      <div class="hero-title">Visiting Assistant Professor</div>
+      <p class="hero-bio">
+        My research interests lie in geometric group theory and low-dimensional topology.
+        Most of the questions I think about concern the geometry of linear groups in
+        characteristic zero. In other words, <em>I multiply two-by-two matrices for a living.</em>
+        <br><br>
+        I received my PhD from UC Berkeley and my undergraduate degree from UC Santa Barbara.
+      </p>
+      <div class="hero-contact">
+        <a href="mailto:nic@ucsc.edu">nic@ucsc.edu</a>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="hero-photo">
+        <img src="assets/img/nic-brody.jpg" alt="Nic Brody" />
+      </div>
+    </div>
+  </section>
+
+  <!-- ── RESEARCH ── -->
+  <section id="research">
+    <div class="section-inner">
+      <div class="section-header reveal">
+        <span class="section-label">Publications &amp; Preprints</span>
+        <h2>Research</h2>
+      </div>
+
+      <ol class="paper-list" reversed>
+        <li class="paper-item reveal">
+          <span class="paper-num">8</span>
+          <div class="paper-content">
+            <a class="paper-title" href="https://arxiv.org/abs/2512.19760" target="_blank" rel="noopener">
+              An Improper Surface Group Action
+            </a>
+            <span class="paper-meta">2025 <span
+                class="paper-badge">Preprint</span></span>
+          </div>
+        </li>
+        <li class="paper-item reveal">
+          <span class="paper-num">7</span>
+          <div class="paper-content">
+            <a class="paper-title" href="https://arxiv.org/abs/2404.01511" target="_blank" rel="noopener">
+              Approximating Hyperbolic Lattices by Cubulations
+            </a>
+            <span class="paper-meta">with Eduardo Oregon-Reyes &nbsp;·&nbsp; 2024 <span
+                class="paper-badge">Preprint</span></span>
+          </div>
+        </li>
+        <li class="paper-item reveal">
+          <span class="paper-num">6</span>
+          <div class="paper-content">
+            <a class="paper-title" href="https://nyjm.albany.edu/j/2024/30-26v.pdf" target="_blank" rel="noopener">
+              Generalized Residual Properties of Groups
+            </a>
+            <span class="paper-meta">with Kasia Jankiewicz &nbsp;·&nbsp; New York Journal of Mathematics, 2024</span>
+          </div>
+        </li>
+        <li class="paper-item reveal">
+          <span class="paper-num">5</span>
+          <div class="paper-content">
+            <a class="paper-title" href="https://arxiv.org/abs/2308.07785" target="_blank" rel="noopener">
+              Greenberg–Shalom's Commensurator Hypothesis and Applications
+            </a>
+            <span class="paper-meta">with David Fisher, Mahan Mj, and Wouter van Limbeek &nbsp;·&nbsp; 2023 <span
+                class="paper-badge">Preprint</span></span>
+          </div>
+        </li>
+        <li class="paper-item reveal">
+          <span class="paper-num">4</span>
+          <div class="paper-content">
+            <a class="paper-title"
+              href="https://escholarship.org/content/qt8k38q9kk/qt8k38q9kk_noSplash_115858ff548ab65d18e09fba7c8ff679.pdf"
+              target="_blank" rel="noopener">
+              Groups Acting on Products of Trees
+            </a>
+            <span class="paper-meta">PhD Dissertation, UC Berkeley &nbsp;·&nbsp; 2022</span>
+          </div>
+        </li>
+        <li class="paper-item reveal">
+          <span class="paper-num">3</span>
+          <div class="paper-content">
+            <a class="paper-title" href="https://arxiv.org/abs/2109.01939" target="_blank" rel="noopener">
+              Building Groups from Restricted Diagrams of Groups
+            </a>
+            <span class="paper-meta">with Michael Klug &nbsp;·&nbsp; 2021 <span
+                class="paper-badge">Preprint</span></span>
+          </div>
+        </li>
+        <li class="paper-item reveal">
+          <span class="paper-num">2</span>
+          <div class="paper-content">
+            <a class="paper-title"
+              href="https://escholarship.org/content/qt843472vs/qt843472vs_noSplash_34dc3a3c4fa673d27b2be09ead7debbe.pdf"
+              target="_blank" rel="noopener">
+              Limit Roots of Lorentzian Coxeter Groups
+            </a>
+            <span class="paper-meta">Master's Thesis, UC Santa Barbara &nbsp;·&nbsp; 2016</span>
+          </div>
+        </li>
+        <li class="paper-item reveal">
+          <span class="paper-num">1</span>
+          <div class="paper-content">
+            <a class="paper-title" href="https://arxiv.org/abs/1406.0467" target="_blank" rel="noopener">
+              Rational Hyperbolic Triangles and a Quartic Model of Elliptic Curves
+            </a>
+            <span class="paper-meta">with Jordan Schettler &nbsp;·&nbsp; 2014</span>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── EXPOSITORY ── -->
+  <section id="expository">
+    <div class="section-inner">
+      <div class="section-header reveal">
+        <span class="section-label">Slides &amp; Notes</span>
+        <h2>Expository</h2>
+      </div>
+
+      <div class="talk-grid">
+        <a class="talk-card reveal" href="https://drive.google.com/file/d/1Fq0EA-hj34nNfcgK2re0C_Puz3mny_BN/"
+          target="_blank" rel="noopener">
+          <div class="talk-card-label">Undergraduate Colloquium</div>
+          <div class="talk-card-title">Two-by-Two Matrices</div>
+        </a>
+        <a class="talk-card reveal" href="https://drive.google.com/file/d/1Wn1XDXnCkLJY8iNQ3z8L5sBRCvInqhv0/"
+          target="_blank" rel="noopener">
+          <div class="talk-card-label">Research Talk</div>
+          <div class="talk-card-title">Subgroups of SO₃(ℚ)</div>
+        </a>
+        <div class="talk-card-no-link reveal">
+          <div class="talk-card-label">Seminar Talk</div>
+          <div class="talk-card-title">Bass–Serre Theory</div>
+        </div>
+        <div class="talk-card-no-link reveal">
+          <div class="talk-card-label">Seminar Talk</div>
+          <div class="talk-card-title"><i>p</i>-adic Trees</div>
+        </div>
+        <div class="talk-card-no-link reveal">
+          <div class="talk-card-label">Seminar Talk</div>
+          <div class="talk-card-title">Totally Unitary Groups</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── TEACHING ── -->
+  <section id="teaching">
+    <div class="section-inner">
+      <div class="section-header reveal">
+        <span class="section-label">Courses &amp; Mentorship</span>
+        <h2>Teaching</h2>
+      </div>
+
+      <div class="teaching-body reveal">
+        <p>
+          I am currently organizing a seminar titled <em>Geometry of Linear Groups</em>.
+          At UC Santa Cruz I have taught Number Theory, Graph Theory, College Algebra, and Calculus 2.
+        </p>
+        <p>
+          Before that, I was a GSI for more than a dozen courses at UC Berkeley, and a TA at
+          UC Santa Barbara. I have also taught for Mt. Tam College at San Quentin State Prison,
+          and the Project for Inmate Education at Santa Cruz Main Jail.
+        </p>
+      </div>
+
+      <div class="reveal">
+        <div class="advised-header">Students Advised</div>
+        <div class="student-entry">
+          <div class="student-name">Angela Blair &nbsp;·&nbsp; 2024</div>
+          <div class="student-thesis">Property (τ) and Rational Isometry Groups &nbsp;·&nbsp; Senior Thesis</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ── -->
+  <footer>
+    <span>Nic Brody &nbsp;·&nbsp; UC Santa Cruz</span>
+    <a href="mailto:nic@ucsc.edu">nic@ucsc.edu</a>
+  </footer>
+
+  <script>
+    // Scroll-reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          observer.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+</body>
+
 </html>

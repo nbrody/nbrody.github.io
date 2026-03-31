@@ -5,12 +5,14 @@
     let scene, camera, renderer, controls;
     let mainGroup, baseGeoms = [];
     let animId = null, isFolded = false;
+    let renderMode = 'tubes'; // 'tiles' or 'tubes'
 
     const FOLD_DURATION = 2000;
 
     // Geometry storage for morphing
-    // { mesh, geom, flatPositions, normals, type }
     let morphTargets = [];
+    let planeMorphTarget = null; // reference to the plane mesh morph target
+    let tubeMorphTargets = []; // references to tube mesh morph targets
 
     function ease(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
@@ -37,6 +39,8 @@
         if (mainGroup) scene.remove(mainGroup);
         mainGroup = new THREE.Group(); scene.add(mainGroup);
         morphTargets = [];
+        tubeMorphTargets = [];
+        planeMorphTarget = null;
 
         const showGrid = !document.getElementById('cube-hide-grid').checked;
         const st = window.getAppState();
@@ -50,10 +54,8 @@
         const planeMat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
         const planeMesh = new THREE.Mesh(planeGeo, planeMat);
         mainGroup.add(planeMesh);
-        registerMorph(planeMesh);
-
-        // Grid lines (edges) - disabled for torus to avoid z-fighting issues during bend
-        // unless we want a border
+        const planeTarget = registerMorph(planeMesh);
+        planeMorphTarget = planeTarget;
 
         // 2. 3D Tube Strands
         const cs = 1 / gs;
@@ -73,13 +75,15 @@
                     const tubeGeo = new THREE.TubeGeometry(cv, segs, tubeR, 8, false);
                     const mesh = new THREE.Mesh(tubeGeo, mat);
                     mainGroup.add(mesh);
-                    registerMorph(mesh);
+                    const target = registerMorph(mesh);
+                    tubeMorphTargets.push(target);
                 });
             }
         }
 
         isFolded = false;
         applyFold(0); // flat
+        applyRenderMode();
     }
 
     function tileCurves(ti, row, col, gs, zB, zO) {
@@ -123,15 +127,13 @@
         const geom = mesh.geometry;
         const posAttr = geom.attributes.position;
         const flatPositions = new Float32Array(posAttr.array);
-        morphTargets.push({ mesh, geom, flatPositions });
+        const target = { mesh, geom, flatPositions };
+        morphTargets.push(target);
+        return target;
     }
 
     // fold t: 0 to 1
     function applyFold(t) {
-        // We do a continuous morph:
-        // t=0 to 0.5: roll flat plane into a cylinder along X
-        // t=0.5 to 1.0: roll cylinder into a torus along Y
-
         const fold1 = Math.min(t * 2, 1.0);       // Cylinder phase
         const fold2 = Math.max(0, (t * 2) - 1.0); // Torus phase
 
@@ -148,20 +150,15 @@
                 const py = flatPositions[i + 1];
                 const pz = flatPositions[i + 2];
 
-                // Base coordinates (flat)
                 let x = px;
                 let y = py;
                 let z = pz;
 
                 // Phase 1: Cylinder (bend around Y axis, so X rolls up)
                 if (fold1 > 0) {
-                    // u goes -0.5 to 0.5
                     const angle1 = px * 2.0 * Math.PI * fold1;
-                    const r1 = R_minor + pz; // thickness pushes outward
+                    const r1 = R_minor + pz;
 
-                    // Linear blend for intermediate states
-                    // If fold1=1, x = R_minor * sin, z = R_minor * cos. 
-                    // But we want it to sit at z=pz initially.
                     const targetX = r1 * Math.sin(angle1);
                     const targetZ = r1 * Math.cos(angle1) - R_minor;
 
@@ -171,24 +168,8 @@
 
                 // Phase 2: Torus (bend around X axis, so Y rolls up)
                 if (fold2 > 0) {
-                    const angle2 = py * 2.0 * Math.PI * fold2;
-                    // Current distance from rotation center:
-                    // Torus major axis is at z = -R_minor
-                    // We rotate the Y-Z plane around (x=0, z=-R_minor - R_major)
-
-                    const cy = 0;
-                    const cz = -R_minor - R_major; // center of the torus hole
-
-                    const dy = y - cy;
-                    const dz = z - cz;
-                    const dist = Math.sqrt(dy * dy + dz * dz); // should be R_major + offset
-
-                    // Actually, simpler mapping:
-                    // Treat y as the angle, and push everything out by R_major
                     const t_angle2 = py * 2.0 * Math.PI * fold2;
-                    // Distance from tube center to current point
-                    const tube_x = x;
-                    const tube_z = z + R_minor; // relative to tube center
+                    const tube_z = z + R_minor;
 
                     const R_current = R_major + tube_z;
 
@@ -206,6 +187,19 @@
 
             posAttr.needsUpdate = true;
             geom.computeVertexNormals();
+        }
+    }
+
+    // ── Render Mode ──
+    function applyRenderMode() {
+        const showTubes = renderMode === 'tubes';
+        // Show/hide tube meshes
+        tubeMorphTargets.forEach(t => {
+            if (t.mesh) t.mesh.visible = showTubes;
+        });
+        // Plane is always visible (shows tiles in tiles mode, background in tubes mode)
+        if (planeMorphTarget && planeMorphTarget.mesh) {
+            planeMorphTarget.mesh.visible = true;
         }
     }
 
@@ -246,16 +240,18 @@
     // ── Grid Toggle ──
     function updateTextures(strandsOnly) {
         if (!mainGroup || morphTargets.length === 0) return;
-        const planeTarget = morphTargets[0]; // the first one is the plane
+        if (!planeMorphTarget) return;
 
         const tc = window.renderTorusTexture(!strandsOnly, strandsOnly);
         const tex = new THREE.CanvasTexture(tc);
         tex.minFilter = THREE.LinearFilter;
 
-        planeTarget.mesh.material.map = tex;
-        planeTarget.mesh.material.transparent = strandsOnly;
-        planeTarget.mesh.visible = !strandsOnly; // Can just hide it completely
-        planeTarget.mesh.material.needsUpdate = true;
+        planeMorphTarget.mesh.material.map = tex;
+        planeMorphTarget.mesh.material.transparent = strandsOnly;
+        if (renderMode === 'tubes') {
+            planeMorphTarget.mesh.visible = !strandsOnly;
+        }
+        planeMorphTarget.mesh.material.needsUpdate = true;
     }
 
     function onResize() {
@@ -297,13 +293,17 @@
 
     // Handle the existing toggle so it works for both depending on what's active
     const domToggle = document.getElementById('cube-hide-grid');
-    const oldChange = domToggle.onchange;
     domToggle.addEventListener('change', e => {
         if (state.surface === 'torus') {
             updateTextures(e.target.checked);
         }
-        // cube3d's listener will also run, but it won't crash if it checks existence
     });
+
+    // Allow cube3d to set render mode for torus too
+    window._torusSetRenderMode = function (mode) {
+        renderMode = mode;
+        if (mainGroup) applyRenderMode();
+    };
 
     window.addEventListener('resize', onResize);
 })();

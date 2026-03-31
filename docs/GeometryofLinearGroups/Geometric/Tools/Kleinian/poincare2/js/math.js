@@ -274,6 +274,7 @@ function isInsideDomain(px, py, pz, acceptedFaces, numFaces) {
 /**
  * Check if a bisector sphere is redundant (doesn't intersect the current domain).
  * Tests the closest point to basepoint on the sphere, plus a ring of 8 samples.
+ * Used during incremental beam search for fast early filtering.
  */
 function isFaceRedundant(bisector, acceptedFaces, numFaces, basepoint) {
     if (numFaces === 0) return false;
@@ -324,6 +325,128 @@ function isFaceRedundant(bisector, acceptedFaces, numFaces, basepoint) {
     }
 
     return true;
+}
+
+/**
+ * Dense redundancy check for post-processing pruning.
+ * Uses many more sample points across the bisector sphere (multiple rings at
+ * different latitudes) to reliably determine whether ANY part of the bisector
+ * sphere touches the domain boundary.
+ *
+ * @param {number} faceIdx - Index of the face to test within otherFaces
+ * @param {THREE.Vector4[]} allFaces - All currently accepted faces
+ * @param {number} numFaces - Number of valid faces in allFaces
+ * @param {number} faceIdx - Index of the face we're testing for redundancy
+ * @param {THREE.Vector3} basepoint - The basepoint of the domain
+ * @returns {boolean} true if the face is redundant (does not contribute to domain boundary)
+ */
+function isFaceRedundantDense(allFaces, numFaces, faceIdx, basepoint) {
+    if (numFaces <= 1) return false;
+
+    const bisector = allFaces[faceIdx];
+    const cx = bisector.x, cy = bisector.y, cz = bisector.z;
+    const R = Math.abs(bisector.w);
+    if (R < 1e-12) return true;
+
+    // Direction from sphere center toward basepoint
+    let dx = basepoint.x - cx, dy = basepoint.y - cy, dz = basepoint.z - cz;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (dist < 1e-12) return true;
+    dx /= dist; dy /= dist; dz /= dist;
+
+    // Build tangent frame
+    let ux, uy, uz;
+    if (Math.abs(dx) < 0.9) {
+        ux = 0; uy = dz; uz = -dy;
+    } else {
+        ux = -dz; uy = 0; uz = dx;
+    }
+    let len = Math.sqrt(ux * ux + uy * uy + uz * uz);
+    ux /= len; uy /= len; uz /= len;
+    const vx = dy * uz - dz * uy, vy = dz * ux - dx * uz, vz = dx * uy - dy * ux;
+
+    // Build the "other faces" array excluding faceIdx
+    const otherFaces = [];
+    for (let i = 0; i < numFaces; i++) {
+        if (i !== faceIdx) otherFaces.push(allFaces[i]);
+    }
+    const otherCount = otherFaces.length;
+
+    // Check point against all faces EXCEPT faceIdx
+    function isInsideOtherFaces(px, py, pz) {
+        if (px * px + py * py + pz * pz >= 1.0) return false;
+        for (let i = 0; i < otherCount; i++) {
+            const f = otherFaces[i];
+            const fdx = px - f.x, fdy = py - f.y, fdz = pz - f.z;
+            const r = f.w;
+            const s = r > 0 ? 1 : -1;
+            if (s * (Math.sqrt(fdx * fdx + fdy * fdy + fdz * fdz) - Math.abs(r)) > 1e-6) return false;
+        }
+        return true;
+    }
+
+    // Test point on sphere given direction (rx, ry, rz)
+    function testDir(rx, ry, rz) {
+        const rl = Math.sqrt(rx * rx + ry * ry + rz * rz);
+        if (rl < 1e-12) return false;
+        const sx = cx + R * rx / rl, sy = cy + R * ry / rl, sz = cz + R * rz / rl;
+        return isInsideOtherFaces(sx, sy, sz);
+    }
+
+    // Primary: closest point on sphere to basepoint (pole of the cap)
+    if (testDir(dx, dy, dz)) return false;
+
+    // Multiple rings at different latitudes from the pole
+    // Angles from pole: 10°, 25°, 40°, 55°, 70°, 85°
+    const latitudes = [10, 25, 40, 55, 70, 85];
+    const samplesPerRing = 12;
+
+    for (const latDeg of latitudes) {
+        const lat = latDeg * Math.PI / 180;
+        const cosL = Math.cos(lat);
+        const sinL = Math.sin(lat);
+
+        for (let k = 0; k < samplesPerRing; k++) {
+            const theta = (k + (latDeg % 20 === 0 ? 0 : 0.5)) * (2 * Math.PI / samplesPerRing);
+            const ct = Math.cos(theta), st = Math.sin(theta);
+            const rx = cosL * dx + sinL * (ct * ux + st * vx);
+            const ry = cosL * dy + sinL * (ct * uy + st * vy);
+            const rz = cosL * dz + sinL * (ct * uz + st * vz);
+            if (testDir(rx, ry, rz)) return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Post-processing pass: prune faces that are redundant given ALL other faces.
+ * This catches faces that were non-redundant when first added during incremental
+ * beam search, but became redundant as later faces were added.
+ *
+ * Also removes the corresponding pairings entries.
+ * Iterates until stable (no more faces can be removed).
+ */
+function pruneRedundantFaces(acceptedFaces, pairings, basepoint) {
+    let changed = true;
+    while (changed) {
+        changed = false;
+        const numFaces = acceptedFaces.length;
+
+        // Check in reverse order so that removing doesn't shift earlier indices
+        for (let i = numFaces - 1; i >= 0; i--) {
+            if (isFaceRedundantDense(acceptedFaces, acceptedFaces.length, i, basepoint)) {
+                acceptedFaces.splice(i, 1);
+                pairings.splice(i, 1);
+                changed = true;
+            }
+        }
+    }
+
+    // Re-index faceIndex in pairings after pruning
+    for (let i = 0; i < pairings.length; i++) {
+        pairings[i].faceIndex = i;
+    }
 }
 
 // Pre-allocated buffer to avoid GC pressure during animation
@@ -454,6 +577,9 @@ export function computeDirichletDomain(generators = [], viewMat = new Matrix2x2(
         if (acceptedFaces.length >= maxFaces) break;
     }
 
+    // 6. POST-PROCESSING: prune faces that became redundant after later faces were added
+    pruneRedundantFaces(acceptedFaces, pairings, basepoint);
+
     // Package results into the 256-entry buffer
     const count = acceptedFaces.length;
     for (let i = 0; i < 256; i++) {
@@ -466,6 +592,7 @@ export function computeDirichletDomain(generators = [], viewMat = new Matrix2x2(
 
     return { faces: _paddedBuffer, count, pairings, stabilizers };
 }
+
 
 /**
  * Format a word array as MathJax: [1, -2, 1] -> "g_1 g_2^{-1} g_1"
@@ -532,8 +659,9 @@ function matrixKey(m) {
  * @param {Matrix2x2[]} generators - Array of generators (including inverses)
  * @param {number} maxDepth - Maximum word length
  * @param {Matrix2x2} viewMat - Current view matrix
+ * @param {number} maxNodes - Hard cap on number of vertices to prevent combinatorial explosion
  */
-export function getCayleyGraph(generators = [], maxDepth = 4, viewMat = new Matrix2x2(1, 0, 0, 1)) {
+export function getCayleyGraph(generators = [], maxDepth = 4, viewMat = new Matrix2x2(1, 0, 0, 1), maxNodes = 4000) {
     // If no generators provided, return empty
     if (!generators || generators.length === 0) {
         return { points: [], edges: [] };
@@ -561,6 +689,8 @@ export function getCayleyGraph(generators = [], maxDepth = 4, viewMat = new Matr
             if (seenMatrices.has(k)) {
                 vIdx = seenMatrices.get(k);
             } else {
+                // Stop adding new nodes once we hit the cap
+                if (matrices.length >= maxNodes) continue;
                 vIdx = matrices.length;
                 matrices.push(nextMat);
                 seenMatrices.set(k, vIdx);

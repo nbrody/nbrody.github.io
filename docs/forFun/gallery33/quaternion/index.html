@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quaternions | Gallery 33</title>
+
+    <!-- fullpage.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+    <!-- MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['\\(','\\)']],
+                displayMath: [['\\[','\\]']]
+            },
+            startup: { typeset: true }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --font-heading: 'Playfair Display', serif;
+            --font-body: 'Inter', sans-serif;
+            --blue: #60a5fa;
+            --purple: #a78bfa;
+            --amber: #f59e0b;
+            --green: #34d399;
+            --pink: #f472b6;
+            --bg-dark: #080c18;
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        html, body { font-family: var(--font-body); background: var(--bg-dark); color: #fff; }
+
+        /* ─── fullpage.js overrides ─── */
+        #fullpage { background: var(--bg-dark); }
+        .section { overflow: hidden; }
+
+        /* ─── Navigation dots ─── */
+        #fp-nav ul li a span,
+        .fp-slidesNav ul li a span {
+            background: rgba(255,255,255,0.4);
+        }
+        #fp-nav ul li a.active span,
+        .fp-slidesNav ul li a.active span {
+            background: var(--blue);
+        }
+
+        /* ─── Slide layout ─── */
+        .slide-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100dvh;
+            padding: 2rem 1.5rem;
+            text-align: center;
+        }
+
+        .slide-text {
+            max-width: 600px;
+        }
+
+        .slide-text h2 {
+            font-family: var(--font-heading);
+            font-weight: 400;
+            font-size: clamp(1.4rem, 5vw, 2rem);
+            line-height: 1.4;
+            margin-bottom: 1rem;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s var(--ease), transform 0.8s var(--ease);
+        }
+
+        .slide-text p {
+            font-weight: 300;
+            font-size: clamp(0.95rem, 3vw, 1.1rem);
+            line-height: 1.7;
+            color: rgba(255,255,255,0.8);
+            margin-bottom: 0.8rem;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: opacity 0.8s var(--ease), transform 0.8s var(--ease);
+        }
+
+        /* Activate text on section enter */
+        .section.active .slide-text h2,
+        .section.active .slide-text p {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .section.active .slide-text p:nth-child(2) { transition-delay: 0.15s; }
+        .section.active .slide-text p:nth-child(3) { transition-delay: 0.3s; }
+        .section.active .slide-text p:nth-child(4) { transition-delay: 0.45s; }
+        .section.active .slide-text p:nth-child(5) { transition-delay: 0.6s; }
+
+        /* ─── Animation area ─── */
+        .slide-anim {
+            margin-top: 1.5rem;
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .slide-anim canvas {
+            width: 100%;
+            border-radius: 12px;
+        }
+
+        /* ─── Section 1: Title ─── */
+        .title-section .slide-inner {
+            justify-content: center;
+            gap: 0;
+        }
+
+        .title-big {
+            font-family: var(--font-heading);
+            font-weight: 400;
+            font-size: clamp(8rem, 30vw, 16rem);
+            line-height: 1;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--blue), var(--purple), var(--pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            opacity: 0;
+            transform: scale(0.8);
+            animation: titleIn 1.5s var(--ease) 0.3s forwards;
+        }
+
+        @keyframes titleIn {
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .title-sub {
+            font-family: var(--font-body);
+            font-weight: 300;
+            font-size: clamp(0.9rem, 3vw, 1.2rem);
+            letter-spacing: 0.4em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.5);
+            margin-top: 1rem;
+            opacity: 0;
+            animation: fadeUp 1s var(--ease) 1.2s forwards;
+        }
+
+        @keyframes fadeUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .title-sub { transform: translateY(10px); }
+
+        /* ─── Section 2: Factorization anim ─── */
+        .factor-anim {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8rem;
+            font-family: var(--font-heading);
+            font-size: clamp(2.5rem, 10vw, 4rem);
+            margin-top: 2rem;
+            height: 5rem;
+        }
+
+        .factor-num {
+            opacity: 0;
+            transition: all 1s var(--ease);
+        }
+
+        .factor-eq, .factor-times {
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.6s var(--ease);
+            font-weight: 300;
+            color: rgba(255,255,255,0.5);
+        }
+
+        .section.active .factor-33 {
+            opacity: 1;
+            color: var(--amber);
+            animation: factorPulse 2s var(--ease) 0.5s forwards;
+        }
+
+        @keyframes factorPulse {
+            0% { opacity: 1; transform: scale(1); }
+            40% { transform: scale(1.1); }
+            60% { opacity: 0; transform: scale(0.6) translateX(0); }
+            100% { opacity: 0; transform: scale(0); width: 0; margin: 0; }
+        }
+
+        .section.active .factor-eq { transition-delay: 2.2s; opacity: 1; transform: scale(1); }
+        .section.active .factor-3 {
+            transition-delay: 2.2s;
+            opacity: 1;
+            color: var(--green);
+        }
+        .section.active .factor-times { transition-delay: 2.4s; opacity: 1; transform: scale(1); }
+        .section.active .factor-11 {
+            transition-delay: 2.6s;
+            opacity: 1;
+            color: var(--purple);
+        }
+
+        /* ─── Section 3: Prime sorting ─── */
+        #prime-canvas {
+            height: 280px;
+        }
+
+        /* ─── Section 4: 8n+3 highlight ─── */
+        .highlight-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .hl-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.03);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.8s var(--ease);
+        }
+
+        .section.active .hl-badge:nth-child(1) { transition-delay: 0.6s; opacity: 1; transform: translateY(0); }
+        .section.active .hl-badge:nth-child(2) { transition-delay: 0.9s; opacity: 1; transform: translateY(0); }
+
+        .hl-prime {
+            font-family: var(--font-heading);
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .hl-form {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.6);
+            margin-top: 0.3rem;
+        }
+
+        /* ─── Section 5: Complex plane ─── */
+        #complex-canvas {
+            height: 250px;
+        }
+
+        /* ─── Section 6: Hamilton equation ─── */
+        .hamilton-eq {
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
+            margin-top: 2rem;
+            opacity: 0;
+            transform: scale(0.9);
+            transition: all 1s var(--ease) 0.8s;
+            padding: 1.2rem 2rem;
+            border-radius: 12px;
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            background: rgba(167, 139, 250, 0.05);
+        }
+
+        .section.active .hamilton-eq {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* ─── Section 7: Quaternion cycle ─── */
+        #cycle-canvas {
+            height: 260px;
+        }
+
+        /* ─── Section 8: Norm ─── */
+        .norm-steps {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.8rem;
+            margin-top: 1.5rem;
+        }
+
+        .norm-step {
+            font-size: clamp(1rem, 3.5vw, 1.3rem);
+            opacity: 0;
+            transform: translateX(-15px);
+            transition: all 0.6s var(--ease);
+        }
+
+        .section.active .norm-step:nth-child(1) { transition-delay: 0.6s; opacity: 1; transform: translateX(0); }
+        .section.active .norm-step:nth-child(2) { transition-delay: 1s; opacity: 1; transform: translateX(0); }
+        .section.active .norm-step:nth-child(3) { transition-delay: 1.4s; opacity: 1; transform: translateX(0); }
+        .section.active .norm-step:nth-child(4) { transition-delay: 1.8s; opacity: 1; transform: translateX(0); }
+
+        .norm-result {
+            font-family: var(--font-heading);
+            font-size: 2rem;
+            color: var(--green);
+        }
+
+        /* ─── Section 10: Conjugate multiplication ─── */
+        .conj-steps {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.6rem;
+            margin-top: 1.5rem;
+        }
+
+        .conj-step {
+            font-size: clamp(0.95rem, 3vw, 1.2rem);
+            opacity: 0;
+            transition: all 0.6s var(--ease);
+        }
+
+        .section.active .conj-step:nth-child(1) { transition-delay: 0.5s; opacity: 1; }
+        .section.active .conj-step:nth-child(2) { transition-delay: 1.0s; opacity: 1; }
+        .section.active .conj-step:nth-child(3) { transition-delay: 1.5s; opacity: 1; }
+
+        .conj-result {
+            font-family: var(--font-heading);
+            font-size: 2rem;
+            color: var(--amber);
+        }
+
+        /* ─── Section 11: Factorization square ─── */
+        #square-canvas {
+            height: 300px;
+        }
+
+        /* ─── Section 12: Product of trees ─── */
+        #tree-canvas {
+            height: 320px;
+        }
+
+        /* ─── Accent labels ─── */
+        .accent-blue { color: var(--blue); }
+        .accent-purple { color: var(--purple); }
+        .accent-amber { color: var(--amber); }
+        .accent-green { color: var(--green); }
+        .accent-pink { color: var(--pink); }
+
+        /* ─── Section backgrounds ─── */
+        .section:nth-child(odd) {
+            background: linear-gradient(180deg, #080c18 0%, #0a0f22 100%);
+        }
+        .section:nth-child(even) {
+            background: linear-gradient(180deg, #0a0f22 0%, #080c18 100%);
+        }
+
+        /* ─── Back link ─── */
+        .back-link {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 100;
+            color: rgba(255,255,255,0.4);
+            text-decoration: none;
+            font-size: 0.8rem;
+            letter-spacing: 0.1em;
+            transition: color 0.3s;
+        }
+        .back-link:hover { color: rgba(255,255,255,0.8); }
+    </style>
+</head>
+<body>
+
+<a href="../index.html" class="back-link">&larr; Gallery 33</a>
+
+<div id="fullpage">
+
+    <!-- ═══ 1. TITLE ═══ -->
+    <div class="section title-section">
+        <div class="slide-inner">
+            <div class="title-big">33</div>
+            <div class="title-sub">a quaternion story</div>
+        </div>
+    </div>
+
+    <!-- ═══ 2. FACTORIZATION ═══ -->
+    <div class="section">
+        <div class="slide-inner">
+            <div class="slide-text">
+                <h2>Here's my favorite fact about the number 33.</h2>
+                <p>Its prime factorization is <span class="accent-green">3</span> &times; <span class="accent-purple">11</span>.</p>
+            </div>
+            <div class="factor-anim">
+                <span class="factor-num factor-33">33</span>
+                <span class="factor-eq">=</span>
+                <span class="factor-num factor-3">3</span>
+                <span class="factor-times">&times;</span>
+                <span class="factor-num factor-11">11</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ 3. PRIME SORTING ═══ -->
+    <div class="section">
+        <div class="slide-inner">
+            <div class="slide-text">
+                <h2>Sorting the primes</h2>
+                <p>There is only one even prime &mdash; 2. Every other prime is odd.</p>
+                <p>Something interesting happens when you sort them: primes of the form <span class="accent-blue">4n+1</span> (like 5, 13, 17) and primes of the form <span class="accent-pink">4n+3</span> (like 3, 7, 11).</p>
+            </div>
+            <div class="slide-anim">
+                <canvas id="prime-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ 4. 8n+3 ═══ -->
+    <div class="section">
+        <div class="slide-inner">
+            <div class="slide-text">
+                <h2>A deep result</h2>
+                <p>In a certain sense, half the primes are in each bucket. This is a deep theorem in analytic number theory.</p>
+                <p>It relates to why <span class="accent-amber">33</span> is special: it is the smallest number divisible by two distinct primes of the form <span class="accent-amber">8n+3</span>.</p>
+            </div>
+            <div class="highlight-row">
+                <div class="hl-badge">
+                    <span class="hl-prime accent-green">3</span>
+                    <span class="hl-form">= 8(0) + 3</span>
+                </div>
+                <div class="hl-badge">
+                    <span class="hl-prime accent-purple">11</span>
+                    <span class="hl-form">= 8(1) + 3</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ 5. COMPLEX NUMBERS ═══ -->
+    <div class="section">
+        <div class="slide-inner">
+            <div class="slide-text">
+                <h2>Complex numbers</h2>
+                <p>You're probably familiar with the complex numbers: numbers of the form \(a + bi\), where \(i^2 = -1\).</p>
+                <p>These are <em>2-dimensional numbers</em>.</p>
+            </div>
+            <div class="slide-anim">
+                <canvas id="complex-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ 6. QUATERNIONS INTRO ═══ -->
+    <div class="section">
+        <div class="slide-inner">
+            <div class="slide-text">
+                <h2>The quaternions</h2>
+                <p>There's a fascinating way to iterate the construction from reals to complex numbers, creating a <em>4-dimensional</em> number system.</p>
+                <p>These were first studied by Hamilton in 1843.</p>
+            </div>
+            <div class="hamilton-eq">
+                \( i^2 = j^2 = k^2 = ijk = -1 \)
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ 7. NON-COMMUTATIVITY ═══ -->
+    <div class="section">
+        <div class="slide-inner">
+            <div class="slide-text">
+                <h2>A strange property</h2>
+                <p>Quaternions do <em>not</em> commute under multiplication. If \(x\) and \(y\) are quaternions, it's not necessarily true that \(xy = yx\).</p>
+                <p>This makes their factorization theory <em>extremely</em> fascinating!</p>
+            </div>
+            <div class="slide-anim">
+                <canvas id="cycle-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ 8. NORM ═══ -->
+    <div class="section">
+        <div class="slide-inner">
+            <div class="slide-text">
+                <h2>The norm</h2>
+                <p>A quaternion is \(q = a + bi + cj + dk\), where we'll focus on <em>integer</em> quaternions.</p>
+                <p>The norm of \(q\) is \(a^2 + b^2 + c^2 + d^2\).</p>
+            </div>
+            <div class="norm-steps">
+                <div class="norm-step">\(1 + i + j\)</div>
+                <div class="norm-step">\(\downarrow\)</div>
+                <div class="norm-step">\(1^2 + 1^2 + 1^2 + 0^2\)</div>
+                <div class="norm-step norm-result">= 3</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ 9. JACOBI ═══ -->
+    <div class="section">
+        <div class="slide-inner">
+            <div class="slide-text">
+                <h2>Jacobi's theorem</h2>
+                <p>When we multiply two quaternions, their norms multiply.</p>
+                <p>Jacobi proved in 1834 &mdash; before quaternions were even defined! &mdash; that the number of ways to write an odd prime \(p\) as a sum of four squares is \(8(p+1)\).</p>
+                <p>The "8" comes from the 8 unit quaternions: \(\pm 1, \pm i, \pm j, \pm k\). The remaining \(p+1\) come in <em>conjugate pairs</em>.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ 10. CONJUGATE PAIRS ═══ -->
+    <div class="section">
+        <div class="slide-inner">
+            <div class="slide-text">
+                <h2>Conjugate pairs</h2>
+                <p>When we take a quaternion like \(1+i+3j\) and multiply it by its conjugate \(1-i-3j\), we recover the norm.</p>
+            </div>
+            <div class="conj-steps">
+                <div class="conj-step">\((1+i+3j)(1-i-3j)\)</div>
+                <div class="conj-step">\(= 1^2 + 1^2 + 3^2 + 0^2\)</div>
+                <div class="conj-step conj-result">\(= 11\)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ 11. FACTORIZATION SQUARE ═══ -->
+    <div class="section">
+        <div class="slide-inner">
+            <div class="slide-text">
+                <h2>The factorization square</h2>
+                <p>Every quaternion of norm 33 factors as a product of prime quaternions in two ways &mdash; with the norm-3 factor on the left, or the norm-11 factor on the left.</p>
+                <p>Both paths around the square give the same quaternion.</p>
+            </div>
+            <div class="slide-anim">
+                <canvas id="square-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ 12. PRODUCT OF TREES ═══ -->
+    <div class="section">
+        <div class="slide-inner">
+            <div class="slide-text">
+                <h2>A product of trees</h2>
+                <p>All of this together builds a beautiful space &mdash; a <em>product of trees</em>!</p>
+                <p>The factorization squares tile the product of the Bruhat&ndash;Tits trees for \(\mathbb{Q}_3\) and \(\mathbb{Q}_{11}\).</p>
+            </div>
+            <div class="slide-anim">
+                <canvas id="tree-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /fullpage -->
+
+<!-- fullpage.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════
+// Animation Manager
+// ═══════════════════════════════════════════
+
+const anims = {};
+let activeAnim = null;
+
+function startAnim(index) {
+    if (anims[index]) {
+        activeAnim = anims[index];
+        activeAnim.start();
+    }
+}
+
+function stopAnim(index) {
+    if (anims[index]) {
+        anims[index].stop();
+    }
+}
+
+// ─── Utility ───
+function dpr() { return window.devicePixelRatio || 1; }
+
+function setupCanvas(canvas, w, h) {
+    const r = dpr();
+    canvas.width = w * r;
+    canvas.height = h * r;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(r, r);
+    return ctx;
+}
+
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function easeInOutQuad(t) { return t < 0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; }
+
+// ═══════════════════════════════════════════
+// 3. Prime Sorting Animation
+// ═══════════════════════════════════════════
+
+(function() {
+    const canvas = document.getElementById('prime-canvas');
+    if (!canvas) return;
+    const W = 360, H = 280;
+    const ctx = setupCanvas(canvas, W, H);
+
+    const primes4n1 = [5, 13, 17, 29, 37, 41];
+    const primes4n3 = [3, 7, 11, 19, 23, 31];
+
+    const blue = '#60a5fa', pink = '#f472b6';
+
+    // Create particle objects
+    const particles = [];
+    const allPrimes = [...primes4n1.map(p => ({v:p, type:1})), ...primes4n3.map(p => ({v:p, type:3}))];
+    allPrimes.sort((a,b) => a.v - b.v);
+
+    allPrimes.forEach((p, i) => {
+        particles.push({
+            v: p.v,
+            type: p.type,
+            x: W/2 + (Math.random()-0.5)*100,
+            y: H/2 + (Math.random()-0.5)*80,
+            tx: 0, ty: 0,
+            radius: 18
+        });
+    });
+
+    // Compute target positions
+    let col1 = 0, col3 = 0;
+    allPrimes.forEach((p, i) => {
+        const particle = particles[i];
+        if (p.type === 1) {
+            particle.tx = W * 0.25;
+            particle.ty = 55 + col1 * 40;
+            col1++;
+        } else {
+            particle.tx = W * 0.75;
+            particle.ty = 55 + col3 * 40;
+            col3++;
+        }
+    });
+
+    let raf, t0, running = false;
+
+    function draw(elapsed) {
+        const progress = Math.min(elapsed / 2500, 1);
+        const e = easeOutCubic(progress);
+
+        ctx.clearRect(0, 0, W, H);
+
+        // Column labels
+        ctx.globalAlpha = Math.min(progress * 3, 1);
+        ctx.font = '500 13px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = blue;
+        ctx.fillText('4n + 1', W * 0.25, 25);
+        ctx.fillStyle = pink;
+        ctx.fillText('4n + 3', W * 0.75, 25);
+        ctx.globalAlpha = 1;
+
+        // Divider
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(W/2, 35);
+        ctx.lineTo(W/2, H - 10);
+        ctx.stroke();
+
+        // Particles
+        particles.forEach(p => {
+            const x = p.x + (p.tx - p.x) * e;
+            const y = p.y + (p.ty - p.y) * e;
+            const color = p.type === 1 ? blue : pink;
+
+            ctx.beginPath();
+            ctx.arc(x, y, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = color + '20';
+            ctx.fill();
+            ctx.strokeStyle = color + '80';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.fillStyle = '#fff';
+            ctx.font = '500 14px Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(p.v, x, y);
+        });
+    }
+
+    function loop(ts) {
+        if (!running) return;
+        if (!t0) t0 = ts;
+        draw(ts - t0);
+        if (ts - t0 < 3500) raf = requestAnimationFrame(loop);
+    }
+
+    anims[2] = {
+        start() { running = true; t0 = null; raf = requestAnimationFrame(loop); },
+        stop() { running = false; cancelAnimationFrame(raf); }
+    };
+})();
+
+// ═══════════════════════════════════════════
+// 5. Complex Plane Animation
+// ═══════════════════════════════════════════
+
+(function() {
+    const canvas = document.getElementById('complex-canvas');
+    if (!canvas) return;
+    const W = 360, H = 250;
+    const ctx = setupCanvas(canvas, W, H);
+
+    const cx = W/2, cy = H/2, R = 80;
+    let raf, running = false;
+    const trail = [];
+
+    function draw(t) {
+        ctx.clearRect(0, 0, W, H);
+
+        // Axes
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(30, cy); ctx.lineTo(W-30, cy);
+        ctx.moveTo(cx, 20); ctx.lineTo(cx, H-20);
+        ctx.stroke();
+
+        // Axis labels
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = '400 12px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillText('Re', W-25, cy-8);
+        ctx.fillText('Im', cx+15, 25);
+
+        // Unit circle
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, Math.PI*2);
+        ctx.strokeStyle = 'rgba(96,165,250,0.2)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Rotating point
+        const theta = t * 0.001;
+        const px = cx + R * Math.cos(theta);
+        const py = cy - R * Math.sin(theta);
+
+        // Trail
+        trail.push({x: px, y: py, age: 0});
+        if (trail.length > 120) trail.shift();
+        trail.forEach((pt, i) => {
+            pt.age++;
+            const alpha = Math.max(0, 1 - pt.age / 120);
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 2, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(96,165,250,${alpha * 0.6})`;
+            ctx.fill();
+        });
+
+        // Line from origin to point
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(px, py);
+        ctx.strokeStyle = 'rgba(96,165,250,0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Point
+        ctx.beginPath();
+        ctx.arc(px, py, 5, 0, Math.PI*2);
+        ctx.fillStyle = '#60a5fa';
+        ctx.fill();
+
+        // Label
+        const a = Math.cos(theta).toFixed(2);
+        const b = Math.sin(theta).toFixed(2);
+        ctx.fillStyle = '#fff';
+        ctx.font = '400 13px Inter';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${a} + ${b}i`, px + 12, py - 8);
+    }
+
+    function loop(ts) {
+        if (!running) return;
+        draw(ts);
+        raf = requestAnimationFrame(loop);
+    }
+
+    anims[4] = {
+        start() { running = true; trail.length = 0; raf = requestAnimationFrame(loop); },
+        stop() { running = false; cancelAnimationFrame(raf); }
+    };
+})();
+
+// ═══════════════════════════════════════════
+// 7. Quaternion Cycle Animation
+// ═══════════════════════════════════════════
+
+(function() {
+    const canvas = document.getElementById('cycle-canvas');
+    if (!canvas) return;
+    const W = 360, H = 260;
+    const ctx = setupCanvas(canvas, W, H);
+
+    const cx = W/2, cy = H/2 + 10;
+    const R = 70;
+
+    // Triangle vertices: i, j, k
+    const nodes = [
+        { label: 'i', x: cx, y: cy - R, color: '#60a5fa' },
+        { label: 'j', x: cx + R * Math.cos(Math.PI/6), y: cy + R * Math.sin(Math.PI/6), color: '#a78bfa' },
+        { label: 'k', x: cx - R * Math.cos(Math.PI/6), y: cy + R * Math.sin(Math.PI/6), color: '#34d399' }
+    ];
+
+    // Clockwise arrows: i→j (=k), j→k (=i), k→i (=j)
+    const cwLabels = ['= k', '= i', '= j'];
+    // Counter-clockwise: j→i (=-k), k→j (=-i), i→k (=-j)
+    const ccwLabels = ['= −k', '= −i', '= −j'];
+
+    let raf, t0, running = false;
+
+    function drawArrow(fromX, fromY, toX, toY, offset, color, lineWidth) {
+        const dx = toX - fromX, dy = toY - fromY;
+        const len = Math.sqrt(dx*dx + dy*dy);
+        const nx = -dy/len, ny = dx/len;
+
+        const sx = fromX + dx*0.25 + nx*offset;
+        const sy = fromY + dy*0.25 + ny*offset;
+        const ex = fromX + dx*0.75 + nx*offset;
+        const ey = fromY + dy*0.75 + ny*offset;
+
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(ex, ey);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+
+        // Arrowhead
+        const angle = Math.atan2(ey-sy, ex-sx);
+        const hl = 8;
+        ctx.beginPath();
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex - hl*Math.cos(angle-0.4), ey - hl*Math.sin(angle-0.4));
+        ctx.lineTo(ex - hl*Math.cos(angle+0.4), ey - hl*Math.sin(angle+0.4));
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+    }
+
+    function draw(elapsed) {
+        const progress = Math.min(elapsed / 3000, 1);
+        ctx.clearRect(0, 0, W, H);
+
+        // Title
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '400 12px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillText('Multiplication rules', cx, 18);
+
+        // Draw clockwise arrows (outer, positive)
+        const cwProgress = Math.min(progress * 2, 1);
+        if (cwProgress > 0) {
+            ctx.globalAlpha = easeOutCubic(cwProgress);
+            for (let i = 0; i < 3; i++) {
+                const from = nodes[i];
+                const to = nodes[(i+1) % 3];
+                drawArrow(from.x, from.y, to.x, to.y, -12, 'rgba(255,255,255,0.5)', 1.5);
+
+                // Label
+                const mx = (from.x + to.x)/2 - 12*(-1*(to.y-from.y)/Math.sqrt((to.x-from.x)**2+(to.y-from.y)**2));
+                const my = (from.y + to.y)/2 - 12*((to.x-from.x)/Math.sqrt((to.x-from.x)**2+(to.y-from.y)**2));
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.font = '400 11px Inter';
+                ctx.textAlign = 'center';
+                const lx = mx + (i===0 ? -20 : i===1 ? 15 : 15);
+                const ly = my + (i===0 ? 0 : i===1 ? 12 : -5);
+                ctx.fillText(cwLabels[i], lx, ly);
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // Draw counter-clockwise arrows (inner, negative, dashed)
+        const ccwProgress = Math.max(0, Math.min((progress - 0.4) * 2.5, 1));
+        if (ccwProgress > 0) {
+            ctx.globalAlpha = easeOutCubic(ccwProgress) * 0.5;
+            ctx.setLineDash([4, 4]);
+            for (let i = 0; i < 3; i++) {
+                const from = nodes[(i+1) % 3];
+                const to = nodes[i];
+                drawArrow(from.x, from.y, to.x, to.y, 12, 'rgba(255,150,150,0.7)', 1);
+            }
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 1;
+        }
+
+        // Nodes
+        nodes.forEach(n => {
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, 22, 0, Math.PI*2);
+            ctx.fillStyle = n.color + '15';
+            ctx.fill();
+            ctx.strokeStyle = n.color + '60';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = n.color;
+            ctx.font = 'italic 500 20px Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(n.label, n.x, n.y);
+        });
+
+        // Legend
+        ctx.globalAlpha = Math.min(progress * 2, 1);
+        ctx.font = '400 12px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillText('clockwise: ij = k,  jk = i,  ki = j', cx, H - 30);
+        ctx.fillStyle = 'rgba(255,150,150,0.5)';
+        ctx.fillText('reverse: ji = −k,  kj = −i,  ik = −j', cx, H - 12);
+        ctx.globalAlpha = 1;
+    }
+
+    function loop(ts) {
+        if (!running) return;
+        if (!t0) t0 = ts;
+        draw(ts - t0);
+        if (ts - t0 < 4000) {
+            raf = requestAnimationFrame(loop);
+        }
+    }
+
+    anims[6] = {
+        start() { running = true; t0 = null; raf = requestAnimationFrame(loop); },
+        stop() { running = false; cancelAnimationFrame(raf); }
+    };
+})();
+
+// ═══════════════════════════════════════════
+// 11. Factorization Square Animation
+// ═══════════════════════════════════════════
+
+(function() {
+    const canvas = document.getElementById('square-canvas');
+    if (!canvas) return;
+    const W = 360, H = 300;
+    const ctx = setupCanvas(canvas, W, H);
+
+    // Square corners
+    const pad = 60;
+    const x1 = pad + 20, y1 = 50;
+    const x2 = W - pad - 20, y2 = 50;
+    const x3 = W - pad - 20, y3 = H - 80;
+    const x4 = pad + 20, y4 = H - 80;
+
+    const green = '#34d399', purple = '#a78bfa', blue = '#60a5fa', amber = '#f59e0b';
+
+    let raf, t0, running = false;
+
+    function draw(elapsed) {
+        const p = Math.min(elapsed / 4000, 1);
+        ctx.clearRect(0, 0, W, H);
+
+        const pEdge1 = Math.min(p * 4, 1);        // top edge
+        const pEdge2 = Math.min((p-0.15)*4, 1);    // right edge
+        const pEdge3 = Math.min((p-0.30)*4, 1);    // left edge
+        const pEdge4 = Math.min((p-0.45)*4, 1);    // bottom edge
+
+        // Corners (dots)
+        const corners = [[x1,y1],[x2,y2],[x3,y3],[x4,y4]];
+        corners.forEach(([x,y]) => {
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI*2);
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.fill();
+        });
+
+        ctx.lineWidth = 2;
+        ctx.font = '400 13px Inter';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Top edge: 1+i+j (norm 3, green)
+        if (pEdge1 > 0) {
+            const ex = x1 + (x2-x1) * easeOutCubic(pEdge1);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(ex, y1);
+            ctx.strokeStyle = green;
+            ctx.stroke();
+            if (pEdge1 > 0.5) {
+                ctx.globalAlpha = (pEdge1-0.5)*2;
+                ctx.fillStyle = green;
+                ctx.fillText('1+i+j', (x1+x2)/2, y1 - 18);
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.font = '400 10px Inter';
+                ctx.fillText('norm 3', (x1+x2)/2, y1 - 35);
+                ctx.font = '400 13px Inter';
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // Right edge: 1+3i+j (norm 11, purple)
+        if (pEdge2 > 0) {
+            const ey = y2 + (y3-y2) * easeOutCubic(Math.max(0,pEdge2));
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2, ey);
+            ctx.strokeStyle = purple;
+            ctx.stroke();
+            if (pEdge2 > 0.5) {
+                ctx.globalAlpha = (pEdge2-0.5)*2;
+                ctx.fillStyle = purple;
+                ctx.save();
+                ctx.translate(x2 + 22, (y2+y3)/2);
+                ctx.fillText('1+3i+j', 0, 0);
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.font = '400 10px Inter';
+                ctx.fillText('norm 11', 0, 16);
+                ctx.font = '400 13px Inter';
+                ctx.restore();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // Left edge: −1+3j−k (norm 11, purple)
+        if (pEdge3 > 0) {
+            const ey = y1 + (y4-y1) * easeOutCubic(Math.max(0,pEdge3));
+            ctx.beginPath();
+            ctx.moveTo(x4, y1);
+            ctx.lineTo(x4, ey);
+            ctx.strokeStyle = purple;
+            ctx.stroke();
+            if (pEdge3 > 0.5) {
+                ctx.globalAlpha = (pEdge3-0.5)*2;
+                ctx.fillStyle = purple;
+                ctx.save();
+                ctx.translate(x4 - 22, (y1+y4)/2);
+                ctx.fillText('−1+3j−k', 0, 0);
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.font = '400 10px Inter';
+                ctx.fillText('norm 11', 0, 16);
+                ctx.font = '400 13px Inter';
+                ctx.restore();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // Bottom edge: 1+j+k (norm 3, green)
+        if (pEdge4 > 0) {
+            const ex = x4 + (x3-x4) * easeOutCubic(Math.max(0,pEdge4));
+            ctx.beginPath();
+            ctx.moveTo(x4, y4);
+            ctx.lineTo(ex, y4);
+            ctx.strokeStyle = green;
+            ctx.stroke();
+            if (pEdge4 > 0.5) {
+                ctx.globalAlpha = (pEdge4-0.5)*2;
+                ctx.fillStyle = green;
+                ctx.fillText('1+j+k', (x4+x3)/2, y4 + 22);
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.font = '400 10px Inter';
+                ctx.fillText('norm 3', (x4+x3)/2, y4 + 38);
+                ctx.font = '400 13px Inter';
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        // Result labels
+        if (p > 0.7) {
+            const fadeIn = Math.min((p-0.7)/0.3, 1);
+            ctx.globalAlpha = fadeIn;
+            ctx.fillStyle = amber;
+            ctx.font = '400 12px Inter';
+
+            // Top-right path
+            ctx.fillText('→ = −3+4i+2j−2k', (x1+x2)/2, y1 + (y4-y1)/2 - 15);
+
+            // Left-bottom path
+            ctx.fillText('↓ = −3+4i+2j−2k', (x1+x2)/2, y1 + (y4-y1)/2 + 15);
+
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.font = '400 11px Inter';
+            ctx.fillText('Both paths give the same quaternion!', W/2, H - 15);
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    function loop(ts) {
+        if (!running) return;
+        if (!t0) t0 = ts;
+        draw(ts - t0);
+        if (ts - t0 < 5000) raf = requestAnimationFrame(loop);
+    }
+
+    anims[10] = {
+        start() { running = true; t0 = null; raf = requestAnimationFrame(loop); },
+        stop() { running = false; cancelAnimationFrame(raf); }
+    };
+})();
+
+// ═══════════════════════════════════════════
+// 12. Product of Trees Animation
+// ═══════════════════════════════════════════
+
+(function() {
+    const canvas = document.getElementById('tree-canvas');
+    if (!canvas) return;
+    const W = 360, H = 320;
+    const ctx = setupCanvas(canvas, W, H);
+
+    const green = '#34d399', purple = '#a78bfa', amber = '#f59e0b';
+    let raf, t0, running = false;
+
+    function drawTree(cx, cy, depth, angle, len, spread, maxDepth, progress, color, branches) {
+        if (depth > maxDepth || progress <= 0) return;
+
+        const ex = cx + len * Math.cos(angle);
+        const ey = cy + len * Math.sin(angle);
+
+        const alpha = Math.min(progress * 3, 0.8);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(
+            cx + len * Math.min(progress, 1) * Math.cos(angle),
+            cy + len * Math.min(progress, 1) * Math.sin(angle)
+        );
+        ctx.strokeStyle = color + Math.round(alpha * 255).toString(16).padStart(2,'0');
+        ctx.lineWidth = Math.max(1, 3 - depth * 0.5);
+        ctx.stroke();
+
+        if (progress > 1 && depth < maxDepth) {
+            const childProgress = (progress - 1) * 1.5;
+            const angleStep = spread / (branches - 1);
+            const startAngle = angle - spread / 2;
+            for (let i = 0; i < branches; i++) {
+                const childAngle = startAngle + angleStep * i;
+                drawTree(ex, ey, depth+1, childAngle, len*0.55, spread*0.7, maxDepth, childProgress, color, branches);
+            }
+        }
+    }
+
+    function draw(elapsed) {
+        const p = elapsed / 1000;
+        ctx.clearRect(0, 0, W, H);
+
+        // Labels
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '400 12px Inter';
+        ctx.textAlign = 'center';
+
+        // Left tree: T_3 (4-regular, show 3 branches)
+        const treeProgress1 = Math.min(p * 0.8, 4);
+        ctx.fillText('T₃', W * 0.22, 20);
+        drawTree(W * 0.22, H * 0.5, 0, -Math.PI/2, 50, Math.PI * 0.8, 3, treeProgress1, green, 3);
+        // Downward branches too
+        drawTree(W * 0.22, H * 0.5, 0, Math.PI/2, 50, Math.PI * 0.8, 2, treeProgress1, green, 3);
+
+        // "×" symbol
+        const crossAlpha = Math.min(p * 0.5, 1);
+        ctx.globalAlpha = crossAlpha;
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.font = '300 24px Inter';
+        ctx.fillText('×', W * 0.5, H * 0.5 + 6);
+        ctx.globalAlpha = 1;
+
+        // Right tree: T_11 (show 4 branches for visual clarity)
+        const treeProgress2 = Math.min(Math.max(p - 0.3, 0) * 0.8, 4);
+        ctx.fillText('T₁₁', W * 0.78, 20);
+        drawTree(W * 0.78, H * 0.5, 0, -Math.PI/2, 50, Math.PI * 0.8, 3, treeProgress2, purple, 4);
+        drawTree(W * 0.78, H * 0.5, 0, Math.PI/2, 50, Math.PI * 0.8, 2, treeProgress2, purple, 4);
+
+        // Grid overlay hint (appears later)
+        if (p > 3) {
+            const gridAlpha = Math.min((p - 3) * 0.3, 0.15);
+            ctx.strokeStyle = `rgba(245,158,11,${gridAlpha})`;
+            ctx.lineWidth = 0.5;
+            // Draw small grid squares in center to hint at product structure
+            const gs = 18, gx = W*0.42, gy = H*0.3;
+            for (let r = 0; r < 5; r++) {
+                for (let c = 0; c < 5; c++) {
+                    ctx.strokeRect(gx + c*gs, gy + r*gs, gs, gs);
+                }
+            }
+            // Highlight one square
+            ctx.fillStyle = `rgba(245,158,11,${Math.min((p-3)*0.15, 0.1)})`;
+            ctx.fillRect(gx + 2*gs, gy + 2*gs, gs, gs);
+        }
+    }
+
+    function loop(ts) {
+        if (!running) return;
+        if (!t0) t0 = ts;
+        draw(ts - t0);
+        if (ts - t0 < 8000) raf = requestAnimationFrame(loop);
+    }
+
+    anims[11] = {
+        start() { running = true; t0 = null; raf = requestAnimationFrame(loop); },
+        stop() { running = false; cancelAnimationFrame(raf); }
+    };
+})();
+
+// ═══════════════════════════════════════════
+// fullpage.js initialization
+// ═══════════════════════════════════════════
+
+new fullpage('#fullpage', {
+    licenseKey: 'gplv3-license',
+    autoScrolling: true,
+    navigation: true,
+    navigationPosition: 'right',
+    scrollOverflow: false,
+    css3: true,
+    scrollingSpeed: 800,
+    fitToSection: true,
+    touchSensitivity: 8,
+
+    afterLoad: function(origin, destination) {
+        startAnim(destination.index);
+    },
+    onLeave: function(origin, destination) {
+        stopAnim(origin.index);
+    },
+    afterRender: function() {
+        // Re-typeset MathJax after fullpage renders
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            MathJax.typesetPromise();
+        }
+        // Start first section animation if needed
+        startAnim(0);
+    }
+});
+</script>
+</body>
+</html>

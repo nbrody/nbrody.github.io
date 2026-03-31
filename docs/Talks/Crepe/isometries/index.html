@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isometries Visualizer | Symmetry and Space</title>
+    <meta name="description"
+        content="Interactive visualizer for isometries of the line, plane, sphere, and hyperbolic plane.">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- ── Mode Selector ─────────────────────────────────── -->
+    <nav id="mode-nav">
+        <div class="nav-inner">
+            <div class="nav-brand">Isometries</div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-mode="line">
+                    <span class="tab-icon">📏</span>
+                    <span class="tab-label">The Line</span>
+                </button>
+                <button class="nav-tab" data-mode="plane">
+                    <span class="tab-icon">📐</span>
+                    <span class="tab-label">The Plane</span>
+                </button>
+                <button class="nav-tab" data-mode="sphere">
+                    <span class="tab-icon">🌍</span>
+                    <span class="tab-label">The Sphere</span>
+                </button>
+                <button class="nav-tab" data-mode="hyperbolic">
+                    <span class="tab-icon">🌀</span>
+                    <span class="tab-label">Hyperbolic</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ── Visualization Canvas ──────────────────────────── -->
+    <main id="viz-main">
+        <canvas id="viz-canvas"></canvas>
+        <div id="three-container" style="display:none;"></div>
+    </main>
+
+    <!-- ── Control Panel ─────────────────────────────────── -->
+    <aside id="control-panel">
+        <!-- Line controls -->
+        <div class="controls-group" data-for="line">
+            <h3 class="controls-title">Isom(ℝ)</h3>
+            <p class="controls-desc">Isometries of the line are translations and reflections.</p>
+
+            <div class="control-row">
+                <label>Isometry Type</label>
+                <div class="btn-group">
+                    <button class="btn-toggle active" data-isometry="translation">Translation</button>
+                    <button class="btn-toggle" data-isometry="reflection">Reflection</button>
+                </div>
+            </div>
+
+            <div class="control-row" id="line-translation-amt">
+                <label>Translation Amount <span class="param-value" id="line-t-val">2.0</span></label>
+                <input type="range" min="-5" max="5" step="0.1" value="2" id="line-translate">
+            </div>
+
+            <div class="control-row" id="line-reflection-center" style="display:none;">
+                <label>Reflection Center <span class="param-value" id="line-r-val">0.0</span></label>
+                <input type="range" min="-5" max="5" step="0.1" value="0" id="line-reflect-center">
+            </div>
+        </div>
+
+        <!-- Plane controls -->
+        <div class="controls-group" data-for="plane" style="display:none;">
+            <h3 class="controls-title">Isom(ℝ²)</h3>
+            <p class="controls-desc">Translations, rotations, reflections, and glide reflections.</p>
+
+            <div class="control-row">
+                <label>Isometry Type</label>
+                <div class="btn-group">
+                    <button class="btn-toggle active" data-isometry="translation">Translate</button>
+                    <button class="btn-toggle" data-isometry="rotation">Rotate</button>
+                    <button class="btn-toggle" data-isometry="reflection">Reflect</button>
+                    <button class="btn-toggle" data-isometry="glide">Glide</button>
+                </div>
+            </div>
+
+            <div class="control-row plane-param" id="plane-translate-params">
+                <label>Direction <span class="param-value" id="plane-dir-val">0°</span></label>
+                <input type="range" min="0" max="360" step="1" value="0" id="plane-direction">
+                <label>Distance <span class="param-value" id="plane-dist-val">2.0</span></label>
+                <input type="range" min="0.5" max="6" step="0.1" value="2" id="plane-distance">
+            </div>
+
+            <div class="control-row plane-param" id="plane-rotate-params" style="display:none;">
+                <label>Angle <span class="param-value" id="plane-angle-val">45°</span></label>
+                <input type="range" min="-180" max="180" step="1" value="45" id="plane-angle">
+                <label>Center X <span class="param-value" id="plane-cx-val">0.0</span></label>
+                <input type="range" min="-5" max="5" step="0.1" value="0" id="plane-cx">
+                <label>Center Y <span class="param-value" id="plane-cy-val">0.0</span></label>
+                <input type="range" min="-5" max="5" step="0.1" value="0" id="plane-cy">
+            </div>
+
+            <div class="control-row plane-param" id="plane-reflect-params" style="display:none;">
+                <label>Mirror Angle <span class="param-value" id="plane-mirror-val">0°</span></label>
+                <input type="range" min="0" max="180" step="1" value="0" id="plane-mirror-angle">
+            </div>
+
+            <div class="control-row plane-param" id="plane-glide-params" style="display:none;">
+                <label>Mirror Angle <span class="param-value" id="plane-glide-angle-val">0°</span></label>
+                <input type="range" min="0" max="180" step="1" value="0" id="plane-glide-angle">
+                <label>Glide Distance <span class="param-value" id="plane-glide-dist-val">2.0</span></label>
+                <input type="range" min="0.5" max="6" step="0.1" value="2" id="plane-glide-dist">
+            </div>
+        </div>
+
+        <!-- Sphere controls -->
+        <div class="controls-group" data-for="sphere" style="display:none;">
+            <h3 class="controls-title">SO(3)</h3>
+            <p class="controls-desc">Rotations of the sphere, specified by axis and angle.</p>
+
+            <div class="control-row">
+                <label>Axis Latitude <span class="param-value" id="sphere-lat-val">90°</span></label>
+                <input type="range" min="0" max="90" step="1" value="90" id="sphere-lat">
+            </div>
+            <div class="control-row">
+                <label>Axis Longitude <span class="param-value" id="sphere-lon-val">0°</span></label>
+                <input type="range" min="0" max="360" step="1" value="0" id="sphere-lon">
+            </div>
+            <div class="control-row">
+                <label>Rotation Angle <span class="param-value" id="sphere-angle-val">60°</span></label>
+                <input type="range" min="-180" max="180" step="1" value="60" id="sphere-angle">
+            </div>
+
+            <div class="control-row">
+                <label>Preset Rotations</label>
+                <div class="btn-group">
+                    <button class="btn-toggle" data-preset="x90">90° x-axis</button>
+                    <button class="btn-toggle" data-preset="y120">120° y-axis</button>
+                    <button class="btn-toggle" data-preset="z45">45° z-axis</button>
+                    <button class="btn-toggle" data-preset="irrational">Irrational</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hyperbolic controls -->
+        <div class="controls-group" data-for="hyperbolic" style="display:none;">
+            <h3 class="controls-title">Isom(ℍ²)</h3>
+            <p class="controls-desc">Hyperbolic translations, rotations, and parabolic isometries in the Poincaré disk.</p>
+
+            <div class="control-row">
+                <label>Isometry Type</label>
+                <div class="btn-group">
+                    <button class="btn-toggle active" data-isometry="h-translation">Translate</button>
+                    <button class="btn-toggle" data-isometry="h-rotation">Rotate</button>
+                    <button class="btn-toggle" data-isometry="h-parabolic">Parabolic</button>
+                </div>
+            </div>
+
+            <div class="control-row hyp-param" id="hyp-translate-params">
+                <label>Direction <span class="param-value" id="hyp-dir-val">0°</span></label>
+                <input type="range" min="0" max="360" step="1" value="0" id="hyp-direction">
+                <label>Distance <span class="param-value" id="hyp-dist-val">0.5</span></label>
+                <input type="range" min="0.1" max="3" step="0.05" value="0.5" id="hyp-distance">
+            </div>
+
+            <div class="control-row hyp-param" id="hyp-rotate-params" style="display:none;">
+                <label>Angle <span class="param-value" id="hyp-angle-val">30°</span></label>
+                <input type="range" min="-180" max="180" step="1" value="30" id="hyp-angle">
+            </div>
+
+            <div class="control-row hyp-param" id="hyp-parabolic-params" style="display:none;">
+                <label>Boundary Point <span class="param-value" id="hyp-bp-val">0°</span></label>
+                <input type="range" min="0" max="360" step="1" value="0" id="hyp-boundary-point">
+                <label>Strength <span class="param-value" id="hyp-str-val">0.3</span></label>
+                <input type="range" min="0.05" max="1.5" step="0.05" value="0.3" id="hyp-strength">
+            </div>
+        </div>
+
+        <!-- Global controls -->
+        <div class="controls-global">
+            <button id="btn-animate" class="btn-primary">
+                <span class="btn-icon">▶</span> Animate
+            </button>
+            <button id="btn-reset" class="btn-secondary">Reset</button>
+            <div class="control-row">
+                <label>Animation Speed <span class="param-value" id="speed-val">1.0×</span></label>
+                <input type="range" min="0.2" max="3" step="0.1" value="1" id="anim-speed">
+            </div>
+        </div>
+    </aside>
+
+    <!-- ── Info overlay ──────────────────────────────────── -->
+    <div id="info-overlay">
+        <div id="info-text"></div>
+    </div>
+
+    <!-- Three.js for sphere mode -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="script.js"></script>
+
+</body>
+
+</html>

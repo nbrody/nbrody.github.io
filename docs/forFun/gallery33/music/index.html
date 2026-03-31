@@ -46,8 +46,17 @@
                     <h1>A Theory of <span class="highlight">Harmony</span></h1>
 
                     <p>
-                        Why does Western music use the <strong>major scale</strong>? Is it arbitrary — a cultural
-                        accident — or is there something <em>inevitable</em> about it?
+                        Where does the <strong>major scale</strong> come from? Almost all of Western music is built on
+                        it.
+
+                        The Pythagorean school of thought takes a somewhat mystical approach, arguing that the major
+                        scale
+                        is somehow divine. On the other end of the spectrum, many modern music theorists argue that the
+                        major scale
+                        is simply a cultural accident.
+
+                        Here, we'll argue that the major scale is neither divine nor an accident, but perhaps is
+                        somewhat of a divine accident.
                     </p>
 
                     <div class="big-question">
@@ -55,7 +64,7 @@
                     </div>
 
                     <p>
-                        We'll start from two <strong>empirical observations</strong> about how sound works, add two
+                        We'll start from <strong>empirical observations</strong> about how sound works, add some
                         <strong>values</strong> about what we want from music, and watch the major scale emerge as the
                         optimal solution.
                     </p>
@@ -75,16 +84,17 @@
 
                     <div class="value-box">
                         <div class="value-label">Value 1</div>
-                        <p>We want notes that <strong>sound good together</strong> — harmony (chords).</p>
+                        <p>We want <strong>notes</strong> that sound good together — chords.</p>
                     </div>
 
                     <div class="value-box">
                         <div class="value-label">Value 2</div>
-                        <p>We want chords that <strong>sound good together</strong> — chord progressions.</p>
+                        <p>We want <strong>chords</strong> that sound good together — chord progressions.</p>
                     </div>
 
                     <div class="interact-prompt">
-                        <span class="desktop-only">Press <span class="key-hint">→</span> or click <strong>Next</strong> to begin</span>
+                        <span class="desktop-only">Press <span class="key-hint">→</span> or click <strong>Next</strong>
+                            to begin</span>
                         <span class="mobile-only">Tap <strong>Next</strong> to begin</span>
                     </div>
                 </div>
@@ -99,15 +109,9 @@
                         and cancel each other. You hear a pulsating "wah-wah-wah" called <em>beating</em>.
                     </p>
 
-                    <div class="math-block">
-                        $\sin(2\pi f_1 t) + \sin(2\pi f_2 t) = 2\cos\!\bigl(\pi(f_1 - f_2)t\bigr)\,\sin\!\bigl(\pi(f_1 +
-                        f_2)t\bigr)$
-                    </div>
-
                     <p>
-                        The <em>envelope</em> oscillates at the <strong>difference frequency</strong> $|f_1 - f_2|$.
-                        When this is in the range of roughly 20–50 Hz, the result is perceived as <strong>rough</strong>
-                        and unpleasant.
+                        The beating oscillates at the <strong>difference</strong> of the frequencies $|f_1 - f_2|$.
+                        This becomes perceptible around 20–50 Hz, and is generally considered dissonant.
                     </p>
 
                     <div class="insight">
@@ -115,6 +119,12 @@
                             <strong>Key insight:</strong> Dissonance isn't about absolute pitch — it's about
                             <em>proximity</em>. Two sine waves are consonant when they're either identical or far enough
                             apart. The "danger zone" is the <strong>critical bandwidth</strong>.
+
+                            The Pythagorean school argues that dissonance occurs when the ratio of the frequencies is
+                            not a
+                            <strong>simple integer ratio</strong>. However - with pure sine waves, this is not true!
+
+                            (Note: Without synthesized sine waves, they had no way of testing this.)
                         </p>
                     </div>
 
@@ -134,13 +144,21 @@
                     <h2>The Harmonic <span class="highlight">Series</span></h2>
 
                     <p>
-                        A string fixed at both ends doesn't vibrate in just one simple pattern. It simultaneously
-                        vibrates in <em>all possible standing wave modes</em>:
-                    </p>
+                        Here, we closely examine what happens when a string fixed at both ends vibrates. It vibrates the
+                        air around it, and the air vibrates the air around it, and so on, creating a sound wave
+                        (usually,
+                        this is amplified by a resonant body chamber, or electronically via a pickup).
 
-                    <div class="math-block">
-                        $y(x,t) = \sum_{n=1}^{\infty} A_n \sin\!\left(\frac{n\pi x}{L}\right)\cos(2\pi n f_0 t)$
-                    </div>
+                        As the string moves, each point along it is influenced by the nearby points, and the tension in
+                        the string pulls it back towards equilibrium. The simplest possible motion is when the string
+                        moves
+                        in a single arc, with the ends fixed. This is the fundamental frequency, $f_0$. However, the
+                        motion is
+                        rarely this simple. Instead, we have <em>overtones</em>, meaning that the string vibrates in
+                        multiple patterns at once.
+
+                        See the animation for a visual explanation of this.
+                    </p>
 
                     <p>
                         The frequencies are <strong>integer multiples</strong> of the fundamental $f_0$: the
@@ -342,15 +360,9 @@
                         $\{C,E,G\} \cup \{G,B,D\} \cup \{F,A,C\} = \{C,D,E,F,G,A,B\}$
                     </div>
 
-                    <p>
-                        That's the <strong>major scale</strong>. It isn't an arbitrary choice — it's the <em>most
-                            harmonious</em> 7-note scale, deduced from basic physics and the desire for rich harmonic
-                        relationships.
-                    </p>
-
                     <div class="big-question">
-                        The major scale is not a cultural accident — it is the <em>optimal solution</em> to the problem
-                        of finding notes that sound good together, with chords that sound good together.
+                        The major scale is the <em>optimal solution</em> to the problem
+                        of finding notes and chords that sound good together on string-like instruments.
                     </div>
 
                     <p>

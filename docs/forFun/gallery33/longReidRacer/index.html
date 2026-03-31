@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Long-Reid Racer</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="scanlines"></div>
+
+
+        <div id="ui-layer">
+            <div class="hud-top">
+                <div class="matrix-display" id="matrix-display">
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <div style="font-size: 40px; line-height: 0.6;">(</div>
+                        <div style="display: flex; flex-direction: column; gap: 5px;">
+                            <div>1 0</div>
+                            <div>0 1</div>
+                        </div>
+                        <div style="font-size: 40px; line-height: 0.6;">)</div>
+                    </div>
+                </div>
+                <div class="height-display">
+                    HEIGHT: <span id="height-value">0</span><br>
+                    <span style="font-size: 12px; color: #01cdfe;">Distance: <span
+                            id="solution-progress">0</span></span>
+                </div>
+            </div>
+
+            <div id="mobile-autoplay-btn">!</div>
+
+            <div class="hud-bottom">
+                WASD: Absolute controls<br>
+                <span id="arrow-instructions"></span>Arrows: Relative controls</span>
+            </div>
+
+            <div id="mobile-controls">
+                <div class="dpad-row">
+                    <button id="btn-up" class="dpad-btn">▲</button>
+                </div>
+                <div class="dpad-row">
+                    <button id="btn-left" class="dpad-btn">◄</button>
+                    <button id="btn-down" class="dpad-btn">▼</button>
+                    <button id="btn-right" class="dpad-btn">►</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="title-screen">
+            <h1 class="glitch" data-text="LONG-REID RACER">LONG-REID RACER</h1>
+            <div class="mission-box">
+                <p>NAVIGATE THE CAYLEY GRAPH OF</p>
+                <div class="generators">
+                    <div class="generator-item">
+                        <span class="gen-label">a =</span>
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <div style="font-size: 30px; line-height: 0.6;">(</div>
+                            <div style="display: flex; flex-direction: column; gap: 3px;">
+                                <div>3 0</div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span>0</span>
+                                    <div style="display: inline-flex; flex-direction: column; align-items: center;">
+                                        <div style="font-size: 12px; line-height: 1;">1</div>
+                                        <div style="border-top: 1px solid currentColor; width: 100%;"></div>
+                                        <div style="font-size: 12px; line-height: 1;">3</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="font-size: 30px; line-height: 0.6;">)</div>
+                        </div>
+                    </div>
+                    <div class="generator-item">
+                        <span class="gen-label">b =</span>
+                        <div style="display: inline-flex; flex-direction: column; align-items: center; margin: 0 8px;">
+                            <div style="font-size: 14px;">1</div>
+                            <div style="border-top: 2px solid currentColor; width: 100%; margin: 2px 0;"></div>
+                            <div style="font-size: 14px;">8</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <div style="font-size: 30px; line-height: 0.6;">(</div>
+                            <div style="display: flex; flex-direction: column; gap: 3px;">
+                                <div>82 2</div>
+                                <div>9 1</div>
+                            </div>
+                            <div style="font-size: 30px; line-height: 0.6;">)</div>
+                        </div>
+                    </div>
+                </div>
+                <p>AND TRY TO FIND AN INTEGER MATRIX (HEIGHT 0)</p>
+                <p class="blink">PRESS ANY KEY TO START</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/math.js"></script>
+    <script src="js/graphics.js"></script>
+    <script src="js/gameplay.js"></script>
+</body>
+
+</html>

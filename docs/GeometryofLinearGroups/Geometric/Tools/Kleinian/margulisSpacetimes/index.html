@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Margulis Spacetimes — Crooked Plane Construction</title>
+    <meta name="description"
+        content="Interactive visualization of Drumm's crooked plane construction of Margulis spacetimes, with explicit free group actions on Minkowski space.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                macros: {
+                    R: '\\mathbb{R}',
+                    Z: '\\mathbb{Z}',
+                    SO: '\\mathrm{SO}',
+                    Isom: '\\mathrm{Isom}',
+                    id: '\\mathrm{id}'
+                }
+            },
+            startup: {
+                pageReady: () => MathJax.startup.defaultPageReady()
+            }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <!-- Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- 3D Visualization -->
+    <div id="viz-container"></div>
+
+    <!-- Theory Panel (left) -->
+    <div id="theory-panel">
+        <div class="panel-header">
+            <h1 class="panel-title">Margulis Spacetimes</h1>
+            <p class="panel-subtitle">Drumm's Crooked Plane Construction</p>
+            <button id="theory-collapse-btn" class="collapse-btn" title="Collapse">
+                <span class="collapse-icon">‹</span>
+            </button>
+        </div>
+
+        <div class="panel-body">
+            <!-- Section: Introduction -->
+            <div class="theory-section" id="section-intro">
+                <h2 class="section-title">Affine Actions on Minkowski Space</h2>
+                <div class="section-content">
+                    <p><strong>Minkowski space</strong> $\R^{2,1}$ is $\R^3$ equipped with the Lorentzian inner product</p>
+                    <p class="math-display">$$\langle v, w \rangle = v_1 w_1 + v_2 w_2 - v_3 w_3$$</p>
+                    <p>An <strong>affine Lorentzian isometry</strong> is a map $\gamma: v \mapsto Av + b$ where $A \in \SO(2,1)$ and $b \in \R^3$.</p>
+                    <p>Margulis (1983) proved that free groups can act <em>properly discontinuously</em> on $\R^{2,1}$ by affine isometries — the first examples of complete flat Lorentzian manifolds with free fundamental group.</p>
+                </div>
+            </div>
+
+            <!-- Section: Crooked Planes -->
+            <div class="theory-section" id="section-crooked">
+                <h2 class="section-title">Crooked Planes</h2>
+                <div class="section-content">
+                    <p>Drumm (1990) gave a geometric construction using <strong>crooked planes</strong>. A crooked plane $C(v, p)$ is determined by:</p>
+                    <ul>
+                        <li>A <em>direction vector</em> $v$, a unit spacelike vector</li>
+                        <li>A <em>vertex</em> $p \in \R^{2,1}$</li>
+                    </ul>
+                    <p>It consists of three pieces:</p>
+                    <ol>
+                        <li>The <strong>stem</strong>: $\{ q \in p + v^\perp : \langle q - p, q - p \rangle \leq 0 \}$</li>
+                        <li>Two <strong>wings</strong>: half-planes tangent to the light cone at $p$, bounded by the two null lines through $p$ in $v^\perp$</li>
+                    </ol>
+                    <p>A crooked plane is a piecewise-linear surface that "bends" along the light cone at $p$.</p>
+                </div>
+            </div>
+
+            <!-- Section: Fundamental Domain -->
+            <div class="theory-section" id="section-domain">
+                <h2 class="section-title">Crooked Fundamental Domain</h2>
+                <div class="section-content">
+                    <p>For a proper action of $F_2 = \langle \gamma_1, \gamma_2 \rangle$ on $\R^{2,1}$, Drumm constructs a <strong>crooked fundamental domain</strong>:</p>
+                    <p>Four crooked planes $C_1^+, C_1^-, C_2^+, C_2^-$ bound a connected region $\mathcal{F}$ such that:</p>
+                    <ul>
+                        <li>$\gamma_1(C_1^-) = C_1^+$ and $\gamma_2(C_2^-) = C_2^+$</li>
+                        <li>The crooked planes are <em>pairwise disjoint</em></li>
+                        <li>$\mathcal{F}$ tiles $\R^{2,1}$ under the group action</li>
+                    </ul>
+                    <p>This is the Lorentzian analogue of a Schottky construction!</p>
+                </div>
+            </div>
+
+            <!-- Section: Margulis Invariant -->
+            <div class="theory-section" id="section-invariant">
+                <h2 class="section-title">The Margulis Invariant</h2>
+                <div class="section-content">
+                    <p>For a hyperbolic element $\gamma$ with linear part $A \in \SO(2,1)$, let $v_\gamma^+, v_\gamma^-, v_\gamma^0$ be the eigenvectors for eigenvalues $\lambda > 1$, $\lambda^{-1}$, and $1$ respectively.</p>
+                    <p>The <strong>Margulis invariant</strong> is:</p>
+                    <p class="math-display">$$\alpha(\gamma) = \langle b_\gamma,\, v_\gamma^0 \rangle$$</p>
+                    <p>where $b_\gamma$ is the translational part. This is a class function on conjugacy classes and determines whether the action is proper.</p>
+                    <p><strong>Opposite Sign Lemma</strong> (Margulis): A necessary condition for properness is that $\alpha(\gamma_1)$ and $\alpha(\gamma_2)$ have the <em>same sign</em>.</p>
+                </div>
+            </div>
+
+            <!-- Section: Explicit Example — Linear Parts -->
+            <div class="theory-section" id="section-example">
+                <h2 class="section-title">Linear Parts: $\mathrm{Ad}(\mathrm{SL}(2,\Z))$</h2>
+                <div class="section-content">
+                    <p>We use the <em>adjoint representation</em> $\mathrm{Ad}: \mathrm{SL}(2,\Z) \to \SO(2,1)$, acting on $\mathfrak{sl}(2,\R)$ by conjugation $X \mapsto g X g^{-1}$, in the orthogonal basis
+                    $$u_1 = E + F = \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix},\; u_2 = H = \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix},\; u_3 = E-F = \begin{pmatrix} 0 & 1 \\ -1 & 0 \end{pmatrix}$$
+                    where the trace form $B(X,Y) = \mathrm{tr}(XY)$ gives $\mathrm{diag}(2, 2, -2) \sim \mathrm{diag}(1,1,-1)$.</p>
+                    <p>Starting from the $\mathrm{SL}(2,\Z)$ generators:</p>
+                    <p class="math-display">$$g_1 = \begin{pmatrix} 2 & 1 \\ 1 & 1 \end{pmatrix}, \quad g_2 = \begin{pmatrix} 1 & 1 \\ 1 & 2 \end{pmatrix} = g_1^T$$</p>
+                    <p>both hyperbolic with $\mathrm{tr}(g_i) = 3$ and eigenvalues $\phi^{\pm 1}$ where $\phi = \tfrac{1+\sqrt{5}}{2}$, the adjoint gives $A_i = \mathrm{Ad}(g_i) \in \SO_0(2,1)$:</p>
+                    <p class="math-display">$$A_1 = \tfrac{1}{2}\!\begin{pmatrix} 3 & -2 & 3 \\ -2 & 6 & -6 \\ 3 & -6 & 7 \end{pmatrix}, \quad A_2 = \tfrac{1}{2}\!\begin{pmatrix} 3 & 2 & -3 \\ 2 & 6 & -6 \\ -3 & -6 & 7 \end{pmatrix}$$</p>
+                    <p>with eigenvalues $\{\phi^4, 1, \phi^{-4}\}$ (where $\phi^4 \approx 6.85$). The choice $g_2 = g_1^T$ gives $A_2$ that differs from $A_1$ only by sign flips in the off-diagonal entries involving the first coordinate — a reflection in the $x_2$ direction.</p>
+                </div>
+            </div>
+
+            <!-- Section: Translation Vectors -->
+            <div class="theory-section" id="section-translations">
+                <h2 class="section-title">Translation Vectors</h2>
+                <div class="section-content">
+                    <p>The <em>neutral eigenvector</em> $v^0$ (eigenvalue $1$) of $\mathrm{Ad}(g)$ corresponds to the unique element $X \in \mathfrak{sl}(2,\R)$ (up to scale) satisfying $gXg^{-1} = X$, i.e., the <em>centralizer</em> of $g$ in $\mathfrak{sl}(2)$.</p>
+
+                    <p><strong>For $g_1$:</strong> solving $g_1 X = X g_1$ with $X = \left(\begin{smallmatrix} x & y \\ z & -x \end{smallmatrix}\right)$ gives $y = 2x$, $z = 2x$, so</p>
+                    <p class="math-display">$$X_1 = \begin{pmatrix} 1 & 2 \\ 2 & -1 \end{pmatrix} = 2 u_1 + 1\cdot u_2 + 0\cdot u_3 \;\;\Longrightarrow\;\; v_1^0 = \frac{1}{\sqrt{5}}(2, 1, 0)$$</p>
+
+                    <p><strong>For $g_2 = g_1^T$:</strong> solving $g_2 X = X g_2$ gives $y = -2x$, $z = -2x$, so</p>
+                    <p class="math-display">$$X_2 = \begin{pmatrix} 1 & -2 \\ -2 & -1 \end{pmatrix} = -2 u_1 + 1\cdot u_2 + 0\cdot u_3 \;\;\Longrightarrow\;\; v_2^0 = \frac{1}{\sqrt{5}}(- 2, 1, 0)$$</p>
+
+                    <p>Both are <em>spacelike</em>: $\langle v_i^0, v_i^0 \rangle = \tfrac{4+1}{5} = 1 > 0$.</p>
+
+                    <p>We set the translational parts proportional to these neutral eigenvectors:</p>
+                    <p class="math-display">$$b_1 = \frac{s}{\sqrt{5}}(2,\, 1,\, 0), \qquad b_2 = \frac{s}{\sqrt{5}}(-2,\, 1,\, 0)$$</p>
+                    <p>where $s > 0$ is the <strong>Translation Magnitude</strong> slider. The Margulis invariants are then equal:</p>
+                    <p class="math-display">$$\alpha(\gamma_1) = \langle b_1, v_1^0 \rangle = s, \qquad \alpha(\gamma_2) = \langle b_2, v_2^0 \rangle = s$$</p>
+                    <p>Both positive, confirming properness of the $F_2$-action on $\R^{2,1}$. The affine isometries are:</p>
+                    <p class="math-display">$$\gamma_i: v \mapsto A_i v + b_i$$</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Panel (right) -->
+    <div id="control-panel">
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="view">View</button>
+            <button class="tab-btn" data-tab="params">Params</button>
+            <button class="tab-btn" data-tab="info">Info</button>
+            <button id="ctrl-collapse-btn" class="collapse-btn" title="Collapse">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+
+            <!-- View Tab -->
+            <div id="tab-view" class="tab-content active">
+                <div class="control-group">
+                    <label class="control-label">Display</label>
+                    <button id="toggle-light-cone" class="toggle-btn active">Light Cone</button>
+                    <button id="toggle-hyperboloid" class="toggle-btn active">Hyperboloid</button>
+                    <button id="toggle-axes" class="toggle-btn active">Axes &amp; Grid</button>
+                    <button id="toggle-fundamental-domain" class="toggle-btn">Fund. Domain Shade</button>
+                    <button id="toggle-orbit" class="toggle-btn">Cayley Graph</button>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Crooked Planes</label>
+                    <div style="display: flex; gap: 6px;">
+                        <button id="pair-0" class="toggle-btn active" style="flex:1;">Pair 1 (γ₁)</button>
+                        <button id="pair-1" class="toggle-btn" style="flex:1;">Pair 2 (γ₂)</button>
+                    </div>
+                    <button id="pair-both" class="toggle-btn">Both Pairs</button>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Camera</label>
+                    <button id="auto-rotate" class="toggle-btn active">Auto-rotate</button>
+                    <button id="reset-camera" class="toggle-btn">Reset View</button>
+                </div>
+            </div>
+
+            <!-- Params Tab -->
+            <div id="tab-params" class="tab-content">
+                <div class="control-group">
+                    <label class="control-label">Translation Magnitude</label>
+                    <div class="control-row">
+                        <input type="range" id="translation-scale" class="slider-input" min="0" max="3" step="0.05" value="1.0">
+                        <span id="translation-value" class="slider-value">1.00</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Crooked Plane Size</label>
+                    <div class="control-row">
+                        <input type="range" id="plane-size" class="slider-input" min="0.5" max="5" step="0.1" value="2.5">
+                        <span id="plane-size-value" class="slider-value">2.5</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Crooked Plane Opacity</label>
+                    <div class="control-row">
+                        <input type="range" id="plane-opacity" class="slider-input" min="0.05" max="1.0" step="0.05" value="0.4">
+                        <span id="opacity-value" class="slider-value">0.40</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label class="control-label">Light Cone Height</label>
+                    <div class="control-row">
+                        <input type="range" id="cone-height" class="slider-input" min="1" max="8" step="0.5" value="4">
+                        <span id="cone-height-value" class="slider-value">4.0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Tab -->
+            <div id="tab-info" class="tab-content">
+                <div class="info-section">
+                    <h3 class="info-title">Current Generator Data</h3>
+                    <div id="generator-info">
+                        <p class="empty-message">Click an isometry button to see details</p>
+                    </div>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">Margulis Invariants</h3>
+                    <div id="invariant-info">
+                        <p>$\alpha(\gamma_1) = $ <span id="alpha1">—</span></p>
+                        <p>$\alpha(\gamma_2) = $ <span id="alpha2">—</span></p>
+                        <p class="info-note">Both positive ⟹ proper action</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Isometry Controls -->
+    <div id="isometry-controls">
+        <button class="isometry-btn" data-gen="0" title="Apply γ₁">γ₁</button>
+        <button class="isometry-btn" data-gen="1" title="Apply γ₁⁻¹">γ₁⁻¹</button>
+        <button class="isometry-btn" data-gen="2" title="Apply γ₂">γ₂</button>
+        <button class="isometry-btn" data-gen="3" title="Apply γ₂⁻¹">γ₂⁻¹</button>
+        <button class="isometry-btn animate-btn" id="animate-pairing-btn" title="Animate crooked plane pairing">▶ Pairing</button>
+        <button class="isometry-btn reset-btn" id="reset-btn" title="Reset to identity">↺ Reset</button>
+    </div>
+
+    <!-- Legend -->
+    <div id="legend">
+        <div class="legend-item"><span class="legend-swatch" style="background: #38bdf8;"></span>$C_1^+$</div>
+        <div class="legend-item"><span class="legend-swatch" style="background: #818cf8;"></span>$C_1^-$</div>
+        <div class="legend-item"><span class="legend-swatch" style="background: #f472b6;"></span>$C_2^+$</div>
+        <div class="legend-item"><span class="legend-swatch" style="background: #fbbf24;"></span>$C_2^-$</div>
+        <div class="legend-item"><span class="legend-swatch" style="background: rgba(255,255,255,0.15);"></span>Light Cone</div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

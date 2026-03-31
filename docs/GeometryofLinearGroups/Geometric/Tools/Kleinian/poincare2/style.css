@@ -376,6 +376,58 @@ html {
     box-shadow: 0 0 12px rgba(99, 102, 241, 0.15);
 }
 
+/* Cayley graph generator selector (Off / S / T) */
+.cayley-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.cayley-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+.cayley-options {
+    display: flex;
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.cayley-opt {
+    flex: 1;
+    padding: 8px 0;
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.825rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.cayley-opt:last-child {
+    border-right: none;
+}
+
+.cayley-opt:hover {
+    background: var(--glass-hover);
+    color: var(--text);
+}
+
+.cayley-opt.active {
+    background: var(--accent-dim);
+    color: var(--text);
+    box-shadow: inset 0 0 12px rgba(99, 102, 241, 0.15);
+}
+
 /* Slider buttons - look like toggle buttons but drag to adjust */
 .slider-btn {
     position: relative;

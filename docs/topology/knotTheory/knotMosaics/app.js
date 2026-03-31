@@ -23,6 +23,7 @@ const state = {
     strandWidth: 3,
     showGrid: true,
     showMismatches: true,
+    bgMode: 'black',
 
     // pan/zoom
     pan: { x: 0, y: 0 },
@@ -94,6 +95,16 @@ function initGrid() {
 // ============================================================
 const BASE_CELL = 64;
 function cellSize() { return BASE_CELL; }
+
+function bgColor() {
+    return state.bgMode === 'white' ? '#ffffff' : '#0a0e1a';
+}
+function gridLineColor() {
+    return state.bgMode === 'white' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)';
+}
+function cellShadeColor() {
+    return state.bgMode === 'white' ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.035)';
+}
 
 // ============================================================
 // Sphere net layout (cube cross unfolded)
@@ -192,7 +203,7 @@ function render() {
     const h = window.innerHeight;
 
     // Background
-    ctx.fillStyle = '#0a0e1a';
+    ctx.fillStyle = bgColor();
     ctx.fillRect(0, 0, w, h);
 
     // Subtle grid background
@@ -213,7 +224,7 @@ function render() {
 
 function drawBackgroundPattern(w, h) {
     const dotSpacing = 40;
-    ctx.fillStyle = 'rgba(255,255,255,0.015)';
+    ctx.fillStyle = state.bgMode === 'white' ? 'rgba(0,0,0,0.025)' : 'rgba(255,255,255,0.015)';
     for (let x = dotSpacing / 2; x < w; x += dotSpacing) {
         for (let y = dotSpacing / 2; y < h; y += dotSpacing) {
             ctx.beginPath();
@@ -233,15 +244,19 @@ function renderFlatGrid() {
     const totalH = n * cs;
     const ox = -totalW / 2;
     const oy = -totalH / 2;
-    const isTorus = state.surface === 'torus';
+    const surf = state.surface;
+    const hasPeriodicLR = (surf === 'torus' || surf === 'cylinder');
+    const hasPeriodicTB = (surf === 'torus');
+    const hasReversedLR = (surf === 'projective' || surf === 'mobius');
+    const hasReversedTB = (surf === 'projective');
 
     // Shadow under grid
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowColor = state.bgMode === 'white' ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.3)';
     ctx.shadowBlur = 30;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 10;
-    ctx.fillStyle = 'rgba(10, 14, 26, 1)';
+    ctx.fillStyle = bgColor();
     ctx.fillRect(ox, oy, totalW, totalH);
     ctx.restore();
 
@@ -250,14 +265,14 @@ function renderFlatGrid() {
         for (let c = 0; c < n; c++) {
             const x = ox + c * cs;
             const y = oy + r * cs;
-            ctx.fillStyle = ((r + c) % 2 === 0) ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.018)';
+            ctx.fillStyle = bgColor();
             ctx.fillRect(x, y, cs, cs);
         }
     }
 
     // Grid lines
     if (state.showGrid) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.strokeStyle = gridLineColor();
         ctx.lineWidth = 0.5;
         for (let i = 0; i <= n; i++) {
             ctx.beginPath();
@@ -271,19 +286,16 @@ function renderFlatGrid() {
         }
     }
 
-    // Border
-    if (!isTorus) {
-        ctx.strokeStyle = 'rgba(108, 138, 255, 0.35)';
+    // Border & edge decorations
+    const hasPeriodic = hasPeriodicLR || hasPeriodicTB || hasReversedLR || hasReversedTB;
+    if (!hasPeriodic) {
+        // Disk: solid border
+        ctx.strokeStyle = state.bgMode === 'white' ? 'rgba(108, 138, 255, 0.5)' : 'rgba(108, 138, 255, 0.35)';
         ctx.lineWidth = 2;
         ctx.strokeRect(ox, oy, totalW, totalH);
     } else {
-        ctx.save();
-        ctx.setLineDash([6, 4]);
-        ctx.strokeStyle = 'rgba(192, 132, 252, 0.4)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(ox, oy, totalW, totalH);
-        ctx.restore();
-        drawTorusArrows(ox, oy, totalW, totalH);
+        // Draw each edge separately with identification arrows
+        drawIdentifiedBorder(ox, oy, totalW, totalH, n, cs);
     }
 
     // Tiles
@@ -292,7 +304,7 @@ function renderFlatGrid() {
         for (let c = 0; c < n; c++) {
             const ti = state.grid[r][c];
             if (ti > 0) {
-                drawTile(ctx, ti, ox + c * cs, oy + r * cs, cs, state.strandColor, lw);
+                drawTile(ctx, ti, ox + c * cs, oy + r * cs, cs, state.strandColor, lw, bgColor());
             }
         }
     }
@@ -302,20 +314,105 @@ function renderFlatGrid() {
 
     // Mismatches
     if (state.showMismatches) {
-        drawMismatchesFlat(ox, oy, cs, n, isTorus);
+        drawMismatchesFlat(ox, oy, cs, n);
     }
+}
+
+function drawIdentifiedBorder(ox, oy, w, h, n, cs) {
+    const surf = state.surface;
+    const arrowLen = 14;
+    const midX = ox + w / 2;
+    const midY = oy + h / 2;
+
+    // Colors for edge pairs
+    const hColor = 'rgba(244, 114, 182, 0.5)'; // pink for L/R identification
+    const vColor = 'rgba(34, 211, 238, 0.5)';   // cyan for T/B identification
+    const solidBorderColor = state.bgMode === 'white' ? 'rgba(108, 138, 255, 0.5)' : 'rgba(108, 138, 255, 0.35)';
+
+    // Left/Right edges
+    if (surf === 'torus' || surf === 'cylinder') {
+        // Same-direction identification (L↔R)
+        drawDashedEdge(ox, oy, ox, oy + h, hColor);
+        drawDashedEdge(ox + w, oy, ox + w, oy + h, hColor);
+        drawArrowPair(ox - 6, midY, arrowLen, -Math.PI / 2, hColor);
+        drawArrowPair(ox + w + 6, midY, arrowLen, -Math.PI / 2, hColor);
+    } else if (surf === 'projective' || surf === 'mobius') {
+        // Reverse identification (L↔R reversed)
+        drawDashedEdge(ox, oy, ox, oy + h, hColor);
+        drawDashedEdge(ox + w, oy, ox + w, oy + h, hColor);
+        // Opposite arrows to show reversal
+        drawSingleArrow(ox - 6, midY - arrowLen, arrowLen, Math.PI / 2, hColor);  // down
+        drawSingleArrow(ox + w + 6, midY + arrowLen, arrowLen, -Math.PI / 2, hColor); // up
+    } else {
+        // Solid border
+        ctx.strokeStyle = solidBorderColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, oy + h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(ox + w, oy); ctx.lineTo(ox + w, oy + h); ctx.stroke();
+    }
+
+    // Top/Bottom edges
+    if (surf === 'torus') {
+        // Same-direction identification (T↔B)
+        drawDashedEdge(ox, oy, ox + w, oy, vColor);
+        drawDashedEdge(ox, oy + h, ox + w, oy + h, vColor);
+        drawArrowPair(midX, oy - 6, arrowLen, 0, vColor);
+        drawArrowPair(midX, oy + h + 6, arrowLen, 0, vColor);
+    } else if (surf === 'projective') {
+        // Reverse identification (T↔B reversed)
+        drawDashedEdge(ox, oy, ox + w, oy, vColor);
+        drawDashedEdge(ox, oy + h, ox + w, oy + h, vColor);
+        drawSingleArrow(midX + arrowLen, oy - 6, arrowLen, Math.PI, vColor);  // left
+        drawSingleArrow(midX - arrowLen, oy + h + 6, arrowLen, 0, vColor);    // right
+    } else {
+        // Solid border (cylinder, mobius top/bottom are free)
+        ctx.strokeStyle = solidBorderColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(ox, oy + h); ctx.lineTo(ox + w, oy + h); ctx.stroke();
+    }
+}
+
+function drawDashedEdge(x1, y1, x2, y2, color) {
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawSingleArrow(cx, cy, len, angle, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+
+    ctx.beginPath();
+    ctx.moveTo(-len * 0.5, 0);
+    ctx.lineTo(len * 0.5, 0);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(len * 0.5, 0);
+    ctx.lineTo(len * 0.5 - 5, -3);
+    ctx.lineTo(len * 0.5 - 5, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
 }
 
 function drawTorusArrows(ox, oy, w, h) {
     const arrowLen = 14;
     const midX = ox + w / 2;
     const midY = oy + h / 2;
-
-    // Horizontal identification (top & bottom edges)
     drawArrowPair(midX, oy - 6, arrowLen, 0, 'rgba(244, 114, 182, 0.5)');
     drawArrowPair(midX, oy + h + 6, arrowLen, 0, 'rgba(244, 114, 182, 0.5)');
-
-    // Vertical identification (left & right edges)
     drawArrowPair(ox - 6, midY, arrowLen, -Math.PI / 2, 'rgba(34, 211, 238, 0.5)');
     drawArrowPair(ox + w + 6, midY, arrowLen, -Math.PI / 2, 'rgba(34, 211, 238, 0.5)');
 }
@@ -327,25 +424,33 @@ function drawArrowPair(cx, cy, len, angle, color) {
     ctx.lineWidth = 1.5;
     ctx.translate(cx, cy);
     ctx.rotate(angle);
-
-    // Arrow line
     ctx.beginPath();
     ctx.moveTo(-len, 0);
     ctx.lineTo(len, 0);
     ctx.stroke();
-
-    // Arrowhead
     ctx.beginPath();
     ctx.moveTo(len, 0);
     ctx.lineTo(len - 5, -3);
     ctx.lineTo(len - 5, 3);
     ctx.closePath();
     ctx.fill();
-
     ctx.restore();
 }
 
-function drawMismatchesFlat(ox, oy, cs, n, isTorus) {
+// Get the edge identification type for mismatch checking
+function getEdgeInfo() {
+    const surf = state.surface;
+    return {
+        periodicLR: surf === 'torus' || surf === 'cylinder',
+        periodicTB: surf === 'torus',
+        reversedLR: surf === 'projective' || surf === 'mobius',
+        reversedTB: surf === 'projective',
+        freeBoundary: surf === 'disk',
+    };
+}
+
+function drawMismatchesFlat(ox, oy, cs, n) {
+    const edge = getEdgeInfo();
     for (let r = 0; r < n; r++) {
         for (let c = 0; c < n; c++) {
             const ti = state.grid[r][c];
@@ -357,12 +462,17 @@ function drawMismatchesFlat(ox, oy, cs, n, isTorus) {
                 if (!connectionsMatch(ti, state.grid[r][c + 1], 'E')) {
                     drawMismatchEdge(ox + (c + 1) * cs, oy + r * cs, ox + (c + 1) * cs, oy + (r + 1) * cs);
                 }
-            } else if (isTorus) {
+            } else if (edge.periodicLR) {
                 if (!connectionsMatch(ti, state.grid[r][0], 'E')) {
                     drawMismatchEdge(ox + n * cs, oy + r * cs, ox + n * cs, oy + (r + 1) * cs);
                 }
+            } else if (edge.reversedLR) {
+                // L/R reversed: right edge col n-1, row r matches left edge col 0, row (n-1-r)
+                const mirrorR = n - 1 - r;
+                if (!connectionsMatch(ti, state.grid[mirrorR]?.[0], 'E')) {
+                    drawMismatchEdge(ox + n * cs, oy + r * cs, ox + n * cs, oy + (r + 1) * cs);
+                }
             } else {
-                // Disk boundary: strand going to edge = mismatch
                 if (tile.connections.E) {
                     drawMismatchEdge(ox + n * cs, oy + r * cs, ox + n * cs, oy + (r + 1) * cs);
                 }
@@ -373,8 +483,13 @@ function drawMismatchesFlat(ox, oy, cs, n, isTorus) {
                 if (!connectionsMatch(ti, state.grid[r + 1][c], 'S')) {
                     drawMismatchEdge(ox + c * cs, oy + (r + 1) * cs, ox + (c + 1) * cs, oy + (r + 1) * cs);
                 }
-            } else if (isTorus) {
+            } else if (edge.periodicTB) {
                 if (!connectionsMatch(ti, state.grid[0][c], 'S')) {
+                    drawMismatchEdge(ox + c * cs, oy + n * cs, ox + (c + 1) * cs, oy + n * cs);
+                }
+            } else if (edge.reversedTB) {
+                const mirrorC = n - 1 - c;
+                if (!connectionsMatch(ti, state.grid[0]?.[mirrorC], 'S')) {
                     drawMismatchEdge(ox + c * cs, oy + n * cs, ox + (c + 1) * cs, oy + n * cs);
                 }
             } else {
@@ -383,14 +498,15 @@ function drawMismatchesFlat(ox, oy, cs, n, isTorus) {
                 }
             }
 
-            // Disk: North and West boundaries
-            if (!isTorus) {
-                if (r === 0 && tile.connections.N) {
-                    drawMismatchEdge(ox + c * cs, oy, ox + (c + 1) * cs, oy);
-                }
-                if (c === 0 && tile.connections.W) {
-                    drawMismatchEdge(ox, oy + r * cs, ox, oy + (r + 1) * cs);
-                }
+            // North and West boundaries (only for surfaces with free boundaries on those edges)
+            const surf = state.surface;
+            const freeN = surf === 'disk' || surf === 'cylinder' || surf === 'mobius';
+            const freeW = surf === 'disk';
+            if (freeN && r === 0 && tile.connections.N) {
+                drawMismatchEdge(ox + c * cs, oy, ox + (c + 1) * cs, oy);
+            }
+            if (freeW && c === 0 && tile.connections.W) {
+                drawMismatchEdge(ox, oy + r * cs, ox, oy + (r + 1) * cs);
             }
         }
     }
@@ -453,27 +569,17 @@ function renderSphere() {
         ctx.save();
         ctx.shadowColor = 'rgba(0,0,0,0.2)';
         ctx.shadowBlur = 20;
-        ctx.fillStyle = '#0a0e1a';
+        ctx.fillStyle = bgColor();
         ctx.fillRect(fOx, fOy, faceW, faceW);
         ctx.restore();
 
-        // Face background
+        // Face background tint
         ctx.fillStyle = fc.bg;
         ctx.fillRect(fOx, fOy, faceW, faceW);
 
-        // Checkerboard
-        for (let r = 0; r < fs; r++) {
-            for (let c = 0; c < fs; c++) {
-                if ((r + c) % 2 === 0) {
-                    ctx.fillStyle = 'rgba(255,255,255,0.02)';
-                    ctx.fillRect(fOx + c * cs, fOy + r * cs, cs, cs);
-                }
-            }
-        }
-
         // Grid
         if (state.showGrid) {
-            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.strokeStyle = state.bgMode === 'white' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
             ctx.lineWidth = 0.5;
             for (let i = 0; i <= fs; i++) {
                 ctx.beginPath();
@@ -493,7 +599,7 @@ function renderSphere() {
         ctx.strokeRect(fOx, fOy, faceW, faceW);
 
         // Face label (subtle, behind tiles)
-        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.fillStyle = state.bgMode === 'white' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)';
         ctx.font = `600 ${Math.max(10, cs * 0.2)}px Inter, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -505,7 +611,7 @@ function renderSphere() {
             for (let c = 0; c < fs; c++) {
                 const ti = state.grid[face][r][c];
                 if (ti > 0) {
-                    drawTile(ctx, ti, fOx + c * cs, fOy + r * cs, cs, state.strandColor, lw);
+                    drawTile(ctx, ti, fOx + c * cs, fOy + r * cs, cs, state.strandColor, lw, bgColor());
                 }
             }
         }
@@ -736,7 +842,7 @@ function createPaletteTile(index) {
         tctx.arc(24, 24, 2.5, 0, Math.PI * 2);
         tctx.fill();
     } else {
-        TILE_TYPES[index].draw(tctx, 4, 4, 40, state.strandColor, 2.5, '#0a0e1a');
+        TILE_TYPES[index].draw(tctx, 4, 4, 40, state.strandColor, 2.5, bgColor());
     }
 
     el.appendChild(tileCanvas);
@@ -776,7 +882,7 @@ function startDrag(e, tileIndex) {
     gctx.scale(dpr, dpr);
 
     if (tileIndex > 0) {
-        TILE_TYPES[tileIndex].draw(gctx, 6, 6, sz - 12, state.strandColor, 2.5, '#0a0e1a');
+        TILE_TYPES[tileIndex].draw(gctx, 6, 6, sz - 12, state.strandColor, 2.5, bgColor());
     } else {
         gctx.fillStyle = 'rgba(255,255,255,0.15)';
         gctx.beginPath();
@@ -1019,49 +1125,59 @@ function fitView() {
 // UI wiring
 // ============================================================
 function updateHud() {
-    const surfaceLabel = state.surface.charAt(0).toUpperCase() + state.surface.slice(1);
+    const SURFACE_LABELS = {
+        disk: 'Disk', sphere: 'Sphere', torus: 'Torus',
+        projective: 'RP²', cylinder: 'Cylinder', mobius: 'Möbius'
+    };
+    const surfaceLabel = SURFACE_LABELS[state.surface] || state.surface;
     const sizeLabel = state.surface === 'sphere'
         ? `6×${state.faceSize}²`
         : `${state.gridSize}×${state.gridSize}`;
     hudInfo.textContent = `${surfaceLabel} · ${sizeLabel}`;
 }
 
-// Surface tabs
-document.querySelectorAll('.surface-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        document.querySelectorAll('.surface-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        state.surface = tab.dataset.surface;
-        document.getElementById('face-size-group').style.display =
-            state.surface === 'sphere' ? '' : 'none';
-        document.getElementById('fold-group').style.display =
-            state.surface === 'sphere' ? '' : 'none';
-        document.getElementById('fold-torus-group').style.display =
-            state.surface === 'torus' ? '' : 'none';
-        initGrid();
-        updateHud();
-        if (typeof populateExamples === 'function') populateExamples();
-        fitView();
-    });
-});
+// Surface selector (dropdown)
+const surfaceSelect = document.getElementById('surface-select');
+const FOLDABLE_SURFACES = ['sphere', 'torus'];
 
-// Grid size
-const gridSlider = document.getElementById('grid-size-slider');
-const gridVal = document.getElementById('grid-size-val');
-gridSlider.addEventListener('input', () => {
-    state.gridSize = parseInt(gridSlider.value);
-    gridVal.textContent = state.gridSize;
+function onSurfaceChange() {
+    state.surface = surfaceSelect.value;
+    document.getElementById('fold-group').style.display =
+        FOLDABLE_SURFACES.includes(state.surface) ? '' : 'none';
+    syncSliderToSurface();
     initGrid();
     updateHud();
+    if (typeof populateExamples === 'function') populateExamples();
     fitView();
-});
+}
+surfaceSelect.addEventListener('change', onSurfaceChange);
 
-// Face size
-const faceSlider = document.getElementById('face-size-slider');
-const faceVal = document.getElementById('face-size-val');
-faceSlider.addEventListener('input', () => {
-    state.faceSize = parseInt(faceSlider.value);
-    faceVal.textContent = state.faceSize;
+// Grid size / face size (unified slider)
+const gridSlider = document.getElementById('grid-size-slider');
+const gridVal = document.getElementById('grid-size-val');
+
+function syncSliderToSurface() {
+    if (state.surface === 'sphere') {
+        gridSlider.min = 1;
+        gridSlider.max = 10;
+        gridSlider.value = state.faceSize;
+        gridVal.textContent = state.faceSize;
+    } else {
+        gridSlider.min = 3;
+        gridSlider.max = 10;
+        gridSlider.value = state.gridSize;
+        gridVal.textContent = state.gridSize;
+    }
+}
+
+gridSlider.addEventListener('input', () => {
+    const val = parseInt(gridSlider.value);
+    gridVal.textContent = val;
+    if (state.surface === 'sphere') {
+        state.faceSize = val;
+    } else {
+        state.gridSize = val;
+    }
     initGrid();
     updateHud();
     fitView();
@@ -1092,8 +1208,8 @@ exampleSelect.addEventListener('change', () => {
 
     if (state.surface === 'sphere') {
         state.faceSize = ex.faceSize || state.faceSize;
-        faceSlider.value = state.faceSize;
-        faceVal.textContent = state.faceSize;
+        gridSlider.value = state.faceSize;
+        gridVal.textContent = state.faceSize;
         // Deep copy face grids
         state.grid = {};
         for (const face of Object.keys(ex.grid)) {
@@ -1127,6 +1243,27 @@ document.querySelectorAll('.color-swatch').forEach(swatch => {
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
         swatch.classList.add('active');
         state.strandColor = swatch.dataset.color;
+        buildPalette();
+        render();
+    });
+});
+
+// Background toggle
+document.querySelectorAll('.bg-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.bg-toggle').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.bgMode = btn.dataset.bg;
+        // Auto-switch strand color for contrast
+        if (state.bgMode === 'white') {
+            state.strandColor = '#111111';
+        } else {
+            state.strandColor = '#6c8aff';
+        }
+        // Update swatch selection to match
+        document.querySelectorAll('.color-swatch').forEach(s => {
+            s.classList.toggle('active', s.dataset.color === state.strandColor);
+        });
         buildPalette();
         render();
     });
@@ -1206,14 +1343,13 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Fold cube button
+// Fold button (unified)
 document.getElementById('fold-btn').addEventListener('click', () => {
-    if (window.openCubeFold) window.openCubeFold();
-});
-
-// Fold torus button
-document.getElementById('fold-torus-btn').addEventListener('click', () => {
-    if (window.openTorusFold) window.openTorusFold();
+    if (state.surface === 'sphere') {
+        if (window.openCubeFold) window.openCubeFold();
+    } else if (state.surface === 'torus') {
+        if (window.openTorusFold) window.openTorusFold();
+    }
 });
 
 // ============================================================
@@ -1230,22 +1366,12 @@ window.renderFaceTexture = function (faceName, showGrid, strandsOnly) {
 
     if (!strandsOnly) {
         // Background
-        cx.fillStyle = '#0a0e1a';
+        cx.fillStyle = bgColor();
         cx.fillRect(0, 0, size, size);
-
-        // Checkerboard
-        for (let r = 0; r < fs; r++) {
-            for (let cc = 0; cc < fs; cc++) {
-                if ((r + cc) % 2 === 0) {
-                    cx.fillStyle = 'rgba(255,255,255,0.035)';
-                    cx.fillRect(cc * cs, r * cs, cs, cs);
-                }
-            }
-        }
 
         // Grid lines
         if (showGrid) {
-            cx.strokeStyle = 'rgba(255,255,255,0.1)';
+            cx.strokeStyle = state.bgMode === 'white' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.1)';
             cx.lineWidth = 1;
             for (let i = 0; i <= fs; i++) {
                 cx.beginPath();
@@ -1263,12 +1389,12 @@ window.renderFaceTexture = function (faceName, showGrid, strandsOnly) {
 
     // Tiles
     const lw = state.strandWidth * (cs / 64);
-    const bgColor = strandsOnly ? 'rgba(0,0,0,0)' : '#0a0e1a';
+    const bg = strandsOnly ? 'rgba(0,0,0,0)' : bgColor();
     for (let r = 0; r < fs; r++) {
         for (let cc = 0; cc < fs; cc++) {
             const ti = state.grid[faceName]?.[r]?.[cc] ?? 0;
             if (ti > 0) {
-                drawTile(cx, ti, cc * cs, r * cs, cs, state.strandColor, lw, bgColor);
+                drawTile(cx, ti, cc * cs, r * cs, cs, state.strandColor, lw, bg);
             }
         }
     }
@@ -1290,22 +1416,12 @@ window.renderTorusTexture = function (showGrid, strandsOnly) {
 
     if (!strandsOnly) {
         // Background
-        cx.fillStyle = '#0a0e1a';
+        cx.fillStyle = bgColor();
         cx.fillRect(0, 0, size, size);
-
-        // Checkerboard
-        for (let r = 0; r < gs; r++) {
-            for (let cc = 0; cc < gs; cc++) {
-                if ((r + cc) % 2 === 0) {
-                    cx.fillStyle = 'rgba(255,255,255,0.035)';
-                    cx.fillRect(cc * cs, r * cs, cs, cs);
-                }
-            }
-        }
 
         // Grid lines
         if (showGrid) {
-            cx.strokeStyle = 'rgba(255,255,255,0.1)';
+            cx.strokeStyle = state.bgMode === 'white' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.1)';
             cx.lineWidth = 1;
             for (let i = 0; i <= gs; i++) {
                 cx.beginPath();
@@ -1322,12 +1438,12 @@ window.renderTorusTexture = function (showGrid, strandsOnly) {
 
     // Tiles
     const lw = state.strandWidth * (cs / 64);
-    const bgColor = strandsOnly ? 'rgba(0,0,0,0)' : '#0a0e1a';
+    const bg = strandsOnly ? 'rgba(0,0,0,0)' : bgColor();
     for (let r = 0; r < gs; r++) {
         for (let cc = 0; cc < gs; cc++) {
             const ti = state.grid[r]?.[cc] ?? 0;
             if (ti > 0) {
-                drawTile(cx, ti, cc * cs, r * cs, cs, state.strandColor, lw, bgColor);
+                drawTile(cx, ti, cc * cs, r * cs, cs, state.strandColor, lw, bg);
             }
         }
     }

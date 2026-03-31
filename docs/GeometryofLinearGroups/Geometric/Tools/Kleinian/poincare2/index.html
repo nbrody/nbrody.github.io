@@ -159,9 +159,14 @@
                     <button id="slider-walls" class="slider-btn" style="--fill: 0%">
                         <span>Walls</span>
                     </button>
-                    <button id="toggle-cayley" class="toggle-btn">
-                        Cayley Graph
-                    </button>
+                    <div class="cayley-selector">
+                        <span class="cayley-label">Cayley</span>
+                        <div class="cayley-options">
+                            <button id="cayley-off" class="cayley-opt active" data-mode="off">Off</button>
+                            <button id="cayley-s" class="cayley-opt" data-mode="S">S</button>
+                            <button id="cayley-t" class="cayley-opt" data-mode="T">T</button>
+                        </div>
+                    </div>
                     <button id="toggle-tiedye" class="toggle-btn">
                         Tie-Dye
                     </button>
