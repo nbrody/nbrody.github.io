@@ -549,21 +549,12 @@ function renderSphere() {
     const baseOy = -totalH / 2;
 
     const faces = ['top', 'left', 'front', 'right', 'back', 'bottom'];
-    const faceColors = {
-        top: { bg: 'rgba(108, 138, 255, 0.07)', border: 'rgba(108, 138, 255, 0.3)' },
-        front: { bg: 'rgba(192, 132, 252, 0.07)', border: 'rgba(192, 132, 252, 0.3)' },
-        right: { bg: 'rgba(34, 211, 238, 0.07)', border: 'rgba(34, 211, 238, 0.3)' },
-        back: { bg: 'rgba(52, 211, 153, 0.07)', border: 'rgba(52, 211, 153, 0.3)' },
-        left: { bg: 'rgba(251, 191, 36, 0.07)', border: 'rgba(251, 191, 36, 0.3)' },
-        bottom: { bg: 'rgba(244, 114, 182, 0.07)', border: 'rgba(244, 114, 182, 0.3)' },
-    };
 
     for (const face of faces) {
         const layout = net[face];
         const fOx = baseOx + layout.ox * cs;
         const fOy = baseOy + layout.oy * cs;
         const faceW = fs * cs;
-        const fc = faceColors[face];
 
         // Shadow
         ctx.save();
@@ -572,10 +563,6 @@ function renderSphere() {
         ctx.fillStyle = bgColor();
         ctx.fillRect(fOx, fOy, faceW, faceW);
         ctx.restore();
-
-        // Face background tint
-        ctx.fillStyle = fc.bg;
-        ctx.fillRect(fOx, fOy, faceW, faceW);
 
         // Grid
         if (state.showGrid) {
@@ -592,18 +579,6 @@ function renderSphere() {
                 ctx.stroke();
             }
         }
-
-        // Face border
-        ctx.strokeStyle = fc.border;
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(fOx, fOy, faceW, faceW);
-
-        // Face label (subtle, behind tiles)
-        ctx.fillStyle = state.bgMode === 'white' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)';
-        ctx.font = `600 ${Math.max(10, cs * 0.2)}px Inter, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(face.toUpperCase(), fOx + faceW / 2, fOy + faceW / 2);
 
         // Tiles
         const lw = state.strandWidth;
@@ -624,69 +599,131 @@ function renderSphere() {
         });
     }
 
-    // Fold indicators between adjacent net faces
-    drawSphereSeamLabels(baseOx, baseOy, cs);
+    // Draw edge colors to show gluing
+    drawSphereEdgeGluing(baseOx, baseOy, cs);
 }
 
-function drawSphereSeamLabels(baseOx, baseOy, cs) {
+// Edge gluing colors for the cube net
+// Each pair of edges that will be glued shares the same color
+function drawSphereEdgeGluing(baseOx, baseOy, cs) {
     const fs = state.faceSize;
     const net = sphereNetLayout();
+    const fW = fs * cs;
 
-    // Draw small fold indicator triangles at the exposed edges
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    ctx.font = '9px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    // Define gluing pairs with colors
+    // Internal fold edges (adjacent in net) — subtle dashed
+    const foldColor = state.bgMode === 'white' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.12)';
 
-    // Back-right edge is already shown in net
-    // Back face east edge connects to left face west
-    // These non-obvious connections get labels
-    const backLayout = net['back'];
-    const rightEdgeX = baseOx + (backLayout.ox + fs) * cs;
-    const topY = baseOy + backLayout.oy * cs;
+    // External gluing colors — each color is a pair of edges that get identified
+    const gluePairs = [
+        { color: 'rgba(244, 114, 182, 0.6)', label: 'A' },  // pink
+        { color: 'rgba(34, 211, 238, 0.6)', label: 'B' },   // cyan
+        { color: 'rgba(251, 191, 36, 0.6)', label: 'C' },   // amber
+        { color: 'rgba(52, 211, 153, 0.6)', label: 'D' },   // emerald
+        { color: 'rgba(167, 139, 250, 0.6)', label: 'E' },  // purple
+    ];
 
+    // Helper to get face pixel origin
+    function faceOrigin(face) {
+        const l = net[face];
+        return { x: baseOx + l.ox * cs, y: baseOy + l.oy * cs };
+    }
+
+    // Draw internal fold edges (edges shared between adjacent faces in the net)
+    // These are where the net folds — draw as subtle lines
+    const internalEdges = [
+        // top-front: top's south = front's north
+        [faceOrigin('top'), 'S'],
+        // left-front: left's east = front's west
+        [faceOrigin('front'), 'W'],
+        // front-right: front's east = right's west
+        [faceOrigin('right'), 'W'],
+        // right-back: right's east = back's west
+        [faceOrigin('back'), 'W'],
+        // front-bottom: front's south = bottom's north (same as bottom's north)
+        [faceOrigin('bottom'), 'N'],
+    ];
+
+    internalEdges.forEach(([o, side]) => {
+        ctx.save();
+        ctx.strokeStyle = foldColor;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        if (side === 'N') {
+            ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(o.x + fW, o.y); ctx.stroke();
+        } else if (side === 'S') {
+            ctx.beginPath(); ctx.moveTo(o.x, o.y + fW); ctx.lineTo(o.x + fW, o.y + fW); ctx.stroke();
+        } else if (side === 'W') {
+            ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(o.x, o.y + fW); ctx.stroke();
+        } else if (side === 'E') {
+            ctx.beginPath(); ctx.moveTo(o.x + fW, o.y); ctx.lineTo(o.x + fW, o.y + fW); ctx.stroke();
+        }
+        ctx.restore();
+    });
+
+    // Draw external gluing edges (edges that connect to non-adjacent faces)
+    // Each pair shares a color and direction arrows
+    const glueEdges = [
+        // Pair 0 (pink): top-N ↔ back-N (reversed left-right)
+        { pair: 0, face: 'top', side: 'N', reversed: true },
+        { pair: 0, face: 'back', side: 'N', reversed: true },
+        // Pair 1 (cyan): top-W ↔ left-N
+        { pair: 1, face: 'top', side: 'W' },
+        { pair: 1, face: 'left', side: 'N' },
+        // Pair 2 (amber): top-E ↔ right-N
+        { pair: 2, face: 'top', side: 'E' },
+        { pair: 2, face: 'right', side: 'N' },
+        // Pair 3 (emerald): bottom-S ↔ back-S (reversed left-right)
+        { pair: 3, face: 'bottom', side: 'S', reversed: true },
+        { pair: 3, face: 'back', side: 'S', reversed: true },
+        // Pair 4 (purple): back-E ↔ left-W
+        { pair: 4, face: 'back', side: 'E' },
+        { pair: 4, face: 'left', side: 'W' },
+        // bottom-W ↔ left-S (pair 1 reuse cyan)
+        // bottom-E ↔ right-S (pair 2 reuse amber)
+    ];
+
+    // Also add bottom-left and bottom-right
+    const extraGlueEdges = [
+        { color: gluePairs[1].color, face: 'bottom', side: 'W' },
+        { color: gluePairs[1].color, face: 'left', side: 'S' },
+        { color: gluePairs[2].color, face: 'bottom', side: 'E' },
+        { color: gluePairs[2].color, face: 'right', side: 'S' },
+    ];
+
+    // Draw the paired glue edges
+    glueEdges.forEach(edge => {
+        const o = faceOrigin(edge.face);
+        const color = gluePairs[edge.pair].color;
+        drawGlueEdge(o, fW, edge.side, color);
+    });
+
+    extraGlueEdges.forEach(edge => {
+        const o = faceOrigin(edge.face);
+        drawGlueEdge(o, fW, edge.side, edge.color);
+    });
+
+    // Also draw remaining free external edges (non-glued boundary of the net)
+    // These are the outer boundary edges not covered above
+    const outerColor = state.bgMode === 'white' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
+    // left-N, left-S, left-W are glued; left only has no unglued edges actually
+    // all external edges should be accounted for by the gluing
+}
+
+function drawGlueEdge(origin, fW, side, color) {
     ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.textAlign = 'left';
-    ctx.fillText('↰ left', rightEdgeX + 6, topY + fs * cs * 0.5);
-    ctx.restore();
-
-    // Top face north edge connects to back face north
-    const topLayout = net['top'];
-    const topNorthX = baseOx + topLayout.ox * cs + fs * cs / 2;
-    const topNorthY = baseOy + topLayout.oy * cs;
-    ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.textAlign = 'center';
-    ctx.fillText('↑ back', topNorthX, topNorthY - 8);
-    ctx.restore();
-
-    // Bottom face south edge connects to back face south
-    const bottomLayout = net['bottom'];
-    const botSouthX = baseOx + bottomLayout.ox * cs + fs * cs / 2;
-    const botSouthY = baseOy + (bottomLayout.oy + fs) * cs;
-    ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.textAlign = 'center';
-    ctx.fillText('↓ back', botSouthX, botSouthY + 12);
-    ctx.restore();
-
-    // Top face west edge connects to left face north
-    const topLeftX = baseOx + topLayout.ox * cs;
-    const topLeftY = baseOy + topLayout.oy * cs + fs * cs / 2;
-    ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.textAlign = 'right';
-    ctx.fillText('left ↰', topLeftX - 6, topLeftY);
-    ctx.restore();
-
-    // Top face east edge connects to right face north
-    const topRightX = baseOx + (topLayout.ox + fs) * cs;
-    const topRightY = baseOy + topLayout.oy * cs + fs * cs / 2;
-    ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.textAlign = 'left';
-    ctx.fillText('↱ right', topRightX + 6, topRightY);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    if (side === 'N') {
+        ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(origin.x + fW, origin.y); ctx.stroke();
+    } else if (side === 'S') {
+        ctx.beginPath(); ctx.moveTo(origin.x, origin.y + fW); ctx.lineTo(origin.x + fW, origin.y + fW); ctx.stroke();
+    } else if (side === 'W') {
+        ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(origin.x, origin.y + fW); ctx.stroke();
+    } else if (side === 'E') {
+        ctx.beginPath(); ctx.moveTo(origin.x + fW, origin.y); ctx.lineTo(origin.x + fW, origin.y + fW); ctx.stroke();
+    }
     ctx.restore();
 }
 
@@ -1275,8 +1312,6 @@ document.getElementById('clear-btn').addEventListener('click', () => {
     render();
 });
 
-// Fit
-document.getElementById('fit-btn').addEventListener('click', fitView);
 
 // Export
 document.getElementById('export-btn').addEventListener('click', () => {

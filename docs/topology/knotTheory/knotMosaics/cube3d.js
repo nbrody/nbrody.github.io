@@ -221,13 +221,13 @@
     // ── Render Mode ──
     function applyRenderMode() {
         const showTubes = renderMode === 'tubes';
+        const hideGrid = document.getElementById('cube-hide-grid').checked;
         FACES.forEach(n => {
             if (strandGroups[n]) strandGroups[n].visible = showTubes;
-            // In tiles mode, always show the face textures
             if (meshes[n]) {
-                if (!showTubes) {
-                    meshes[n].visible = true;
-                }
+                // In tiles mode: always show faces (they are the tiles)
+                // In tubes mode: respect hide-grid checkbox
+                meshes[n].visible = showTubes ? !hideGrid : true;
             }
         });
     }

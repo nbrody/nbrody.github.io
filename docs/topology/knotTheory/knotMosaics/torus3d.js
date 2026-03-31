@@ -193,13 +193,14 @@
     // ── Render Mode ──
     function applyRenderMode() {
         const showTubes = renderMode === 'tubes';
+        const hideGrid = document.getElementById('cube-hide-grid').checked;
         // Show/hide tube meshes
         tubeMorphTargets.forEach(t => {
             if (t.mesh) t.mesh.visible = showTubes;
         });
-        // Plane is always visible (shows tiles in tiles mode, background in tubes mode)
+        // Plane: in tiles mode always visible, in tubes mode respect hide-grid
         if (planeMorphTarget && planeMorphTarget.mesh) {
-            planeMorphTarget.mesh.visible = true;
+            planeMorphTarget.mesh.visible = showTubes ? !hideGrid : true;
         }
     }
 
