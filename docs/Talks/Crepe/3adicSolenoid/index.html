@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3-Adic Solenoid — Mapping Torus of +1</title>
+    <meta name="description" content="Interactive Three.js visualization of the 3-adic solenoid as the mapping torus of the +1 operation on the 3-adic integers.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+            svg: { fontCache: 'global' },
+            startup: { typeset: true }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+    <style>
+        /* ── Design Tokens ── */
+        :root {
+            --bg-deep: #060a14;
+            --bg-surface: #0d1321;
+            --bg-card: rgba(13, 19, 33, 0.88);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent: #7c8aff;
+            --accent-warm: #f59e0b;
+            --accent-rose: #f472b6;
+            --accent-teal: #2dd4bf;
+            --accent-violet: #a78bfa;
+            --border: rgba(124, 138, 255, 0.15);
+            --glow: rgba(124, 138, 255, 0.35);
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-display: 'Playfair Display', Georgia, serif;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #app { display: flex; flex-direction: column; height: 100%; }
+
+        /* ── Three.js Container ── */
+        #canvas-wrap {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+        }
+
+        #three-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* ── 2D Canvas Overlay for the Disk View ── */
+        #disk-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            transition: opacity 0.8s ease;
+        }
+
+        /* ── Title Badge ── */
+        #title-badge {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            z-index: 10;
+            background: rgba(6, 10, 20, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 14px 20px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        #title-badge h1 {
+            font: 600 0.95rem/1.2 var(--font-body);
+            letter-spacing: 0.01em;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        #title-badge .subtitle {
+            font-size: 0.72rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--accent);
+        }
+
+        /* ── Footer ── */
+        #footer {
+            flex-shrink: 0;
+            padding: 0 20px 20px;
+            text-align: center;
+        }
+
+        #description {
+            font-size: clamp(0.85rem, 1.4vw, 1.05rem);
+            color: #cbd5e1;
+            line-height: 1.6;
+            max-width: 700px;
+            margin: 0 auto 14px;
+            min-height: 2em;
+        }
+
+        #nav { display: flex; align-items: center; justify-content: center; gap: 16px; }
+
+        .nav-btn {
+            background: rgba(124, 138, 255, 0.1);
+            border: 1px solid rgba(124, 138, 255, 0.2);
+            color: #f1f5f9;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font: 500 0.85rem/1 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+
+        .nav-btn:hover {
+            background: rgba(124, 138, 255, 0.2);
+            border-color: rgba(124, 138, 255, 0.4);
+        }
+
+        .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+        #dots { display: flex; gap: 6px; }
+
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: rgba(124, 138, 255, 0.2);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .dot.active {
+            background: #7c8aff;
+            box-shadow: 0 0 8px rgba(124, 138, 255, 0.5);
+        }
+
+        /* ── Controls Overlay ── */
+        .ctrl-panel {
+            position: absolute;
+            bottom: 100px;
+            right: 24px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ctrl-btn {
+            width: 46px;
+            height: 46px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: rgba(6, 10, 20, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: var(--accent);
+            font: 600 0.8rem/1 var(--font-body);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .ctrl-btn:hover {
+            border-color: rgba(124, 138, 255, 0.5);
+            background: rgba(124, 138, 255, 0.12);
+            box-shadow: 0 0 16px rgba(124, 138, 255, 0.15);
+        }
+
+        .ctrl-btn:active { transform: scale(0.92); }
+
+        .ctrl-btn.active-toggle {
+            border-color: rgba(124, 138, 255, 0.5);
+            background: rgba(124, 138, 255, 0.18);
+            box-shadow: 0 0 12px rgba(124, 138, 255, 0.2);
+        }
+
+        /* ── Depth Control ── */
+        .depth-ctrl {
+            position: absolute;
+            bottom: 100px;
+            right: 80px;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            border: 1px solid rgba(124, 138, 255, 0.25);
+            border-radius: 10px;
+            background: rgba(6, 10, 20, 0.75);
+            backdrop-filter: blur(12px);
+            padding: 4px 6px;
+        }
+
+        .depth-ctrl .depth-btn {
+            width: 28px; height: 28px;
+            border: none; border-radius: 6px;
+            background: rgba(124, 138, 255, 0.1);
+            color: var(--accent);
+            font: 600 1rem/1 var(--font-body);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s;
+        }
+
+        .depth-ctrl .depth-btn:hover { background: rgba(124, 138, 255, 0.25); }
+
+        .depth-ctrl .depth-label {
+            color: var(--accent);
+            font: 500 0.75rem/1 var(--font-body);
+            min-width: 28px; text-align: center;
+            user-select: none; opacity: 0.7;
+        }
+
+        /* ── Speed Slider ── */
+        #speed-panel {
+            position: absolute;
+            bottom: 60px;
+            right: 24px;
+            z-index: 10;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: rgba(6, 10, 20, 0.75);
+            backdrop-filter: blur(12px);
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(124, 138, 255, 0.15);
+            color: #94a3b8;
+            font: 500 0.72rem/1 var(--font-body);
+        }
+
+        #speed-slider {
+            -webkit-appearance: none; appearance: none;
+            width: 80px; height: 3px;
+            background: rgba(124, 138, 255, 0.2);
+            border-radius: 2px; outline: none;
+        }
+
+        #speed-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px; height: 12px; border-radius: 50%;
+            background: #7c8aff; cursor: pointer;
+            box-shadow: 0 0 6px rgba(124, 138, 255, 0.5);
+        }
+
+        /* ── Solenoid Legend ── */
+        #solenoid-legend {
+            position: absolute;
+            bottom: 100px;
+            left: 16px;
+            z-index: 10;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            background: rgba(6, 10, 20, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(124, 138, 255, 0.15);
+            font: 500 0.72rem/1.4 var(--font-body);
+            color: var(--text-secondary);
+        }
+
+        .legend-title {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.13em;
+            color: var(--accent);
+            margin-bottom: 2px;
+        }
+
+        .legend-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-swatch {
+            width: 18px;
+            height: 4px;
+            border-radius: 2px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            #title-badge { top: 8px; left: 8px; padding: 10px 14px; }
+            #title-badge h1 { font-size: 0.85rem; }
+            .ctrl-panel { bottom: 80px; right: 16px; }
+            .ctrl-btn { width: 40px; height: 40px; font-size: 0.7rem; }
+            #solenoid-legend { bottom: 80px; }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div id="canvas-wrap">
+        <canvas id="three-canvas"></canvas>
+        <canvas id="disk-canvas"></canvas>
+
+        <div id="title-badge">
+            <h1>The 3-Adic Solenoid</h1>
+            <div class="subtitle">Mapping Torus of +1 on ℤ₃</div>
+        </div>
+
+        <div class="ctrl-panel" id="ctrl-panel">
+            <button class="ctrl-btn" id="btn-plus1" title="Apply +1 (spacebar)">+1</button>
+            <button class="ctrl-btn" id="btn-auto" title="Auto-play (a)">▶</button>
+            <button class="ctrl-btn" id="btn-labels" title="Toggle labels (l)">Aa</button>
+        </div>
+
+        <div class="depth-ctrl" id="depth-ctrl">
+            <button class="depth-btn" id="btn-depth-minus">−</button>
+            <span class="depth-label" id="depth-label">d=5</span>
+            <button class="depth-btn" id="btn-depth-plus">+</button>
+        </div>
+
+        <div id="speed-panel">
+            <label>speed</label>
+            <input type="range" id="speed-slider" min="0.2" max="3" step="0.1" value="1">
+        </div>
+
+        <div id="solenoid-legend">
+            <div class="legend-title">Strand Depth</div>
+            <div class="legend-row">
+                <div class="legend-swatch" style="background: hsl(166, 72%, 52%)"></div>
+                <span>k=1 — wraps 3× around</span>
+            </div>
+            <div class="legend-row">
+                <div class="legend-swatch" style="background: hsl(277, 65%, 55%)"></div>
+                <span>k=2 — wraps 9× around</span>
+            </div>
+            <div class="legend-row">
+                <div class="legend-swatch" style="background: hsl(29, 85%, 50%)"></div>
+                <span>k=3 — wraps 27× around</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="footer">
+        <div id="description"></div>
+        <div id="nav">
+            <button class="nav-btn" id="prev-btn">← Prev</button>
+            <div id="dots"></div>
+            <button class="nav-btn" id="next-btn">Next →</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="solenoid.js?v=10"></script>
+</body>
+</html>

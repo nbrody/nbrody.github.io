@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4-Regular Tree — Isometries of F₂</title>
+    <meta name="description"
+        content="Interactive visualization of isometries on the 4-regular tree (Cayley graph of F₂).">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+            svg: { fontCache: 'global' },
+            startup: { typeset: true }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+    <style>
+        /* ── Design Tokens ── */
+        :root {
+            --bg-deep: #060a14;
+            --bg-surface: #0d1321;
+            --bg-card: rgba(13, 19, 33, 0.88);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent: #7c8aff;
+            --accent-warm: #f59e0b;
+            --accent-rose: #f472b6;
+            --accent-teal: #2dd4bf;
+            --border: rgba(124, 138, 255, 0.15);
+            --glow: rgba(124, 138, 255, 0.35);
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --color-a: #2dd4bf;
+            --color-ainv: #818cf8;
+            --color-b: #f472b6;
+            --color-binv: #fb923c;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #app { display: flex; flex-direction: column; height: 100%; }
+
+        #canvas-wrap { flex: 1; position: relative; min-height: 0; }
+        canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: move; }
+        canvas:active { cursor: grabbing; }
+
+        /* ── Word Display ── */
+        #word-display {
+            position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+            z-index: 10; background: rgba(6, 10, 20, 0.8);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            padding: 10px 24px; border-radius: 12px; border: 1px solid var(--border);
+            font: 500 1rem/1 var(--font-body); color: var(--text-primary);
+            white-space: nowrap; letter-spacing: 0.03em; transition: all 0.3s ease;
+        }
+        .word-label { color: var(--text-muted); font-size: 0.75rem; margin-right: 10px; }
+        #word-value { font-weight: 600; letter-spacing: 0.06em; }
+        #word-value .letter-a { color: var(--color-a); }
+        #word-value .letter-ainv { color: var(--color-ainv); }
+        #word-value .letter-b { color: var(--color-b); }
+        #word-value .letter-binv { color: var(--color-binv); }
+
+        /* ── D-Pad Controls ── */
+        .dpad {
+            position: absolute; bottom: 24px; right: 24px; z-index: 10;
+            display: grid; grid-template-columns: 48px 48px 48px;
+            grid-template-rows: 48px 48px 48px; gap: 4px;
+        }
+        .dpad-btn {
+            width: 48px; height: 48px; border: 1px solid var(--border); border-radius: 10px;
+            background: rgba(6, 10, 20, 0.75); backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px); color: var(--text-primary);
+            font: 600 0.9rem/1 var(--font-body); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .dpad-btn:hover { border-color: var(--accent); background: rgba(124, 138, 255, 0.12); box-shadow: 0 0 16px rgba(124, 138, 255, 0.15); }
+        .dpad-btn:active { transform: scale(0.92); }
+        .dpad-btn.up    { grid-column: 2; grid-row: 1; color: var(--color-b); border-color: rgba(244, 114, 182, 0.3); }
+        .dpad-btn.left  { grid-column: 1; grid-row: 2; color: var(--color-ainv); border-color: rgba(129, 140, 248, 0.3); }
+        .dpad-btn.center{ grid-column: 2; grid-row: 2; color: var(--text-muted); border-color: rgba(148, 163, 184, 0.15); font-size: 1.1rem; }
+        .dpad-btn.right { grid-column: 3; grid-row: 2; color: var(--color-a); border-color: rgba(45, 212, 191, 0.3); }
+        .dpad-btn.down  { grid-column: 2; grid-row: 3; color: var(--color-binv); border-color: rgba(251, 146, 60, 0.3); }
+        .dpad-btn.up:hover, .dpad-btn.down:hover { border-color: rgba(244, 114, 182, 0.6); box-shadow: 0 0 16px rgba(244, 114, 182, 0.15); }
+        .dpad-btn.left:hover { border-color: rgba(129, 140, 248, 0.6); box-shadow: 0 0 16px rgba(129, 140, 248, 0.15); }
+        .dpad-btn.right:hover { border-color: rgba(45, 212, 191, 0.6); box-shadow: 0 0 16px rgba(45, 212, 191, 0.15); }
+        .dpad-btn.down:hover { border-color: rgba(251, 146, 60, 0.6); box-shadow: 0 0 16px rgba(251, 146, 60, 0.15); }
+
+        /* ── Controls Panel ── */
+        .ctrl-panel {
+            position: absolute; top: 16px; left: 16px; z-index: 10;
+            background: rgba(6, 10, 20, 0.8); backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px); padding: 16px 20px;
+            border-radius: 16px; border: 1px solid var(--border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            display: flex; flex-direction: column; gap: 12px; min-width: 200px;
+        }
+        .panel-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent); margin-bottom: 2px; }
+        .ctrl-row { display: flex; align-items: center; gap: 10px; }
+        .ctrl-row label { font-size: 0.8rem; color: var(--text-secondary); min-width: 64px; }
+        .ctrl-row input[type="range"] { flex: 1; accent-color: var(--accent); height: 4px; }
+        .ctrl-row .pv { font-size: 0.75rem; font-family: var(--font-mono); color: var(--accent); min-width: 36px; text-align: right; }
+
+        .toggle-group { display: flex; gap: 4px; flex-wrap: wrap; }
+        .toggle-btn {
+            padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px;
+            background: rgba(6, 10, 20, 0.6); color: var(--text-secondary);
+            font: 500 0.72rem/1 var(--font-body); cursor: pointer; transition: all 0.2s ease;
+        }
+        .toggle-btn:hover { border-color: var(--accent); color: var(--text-primary); }
+        .toggle-btn.active { background: rgba(124, 138, 255, 0.15); border-color: var(--accent); color: var(--accent); }
+        .toggle-btn.disabled { opacity: 0.3; pointer-events: none; }
+
+        /* ── Legend ── */
+        .legend {
+            position: absolute; top: 16px; right: 16px; z-index: 10;
+            background: rgba(6, 10, 20, 0.8); backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px); padding: 14px 18px;
+            border-radius: 14px; border: 1px solid var(--border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            display: none; flex-direction: column; gap: 6px;
+        }
+        .legend.visible { display: flex; }
+        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+        .legend-swatch { width: 14px; height: 14px; border-radius: 4px; }
+
+        @media (max-width: 768px) {
+            .ctrl-panel { top: 8px; left: 8px; padding: 10px 14px; min-width: 160px; }
+            .dpad { bottom: 16px; right: 16px; }
+            .dpad-btn { width: 42px; height: 42px; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div id="canvas-wrap">
+            <canvas id="treeCanvas"></canvas>
+
+            <div id="word-display">
+                <span class="word-label">word</span>
+                <span id="word-value"><span style="color: var(--text-muted)">e</span></span>
+            </div>
+
+            <div class="ctrl-panel">
+                <div class="panel-title">Parameters</div>
+                <div class="ctrl-row">
+                    <label>Depth <span class="pv" id="pv-k">7</span></label>
+                    <input type="range" min="1" max="10" step="1" value="7" id="slider-k">
+                </div>
+                <div class="ctrl-row">
+                    <label>Ratio <span class="pv" id="pv-r">0.45</span></label>
+                    <input type="range" min="0.2" max="0.6" step="0.01" value="0.45" id="slider-r">
+                </div>
+                <div style="border-top: 1px solid var(--border); padding-top: 8px;">
+                    <div class="panel-title">Display</div>
+                    <div class="toggle-group">
+                        <button class="toggle-btn" id="btn-labels">Labels</button>
+                        <button class="toggle-btn" id="btn-regions">Regions \(X_g\)</button>
+                        <button class="toggle-btn disabled" id="btn-quotient">Quotient</button>
+                    </div>
+                </div>
+                <div style="border-top: 1px solid var(--border); padding-top: 8px;">
+                    <div class="panel-title">Banach–Tarski</div>
+                    <div class="toggle-group">
+                        <button class="toggle-btn" id="btn-paradox">Paradox ▸</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="legend" id="legend">
+                <div class="panel-title">Regions</div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background: #fff;"></div>
+                    <span>Fund. domain — \(\{e\} \pm \tfrac{1}{2}\)-edges</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background: var(--color-a);"></div>
+                    <span>\(X_a\) — starts with \(a\)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background: var(--color-ainv);"></div>
+                    <span>\(X_{a^{-1}}\) — starts with \(a^{-1}\)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background: var(--color-b);"></div>
+                    <span>\(X_b\) — starts with \(b\)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background: var(--color-binv);"></div>
+                    <span>\(X_{b^{-1}}\) — starts with \(b^{-1}\)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="dpad">
+            <button class="dpad-btn up" data-action="b" id="btn-b">\(b\)</button>
+            <button class="dpad-btn left" data-action="aInv" id="btn-aInv">\(a^{-1}\)</button>
+            <button class="dpad-btn center" data-action="reset" id="btn-reset">↺</button>
+            <button class="dpad-btn right" data-action="a" id="btn-a">\(a\)</button>
+            <button class="dpad-btn down" data-action="bInv" id="btn-bInv">\(b^{-1}\)</button>
+        </div>
+    </div>
+
+    <script src="tree.js"></script>
+    <script>
+        // ═══════════════════════════════════════════════════
+        // WORD TRACKING
+        // ═══════════════════════════════════════════════════
+        let wordStack = [];
+
+        function pushLetter(letter) {
+            const inverses = { a: 'aInv', aInv: 'a', b: 'bInv', bInv: 'b' };
+            if (wordStack.length > 0 && wordStack[wordStack.length - 1] === inverses[letter]) {
+                wordStack.pop();
+            } else {
+                wordStack.push(letter);
+            }
+            updateWordDisplay();
+        }
+
+        function resetWord() { wordStack = []; updateWordDisplay(); }
+
+        function updateWordDisplay() {
+            const el = document.getElementById('word-value');
+            if (wordStack.length === 0) {
+                el.innerHTML = '<span style="color: var(--text-muted)">\\(e\\)</span>';
+                if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) MathJax.typesetPromise([el]).catch(() => {});
+                return;
+            }
+            const labels = {
+                a: '<span class="letter-a">\\(a\\)</span>',
+                aInv: '<span class="letter-ainv">\\(a^{-1}\\)</span>',
+                b: '<span class="letter-b">\\(b\\)</span>',
+                bInv: '<span class="letter-binv">\\(b^{-1}\\)</span>'
+            };
+            el.innerHTML = wordStack.map(l => labels[l]).join('<span style="color:var(--text-muted);margin:0 1px">\\(\\cdot\\)</span>');
+            if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) MathJax.typesetPromise([el]).catch(() => {});
+        }
+
+        // ═══════════════════════════════════════════════════
+        // INITIALIZATION
+        // ═══════════════════════════════════════════════════
+        let treeViz;
+
+        window.addEventListener('load', () => {
+            const canvas = document.getElementById('treeCanvas');
+            treeViz = new RegularTreeViz(canvas);
+
+            // D-Pad
+            document.querySelectorAll('.dpad-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const action = btn.dataset.action;
+                    if (action === 'reset') {
+                        treeViz.reset();
+                        resetWord();
+                        // Reset UI toggles
+                        document.getElementById('btn-regions').classList.remove('active');
+                        document.getElementById('btn-quotient').classList.remove('active');
+                        document.getElementById('btn-paradox').textContent = 'Paradox ▸';
+                        document.getElementById('legend').classList.remove('visible');
+                        return;
+                    }
+                    const fns = {
+                        a: () => treeViz.applyGenerator('a'),
+                        aInv: () => treeViz.applyGenerator('aInv'),
+                        b: () => treeViz.applyGenerator('b'),
+                        bInv: () => treeViz.applyGenerator('bInv'),
+                    };
+                    if (fns[action]) { fns[action](); pushLetter(action); }
+                });
+            });
+
+            // Keyboard
+            document.addEventListener('keydown', e => {
+                if (e.key === 'a' && !e.shiftKey) document.getElementById('btn-a').click();
+                else if (e.key === 'A' || (e.key === 'a' && e.shiftKey)) document.getElementById('btn-aInv').click();
+                else if (e.key === 'b' && !e.shiftKey) document.getElementById('btn-b').click();
+                else if (e.key === 'B' || (e.key === 'b' && e.shiftKey)) document.getElementById('btn-bInv').click();
+                else if (e.key === 'r' || e.key === 'Escape') document.getElementById('btn-reset').click();
+                else if (e.key === 'l') document.getElementById('btn-labels').click();
+                else if (e.key === 'x') document.getElementById('btn-regions').click();
+                else if (e.key === 'q') document.getElementById('btn-quotient').click();
+                else if (e.key === 'p') document.getElementById('btn-paradox').click();
+            });
+
+            // Sliders
+            const sliderK = document.getElementById('slider-k');
+            const pvK = document.getElementById('pv-k');
+            sliderK.addEventListener('input', () => {
+                pvK.textContent = sliderK.value;
+                treeViz.setDepth(parseInt(sliderK.value));
+            });
+
+            const sliderR = document.getElementById('slider-r');
+            const pvR = document.getElementById('pv-r');
+            sliderR.addEventListener('input', () => {
+                pvR.textContent = parseFloat(sliderR.value).toFixed(2);
+                treeViz.setRatio(parseFloat(sliderR.value));
+            });
+
+            // Toggles
+            const btnLabels = document.getElementById('btn-labels');
+            btnLabels.addEventListener('click', () => {
+                btnLabels.classList.toggle('active');
+                treeViz.showLabels = btnLabels.classList.contains('active');
+            });
+
+            const btnRegions = document.getElementById('btn-regions');
+            const legend = document.getElementById('legend');
+            const btnQuotient = document.getElementById('btn-quotient');
+            btnRegions.addEventListener('click', () => {
+                btnRegions.classList.toggle('active');
+                treeViz.showRegions = btnRegions.classList.contains('active');
+                legend.classList.toggle('visible', treeViz.showRegions);
+                // Enable/disable quotient button based on regions state
+                btnQuotient.classList.toggle('disabled', !treeViz.showRegions && !treeViz.quotientMode);
+            });
+
+            // Quotient — requires regions
+            btnQuotient.addEventListener('click', () => {
+                treeViz.toggleQuotient();
+                btnQuotient.classList.toggle('active', treeViz.quotientMode);
+            });
+
+            // Paradox
+            const btnParadox = document.getElementById('btn-paradox');
+            btnParadox.addEventListener('click', () => {
+                treeViz.advanceParadox();
+                const phaseLabels = ['Paradox ▸', 'Reassemble ▸', 'Reset ▸'];
+                btnParadox.textContent = phaseLabels[treeViz.paradoxPhase];
+                btnParadox.classList.toggle('active', treeViz.paradoxPhase > 0);
+                // Sync region button state
+                btnRegions.classList.toggle('active', treeViz.showRegions);
+                legend.classList.toggle('visible', treeViz.showRegions);
+            });
+
+            // Post message API (for iframe embedding)
+            window.addEventListener('message', (event) => {
+                const msg = event.data;
+                if (msg === 'a') document.getElementById('btn-a').click();
+                else if (msg === 'aInv') document.getElementById('btn-aInv').click();
+                else if (msg === 'b') document.getElementById('btn-b').click();
+                else if (msg === 'bInv') document.getElementById('btn-bInv').click();
+                else if (msg === 'reset') document.getElementById('btn-reset').click();
+                else if (msg === 'quotient') document.getElementById('btn-quotient').click();
+                else if (msg === 'paradox') document.getElementById('btn-paradox').click();
+            });
+        });
+    </script>
+</body>
+
+</html>

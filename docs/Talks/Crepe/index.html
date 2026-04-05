@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geometric Group Theory & The Banach–Tarski Paradox | Science on Tap</title>
+    <title>Symmetry and Space | Science on Tap</title>
     <meta name="description"
-        content="A Science on Tap talk about metric spaces, rigid motions, sphere rotations, p-adic hidden geometry, and the Banach-Tarski paradox.">
+        content="A Science on Tap talk about metric spaces, symmetry, quotients, and the Banach-Tarski paradox.">
 
     <!-- Fullpage.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.css" />
@@ -21,8 +21,10 @@
                     Q: "\\mathbb{Q}",
                     N: "\\mathbb{N}",
                     C: "\\mathbb{C}",
+                    HH: "\\mathbb{H}",
                     SO: "\\mathrm{SO}",
                     Isom: "\\mathrm{Isom}",
+                    Aut: "\\mathrm{Aut}",
                     OO: "\\mathrm{O}",
                     GL: "\\mathrm{GL}",
                     SL: "\\mathrm{SL}"
@@ -39,7 +41,7 @@
     <div id="fullpage">
 
         <!-- ═══════════════════════════════════════════════
-             SECTION 1: TITLE
+             SECTION 0: TITLE
              ═══════════════════════════════════════════════ -->
         <div class="section" data-anchor="title">
             <div class="slide transition-slide bg-title" data-anchor="title-slide">
@@ -71,14 +73,102 @@
         </div>
 
         <!-- ═══════════════════════════════════════════════
-             SECTION 2: METRIC SPACES
+             SECTION 1: OUTLINE & WARMUP
              ═══════════════════════════════════════════════ -->
-        <div class="section" data-anchor="metric">
+        <div class="section" data-anchor="warmup">
 
             <!-- Transition slide -->
-            <div class="slide transition-slide bg-metric" data-anchor="metric-title">
+            <div class="slide transition-slide bg-metric" data-anchor="warmup-title">
                 <div class="content-box animate-up" style="text-align: center;">
-                    <h2 class="slide-title">Metric Spaces</h2>
+                    <h2 class="slide-title">Warmup</h2>
+                    <p class="lead">A first look at the big ideas</p>
+                </div>
+            </div>
+
+            <!-- Roadmap -->
+            <div class="slide" data-anchor="roadmap">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Tonight's Journey</h2>
+                    <p>We're going to build up to the <strong>Banach–Tarski paradox</strong> —
+                        the theorem that says you can cut a ball into finitely many pieces
+                        and rearrange them into <em>two</em> balls the same size.</p>
+                    <p class="fragment">Along the way, we'll explore four big ideas:</p>
+                    <div class="example-grid fragment">
+                        <div class="example-card">
+                            <span class="example-icon">📏</span>
+                            <h4>Space</h4>
+                            <p>What is distance?</p>
+                        </div>
+                        <div class="example-card">
+                            <span class="example-icon">🔄</span>
+                            <h4>Symmetry</h4>
+                            <p>What are rigid motions?</p>
+                        </div>
+                        <div class="example-card">
+                            <span class="example-icon">✂️</span>
+                            <h4>Quotients</h4>
+                            <p>What happens when<br>you glue things?</p>
+                        </div>
+                        <div class="example-card">
+                            <span class="example-icon">✨</span>
+                            <h4>Paradox</h4>
+                            <p>When infinity<br>breaks the rules</p>
+                        </div>
+                    </div>
+                    <p class="fragment">Let's start with an example that contains <em>all</em> of these ideas at once.</p>
+                </div>
+            </div>
+
+            <!-- The integers act on the line -->
+            <div class="slide" data-anchor="z-acts-on-r">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Integers Acting on the Line</h2>
+                    <p>Consider the real number line \(\R\) — the most basic geometric space.</p>
+                    <p class="fragment">The integers \(\Z = \{\ldots, -2, -1, 0, 1, 2, \ldots\}\) act on
+                        \(\R\) by <span class="highlight">translation</span>:</p>
+                    <p class="fragment" style="text-align: center; font-size: 1.3rem;">
+                        \[n \cdot x = x + n\]
+                    </p>
+                    <p class="fragment">Each integer shifts the entire line. This is a <em>symmetry</em> —
+                        it preserves distances.</p>
+                    <p class="fragment">The <span class="highlight-warm">orbit</span> of any point \(x\) is
+                        the set of all its translates:</p>
+                    <p class="fragment" style="text-align: center; font-size: 1.2rem;">
+                        \[\Z \cdot x = \{\ldots, x-2,\; x-1,\; x,\; x+1,\; x+2, \ldots\}\]
+                    </p>
+                </div>
+            </div>
+
+            <!-- The quotient R/Z = circle -->
+            <div class="slide" data-anchor="r-mod-z-warmup">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Wrapping into a Circle</h2>
+                    <p>Now <span class="highlight-teal">glue together</span> all points in the same orbit —
+                        declare \(x \sim y\) whenever \(x - y \in \Z\).</p>
+                    <p class="fragment">The interval \([0, 1)\) contains exactly one representative from each orbit.
+                        Gluing the endpoints \(0 \sim 1\) wraps this interval into a <strong>circle</strong>.</p>
+                    <p class="fragment" style="text-align: center; font-size: 1.3rem;">
+                        \[\R \,/\, \Z \;\cong\; S^1\]
+                    </p>
+                    <div class="remark fragment" data-label="All four ideas in one">
+                        <p><strong>Space</strong> (the line \(\R\)) + <strong>Symmetry</strong>
+                            (integer translations \(\Z\))
+                            → <strong>Quotient</strong> (the circle \(S^1\)).<br>
+                            And as we'll see, the <strong>paradox</strong> lives here too.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ═══════════════════════════════════════════════
+             SECTION 2: SPACE
+             ═══════════════════════════════════════════════ -->
+        <div class="section" data-anchor="space">
+
+            <div class="slide transition-slide bg-metric" data-anchor="space-title">
+                <div class="content-box animate-up" style="text-align: center;">
+                    <h2 class="slide-title">Space</h2>
                     <p class="lead">What does it mean to measure distance?</p>
                 </div>
             </div>
@@ -86,7 +176,7 @@
             <!-- What is a metric space? -->
             <div class="slide" data-anchor="metric-def">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Measuring Distance</h2>
+                    <h2 class="slide-title">Metric Spaces</h2>
                     <p>Mathematics begins with <strong>abstraction</strong>. We take a familiar idea —
                         <em>distance</em> — and strip it to its essentials.
                     </p>
@@ -127,72 +217,70 @@
                         </div>
                         <div class="example-card fragment">
                             <span class="example-icon">🌳</span>
-                            <h4>Trees & Graphs</h4>
+                            <h4>Trees &amp; Graphs</h4>
                             <p>Shortest path length between vertices</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Rigid motions -->
+            <!-- Trees -->
+            <div class="slide" data-anchor="trees">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Trees</h2>
+                    <p>A <strong>tree</strong> is a graph with no cycles — there is exactly one path
+                        between any two vertices.</p>
+                    <p class="fragment">The distance between two vertices is the number of edges in
+                        this unique path.</p>
+                    <p class="fragment">Trees look very different from the line or the plane,
+                        but they satisfy all three metric space axioms perfectly.</p>
+                    <div class="remark fragment" data-label="Why trees matter">
+                        <p>Trees are the hidden geometry behind <em>free groups</em>.
+                            They will turn out to be the key to the Banach–Tarski paradox.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ═══════════════════════════════════════════════
+             SECTION 3: SYMMETRY
+             ═══════════════════════════════════════════════ -->
+        <div class="section" data-anchor="symmetry">
+
+            <div class="slide transition-slide bg-sphere" data-anchor="symmetry-title">
+                <div class="content-box animate-up" style="text-align: center;">
+                    <h2 class="slide-title">Symmetry</h2>
+                    <p class="lead">Rigid motions and group actions</p>
+                </div>
+            </div>
+
+            <!-- Isometries -->
             <div class="slide" data-anchor="isometries">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Rigid Motions</h2>
-                    <p>Now for the key question: what are the <strong>symmetries</strong> of a metric space?</p>
+                    <p>What are the <strong>symmetries</strong> of a metric space?</p>
                     <div class="definition fragment" data-label="Definition — Isometry">
-                        <p>An <strong>isometry</strong> of a metric space \((X, d)\) is a bijection \(f\colon X \to X\)
+                        <p>An <strong>isometry</strong> of a metric space \((X, d)\) is a bijection
+                            \(f\colon X \to X\)
                             that preserves distances:</p>
                         <p style="text-align: center; font-size: 1.3rem;">
                             \[d\big(f(x),\, f(y)\big) = d(x, y) \quad \text{for all } x,y \in X\]
                         </p>
                     </div>
                     <p class="fragment">
-                        Isometries are the <em>rigid motions</em> — the ways to move a space without distorting it.
-                    </p>
-                    <p class="fragment">
-                        The set of all isometries of \(X\) forms a <span class="highlight">group</span>, written
-                        \(\Isom(X)\).
+                        Isometries are the <em>rigid motions</em> — the ways to move a space
+                        without distorting it.
                     </p>
                 </div>
             </div>
 
-            <!-- Examples of isometry groups -->
-            <div class="slide" data-anchor="isometry-examples">
+            <!-- Groups -->
+            <div class="slide" data-anchor="groups">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Isometry Groups</h2>
-                    <ul>
-                        <li class="fragment"><strong>The line \(\R\):</strong> translations
-                            \(x \mapsto x + t\) and the reflection
-                            \(x \mapsto -x\). &ensp; \(\Isom(\R) \cong \R \rtimes \Z/2\)</li>
-                        <li class="fragment"><strong>The plane \(\R^2\):</strong> translations, rotations, reflections,
-                            and glide reflections</li>
-                        <li class="fragment"><strong>The sphere \(S^2\):</strong> rotations and reflections.
-                            &ensp; \(\Isom(S^2) = \OO(3)\)</li>
-                    </ul>
-                    <div class="remark fragment" data-label="Key idea">
-                        <p>More symmetric spaces have <em>larger</em> isometry groups. The sphere is very symmetric!</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══════════════════════════════════════════════
-             SECTION 3: QUOTIENTS
-             ═══════════════════════════════════════════════ -->
-        <div class="section" data-anchor="quotients">
-
-            <div class="slide transition-slide bg-metric" data-anchor="quotients-title">
-                <div class="content-box animate-up" style="text-align: center;">
-                    <h2 class="slide-title">Groups & Quotients</h2>
-                    <p class="lead">When symmetries act, new shapes emerge</p>
-                </div>
-            </div>
-
-            <div class="slide" data-anchor="groups-intro">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">What Is a Group?</h2>
-                    <p>A <strong>group</strong> is an algebraic structure that captures the idea of
-                        <em>symmetry</em>.
+                    <h2 class="slide-title">Groups</h2>
+                    <p>The set of all isometries of a space forms a
+                        <span class="highlight">group</span>, written \(\Isom(X)\).
                     </p>
                     <div class="definition fragment" data-label="Definition — Group">
                         <p>A group \(G\) is a set with a binary operation \(\cdot\) satisfying:</p>
@@ -203,249 +291,238 @@
                                 \(g \cdot g^{-1} = e\)</li>
                         </ol>
                     </div>
-                    <p class="fragment">The isometries of any metric space naturally form a group:
-                        you can compose motions, undo them, and doing nothing is always an option.</p>
+                    <p class="fragment">Every symmetry can be composed with another, undone, or left alone.
+                        That's exactly what a group captures.</p>
                 </div>
             </div>
 
+            <!-- Group actions -->
             <div class="slide" data-anchor="group-actions">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Group Actions</h2>
-                    <p>When a group \(G\) acts on a space \(X\), each element \(g \in G\) moves points around.</p>
+                    <p>When a group \(G\) acts on a space \(X\), each element \(g \in G\) moves
+                        points around.</p>
                     <p class="fragment">
-                        For each point \(x \in X\), the <span class="highlight">orbit</span> of \(x\) is the set of all
-                        points you can reach:
+                        For each point \(x \in X\), the <span class="highlight">orbit</span> of \(x\)
+                        is the set of all points you can reach:
                     </p>
                     <p class="fragment" style="text-align: center; font-size: 1.3rem;">
                         \[G \cdot x = \{g \cdot x \mid g \in G\}\]
                     </p>
                     <p class="fragment">
-                        The <span class="highlight-warm">quotient space</span> \(X / G\) is formed by gluing together
-                        each orbit into a single point. It's the space of "essentially different" positions.
+                        The <span class="highlight-warm">quotient space</span> \(X / G\) is formed
+                        by collapsing each orbit to a single point — the space of
+                        "essentially different" positions.
                     </p>
                 </div>
             </div>
 
-            <div class="slide" data-anchor="quotient-examples">
+            <!-- Examples of symmetry groups -->
+            <div class="slide" data-anchor="symmetry-examples">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Quotient Examples</h2>
+                    <h2 class="slide-title">Symmetry Groups</h2>
                     <ul>
-                        <li class="fragment">
-                            <strong>\(\R / \Z\):</strong> the integers act on the line by translation.
-                            Gluing \(x \sim x+1\) wraps the line into a <span class="highlight-teal">circle</span>.
-                        </li>
-                        <li class="fragment">
-                            <strong>\(\R^2 / \Z^2\):</strong> a lattice of translations turns the plane into a
-                            <span class="highlight-teal">torus</span> (donut shape!).
-                        </li>
-                        <li class="fragment">
-                            <strong>\(S^2 / (x \sim -x)\):</strong> identify opposite points on the sphere and you get
-                            the <span class="highlight-teal">projective plane</span> — a one-sided surface.
-                        </li>
+                        <li class="fragment"><strong>The line \(\R\):</strong> translations
+                            \(x \mapsto x + t\) and the reflection
+                            \(x \mapsto -x\). &ensp; \(\Isom(\R) \cong \R \rtimes \Z/2\)</li>
+                        <li class="fragment"><strong>The plane \(\R^2\):</strong> translations, rotations, reflections,
+                            and glide reflections</li>
+                        <li class="fragment"><strong>The sphere \(S^2\):</strong> rotations and reflections.
+                            &ensp; \(\Isom(S^2) = \OO(3)\)</li>
+                        <li class="fragment"><strong>A \(k\)-regular tree:</strong> enormously symmetric!
+                            The isometry group is <em>uncountably infinite</em>.</li>
                     </ul>
-                    <div class="remark fragment" data-label="The punchline">
-                        <p>Quotients let us build new geometric objects from old ones,
-                            using group symmetry as the glue.</p>
+                    <div class="remark fragment" data-label="Key idea">
+                        <p>More symmetric spaces have <em>larger</em> isometry groups.</p>
                     </div>
                 </div>
             </div>
+
         </div>
 
         <!-- ═══════════════════════════════════════════════
-             SECTION 4: ROTATIONS OF THE SPHERE
+             SECTION 4: QUOTIENTS
              ═══════════════════════════════════════════════ -->
-        <div class="section" data-anchor="rotations">
+        <div class="section" data-anchor="quotients">
 
-            <div class="slide transition-slide bg-sphere" data-anchor="rotations-title">
+            <div class="slide transition-slide bg-padic" data-anchor="quotients-title">
                 <div class="content-box animate-up" style="text-align: center;">
-                    <h2 class="slide-title">Rotations of the Sphere</h2>
-                    <p class="lead">The symmetry group \(\SO(3)\)</p>
+                    <h2 class="slide-title">Quotients</h2>
+                    <p class="lead">When symmetries act, new shapes emerge</p>
                 </div>
             </div>
 
-            <div class="slide" data-anchor="so3">
+            <!-- R/Z = circle -->
+            <div class="slide" data-anchor="q-circle">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">The Rotation Group</h2>
-                    <p>Every rotation of the sphere is determined by an <span class="highlight">axis</span> (a line
-                        through the center)
-                        and an <span class="highlight-warm">angle</span> of rotation.</p>
-                    <p class="fragment">The group of all rotations is called \(\SO(3)\) — the <em>special orthogonal
-                            group</em>.</p>
-                    <p class="fragment">It consists of all \(3 \times 3\) matrices \(A\) with:</p>
-                    <ul class="fragment">
-                        <li>\(A^T A = I\) &emsp; (orthogonal — preserves distances)</li>
-                        <li>\(\det(A) = 1\) &emsp; (no reflections)</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="slide" data-anchor="rational-rotations">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">Rational Rotations</h2>
-                    <p>What if we restrict to rotations whose matrix entries are <em>rational numbers</em>?</p>
-                    <p class="fragment">The subgroup \(\SO(3, \Q)\) is still <strong>infinite</strong>, and it's
-                        <span class="highlight-warm">dense</span> in \(\SO(3)\) — any rotation can be approximated
-                        arbitrarily well by a rational one.
-                    </p>
-                    <div class="remark fragment" data-label="The key insight">
-                        <p>Rational rotations have entries in \(\Q\), and rational numbers
-                            can be studied through the lens of <em>prime numbers</em>.
-                            This gives these rotations a rich hidden structure!</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="slide" data-anchor="orbits-question">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">An Orbit Mystery</h2>
-                    <p>Pick two rotations \(a, b \in \SO(3)\) and consider the group \(\langle a, b \rangle\) they
-                        generate.</p>
-                    <p class="fragment">Now pick a point \(p\) on the sphere. What does its orbit look like?</p>
-                    <div class="theorem fragment" data-label="Observation">
-                        <p>If \(a\) and \(b\) are "generic enough," the orbit
-                            \(\langle a, b \rangle \cdot p\) is a <strong>dense</strong> subset of the sphere.
-                            The orbit fills up the whole sphere!</p>
-                    </div>
-                    <p class="fragment">But <em>how</em> it fills up the sphere is subtle.
-                        To understand it, we need a different kind of number system...</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══════════════════════════════════════════════
-             SECTION 5: p-ADIC HIDDEN GEOMETRY
-             ═══════════════════════════════════════════════ -->
-        <div class="section" data-anchor="padic">
-
-            <div class="slide transition-slide bg-padic" data-anchor="padic-title">
-                <div class="content-box animate-up" style="text-align: center;">
-                    <h2 class="slide-title">Hidden Geometry</h2>
-                    <p class="lead">The \(p\)-adic world behind rational rotations</p>
-                </div>
-            </div>
-
-            <div class="slide" data-anchor="padic-numbers">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">The \(p\)-adic Numbers</h2>
-                    <p>The real numbers \(\R\) measure size using the usual absolute value:
-                        \(1000000\) is big,
-                        \(0.000001\) is small.</p>
-                    <p class="fragment">But there's a completely different way to measure size!</p>
-                    <div class="definition fragment" data-label="Definition — p-adic absolute value">
-                        <p>For a prime \(p\), define \(|x|_p\) by writing \(x = p^k \cdot \frac{a}{b}\)
-                            where \(p \nmid a, b\). Then:
-                        </p>
-                        <p style="text-align: center; font-size: 1.3rem;">\[|x|_p = p^{-k}\]</p>
-                    </div>
-                    <p class="fragment">So \(|1000000|_2 = |2^6 \cdot 5^6|_2 = 2^{-6} = \frac{1}{64}\) — a million is
-                        <em>tiny</em>
-                        to the 2-adics!
-                    </p>
-                </div>
-            </div>
-
-            <div class="slide" data-anchor="padic-world">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">A Different World</h2>
-                    <p>Completing \(\Q\) with respect to \(|\cdot|_p\) gives the
-                        <span class="highlight">\(p\)-adic numbers</span> \(\Q_p\).
-                    </p>
-                    <div class="theorem fragment" data-label="Ostrowski's Theorem">
-                        <p>Every absolute value on \(\Q\) is equivalent to either the usual
-                            \(|\cdot|\) or some \(|\cdot|_p\). The real numbers and the \(p\)-adic
-                            numbers are <em>all</em> the completions of \(\Q\).</p>
-                    </div>
-                    <p class="fragment">
-                        The \(p\)-adic numbers have a <span class="highlight-warm">tree-like</span> geometry:
-                        the "unit ball" in \(\Q_p\) splits into \(p\) smaller balls,
-                        each of which splits into \(p\) even smaller balls, and so on...
-                    </p>
-                </div>
-            </div>
-
-            <div class="slide" data-anchor="padic-so3">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">The Hidden Action</h2>
-                    <p>Here's the magic: a rational rotation \(A \in \SO(3, \Q)\)
-                        acts not only on the round sphere \(S^2 \subset \R^3\),
-                        but also on a <span class="highlight-teal">\(p\)-adic sphere</span> for every prime \(p\)!</p>
+                    <h2 class="slide-title">\(\R \,/\, \Z \;\cong\; S^1\)</h2>
+                    <p>The integers \(\Z\) act on the line by translation \(x \mapsto x + n\).</p>
+                    <p class="fragment">Gluing together points that differ by an integer wraps the line
+                        into a <span class="highlight-teal">circle</span>.</p>
                     <p class="fragment" style="text-align: center; font-size: 1.2rem;">
-                        \[\SO(3, \Q) \hookrightarrow \SO(3, \R) \times \prod_{p} \SO(3, \Q_p)\]
+                        \[0 \sim 1 \sim 2 \sim \cdots \qquad
+                        \tfrac{1}{2} \sim \tfrac{3}{2} \sim \tfrac{5}{2} \sim \cdots\]
                     </p>
-                    <p class="fragment">
-                        The action on the real sphere is just ordinary rotation. But the \(p\)-adic actions give
-                        <span class="highlight-warm">extra structure</span>:
-                        they act on <em>trees</em>, providing a hidden combinatorial skeleton.
+                    <p class="fragment">The fundamental domain is the interval \([0, 1)\)
+                        — one representative from each orbit.</p>
+                </div>
+            </div>
+
+            <!-- R^2/Z^2 = torus -->
+            <div class="slide" data-anchor="q-torus">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">\(\R^2 / \Z^2 \;\cong\; T^2\)</h2>
+                    <p>The integer lattice \(\Z^2\) acts on the plane by translation.</p>
+                    <p class="fragment">Gluing opposite edges of a unit square gives a
+                        <span class="highlight-teal">torus</span> — a donut shape!
                     </p>
-                    <div class="remark fragment" data-label="Analogy">
-                        <p>It's like a rotation casting multiple "shadows" — one for each prime number.
-                            Each shadow reveals a different aspect of the rotation's nature.</p>
+                    <p class="fragment">The fundamental domain is the unit square
+                        \([0,1) \times [0,1)\).
+                        Glue left↔right, then top↔bottom.</p>
+                    <div class="remark fragment" data-label="Pattern">
+                        <p>Same recipe: a symmetric group acts on a space, and the quotient
+                            is a new geometric object.</p>
                     </div>
                 </div>
             </div>
 
-            <div class="slide" data-anchor="free-group">
+            <!-- H^2 / triangle group -->
+            <div class="slide" data-anchor="q-hyperbolic">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Free Groups and Paradox</h2>
-                    <p>A group is called <span class="highlight">free</span> if its elements have no
-                        "unexpected" relations — each product of generators is distinct.</p>
-                    <p class="fragment">
-                        For "most" choices of two rotations \(a, b\), the group
-                        \(\langle a, b \rangle\) is a <strong>free group on 2 generators</strong>.
+                    <h2 class="slide-title">\(\HH^2 / \Delta\)</h2>
+                    <p>The <strong>hyperbolic plane</strong> \(\HH^2\) is a space where triangles
+                        have angles summing to <em>less</em> than \(180°\).</p>
+                    <p class="fragment">A <span class="highlight">triangle group</span> \(\Delta(p,q,r)\)
+                        is generated by reflections in the sides of a hyperbolic triangle
+                        with angles \(\pi/p\), \(\pi/q\), \(\pi/r\).</p>
+                    <p class="fragment">The quotient \(\HH^2 / \Delta\) is a
+                        <span class="highlight-teal">hyperbolic orbifold</span> —
+                        a triangle with cone-point singularities at the vertices.
                     </p>
-                    <p class="fragment">
-                        This means every element can be written uniquely as a reduced word like
-                    </p>
-                    <p class="fragment" style="text-align: center; font-size: 1.2rem; color: var(--accent);">
-                        \(a \cdot b^{-1} \cdot a \cdot a \cdot b \cdot a^{-1} \cdot b \cdot b\)
-                    </p>
-                    <p class="fragment">
-                        The <em>tree</em>-like structure of the \(p\)-adic world is exactly what lets us prove that
-                        these groups are free. And <strong>free groups are the engine of the Banach–Tarski
-                            paradox.</strong>
-                    </p>
+                    <p class="fragment">The triangle tiles the entire hyperbolic plane,
+                        like an infinite kaleidoscope.</p>
                 </div>
             </div>
+
+            <!-- Tree / Free group -->
+            <div class="slide" data-anchor="q-tree">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Tree \(\,/\, F_2\)</h2>
+                    <p>The <strong>free group</strong> \(F_2 = \langle a, b \rangle\)
+                        acts on the <span class="highlight">4-regular tree</span> by isometries.</p>
+                    <p class="fragment">Each element is a unique "word" in \(a, b, a^{-1}, b^{-1}\)
+                        — no relations, no coincidences.</p>
+                    <p class="fragment">The quotient is a <span class="highlight-teal">rose</span>
+                        — a wedge of two circles, one for each generator.</p>
+                    <p class="fragment" style="text-align: center; font-size: 1.2rem;">
+                        \[T_4 \,/\, F_2 \;\cong\; S^1 \vee S^1\]
+                    </p>
+                    <div class="remark fragment" data-label="Key connection">
+                        <p>Free groups are trees in disguise. This tree structure
+                            will be the engine of the paradox.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- S^2 / finite group -->
+            <div class="slide" data-anchor="q-sphere">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">\(S^2 / G\)</h2>
+                    <p>Finite subgroups of \(\SO(3)\) — the rotation groups of regular solids —
+                        act on the sphere.</p>
+                    <ul>
+                        <li class="fragment"><strong>\(S^2 / (\Z/n)\):</strong> rotations around one axis
+                            → a "lemon" shape with two cone points</li>
+                        <li class="fragment"><strong>\(S^2 / \text{(icosahedral)}\):</strong> the 60
+                            rotational symmetries of the icosahedron → a sphere with special points</li>
+                        <li class="fragment"><strong>\(S^2 / (x \sim -x)\):</strong> identify antipodal points
+                            → the <span class="highlight-teal">projective plane</span> \(\R P^2\)</li>
+                    </ul>
+                    <p class="fragment">The richer the symmetry group, the smaller the quotient.</p>
+                </div>
+            </div>
+
         </div>
 
         <!-- ═══════════════════════════════════════════════
-             SECTION 6: BANACH-TARSKI
+             SECTION 5: PARADOX
              ═══════════════════════════════════════════════ -->
-        <div class="section" data-anchor="banachtarski">
+        <div class="section" data-anchor="paradox">
 
-            <div class="slide transition-slide bg-banachtarski" data-anchor="bt-title">
+            <div class="slide transition-slide bg-banachtarski" data-anchor="paradox-title">
                 <div class="content-box animate-up" style="text-align: center;">
-                    <h2 class="slide-title">The Banach–Tarski Paradox</h2>
-                    <p class="lead">One sphere becomes two</p>
+                    <h2 class="slide-title">Paradox</h2>
+                    <p class="lead">When infinity breaks the rules</p>
                 </div>
             </div>
 
-            <div class="slide" data-anchor="paradox-warmup">
+            <!-- N -> N\{0} -->
+            <div class="slide" data-anchor="hilbert-shift">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">A Paradox with the Integers</h2>
-                    <p>Before tackling spheres, consider a simpler "paradox."</p>
-                    <p class="fragment">
-                        The integers \(\Z = \{\ldots, -2, -1, 0, 1, 2, \ldots\}\) can be split into
-                        <span class="highlight-warm">evens</span> and
-                        <span class="highlight-teal">odds</span>.
+                    <h2 class="slide-title">Removing a Point</h2>
+                    <p>Consider the natural numbers \(\N = \{0, 1, 2, 3, \ldots\}\).</p>
+                    <p class="fragment">The map \(n \mapsto n + 1\) is a bijection
+                        from \(\N\) to \(\N \setminus \{0\}\):</p>
+                    <p class="fragment" style="text-align: center; font-size: 1.2rem;">
+                        \[0 \mapsto 1, \quad 1 \mapsto 2, \quad 2 \mapsto 3, \quad \ldots\]
                     </p>
-                    <p class="fragment">
-                        But the even integers are "the same size" as all the integers: just multiply by 2!
-                        \[\Z \xrightarrow{\;\times 2\;} 2\Z\]
-                    </p>
-                    <p class="fragment">
-                        So somehow, <em>half</em> of the integers is "as big as" all of them.
-                        This is only paradoxical because infinite sets don't obey our finite intuitions.
+                    <p class="fragment">We can <span class="highlight-warm">remove a point</span>
+                        from an infinite set without making it any smaller!</p>
+                    <p class="fragment" style="color: var(--text-muted);">
+                        This is Hilbert's Hotel: a hotel with infinitely many rooms can always
+                        accommodate one more guest — just shift everyone up by one.
                     </p>
                 </div>
             </div>
 
+            <!-- N -> N x 2 -->
+            <div class="slide" data-anchor="doubling">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">Half Equals Whole</h2>
+                    <p>Even more dramatic: the map \(n \mapsto 2n\) is a bijection
+                        from \(\N\) to the even numbers:</p>
+                    <p class="fragment" style="text-align: center; font-size: 1.2rem;">
+                        \[0 \mapsto 0, \quad 1 \mapsto 2, \quad 2 \mapsto 4, \quad 3 \mapsto 6,
+                        \quad \ldots\]
+                    </p>
+                    <p class="fragment"><span class="highlight">Half</span> of the natural numbers is
+                        "the same size" as <span class="highlight">all</span> of them.</p>
+                    <div class="remark fragment" data-label="The paradoxical pattern">
+                        <p>Infinite sets can be split into pieces, each of which is as big
+                            as the whole. This is only paradoxical because our finite
+                            intuitions break down.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- S^1 -> S^1 \ {pt} -->
+            <div class="slide" data-anchor="circle-paradox">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">A Paradox on the Circle</h2>
+                    <p>Now let's move from counting to geometry.</p>
+                    <p class="fragment">Pick an <em>irrational</em> rotation \(\alpha\) of the
+                        circle \(S^1\). The orbit of any point \(p\) is a countable set
+                        \(\{p,\; \alpha(p),\; \alpha^2(p),\; \ldots\}\) that never repeats.</p>
+                    <p class="fragment">This orbit looks like \(\N\) sitting inside \(S^1\).
+                        Applying Hilbert's trick:</p>
+                    <p class="fragment" style="text-align: center; font-size: 1.2rem;">
+                        \[\text{Rotate the orbit by } \alpha \;\Longrightarrow\;
+                        \text{the orbit shifts, and } p \text{ is freed}\]
+                    </p>
+                    <p class="fragment">By rotating a <em>subset</em> of \(S^1\), we can
+                        <span class="highlight-warm">remove a point</span> from the circle
+                        using a rigid motion!
+                    </p>
+                </div>
+            </div>
+
+            <!-- Free group paradox -->
             <div class="slide" data-anchor="free-group-paradox">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">Free Group Paradox</h2>
-                    <p>The free group \(F_2 = \langle a, b \rangle\) has a much more dramatic version.</p>
+                    <h2 class="slide-title">The Free Group Paradox</h2>
+                    <p>The free group \(F_2 = \langle a, b \rangle\) takes this much further.</p>
                     <p class="fragment">
-                        Partition the elements of \(F_2\) into four pieces based on the first letter
+                        Partition its elements into four pieces based on the first letter
                         of each reduced word:
                     </p>
                     <ul class="fragment">
@@ -456,30 +533,14 @@
                     </ul>
                     <div class="theorem fragment" data-label="Key fact">
                         <p>\(a^{-1} \cdot W_a = W_a \cup W_b \cup W_{b^{-1}} \cup \{e\}\)</p>
-                        <p>Multiplying by \(a^{-1}\) "absorbs" the leading \(a\), giving <em>everything else</em> back!
+                        <p>Multiplying by \(a^{-1}\) "absorbs" the leading \(a\), giving
+                            <em>everything else</em> back!
                         </p>
                     </div>
                 </div>
             </div>
 
-            <div class="slide" data-anchor="bt-pieces">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">From Groups to Spheres</h2>
-                    <p>
-                        Choose two rotations \(a, b \in \SO(3)\) generating a free group.
-                        Their orbits partition <em>almost all</em> of the sphere.
-                    </p>
-                    <p class="fragment">Using the free group decomposition, we can split the sphere
-                        (minus a countable set) into <strong>4 pieces</strong>:</p>
-                    <p class="fragment" style="text-align: center; font-size: 1.1rem;">
-                        \[S^2 = W_a \cdot p \;\cup\; W_{a^{-1}} \cdot p \;\cup\; W_b \cdot p \;\cup\; W_{b^{-1}} \cdot p
-                        \;\cup\; \text{(countable)}\]
-                    </p>
-                    <p class="fragment">Rotating just <em>two</em> of the pieces (by \(a^{-1}\) and \(b^{-1}\))
-                        reconstructs the whole sphere each time!</p>
-                </div>
-            </div>
-
+            <!-- Banach-Tarski statement -->
             <div class="slide" data-anchor="bt-statement">
                 <div class="content-box animate-up">
                     <div class="main-question-container">
@@ -498,6 +559,7 @@
                 </div>
             </div>
 
+            <!-- Why it works -->
             <div class="slide" data-anchor="bt-why">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Why Isn't This Nonsense?</h2>
@@ -521,31 +583,12 @@
                 </div>
             </div>
 
-            <div class="slide" data-anchor="bt-padic-connection">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">The \(p\)-adic Connection</h2>
-                    <p>How does all this connect back to \(p\)-adic numbers?</p>
-                    <p class="fragment">To <em>prove</em> that two specific rotations generate a free group,
-                        we can use the \(p\)-adic action!</p>
-                    <div class="theorem fragment" data-label="Strategy">
-                        <p>If a group acts on a <strong>tree</strong> and two elements have no common fixed point,
-                            then they generate a <strong>free group</strong>.</p>
-                    </div>
-                    <p class="fragment">
-                        Rational rotations act on \(p\)-adic trees,
-                        and the tree structure makes it easy to check freeness.
-                        The "hidden geometry" from the prime numbers provides the scaffolding
-                        for the paradox!
-                    </p>
-                </div>
-            </div>
-
         </div>
 
         <!-- ═══════════════════════════════════════════════
-             SECTION 7: SUMMARY
+             SECTION 6: CONCLUSIONS
              ═══════════════════════════════════════════════ -->
-        <div class="section" data-anchor="summary">
+        <div class="section" data-anchor="conclusions">
 
             <div class="slide" data-anchor="big-picture">
                 <div class="content-box animate-up wide">
@@ -553,28 +596,23 @@
                     <div class="example-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
                         <div class="example-card fragment">
                             <span class="example-icon">📏</span>
-                            <h4>Metric Spaces</h4>
-                            <p>Abstract the idea of distance</p>
+                            <h4>Space</h4>
+                            <p>Distance in lines, planes, spheres, and trees</p>
                         </div>
                         <div class="example-card fragment">
                             <span class="example-icon">🔄</span>
-                            <h4>Isometries</h4>
-                            <p>Symmetries that preserve distance</p>
+                            <h4>Symmetry</h4>
+                            <p>Groups of rigid motions acting on spaces</p>
                         </div>
                         <div class="example-card fragment">
-                            <span class="example-icon">🌐</span>
-                            <h4>Rotations</h4>
-                            <p>The rich group \(\SO(3)\)</p>
-                        </div>
-                        <div class="example-card fragment">
-                            <span class="example-icon">🔢</span>
-                            <h4>\(p\)-adics</h4>
-                            <p>Hidden geometry from primes</p>
+                            <span class="example-icon">✂️</span>
+                            <h4>Quotients</h4>
+                            <p>Circles, tori, orbifolds, and roses from gluing</p>
                         </div>
                         <div class="example-card fragment">
                             <span class="example-icon">🌳</span>
                             <h4>Trees</h4>
-                            <p>Prove free group structure</p>
+                            <p>The hidden skeleton behind free groups</p>
                         </div>
                         <div class="example-card fragment">
                             <span class="example-icon">✨</span>
@@ -596,6 +634,7 @@
                     </p>
                 </div>
             </div>
+
         </div>
 
     </div>
@@ -610,9 +649,9 @@
                 autoScrolling: true,
                 navigation: true,
                 navigationPosition: 'right',
-                navigationTooltips: ['Title', 'Metric Spaces', 'Groups & Quotients', 'Rotations', 'p-adic Numbers', 'Banach–Tarski', 'Summary'],
+                navigationTooltips: ['Title', 'Warmup', 'Space', 'Symmetry', 'Quotients', 'Paradox', 'Conclusions'],
                 showActiveTooltip: false,
-                anchors: ['title', 'metric', 'quotients', 'rotations', 'padic', 'banachtarski', 'summary'],
+                anchors: ['title', 'warmup', 'space', 'symmetry', 'quotients', 'paradox', 'conclusions'],
                 slidesNavigation: true,
                 controlArrows: true,
                 keyboardScrolling: true,

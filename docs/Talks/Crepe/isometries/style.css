@@ -1,5 +1,5 @@
 /* ================================================================
-   Isometries Visualizer — Style
+   Symmetries Walkthrough — Style
    ================================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -28,8 +28,8 @@
     --font-body:     'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-display:  'Playfair Display', Georgia, serif;
     --font-mono:     'JetBrains Mono', 'Fira Code', monospace;
-    --nav-height:    60px;
-    --panel-width:   340px;
+    --nav-height:    56px;
+    --panel-width:   360px;
     --transition:    0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -60,7 +60,7 @@ body {
 }
 
 /* ── Navigation Bar ─────────────────────────────────── */
-#mode-nav {
+#step-nav {
     grid-area: nav;
     background: var(--bg-card);
     backdrop-filter: blur(24px);
@@ -75,13 +75,13 @@ body {
     width: 100%;
     display: flex;
     align-items: center;
-    padding: 0 1.5rem;
-    gap: 2rem;
+    padding: 0 1.25rem;
+    gap: 1.5rem;
 }
 
 .nav-brand {
     font-family: var(--font-display);
-    font-size: 1.25rem;
+    font-size: 1.15rem;
     font-weight: 700;
     background: linear-gradient(135deg, #e0e7ff, var(--accent-warm));
     -webkit-background-clip: text;
@@ -92,24 +92,26 @@ body {
 
 .nav-tabs {
     display: flex;
-    gap: 0.25rem;
+    gap: 2px;
     background: rgba(255,255,255,0.03);
-    border-radius: 12px;
-    padding: 4px;
+    border-radius: 10px;
+    padding: 3px;
     border: 1px solid rgba(255,255,255,0.04);
+    overflow-x: auto;
+    flex-shrink: 1;
 }
 
 .nav-tab {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1.2rem;
+    gap: 0.4rem;
+    padding: 0.35rem 0.8rem;
     border: none;
-    border-radius: 10px;
+    border-radius: 8px;
     background: transparent;
     color: var(--text-muted);
     font-family: var(--font-body);
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     font-weight: 500;
     cursor: pointer;
     transition: all var(--transition);
@@ -123,16 +125,31 @@ body {
 
 .nav-tab.active {
     color: var(--text-primary);
-    background: rgba(124, 138, 255, 0.12);
-    box-shadow: 0 0 16px rgba(124, 138, 255, 0.1);
+    background: rgba(124, 138, 255, 0.14);
+    box-shadow: 0 0 12px rgba(124, 138, 255, 0.12);
 }
 
-.tab-icon {
-    font-size: 1.1rem;
+.tab-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: rgba(124, 138, 255, 0.12);
+    color: var(--accent);
+    transition: all var(--transition);
+}
+
+.nav-tab.active .tab-num {
+    background: var(--accent);
+    color: var(--bg-deep);
 }
 
 .tab-label {
-    /* stays */
+    /* visible by default */
 }
 
 /* ── Main Visualization Area ────────────────────────── */
@@ -149,30 +166,20 @@ body {
     display: block;
 }
 
-#three-container {
-    position: absolute;
-    inset: 0;
-}
-
-#three-container canvas {
-    width: 100% !important;
-    height: 100% !important;
-}
-
-/* ── Subtle Grid Background ─────────────────────────── */
+/* subtle dot-grid background */
 #viz-main::before {
     content: '';
     position: absolute;
     inset: 0;
     background-image:
-        radial-gradient(circle at 1px 1px, rgba(124,138,255,0.06) 1px, transparent 0);
+        radial-gradient(circle at 1px 1px, rgba(124,138,255,0.05) 1px, transparent 0);
     background-size: 40px 40px;
     pointer-events: none;
     z-index: 0;
 }
 
-/* ── Control Panel ──────────────────────────────────── */
-#control-panel {
+/* ── Narrative Panel ───────────────────────────────── */
+#narrative-panel {
     grid-area: panel;
     background: var(--bg-surface);
     border-left: 1px solid var(--border);
@@ -180,22 +187,27 @@ body {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.2rem;
 }
 
-#control-panel::-webkit-scrollbar {
+#narrative-panel::-webkit-scrollbar {
     width: 4px;
 }
-#control-panel::-webkit-scrollbar-track {
+#narrative-panel::-webkit-scrollbar-track {
     background: transparent;
 }
-#control-panel::-webkit-scrollbar-thumb {
+#narrative-panel::-webkit-scrollbar-thumb {
     background: rgba(124,138,255,0.2);
     border-radius: 2px;
 }
 
-.controls-group {
+/* ── Narrative Cards ───────────────────────────────── */
+.narrative-card {
     animation: fadeSlideIn 0.4s ease both;
+}
+
+.narrative-card.hidden {
+    display: none;
 }
 
 @keyframes fadeSlideIn {
@@ -203,41 +215,66 @@ body {
     to   { opacity: 1; transform: translateY(0); }
 }
 
-.controls-title {
-    font-family: var(--font-mono);
-    font-size: 1.1rem;
+.card-title {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
     font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    background: linear-gradient(135deg, var(--text-primary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.narrative-card p {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    line-height: 1.65;
+}
+
+.narrative-card p strong {
     color: var(--accent);
-    margin-bottom: 0.35rem;
-    letter-spacing: 0.02em;
 }
 
-.controls-desc {
-    font-size: 0.82rem;
-    color: var(--text-muted);
-    margin-bottom: 1rem;
-    line-height: 1.55;
+.narrative-card p em {
+    color: var(--accent-teal);
+    font-style: italic;
 }
 
+.hint {
+    font-size: 0.8rem !important;
+    color: var(--text-muted) !important;
+    border-left: 2px solid var(--accent-violet);
+    padding-left: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+/* ── Control Rows ──────────────────────────────────── */
 .control-row {
-    margin-bottom: 1rem;
+    margin-bottom: 0.85rem;
+}
+
+.control-row.hidden {
+    display: none;
 }
 
 .control-row label {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     font-weight: 500;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
 }
 
-.param-value {
+.pv {
     font-family: var(--font-mono);
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     color: var(--accent);
     font-weight: 600;
 }
@@ -247,56 +284,56 @@ input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
-    height: 6px;
+    height: 5px;
     border-radius: 3px;
     background: rgba(124,138,255,0.12);
     outline: none;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
 }
 
 input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: var(--accent);
     cursor: pointer;
     border: 2px solid var(--bg-surface);
-    box-shadow: 0 0 8px var(--glow);
+    box-shadow: 0 0 6px var(--glow);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
     transform: scale(1.2);
-    box-shadow: 0 0 14px var(--glow);
+    box-shadow: 0 0 12px var(--glow);
 }
 
 input[type="range"]::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: var(--accent);
     cursor: pointer;
     border: 2px solid var(--bg-surface);
-    box-shadow: 0 0 8px var(--glow);
+    box-shadow: 0 0 6px var(--glow);
 }
 
 /* ── Button Groups ──────────────────────────────────── */
 .btn-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.35rem;
+    gap: 0.3rem;
 }
 
 .btn-toggle {
-    padding: 0.4rem 0.75rem;
+    padding: 0.35rem 0.65rem;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-muted);
     font-family: var(--font-body);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 500;
     cursor: pointer;
     transition: all var(--transition);
@@ -316,47 +353,38 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* ── Action Buttons ─────────────────────────────────── */
-.controls-global {
-    margin-top: auto;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border);
+.btn-row {
     display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
 }
 
 .btn-primary {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.75rem;
+    gap: 0.4rem;
+    padding: 0.6rem 1rem;
     border: none;
     border-radius: var(--radius-md);
     background: linear-gradient(135deg, var(--accent), #5b6aff);
     color: white;
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
     transition: all var(--transition);
-    box-shadow: 0 4px 20px rgba(124,138,255,0.3);
+    box-shadow: 0 4px 16px rgba(124,138,255,0.3);
+    flex: 1;
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 28px rgba(124,138,255,0.4);
-}
-
-.btn-primary.playing {
-    background: linear-gradient(135deg, var(--accent-warm), #e08800);
-    box-shadow: 0 4px 20px var(--glow-warm);
+    box-shadow: 0 6px 24px rgba(124,138,255,0.4);
 }
 
 .btn-secondary {
-    width: 100%;
-    padding: 0.6rem;
+    padding: 0.6rem 1rem;
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background: transparent;
@@ -366,6 +394,7 @@ input[type="range"]::-moz-range-thumb {
     font-weight: 500;
     cursor: pointer;
     transition: all var(--transition);
+    flex: 1;
 }
 
 .btn-secondary:hover {
@@ -374,10 +403,53 @@ input[type="range"]::-moz-range-thumb {
     color: var(--text-primary);
 }
 
+/* ── Sequence Display (Placemat) ────────────────────── */
+.sequence-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(124,138,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-top: 0.5rem;
+    min-height: 36px;
+    flex-wrap: wrap;
+}
+
+.seq-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.seq-items {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--accent);
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+}
+
+.seq-chip {
+    display: inline-flex;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.seq-chip.rot    { background: rgba(124,138,255,0.15); color: var(--accent); }
+.seq-chip.flipH  { background: rgba(245,158,11,0.15); color: var(--accent-warm); }
+.seq-chip.flipV  { background: rgba(45,212,191,0.15); color: var(--accent-teal); }
+
 /* ── Info Overlay ───────────────────────────────────── */
 #info-overlay {
     position: fixed;
-    bottom: 1.5rem;
+    bottom: 1.25rem;
     left: 50%;
     transform: translateX(calc(-50% - var(--panel-width) / 2));
     z-index: 50;
@@ -386,31 +458,31 @@ input[type="range"]::-moz-range-thumb {
 
 #info-text {
     font-family: var(--font-mono);
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     color: var(--text-muted);
     background: var(--bg-card);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    padding: 0.5rem 1rem;
+    padding: 0.45rem 1rem;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border);
     white-space: nowrap;
 }
 
 /* ── Responsive ─────────────────────────────────────── */
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
     :root {
-        --panel-width: 280px;
+        --panel-width: 300px;
     }
     .tab-label {
         display: none;
     }
     .nav-tab {
-        padding: 0.5rem 0.8rem;
+        padding: 0.35rem 0.5rem;
     }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 680px) {
     body {
         grid-template-rows: var(--nav-height) 1fr auto;
         grid-template-columns: 1fr;
@@ -422,7 +494,7 @@ input[type="range"]::-moz-range-thumb {
     :root {
         --panel-width: 100%;
     }
-    #control-panel {
+    #narrative-panel {
         border-left: none;
         border-top: 1px solid var(--border);
         max-height: 40vh;

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spaces | Symmetry and Space</title>
+    <meta name="description" content="Five examples of metric spaces: the line, the plane, the sphere, trees, and hyperbolic space.">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- ── Title Bar ──────────────────────────────────── -->
+    <header id="top-bar">
+        <div class="bar-inner">
+            <div class="bar-brand">Spaces</div>
+            <div class="bar-subtitle">A space = a collection of points where we can measure distances</div>
+        </div>
+    </header>
+
+    <!-- ── Spaces Gallery ─────────────────────────────── -->
+    <main id="gallery">
+
+        <!-- 1. The Line -->
+        <div class="space-card" id="card-line">
+            <canvas class="space-canvas" id="canvas-line"></canvas>
+            <div class="card-overlay">
+                <div class="card-label">The Line</div>
+                <div class="card-formula">ℝ</div>
+                <div class="card-desc">d(x, y) = |x − y|</div>
+            </div>
+        </div>
+
+        <!-- 2. The Plane -->
+        <div class="space-card" id="card-plane">
+            <canvas class="space-canvas" id="canvas-plane"></canvas>
+            <div class="card-overlay">
+                <div class="card-label">The Plane</div>
+                <div class="card-formula">ℝ²</div>
+                <div class="card-desc">Euclidean distance</div>
+            </div>
+        </div>
+
+        <!-- 3. The Sphere -->
+        <div class="space-card" id="card-sphere">
+            <canvas class="space-canvas" id="canvas-sphere"></canvas>
+            <div class="card-overlay">
+                <div class="card-label">The Sphere</div>
+                <div class="card-formula">S²</div>
+                <div class="card-desc">Great-circle distance</div>
+            </div>
+        </div>
+
+        <!-- 4. A Tree -->
+        <div class="space-card" id="card-tree">
+            <canvas class="space-canvas" id="canvas-tree"></canvas>
+            <div class="card-overlay">
+                <div class="card-label">A Tree</div>
+                <div class="card-formula">T₃</div>
+                <div class="card-desc">Shortest path length</div>
+            </div>
+        </div>
+
+        <!-- 5. Hyperbolic Space -->
+        <div class="space-card" id="card-hyperbolic">
+            <canvas class="space-canvas" id="canvas-hyperbolic"></canvas>
+            <div class="card-overlay">
+                <div class="card-label">Hyperbolic Space</div>
+                <div class="card-formula">ℍ²</div>
+                <div class="card-desc">Poincaré disk model</div>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="spaces.js"></script>
+
+</body>
+
+</html>
