@@ -23,14 +23,13 @@ const STEPS = [
     { desc: 'This shift preserves distances: |f(x) − f(y)| = |x − y|. It is an isometry of ℝ.' },
     { desc: 'The inverse operation is x ↦ x − 1. Shifting right then left returns every point to where it started.' },
     { desc: 'Iterating the shift gives translation by any integer n: x ↦ x + n. The group ℤ acts on ℝ.' },
-    { desc: 'The orbit of a point x is the set { …, x−2, x−1, x, x+1, x+2, … }. We call this a "net."' },
-    { desc: 'Drag the slider to explore different nets. Notice: each net is a copy of ℤ, infinitely spread across ℝ.' },
-    { desc: 'Shift the net to the right. After moving exactly 1 unit, the net looks the same! The net is periodic mod 1.' },
-    { desc: 'Every net has exactly one representative in the interval [0, 1). We can identify each net with that point.' },
-    { desc: 'But 0 and 1 are in the same net (0 + 1 = 1). So we must identify them: 0 ≡ 1.' },
+    { desc: 'The orbit of a point x is the set { …, x−2, x−1, x, x+1, x+2, … }. We call this an "orbit."' },
+    { desc: 'Drag the slider to explore different orbits. Notice: each orbit is a copy of ℤ, infinitely spread across ℝ.' },
+    { desc: 'Shift the orbit to the right. After moving exactly 1 unit, the orbit looks the same! The orbit is periodic mod 1.' },
+    { desc: 'Every orbit has exactly one representative in the interval [0, 1). We can identify each orbit with that point.' },
+    { desc: 'But 0 and 1 are in the same orbit (0 + 1 = 1). So we must identify them: 0 ≡ 1.' },
     { desc: 'Glue the endpoints together: the interval [0, 1] curls up into a circle!' },
-    { desc: 'ℝ/ℤ ≅ S¹. The space of orbits of ℝ under translation by ℤ is the circle.' },
-    { desc: 'Recap: x ↦ x+1 generates the group ℤ acting on ℝ. The orbits are nets, one per point of [0,1). Identifying 0 ≡ 1 gives ℝ/ℤ ≅ S¹.' },
+    { desc: 'Recap: x ↦ x+1 generates the group ℤ acting on ℝ. There is an orbit for each point [0,1). Identifying 0 ≡ 1 gives ℝ/ℤ ≅ S¹.' },
 ];
 const TOTAL = STEPS.length;
 
@@ -50,7 +49,7 @@ offsetSlider.addEventListener('input', () => {
     offsetValue.textContent = userOffset.toFixed(2);
 });
 
-// Animated offset for step 7 (sliding the net)
+// Animated offset for step 7 (sliding the orbit)
 let slideOffset = 0;
 let slideDir = 1;
 
@@ -270,8 +269,6 @@ function render(now) {
     } else if (step === 10) {
         renderBending(lineY, e);
     } else if (step === 11) {
-        renderFinalCircle(e);
-    } else if (step === 12) {
         renderRecap(e);
     }
 
@@ -468,7 +465,7 @@ function renderInteractiveNets(lineY, e) {
     const baseSx = worldToScreen(userOffset);
     drawPoint(baseSx, lineY, 8, C.accent, 'rgba(124,138,255,0.4)', 1);
 
-    drawText(`Net of x = ${userOffset.toFixed(2)}`, W / 2, lineY - 70, 16, C.accent, 1);
+    drawText(`Orbit of x = ${userOffset.toFixed(2)}`, W / 2, lineY - 70, 16, C.accent, 1);
 
     // Show "each net is a copy of ℤ"
     drawText('← … ℤ-spaced … →', W / 2, lineY + 50, 14, C.dim, e);
@@ -508,10 +505,10 @@ function renderSlidingNet(lineY, e) {
     // Show the offset value
     drawText(`offset = ${slideOffset.toFixed(2)}`, W / 2, lineY + 60, 14, C.accent);
 
-    // "Same net!" flash when near integer
+    // "Same orbit!" flash when near integer
     if (slideOffset > 0.95 || slideOffset < 0.05) {
         const flash = 1 - Math.abs(slideOffset > 0.5 ? slideOffset - 1 : slideOffset) * 20;
-        drawText('Same net!', W / 2, lineY - 80, 18, C.warm, Math.max(0, flash));
+        drawText('Same orbit!', W / 2, lineY - 80, 18, C.warm, Math.max(0, flash));
     }
 }
 
@@ -544,12 +541,12 @@ function renderRepresentative(lineY, e) {
         const x2 = c * (1 - Math.abs(hp % 2 - 1));
         const m = l - c / 2;
         let r1, g1, b1;
-        if (hp < 1)      { r1 = c;  g1 = x2; b1 = 0; }
-        else if (hp < 2) { r1 = x2; g1 = c;  b1 = 0; }
-        else if (hp < 3) { r1 = 0;  g1 = c;  b1 = x2; }
-        else if (hp < 4) { r1 = 0;  g1 = x2; b1 = c; }
-        else if (hp < 5) { r1 = x2; g1 = 0;  b1 = c; }
-        else             { r1 = c;  g1 = 0;  b1 = x2; }
+        if (hp < 1) { r1 = c; g1 = x2; b1 = 0; }
+        else if (hp < 2) { r1 = x2; g1 = c; b1 = 0; }
+        else if (hp < 3) { r1 = 0; g1 = c; b1 = x2; }
+        else if (hp < 4) { r1 = 0; g1 = x2; b1 = c; }
+        else if (hp < 5) { r1 = x2; g1 = 0; b1 = c; }
+        else { r1 = c; g1 = 0; b1 = x2; }
         const R = Math.round((r1 + m) * 255);
         const G = Math.round((g1 + m) * 255);
         const B = Math.round((b1 + m) * 255);
@@ -561,7 +558,7 @@ function renderRepresentative(lineY, e) {
             const alpha = Math.round(e * feather * 220);
 
             const idx = (py * pxW + px) * 4;
-            data[idx]     = R;
+            data[idx] = R;
             data[idx + 1] = G;
             data[idx + 2] = B;
             data[idx + 3] = alpha;
@@ -801,7 +798,7 @@ function renderFinalCircle(e) {
     drawCircleShape(circleCx, circleCy, circleR, e);
 
     // Tick marks at key fractions
-    const fracs = [0, 1/6, 1/4, 1/3, 1/2, 2/3, 3/4, 5/6];
+    const fracs = [0, 1 / 6, 1 / 4, 1 / 3, 1 / 2, 2 / 3, 3 / 4, 5 / 6];
     const fracLabels = ['0', '⅙', '¼', '⅓', '½', '⅔', '¾', '⅚'];
     const netColors = [C.accent, C.teal, C.warm, C.rose, C.purple, C.green, C.teal, C.warm];
 
@@ -813,47 +810,29 @@ function renderFinalCircle(e) {
         const angle = -Math.PI / 2 + fracs[i] * Math.PI * 2;
         const px = circleCx + circleR * Math.cos(angle);
         const py = circleCy + circleR * Math.sin(angle);
-        const lx = circleCx + (circleR + 25) * Math.cos(angle);
         const ly = circleCy + (circleR + 25) * Math.sin(angle);
 
         drawPoint(px, py, 4, netColors[i], netColors[i], localE);
         drawText(fracLabels[i], lx, ly, 12, C.muted, localE);
     }
-
-    // Arrow showing the generating rotation (1/1 = full turn)
-    if (e > 0.3) {
-        const arrowAlpha = ease((e - 0.3) / 0.7);
-        const innerR = circleR * 0.6;
-        drawCurvedArrow(circleCx, circleCy, innerR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 1.5, C.teal, 2, arrowAlpha * 0.4);
-        drawText('+1', circleCx + innerR + 14, circleCy - 10, 12, C.teal, arrowAlpha * 0.5);
-    }
-
-    // Title
-    drawText('ℝ / ℤ  ≅  S¹', W / 2, circleCy + circleR + 55, 24, C.accent, e);
-
-    // Subtitle
-    if (e > 0.5) {
-        const subAlpha = ease((e - 0.5) * 2);
-        drawText('The space of orbits is the circle', W / 2, circleCy + circleR + 85, 14, C.muted, subAlpha);
-    }
 }
-
 function renderRecap(e) {
-    // Three panels stacked vertically, fading in sequentially
-    const panelH = H * 0.22;
+    // Four panels stacked vertically, fading in sequentially
+    const panelH = H * 0.18;
     const panelW = Math.min(W * 0.7, 500);
-    const startY = H * 0.1;
+    const startY = H * 0.08;
     const cx = W / 2;
 
     const panels = [
-        { label: '1. The Action', color: C.teal, delay: 0 },
-        { label: '2. The Orbits', color: C.warm, delay: 0.2 },
-        { label: '3. The Quotient', color: C.accent, delay: 0.4 },
+        { label: '1. The Space', color: C.muted, delay: 0 },
+        { label: '2. The Symmetry', color: C.teal, delay: 0.15 },
+        { label: '3. The Orbit', color: C.warm, delay: 0.3 },
+        { label: '4. The Quotient', color: C.accent, delay: 0.45 },
     ];
 
     for (let i = 0; i < panels.length; i++) {
         const p = panels[i];
-        const py = startY + i * (panelH + 12);
+        const py = startY + i * (panelH + 10);
         const localE = ease(Math.max(0, Math.min(1, (e - p.delay) / 0.45)));
         if (localE <= 0) continue;
 
@@ -872,11 +851,11 @@ function renderRecap(e) {
         ctx.globalAlpha = 1;
 
         // Panel label
-        drawText(p.label, rx + 16, py + 22, 13, p.color, localE, 'left');
+        drawText(p.label, rx + 16, py + 20, 12, p.color, localE, 'left');
 
         // Panel content
         if (i === 0) {
-            // Mini number line with shift arrow
+            // "The Space" - Just the line
             const lineY2 = py + panelH * 0.6;
             const lineLeft = rx + 30, lineRight = rx + panelW - 30;
             ctx.globalAlpha = localE * 0.5;
@@ -892,16 +871,26 @@ function renderRecap(e) {
                 ctx.beginPath(); ctx.moveTo(tx, lineY2 - 4); ctx.lineTo(tx, lineY2 + 4);
                 ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.stroke();
             }
+            drawText('ℝ', cx + panelW * 0.25, lineY2, 18, C.muted, localE);
+        }
 
-            // x and x+1 points
+        if (i === 1) {
+            // "The Symmetry" - Shift action
+            const lineY2 = py + panelH * 0.6;
+            const lineLeft = rx + 30, lineRight = rx + panelW - 30;
+            ctx.globalAlpha = localE * 0.4;
+            ctx.beginPath(); ctx.moveTo(lineLeft, lineY2); ctx.lineTo(lineRight, lineY2);
+            ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.globalAlpha = localE;
+
+            const miniUnit = (lineRight - lineLeft) / 8;
             const xPt = (lineLeft + lineRight) / 2 - miniUnit;
             const x1Pt = xPt + miniUnit;
-            drawPoint(xPt, lineY2, 5, C.node, C.teal, localE);
-            drawPoint(x1Pt, lineY2, 5, C.node, C.teal, localE);
+            drawPoint(xPt, lineY2, 4, C.node, C.teal, localE);
+            drawPoint(x1Pt, lineY2, 4, C.node, C.teal, localE);
 
-            // Arrow arc
             const arcCx2 = (xPt + x1Pt) / 2;
-            ctx.globalAlpha = localE * 0.8;
+            ctx.globalAlpha = localE * 0.7;
             ctx.beginPath();
             ctx.arc(arcCx2, lineY2, miniUnit / 2, Math.PI, 2 * Math.PI);
             ctx.strokeStyle = C.teal; ctx.lineWidth = 1.5; ctx.stroke();
@@ -910,30 +899,22 @@ function renderRecap(e) {
             drawText('x ↦ x + 1', cx + panelW * 0.2, lineY2, 14, C.teal, localE);
         }
 
-        if (i === 1) {
-            // Net dots
+        if (i === 2) {
+            // "The Orbit" - collection of points
             const dotY = py + panelH * 0.6;
-            const dotLeft = rx + 40, dotRight = rx + panelW - 80;
+            const dotLeft = rx + 40, dotRight = rx + panelW - 90;
             const nDots = 7;
             for (let j = 0; j < nDots; j++) {
                 const dx = dotLeft + j * (dotRight - dotLeft) / (nDots - 1);
                 drawPoint(dx, dotY, 4, C.warm, 'rgba(245,158,11,0.3)', localE);
             }
-            // Spacing labels
-            for (let j = 0; j < nDots - 1; j++) {
-                const dx1 = dotLeft + j * (dotRight - dotLeft) / (nDots - 1);
-                const dx2 = dotLeft + (j + 1) * (dotRight - dotLeft) / (nDots - 1);
-                drawText('1', (dx1 + dx2) / 2, dotY + 14, 9, C.dim, localE * 0.6);
-            }
-            // Ellipsis
             drawText('…', dotLeft - 15, dotY, 14, C.muted, localE);
             drawText('…', dotRight + 15, dotY, 14, C.muted, localE);
-
-            drawText('{ x + n : n ∈ ℤ }', cx + panelW * 0.2, dotY, 14, C.warm, localE);
+            drawText('x + ℤ', cx + panelW * 0.25, dotY, 14, C.warm, localE);
         }
 
-        if (i === 2) {
-            // Mini circle
+        if (i === 3) {
+            // "The Quotient" - circle
             const circR = panelH * 0.3;
             const circCx = rx + panelW * 0.25;
             const circCy = py + panelH * 0.55;
@@ -943,9 +924,7 @@ function renderRecap(e) {
             ctx.strokeStyle = C.accent; ctx.lineWidth = 2.5; ctx.stroke();
             ctx.globalAlpha = 1;
 
-            // Junction point
             drawPoint(circCx, circCy - circR, 4, C.accent, C.accent, localE);
-
             drawText('ℝ / ℤ  ≅  S¹', cx + panelW * 0.2, circCy, 18, C.accent, localE);
         }
     }
@@ -960,6 +939,10 @@ function goTo(n) {
     if (step === 10 && n !== 10) showGLCanvas(false);
     step = n; t = 0; animStart = performance.now();
     updateUI();
+    // Notify parent frame of step state (for embedded control)
+    if (window.parent !== window) {
+        window.parent.postMessage({ type: 'circleState', step: step, total: TOTAL }, '*');
+    }
 }
 window.next = () => goTo(step + 1);
 window.prev = () => goTo(step - 1);
@@ -983,16 +966,20 @@ function updateUI() {
     sliderPanel.style.display = step === 6 ? 'flex' : 'none';
 }
 
-// Keyboard nav
-document.addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); window.next(); }
-    if (e.key === 'ArrowLeft') { e.preventDefault(); window.prev(); }
-});
+// Keyboard nav (disabled in embed mode — parent controls navigation)
+const isEmbedded = new URLSearchParams(window.location.search).get('embed') === 'true';
+if (!isEmbedded) {
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); window.next(); }
+        if (e.key === 'ArrowLeft') { e.preventDefault(); window.prev(); }
+    });
+}
 
 // postMessage nav (for iframe embedding)
 window.addEventListener('message', e => {
     if (e.data === 'next' || e.data === 'right') window.next();
     if (e.data === 'prev' || e.data === 'left') window.prev();
+    if (typeof e.data === 'object' && e.data.type === 'goTo') goTo(e.data.step);
 });
 
 // ══════════════════════════════════════════════════════════
@@ -1012,3 +999,8 @@ window.addEventListener('resize', () => { resize(); if (helixInited) resizeHelix
 resize();
 updateUI();
 requestAnimationFrame(render);
+
+// Notify parent of initial state
+if (window.parent !== window) {
+    window.parent.postMessage({ type: 'circleState', step: step, total: TOTAL }, '*');
+}
