@@ -15,6 +15,7 @@ class SphereView {
         this.active = false;
         this.pulseTime = -1; // -1 = not pulsing
         this.maxLevel = 0;
+        this.decompState = { active: false, progress: 0, target: 0, phase: 0 };
 
         // ── Scene ──
         this.scene = new THREE.Scene();
@@ -433,10 +434,100 @@ class SphereView {
         return this.foldTarget === 1;
     }
 
+    toggleDecompose() {
+        if (this.rotAnimating || this.foldProgress < 0.9) return;
+        
+        if (!this.quatA) {
+            this.quatA = this._mathMatToThreeQuat(DiskTreeViz.MAT_A);
+            this.quatB = this._mathMatToThreeQuat(DiskTreeViz.MAT_B);
+        }
+
+        if (!this.decompState.active) {
+            this.decompState.active = true;
+            this.decompState.phase = 1;
+            this.decompState.target = 1;
+            this.decompState.progress = 0;
+            if (!this.wireMeshLeft) {
+                this.wireMeshLeft = new THREE.Mesh(this.wireMesh.geometry, this.wireMesh.material.clone());
+                this.wireMeshRight = new THREE.Mesh(this.wireMesh.geometry, this.wireMesh.material.clone());
+                this.sphereGroup.add(this.wireMeshLeft);
+                this.sphereGroup.add(this.wireMeshRight);
+            }
+        } else if (this.decompState.phase === 1 && this.decompState.progress >= 0.99) {
+            this.decompState.phase = 2;
+            this.decompState.target = 1;
+            this.decompState.progress = 0;
+        } else if (this.decompState.phase === 2 && this.decompState.progress >= 0.99) {
+            this.decompState.phase = 0;
+            this.decompState.target = 0;
+            this.decompState.progress = 1;
+        }
+    }
+
     _updatePositions() {
         const t = this.foldProgress;
         const vp = this.vertexPoints.geometry.attributes.position.array;
         const N = this.treeViz.nodes.length;
+
+        let dp = 0;
+        let dPhase = this.decompState ? this.decompState.phase : 0;
+        if (this.decompState && this.decompState.active) {
+            const p = this.decompState.progress;
+            dp = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+        }
+        
+        const sep = 1.6;
+        let txLeft = 0, txRight = 0;
+        let qa = null, qb = null;
+        
+        if (this.decompState && this.decompState.active) {
+            qa = new THREE.Quaternion();
+            qb = new THREE.Quaternion();
+            if (dPhase === 1) {
+                txLeft = -sep * dp;
+                txRight = sep * dp;
+            } else if (dPhase === 2) {
+                txLeft = -sep;
+                txRight = sep;
+                if (this.quatA) {
+                    qa.slerp(this.quatA, dp);
+                    qb.slerp(this.quatB, dp);
+                }
+            } else if (dPhase === 0) {
+                txLeft = -sep * dp;
+                txRight = sep * dp;
+                if (this.quatA) {
+                    qa.slerp(this.quatA, dp);
+                    qb.slerp(this.quatB, dp);
+                }
+            }
+        }
+
+        const applyDecomp = (x, y, z, rb) => {
+            if (!this.decompState || !this.decompState.active) return {x, y, z};
+            let cx = 0, currentQ = null;
+            if (rb === -1 || rb === 0) { cx = txLeft; }
+            else if (rb === 2) { cx = txLeft; currentQ = qa; }
+            else if (rb === 1) { cx = txRight; }
+            else if (rb === 3) { cx = txRight; currentQ = qb; }
+            
+            if (currentQ && currentQ.w !== 1.0) {
+                const qx = currentQ.x, qy = currentQ.y, qz = currentQ.z, qw = currentQ.w;
+                const ix = qw * x + qy * z - qz * y;
+                const iy = qw * y + qz * x - qx * z;
+                const iz = qw * z + qx * y - qy * x;
+                const iw = -qx * x - qy * y - qz * z;
+                const nx = ix * qw + iw * -qx + iy * -qz - iz * -qy;
+                const ny = iy * qw + iw * -qy + iz * -qx - ix * -qz;
+                const nz = iz * qw + iw * -qz + ix * -qy - iy * -qx;
+                return { x: nx + cx, y: ny, z: nz };
+            }
+            return { x: x + cx, y, z };
+        };
+
+        if (!this.basePos || this.basePos.length !== N * 3) {
+            this.basePos = new Float32Array(N * 3);
+        }
 
         for (let i = 0; i < N; i++) {
             let x = (1 - t) * this.flatPos[i * 3]     + t * this.spherePos[i * 3];
@@ -453,10 +544,16 @@ class SphereView {
                     x *= s; y *= s; z *= s;
                 }
             }
+            
+            this.basePos[i * 3] = x;
+            this.basePos[i * 3 + 1] = y;
+            this.basePos[i * 3 + 2] = z;
 
-            vp[i * 3] = x;
-            vp[i * 3 + 1] = y;
-            vp[i * 3 + 2] = z;
+            const rb = this.treeViz.nodes[i].rootBranch;
+            const d = applyDecomp(x, y, z, rb);
+            vp[i * 3] = d.x;
+            vp[i * 3 + 1] = d.y;
+            vp[i * 3 + 2] = d.z;
         }
         this.vertexPoints.geometry.attributes.position.needsUpdate = true;
 
@@ -467,8 +564,9 @@ class SphereView {
 
         for (let e = 0; e < this.edgeIndices.length; e++) {
             const [pi, ci] = this.edgeIndices[e];
-            const ax = vp[pi*3], ay = vp[pi*3+1], az = vp[pi*3+2];
-            const bx = vp[ci*3], by = vp[ci*3+1], bz = vp[ci*3+2];
+            const rb = this.treeViz.nodes[ci].rootBranch;
+            const ax = this.basePos[pi*3], ay = this.basePos[pi*3+1], az = this.basePos[pi*3+2];
+            const bx = this.basePos[ci*3], by = this.basePos[ci*3+1], bz = this.basePos[ci*3+2];
 
             // Pre-compute all subdivision points along this edge
             const pts = [];
@@ -486,7 +584,8 @@ class SphereView {
                         x *= sc; y *= sc; z *= sc;
                     }
                 }
-                pts.push(x, y, z);
+                const d = applyDecomp(x, y, z, rb);
+                pts.push(d.x, d.y, d.z);
             }
 
             for (let s = 0; s < SEGS; s++) {
@@ -515,6 +614,38 @@ class SphereView {
 
         if (!this.active) return;
 
+        // Decomposition progress logic
+        if (this.decompState && this.decompState.active) {
+            const diff = this.decompState.target - this.decompState.progress;
+            if (Math.abs(diff) > 0.001) {
+                this.decompState.progress += Math.sign(diff) * 0.02;
+                this.decompState.progress = Math.max(0, Math.min(1, this.decompState.progress));
+            } else {
+                this.decompState.progress = this.decompState.target;
+                if (this.decompState.phase === 0 && this.decompState.target === 0 && this.decompState.progress <= 0.001) {
+                    this.decompState.active = false;
+                    this.decompState.phase = 0;
+                }
+            }
+            this._updatePositions();
+        }
+
+        // Camera zoom for decomp
+        const dPhase = this.decompState ? this.decompState.phase : 0;
+        let dp = 0;
+        if (this.decompState && this.decompState.active) {
+            const p = this.decompState.progress;
+            dp = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+        }
+
+        const baseCamZ = 3.2;
+        const targetCamZ = 7.0; 
+        let camZ = baseCamZ;
+        if (dPhase === 1) camZ = baseCamZ + (targetCamZ - baseCamZ) * dp;
+        else if (dPhase === 2) camZ = targetCamZ;
+        else if (dPhase === 0 && this.decompState.active) camZ = targetCamZ + (baseCamZ - targetCamZ) * (1 - dp);
+        this.camera.position.z = camZ;
+
         // Smooth fold transition
         const diff = this.foldTarget - this.foldProgress;
         if (Math.abs(diff) > 0.001) {
@@ -533,7 +664,29 @@ class SphereView {
         }
 
         // Wireframe sphere visibility
-        this.wireMesh.material.opacity = 0.06 * this.foldProgress;
+        if (dPhase > 0 || (dPhase === 0 && this.decompState && this.decompState.active)) {
+            this.wireMesh.visible = false;
+            if (this.wireMeshLeft) {
+                this.wireMeshLeft.visible = true;
+                this.wireMeshRight.visible = true;
+                const sep = 1.6;
+                let txLeft = 0, txRight = 0;
+                if (dPhase === 1) { txLeft = -sep * dp; txRight = sep * dp; }
+                else if (dPhase === 2) { txLeft = -sep; txRight = sep; }
+                else if (dPhase === 0) { txLeft = -sep * dp; txRight = sep * dp; }
+                this.wireMeshLeft.position.x = txLeft;
+                this.wireMeshRight.position.x = txRight;
+                this.wireMeshLeft.material.opacity = 0.06 * this.foldProgress;
+                this.wireMeshRight.material.opacity = 0.06 * this.foldProgress;
+            }
+        } else {
+            this.wireMesh.visible = true;
+            this.wireMesh.material.opacity = 0.06 * this.foldProgress;
+            if (this.wireMeshLeft) {
+                this.wireMeshLeft.visible = false;
+                this.wireMeshRight.visible = false;
+            }
+        }
 
         // Pulse animation — on-demand, single sweep
         if (this.pulseTime >= -1.5 && this.pulseTime <= this.maxLevel + 2) {

@@ -608,6 +608,7 @@
                     decompBtn.style.display = 'none';
                     decompBtn.classList.remove('active-toggle');
                     if (treeViz.decompState.active) {
+                        treeViz.decompState.phase = 0;
                         treeViz.decompState.target = 0;
                     }
                 }
@@ -615,9 +616,17 @@
             });
 
             document.getElementById('btn-decompose').addEventListener('click', () => {
-                treeViz.toggleDecompose();
-                document.getElementById('btn-decompose').classList.toggle(
-                    'active-toggle', treeViz.decompState.target === 1);
+                const isFolded = sphereView.foldProgress > 0.5;
+                if (isFolded) {
+                    sphereView.toggleDecompose();
+                } else {
+                    treeViz.toggleDecompose();
+                }
+                const isActive = isFolded 
+                    ? (sphereView.decompState.active && sphereView.decompState.phase >= 1)
+                    : (treeViz.decompState.active && treeViz.decompState.phase >= 1);
+                
+                document.getElementById('btn-decompose').classList.toggle('active-toggle', isActive);
             });
 
             document.getElementById('btn-fold').addEventListener('click', () => {

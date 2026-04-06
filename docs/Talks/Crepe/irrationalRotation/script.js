@@ -168,8 +168,10 @@ class IrrationalRotation {
     }
 
     resize() {
-        this.canvas.width = window.innerWidth * window.devicePixelRatio;
-        this.canvas.height = window.innerHeight * window.devicePixelRatio;
+        const wrap = document.getElementById('canvas-wrap');
+        const rect = wrap.getBoundingClientRect();
+        this.canvas.width = rect.width * window.devicePixelRatio;
+        this.canvas.height = rect.height * window.devicePixelRatio;
         this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     }
 
@@ -292,6 +294,14 @@ class IrrationalRotation {
         const centerY = h / 2 - 40;
         const radius = Math.min(w, h) * 0.32;
 
+        // Label coordinates: use actual overlay bounds since it's inside canvas-wrap,
+        // which is shorter than the full viewport (footer sits below).
+        const overlayRect = this.overlay.getBoundingClientRect();
+        const labelCenterX = overlayRect.width / 2;
+        const labelCenterY = overlayRect.height / 2 - 40;
+        const labelRadius = Math.min(overlayRect.width, overlayRect.height) * 0.32;
+        const labelOffset = 22;
+
         ctx.clearRect(0, 0, w, h);
 
         // Draw Main Circle
@@ -324,8 +334,8 @@ class IrrationalRotation {
 
                 // Position Labels
                 if (sIdx === 0 && labels[i]) {
-                    const lx = centerX + Math.cos(theta) * (radius + 28);
-                    const ly = centerY + Math.sin(theta) * (radius + 28);
+                    const lx = labelCenterX + Math.cos(theta) * (labelRadius + labelOffset);
+                    const ly = labelCenterY + Math.sin(theta) * (labelRadius + labelOffset);
                     labels[i].style.left = `${lx}px`;
                     labels[i].style.top = `${ly}px`;
                     labels[i].style.opacity = opacity;
@@ -359,8 +369,8 @@ class IrrationalRotation {
             ctx.fill();
             
             if (sIdx === 0 && labels[iterations]) {
-                const lx = centerX + Math.cos(currentTheta) * (radius + 28);
-                const ly = centerY + Math.sin(currentTheta) * (radius + 28);
+                const lx = labelCenterX + Math.cos(currentTheta) * (labelRadius + labelOffset);
+                const ly = labelCenterY + Math.sin(currentTheta) * (labelRadius + labelOffset);
                 labels[iterations].style.left = `${lx}px`;
                 labels[iterations].style.top = `${ly}px`;
                 labels[iterations].style.opacity = 1;
