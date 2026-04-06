@@ -43,9 +43,10 @@
             height: 60vh;
             border-radius: var(--radius-md);
             border: 1px solid var(--border);
-            background: rgba(0,0,0,0.2);
+            background: rgba(0, 0, 0, 0.2);
             margin-top: 1.5rem;
         }
+
         .full-iframe {
             height: 85vh;
             margin-top: 0;
@@ -61,19 +62,20 @@
              SECTION 0: TITLE
              ═══════════════════════════════════════════════ -->
         <div class="section" data-anchor="title">
-            <div class="slide transition-slide bg-title" data-anchor="title-slide">
-                <div class="content-box animate-up" style="text-align: center; position: relative;">
-                    <!-- Floating particles -->
-                    <div class="particle" style="width: 6px; height: 6px; top: 10%; left: 15%; animation-duration: 6s;"></div>
-                    <div class="particle" style="width: 4px; height: 4px; top: 60%; left: 80%; animation-duration: 8s;"></div>
-                    <div class="particle" style="width: 8px; height: 8px; top: 30%; left: 70%; animation-duration: 7s;"></div>
+            <div class="slide" data-anchor="title-slide"
+                style="display: flex; flex-direction: column; justify-content: center; position: relative;">
+                <div class="animate-up" style="text-align: center;">
+                    <h1
+                        style="font-family: var(--font-display); font-size: clamp(3.5rem, 8vw, 6.5rem); font-weight: 700; color: #ffffff; background: none; -webkit-text-fill-color: #fff; margin: 0; line-height: 1.1;">
+                        Symmetry<br>and Space</h1>
+                </div>
 
-                    <span class="tag">Science on Tap</span>
-                    <h1>Symmetry<br>and Space</h1>
-                    <p class="subtitle">
-                        Nic Brody <br> The Crepe Place · April 6 2026
-                    </p>
-                    <button class="present-btn" onclick="startPresentation()">Present</button>
+                <div class="animate-up"
+                    style="position: absolute; bottom: 40px; width: 100%; text-align: center; color: var(--text-muted);">
+                    <p style="font-size: 0.95rem; margin-bottom: 0;">Science on Tap &middot; Nic Brody &middot; The
+                        Crepe Place &middot; April 6 2026</p>
+                    <button class="present-btn" onclick="startPresentation()"
+                        style="margin-top: 1rem; padding: 0.6rem 2rem; font-size: 0.75rem;">Present</button>
                 </div>
             </div>
         </div>
@@ -83,10 +85,11 @@
              ═══════════════════════════════════════════════ -->
         <div class="section" data-anchor="space">
             <!-- Transition -->
-            <div class="slide transition-slide bg-metric" data-anchor="space-intro">
-                <div class="content-box animate-up" style="text-align: center;">
-                    <h2 class="slide-title">Space</h2>
-                    <p class="lead">What does it mean to measure distance?</p>
+            <div class="slide" data-anchor="space-intro">
+                <div class="animate-up" style="text-align: center;">
+                    <h2
+                        style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
+                        Space</h2>
                 </div>
             </div>
 
@@ -94,13 +97,15 @@
             <div class="slide" data-anchor="metric-def">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">Measuring Distance</h2>
-                    <p>Mathematics begins with <strong>abstraction</strong>. We take a familiar idea — <em>distance</em> — and strip it to its absolute essentials.</p>
+                    <p>Mathematics begins with <strong>abstraction</strong>. We take a familiar idea — <em>distance</em>
+                        — and strip it to its absolute essentials.</p>
                     <div class="definition fragment" data-label="Definition — Metric Space">
                         <p>A set of points where a distance \(d(x,y)\) satisfies:</p>
                         <ol>
                             <li class="fragment">\(d(x,y) = 0 \iff x = y\)</li>
                             <li class="fragment">\(d(x,y) = d(y,x)\) &emsp; <em>(Symmetry)</em></li>
-                            <li class="fragment">\(d(x,z) \leq d(x,y) + d(y,z)\) &emsp; <em>(Triangle Inequality)</em></li>
+                            <li class="fragment">\(d(x,z) \leq d(x,y) + d(y,z)\) &emsp; <em>(Triangle Inequality)</em>
+                            </li>
                         </ol>
                     </div>
                     <p class="fragment">Any set following these rules is a <strong>Metric Space</strong>.</p>
@@ -141,21 +146,22 @@
                 <div class="content-box animate-up tight" style="max-width: 1000px;">
                     <h2 class="slide-title">Rigid Motions</h2>
                     <p>An <strong>Isometry</strong> is a rearrangement of space that preserves distance.
-                       It is a rigid motion — no stretching, no squishing.</p>
+                        It is a rigid motion — no stretching, no squishing.</p>
                     <iframe src="isometries/index.html?embed=true"></iframe>
                 </div>
             </div>
         </div>
 
         <!-- ═══════════════════════════════════════════════
-             SECTION 2: GROUPS & QUOTIENTS
+             SECTION 2: Symetries
              ═══════════════════════════════════════════════ -->
         <div class="section" data-anchor="quotients">
             <!-- Transition -->
-            <div class="slide transition-slide bg-sphere" data-anchor="quotients-intro">
-                <div class="content-box animate-up" style="text-align: center;">
-                    <h2 class="slide-title">Symmetry</h2>
-                    <p class="lead">When symmetries act, new shapes emerge</p>
+            <div class="slide" data-anchor="quotients-intro">
+                <div class="animate-up" style="text-align: center;">
+                    <h2
+                        style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
+                        Symmetry</h2>
                 </div>
             </div>
 
@@ -163,7 +169,8 @@
             <div class="slide" data-anchor="group-def">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">What is a Group?</h2>
-                    <p>A <strong>Group</strong> is a mathematical object that captures the idea of "composing symmetries."</p>
+                    <p>A <strong>Group</strong> is a mathematical object that captures the idea of "composing
+                        symmetries."</p>
                     <div class="theorem fragment" data-label="Group Axioms">
                         <ol>
                             <li class="fragment"><strong>Composition:</strong> You can combine two symmetries</li>
@@ -178,7 +185,8 @@
             <div class="slide" data-anchor="circle-quotient">
                 <div class="content-box animate-up" style="max-width: 1000px;">
                     <h2 class="slide-title">The Circle Quotient</h2>
-                    <p>Glue together points that differ by an integer — we wrap the line into a <strong>Circle</strong>.</p>
+                    <p>Glue together points that differ by an integer — we wrap the line into a <strong>Circle</strong>.
+                    </p>
                     <p style="text-align: center; font-size: 1.4rem;">\(\R \,/\, \Z \;\cong\; S^1\)</p>
                     <iframe src="circle/index.html?embed=true"></iframe>
                 </div>
@@ -186,14 +194,15 @@
         </div>
 
         <!-- ═══════════════════════════════════════════════
-             SECTION 3: HIDDEN GEOMETRY (P-ADICS)
+             SECTION 3: Quotients
              ═══════════════════════════════════════════════ -->
         <div class="section" data-anchor="padics">
             <!-- Transition -->
-            <div class="slide transition-slide bg-padic" data-anchor="padic-intro">
-                <div class="content-box animate-up" style="text-align: center;">
-                    <h2 class="slide-title">Rotations</h2>
-                    <p class="lead">The hidden geometry of the Prime numbers</p>
+            <div class="slide" data-anchor="padic-intro">
+                <div class="animate-up" style="text-align: center;">
+                    <h2
+                        style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
+                        Quotients</h2>
                 </div>
             </div>
 
@@ -201,7 +210,8 @@
             <div class="slide" data-anchor="padic-size">
                 <div class="content-box animate-up">
                     <h2 class="slide-title">How Big is a Million?</h2>
-                    <p>In the <strong>\(p\)-adic numbers</strong>, size is determined by divisibility by a prime \(p\).</p>
+                    <p>In the <strong>\(p\)-adic numbers</strong>, size is determined by divisibility by a prime \(p\).
+                    </p>
                     <div class="example-grid">
                         <div class="example-card fragment">
                             <h4>Real Size</h4>
@@ -209,7 +219,8 @@
                         </div>
                         <div class="example-card fragment">
                             <h4>2-adic Size</h4>
-                            <p>\(10^6 = 2^6 \cdot 5^6\)<br>It is divisible by 2 many times.<br>It is <strong>tiny</strong>.</p>
+                            <p>\(10^6 = 2^6 \cdot 5^6\)<br>It is divisible by 2 many times.<br>It is
+                                <strong>tiny</strong>.</p>
                         </div>
                     </div>
                     <p class="fragment">This completely inverts our intuition of "far" and "near."</p>
@@ -221,21 +232,22 @@
                 <div class="content-box animate-up" style="max-width: 1100px;">
                     <h2 class="slide-title">The \(p\)-adic Tree</h2>
                     <p>The \(p\)-adic numbers have a fractal, <strong>tree-like</strong> geometry.
-                       Every rational rotation "shadows" onto one of these trees.</p>
+                        Every rational rotation "shadows" onto one of these trees.</p>
                     <iframe src="padicTree/index.html?embed=true" class="full-iframe"></iframe>
                 </div>
             </div>
         </div>
 
         <!-- ═══════════════════════════════════════════════
-             SECTION 4: FREE GROUPS
+             SECTION 4: Infinity
              ═══════════════════════════════════════════════ -->
         <div class="section" data-anchor="freegroups">
             <!-- Transition -->
-            <div class="slide transition-slide bg-sphere" style="filter: hue-rotate(45deg);" data-anchor="freegroup-intro">
-                <div class="content-box animate-up" style="text-align: center;">
-                    <h2 class="slide-title">Free Groups</h2>
-                    <p class="lead">Trees are the hidden skeleton of symmetry</p>
+            <div class="slide" data-anchor="freegroup-intro">
+                <div class="animate-up" style="text-align: center;">
+                    <h2
+                        style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
+                        Free Groups</h2>
                 </div>
             </div>
 
@@ -243,7 +255,8 @@
             <div class="slide" data-anchor="tree-isom">
                 <div class="content-box animate-up" style="max-width: 1100px;">
                     <h2 class="slide-title">Symmetries of the Tree</h2>
-                    <p>A group is <strong>Free</strong> if there are no coincidences. Every word is a unique path in a tree.</p>
+                    <p>A group is <strong>Free</strong> if there are no coincidences. Every word is a unique path in a
+                        tree.</p>
                     <iframe src="treeIsoms/index.html?embed=true" class="full-iframe"></iframe>
                 </div>
             </div>
@@ -263,10 +276,11 @@
              ═══════════════════════════════════════════════ -->
         <div class="section" data-anchor="paradox">
             <!-- Transition -->
-            <div class="slide transition-slide bg-banachtarski" data-anchor="paradox-intro">
-                <div class="content-box animate-up" style="text-align: center;">
-                    <h2 class="slide-title">The Paradox</h2>
-                    <p class="lead">One ball becomes two</p>
+            <div class="slide" data-anchor="paradox-intro">
+                <div class="animate-up" style="text-align: center;">
+                    <h2
+                        style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
+                        The Paradox</h2>
                 </div>
             </div>
 
@@ -275,7 +289,7 @@
                 <div class="content-box animate-up" style="max-width: 1000px;">
                     <h2 class="slide-title">The Vanishing Trick</h2>
                     <p>Consider the natural numbers \(\{0,1,2,3,\dots\}\). Add 1 to every number.
-                       We get \(\{1,2,3,\dots\}\) — <strong>the same set, but 0 is gone!</strong></p>
+                        We get \(\{1,2,3,\dots\}\) — <strong>the same set, but 0 is gone!</strong></p>
                     <iframe src="infinity/index.html?embed=true"></iframe>
                 </div>
             </div>
@@ -284,8 +298,9 @@
             <div class="slide" data-anchor="doubling-trick">
                 <div class="content-box animate-up" style="max-width: 1000px;">
                     <h2 class="slide-title">The Doubling Trick</h2>
-                    <p>Split \(\N\) into evens and odds. Relabel each half — and each gives back <strong>a complete copy of \(\N\)</strong>!
-                       One infinity becomes two.</p>
+                    <p>Split \(\N\) into evens and odds. Relabel each half — and each gives back <strong>a complete copy
+                            of \(\N\)</strong>!
+                        One infinity becomes two.</p>
                     <iframe src="infinity/index.html?embed=true#double"></iframe>
                 </div>
             </div>
@@ -296,8 +311,10 @@
                     <h2 class="slide-title">The Free Group Paradox</h2>
                     <p>Partition the group into words starting with \(a, a^{-1}, b, b^{-1}\).</p>
                     <div class="theorem fragment" data-label="Absorption">
-                        <p style="font-size: 1.4rem; text-align: center;">\(a^{-1} \cdot W_a = W_a \cup W_b \cup W_{b^{-1}} \cup \{e\}\)</p>
-                        <p class="fragment">Rotating <strong>one quarter</strong> gives you <strong>three quarters</strong> back!</p>
+                        <p style="font-size: 1.4rem; text-align: center;">\(a^{-1} \cdot W_a = W_a \cup W_b \cup
+                            W_{b^{-1}} \cup \{e\}\)</p>
+                        <p class="fragment">Rotating <strong>one quarter</strong> gives you <strong>three
+                                quarters</strong> back!</p>
                     </div>
                 </div>
             </div>
@@ -306,7 +323,8 @@
             <div class="slide" data-anchor="bt-paradox">
                 <div class="content-box animate-up" style="max-width: 1100px;">
                     <h2 class="slide-title">Banach–Tarski Paradox</h2>
-                    <p>Choose two rotations that are "free." Their orbits partition the sphere into pieces that can double.</p>
+                    <p>Choose two rotations that are "free." Their orbits partition the sphere into pieces that can
+                        double.</p>
                     <iframe src="banachTarski/index.html?embed=true" class="full-iframe"></iframe>
                 </div>
             </div>
@@ -415,16 +433,28 @@
 
         <div class="clickpad-container">
             <div class="clickpad-item clickpad-up" onclick="sendRemoteCommand('up')">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m18 15-6-6-6 6" />
+                </svg>
             </div>
             <div class="clickpad-item clickpad-down" onclick="sendRemoteCommand('down')">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m6 9 6 6 6-6" />
+                </svg>
             </div>
             <div class="clickpad-item clickpad-left" onclick="sendRemoteCommand('left')">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m15 18-6-6 6-6" />
+                </svg>
             </div>
             <div class="clickpad-item clickpad-right" onclick="sendRemoteCommand('right')">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m9 18 6-6-6-6" />
+                </svg>
             </div>
             <div class="clickpad-center" onclick="sendRemoteCommand('smartNext')">
                 <span>Next</span>
@@ -433,11 +463,17 @@
 
         <div class="remote-controls">
             <div class="control-btn" onclick="sendRemoteCommand('smartPrev')">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" />
+                </svg>
                 <span>Back</span>
             </div>
             <div id="remote-viz-btn" class="control-btn" onclick="sendRemoteCommand('toggle')" style="display: none;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
                 <span id="viz-btn-text">Play</span>
             </div>
         </div>
@@ -452,12 +488,14 @@
         <div class="modal-content">
             <button class="close-modal" onclick="closePresentModal()">&times;</button>
             <h3>Remote Control</h3>
-            <p style="color: var(--text-muted); margin-bottom: 2rem;">Scan the code or visit the link on your phone to control this presentation.</p>
+            <p style="color: var(--text-muted); margin-bottom: 2rem;">Scan the code or visit the link on your phone to
+                control this presentation.</p>
             <div id="qr-container">
                 <img id="qr-img" src="" alt="Session QR Code" width="250" height="250">
             </div>
             <div class="remote-url" id="remote-link-text">URL loading...</div>
-            <p style="font-size: 0.8rem; color: var(--text-muted);">The remote allows you to switch slides and toggle visualizations from anywhere in the room.</p>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">The remote allows you to switch slides and toggle
+                visualizations from anywhere in the room.</p>
         </div>
     </div>
 
