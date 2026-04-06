@@ -228,7 +228,7 @@
             </div>
             <div class="legend-item">
                 <div class="legend-swatch" style="background: #38bdf8;"></div>
-                <span>\(r_2\) — reflection axis through vertex 1</span>
+                <span>\(r_2\) — reflection axis through vertex 3</span>
             </div>
             <div class="legend-item">
                 <div class="legend-dot" style="background: #facc15;"></div>
@@ -237,7 +237,7 @@
         </div>
 
         <div id="state-display">
-            Current permutation: <span class="perm" id="perm-display">(0 1 2 3 4)</span>
+            Current symmetry: <span class="perm" id="perm-display">(0 1 2 3 4)</span>
         </div>
     </div>
 </div>
@@ -271,40 +271,39 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let W, H, cx, cy, R;
 
-// Permutation of vertices (the current symmetry applied)
-let perm = [0, 1, 2, 3, 4]; // perm[i] = where vertex i is now
+// Permutation of vertices
+// vertexIdentity[i] = which original vertex is at slot i
+let vertexIdentity = [0, 1, 2, 3, 4];
 
-// Animated vertex positions (angles)
-// baseAngles[i] = angle for vertex-slot i on the pentagon
-// currentAngles[i] = current visual angle for the vertex whose identity is vertexAt[i]
-let vertexIdentity = [0, 1, 2, 3, 4]; // which original vertex is at position i
-
-// Reflection visibility — start with both showing
+// Reflection visibility
 let showR1 = true;
 let showR2 = true;
 
 // Animation state
 let animating = false;
 let animStart = 0;
-let animFrom = [];    // starting angles for each slot
-let animTo = [];      // ending angles for each slot
+let animFromPos = [];    // [[x,y], ...] start positions
+let animToPos = [];      // [[x,y], ...] end positions
 let animFromIdentity = [];
 let animToIdentity = [];
 let pendingCallback = null;
 
+// ─── Image Loading ────────────────────────────────────────
+const img = new Image();
+img.src = '../assets/crepe.jpeg';
+let imgLoaded = false;
+img.onload = () => { imgLoaded = true; };
+
 // ─── Geometry ─────────────────────────────────────────────
-// Vertex slot i has angle: -PI/2 + i * TAU/5  (vertex 0 at top)
 function slotAngle(i) {
     return -Math.PI / 2 + i * TAU / N;
 }
 
-function vertexPos(angle, radius) {
-    radius = radius || R;
-    return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
+function slotPos(i) {
+    const a = slotAngle(i);
+    return [cx + R * Math.cos(a), cy + R * Math.sin(a)];
 }
 
-// Reflection through the axis passing through vertex k
-// Reflects slot positions: slot j -> slot (2k - j) mod N
 function reflectPerm(k) {
     const result = new Array(N);
     for (let j = 0; j < N; j++) {
@@ -313,12 +312,6 @@ function reflectPerm(k) {
     return result;
 }
 
-// Compose two permutations: first apply p, then q. Result[i] = q[p[i]]
-function composePerm(p, q) {
-    return p.map((_, i) => q[p[i]]);
-}
-
-// Apply a slot-level permutation to vertex identity
 function applySlotPermToIdentity(slotPerm, identity) {
     const newIdentity = new Array(N);
     for (let i = 0; i < N; i++) {
@@ -327,11 +320,18 @@ function applySlotPermToIdentity(slotPerm, identity) {
     return newIdentity;
 }
 
-// ─── Reflections r_1 and r_2 ─────────────────────────────
-// r_1: reflection through the axis of vertex 0
-// r_2: reflection through the axis of vertex 1
+// r₁: reflection through vertex 0 (and midpoint of edge 2–3)
+// Fixes vertex 0; swaps 1↔4, 2↔3
 const R1_PERM = reflectPerm(0); // [0, 4, 3, 2, 1]
-const R2_PERM = reflectPerm(1); // [2, 1, 0, 4, 3]
+
+// r₂: reflection through vertex 3 (and midpoint of edge 0–1)
+// Fixes vertex 3; swaps 0↔1, 2↔4
+const R2_PERM = reflectPerm(3); // [1, 0, 4, 3, 2]
+
+// The axis for reflection k passes through vertex k
+// r₁ axis angle = slotAngle(0), r₂ axis angle = slotAngle(3)
+const R1_AXIS = 0; // vertex index for the axis
+const R2_AXIS = 3;
 
 // ─── Drawing ──────────────────────────────────────────────
 function resize() {
@@ -351,8 +351,6 @@ function resize() {
 function drawBackground() {
     ctx.fillStyle = COL.bg;
     ctx.fillRect(0, 0, W, H);
-
-    // Subtle radial glow
     const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 2);
     grad.addColorStop(0, 'rgba(124, 138, 255, 0.03)');
     grad.addColorStop(1, 'transparent');
@@ -360,12 +358,14 @@ function drawBackground() {
     ctx.fillRect(0, 0, W, H);
 }
 
-function drawPentagon(angles, identity) {
+// positions: [[x,y], ...] for each slot
+// identity:  which original vertex is at each slot
+function drawPentagon(positions, identity) {
     // Fill
     ctx.beginPath();
     for (let i = 0; i < N; i++) {
-        const [x, y] = vertexPos(angles[i]);
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        if (i === 0) ctx.moveTo(positions[i][0], positions[i][1]);
+        else ctx.lineTo(positions[i][0], positions[i][1]);
     }
     ctx.closePath();
     ctx.fillStyle = COL.fill;
@@ -374,213 +374,100 @@ function drawPentagon(angles, identity) {
     ctx.lineWidth = 1;
     ctx.stroke();
 
+    // Image
+    if (imgLoaded) {
+        const s0 = identity.indexOf(0);
+        const s1 = identity.indexOf(1);
+        const p0 = positions[s0];
+        const p1 = positions[s1];
+        const a0 = Math.atan2(p0[1] - cy, p0[0] - cx);
+        const a1 = Math.atan2(p1[1] - cy, p1[0] - cx);
+        const rot = a0 + Math.PI / 2;
+        let adiff = a1 - a0;
+        while (adiff > Math.PI) adiff -= TAU;
+        while (adiff < -Math.PI) adiff += TAU;
+        const flipped = adiff < 0;
+
+        ctx.save();
+        // Clip to actual polygon shape
+        ctx.beginPath();
+        for (let i = 0; i < N; i++) {
+            if (i === 0) ctx.moveTo(positions[i][0], positions[i][1]);
+            else ctx.lineTo(positions[i][0], positions[i][1]);
+        }
+        ctx.closePath();
+        ctx.clip();
+        // Draw rotated/flipped image
+        ctx.translate(cx, cy);
+        ctx.rotate(rot);
+        if (flipped) ctx.scale(-1, 1);
+        const size = R * 2.1;
+        ctx.drawImage(img, -size / 2, -size / 2, size, size);
+        ctx.restore();
+    }
+
     // Edges
     ctx.beginPath();
     for (let i = 0; i < N; i++) {
-        const [x1, y1] = vertexPos(angles[i]);
-        const [x2, y2] = vertexPos(angles[(i + 1) % N]);
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
+        const p1 = positions[i], p2 = positions[(i + 1) % N];
+        ctx.moveTo(p1[0], p1[1]);
+        ctx.lineTo(p2[0], p2[1]);
     }
-    ctx.strokeStyle = COL.edgeStroke;
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    ctx.strokeStyle = COL.edgeStroke; ctx.lineWidth = 2; ctx.stroke();
 
-    // Vertices
+    // Vertices + labels
     for (let i = 0; i < N; i++) {
-        const [x, y] = vertexPos(angles[i]);
-        const isTracked = identity[i] === 0;
+        const [x, y] = positions[i];
+        const id = identity[i];
+        const isTracked = id === 0;
         const radius = isTracked ? 10 : 6;
 
         if (isTracked) {
-            // Glow
-            ctx.beginPath();
-            ctx.arc(x, y, 18, 0, TAU);
-            ctx.fillStyle = COL.trackedGlow;
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(x, y, 18, 0, TAU);
+            ctx.fillStyle = COL.trackedGlow; ctx.fill();
         }
-
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, TAU);
+        ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU);
         ctx.fillStyle = isTracked ? COL.tracked : COL.vertex;
         ctx.fill();
-
         if (isTracked) {
             ctx.strokeStyle = 'rgba(250, 204, 21, 0.7)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            ctx.lineWidth = 2; ctx.stroke();
         }
-
-        // Label
-        const labelR = R + 30;
-        const [lx, ly] = vertexPos(angles[i], labelR);
+        // Label: push outward from center
+        const dx = x - cx, dy = y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const labelDist = R + 30;
+        const lx = cx + (dx / dist) * labelDist;
+        const ly = cy + (dy / dist) * labelDist;
         ctx.font = '500 13px "JetBrains Mono", monospace';
         ctx.fillStyle = isTracked ? COL.tracked : COL.labelDim;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(identity[i].toString(), lx, ly);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(id.toString(), lx, ly);
     }
 }
 
 function drawReflectionAxis(vertexIndex, color, glowColor, label) {
-    // Axis goes through vertex vertexIndex and the midpoint of the opposite edge
     const angle = slotAngle(vertexIndex);
     const ext = R * 1.55;
-    const [x1, y1] = [cx + ext * Math.cos(angle), cy + ext * Math.sin(angle)];
-    const [x2, y2] = [cx - ext * Math.cos(angle), cy - ext * Math.sin(angle)];
-
+    const x1 = cx + ext * Math.cos(angle), y1 = cy + ext * Math.sin(angle);
+    const x2 = cx - ext * Math.cos(angle), y2 = cy - ext * Math.sin(angle);
     // Glow
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.strokeStyle = glowColor;
-    ctx.lineWidth = 8;
-    ctx.stroke();
-
-    // Line
-    ctx.beginPath();
-    ctx.setLineDash([8, 6]);
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.strokeStyle = glowColor; ctx.lineWidth = 8; ctx.stroke();
+    // Dashed line
+    ctx.beginPath(); ctx.setLineDash([8, 6]);
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
     ctx.setLineDash([]);
-
-    // Label near the vertex end
-    const labelDist = ext + 22;
-    const lx = cx + labelDist * Math.cos(angle);
-    const ly = cy + labelDist * Math.sin(angle);
+    // Label
+    const ld = ext + 22;
     ctx.font = '600 15px "Inter", sans-serif';
-    ctx.fillStyle = color;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, lx, ly);
+    ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, cx + ld * Math.cos(angle), cy + ld * Math.sin(angle));
 }
 
-function drawRotationArc(fromAngle, toAngle, color, label) {
-    const arcR = R * 0.55;
-    const startA = fromAngle;
-    const endA = toAngle;
-
-    ctx.beginPath();
-    if (endA > startA) {
-        ctx.arc(cx, cy, arcR, startA, endA);
-    } else {
-        ctx.arc(cx, cy, arcR, startA, endA);
-    }
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Arrowhead
-    const arrowA = endA;
-    const ax = cx + arcR * Math.cos(arrowA);
-    const ay = cy + arcR * Math.sin(arrowA);
-    const tangent = endA > startA ? arrowA + Math.PI/2 : arrowA - Math.PI/2;
-    const aLen = 8;
-    ctx.beginPath();
-    ctx.moveTo(ax, ay);
-    ctx.lineTo(ax - aLen * Math.cos(tangent - 0.4), ay - aLen * Math.sin(tangent - 0.4));
-    ctx.moveTo(ax, ay);
-    ctx.lineTo(ax - aLen * Math.cos(tangent + 0.4), ay - aLen * Math.sin(tangent + 0.4));
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-}
-
-function getCurrentAngles() {
-    return vertexIdentity.map((_, i) => slotAngle(i));
-}
-
-function draw(t) {
-    let angles, identity;
-
-    if (animating && t !== undefined) {
-        const elapsed = t - animStart;
-        const progress = Math.min(elapsed / ANIM_DURATION, 1);
-        // Ease in-out cubic
-        const ease = progress < 0.5
-            ? 4 * progress * progress * progress
-            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-        angles = animFrom.map((from, i) => {
-            let to = animTo[i];
-            // Take shortest path around the circle
-            let diff = to - from;
-            while (diff > Math.PI) diff -= TAU;
-            while (diff < -Math.PI) diff += TAU;
-            return from + diff * ease;
-        });
-        identity = animFromIdentity; // Show the original labels during animation
-
-        if (progress >= 1) {
-            animating = false;
-            vertexIdentity = [...animToIdentity];
-            angles = animTo.map(a => a);
-            identity = vertexIdentity;
-            if (pendingCallback) {
-                const cb = pendingCallback;
-                pendingCallback = null;
-                setTimeout(cb, 50);
-                // Still draw this frame with final state
-            }
-        }
-    } else {
-        angles = getCurrentAngles();
-        identity = vertexIdentity;
-    }
-
-    drawBackground();
-
-    // Draw reflection axes
-    if (showR1) drawReflectionAxis(0, COL.r1, COL.r1Glow, 'r₁');
-    if (showR2) drawReflectionAxis(1, COL.r2, COL.r2Glow, 'r₂');
-
-    drawPentagon(angles, identity);
-}
-
-// ─── Animation ────────────────────────────────────────────
-function animateSlotPerm(slotPerm, callback) {
-    if (animating) return;
-
-    animFromIdentity = [...vertexIdentity];
-    animFrom = getCurrentAngles();
-    animToIdentity = applySlotPermToIdentity(slotPerm, vertexIdentity);
-    animTo = new Array(N);
-
-    // Each vertex at old slot i moves to new slot slotPerm[i]
-    // But we need to express this as: for new slot j, what angle?
-    // animTo[j] = slotAngle(j)  (destination positions are always the standard positions)
-    // But we need to animate: the vertex that ends up at slot j came from slot slotPerm^{-1}[j]
-    // So animFrom should be rearranged.
-
-    // Actually, let me think about this more carefully.
-    // We have N objects, each at a slot. slotPerm says slot i -> slot slotPerm[i].
-    // For animation: we want to show each object moving from its old position to its new position.
-    // After the permutation, the object that was at slot i is now at slot slotPerm[i].
-    // So object at position slotAngle(i) moves to slotAngle(slotPerm[i]).
-
-    // We'll animate by tracking all N objects.
-    // animFrom[i] = slotAngle(i) (where object i starts)
-    // animTo[i] = slotAngle(slotPerm[i]) (where object i ends)
-    // identity during animation = animFromIdentity (original labels at original positions)
-
-    for (let i = 0; i < N; i++) {
-        animFrom[i] = slotAngle(i);
-        animTo[i] = slotAngle(slotPerm[i]);
-    }
-
-    animating = true;
-    pendingCallback = callback || null;
-    animStart = performance.now();
-}
-
-// Modified draw to handle object-based animation
 function drawAnimated(t) {
-    let angles, identity;
+    let positions, identity;
 
     if (animating) {
         const elapsed = t - animStart;
@@ -589,20 +476,17 @@ function drawAnimated(t) {
             ? 4 * progress * progress * progress
             : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
-        // Compute interpolated angles for each object
-        const objAngles = animFrom.map((from, i) => {
-            let to = animTo[i];
-            let diff = to - from;
-            while (diff > Math.PI) diff -= TAU;
-            while (diff < -Math.PI) diff += TAU;
-            return from + diff * ease;
+        // Linear Cartesian interpolation: each vertex moves
+        // in a straight line from start to destination.
+        // For reflections this is perpendicular to the axis.
+        positions = animFromPos.map((from, i) => {
+            const to = animToPos[i];
+            return [
+                from[0] + (to[0] - from[0]) * ease,
+                from[1] + (to[1] - from[1]) * ease
+            ];
         });
-
-        // Draw using object-based positions
-        drawBackground();
-        if (showR1) drawReflectionAxis(0, COL.r1, COL.r1Glow, 'r₁');
-        if (showR2) drawReflectionAxis(1, COL.r2, COL.r2Glow, 'r₂');
-        drawPentagonObjects(objAngles, animFromIdentity);
+        identity = animFromIdentity;
 
         if (progress >= 1) {
             animating = false;
@@ -615,124 +499,35 @@ function drawAnimated(t) {
             }
         }
     } else {
-        drawBackground();
-        if (showR1) drawReflectionAxis(0, COL.r1, COL.r1Glow, 'r₁');
-        if (showR2) drawReflectionAxis(1, COL.r2, COL.r2Glow, 'r₂');
-        drawPentagonSlots(vertexIdentity);
+        positions = vertexIdentity.map((_, i) => slotPos(i));
+        identity = vertexIdentity;
     }
 
+    drawBackground();
+    if (showR1) drawReflectionAxis(R1_AXIS, COL.r1, COL.r1Glow, 'r₁');
+    if (showR2) drawReflectionAxis(R2_AXIS, COL.r2, COL.r2Glow, 'r₂');
+    drawPentagon(positions, identity);
     requestAnimationFrame(drawAnimated);
 }
 
-// Draw pentagon using slot positions (static state)
-function drawPentagonSlots(identity) {
-    const angles = identity.map((_, i) => slotAngle(i));
+function animateReflection(slotPerm, callback) {
+    if (animating) return;
+    animFromIdentity = [...vertexIdentity];
+    animFromPos = vertexIdentity.map((_, i) => slotPos(i));
+    animToIdentity = applySlotPermToIdentity(slotPerm, vertexIdentity);
+    animToPos = new Array(N);
+    for (let i = 0; i < N; i++) animToPos[i] = slotPos(slotPerm[i]);
 
-    // Fill
-    ctx.beginPath();
-    for (let i = 0; i < N; i++) {
-        const [x, y] = vertexPos(angles[i]);
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.fillStyle = COL.fill;
-    ctx.fill();
-    ctx.strokeStyle = COL.fillStroke;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Edges
-    ctx.beginPath();
-    for (let i = 0; i < N; i++) {
-        const [x1, y1] = vertexPos(angles[i]);
-        const [x2, y2] = vertexPos(angles[(i + 1) % N]);
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-    }
-    ctx.strokeStyle = COL.edgeStroke;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Vertices
-    for (let i = 0; i < N; i++) {
-        drawVertex(angles[i], identity[i]);
-    }
+    animating = true;
+    pendingCallback = callback || null;
+    animStart = performance.now();
 }
 
-// Draw pentagon using per-object angles (animated)
-function drawPentagonObjects(objAngles, identity) {
-    // objAngles[i] = angle for the object that was at slot i
-    // identity[i] = which original vertex is at slot i
-
-    // Draw edges: connect adjacent objects by their slot order?
-    // Actually edges connect slot-adjacent vertices. During animation,
-    // the object from slot i is heading to its new slot. Let's connect them in slot order.
-    // That means edge from object i to object (i+1)%N.
-
-    // Fill polygon using current object positions, connected in slot order
-    ctx.beginPath();
-    for (let i = 0; i < N; i++) {
-        const [x, y] = vertexPos(objAngles[i]);
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.fillStyle = COL.fill;
-    ctx.fill();
-    ctx.strokeStyle = COL.fillStroke;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // Edges
-    ctx.beginPath();
-    for (let i = 0; i < N; i++) {
-        const [x1, y1] = vertexPos(objAngles[i]);
-        const [x2, y2] = vertexPos(objAngles[(i + 1) % N]);
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-    }
-    ctx.strokeStyle = COL.edgeStroke;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Vertices
-    for (let i = 0; i < N; i++) {
-        drawVertex(objAngles[i], identity[i]);
-    }
+function updatePermDisplay() {
+    const el = document.getElementById('perm-display');
+    if (el) el.textContent = `(${vertexIdentity.join(', ')})`;
 }
 
-function drawVertex(angle, id) {
-    const [x, y] = vertexPos(angle);
-    const isTracked = id === 0;
-    const radius = isTracked ? 10 : 6;
-
-    if (isTracked) {
-        ctx.beginPath();
-        ctx.arc(x, y, 18, 0, TAU);
-        ctx.fillStyle = COL.trackedGlow;
-        ctx.fill();
-    }
-
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, TAU);
-    ctx.fillStyle = isTracked ? COL.tracked : COL.vertex;
-    ctx.fill();
-
-    if (isTracked) {
-        ctx.strokeStyle = 'rgba(250, 204, 21, 0.7)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-    }
-
-    const labelR = R + 30;
-    const [lx, ly] = vertexPos(angle, labelR);
-    ctx.font = '500 13px "JetBrains Mono", monospace';
-    ctx.fillStyle = isTracked ? COL.tracked : COL.labelDim;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(id.toString(), lx, ly);
-}
-
-// ─── User actions ─────────────────────────────────────────
 function toggleReflection(which) {
     if (which === 0) {
         showR1 = !showR1;
@@ -746,92 +541,40 @@ function toggleReflection(which) {
 function applyReflection(which) {
     if (animating) return;
     const slotPerm = which === 0 ? R1_PERM : R2_PERM;
-    animateSlotPerm(slotPerm);
-    showCompBox(
-        which === 0 ? '\\(r_1\\)' : '\\(r_2\\)',
-        'Reflection — an involution (applying it twice returns to the start).'
-    );
+    animateReflection(slotPerm);
 }
 
 function applyComposition(first, second) {
     if (animating) return;
-    const firstPerm = first === 0 ? R1_PERM : R2_PERM;
-    const secondPerm = second === 0 ? R1_PERM : R2_PERM;
-    const firstName = first === 0 ? 'r_1' : 'r_2';
-    const secondName = second === 0 ? 'r_1' : 'r_2';
-
-    // Apply first, then second (function composition: second ∘ first)
-    animateSlotPerm(firstPerm, () => {
-        animateSlotPerm(secondPerm);
-    });
-
-    // Compute net rotation
-    const composed = composePerm(firstPerm, secondPerm);
-    const rotSlots = composed[0]; // vertex 0 moves to this slot
-    // Determine rotation angle — take the shorter interpretation
-    let rotDeg = rotSlots * 360 / N;
-    let rotDir;
-    if (rotSlots <= N / 2) {
-        // counterclockwise (positive direction on screen = clockwise visually, but
-        // mathematically positive = counterclockwise)
-        rotDeg = rotSlots * 360 / N;
-        rotDir = 'counterclockwise';
-    } else {
-        rotDeg = (N - rotSlots) * 360 / N;
-        rotDir = 'clockwise';
-    }
-
-    showCompBox(
-        `\\(${secondName} \\circ ${firstName}\\)`,
-        `= rotation by ${rotDeg}° ${rotDir}`
-    );
-}
-
-function showCompBox(expr, result) {
-    const box = document.getElementById('comp-box');
-    box.style.display = 'block';
-    document.getElementById('comp-expr').innerHTML = expr;
-    document.getElementById('comp-result').textContent = result;
-    if (window.MathJax && MathJax.typesetPromise) {
-        MathJax.typesetPromise([document.getElementById('comp-expr')]);
-    }
+    applyReflection(first);
+    setTimeout(() => applyReflection(second), ANIM_DURATION + 100);
 }
 
 function resetPentagon() {
     if (animating) return;
     vertexIdentity = [0, 1, 2, 3, 4];
     updatePermDisplay();
-    document.getElementById('comp-box').style.display = 'none';
 }
 
-function updatePermDisplay() {
-    const el = document.getElementById('perm-display');
-    // Show where each vertex went: vertex i is now at the slot where vertexIdentity[slot] == i
-    // vertexIdentity[slot] = original vertex at that slot
-    // So to find where original vertex v is: find slot s where vertexIdentity[s] === v
-    const positions = [];
-    for (let v = 0; v < N; v++) {
-        const slot = vertexIdentity.indexOf(v);
-        positions.push(slot);
-    }
-    el.textContent = `[${positions.join(', ')}]`;
-}
-
-// ─── Init ─────────────────────────────────────────────────
-function init() {
+window.addEventListener('resize', resize);
+window.addEventListener('load', () => {
     resize();
-    window.addEventListener('resize', resize);
     updatePermDisplay();
     requestAnimationFrame(drawAnimated);
-}
+});
 
-// Expose to global scope for onclick handlers
+// ─── Messaging ───────────────────────────────────────────
+window.addEventListener('message', e => {
+    if (e.data === 'r1') applyReflection(0);
+    else if (e.data === 'r2') applyReflection(1);
+    else if (e.data === 'reset') resetPentagon();
+});
+
+// Expose for onclick handlers
 window.toggleReflection = toggleReflection;
 window.applyReflection = applyReflection;
 window.applyComposition = applyComposition;
 window.resetPentagon = resetPentagon;
-
-init();
 </script>
 </body>
 </html>

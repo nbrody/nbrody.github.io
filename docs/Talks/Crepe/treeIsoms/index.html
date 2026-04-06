@@ -364,6 +364,12 @@
                 else if (msg === 'b') document.getElementById('btn-b').click();
                 else if (msg === 'bInv') document.getElementById('btn-bInv').click();
                 else if (msg === 'reset') document.getElementById('btn-reset').click();
+                else if (msg === 'showRegions') {
+                    if (!treeViz.showRegions) document.getElementById('btn-regions').click();
+                }
+                else if (msg === 'hideRegions') {
+                    if (treeViz.showRegions) document.getElementById('btn-regions').click();
+                }
                 else if (msg === 'quotient') document.getElementById('btn-quotient').click();
                 else if (msg === 'paradox') document.getElementById('btn-paradox').click();
             });

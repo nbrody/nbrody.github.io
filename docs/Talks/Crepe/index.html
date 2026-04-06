@@ -61,6 +61,28 @@
             margin: 0 !important;
             background: transparent !important;
         }
+
+        /* Spaces overlay iframe resets */
+        #spaces-overlay iframe {
+            width: 100% !important;
+            height: 100% !important;
+            border: none !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+            background: transparent !important;
+        }
+
+        /* Full-screen overlay iframes */
+        #torus-overlay iframe,
+        #tree-overlay iframe,
+        #rotation-overlay iframe {
+            width: 100% !important;
+            height: 100% !important;
+            border: none !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+            background: transparent !important;
+        }
     </style>
 </head>
 
@@ -113,7 +135,7 @@
                 <div class="animate-up" style="text-align: center;">
                     <h2
                         style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
-                        Space</h2>
+                        Metric Spaces</h2>
                 </div>
             </div>
 
@@ -136,48 +158,60 @@
                 </div>
             </div>
 
-            <!-- Examples -->
-            <div class="slide" data-anchor="space-examples">
-                <div class="content-box animate-up wide">
-                    <h2 class="slide-title">Examples of Space</h2>
-                    <div class="example-grid">
-                        <div class="example-card fragment">
-                            <span class="example-icon">📏</span>
-                            <h4>The Line</h4>
-                            <p>\(|x - y|\)</p>
-                        </div>
-                        <div class="example-card fragment">
-                            <span class="example-icon">📐</span>
-                            <h4>The Plane</h4>
-                            <p>Pythagorean distance</p>
-                        </div>
-                        <div class="example-card fragment">
-                            <span class="example-icon">🌍</span>
-                            <h4>The Sphere</h4>
-                            <p>Great circle arcs</p>
-                        </div>
-                        <div class="example-card fragment">
-                            <span class="example-icon">🌳</span>
-                            <h4>Trees</h4>
-                            <p>Steps between vertices</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Rigid Motions -->
-            <div class="slide" data-anchor="isometries">
-                <div class="content-box animate-up tight" style="max-width: 1000px;">
-                    <h2 class="slide-title">Rigid Motions</h2>
-                    <p>An <strong>Isometry</strong> is a rearrangement of space that preserves distance.
-                        It is a rigid motion — no stretching, no squishing.</p>
-                    <iframe src="isometries/index.html?embed=true"></iframe>
-                </div>
-            </div>
+            <!-- Space Steps (empty placeholders — the iframe overlay covers them) -->
+            <div class="slide space-step" data-space-step="0"></div>
+            <div class="slide space-step" data-space-step="1"></div>
+            <div class="slide space-step" data-space-step="2"></div>
+            <div class="slide space-step" data-space-step="3"></div>
+            <div class="slide space-step" data-space-step="4"></div>
+            <div class="slide space-step" data-space-step="5"></div>
+            <div class="slide space-step" data-space-step="6"></div>
         </div>
 
         <!-- ═══════════════════════════════════════════════
-             SECTION 2: Symetries
+             SECTION 2: Symmetries
+             ═══════════════════════════════════════════════ -->
+        <div class="section" data-anchor="symmetries">
+            <!-- Transition -->
+            <div class="slide" data-anchor="symmetries-intro">
+                <div class="animate-up" style="text-align: center;">
+                    <h2
+                        style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
+                        Symmetries</h2>
+                </div>
+            </div>
+
+            <!-- Group Definition -->
+            <div class="slide" data-anchor="group-def">
+                <div class="content-box animate-up">
+                    <h2 class="slide-title">What is a symmetry?</h2>
+                    <p>Suppose we have a geometric space (call it \(X\)). A symmetry is just some rigid motion of that
+                        space back onto itself that preserves all of the distances between points.</p>
+                    <div class="theorem fragment" data-label="Group Axioms">
+                        <ol>
+                            <li class="fragment"><strong>Composition:</strong> You can follow one symmetry by another
+                            </li>
+                            <li class="fragment"><strong>Identity:</strong> "Doing nothing" is a symmetry</li>
+                            <li class="fragment"><strong>Inverse:</strong> Every symmetry can be undone</li>
+                        </ol>
+                    </div>
+                    <p class="fragment">If we start with a few symmetries, we can consider all compositions of them and
+                        their inverses. </p>
+                    <p class="fragment">Once we have collected all such symmetries, we call this a <strong>group of
+                            symmetries</strong>.</p>
+                </div>
+            </div>
+
+            <!-- Dihedral Viz -->
+            <div class="slide" data-anchor="dihedral-viz">
+                <iframe src="dihedral/index.html?embed=true"
+                    style="position:absolute; inset:0; width:100%; height:100%; border:none; background:#060a14;"></iframe>
+            </div>
+
+        </div>
+
+        <!-- ═══════════════════════════════════════════════
+             SECTION 3: Quotients
              ═══════════════════════════════════════════════ -->
         <div class="section" data-anchor="quotients">
             <!-- Transition -->
@@ -185,113 +219,70 @@
                 <div class="animate-up" style="text-align: center;">
                     <h2
                         style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
-                        Symmetry</h2>
-                </div>
-            </div>
-
-            <!-- Group Definition -->
-            <div class="slide" data-anchor="group-def">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">What is a Group?</h2>
-                    <p>A <strong>Group</strong> is a mathematical object that captures the idea of "composing
-                        symmetries."</p>
-                    <div class="theorem fragment" data-label="Group Axioms">
-                        <ol>
-                            <li class="fragment"><strong>Composition:</strong> You can combine two symmetries</li>
-                            <li class="fragment"><strong>Identity:</strong> "Doing nothing" is a symmetry</li>
-                            <li class="fragment"><strong>Inverse:</strong> Every symmetry can be undone</li>
-                        </ol>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Circle Quotient -->
-            <div class="slide" data-anchor="circle-quotient">
-                <div class="content-box animate-up" style="max-width: 1000px;">
-                    <h2 class="slide-title">The Circle Quotient</h2>
-                    <p>Glue together points that differ by an integer — we wrap the line into a <strong>Circle</strong>.
-                    </p>
-                    <p style="text-align: center; font-size: 1.4rem;">\(\R \,/\, \Z \;\cong\; S^1\)</p>
-                    <iframe src="circle/index.html?embed=true"></iframe>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══════════════════════════════════════════════
-             SECTION 3: Quotients
-             ═══════════════════════════════════════════════ -->
-        <div class="section" data-anchor="padics">
-            <!-- Transition -->
-            <div class="slide" data-anchor="padic-intro">
-                <div class="animate-up" style="text-align: center;">
-                    <h2
-                        style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
                         Quotients</h2>
                 </div>
             </div>
 
-            <!-- p-adic size -->
-            <div class="slide" data-anchor="padic-size">
+            <!-- Quotient Definition -->
+            <div class="slide" data-anchor="quotient-def">
                 <div class="content-box animate-up">
-                    <h2 class="slide-title">How Big is a Million?</h2>
-                    <p>In the <strong>\(p\)-adic numbers</strong>, size is determined by divisibility by a prime \(p\).
+                    <h2 class="slide-title">What is a quotient?</h2>
+                    <p class="fragment">Suppose we have a geometric space (call it \(X\)), and some initial symmetries.
                     </p>
-                    <div class="example-grid">
-                        <div class="example-card fragment">
-                            <h4>Real Size</h4>
-                            <p>1,000,000 is <strong>huge</strong>.</p>
-                        </div>
-                        <div class="example-card fragment">
-                            <h4>2-adic Size</h4>
-                            <p>\(10^6 = 2^6 \cdot 5^6\)<br>It is divisible by 2 many times.<br>It is
-                                <strong>tiny</strong>.</p>
-                        </div>
-                    </div>
-                    <p class="fragment">This completely inverts our intuition of "far" and "near."</p>
+
+                    <p class="fragment">From this input, we can build the <strong>group of symmetries \(G\)</strong> by
+                        collecting all symmetries built out of our original ones.</p>
+
+                    <p class="fragment">We think of the group of symmetries as dividing our space up into a bunch of
+                        identical regions. Since we are <i>dividing</i> the space up, we can call one of these regions
+                        the <strong>quotient</strong> \(X/G\).</p>
                 </div>
+
             </div>
 
-            <!-- Trees and Folding -->
-            <div class="slide" data-anchor="padic-tree">
-                <div class="content-box animate-up" style="max-width: 1100px;">
-                    <h2 class="slide-title">The \(p\)-adic Tree</h2>
-                    <p>The \(p\)-adic numbers have a fractal, <strong>tree-like</strong> geometry.
-                        Every rational rotation "shadows" onto one of these trees.</p>
-                    <iframe src="padicTree/index.html?embed=true" class="full-iframe"></iframe>
-                </div>
-            </div>
+            <!-- Torus Steps (empty placeholders — the iframe overlay covers them) -->
+            <div class="slide torus-step" data-torus-step="0"></div>
+            <div class="slide torus-step" data-torus-step="1"></div>
+            <div class="slide torus-step" data-torus-step="2"></div>
+            <div class="slide torus-step" data-torus-step="3"></div>
+            <div class="slide torus-step" data-torus-step="4"></div>
+            <div class="slide torus-step" data-torus-step="5"></div>
+            <div class="slide torus-step" data-torus-step="6"></div>
+            <div class="slide torus-step" data-torus-step="7"></div>
+            <div class="slide torus-step" data-torus-step="8"></div>
+            <div class="slide torus-step" data-torus-step="9"></div>
+
+            <!-- Tree steps (overlay controlled via postMessage) -->
+            <div class="slide tree-step" data-tree-step="show"></div>
+            <div class="slide tree-step" data-tree-step="a"></div>
+            <div class="slide tree-step" data-tree-step="b"></div>
+            <div class="slide tree-step" data-tree-step="regions"></div>
+            <div class="slide tree-step" data-tree-step="quotient"></div>
         </div>
 
         <!-- ═══════════════════════════════════════════════
              SECTION 4: Infinity
              ═══════════════════════════════════════════════ -->
-        <div class="section" data-anchor="freegroups">
+        <div class="section" data-anchor="infinity">
             <!-- Transition -->
-            <div class="slide" data-anchor="freegroup-intro">
+            <div class="slide" data-anchor="infinity-intro">
                 <div class="animate-up" style="text-align: center;">
                     <h2
                         style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
-                        Free Groups</h2>
+                        Infinity</h2>
                 </div>
             </div>
 
-            <!-- Tree Action -->
-            <div class="slide" data-anchor="tree-isom">
-                <div class="content-box animate-up" style="max-width: 1100px;">
-                    <h2 class="slide-title">Symmetries of the Tree</h2>
-                    <p>A group is <strong>Free</strong> if there are no coincidences. Every word is a unique path in a
-                        tree.</p>
-                    <iframe src="treeIsoms/index.html?embed=true" class="full-iframe"></iframe>
-                </div>
+            <!-- Infinity: Vanishing Trick -->
+            <div class="slide" data-anchor="vanishing-trick">
+                <iframe src="infinity/index.html?embed=true"
+                    style="position:absolute; inset:0; width:100%; height:100%; border:none; background:#060a14;"></iframe>
             </div>
 
-            <!-- Product of trees -->
-            <div class="slide" data-anchor="product-trees">
-                <div class="content-box animate-up" style="max-width: 1100px;">
-                    <h2 class="slide-title">Higher Dimensions</h2>
-                    <p>When we combine these symmetries, we get higher-dimensional "product" spaces.</p>
-                    <iframe src="productOfTrees/productOfTrees.html?embed=true" class="full-iframe"></iframe>
-                </div>
+            <!-- Infinity: Doubling Trick -->
+            <div class="slide" data-anchor="doubling-trick">
+                <iframe src="infinity/index.html?embed=true#double"
+                    style="position:absolute; inset:0; width:100%; height:100%; border:none; background:#060a14;"></iframe>
             </div>
         </div>
 
@@ -308,26 +299,15 @@
                 </div>
             </div>
 
-            <!-- Infinity: Vanishing Trick -->
-            <div class="slide" data-anchor="vanishing-trick">
-                <div class="content-box animate-up" style="max-width: 1000px;">
-                    <h2 class="slide-title">The Vanishing Trick</h2>
-                    <p>Consider the natural numbers \(\{0,1,2,3,\dots\}\). Add 1 to every number.
-                        We get \(\{1,2,3,\dots\}\) — <strong>the same set, but 0 is gone!</strong></p>
-                    <iframe src="infinity/index.html?embed=true"></iframe>
-                </div>
-            </div>
-
-            <!-- Infinity: Doubling Trick -->
-            <div class="slide" data-anchor="doubling-trick">
-                <div class="content-box animate-up" style="max-width: 1000px;">
-                    <h2 class="slide-title">The Doubling Trick</h2>
-                    <p>Split \(\N\) into evens and odds. Relabel each half — and each gives back <strong>a complete copy
-                            of \(\N\)</strong>!
-                        One infinity becomes two.</p>
-                    <iframe src="infinity/index.html?embed=true#double"></iframe>
-                </div>
-            </div>
+            <!-- Irrational Rotation steps -->
+            <div class="slide rotation-step" data-rotation-step="0"></div>
+            <div class="slide rotation-step" data-rotation-step="1"></div>
+            <div class="slide rotation-step" data-rotation-step="2"></div>
+            <div class="slide rotation-step" data-rotation-step="3"></div>
+            <div class="slide rotation-step" data-rotation-step="4"></div>
+            <div class="slide rotation-step" data-rotation-step="5"></div>
+            <div class="slide rotation-step" data-rotation-step="6"></div>
+            <div class="slide rotation-step" data-rotation-step="7"></div>
 
             <!-- Absorption -->
             <div class="slide" data-anchor="free-group-paradox">
@@ -371,8 +351,38 @@
     </div>
 
     <!-- Circle Overlay (fixed, shown only on circle-step slides) -->
-    <div id="circle-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; display: none;">
-        <iframe id="circle-iframe" src="circle/index.html?embed=true" style="width: 100%; height: 100%; border: none; pointer-events: auto;"></iframe>
+    <div id="circle-overlay"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; display: none;">
+        <iframe id="circle-iframe" src="circle/index.html?embed=true"
+            style="width: 100%; height: 100%; border: none; pointer-events: auto;"></iframe>
+    </div>
+
+    <!-- Spaces Overlay (fixed, shown only on space-step slides) -->
+    <div id="spaces-overlay"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; display: none;">
+        <iframe id="spaces-iframe" src="spaces/index.html?embed=true"
+            style="width: 100%; height: 100%; border: none; pointer-events: auto;"></iframe>
+    </div>
+
+    <!-- Torus Overlay -->
+    <div id="torus-overlay"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; display: none;">
+        <iframe id="torus-iframe" src="torus/index.html?embed=true"
+            style="width: 100%; height: 100%; border: none; pointer-events: auto;"></iframe>
+    </div>
+
+    <!-- Tree Isometries Overlay -->
+    <div id="tree-overlay"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; display: none;">
+        <iframe id="tree-iframe" src="treeIsoms/index.html?embed=true"
+            style="width: 100%; height: 100%; border: none; pointer-events: auto;"></iframe>
+    </div>
+
+    <!-- Irrational Rotation Overlay -->
+    <div id="rotation-overlay"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; display: none;">
+        <iframe id="rotation-iframe" src="irrationalRotation/index.html?embed=true"
+            style="width: 100%; height: 100%; border: none; pointer-events: auto;"></iframe>
     </div>
 
     <!-- Fullpage.js -->
@@ -388,9 +398,9 @@
                 autoScrolling: true,
                 navigation: true,
                 navigationPosition: 'right',
-                navigationTooltips: ['Title', 'Space', 'Symmetry', 'p-adics', 'Free Groups', 'Paradox', 'Conclusions'],
+                navigationTooltips: ['Title', 'Space', 'Symmetries', 'Quotients', 'Infinity', 'The Paradox', 'Conclusions'],
                 showActiveTooltip: false,
-                anchors: ['title', 'space', 'quotients', 'padics', 'freegroups', 'paradox', 'conclusions'],
+                anchors: ['title', 'space', 'symmetries', 'quotients', 'infinity', 'paradox', 'conclusions'],
                 slidesNavigation: true,
                 controlArrows: true,
                 keyboardScrolling: true,
@@ -443,28 +453,135 @@
                     }
                 },
 
+
                 afterLoad: function (origin, destination) {
-                    if (window.syncRemoteState) window.syncRemoteState();
-                    // Hide circle overlay when not on the title section
-                    const circleOverlay = document.getElementById('circle-overlay');
-                    if (destination.anchor !== 'title') {
-                        circleOverlay.style.display = 'none';
+                    const activeSlide = destination.item.querySelector('.slide.active') || destination.item;
+                    const isDihedral = activeSlide.getAttribute('data-anchor') === 'dihedral-viz';
+                    if (window.syncRemoteState) window.syncRemoteState(isDihedral);
+                    // Hide overlays when leaving their sections
+                    if (destination.anchor !== 'title') document.getElementById('circle-overlay').style.display = 'none';
+                    if (destination.anchor !== 'space') document.getElementById('spaces-overlay').style.display = 'none';
+                    if (destination.anchor !== 'quotients') {
+                        document.getElementById('torus-overlay').style.display = 'none';
+                        document.getElementById('tree-overlay').style.display = 'none';
                     }
+                    if (destination.anchor !== 'paradox') document.getElementById('rotation-overlay').style.display = 'none';
                 },
                 afterSlideLoad: function (section, origin, destination) {
-                    if (window.syncRemoteState) window.syncRemoteState();
-                    // Show/hide circle overlay and send goTo based on active slide
+                    const isDihedral = destination.item.getAttribute('data-anchor') === 'dihedral-viz';
+                    if (window.syncRemoteState) window.syncRemoteState(isDihedral);
+
+                    // Circle overlay
                     const circleOverlay = document.getElementById('circle-overlay');
-                    const circleIframe = document.getElementById('circle-iframe');
-                    const stepAttr = destination.item.getAttribute('data-circle-step');
-                    if (stepAttr !== null) {
+                    const circleStep = destination.item.getAttribute('data-circle-step');
+                    if (circleStep !== null) {
                         circleOverlay.style.display = 'block';
-                        circleIframe.contentWindow.postMessage({ type: 'goTo', step: parseInt(stepAttr) }, '*');
+                        document.getElementById('circle-iframe').contentWindow.postMessage({ type: 'goTo', step: parseInt(circleStep) }, '*');
                     } else {
                         circleOverlay.style.display = 'none';
                     }
+
+                    // Spaces overlay
+                    const spacesOverlay = document.getElementById('spaces-overlay');
+                    const spaceStep = destination.item.getAttribute('data-space-step');
+                    if (spaceStep !== null) {
+                        spacesOverlay.style.display = 'block';
+                        document.getElementById('spaces-iframe').contentWindow.postMessage({ type: 'goTo', step: parseInt(spaceStep) }, '*');
+                    } else {
+                        spacesOverlay.style.display = 'none';
+                    }
+
+                    // Torus overlay
+                    const torusOverlay = document.getElementById('torus-overlay');
+                    const torusStep = destination.item.getAttribute('data-torus-step');
+                    if (torusStep !== null) {
+                        torusOverlay.style.display = 'block';
+                        document.getElementById('torus-iframe').contentWindow.postMessage({ type: 'goTo', step: parseInt(torusStep) }, '*');
+                    } else {
+                        torusOverlay.style.display = 'none';
+                    }
+
+                    // Tree isometries overlay
+                    const treeOverlay = document.getElementById('tree-overlay');
+                    const treeStep = destination.item.getAttribute('data-tree-step');
+                    if (treeStep !== null) {
+                        treeOverlay.style.display = 'block';
+                        const treeIframe = document.getElementById('tree-iframe');
+                        const cmd = treeStep;
+                        if (cmd === 'show') {
+                            treeIframe.contentWindow.postMessage('reset', '*');
+                        } else if (cmd === 'a') {
+                            treeIframe.contentWindow.postMessage('reset', '*');
+                            setTimeout(() => treeIframe.contentWindow.postMessage('a', '*'), 400);
+                        } else if (cmd === 'b') {
+                            treeIframe.contentWindow.postMessage('reset', '*');
+                            setTimeout(() => treeIframe.contentWindow.postMessage('b', '*'), 400);
+                        } else if (cmd === 'regions') {
+                            treeIframe.contentWindow.postMessage('reset', '*');
+                            setTimeout(() => {
+                                treeIframe.contentWindow.postMessage('showRegions', '*');
+                            }, 200);
+                        } else if (cmd === 'quotient') {
+                            treeIframe.contentWindow.postMessage('reset', '*');
+                            setTimeout(() => {
+                                treeIframe.contentWindow.postMessage('showRegions', '*');
+                                setTimeout(() => treeIframe.contentWindow.postMessage('quotient', '*'), 300);
+                            }, 200);
+                        }
+                    } else {
+                        treeOverlay.style.display = 'none';
+                    }
+
+                    // Irrational Rotation overlay
+                    const rotationOverlay = document.getElementById('rotation-overlay');
+                    const rotationStep = destination.item.getAttribute('data-rotation-step');
+                    if (rotationStep !== null) {
+                        rotationOverlay.style.display = 'block';
+                        document.getElementById('rotation-iframe').contentWindow.postMessage({ type: 'goTo', step: parseInt(rotationStep) }, '*');
+                    } else {
+                        rotationOverlay.style.display = 'none';
+                    }
                 }
             });
+
+            // ── Cross-section boundary navigation ──
+            // When on the last slide of a section and pressing right/down,
+            // move to the next section. Vice-versa for first slide + left/up.
+            function isLastSlide() {
+                var section = document.querySelector('.fp-section.active');
+                var slides = section.querySelectorAll('.slide');
+                if (slides.length <= 1) return false; // single-slide sections use normal vertical nav
+                var active = section.querySelector('.slide.active');
+                return active === slides[slides.length - 1];
+            }
+            function isFirstSlide() {
+                var section = document.querySelector('.fp-section.active');
+                var slides = section.querySelectorAll('.slide');
+                if (slides.length <= 1) return false;
+                var active = section.querySelector('.slide.active');
+                return active === slides[0];
+            }
+            function hasUnrevealedFragments() {
+                var section = document.querySelector('.fp-section.active');
+                var active = section.querySelector('.slide.active') || section;
+                return active.querySelectorAll('.fragment:not(.visible)').length > 0;
+            }
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'ArrowRight' || e.key === ' ') {
+                    if (isLastSlide() && !hasUnrevealedFragments()) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        fullpage_api.moveSectionDown();
+                    }
+                } else if (e.key === 'ArrowLeft') {
+                    if (isFirstSlide()) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        fullpage_api.moveSectionUp();
+                    }
+                }
+            }, true); // capture phase — runs before fullpage's listener
         });
     </script>
 
@@ -512,6 +629,20 @@
                     <path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" />
                 </svg>
                 <span>Back</span>
+            </div>
+
+            <!-- Dihedral Controls (managed by remote.js) -->
+            <div id="dihedral-controls"
+                style="display: none; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; grid-column: 1 / -1; box-sizing: border-box;">
+                <div class="control-btn" onclick="sendRemoteCommand('r1')" style="height: 60px;">
+                    <span style="font-size: 1.2rem; color: #fff; text-transform: none;">r₁</span>
+                </div>
+                <div class="control-btn" onclick="sendRemoteCommand('r2')" style="height: 60px;">
+                    <span style="font-size: 1.2rem; color: #fff; text-transform: none;">r₂</span>
+                </div>
+                <div class="control-btn" onclick="sendRemoteCommand('reset')" style="height: 60px;">
+                    <span style="font-size: 0.7rem; color: #fff;">Reset</span>
+                </div>
             </div>
             <div id="remote-viz-btn" class="control-btn" onclick="sendRemoteCommand('toggle')" style="display: none;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"

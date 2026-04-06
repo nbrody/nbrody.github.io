@@ -589,40 +589,39 @@ class SolenoidView {
             this.layers.push({ mesh, mat, depth: d });
         }
 
-        // Start with depth 0 visible
-        this.activeLayer = 0;
-        this.layerTimer = 0;
-        this.holdDuration = 3.0;   // seconds to hold each layer
-        this.fadeDuration = 1.2;   // crossfade duration
+        // Start with depth 0 visible, others hidden
+        this.targetDepth = 0;
+    }
+
+    /**
+     * Show all layers up to (and including) depth d.
+     * The newest layer is brightest; older layers dim for context.
+     */
+    showUpToDepth(d) {
+        if (!this.built) { this.buildSolenoid(); this.built = true; }
+        this.targetDepth = d;
+        for (var i = 0; i < this.layers.length; i++) {
+            var layer = this.layers[i];
+            if (layer.depth === 0) {
+                // Hide the solid torus once strands appear — it occludes them
+                layer.mesh.visible = (d === 0);
+                layer.mat.opacity = (d === 0) ? 1 : 0;
+            } else if (layer.depth <= d) {
+                layer.mesh.visible = true;
+                var recency = 1 - (d - layer.depth) * 0.22;
+                layer.mat.opacity = Math.max(0.18, recency);
+                layer.mat.depthWrite = (layer.depth === d);
+            } else {
+                layer.mesh.visible = false;
+                layer.mat.opacity = 0;
+            }
+        }
     }
 
     update(dt) {
         if (!this.visible) return;
         this.controls.update();
         this.group.rotation.y += dt * 0.09;
-
-        if (!this.layers || this.layers.length === 0) return;
-
-        this.layerTimer += dt;
-        const cycleDuration = this.holdDuration + this.fadeDuration;
-        const nextIdx = (this.activeLayer + 1) % this.layers.length;
-
-        if (this.layerTimer > cycleDuration) {
-            // Transition complete — switch to next layer
-            this.layers[this.activeLayer].mat.opacity = 0;
-
-            this.activeLayer = nextIdx;
-            this.layers[this.activeLayer].mat.opacity = 1;
-
-            this.layerTimer = 0;
-        } else if (this.layerTimer > this.holdDuration) {
-            // Crossfade: fade out current, fade in next
-            const t = (this.layerTimer - this.holdDuration) / this.fadeDuration;
-            const ease = t * t * (3 - 2 * t); // smoothstep
-
-            this.layers[this.activeLayer].mat.opacity = 1 - ease;
-            this.layers[nextIdx].mat.opacity = ease;
-        }
     }
 
     render() {
@@ -636,6 +635,16 @@ class SolenoidView {
 // NARRATIVE STEPS
 // ════════════════════════════════════════
 
+function solStep(app) {
+    app.diskCanvas.style.opacity = '0';
+    app.diskCanvas.style.pointerEvents = 'none';
+    app.diskView.autoPlay = false;
+    app.showDiskUI(false);
+    app.hideSpeed();
+    app.showLegend();
+    app.solView.show();
+}
+
 const STEPS = [
     {
         desc: 'The ring \\(\\mathbb{Z}_3\\) of <em>3-adic integers</em> is a Cantor set: each disk subdivides into <strong>3</strong> sub-disks, one per residue class.',
@@ -644,7 +653,6 @@ const STEPS = [
             app.diskCanvas.style.pointerEvents = 'auto';
             app.diskView.showLabels = true;
             app.diskView.autoPlay = false;
-
             app.solView.hide();
             app.showDiskUI(true);
             app.hideSpeed();
@@ -678,29 +686,41 @@ const STEPS = [
         }
     },
     {
-        desc: 'The <em>3-adic solenoid</em> \\(\\operatorname{Sol}_3 = (\\mathbb{Z}_3 \\times [0,1]) / {(x,1) \\sim (x\\!+\\!1, 0)}\\) wraps this cross-section around an axis, twisting by +1 each revolution.',
+        desc: 'The <em>3-adic solenoid</em> \\(\\operatorname{Sol}_3\\) wraps this cross-section around a torus, twisting by +1 each revolution.',
         setup: (app) => {
-            app.diskCanvas.style.opacity = '0';
-            app.diskCanvas.style.pointerEvents = 'none';
-            app.diskView.autoPlay = false;
-            app.showDiskUI(false);
-            app.hideSpeed();
-            app.showLegend();
-            setTimeout(() => app.solView.show(), 400);
+            solStep(app);
+            app.hideLegend();
+            app.solView.showUpToDepth(0);
         }
     },
     {
-        desc: 'At depth \\(k\\), a strand winds \\(3^k\\) times around the torus. \\(\\operatorname{Sol}_3 = \\varprojlim\\, (S^1 \\xleftarrow{\\times 3} S^1 \\xleftarrow{\\times 3} \\cdots)\\) — the <em>inverse limit of circles</em>.',
+        desc: 'The circle \\(S^1\\) covers itself 3-to-1 via \\(z \\mapsto z^3\\). Its mapping torus is a tube winding <strong>3 times</strong> inside the big torus.',
         setup: (app) => {
-            app.diskCanvas.style.opacity = '0';
-            app.diskCanvas.style.pointerEvents = 'none';
-            app.diskView.autoPlay = false;
-            app.showDiskUI(false);
-            app.hideSpeed();
-            app.showLegend();
-            app.solView.show();
+            solStep(app);
+            app.solView.showUpToDepth(1);
         }
-    }
+    },
+    {
+        desc: 'Repeat: wrap 3 times around <em>that</em> tube. Now a thinner strand winds <strong>9 times</strong> around the torus.',
+        setup: (app) => {
+            solStep(app);
+            app.solView.showUpToDepth(2);
+        }
+    },
+    {
+        desc: 'Again: <strong>27 times</strong> around. Each strand nests inside the previous one — a fractal of circles.',
+        setup: (app) => {
+            solStep(app);
+            app.solView.showUpToDepth(3);
+        }
+    },
+    {
+        desc: '\\(\\operatorname{Sol}_3 = \\varprojlim\\, (S^1 \\xleftarrow{\\times 3} S^1 \\xleftarrow{\\times 3} \\cdots)\\) — the <em>inverse limit of circles</em>. Each approximation wraps \\(3^k\\) times around.',
+        setup: (app) => {
+            solStep(app);
+            app.solView.showUpToDepth(5);
+        }
+    },
 ];
 
 

@@ -98,6 +98,17 @@ function handleCommand(cmd) {
             }
             break;
         }
+        case 'r1':
+        case 'r2':
+        case 'reset': {
+            const activeSection = document.querySelector('.section.active');
+            const activeSlide = activeSection.querySelector('.slide.active') || activeSection;
+            const activeIframe = activeSlide.querySelector('iframe');
+            if (activeIframe) {
+                activeIframe.contentWindow.postMessage(cmd, '*');
+            }
+            break;
+        }
     }
 
     // Reset the flag after a short delay to allow the event to propagate
@@ -151,6 +162,11 @@ function updateRemoteUI(state) {
                 }
             }
         }
+    }
+
+    const dihedralDiv = document.getElementById('dihedral-controls');
+    if (dihedralDiv) {
+        dihedralDiv.style.display = state.isDihedral ? 'grid' : 'none';
     }
 }
 
@@ -242,7 +258,7 @@ function sendRemoteCommand(cmd) {
 }
 
 // Global helper for the presentation to update remote UI
-window.syncRemoteState = function () {
+window.syncRemoteState = function (isDihedral) {
     if (isRemote || !window.fp_api) return;
     const activeSection = document.querySelector('.section.active');
     const activeSlide = activeSection.querySelector('.slide.active') || activeSection;
@@ -250,7 +266,8 @@ window.syncRemoteState = function () {
 
     updateRemoteState({
         hasViz: hasViz,
-        isPlaying: window.isVizPlaying || false
+        isPlaying: window.isVizPlaying || false,
+        isDihedral: isDihedral || false
     });
 };
 

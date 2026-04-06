@@ -480,36 +480,54 @@ var tInited = false;
 var surfaceGeo, surfaceMesh, gridLines, edgeLines;
 
 var SEG = 48;
-var FLAT_SIZE = 2.0;
-var CYL_R = 0.55;
-var TORUS_R = 1.15, TORUS_r = 0.42;
+var FLAT_SIZE = 3.0;
+var TORUS_R = 1.2; // major radius (ring center → tube center)
+// tube radius r = FLAT_SIZE / (2π) ≈ 0.477, derived from isometric bending
 
 function torusVertexPos(s, t, cyl, tor) {
-    // Flat
-    var fx = (s - 0.5) * FLAT_SIZE;
-    var fy = 0;
-    var fz = (t - 0.5) * FLAT_SIZE;
+    // ── Phase 1: Bend s-direction into tube (isometric curvature bending) ──
+    // Curvature κ₁ goes from 0 (flat) to 2π/L (closed cylinder).
+    // At intermediate values the sheet is a partial circular arc — always embedded.
+    var L = FLAT_SIZE;
+    var K1 = cyl * 2 * Math.PI / L;
+    var d1 = (s - 0.5) * L;
+    var a1 = K1 * d1; // angle from midpoint
 
-    // Cylinder (s wraps into circle in xy plane, axis along z)
-    var cTheta = s * Math.PI * 2;
-    var cx = CYL_R * Math.sin(cTheta);
-    var cy = CYL_R * (Math.cos(cTheta) - 1) + CYL_R;
-    var cz = (t - 0.5) * FLAT_SIZE;
+    var cross_x, cross_y, axH;
+    if (K1 < 1e-6) {
+        cross_x = d1;
+        cross_y = 0;
+        axH = 0;
+    } else {
+        var R1 = 1 / K1;
+        // Bending: midpoint (s=0.5) stays at origin, sheet arcs upward
+        cross_x = R1 * Math.sin(a1);
+        axH = R1;
+        cross_y = -R1 * Math.cos(a1); // offset from axis at y = axH
+    }
 
-    // Torus
-    var tTheta = s * Math.PI * 2;
-    var tPhi = t * Math.PI * 2;
-    var tx = (TORUS_R + TORUS_r * Math.cos(tTheta)) * Math.cos(tPhi);
-    var ty = TORUS_r * Math.sin(tTheta);
-    var tz = (TORUS_R + TORUS_r * Math.cos(tTheta)) * Math.sin(tPhi);
+    // ── Phase 2: Bend t-direction into ring ──
+    // The cylinder axis (along z) curves into a circle of radius TORUS_R
+    // in the xz-plane. Non-isometric: the sheet stretches to fit the ring.
+    var beta = tor * 2 * Math.PI * (t - 0.5);
+    var cos_b = Math.cos(beta), sin_b = Math.sin(beta);
 
-    // Flat → Cylinder
-    var mx = lerp(fx, cx, cyl);
-    var my = lerp(fy, cy, cyl);
-    var mz = lerp(fz, cz, cyl);
+    var ax_x, ax_z;
+    if (tor < 1e-6) {
+        ax_x = 0;
+        ax_z = (t - 0.5) * L;
+    } else {
+        ax_x = TORUS_R * Math.sin(beta);
+        // Smoothly blend from straight axis to circular arc
+        ax_z = lerp((t - 0.5) * L, TORUS_R * (1 - Math.cos(beta)), tor);
+    }
 
-    // Cylinder → Torus
-    return [lerp(mx, tx, tor), lerp(my, ty, tor), lerp(mz, tz, tor)];
+    // Rotate cross-section to stay perpendicular to the curving axis
+    var px = ax_x + cross_x * cos_b;
+    var py = axH * (1 - tor) + cross_y; // gradually center y as torus forms
+    var pz = ax_z - cross_x * sin_b - TORUS_R * tor; // center z
+
+    return [px, py, pz];
 }
 
 function initTorus() {
@@ -686,16 +704,18 @@ function renderGlueCylinder(e) {
         edgeLines.top.material.transparent = false;
     }
 
-    // Camera
+    // Camera — track the geometry center (axis rises as sheet bends)
+    var r_tube = FLAT_SIZE / (2 * Math.PI);
+    var geoCenterY = r_tube * cylFrac; // axis height during bending
     var now = performance.now() * 0.00025;
-    var camDist = 4.2;
-    var camY = lerp(2.8, 2.2, cylFrac);
+    var camDist = 4.5;
+    var camY = geoCenterY + lerp(3.0, 2.0, cylFrac);
     tCamera.position.set(
         camDist * Math.sin(now + Math.PI * 0.25),
         camY,
         camDist * Math.cos(now + Math.PI * 0.25)
     );
-    tCamera.lookAt(0, lerp(0, 0.15, cylFrac), 0);
+    tCamera.lookAt(0, geoCenterY, 0);
 
     tRenderer.render(tScene, tCamera);
 
@@ -734,16 +754,19 @@ function renderGlueTorus(e) {
         edgeLines.top.material.transparent = true;
     }
 
-    // Camera
+    // Camera — geometry centers at y as tor increases
+    var r_tube = FLAT_SIZE / (2 * Math.PI);
+    var geoCenterY = r_tube * (1 - torFrac); // axis lowers to 0 as torus forms
+    var geoCenterZ = -TORUS_R * torFrac; // z shifts as ring centers
     var now = performance.now() * 0.00025;
-    var camDist = lerp(4.2, 4.8, torFrac);
-    var camY = lerp(2.2, 2.0, torFrac);
+    var camDist = lerp(4.5, 5.0, torFrac);
+    var camY = geoCenterY + lerp(2.0, 2.2, torFrac);
     tCamera.position.set(
         camDist * Math.sin(now + Math.PI * 0.25),
         camY,
-        camDist * Math.cos(now + Math.PI * 0.25)
+        geoCenterZ + camDist * Math.cos(now + Math.PI * 0.25)
     );
-    tCamera.lookAt(0, lerp(0.15, 0, torFrac), 0);
+    tCamera.lookAt(0, geoCenterY, geoCenterZ);
 
     tRenderer.render(tScene, tCamera);
 
@@ -775,15 +798,16 @@ function renderFinalTorus(e) {
         edgeLines.top.material.transparent = true;
     }
 
-    // Gentle orbit
+    // Gentle orbit — torus centered at (0, 0, -TORUS_R)
     var now = performance.now() * 0.0003;
-    var camDist = 4.8;
+    var camDist = 5.0;
+    var cz = -TORUS_R;
     tCamera.position.set(
         camDist * Math.sin(now),
         2.2 + Math.sin(now * 0.7) * 0.3,
-        camDist * Math.cos(now)
+        cz + camDist * Math.cos(now)
     );
-    tCamera.lookAt(0, 0, 0);
+    tCamera.lookAt(0, 0, cz);
 
     tRenderer.render(tScene, tCamera);
 
@@ -838,7 +862,8 @@ document.addEventListener('keydown', function(e) {
 // postMessage nav (for iframe embedding)
 window.addEventListener('message', function(e) {
     if (e.data === 'next' || e.data === 'right') window.next();
-    if (e.data === 'prev' || e.data === 'left') window.prev();
+    else if (e.data === 'prev' || e.data === 'left') window.prev();
+    else if (typeof e.data === 'object' && e.data.type === 'goTo') goTo(e.data.step);
 });
 
 // ══════════════════════════════════════════════════════════

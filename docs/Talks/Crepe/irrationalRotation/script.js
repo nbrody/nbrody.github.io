@@ -787,3 +787,11 @@ class IrrationalRotation {
 window.addEventListener('DOMContentLoaded', () => {
     window.rotationApp = new IrrationalRotation();
 });
+
+// postMessage nav (for iframe embedding)
+window.addEventListener('message', function(e) {
+    if (!window.rotationApp) return;
+    if (e.data === 'next' || e.data === 'right') window.rotationApp.next();
+    else if (e.data === 'prev' || e.data === 'left') window.rotationApp.prev();
+    else if (typeof e.data === 'object' && e.data.type === 'goTo') window.rotationApp.goToStep(e.data.step);
+});
