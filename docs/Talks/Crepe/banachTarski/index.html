@@ -75,7 +75,14 @@
         }
         .matrix-panel .mat-row { margin-bottom:8px; }
         .matrix-panel .mat-row:last-child { margin-bottom:0; }
+        .embedded #header, .embedded #footer { display: none !important; }
+        .embedded #canvas-wrap { height: 100vh !important; }
     </style>
+    <script>
+        if (new URLSearchParams(window.location.search).get('embed') === 'true') {
+            document.documentElement.classList.add('embedded');
+        }
+    </script>
 </head>
 <body>
 <div id="app">

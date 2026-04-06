@@ -2,6 +2,8 @@
 // ℝ/ℤ ≅ S¹ — Circle Visualization
 // ═══════════════════════════════════════════════════════════
 
+import * as THREE from 'three';
+
 // ── COLORS ──
 const C = {
     bg: '#060a14', text: '#f1f5f9', muted: '#94a3b8', dim: '#475569',
@@ -12,7 +14,7 @@ const C = {
 };
 
 const ANIM_MS = 700;
-const BEND_ANIM_MS = 3000; // longer for the curling animation
+const BEND_ANIM_MS = 5000; // longer for the helix collapse animation
 
 // ── STEPS ──
 const STEPS = [
@@ -77,7 +79,7 @@ function screenToWorld(sx) {
 let UNIT = 80; // pixels per unit, updated on resize
 
 // ── DRAWING HELPERS ──
-function drawNumberLine(y, alpha = 1, rangeHL = null) {
+function drawNumberLine(y, alpha = 1, rangeHL = null, worldOffset = 0) {
     ctx.globalAlpha = alpha;
 
     // Main line
@@ -86,13 +88,13 @@ function drawNumberLine(y, alpha = 1, rangeHL = null) {
     ctx.strokeStyle = C.line; ctx.lineWidth = 2; ctx.stroke();
 
     // Tick marks and labels
-    const wLeft = screenToWorld(0) - 1;
-    const wRight = screenToWorld(W) + 1;
+    const wLeft = screenToWorld(0) - worldOffset - 1;
+    const wRight = screenToWorld(W) - worldOffset + 1;
     const startInt = Math.floor(wLeft);
     const endInt = Math.ceil(wRight);
 
     for (let n = startInt; n <= endInt; n++) {
-        const sx = worldToScreen(n);
+        const sx = worldToScreen(n + worldOffset);
         if (sx < -20 || sx > W + 20) continue;
 
         const isOrigin = n === 0;
@@ -258,6 +260,7 @@ function render(now) {
 
     ctx.clearRect(0, 0, W, H);
 
+    // When GL canvas is showing (step 10), we only draw 2D labels on top
     const lineY = H * 0.45;
 
     if (step <= 8) {
@@ -277,6 +280,19 @@ function render(now) {
 
 function renderNumberLine(lineY, e) {
     const rangeHL = (step >= 8) ? [0, 1] : null;
+
+    if (step === 1) {
+        // Slide the entire line to the right by 1
+        renderLineSlide(lineY, e, 1, C.teal, 'x ↦ x + 1');
+        return;
+    }
+
+    if (step === 3) {
+        // Slide the entire line to the left by 1
+        renderLineSlide(lineY, e, -1, C.rose, 'x ↦ x − 1');
+        return;
+    }
+
     drawNumberLine(lineY, 1, rangeHL);
 
     if (step === 0) {
@@ -284,19 +300,9 @@ function renderNumberLine(lineY, e) {
         drawText('ℝ', W / 2, lineY - 70, 28, C.accent, e);
     }
 
-    if (step === 1) {
-        // Show x → x+1 shift
-        renderShift(lineY, e, 1, C.teal, 'x ↦ x + 1');
-    }
-
     if (step === 2) {
         // Show distance preservation
         renderDistancePreservation(lineY, e);
-    }
-
-    if (step === 3) {
-        // Show inverse x → x-1
-        renderShift(lineY, e, -1, C.rose, 'x ↦ x − 1');
     }
 
     if (step === 4) {
@@ -325,59 +331,20 @@ function renderNumberLine(lineY, e) {
     }
 }
 
-function renderShift(lineY, e, direction, color, label) {
-    // Show a point at 0 and its image at +direction
-    const x0 = worldToScreen(0);
-    const x1 = worldToScreen(direction);
+function renderLineSlide(lineY, e, direction, color, label) {
+    // The entire number line slides by `direction` units.
+    // A ghost of the original position remains so you can see the rigid motion.
+    const slideAmount = direction * e; // world units of current slide
 
-    drawPoint(x0, lineY, 7, C.node, C.accent, 1, 'x', 'above');
+    // 1. Ghost line: the original, fading out as animation progresses
+    const ghostAlpha = Math.max(0.12, 1 - e * 1.2);
+    drawNumberLine(lineY, ghostAlpha, null, 0);
 
-    // Animated curved arrow
-    const arrowProgress = e;
-    const arcCx = (x0 + x1) / 2;
-    const arcR = Math.abs(x1 - x0) / 2;
-    const startAngle = Math.PI;
-    const endAngle = Math.PI + (0) * arrowProgress; // We'll draw an arc above
+    // 2. Sliding line: drawn in color, with worldOffset = slideAmount
+    //    This shifts every tick & label by slideAmount in world coords
+    drawNumberLine(lineY, 1, null, slideAmount);
 
-    // Draw arc from x0 to x1 above the line
-    const arcY = lineY;
-    ctx.globalAlpha = e;
-    ctx.beginPath();
-    if (direction > 0) {
-        ctx.arc(arcCx, arcY, arcR, Math.PI, Math.PI + Math.PI * arrowProgress);
-    } else {
-        ctx.arc(arcCx, arcY, arcR, 0, -Math.PI * arrowProgress, true);
-    }
-    ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.stroke();
-    ctx.globalAlpha = 1;
-
-    // Arrow head at the end of the arc
-    if (arrowProgress > 0.1) {
-        const angle = direction > 0
-            ? Math.PI + Math.PI * arrowProgress
-            : -Math.PI * arrowProgress;
-        const ax = arcCx + arcR * Math.cos(angle);
-        const ay = arcY + arcR * Math.sin(angle);
-        const tx = -Math.sin(angle) * (direction > 0 ? 1 : -1);
-        const ty = Math.cos(angle) * (direction > 0 ? 1 : -1);
-        ctx.globalAlpha = Math.min(1, arrowProgress * 3);
-        ctx.beginPath();
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(ax - tx * 9 + ty * 5, ay - ty * 9 - tx * 5);
-        ctx.lineTo(ax - tx * 9 - ty * 5, ay - ty * 9 + tx * 5);
-        ctx.closePath();
-        ctx.fillStyle = color; ctx.fill();
-        ctx.globalAlpha = 1;
-    }
-
-    // Image point fades in
-    if (arrowProgress > 0.5) {
-        const imgAlpha = (arrowProgress - 0.5) * 2;
-        const imgLabel = direction > 0 ? `x + ${direction}` : `x − ${Math.abs(direction)}`;
-        drawPoint(x1, lineY, 7, C.node, color, imgAlpha, imgLabel, 'above');
-    }
-
-    // Label
+    // 3. Label at bottom
     drawText(label, W / 2, lineY + 60, 18, color, e);
 }
 
@@ -549,42 +516,79 @@ function renderSlidingNet(lineY, e) {
 }
 
 function renderRepresentative(lineY, e) {
-    // Show several nets, each with representative highlighted in [0,1]
-    const offsets = [0.15, 0.42, 0.68, 0.91];
-    const colors = [C.teal, C.warm, C.rose, C.purple];
+    // Smooth periodic rainbow gradient on the number line
+    const barH = 22; // half-height of the rainbow bar
 
-    // Highlight [0,1]
+    // Use ImageData for silky-smooth per-pixel rendering
+    const dpr = window.devicePixelRatio || 1;
+    const pxW = Math.ceil(W * dpr);
+    const barTop = Math.round((lineY - barH) * dpr);
+    const barBot = Math.round((lineY + barH) * dpr);
+    const barPxH = barBot - barTop;
+    if (barPxH <= 0 || pxW <= 0) return;
+
+    const imgData = ctx.createImageData(pxW, barPxH);
+    const data = imgData.data;
+
+    for (let px = 0; px < pxW; px++) {
+        const wx = screenToWorld(px / dpr);
+        // Fractional part → hue (periodic with period 1)
+        let frac = wx % 1;
+        if (frac < 0) frac += 1;
+        const hue = frac;
+
+        // Convert HSL to RGB inline (s=0.65, l=0.62 for soft pastels)
+        const s = 0.65, l = 0.62;
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const hp = hue * 6;
+        const x2 = c * (1 - Math.abs(hp % 2 - 1));
+        const m = l - c / 2;
+        let r1, g1, b1;
+        if (hp < 1)      { r1 = c;  g1 = x2; b1 = 0; }
+        else if (hp < 2) { r1 = x2; g1 = c;  b1 = 0; }
+        else if (hp < 3) { r1 = 0;  g1 = c;  b1 = x2; }
+        else if (hp < 4) { r1 = 0;  g1 = x2; b1 = c; }
+        else if (hp < 5) { r1 = x2; g1 = 0;  b1 = c; }
+        else             { r1 = c;  g1 = 0;  b1 = x2; }
+        const R = Math.round((r1 + m) * 255);
+        const G = Math.round((g1 + m) * 255);
+        const B = Math.round((b1 + m) * 255);
+
+        for (let py = 0; py < barPxH; py++) {
+            // Vertical feathering: smooth fade at top and bottom edges
+            const distFromEdge = Math.min(py, barPxH - 1 - py);
+            const feather = Math.min(1, distFromEdge / (6 * dpr));
+            const alpha = Math.round(e * feather * 220);
+
+            const idx = (py * pxW + px) * 4;
+            data[idx]     = R;
+            data[idx + 1] = G;
+            data[idx + 2] = B;
+            data[idx + 3] = alpha;
+        }
+    }
+
+    // Save transform, draw at pixel coords, restore
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.putImageData(imgData, 0, barTop);
+    ctx.restore();
+
+    // Highlight [0,1] bracket
     const s0 = worldToScreen(0), s1 = worldToScreen(1);
-    ctx.globalAlpha = 0.12 * e;
-    ctx.fillStyle = C.accent;
-    ctx.fillRect(s0, lineY - 50, s1 - s0, 100);
-    ctx.globalAlpha = 1;
-
-    // Bracket lines
     ctx.globalAlpha = e;
-    ctx.strokeStyle = C.accent; ctx.lineWidth = 2;
+    ctx.strokeStyle = C.text; ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(s0, lineY - 52); ctx.lineTo(s0, lineY + 52);
-    ctx.moveTo(s1, lineY - 52); ctx.lineTo(s1, lineY + 52);
+    ctx.moveTo(s0, lineY - barH - 6); ctx.lineTo(s0, lineY + barH + 6);
+    ctx.moveTo(s1, lineY - barH - 6); ctx.lineTo(s1, lineY + barH + 6);
     ctx.stroke();
-    drawText('[0, 1)', (s0 + s1) / 2, lineY - 65, 16, C.accent, e);
+    drawText('[0, 1)', (s0 + s1) / 2, lineY - barH - 20, 16, C.text, e);
     ctx.globalAlpha = 1;
 
-    for (let i = 0; i < offsets.length; i++) {
-        const off = offsets[i];
-        const delay = i * 0.15;
-        const localE = ease(Math.max(0, Math.min(1, (e - delay) / 0.55)));
-        if (localE <= 0) continue;
-
-        // Draw net faintly
-        drawNetPoints(off, lineY + (i - 1.5) * 4, colors[i], null, localE * 0.3, false);
-
-        // Highlight representative in [0,1]
-        const repSx = worldToScreen(off);
-        drawPoint(repSx, lineY, 7, colors[i], colors[i], localE);
-
-        // Label
-        drawText(off.toFixed(2), repSx, lineY + 35 + i * 16, 11, colors[i], localE);
+    // Label below
+    if (e > 0.4) {
+        const lE = ease((e - 0.4) / 0.6);
+        drawText('Each color = one orbit = one point of the quotient', W / 2, lineY + barH + 30, 13, C.muted, lE);
     }
 }
 
@@ -638,149 +642,154 @@ function renderIdentification(lineY, e) {
     }
 }
 
+// ══════════════════════════════════════════════════════════
+// THREE.JS HELIX SCENE (Step 10)
+// ══════════════════════════════════════════════════════════
+
+const glCanvas = document.getElementById('gl-canvas');
+let helixScene, helixCamera, helixRenderer, helixMesh;
+let helixInited = false;
+const HELIX_TURNS = 8;    // total turns of the helix visible
+const HELIX_R = 1.6;      // circle radius
+const HELIX_PITCH_MAX = 0.6; // max height per turn
+
+function initHelix() {
+    if (helixInited) return;
+    helixInited = true;
+
+    helixScene = new THREE.Scene();
+    helixCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    helixCamera.position.set(0, 2.5, 6);
+    helixCamera.lookAt(0, 0, 0);
+
+    helixRenderer = new THREE.WebGLRenderer({
+        canvas: glCanvas, antialias: true, alpha: true
+    });
+    helixRenderer.setClearColor(0x060a14, 1);
+    helixRenderer.setPixelRatio(window.devicePixelRatio);
+
+    // Ambient + directional light
+    helixScene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dLight.position.set(3, 5, 4);
+    helixScene.add(dLight);
+
+    buildHelixMesh(1.0);
+}
+
+function buildHelixMesh(pitchFrac) {
+    if (helixMesh) {
+        helixScene.remove(helixMesh);
+        helixMesh.geometry.dispose();
+        helixMesh.material.dispose();
+    }
+
+    const pitch = HELIX_PITCH_MAX * pitchFrac;
+    const segments = 1200;
+    const halfTurns = HELIX_TURNS / 2;
+
+    // Build a series of points for TubeGeometry
+    const points = [];
+    for (let i = 0; i <= segments; i++) {
+        const s = (i / segments - 0.5) * HELIX_TURNS; // s in [-halfTurns, halfTurns]
+        const angle = s * Math.PI * 2;
+        const x = HELIX_R * Math.cos(angle);
+        const z = HELIX_R * Math.sin(angle);
+        const y = s * pitch;
+        points.push(new THREE.Vector3(x, y, z));
+    }
+
+    const curve = new THREE.CatmullRomCurve3(points, false);
+    const tubeGeo = new THREE.TubeGeometry(curve, segments, 0.06, 12, false);
+
+    // Apply vertex colors based on fractional turn (hue)
+    const colors = new Float32Array(tubeGeo.attributes.position.count * 3);
+    const posAttr = tubeGeo.attributes.position;
+    const col = new THREE.Color();
+
+    for (let i = 0; i < posAttr.count; i++) {
+        const px = posAttr.getX(i);
+        const pz = posAttr.getZ(i);
+        // compute angle around the circle
+        let angle = Math.atan2(pz, px); // [-π, π]
+        let frac = angle / (2 * Math.PI);
+        if (frac < 0) frac += 1;
+        col.setHSL(frac, 0.8, 0.55);
+        colors[i * 3] = col.r;
+        colors[i * 3 + 1] = col.g;
+        colors[i * 3 + 2] = col.b;
+    }
+    tubeGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const mat = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        metalness: 0.2,
+        roughness: 0.5,
+    });
+
+    helixMesh = new THREE.Mesh(tubeGeo, mat);
+    helixScene.add(helixMesh);
+}
+
+function resizeHelix() {
+    if (!helixRenderer) return;
+    const rect = glCanvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    glCanvas.width = rect.width * dpr;
+    glCanvas.height = rect.height * dpr;
+    helixRenderer.setSize(rect.width, rect.height);
+    helixCamera.aspect = rect.width / rect.height;
+    helixCamera.updateProjectionMatrix();
+}
+
+function renderHelixStep(e) {
+    // e goes 0→1 over the animation.
+    // Phase 1 (0→0.4): Show the helix, rotating gently
+    // Phase 2 (0.4→0.9): Collapse pitch to 0
+    // Phase 3 (0.9→1): Final circle, label
+
+    const collapseStart = 0.35;
+    const collapseEnd = 0.85;
+
+    let pitchFrac;
+    if (e <= collapseStart) pitchFrac = 1.0;
+    else if (e >= collapseEnd) pitchFrac = 0.0;
+    else pitchFrac = 1.0 - ease((e - collapseStart) / (collapseEnd - collapseStart));
+
+    buildHelixMesh(pitchFrac);
+
+    // Gentle auto-rotation
+    const now = performance.now() * 0.0003;
+    const camDist = 5.5;
+    // Smoothly lower camera angle as helix collapses to show the circle from a good angle
+    const camY = lerp(2.5, 0.5, 1 - pitchFrac);
+    const camAngle = now + Math.PI * 0.25;
+    helixCamera.position.set(
+        camDist * Math.sin(camAngle),
+        camY,
+        camDist * Math.cos(camAngle)
+    );
+    helixCamera.lookAt(0, 0, 0);
+
+    helixRenderer.render(helixScene, helixCamera);
+
+    // Draw labels on the 2D canvas overlay
+    if (e > 0.88) {
+        const labelE = ease((e - 0.88) / 0.12);
+        drawText('S¹', W / 2, H * 0.82, 24, C.accent, labelE);
+    }
+}
+
+function showGLCanvas(show) {
+    glCanvas.style.display = show ? 'block' : 'none';
+}
+
 function renderBending(lineY, e) {
-    // Step 10: Constant-curvature curling from line segment to circle
-    // κ(t) = t·2π/L smoothly deforms a straight line into a full circle.
-
-    const circleR = Math.min(W, H) * 0.2;
-    const circleCx = W / 2;
-    const circleCy = H * 0.42;
-    const L = 2 * Math.PI * circleR; // arc length = circumference
-
-    // Phase timing
-    const FADE_END = 0.10;
-    const CURL_START = 0.06;
-    const CURL_END = 0.88;
-
-    // 1. Fade number line out
-    if (e < FADE_END * 2) {
-        drawNumberLine(lineY, Math.max(0, 1 - e / FADE_END));
-    }
-
-    // 2. Curl parameter: 0 = straight line, 1 = full circle
-    let curlT;
-    if (e <= CURL_START) curlT = 0;
-    else if (e >= CURL_END) curlT = 1;
-    else curlT = ease((e - CURL_START) / (CURL_END - CURL_START));
-
-    // Constant-curvature curve point
-    // At curvature κ, arc-length u from start (going rightward):
-    //   x(u) = sin(κu)/κ,  y(u) = (1−cos(κu))/κ
-    function localPoint(s) {
-        if (curlT < 0.001) return { x: s * L, y: 0 };
-        const kappa = curlT * 2 * Math.PI / L;
-        const u = s * L;
-        return {
-            x: Math.sin(kappa * u) / kappa,
-            y: (1 - Math.cos(kappa * u)) / kappa
-        };
-    }
-
-    // Compute centroid for centering
-    const NS = 40;
-    let cxSum = 0, cySum = 0;
-    for (let i = 0; i <= NS; i++) {
-        const p = localPoint(i / NS);
-        cxSum += p.x; cySum += p.y;
-    }
-    const centX = cxSum / (NS + 1);
-    const centY = cySum / (NS + 1);
-
-    // Smoothly transition vertical center from lineY → circleCy
-    const targetCY = lerp(lineY, circleCy, ease(Math.min(1, curlT * 2)));
-    const offX = circleCx - centX;
-    const offY = targetCY + centY;
-
-    function toScreen(p) {
-        return { x: p.x + offX, y: -p.y + offY };
-    }
-
-    // Draw thick glow behind curve
-    const NUM_PTS = 150;
-    ctx.beginPath();
-    for (let i = 0; i <= NUM_PTS; i++) {
-        const p = toScreen(localPoint(i / NUM_PTS));
-        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-    }
-    ctx.globalAlpha = 0.12;
-    ctx.strokeStyle = C.accent; ctx.lineWidth = 14; ctx.lineCap = 'round';
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-
-    // Draw main curve
-    ctx.beginPath();
-    for (let i = 0; i <= NUM_PTS; i++) {
-        const p = toScreen(localPoint(i / NUM_PTS));
-        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-    }
-    ctx.strokeStyle = C.accent; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
-    ctx.stroke();
-
-    // Quarter-point tick marks
-    if (curlT > 0.15) {
-        const tickA = Math.min(1, (curlT - 0.15) * 3);
-        const quarters = [0.25, 0.5, 0.75];
-        const qLabels = ['¼', '½', '¾'];
-        for (let i = 0; i < quarters.length; i++) {
-            const p = toScreen(localPoint(quarters[i]));
-            drawPoint(p.x, p.y, 3, C.dim, null, tickA);
-            // Labels on the full circle
-            if (curlT > 0.85) {
-                const lbl = ease((curlT - 0.85) / 0.15);
-                const angle = -Math.PI / 2 + quarters[i] * Math.PI * 2;
-                const lx = circleCx + (circleR + 22) * Math.cos(angle);
-                const ly = circleCy + (circleR + 22) * Math.sin(angle);
-                const scrLbl = toScreen(localPoint(quarters[i]));
-                const labelX = lerp(scrLbl.x, lx, lbl);
-                const labelY = lerp(scrLbl.y, ly, lbl);
-                drawText(qLabels[i], labelX, labelY, 12, C.muted, lbl);
-            }
-        }
-    }
-
-    // Endpoints
-    const pStart = toScreen(localPoint(0));
-    const pEnd = toScreen(localPoint(1));
-    const dist = Math.sqrt((pEnd.x - pStart.x) ** 2 + (pEnd.y - pStart.y) ** 2);
-
-    if (curlT < 0.96 || dist > 12) {
-        // Endpoints separate
-        drawPoint(pStart.x, pStart.y, 8, C.teal, 'rgba(45,212,191,0.5)', 1, '0');
-        drawPoint(pEnd.x, pEnd.y, 8, C.warm, 'rgba(245,158,11,0.5)', 1, '1');
-
-        // Dashed line between endpoints when getting close
-        if (curlT > 0.4 && dist < 300) {
-            ctx.globalAlpha = Math.min(0.4, (curlT - 0.4) * 0.8);
-            ctx.setLineDash([5, 4]);
-            ctx.beginPath();
-            ctx.moveTo(pStart.x, pStart.y); ctx.lineTo(pEnd.x, pEnd.y);
-            ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5; ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.globalAlpha = 1;
-        }
-    } else {
-        // Endpoints merged — flash!
-        const mx = (pStart.x + pEnd.x) / 2;
-        const my = (pStart.y + pEnd.y) / 2;
-        const mergeT = Math.min(1, (curlT - 0.96) / 0.04);
-
-        // Expanding glow burst
-        const burstR = 10 + 30 * ease(mergeT);
-        const grad = ctx.createRadialGradient(mx, my, 0, mx, my, burstR);
-        grad.addColorStop(0, `rgba(124,138,255,${0.6 * (1 - mergeT * 0.4)})`);
-        grad.addColorStop(0.5, `rgba(124,138,255,${0.2 * (1 - mergeT * 0.3)})`);
-        grad.addColorStop(1, 'transparent');
-        ctx.fillStyle = grad;
-        ctx.beginPath(); ctx.arc(mx, my, burstR, 0, Math.PI * 2); ctx.fill();
-
-        drawPoint(mx, my, 9, C.accent, 'rgba(124,138,255,0.6)', 1, '0 = 1');
-    }
-
-    // Bottom label
-    if (curlT > 0.92) {
-        const labelE = ease((curlT - 0.92) / 0.08);
-        drawText('S¹', circleCx, targetCY + circleR + 45, 22, C.accent, labelE);
-    }
+    // Initialize Three.js scene (lazy)
+    initHelix();
+    resizeHelix();
+    showGLCanvas(true);
+    renderHelixStep(e);
 }
 
 function renderFinalCircle(e) {
@@ -947,6 +956,8 @@ function renderRecap(e) {
 // ══════════════════════════════════════════════════════════
 function goTo(n) {
     if (n < 0 || n >= TOTAL) return;
+    // Hide GL canvas when leaving step 10
+    if (step === 10 && n !== 10) showGLCanvas(false);
     step = n; t = 0; animStart = performance.now();
     updateUI();
 }
@@ -996,7 +1007,7 @@ function resize() {
     W = rect.width; H = rect.height;
     UNIT = Math.max(40, Math.min(100, W / 14));
 }
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => { resize(); if (helixInited) resizeHelix(); });
 
 resize();
 updateUI();

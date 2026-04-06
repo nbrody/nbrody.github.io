@@ -384,10 +384,22 @@
             .dpad-btn {
                 width: 42px;
                 height: 42px;
-                font-size: 0.8rem;
             }
         }
+        .embedded .matrix-panel,
+        .embedded #word-display,
+        .embedded .dpad,
+        .embedded .radius-ctrl,
+        .embedded .fold-btn,
+        .embedded #description {
+            display: none !important;
+        }
     </style>
+    <script>
+        if (new URLSearchParams(window.location.search).get('embed') === 'true') {
+            document.documentElement.classList.add('embedded');
+        }
+    </script>
 </head>
 
 <body>

@@ -17,8 +17,10 @@ function draw() {
 function switchStep(step) {
     stopAnim();
     state.step = step;
-    state.invPhase = 'idle'; state.invT = 0;
-    state.compPhase = 'idle'; state.compT = 0;
+
+    // Reset animation state for all steps
+    state.transAnimT = 0;
+    state.combinePhase = 'idle'; state.combineT = 0;
     state.pmPhase = 'idle'; state.pmT = 0;
 
     document.querySelectorAll('.nav-tab').forEach(t =>

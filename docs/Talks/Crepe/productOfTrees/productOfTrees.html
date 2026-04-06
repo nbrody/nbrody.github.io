@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <title>Product of Trees: T3 x T4</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         :root {
@@ -13,6 +14,8 @@
             --border: rgba(99, 102, 241, 0.3);
             --accent: #6366f1;
             --text: #f8fafc;
+            --blue: #00ccff;
+            --red: #ff3366;
         }
 
         body {
@@ -29,7 +32,9 @@
             background-color: transparent !important;
         }
 
-        .embedded #ui {
+        .embedded #ui,
+        .embedded #cross-btn,
+        .embedded .tree-label {
             display: none !important;
         }
 
@@ -123,35 +128,6 @@
             z-index: 3;
         }
 
-        .settings-grid {
-            margin-top: 1.5rem;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 18px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding-top: 1.5rem;
-        }
-
-        .setting-item {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .setting-item label {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            opacity: 0.4;
-            font-weight: 800;
-        }
-
-        .setting-item input {
-            width: 100%;
-            accent-color: var(--accent);
-            cursor: pointer;
-        }
-
         .main-controls {
             margin-top: 1.5rem;
             display: flex;
@@ -231,6 +207,135 @@
             background: none;
             border: none;
         }
+
+        /* --------- Product "×" button --------- */
+        #cross-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+        }
+
+        #cross-btn .cross-ring {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            background: radial-gradient(circle at center,
+                rgba(99, 102, 241, 0.12) 0%,
+                rgba(0, 0, 0, 0.3) 70%);
+            backdrop-filter: blur(16px);
+            box-shadow:
+                0 0 30px rgba(0, 204, 255, 0.08),
+                0 0 30px rgba(255, 51, 102, 0.08),
+                inset 0 0 30px rgba(99, 102, 241, 0.05);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #cross-btn .cross-symbol {
+            position: relative;
+            z-index: 2;
+            font-size: 3rem;
+            font-weight: 200;
+            line-height: 1;
+            background: linear-gradient(135deg, var(--blue), #fff 50%, var(--red));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3));
+            transition: all 0.4s ease;
+        }
+
+        #cross-btn:hover .cross-ring {
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: scale(1.15);
+            box-shadow:
+                0 0 50px rgba(0, 204, 255, 0.2),
+                0 0 50px rgba(255, 51, 102, 0.2),
+                inset 0 0 40px rgba(99, 102, 241, 0.1);
+        }
+
+        #cross-btn:hover .cross-symbol {
+            filter: drop-shadow(0 0 16px rgba(255, 255, 255, 0.6));
+            transform: scale(1.1);
+        }
+
+        /* Rotating glow ring */
+        #cross-btn .cross-glow {
+            position: absolute;
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            border: 1px solid transparent;
+            background: conic-gradient(from 0deg,
+                transparent 0deg,
+                var(--blue) 90deg,
+                transparent 180deg,
+                var(--red) 270deg,
+                transparent 360deg) border-box;
+            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            opacity: 0.3;
+            animation: spin-glow 6s linear infinite;
+            transition: opacity 0.3s ease;
+        }
+
+        #cross-btn:hover .cross-glow {
+            opacity: 0.6;
+        }
+
+        @keyframes spin-glow {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Pulse rings */
+        #cross-btn .cross-pulse {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            animation: pulse-ring 3s ease-out infinite;
+        }
+
+        #cross-btn .cross-pulse:nth-child(2) {
+            animation-delay: 1s;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 0.4; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        /* --------- Tree labels --------- */
+        .tree-label {
+            position: absolute;
+            bottom: 12%;
+            font-size: 2rem;
+            opacity: 0.8;
+            user-select: none;
+            transition: opacity 0.6s ease, transform 0.6s ease;
+            transform: translateX(-50%);
+            z-index: 5;
+            font-family: inherit;
+            text-shadow: 0 0 20px currentColor;
+        }
+
+        .embedded #cross-btn,
+        .embedded .tree-label {
+            display: none !important;
+        }
     </style>
     <script>
         const urlParams = new URLSearchParams(window.location.search);
@@ -253,6 +358,19 @@
 </head>
 
 <body>
+    <!-- Product button -->
+    <div id="cross-btn">
+        <div class="cross-pulse"></div>
+        <div class="cross-pulse"></div>
+        <div class="cross-glow"></div>
+        <div class="cross-ring"></div>
+        <span class="cross-symbol">×</span>
+    </div>
+
+    <!-- Tree labels -->
+    <div id="label-t3" class="tree-label" style="left: 30%; color: var(--blue);">\( T_3 \)</div>
+    <div id="label-t4" class="tree-label" style="left: 70%; color: var(--red);">\( T_4 \)</div>
+
     <div id="ui">
         <div id="minimize-btn" onclick="toggleUI()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
@@ -265,77 +383,79 @@
             \( T_3 \times T_4 \)
         </div>
 
-        <div class="slide-group">
-            <div class="interactive-bar" style="color: #00ccff;">
-                <div id="fill-t3" class="bar-fill" style="width: 50%;"></div>
-                <div class="bar-content">
-                    <span class="bar-label">
-                        <div
-                            style="width:10px; height:10px; border-radius:3px; background:#00ccff; box-shadow: 0 0 10px #00ccff;">
-                        </div>
-                        \( T_3 \) Edges
-                    </span>
-                    <span id="display-t3" class="bar-value">Depth 3</span>
+        <div id="product-controls">
+            <div class="slide-group">
+                <div class="interactive-bar" style="color: #00ccff;">
+                    <div id="fill-t3" class="bar-fill" style="width: 50%;"></div>
+                    <div class="bar-content">
+                        <span class="bar-label">
+                            <div
+                                style="width:10px; height:10px; border-radius:3px; background:#00ccff; box-shadow: 0 0 10px #00ccff;">
+                            </div>
+                            \( T_3 \) Edges
+                        </span>
+                        <span id="display-t3" class="bar-value">Depth 3</span>
+                    </div>
+                    <input type="range" id="range-t3" min="0" max="6" value="3">
                 </div>
-                <input type="range" id="range-t3" min="0" max="6" value="3">
-            </div>
 
-            <div class="interactive-bar" style="color: #ff3366;">
-                <div id="fill-t4" class="bar-fill" style="width: 50%;"></div>
-                <div class="bar-content">
-                    <span class="bar-label">
-                        <div
-                            style="width:10px; height:10px; border-radius:3px; background:#ff3366; box-shadow: 0 0 10px #ff3366;">
-                        </div>
-                        \( T_4 \) Edges
-                    </span>
-                    <span id="display-t4" class="bar-value">Depth 3</span>
+                <div class="interactive-bar" style="color: #ff3366;">
+                    <div id="fill-t4" class="bar-fill" style="width: 50%;"></div>
+                    <div class="bar-content">
+                        <span class="bar-label">
+                            <div
+                                style="width:10px; height:10px; border-radius:3px; background:#ff3366; box-shadow: 0 0 10px #ff3366;">
+                            </div>
+                            \( T_4 \) Edges
+                        </span>
+                        <span id="display-t4" class="bar-value">Depth 3</span>
+                    </div>
+                    <input type="range" id="range-t4" min="0" max="6" value="3">
                 </div>
-                <input type="range" id="range-t4" min="0" max="6" value="3">
-            </div>
 
-            <div class="interactive-bar" style="color: #ffffff;">
-                <div id="fill-squares" class="bar-fill" style="width: 15%;"></div>
-                <div class="bar-content">
-                    <span class="bar-label">
-                        <div
-                            style="width:10px; height:10px; border-radius:3px; background:#ffffff; box-shadow: 0 0 10px #ffffff;">
-                        </div>
-                        Squares
-                    </span>
-                    <span id="display-squares" class="bar-value">Opacity 15%</span>
+                <div class="interactive-bar" style="color: #ffffff;">
+                    <div id="fill-squares" class="bar-fill" style="width: 15%;"></div>
+                    <div class="bar-content">
+                        <span class="bar-label">
+                            <div
+                                style="width:10px; height:10px; border-radius:3px; background:#ffffff; box-shadow: 0 0 10px #ffffff;">
+                            </div>
+                            Squares
+                        </span>
+                        <span id="display-squares" class="bar-value">Opacity 15%</span>
+                    </div>
+                    <input type="range" id="range-squares" min="0" max="100" value="15">
                 </div>
-                <input type="range" id="range-squares" min="0" max="100" value="15">
-            </div>
 
-            <div class="interactive-bar" style="color: #a78bfa;">
-                <div id="fill-vertex" class="bar-fill" style="width: 30%;"></div>
-                <div class="bar-content">
-                    <span class="bar-label">
-                        <div
-                            style="width:10px; height:10px; border-radius:3px; background:#a78bfa; box-shadow: 0 0 10px #a78bfa;">
-                        </div>
-                        Vertex Size
-                    </span>
-                    <span id="display-vertex" class="bar-value">3.0</span>
+                <div class="interactive-bar" style="color: #a78bfa;">
+                    <div id="fill-vertex" class="bar-fill" style="width: 30%;"></div>
+                    <div class="bar-content">
+                        <span class="bar-label">
+                            <div
+                                style="width:10px; height:10px; border-radius:3px; background:#a78bfa; box-shadow: 0 0 10px #a78bfa;">
+                            </div>
+                            Vertex Size
+                        </span>
+                        <span id="display-vertex" class="bar-value">3.0</span>
+                    </div>
+                    <input type="range" id="range-vertex" min="5" max="100" value="30">
                 </div>
-                <input type="range" id="range-vertex" min="5" max="100" value="30">
-            </div>
 
-            <!-- Show Link -->
-            <div class="interactive-bar" id="bar-link" style="color: #ff9f7a; transition: all 0.3s;">
-                <div id="fill-link" class="bar-fill" style="width: 0%;"></div>
-                <div class="bar-content">
-                    <span class="bar-label">
-                        <div
-                            style="width:10px; height:10px; border-radius:3px; background:#ff9f7a; box-shadow: 0 0 10px #ff9f7a;">
-                        </div>
-                        Show Link (\(K_{3,4}\))
-                    </span>
-                    <span id="display-link" class="bar-value">Off</span>
+                <!-- Show Link -->
+                <div class="interactive-bar" id="bar-link" style="color: #ff9f7a; transition: all 0.3s;">
+                    <div id="fill-link" class="bar-fill" style="width: 0%;"></div>
+                    <div class="bar-content">
+                        <span class="bar-label">
+                            <div
+                                style="width:10px; height:10px; border-radius:3px; background:#ff9f7a; box-shadow: 0 0 10px #ff9f7a;">
+                            </div>
+                            Show Link (\(K_{3,4}\))
+                        </span>
+                        <span id="display-link" class="bar-value">Off</span>
+                    </div>
+                    <input type="checkbox" id="check-link"
+                        style="position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 4;">
                 </div>
-                <input type="checkbox" id="check-link"
-                    style="position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 4;">
             </div>
         </div>
 

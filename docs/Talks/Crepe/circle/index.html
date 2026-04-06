@@ -11,7 +11,8 @@
             font-family:'Inter',-apple-system,sans-serif; -webkit-font-smoothing:antialiased; }
         #app { display:flex; flex-direction:column; height:100%; }
         #canvas-wrap { flex:1; position:relative; min-height:0; }
-        canvas { position:absolute; inset:0; width:100%; height:100%; }
+        canvas#canvas { position:absolute; inset:0; width:100%; height:100%; z-index:6; pointer-events:none; }
+        canvas#gl-canvas { pointer-events:none; }
         #footer { flex-shrink:0; padding:0 20px 20px; text-align:center; }
         #description { font-size:clamp(0.9rem,1.6vw,1.15rem); color:#cbd5e1; line-height:1.6;
             max-width:740px; margin:0 auto 16px; min-height:3.2em; }
@@ -43,12 +44,21 @@
             background:#7c8aff; cursor:pointer; box-shadow:0 0 8px rgba(124,138,255,0.5);
         }
         #offset-value { color:#7c8aff; min-width:40px; text-align:right; font-variant-numeric:tabular-nums; }
+        
+        .embedded #footer { display: none !important; }
+        .embedded #canvas-wrap { height: 100vh !important; }
     </style>
+    <script>
+        if (new URLSearchParams(window.location.search).get('embed') === 'true') {
+            document.documentElement.classList.add('embedded');
+        }
+    </script>
 </head>
 <body>
 <div id="app">
     <div id="canvas-wrap">
         <canvas id="canvas"></canvas>
+        <canvas id="gl-canvas" style="position:absolute;inset:0;width:100%;height:100%;display:none;z-index:5;"></canvas>
         <div id="slider-panel">
             <label>offset</label>
             <input type="range" id="offset-slider" min="0" max="1" step="0.005" value="0.37">
@@ -72,6 +82,9 @@ MathJax = {
 };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js" } }
+</script>
 <script type="module" src="main.js"></script>
 </body>
 </html>

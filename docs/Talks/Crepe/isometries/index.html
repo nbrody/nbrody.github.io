@@ -10,6 +10,15 @@
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
     <link rel="stylesheet" href="style.css">
+    <script>
+        if (new URLSearchParams(window.location.search).get('embed') === 'true') {
+            document.documentElement.classList.add('embedded');
+        }
+    </script>
+    <style>
+        .embedded #step-nav, .embedded #narrative-panel, .embedded #info-overlay { display: none !important; }
+        .embedded #viz-main { width: 100% !important; left: 0 !important; top: 0 !important; height: 100% !important; }
+    </style>
 </head>
 
 <body>
@@ -21,15 +30,15 @@
             <div class="nav-tabs" id="step-tabs">
                 <button class="nav-tab active" data-step="0">
                     <span class="tab-num">1</span>
-                    <span class="tab-label">Rigid Motions</span>
+                    <span class="tab-label">The Plane</span>
                 </button>
                 <button class="nav-tab" data-step="1">
                     <span class="tab-num">2</span>
-                    <span class="tab-label">Inverses</span>
+                    <span class="tab-label">Translations</span>
                 </button>
                 <button class="nav-tab" data-step="2">
                     <span class="tab-num">3</span>
-                    <span class="tab-label">Composition</span>
+                    <span class="tab-label">Combining</span>
                 </button>
                 <button class="nav-tab" data-step="3">
                     <span class="tab-num">4</span>
@@ -58,96 +67,75 @@
 
     <!-- ── Narrative Panel ─────────────────────────────────── -->
     <aside id="narrative-panel">
-        <!-- Step 0: Rigid Motions -->
+        <!-- Step 0: The Plane -->
         <div class="narrative-card" data-step="0">
-            <h3 class="card-title">A Symmetry of a Space</h3>
-            <p>Now that we've seen some spaces, let's generalise our
-                "integer-translations on the line" example.</p>
-            <p>A <strong>symmetry</strong> (or <em>isometry</em>) of a space is any
-                <strong>rigid motion</strong> — a rearrangement that preserves all distances.</p>
-            <p>In the plane, these include <em>translations</em>, <em>rotations</em>,
-                and <em>reflections</em>.</p>
-            <div class="control-row">
-                <label>Isometry Type</label>
-                <div class="btn-group">
-                    <button class="btn-toggle active" data-action="translation">Translation</button>
-                    <button class="btn-toggle" data-action="rotation">Rotation</button>
-                    <button class="btn-toggle" data-action="reflection">Reflection</button>
-                </div>
-            </div>
-            <div class="control-row" id="ctrl-translate-dir">
-                <label>Direction <span class="pv" id="pv-dir">0°</span></label>
-                <input type="range" min="0" max="360" step="1" value="0" id="slider-dir">
-            </div>
-            <div class="control-row" id="ctrl-translate-dist">
-                <label>Distance <span class="pv" id="pv-dist">2.0</span></label>
-                <input type="range" min="0.5" max="5" step="0.1" value="2" id="slider-dist">
-            </div>
-            <div class="control-row hidden" id="ctrl-rot-angle">
-                <label>Angle <span class="pv" id="pv-angle">60°</span></label>
-                <input type="range" min="-180" max="180" step="1" value="60" id="slider-angle">
-            </div>
-            <div class="control-row hidden" id="ctrl-ref-axis">
-                <label>Mirror axis <span class="pv" id="pv-axis">0°</span></label>
-                <input type="range" min="0" max="180" step="1" value="0" id="slider-axis">
-            </div>
+            <h3 class="card-title">The Euclidean Plane</h3>
+            <p>Here is ℝ², the <strong>Euclidean plane</strong> —
+                the most familiar geometric space.</p>
+            <p>We have two <em>basis vectors</em>:
+                <strong>e₁</strong> pointing to the right and
+                <strong>e₂</strong> pointing upward.</p>
+            <p>Every point can be described by its coordinates <em>(x, y)</em>.</p>
+            <p class="hint">This is our stage. Next, we'll see what happens
+                when we start <em>moving</em> every point at once.</p>
         </div>
 
-        <!-- Step 1: Inverses & Identity -->
+        <!-- Step 1: Translations -->
         <div class="narrative-card hidden" data-step="1">
-            <h3 class="card-title">Inverses & Identity</h3>
-            <p>Notice: every rigid motion can be <strong>undone</strong> by another rigid motion.</p>
-            <p>We should also consider the <strong>identity map</strong> — the "do nothing" transformation
-                that leaves every point in place — as a (trivial) symmetry.</p>
-            <p class="hint">Click <strong>Apply</strong> to see the isometry, then <strong>Undo</strong>
-                to see its inverse.</p>
+            <h3 class="card-title">Translations</h3>
+            <p>A <strong>translation</strong> slides every point of the plane
+                by the same amount in the same direction.</p>
+            <p>We start with two basic ones:</p>
+            <p><strong>T₁</strong> — translate one unit to the <em>right</em><br>
+               <strong>T₂</strong> — translate one unit <em>up</em></p>
             <div class="control-row">
-                <label>Pick an isometry</label>
+                <label>Show translation</label>
                 <div class="btn-group">
-                    <button class="btn-toggle active" data-action="inv-translate">Translate</button>
-                    <button class="btn-toggle" data-action="inv-rotate">Rotate</button>
-                    <button class="btn-toggle" data-action="inv-reflect">Reflect</button>
+                    <button class="btn-toggle active" data-action="trans-e1">T₁ (right)</button>
+                    <button class="btn-toggle" data-action="trans-e2">T₂ (up)</button>
+                    <button class="btn-toggle" data-action="trans-both">Both</button>
                 </div>
             </div>
             <div class="btn-row">
-                <button class="btn-primary" id="btn-apply">
-                    <span class="btn-icon">▶</span> Apply
+                <button class="btn-primary" id="btn-trans-animate">
+                    <span class="btn-icon">▶</span> Animate
                 </button>
-                <button class="btn-secondary" id="btn-undo">↩ Undo</button>
-                <button class="btn-secondary" id="btn-identity">𝟙 Identity</button>
             </div>
+            <p class="hint">Each translation is an <em>isometry</em> — it preserves
+                all distances. Nothing stretches or rotates.</p>
         </div>
 
-        <!-- Step 2: Composition -->
+        <!-- Step 2: Combining Translations -->
         <div class="narrative-card hidden" data-step="2">
-            <h3 class="card-title">Composing Symmetries</h3>
-            <p>Given any symmetry, we can <strong>iterate</strong> it and get a new one!</p>
-            <p>More generally, given <em>two</em> symmetries we can <strong>compose</strong> them:
-                apply one, then the other.</p>
+            <h3 class="card-title">Combining Translations</h3>
+            <p>We can not only <strong>iterate</strong> a translation
+                (apply it again and again), but we can also
+                <strong>combine</strong> two separate translations!</p>
+            <p>Applying T₁ a total of <em>m</em> times and T₂ a total
+                of <em>n</em> times gives a new translation to the point
+                <strong>(m, n)</strong>.</p>
             <div class="control-row">
-                <label>First symmetry</label>
-                <div class="btn-group">
-                    <button class="btn-toggle active" data-action="comp-a-translate">Translate</button>
-                    <button class="btn-toggle" data-action="comp-a-rotate">Rotate</button>
-                </div>
+                <label>Steps right (m) <span class="pv" id="pv-combine-m">3</span></label>
+                <input type="range" min="1" max="6" step="1" value="3" id="slider-combine-m">
             </div>
             <div class="control-row">
-                <label>Then apply</label>
-                <div class="btn-group">
-                    <button class="btn-toggle active" data-action="comp-b-translate">Translate</button>
-                    <button class="btn-toggle" data-action="comp-b-rotate">Rotate</button>
-                </div>
-            </div>
-            <div class="control-row">
-                <label>Iterations <span class="pv" id="pv-iter">1</span></label>
-                <input type="range" min="1" max="8" step="1" value="1" id="slider-iter">
+                <label>Steps up (n) <span class="pv" id="pv-combine-n">2</span></label>
+                <input type="range" min="1" max="6" step="1" value="2" id="slider-combine-n">
             </div>
             <div class="btn-row">
-                <button class="btn-primary" id="btn-compose">
-                    <span class="btn-icon">▶</span> Compose
+                <button class="btn-primary" id="btn-iterate">
+                    <span class="btn-icon">▶</span> Step-by-step
                 </button>
-                <button class="btn-secondary" id="btn-compose-reset">Reset</button>
+                <button class="btn-secondary" id="btn-combine">
+                    ↗ Combine
+                </button>
+                <button class="btn-secondary" id="btn-combine-reset">
+                    Reset
+                </button>
             </div>
+            <p class="hint">The combined translation is just one big slide — the
+                <em>composition</em> of the individual steps. The order doesn't
+                matter: m right + n up = n up + m right!</p>
         </div>
 
         <!-- Step 3: Placemat -->

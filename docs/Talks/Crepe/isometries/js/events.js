@@ -11,79 +11,59 @@ export function wireEvents({ draw, switchStep, animateProp, stopAnim }) {
         tab.addEventListener('click', () => switchStep(parseInt(tab.dataset.step)));
     });
 
-    /* ── Step 0: Rigid Motions ─────────────────────────── */
-    document.querySelectorAll('[data-step="0"] .btn-toggle').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('[data-step="0"] .btn-toggle').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            state.isoType = btn.dataset.action;
-            document.getElementById('ctrl-translate-dir').classList.toggle('hidden', btn.dataset.action !== 'translation');
-            document.getElementById('ctrl-translate-dist').classList.toggle('hidden', btn.dataset.action !== 'translation');
-            document.getElementById('ctrl-rot-angle').classList.toggle('hidden', btn.dataset.action !== 'rotation');
-            document.getElementById('ctrl-ref-axis').classList.toggle('hidden', btn.dataset.action !== 'reflection');
-            draw();
-        });
-    });
+    /* ── Step 0: The Plane (no controls) ──────────────── */
+    // Nothing to wire — purely static
 
-    _slider('slider-dir',   v => { state.translateDir  = +v; _pv('pv-dir', v + '°'); draw(); });
-    _slider('slider-dist',  v => { state.translateDist = +v; _pv('pv-dist', (+v).toFixed(1)); draw(); });
-    _slider('slider-angle', v => { state.rotAngle      = +v; _pv('pv-angle', v + '°'); draw(); });
-    _slider('slider-axis',  v => { state.refAxis       = +v; _pv('pv-axis', v + '°'); draw(); });
-
-    /* ── Step 1: Inverses ──────────────────────────────── */
+    /* ── Step 1: Translations ─────────────────────────── */
     document.querySelectorAll('[data-step="1"] .btn-toggle').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('[data-step="1"] .btn-toggle').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            state.invType = btn.dataset.action;
-            state.invPhase = 'idle'; state.invT = 0;
-            stopAnim(); draw();
+            const map = { 'trans-e1': 0, 'trans-e2': 1, 'trans-both': 2 };
+            state.transSubStep = map[btn.dataset.action] ?? 0;
+            state.transAnimT = (state.transSubStep === 2) ? 1 : 0;
+            stopAnim();
+            draw();
         });
     });
 
-    document.getElementById('btn-apply').addEventListener('click', () => {
+    document.getElementById('btn-trans-animate').addEventListener('click', () => {
         if (state.animating) return;
-        state.invPhase = 'applied';
-        animateProp('invT', 1);
-    });
-    document.getElementById('btn-undo').addEventListener('click', () => {
-        if (state.animating || state.invPhase !== 'applied') return;
-        state.invPhase = 'undone';
-        animateProp('invT', 1);
-    });
-    document.getElementById('btn-identity').addEventListener('click', () => {
-        stopAnim(); state.invPhase = 'idle'; state.invT = 0; draw();
+        state.transAnimT = 0;
+        animateProp('transAnimT', 0.8);
     });
 
-    /* ── Step 2: Composition ───────────────────────────── */
-    document.querySelectorAll('[data-step="2"] .btn-toggle[data-action^="comp-a"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('[data-step="2"] .btn-toggle[data-action^="comp-a"]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            state.compA = btn.dataset.action.replace('comp-a-', '');
-            state.compPhase = 'idle'; state.compT = 0; stopAnim(); draw();
-        });
+    /* ── Step 2: Combining Translations ───────────────── */
+    _slider('slider-combine-m', v => {
+        state.combineM = +v; _pv('pv-combine-m', v);
+        state.combinePhase = 'idle'; state.combineT = 0;
+        stopAnim(); draw();
     });
-    document.querySelectorAll('[data-step="2"] .btn-toggle[data-action^="comp-b"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('[data-step="2"] .btn-toggle[data-action^="comp-b"]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            state.compB = btn.dataset.action.replace('comp-b-', '');
-            state.compPhase = 'idle'; state.compT = 0; stopAnim(); draw();
-        });
+    _slider('slider-combine-n', v => {
+        state.combineN = +v; _pv('pv-combine-n', v);
+        state.combinePhase = 'idle'; state.combineT = 0;
+        stopAnim(); draw();
     });
 
-    _slider('slider-iter', v => {
-        state.compIter = +v; _pv('pv-iter', v);
-        state.compPhase = 'idle'; state.compT = 0; stopAnim(); draw();
-    });
-    document.getElementById('btn-compose').addEventListener('click', () => {
+    document.getElementById('btn-iterate').addEventListener('click', () => {
         if (state.animating) return;
-        state.compPhase = 'playing';
-        animateProp('compT', 0.8 * state.compIter);
+        state.combinePhase = 'iterating';
+        state.combineT = 0;
+        const totalDuration = 0.4 * (state.combineM + state.combineN);
+        animateProp('combineT', totalDuration);
     });
-    document.getElementById('btn-compose-reset').addEventListener('click', () => {
-        stopAnim(); state.compPhase = 'idle'; state.compT = 0; draw();
+
+    document.getElementById('btn-combine').addEventListener('click', () => {
+        if (state.animating) return;
+        state.combinePhase = 'combining';
+        state.combineT = 0;
+        animateProp('combineT', 1.2);
+    });
+
+    document.getElementById('btn-combine-reset').addEventListener('click', () => {
+        stopAnim();
+        state.combinePhase = 'idle'; state.combineT = 0;
+        draw();
     });
 
     /* ── Step 3: Placemat ──────────────────────────────── */
@@ -158,10 +138,17 @@ export function wireEvents({ draw, switchStep, animateProp, stopAnim }) {
 /* ── Helpers ───────────────────────────────────────── */
 
 function _slider(id, fn) {
-    document.getElementById(id).addEventListener('input', e => fn(e.target.value));
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', e => fn(e.target.value));
 }
-function _pv(id, txt) { document.getElementById(id).textContent = txt; }
-function _setSlider(id, v) { document.getElementById(id).value = v; }
+function _pv(id, txt) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+}
+function _setSlider(id, v) {
+    const el = document.getElementById(id);
+    if (el) el.value = v;
+}
 
 function _updatePmDisplay() {
     const el = document.getElementById('pm-seq-items');
