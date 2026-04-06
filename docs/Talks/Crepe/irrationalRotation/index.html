@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Irrational Rotation — The Orbit of α</title>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        if (new URLSearchParams(window.location.search).get('embed') === 'true') {
+            document.documentElement.classList.add('embedded');
+        }
+    </script>
+</head>
+<body>
+<div id="app">
+    <div id="canvas-wrap">
+        <canvas id="canvas"></canvas>
+        <div id="labels-overlay"></div>
+        
+        <!-- Interactive Controls Overlay -->
+        <div id="controls-panel" class="glass">
+            <div class="control-row" id="angle-control">
+                <label>Rotation \(\alpha\)</label>
+                <div class="slider-group">
+                    <input type="range" id="alpha-slider" min="0" max="1" step="0.0001" value="0.125">
+                    <span id="alpha-display">1/8</span>
+                </div>
+            </div>
+            <div class="control-row" id="iter-control">
+                <label>Iterations \(N\)</label>
+                <div class="slider-group">
+                    <input type="range" id="iter-slider" min="1" max="1000" step="1" value="8">
+                    <span id="iter-display">8</span>
+                </div>
+            </div>
+            <div class="button-group">
+                <button id="play-btn" class="icon-btn">▶</button>
+                <button id="reset-btn" class="icon-btn">↺</button>
+                <button id="mode-btn">Rational Mode</button>
+            </div>
+        </div>
+
+        <!-- Legend/Info -->
+        <div id="info-panel" class="glass">
+            <div id="orbit-info">
+                <span class="label">Current Point:</span>
+                <span id="coord-display">\(e^{2\pi i (N\alpha)}\)</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="footer">
+        <div id="description">
+            <!-- Content filled by script -->
+        </div>
+        <div id="nav">
+            <button class="nav-btn" id="prev-btn">← Prev</button>
+            <div id="dots"></div>
+            <button class="nav-btn" id="next-btn">Next →</button>
+        </div>
+    </div>
+</div>
+
+<script>
+MathJax = {
+    tex: { 
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]']]
+    },
+    svg: { fontCache: 'global' },
+    startup: { typeset: true }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<script type="module" src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circle Limit IV — Heaven and Hell | Hyperbolic Symmetries</title>
+    <meta name="description" content="Interactive animated Escher Circle Limit IV with hyperbolic isometries in the Poincaré disk model.">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['\\(','\\)']] },
+            svg: { fontCache: 'global' },
+            startup: { typeset: true }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+    <script>
+        if (new URLSearchParams(window.location.search).get('embed') === 'true') {
+            document.documentElement.classList.add('embedded');
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+    <div id="canvas-wrap">
+        <canvas id="canvas"></canvas>
+        <!-- Overlay info -->
+        <div id="info-overlay">
+            <div id="transform-label"></div>
+        </div>
+    </div>
+    <div id="panel">
+        <div class="panel-header">
+            <h1>Circle Limit IV</h1>
+            <p>Escher's <em>Heaven and Hell</em> — a tessellation of the hyperbolic plane in the Poincaré disk model.</p>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Hyperbolic Isometries</div>
+            <p class="hint" style="margin-bottom:12px;">
+                Isometries of \(\mathbb{H}^2\) are Möbius transformations preserving the disk. They map the tessellation to itself — these are the <strong>symmetries</strong>.
+            </p>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="btn-rot-cw" onclick="applyRotation(1)">
+                    Rotate \(+60°\)
+                </button>
+                <button class="btn btn-primary" id="btn-rot-ccw" onclick="applyRotation(-1)">
+                    Rotate \(-60°\)
+                </button>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="btn-trans-up" onclick="applyTranslation(0)">
+                    Translate ↑
+                </button>
+                <button class="btn btn-primary" id="btn-trans-down" onclick="applyTranslation(1)">
+                    Translate ↓
+                </button>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="btn-trans-left" onclick="applyTranslation(2)">
+                    Translate ←
+                </button>
+                <button class="btn btn-primary" id="btn-trans-right" onclick="applyTranslation(3)">
+                    Translate →
+                </button>
+            </div>
+            <div class="btn-row">
+                <button class="btn" id="btn-reflect" onclick="applyReflection()">
+                    Reflect
+                </button>
+                <button class="btn" id="btn-reset" onclick="resetView()">
+                    Reset
+                </button>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Symmetry Explorer</div>
+            <div class="btn-row">
+                <button class="btn" id="btn-fund" onclick="toggleFundamental()">
+                    Show Fundamental Domain
+                </button>
+                <button class="btn" id="btn-orbit" onclick="animateOrbit()">
+                    Animate Orbit
+                </button>
+            </div>
+            <div class="composition-box" id="comp-box" style="display:none;">
+                <div class="comp-label">Current Transformation</div>
+                <div class="comp-expr" id="comp-expr"></div>
+                <div class="comp-result" id="comp-result"></div>
+            </div>
+            <p class="hint">
+                The symmetry group is a hyperbolic triangle group \([6,4]\) acting on \(\mathbb{H}^2\). 
+                The fundamental domain is a triangle with angles \(\pi/6, \pi/4, \pi/2\).
+            </p>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Display Options</div>
+            <div class="btn-row">
+                <button class="btn active" id="btn-color" onclick="toggleColor()">
+                    Angels & Devils
+                </button>
+                <button class="btn" id="btn-wireframe" onclick="toggleWireframe()">
+                    Wireframe
+                </button>
+            </div>
+            <div class="slider-group">
+                <label class="slider-label">Tessellation Depth</label>
+                <input type="range" id="depth-slider" min="2" max="6" value="4" oninput="setDepth(this.value)">
+                <span class="slider-value" id="depth-value">4</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Legend</div>
+            <div class="legend-item">
+                <div class="legend-swatch" style="background: linear-gradient(135deg, #fef3c7, #f59e0b);"></div>
+                <span>Angels (white tiles)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-swatch" style="background: linear-gradient(135deg, #1e1b4b, #4338ca);"></div>
+                <span>Devils (dark tiles)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-swatch" style="background: linear-gradient(135deg, #f472b6, #c084fc);"></div>
+                <span>Fundamental domain</span>
+            </div>
+        </div>
+
+        <div id="state-display">
+            <span id="iso-count">Tiles rendered: <span class="perm" id="tile-count">0</span></span>
+        </div>
+    </div>
+</div>
+
+<script src="hyperbolic.js"></script>
+<script src="tessellation.js"></script>
+<script src="drawing.js"></script>
+<script src="main.js"></script>
+
+</body>
+</html>

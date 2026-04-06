@@ -442,6 +442,7 @@
         <button class="fold-btn" id="btn-fold" title="Fold onto S²">S²</button>
         <button class="fold-btn" id="btn-pulse" title="Pulse" style="right: 24px; bottom: 188px;">&#x2299;</button>
         <button class="fold-btn" id="btn-color" title="Region colors (c)" style="right: 240px; bottom: 188px;">🎨</button>
+        <button class="fold-btn" id="btn-decompose" title="Paradoxical decomposition (d)" style="right: 296px; bottom: 188px; display: none; font-weight: 800;">?!</button>
 
         <div id="description">
             Apply generators \(\mathbf{a}\) and \(\mathbf{b}\) to see how they act on the 3-adic tree \(\mathcal{T}_3\).
@@ -543,6 +544,7 @@
                         treeViz.resetTree();
                         resetWord();
                         setDescription('reset');
+                        document.getElementById('btn-decompose').classList.remove('active-toggle');
                         return;
                     }
                     if (actions[action]) {
@@ -572,6 +574,7 @@
                 else if (e.key === 's') document.getElementById('btn-fold').click();
                 else if (e.key === 'p') document.getElementById('btn-pulse').click();
                 else if (e.key === 'c') document.getElementById('btn-color').click();
+                else if (e.key === 'd') document.getElementById('btn-decompose').click();
                 else if (e.key === ']' || e.key === '+') document.getElementById('btn-radius-plus').click();
                 else if (e.key === '[' || e.key === '-') document.getElementById('btn-radius-minus').click();
             });
@@ -594,14 +597,27 @@
 
             document.getElementById('btn-color').addEventListener('click', () => {
                 const btn = document.getElementById('btn-color');
+                const decompBtn = document.getElementById('btn-decompose');
                 if (treeViz.colorMode === 'uniform') {
                     treeViz.colorMode = 'regions';
                     btn.classList.add('active-toggle');
+                    decompBtn.style.display = 'flex';
                 } else {
                     treeViz.colorMode = 'uniform';
                     btn.classList.remove('active-toggle');
+                    decompBtn.style.display = 'none';
+                    decompBtn.classList.remove('active-toggle');
+                    if (treeViz.decompState.active) {
+                        treeViz.decompState.target = 0;
+                    }
                 }
                 sphereView.setColorMode(treeViz.colorMode);
+            });
+
+            document.getElementById('btn-decompose').addEventListener('click', () => {
+                treeViz.toggleDecompose();
+                document.getElementById('btn-decompose').classList.toggle(
+                    'active-toggle', treeViz.decompState.target === 1);
             });
 
             document.getElementById('btn-fold').addEventListener('click', () => {
@@ -623,6 +639,7 @@
             else if (msg === 'fold') document.getElementById('btn-fold').click();
             else if (msg === 'color') document.getElementById('btn-color').click();
             else if (msg === 'pulse') document.getElementById('btn-pulse').click();
+            else if (msg === 'decompose') document.getElementById('btn-decompose').click();
         });
     </script>
 </body>

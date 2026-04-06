@@ -34,6 +34,9 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <style>
         iframe {
             width: 100%;
@@ -70,6 +73,7 @@
                     <p class="subtitle">
                         Nic Brody <br> The Crepe Place · April 6 2026
                     </p>
+                    <button class="present-btn" onclick="startPresentation()">Present</button>
                 </div>
             </div>
         </div>
@@ -307,6 +311,9 @@
     <!-- Fullpage.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.js"></script>
 
+    <!-- Remote Control Logic -->
+    <script src="remote.js"></script>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             window.fp_api = new fullpage('#fullpage', {
@@ -318,7 +325,7 @@
                 showActiveTooltip: false,
                 anchors: ['title', 'space', 'quotients', 'padics', 'freegroups', 'paradox', 'conclusions'],
                 slidesNavigation: true,
-                controlArrows: true, // I will style these in style.css as per previous turn
+                controlArrows: true,
                 keyboardScrolling: true,
                 animateAnchor: true,
                 scrollingSpeed: 1000,
@@ -326,7 +333,7 @@
                 scrollOverflow: false,
 
                 onLeave: function (origin, destination, direction, trigger) {
-                    const isSequential = ['wheel', 'keydown', 'keyboard', 'touchmark', 'swipe', 'drag'].includes(trigger);
+                    const isSequential = ['wheel', 'keydown', 'keyboard', 'touchmark', 'swipe', 'drag'].includes(trigger) || window.isRemoteAction;
                     const activeSlide = origin.item.querySelector('.slide.active') || origin.item;
 
                     if (isSequential && direction === 'down') {
@@ -346,10 +353,93 @@
                     } else if (direction === 'up') {
                         destSlide.querySelectorAll('.fragment').forEach(f => f.classList.add('visible'));
                     }
+                },
+
+                onSlideLeave: function (section, origin, destination, direction, trigger) {
+                    const isSequential = ['keydown', 'keyboard', 'wheel', 'touch', 'drag', 'swipe'].includes(trigger) || window.isRemoteAction;
+
+                    if (isSequential && direction === 'right') {
+                        const fragments = origin.item.querySelectorAll('.fragment:not(.visible)');
+                        if (fragments.length > 0) {
+                            fragments[0].classList.add('visible');
+                            return false;
+                        }
+                    }
+
+                    if (direction === 'right' || !isSequential) {
+                        destination.item.querySelectorAll('.fragment').forEach(f => {
+                            if (!isSequential) f.classList.add('visible');
+                            else f.classList.remove('visible');
+                        });
+                    } else if (direction === 'left' && isSequential) {
+                        destination.item.querySelectorAll('.fragment').forEach(f => f.classList.add('visible'));
+                    }
+                },
+
+                afterLoad: function (origin, destination) {
+                    if (window.syncRemoteState) window.syncRemoteState();
+                },
+                afterSlideLoad: function (section, origin, destination) {
+                    if (window.syncRemoteState) window.syncRemoteState();
                 }
             });
         });
     </script>
+
+    <!-- Remote UI (shown only on phone when ?mode=remote) -->
+    <div id="remote-ui">
+        <div class="remote-header">
+            <div class="remote-title">Presentation Control</div>
+            <div class="remote-session-id" id="sess-display"></div>
+        </div>
+
+        <div class="clickpad-container">
+            <div class="clickpad-item clickpad-up" onclick="sendRemoteCommand('up')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+            </div>
+            <div class="clickpad-item clickpad-down" onclick="sendRemoteCommand('down')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="clickpad-item clickpad-left" onclick="sendRemoteCommand('left')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </div>
+            <div class="clickpad-item clickpad-right" onclick="sendRemoteCommand('right')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </div>
+            <div class="clickpad-center" onclick="sendRemoteCommand('smartNext')">
+                <span>Next</span>
+            </div>
+        </div>
+
+        <div class="remote-controls">
+            <div class="control-btn" onclick="sendRemoteCommand('smartPrev')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg>
+                <span>Back</span>
+            </div>
+            <div id="remote-viz-btn" class="control-btn" onclick="sendRemoteCommand('toggle')" style="display: none;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span id="viz-btn-text">Play</span>
+            </div>
+        </div>
+
+        <div class="remote-status-bar">
+            Connected &bull; Low Latency
+        </div>
+    </div>
+
+    <!-- Presentation Setup Modal -->
+    <div id="present-modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closePresentModal()">&times;</button>
+            <h3>Remote Control</h3>
+            <p style="color: var(--text-muted); margin-bottom: 2rem;">Scan the code or visit the link on your phone to control this presentation.</p>
+            <div id="qr-container">
+                <img id="qr-img" src="" alt="Session QR Code" width="250" height="250">
+            </div>
+            <div class="remote-url" id="remote-link-text">URL loading...</div>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">The remote allows you to switch slides and toggle visualizations from anywhere in the room.</p>
+        </div>
+    </div>
 
 </body>
 

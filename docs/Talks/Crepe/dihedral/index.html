@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dihedral Group D₅ — Pentagon Symmetries</title>
+    <meta name="description" content="Interactive visualizer for the dihedral group D₅: reflections, rotations, and compositions on a regular pentagon.">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['\\(','\\)']] },
+            svg: { fontCache: 'global' },
+            startup: { typeset: true }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+    <script>
+        if (new URLSearchParams(window.location.search).get('embed') === 'true') {
+            document.documentElement.classList.add('embedded');
+        }
+    </script>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            width: 100%; height: 100%; overflow: hidden;
+            background: #060a14; color: #f1f5f9;
+            font-family: 'Inter', -apple-system, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #app {
+            display: flex; height: 100%;
+        }
+
+        /* ── Canvas area ── */
+        #canvas-wrap {
+            flex: 1; position: relative; min-width: 0;
+        }
+        canvas#canvas {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+        }
+
+        /* ── Side panel ── */
+        #panel {
+            width: clamp(300px, 28vw, 420px); flex-shrink: 0;
+            display: flex; flex-direction: column; gap: 0;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(24px);
+            border-left: 1px solid rgba(124, 138, 255, 0.1);
+            overflow-y: auto;
+        }
+        #panel::-webkit-scrollbar { width: 4px; }
+        #panel::-webkit-scrollbar-track { background: transparent; }
+        #panel::-webkit-scrollbar-thumb { background: rgba(124,138,255,0.2); border-radius: 2px; }
+
+        .panel-header {
+            padding: 28px 28px 20px;
+            border-bottom: 1px solid rgba(124,138,255,0.08);
+        }
+        .panel-header h1 {
+            font-size: 1.4rem; font-weight: 700;
+            background: linear-gradient(135deg, #7c8aff, #c084fc);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+        .panel-header p {
+            font-size: 0.82rem; color: #94a3b8; line-height: 1.5;
+        }
+
+        .section {
+            padding: 20px 28px;
+            border-bottom: 1px solid rgba(124,138,255,0.06);
+        }
+        .section-title {
+            font-size: 0.72rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            color: #64748b; margin-bottom: 14px;
+        }
+
+        /* Buttons */
+        .btn-row {
+            display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;
+        }
+        .btn {
+            padding: 9px 16px; border-radius: 8px;
+            font: 500 0.8rem/1 'Inter', sans-serif;
+            cursor: pointer; transition: all 0.25s;
+            border: 1px solid rgba(124,138,255,0.18);
+            background: rgba(124,138,255,0.06);
+            color: #cbd5e1;
+        }
+        .btn:hover {
+            background: rgba(124,138,255,0.15);
+            border-color: rgba(124,138,255,0.35);
+            color: #f1f5f9;
+        }
+        .btn.active {
+            background: rgba(124,138,255,0.22);
+            border-color: rgba(124,138,255,0.5);
+            color: #fff;
+            box-shadow: 0 0 12px rgba(124,138,255,0.15);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(124,138,255,0.3), rgba(192,132,252,0.25));
+            border-color: rgba(124,138,255,0.4);
+            color: #f1f5f9;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, rgba(124,138,255,0.45), rgba(192,132,252,0.35));
+            box-shadow: 0 0 20px rgba(124,138,255,0.2);
+        }
+
+        /* Composition display */
+        .composition-box {
+            background: rgba(6,10,20,0.6);
+            border: 1px solid rgba(124,138,255,0.12);
+            border-radius: 10px; padding: 14px 18px;
+            margin-top: 10px;
+        }
+        .comp-label {
+            font-size: 0.7rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.06em;
+            color: #64748b; margin-bottom: 6px;
+        }
+        .comp-expr {
+            font-size: 1.05rem; color: #e2e8f0;
+            min-height: 1.6em;
+        }
+        .comp-result {
+            font-size: 0.85rem; color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        /* Legend */
+        .legend-item {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 8px; font-size: 0.82rem; color: #cbd5e1;
+        }
+        .legend-swatch {
+            width: 16px; height: 3px; border-radius: 2px; flex-shrink: 0;
+        }
+        .legend-dot {
+            width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .hint {
+            font-size: 0.78rem; color: #64748b; font-style: italic;
+            margin-top: 10px; line-height: 1.5;
+        }
+
+        /* State indicator */
+        #state-display {
+            padding: 16px 28px;
+            font-size: 0.85rem; color: #94a3b8;
+            border-top: 1px solid rgba(124,138,255,0.06);
+            margin-top: auto;
+        }
+        #state-display .perm {
+            font-family: 'JetBrains Mono', monospace;
+            color: #7c8aff; font-size: 0.9rem;
+        }
+
+        /* Embedded mode */
+        .embedded #panel { display: none !important; }
+        .embedded #canvas-wrap { width: 100% !important; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div id="canvas-wrap">
+        <canvas id="canvas"></canvas>
+    </div>
+    <div id="panel">
+        <div class="panel-header">
+            <h1>Dihedral Group \(D_5\)</h1>
+            <p>The symmetry group of a regular pentagon — generated by two reflections.</p>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Reflections</div>
+            <div class="btn-row">
+                <button class="btn active" id="btn-r1" onclick="toggleReflection(0)">Show \(r_1\)</button>
+                <button class="btn active" id="btn-r2" onclick="toggleReflection(1)">Show \(r_2\)</button>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="btn-apply-r1" onclick="applyReflection(0)">
+                    Apply \(r_1\)
+                </button>
+                <button class="btn btn-primary" id="btn-apply-r2" onclick="applyReflection(1)">
+                    Apply \(r_2\)
+                </button>
+            </div>
+            <p class="hint">Each reflection fixes one axis and swaps vertices across it.</p>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Compositions</div>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="btn-r1r2" onclick="applyComposition(0,1)">
+                    Apply \(r_1 \circ r_2\)
+                </button>
+                <button class="btn btn-primary" id="btn-r2r1" onclick="applyComposition(1,0)">
+                    Apply \(r_2 \circ r_1\)
+                </button>
+            </div>
+            <div class="composition-box" id="comp-box" style="display:none;">
+                <div class="comp-label">Composition</div>
+                <div class="comp-expr" id="comp-expr"></div>
+                <div class="comp-result" id="comp-result"></div>
+            </div>
+            <p class="hint">Two reflections compose to a rotation. But the order matters — \(r_1 \circ r_2 \neq r_2 \circ r_1\)!</p>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Controls</div>
+            <div class="btn-row">
+                <button class="btn" id="btn-reset" onclick="resetPentagon()">Reset</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Legend</div>
+            <div class="legend-item">
+                <div class="legend-swatch" style="background: #f472b6;"></div>
+                <span>\(r_1\) — reflection axis through vertex 0</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-swatch" style="background: #38bdf8;"></div>
+                <span>\(r_2\) — reflection axis through vertex 1</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #facc15;"></div>
+                <span>Tracked vertex (vertex 0)</span>
+            </div>
+        </div>
+
+        <div id="state-display">
+            Current permutation: <span class="perm" id="perm-display">(0 1 2 3 4)</span>
+        </div>
+    </div>
+</div>
+
+<script>
+// ─── Configuration ────────────────────────────────────────
+const N = 5;
+const TAU = 2 * Math.PI;
+const ANIM_DURATION = 600; // ms
+
+// Colors
+const COL = {
+    bg:         '#060a14',
+    edge:       'rgba(148, 163, 184, 0.35)',
+    edgeStroke: 'rgba(148, 163, 184, 0.6)',
+    vertex:     '#94a3b8',
+    tracked:    '#facc15',
+    trackedGlow:'rgba(250, 204, 21, 0.4)',
+    r1:         '#f472b6',
+    r1Glow:     'rgba(244, 114, 182, 0.15)',
+    r2:         '#38bdf8',
+    r2Glow:     'rgba(56, 189, 248, 0.15)',
+    label:      '#e2e8f0',
+    labelDim:   '#64748b',
+    fill:       'rgba(124, 138, 255, 0.04)',
+    fillStroke: 'rgba(124, 138, 255, 0.12)',
+};
+
+// ─── State ────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H, cx, cy, R;
+
+// Permutation of vertices (the current symmetry applied)
+let perm = [0, 1, 2, 3, 4]; // perm[i] = where vertex i is now
+
+// Animated vertex positions (angles)
+// baseAngles[i] = angle for vertex-slot i on the pentagon
+// currentAngles[i] = current visual angle for the vertex whose identity is vertexAt[i]
+let vertexIdentity = [0, 1, 2, 3, 4]; // which original vertex is at position i
+
+// Reflection visibility — start with both showing
+let showR1 = true;
+let showR2 = true;
+
+// Animation state
+let animating = false;
+let animStart = 0;
+let animFrom = [];    // starting angles for each slot
+let animTo = [];      // ending angles for each slot
+let animFromIdentity = [];
+let animToIdentity = [];
+let pendingCallback = null;
+
+// ─── Geometry ─────────────────────────────────────────────
+// Vertex slot i has angle: -PI/2 + i * TAU/5  (vertex 0 at top)
+function slotAngle(i) {
+    return -Math.PI / 2 + i * TAU / N;
+}
+
+function vertexPos(angle, radius) {
+    radius = radius || R;
+    return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
+}
+
+// Reflection through the axis passing through vertex k
+// Reflects slot positions: slot j -> slot (2k - j) mod N
+function reflectPerm(k) {
+    const result = new Array(N);
+    for (let j = 0; j < N; j++) {
+        result[j] = ((2 * k - j) % N + N) % N;
+    }
+    return result;
+}
+
+// Compose two permutations: first apply p, then q. Result[i] = q[p[i]]
+function composePerm(p, q) {
+    return p.map((_, i) => q[p[i]]);
+}
+
+// Apply a slot-level permutation to vertex identity
+function applySlotPermToIdentity(slotPerm, identity) {
+    const newIdentity = new Array(N);
+    for (let i = 0; i < N; i++) {
+        newIdentity[slotPerm[i]] = identity[i];
+    }
+    return newIdentity;
+}
+
+// ─── Reflections r_1 and r_2 ─────────────────────────────
+// r_1: reflection through the axis of vertex 0
+// r_2: reflection through the axis of vertex 1
+const R1_PERM = reflectPerm(0); // [0, 4, 3, 2, 1]
+const R2_PERM = reflectPerm(1); // [2, 1, 0, 4, 3]
+
+// ─── Drawing ──────────────────────────────────────────────
+function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cx = W / 2;
+    cy = H / 2;
+    R = Math.min(W, H) * 0.32;
+}
+
+function drawBackground() {
+    ctx.fillStyle = COL.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle radial glow
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 2);
+    grad.addColorStop(0, 'rgba(124, 138, 255, 0.03)');
+    grad.addColorStop(1, 'transparent');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+}
+
+function drawPentagon(angles, identity) {
+    // Fill
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+        const [x, y] = vertexPos(angles[i]);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = COL.fill;
+    ctx.fill();
+    ctx.strokeStyle = COL.fillStroke;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Edges
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+        const [x1, y1] = vertexPos(angles[i]);
+        const [x2, y2] = vertexPos(angles[(i + 1) % N]);
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+    }
+    ctx.strokeStyle = COL.edgeStroke;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Vertices
+    for (let i = 0; i < N; i++) {
+        const [x, y] = vertexPos(angles[i]);
+        const isTracked = identity[i] === 0;
+        const radius = isTracked ? 10 : 6;
+
+        if (isTracked) {
+            // Glow
+            ctx.beginPath();
+            ctx.arc(x, y, 18, 0, TAU);
+            ctx.fillStyle = COL.trackedGlow;
+            ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, TAU);
+        ctx.fillStyle = isTracked ? COL.tracked : COL.vertex;
+        ctx.fill();
+
+        if (isTracked) {
+            ctx.strokeStyle = 'rgba(250, 204, 21, 0.7)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Label
+        const labelR = R + 30;
+        const [lx, ly] = vertexPos(angles[i], labelR);
+        ctx.font = '500 13px "JetBrains Mono", monospace';
+        ctx.fillStyle = isTracked ? COL.tracked : COL.labelDim;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(identity[i].toString(), lx, ly);
+    }
+}
+
+function drawReflectionAxis(vertexIndex, color, glowColor, label) {
+    // Axis goes through vertex vertexIndex and the midpoint of the opposite edge
+    const angle = slotAngle(vertexIndex);
+    const ext = R * 1.55;
+    const [x1, y1] = [cx + ext * Math.cos(angle), cy + ext * Math.sin(angle)];
+    const [x2, y2] = [cx - ext * Math.cos(angle), cy - ext * Math.sin(angle)];
+
+    // Glow
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 8;
+    ctx.stroke();
+
+    // Line
+    ctx.beginPath();
+    ctx.setLineDash([8, 6]);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Label near the vertex end
+    const labelDist = ext + 22;
+    const lx = cx + labelDist * Math.cos(angle);
+    const ly = cy + labelDist * Math.sin(angle);
+    ctx.font = '600 15px "Inter", sans-serif';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, lx, ly);
+}
+
+function drawRotationArc(fromAngle, toAngle, color, label) {
+    const arcR = R * 0.55;
+    const startA = fromAngle;
+    const endA = toAngle;
+
+    ctx.beginPath();
+    if (endA > startA) {
+        ctx.arc(cx, cy, arcR, startA, endA);
+    } else {
+        ctx.arc(cx, cy, arcR, startA, endA);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Arrowhead
+    const arrowA = endA;
+    const ax = cx + arcR * Math.cos(arrowA);
+    const ay = cy + arcR * Math.sin(arrowA);
+    const tangent = endA > startA ? arrowA + Math.PI/2 : arrowA - Math.PI/2;
+    const aLen = 8;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - aLen * Math.cos(tangent - 0.4), ay - aLen * Math.sin(tangent - 0.4));
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - aLen * Math.cos(tangent + 0.4), ay - aLen * Math.sin(tangent + 0.4));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
+function getCurrentAngles() {
+    return vertexIdentity.map((_, i) => slotAngle(i));
+}
+
+function draw(t) {
+    let angles, identity;
+
+    if (animating && t !== undefined) {
+        const elapsed = t - animStart;
+        const progress = Math.min(elapsed / ANIM_DURATION, 1);
+        // Ease in-out cubic
+        const ease = progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+        angles = animFrom.map((from, i) => {
+            let to = animTo[i];
+            // Take shortest path around the circle
+            let diff = to - from;
+            while (diff > Math.PI) diff -= TAU;
+            while (diff < -Math.PI) diff += TAU;
+            return from + diff * ease;
+        });
+        identity = animFromIdentity; // Show the original labels during animation
+
+        if (progress >= 1) {
+            animating = false;
+            vertexIdentity = [...animToIdentity];
+            angles = animTo.map(a => a);
+            identity = vertexIdentity;
+            if (pendingCallback) {
+                const cb = pendingCallback;
+                pendingCallback = null;
+                setTimeout(cb, 50);
+                // Still draw this frame with final state
+            }
+        }
+    } else {
+        angles = getCurrentAngles();
+        identity = vertexIdentity;
+    }
+
+    drawBackground();
+
+    // Draw reflection axes
+    if (showR1) drawReflectionAxis(0, COL.r1, COL.r1Glow, 'r₁');
+    if (showR2) drawReflectionAxis(1, COL.r2, COL.r2Glow, 'r₂');
+
+    drawPentagon(angles, identity);
+}
+
+// ─── Animation ────────────────────────────────────────────
+function animateSlotPerm(slotPerm, callback) {
+    if (animating) return;
+
+    animFromIdentity = [...vertexIdentity];
+    animFrom = getCurrentAngles();
+    animToIdentity = applySlotPermToIdentity(slotPerm, vertexIdentity);
+    animTo = new Array(N);
+
+    // Each vertex at old slot i moves to new slot slotPerm[i]
+    // But we need to express this as: for new slot j, what angle?
+    // animTo[j] = slotAngle(j)  (destination positions are always the standard positions)
+    // But we need to animate: the vertex that ends up at slot j came from slot slotPerm^{-1}[j]
+    // So animFrom should be rearranged.
+
+    // Actually, let me think about this more carefully.
+    // We have N objects, each at a slot. slotPerm says slot i -> slot slotPerm[i].
+    // For animation: we want to show each object moving from its old position to its new position.
+    // After the permutation, the object that was at slot i is now at slot slotPerm[i].
+    // So object at position slotAngle(i) moves to slotAngle(slotPerm[i]).
+
+    // We'll animate by tracking all N objects.
+    // animFrom[i] = slotAngle(i) (where object i starts)
+    // animTo[i] = slotAngle(slotPerm[i]) (where object i ends)
+    // identity during animation = animFromIdentity (original labels at original positions)
+
+    for (let i = 0; i < N; i++) {
+        animFrom[i] = slotAngle(i);
+        animTo[i] = slotAngle(slotPerm[i]);
+    }
+
+    animating = true;
+    pendingCallback = callback || null;
+    animStart = performance.now();
+}
+
+// Modified draw to handle object-based animation
+function drawAnimated(t) {
+    let angles, identity;
+
+    if (animating) {
+        const elapsed = t - animStart;
+        const progress = Math.min(elapsed / ANIM_DURATION, 1);
+        const ease = progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+        // Compute interpolated angles for each object
+        const objAngles = animFrom.map((from, i) => {
+            let to = animTo[i];
+            let diff = to - from;
+            while (diff > Math.PI) diff -= TAU;
+            while (diff < -Math.PI) diff += TAU;
+            return from + diff * ease;
+        });
+
+        // Draw using object-based positions
+        drawBackground();
+        if (showR1) drawReflectionAxis(0, COL.r1, COL.r1Glow, 'r₁');
+        if (showR2) drawReflectionAxis(1, COL.r2, COL.r2Glow, 'r₂');
+        drawPentagonObjects(objAngles, animFromIdentity);
+
+        if (progress >= 1) {
+            animating = false;
+            vertexIdentity = [...animToIdentity];
+            updatePermDisplay();
+            if (pendingCallback) {
+                const cb = pendingCallback;
+                pendingCallback = null;
+                setTimeout(cb, 50);
+            }
+        }
+    } else {
+        drawBackground();
+        if (showR1) drawReflectionAxis(0, COL.r1, COL.r1Glow, 'r₁');
+        if (showR2) drawReflectionAxis(1, COL.r2, COL.r2Glow, 'r₂');
+        drawPentagonSlots(vertexIdentity);
+    }
+
+    requestAnimationFrame(drawAnimated);
+}
+
+// Draw pentagon using slot positions (static state)
+function drawPentagonSlots(identity) {
+    const angles = identity.map((_, i) => slotAngle(i));
+
+    // Fill
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+        const [x, y] = vertexPos(angles[i]);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = COL.fill;
+    ctx.fill();
+    ctx.strokeStyle = COL.fillStroke;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Edges
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+        const [x1, y1] = vertexPos(angles[i]);
+        const [x2, y2] = vertexPos(angles[(i + 1) % N]);
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+    }
+    ctx.strokeStyle = COL.edgeStroke;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Vertices
+    for (let i = 0; i < N; i++) {
+        drawVertex(angles[i], identity[i]);
+    }
+}
+
+// Draw pentagon using per-object angles (animated)
+function drawPentagonObjects(objAngles, identity) {
+    // objAngles[i] = angle for the object that was at slot i
+    // identity[i] = which original vertex is at slot i
+
+    // Draw edges: connect adjacent objects by their slot order?
+    // Actually edges connect slot-adjacent vertices. During animation,
+    // the object from slot i is heading to its new slot. Let's connect them in slot order.
+    // That means edge from object i to object (i+1)%N.
+
+    // Fill polygon using current object positions, connected in slot order
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+        const [x, y] = vertexPos(objAngles[i]);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = COL.fill;
+    ctx.fill();
+    ctx.strokeStyle = COL.fillStroke;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Edges
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+        const [x1, y1] = vertexPos(objAngles[i]);
+        const [x2, y2] = vertexPos(objAngles[(i + 1) % N]);
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+    }
+    ctx.strokeStyle = COL.edgeStroke;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Vertices
+    for (let i = 0; i < N; i++) {
+        drawVertex(objAngles[i], identity[i]);
+    }
+}
+
+function drawVertex(angle, id) {
+    const [x, y] = vertexPos(angle);
+    const isTracked = id === 0;
+    const radius = isTracked ? 10 : 6;
+
+    if (isTracked) {
+        ctx.beginPath();
+        ctx.arc(x, y, 18, 0, TAU);
+        ctx.fillStyle = COL.trackedGlow;
+        ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, TAU);
+    ctx.fillStyle = isTracked ? COL.tracked : COL.vertex;
+    ctx.fill();
+
+    if (isTracked) {
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    const labelR = R + 30;
+    const [lx, ly] = vertexPos(angle, labelR);
+    ctx.font = '500 13px "JetBrains Mono", monospace';
+    ctx.fillStyle = isTracked ? COL.tracked : COL.labelDim;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(id.toString(), lx, ly);
+}
+
+// ─── User actions ─────────────────────────────────────────
+function toggleReflection(which) {
+    if (which === 0) {
+        showR1 = !showR1;
+        document.getElementById('btn-r1').classList.toggle('active', showR1);
+    } else {
+        showR2 = !showR2;
+        document.getElementById('btn-r2').classList.toggle('active', showR2);
+    }
+}
+
+function applyReflection(which) {
+    if (animating) return;
+    const slotPerm = which === 0 ? R1_PERM : R2_PERM;
+    animateSlotPerm(slotPerm);
+    showCompBox(
+        which === 0 ? '\\(r_1\\)' : '\\(r_2\\)',
+        'Reflection — an involution (applying it twice returns to the start).'
+    );
+}
+
+function applyComposition(first, second) {
+    if (animating) return;
+    const firstPerm = first === 0 ? R1_PERM : R2_PERM;
+    const secondPerm = second === 0 ? R1_PERM : R2_PERM;
+    const firstName = first === 0 ? 'r_1' : 'r_2';
+    const secondName = second === 0 ? 'r_1' : 'r_2';
+
+    // Apply first, then second (function composition: second ∘ first)
+    animateSlotPerm(firstPerm, () => {
+        animateSlotPerm(secondPerm);
+    });
+
+    // Compute net rotation
+    const composed = composePerm(firstPerm, secondPerm);
+    const rotSlots = composed[0]; // vertex 0 moves to this slot
+    // Determine rotation angle — take the shorter interpretation
+    let rotDeg = rotSlots * 360 / N;
+    let rotDir;
+    if (rotSlots <= N / 2) {
+        // counterclockwise (positive direction on screen = clockwise visually, but
+        // mathematically positive = counterclockwise)
+        rotDeg = rotSlots * 360 / N;
+        rotDir = 'counterclockwise';
+    } else {
+        rotDeg = (N - rotSlots) * 360 / N;
+        rotDir = 'clockwise';
+    }
+
+    showCompBox(
+        `\\(${secondName} \\circ ${firstName}\\)`,
+        `= rotation by ${rotDeg}° ${rotDir}`
+    );
+}
+
+function showCompBox(expr, result) {
+    const box = document.getElementById('comp-box');
+    box.style.display = 'block';
+    document.getElementById('comp-expr').innerHTML = expr;
+    document.getElementById('comp-result').textContent = result;
+    if (window.MathJax && MathJax.typesetPromise) {
+        MathJax.typesetPromise([document.getElementById('comp-expr')]);
+    }
+}
+
+function resetPentagon() {
+    if (animating) return;
+    vertexIdentity = [0, 1, 2, 3, 4];
+    updatePermDisplay();
+    document.getElementById('comp-box').style.display = 'none';
+}
+
+function updatePermDisplay() {
+    const el = document.getElementById('perm-display');
+    // Show where each vertex went: vertex i is now at the slot where vertexIdentity[slot] == i
+    // vertexIdentity[slot] = original vertex at that slot
+    // So to find where original vertex v is: find slot s where vertexIdentity[s] === v
+    const positions = [];
+    for (let v = 0; v < N; v++) {
+        const slot = vertexIdentity.indexOf(v);
+        positions.push(slot);
+    }
+    el.textContent = `[${positions.join(', ')}]`;
+}
+
+// ─── Init ─────────────────────────────────────────────────
+function init() {
+    resize();
+    window.addEventListener('resize', resize);
+    updatePermDisplay();
+    requestAnimationFrame(drawAnimated);
+}
+
+// Expose to global scope for onclick handlers
+window.toggleReflection = toggleReflection;
+window.applyReflection = applyReflection;
+window.applyComposition = applyComposition;
+window.resetPentagon = resetPentagon;
+
+init();
+</script>
+</body>
+</html>

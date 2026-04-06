@@ -28,6 +28,7 @@ class DiskTreeViz {
 
         this.nodeColor = 'hsl(220, 80%, 65%)';
         this.colorMode = 'uniform'; // 'uniform' | 'regions'
+        this.decompState = { active: false, progress: 0, target: 0 };
 
         // Nodes: each has a fixed reference position and a current display position
         this.nodes = [];
@@ -186,7 +187,7 @@ class DiskTreeViz {
     }
 
     applyTranslation(transFn, axisType) {
-        if (this.animating) return;
+        if (this.animating || this.decompState.active) return;
 
         this.ephemeral = [];
         const usedTargets = new Set();
@@ -256,6 +257,7 @@ class DiskTreeViz {
         this.ephemeral = [];
         this.animating = false;
         this.view = { x: 0, y: 0, scale: 0.9, rotation: 0 };
+        this.decompState = { active: false, progress: 0, target: 0 };
     }
 
     setDepth(d) {
@@ -267,6 +269,44 @@ class DiskTreeViz {
 
     triggerPulse() {
         this.pulseTime = -1.5;
+    }
+
+    toggleDecompose() {
+        if (this.animating) return;
+        if (!this.decompState.active) {
+            const scale = 0.45;
+            const leftOff = -0.55;
+            const rightOff = 0.55;
+            for (const node of this.nodes) {
+                const rb = node.rootBranch;
+                if (rb === -1) {
+                    node.decompX = 0;
+                    node.decompY = 0;
+                } else if (rb === 0) {
+                    node.decompX = node.refX * scale + leftOff;
+                    node.decompY = node.refY * scale;
+                } else if (rb === 2) {
+                    const newAddr = DiskTreeViz.translateRightAddr(node.addr);
+                    const newPos = this.getAddrPos(newAddr);
+                    node.decompX = newPos.x * scale + leftOff;
+                    node.decompY = newPos.y * scale;
+                } else if (rb === 1) {
+                    node.decompX = node.refX * scale + rightOff;
+                    node.decompY = node.refY * scale;
+                } else if (rb === 3) {
+                    const newAddr = DiskTreeViz.translateUpAddr(node.addr);
+                    const newPos = this.getAddrPos(newAddr);
+                    node.decompX = newPos.x * scale + rightOff;
+                    node.decompY = newPos.y * scale;
+                }
+            }
+            this.decompState.active = true;
+            this.decompState.target = 1;
+        } else if (this.decompState.target === 1) {
+            this.decompState.target = 0;
+        } else {
+            this.decompState.target = 1;
+        }
     }
 
     // ════════════════════════════════════════
@@ -364,17 +404,34 @@ class DiskTreeViz {
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // Decompose progress
+        let dp = 0;
+        if (this.decompState.active) {
+            const diff = this.decompState.target - this.decompState.progress;
+            if (Math.abs(diff) > 0.001) {
+                this.decompState.progress += Math.sign(diff) * 0.015;
+                this.decompState.progress = Math.max(0, Math.min(1, this.decompState.progress));
+            } else {
+                this.decompState.progress = this.decompState.target;
+                if (this.decompState.target === 0) {
+                    this.decompState.active = false;
+                    this.nodes.forEach(n => { n.x = n.refX; n.y = n.refY; });
+                }
+            }
+            dp = this.easeInOut(this.decompState.progress);
+        }
+
         // Disk boundary
         const bc = this.diskToScreen(0, 0);
         const br = this.radius * this.view.scale;
         ctx.beginPath();
         ctx.arc(bc.x, bc.y, br, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(124, 138, 255, 0.12)';
+        ctx.strokeStyle = `rgba(124, 138, 255, ${0.12 * (1 - dp)})`;
         ctx.lineWidth = 1.5;
         ctx.stroke();
         const dg = ctx.createRadialGradient(bc.x, bc.y, 0, bc.x, bc.y, br);
-        dg.addColorStop(0, 'rgba(124, 138, 255, 0.03)');
-        dg.addColorStop(1, 'rgba(124, 138, 255, 0.005)');
+        dg.addColorStop(0, `rgba(124, 138, 255, ${0.03 * (1 - dp)})`);
+        dg.addColorStop(1, `rgba(124, 138, 255, ${0.005 * (1 - dp)})`);
         ctx.fillStyle = dg;
         ctx.fill();
 
@@ -393,6 +450,11 @@ class DiskTreeViz {
         if (this.animating) {
             this.nodes.forEach(n => this._interpolate(n, t));
             this.ephemeral.forEach(e => this._interpolate(e, t));
+        } else if (dp > 0) {
+            this.nodes.forEach(n => {
+                n.x = n.refX + (n.decompX - n.refX) * dp;
+                n.y = n.refY + (n.decompY - n.refY) * dp;
+            });
         }
 
         // Pulse: advance wavefront
@@ -421,12 +483,35 @@ class DiskTreeViz {
         });
 
         if (isRegions) {
-            // Group edges by level AND rootBranch for per-region coloring
             for (let l in levels) {
                 const lv = parseInt(l);
                 const pv = pulseFn(lv);
                 const lw = Math.max(0.4, (2.5 - lv * 0.3) * this.view.scale) * (1 + pv * 0.6);
                 if (lw < 0.2) continue;
+
+                // Level 1: white-to-color gradient half-edges, fade during decompose
+                if (lv === 1) {
+                    const decompFade = 1 - dp;
+                    if (decompFade < 0.01) continue;
+                    levels[l].forEach(({ parent, node }) => {
+                        const sa = this.diskToScreen(parent.x, parent.y);
+                        const sb = this.diskToScreen(node.x, node.y);
+                        const rc = DiskTreeViz.REGION_COLORS[node.rootBranch];
+                        if (!rc) return;
+                        const opacity = Math.min(1, Math.max(0.15, 0.6) + pv * 0.5) * decompFade;
+                        const grad = ctx.createLinearGradient(sa.x, sa.y, sb.x, sb.y);
+                        grad.addColorStop(0, `rgba(255, 255, 255, ${opacity})`);
+                        grad.addColorStop(1, `hsla(${rc.h}, ${rc.s}%, ${Math.min(90, rc.l + pv * 25)}%, ${opacity})`);
+                        ctx.beginPath();
+                        ctx.strokeStyle = grad;
+                        ctx.lineWidth = lw;
+                        this.drawEdge(ctx, parent.x, parent.y, node.x, node.y);
+                        ctx.stroke();
+                    });
+                    continue;
+                }
+
+                // Other levels: normal branch-colored edges
                 ctx.lineWidth = lw;
                 const byBranch = {};
                 levels[l].forEach(e => {
@@ -445,6 +530,31 @@ class DiskTreeViz {
                     });
                     ctx.stroke();
                 }
+            }
+
+            // Synthetic edges for decompose (connect transformed roots to their new branches)
+            if (dp > 0.01) {
+                const synthOpacity = dp * 0.6;
+                const synthLw = Math.max(0.4, 2.2 * this.view.scale);
+                [
+                    { fromAddr: '2', toAddr: '0', color: DiskTreeViz.REGION_COLORS[0] },
+                    { fromAddr: '3', toAddr: '1', color: DiskTreeViz.REGION_COLORS[1] },
+                ].forEach(({ fromAddr, toAddr, color }) => {
+                    const fi = this.addrMap.get(fromAddr);
+                    const ti = this.addrMap.get(toAddr);
+                    if (fi == null || ti == null) return;
+                    const fn = this.nodes[fi], tn = this.nodes[ti];
+                    const sa = this.diskToScreen(fn.x, fn.y);
+                    const sb = this.diskToScreen(tn.x, tn.y);
+                    const grad = ctx.createLinearGradient(sa.x, sa.y, sb.x, sb.y);
+                    grad.addColorStop(0, `rgba(255, 255, 255, ${synthOpacity})`);
+                    grad.addColorStop(1, `hsla(${color.h}, ${color.s}%, ${color.l}%, ${synthOpacity})`);
+                    ctx.beginPath();
+                    ctx.strokeStyle = grad;
+                    ctx.lineWidth = synthLw;
+                    this.drawEdge(ctx, fn.x, fn.y, tn.x, tn.y);
+                    ctx.stroke();
+                });
             }
         } else {
             for (let l in levels) {
@@ -484,7 +594,12 @@ class DiskTreeViz {
             const rb = node.rootBranch;
             const rc = (isRegions && rb >= 0) ? DiskTreeViz.REGION_COLORS[rb] : null;
             let nodeCSS, nodeHSLA;
-            if (rc) {
+            if (isRegions && rb === -1) {
+                // Root node: white in regions mode
+                const lightness = Math.round(90 + pv * 10);
+                nodeCSS = `hsl(0, 0%, ${lightness}%)`;
+                nodeHSLA = `hsla(0, 0%, ${lightness}%, ${0.15 + pv * 0.2})`;
+            } else if (rc) {
                 const lightness = Math.min(90, rc.l + pv * 25);
                 nodeCSS = `hsl(${rc.h}, ${rc.s}%, ${lightness}%)`;
                 nodeHSLA = `hsla(${rc.h}, ${rc.s}%, ${lightness}%, ${0.12 + pv * 0.2})`;
