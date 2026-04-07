@@ -115,7 +115,9 @@ function handleCommand(cmd) {
         case 'padic-reset':
         case 'padic-color':
         case 'padic-decompose':
-        case 'padic-fold': {
+        case 'padic-fold':
+        case 'padic-rplus':
+        case 'padic-rminus': {
             const padicIframe = document.getElementById('padic-iframe');
             if (padicIframe) {
                 const msg = cmd.replace('padic-', '');
