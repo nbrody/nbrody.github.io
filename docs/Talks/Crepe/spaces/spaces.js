@@ -332,6 +332,34 @@
         const R = Math.min(w, h) * 0.34;
         const t = time * 0.0003;
 
+        // Rotation around Y
+        const cosR = Math.cos(t), sinR = Math.sin(t);
+
+        function project3d(v) {
+            // Unpack v as [x, y, z] of length 1
+            const x3d = v[0] * R, y3d = v[1] * R, z3d = v[2] * R;
+            // Apply Y rotation
+            const rx = x3d * cosR - z3d * sinR;
+            const rz = x3d * sinR + z3d * cosR;
+            // Perspective sc
+            const sc = 1 / (1 + rz / (R * 3));
+            return { x: cx + rx * sc, y: cy - y3d * sc, z: rz };
+        }
+
+        function slerp(v1, v2, f) {
+            const dot = Math.max(-1, Math.min(1, v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]));
+            const omega = Math.acos(dot);
+            if (omega < 0.001) return v1;
+            const sinO = Math.sin(omega);
+            const a = Math.sin((1 - f) * omega) / sinO;
+            const b = Math.sin(f * omega) / sinO;
+            return [
+                a * v1[0] + b * v2[0],
+                a * v1[1] + b * v2[1],
+                a * v1[2] + b * v2[2]
+            ];
+        }
+
         // Ambient glow
         const glow = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 1.4);
         glow.addColorStop(0, 'rgba(124,138,255,0.06)'); glow.addColorStop(1, 'transparent');
@@ -354,62 +382,75 @@
             const latRad = lat * Math.PI / 180;
             const ry = R * Math.cos(latRad);
             const yOff = R * Math.sin(latRad);
-            ctx.beginPath(); ctx.ellipse(cx, cy - yOff, ry, ry * 0.3, t, 0, TAU); ctx.stroke();
-        }
-
-        // Equator
-        ctx.strokeStyle = 'rgba(124,138,255,0.25)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.ellipse(cx, cy, R, R * 0.3, t, 0, TAU); ctx.stroke();
-
-        // Meridians
-        ctx.strokeStyle = 'rgba(124,138,255,0.1)'; ctx.lineWidth = 0.7;
-        for (let lon = 0; lon < 180; lon += 30) {
-            const lonRad = lon * Math.PI / 180 + t;
+            // These stay elliptical for simplicity, adjusted by perspective
             ctx.beginPath();
-            for (let lat = -90; lat <= 90; lat += 3) {
-                const latRad = lat * Math.PI / 180;
-                const x3d = R * Math.cos(latRad) * Math.cos(lonRad);
-                const y3d = R * Math.sin(latRad);
-                const z3d = R * Math.cos(latRad) * Math.sin(lonRad);
-                const proj = 1 / (1 + z3d / (R * 3));
-                const sx = cx + x3d * proj;
-                const sy = cy - y3d * proj;
-                if (lat === -90) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+            for (let lon = 0; lon <= 360; lon += 5) {
+                const lonRad = lon * Math.PI / 180;
+                const v = [Math.cos(latRad) * Math.cos(lonRad), Math.sin(latRad), Math.cos(latRad) * Math.sin(lonRad)];
+                const p = project3d(v);
+                if (lon === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
             }
             ctx.stroke();
         }
 
-        // Animated great-circle points
-        function sphereProject(phi, theta) {
-            const x3d = R * Math.sin(theta) * Math.cos(phi);
-            const y3d = R * Math.cos(theta);
-            const z3d = R * Math.sin(theta) * Math.sin(phi);
-            const cr = Math.cos(t), sr = Math.sin(t);
-            const rx = x3d * cr - z3d * sr;
-            const rz = x3d * sr + z3d * cr;
-            const sc = 1 / (1 + rz / (R * 3));
-            return { x: cx + rx * sc, y: cy - y3d * sc, z: rz };
+        // Meridians
+        ctx.strokeStyle = 'rgba(124,138,255,0.1)'; ctx.lineWidth = 0.7;
+        for (let lon = 0; lon < 360; lon += 30) {
+            const lonRad = lon * Math.PI / 180;
+            ctx.beginPath();
+            for (let lat = -90; lat <= 90; lat += 5) {
+                const latRad = lat * Math.PI / 180;
+                const v = [Math.cos(latRad) * Math.cos(lonRad), Math.sin(latRad), Math.cos(latRad) * Math.sin(lonRad)];
+                const p = project3d(v);
+                if (lat === -90) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
         }
 
-        const p1 = sphereProject(t * 1.3, Math.PI * 0.35);
-        const p2 = sphereProject(t * 0.9 + 2, Math.PI * 0.6);
+        // Points
+        const v1 = [
+            Math.sin(Math.PI * 0.35) * Math.cos(t * 1.3),
+            Math.cos(Math.PI * 0.35),
+            Math.sin(Math.PI * 0.35) * Math.sin(t * 1.3)
+        ];
+        const v2 = [
+            Math.sin(Math.PI * 0.6) * Math.cos(t * 0.9 + 2),
+            Math.cos(Math.PI * 0.6),
+            Math.sin(Math.PI * 0.6) * Math.sin(t * 0.9 + 2)
+        ];
 
-        // Great-circle arc
-        ctx.strokeStyle = 'rgba(45,212,191,0.4)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+        const p1 = project3d(v1);
+        const p2 = project3d(v2);
+
+        // Geodesic Arc (Great Circle)
+        const dot = Math.max(-1, Math.min(1, v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]));
+        const omega = Math.acos(dot);
+
+        ctx.strokeStyle = C.teal; ctx.lineWidth = 2.5; ctx.setLineDash([5, 4]);
         ctx.beginPath();
-        for (let i = 0; i <= 30; i++) {
-            const frac = i / 30;
-            const phi = t * 1.3 + ((t * 0.9 + 2) - t * 1.3) * frac;
-            const theta = Math.PI * 0.35 + (Math.PI * 0.6 - Math.PI * 0.35) * frac;
-            const p = sphereProject(phi, theta);
+        for (let i = 0; i <= 40; i++) {
+            const p = project3d(slerp(v1, v2, i / 40));
             if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
         }
-        ctx.stroke(); ctx.setLineDash([]);
+        ctx.stroke();
+        ctx.setLineDash([]);
 
-        if (p1.z > 0) drawGlowDot(ctx, p1.x, p1.y, 6, C.teal);
-        else drawGlowDot(ctx, p1.x, p1.y, 3, 'rgba(45,212,191,0.3)');
-        if (p2.z > 0) drawGlowDot(ctx, p2.x, p2.y, 6, C.rose);
-        else drawGlowDot(ctx, p2.x, p2.y, 3, 'rgba(244,114,182,0.3)');
+        // Distance Label
+        ctx.fillStyle = C.teal;
+        ctx.font = '600 13px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        const vMid = slerp(v1, v2, 0.5);
+        const pMid = project3d(vMid);
+        if (pMid.z < R * 0.5) { // Only show label when roughly in front
+            ctx.fillText(`d = ${omega.toFixed(2)}`, pMid.x, pMid.y - 12);
+        }
+
+        // Draw points with back-side dimming
+        if (p1.z < R * 0.8) drawGlowDot(ctx, p1.x, p1.y, 7, C.accent);
+        else drawGlowDot(ctx, p1.x, p1.y, 3, C.dim);
+
+        if (p2.z < R * 0.8) drawGlowDot(ctx, p2.x, p2.y, 7, C.rose);
+        else drawGlowDot(ctx, p2.x, p2.y, 3, C.dim);
     }
 
     /* ──────────────────────────────────────────────────────

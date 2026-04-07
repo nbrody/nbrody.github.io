@@ -51,37 +51,19 @@ function handleCommand(cmd) {
     switch (cmd) {
         case 'next':
         case 'smartNext': {
-            const activeSection = document.querySelector('.section.active');
-            const slides = activeSection.querySelectorAll('.slide');
-            const activeSlide = activeSection.querySelector('.slide.active') || slides[0];
-
-            if (slides.length > 0) {
-                const activeIndex = Array.from(slides).indexOf(activeSlide);
-                if (activeIndex < slides.length - 1) {
-                    api.moveSlideRight();
-                } else {
-                    api.moveSectionDown();
-                }
+            if (window.smartNext) {
+                window.smartNext();
             } else {
-                api.moveSectionDown();
+                api.moveSlideRight();
             }
             break;
         }
         case 'prev':
         case 'smartPrev': {
-            const activeSection = document.querySelector('.section.active');
-            const slides = activeSection.querySelectorAll('.slide');
-            const activeSlide = activeSection.querySelector('.slide.active') || slides[0];
-
-            if (slides.length > 0) {
-                const activeIndex = Array.from(slides).indexOf(activeSlide);
-                if (activeIndex > 0) {
-                    api.moveSlideLeft();
-                } else {
-                    api.moveSectionUp();
-                }
+            if (window.smartPrev) {
+                window.smartPrev();
             } else {
-                api.moveSectionUp();
+                api.moveSlideLeft();
             }
             break;
         }

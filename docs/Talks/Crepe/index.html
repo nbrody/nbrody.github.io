@@ -473,53 +473,30 @@
                 anchors: ['title', 'space', 'symmetries', 'quotients', 'infinity', 'paradox', 'conclusions'],
                 slidesNavigation: true,
                 controlArrows: true,
-                keyboardScrolling: true,
+                keyboardScrolling: false,
                 animateAnchor: true,
                 scrollingSpeed: 1000,
                 scrollBar: false,
                 scrollOverflow: false,
 
-                onLeave: function (origin, destination, direction, trigger) {
-                    const isSequential = ['wheel', 'keydown', 'keyboard', 'touchmark', 'swipe', 'drag'].includes(trigger) || window.isRemoteAction;
-                    const activeSlide = origin.item.querySelector('.slide.active') || origin.item;
-
-                    if (isSequential && direction === 'down') {
-                        const fragments = activeSlide.querySelectorAll('.fragment:not(.visible)');
-                        if (fragments.length > 0) {
-                            fragments[0].classList.add('visible');
-                            return false;
-                        }
-                    }
-
-                    const destSlide = destination.item.querySelector('.slide.active') || destination.item.querySelector('.slide') || destination.item;
-                    if (!isSequential || direction === 'down') {
-                        destSlide.querySelectorAll('.fragment').forEach(f => {
-                            if (!isSequential) f.classList.add('visible');
-                            else f.classList.remove('visible');
-                        });
+                onLeave: function (origin, destination, direction) {
+                    // When moving DOWN: reset fragments on destination's first slide
+                    // When moving UP: show all fragments on destination's last slide
+                    var destSlides = destination.item.querySelectorAll('.slide');
+                    if (direction === 'down') {
+                        var first = destSlides.length > 0 ? destSlides[0] : destination.item;
+                        first.querySelectorAll('.fragment').forEach(function(f) { f.classList.remove('visible'); });
                     } else if (direction === 'up') {
-                        destSlide.querySelectorAll('.fragment').forEach(f => f.classList.add('visible'));
+                        var last = destSlides.length > 0 ? destSlides[destSlides.length - 1] : destination.item;
+                        last.querySelectorAll('.fragment').forEach(function(f) { f.classList.add('visible'); });
                     }
                 },
 
-                onSlideLeave: function (section, origin, destination, direction, trigger) {
-                    const isSequential = ['keydown', 'keyboard', 'wheel', 'touch', 'drag', 'swipe'].includes(trigger) || window.isRemoteAction;
-
-                    if (isSequential && direction === 'right') {
-                        const fragments = origin.item.querySelectorAll('.fragment:not(.visible)');
-                        if (fragments.length > 0) {
-                            fragments[0].classList.add('visible');
-                            return false;
-                        }
-                    }
-
-                    if (direction === 'right' || !isSequential) {
-                        destination.item.querySelectorAll('.fragment').forEach(f => {
-                            if (!isSequential) f.classList.add('visible');
-                            else f.classList.remove('visible');
-                        });
-                    } else if (direction === 'left' && isSequential) {
-                        destination.item.querySelectorAll('.fragment').forEach(f => f.classList.add('visible'));
+                onSlideLeave: function (section, origin, destination, direction) {
+                    if (direction === 'right') {
+                        destination.item.querySelectorAll('.fragment').forEach(function(f) { f.classList.remove('visible'); });
+                    } else if (direction === 'left') {
+                        destination.item.querySelectorAll('.fragment').forEach(function(f) { f.classList.add('visible'); });
                     }
                 },
 
@@ -651,44 +628,68 @@
                 }
             });
 
-            // ── Cross-section boundary navigation ──
-            // When on the last slide of a section and pressing right/down,
-            // move to the next section. Vice-versa for first slide + left/up.
-            function isLastSlide() {
+            // ── Unified linear navigation ──
+            // smartNext: fragments → slide right → section down
+            // smartPrev: slide left → section up (landing on last slide)
+            function smartNext() {
                 var section = document.querySelector('.fp-section.active');
                 var slides = section.querySelectorAll('.slide');
-                if (slides.length <= 1) return false; // single-slide sections use normal vertical nav
-                var active = section.querySelector('.slide.active');
-                return active === slides[slides.length - 1];
-            }
-            function isFirstSlide() {
-                var section = document.querySelector('.fp-section.active');
-                var slides = section.querySelectorAll('.slide');
-                if (slides.length <= 1) return false;
-                var active = section.querySelector('.slide.active');
-                return active === slides[0];
-            }
-            function hasUnrevealedFragments() {
-                var section = document.querySelector('.fp-section.active');
                 var active = section.querySelector('.slide.active') || section;
-                return active.querySelectorAll('.fragment:not(.visible)').length > 0;
-            }
 
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'ArrowRight' || e.key === ' ') {
-                    if (isLastSlide() && !hasUnrevealedFragments()) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        fullpage_api.moveSectionDown();
-                    }
-                } else if (e.key === 'ArrowLeft') {
-                    if (isFirstSlide()) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        fullpage_api.moveSectionUp();
+                // 1. Reveal next fragment
+                var fragments = active.querySelectorAll('.fragment:not(.visible)');
+                if (fragments.length > 0) {
+                    fragments[0].classList.add('visible');
+                    return;
+                }
+
+                // 2. Move to next slide within section
+                if (slides.length > 0) {
+                    var idx = Array.from(slides).indexOf(active);
+                    if (idx < slides.length - 1) {
+                        fullpage_api.moveSlideRight();
+                        return;
                     }
                 }
-            }, true); // capture phase — runs before fullpage's listener
+
+                // 3. Move to next section
+                fullpage_api.moveSectionDown();
+            }
+
+            function smartPrev() {
+                var section = document.querySelector('.fp-section.active');
+                var slides = section.querySelectorAll('.slide');
+                var active = section.querySelector('.slide.active') || slides[0];
+
+                // 1. Move to previous slide within section
+                if (slides.length > 0) {
+                    var idx = Array.from(slides).indexOf(active);
+                    if (idx > 0) {
+                        fullpage_api.moveSlideLeft();
+                        return;
+                    }
+                }
+
+                // 2. Move to previous section
+                fullpage_api.moveSectionUp();
+            }
+
+            // Expose globally for remote.js
+            window.smartNext = smartNext;
+            window.smartPrev = smartPrev;
+
+            // Keyboard: capture phase to override fullPage defaults
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    smartNext();
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    smartPrev();
+                }
+            }, true);
         });
     </script>
 
