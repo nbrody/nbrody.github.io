@@ -831,6 +831,7 @@ class App {
             else if (e.data === 'prev') this.goTo(this.step - 1);
             else if (e.data === 'plus1') this.diskView.triggerPlusOne();
             else if (e.data === 'auto') $('btn-auto').click();
+            else if (typeof e.data === 'object' && e.data.type === 'goTo') this.goTo(e.data.step);
         });
     }
 

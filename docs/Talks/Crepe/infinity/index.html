@@ -481,6 +481,12 @@
             applyStep();
         }
 
+        function goToStep(n) {
+            if (n < 0 || n >= TOTAL_STEPS) return;
+            currentStep = n;
+            applyStep();
+        }
+
         function applyStep() {
             updateNav();
 
@@ -906,28 +912,10 @@
             const isEmbed = document.body.classList.contains('embed');
 
             if (hash === 'double') {
-                currentStep = 3; // start on single list
+                currentStep = 3;
                 applyStep();
-                if (isEmbed) {
-                    // Auto-play the doubling animation sequence
-                    let delay = 0;
-                    const sequence = [
-                        { step: 4, wait: 1200 },
-                        { step: 5, wait: 1000 },
-                        { step: 6, wait: 1500 },
-                        { step: 7, wait: 1500 }
-                    ];
-                    for (let s of sequence) {
-                        delay += s.wait;
-                        setTimeout(() => { currentStep = s.step; applyStep(); }, delay);
-                    }
-                }
             } else {
                 updateNav();
-                if (isEmbed) {
-                    // Auto-play the vanishing animation after a short delay
-                    setTimeout(() => { currentStep = 1; applyStep(); }, 1500);
-                }
             }
 
             requestAnimationFrame(loop);
@@ -936,6 +924,13 @@
         window.addEventListener('resize', () => {
             initVanish();
             initDouble();
+        });
+
+        // postMessage nav (for iframe embedding)
+        window.addEventListener('message', function(e) {
+            if (e.data === 'next' || e.data === 'right') nextStep();
+            else if (e.data === 'prev' || e.data === 'left') prevStep();
+            else if (typeof e.data === 'object' && e.data.type === 'goTo') goToStep(e.data.step);
         });
     </script>
 </body>

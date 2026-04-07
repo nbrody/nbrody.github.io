@@ -109,6 +109,20 @@ function handleCommand(cmd) {
             }
             break;
         }
+        // p-adic Tree remote commands → forwarded to the padic overlay iframe
+        case 'padic-a':
+        case 'padic-b':
+        case 'padic-reset':
+        case 'padic-color':
+        case 'padic-decompose':
+        case 'padic-fold': {
+            const padicIframe = document.getElementById('padic-iframe');
+            if (padicIframe) {
+                const msg = cmd.replace('padic-', '');
+                padicIframe.contentWindow.postMessage(msg, '*');
+            }
+            break;
+        }
     }
 
     // Reset the flag after a short delay to allow the event to propagate
@@ -167,6 +181,11 @@ function updateRemoteUI(state) {
     const dihedralDiv = document.getElementById('dihedral-controls');
     if (dihedralDiv) {
         dihedralDiv.style.display = state.isDihedral ? 'grid' : 'none';
+    }
+
+    const padicDiv = document.getElementById('padic-controls');
+    if (padicDiv) {
+        padicDiv.style.display = state.isPadic ? 'grid' : 'none';
     }
 }
 
@@ -263,11 +282,13 @@ window.syncRemoteState = function (isDihedral) {
     const activeSection = document.querySelector('.section.active');
     const activeSlide = activeSection.querySelector('.slide.active') || activeSection;
     const hasViz = !!activeSlide.querySelector('iframe');
+    const isPadic = activeSlide.hasAttribute('data-padic-step');
 
     updateRemoteState({
         hasViz: hasViz,
         isPlaying: window.isVizPlaying || false,
-        isDihedral: isDihedral || false
+        isDihedral: isDihedral || false,
+        isPadic: isPadic
     });
 };
 

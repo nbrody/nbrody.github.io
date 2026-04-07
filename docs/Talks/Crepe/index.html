@@ -75,7 +75,10 @@
         /* Full-screen overlay iframes */
         #torus-overlay iframe,
         #tree-overlay iframe,
-        #rotation-overlay iframe {
+        #rotation-overlay iframe,
+        #infinity-overlay iframe,
+        #padic-overlay iframe,
+        #solenoid-overlay iframe {
             width: 100% !important;
             height: 100% !important;
             border: none !important;
@@ -108,6 +111,28 @@
                         Crepe Place &middot; April 6 2026</p>
                     <button class="present-btn" onclick="startPresentation()"
                         style="margin-top: 1rem; padding: 0.6rem 2rem; font-size: 0.75rem;">Present</button>
+                </div>
+
+                <div class="animate-up" style="position: absolute; bottom: 30px; right: 40px; text-align: center;">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://nbrody.github.io/Talks/Crepe/&bgcolor=060a14&color=ffffff&margin=5"
+                        alt="Join the presentation"
+                        style="border: 1px solid var(--border); border-radius: 12px; width: 90px; height: 90px; margin-bottom: 5px;">
+                    <p
+                        style="font-size: 0.7rem; color: var(--text-muted); margin: 0; font-weight: 500; letter-spacing: 0.05em;">
+                        FOLLOW ALONG</p>
+                </div>
+            </div>
+
+            <!-- Table of Contents -->
+            <div class="slide" data-anchor="toc">
+                <div class="content-box animate-up" style="max-width: 700px;">
+                    <h2 class="slide-title">Outline</h2>
+                    <p class="fragment" style="font-size: 1.3rem; margin: 0.6rem 0;">0. Warmup</p>
+                    <p class="fragment" style="font-size: 1.3rem; margin: 0.6rem 0;">1. Space</p>
+                    <p class="fragment" style="font-size: 1.3rem; margin: 0.6rem 0;">2. Symmetries</p>
+                    <p class="fragment" style="font-size: 1.3rem; margin: 0.6rem 0;">3. Quotients</p>
+                    <p class="fragment" style="font-size: 1.3rem; margin: 0.6rem 0;">4. Infinity</p>
+                    <p class="fragment" style="font-size: 1.3rem; margin: 0.6rem 0;">5. The Paradox</p>
                 </div>
             </div>
 
@@ -264,26 +289,16 @@
              SECTION 4: Infinity
              ═══════════════════════════════════════════════ -->
         <div class="section" data-anchor="infinity">
-            <!-- Transition -->
-            <div class="slide" data-anchor="infinity-intro">
-                <div class="animate-up" style="text-align: center;">
-                    <h2
-                        style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
-                        Infinity</h2>
-                </div>
-            </div>
-
-            <!-- Infinity: Vanishing Trick -->
-            <div class="slide" data-anchor="vanishing-trick">
-                <iframe src="infinity/index.html?embed=true"
-                    style="position:absolute; inset:0; width:100%; height:100%; border:none; background:#060a14;"></iframe>
-            </div>
-
-            <!-- Infinity: Doubling Trick -->
-            <div class="slide" data-anchor="doubling-trick">
-                <iframe src="infinity/index.html?embed=true#double"
-                    style="position:absolute; inset:0; width:100%; height:100%; border:none; background:#060a14;"></iframe>
-            </div>
+            <!-- Vanishing Trick: steps 0, 1, 2 -->
+            <div class="slide infinity-step" data-infinity-step="0"></div>
+            <div class="slide infinity-step" data-infinity-step="1"></div>
+            <div class="slide infinity-step" data-infinity-step="2"></div>
+            <!-- Doubling Trick: steps 3, 4, 5, 6, 7 -->
+            <div class="slide infinity-step" data-infinity-step="3"></div>
+            <div class="slide infinity-step" data-infinity-step="4"></div>
+            <div class="slide infinity-step" data-infinity-step="5"></div>
+            <div class="slide infinity-step" data-infinity-step="6"></div>
+            <div class="slide infinity-step" data-infinity-step="7"></div>
         </div>
 
         <!-- ═══════════════════════════════════════════════
@@ -309,27 +324,25 @@
             <div class="slide rotation-step" data-rotation-step="6"></div>
             <div class="slide rotation-step" data-rotation-step="7"></div>
 
-            <!-- Absorption -->
-            <div class="slide" data-anchor="free-group-paradox">
-                <div class="content-box animate-up">
-                    <h2 class="slide-title">The Free Group Paradox</h2>
-                    <p>Partition the group into words starting with \(a, a^{-1}, b, b^{-1}\).</p>
-                    <div class="theorem fragment" data-label="Absorption">
-                        <p style="font-size: 1.4rem; text-align: center;">\(a^{-1} \cdot W_a = W_a \cup W_b \cup
-                            W_{b^{-1}} \cup \{e\}\)</p>
-                        <p class="fragment">Rotating <strong>one quarter</strong> gives you <strong>three
-                                quarters</strong> back!</p>
-                    </div>
-                </div>
-            </div>
+            <!-- p-adic Tree (single free-form slide, controlled via phone remote) -->
+            <div class="slide padic-step" data-padic-step="show"></div>
 
-            <!-- Banach-Tarski Result -->
-            <div class="slide" data-anchor="bt-paradox">
-                <div class="content-box animate-up" style="max-width: 1100px;">
-                    <h2 class="slide-title">Banach–Tarski Paradox</h2>
-                    <p>Choose two rotations that are "free." Their orbits partition the sphere into pieces that can
-                        double.</p>
-                    <iframe src="banachTarski/index.html?embed=true" class="full-iframe"></iframe>
+            <!-- Paradox Conclusion -->
+            <div class="slide" data-anchor="paradox-conclusion">
+                <div class="content-box animate-up" style="max-width: 900px;">
+                    <h2 class="slide-title">What the heck??</h2>
+                    <p class="fragment">We expect that translating and rotating a region shouldn't change its volume. We
+                        also expect that cutting a region into a handful of pieces, and then fitting them back together
+                        in a new way should also preserve volume.</p>
+
+                    <p class="fragment" style="margin-top: 1.5rem; color: var(--accent); font-weight: 600;">So what's
+                        the deal?</p>
+
+                    <p class="fragment" style="margin-top: 1.5rem;">We've reached the limits of <strong>"what can be
+                            measured?"</strong></p>
+
+                    <p class="fragment" style="margin-top: 1.5rem;">Any attempt to assigning a volume to these quotients
+                        results in a paradox! We say these are <strong>not measurable</strong>.</p>
                 </div>
             </div>
         </div>
@@ -338,6 +351,43 @@
              SECTION 6: CONCLUSIONS
              ═══════════════════════════════════════════════ -->
         <div class="section" data-anchor="conclusions">
+            <!-- Transition -->
+            <div class="slide" data-anchor="conclusions-intro">
+                <div class="animate-up" style="text-align: center;">
+                    <h2
+                        style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
+                        Conclusions</h2>
+                </div>
+            </div>
+
+            <!-- 3-adic Solenoid Steps (overlay controlled) -->
+            <div class="slide solenoid-step" data-solenoid-step="0"></div>
+            <div class="slide solenoid-step" data-solenoid-step="1"></div>
+            <div class="slide solenoid-step" data-solenoid-step="2"></div>
+            <div class="slide solenoid-step" data-solenoid-step="3"></div>
+            <div class="slide solenoid-step" data-solenoid-step="4"></div>
+            <div class="slide solenoid-step" data-solenoid-step="5"></div>
+            <div class="slide solenoid-step" data-solenoid-step="6"></div>
+            <div class="slide solenoid-step" data-solenoid-step="7"></div>
+
+            <!-- Summary Slide -->
+            <div class="slide" data-anchor="summary">
+                <div class="content-box animate-up" style="max-width: 900px; text-align: center;">
+                    <p class="fragment" style="font-size: 1.5rem; line-height: 1.6;">These strange number systems reveal
+                        a <strong>hidden geometry</strong>, lurking just beneath the surface of irrational rotations.
+                    </p>
+
+                    <p class="fragment" style="margin-top: 2rem; font-size: 1.4rem; color: var(--accent);">It may be
+                        that every pathological space can be smoothed out after opening our minds to these number
+                        systems.</p>
+
+                    <p class="fragment" style="margin-top: 2rem; font-size: 1.5rem; font-weight: 700; color: #fff;">If
+                        we can show this is always the case, it would revolutionize our understanding of the nature of
+                        geometry itself!</p>
+                </div>
+            </div>
+
+            <!-- Thanks slide -->
             <div class="slide" data-anchor="thanks">
                 <div class="content-box animate-up" style="text-align: center;">
                     <h2 class="slide-title">Thank You! 🍻</h2>
@@ -382,6 +432,27 @@
     <div id="rotation-overlay"
         style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; display: none;">
         <iframe id="rotation-iframe" src="irrationalRotation/index.html?embed=true"
+            style="width: 100%; height: 100%; border: none; pointer-events: auto;"></iframe>
+    </div>
+
+    <!-- p-adic Tree Overlay -->
+    <div id="padic-overlay"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; display: none;">
+        <iframe id="padic-iframe" src="padicTree/index.html?embed=true"
+            style="width: 100%; height: 100%; border: none; pointer-events: auto;"></iframe>
+    </div>
+
+    <!-- Infinity Overlay -->
+    <div id="infinity-overlay"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; display: none;">
+        <iframe id="infinity-iframe" src="infinity/index.html?embed=true"
+            style="width: 100%; height: 100%; border: none; pointer-events: auto;"></iframe>
+    </div>
+
+    <!-- 3-adic Solenoid Overlay -->
+    <div id="solenoid-overlay"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; pointer-events: none; display: none;">
+        <iframe id="solenoid-iframe" src="3adicSolenoid/index.html?embed=true"
             style="width: 100%; height: 100%; border: none; pointer-events: auto;"></iframe>
     </div>
 
@@ -465,7 +536,14 @@
                         document.getElementById('torus-overlay').style.display = 'none';
                         document.getElementById('tree-overlay').style.display = 'none';
                     }
-                    if (destination.anchor !== 'paradox') document.getElementById('rotation-overlay').style.display = 'none';
+                    if (destination.anchor !== 'infinity') document.getElementById('infinity-overlay').style.display = 'none';
+                    if (destination.anchor !== 'paradox') {
+                        document.getElementById('rotation-overlay').style.display = 'none';
+                        document.getElementById('padic-overlay').style.display = 'none';
+                    }
+                    if (destination.anchor !== 'conclusions') {
+                        document.getElementById('solenoid-overlay').style.display = 'none';
+                    }
                 },
                 afterSlideLoad: function (section, origin, destination) {
                     const isDihedral = destination.item.getAttribute('data-anchor') === 'dihedral-viz';
@@ -541,6 +619,36 @@
                     } else {
                         rotationOverlay.style.display = 'none';
                     }
+
+                    // Infinity overlay
+                    const infinityOverlay = document.getElementById('infinity-overlay');
+                    const infinityStep = destination.item.getAttribute('data-infinity-step');
+                    if (infinityStep !== null) {
+                        infinityOverlay.style.display = 'block';
+                        document.getElementById('infinity-iframe').contentWindow.postMessage({ type: 'goTo', step: parseInt(infinityStep) }, '*');
+                    } else {
+                        infinityOverlay.style.display = 'none';
+                    }
+
+                    // p-adic Tree overlay
+                    const padicOverlay = document.getElementById('padic-overlay');
+                    const padicStep = destination.item.getAttribute('data-padic-step');
+                    if (padicStep !== null) {
+                        padicOverlay.style.display = 'block';
+                        document.getElementById('padic-iframe').contentWindow.postMessage('reset', '*');
+                    } else {
+                        padicOverlay.style.display = 'none';
+                    }
+
+                    // 3-adic Solenoid overlay
+                    const solenoidOverlay = document.getElementById('solenoid-overlay');
+                    const solenoidStep = destination.item.getAttribute('data-solenoid-step');
+                    if (solenoidStep !== null) {
+                        solenoidOverlay.style.display = 'block';
+                        document.getElementById('solenoid-iframe').contentWindow.postMessage({ type: 'goTo', step: parseInt(solenoidStep) }, '*');
+                    } else {
+                        solenoidOverlay.style.display = 'none';
+                    }
                 }
             });
 
@@ -567,7 +675,7 @@
                 return active.querySelectorAll('.fragment:not(.visible)').length > 0;
             }
 
-            document.addEventListener('keydown', function(e) {
+            document.addEventListener('keydown', function (e) {
                 if (e.key === 'ArrowRight' || e.key === ' ') {
                     if (isLastSlide() && !hasUnrevealedFragments()) {
                         e.preventDefault();
@@ -642,6 +750,29 @@
                 </div>
                 <div class="control-btn" onclick="sendRemoteCommand('reset')" style="height: 60px;">
                     <span style="font-size: 0.7rem; color: #fff;">Reset</span>
+                </div>
+            </div>
+
+            <!-- p-adic Tree Controls (shown on padic slide) -->
+            <div id="padic-controls"
+                style="display: none; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; grid-column: 1 / -1; box-sizing: border-box;">
+                <div class="control-btn" onclick="sendRemoteCommand('padic-a')" style="height: 60px;">
+                    <span style="font-size: 1.2rem; color: #2dd4bf; text-transform: none;">a</span>
+                </div>
+                <div class="control-btn" onclick="sendRemoteCommand('padic-b')" style="height: 60px;">
+                    <span style="font-size: 1.2rem; color: #f472b6; text-transform: none;">b</span>
+                </div>
+                <div class="control-btn" onclick="sendRemoteCommand('padic-reset')" style="height: 60px;">
+                    <span style="font-size: 0.7rem; color: #fff;">Reset</span>
+                </div>
+                <div class="control-btn" onclick="sendRemoteCommand('padic-color')" style="height: 60px;">
+                    <span style="font-size: 0.8rem; color: #fff;">🎨</span>
+                </div>
+                <div class="control-btn" onclick="sendRemoteCommand('padic-decompose')" style="height: 60px;">
+                    <span style="font-size: 1.1rem; color: #fff; font-weight: 800;">?!</span>
+                </div>
+                <div class="control-btn" onclick="sendRemoteCommand('padic-fold')" style="height: 60px;">
+                    <span style="font-size: 0.8rem; color: #7c8aff;">S²</span>
                 </div>
             </div>
             <div id="remote-viz-btn" class="control-btn" onclick="sendRemoteCommand('toggle')" style="display: none;">
