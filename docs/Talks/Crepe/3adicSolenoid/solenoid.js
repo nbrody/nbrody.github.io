@@ -153,7 +153,7 @@ class DiskView {
         this.autoPlay = false;
         this.autoTimer = 0;
         this.stepCount = 0;
-        this.showLabels = true;
+        this.showLabels = false;
 
 
         // Pre-computed: for each (depth, address) → geometry
@@ -853,5 +853,18 @@ window.addEventListener('load', () => {
     const s = document.createElement('style');
     s.textContent = '.key{color:#7c8aff;font-weight:600}.accent{color:#7c8aff}';
     document.head.appendChild(s);
+
+    // Embed mode: hide all chrome, show only the visualization
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('embed') === 'true') {
+        const hide = id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+        hide('title-badge');
+        hide('footer');
+        hide('ctrl-panel');
+        hide('depth-ctrl');
+        hide('speed-panel');
+        hide('solenoid-legend');
+    }
+
     new App();
 });
