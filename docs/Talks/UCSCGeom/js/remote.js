@@ -146,7 +146,7 @@ function handleCommand(cmd) {
             } else {
                 const activeIframe = activeSlide.querySelector('iframe');
                 if (activeIframe) {
-                    activeIframe.contentWindow.postMessage('toggle', '*');
+                    activeIframe.contentWindow.postMessage('play', '*');
                 }
             }
             break;
@@ -251,7 +251,7 @@ function showLiveIndicator(id) {
             background: rgba(16, 185, 129, 0.2);
             border: 1px solid rgba(16, 185, 129, 0.3);
             border-radius: 50px;
-            font-family: 'Outfit', sans-serif;
+            font-family: 'Crimson Pro', serif;
             font-size: 0.75rem;
             font-weight: 700;
             text-transform: uppercase;
