@@ -341,9 +341,8 @@
             // Apply Y rotation
             const rx = x3d * cosR - z3d * sinR;
             const rz = x3d * sinR + z3d * cosR;
-            // Perspective sc
-            const sc = 1 / (1 + rz / (R * 3));
-            return { x: cx + rx * sc, y: cy - y3d * sc, z: rz };
+            // Orthographic projection
+            return { x: cx + rx, y: cy - y3d, z: rz };
         }
 
         function slerp(v1, v2, f) {
@@ -376,37 +375,6 @@
         shading.addColorStop(1, 'rgba(6,10,20,0.3)');
         ctx.fillStyle = shading; ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fill();
 
-        // Latitudes
-        ctx.strokeStyle = 'rgba(124,138,255,0.12)'; ctx.lineWidth = 0.7;
-        for (let lat = -60; lat <= 60; lat += 30) {
-            const latRad = lat * Math.PI / 180;
-            const ry = R * Math.cos(latRad);
-            const yOff = R * Math.sin(latRad);
-            // These stay elliptical for simplicity, adjusted by perspective
-            ctx.beginPath();
-            for (let lon = 0; lon <= 360; lon += 5) {
-                const lonRad = lon * Math.PI / 180;
-                const v = [Math.cos(latRad) * Math.cos(lonRad), Math.sin(latRad), Math.cos(latRad) * Math.sin(lonRad)];
-                const p = project3d(v);
-                if (lon === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-            }
-            ctx.stroke();
-        }
-
-        // Meridians
-        ctx.strokeStyle = 'rgba(124,138,255,0.1)'; ctx.lineWidth = 0.7;
-        for (let lon = 0; lon < 360; lon += 30) {
-            const lonRad = lon * Math.PI / 180;
-            ctx.beginPath();
-            for (let lat = -90; lat <= 90; lat += 5) {
-                const latRad = lat * Math.PI / 180;
-                const v = [Math.cos(latRad) * Math.cos(lonRad), Math.sin(latRad), Math.cos(latRad) * Math.sin(lonRad)];
-                const p = project3d(v);
-                if (lat === -90) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-            }
-            ctx.stroke();
-        }
-
         // Points
         const v1 = [
             Math.sin(Math.PI * 0.35) * Math.cos(t * 1.3),
@@ -426,14 +394,39 @@
         const dot = Math.max(-1, Math.min(1, v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]));
         const omega = Math.acos(dot);
 
-        ctx.strokeStyle = C.teal; ctx.lineWidth = 2.5; ctx.setLineDash([5, 4]);
+        // Draw back face arc and front face arc separately for visual clarity
+        const segments = 40;
+        ctx.lineWidth = 2.5;
+        
         ctx.beginPath();
-        for (let i = 0; i <= 40; i++) {
-            const p = project3d(slerp(v1, v2, i / 40));
+        for (let i = 0; i <= segments; i++) {
+            const p = project3d(slerp(v1, v2, i / segments));
             if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
         }
+        
+        ctx.strokeStyle = 'rgba(45, 212, 191, 0.3)'; // Dimmed C.teal for back part
+        ctx.setLineDash([5, 4]);
         ctx.stroke();
+
+        // Overlay solid front arc
+        ctx.beginPath();
+        let frontStarted = false;
+        for (let i = 0; i <= segments; i++) {
+            const p = project3d(slerp(v1, v2, i / segments));
+            if (p.z < 0) { // Front face
+                if (!frontStarted) {
+                    ctx.moveTo(p.x, p.y);
+                    frontStarted = true;
+                } else {
+                    ctx.lineTo(p.x, p.y);
+                }
+            } else {
+                frontStarted = false;
+            }
+        }
+        ctx.strokeStyle = C.teal;
         ctx.setLineDash([]);
+        ctx.stroke();
 
         // Distance Label
         ctx.fillStyle = C.teal;
@@ -441,15 +434,15 @@
         ctx.textAlign = 'center';
         const vMid = slerp(v1, v2, 0.5);
         const pMid = project3d(vMid);
-        if (pMid.z < R * 0.5) { // Only show label when roughly in front
+        if (pMid.z < 0) { // Only show label when roughly in front
             ctx.fillText(`d = ${omega.toFixed(2)}`, pMid.x, pMid.y - 12);
         }
 
         // Draw points with back-side dimming
-        if (p1.z < R * 0.8) drawGlowDot(ctx, p1.x, p1.y, 7, C.accent);
+        if (p1.z < 0) drawGlowDot(ctx, p1.x, p1.y, 7, C.accent);
         else drawGlowDot(ctx, p1.x, p1.y, 3, C.dim);
 
-        if (p2.z < R * 0.8) drawGlowDot(ctx, p2.x, p2.y, 7, C.rose);
+        if (p2.z < 0) drawGlowDot(ctx, p2.x, p2.y, 7, C.rose);
         else drawGlowDot(ctx, p2.x, p2.y, 3, C.dim);
     }
 

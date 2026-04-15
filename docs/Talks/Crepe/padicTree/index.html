@@ -651,6 +651,19 @@
             else if (msg === 'radius-plus' || msg === 'rplus') document.getElementById('btn-radius-plus').click();
             else if (msg === 'radius-minus' || msg === 'rminus') document.getElementById('btn-radius-minus').click();
         });
+
+        // When embedded, forward navigation keys to the parent presentation
+        if (new URLSearchParams(window.location.search).get('embed') === 'true') {
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    window.parent.postMessage({ type: 'iframeNav', direction: 'next' }, '*');
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    window.parent.postMessage({ type: 'iframeNav', direction: 'prev' }, '*');
+                }
+            });
+        }
     </script>
 </body>
 

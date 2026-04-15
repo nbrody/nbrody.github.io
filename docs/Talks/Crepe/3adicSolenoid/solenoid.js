@@ -867,4 +867,17 @@ window.addEventListener('load', () => {
     }
 
     new App();
+
+    // When embedded, forward navigation keys to the parent presentation
+    if (params.get('embed') === 'true') {
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                window.parent.postMessage({ type: 'iframeNav', direction: 'next' }, '*');
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                window.parent.postMessage({ type: 'iframeNav', direction: 'prev' }, '*');
+            }
+        });
+    }
 });

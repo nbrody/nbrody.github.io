@@ -485,47 +485,71 @@ var TORUS_R = 1.2; // major radius (ring center → tube center)
 // tube radius r = FLAT_SIZE / (2π) ≈ 0.477, derived from isometric bending
 
 function torusVertexPos(s, t, cyl, tor) {
-    // ── Phase 1: Bend s-direction into tube (isometric curvature bending) ──
-    // Curvature κ₁ goes from 0 (flat) to 2π/L (closed cylinder).
-    // At intermediate values the sheet is a partial circular arc — always embedded.
-    var L = FLAT_SIZE;
-    var K1 = cyl * 2 * Math.PI / L;
-    var d1 = (s - 0.5) * L;
-    var a1 = K1 * d1; // angle from midpoint
+    // s ∈ [0,1] parameterizes the cross-section (left→right edge, becomes tube circle)
+    // t ∈ [0,1] parameterizes along the cylinder axis (bottom→top edge, becomes ring circle)
+    //
+    // Phase 1 (cyl: 0→1): Bend s-direction into a tube.
+    //   Flat sheet of width L bends into a cylinder of radius r = L/(2π).
+    //   The tube circle lies in the xy-plane, axis along z.
+    //
+    // Phase 2 (tor: 0→1): Bend the cylinder axis (z) into a ring.
+    //   The ring of radius TORUS_R lies in the xz-plane.
+    //   Cross-section stays perpendicular to the ring.
 
-    var cross_x, cross_y, axH;
-    if (K1 < 1e-6) {
-        cross_x = d1;
-        cross_y = 0;
-        axH = 0;
+    var L = FLAT_SIZE;
+    var r = L / (2 * Math.PI);  // tube radius when fully closed
+
+    // ── Cross-section (s-direction) ──
+    // angle around the tube: 0 at midpoint, sweeps ±π at cyl=1
+    var theta = cyl * 2 * Math.PI * (s - 0.5);
+
+    // Cross-section position in local frame (x_local, y_local):
+    //   x_local: radial direction (away from ring axis)
+    //   y_local: up direction (perpendicular to ring plane)
+    var cx_local, cy_local;
+    if (cyl < 1e-6) {
+        // Flat: x = horizontal offset, y = 0
+        cx_local = (s - 0.5) * L;
+        cy_local = 0;
     } else {
-        var R1 = 1 / K1;
-        // Bending: midpoint (s=0.5) stays at origin, sheet arcs upward
-        cross_x = R1 * Math.sin(a1);
-        axH = R1;
-        cross_y = -R1 * Math.cos(a1); // offset from axis at y = axH
+        // Bending arc: radius = r/cyl (starts large, shrinks to r)
+        var bendR = r / cyl;
+        cx_local = bendR * Math.sin(theta);
+        cy_local = bendR * (1 - Math.cos(theta));
     }
 
-    // ── Phase 2: Bend t-direction into ring ──
-    // The cylinder axis (along z) curves into a circle of radius TORUS_R
-    // in the xz-plane. Non-isometric: the sheet stretches to fit the ring.
-    var beta = tor * 2 * Math.PI * (t - 0.5);
-    var cos_b = Math.cos(beta), sin_b = Math.sin(beta);
+    // ── Axis path (t-direction) ──
+    // angle around the ring: 0 at midpoint, sweeps ±π at tor=1
+    var phi = tor * 2 * Math.PI * (t - 0.5);
 
     var ax_x, ax_z;
     if (tor < 1e-6) {
+        // Straight axis along z
         ax_x = 0;
         ax_z = (t - 0.5) * L;
     } else {
-        ax_x = TORUS_R * Math.sin(beta);
-        // Smoothly blend from straight axis to circular arc
-        ax_z = lerp((t - 0.5) * L, TORUS_R * (1 - Math.cos(beta)), tor);
+        // Curving into a ring of radius TORUS_R
+        ax_x = TORUS_R * Math.sin(phi);
+        ax_z = lerp((t - 0.5) * L, -TORUS_R * Math.cos(phi), tor);
     }
 
-    // Rotate cross-section to stay perpendicular to the curving axis
-    var px = ax_x + cross_x * cos_b;
-    var py = axH * (1 - tor) + cross_y; // gradually center y as torus forms
-    var pz = ax_z - cross_x * sin_b - TORUS_R * tor; // center z
+    // ── Assemble final position ──
+    // The cross-section x_local direction should point radially outward from the ring axis.
+    // The cross-section y_local direction stays vertical (y-axis).
+    // As the ring forms, the "outward" direction rotates with phi.
+    var cos_phi = Math.cos(phi);
+    var sin_phi = Math.sin(phi);
+
+    // Radial direction for the ring: (sin(phi), 0, -cos(phi)) when tor=1
+    // When tor=0, radial direction is just (1, 0, 0)
+    var px = ax_x + cx_local * lerp(1, cos_phi, tor);
+    var py = cy_local;
+    var pz = ax_z + cx_local * lerp(0, -sin_phi, tor);
+
+    // Center the torus at origin when fully formed
+    if (tor > 1e-6) {
+        pz += TORUS_R * tor;  // shift so ring center is at z=0
+    }
 
     return [px, py, pz];
 }
@@ -704,12 +728,12 @@ function renderGlueCylinder(e) {
         edgeLines.top.material.transparent = false;
     }
 
-    // Camera — track the geometry center (axis rises as sheet bends)
+    // Camera — track the geometry center
     var r_tube = FLAT_SIZE / (2 * Math.PI);
-    var geoCenterY = r_tube * cylFrac; // axis height during bending
+    var geoCenterY = r_tube * cylFrac;  // cross-section rises during bending
     var now = performance.now() * 0.00025;
     var camDist = 4.5;
-    var camY = geoCenterY + lerp(3.0, 2.0, cylFrac);
+    var camY = geoCenterY + lerp(2.5, 1.8, cylFrac);
     tCamera.position.set(
         camDist * Math.sin(now + Math.PI * 0.25),
         camY,
@@ -754,19 +778,18 @@ function renderGlueTorus(e) {
         edgeLines.top.material.transparent = true;
     }
 
-    // Camera — geometry centers at y as tor increases
+    // Camera — track geometry center as torus forms
     var r_tube = FLAT_SIZE / (2 * Math.PI);
-    var geoCenterY = r_tube * (1 - torFrac); // axis lowers to 0 as torus forms
-    var geoCenterZ = -TORUS_R * torFrac; // z shifts as ring centers
+    var geoCenterY = r_tube;  // stays at tube radius height
     var now = performance.now() * 0.00025;
     var camDist = lerp(4.5, 5.0, torFrac);
-    var camY = geoCenterY + lerp(2.0, 2.2, torFrac);
+    var camY = geoCenterY + lerp(1.8, 2.0, torFrac);
     tCamera.position.set(
         camDist * Math.sin(now + Math.PI * 0.25),
         camY,
-        geoCenterZ + camDist * Math.cos(now + Math.PI * 0.25)
+        camDist * Math.cos(now + Math.PI * 0.25)
     );
-    tCamera.lookAt(0, geoCenterY, geoCenterZ);
+    tCamera.lookAt(0, geoCenterY, 0);
 
     tRenderer.render(tScene, tCamera);
 
@@ -798,16 +821,16 @@ function renderFinalTorus(e) {
         edgeLines.top.material.transparent = true;
     }
 
-    // Gentle orbit — torus centered at (0, 0, -TORUS_R)
+    // Gentle orbit — torus centered at y = r_tube, z = 0
+    var r_tube = FLAT_SIZE / (2 * Math.PI);
     var now = performance.now() * 0.0003;
     var camDist = 5.0;
-    var cz = -TORUS_R;
     tCamera.position.set(
         camDist * Math.sin(now),
-        2.2 + Math.sin(now * 0.7) * 0.3,
-        cz + camDist * Math.cos(now)
+        r_tube + 2.0 + Math.sin(now * 0.7) * 0.3,
+        camDist * Math.cos(now)
     );
-    tCamera.lookAt(0, 0, cz);
+    tCamera.lookAt(0, r_tube, 0);
 
     tRenderer.render(tScene, tCamera);
 

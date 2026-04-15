@@ -795,3 +795,17 @@ window.addEventListener('message', function(e) {
     else if (e.data === 'prev' || e.data === 'left') window.rotationApp.prev();
     else if (typeof e.data === 'object' && e.data.type === 'goTo') window.rotationApp.goToStep(e.data.step);
 });
+
+// When embedded, forward keyboard navigation to the parent so the
+// presentation can still advance slides even when this iframe has focus.
+if (new URLSearchParams(window.location.search).get('embed') === 'true') {
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            window.parent.postMessage({ type: 'iframeNav', direction: 'next' }, '*');
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            window.parent.postMessage({ type: 'iframeNav', direction: 'prev' }, '*');
+        }
+    });
+}

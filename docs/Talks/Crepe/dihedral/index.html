@@ -165,6 +165,47 @@
         /* Embedded mode */
         .embedded #panel { display: none !important; }
         .embedded #canvas-wrap { width: 100% !important; }
+
+        /* Embedded floating controls */
+        .embedded-controls {
+            display: none;
+            position: fixed;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            gap: 10px;
+            align-items: center;
+        }
+        .embedded .embedded-controls {
+            display: flex;
+        }
+        .embedded-controls .ctrl-btn {
+            padding: 10px 18px;
+            border-radius: 10px;
+            border: 1px solid rgba(124,138,255,0.25);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            color: #cbd5e1;
+            font: 600 0.85rem/1 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .embedded-controls .ctrl-btn:hover {
+            background: rgba(124,138,255,0.2);
+            border-color: rgba(124,138,255,0.5);
+            color: #fff;
+            box-shadow: 0 0 16px rgba(124,138,255,0.15);
+        }
+        .embedded-controls .ctrl-btn:active {
+            transform: scale(0.95);
+        }
+        .ctrl-divider {
+            width: 1px;
+            height: 28px;
+            background: rgba(124,138,255,0.15);
+        }
     </style>
 </head>
 <body>
@@ -240,6 +281,16 @@
             Current symmetry: <span class="perm" id="perm-display">(0 1 2 3 4)</span>
         </div>
     </div>
+</div>
+
+<div class="embedded-controls">
+    <button class="ctrl-btn" onclick="applyReflection(0)">r₁</button>
+    <button class="ctrl-btn" onclick="applyReflection(1)">r₂</button>
+    <div class="ctrl-divider"></div>
+    <button class="ctrl-btn" onclick="applyComposition(0,1)">r₁ ∘ r₂</button>
+    <button class="ctrl-btn" onclick="applyComposition(1,0)">r₂ ∘ r₁</button>
+    <div class="ctrl-divider"></div>
+    <button class="ctrl-btn" onclick="resetPentagon()">Reset</button>
 </div>
 
 <script>
@@ -575,6 +626,20 @@ window.toggleReflection = toggleReflection;
 window.applyReflection = applyReflection;
 window.applyComposition = applyComposition;
 window.resetPentagon = resetPentagon;
+
+// When embedded, forward keyboard navigation to the parent so the
+// presentation can still advance slides even when this iframe has focus.
+if (new URLSearchParams(window.location.search).get('embed') === 'true') {
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            window.parent.postMessage({ type: 'iframeNav', direction: 'next' }, '*');
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            window.parent.postMessage({ type: 'iframeNav', direction: 'prev' }, '*');
+        }
+    });
+}
 </script>
 </body>
 </html>

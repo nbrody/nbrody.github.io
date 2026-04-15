@@ -4,8 +4,8 @@ from flint import fmpz_mat, fmpz
 from flashbeam import FlashBeam, SearchProblem, Node
 
 # --- Search Configuration ---
-BEAM_WIDTH = 10000         # High-capacity beam
-FLASH_SIZE = 50           # Significant global memory
+BEAM_WIDTH = 50000         # High-capacity beam
+FLASH_SIZE = 8           # Significant global memory
 MAX_SOLUTIONS = 5         # Stop after finding this many solutions
 MAX_ITERATIONS = 500      # Broad search
 

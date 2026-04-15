@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P-adic 3D Tower</title>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="../math.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        :root {
+            --bg: #020617;
+            --ink: #f8fafc;
+            --accent: #6366f1;
+            --paper: #1e293b;
+            --border: #334155;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #ui-panel {
+            padding: 1rem 1.5rem;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            flex-wrap: wrap;
+            /* Allow wrapping */
+            gap: 1.5rem;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="number"] {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            color: var(--ink);
+            padding: 6px;
+            border-radius: 6px;
+            width: 50px;
+        }
+
+        button {
+            padding: 0.6rem 1.2rem;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+        }
+
+        body.embedded #ui-panel {
+            display: none;
+        }
+
+        #overlay-labels {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .tag {
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            color: var(--accent);
+        }
+    </style>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('embed') === 'true') {
+            document.addEventListener('DOMContentLoaded', () => {
+                document.body.classList.add('embedded');
+            });
+        }
+    </script>
+</head>
+
+<body>
+    <div id="ui-panel">
+        <div style="flex-shrink:0;">
+            <span class="tag">P-adic 3D Tower</span>
+            <div style="font-size: 0.65rem; opacity: 0.6; margin-top: 2px;">Left Click: Rotate • Right Click: Pan •
+                Scroll: Zoom</div>
+        </div>
+        <div class="control-group">
+            \( p = \) <input type="number" id="prime-p" value="3" min="2" max="7" onchange="resetVisualization()">
+            Mode:
+            <select id="draw-mode" onchange="resetVisualization()"
+                style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: white; padding: 4px; border-radius: 4px; font-size: 0.8rem;">
+                <option value="levels">Levels</option>
+                <option value="depth">Distance</option>
+            </select>
+            \( n_{max} = \) <input type="number" id="max-n" value="3" min="1" max="10" onchange="resetVisualization()">
+        </div>
+        <div class="control-group" style="border-left: 1px solid var(--border); padding-left: 1rem;">
+            <span class="tag" style="margin-right: 8px;">PGL2 Matrix</span>
+            <div style="display: grid; grid-template-columns: repeat(2, 45px); gap: 4px;">
+                <input type="text" id="mat-a" value="1" placeholder="a"
+                    style="width:35px; background: rgba(0,0,0,0.3); border:1px solid var(--border); color:white; font-size:10px; padding:2px;">
+                <input type="text" id="mat-b" value="0" placeholder="b"
+                    style="width:35px; background: rgba(0,0,0,0.3); border:1px solid var(--border); color:white; font-size:10px; padding:2px;">
+                <input type="text" id="mat-c" value="0" placeholder="c"
+                    style="width:35px; background: rgba(0,0,0,0.3); border:1px solid var(--border); color:white; font-size:10px; padding:2px;">
+                <input type="text" id="mat-d" value="1" placeholder="d"
+                    style="width:35px; background: rgba(0,0,0,0.3); border:1px solid var(--border); color:white; font-size:10px; padding:2px;">
+            </div>
+            <button onclick="applyAction()" style="padding: 0.4rem 0.8rem; font-size: 0.7rem;">Apply</button>
+            <button onclick="resetAction()"
+                style="padding: 0.4rem 0.8rem; font-size: 0.7rem; background: var(--paper);">Reset</button>
+        </div>
+        <div id="matrix-display"
+            style="font-family: monospace; font-size: 0.6rem; line-height: 1; opacity: 0.8; white-space: pre;"></div>
+        <div class="control-group">
+            <span class="tag">Logic</span>
+            <select id="color-logic" onchange="updateColors()"
+                style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: white; padding: 4px; border-radius: 4px; font-size: 0.8rem;">
+                <option value="distance">Distance</option>
+                <option value="metric">Metric</option>
+                <option value="level">Level</option>
+                <option value="residue">Residue</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <span class="tag">Palette</span>
+            <select id="color-palette" onchange="updateColors()"
+                style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: white; padding: 4px; border-radius: 4px; font-size: 0.8rem;">
+                <option value="vibrant">Vibrant</option>
+                <option value="rainbow">Rainbow</option>
+                <option value="vaporwave">Vaporwave</option>
+                <option value="ocean">Ocean</option>
+                <option value="fire">Fire</option>
+                <option value="forest">Forest</option>
+                <option value="slate">Slate</option>
+            </select>
+        </div>
+        <div class="control-group" style="margin-left:auto; gap: 8px;">
+            <button onclick="toggleAnimation()"
+                style="background: var(--paper); border: 1px solid var(--border);">Pause/Play</button>
+            <button onclick="resetCamera()" style="background: var(--paper); border: 1px solid var(--border);">Reset
+                View</button>
+            <button onclick="growTree()" style="background: var(--accent);">Grow Tree</button>
+            <button onclick="resetVisualization()">Regenerate</button>
+        </div>
+    </div>
+    <div id="canvas-container">
+        <div id="overlay-labels"></div>
+    </div>
+    <script src="padic.js"></script>
+</body>
+
+</html>

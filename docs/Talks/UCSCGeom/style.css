@@ -1,0 +1,1031 @@
+/* ========================================
+   LaTeX Classic Theme — UCSCGeom
+   Surface Groups and Products of Trees
+   ======================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500;1,600&display=swap');
+
+:root {
+    --bg: #fffff8;
+    --panel: rgba(255, 255, 255, 0.9);
+    --border: rgba(0, 0, 0, 0.12);
+    --accent: #1a0dab;
+    --accent-light: #3d32c4;
+    --text: #222222;
+    --text-dim: #4a4a4a;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Crimson Pro', Georgia, 'Times New Roman', serif;
+    color: var(--text);
+    background-color: var(--bg);
+    margin: 0;
+    line-height: 1.7;
+}
+
+h1,
+h2,
+h3 {
+    font-family: 'Crimson Pro', Georgia, serif;
+    text-transform: none;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    margin: 0;
+}
+
+.section {
+    position: relative;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    min-height: 100dvh;
+}
+
+.section:has(.full-viz-container) {
+    display: block;
+    /* Remove flex centering to allow true 100% height */
+}
+
+/* Transition Slides */
+.transition-slide {
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.transition-slide::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 1;
+}
+
+.transition-slide .content-box {
+    position: relative;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+}
+
+.transition-slide .content-box,
+.transition-slide .content-box h1,
+.transition-slide .content-box p,
+.transition-slide .content-box .tag {
+    color: #fff;
+}
+
+.bg-title {
+    background-image: url('assets/transitionImages/Title.png');
+}
+
+.bg-background {
+    background-image: url('assets/transitionImages/Background.png');
+}
+
+.bg-geometry {
+    background-image: url('assets/transitionImages/Geometry.png');
+}
+
+.bg-actions {
+    background-image: url('assets/transitionImages/Actions.png');
+}
+
+.bg-search {
+    background-image: url('assets/transitionImages/Search.png');
+}
+
+.bg-summary {
+    background-image: url('assets/transitionImages/Summary.png');
+}
+
+/* Persistent section background watermark — very faint on paper */
+.section::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.025;
+    pointer-events: none;
+    z-index: 0;
+    filter: grayscale(0.5);
+}
+
+.section[data-anchor="title"]::after {
+    background-image: url('assets/transitionImages/Title.png');
+}
+
+.section[data-anchor="background"]::after {
+    background-image: url('assets/transitionImages/Background.png');
+}
+
+.section[data-anchor="geometry"]::after {
+    background-image: url('assets/transitionImages/Geometry.png');
+}
+
+.section[data-anchor="actions"]::after {
+    background-image: url('assets/transitionImages/Actions.png');
+}
+
+.section[data-anchor="computation"]::after {
+    background-image: url('assets/transitionImages/Search.png');
+}
+
+.section[data-anchor="conclusions"]::after {
+    background-image: url('assets/transitionImages/Summary.png');
+}
+
+.slide {
+    text-align: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* Content Box — transparent, paper-like:
+   content lives directly on the cream page. */
+.content-box {
+    max-width: 1100px;
+    width: 95%;
+    margin: 0 auto;
+    padding: 4.5rem 5.5rem;
+    background: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    position: relative;
+    z-index: 5;
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.content-box.tight {
+    padding: 2.5rem 4rem;
+}
+
+.content-box.tight p {
+    font-size: 1.5rem;
+    margin-bottom: 0.8rem;
+}
+
+.content-box.tight ul {
+    font-size: 1.5rem;
+}
+
+.content-box.tight .formula,
+.content-box.tight formula {
+    font-size: 2rem;
+    margin: 1.2rem auto;
+    padding: 1rem 2rem;
+}
+
+/* Animations for FullPage */
+.animate-up {
+    opacity: 0;
+    transform: translateY(15px);
+    transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.active .animate-up {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+h1 {
+    font-size: clamp(4rem, 10vw, 7rem);
+    line-height: 1.1;
+    margin-bottom: 2.5rem;
+    color: var(--text);
+    font-weight: 700;
+    display: inline-block;
+}
+
+.section[data-anchor="title"] h1 {
+    font-size: clamp(3.2rem, 8vw, 5.5rem);
+    margin-bottom: 2rem;
+}
+
+h2 {
+    font-size: 3.5rem;
+    margin-bottom: 2rem;
+    color: var(--accent);
+}
+
+/* Thin Beamer-style rule under slide titles */
+.content-box h2 {
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+p {
+    font-size: 1.8rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+}
+
+ul {
+    text-align: left;
+    display: inline-block;
+    list-style-type: none;
+    padding-left: 0;
+    font-size: 1.7rem;
+    margin: 1.5rem 0;
+    color: var(--text-dim);
+}
+
+.content-box li,
+.theorem li {
+    margin: 0.8rem 0;
+    position: relative;
+    padding-left: 1.5rem;
+}
+
+.content-box li::before,
+.theorem li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.65em;
+    width: 5px;
+    height: 5px;
+    background: var(--text);
+    border-radius: 50%;
+}
+
+.tag {
+    display: block;
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-weight: 600;
+    font-size: 1.15rem;
+    text-transform: none;
+    font-variant: small-caps;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    margin-bottom: 2rem;
+    opacity: 0.85;
+}
+
+.formula,
+formula {
+    display: block;
+    margin: 2rem auto;
+    padding: 1.5rem 2.5rem;
+    background: rgba(0, 0, 0, 0.018);
+    border: none;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0;
+    font-size: 2.4rem;
+    color: var(--text);
+    width: fit-content;
+}
+
+/* ----------------------------------------
+   Sidebar Nav (Right): Minimalist Icons
+   ---------------------------------------- */
+#fp-nav ul li {
+    width: 40px !important;
+    height: 40px !important;
+    margin: 15px 0 !important;
+}
+
+#fp-nav ul li a span {
+    background: transparent !important;
+    width: 24px !important;
+    height: 24px !important;
+    margin: -12px 0 0 -12px !important;
+    border: none !important;
+    border-radius: 0 !important;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    background-color: var(--text-dim) !important;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    opacity: 0.35;
+}
+
+#fp-nav ul li a.active span {
+    background-color: var(--accent) !important;
+    width: 32px !important;
+    height: 32px !important;
+    margin: -16px 0 0 -16px !important;
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+#fp-nav ul li:hover a span {
+    opacity: 0.8;
+    background-color: var(--text) !important;
+}
+
+/* Sidebar Icons Map */
+#fp-nav ul li:nth-child(1) a span {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Cpolyline points='9 22 9 12 15 12 15 22'/%3E%3C/svg%3E");
+}
+
+#fp-nav ul li:nth-child(2) a span {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4'/%3E%3Cpath d='M12 8h.01'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4'/%3E%3Cpath d='M12 8h.01'/%3E%3C/svg%3E");
+}
+
+#fp-nav ul li:nth-child(3) a span {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 0-4 10 15.3 15.3 0 0 0 4 10'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 0-4 10 15.3 15.3 0 0 0 4 10'/%3E%3C/svg%3E");
+}
+
+#fp-nav ul li:nth-child(4) a span {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 14c0-5 5-8 8-8s8 3 8 8'/%3E%3Cpath d='m17 11 3 3 3-3'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 14c0-5 5-8 8-8s8 3 8 8'/%3E%3Cpath d='m17 11 3 3 3-3'/%3E%3C/svg%3E");
+}
+
+#fp-nav ul li:nth-child(5) a span {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+}
+
+#fp-nav ul li:nth-child(6) a span {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/%3E%3Cpath d='m9 11 3 3L22 4'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/%3E%3Cpath d='m9 11 3 3L22 4'/%3E%3C/svg%3E");
+}
+
+/* Slide Nav (Bottom): Minimalist Dots */
+.fp-slidesNav {
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    text-align: center !important;
+    bottom: 2rem !important;
+    transform: none !important;
+}
+
+.fp-slidesNav ul {
+    display: inline-block !important;
+}
+
+.fp-slidesNav ul li {
+    display: inline-block !important;
+    margin: 0 8px !important;
+}
+
+.fp-slidesNav ul li a span {
+    background: var(--text) !important;
+    opacity: 0.15;
+    width: 8px !important;
+    height: 8px !important;
+    margin: -4px 0 0 -4px !important;
+    transition: all 0.3s ease !important;
+}
+
+.fp-slidesNav ul li a.active span {
+    width: 12px !important;
+    height: 12px !important;
+    margin: -6px 0 0 -6px !important;
+    background: var(--accent) !important;
+    opacity: 1;
+}
+
+/* Navigation Tooltips — dark on light bg for contrast */
+#fp-nav .fp-tooltip {
+    color: #fff !important;
+    font-family: 'Crimson Pro', Georgia, serif !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    background: rgba(34, 34, 34, 0.92) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    padding: 6px 14px !important;
+    border-radius: 2px !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    top: 6px !important;
+    right: 48px !important;
+    opacity: 0;
+    transition: all 0.3s ease !important;
+    text-transform: none;
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+    pointer-events: none;
+}
+
+#fp-nav ul li:hover .fp-tooltip {
+    opacity: 1 !important;
+    right: 56px !important;
+}
+
+#fp-nav.fp-right {
+    right: 2rem !important;
+}
+
+/* Horizontal Controls */
+.fp-controlArrow {
+    top: auto !important;
+    bottom: 3rem !important;
+    opacity: 0.3 !important;
+    transition: opacity 0.3s;
+    border-width: 16px !important;
+}
+
+.fp-controlArrow:hover {
+    opacity: 0.7 !important;
+}
+
+.fp-controlArrow.fp-prev {
+    left: 4rem !important;
+    border-color: transparent var(--text-dim) transparent transparent !important;
+}
+
+.fp-controlArrow.fp-next {
+    right: 4rem !important;
+    border-color: transparent transparent transparent var(--text-dim) !important;
+}
+
+/* ----------------------------------------
+   Theorem Environments — classic LaTeX
+   ---------------------------------------- */
+.theorem {
+    margin: 2.5rem 0;
+    padding: 2rem 2.5rem;
+    border-radius: 0;
+    border: 1px solid var(--text);
+    background: rgba(0, 0, 0, 0.012);
+    text-align: left;
+    position: relative;
+}
+
+.theorem::before {
+    content: attr(data-label) ".";
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-transform: none;
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+    background: var(--bg);
+    color: var(--text);
+    padding: 0.15rem 0.8rem;
+    border-radius: 0;
+    position: absolute;
+    top: -0.8rem;
+    left: 1.5rem;
+}
+
+.theorem.conjecture {
+    border-style: dashed;
+    background: rgba(0, 0, 0, 0.01);
+}
+
+.theorem.conjecture::before {
+    color: #c41e3a;
+}
+
+/* Main Question — prominent centered theorem */
+.main-question-container {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    line-height: 1.25;
+    padding: 4rem 4rem;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.025);
+    border: 2px solid var(--text);
+    box-shadow: none;
+    color: var(--text);
+    font-weight: 400;
+    font-style: italic;
+    animation: none;
+}
+
+/* Override inline white colors from the Conjecture slide */
+.main-question-container p {
+    color: var(--text-dim) !important;
+}
+
+.main-question-container p:last-child {
+    color: var(--text) !important;
+}
+
+.main-question-container strong {
+    color: var(--accent) !important;
+    font-weight: 700;
+}
+
+.main-question-container::before {
+    font-size: 1.05rem;
+    padding: 0.3rem 1.5rem;
+    top: -0.9rem;
+    left: 50%;
+    transform: translateX(-50%);
+    letter-spacing: 0.06em;
+    box-shadow: none;
+    background: var(--bg);
+    color: var(--text);
+    font-weight: 700;
+    border-radius: 0;
+    font-variant: small-caps;
+}
+
+/* Background Illustrations */
+.bg-art {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0.05;
+    z-index: 1;
+    filter: grayscale(0.4) brightness(0.6) contrast(1.2);
+}
+
+.bg-art.redwoods {
+    height: 110%;
+    right: -5%;
+    top: -5%;
+}
+
+.bg-art.ocean {
+    width: 70%;
+    left: -5%;
+    bottom: -5%;
+}
+
+.fp-watermark {
+    display: none;
+}
+
+/* Minimal Buttons — kept dark for viz overlay context */
+.minimal-btn {
+    display: inline-block;
+    padding: 0.5rem 1.2rem;
+    background: rgba(0, 0, 0, 0.55);
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    border-radius: 2px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    font-family: 'Crimson Pro', Georgia, serif;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+}
+
+.minimal-btn:hover {
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Fragment System */
+.fragment {
+    opacity: 0;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    transform: translateY(6px);
+}
+
+.fragment.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+li.fragment {
+    display: block !important;
+}
+
+/* ----------------------------------------
+   Responsive Breakpoints
+   ---------------------------------------- */
+@media (max-width: 1024px) {
+    .content-box {
+        padding: 3rem 3.5rem;
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    h2 {
+        font-size: 2.8rem;
+    }
+
+    p {
+        font-size: 1.5rem;
+    }
+
+    .formula,
+    formula {
+        font-size: 2rem;
+        padding: 1.2rem 1.8rem;
+    }
+}
+
+@media (max-height: 850px) {
+    .content-box {
+        padding: 2.5rem 3rem;
+    }
+
+    h1 {
+        margin-bottom: 1.5rem;
+    }
+
+    h2 {
+        margin-bottom: 1.5rem;
+    }
+
+    p {
+        font-size: 1.4rem;
+        margin-bottom: 1rem;
+    }
+
+    .tag {
+        margin-bottom: 1.2rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .content-box {
+        padding: 1.5rem;
+    }
+
+    .fp-controlArrow {
+        display: none !important;
+        /* Touch navigation is preferred on mobile */
+    }
+
+    .fp-slidesNav {
+        bottom: 1rem !important;
+    }
+}
+
+.responsive-flex {
+    transition: all 0.5s ease;
+}
+
+@media (max-width: 1024px) {
+    .responsive-flex {
+        flex-direction: column !important;
+        gap: 2rem !important;
+        text-align: center;
+    }
+
+    .responsive-flex ul {
+        text-align: left;
+    }
+}
+
+/* ----------------------------------------
+   Interactive & Remote UI Components
+   ---------------------------------------- */
+.viz-frame {
+    width: 100vw;
+    height: 100dvh;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    display: block;
+}
+
+/* Remote UI — stays dark (independent overlay on phones) */
+#remote-ui {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    background: #000;
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3rem 2rem;
+    box-sizing: border-box;
+    overflow: hidden;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#remote-ui.active {
+    display: flex;
+}
+
+/* Hide specific controls when in presentation mode */
+body.presentation-mode .minimal-btn,
+body.presentation-mode #play-overlay,
+body.presentation-mode .viz-controls {
+    display: none !important;
+}
+
+#remote-ui::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 150%;
+    height: 150%;
+    background: radial-gradient(circle at center, rgba(26, 13, 171, 0.12) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.remote-header {
+    width: 100%;
+    text-align: center;
+    z-index: 10;
+}
+
+.remote-title {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-weight: 700;
+    color: #fff;
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.05em;
+}
+
+.remote-session-id {
+    color: var(--accent);
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+}
+
+/* Remote Clickpad */
+.clickpad-container {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.05);
+    z-index: 10;
+}
+
+.clickpad-item {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 1.5rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.clickpad-item:active {
+    color: var(--accent);
+    text-shadow: 0 0 10px var(--accent);
+}
+
+.clickpad-up {
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.clickpad-down {
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.clickpad-left {
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.clickpad-right {
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.clickpad-center {
+    width: 140px;
+    height: 140px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.clickpad-center:active {
+    transform: scale(0.92);
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.clickpad-center span {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 1rem;
+    letter-spacing: 0.1em;
+    color: #fff;
+}
+
+/* Secondary Buttons */
+.remote-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    width: 100%;
+    max-width: 280px;
+    z-index: 10;
+}
+
+.control-btn {
+    height: 80px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #fff;
+    transition: all 0.2s ease;
+}
+
+.control-btn:active {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(0.95);
+}
+
+.control-btn span {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.control-btn i {
+    font-size: 1.2rem;
+}
+
+.remote-status-bar {
+    width: 100%;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.2);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    z-index: 10;
+}
+
+@media (max-width: 1024px),
+(max-height: 900px) {
+    .viz-frame {
+        height: 100dvh;
+    }
+}
+
+@media (max-height: 700px) {
+    .viz-frame {
+        height: 100dvh;
+    }
+}
+
+.full-viz-container {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.viz-controls {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 100;
+    display: flex;
+    gap: 10px;
+}
+
+/* ----------------------------------------
+   Presenter UI
+   ---------------------------------------- */
+.present-btn {
+    display: inline-block;
+    margin-top: 2rem;
+    padding: 0.9rem 2.5rem;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 2px;
+    font-weight: 600;
+    font-family: 'Crimson Pro', Georgia, serif;
+    letter-spacing: 0.06em;
+    text-transform: none;
+    font-variant: small-caps;
+    font-size: 1.05rem;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(26, 13, 171, 0.25);
+}
+
+.present-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(26, 13, 171, 0.35);
+    background: var(--accent-light);
+}
+
+#present-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+#present-modal.active {
+    display: flex;
+    opacity: 1;
+}
+
+.modal-content {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    padding: 3rem;
+    max-width: 500px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+}
+
+.modal-content h3 {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+    color: var(--text);
+}
+
+#qr-container {
+    background: #fff;
+    padding: 15px;
+    border-radius: 2px;
+    display: inline-block;
+    margin-bottom: 2rem;
+    border: 1px solid var(--border);
+}
+
+#qr-container img {
+    display: block;
+}
+
+.remote-url {
+    background: rgba(0, 0, 0, 0.03);
+    padding: 1rem;
+    border-radius: 2px;
+    font-family: 'Source Code Pro', monospace;
+    word-break: break-all;
+    margin-bottom: 2rem;
+    color: var(--accent);
+    border: 1px solid var(--border);
+}
+
+.close-modal {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 1.5rem;
+    cursor: pointer;
+}

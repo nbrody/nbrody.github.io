@@ -289,6 +289,15 @@
              SECTION 4: Infinity
              ═══════════════════════════════════════════════ -->
         <div class="section" data-anchor="infinity">
+            <!-- Transition -->
+            <div class="slide" data-anchor="infinity-intro">
+                <div class="animate-up" style="text-align: center;">
+                    <h2
+                        style="font-family: var(--font-display); font-size: clamp(3rem, 6vw, 5rem); font-weight: 700; color: #ffffff; margin: 0;">
+                        Infinity</h2>
+                </div>
+            </div>
+
             <!-- Vanishing Trick: steps 0, 1, 2 -->
             <div class="slide infinity-step" data-infinity-step="0"></div>
             <div class="slide infinity-step" data-infinity-step="1"></div>
@@ -690,6 +699,15 @@
                     smartPrev();
                 }
             }, true);
+
+            // Listen for navigation messages from embedded iframes
+            // (when an iframe has focus, keyboard events go there instead of here)
+            window.addEventListener('message', function (e) {
+                if (e.data && e.data.type === 'iframeNav') {
+                    if (e.data.direction === 'next') smartNext();
+                    else if (e.data.direction === 'prev') smartPrev();
+                }
+            });
         });
     </script>
 
