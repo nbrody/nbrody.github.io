@@ -150,6 +150,17 @@ export class MobileControls {
                 #btn-jump {
                     font-size: 24px;
                 }
+
+                #btn-sprint {
+                    font-size: 22px;
+                    letter-spacing: -2px;
+                }
+
+                #btn-sprint.active {
+                    background: rgba(253, 199, 0, 0.45);
+                    border-color: #FDC700;
+                    color: #0B1A14;
+                }
                 
                 /* Top action bar - left side */
                 #top-actions {
@@ -195,6 +206,7 @@ export class MobileControls {
             <!-- Action buttons -->
             <div id="action-buttons">
                 <button class="action-btn" id="btn-interact">E</button>
+                <button class="action-btn" id="btn-sprint" aria-label="Sprint">»</button>
                 <button class="action-btn" id="btn-jump">↑</button>
             </div>
             
@@ -214,6 +226,7 @@ export class MobileControls {
         this.lookZone = document.getElementById('look-zone');
         this.btnJump = document.getElementById('btn-jump');
         this.btnInteract = document.getElementById('btn-interact');
+        this.btnSprint = document.getElementById('btn-sprint');
         this.btnAtlas = document.getElementById('btn-atlas');
         this.btnHelp = document.getElementById('btn-help');
     }
@@ -259,6 +272,24 @@ export class MobileControls {
         this.btnInteract.addEventListener('touchend', () => {
             this.interactPressed = false;
             this.btnInteract.classList.remove('active');
+        });
+
+        // Sprint toggle (tap to toggle sprinting for the accelerating speed boost)
+        this.btnSprint.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (!this.player) return;
+            const nowRunning = !this.player.keys.run;
+            this.player.keys.run = nowRunning;
+            if (nowRunning) {
+                this.player.shiftHeldTime = 0;
+                this.player.lastSpeedBoostTime = 0;
+                this.player.speedMultiplier = this.player.baseSpeedMultiplier;
+                this.btnSprint.classList.add('active');
+            } else {
+                this.player.speedMultiplier = 1;
+                this.player.shiftHeldTime = 0;
+                this.btnSprint.classList.remove('active');
+            }
         });
 
         // Atlas button

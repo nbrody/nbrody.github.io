@@ -40,8 +40,13 @@
             <div style="text-align: center; margin: 20px 0;">
                 <h3 style="margin-bottom: 10px; color: #f9fafb; font-weight: 600;">Riley Slice Visualization</h3>
                 <p style="font-size: 14px; color: #d1d5db; margin-bottom: 15px;">
-                    Roots of \(P(p/q) = Q(p/q) + 2\) for fractions with denominator \(\leq 30\). Click a root to select
-                    it.
+                    The plane variable is \(z\) (the square root of the usual Riley parameter \(\rho = z^2\)).
+                    Colored region: non-discrete locus, shaded by the Farey fraction \(p/q\) with smallest
+                    \(|\Phi_{p/q}(z^2)|\) via the Keen&ndash;Series recurrence
+                    \(\Phi_{\text{med}} = 8 - \Phi_L\Phi_R - \Phi_{\text{diff}}\).
+                    Thin pale curve: analytic boundary \(\{|\Phi_{p/q}|=2\}\) drawn via
+                    \(|\Phi-2|/|\mathrm{d}\Phi/\mathrm{d}z|\) (sub-pixel sharp at any zoom).
+                    Dots: cusp roots of \(P(p/q) = Q(p/q) + 2\) for denominator \(\leq 30\). Click a root to select it.
                 </p>
                 <canvas id="rileySliceCanvas" width="600" height="600"
                     style="border: 1px solid rgba(255, 255, 255, 0.15); background: #1f2937; border-radius: 8px; cursor: crosshair;"></canvas>
@@ -219,13 +224,14 @@
         <div id="polyResults" style="margin-top: 20px;"></div>
     </div>
 
-    <script src="polynomial.js"></script>
-    <script src="fareyTree.js"></script>
-    <script src="visualization.js"></script>
-    <script src="rileySlice.js"></script>
-    <script src="explorer.js"></script>
-    <script src="main.js"></script>
-    <script src="limitSetVisualizer.js"></script>
+    <script src="polynomial.js?v=2"></script>
+    <script src="fareyTree.js?v=2"></script>
+    <script src="visualization.js?v=2"></script>
+    <script src="rileySlice.js?v=2"></script>
+    <script src="rileySliceShader.js?v=2"></script>
+    <script src="explorer.js?v=2"></script>
+    <script src="main.js?v=2"></script>
+    <script src="limitSetVisualizer.js?v=2"></script>
 </body>
 
 </html>

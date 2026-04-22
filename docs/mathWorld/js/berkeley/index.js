@@ -1,19 +1,12 @@
 /**
- * Berkeley Module Index
- * Exports all Berkeley/Oakland area content
+ * Berkeley Sub-Region Module Index
+ *
+ * Content that sits INSIDE the Bay Area regional terrain (see bayArea/bayArea.js).
+ * The old standalone BerkeleyTerrain has been superseded by BayAreaTerrain,
+ * which provides the regional topography and water for the whole Bay Area.
  */
 
-export {
-    BerkeleyTerrain,
-    BERK_BOUNDS,
-    BERK_SIZE,
-    BERK_CENTER,
-    gpsToLocal,
-    localToGps,
-    getElevation
-} from './berkeley.js';
+export { UCBerkeleyCampus } from './ucbCampus.js';
 
-// Future exports for UC Berkeley campus, downtown, etc.
-// export { UCBerkeleyCampus } from './ucbCampus.js';
+// Future sub-region exports (downtown Berkeley, Oakland, etc.)
 // export { DowntownBerkeley } from './downtown.js';
-// export { OaklandDowntown } from './oakland.js';

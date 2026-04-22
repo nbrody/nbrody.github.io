@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Kleinian Limit Set Laboratory</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+:root {
+  --bg:        #0a0c11;
+  --panel:     rgba(18, 22, 30, 0.94);
+  --panel-2:   #11151d;
+  --panel-3:   #0b0e14;
+  --border:    rgba(255, 255, 255, 0.08);
+  --border-2:  rgba(255, 255, 255, 0.04);
+  --text:      #e7eaf2;
+  --muted:     #8892a6;
+  --muted-2:   #566072;
+  --accent:    #7cc3ff;
+  --accent-2:  #ffb86b;
+  --accent-3:  #c3a2ff;
+  --good:      #8bd46b;
+  --danger:    #ff6b8a;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text);
+  font: 13px/1.42 -apple-system, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+#app { display: grid; grid-template-columns: 380px 1fr; height: 100%; }
+
+#panel {
+  background: var(--panel); backdrop-filter: blur(12px);
+  border-right: 1px solid var(--border); overflow-y: auto; padding: 0;
+}
+#panel h1 { font-size: 12px; margin: 0; padding: 12px 14px;
+  letter-spacing: 0.1em; color: var(--accent); text-transform: uppercase; font-weight: 600;
+  background: linear-gradient(180deg, rgba(124,195,255,0.06), transparent);
+  border-bottom: 1px solid var(--border);
+}
+#panel h1 .sub { color: var(--muted); font-weight: 400; letter-spacing: 0.04em; margin-left: 8px; text-transform: none; }
+
+details { border-bottom: 1px solid var(--border-2); }
+details > summary {
+  padding: 10px 14px; cursor: pointer; user-select: none;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--muted); list-style: none;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: "▸ "; color: var(--muted-2); }
+details[open] > summary::before { content: "▾ "; }
+details > summary:hover { color: var(--text); }
+details .body { padding: 4px 14px 12px; }
+
+.row { display: flex; gap: 6px; align-items: center; margin-bottom: 5px; }
+.row > label { flex: 0 0 auto; min-width: 84px; color: var(--muted); font-size: 11px; }
+.row > input[type="number"], .row > input[type="text"], .row > select {
+  flex: 1; background: var(--panel-3); border: 1px solid var(--border);
+  color: var(--text); padding: 4px 6px; border-radius: 4px; min-width: 0;
+}
+.row > input[type="range"] { flex: 1; accent-color: var(--accent); }
+.btn { background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+  padding: 5px 10px; border-radius: 4px; font-size: 12px; }
+.btn:hover { background: #1d2431; }
+.btn.primary { background: linear-gradient(180deg, #2a6fb3, #1a4572);
+  border-color: #3c85c6; }
+.btn.primary:hover { background: linear-gradient(180deg, #3480c4, #2a5a8f); }
+.btn.danger { background: #4a1f2a; border-color: #6a2c3c; }
+.btn.danger:hover { background: #5a2834; }
+.btn-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+
+.gen { border: 1px solid var(--border); border-radius: 6px; padding: 8px;
+  margin-bottom: 8px; background: var(--panel-3); }
+.gen-header { display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px; gap: 6px; }
+.gen-name { font-weight: 600; color: var(--accent-2);
+  font-family: "SF Mono", Menlo, monospace; font-size: 13px; }
+.gen-info { font-size: 10px; color: var(--muted); font-family: "SF Mono", Menlo, monospace;
+  flex: 1; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.gen-grid input { background: #060810; border: 1px solid #1a1f2b; color: var(--text);
+  padding: 4px 6px; border-radius: 3px; font-family: "SF Mono", Menlo, monospace;
+  font-size: 12px; min-width: 0; }
+.gen-grid input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.gen-grid input.bad { border-color: var(--danger); outline: 1px solid var(--danger); }
+.remove-gen { background: transparent; border: none; color: var(--muted-2);
+  font-size: 16px; padding: 0 4px; }
+.remove-gen:hover { color: var(--danger); }
+
+.checkbox-row { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+.checkbox-row input { margin: 0; accent-color: var(--accent); }
+.checkbox-row label { color: var(--text); font-size: 12px; user-select: none; cursor: pointer; }
+
+#err { color: var(--danger); font-size: 11px; font-family: "SF Mono", Menlo, monospace;
+  white-space: pre-wrap; margin-top: 4px; padding: 0 14px; }
+.help { font-size: 11px; color: var(--muted); line-height: 1.55; margin-top: 6px; }
+.help code { background: var(--panel-2); padding: 1px 4px; border-radius: 3px;
+  color: var(--accent-2); font-family: "SF Mono", Menlo, monospace; font-size: 11px; }
+.slider-val { min-width: 54px; text-align: right;
+  font-family: "SF Mono", Menlo, monospace; font-size: 11px; color: var(--accent-2); }
+
+#diag { font-family: "SF Mono", Menlo, monospace; font-size: 11px;
+  color: var(--muted); white-space: pre-wrap; line-height: 1.5; }
+#diag .good { color: var(--good); }
+#diag .warn { color: var(--accent-2); }
+#diag .bad  { color: var(--danger); }
+#diag .key  { color: var(--accent); }
+
+#main { position: relative; overflow: hidden; min-width: 0; }
+#canvas, #overlay { display: block; position: absolute; inset: 0;
+  width: 100%; height: 100%; touch-action: none; }
+#canvas { background: #000; cursor: crosshair; }
+#overlay { pointer-events: none; }
+#status { position: absolute; left: 14px; bottom: 14px; background: rgba(0,0,0,0.7);
+  padding: 6px 10px; border-radius: 4px; font-family: "SF Mono", Menlo, monospace;
+  font-size: 11px; color: var(--muted); pointer-events: none;
+  max-width: calc(100% - 28px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#info { position: absolute; right: 14px; top: 14px; background: rgba(0,0,0,0.7);
+  padding: 6px 10px; border-radius: 4px; font-size: 11px; color: var(--muted);
+  font-family: "SF Mono", Menlo, monospace; pointer-events: none; text-align: right; }
+#progress-bar { position: absolute; bottom: 0; left: 0; height: 2px;
+  background: var(--accent); width: 0%; transition: width 0.15s linear; pointer-events: none; }
+.chip { display: inline-block; padding: 2px 6px; margin-right: 6px; font-size: 10px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+  color: var(--muted); font-family: "SF Mono", Menlo, monospace; }
+.chip.on { color: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+
+    <h1>Kleinian Lab <span class="sub">PSL₂ℂ limit sets</span></h1>
+
+    <details open>
+      <summary>Preset</summary>
+      <div class="body">
+        <div class="row"><select id="preset"></select></div>
+        <div id="preset-note" class="help"></div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Generators</summary>
+      <div class="body">
+        <div id="generators"></div>
+        <div class="btn-row">
+          <button class="btn" id="add-gen">+ generator</button>
+          <button class="btn" id="normalize">normalize det=1</button>
+        </div>
+      </div>
+    </details>
+
+    <div id="err"></div>
+
+    <details open>
+      <summary>Renderer</summary>
+      <div class="body">
+        <div class="row">
+          <label>Mode</label>
+          <select id="mode">
+            <option value="adaptive" selected>Adaptive disk-tracing</option>
+            <option value="chaos">Chaos game (random walk)</option>
+            <option value="naive">Naive reduced-word BFS</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Max depth</label>
+          <input type="range" id="depth" min="3" max="60" value="30" />
+          <span class="slider-val" id="depth-val">30</span>
+        </div>
+        <div class="row">
+          <label>ε (pixels)</label>
+          <input type="range" id="epsilon" min="0.25" max="4" step="0.25" value="0.75" />
+          <span class="slider-val" id="epsilon-val">0.75px</span>
+        </div>
+        <div class="row">
+          <label>Points</label>
+          <input type="range" id="points" min="20000" max="4000000" step="20000" value="600000" />
+          <span class="slider-val" id="points-val">600k</span>
+        </div>
+        <div class="row">
+          <label>Walk seed</label>
+          <input type="text" id="seed" value="auto" placeholder="auto or complex expr" />
+        </div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Coloring</summary>
+      <div class="body">
+        <div class="row">
+          <label>Channels</label>
+          <select id="color-mode">
+            <option value="density">Density only</option>
+            <option value="first"   selected>By first letter</option>
+            <option value="last">By last letter</option>
+            <option value="depth">By word length</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Palette</label>
+          <select id="palette">
+            <option value="viridis" selected>Viridis</option>
+            <option value="heat">Heat</option>
+            <option value="ice">Ice</option>
+            <option value="mono">Mono</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Exposure</label>
+          <input type="range" id="exposure" min="-2" max="3" step="0.1" value="0.8" />
+          <span class="slider-val" id="exposure-val">0.8</span>
+        </div>
+        <div class="row">
+          <label>Saturation</label>
+          <input type="range" id="saturation" min="0" max="2" step="0.05" value="1.0" />
+          <span class="slider-val" id="saturation-val">1.00</span>
+        </div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Overlays</summary>
+      <div class="body">
+        <div class="checkbox-row"><input type="checkbox" id="show-fixed" checked /><label for="show-fixed">Fixed points</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="show-iso" checked /><label for="show-iso">Isometric circles</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="show-iso-img" /><label for="show-iso-img">Level-1 pullbacks of iso circles</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="show-axes" /><label for="show-axes">Real / imag axes</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="show-unit" /><label for="show-unit">Unit circle</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="show-test" /><label for="show-test">Test circle &amp; its orbit</label></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Diagnostics</summary>
+      <div class="body"><div id="diag">—</div></div>
+    </details>
+
+    <details>
+      <summary>I/O &amp; session</summary>
+      <div class="body">
+        <div class="btn-row">
+          <button class="btn" id="save-png">Save PNG</button>
+          <button class="btn" id="save-json">Copy JSON</button>
+          <button class="btn" id="load-json">Paste JSON</button>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Help</summary>
+      <div class="body">
+        <div class="help">
+          Entries accept <code>i</code>, <code>2*i</code>, <code>1+2i</code>,
+          <code>sqrt(2)/2</code>, <code>exp(i*pi/3)</code>.<br><br>
+          <b>Adaptive</b>: exact Möbius-geometry propagation of isometric-circle
+          disks; stops refining when a cluster disk is sub-pixel. Best on groups
+          where every generator has nonzero lower-left entry (c ≠ 0).<br><br>
+          <b>Chaos game</b>: samples orbits under a no-backtrack random walk on
+          the generating set. Unbiased for non-elementary groups, excellent for
+          dense limit sets and cases where c = 0 breaks the disk method.<br><br>
+          <b>Naive</b>: enumerates all reduced words up to depth and plots
+          seed images. Correctness baseline; cost is exponential in depth.<br><br>
+          Drag to pan, scroll to zoom, shift+click to set a seed.
+        </div>
+      </div>
+    </details>
+
+    <div style="padding: 12px 14px;">
+      <div class="btn-row">
+        <button class="btn primary" id="render" style="flex: 1;">Render</button>
+        <button class="btn" id="stop">Stop</button>
+      </div>
+      <div class="btn-row" style="margin-top: 6px;">
+        <button class="btn" id="reset-view" style="flex: 1;">Reset view</button>
+        <button class="btn" id="clear" style="flex: 1;">Clear</button>
+      </div>
+    </div>
+
+  </aside>
+
+  <main id="main">
+    <canvas id="canvas"></canvas>
+    <canvas id="overlay"></canvas>
+    <div id="progress-bar"></div>
+    <div id="status">Ready.</div>
+    <div id="info"></div>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* ==================================================================
+ * Kleinian Limit Set Laboratory
+ * ------------------------------------------------------------------
+ * A browser-based visualizer for limit sets Λ(G) of finitely generated
+ * subgroups G ⊂ PSL(2,ℂ). Three rendering strategies:
+ *
+ *   (1) NAIVE — enumerate reduced words of length ≤ k by BFS and plot
+ *       w(z₀) for various seeds. Cost 2n·(2n-1)^{k-1} per level; used
+ *       as a correctness baseline and for low-depth qualitative reads.
+ *
+ *   (2) CHAOS — random walk on the free generating set (no-backtrack)
+ *       producing a stationary distribution whose support is Λ(G) for
+ *       non-elementary groups. Unbiased and efficient, but does not
+ *       explicitly exploit the geometry.
+ *
+ *   (3) ADAPTIVE — exact Möbius-geometry propagation of isometric
+ *       circles. For each reduced prefix w we maintain a *cluster
+ *       disk* D_w ⊂ ℂ̂ that contains every limit point accessible by
+ *       extending w on the right, and we only subdivide a node when
+ *       diam(w(D)) exceeds a pixel. This is the flagship algorithm
+ *       and for Schottky / "disjoint iso-circle" groups produces an
+ *       essentially tight cover of Λ(G) with only O(log(1/ε)) work
+ *       per plotted point.
+ *
+ * Mathematical provenance of the adaptive method:
+ *   Ford (1929) showed that for g ∈ SL(2,ℂ) with lower-left entry c≠0,
+ *   g maps the exterior of its isometric circle C_g = {z : |cz+d|=1}
+ *   onto the interior of C_{g^{-1}}, strictly contracting there. Under
+ *   the Schottky hypothesis (all 2n iso-disks pairwise disjoint), the
+ *   classical symbolic coding gives Λ(G) = ⋂_{k} ⋃_{|w|=k} w(⋃_{s ≠ ℓ(w)^{-1}} D_s).
+ *   We implement this recursion directly, using the closed-form image
+ *   of a disk under a Möbius transformation. For non-Schottky groups
+ *   the disks overlap but the algorithm still produces a valid cover;
+ *   accuracy degrades gracefully near parabolic cusps.
+ *
+ * Failure modes to watch for:
+ *   - c = 0 for some generator → no iso circle. We fall back to a
+ *     derivative-magnitude stopping criterion for branches passing
+ *     through that generator.
+ *   - elementary groups (common fixed point) produce degenerate disks
+ *     that shrink to a point; the diagnostics flag this case.
+ *   - near-coincident generators cause projective aliasing; we detect
+ *     and warn in the diagnostics panel.
+ * ================================================================== */
+
+
+/* =========================  1.  COMPLEX  ========================= */
+/* Plain-object complex numbers {re, im}. We prefer this over typed
+ * arrays for readability; the hot path in the adaptive renderer is
+ * the Möbius multiplication and disk transform, which we keep
+ * allocation-light by inlining below.                                */
+const C = {
+  mk:  (re, im = 0) => ({re, im}),
+  add: (a, b) => ({re: a.re + b.re, im: a.im + b.im}),
+  sub: (a, b) => ({re: a.re - b.re, im: a.im - b.im}),
+  neg:  a     => ({re: -a.re, im: -a.im}),
+  mul: (a, b) => ({re: a.re*b.re - a.im*b.im, im: a.re*b.im + a.im*b.re}),
+  div: (a, b) => {
+    const d = b.re*b.re + b.im*b.im;
+    return {re: (a.re*b.re + a.im*b.im)/d, im: (a.im*b.re - a.re*b.im)/d};
+  },
+  conj: a => ({re: a.re, im: -a.im}),
+  abs:  a => Math.hypot(a.re, a.im),
+  abs2: a => a.re*a.re + a.im*a.im,
+  arg:  a => Math.atan2(a.im, a.re),
+  sqrt: a => {
+    /* Principal branch. Numerically stable via r = |a|.                 */
+    const r = Math.hypot(a.re, a.im);
+    if (r === 0) return {re: 0, im: 0};
+    const sr = Math.sqrt((r + a.re) * 0.5);
+    const si = (a.im >= 0 ? 1 : -1) * Math.sqrt((r - a.re) * 0.5);
+    return {re: sr, im: si};
+  },
+  exp: a => { const e = Math.exp(a.re);
+              return {re: e*Math.cos(a.im), im: e*Math.sin(a.im)}; },
+  log: a => ({re: 0.5*Math.log(a.re*a.re + a.im*a.im), im: Math.atan2(a.im, a.re)}),
+  sin: a => ({re: Math.sin(a.re)*Math.cosh(a.im), im: Math.cos(a.re)*Math.sinh(a.im)}),
+  cos: a => ({re: Math.cos(a.re)*Math.cosh(a.im), im: -Math.sin(a.re)*Math.sinh(a.im)}),
+  pow: (a, b) => C.exp(C.mul(b, C.log(a))),
+  eq:  (a, b) => Math.abs(a.re - b.re) < 1e-12 && Math.abs(a.im - b.im) < 1e-12,
+  ZERO: Object.freeze({re: 0, im: 0}),
+  ONE:  Object.freeze({re: 1, im: 0}),
+  I:    Object.freeze({re: 0, im: 1}),
+};
+
+
+/* =====================  2.  EXPRESSION PARSER  ===================== */
+/* Tiny recursive-descent parser for complex arithmetic expressions.
+ * Supports: +, -, *, /, ^, parentheses, unary -, identifiers
+ * (i, pi, e), and function calls (sqrt, exp, log, sin, cos, conj,
+ * re, im, abs). The literal "3i" is shorthand for 3*i.               */
+function parseComplex(text) {
+  const s = (text || '').trim();
+  if (!s) throw new Error("empty");
+  let p = 0;
+  const more = () => p < s.length;
+  const skip = () => { while (more() && /\s/.test(s[p])) p++; };
+
+  function expr() {
+    let v = term();
+    while (skip(), more() && (s[p] === '+' || s[p] === '-')) {
+      const op = s[p++]; const r = term();
+      v = op === '+' ? C.add(v, r) : C.sub(v, r);
+    }
+    return v;
+  }
+  function term() {
+    let v = factor();
+    while (skip(), more() && (s[p] === '*' || s[p] === '/')) {
+      const op = s[p++]; const r = factor();
+      v = op === '*' ? C.mul(v, r) : C.div(v, r);
+    }
+    return v;
+  }
+  function factor() {
+    skip(); let v = unary(); skip();
+    if (more() && s[p] === '^') { p++; const e = factor(); v = C.pow(v, e); }
+    return v;
+  }
+  function unary() {
+    skip();
+    if (more() && s[p] === '+') { p++; return unary(); }
+    if (more() && s[p] === '-') { p++; return C.neg(unary()); }
+    return atom();
+  }
+  function atom() {
+    skip();
+    if (!more()) throw new Error("unexpected end");
+    if (s[p] === '(') { p++; const v = expr(); skip();
+                         if (s[p] !== ')') throw new Error("expected )"); p++; return v; }
+    const num = /^(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?/.exec(s.slice(p));
+    if (num) {
+      p += num[0].length;
+      const v = parseFloat(num[0]);
+      if (more() && (s[p] === 'i' || s[p] === 'I' || s[p] === 'j')) { p++; return C.mk(0, v); }
+      return C.mk(v, 0);
+    }
+    const id = /^[a-zA-Z_][a-zA-Z0-9_]*/.exec(s.slice(p));
+    if (id) {
+      const n = id[0]; p += n.length; skip();
+      if (more() && s[p] === '(') {
+        p++; const arg = expr(); skip();
+        if (s[p] !== ')') throw new Error("expected )"); p++;
+        switch (n) {
+          case 'sqrt': return C.sqrt(arg);
+          case 'exp':  return C.exp(arg);
+          case 'log':  return C.log(arg);
+          case 'sin':  return C.sin(arg);
+          case 'cos':  return C.cos(arg);
+          case 'conj': return C.conj(arg);
+          case 're':   return C.mk(arg.re, 0);
+          case 'im':   return C.mk(arg.im, 0);
+          case 'abs':  return C.mk(C.abs(arg), 0);
+          case 'neg':  return C.neg(arg);
+          default: throw new Error("unknown fn: " + n);
+        }
+      }
+      if (n === 'i' || n === 'I' || n === 'j')    return C.I;
+      if (n === 'pi' || n === 'Pi' || n === 'PI') return C.mk(Math.PI, 0);
+      if (n === 'e'  || n === 'E')                return C.mk(Math.E, 0);
+      throw new Error("unknown ident: " + n);
+    }
+    throw new Error("unexpected '" + s[p] + "' at " + p);
+  }
+  const v = expr(); skip();
+  if (more()) throw new Error("trailing: " + s.slice(p));
+  return v;
+}
+
+function fmt(z) {
+  if (!z) return "∞";
+  const clean = x => Math.abs(x) < 1e-10 ? 0 : x;
+  const r = clean(z.re), i = clean(z.im);
+  const fr = x => Number.isInteger(x) ? String(x) : x.toFixed(3).replace(/\.?0+$/, '');
+  if (i === 0) return fr(r);
+  if (r === 0) return i === 1 ? "i" : i === -1 ? "-i" : fr(i) + "i";
+  const absi = Math.abs(i);
+  return fr(r) + (i >= 0 ? "+" : "-") + (absi === 1 ? "i" : fr(absi) + "i");
+}
+
+
+/* =======================  3.  MÖBIUS MATRICES  ======================= */
+/* A generator is stored as {a, b, c, d} with each entry a Complex.
+ * We routinely normalize to det = 1 to kill projective drift that
+ * accumulates under long products.
+ *
+ * For numerical stability we:
+ *   - renormalize every N composition steps inside the adaptive loop;
+ *   - evaluate actions using the more stable of two equivalent
+ *     formulas (avoid dividing by near-zero (cz+d) when possible);
+ *   - detect and special-case c = 0 generators (affine subfamily).   */
+const M = {
+  I: () => ({a: C.ONE, b: C.ZERO, c: C.ZERO, d: C.ONE}),
+
+  mul: (X, Y) => ({
+    a: C.add(C.mul(X.a, Y.a), C.mul(X.b, Y.c)),
+    b: C.add(C.mul(X.a, Y.b), C.mul(X.b, Y.d)),
+    c: C.add(C.mul(X.c, Y.a), C.mul(X.d, Y.c)),
+    d: C.add(C.mul(X.c, Y.b), C.mul(X.d, Y.d)),
+  }),
+
+  /* Inverse assuming det = 1.                                          */
+  inv: X => ({a: X.d, b: C.neg(X.b), c: C.neg(X.c), d: X.a}),
+
+  /* General inverse (divides by det).                                  */
+  invGen: X => {
+    const det = C.sub(C.mul(X.a, X.d), C.mul(X.b, X.c));
+    return { a: C.div(X.d, det), b: C.neg(C.div(X.b, det)),
+             c: C.neg(C.div(X.c, det)), d: C.div(X.a, det) };
+  },
+
+  det: X => C.sub(C.mul(X.a, X.d), C.mul(X.b, X.c)),
+  tr:  X => C.add(X.a, X.d),
+
+  /* Normalize to det = 1 up to sign (chosen to keep entries in place).*/
+  normalize: X => {
+    const s = C.sqrt(M.det(X));
+    if (C.abs2(s) < 1e-300) return X;
+    return {a: C.div(X.a, s), b: C.div(X.b, s),
+            c: C.div(X.c, s), d: C.div(X.d, s)};
+  },
+
+  /* Frobenius-like projective norm ||X||² = |a|² + |b|² + |c|² + |d|².*/
+  norm2: X => C.abs2(X.a) + C.abs2(X.b) + C.abs2(X.c) + C.abs2(X.d),
+
+  /* z ↦ (az+b)/(cz+d). Returns null for image = ∞.                   */
+  actZ: (X, z) => {
+    const num = C.add(C.mul(X.a, z), X.b);
+    const den = C.add(C.mul(X.c, z), X.d);
+    if (C.abs2(den) < 1e-300) return null;
+    return C.div(num, den);
+  },
+
+  /* X(∞) = a/c (or ∞ if c=0).                                         */
+  actInf: X => C.abs2(X.c) < 1e-300 ? null : C.div(X.a, X.c),
+
+  /* |X'(z)|² = 1/|cz+d|⁴                                              */
+  derivMagSq: (X, z) => {
+    const den = C.add(C.mul(X.c, z), X.d);
+    const m = C.abs2(den);
+    if (m < 1e-300) return Infinity;
+    return 1 / (m * m);
+  },
+
+  /* Fixed points of z ↦ (az+b)/(cz+d) are roots of cz²+(d−a)z−b=0.   */
+  fixedPoints: X => {
+    if (C.abs2(X.c) < 1e-25) {
+      if (C.abs2(C.sub(X.d, X.a)) < 1e-25) return [null, null];
+      return [C.div(X.b, C.sub(X.d, X.a)), null];
+    }
+    const tr  = C.add(X.a, X.d);
+    const dis = C.sub(C.mul(tr, tr), C.mk(4, 0));
+    const sq  = C.sqrt(dis);
+    const ad  = C.sub(X.a, X.d);
+    const tc  = C.mul(C.mk(2, 0), X.c);
+    return [C.div(C.add(ad, sq), tc), C.div(C.sub(ad, sq), tc)];
+  },
+
+  /* Conjugacy class from trace. In PSL₂ℂ, discriminant (trX)² - 4:
+   *   = 0           parabolic
+   *   ∈ (-4, 0)     elliptic        (only when trace is real)
+   *   > 0 real      hyperbolic
+   *   else          loxodromic (truly complex trace)                    */
+  classify: X => {
+    const tr = C.add(X.a, X.d);
+    const d2 = C.abs2(C.sub(C.mul(tr, tr), C.mk(4, 0)));
+    if (d2 < 1e-11) return 'parabolic';
+    if (Math.abs(tr.im) < 1e-9) {
+      const t = Math.abs(tr.re);
+      if (t < 2 - 1e-9) return 'elliptic';
+      return 'hyperbolic';
+    }
+    return 'loxodromic';
+  },
+
+  /* Isometric circle C_X = {z : |cz+d| = 1}, center -d/c, radius 1/|c|.
+   * Ford's theorem: g maps exterior(C_g) → interior(C_{g^{-1}}).       */
+  isoCircle: X => {
+    if (C.abs2(X.c) < 1e-25) return null;
+    return { center: C.neg(C.div(X.d, X.c)), radius: 1 / C.abs(X.c) };
+  },
+};
+
+
+/* ====================  4.  DISK TRANSFORMATION  ==================== */
+/* Image of a round disk under a Möbius map, exploited in adaptive mode.
+ * Given g ∈ SL(2,ℂ) and disk {|z − p| ≤ r}, the image is:
+ *
+ *   δ = |cp + d|² − |c|² r²        (signed, real)
+ *   p' = ((ap+b)·conj(cp+d) − a·conj(c)·r²) / δ
+ *   r' = r / |δ|
+ *   flipped = (δ < 0)              (interior ↔ exterior swap)
+ *
+ * If δ = 0 the original disk passes through the pole z = −d/c and the
+ * image is a half-plane — we return null and the caller falls back to
+ * a derivative estimate for that branch.
+ *
+ * Derivation: write the circle as the zero set of the Hermitian form
+ *   H(z, z̄) = z z̄ − p̄z − p z̄ + (|p|² − r²)
+ * and pull H back through z = (αw + β)/(γw + δ) using the action of
+ * SL₂ℂ on the space of Hermitian forms. The formulas above are the
+ * resulting coefficients, read off after clearing denominators.      */
+function transformDisk(g, disk) {
+  const p = disk.center, r = disk.radius;
+  const cp    = C.add(C.mul(g.c, p), g.d);        // cp + d
+  const cp2   = C.abs2(cp);
+  const c2r2  = C.abs2(g.c) * r * r;
+  const delta = cp2 - c2r2;
+  if (Math.abs(delta) < 1e-14) return null;        // degenerate
+
+  const ap  = C.add(C.mul(g.a, p), g.b);           // ap + b
+  const apcc = C.mul(ap, C.conj(cp));               // (ap+b)·conj(cp+d)
+  const acr2 = C.mul(g.a, C.mul(C.conj(g.c), C.mk(r*r, 0)));
+  const num = C.sub(apcc, acr2);
+  return {
+    center:  {re: num.re / delta, im: num.im / delta},
+    radius:  r / Math.abs(delta),
+    flipped: delta < 0,
+  };
+}
+
+
+/* ==========================  5.  PRESETS  ========================== */
+/* Each preset documents its expected geometry and recommended params.
+ * "view" = initial viewport (world center + scale in world units).
+ * "mode" = starting render mode (adaptive / chaos / naive).           */
+const PRESETS = [
+  {
+    name: "Schottky (two loxodromics, tr = 3)",
+    note: "Classical free Schottky group: four disjoint isometric circles. " +
+          "Limit set is a Cantor-like set on ⋃ D_s. Adaptive mode is ideal here.",
+    gens: [
+      { entries: ["1", "1",  "1",  "2"] },        // centers {-2,  1}, r=1
+      { entries: ["1", "i",  "-i", "2"] },        // centers {-2i, i}, r=1
+    ],
+    view: {cx: 0, cy: 0, scale: 3.6},
+    mode: "adaptive",
+  },
+  {
+    name: "Apollonian gasket (parabolic commutator)",
+    note: "Generators parabolic; commutator parabolic. Iso-disks are " +
+          "mutually tangent, giving the classical gasket. Adaptive mode " +
+          "works but depth must be large near cusps.",
+    gens: [
+      { entries: ["1",    "0",     "-2*i", "1"]   },
+      { entries: ["1-i",  "1",     "1",    "1+i"] },
+    ],
+    view: {cx: 0, cy: 0, scale: 2.4},
+    mode: "adaptive",
+  },
+  {
+    name: "Quasi-Fuchsian (Schottky deformation, tr_a = 3+0.1i)",
+    note: "Small complex-trace perturbation of the Schottky group above. " +
+          "Limit set is a Jordan curve with fractal roughness controlled " +
+          "by the imaginary part of the traces.",
+    gens: [
+      { entries: ["1",  "1+0.05*i", "1-0.05*i",  "2+0.1*i"] },
+      { entries: ["1",  "i",         "-i",         "2"] },
+    ],
+    view: {cx: 0, cy: 0, scale: 3.8},
+    mode: "adaptive",
+  },
+  {
+    name: "Modular (Fuchsian, PSL₂ℤ)",
+    note: "S, T generators of PSL₂ℤ. T is parabolic at ∞ (c = 0) so " +
+          "adaptive disk-tracing is disabled for the T branch — use " +
+          "chaos game. Limit set = ℝ ∪ {∞} (a circle on the sphere).",
+    gens: [
+      { entries: ["1", "1",  "0", "1"] },         // T
+      { entries: ["0", "-1", "1", "0"] },         // S
+    ],
+    view: {cx: 0, cy: 0, scale: 6},
+    mode: "chaos",
+  },
+  {
+    name: "Riley (two parabolics, μ = 1.91+0.05i)",
+    note: "a, b both parabolic with axes conjugated by translation; μ " +
+          "inside the Riley slice gives a quasi-Fuchsian once-punctured " +
+          "torus. Adaptive mode works because the basis has c ≠ 0.",
+    gens: [
+      { entries: ["1",     "0",             "-1",            "1"] },
+      { entries: ["1",     "0",             "1.91+0.05*i",   "1"] },
+    ],
+    view: {cx: 0, cy: 0, scale: 3.2},
+    mode: "chaos",
+  },
+  {
+    name: "Three-generator Schottky (real axes)",
+    note: "Three loxodromics with pairwise disjoint iso-disks. Example " +
+          "of a non-two-generator free group; symbolic address coloring " +
+          "naturally splits into 6 pieces (3 gens × 2 inverses).",
+    gens: [
+      { entries: ["2",              "0",            "0",              "0.5"] },
+      { entries: ["2+0.3*i",        "-0.5-0.3*i",   "0.2-0.1*i",      "0.5"] },
+      { entries: ["2-0.2*i",        "0.3+0.2*i",    "-0.1+0.15*i",   "0.5"] },
+    ],
+    view: {cx: 0, cy: 0, scale: 3.8},
+    mode: "adaptive",
+  },
+];
+
+
+/* ============================  6.  VIEW  ============================ */
+const view = { cx: 0, cy: 0, scale: 4.0 };
+let canvasW = 0, canvasH = 0, DPR = 1;
+
+function worldToPx(z) {
+  const u = (z.re - view.cx) / view.scale;
+  const v = (z.im - view.cy) / view.scale;
+  const s = Math.min(canvasW, canvasH);
+  return { x: canvasW * 0.5 + u * s, y: canvasH * 0.5 - v * s };
+}
+function pxToWorld(x, y) {
+  const s = Math.min(canvasW, canvasH);
+  return {
+    re: view.cx + (x - canvasW * 0.5) * view.scale / s,
+    im: view.cy - (y - canvasH * 0.5) * view.scale / s,
+  };
+}
+function pixelSizeWorld() { return view.scale / Math.min(canvasW, canvasH); }
+
+function worldBounds() {
+  const s = Math.min(canvasW, canvasH);
+  const hx = view.scale * canvasW / (2 * s);
+  const hy = view.scale * canvasH / (2 * s);
+  return { xmin: view.cx - hx, xmax: view.cx + hx,
+           ymin: view.cy - hy, ymax: view.cy + hy };
+}
+
+
+/* ==========================  7.  DENSITY  ========================== */
+/* Multi-channel density grid. Channel k's buffer accumulates hits
+ * whose "color class" is k (first letter, last letter, or depth bin).
+ * Rendering log-exposes each channel and blends into a colour. This
+ * gives the informative stratified look used in Indra's Pearls.      */
+let density   = null;   // Float32Array, total hits per pixel
+let channels  = null;   // array of Float32Array, one per class
+let chanCount = 1;
+let maxDen    = 0;
+
+function resetDensity() {
+  const n = canvasW * canvasH;
+  density = new Float32Array(n);
+  channels = [];
+  for (let k = 0; k < chanCount; k++) channels.push(new Float32Array(n));
+  maxDen = 0;
+}
+
+/* Hot path. Keep inlined and allocation-free.                        */
+function hit(z, classIdx) {
+  if (!z) return;
+  const re = z.re, im = z.im;
+  if (re !== re || im !== im || !isFinite(re) || !isFinite(im)) return;  // reject NaN/∞
+  const u = (re - view.cx) / view.scale;
+  const v = (im - view.cy) / view.scale;
+  const s = Math.min(canvasW, canvasH);
+  const x = (canvasW * 0.5 + u * s) | 0;
+  const y = (canvasH * 0.5 - v * s) | 0;
+  if (x < 0 || x >= canvasW || y < 0 || y >= canvasH) return;
+  const i = y * canvasW + x;
+  const d = ++density[i];
+  if (d > maxDen) maxDen = d;
+  if (classIdx >= 0 && classIdx < chanCount) channels[classIdx][i]++;
+}
+
+
+/* ==========================  8.  COLOR  ========================== */
+/* Palettes map t ∈ [0,1] to [r,g,b] ∈ [0,255]³. Viridis is a polynomial
+ * approximation; heat/ice/mono are simple analytic forms.            */
+function pal_viridis(t) {
+  t = Math.min(1, Math.max(0, t));
+  const r = Math.round(255 * (0.267 + t*(0.105 + t*(1.715 - t*1.74))));
+  const g = Math.round(255 * (0.005 + t*(1.404 - t*(0.328 + t*0.072))));
+  const b = Math.round(255 * (0.329 + t*(1.384 - t*(3.517 - t*1.836))));
+  return [clamp255(r), clamp255(g), clamp255(b)];
+}
+function pal_heat(t) {
+  t = Math.min(1, Math.max(0, t));
+  return [clamp255(255 * Math.min(1, t * 2.0)),
+          clamp255(255 * Math.min(1, Math.max(0, t * 2.0 - 0.5))),
+          clamp255(255 * Math.min(1, Math.max(0, t * 2.0 - 1.0)))];
+}
+function pal_ice(t) {
+  t = Math.min(1, Math.max(0, t));
+  return [clamp255(255 * Math.pow(t, 1.7)),
+          clamp255(255 * Math.sqrt(t)),
+          clamp255(255 * Math.min(1, 0.2 + t))];
+}
+function pal_mono(t) {
+  const v = clamp255(255 * Math.min(1, Math.max(0, t)));
+  return [v, v, v];
+}
+function clamp255(x) { return Math.max(0, Math.min(255, x | 0)); }
+const palettes = { viridis: pal_viridis, heat: pal_heat, ice: pal_ice, mono: pal_mono };
+
+/* Channel tints for multi-class coloring. Cycled through hue space.  */
+function classTints(n) {
+  const tints = [];
+  for (let k = 0; k < n; k++) {
+    const h = (k / Math.max(1, n)) % 1;
+    tints.push(hsvToRgb(h, 0.75, 1.0));
+  }
+  return tints;
+}
+function hsvToRgb(h, s, v) {
+  const i = Math.floor(h * 6);
+  const f = h * 6 - i;
+  const p = v * (1 - s), q = v * (1 - f*s), t = v * (1 - (1 - f)*s);
+  let r, g, b;
+  switch (i % 6) {
+    case 0: r = v; g = t; b = p; break;
+    case 1: r = q; g = v; b = p; break;
+    case 2: r = p; g = v; b = t; break;
+    case 3: r = p; g = q; b = v; break;
+    case 4: r = t; g = p; b = v; break;
+    case 5: r = v; g = p; b = q; break;
+  }
+  return [r*255, g*255, b*255];
+}
+
+
+/* =======================  9.  WORD ENGINE  ======================= */
+/* A "genSet" is the extended generating set  [g_1, g_1^{-1}, g_2, g_2^{-1}, ...]
+ * indexed 0..2n-1. inv[i] is the index of s_i^{-1}. The reduced-word
+ * condition is just  i_{k+1} != inv[i_k]  (no immediate cancellation). */
+const state = {
+  matrices: [],     // user generators (SL₂ℂ matrices, normalized)
+  genSet: [],       // matrices + inverses, length 2n
+  labels: [],       // "a", "A", "b", "B", ...
+  inv: [],          // inv[i] = index of inverse
+  isoDisks: [],     // iso disk per generator in genSet, or null if c=0
+  hasAllIso: false, // true if every generator has c != 0
+  fixedPts: [],     // [[fp1, fp2], ...] per user matrix
+  seeds: [],        // seed point per gen (fixed point of a different gen)
+
+  /* runtime */
+  running: false,
+  mode: 'adaptive',
+  budget: 0,
+  maxDepth: 30,
+  epsilon: 0.75,
+  pointsPlotted: 0,
+  wordsExamined: 0,
+  uniqueMatrices: 0,
+  startTime: 0,
+  stack: null,
+  queue: null,
+  walkState: null,
+};
+
+function buildGenSet(mats) {
+  state.matrices = mats.map(m => M.normalize(m));
+  state.genSet = [];
+  state.labels = [];
+  state.inv = [];
+  state.isoDisks = [];
+  state.fixedPts = state.matrices.map(m => M.fixedPoints(m));
+  const low = "abcdefghij";
+  for (let i = 0; i < state.matrices.length; i++) {
+    const g = state.matrices[i], gi = M.inv(g);
+    state.genSet.push(g, gi);
+    state.labels.push(low[i], low[i].toUpperCase());
+    state.inv.push(2*i + 1, 2*i);
+    state.isoDisks.push(M.isoCircle(g), M.isoCircle(gi));
+  }
+  state.hasAllIso = state.isoDisks.every(d => d !== null);
+
+  /* Choose a seed point per generator s_k: the fixed point of any
+   * other generator. This makes w(seed) converge into Λ as |w|→∞.   */
+  state.seeds = [];
+  const N = state.genSet.length;
+  for (let k = 0; k < N; k++) {
+    let seed = null;
+    for (let j = 0; j < N && !seed; j++) {
+      if (j === k || j === state.inv[k]) continue;
+      for (const fp of M.fixedPoints(state.genSet[j])) {
+        if (fp && isFinite(fp.re) && isFinite(fp.im)) { seed = fp; break; }
+      }
+    }
+    state.seeds.push(seed || C.ZERO);
+  }
+}
+
+
+/* ====================  10.  RENDER MODE 1 — NAIVE  ==================== */
+/* Breadth-first enumeration of reduced words up to max depth. Plots
+ * w(seed) for each produced word. O((2n)(2n-1)^{k-1}) words at depth
+ * k; useful only for modest k but valuable as a correctness baseline. */
+function beginNaive(maxDepth) {
+  state.queue = [];
+  state.maxDepth = maxDepth;
+  state.pointsPlotted = 0;
+  state.wordsExamined = 0;
+  /* Seed with single-letter words. */
+  for (let i = 0; i < state.genSet.length; i++) {
+    state.queue.push({W: state.genSet[i], last: i, first: i, depth: 1});
+  }
+}
+
+function stepNaive(budget) {
+  const N = state.genSet.length;
+  let done = 0;
+  while (done < budget && state.queue.length > 0 && state.pointsPlotted < state.budget) {
+    const {W, last, first, depth} = state.queue.shift();
+    state.wordsExamined++;
+    /* Plot w(seed_ℓ) where ℓ = last letter. */
+    hit(M.actZ(W, state.seeds[last]), classIndex({first, last, depth}));
+    state.pointsPlotted++;
+    done++;
+    if (depth < state.maxDepth) {
+      for (let i = 0; i < N; i++) {
+        if (i === state.inv[last]) continue;
+        state.queue.push({W: M.mul(W, state.genSet[i]),
+                          last: i, first, depth: depth + 1});
+      }
+    }
+    if (state.queue.length > 5_000_000) { state.queue.length = 5_000_000; }
+  }
+  return state.queue.length > 0 && state.pointsPlotted < state.budget;
+}
+
+
+/* ==================  11.  RENDER MODE 2 — CHAOS GAME  ================== */
+/* A no-backtrack random walk on the generating set. For non-elementary
+ * Kleinian G the walk's orbit accumulates on Λ(G), and density counts
+ * estimate the Patterson-Sullivan measure up to a smooth density.
+ *
+ * When it works: G non-elementary, walk actually mixes (generic).
+ * When it fails: elementary groups (trivial limit set), Fuchsian groups
+ *   with unbalanced generator choice (biased sampling of Λ).
+ * Heuristic — weight by |g'(z)|⁻¹ to accelerate exploration in highly
+ * contracting directions; disabled by default for predictability.     */
+function beginChaos(seed0) {
+  state.walkState = { z: seed0 || C.ZERO, last: -1 };
+  state.pointsPlotted = 0;
+  state.wordsExamined = 0;
+  /* Burn-in. */
+  const N = state.genSet.length;
+  for (let k = 0; k < 200; k++) {
+    const i = Math.floor(Math.random() * N);
+    const z = M.actZ(state.genSet[i], state.walkState.z);
+    if (z) state.walkState.z = z;
+  }
+}
+function stepChaos(budget) {
+  const N = state.genSet.length;
+  const ws = state.walkState;
+  let done = 0;
+  while (done < budget && state.pointsPlotted < state.budget) {
+    let i = (Math.random() * N) | 0;
+    /* No-backtrack: if selection would cancel with previous letter,
+     * rotate to an allowed neighbor. (Uniform over the (2n-1) options.) */
+    if (ws.last >= 0 && i === state.inv[ws.last]) {
+      i = (i + 1 + ((Math.random() * (N - 1)) | 0)) % N;
+    }
+    const z = M.actZ(state.genSet[i], ws.z);
+    if (!z) { ws.z = state.seeds[0]; ws.last = -1; continue; }
+    ws.z = z; ws.last = i;
+    hit(z, classIndex({first: i, last: i, depth: state.pointsPlotted}));
+    state.pointsPlotted++;
+    state.wordsExamined++;
+    done++;
+  }
+  return state.pointsPlotted < state.budget;
+}
+
+
+/* ===============  12.  RENDER MODE 3 — ADAPTIVE (FLAGSHIP)  =============== */
+/* Disk-tracing DFS. For a reduced word w = s_{i_1}…s_{i_k} with last
+ * letter ℓ we carry a "cluster disk"
+ *
+ *     D_w  =  s_{i_1}(s_{i_2}(… s_{i_{k-1}}(D_{s_ℓ^{-1}})…))
+ *
+ * where D_s denotes the open iso-disk of s ∈ genSet. Under the Schottky
+ * hypothesis (all iso-disks disjoint) every limit point reachable by
+ * extending w lies in D_w; when iso-disks overlap (parabolic / cusped
+ * cases) D_w still contains every such limit point but may overlap
+ * sibling clusters.
+ *
+ * Recurrence (this is the whole algorithm):
+ *   at (W_w, last=ℓ, disk=D_w), for each j ≠ inv(ℓ) push child
+ *     W_{w·s_j} = W_w · s_j,
+ *     disk_{w·s_j}  =  W_w( D_{s_j^{-1}} )       -- NOT W_{w·s_j}.
+ *
+ * Why W_w and not W_{w·s_j}? Because the cluster disk at w·s_j is
+ * built by applying the word excluding its last letter to D_{s_j^{-1}};
+ * the "word excluding last letter" is exactly W_w. So the disk
+ * transformation uses the PARENT W. This is a common confusion; the
+ * invariant is verified in the comment at the top of this section.
+ *
+ * Stopping test: if diam(disk) < ε·pixel_size, plot center. Else
+ * recurse. We also cap depth and number of pushed nodes for safety.
+ *
+ * When some generator has c = 0 (affine subgroup like T(z) = z+1 in
+ * PSL₂ℤ), its iso-disk is undefined; we cannot apply disk-tracing
+ * through that branch, so we degrade gracefully to a derivative-based
+ * stopping test (|W'(seed)|·R with R heuristic) for those branches.    */
+function beginAdaptive(maxDepth, epsilonPx) {
+  state.stack = [];
+  state.maxDepth = maxDepth;
+  state.epsilon  = epsilonPx;
+  state.pointsPlotted = 0;
+  state.wordsExamined = 0;
+  /* Heuristic scale for the c=0 fallback branch: typical iso-disk
+   * radius across the generators that DO have one.                    */
+  let defaultR = 1;
+  const valid = state.isoDisks.filter(d => d);
+  if (valid.length) {
+    defaultR = valid.reduce((s, d) => s + d.radius, 0) / valid.length;
+  }
+  state.defaultR = defaultR;
+
+  for (let i = 0; i < state.genSet.length; i++) {
+    const D_inv = state.isoDisks[state.inv[i]];
+    const disk = D_inv ? { center: D_inv.center, radius: D_inv.radius }
+                       : { center: state.seeds[i], radius: defaultR, fake: true };
+    state.stack.push({
+      W: state.genSet[i],
+      last: i, first: i, depth: 1,
+      disk,
+    });
+  }
+}
+
+function stepAdaptive(budget) {
+  const N = state.genSet.length;
+  const thresh = state.epsilon * pixelSizeWorld();
+  let done = 0;
+
+  while (done < budget && state.stack.length > 0 && state.pointsPlotted < state.budget) {
+    const node = state.stack.pop();
+    state.wordsExamined++;
+
+    /* Stopping test. For real disks we use exact diameter; for "fake"
+     * disks (c=0 fallback) we check derivative magnitude at the seed.  */
+    let stop = false;
+    if (node.depth >= state.maxDepth) {
+      stop = true;
+    } else if (node.disk.fake) {
+      const dsq = M.derivMagSq(node.W, state.seeds[node.last]);
+      /* |w(D)| ≈ R · √(dsq). Compare to ε·pixel.                      */
+      if (state.defaultR * state.defaultR * dsq < thresh * thresh) stop = true;
+    } else {
+      if (node.disk.radius < thresh) stop = true;
+    }
+
+    if (stop) {
+      /* Plot the representative point. For real disks use the disk
+       * center (which is the image of the child iso-disk center under
+       * the parent word — a limit-point sample). For fake disks plot
+       * w(seed).                                                       */
+      const z = node.disk.fake
+        ? M.actZ(node.W, state.seeds[node.last])
+        : node.disk.center;
+      hit(z, classIndex(node));
+      state.pointsPlotted++;
+      done++;
+      continue;
+    }
+
+    /* Expand: push all reduced continuations. */
+    for (let j = 0; j < N; j++) {
+      if (j === state.inv[node.last]) continue;
+      const D_inv_j = state.isoDisks[state.inv[j]];
+      let newDisk;
+      if (D_inv_j) {
+        newDisk = transformDisk(node.W, D_inv_j);
+        if (!newDisk) {
+          /* Degenerate (disk passes through pole): fall back to fake
+           * disk centred at w(seed).                                    */
+          newDisk = { center: M.actZ(node.W, state.seeds[j]) || C.ZERO,
+                      radius: state.defaultR, fake: true };
+        }
+      } else {
+        newDisk = { center: M.actZ(node.W, state.seeds[j]) || C.ZERO,
+                    radius: state.defaultR, fake: true };
+      }
+
+      /* Periodic projective renormalization keeps entries O(1)
+       * even after composing tens of generators — critical for
+       * preserving precision at large depth.                         */
+      const newW_raw = M.mul(node.W, state.genSet[j]);
+      const newW = (node.depth % 10 === 0) ? M.normalize(newW_raw) : newW_raw;
+
+      state.stack.push({
+        W: newW, last: j, first: node.first, depth: node.depth + 1,
+        disk: newDisk,
+      });
+    }
+    /* Safety cap: adaptive stack should never exceed ~2M entries in
+     * sane groups; if it does, the group is likely elementary/pathological. */
+    if (state.stack.length > 3_000_000) { state.stack.length = 3_000_000; }
+  }
+  return state.stack.length > 0 && state.pointsPlotted < state.budget;
+}
+
+
+/* ======================  13.  CLASS INDEX (COLOR)  ====================== */
+/* Returns a channel index in [0, chanCount) for the given node.       */
+function classIndex(node) {
+  const mode = el.colorMode.value;
+  if (mode === 'first') return node.first;
+  if (mode === 'last')  return node.last;
+  if (mode === 'depth') {
+    const d = (node.depth | 0);
+    /* Bucket depths in log2 bins so the palette spreads.              */
+    return Math.min(chanCount - 1, Math.floor(Math.log2(d + 1)));
+  }
+  return 0;
+}
+
+
+/* =====================  14.  CANVAS + DRAW  ===================== */
+const canvas  = document.getElementById('canvas');
+const overlay = document.getElementById('overlay');
+const ctx = canvas.getContext('2d');
+const octx = overlay.getContext('2d');
+let imageData = null;
+
+function resizeCanvas() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const rect = canvas.getBoundingClientRect();
+  canvasW = Math.max(2, Math.floor(rect.width * DPR));
+  canvasH = Math.max(2, Math.floor(rect.height * DPR));
+  canvas.width = canvasW;   canvas.height = canvasH;
+  overlay.width = canvasW;  overlay.height = canvasH;
+  imageData = ctx.createImageData(canvasW, canvasH);
+  recomputeChannelCount();
+  resetDensity();
+  draw();
+}
+
+function recomputeChannelCount() {
+  const mode = el.colorMode.value;
+  if (mode === 'first' || mode === 'last') chanCount = state.genSet.length || 1;
+  else if (mode === 'depth')               chanCount = 6;
+  else                                     chanCount = 1;
+}
+
+function draw() {
+  if (!imageData) return;
+  const data = imageData.data;
+  const pal = palettes[el.palette.value] || pal_viridis;
+  const exposure = parseFloat(el.exposure.value);
+  const saturation = parseFloat(el.saturation.value);
+  const tints = classTints(chanCount);
+  const logMax = Math.log2(maxDen + 1) || 1;
+  const gamma = Math.pow(2, -exposure);
+  const n = canvasW * canvasH;
+
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    const d = density[i];
+    if (d === 0) { data[j]=0; data[j+1]=0; data[j+2]=0; data[j+3]=255; continue; }
+    const t  = Math.log2(d + 1) / logMax;
+    const t2 = Math.min(1, Math.pow(t, gamma));
+    let r, g, b;
+    if (chanCount > 1 && el.colorMode.value !== 'density') {
+      /* Mix class tints weighted by channel density, then modulate by
+       * overall brightness t2.                                         */
+      let tr = 0, tg = 0, tb = 0, tot = 0;
+      for (let k = 0; k < chanCount; k++) {
+        const ck = channels[k][i];
+        if (ck > 0) {
+          tr += tints[k][0] * ck; tg += tints[k][1] * ck; tb += tints[k][2] * ck;
+          tot += ck;
+        }
+      }
+      if (tot > 0) {
+        tr /= tot; tg /= tot; tb /= tot;
+        /* Desaturate toward palette output as saturation slides to 0.   */
+        const base = pal(t2);
+        r = tr * saturation + base[0] * (1 - saturation);
+        g = tg * saturation + base[1] * (1 - saturation);
+        b = tb * saturation + base[2] * (1 - saturation);
+        /* Apply overall intensity curve.                                */
+        r *= t2; g *= t2; b *= t2;
+      } else {
+        const rgb = pal(t2);
+        r = rgb[0]; g = rgb[1]; b = rgb[2];
+      }
+    } else {
+      const rgb = pal(t2);
+      r = rgb[0]; g = rgb[1]; b = rgb[2];
+    }
+    data[j]   = clamp255(r);
+    data[j+1] = clamp255(g);
+    data[j+2] = clamp255(b);
+    data[j+3] = 255;
+  }
+  ctx.putImageData(imageData, 0, 0);
+  drawOverlays();
+}
+
+function drawOverlays() {
+  octx.clearRect(0, 0, canvasW, canvasH);
+  octx.save();
+  octx.lineWidth = 1 * DPR;
+
+  if (el.showAxes.checked) {
+    octx.strokeStyle = 'rgba(200,200,200,0.18)';
+    const p0 = worldToPx({re: view.cx - view.scale*3, im: 0});
+    const p1 = worldToPx({re: view.cx + view.scale*3, im: 0});
+    const q0 = worldToPx({re: 0, im: view.cy - view.scale*3});
+    const q1 = worldToPx({re: 0, im: view.cy + view.scale*3});
+    octx.beginPath(); octx.moveTo(p0.x, p0.y); octx.lineTo(p1.x, p1.y); octx.stroke();
+    octx.beginPath(); octx.moveTo(q0.x, q0.y); octx.lineTo(q1.x, q1.y); octx.stroke();
+  }
+
+  if (el.showUnit.checked) {
+    octx.strokeStyle = 'rgba(200,220,240,0.3)';
+    const p = worldToPx({re: 0, im: 0});
+    const s = Math.min(canvasW, canvasH) / view.scale;
+    octx.beginPath(); octx.arc(p.x, p.y, s, 0, Math.PI*2); octx.stroke();
+  }
+
+  if (el.showIso.checked) {
+    /* Iso circles of all generators (including inverses), color-coded
+     * by the generator index.                                          */
+    for (let k = 0; k < state.genSet.length; k++) {
+      const ic = state.isoDisks[k];
+      if (!ic) continue;
+      const base = Math.floor(k / 2);
+      const col = ['rgba(124,195,255,0.75)', 'rgba(255,184,107,0.75)',
+                   'rgba(195,162,255,0.75)', 'rgba(139,212,107,0.75)',
+                   'rgba(255,107,138,0.75)'][base % 5];
+      octx.strokeStyle = col;
+      octx.lineWidth = (k % 2 === 0 ? 1.5 : 0.9) * DPR;
+      const p = worldToPx(ic.center);
+      const r = Math.min(canvasW, canvasH) / view.scale * ic.radius;
+      if (r > Math.max(canvasW, canvasH) * 4) continue;
+      octx.beginPath(); octx.arc(p.x, p.y, r, 0, Math.PI*2); octx.stroke();
+    }
+  }
+
+  if (el.showIsoImg.checked) {
+    /* For each pair (i, j) with j ≠ inv(i), draw the image of iso
+     * disk D_{s_j^{-1}} under g_i — the first refinement level in the
+     * adaptive recursion. This visualizes the first pullback of the
+     * iso-circle packing, which is the scaffold for Λ(G).             */
+    for (let i = 0; i < state.genSet.length; i++) {
+      for (let j = 0; j < state.genSet.length; j++) {
+        if (j === state.inv[i]) continue;
+        const D_inv = state.isoDisks[state.inv[j]];
+        if (!D_inv) continue;
+        const tD = transformDisk(state.genSet[i], D_inv);
+        if (!tD) continue;
+        const p = worldToPx(tD.center);
+        const r = Math.min(canvasW, canvasH) / view.scale * tD.radius;
+        if (r < 0.3 || r > Math.max(canvasW, canvasH) * 3) continue;
+        octx.strokeStyle = 'rgba(255,200,160,0.4)';
+        octx.lineWidth = 0.6 * DPR;
+        octx.beginPath(); octx.arc(p.x, p.y, r, 0, Math.PI*2); octx.stroke();
+      }
+    }
+  }
+
+  if (el.showTest.checked) {
+    /* Draw a reference test circle (user-chosen, default unit) and
+     * its first-generation images under each generator. Useful for
+     * seeing how generators move the sphere.                          */
+    const testR = 0.5; const testC = { re: 0, im: 0 };
+    octx.strokeStyle = 'rgba(255,255,255,0.5)';
+    octx.lineWidth = 1.1 * DPR;
+    const p = worldToPx(testC);
+    const r = Math.min(canvasW, canvasH) / view.scale * testR;
+    octx.beginPath(); octx.arc(p.x, p.y, r, 0, Math.PI*2); octx.stroke();
+    for (let k = 0; k < state.genSet.length; k++) {
+      const tD = transformDisk(state.genSet[k], { center: testC, radius: testR });
+      if (!tD) continue;
+      const pp = worldToPx(tD.center);
+      const rr = Math.min(canvasW, canvasH) / view.scale * tD.radius;
+      if (rr > Math.max(canvasW, canvasH) * 3) continue;
+      octx.strokeStyle = k % 2 ? 'rgba(255,160,110,0.6)' : 'rgba(120,200,255,0.6)';
+      octx.beginPath(); octx.arc(pp.x, pp.y, rr, 0, Math.PI*2); octx.stroke();
+    }
+  }
+
+  if (el.showFixed.checked) {
+    for (let k = 0; k < state.matrices.length; k++) {
+      const color = ['#ffb86b', '#7cc3ff', '#8bd46b', '#ff6b8a', '#c3a2ff'][k % 5];
+      octx.fillStyle = color; octx.strokeStyle = '#000'; octx.lineWidth = 1 * DPR;
+      for (const fp of state.fixedPts[k]) {
+        if (!fp) continue;
+        const pp = worldToPx(fp);
+        if (pp.x < -16 || pp.x > canvasW+16 || pp.y < -16 || pp.y > canvasH+16) continue;
+        octx.beginPath();
+        octx.arc(pp.x, pp.y, 4 * DPR, 0, Math.PI*2);
+        octx.fill(); octx.stroke();
+      }
+    }
+  }
+  octx.restore();
+}
+
+
+/* =======================  15.  RENDER DRIVER  ======================= */
+let rafId = 0;
+
+function startRender() {
+  stopRender();
+  if (state.matrices.length < 2) { setError("Need at least 2 generators."); return; }
+  if (state.genSet.length === 0)   { setError("Generators did not parse."); return; }
+  setError("");
+
+  recomputeChannelCount();
+  resetDensity();
+
+  state.mode = el.mode.value;
+  state.budget = parseInt(el.points.value);
+  const maxDepth = parseInt(el.depth.value);
+  const epsilonPx = parseFloat(el.epsilon.value);
+
+  const seedText = el.seed.value.trim();
+  let seedZ = state.seeds[0] || C.ZERO;
+  if (seedText && seedText !== 'auto') {
+    try { seedZ = parseComplex(seedText); }
+    catch (e) { setError("seed parse: " + e.message); return; }
+  }
+
+  state.startTime = performance.now();
+  state.running = true;
+  if (state.mode === 'adaptive') beginAdaptive(maxDepth, epsilonPx);
+  else if (state.mode === 'chaos') beginChaos(seedZ);
+  else beginNaive(maxDepth);
+
+  const perFrame = state.mode === 'chaos' ? 45000 : 9000;
+
+  function frame() {
+    if (!state.running) return;
+    let more = false;
+    if (state.mode === 'adaptive')   more = stepAdaptive(perFrame);
+    else if (state.mode === 'chaos') more = stepChaos(perFrame);
+    else                             more = stepNaive(perFrame);
+    draw();
+    const elapsed = ((performance.now() - state.startTime) / 1000).toFixed(1);
+    setStatus(
+      `${state.mode} · pts=${state.pointsPlotted.toLocaleString()}` +
+      ` · words=${state.wordsExamined.toLocaleString()}` +
+      ` · t=${elapsed}s${more ? " · running…" : " · done"}`
+    );
+    setProgress(state.pointsPlotted / state.budget);
+    if (more) rafId = requestAnimationFrame(frame);
+    else { state.running = false; setProgress(1); }
+  }
+  rafId = requestAnimationFrame(frame);
+}
+
+function stopRender() {
+  state.running = false;
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = 0;
+}
+
+function clearRender() {
+  stopRender(); resetDensity(); draw(); setStatus("Cleared.");
+  setProgress(0);
+}
+
+
+/* ===========================  16.  UI  =========================== */
+const el = {
+  preset:    document.getElementById('preset'),
+  presetNote:document.getElementById('preset-note'),
+  gens:      document.getElementById('generators'),
+  addGen:    document.getElementById('add-gen'),
+  normalize: document.getElementById('normalize'),
+  mode:      document.getElementById('mode'),
+  depth:     document.getElementById('depth'),
+  depthVal:  document.getElementById('depth-val'),
+  epsilon:   document.getElementById('epsilon'),
+  epsilonVal:document.getElementById('epsilon-val'),
+  points:    document.getElementById('points'),
+  pointsVal: document.getElementById('points-val'),
+  seed:      document.getElementById('seed'),
+  colorMode: document.getElementById('color-mode'),
+  palette:   document.getElementById('palette'),
+  exposure:  document.getElementById('exposure'),
+  exposureVal: document.getElementById('exposure-val'),
+  saturation: document.getElementById('saturation'),
+  saturationVal: document.getElementById('saturation-val'),
+  showFixed: document.getElementById('show-fixed'),
+  showIso:   document.getElementById('show-iso'),
+  showIsoImg:document.getElementById('show-iso-img'),
+  showAxes:  document.getElementById('show-axes'),
+  showUnit:  document.getElementById('show-unit'),
+  showTest:  document.getElementById('show-test'),
+  diag:      document.getElementById('diag'),
+  render:    document.getElementById('render'),
+  stop:      document.getElementById('stop'),
+  resetView: document.getElementById('reset-view'),
+  clear:     document.getElementById('clear'),
+  savePng:   document.getElementById('save-png'),
+  saveJson:  document.getElementById('save-json'),
+  loadJson:  document.getElementById('load-json'),
+  status:    document.getElementById('status'),
+  info:      document.getElementById('info'),
+  err:       document.getElementById('err'),
+  progress:  document.getElementById('progress-bar'),
+};
+
+function setStatus(s)   { el.status.textContent = s; }
+function setError(s)    { el.err.textContent = s; }
+function setProgress(p) { el.progress.style.width = (100 * Math.max(0, Math.min(1, p))) + '%'; }
+
+/* ---- Generator editor ---- */
+let genState = [];  // [{entries: [str,str,str,str]}, ...]
+
+function renderGenerators() {
+  el.gens.innerHTML = '';
+  const labels = "abcdefghij";
+  genState.forEach((g, i) => {
+    const wrap = document.createElement('div'); wrap.className = 'gen';
+    const header = document.createElement('div'); header.className = 'gen-header';
+    const name = document.createElement('span'); name.className = 'gen-name';
+    name.textContent = labels[i] || ("g" + i);
+    const info = document.createElement('span'); info.className = 'gen-info';
+    const rm = document.createElement('button'); rm.className = 'remove-gen';
+    rm.textContent = '×'; rm.title = 'remove';
+    rm.onclick = () => { genState.splice(i, 1); renderGenerators(); tryParseAll(); };
+    header.append(name, info, rm);
+    wrap.appendChild(header);
+    const grid = document.createElement('div'); grid.className = 'gen-grid';
+    const ph = ['a', 'b', 'c', 'd'];
+    for (let k = 0; k < 4; k++) {
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.value = g.entries[k] || '';
+      inp.placeholder = ph[k];
+      inp.oninput = () => { g.entries[k] = inp.value; tryParseAll(); };
+      grid.appendChild(inp);
+    }
+    wrap.appendChild(grid);
+    el.gens.appendChild(wrap);
+  });
+}
+
+function tryParseAll() {
+  const inputs = el.gens.querySelectorAll('.gen-grid input');
+  inputs.forEach(inp => inp.classList.remove('bad'));
+  const mats = [];
+  let bad = false;
+  for (let i = 0; i < genState.length; i++) {
+    const vals = [null, null, null, null];
+    for (let k = 0; k < 4; k++) {
+      try { vals[k] = parseComplex(genState[i].entries[k] || ''); }
+      catch (e) { inputs[i*4 + k].classList.add('bad'); bad = true; }
+    }
+    if (!bad) mats.push({a: vals[0], b: vals[1], c: vals[2], d: vals[3]});
+  }
+  if (bad) { setError("Check highlighted entries."); updateDiag(); return; }
+  if (mats.length < 2) { setError("Need ≥ 2 generators."); updateDiag(); return; }
+  setError("");
+  buildGenSet(mats);
+  updateGenInfo();
+  updateDiag();
+  draw();
+}
+
+function updateGenInfo() {
+  const items = el.gens.querySelectorAll('.gen');
+  for (let i = 0; i < state.matrices.length && i < items.length; i++) {
+    const m = state.matrices[i];
+    const tr = M.tr(m), det = M.det(m), cls = M.classify(m);
+    const info = items[i].querySelector('.gen-info');
+    if (info) info.textContent = `tr=${fmt(tr)} · ${cls}`;
+  }
+}
+
+function normalizeAll() {
+  for (let i = 0; i < genState.length; i++) {
+    try {
+      const en = genState[i].entries;
+      const raw = { a: parseComplex(en[0]), b: parseComplex(en[1]),
+                    c: parseComplex(en[2]), d: parseComplex(en[3]) };
+      const norm = M.normalize(raw);
+      genState[i].entries = [fmt(norm.a), fmt(norm.b), fmt(norm.c), fmt(norm.d)];
+    } catch (e) {}
+  }
+  renderGenerators();
+  tryParseAll();
+}
+
+/* ---- Diagnostics ---- */
+function updateDiag() {
+  const lines = [];
+  if (state.matrices.length === 0) { el.diag.textContent = "—"; return; }
+  for (let i = 0; i < state.matrices.length; i++) {
+    const m = state.matrices[i];
+    const tr = M.tr(m), det = M.det(m), cls = M.classify(m);
+    const fp = M.fixedPoints(m);
+    const iso = M.isoCircle(m);
+    const iso_inv = M.isoCircle(M.inv(m));
+    const norm = Math.sqrt(M.norm2(m));
+    lines.push(`<span class="key">${['a','b','c','d','e'][i]||'g'+i}</span>: tr=${fmt(tr)}  det=${fmt(det)}  ‖·‖=${norm.toFixed(3)}`);
+    lines.push(`   class: <span class="${cls === 'parabolic' ? 'warn' : 'good'}">${cls}</span>`);
+    lines.push(`   fixed: ${fmt(fp[0])}, ${fmt(fp[1])}`);
+    lines.push(`   iso(g):    ${iso ? `|z − ${fmt(iso.center)}| = ${iso.radius.toFixed(3)}` : '<span class="warn">none (c=0)</span>'}`);
+    lines.push(`   iso(g⁻¹):  ${iso_inv ? `|z − ${fmt(iso_inv.center)}| = ${iso_inv.radius.toFixed(3)}` : '<span class="warn">none (a=0)</span>'}`);
+  }
+  /* Schottky sanity: are the 2n iso-disks pairwise disjoint? */
+  const disks = state.isoDisks.filter(d => d);
+  if (disks.length >= 2) {
+    let disjoint = true, minSep = Infinity;
+    for (let i = 0; i < disks.length && disjoint; i++) {
+      for (let j = i + 1; j < disks.length; j++) {
+        const dd = Math.hypot(disks[i].center.re - disks[j].center.re,
+                              disks[i].center.im - disks[j].center.im);
+        const sep = dd - disks[i].radius - disks[j].radius;
+        if (sep < minSep) minSep = sep;
+        if (sep <= -1e-9) disjoint = false;
+      }
+    }
+    const tag = disjoint
+      ? (minSep > 0.01 ? `<span class="good">Schottky (min sep ${minSep.toFixed(3)})</span>`
+                       : `<span class="warn">near-tangent (min sep ${minSep.toFixed(3)})</span>`)
+      : `<span class="warn">iso-disks overlap — non-Schottky</span>`;
+    lines.push(`\n${tag}`);
+  }
+  /* Commutator trace = tr[a,b] (sanity: parabolic commutator ⇔ = 2) */
+  if (state.matrices.length >= 2) {
+    const a = state.matrices[0], b = state.matrices[1];
+    const ab = M.mul(a, b), ai = M.inv(a), bi = M.inv(b);
+    const com = M.mul(M.mul(ab, ai), bi);
+    const tc = M.tr(com);
+    lines.push(`tr[a,b] = ${fmt(tc)}  (−2 ⇒ parabolic commutator; +2 ⇒ identity-trivial)`);
+  }
+  el.diag.innerHTML = lines.join('\n');
+}
+
+/* ---- Preset ---- */
+function populatePresets() {
+  PRESETS.forEach((p, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = p.name;
+    el.preset.appendChild(opt);
+  });
+  el.preset.onchange = () => loadPreset(parseInt(el.preset.value));
+}
+function loadPreset(idx) {
+  const p = PRESETS[idx]; if (!p) return;
+  genState = p.gens.map(g => ({entries: [...g.entries]}));
+  view.cx = p.view.cx; view.cy = p.view.cy; view.scale = p.view.scale;
+  if (p.mode) el.mode.value = p.mode;
+  el.presetNote.textContent = p.note || '';
+  renderGenerators();
+  tryParseAll();
+  resetDensity();
+  draw();
+}
+
+/* ---- I/O ---- */
+function copyJson() {
+  const blob = JSON.stringify({
+    generators: genState,
+    view,
+    mode: el.mode.value,
+    depth: el.depth.value,
+    epsilon: el.epsilon.value,
+    points: el.points.value,
+    seed: el.seed.value,
+  }, null, 2);
+  navigator.clipboard.writeText(blob).then(
+    () => setStatus("JSON copied to clipboard."),
+    () => { prompt("Copy JSON manually:", blob); }
+  );
+}
+function pasteJson() {
+  const s = prompt("Paste JSON:"); if (!s) return;
+  try {
+    const d = JSON.parse(s);
+    if (d.generators) genState = d.generators;
+    if (d.view) Object.assign(view, d.view);
+    if (d.mode) el.mode.value = d.mode;
+    if (d.depth != null) el.depth.value = d.depth;
+    if (d.epsilon != null) el.epsilon.value = d.epsilon;
+    if (d.points != null) el.points.value = d.points;
+    if (d.seed != null) el.seed.value = d.seed;
+    renderGenerators();
+    tryParseAll();
+    updateSliderLabels();
+    resetDensity(); draw();
+    setStatus("Loaded session.");
+  } catch (e) { setError("load failed: " + e.message); }
+}
+
+/* ---- Slider labels ---- */
+function updateSliderLabels() {
+  el.depthVal.textContent = el.depth.value;
+  el.epsilonVal.textContent = el.epsilon.value + 'px';
+  const p = parseInt(el.points.value);
+  el.pointsVal.textContent = p >= 1e6 ? (p/1e6).toFixed(2) + 'M'
+                                       : (p/1000).toFixed(0) + 'k';
+  el.exposureVal.textContent = parseFloat(el.exposure.value).toFixed(1);
+  el.saturationVal.textContent = parseFloat(el.saturation.value).toFixed(2);
+}
+[el.depth, el.epsilon, el.points, el.exposure, el.saturation].forEach(i =>
+  i.addEventListener('input', updateSliderLabels));
+
+/* ---- Wire up buttons ---- */
+el.addGen.onclick   = () => { genState.push({entries: ["1","0","0","1"]});
+                              renderGenerators(); tryParseAll(); };
+el.normalize.onclick= normalizeAll;
+el.render.onclick   = startRender;
+el.stop.onclick     = stopRender;
+el.resetView.onclick= () => {
+  const p = PRESETS[parseInt(el.preset.value)];
+  if (p) { view.cx = p.view.cx; view.cy = p.view.cy; view.scale = p.view.scale; }
+  resetDensity(); draw();
+};
+el.clear.onclick    = clearRender;
+el.savePng.onclick  = () => {
+  const merged = document.createElement('canvas');
+  merged.width = canvasW; merged.height = canvasH;
+  const mctx = merged.getContext('2d');
+  mctx.drawImage(canvas, 0, 0);
+  mctx.drawImage(overlay, 0, 0);
+  const link = document.createElement('a');
+  link.download = 'limit-set.png';
+  link.href = merged.toDataURL('image/png');
+  link.click();
+};
+el.saveJson.onclick = copyJson;
+el.loadJson.onclick = pasteJson;
+
+/* Overlays redraw without recomputation. */
+['showFixed', 'showIso', 'showIsoImg', 'showAxes', 'showUnit', 'showTest'].forEach(k =>
+  el[k].addEventListener('change', drawOverlays));
+
+/* Color settings trigger full redraw. */
+el.palette.addEventListener('change', draw);
+el.exposure.addEventListener('input', draw);
+el.saturation.addEventListener('input', draw);
+el.colorMode.addEventListener('change', () => {
+  recomputeChannelCount();
+  /* Channel change means we need to resample to get class counts. */
+  if (density && maxDen > 0) {
+    setStatus("Color channels changed — re-render to populate classes.");
+  }
+  draw();
+});
+
+/* ---- Pan, zoom, hover ---- */
+let dragging = false, dragX = 0, dragY = 0;
+canvas.addEventListener('mousedown', e => {
+  if (e.shiftKey) {
+    /* Shift+click: set seed at this point. */
+    const rect = canvas.getBoundingClientRect();
+    const z = pxToWorld((e.clientX - rect.left) * DPR,
+                        (e.clientY - rect.top) * DPR);
+    el.seed.value = fmt(z);
+    setStatus(`Seed ← ${fmt(z)}`);
+    return;
+  }
+  dragging = true; dragX = e.clientX; dragY = e.clientY;
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - dragX, dy = e.clientY - dragY;
+  dragX = e.clientX; dragY = e.clientY;
+  const s = Math.min(canvasW, canvasH);
+  view.cx -= dx * DPR * view.scale / s;
+  view.cy += dy * DPR * view.scale / s;
+  draw();
+});
+window.addEventListener('mouseup', () => { dragging = false; });
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const px = (e.clientX - rect.left) * DPR;
+  const py = (e.clientY - rect.top) * DPR;
+  const before = pxToWorld(px, py);
+  view.scale *= Math.exp(e.deltaY * 0.0022);
+  view.scale = Math.max(1e-12, Math.min(1e8, view.scale));
+  const after = pxToWorld(px, py);
+  view.cx += before.re - after.re;
+  view.cy += before.im - after.im;
+  resetDensity();
+  draw();
+}, { passive: false });
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const z = pxToWorld((e.clientX - rect.left) * DPR,
+                      (e.clientY - rect.top) * DPR);
+  el.info.textContent = `z = ${fmt(z)}\nscale = ${view.scale.toExponential(2)}`;
+});
+
+
+/* ============================  17.  INIT  ============================ */
+window.addEventListener('resize', resizeCanvas);
+populatePresets();
+loadPreset(0);
+updateSliderLabels();
+resizeCanvas();
+setStatus('Select a preset and press Render. ⇧+click to set a seed.');
+</script>
+</body>
+</html>

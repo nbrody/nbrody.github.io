@@ -4,6 +4,15 @@
  */
 
 export const SANTA_CRUZ_LOCATIONS = {
+    ucsc: {
+        name: 'UC Santa Cruz',
+        description: 'Redwood campus in the hills',
+        lat: 36.9916,
+        lon: -122.0583,
+        type: 'campus',
+        hasContent: false // group — drill down for specific buildings
+    },
+
     mchenryLibrary: {
         name: 'McHenry Library',
         description: 'UC Santa Cruz main library - brutalist architecture',

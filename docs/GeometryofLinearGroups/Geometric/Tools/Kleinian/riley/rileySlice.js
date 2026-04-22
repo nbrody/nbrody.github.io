@@ -172,9 +172,9 @@ class RileySlice {
             return;
         }
 
-        // Clear canvas and fill with dark background
-        this.ctx.fillStyle = '#1f2937'; // gray-800
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        // Clear canvas — the Farey-polynomial shader behind us paints the
+        // background (colored non-discrete region + analytic boundary).
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (this.allRoots.length === 0) {
             console.warn('Riley Slice: No roots to draw');
@@ -267,14 +267,12 @@ class RileySlice {
                 console.log(`Riley Slice: Root ${i}: re=${root.re}, im=${root.im} -> canvas (${x}, ${y})`);
             }
 
-            // Normal roots in purple
+            // Normal roots: small semi-transparent dots so the
+            // underlying Farey-polynomial shader remains visible.
             this.ctx.beginPath();
-            this.ctx.arc(x, y, 3, 0, 2 * Math.PI);
-            this.ctx.fillStyle = '#667eea';
-            this.ctx.strokeStyle = '#4c51bf';
-            this.ctx.lineWidth = 1;
+            this.ctx.arc(x, y, 1.6, 0, 2 * Math.PI);
+            this.ctx.fillStyle = 'rgba(230, 234, 255, 0.75)';
             this.ctx.fill();
-            this.ctx.stroke();
             drawnCount++;
         }
 

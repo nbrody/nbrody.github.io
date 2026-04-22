@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Kleinian Limit Set Explorer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+:root {
+  --bg: #0b0d12;
+  --panel: rgba(22, 26, 36, 0.9);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text: #e9ecf3;
+  --muted: #8892a6;
+  --accent: #7cc3ff;
+  --accent-warm: #ffb86b;
+  --danger: #ff6b8a;
+  --good: #8bd46b;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text);
+  font: 13px/1.4 -apple-system, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+button, input, select, textarea { font: inherit; color: inherit; }
+#app { display: grid; grid-template-columns: 360px 1fr; height: 100%; }
+#panel { background: var(--panel); backdrop-filter: blur(10px);
+  border-right: 1px solid var(--panel-border); overflow-y: auto; padding: 14px; }
+#panel h1 { font-size: 13px; margin: 0 0 10px; letter-spacing: 0.06em;
+  color: var(--accent); text-transform: uppercase; font-weight: 600; }
+#panel h2 { font-size: 11px; margin: 16px 0 6px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
+.row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.row > label { flex: 0 0 auto; min-width: 76px; color: var(--muted); font-size: 12px; }
+.row > input[type="number"], .row > input[type="text"], .row > select {
+  flex: 1; background: #11141b; border: 1px solid var(--panel-border); color: var(--text);
+  padding: 4px 6px; border-radius: 4px; min-width: 0; }
+.row > input[type="range"] { flex: 1; accent-color: var(--accent); }
+.btn { background: #192030; border: 1px solid var(--panel-border); color: var(--text);
+  padding: 6px 10px; border-radius: 5px; cursor: pointer; }
+.btn:hover { background: #202940; }
+.btn.primary { background: linear-gradient(180deg, #2a6fb3, #1c4e80); border-color: #3c85c6; }
+.btn.primary:hover { background: linear-gradient(180deg, #3a80c4, #2c5e90); }
+.btn.danger { background: #5b2230; border-color: #823644; }
+.btn-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.gen { border: 1px solid var(--panel-border); border-radius: 6px; padding: 8px;
+  margin-bottom: 8px; background: #0f1219; }
+.gen-header { display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px; }
+.gen-name { font-weight: 600; color: var(--accent-warm); font-family: "SF Mono", Menlo, monospace; }
+.gen-info { font-size: 10px; color: var(--muted); font-family: "SF Mono", Menlo, monospace; }
+.gen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.gen-grid input { background: #070a0f; border: 1px solid #1a2030; color: var(--text);
+  padding: 4px 6px; border-radius: 3px; font-family: "SF Mono", Menlo, monospace; font-size: 12px; min-width: 0; }
+.gen-grid input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.gen-grid input.bad { border-color: var(--danger); outline: 1px solid var(--danger); }
+.remove-gen { background: transparent; border: none; color: var(--muted);
+  cursor: pointer; font-size: 16px; padding: 0 6px; }
+.remove-gen:hover { color: var(--danger); }
+.checkbox-row { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.checkbox-row input { margin: 0; accent-color: var(--accent); }
+.checkbox-row label { color: var(--text); font-size: 12px; }
+#main { position: relative; overflow: hidden; min-width: 0; }
+#canvas { display: block; width: 100%; height: 100%; cursor: crosshair; background: #000; touch-action: none; }
+#status { position: absolute; left: 12px; bottom: 12px; background: rgba(0,0,0,0.65);
+  padding: 6px 10px; border-radius: 4px; font-family: "SF Mono", Menlo, monospace;
+  font-size: 11px; color: var(--muted); pointer-events: none; max-width: 60%; }
+#overlay-info { position: absolute; right: 12px; top: 12px; background: rgba(0,0,0,0.65);
+  padding: 6px 10px; border-radius: 4px; font-size: 11px; color: var(--muted);
+  font-family: "SF Mono", Menlo, monospace; pointer-events: none; }
+.help { font-size: 11px; color: var(--muted); line-height: 1.6; margin-top: 6px; }
+.help code { background: #11141b; padding: 1px 4px; border-radius: 3px; color: var(--accent-warm); }
+.slider-val { min-width: 56px; text-align: right; font-family: "SF Mono", Menlo, monospace;
+  font-size: 11px; color: var(--accent-warm); }
+#err { color: var(--danger); font-size: 11px; margin-top: 6px; font-family: "SF Mono", Menlo, monospace;
+  white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <h1>Kleinian Limit Set</h1>
+
+    <h2>Preset</h2>
+    <div class="row">
+      <select id="preset"></select>
+    </div>
+
+    <h2>Generators (SL<sub>2</sub>ℂ)</h2>
+    <div id="generators"></div>
+    <div class="btn-row">
+      <button class="btn" id="add-gen">+ Generator</button>
+      <button class="btn" id="normalize">Normalize det=1</button>
+    </div>
+    <div id="err"></div>
+
+    <h2>Renderer</h2>
+    <div class="row">
+      <label>Mode</label>
+      <select id="mode">
+        <option value="branch" selected>Branch tracing (adaptive)</option>
+        <option value="word">Reduced-word BFS</option>
+        <option value="walk">Random walk</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Max depth</label>
+      <input type="range" id="depth" min="3" max="40" value="22" />
+      <span class="slider-val" id="depth-val">22</span>
+    </div>
+    <div class="row">
+      <label>ε (pixels)</label>
+      <input type="range" id="epsilon" min="0.25" max="4" step="0.25" value="0.75" />
+      <span class="slider-val" id="epsilon-val">0.75 px</span>
+    </div>
+    <div class="row">
+      <label>Point budget</label>
+      <input type="range" id="points" min="20000" max="3000000" step="20000" value="600000" />
+      <span class="slider-val" id="points-val">600k</span>
+    </div>
+    <div class="row">
+      <label>Seed</label>
+      <input type="text" id="seed" value="auto" placeholder="auto or complex expr" />
+    </div>
+
+    <h2>Overlays</h2>
+    <div class="checkbox-row"><input type="checkbox" id="show-fixed" checked /><label for="show-fixed">Fixed points</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="show-iso" checked /><label for="show-iso">Isometric circles</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="show-axes" /><label for="show-axes">Real/imag axes</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="show-unit" /><label for="show-unit">Unit circle</label></div>
+
+    <h2>Color</h2>
+    <div class="row">
+      <label>Palette</label>
+      <select id="palette">
+        <option value="viridis" selected>Viridis</option>
+        <option value="heat">Heat</option>
+        <option value="ice">Ice</option>
+        <option value="mono">Mono</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Exposure</label>
+      <input type="range" id="exposure" min="-2" max="3" step="0.1" value="0.6" />
+      <span class="slider-val" id="exposure-val">0.6</span>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary" id="render">Render</button>
+      <button class="btn" id="stop">Stop</button>
+      <button class="btn" id="reset-view">Reset view</button>
+      <button class="btn" id="save">Save PNG</button>
+    </div>
+
+    <div class="help">
+      Entries accept complex expressions: <code>i</code>, <code>1+2*i</code>,
+      <code>sqrt(2)-i/3</code>, <code>exp(i*pi/4)</code>, <code>2i</code>.<br>
+      Drag to pan, scroll to zoom.
+    </div>
+  </aside>
+
+  <main id="main">
+    <canvas id="canvas"></canvas>
+    <div id="status">Ready.</div>
+    <div id="overlay-info"></div>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* =============================================================
+ * Kleinian Limit Set Explorer
+ * -----------------------------------------------------------------
+ * Renders limit sets of finitely generated subgroups of PSL(2,C).
+ *
+ * Algorithms:
+ *   (1) Reduced-word BFS orbit.
+ *   (2) Random walk (chaos game).
+ *   (3) Adaptive branch-tracing DFS with derivative pruning
+ *       (|w'(z)| = 1/|Cz+D|^2 on the word matrix W=[[A,B],[C,D]]
+ *        gives an estimate of how much a representative ball shrinks
+ *        under w; we stop expanding once the image is subpixel).
+ *
+ * All three renderers run progressively in chunks using rAF so the
+ * UI stays responsive. Density is accumulated into a Float32 grid
+ * at canvas resolution and rendered as a log-exposed heat map.
+ * ============================================================= */
+
+/* ------------------------------------------------------------ Complex ---- */
+const C = {
+  mk:  (re, im = 0) => ({re, im}),
+  add: (a, b) => ({re: a.re + b.re, im: a.im + b.im}),
+  sub: (a, b) => ({re: a.re - b.re, im: a.im - b.im}),
+  neg:  a     => ({re: -a.re, im: -a.im}),
+  mul: (a, b) => ({re: a.re*b.re - a.im*b.im, im: a.re*b.im + a.im*b.re}),
+  div: (a, b) => {
+    const d = b.re*b.re + b.im*b.im;
+    return {re: (a.re*b.re + a.im*b.im)/d, im: (a.im*b.re - a.re*b.im)/d};
+  },
+  conj: a  => ({re: a.re, im: -a.im}),
+  abs:  a  => Math.hypot(a.re, a.im),
+  abs2: a  => a.re*a.re + a.im*a.im,
+  sqrt: a => {
+    const r = Math.hypot(a.re, a.im);
+    if (r === 0) return {re: 0, im: 0};
+    const sr = Math.sqrt((r + a.re) * 0.5);
+    const si = (a.im >= 0 ? 1 : -1) * Math.sqrt((r - a.re) * 0.5);
+    return {re: sr, im: si};
+  },
+  exp: a => { const e = Math.exp(a.re); return {re: e*Math.cos(a.im), im: e*Math.sin(a.im)}; },
+  log: a => ({re: 0.5*Math.log(a.re*a.re + a.im*a.im), im: Math.atan2(a.im, a.re)}),
+  sin: a => ({re: Math.sin(a.re)*Math.cosh(a.im), im: Math.cos(a.re)*Math.sinh(a.im)}),
+  cos: a => ({re: Math.cos(a.re)*Math.cosh(a.im), im: -Math.sin(a.re)*Math.sinh(a.im)}),
+  pow: (a, b) => C.exp(C.mul(b, C.log(a))),
+  eq:  (a, b) => Math.abs(a.re - b.re) < 1e-13 && Math.abs(a.im - b.im) < 1e-13,
+  ZERO: Object.freeze({re: 0, im: 0}),
+  ONE:  Object.freeze({re: 1, im: 0}),
+  I:    Object.freeze({re: 0, im: 1}),
+};
+
+/* ---------------------------------------------------- Expression parser ---- */
+function parseComplex(text) {
+  const s = (text || '').trim();
+  if (!s) throw new Error("empty");
+  let p = 0;
+  const more = () => p < s.length;
+  const skip = () => { while (more() && /\s/.test(s[p])) p++; };
+
+  function expr() {
+    let v = term();
+    while (skip(), more() && (s[p] === '+' || s[p] === '-')) {
+      const op = s[p++];
+      const r = term();
+      v = op === '+' ? C.add(v, r) : C.sub(v, r);
+    }
+    return v;
+  }
+  function term() {
+    let v = factor();
+    while (skip(), more() && (s[p] === '*' || s[p] === '/')) {
+      const op = s[p++];
+      const r = factor();
+      v = op === '*' ? C.mul(v, r) : C.div(v, r);
+    }
+    return v;
+  }
+  function factor() {
+    skip();
+    let v = unary();
+    skip();
+    if (more() && s[p] === '^') { p++; const e = factor(); v = C.pow(v, e); }
+    return v;
+  }
+  function unary() {
+    skip();
+    if (more() && s[p] === '+') { p++; return unary(); }
+    if (more() && s[p] === '-') { p++; return C.neg(unary()); }
+    return atom();
+  }
+  function atom() {
+    skip();
+    if (!more()) throw new Error("unexpected end");
+    if (s[p] === '(') { p++; const v = expr(); skip();
+                         if (s[p] !== ')') throw new Error("expected ')'"); p++; return v; }
+    const num = /^(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?/.exec(s.slice(p));
+    if (num) {
+      p += num[0].length;
+      const v = parseFloat(num[0]);
+      if (more() && (s[p] === 'i' || s[p] === 'I' || s[p] === 'j')) { p++; return C.mk(0, v); }
+      return C.mk(v, 0);
+    }
+    const id = /^[a-zA-Z_][a-zA-Z0-9_]*/.exec(s.slice(p));
+    if (id) {
+      const n = id[0]; p += n.length; skip();
+      if (more() && s[p] === '(') {
+        p++; const arg = expr(); skip();
+        if (s[p] !== ')') throw new Error("expected ')'"); p++;
+        switch (n) {
+          case 'sqrt': return C.sqrt(arg);
+          case 'exp':  return C.exp(arg);
+          case 'log':  return C.log(arg);
+          case 'sin':  return C.sin(arg);
+          case 'cos':  return C.cos(arg);
+          case 'conj': return C.conj(arg);
+          case 're':   return C.mk(arg.re, 0);
+          case 'im':   return C.mk(arg.im, 0);
+          case 'abs':  return C.mk(C.abs(arg), 0);
+          case 'neg':  return C.neg(arg);
+          default: throw new Error("unknown function: " + n);
+        }
+      }
+      if (n === 'i' || n === 'I' || n === 'j')  return C.I;
+      if (n === 'pi' || n === 'Pi' || n === 'PI') return C.mk(Math.PI, 0);
+      if (n === 'e' || n === 'E')                 return C.mk(Math.E, 0);
+      if (n === 'inf' || n === 'Inf' || n === 'INF') return C.mk(Infinity, 0);
+      throw new Error("unknown identifier: " + n);
+    }
+    throw new Error("unexpected '" + s[p] + "' at " + p);
+  }
+  const v = expr();
+  skip();
+  if (more()) throw new Error("trailing input: " + s.slice(p));
+  return v;
+}
+
+function fmt(z) {
+  if (!z) return "∞";
+  const clean = x => Math.abs(x) < 1e-10 ? 0 : x;
+  const r = clean(z.re), i = clean(z.im);
+  const fr = x => Number.isInteger(x) ? x : x.toFixed(3).replace(/\.?0+$/, '');
+  if (i === 0) return String(fr(r));
+  if (r === 0) return i === 1 ? "i" : i === -1 ? "-i" : fr(i) + "i";
+  const absi = Math.abs(i);
+  return fr(r) + (i >= 0 ? "+" : "-") + (absi === 1 ? "i" : fr(absi) + "i");
+}
+
+/* ----------------------------------------------------------- Matrices ---- */
+/* Matrix M = [[a,b],[c,d]] with complex entries. SL2C: det=1 (normalized). */
+const M = {
+  I: () => ({a: C.ONE, b: C.ZERO, c: C.ZERO, d: C.ONE}),
+
+  mul: (X, Y) => ({
+    a: C.add(C.mul(X.a, Y.a), C.mul(X.b, Y.c)),
+    b: C.add(C.mul(X.a, Y.b), C.mul(X.b, Y.d)),
+    c: C.add(C.mul(X.c, Y.a), C.mul(X.d, Y.c)),
+    d: C.add(C.mul(X.c, Y.b), C.mul(X.d, Y.d)),
+  }),
+
+  inv: X => ({
+    // For det = 1: inverse = [[d, -b], [-c, a]]
+    a: X.d, b: C.neg(X.b), c: C.neg(X.c), d: X.a,
+  }),
+
+  invGeneral: X => {
+    const det = C.sub(C.mul(X.a, X.d), C.mul(X.b, X.c));
+    return {a: C.div(X.d, det), b: C.neg(C.div(X.b, det)),
+            c: C.neg(C.div(X.c, det)), d: C.div(X.a, det)};
+  },
+
+  det: X => C.sub(C.mul(X.a, X.d), C.mul(X.b, X.c)),
+  tr:  X => C.add(X.a, X.d),
+
+  normalize: X => {
+    const s = C.sqrt(M.det(X));
+    return {a: C.div(X.a, s), b: C.div(X.b, s), c: C.div(X.c, s), d: C.div(X.d, s)};
+  },
+
+  // Action on finite z: (az+b)/(cz+d). Returns null for ∞.
+  actZ: (X, z) => {
+    const num = C.add(C.mul(X.a, z), X.b);
+    const den = C.add(C.mul(X.c, z), X.d);
+    if (C.abs2(den) < 1e-300) return null;
+    return C.div(num, den);
+  },
+
+  // Action on ∞: a/c (or ∞ if c=0).
+  actInf: X => C.abs2(X.c) < 1e-300 ? null : C.div(X.a, X.c),
+
+  // |X'(z)|^2 = 1/|cz+d|^4
+  derivMagSq: (X, z) => {
+    const den = C.add(C.mul(X.c, z), X.d);
+    const m = C.abs2(den);
+    if (m < 1e-300) return Infinity;
+    return 1 / (m * m);
+  },
+
+  // Fixed points: solve c z^2 + (d - a) z - b = 0.
+  // Returns array of 2 entries; each is a Complex or null (= ∞).
+  fixedPoints: X => {
+    if (C.abs2(X.c) < 1e-25) {
+      if (C.abs2(C.sub(X.d, X.a)) < 1e-25) return [null, null]; // parabolic at ∞
+      return [C.div(X.b, C.sub(X.d, X.a)), null];
+    }
+    const tr   = C.add(X.a, X.d);
+    const disc = C.sub(C.mul(tr, tr), C.mk(4, 0));
+    const sq   = C.sqrt(disc);
+    const ad   = C.sub(X.a, X.d);
+    const tc   = C.mul(C.mk(2, 0), X.c);
+    return [C.div(C.add(ad, sq), tc), C.div(C.sub(ad, sq), tc)];
+  },
+
+  classify: X => {
+    const tr = C.add(X.a, X.d);
+    const d  = C.sub(C.mul(tr, tr), C.mk(4, 0));
+    if (C.abs2(d) < 1e-14) return 'parabolic';
+    if (Math.abs(tr.im) < 1e-9) {
+      if (Math.abs(tr.re) < 2) return 'elliptic';
+      return 'hyperbolic';
+    }
+    return 'loxodromic';
+  },
+
+  // Isometric circle: {z : |cz+d| = 1}. Center = -d/c, radius = 1/|c|.
+  isoCircle: X => {
+    if (C.abs2(X.c) < 1e-25) return null;
+    return { center: C.neg(C.div(X.d, X.c)), radius: 1 / C.abs(X.c) };
+  },
+};
+
+/* ------------------------------------------------------------ Presets ---- */
+const PRESETS = [
+  {
+    name: "Schottky (disjoint isometric circles)",
+    gens: [
+      { name: "a", entries: ["1", "1",  "1",  "2"] },   // iso circles centers -2, 1
+      { name: "b", entries: ["1", "i",  "-i", "2"] },   // iso circles centers -2i, i
+    ],
+    view: { cx: 0, cy: 0, scale: 3.5 },
+  },
+  {
+    name: "Modular group (Fuchsian)",
+    gens: [
+      { name: "T", entries: ["1", "1", "0", "1"] },
+      { name: "S", entries: ["0", "-1", "1", "0"] },
+    ],
+    view: { cx: 0, cy: 0, scale: 4.0 },
+  },
+  {
+    name: "Apollonian gasket (parabolic commutator)",
+    gens: [
+      { name: "a", entries: ["1",    "0",     "-2*i", "1"]    },
+      { name: "b", entries: ["1-i",  "1",     "1",    "1+i"]  },
+    ],
+    view: { cx: 0, cy: 0, scale: 2.2 },
+  },
+  {
+    name: "Quasi-Fuchsian (Indra-style)",
+    gens: [
+      // Grandma-style group with complex traces near (1.95, 3)
+      { name: "a", entries: ["0.975+0.025*i", "1",          "0.975-0.025*i", "0.975-0.025*i"] },
+      { name: "b", entries: ["1.5+0.2*i",     "0.5-0.1*i",  "0.5+0.1*i",      "1.5-0.2*i"] },
+    ],
+    view: { cx: 0, cy: 0, scale: 3.0 },
+  },
+  {
+    name: "Pair of loxodromics (twist)",
+    gens: [
+      { name: "a", entries: ["1.5",           "0.5",  "0.5",  "1"] },
+      { name: "b", entries: ["cos(pi/5)",     "i*sin(pi/5)",
+                              "i*sin(pi/5)",   "cos(pi/5)"] },
+    ],
+    view: { cx: 0, cy: 0, scale: 3.5 },
+  },
+];
+
+/* ============================================================== VIEW ==== */
+const view = { cx: 0, cy: 0, scale: 4.0 }; // scale = world width of canvas shorter side
+let canvasW = 0, canvasH = 0, DPR = 1;
+
+function worldToPixel(z) {
+  const u = (z.re - view.cx) / view.scale;
+  const v = (z.im - view.cy) / view.scale;
+  const s = Math.min(canvasW, canvasH);
+  return { x: canvasW * 0.5 + u * s, y: canvasH * 0.5 - v * s };
+}
+function pixelToWorld(x, y) {
+  const s = Math.min(canvasW, canvasH);
+  return {
+    re: view.cx + (x - canvasW * 0.5) * view.scale / s,
+    im: view.cy - (y - canvasH * 0.5) * view.scale / s,
+  };
+}
+function pixelSizeWorld() { return view.scale / Math.min(canvasW, canvasH); }
+
+/* ============================================================ DENSITY ==== */
+/* Float32 density grid at canvas resolution. Accumulates hits. */
+let density = null;
+let maxDensity = 0;
+
+function resetDensity() {
+  density = new Float32Array(canvasW * canvasH);
+  maxDensity = 0;
+}
+function plotPoint(z) {
+  if (!z) return;
+  if (!isFinite(z.re) || !isFinite(z.im)) return;
+  const u = (z.re - view.cx) / view.scale;
+  const v = (z.im - view.cy) / view.scale;
+  const s = Math.min(canvasW, canvasH);
+  const x = (canvasW * 0.5 + u * s) | 0;
+  const y = (canvasH * 0.5 - v * s) | 0;
+  if (x < 0 || x >= canvasW || y < 0 || y >= canvasH) return;
+  const idx = y * canvasW + x;
+  const d = ++density[idx];
+  if (d > maxDensity) maxDensity = d;
+}
+
+/* =========================================================== PALETTES ==== */
+function pal_viridis(t) {
+  // Approximate viridis via polynomial fit
+  t = Math.min(1, Math.max(0, t));
+  const r = Math.round(255 * (0.267 + t*(0.105 + t*(1.715 - t*1.74))));
+  const g = Math.round(255 * (0.005 + t*(1.404 - t*(0.328 + t*0.072))));
+  const b = Math.round(255 * (0.329 + t*(1.384 - t*(3.517 - t*1.836))));
+  return [Math.max(0,Math.min(255,r)), Math.max(0,Math.min(255,g)), Math.max(0,Math.min(255,b))];
+}
+function pal_heat(t) {
+  t = Math.min(1, Math.max(0, t));
+  return [Math.round(255*Math.min(1, t*2.0)),
+          Math.round(255*Math.min(1, Math.max(0, t*2.0 - 0.5))),
+          Math.round(255*Math.min(1, Math.max(0, t*2.0 - 1.0)))];
+}
+function pal_ice(t) {
+  t = Math.min(1, Math.max(0, t));
+  return [Math.round(255*Math.pow(t, 1.7)),
+          Math.round(255*Math.sqrt(t)),
+          Math.round(255*Math.min(1, 0.2 + t))];
+}
+function pal_mono(t) {
+  t = Math.min(1, Math.max(0, t));
+  const v = Math.round(255 * t);
+  return [v, v, v];
+}
+const palettes = { viridis: pal_viridis, heat: pal_heat, ice: pal_ice, mono: pal_mono };
+
+/* ========================================================== CANVAS RENDER */
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let imageData = null;
+
+function resizeCanvas() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const rect = canvas.getBoundingClientRect();
+  canvasW = Math.max(2, Math.floor(rect.width * DPR));
+  canvasH = Math.max(2, Math.floor(rect.height * DPR));
+  canvas.width  = canvasW;
+  canvas.height = canvasH;
+  imageData = ctx.createImageData(canvasW, canvasH);
+  resetDensity();
+  draw();
+}
+
+function draw() {
+  if (!imageData) return;
+  const data = imageData.data;
+  const pal = palettes[el.palette.value] || pal_viridis;
+  const exposure = parseFloat(el.exposure.value);
+  const logMax = Math.log2(maxDensity + 1) || 1;
+  for (let i = 0, j = 0; i < density.length; i++, j += 4) {
+    const d = density[i];
+    if (d === 0) { data[j]=0; data[j+1]=0; data[j+2]=0; data[j+3]=255; continue; }
+    // Log normalization then gamma via exposure
+    const t = Math.log2(d + 1) / logMax;
+    const t2 = Math.min(1, Math.pow(t, Math.pow(2, -exposure)));
+    const rgb = pal(t2);
+    data[j] = rgb[0]; data[j+1] = rgb[1]; data[j+2] = rgb[2]; data[j+3] = 255;
+  }
+  ctx.putImageData(imageData, 0, 0);
+  drawOverlays();
+}
+
+function drawOverlays() {
+  ctx.save();
+  if (el.showAxes.checked) {
+    ctx.strokeStyle = 'rgba(180,180,180,0.15)';
+    ctx.lineWidth = 1;
+    const p0 = worldToPixel({re: view.cx - view.scale*2, im: 0});
+    const p1 = worldToPixel({re: view.cx + view.scale*2, im: 0});
+    ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+    const q0 = worldToPixel({re: 0, im: view.cy - view.scale*2});
+    const q1 = worldToPixel({re: 0, im: view.cy + view.scale*2});
+    ctx.beginPath(); ctx.moveTo(q0.x, q0.y); ctx.lineTo(q1.x, q1.y); ctx.stroke();
+  }
+  if (el.showUnit.checked) {
+    ctx.strokeStyle = 'rgba(180,200,220,0.2)';
+    ctx.lineWidth = 1;
+    const p0 = worldToPixel({re: 0, im: 0});
+    const s = Math.min(canvasW, canvasH) / view.scale;
+    ctx.beginPath(); ctx.arc(p0.x, p0.y, s, 0, Math.PI * 2); ctx.stroke();
+  }
+  if (el.showIso.checked) {
+    ctx.strokeStyle = 'rgba(124,195,255,0.55)';
+    ctx.lineWidth = 1.25 * DPR;
+    for (const g of state.matrices) {
+      for (const Y of [g, M.inv(g)]) {
+        const ic = M.isoCircle(Y);
+        if (!ic) continue;
+        const p = worldToPixel(ic.center);
+        const s = Math.min(canvasW, canvasH) / view.scale * ic.radius;
+        if (s > Math.max(canvasW, canvasH) * 3) continue;
+        ctx.beginPath(); ctx.arc(p.x, p.y, s, 0, Math.PI * 2); ctx.stroke();
+      }
+    }
+  }
+  if (el.showFixed.checked) {
+    for (let k = 0; k < state.matrices.length; k++) {
+      const g = state.matrices[k];
+      const fps = M.fixedPoints(g);
+      const color = ['#ffb86b', '#ff6bdc', '#8bd46b', '#ff6b8a', '#c3a2ff'][k % 5];
+      ctx.fillStyle = color;
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1;
+      for (const fp of fps) {
+        if (!fp) continue;
+        const p = worldToPixel(fp);
+        if (p.x < -10 || p.x > canvasW+10 || p.y < -10 || p.y > canvasH+10) continue;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 4 * DPR, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+/* ====================================================== RENDER ENGINES ==== */
+const state = {
+  matrices: [],           // array of SL(2,C) matrices (user generators)
+  genSet: [],             // expanded list [g0, g0^{-1}, g1, g1^{-1}, ...]
+  genLabels: [],          // ["a", "A", "b", "B", ...]
+  seeds: [],              // seed point per generator (a fixed point of another gen)
+  inv: [],                // inv[i] = index of inverse generator in genSet
+  running: false,
+  stack: null,            // work stack (for DFS)
+  queue: null,            // queue (for BFS)
+  walkZ: null,            // current point (for random walk)
+  pointsPlotted: 0,
+  budget: 0,
+  startTime: 0,
+  mode: 'branch',
+  maxDepth: 22,
+  epsilon: 1e-3,
+};
+
+function buildGenSet(matrices) {
+  state.matrices = matrices;
+  state.genSet = [];
+  state.genLabels = [];
+  state.inv = [];
+  const labelsLow = "abcdefghijklmn";
+  for (let i = 0; i < matrices.length; i++) {
+    state.genSet.push(matrices[i]);
+    state.genSet.push(M.inv(matrices[i]));
+    state.genLabels.push(labelsLow[i]);
+    state.genLabels.push(labelsLow[i].toUpperCase());
+    state.inv.push(2*i + 1);
+    state.inv.push(2*i);
+  }
+  // Seed points: for each generator k, pick a fixed point of a DIFFERENT
+  // generator — i.e. a point we'd want to push into the limit set.
+  state.seeds = [];
+  for (let k = 0; k < state.genSet.length; k++) {
+    let seed = null;
+    for (let j = 0; j < state.genSet.length && !seed; j++) {
+      if (j === k || j === state.inv[k]) continue;
+      const fps = M.fixedPoints(state.genSet[j]);
+      for (const fp of fps) if (fp && isFinite(fp.re) && isFinite(fp.im)) { seed = fp; break; }
+    }
+    if (!seed) seed = C.ZERO;
+    state.seeds.push(seed);
+  }
+}
+
+/* ---------- (1) Reduced-word BFS -------------------------------------- */
+function beginReducedWord(maxDepth) {
+  state.queue = [];
+  // Start at identity: emit all one-letter words
+  for (let i = 0; i < state.genSet.length; i++) {
+    state.queue.push({ W: state.genSet[i], last: i, depth: 1 });
+  }
+  state.pointsPlotted = 0;
+  state.maxDepth = maxDepth;
+}
+function stepReducedWord(budget) {
+  const N = state.genSet.length;
+  let done = 0;
+  while (done < budget && state.queue.length > 0 && state.pointsPlotted < state.budget) {
+    const {W, last, depth} = state.queue.shift();
+    // Plot action on every available seed (fixed points of generators not being the last)
+    plotPoint(M.actZ(W, state.seeds[last]));
+    state.pointsPlotted++;
+    done++;
+    if (depth < state.maxDepth) {
+      for (let i = 0; i < N; i++) {
+        if (i === state.inv[last]) continue;
+        state.queue.push({ W: M.mul(W, state.genSet[i]), last: i, depth: depth + 1 });
+      }
+    }
+    // Safety: cap queue size
+    if (state.queue.length > 4_000_000) state.queue.length = 4_000_000;
+  }
+  return state.queue.length > 0 && state.pointsPlotted < state.budget;
+}
+
+/* ---------- (2) Random walk (chaos game) ------------------------------ */
+function beginRandomWalk(seed) {
+  state.walkZ = seed || C.ZERO;
+  state.walkLast = -1;
+  state.pointsPlotted = 0;
+  // Warmup
+  for (let k = 0; k < 50; k++) {
+    const i = Math.floor(Math.random() * state.genSet.length);
+    const z = M.actZ(state.genSet[i], state.walkZ);
+    if (z) state.walkZ = z;
+  }
+}
+function stepRandomWalk(budget) {
+  let done = 0;
+  const N = state.genSet.length;
+  while (done < budget && state.pointsPlotted < state.budget) {
+    let i = Math.floor(Math.random() * N);
+    // Avoid direct backtracking some of the time so we don't oscillate on a single axis
+    if (state.walkLast >= 0 && i === state.inv[state.walkLast]) {
+      i = (i + 1 + Math.floor(Math.random() * (N - 1))) % N;
+    }
+    const z = M.actZ(state.genSet[i], state.walkZ);
+    if (!z) { // hit ∞, reset
+      state.walkZ = state.seeds[0];
+      state.walkLast = -1;
+      continue;
+    }
+    state.walkZ = z;
+    state.walkLast = i;
+    plotPoint(state.walkZ);
+    state.pointsPlotted++;
+    done++;
+  }
+  return state.pointsPlotted < state.budget;
+}
+
+/* ---------- (3) Adaptive branch-tracing DFS --------------------------- */
+/* Uses the fact that for a Möbius transformation W = [[A,B],[C,D]] and
+ * a point z, |W'(z)| = 1 / |Cz+D|^2. So the image of a ball of world-radius
+ * R around z has approximate radius R * |W'(z)|. We stop extending the word
+ * once this is below the target pixel size (ε · pixel_size_in_world).
+ *
+ * We also avoid adding a generator's inverse after itself, so branches
+ * correspond to reduced words.
+ */
+function beginBranchTrace(maxDepth, epsilon) {
+  state.stack = [];
+  state.pointsPlotted = 0;
+  state.maxDepth = maxDepth;
+  state.epsilon  = epsilon;
+  // Push one-letter words
+  for (let i = 0; i < state.genSet.length; i++) {
+    state.stack.push({ W: state.genSet[i], last: i, depth: 1 });
+  }
+}
+function stepBranchTrace(budget) {
+  const N = state.genSet.length;
+  const pixW = pixelSizeWorld();
+  const minBallSq = (state.epsilon * pixW) * (state.epsilon * pixW);
+  // Representative "pre-image" ball radius: we take this as ~1 in world
+  // units, i.e. we stop when |W'(seed)| * 1 < eps * pixW, equivalently
+  // 1 / |C*seed + D|^2 < eps*pixW -> |C*seed + D|^2 > 1 / (eps*pixW).
+  // But we want SIZE of image; we use diameter estimate D * |W'| where
+  // D is the pre-image "cluster" scale. We normalize to D ≈ 1 (generators
+  // are expected to have isometric circles of O(1) radius; for sanity
+  // we'll include a safety factor).
+  const PRE_DIAM = 1.5; // heuristic pre-image diameter scale
+  let done = 0;
+  while (done < budget && state.stack.length > 0 && state.pointsPlotted < state.budget) {
+    const node = state.stack.pop();
+    const W = node.W, last = node.last, depth = node.depth;
+    const seed = state.seeds[last];
+
+    // Derivative-based contraction estimate at seed
+    const dsq = M.derivMagSq(W, seed);
+    const imgBallSq = PRE_DIAM * PRE_DIAM * dsq;
+
+    if (depth >= state.maxDepth || imgBallSq < minBallSq) {
+      // Plot at a few seeds to smear the endpoint a bit
+      const p1 = M.actZ(W, seed);
+      plotPoint(p1);
+      // Plot action on (inverted generator's) other fixed point too, to
+      // fill the interval of limit points accessible at this tail.
+      const altSeedIdx = (last + 2) % N;
+      const alt = M.actZ(W, state.seeds[altSeedIdx]);
+      if (alt) plotPoint(alt);
+      state.pointsPlotted += 2;
+      done += 2;
+      continue;
+    }
+    // Expand children
+    for (let i = 0; i < N; i++) {
+      if (i === state.inv[last]) continue;
+      state.stack.push({ W: M.mul(W, state.genSet[i]), last: i, depth: depth + 1 });
+    }
+    // Safety: cap stack size to avoid runaway memory
+    if (state.stack.length > 2_000_000) state.stack.length = 2_000_000;
+  }
+  return state.stack.length > 0 && state.pointsPlotted < state.budget;
+}
+
+/* ---------- Progressive loop ------------------------------------------ */
+let rafId = 0;
+
+function startRender() {
+  stopRender();
+  if (state.matrices.length < 2) { setError("Need at least 2 generators."); return; }
+  setError("");
+  resetDensity();
+  state.mode = el.mode.value;
+  state.budget = parseInt(el.points.value);
+  const maxDepth = parseInt(el.depth.value);
+  const epsilonPx = parseFloat(el.epsilon.value);
+  const seedText = el.seed.value.trim();
+  let seedZ = state.seeds[0] || C.ZERO;
+  if (seedText && seedText !== 'auto') {
+    try { seedZ = parseComplex(seedText); } catch (e) { setError("seed parse: " + e.message); return; }
+  }
+  state.startTime = performance.now();
+  state.running = true;
+  if (state.mode === 'word')        beginReducedWord(maxDepth);
+  else if (state.mode === 'walk')   beginRandomWalk(seedZ);
+  else                              beginBranchTrace(maxDepth, epsilonPx);
+
+  const perFrame = state.mode === 'walk' ? 40000 : 8000;
+  function frame() {
+    let hasMore = false;
+    if (!state.running) return;
+    if (state.mode === 'word')       hasMore = stepReducedWord(perFrame);
+    else if (state.mode === 'walk')  hasMore = stepRandomWalk(perFrame);
+    else                             hasMore = stepBranchTrace(perFrame);
+    draw();
+    const elapsed = ((performance.now() - state.startTime) / 1000).toFixed(1);
+    setStatus(`${state.mode} · points=${state.pointsPlotted.toLocaleString()} · t=${elapsed}s` +
+              (hasMore ? ` · running…` : ` · done`));
+    if (hasMore) rafId = requestAnimationFrame(frame);
+    else { state.running = false; }
+  }
+  rafId = requestAnimationFrame(frame);
+}
+
+function stopRender() {
+  state.running = false;
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = 0;
+}
+
+/* ====================================================== UI & ELEMENTS ==== */
+const el = {
+  preset:    document.getElementById('preset'),
+  gens:      document.getElementById('generators'),
+  addGen:    document.getElementById('add-gen'),
+  normalize: document.getElementById('normalize'),
+  mode:      document.getElementById('mode'),
+  depth:     document.getElementById('depth'),
+  depthVal:  document.getElementById('depth-val'),
+  epsilon:   document.getElementById('epsilon'),
+  epsilonVal:document.getElementById('epsilon-val'),
+  points:    document.getElementById('points'),
+  pointsVal: document.getElementById('points-val'),
+  seed:      document.getElementById('seed'),
+  showFixed: document.getElementById('show-fixed'),
+  showIso:   document.getElementById('show-iso'),
+  showAxes:  document.getElementById('show-axes'),
+  showUnit:  document.getElementById('show-unit'),
+  palette:   document.getElementById('palette'),
+  exposure:  document.getElementById('exposure'),
+  exposureVal: document.getElementById('exposure-val'),
+  render:    document.getElementById('render'),
+  stop:      document.getElementById('stop'),
+  resetView: document.getElementById('reset-view'),
+  save:      document.getElementById('save'),
+  status:    document.getElementById('status'),
+  info:      document.getElementById('overlay-info'),
+  err:       document.getElementById('err'),
+};
+
+function setStatus(s) { el.status.textContent = s; }
+function setError(s)  { el.err.textContent = s; }
+
+/* Generator editor */
+let genState = []; // array of { name, entries: [str,str,str,str] }
+
+function renderGenerators() {
+  el.gens.innerHTML = '';
+  const labels = "abcdefghijk";
+  genState.forEach((g, i) => {
+    const div = document.createElement('div'); div.className = 'gen';
+    const header = document.createElement('div'); header.className = 'gen-header';
+    const name = document.createElement('span'); name.className = 'gen-name';
+    name.textContent = labels[i] || g.name;
+    const info = document.createElement('span'); info.className = 'gen-info';
+    info.textContent = '';
+    const rm = document.createElement('button'); rm.className = 'remove-gen';
+    rm.textContent = '×'; rm.title = 'Remove generator';
+    rm.onclick = () => { genState.splice(i, 1); renderGenerators(); tryParseAll(); };
+    header.append(name, info, rm);
+    div.appendChild(header);
+    const grid = document.createElement('div'); grid.className = 'gen-grid';
+    const placeholders = ['a', 'b', 'c', 'd'];
+    for (let k = 0; k < 4; k++) {
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.value = g.entries[k] || '';
+      inp.placeholder = placeholders[k];
+      inp.oninput = () => { g.entries[k] = inp.value; tryParseAll(); };
+      grid.appendChild(inp);
+    }
+    div.appendChild(grid);
+    div.dataset.info = i;
+    el.gens.appendChild(div);
+  });
+}
+
+function tryParseAll() {
+  // Parse entries and build matrices. On success, update state + overlays.
+  const inputs = el.gens.querySelectorAll('.gen-grid input');
+  inputs.forEach(inp => inp.classList.remove('bad'));
+  const mats = [];
+  let bad = false;
+  for (let i = 0; i < genState.length; i++) {
+    const entries = genState[i].entries;
+    const vals = [null, null, null, null];
+    for (let k = 0; k < 4; k++) {
+      try { vals[k] = parseComplex(entries[k]); }
+      catch (e) {
+        inputs[i*4 + k].classList.add('bad');
+        bad = true;
+      }
+    }
+    if (bad) continue;
+    mats.push({a: vals[0], b: vals[1], c: vals[2], d: vals[3]});
+  }
+  if (bad || mats.length < 2) {
+    setError(bad ? "Check highlighted entries." : "Need ≥ 2 generators.");
+    return;
+  }
+  setError("");
+  buildGenSet(mats);
+  // Info per generator
+  const items = el.gens.querySelectorAll('.gen');
+  for (let i = 0; i < mats.length; i++) {
+    const cls = M.classify(mats[i]);
+    const tr = M.tr(mats[i]);
+    const det = M.det(mats[i]);
+    const info = items[i] && items[i].querySelector('.gen-info');
+    if (info) info.textContent = `tr=${fmt(tr)} det=${fmt(det)} ${cls}`;
+  }
+  draw();
+}
+
+/* Preset UI */
+function loadPreset(idx) {
+  const p = PRESETS[idx];
+  if (!p) return;
+  genState = p.gens.map(g => ({ name: g.name, entries: [...g.entries] }));
+  view.cx = p.view.cx; view.cy = p.view.cy; view.scale = p.view.scale;
+  renderGenerators();
+  tryParseAll();
+  resetDensity();
+  draw();
+}
+
+function normalizeAll() {
+  for (let i = 0; i < genState.length; i++) {
+    try {
+      const entries = genState[i].entries;
+      const m = { a: parseComplex(entries[0]), b: parseComplex(entries[1]),
+                  c: parseComplex(entries[2]), d: parseComplex(entries[3]) };
+      const n = M.normalize(m);
+      genState[i].entries = [fmt(n.a), fmt(n.b), fmt(n.c), fmt(n.d)];
+    } catch (e) {}
+  }
+  renderGenerators();
+  tryParseAll();
+}
+
+/* Wire up UI */
+function populatePresets() {
+  PRESETS.forEach((p, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = p.name;
+    el.preset.appendChild(opt);
+  });
+  el.preset.onchange = () => loadPreset(parseInt(el.preset.value));
+}
+
+el.addGen.onclick = () => {
+  const labels = "abcdefghijk";
+  genState.push({ name: labels[genState.length] || ("g" + genState.length),
+                  entries: ["1", "0", "0", "1"] });
+  renderGenerators();
+  tryParseAll();
+};
+el.normalize.onclick = normalizeAll;
+el.render.onclick = startRender;
+el.stop.onclick = stopRender;
+el.resetView.onclick = () => {
+  const idx = parseInt(el.preset.value);
+  const p = PRESETS[idx];
+  if (p) { view.cx = p.view.cx; view.cy = p.view.cy; view.scale = p.view.scale; }
+  resetDensity(); draw();
+};
+el.save.onclick = () => {
+  const link = document.createElement('a');
+  link.download = 'limit-set.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+};
+
+for (const [inp, out, fmt_] of [
+  [el.depth,    el.depthVal,    v => v],
+  [el.epsilon,  el.epsilonVal,  v => v + ' px'],
+  [el.points,   el.pointsVal,   v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : (v/1000).toFixed(0) + 'k'],
+  [el.exposure, el.exposureVal, v => v],
+]) {
+  const update = () => out.textContent = fmt_(inp.value);
+  inp.addEventListener('input', update);
+  update();
+}
+
+['showFixed', 'showIso', 'showAxes', 'showUnit'].forEach(k => {
+  el[k].addEventListener('change', draw);
+});
+el.palette.addEventListener('change', draw);
+el.exposure.addEventListener('input', draw);
+
+/* ---------- Pan / zoom ---------- */
+let dragging = false, dragX = 0, dragY = 0;
+canvas.addEventListener('mousedown', e => {
+  dragging = true; dragX = e.clientX; dragY = e.clientY;
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - dragX, dy = e.clientY - dragY;
+  dragX = e.clientX; dragY = e.clientY;
+  const s = Math.min(canvasW, canvasH);
+  view.cx -= dx * DPR * view.scale / s;
+  view.cy += dy * DPR * view.scale / s;
+  draw();
+});
+window.addEventListener('mouseup', () => { dragging = false; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const px = (e.clientX - rect.left) * DPR;
+  const py = (e.clientY - rect.top) * DPR;
+  const wz = pixelToWorld(px, py);
+  const factor = Math.exp(e.deltaY * 0.002);
+  view.scale *= factor;
+  const wz2 = pixelToWorld(px, py);
+  view.cx += wz.re - wz2.re;
+  view.cy += wz.im - wz2.im;
+  // Re-render since density is per-pixel
+  resetDensity();
+  draw();
+}, { passive: false });
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const w = pixelToWorld((e.clientX - rect.left) * DPR, (e.clientY - rect.top) * DPR);
+  el.info.textContent = `z = ${fmt(w)}`;
+});
+
+/* ---------- Init ---------- */
+window.addEventListener('resize', resizeCanvas);
+populatePresets();
+loadPreset(0);
+resizeCanvas();
+setStatus('Press "Render" to draw.');
+</script>
+</body>
+</html>

@@ -14,11 +14,18 @@
 </head>
 
 <body>
-    <div id="loading-screen">
-        <div class="loader-content">
-            <div class="loader-ring"></div>
-            <h1>Math World</h1>
-            <p class="loader-subtitle">Preparing your journey...</p>
+    <div id="loading-screen" class="welcome-screen">
+        <div class="welcome-aurora" aria-hidden="true"></div>
+        <div class="welcome-content">
+            <div class="welcome-logo" aria-hidden="true">∞</div>
+            <h1 class="welcome-title">Math World</h1>
+            <p class="welcome-tagline">An immersive mathematical journey</p>
+            <div class="welcome-footer">
+                <div class="loader-dots" role="status" aria-label="Loading">
+                    <span></span><span></span><span></span>
+                </div>
+                <p class="welcome-status">Preparing your journey</p>
+            </div>
         </div>
     </div>
 
@@ -33,8 +40,11 @@
             <div class="hint-item"><span class="key">Shift</span> Speed Boost (accelerates!)</div>
             <div class="hint-item"><span class="key">E</span> Interact</div>
             <div class="hint-item"><span class="key">H</span> Toggle Help</div>
+            <div class="hint-item"><span class="key">Esc</span> Pause Menu</div>
+            <div class="hint-item"><span class="key">F3</span> Performance</div>
             <div class="hint-divider"></div>
             <div class="hint-item"><span class="key">M</span> Atlas (Aerial View)</div>
+            <div class="hint-item"><span class="key">1 2 3</span> Quick Teleport</div>
         </div>
 
         <div id="interaction-prompt" class="hidden">
@@ -46,8 +56,62 @@
             <span id="location-name">The Meadow</span>
         </div>
 
+        <!-- Compass + altitude HUD (top-right) -->
+        <div id="hud" class="hidden">
+            <div id="compass" aria-hidden="true">
+                <div id="compass-dial">
+                    <span class="cardinal n">N</span>
+                    <span class="cardinal e">E</span>
+                    <span class="cardinal s">S</span>
+                    <span class="cardinal w">W</span>
+                </div>
+                <div id="compass-needle"></div>
+                <div id="compass-heading">000&deg;</div>
+            </div>
+            <div id="altitude-readout">
+                <span class="alt-label">Altitude</span>
+                <span class="alt-value" id="alt-value">0 m</span>
+            </div>
+        </div>
+
+        <!-- Speed boost indicator (only visible while Shift is held) -->
+        <div id="speed-indicator" class="hidden">
+            <div class="speed-label">
+                <span>Speed Boost</span>
+                <span class="speed-value" id="speed-value">1.0x</span>
+            </div>
+            <div class="speed-bar">
+                <div class="speed-bar-fill" id="speed-bar-fill"></div>
+            </div>
+        </div>
+
+        <!-- FPS counter (F3 toggles) -->
+        <div id="fps-counter" class="hidden">60 FPS</div>
+
         <div id="click-to-look" class="hidden">
-            Click to enable mouse look
+            Click to resume
+        </div>
+    </div>
+
+    <!-- Pause Menu -->
+    <div id="pause-menu" class="hidden">
+        <div class="pause-card">
+            <h2>Paused</h2>
+            <p>Take a breath. The world will wait for you.</p>
+            <div class="pause-actions">
+                <button class="pause-btn primary" id="pause-resume">
+                    <span>Resume</span>
+                    <span class="shortcut">Esc</span>
+                </button>
+                <button class="pause-btn" id="pause-atlas">
+                    <span>Open Atlas</span>
+                    <span class="shortcut">M</span>
+                </button>
+                <button class="pause-btn" id="pause-help">
+                    <span>Toggle Controls</span>
+                    <span class="shortcut">H</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -56,20 +120,22 @@
         <!-- Content populated by atlas.js -->
     </div>
 
-    <div id="start-screen">
-        <div class="start-content">
-            <div class="start-logo">
-                <div class="logo-symbol">∞</div>
+    <div id="start-screen" class="welcome-screen">
+        <div class="welcome-aurora" aria-hidden="true"></div>
+        <div class="welcome-content">
+            <div class="welcome-logo" aria-hidden="true">∞</div>
+            <h1 class="welcome-title">Math World</h1>
+            <p class="welcome-tagline">An immersive mathematical journey</p>
+            <div class="welcome-footer">
+                <button id="start-button" type="button">
+                    <span>Enter the world</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M5 12h14M13 5l7 7-7 7" />
+                    </svg>
+                </button>
+                <p class="welcome-status">Travel the world and learn math</p>
             </div>
-            <h1>Math World</h1>
-            <!-- <p class="tagline">Where Mathematics Comes Alive</p> -->
-            <button id="start-button">
-                <span>Start</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 5v14M5 12l7 7 7-7" />
-                </svg>
-            </button>
-            <p class="start-note">Travel the world and learn math!</p>
         </div>
     </div>
 

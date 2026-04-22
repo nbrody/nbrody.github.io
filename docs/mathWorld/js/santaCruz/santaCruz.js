@@ -304,7 +304,8 @@ function isInOcean(lat, lon) {
         { lat: 36.958, lon: -122.066 }, // Wilder Ranch
         { lat: 36.951, lon: -122.058 }, // Natural Bridges
         { lat: 36.950, lon: -122.043 }, // Mitchell's Cove
-        { lat: 36.950, lon: -122.027 }, // Steamer Lane (Lighthouse Point)
+        { lat: 36.950, lon: -122.027 }, // Steamer Lane (approach)
+        { lat: 36.9498, lon: -122.0255 }, // Lighthouse Point — southern tip of peninsula
         { lat: 36.963, lon: -122.022 }, // Cowell Beach
         { lat: 36.964, lon: -122.018 }, // Main Beach (Boardwalk) - PROTECTED
         { lat: 36.964, lon: -122.012 }, // San Lorenzo River Mouth
@@ -353,7 +354,8 @@ function getDistanceToCoast(lat, lon) {
         { lat: 36.958, lon: -122.066 }, // Wilder Ranch
         { lat: 36.952, lon: -122.058 }, // Natural Bridges
         { lat: 36.951, lon: -122.043 }, // Mitchell's Cove
-        { lat: 36.951, lon: -122.027 }, // Steamer Lane
+        { lat: 36.951, lon: -122.027 }, // Steamer Lane (approach)
+        { lat: 36.9498, lon: -122.0255 }, // Lighthouse Point — southern tip
         { lat: 36.963, lon: -122.022 }, // Cowell Beach
         { lat: 36.963, lon: -122.018 }, // Main Beach / Boardwalk
         { lat: 36.964, lon: -122.012 }, // San Lorenzo River Mouth
@@ -411,6 +413,26 @@ export class SantaCruzTerrain {
         this.skyMesh = null;
         this.resolution = 768; // Regional resolution
         this.patchResolution = 512; // High-density patch for city center
+        // Track every object we add to the scene so dispose() can tear it down
+        // cleanly when swapping to a different region's terrain.
+        this.addedObjects = [];
+    }
+
+    _track(obj) {
+        this.scene.add(obj);
+        this.addedObjects.push(obj);
+    }
+
+    dispose() {
+        for (const obj of this.addedObjects) {
+            this.scene.remove(obj);
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+                if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+                else obj.material.dispose();
+            }
+        }
+        this.addedObjects = [];
     }
 
     async generate() {
@@ -511,7 +533,7 @@ export class SantaCruzTerrain {
         }));
         this.terrainMesh.rotation.x = -Math.PI / 2;
         this.terrainMesh.receiveShadow = true;
-        this.scene.add(this.terrainMesh);
+        this._track(this.terrainMesh);
     }
 
     createShorelinePatch() {
@@ -566,7 +588,7 @@ export class SantaCruzTerrain {
         this.shorelineMesh.castShadow = true;
 
 
-        this.scene.add(this.shorelineMesh);
+        this._track(this.shorelineMesh);
     }
 
     getVertexColor(gps, elevation, x, z) {
@@ -698,7 +720,7 @@ export class SantaCruzTerrain {
         this.oceanMesh.rotation.x = -Math.PI / 2;
         this.oceanMesh.position.set(0, -1, 0);
         this.oceanMesh.renderOrder = -1; // Render before terrain for proper transparency
-        this.scene.add(this.oceanMesh);
+        this._track(this.oceanMesh);
     }
 
     createCoastline() {
@@ -709,7 +731,7 @@ export class SantaCruzTerrain {
         this.coastlineFoam = new THREE.Mesh(foamGeometry, foamMaterial);
         this.coastlineFoam.rotation.x = -Math.PI / 2;
         this.coastlineFoam.position.set(-2000, 0.5, 2500);
-        this.scene.add(this.coastlineFoam);
+        this._track(this.coastlineFoam);
     }
 
     createSky() {
@@ -749,7 +771,7 @@ export class SantaCruzTerrain {
             side: THREE.BackSide
         });
         this.skyMesh = new THREE.Mesh(skyGeo, skyMat);
-        this.scene.add(this.skyMesh);
+        this._track(this.skyMesh);
     }
 
     createLighting() {
@@ -765,9 +787,9 @@ export class SantaCruzTerrain {
         sunLight.shadow.camera.right = 10000;
         sunLight.shadow.camera.top = 10000;
         sunLight.shadow.camera.bottom = -10000;
-        this.scene.add(sunLight);
-        this.scene.add(new THREE.AmbientLight(0x6688AA, 0.5));
-        this.scene.add(new THREE.HemisphereLight(0x87CEEB, 0x3A6B35, 0.4));
+        this._track(sunLight);
+        this._track(new THREE.AmbientLight(0x6688AA, 0.5));
+        this._track(new THREE.HemisphereLight(0x87CEEB, 0x3A6B35, 0.4));
     }
 
     getElevationAtLocal(x, z) {

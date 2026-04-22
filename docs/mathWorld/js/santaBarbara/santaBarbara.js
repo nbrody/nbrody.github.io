@@ -132,7 +132,41 @@ export class SantaBarbaraTerrain {
         this.scene = scene;
         this.terrainMesh = null;
         this.oceanMesh = null;
+        this.shorelineMesh = null;
+        this.coastlineFoam = null;
+        this.skyMesh = null;
         this.resolution = 256;
+        // Track every object we add to the scene so dispose() can tear it down
+        // cleanly when swapping to a different region.
+        this.addedObjects = [];
+        this.addedLights = [];
+    }
+
+    _track(obj) {
+        this.scene.add(obj);
+        this.addedObjects.push(obj);
+    }
+
+    _trackLight(light) {
+        this.scene.add(light);
+        this.addedLights.push(light);
+    }
+
+    dispose() {
+        for (const obj of this.addedObjects) {
+            this.scene.remove(obj);
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+                if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+                else obj.material.dispose();
+            }
+        }
+        for (const light of this.addedLights) {
+            this.scene.remove(light);
+            if (light.dispose) light.dispose();
+        }
+        this.addedObjects = [];
+        this.addedLights = [];
     }
 
     async generate() {
@@ -209,7 +243,7 @@ export class SantaBarbaraTerrain {
         this.terrainMesh.receiveShadow = true;
         this.terrainMesh.castShadow = true;
 
-        this.scene.add(this.terrainMesh);
+        this._track(this.terrainMesh);
     }
 
     createOcean() {
@@ -226,7 +260,7 @@ export class SantaBarbaraTerrain {
         this.oceanMesh.rotation.x = -Math.PI / 2;
         this.oceanMesh.position.set(0, -2, SB_SIZE.height * 0.4);
 
-        this.scene.add(this.oceanMesh);
+        this._track(this.oceanMesh);
     }
 
     createCoastline() {
@@ -238,11 +272,11 @@ export class SantaBarbaraTerrain {
             roughness: 1
         });
 
-        const foam = new THREE.Mesh(foamGeometry, foamMaterial);
-        foam.rotation.x = -Math.PI / 2;
-        foam.position.set(0, 1, SB_SIZE.height * 0.42);
+        this.coastlineFoam = new THREE.Mesh(foamGeometry, foamMaterial);
+        this.coastlineFoam.rotation.x = -Math.PI / 2;
+        this.coastlineFoam.position.set(0, 1, SB_SIZE.height * 0.42);
 
-        this.scene.add(foam);
+        this._track(this.coastlineFoam);
     }
 
     createSky() {
@@ -282,7 +316,8 @@ export class SantaBarbaraTerrain {
             side: THREE.BackSide
         });
 
-        this.scene.add(new THREE.Mesh(skyGeo, skyMat));
+        this.skyMesh = new THREE.Mesh(skyGeo, skyMat);
+        this._track(this.skyMesh);
     }
 
     createLighting() {
@@ -298,10 +333,10 @@ export class SantaBarbaraTerrain {
         sunLight.shadow.camera.right = 15000;
         sunLight.shadow.camera.top = 15000;
         sunLight.shadow.camera.bottom = -15000;
-        this.scene.add(sunLight);
+        this._trackLight(sunLight);
 
-        this.scene.add(new THREE.AmbientLight(0x7799BB, 0.5));
-        this.scene.add(new THREE.HemisphereLight(0x87CEEB, 0x8B7355, 0.4));
+        this._trackLight(new THREE.AmbientLight(0x7799BB, 0.5));
+        this._trackLight(new THREE.HemisphereLight(0x87CEEB, 0x8B7355, 0.4));
     }
 
     getElevationAtLocal(x, z) {

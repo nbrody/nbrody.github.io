@@ -13,6 +13,7 @@ export {
     getElevation
 } from './santaBarbara.js';
 
-// Future exports for UCSB campus, downtown, etc.
-// export { UCSBCampus } from './ucsbCampus.js';
+export { UCSBCampus } from './ucsbCampus.js';
+
+// Future exports for downtown, etc.
 // export { DowntownSB } from './downtown.js';

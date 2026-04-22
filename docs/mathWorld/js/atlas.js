@@ -11,48 +11,94 @@ import { SANTA_CRUZ_LOCATIONS } from './santaCruz/locations.js';
 import { REGIONAL_LOCATIONS } from './regionalLocations.js';
 
 // Hierarchical location tree
-// Each node has: children (location IDs at the next level down)
+//
+//   world
+//     northAmerica
+//       western
+//         norcal
+//           bayArea   → berkeley, sanFrancisco, oakland, paloAlto
+//           santaCruz → ucsc → mchenryLibrary
+//                       boardwalk, steamerLane, naturalBridges, westCliff, downtownSC
+//         socal
+//           santaBarbara → islaVista, ucsb, downtownSB
+//           la           → venice, ucla, laguna
+//       (other state placeholders: newYork, texas, …)
+//     (other continent placeholders)
 const LOCATION_TREE = {
     world: {
         children: ['northAmerica', 'eurasia', 'southAmerica', 'africa', 'australia']
     },
     northAmerica: {
-        children: ['california', 'newYork', 'texas', 'britishColumbia', 'florida'],
+        children: ['western', 'newYork', 'texas', 'britishColumbia', 'florida'],
         focusLat: 45, focusLon: -100, focusHeight: 4000000
     },
-    eurasia: {
-        children: [],
-        focusLat: 50, focusLon: 40, focusHeight: 5000000
+    eurasia:      { children: [], focusLat: 50,  focusLon: 40,    focusHeight: 5000000 },
+    southAmerica: { children: [], focusLat: -20, focusLon: -60,   focusHeight: 4000000 },
+    africa:       { children: [], focusLat: 10,  focusLon: 20,    focusHeight: 4000000 },
+    australia:    { children: [], focusLat: -25, focusLon: 135,   focusHeight: 3000000 },
+
+    // Regional layer (under a continent)
+    western: {
+        children: ['norcal', 'socal'],
+        focusLat: 37.0, focusLon: -120.0, focusHeight: 1800000
     },
-    southAmerica: {
-        children: [],
-        focusLat: -20, focusLon: -60, focusHeight: 4000000
-    },
-    africa: {
-        children: [],
-        focusLat: 10, focusLon: 20, focusHeight: 4000000
-    },
-    australia: {
-        children: [],
-        focusLat: -25, focusLon: 135, focusHeight: 3000000
-    },
-    california: {
-        children: ['santaCruz', 'berkeley', 'sanFrancisco', 'losAngeles', 'lakeTahoe', 'sanDiego'],
-        focusLat: 36.7783, focusLon: -119.4179, focusHeight: 600000
-    },
-    newYork: { children: [], focusLat: 40.71, focusLon: -74.01, focusHeight: 600000 },
-    texas: { children: [], focusLat: 31.97, focusLon: -99.90, focusHeight: 600000 },
+
+    // State-level placeholders (not currently beneath a region)
+    newYork:         { children: [], focusLat: 40.71, focusLon: -74.01,  focusHeight: 600000 },
+    texas:           { children: [], focusLat: 31.97, focusLon: -99.90,  focusHeight: 600000 },
     britishColumbia: { children: [], focusLat: 53.73, focusLon: -127.65, focusHeight: 600000 },
-    florida: { children: [], focusLat: 27.66, focusLon: -81.52, focusHeight: 600000 },
+    florida:         { children: [], focusLat: 27.66, focusLon: -81.52,  focusHeight: 600000 },
+
+    // Sub-regions
+    norcal: {
+        children: ['bayArea', 'santaCruz'],
+        focusLat: 37.4, focusLon: -121.8, focusHeight: 400000
+    },
+    socal: {
+        children: ['santaBarbara', 'la'],
+        focusLat: 34.3, focusLon: -118.5, focusHeight: 400000
+    },
+
+    // City clusters
+    bayArea: {
+        children: ['berkeley', 'sanFrancisco', 'oakland', 'paloAlto'],
+        focusLat: 37.75, focusLon: -122.40, focusHeight: 80000
+    },
     santaCruz: {
-        children: ['mchenryLibrary', 'steamerLane', 'boardwalk', 'naturalBridges', 'westCliff', 'downtownSC'],
+        children: ['ucsc', 'boardwalk', 'steamerLane', 'naturalBridges', 'westCliff', 'downtownSC'],
         focusLat: 36.9741, focusLon: -122.0308, focusHeight: 16000
     },
-    berkeley: { children: [], focusLat: 37.8715, focusLon: -122.2730, focusHeight: 16000 },
-    sanFrancisco: { children: [], focusLat: 37.7749, focusLon: -122.4194, focusHeight: 16000 },
-    losAngeles: { children: [], focusLat: 34.0522, focusLon: -118.2437, focusHeight: 16000 },
-    lakeTahoe: { children: [], focusLat: 39.0968, focusLon: -120.0324, focusHeight: 16000 },
-    sanDiego: { children: [], focusLat: 32.7157, focusLon: -117.1611, focusHeight: 16000 },
+    santaBarbara: {
+        children: ['islaVista', 'ucsb', 'downtownSB'],
+        focusLat: 34.42, focusLon: -119.70, focusHeight: 20000
+    },
+    la: {
+        children: ['topanga', 'venice', 'ucla', 'laguna'],
+        focusLat: 34.05, focusLon: -118.30, focusHeight: 50000
+    },
+
+    // Campus group (drills to specific buildings)
+    ucsc: {
+        children: ['mchenryLibrary'],
+        focusLat: 36.9916, focusLon: -122.0583, focusHeight: 4000
+    },
+
+    // City leaves
+    berkeley:     { children: [], focusLat: 37.8719, focusLon: -122.2578, focusHeight: 6000 },
+    sanFrancisco: { children: [], focusLat: 37.7749, focusLon: -122.4194, focusHeight: 10000 },
+    oakland:      { children: [], focusLat: 37.8044, focusLon: -122.2712, focusHeight: 8000 },
+    paloAlto:     { children: [], focusLat: 37.4419, focusLon: -122.1430, focusHeight: 8000 },
+
+    // Santa Barbara area leaves
+    islaVista:  { children: [], focusLat: 34.4133, focusLon: -119.8610, focusHeight: 4000 },
+    ucsb:       { children: [], focusLat: 34.4140, focusLon: -119.8489, focusHeight: 4000 },
+    downtownSB: { children: [], focusLat: 34.4208, focusLon: -119.6982, focusHeight: 4000 },
+
+    // LA area leaves
+    topanga: { children: [], focusLat: 34.0934, focusLon: -118.6020, focusHeight: 4000 },
+    venice:  { children: [], focusLat: 33.9850, focusLon: -118.4695, focusHeight: 5000 },
+    ucla:    { children: [], focusLat: 34.0689, focusLon: -118.4452, focusHeight: 5000 },
+    laguna:  { children: [], focusLat: 33.5427, focusLon: -117.7854, focusHeight: 5000 }
 };
 
 export class Atlas {
@@ -63,6 +109,7 @@ export class Atlas {
         // Navigation state
         this.currentNode = 'world';  // Current drill-down node
         this.navStack = [];          // Stack of parent nodes for back-navigation
+        this.selectedIndex = 0;      // Keyboard/mouse-highlighted child in current folder
 
         // Store camera state when entering atlas
         this.savedCameraPosition = null;
@@ -411,11 +458,85 @@ export class Atlas {
             this.toggle();
             return true;
         }
-        if (e.code === 'Escape' && this.isActive) {
+        if (!this.isActive) return false;
+
+        if (e.code === 'Escape') {
             this.goBack();
             return true;
         }
+
+        const children = this.getCurrentChildrenIds();
+
+        if (e.code === 'ArrowDown' || e.code === 'KeyJ') {
+            if (children.length === 0) return true;
+            this.selectedIndex = (this.selectedIndex + 1) % children.length;
+            this.refreshListSelection(true);
+            return true;
+        }
+        if (e.code === 'ArrowUp' || e.code === 'KeyK') {
+            if (children.length === 0) return true;
+            this.selectedIndex = (this.selectedIndex - 1 + children.length) % children.length;
+            this.refreshListSelection(true);
+            return true;
+        }
+        if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+            if (children.length === 0) return true;
+            const id = children[this.selectedIndex];
+            if (id) this.activateChild(id);
+            return true;
+        }
+        // Swallow other movement/action keys so they don't leak to the page
+        // (player is disabled, but keeping focus semantics tidy).
+        if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+            return true;
+        }
         return false;
+    }
+
+    // ---------- Children / selection helpers ----------
+
+    getCurrentChildrenIds() {
+        const tree = LOCATION_TREE[this.currentNode];
+        return tree ? tree.children : [];
+    }
+
+    getLocationMeta(id) {
+        return REGIONAL_LOCATIONS[id] || SANTA_CRUZ_LOCATIONS[id] || null;
+    }
+
+    /**
+     * folder — has children, user can drill down
+     * leaf   — no children but hasContent, user can visit
+     * locked — neither (greyed out)
+     */
+    childStatus(id) {
+        const tree = LOCATION_TREE[id];
+        const meta = this.getLocationMeta(id);
+        const hasChildren = !!(tree && tree.children.length > 0);
+        const hasContent = !!(meta && meta.hasContent);
+        if (hasChildren) return 'folder';
+        if (hasContent) return 'leaf';
+        return 'locked';
+    }
+
+    activateChild(id) {
+        const status = this.childStatus(id);
+        if (status === 'folder') {
+            this.drillDown(id);
+        } else if (status === 'leaf') {
+            this.selectLocation(id);
+        } else {
+            this.flashLocked(id);
+        }
+    }
+
+    clampSelectedIndex() {
+        const children = this.getCurrentChildrenIds();
+        if (children.length === 0) {
+            this.selectedIndex = 0;
+        } else {
+            this.selectedIndex = Math.max(0, Math.min(this.selectedIndex, children.length - 1));
+        }
     }
 
     toggle() {
@@ -445,9 +566,14 @@ export class Atlas {
 
         this.isActive = true;
 
-        // Start at Santa Cruz level (showing SC's children: boardwalk, mchenry, etc.)
-        this.currentNode = 'santaCruz';
-        this.navStack = ['world', 'northAmerica', 'california'];
+        // Start at the city-cluster level matching the player's current region.
+        // Both santaCruz and bayArea sit at the same depth in the tree so the
+        // nav stack is the same up to that level.
+        const currentRegion = this.mathWorld.currentRegion;
+        const startNode = (currentRegion === 'bayArea') ? 'bayArea' : 'santaCruz';
+        this.currentNode = startNode;
+        this.navStack = ['world', 'northAmerica', 'western', 'norcal'];
+        this.selectedIndex = 0;
 
         // Exit pointer lock
         if (document.pointerLockElement) {
@@ -483,13 +609,21 @@ export class Atlas {
         // Ensure cursor is visible for Atlas interaction
         this.mathWorld.canvas.style.cursor = 'default';
 
-        // Animate to Santa Cruz city view (16km altitude)
-        const scTree = LOCATION_TREE['santaCruz'];
-        const local = gpsToLocal(scTree.focusLat, scTree.focusLon);
-        const targetPos = new THREE.Vector3(local.x, scTree.focusHeight, local.z);
+        // Animate to the starting cluster view.
+        const startTree = LOCATION_TREE[startNode];
+        let targetPos;
+        if (startNode === 'santaCruz') {
+            // SC scene uses local coords; put camera directly above SC origin.
+            const local = gpsToLocal(startTree.focusLat, startTree.focusLon);
+            targetPos = new THREE.Vector3(local.x, startTree.focusHeight, local.z);
+        } else {
+            // Bay Area (and anything else) uses spherical globe coords.
+            targetPos = this.gpsToGlobePosition(
+                startTree.focusLat, startTree.focusLon, startTree.focusHeight
+            );
+        }
         this.animateCameraTo(targetPos, 1.0);
 
-        // Show Santa Cruz location markers
         this.showCurrentLevel();
     }
 
@@ -575,27 +709,14 @@ export class Atlas {
 
         this.navStack.push(this.currentNode);
         this.currentNode = nodeId;
+        this.selectedIndex = 0;
         this.showCurrentLevel();
 
         // Animate camera to focus on this node
         const focusHeight = tree.focusHeight || 15000000;
         let targetPos;
 
-        if (nodeId === 'santaCruz' || this.isSantaCruzChild(nodeId)) {
-            // For Santa Cruz level and below, position camera directly above in local coords
-            const locData = REGIONAL_LOCATIONS[nodeId] || SANTA_CRUZ_LOCATIONS[nodeId];
-            if (locData) {
-                const local = gpsToLocal(locData.lat, locData.lon);
-                targetPos = new THREE.Vector3(local.x, focusHeight, local.z);
-            } else {
-                targetPos = new THREE.Vector3(0, focusHeight, 0);
-            }
-        } else {
-            // For globe-level, use spherical positioning
-            const focusLat = tree.focusLat || 0;
-            const focusLon = tree.focusLon || 0;
-            targetPos = this.gpsToGlobePosition(focusLat, focusLon, focusHeight);
-        }
+        targetPos = this.resolveCameraTarget(nodeId, tree, focusHeight);
 
         this.animateCameraTo(targetPos, 0.8);
         this.updateOverlay();
@@ -612,28 +733,16 @@ export class Atlas {
         }
 
         this.currentNode = this.navStack.pop();
+        this.selectedIndex = 0;
         this.showCurrentLevel();
 
-        // Animate camera
         const tree = LOCATION_TREE[this.currentNode];
         let targetPos;
         if (this.currentNode === 'world') {
             targetPos = new THREE.Vector3(0, 15000000, 0);
-        } else if (this.currentNode === 'santaCruz' || this.isSantaCruzChild(this.currentNode)) {
-            // Local coords for Santa Cruz and below
-            const focusHeight = tree ? tree.focusHeight : 16000;
-            const locData = REGIONAL_LOCATIONS[this.currentNode] || SANTA_CRUZ_LOCATIONS[this.currentNode];
-            if (locData) {
-                const local = gpsToLocal(locData.lat, locData.lon);
-                targetPos = new THREE.Vector3(local.x, focusHeight, local.z);
-            } else {
-                targetPos = new THREE.Vector3(0, focusHeight, 0);
-            }
         } else if (tree) {
             const focusHeight = tree.focusHeight || 4000000;
-            const focusLat = tree.focusLat || 0;
-            const focusLon = tree.focusLon || 0;
-            targetPos = this.gpsToGlobePosition(focusLat, focusLon, focusHeight);
+            targetPos = this.resolveCameraTarget(this.currentNode, tree, focusHeight);
         } else {
             targetPos = new THREE.Vector3(0, 15000000, 0);
         }
@@ -647,14 +756,44 @@ export class Atlas {
     }
 
     /**
+     * Compute the target camera position for a node.
+     *
+     * For Santa Cruz and its children we position the camera in SC local
+     * coordinates — but ONLY when the currently loaded scene is actually the
+     * Santa Cruz region. Otherwise we fall back to the globe projection so the
+     * camera lands on the matching point of the virtual globe instead of flying
+     * into empty space.
+     */
+    resolveCameraTarget(nodeId, tree, focusHeight) {
+        const isSCNode = nodeId === 'santaCruz' || this.isSantaCruzChild(nodeId);
+        const sceneIsSC = this.mathWorld.currentRegion === 'santaCruz';
+
+        if (isSCNode && sceneIsSC) {
+            const locData = REGIONAL_LOCATIONS[nodeId] || SANTA_CRUZ_LOCATIONS[nodeId];
+            if (locData) {
+                const local = gpsToLocal(locData.lat, locData.lon);
+                return new THREE.Vector3(local.x, focusHeight, local.z);
+            }
+            return new THREE.Vector3(0, focusHeight, 0);
+        }
+
+        const focusLat = (tree && tree.focusLat) || 0;
+        const focusLon = (tree && tree.focusLon) || 0;
+        return this.gpsToGlobePosition(focusLat, focusLon, focusHeight);
+    }
+
+    /**
      * Show only the markers for the current node's children
      */
     showCurrentLevel() {
         const tree = LOCATION_TREE[this.currentNode];
         const childIds = tree ? tree.children : [];
 
-        // Hide all markers first
-        Object.values(this.markers).forEach(m => m.visible = false);
+        // Hide all markers first and clear any stale highlight.
+        Object.values(this.markers).forEach(m => {
+            m.visible = false;
+            m.userData.__highlight = 1.0;
+        });
 
         // Show only children of current node
         for (const childId of childIds) {
@@ -662,6 +801,8 @@ export class Atlas {
                 this.markers[childId].visible = true;
             }
         }
+
+        this.updateSelectedMarkerHighlight();
     }
 
     // ==================== CAMERA ====================
@@ -722,88 +863,72 @@ export class Atlas {
     onClick(event) {
         if (!this.isActive) return;
 
-        const rect = this.mathWorld.canvas.getBoundingClientRect();
-        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        const locId = this.pickMarker(event);
+        if (!locId) return;
 
-        this.raycaster.setFromCamera(this.mouse, this.mathWorld.camera);
-        const intersects = this.raycaster.intersectObjects(this.markerGroup.children, true);
-
-        if (intersects.length > 0) {
-            let obj = intersects[0].object;
-            while (obj.parent && !obj.userData.locationId) {
-                obj = obj.parent;
-            }
-
-            if (obj.userData.locationId) {
-                const locId = obj.userData.locationId;
-                const tree = LOCATION_TREE[locId];
-
-                // If this node has children, drill down into it
-                if (tree && tree.children.length > 0) {
-                    this.drillDown(locId);
-                    return;
-                }
-
-                // If it's a leaf with content, teleport there
-                if (obj.userData.hasContent) {
-                    this.selectLocation(locId);
-                    return;
-                }
-
-                // Locked/no content
-                this.showLockedLocation(obj.userData.name);
-            }
-        }
+        // Sync list selection to the clicked marker, then activate it.
+        const children = this.getCurrentChildrenIds();
+        const idx = children.indexOf(locId);
+        if (idx >= 0) this.selectedIndex = idx;
+        this.activateChild(locId);
+        this.refreshListSelection(false);
     }
 
     onMouseMove(event) {
         if (!this.isActive) return;
 
+        const locId = this.pickMarker(event);
+
+        // Reset marker hover scale for all markers first.
+        Object.values(this.markers).forEach(m => {
+            m.children.forEach(child => child.scale.setScalar(1));
+        });
+
+        if (locId) {
+            const marker = this.markers[locId];
+            if (marker) marker.children.forEach(child => child.scale.setScalar(1.3));
+
+            const meta = this.getLocationMeta(locId);
+            const status = this.childStatus(locId);
+            if (this.hoverHint && meta) {
+                const statusText = status === 'folder'
+                    ? 'Click or press Enter to explore'
+                    : status === 'leaf'
+                    ? '✓ Click or press Enter to visit'
+                    : '🔒 Coming soon';
+                this.hoverHint.innerHTML =
+                    `<strong>${meta.name}</strong><br>${meta.description || ''}<br><em>${statusText}</em>`;
+            }
+            this.mathWorld.canvas.style.cursor = status === 'locked' ? 'not-allowed' : 'pointer';
+
+            // Sync keyboard selection with the hovered marker, if it's a child of the current folder.
+            const children = this.getCurrentChildrenIds();
+            const idx = children.indexOf(locId);
+            if (idx >= 0 && idx !== this.selectedIndex) {
+                this.selectedIndex = idx;
+                this.refreshListSelection(false);
+            }
+        } else {
+            if (this.hoverHint) this.hoverHint.innerHTML = '';
+            this.mathWorld.canvas.style.cursor = 'default';
+        }
+    }
+
+    /**
+     * Raycast into marker group and return the hit location id, or null.
+     */
+    pickMarker(event) {
         const rect = this.mathWorld.canvas.getBoundingClientRect();
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
         this.raycaster.setFromCamera(this.mouse, this.mathWorld.camera);
         const intersects = this.raycaster.intersectObjects(this.markerGroup.children, true);
+        if (intersects.length === 0) return null;
 
-        // Reset marker hover scale
-        Object.values(this.markers).forEach(m => {
-            m.children.forEach(child => child.scale.setScalar(1));
-        });
-
-        if (intersects.length > 0) {
-            let obj = intersects[0].object;
-            while (obj.parent && !obj.userData.locationId) {
-                obj = obj.parent;
-            }
-
-            if (obj.userData.locationId) {
-                obj.children.forEach(child => child.scale.setScalar(1.3));
-
-                if (this.hoverHint) {
-                    const data = obj.userData;
-                    const tree = LOCATION_TREE[obj.userData.locationId];
-                    const hasChildren = tree && tree.children.length > 0;
-
-                    let status;
-                    if (hasChildren) {
-                        status = 'Click to explore';
-                    } else if (data.hasContent) {
-                        status = '✓ Click to visit';
-                    } else {
-                        status = '🔒 Coming soon';
-                    }
-                    this.hoverHint.innerHTML = `<strong>${data.name}</strong><br>${data.description || ''}<br><em>${status}</em>`;
-                }
-                this.mathWorld.canvas.style.cursor = 'pointer';
-            }
-        } else {
-            if (this.hoverHint) {
-                this.hoverHint.innerHTML = '';
-            }
-            this.mathWorld.canvas.style.cursor = 'default';
-        }
+        let obj = intersects[0].object;
+        while (obj.parent && !obj.userData.locationId) obj = obj.parent;
+        return obj.userData.locationId || null;
     }
 
     async selectLocation(locationId) {
@@ -841,31 +966,123 @@ export class Atlas {
 
     updateOverlay() {
         // Build breadcrumb trail
-        const trail = [...this.navStack, this.currentNode];
-        const breadcrumbs = trail.map(nodeId => {
-            const loc = REGIONAL_LOCATIONS[nodeId] || SANTA_CRUZ_LOCATIONS[nodeId];
+        const nameFor = (nodeId) => {
+            const loc = this.getLocationMeta(nodeId);
             return loc ? loc.name : (nodeId === 'world' ? 'Earth' : nodeId);
-        }).join(' > ');
+        };
 
+        const currentName = nameFor(this.currentNode);
+        const breadcrumbs = this.navStack.map(nameFor).join(' › ');
+
+        const childIds = this.getCurrentChildrenIds();
+        this.clampSelectedIndex();
         const canGoBack = this.navStack.length > 0;
-        const backText = canGoBack ? 'Press <strong>Escape</strong> to go back' : 'Press <strong>Escape</strong> to close';
-        const zoomText = canGoBack ? 'Press <strong>M</strong> to go back' : 'Press <strong>M</strong> to close';
+
+        const STATUS_ICON = { folder: '▸', leaf: '✦', locked: '✕' };
+        const STATUS_LABEL = { folder: 'Explore', leaf: 'Visit', locked: 'Locked' };
+
+        const listHTML = childIds.length === 0
+            ? '<li class="atlas-list-empty">Nothing to explore here.</li>'
+            : childIds.map((id, i) => {
+                const meta = this.getLocationMeta(id);
+                const status = this.childStatus(id);
+                const sel = i === this.selectedIndex ? ' selected' : '';
+                const label = (meta && meta.name) || id;
+                return (
+                    `<li class="atlas-list-item ${status}${sel}" data-loc-id="${id}" data-index="${i}">` +
+                        `<span class="atlas-list-icon ${status}">${STATUS_ICON[status]}</span>` +
+                        `<span class="atlas-list-name">${label}</span>` +
+                        `<span class="atlas-list-badge ${status}">${STATUS_LABEL[status]}</span>` +
+                    `</li>`
+                );
+            }).join('');
+
+        const upLabel = canGoBack ? 'Up' : 'Close';
 
         this.overlay.innerHTML = `
-            <div class="atlas-hud">
-                <div class="atlas-title">Atlas</div>
-                <div class="atlas-level-indicator">
-                    <span class="level-location">${breadcrumbs}</span>
-                </div>
-                <div class="atlas-instructions">
-                    Click a marker to explore<br>
-                    ${backText}<br>
-                    ${zoomText}
+            <div class="atlas-panel-rt">
+                ${breadcrumbs ? `<div class="atlas-breadcrumbs">${breadcrumbs}</div>` : ''}
+                <div class="atlas-current">${currentName}</div>
+                <ul class="atlas-list">${listHTML}</ul>
+                <div class="atlas-legend">
+                    <span><kbd>↑</kbd><kbd>↓</kbd> Select</span>
+                    <span><kbd>↵</kbd> Go</span>
+                    <span><kbd>M</kbd>/<kbd>Esc</kbd> ${upLabel}</span>
                 </div>
             </div>
             <div class="atlas-location-hint" id="atlas-hover-hint"></div>
         `;
         this.hoverHint = document.getElementById('atlas-hover-hint');
+
+        // Wire up list row interactions.
+        this.overlay.querySelectorAll('.atlas-list-item').forEach(li => {
+            const index = parseInt(li.dataset.index, 10);
+            const id = li.dataset.locId;
+            li.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                this.selectedIndex = index;
+                this.activateChild(id);
+                this.refreshListSelection(false);
+            });
+            li.addEventListener('mouseenter', () => {
+                if (this.selectedIndex !== index) {
+                    this.selectedIndex = index;
+                    this.refreshListSelection(false);
+                }
+            });
+        });
+    }
+
+    /**
+     * Update selected-class without rebuilding the whole list.
+     * Optionally scrolls the selected row into view (for keyboard nav).
+     */
+    refreshListSelection(scrollIntoView = false) {
+        if (!this.overlay) return;
+        const items = this.overlay.querySelectorAll('.atlas-list-item');
+        items.forEach((li, i) => {
+            li.classList.toggle('selected', i === this.selectedIndex);
+        });
+        if (scrollIntoView) {
+            const el = items[this.selectedIndex];
+            if (el && typeof el.scrollIntoView === 'function') {
+                el.scrollIntoView({ block: 'nearest' });
+            }
+        }
+        this.updateSelectedMarkerHighlight();
+    }
+
+    /**
+     * Visually emphasize the 3D marker that matches the keyboard-selected child.
+     */
+    updateSelectedMarkerHighlight() {
+        const children = this.getCurrentChildrenIds();
+        const selectedId = children[this.selectedIndex];
+        children.forEach(id => {
+            const marker = this.markers[id];
+            if (!marker) return;
+            const emphasis = id === selectedId ? 1.35 : 1.0;
+            marker.userData.__highlight = emphasis;
+        });
+    }
+
+    flashLocked(id) {
+        if (!this.overlay) return;
+        const item = this.overlay.querySelector(`.atlas-list-item[data-loc-id="${id}"]`);
+        if (item) {
+            item.classList.remove('flash-locked');
+            void item.offsetWidth;      // restart the animation
+            item.classList.add('flash-locked');
+        }
+        if (this.hoverHint) {
+            const meta = this.getLocationMeta(id);
+            const name = meta ? meta.name : id;
+            this.hoverHint.innerHTML = `<div class="locked-alert">🔒 <strong>${name}</strong> isn't available yet.</div>`;
+            clearTimeout(this._lockedClearTimer);
+            this._lockedClearTimer = setTimeout(() => {
+                if (this.hoverHint) this.hoverHint.innerHTML = '';
+            }, 1500);
+        }
     }
 
     hideOverlay() {
@@ -994,22 +1211,26 @@ export class Atlas {
         Object.values(this.markers).forEach((marker, i) => {
             if (!marker.visible) return;
 
-            marker.scale.setScalar(altitudeScale);
+            const highlight = marker.userData.__highlight || 1.0;
+            marker.scale.setScalar(altitudeScale * highlight);
 
             // Animate marker visuals
             const pin = marker.children[0];
             const sphere = marker.children[1];
             const ring = marker.children[2];
 
+            const selectedBoost = highlight > 1.01 ? 0.35 : 0;
+
             if (pin) {
-                pin.material.emissiveIntensity = 0.5 + Math.sin(time * 2 + i) * 0.15;
+                pin.material.emissiveIntensity = 0.5 + Math.sin(time * 2 + i) * 0.15 + selectedBoost;
             }
             if (sphere) {
-                sphere.material.emissiveIntensity = 0.8 + Math.cos(time * 2.5 + i) * 0.15;
+                sphere.material.emissiveIntensity = 0.8 + Math.cos(time * 2.5 + i) * 0.15 + selectedBoost;
             }
             if (ring) {
-                ring.scale.setScalar(1.3 + Math.sin(time * 2 + i) * 0.2);
-                ring.material.opacity = 0.5 + Math.sin(time * 3 + i) * 0.2;
+                const basePulse = 1.3 + Math.sin(time * 2 + i) * 0.2;
+                ring.scale.setScalar(highlight > 1.01 ? basePulse * 1.2 : basePulse);
+                ring.material.opacity = 0.5 + Math.sin(time * 3 + i) * 0.2 + selectedBoost;
             }
         });
     }

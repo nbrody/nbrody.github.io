@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cannon–Thurston Limits</title>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Quasifuchsian Limit Sets &amp; the Cannon–Thurston Map</h1>
+e
+        <div class="info-box">
+            <h3>What you are looking at</h3>
+            <p>For a once–punctured torus, a pair \(A, B \in \mathsf{SL}_2(\mathbb{C})\) with
+                \(\operatorname{tr}[A,B] = -2\) (parabolic commutator) defines a Kleinian representation of
+                \(\pi_1(\Sigma_{1,1})\). Such representations sit inside
+                <em>quasifuchsian space</em> \(\mathrm{QF}(\Sigma_{1,1})\), parameterized (away from a discriminant) by the
+                complex traces \((t_a, t_b, t_{ab})\) subject to the Markov equation
+                \( t_a^2 + t_b^2 + t_{ab}^2 = t_a t_b t_{ab}\).</p>
+            <p>We use the explicit recipe
+                \( A = \begin{pmatrix} t_a & -1 \\ 1 & 0 \end{pmatrix},\
+                   B = \begin{pmatrix} 0 & \beta \\ -1/\beta & t_b \end{pmatrix}\),
+                where \(\beta + 1/\beta = t_{ab}\). At the Fuchsian point \((t_a,t_b,t_{ab})=(3,3,6)\) the matrices are real and the limit set is a round circle. As \((t_a, t_b)\) deforms into \(\mathbb{C}\), the limit set becomes a quasicircle; approaching the boundary of \(\mathrm{QF}\) it pinches at cusps (rational pleating rays), and in the geometrically infinite direction the quasicircle fills the sphere — the Jordan curve becomes the image of a continuous surjection
+                \( \hat{\mathbb R} \twoheadrightarrow \hat{\mathbb C}\), the <em>Cannon–Thurston map</em> (Cannon–Thurston 1985/2007, McMullen 2001).</p>
+            <p><strong>Cannon–Thurston coloring:</strong> each orbit point \(w\cdot p_0\) is paired with the same word \(w\) applied in the Fuchsian representation \((3,3,6)\). The Fuchsian orbit lives on \(\hat{\mathbb R}\); its angle under the Cayley transform \(x \mapsto (x-i)/(x+i)\) provides a hue. In quasifuchsian pictures this draws the parametrization of the limit quasicircle by \(S^1\); as you move to the boundary, nearby hues smear and the coloring becomes space-filling.</p>
+        </div>
+
+        <div class="layout">
+            <div class="main-pane">
+                <div id="limit-canvas-container">
+                    <canvas id="limit-canvas"></canvas>
+                </div>
+                <div class="status-line" id="limit-status">Computing…</div>
+            </div>
+
+            <div class="sidebar">
+                <div class="panel">
+                    <h3>Parameter \(t_a\)</h3>
+                    <div id="param-canvas-container">
+                        <canvas id="param-canvas"></canvas>
+                    </div>
+                    <div class="status-line" id="param-status">t_a = 3 + 0i</div>
+                </div>
+
+                <div class="panel">
+                    <h3>Deformation Path</h3>
+                    <div class="control-row">
+                        <label>Path progress <span class="value" id="s-val">0.00</span></label>
+                        <input type="range" id="s-slider" min="0" max="1000" value="0" />
+                    </div>
+                    <div class="cusp-row">
+                        <button class="tool-btn" data-cusp="0/1">Fuchsian</button>
+                        <button class="tool-btn" data-cusp="1/1">1/1 cusp</button>
+                        <button class="tool-btn" data-cusp="1/2">1/2 cusp</button>
+                        <button class="tool-btn" data-cusp="1/3">1/3 cusp</button>
+                        <button class="tool-btn" data-cusp="2/3">2/3 cusp</button>
+                    </div>
+                    <button class="big-btn" id="play-btn">▶ Animate to cusp</button>
+                </div>
+
+                <div class="panel">
+                    <h3>Rendering</h3>
+                    <div class="control-row">
+                        <label>Depth <span class="value" id="depth-val">10</span></label>
+                        <input type="range" id="depth-slider" min="6" max="14" value="10" />
+                    </div>
+                    <div class="control-row">
+                        <label>Point size <span class="value" id="ptsz-val">1.0</span></label>
+                        <input type="range" id="ptsz-slider" min="5" max="30" value="10" />
+                    </div>
+                    <label style="font-size:0.82rem;color:#aaa;margin-top:8px;">Color by</label>
+                    <div class="btn-row">
+                        <button class="tool-btn active" data-color="ct">Cannon–Thurston</button>
+                        <button class="tool-btn" data-color="first">First letter</button>
+                        <button class="tool-btn" data-color="depth">Depth</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+
+</html>

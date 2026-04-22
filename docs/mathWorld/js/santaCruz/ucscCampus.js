@@ -96,12 +96,16 @@ export class UCSCCampus {
         const geo = new THREE.PlaneGeometry(this.worldSize, this.worldSize, 150, 150);
         const pos = geo.attributes.position;
         for (let i = 0; i < pos.count; i++) {
-            const x = pos.getX(i), z = pos.getZ(i);
-            let h = Math.sin(x * 0.03) * Math.cos(z * 0.025) * 3;
-            h += Math.sin(x * 0.01 + z * 0.015) * 5;
-            h += Math.sin(x * 0.05) * Math.sin(z * 0.04) * 1.5;
-            if (Math.sqrt(x * x + z * z) < 25) h *= 0.3;
-            pos.setZ(i, h);
+            // PlaneGeometry lives in XY plane; after the -π/2 rotation, local
+            // Y becomes world -Z, and local Z becomes world Y (height). So we
+            // read X/Y to pick a horizontal vertex and write Z for height.
+            const localX = pos.getX(i);
+            const localY = pos.getY(i);
+            // Convert plane-coords to group-local world XZ: +X stays +X,
+            // but the plane's +Y maps to world -Z.
+            const worldX = localX;
+            const worldZ = -localY;
+            pos.setZ(i, this._combinedHeight(worldX, worldZ));
         }
         geo.computeVertexNormals();
         const mat = new THREE.MeshStandardMaterial({ color: 0x4B7D3A, roughness: 0.95 }); // Lush Meadow Green
@@ -109,6 +113,87 @@ export class UCSCCampus {
         terrain.rotation.x = -Math.PI / 2;
         terrain.receiveShadow = true;
         this.group.add(terrain);
+    }
+
+    // Local procedural detail on top of the regional heightmap.
+    // Kept small (~±1 m) so the campus still "reads" as procedurally
+    // varied without fighting the real topography beneath it.
+    _campusDetail(x, z) {
+        let h = Math.sin(x * 0.03) * Math.cos(z * 0.025) * 0.6;
+        h += Math.sin(x * 0.05) * Math.sin(z * 0.04) * 0.3;
+        h += Math.sin(x * 0.11 + z * 0.07) * 0.15;
+        return h;
+    }
+
+    // Edge blend: detail contribution fades to zero as we approach the
+    // patch boundary, so the local mesh meets the regional terrain
+    // exactly at the edge with no visible seam/dip.
+    _edgeBlend(x, z) {
+        const half = this.worldSize / 2;
+        const margin = 80; // Wide fade so any residual mismatch disperses smoothly
+        const edgeDist = Math.min(half - Math.abs(x), half - Math.abs(z));
+        if (edgeDist >= margin) return 1;
+        if (edgeDist <= 0) return 0;
+        const t = edgeDist / margin;
+        return t * t * (3 - 2 * t); // smoothstep
+    }
+
+    // Bilinearly-interpolated version of the regional heightmap, sampled at
+    // the regional mesh's own grid spacing. Reproduces what the surrounding
+    // regional mesh surface *actually renders* at a given point — i.e., a
+    // low-pass-filtered version of the analytical elevation function.
+    //
+    // Why we need this: the local patch samples `terrainHeightFn` (the raw
+    // analytical function) at 2 m, but the regional terrain around it
+    // samples at ~23 m and interpolates linearly. The difference at any
+    // single point is the "sub-grid" detail the regional mesh can't
+    // represent — typically 1-3 m. At the patch boundary that manifests
+    // as a visible step/ridge. By making the edge base match this
+    // low-pass version, the seam closes cleanly.
+    _regionalRenderedHeight(x, z) {
+        if (!this.terrainHeightFn) return 0;
+        // 24 m spacing matches the Santa Cruz shoreline patch grid (~23×13).
+        // Exact alignment to the regional grid isn't critical — any spacing
+        // coarser than the highest-frequency detail wavelength works, because
+        // what we need is just a low-pass version of the function.
+        const gx = 24, gz = 24;
+        const x0 = Math.floor(x / gx) * gx;
+        const z0 = Math.floor(z / gz) * gz;
+        const x1 = x0 + gx;
+        const z1 = z0 + gz;
+        const h00 = this.terrainHeightFn(x0, z0);
+        const h10 = this.terrainHeightFn(x1, z0);
+        const h01 = this.terrainHeightFn(x0, z1);
+        const h11 = this.terrainHeightFn(x1, z1);
+        const tx = (x - x0) / gx;
+        const tz = (z - z0) / gz;
+        const hx0 = h00 * (1 - tx) + h10 * tx;
+        const hx1 = h01 * (1 - tx) + h11 * tx;
+        return hx0 * (1 - tz) + hx1 * tz;
+    }
+
+    // The ONE authoritative height function for the local patch. Used
+    // both to shape the terrain mesh and to place objects, so they
+    // always line up.
+    //
+    // Edge (blend=0): height = regional-rendered → matches the surrounding
+    //   regional terrain mesh surface at that exact point, no seam.
+    // Interior (blend=1): height = raw analytical + campus detail
+    //   → full high-frequency detail, sharp gulch, etc.
+    // Between: smoothstep transition over an 80 m margin.
+    _combinedHeight(x, z) {
+        if (!this.terrainHeightFn) return 0;
+        const blend = this._edgeBlend(x, z);
+        // Interior fast path: most vertices have blend=1 and the
+        // rendered/residual math collapses to (analytical + detail).
+        if (blend >= 1) {
+            return this.terrainHeightFn(x, z) + this._campusDetail(x, z);
+        }
+        const rendered = this._regionalRenderedHeight(x, z);
+        if (blend <= 0) return rendered;
+        const analytical = this.terrainHeightFn(x, z);
+        const highFreqResidual = analytical - rendered;
+        return rendered + highFreqResidual * blend + this._campusDetail(x, z) * blend;
     }
 
     createRedwoods() {
@@ -148,12 +233,10 @@ export class UCSCCampus {
     }
 
     getTerrainHeight(x, z) {
-        // Use regional terrain height function if available
-        if (this.terrainHeightFn) {
-            return this.terrainHeightFn(x, z);
-        }
-        // Fallback to ground level
-        return 0;
+        // Returns the same value that `createTerrain` sculpts into the mesh,
+        // so every tree/building placed via this function sits on the ground
+        // exactly instead of floating above it or sinking below.
+        return this._combinedHeight(x, z);
     }
 
     createMeadowFlowers() {
