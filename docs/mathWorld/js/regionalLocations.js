@@ -164,9 +164,12 @@ export const REGIONAL_LOCATIONS = {
         type: 'campus', hasContent: true, scaleLevel: 'city'
     },
     downtownSB: {
-        name: 'Downtown Santa Barbara', description: 'Coming soon',
+        name: 'Downtown Santa Barbara',
+        description: 'Spanish Colonial heart of SB — State Street, the Courthouse, Granada & Arlington Theatres, Stearns Wharf',
         lat: 34.4208, lon: -119.6982,
-        type: 'urban', hasContent: false, scaleLevel: 'city'
+        type: 'urban',
+        hasContent: true,
+        scaleLevel: 'city'
     },
 
     // LA area

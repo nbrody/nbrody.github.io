@@ -14,6 +14,4 @@ export {
 } from './santaBarbara.js';
 
 export { UCSBCampus } from './ucsbCampus.js';
-
-// Future exports for downtown, etc.
-// export { DowntownSB } from './downtown.js';
+export { DowntownSB } from './downtownSB.js';

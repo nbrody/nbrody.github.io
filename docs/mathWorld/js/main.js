@@ -17,6 +17,7 @@ import {
 import {
     SantaBarbaraTerrain,
     UCSBCampus,
+    DowntownSB,
     gpsToLocal as sbGpsToLocal,
     getElevation as sbGetElevation
 } from './santaBarbara/index.js';
@@ -306,6 +307,9 @@ class MathWorld {
             case 'ucsb':
                 this.locationContent = new UCSBCampus(this.locationGroup, localTerrainFn);
                 break;
+            case 'downtownSB':
+                this.locationContent = new DowntownSB(this.locationGroup, localTerrainFn);
+                break;
             case 'topanga':
                 this.locationContent = new TopangaCanyon(this.locationGroup, localTerrainFn);
                 break;
@@ -535,6 +539,11 @@ class MathWorld {
         } else if (locationId === 'ucsb') {
             // Spawn south of Storke Tower on the N-S spine, facing north toward the tower.
             spawnX = 0; spawnZ = 28; faceTowardZ = 0;
+            initialYaw = 0; // forward = -Z (north)
+        } else if (locationId === 'downtownSB') {
+            // Spawn at State St & Anapamu, facing north up State Street
+            // (toward the Arlington Theatre and the foothills beyond).
+            spawnX = -4; spawnZ = 20; faceTowardZ = -100;
             initialYaw = 0; // forward = -Z (north)
         } else if (locationId === 'topanga') {
             // Spawn on the valley floor just south of the Country Store,

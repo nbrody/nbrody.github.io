@@ -49,6 +49,25 @@ export function localToGps(x, z) {
     return { lat, lon };
 }
 
+// Bounds in world XZ for the Downtown SB high-detail patch. During
+// createTerrain() the regional mesh is smoothly sunk under this box
+// so it doesn't poke through the detailed downtown geometry. Sized to
+// match downtownSB.js's worldSize (2000 m → half 1000 m) so the local
+// mesh's outer edge lines up with the override boundary. Origin =
+// State St & Anapamu GPS (34.4208, -119.6982) — the locationGroup centre.
+export const DOWNTOWN_SB_OVERRIDE = (() => {
+    const c = (() => {
+        const x = (-119.6982 - SB_CENTER.lon) * METERS_PER_LON;
+        const z = -(34.4208 - SB_CENTER.lat) * METERS_PER_LAT;
+        return { x, z };
+    })();
+    const half = 1000;
+    return {
+        xMin: c.x - half, xMax: c.x + half,
+        zMin: c.z - half, zMax: c.z + half
+    };
+})();
+
 /**
  * Get elevation at a given GPS coordinate
  * Uses procedural approximation of Santa Barbara topography:
@@ -189,12 +208,34 @@ export class SantaBarbaraTerrain {
         const positions = geometry.attributes.position;
         const colors = new Float32Array(positions.count * 3);
 
+        const DTSB = DOWNTOWN_SB_OVERRIDE;
+        const DTSB_BLEND = 220;   // smooth descent over 220 m (≈ 4 regional cells)
+
         for (let i = 0; i < positions.count; i++) {
             const x = positions.getX(i);
             const z = positions.getY(i);
 
             const gps = localToGps(x, -z);
-            const elevation = getElevation(gps.lat, gps.lon);
+            let elevation = getElevation(gps.lat, gps.lon);
+
+            // Sink the regional mesh under the downtown SB local patch
+            // so it doesn't poke through the detailed street/building geometry.
+            const worldZ = -z;
+            const dxMin = x - DTSB.xMin;
+            const dxMax = DTSB.xMax - x;
+            const dzMin = worldZ - DTSB.zMin;
+            const dzMax = DTSB.zMax - worldZ;
+            if (dxMin > 0 && dxMax > 0 && dzMin > 0 && dzMax > 0) {
+                const edgeDist = Math.min(dxMin, dxMax, dzMin, dzMax);
+                if (edgeDist >= DTSB_BLEND) {
+                    elevation = -500;
+                } else {
+                    const t = edgeDist / DTSB_BLEND;
+                    const s = t * t * (3 - 2 * t);
+                    elevation = elevation * (1 - s) + (-500) * s;
+                }
+            }
+
             positions.setZ(i, elevation);
 
             // Vertex colors based on elevation
