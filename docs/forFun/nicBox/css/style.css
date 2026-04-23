@@ -946,6 +946,144 @@ body {
     outline: 3px solid var(--neon-blue);
 }
 
+/* ─── Wingspan ───────────────────────────────────────────── */
+.wingspan-game {
+    width: 100%;
+    max-width: 1200px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.wingspan-top {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.wingspan-round-info {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(0.7rem, 1.6vw, 1rem);
+    color: var(--neon-yellow);
+}
+
+.wingspan-turn-info {
+    font-size: clamp(0.9rem, 2vw, 1.2rem);
+}
+
+.wingspan-message {
+    min-height: 28px;
+    padding: 6px 14px;
+    border-radius: var(--radius-full);
+    background: var(--bg-glass);
+    border: 1px solid var(--glass-border);
+    font-size: clamp(0.8rem, 1.5vw, 1rem);
+    text-align: center;
+    transition: background 300ms ease;
+}
+
+.wingspan-message.kind-play    { background: rgba(180, 77, 255, 0.15); border-color: rgba(180, 77, 255, 0.35); }
+.wingspan-message.kind-food    { background: rgba(0, 255, 136, 0.10); border-color: rgba(0, 255, 136, 0.3); }
+.wingspan-message.kind-egg     { background: rgba(255, 228, 77, 0.10); border-color: rgba(255, 228, 77, 0.3); }
+.wingspan-message.kind-draw    { background: rgba(0, 212, 255, 0.10); border-color: rgba(0, 212, 255, 0.3); }
+.wingspan-message.kind-round   { background: rgba(255, 45, 117, 0.15); border-color: rgba(255, 45, 117, 0.35); }
+.wingspan-message.kind-warn    { background: rgba(255, 107, 53, 0.15); border-color: rgba(255, 107, 53, 0.35); }
+
+.wingspan-tableaus {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--space-md);
+}
+
+.wingspan-player {
+    border: 2px solid transparent;
+    border-radius: var(--radius-lg);
+    padding: 10px;
+    background: var(--grad-surface);
+    transition: all 300ms ease;
+}
+
+.wingspan-player.active {
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.25);
+    transform: translateY(-2px);
+}
+
+.wingspan-player-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 10px;
+}
+
+.wingspan-player-header > span:nth-child(2) {
+    flex: 1;
+}
+
+.wingspan-res {
+    display: flex;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.wingspan-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.wingspan-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.02);
+    min-height: 56px;
+}
+
+.wingspan-row[data-habitat="forest"]    { background: rgba(46, 125, 50, 0.12); }
+.wingspan-row[data-habitat="grassland"] { background: rgba(249, 168, 37, 0.10); }
+.wingspan-row[data-habitat="wetland"]   { background: rgba(21, 101, 192, 0.12); }
+
+.wingspan-row-label {
+    font-size: 1.2rem;
+    width: 24px;
+    text-align: center;
+}
+
+.wingspan-birds {
+    flex: 1;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-height: 44px;
+    align-items: center;
+}
+
+.wingspan-bird-mini {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--glass-border);
+    min-width: 44px;
+    animation: birdPlaced 500ms var(--ease-out);
+}
+
+.wingspan-bird-emoji { font-size: 1.4rem; line-height: 1; }
+.wingspan-bird-pts   { font-family: 'Press Start 2P', monospace;
+                       font-size: 0.6rem; color: var(--neon-yellow); margin-top: 2px; }
+
+@keyframes birdPlaced {
+    0%   { transform: scale(0.3) rotate(-15deg); opacity: 0; }
+    60%  { transform: scale(1.15) rotate(3deg); }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
 /* ─── Controller (Phone) Specific ────────────────────────── */
 .controller-screen {
     padding: var(--space-md);

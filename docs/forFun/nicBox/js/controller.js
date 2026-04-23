@@ -155,6 +155,9 @@ function showControllerForGame(gameName) {
         case 'drawguess':
             setupDrawGuessController(body);
             break;
+        case 'wingspan':
+            setupWingspanController(body);
+            break;
         default:
             body.innerHTML = `
                 <span style="font-size: 3rem;">🎮</span>
@@ -673,6 +676,230 @@ function dgSubmitGuess() {
     input.focus();
 
     if (navigator.vibrate) navigator.vibrate(30);
+}
+
+// ─── Wingspan Controller ───────────────────────────────────
+
+function setupWingspanController(container) {
+    container.innerHTML = `
+        <div id="ws-ctrl-status" style="text-align: center; color: var(--text-secondary); font-size: 0.95rem;">
+            Waiting for your turn...
+        </div>
+        <div id="ws-ctrl-res" class="ws-ctrl-res" style="display:none;">
+            <span title="Food">🍇 <b id="ws-ctrl-food">0</b></span>
+            <span title="Eggs">🥚 <b id="ws-ctrl-eggs">0</b></span>
+            <span title="Actions left">⚡ <b id="ws-ctrl-actions">0</b></span>
+        </div>
+        <div id="ws-ctrl-actions-menu" class="ws-ctrl-menu" style="display:none;">
+            <button class="ws-action-btn" onclick="wsChooseAction('play')">
+                <span class="ws-action-ico">🪶</span>
+                <span class="ws-action-title">Play Bird</span>
+                <span class="ws-action-sub">1 food — place in habitat</span>
+            </button>
+            <button class="ws-action-btn" onclick="wsChooseAction('food')">
+                <span class="ws-action-ico">🌳</span>
+                <span class="ws-action-title">Gather Food</span>
+                <span class="ws-action-sub" id="ws-sub-food">+1 food per forest bird</span>
+            </button>
+            <button class="ws-action-btn" onclick="wsChooseAction('egg')">
+                <span class="ws-action-ico">🌾</span>
+                <span class="ws-action-title">Lay Eggs</span>
+                <span class="ws-action-sub" id="ws-sub-egg">+1 egg per grassland bird</span>
+            </button>
+            <button class="ws-action-btn" onclick="wsChooseAction('draw')">
+                <span class="ws-action-ico">🌊</span>
+                <span class="ws-action-title">Draw Cards</span>
+                <span class="ws-action-sub" id="ws-sub-draw">+1 card per wetland bird</span>
+            </button>
+        </div>
+        <div id="ws-ctrl-hand" class="ws-ctrl-hand" style="display:none;"></div>
+    `;
+
+    if (!document.getElementById('ws-ctrl-styles')) {
+        const s = document.createElement('style');
+        s.id = 'ws-ctrl-styles';
+        s.textContent = `
+            .ws-ctrl-res { display: flex; gap: 14px; justify-content: center;
+                font-size: 1rem; padding: 8px 12px; background: var(--bg-glass);
+                border-radius: 999px; border: 1px solid var(--glass-border); }
+            .ws-ctrl-res b { color: var(--neon-green); margin-left: 2px; }
+            .ws-ctrl-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+                width: 100%; max-width: 360px; }
+            .ws-action-btn { display: flex; flex-direction: column; align-items: center;
+                gap: 2px; padding: 14px 8px; border: 2px solid var(--glass-border);
+                border-radius: 14px; background: var(--bg-glass); color: var(--text-primary);
+                font-family: 'Outfit', sans-serif; cursor: pointer;
+                -webkit-tap-highlight-color: transparent; transition: transform 150ms ease; }
+            .ws-action-btn:active { transform: scale(0.96); border-color: var(--neon-blue); }
+            .ws-action-btn[disabled] { opacity: 0.4; pointer-events: none; }
+            .ws-action-ico { font-size: 1.6rem; }
+            .ws-action-title { font-weight: 700; font-size: 0.9rem; }
+            .ws-action-sub { font-size: 0.7rem; color: var(--text-muted); text-align: center; line-height: 1.2; }
+            .ws-ctrl-hand { display: flex; flex-direction: column; gap: 8px;
+                width: 100%; max-height: 50vh; overflow-y: auto; padding: 4px; }
+            .ws-hand-card { display: flex; align-items: center; gap: 10px;
+                padding: 10px 12px; border: 2px solid var(--glass-border);
+                border-radius: 12px; background: var(--bg-glass); color: var(--text-primary);
+                font-family: 'Outfit', sans-serif; cursor: pointer;
+                -webkit-tap-highlight-color: transparent; text-align: left; }
+            .ws-hand-card:active { transform: scale(0.98); border-color: var(--neon-blue); }
+            .ws-hand-card[disabled] { opacity: 0.45; pointer-events: none; }
+            .ws-hand-emoji { font-size: 1.6rem; }
+            .ws-hand-name { flex: 1; font-weight: 700; font-size: 0.95rem; }
+            .ws-hand-meta { font-size: 0.7rem; color: var(--text-muted); }
+            .ws-hand-pts { font-family: 'Press Start 2P', monospace; font-size: 0.8rem;
+                color: var(--neon-yellow); }
+            .ws-hand-habitat { font-size: 0.85rem; }
+            .ws-hand-power { font-size: 0.7rem; color: var(--neon-green); font-style: italic; }
+        `;
+        document.head.appendChild(s);
+    }
+
+    getRoomRef(myRoom).child('gameState').on('value', (snapshot) => {
+        const state = snapshot.val();
+        if (!state) return;
+        renderWingspanUI(state);
+    });
+}
+
+function renderWingspanUI(state) {
+    const statusEl = document.getElementById('ws-ctrl-status');
+    const resEl = document.getElementById('ws-ctrl-res');
+    const menuEl = document.getElementById('ws-ctrl-actions-menu');
+    const handEl = document.getElementById('ws-ctrl-hand');
+    if (!statusEl || !resEl || !menuEl || !handEl) return;
+
+    const isMyTurn = state.currentTurn === myPlayerId;
+
+    if (!isMyTurn) {
+        statusEl.innerHTML = `<span style="color: var(--text-secondary);">
+            Round ${state.round || 1} — waiting for other players...</span>`;
+        resEl.style.display = 'none';
+        menuEl.style.display = 'none';
+        handEl.style.display = 'none';
+        handEl.innerHTML = '';
+        return;
+    }
+
+    statusEl.innerHTML = '<span class="your-turn-indicator">YOUR TURN!</span>';
+    resEl.style.display = 'flex';
+    menuEl.style.display = 'grid';
+
+    // Update resources
+    document.getElementById('ws-ctrl-food').textContent = state.food || 0;
+    document.getElementById('ws-ctrl-eggs').textContent = state.eggs || 0;
+    document.getElementById('ws-ctrl-actions').textContent = state.actionsRemaining || 0;
+
+    // Update action sub-labels with projected gains
+    const f = state.forestCount || 0;
+    const g = state.grasslandCount || 0;
+    const w = state.wetlandCount || 0;
+    document.getElementById('ws-sub-food').textContent = `+${1 + f} food`;
+    document.getElementById('ws-sub-egg').textContent  = `+${1 + g} egg${(1 + g) !== 1 ? 's' : ''}`;
+    document.getElementById('ws-sub-draw').textContent = `+${1 + w} card${(1 + w) !== 1 ? 's' : ''}`;
+
+    // Disable play-bird button if insufficient food or no hand
+    const hand = state.activeHand || {};
+    const handIds = Object.keys(hand);
+    const playBtn = menuEl.querySelector('.ws-action-btn');
+    if (playBtn) {
+        const canPlay = handIds.length > 0 && (state.food || 0) >= 1;
+        if (canPlay) playBtn.removeAttribute('disabled');
+        else playBtn.setAttribute('disabled', 'true');
+    }
+}
+
+function wsChooseAction(kind) {
+    if (kind === 'play') {
+        wsShowHandPicker();
+    } else if (kind === 'food') {
+        playerAction(myRoom, myPlayerId, { type: 'wingspan_gather_food', timestamp: Date.now() });
+        if (navigator.vibrate) navigator.vibrate(40);
+    } else if (kind === 'egg') {
+        playerAction(myRoom, myPlayerId, { type: 'wingspan_lay_eggs', timestamp: Date.now() });
+        if (navigator.vibrate) navigator.vibrate(40);
+    } else if (kind === 'draw') {
+        playerAction(myRoom, myPlayerId, { type: 'wingspan_draw_cards', timestamp: Date.now() });
+        if (navigator.vibrate) navigator.vibrate(40);
+    }
+}
+
+function wsShowHandPicker() {
+    const handEl = document.getElementById('ws-ctrl-hand');
+    const menuEl = document.getElementById('ws-ctrl-actions-menu');
+    if (!handEl) return;
+
+    getRoomRef(myRoom).child('gameState').once('value', (snap) => {
+        const state = snap.val() || {};
+        const hand = state.activeHand || {};
+        const ids = Object.keys(hand);
+        if (ids.length === 0) {
+            handEl.style.display = 'none';
+            return;
+        }
+
+        handEl.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span style="font-weight:700;">Pick a bird to play</span>
+                <button class="btn btn-ghost btn-sm" onclick="wsCancelPlay()">← Back</button>
+            </div>
+        ` + ids.map(cardId => {
+            const bird = hand[cardId];
+            const habitatIcon = bird.habitat === 'forest' ? '🌳' :
+                                bird.habitat === 'grassland' ? '🌾' : '🌊';
+            const powerText = bird.power ? wsPowerLabel(bird.power) : '';
+            return `
+                <button class="ws-hand-card" onclick="wsPlayBird('${cardId}')">
+                    <span class="ws-hand-emoji">${bird.emoji}</span>
+                    <div style="flex:1;">
+                        <div class="ws-hand-name">${escapeHtml(bird.name)}</div>
+                        <div class="ws-hand-meta">
+                            <span class="ws-hand-habitat">${habitatIcon} ${bird.habitat}</span>
+                        </div>
+                        ${powerText ? `<div class="ws-hand-power">${powerText}</div>` : ''}
+                    </div>
+                    <span class="ws-hand-pts">${bird.points}pt</span>
+                </button>
+            `;
+        }).join('');
+
+        handEl.style.display = 'flex';
+        menuEl.style.display = 'none';
+    });
+}
+
+function wsPowerLabel(power) {
+    const [kind, amt] = (power || '').split(':');
+    if (kind === 'egg')  return `When played: +${amt} egg`;
+    if (kind === 'food') return `When played: +${amt} food`;
+    if (kind === 'draw') return `When played: +${amt} card`;
+    return '';
+}
+
+function wsPlayBird(cardId) {
+    playerAction(myRoom, myPlayerId, {
+        type: 'wingspan_play_bird',
+        cardId: cardId,
+        timestamp: Date.now()
+    });
+    const handEl = document.getElementById('ws-ctrl-hand');
+    const menuEl = document.getElementById('ws-ctrl-actions-menu');
+    if (handEl) { handEl.style.display = 'none'; handEl.innerHTML = ''; }
+    if (menuEl) menuEl.style.display = 'grid';
+    if (navigator.vibrate) navigator.vibrate(50);
+}
+
+function wsCancelPlay() {
+    const handEl = document.getElementById('ws-ctrl-hand');
+    const menuEl = document.getElementById('ws-ctrl-actions-menu');
+    if (handEl) { handEl.style.display = 'none'; handEl.innerHTML = ''; }
+    if (menuEl) menuEl.style.display = 'grid';
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = String(str ?? '');
+    return div.innerHTML;
 }
 
 // ─── Results on Phone ──────────────────────────────────────

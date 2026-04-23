@@ -22,16 +22,31 @@ const _localListeners = {};
 
 /** Initialize Firebase (gracefully falls back to BroadcastChannel) */
 export function initSync() {
-  try {
-    if (!firebase?.apps?.length) {
-      firebase.initializeApp(FIREBASE_CONFIG);
-    }
-    db = firebase.database();
-    console.log('[Sync] Firebase connected');
-  } catch (e) {
-    console.warn('[Sync] Firebase unavailable — using BroadcastChannel fallback');
+  // Detect placeholder config before attempting to init — firebase.initializeApp
+  // will happily accept a bogus config and fail only on the first DB request.
+  const hasPlaceholder = !FIREBASE_CONFIG.apiKey ||
+    FIREBASE_CONFIG.apiKey.includes('REPLACE_WITH_REAL_KEY') ||
+    FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY';
+
+  if (hasPlaceholder) {
+    console.warn('[Sync] Firebase config is a placeholder — using BroadcastChannel fallback (same-machine only).');
     _useLocal = true;
     db = null;
+  } else {
+    try {
+      if (!window.firebase || !firebase.initializeApp) {
+        throw new Error('Firebase SDK not loaded');
+      }
+      if (!firebase.apps?.length) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+      }
+      db = firebase.database();
+      console.log('[Sync] Firebase connected');
+    } catch (e) {
+      console.warn('[Sync] Firebase unavailable — using BroadcastChannel fallback:', e.message);
+      _useLocal = true;
+      db = null;
+    }
   }
 
   // Always also listen on BroadcastChannel for local fallback
