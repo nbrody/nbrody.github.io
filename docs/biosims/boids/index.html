@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boids — BioSims</title>
+  <link rel="stylesheet" href="../assets/css/main.css" />
+</head>
+<body>
+  <main class="page">
+    <nav class="breadcrumb">
+      <a href="../../index.html">Home</a> /
+      <a href="../index.html">BioSims</a> / Boids
+    </nav>
+
+    <section class="hero">
+      <span class="hero__badge">Flocking</span>
+      <h1>Boids</h1>
+      <p>
+        Each agent steers using three local rules — <em>separation</em>,
+        <em>alignment</em>, and <em>cohesion</em> — scanning only its nearby
+        neighbours. No leader, no global plan; flocks just emerge. Drag on the
+        canvas to scatter the flock.
+      </p>
+    </section>
+
+    <section class="sim-shell">
+      <div class="sim-stage">
+        <canvas id="stage" width="900" height="600" aria-label="Boids simulation"></canvas>
+      </div>
+
+      <aside class="sim-panel">
+        <h2>Controls</h2>
+
+        <div class="row">
+          <label>Boids <span class="val" id="countVal">250</span></label>
+          <input type="range" id="count" min="20" max="600" step="10" value="250" />
+        </div>
+
+        <div class="row">
+          <label>Vision radius <span class="val" id="visionVal">60</span></label>
+          <input type="range" id="vision" min="20" max="160" step="5" value="60" />
+        </div>
+
+        <div class="row">
+          <label>Separation <span class="val" id="sepVal">1.5</span></label>
+          <input type="range" id="sep" min="0" max="3" step="0.05" value="1.5" />
+        </div>
+
+        <div class="row">
+          <label>Alignment <span class="val" id="aliVal">1.0</span></label>
+          <input type="range" id="ali" min="0" max="3" step="0.05" value="1.0" />
+        </div>
+
+        <div class="row">
+          <label>Cohesion <span class="val" id="cohVal">1.0</span></label>
+          <input type="range" id="coh" min="0" max="3" step="0.05" value="1.0" />
+        </div>
+
+        <div class="row">
+          <label>Max speed <span class="val" id="speedVal">3.0</span></label>
+          <input type="range" id="speed" min="0.5" max="7" step="0.1" value="3.0" />
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" id="playBtn">Pause</button>
+          <button class="btn" id="resetBtn">Reset</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn" id="trailsBtn">Trails: off</button>
+        </div>
+
+        <details>
+          <summary>About</summary>
+          <p>
+            Boids (Reynolds, 1987) demonstrate that complex collective motion
+            can arise from simple, local interactions. Drag your cursor to scare
+            the flock; release to let them re-form.
+          </p>
+        </details>
+      </aside>
+    </section>
+
+    <footer class="page-footer">BioSims · Boids</footer>
+  </main>
+
+  <script src="js/boids.js"></script>
+</body>
+</html>

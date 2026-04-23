@@ -45,6 +45,21 @@ export function gpsToLocal(lat, lon) {
     return { x, z };
 }
 
+// Bounds in world XZ for the Topanga Canyon high-detail patch. The
+// regional terrain mesh gets smoothly sunk under this box during
+// createTerrain() so it doesn't peek through the local canyon
+// geometry. Sized to match topangaCanyon.js's local worldSize
+// (820 m → half 410 m) so the override and the local mesh edge line
+// up. Origin = Topanga Country Store GPS (34.0934, -118.6020).
+export const TOPANGA_OVERRIDE = (() => {
+    const c = gpsToLocal(34.0934, -118.6020);
+    const half = 410;
+    return {
+        xMin: c.x - half, xMax: c.x + half,
+        zMin: c.z - half, zMax: c.z + half
+    };
+})();
+
 export function localToGps(x, z) {
     const lon = LA_CENTER.lon + x / METERS_PER_LON;
     const lat = LA_CENTER.lat - z / METERS_PER_LAT;
@@ -234,12 +249,42 @@ export class LABasinTerrain {
         const pos = geo.attributes.position;
         const colors = new Float32Array(pos.count * 3);
 
+        // Blend margin for the Topanga override — how far inside the
+        // override box we ramp the regional mesh from normal elevation
+        // down to the fully-sunk -500 m floor. Needs to be comfortably
+        // larger than the regional grid cell (~254 m at the current
+        // resolution) so the linearly-interpolated rendered surface
+        // descends smoothly rather than in one coarse step.
+        const TOPANGA_BLEND = 180;
+
         for (let i = 0; i < pos.count; i++) {
             const x = pos.getX(i);
             const y = pos.getY(i);
             const worldX = x, worldZ = -y;
             const gps = localToGps(worldX, worldZ);
-            const elev = getElevation(gps.lat, gps.lon);
+            let elev = getElevation(gps.lat, gps.lon);
+
+            // --- Sink regional terrain under the Topanga local mesh ---
+            // so it doesn't poke through the canyon geometry.
+            const dxMin = worldX - TOPANGA_OVERRIDE.xMin;
+            const dxMax = TOPANGA_OVERRIDE.xMax - worldX;
+            const dzMin = worldZ - TOPANGA_OVERRIDE.zMin;
+            const dzMax = TOPANGA_OVERRIDE.zMax - worldZ;
+            const insideTopanga =
+                dxMin > 0 && dxMax > 0 && dzMin > 0 && dzMax > 0;
+            if (insideTopanga) {
+                const edgeDist = Math.min(dxMin, dxMax, dzMin, dzMax);
+                if (edgeDist >= TOPANGA_BLEND) {
+                    elev = -500;
+                } else {
+                    // Smoothstep fade from normal at the edge down to
+                    // -500 at blend-margin depth.
+                    const t = edgeDist / TOPANGA_BLEND;
+                    const s = t * t * (3 - 2 * t);
+                    elev = elev * (1 - s) + (-500) * s;
+                }
+            }
+
             pos.setZ(i, elev);
 
             // Palette — dry SoCal chaparral and urban basin

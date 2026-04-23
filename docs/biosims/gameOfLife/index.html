@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game of Life — BioSims</title>
+  <link rel="stylesheet" href="../assets/css/main.css" />
+</head>
+<body>
+  <main class="page">
+    <nav class="breadcrumb">
+      <a href="../../index.html">Home</a> /
+      <a href="../index.html">BioSims</a> / Game of Life
+    </nav>
+
+    <section class="hero">
+      <span class="hero__badge">Cellular Automaton</span>
+      <h1>Conway's Game of Life</h1>
+      <p>
+        A zero-player game on an infinite grid. Each cell lives, dies, or is
+        born based on how many of its eight neighbours are alive. Click or drag
+        on the grid to paint cells; drop in a preset pattern and watch it
+        evolve.
+      </p>
+    </section>
+
+    <section class="sim-shell">
+      <div class="sim-stage">
+        <canvas id="stage" width="900" height="600" aria-label="Game of Life"></canvas>
+      </div>
+
+      <aside class="sim-panel">
+        <h2>Controls</h2>
+
+        <div class="row">
+          <label>Cell size <span class="val" id="cellVal">10</span></label>
+          <input type="range" id="cell" min="4" max="24" step="1" value="10" />
+        </div>
+
+        <div class="row">
+          <label>Steps / sec <span class="val" id="fpsVal">12</span></label>
+          <input type="range" id="fps" min="1" max="60" step="1" value="12" />
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" id="playBtn">Play</button>
+          <button class="btn" id="stepBtn">Step</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn" id="clearBtn">Clear</button>
+          <button class="btn" id="randBtn">Randomize</button>
+        </div>
+
+        <div class="row" style="margin-top: 0.8rem;">
+          <label>Pattern</label>
+          <select id="pattern" class="select">
+            <option value="">— choose —</option>
+            <option value="glider">Glider</option>
+            <option value="lwss">Lightweight spaceship</option>
+            <option value="blinker">Blinker</option>
+            <option value="toad">Toad</option>
+            <option value="beacon">Beacon</option>
+            <option value="pulsar">Pulsar</option>
+            <option value="pentadecathlon">Pentadecathlon</option>
+            <option value="gosperGun">Gosper glider gun</option>
+            <option value="rpentomino">R-pentomino</option>
+            <option value="acorn">Acorn</option>
+            <option value="diehard">Diehard</option>
+          </select>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--muted); margin: 0.2rem 0 0;">
+          Choosing a pattern clears the board and stamps it in the centre.
+        </p>
+
+        <div class="row" style="margin-top: 0.8rem; flex-direction: row; justify-content: space-between;">
+          <span style="font-size: 0.85rem; color: var(--muted); letter-spacing: 0.04em;">Generation</span>
+          <span class="val" id="genVal">0</span>
+        </div>
+        <div class="row" style="flex-direction: row; justify-content: space-between; margin-bottom: 0;">
+          <span style="font-size: 0.85rem; color: var(--muted); letter-spacing: 0.04em;">Alive</span>
+          <span class="val" id="aliveVal">0</span>
+        </div>
+
+        <details>
+          <summary>Rules</summary>
+          <p>
+            A live cell with 2 or 3 live neighbours survives; any other
+            neighbourhood kills it. A dead cell with exactly 3 live neighbours
+            becomes alive. That's it — yet it's Turing complete.
+          </p>
+        </details>
+      </aside>
+    </section>
+
+    <footer class="page-footer">BioSims · Game of Life</footer>
+  </main>
+
+  <script src="js/life.js"></script>
+</body>
+</html>

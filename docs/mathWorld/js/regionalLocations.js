@@ -197,6 +197,144 @@ export const REGIONAL_LOCATIONS = {
         type: 'landmark', hasContent: false, scaleLevel: 'city'
     },
 
+    // === COUNTRY / REGIONAL FOLDERS ===
+    canada: {
+        name: 'Canada', description: 'Rockies, great lakes, and wide wild north',
+        lat: 56.1304, lon: -106.3468,
+        type: 'country', hasContent: false, scaleLevel: 'region'
+    },
+    mexico: {
+        name: 'Mexico', description: 'Baja peninsula, Yucatán, and the capital',
+        lat: 23.6345, lon: -102.5528,
+        type: 'country', hasContent: false, scaleLevel: 'region'
+    },
+    europe: {
+        name: 'Europe', description: 'Coming soon',
+        lat: 50.0, lon: 5.0,
+        type: 'region', hasContent: false, scaleLevel: 'subregion'
+    },
+    asia: {
+        name: 'Asia', description: 'Coming soon',
+        lat: 30.0, lon: 100.0,
+        type: 'region', hasContent: false, scaleLevel: 'subregion'
+    },
+    brazil: {
+        name: 'Brazil', description: 'Coming soon',
+        lat: -10.0, lon: -55.0,
+        type: 'country', hasContent: false, scaleLevel: 'region'
+    },
+    illinois: {
+        name: 'Illinois', description: 'Coming soon',
+        lat: 40.0, lon: -89.0,
+        type: 'state', hasContent: false, scaleLevel: 'state'
+    },
+    idaho: {
+        name: 'Idaho', description: 'Coming soon',
+        lat: 44.0682, lon: -114.7420,
+        type: 'state', hasContent: false, scaleLevel: 'state'
+    },
+    hawaii: {
+        name: 'Hawaii', description: 'Coming soon',
+        lat: 20.7984, lon: -156.0000,
+        type: 'state', hasContent: false, scaleLevel: 'state'
+    },
+
+    // === PLACEHOLDER LEAVES (locked — coming soon) ===
+
+    // Northern California
+    stanford: {
+        name: 'Stanford', description: 'Coming soon — Hoover Tower, the Quad, and Palm Drive',
+        lat: 37.4275, lon: -122.1697,
+        type: 'campus', hasContent: false, scaleLevel: 'city'
+    },
+    yosemite: {
+        name: 'Yosemite', description: 'Coming soon — granite walls, waterfalls, and sequoias',
+        lat: 37.8651, lon: -119.5383,
+        type: 'nature', hasContent: false, scaleLevel: 'region'
+    },
+
+    // Other US
+    nyc: {
+        name: 'New York City', description: 'Coming soon — Manhattan skyline and Central Park',
+        lat: 40.7128, lon: -74.0060,
+        type: 'city', hasContent: false, scaleLevel: 'city'
+    },
+    chicago: {
+        name: 'Chicago', description: 'Coming soon — the Loop and Lake Michigan',
+        lat: 41.8781, lon: -87.6298,
+        type: 'city', hasContent: false, scaleLevel: 'city'
+    },
+    boise: {
+        name: 'Boise', description: 'Coming soon — foothills, the greenbelt, and downtown',
+        lat: 43.6150, lon: -116.2023,
+        type: 'city', hasContent: false, scaleLevel: 'city'
+    },
+    maui: {
+        name: 'Maui', description: 'Coming soon — Haleakalā, Road to Hāna, and the beaches',
+        lat: 20.7984, lon: -156.3319,
+        type: 'nature', hasContent: false, scaleLevel: 'city'
+    },
+
+    // Canada
+    banff: {
+        name: 'Banff', description: 'Coming soon — Canadian Rockies, glacial lakes, Lake Louise',
+        lat: 51.1784, lon: -115.5708,
+        type: 'nature', hasContent: false, scaleLevel: 'city'
+    },
+    montreal: {
+        name: 'Montréal', description: 'Coming soon — Vieux-Port, Mount Royal, and bagels',
+        lat: 45.5017, lon: -73.5673,
+        type: 'city', hasContent: false, scaleLevel: 'city'
+    },
+
+    // Mexico
+    cabo: {
+        name: 'Cabo San Lucas', description: 'Coming soon — the arch, marina, and desert coast',
+        lat: 22.8905, lon: -109.9167,
+        type: 'landmark', hasContent: false, scaleLevel: 'city'
+    },
+    mexicoCity: {
+        name: 'Mexico City', description: 'Coming soon — Zócalo, Chapultepec, and pyramids',
+        lat: 19.4326, lon: -99.1332,
+        type: 'city', hasContent: false, scaleLevel: 'city'
+    },
+
+    // South America
+    rioDeJaneiro: {
+        name: 'Rio de Janeiro', description: 'Coming soon — Copacabana, Sugarloaf, and Cristo Redentor',
+        lat: -22.9068, lon: -43.1729,
+        type: 'city', hasContent: false, scaleLevel: 'city'
+    },
+
+    // Europe
+    paris: {
+        name: 'Paris', description: 'Coming soon — Seine, Tour Eiffel, and the boulevards',
+        lat: 48.8566, lon: 2.3522,
+        type: 'city', hasContent: false, scaleLevel: 'city'
+    },
+    london: {
+        name: 'London', description: 'Coming soon — Thames, Big Ben, and the Tube',
+        lat: 51.5074, lon: -0.1278,
+        type: 'city', hasContent: false, scaleLevel: 'city'
+    },
+
+    // Asia
+    tokyo: {
+        name: 'Tokyo', description: 'Coming soon — Shibuya, Meiji Jingu, and neon canyons',
+        lat: 35.6762, lon: 139.6503,
+        type: 'city', hasContent: false, scaleLevel: 'city'
+    },
+    mumbai: {
+        name: 'Mumbai', description: 'Coming soon — Marine Drive, Gateway of India',
+        lat: 19.0760, lon: 72.8777,
+        type: 'city', hasContent: false, scaleLevel: 'city'
+    },
+    singapore: {
+        name: 'Singapore', description: 'Coming soon — Marina Bay, Gardens, and hawker stalls',
+        lat: 1.3521, lon: 103.8198,
+        type: 'city', hasContent: false, scaleLevel: 'city'
+    },
+
     // === LEGACY (kept so old code paths that reference these names still resolve) ===
     lakeTahoe: {
         name: 'Lake Tahoe', description: 'Coming soon',

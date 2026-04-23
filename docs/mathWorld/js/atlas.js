@@ -14,26 +14,32 @@ import { REGIONAL_LOCATIONS } from './regionalLocations.js';
 //
 //   world
 //     northAmerica
-//       western
-//         norcal
-//           bayArea   → berkeley, sanFrancisco, oakland, paloAlto
-//           santaCruz → ucsc → mchenryLibrary
-//                       boardwalk, steamerLane, naturalBridges, westCliff, downtownSC
-//         socal
-//           santaBarbara → islaVista, ucsb, downtownSB
-//           la           → venice, ucla, laguna
-//       (other state placeholders: newYork, texas, …)
-//     (other continent placeholders)
+//       western    → norcal → bayArea / santaCruz / yosemite
+//                    socal  → santaBarbara / la
+//       canada     → banff / montreal / britishColumbia
+//       mexico     → cabo / mexicoCity
+//       newYork    → nyc
+//       illinois   → chicago
+//       idaho      → boise
+//       hawaii     → maui
+//       texas, florida (placeholder states)
+//     eurasia
+//       europe  → paris / london
+//       asia    → tokyo / mumbai / singapore
+//     southAmerica
+//       brazil  → rioDeJaneiro
+//     africa, australia (placeholder continents)
 const LOCATION_TREE = {
     world: {
         children: ['northAmerica', 'eurasia', 'southAmerica', 'africa', 'australia']
     },
     northAmerica: {
-        children: ['western', 'newYork', 'texas', 'britishColumbia', 'florida'],
+        children: ['western', 'canada', 'mexico', 'newYork', 'illinois',
+                   'idaho', 'hawaii', 'texas', 'florida'],
         focusLat: 45, focusLon: -100, focusHeight: 4000000
     },
-    eurasia:      { children: [], focusLat: 50,  focusLon: 40,    focusHeight: 5000000 },
-    southAmerica: { children: [], focusLat: -20, focusLon: -60,   focusHeight: 4000000 },
+    eurasia:      { children: ['europe', 'asia'], focusLat: 50,  focusLon: 40,    focusHeight: 5000000 },
+    southAmerica: { children: ['brazil'],         focusLat: -20, focusLon: -60,   focusHeight: 4000000 },
     africa:       { children: [], focusLat: 10,  focusLon: 20,    focusHeight: 4000000 },
     australia:    { children: [], focusLat: -25, focusLon: 135,   focusHeight: 3000000 },
 
@@ -43,15 +49,44 @@ const LOCATION_TREE = {
         focusLat: 37.0, focusLon: -120.0, focusHeight: 1800000
     },
 
-    // State-level placeholders (not currently beneath a region)
-    newYork:         { children: [], focusLat: 40.71, focusLon: -74.01,  focusHeight: 600000 },
-    texas:           { children: [], focusLat: 31.97, focusLon: -99.90,  focusHeight: 600000 },
-    britishColumbia: { children: [], focusLat: 53.73, focusLon: -127.65, focusHeight: 600000 },
-    florida:         { children: [], focusLat: 27.66, focusLon: -81.52,  focusHeight: 600000 },
+    // Country-level folders under North America
+    canada: {
+        children: ['banff', 'montreal', 'britishColumbia'],
+        focusLat: 56.13, focusLon: -106.35, focusHeight: 3500000
+    },
+    mexico: {
+        children: ['cabo', 'mexicoCity'],
+        focusLat: 23.63, focusLon: -102.55, focusHeight: 2500000
+    },
+
+    // Country folders inside Eurasia
+    europe: {
+        children: ['paris', 'london'],
+        focusLat: 50.0, focusLon: 5.0, focusHeight: 2500000
+    },
+    asia: {
+        children: ['tokyo', 'mumbai', 'singapore'],
+        focusLat: 30.0, focusLon: 100.0, focusHeight: 4500000
+    },
+
+    // Country folder inside South America
+    brazil: {
+        children: ['rioDeJaneiro'],
+        focusLat: -10.0, focusLon: -55.0, focusHeight: 2500000
+    },
+
+    // State-level folders / leaves
+    newYork:         { children: ['nyc'],     focusLat: 40.71, focusLon: -74.01,  focusHeight: 600000 },
+    illinois:        { children: ['chicago'], focusLat: 40.00, focusLon: -89.00,  focusHeight: 600000 },
+    idaho:           { children: ['boise'],   focusLat: 44.07, focusLon: -114.74, focusHeight: 600000 },
+    hawaii:          { children: ['maui'],    focusLat: 20.80, focusLon: -156.00, focusHeight: 600000 },
+    texas:           { children: [],          focusLat: 31.97, focusLon: -99.90,  focusHeight: 600000 },
+    britishColumbia: { children: [],          focusLat: 53.73, focusLon: -127.65, focusHeight: 600000 },
+    florida:         { children: [],          focusLat: 27.66, focusLon: -81.52,  focusHeight: 600000 },
 
     // Sub-regions
     norcal: {
-        children: ['bayArea', 'santaCruz'],
+        children: ['bayArea', 'santaCruz', 'yosemite'],
         focusLat: 37.4, focusLon: -121.8, focusHeight: 400000
     },
     socal: {
@@ -61,7 +96,7 @@ const LOCATION_TREE = {
 
     // City clusters
     bayArea: {
-        children: ['berkeley', 'sanFrancisco', 'oakland', 'paloAlto'],
+        children: ['berkeley', 'sanFrancisco', 'oakland', 'paloAlto', 'stanford'],
         focusLat: 37.75, focusLon: -122.40, focusHeight: 80000
     },
     santaCruz: {
@@ -83,11 +118,13 @@ const LOCATION_TREE = {
         focusLat: 36.9916, focusLon: -122.0583, focusHeight: 4000
     },
 
-    // City leaves
+    // NorCal city + nature leaves
     berkeley:     { children: [], focusLat: 37.8719, focusLon: -122.2578, focusHeight: 6000 },
     sanFrancisco: { children: [], focusLat: 37.7749, focusLon: -122.4194, focusHeight: 10000 },
     oakland:      { children: [], focusLat: 37.8044, focusLon: -122.2712, focusHeight: 8000 },
     paloAlto:     { children: [], focusLat: 37.4419, focusLon: -122.1430, focusHeight: 8000 },
+    stanford:     { children: [], focusLat: 37.4275, focusLon: -122.1697, focusHeight: 6000 },
+    yosemite:     { children: [], focusLat: 37.8651, focusLon: -119.5383, focusHeight: 60000 },
 
     // Santa Barbara area leaves
     islaVista:  { children: [], focusLat: 34.4133, focusLon: -119.8610, focusHeight: 4000 },
@@ -98,7 +135,29 @@ const LOCATION_TREE = {
     topanga: { children: [], focusLat: 34.0934, focusLon: -118.6020, focusHeight: 4000 },
     venice:  { children: [], focusLat: 33.9850, focusLon: -118.4695, focusHeight: 5000 },
     ucla:    { children: [], focusLat: 34.0689, focusLon: -118.4452, focusHeight: 5000 },
-    laguna:  { children: [], focusLat: 33.5427, focusLon: -117.7854, focusHeight: 5000 }
+    laguna:  { children: [], focusLat: 33.5427, focusLon: -117.7854, focusHeight: 5000 },
+
+    // North America leaves (non-California)
+    nyc:      { children: [], focusLat: 40.7128, focusLon: -74.0060,  focusHeight: 20000 },
+    chicago:  { children: [], focusLat: 41.8781, focusLon: -87.6298,  focusHeight: 15000 },
+    boise:    { children: [], focusLat: 43.6150, focusLon: -116.2023, focusHeight: 10000 },
+    maui:     { children: [], focusLat: 20.7984, focusLon: -156.3319, focusHeight: 40000 },
+    banff:    { children: [], focusLat: 51.1784, focusLon: -115.5708, focusHeight: 60000 },
+    montreal: { children: [], focusLat: 45.5017, focusLon: -73.5673,  focusHeight: 12000 },
+    cabo:     { children: [], focusLat: 22.8905, focusLon: -109.9167, focusHeight: 12000 },
+    mexicoCity: { children: [], focusLat: 19.4326, focusLon: -99.1332, focusHeight: 20000 },
+
+    // Europe leaves
+    paris:  { children: [], focusLat: 48.8566, focusLon: 2.3522,  focusHeight: 15000 },
+    london: { children: [], focusLat: 51.5074, focusLon: -0.1278, focusHeight: 15000 },
+
+    // Asia leaves
+    tokyo:     { children: [], focusLat: 35.6762, focusLon: 139.6503, focusHeight: 25000 },
+    mumbai:    { children: [], focusLat: 19.0760, focusLon: 72.8777,  focusHeight: 18000 },
+    singapore: { children: [], focusLat: 1.3521,  focusLon: 103.8198, focusHeight: 10000 },
+
+    // South America leaves
+    rioDeJaneiro: { children: [], focusLat: -22.9068, focusLon: -43.1729, focusHeight: 20000 }
 };
 
 export class Atlas {
