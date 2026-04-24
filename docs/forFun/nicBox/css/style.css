@@ -461,6 +461,10 @@ body {
     background: linear-gradient(135deg, #b44dff, #00d4ff);
 }
 
+.game-card[data-color="green"]::before {
+    background: linear-gradient(135deg, #1aa661, #d4e45a);
+}
+
 .game-card:hover::before {
     opacity: 0.08;
 }

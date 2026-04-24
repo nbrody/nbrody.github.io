@@ -39,6 +39,7 @@ import {
 } from './santaCruz/index.js';
 import { UCBerkeleyCampus } from './berkeley/index.js';
 import { REGIONAL_LOCATIONS } from './regionalLocations.js';
+import { INTERIORS } from './interiors/index.js';
 
 // Mapping: location → region. Each region has its own regional terrain,
 // its own coordinate system (GPS ↔ local), and its own elevation function.
@@ -493,14 +494,146 @@ class MathWorld {
     }
 
     getInteractables() {
+        // When inside an interior, only the interior's interactables
+        // count — the exterior is hidden and its entrance markers
+        // shouldn't compete with the exit portal.
+        if (this.inInterior && this.interiorContent && this.interiorContent.getInteractables) {
+            return this.interiorContent.getInteractables();
+        }
         if (this.locationContent && this.locationContent.getInteractables) {
             return this.locationContent.getInteractables();
         }
         return [];
     }
 
+    // ==========================================================
+    //  INTERIOR TRANSITIONS
+    // ==========================================================
+    // Buildings expose entrance markers tagged with `userData.interiorId`
+    // (e.g. 'gratefulDeadArchive'). Pressing E on one calls enterInterior,
+    // which hides the current locationGroup and instantiates an interior
+    // scene. Inside, an exit portal (tagged `userData.exitInterior = true`)
+    // triggers exitInterior, restoring the exterior and player position.
+
+    async enterInterior(interiorId) {
+        if (this.inInterior) return;
+        const Ctor = INTERIORS[interiorId];
+        if (!Ctor) {
+            console.warn(`No interior registered for id: ${interiorId}`);
+            return;
+        }
+
+        // Remember where we were outside so exit can restore position.
+        this._savedExterior = {
+            locationGroup: this.locationGroup,
+            playerLocalPos: this.player.localPosition.clone(),
+            playerYaw: this.player.yaw,
+            playerPitch: this.player.pitch
+        };
+
+        // Hide exterior + regional terrain meshes (keep lights/sky for ambient).
+        if (this.locationGroup) this.locationGroup.visible = false;
+        this._hideRegionalTerrain(true);
+
+        // Build the interior into a fresh group at world origin.
+        this.interiorGroup = new THREE.Group();
+        this.scene.add(this.interiorGroup);
+        this.interiorContent = new Ctor(this.interiorGroup);
+        await this.interiorContent.generate();
+
+        // Retarget the player at the interior's spawn.
+        const sp = this.interiorContent.getSpawnPoint();
+        this.player.setLocationGroup(this.interiorGroup);
+        this.player.setPositionOnGround(sp.x, sp.y ?? 1.7, sp.z);
+        this.player.yaw = sp.yaw ?? 0;
+        this.player.pitch = 0;
+
+        // Swap terrain function (flat floor inside, usually).
+        this.player.setTerrainFunction((x, z) => {
+            return this.interiorContent.getTerrainHeight(x, z);
+        });
+
+        this.inInterior = true;
+        this.currentInteriorId = interiorId;
+        console.log(`Entered interior: ${this.interiorContent.name}`);
+        this.showLocation(this.interiorContent.name || 'Interior');
+    }
+
+    exitInterior() {
+        if (!this.inInterior) return;
+
+        // Dispose interior geometry
+        if (this.interiorContent && typeof this.interiorContent.dispose === 'function') {
+            this.interiorContent.dispose();
+        }
+        this.scene.remove(this.interiorGroup);
+        this._disposeGroup(this.interiorGroup);
+        this.interiorGroup = null;
+        this.interiorContent = null;
+
+        // Restore exterior visibility
+        if (this.locationGroup) this.locationGroup.visible = true;
+        this._hideRegionalTerrain(false);
+
+        // Restore terrain fn to the exterior's
+        this.player.setTerrainFunction((x, z) => {
+            if (this.locationContent && typeof this.locationContent.getTerrainHeight === 'function') {
+                return this.locationContent.getTerrainHeight(x, z);
+            }
+            if (!this.terrain || !this.locationGroup) return 0;
+            const worldX = this.locationGroup.position.x + x;
+            const worldZ = this.locationGroup.position.z + z;
+            const worldElevation = this.terrain.getElevationAtLocal(worldX, worldZ);
+            return worldElevation - this.locationGroup.position.y;
+        });
+
+        // Restore player position + orientation
+        const s = this._savedExterior;
+        if (s) {
+            this.player.setLocationGroup(s.locationGroup);
+            this.player.localPosition.copy(s.playerLocalPos);
+            this.player.yaw = s.playerYaw;
+            this.player.pitch = s.playerPitch;
+        }
+        this._savedExterior = null;
+
+        this.inInterior = false;
+        this.currentInteriorId = null;
+        console.log('Exited interior');
+        if (this.currentLocation) this.showLocation(this.currentLocation.name);
+    }
+
+    _hideRegionalTerrain(hide) {
+        if (!this.terrain) return;
+        const visible = !hide;
+        if (this.terrain.terrainMesh) this.terrain.terrainMesh.visible = visible;
+        if (this.terrain.shorelinePatch) this.terrain.shorelinePatch.visible = visible;
+        if (this.terrain.oceanMesh) this.terrain.oceanMesh.visible = visible;
+        if (this.terrain.coastlineFoam) this.terrain.coastlineFoam.visible = visible;
+        // Keep the sky visible so the interior has ambient color.
+    }
+
+    _disposeGroup(group) {
+        if (!group) return;
+        group.traverse(obj => {
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+                if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose && m.dispose());
+                else if (obj.material.dispose) obj.material.dispose();
+            }
+            if (obj.material && obj.material.map && obj.material.map.dispose) {
+                obj.material.map.dispose();
+            }
+        });
+    }
+
     async teleportTo(locationId) {
         if (locationId === this.currentLocationId) return;
+
+        // If the player is currently inside an interior, exit it so
+        // their state is back in exterior coordinates before we swap
+        // locations.
+        if (this.inInterior) this.exitInterior();
 
         this.player.disable();
         this.isRunning = false;
@@ -723,7 +856,10 @@ class MathWorld {
             this.updateHUD();
             // Per-frame animation hook for location-specific content
             // (butterflies at Steamer Lane, waves, etc.)
-            if (this.locationContent && typeof this.locationContent.update === 'function') {
+            // Per-frame hooks — interior takes priority when active.
+            if (this.inInterior && this.interiorContent && typeof this.interiorContent.update === 'function') {
+                this.interiorContent.update(delta, this.clock.getElapsedTime());
+            } else if (this.locationContent && typeof this.locationContent.update === 'function') {
                 this.locationContent.update(delta, this.clock.getElapsedTime());
             }
         } else if (this.introPhase === 'aerial') {

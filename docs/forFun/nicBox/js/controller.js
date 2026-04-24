@@ -155,6 +155,9 @@ function showControllerForGame(gameName) {
         case 'drawguess':
             setupDrawGuessController(body);
             break;
+        case 'wingspan':
+            setupWingspanController(body);
+            break;
         default:
             body.innerHTML = `
                 <span style="font-size: 3rem;">🎮</span>
@@ -675,6 +678,326 @@ function dgSubmitGuess() {
     if (navigator.vibrate) navigator.vibrate(30);
 }
 
+// ─── Wingspan Controller ───────────────────────────────────
+
+const WS_C_FOOD_EMOJI = { invert: '🐛', seed: '🌾', fruit: '🍓', fish: '🐟', rodent: '🐭', any: '⭐' };
+const WS_C_FOOD_NAME = { invert: 'Invertebrate', seed: 'Seed', fruit: 'Fruit', fish: 'Fish', rodent: 'Rodent' };
+const WS_C_FOOD_TYPES = ['invert', 'seed', 'fruit', 'fish', 'rodent'];
+const WS_C_HABITAT_EMOJI = { forest: '🌲', grassland: '🌾', wetland: '🌊' };
+const WS_C_HABITAT_NAME = { forest: 'Forest', grassland: 'Grassland', wetland: 'Wetland' };
+
+// Same bird pool as TV side. Keep in sync.
+const WS_C_BIRDS = {
+    mallard: { name: 'Mallard', emoji: '🦆', habitats: ['wetland'], cost: { invert: 1, seed: 1 }, points: 4, eggLimit: 3 },
+    wood_duck: { name: 'Wood Duck', emoji: '🦆', habitats: ['wetland'], cost: { seed: 1, invert: 1 }, points: 3, eggLimit: 4 },
+    trumpeter_swan: { name: 'Trumpeter Swan', emoji: '🦢', habitats: ['wetland'], cost: { fruit: 1, seed: 2 }, points: 7, eggLimit: 1 },
+    great_blue_heron: { name: 'Great Blue Heron', emoji: '🪶', habitats: ['wetland'], cost: { fish: 2 }, points: 5, eggLimit: 2 },
+    belted_kingfisher: { name: 'Belted Kingfisher', emoji: '🐦', habitats: ['wetland'], cost: { fish: 1, invert: 1 }, points: 4, eggLimit: 3 },
+    osprey: { name: 'Osprey', emoji: '🦅', habitats: ['wetland'], cost: { fish: 2 }, points: 5, eggLimit: 1 },
+    common_loon: { name: 'Common Loon', emoji: '🦆', habitats: ['wetland'], cost: { fish: 2 }, points: 5, eggLimit: 1 },
+    canada_goose: { name: 'Canada Goose', emoji: '🦢', habitats: ['wetland', 'grassland'], cost: { seed: 2 }, points: 5, eggLimit: 2 },
+    bald_eagle: { name: 'Bald Eagle', emoji: '🦅', habitats: ['forest', 'grassland'], cost: { fish: 1, rodent: 2 }, points: 9, eggLimit: 1 },
+    red_tailed_hawk: { name: 'Red-tailed Hawk', emoji: '🦅', habitats: ['grassland'], cost: { rodent: 2 }, points: 5, eggLimit: 1 },
+    peregrine_falcon: { name: 'Peregrine Falcon', emoji: '🦅', habitats: ['grassland'], cost: { rodent: 1, any: 1 }, points: 5, eggLimit: 2 },
+    snowy_owl: { name: 'Snowy Owl', emoji: '🦉', habitats: ['grassland'], cost: { rodent: 2 }, points: 4, eggLimit: 2 },
+    great_horned_owl: { name: 'Great Horned Owl', emoji: '🦉', habitats: ['forest'], cost: { rodent: 2 }, points: 6, eggLimit: 1 },
+    barn_owl: { name: 'Barn Owl', emoji: '🦉', habitats: ['grassland'], cost: { rodent: 1 }, points: 3, eggLimit: 2 },
+    american_crow: { name: 'American Crow', emoji: '🐦‍⬛', habitats: ['forest', 'grassland'], cost: { any: 1 }, points: 2, eggLimit: 3 },
+    raven: { name: 'Common Raven', emoji: '🐦‍⬛', habitats: ['forest'], cost: { rodent: 1, any: 1 }, points: 4, eggLimit: 2 },
+    blue_jay: { name: 'Blue Jay', emoji: '🐦', habitats: ['forest'], cost: { seed: 1, fruit: 1 }, points: 4, eggLimit: 3 },
+    cardinal: { name: 'Northern Cardinal', emoji: '🐦', habitats: ['forest', 'grassland'], cost: { seed: 2 }, points: 4, eggLimit: 2 },
+    robin: { name: 'American Robin', emoji: '🐦', habitats: ['forest', 'grassland'], cost: { invert: 1, fruit: 1 }, points: 3, eggLimit: 3 },
+    bluebird: { name: 'Eastern Bluebird', emoji: '🐦', habitats: ['grassland'], cost: { invert: 1, fruit: 1 }, points: 3, eggLimit: 3 },
+    mourning_dove: { name: 'Mourning Dove', emoji: '🕊️', habitats: ['forest', 'grassland', 'wetland'], cost: { seed: 1 }, points: 2, eggLimit: 4 },
+    house_sparrow: { name: 'House Sparrow', emoji: '🐦', habitats: ['grassland'], cost: { seed: 1 }, points: 2, eggLimit: 4 },
+    goldfinch: { name: 'American Goldfinch', emoji: '🐤', habitats: ['grassland'], cost: { seed: 1 }, points: 3, eggLimit: 4 },
+    chickadee: { name: 'Black-capped Chickadee', emoji: '🐦', habitats: ['forest'], cost: { seed: 1, invert: 1 }, points: 2, eggLimit: 3 },
+    downy_woodpecker: { name: 'Downy Woodpecker', emoji: '🐦', habitats: ['forest'], cost: { invert: 1, seed: 1 }, points: 3, eggLimit: 3 },
+    pileated_woodpecker: { name: 'Pileated Woodpecker', emoji: '🐦', habitats: ['forest'], cost: { invert: 2 }, points: 5, eggLimit: 1 },
+    hummingbird: { name: 'Ruby-throated Hummingbird', emoji: '🐦', habitats: ['forest', 'grassland'], cost: { fruit: 1 }, points: 2, eggLimit: 2 },
+    ruffed_grouse: { name: 'Ruffed Grouse', emoji: '🐓', habitats: ['forest'], cost: { seed: 1, fruit: 1 }, points: 4, eggLimit: 3 },
+    wild_turkey: { name: 'Wild Turkey', emoji: '🦃', habitats: ['forest'], cost: { seed: 2 }, points: 4, eggLimit: 3 },
+    purple_martin: { name: 'Purple Martin', emoji: '🐦', habitats: ['grassland'], cost: { invert: 1 }, points: 3, eggLimit: 3 },
+    barn_swallow: { name: 'Barn Swallow', emoji: '🐦', habitats: ['grassland'], cost: { invert: 1 }, points: 2, eggLimit: 3 },
+    green_heron: { name: 'Green Heron', emoji: '🪶', habitats: ['wetland'], cost: { fish: 1, invert: 1 }, points: 4, eggLimit: 2 }
+};
+
+let wsSelectedCardId = null;
+let wsCurrentState = null;
+
+function setupWingspanController(container) {
+    wsSelectedCardId = null;
+    wsCurrentState = null;
+
+    container.innerHTML = `
+        <div id="ws-ctrl-status" class="status-badge waiting" style="align-self:center;">Waiting for your turn…</div>
+
+        <div id="ws-ctrl-actions" style="display:none; width:100%; max-width:360px;
+             grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
+            <button class="btn btn-secondary ws-action-btn" data-action="food"   onclick="wsPickAction('food')">🌲<br>Gain Food</button>
+            <button class="btn btn-secondary ws-action-btn" data-action="eggs"   onclick="wsPickAction('eggs')">🌾<br>Lay Eggs</button>
+            <button class="btn btn-secondary ws-action-btn" data-action="cards"  onclick="wsPickAction('cards')">🌊<br>Draw Cards</button>
+            <button class="btn btn-primary   ws-action-btn" data-action="play"   onclick="wsPickAction('play')">🐦<br>Play Bird</button>
+        </div>
+
+        <div id="ws-ctrl-supply" style="width:100%; max-width:360px; display:flex; gap:6px;
+             flex-wrap:wrap; justify-content:center; padding:6px 0;"></div>
+
+        <div id="ws-ctrl-hand" style="width:100%; max-width:360px; display:none;
+             flex-direction:column; gap:8px;"></div>
+
+        <div id="ws-ctrl-habitat-picker" style="width:100%; max-width:360px; display:none;
+             flex-direction:column; gap:10px; padding:12px; border-radius:12px;
+             background:var(--bg-glass); border:1px solid var(--glass-border);"></div>
+
+        <div id="ws-ctrl-summary" style="width:100%; max-width:360px; display:none;
+             padding:10px 12px; border-radius:12px; background:var(--bg-glass);
+             border:1px solid var(--glass-border); font-size:0.85rem; color:var(--text-secondary);"></div>
+    `;
+
+    // Inject styles once
+    if (!document.getElementById('ws-ctrl-styles')) {
+        const s = document.createElement('style');
+        s.id = 'ws-ctrl-styles';
+        s.textContent = `
+            .ws-action-btn {
+                padding: 14px 6px !important;
+                font-size: 0.85rem !important;
+                line-height: 1.2 !important;
+                min-height: 70px;
+            }
+            .ws-action-btn:disabled {
+                opacity: 0.4; filter: grayscale(0.6);
+            }
+            .ws-food-pill {
+                display:inline-flex; align-items:center; gap:4px;
+                padding: 4px 10px; border-radius: 999px;
+                background: var(--bg-glass); border: 1px solid var(--glass-border);
+                font-size: 0.82rem;
+            }
+            .ws-hand-card {
+                display:flex; align-items:center; gap:10px;
+                padding: 10px 12px; border-radius: 12px;
+                background: var(--bg-glass); border: 2px solid var(--glass-border);
+                cursor: pointer; text-align: left;
+                -webkit-tap-highlight-color: transparent;
+                transition: transform 120ms ease, border-color 120ms ease;
+            }
+            .ws-hand-card:active { transform: scale(0.97); }
+            .ws-hand-card.affordable { border-color: rgba(0,255,136,0.5); }
+            .ws-hand-card.unaffordable { opacity: 0.55; cursor: not-allowed; }
+            .ws-hand-card .emoji { font-size: 1.8rem; }
+            .ws-hand-card .meta { flex:1; display:flex; flex-direction:column; gap:2px; }
+            .ws-hand-card .name { font-weight: 700; font-size: 0.95rem; }
+            .ws-hand-card .sub { font-size: 0.75rem; color: var(--text-muted); }
+            .ws-hand-card .pts {
+                font-family: 'Press Start 2P', monospace; font-size: 0.75rem;
+                background: var(--grad-secondary); color: #0a0a1a;
+                padding: 4px 8px; border-radius: 999px;
+            }
+            .ws-hab-btn {
+                padding: 12px; border-radius: 10px;
+                background: var(--bg-glass); border: 2px solid var(--glass-border);
+                color: var(--text-primary); font-size: 0.95rem;
+                cursor: pointer; -webkit-tap-highlight-color: transparent;
+            }
+            .ws-hab-btn:active { transform: scale(0.97); }
+            .ws-hab-btn.forest    { border-color: rgba(120,200,130,0.4); }
+            .ws-hab-btn.grassland { border-color: rgba(220,200,80,0.4); }
+            .ws-hab-btn.wetland   { border-color: rgba(80,150,220,0.4); }
+        `;
+        document.head.appendChild(s);
+    }
+
+    // Single gameState listener
+    getRoomRef(myRoom).child('gameState').on('value', (snap) => {
+        wsCurrentState = snap.val() || {};
+        wsRenderController();
+    });
+}
+
+function wsRenderController() {
+    const state = wsCurrentState || {};
+    const statusEl = document.getElementById('ws-ctrl-status');
+    const actionsEl = document.getElementById('ws-ctrl-actions');
+    const supplyEl = document.getElementById('ws-ctrl-supply');
+    const handEl = document.getElementById('ws-ctrl-hand');
+    const pickerEl = document.getElementById('ws-ctrl-habitat-picker');
+    const summaryEl = document.getElementById('ws-ctrl-summary');
+    if (!statusEl) return;
+
+    const isMyTurn = state.activePlayer === myPlayerId;
+    const hand = state.hand || [];
+    const food = state.food || {};
+
+    // Supply display (always visible when we have data)
+    if (state.food) {
+        supplyEl.innerHTML = WS_C_FOOD_TYPES.map(t => `
+            <span class="ws-food-pill" title="${WS_C_FOOD_NAME[t]}">
+                ${WS_C_FOOD_EMOJI[t]} ×${food[t] || 0}
+            </span>
+        `).join('');
+    }
+
+    // Status line
+    if (isMyTurn) {
+        statusEl.className = 'status-badge';
+        statusEl.innerHTML = `<span class="your-turn-indicator">YOUR TURN · ${state.actionsLeft || 0} LEFT</span>`;
+    } else if (state.activePlayer) {
+        statusEl.className = 'status-badge waiting';
+        statusEl.textContent = `Round ${state.round || 1} — someone else is acting…`;
+        // Hide pickers
+        if (handEl) { handEl.style.display = 'none'; handEl.innerHTML = ''; }
+        if (pickerEl) { pickerEl.style.display = 'none'; pickerEl.innerHTML = ''; }
+        if (actionsEl) actionsEl.style.display = 'none';
+        return;
+    } else {
+        statusEl.className = 'status-badge waiting';
+        statusEl.textContent = 'Waiting for the game to start…';
+        if (actionsEl) actionsEl.style.display = 'none';
+        return;
+    }
+
+    // Show action grid for my turn
+    if (actionsEl) actionsEl.style.display = 'grid';
+
+    // Live-update summary (what each action would yield)
+    const boardCounts = state.boardCounts || null; // optional; TV could push
+    summaryEl.style.display = 'none'; // keep simple; remove if not used
+
+    // If we already selected "play" show the hand. Otherwise hide.
+    if (wsSelectedCardId === null && handEl && handEl.dataset.mode !== 'hand') {
+        handEl.style.display = 'none';
+    }
+}
+
+function wsPickAction(action) {
+    if (!wsCurrentState || wsCurrentState.activePlayer !== myPlayerId) return;
+    const handEl = document.getElementById('ws-ctrl-hand');
+    const pickerEl = document.getElementById('ws-ctrl-habitat-picker');
+    if (handEl) { handEl.style.display = 'none'; handEl.innerHTML = ''; handEl.dataset.mode = ''; }
+    if (pickerEl) { pickerEl.style.display = 'none'; pickerEl.innerHTML = ''; }
+
+    if (action === 'food') {
+        wsSendAction({ type: 'ws_gain_food', timestamp: Date.now() });
+        if (navigator.vibrate) navigator.vibrate(40);
+    } else if (action === 'eggs') {
+        wsSendAction({ type: 'ws_lay_eggs', timestamp: Date.now() });
+        if (navigator.vibrate) navigator.vibrate(40);
+    } else if (action === 'cards') {
+        wsSendAction({ type: 'ws_draw_cards', timestamp: Date.now() });
+        if (navigator.vibrate) navigator.vibrate(40);
+    } else if (action === 'play') {
+        wsShowHand();
+    }
+}
+
+function wsShowHand() {
+    const hand = (wsCurrentState && wsCurrentState.hand) || [];
+    const food = (wsCurrentState && wsCurrentState.food) || {};
+    const handEl = document.getElementById('ws-ctrl-hand');
+    if (!handEl) return;
+
+    if (hand.length === 0) {
+        handEl.style.display = 'flex';
+        handEl.dataset.mode = 'hand';
+        handEl.innerHTML = `
+            <div style="text-align:center; padding:16px; color:var(--text-secondary);">
+                Your hand is empty — try <strong>Draw Cards</strong> 🌊
+            </div>
+            <button class="btn btn-ghost" onclick="wsCancelPlay()">Cancel</button>
+        `;
+        return;
+    }
+
+    handEl.style.display = 'flex';
+    handEl.dataset.mode = 'hand';
+    handEl.innerHTML = hand.map(cardId => {
+        const bird = WS_C_BIRDS[cardId];
+        if (!bird) return '';
+        const affordable = wsCanAfford(food, bird.cost);
+        const costStr = wsFormatCost(bird.cost);
+        const habStr = bird.habitats.map(h => WS_C_HABITAT_EMOJI[h]).join(' ');
+        return `
+            <div class="ws-hand-card ${affordable ? 'affordable' : 'unaffordable'}"
+                 onclick="${affordable ? `wsPickBird('${cardId}')` : ''}">
+                <span class="emoji">${bird.emoji}</span>
+                <div class="meta">
+                    <span class="name">${escapeHtml(bird.name)}</span>
+                    <span class="sub">${habStr} · cost ${costStr}</span>
+                </div>
+                <span class="pts">${bird.points}</span>
+            </div>
+        `;
+    }).join('') + `<button class="btn btn-ghost" onclick="wsCancelPlay()">Cancel</button>`;
+}
+
+function wsPickBird(cardId) {
+    const bird = WS_C_BIRDS[cardId];
+    if (!bird) return;
+    const handEl = document.getElementById('ws-ctrl-hand');
+    const pickerEl = document.getElementById('ws-ctrl-habitat-picker');
+    if (!pickerEl) return;
+    wsSelectedCardId = cardId;
+
+    if (bird.habitats.length === 1) {
+        wsConfirmPlay(cardId, bird.habitats[0]);
+        return;
+    }
+
+    if (handEl) { handEl.style.display = 'none'; handEl.innerHTML = ''; }
+    pickerEl.style.display = 'flex';
+    pickerEl.innerHTML = `
+        <div style="text-align:center; font-weight:700;">
+            ${bird.emoji} ${escapeHtml(bird.name)} — pick a habitat
+        </div>
+        ${bird.habitats.map(h => `
+            <button class="ws-hab-btn ${h}" onclick="wsConfirmPlay('${cardId}','${h}')">
+                ${WS_C_HABITAT_EMOJI[h]} ${WS_C_HABITAT_NAME[h]}
+            </button>
+        `).join('')}
+        <button class="btn btn-ghost" onclick="wsCancelPlay()">Cancel</button>
+    `;
+}
+
+function wsConfirmPlay(cardId, habitat) {
+    wsSendAction({ type: 'ws_play_bird', cardId, habitat, timestamp: Date.now() });
+    wsCancelPlay();
+    if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+}
+
+function wsCancelPlay() {
+    wsSelectedCardId = null;
+    const handEl = document.getElementById('ws-ctrl-hand');
+    const pickerEl = document.getElementById('ws-ctrl-habitat-picker');
+    if (handEl) { handEl.style.display = 'none'; handEl.innerHTML = ''; }
+    if (pickerEl) { pickerEl.style.display = 'none'; pickerEl.innerHTML = ''; }
+}
+
+function wsCanAfford(food, cost) {
+    const sim = { ...food };
+    for (const [k, need] of Object.entries(cost)) {
+        if (k === 'any') continue;
+        if ((sim[k] || 0) < need) return false;
+        sim[k] -= need;
+    }
+    const anyNeed = cost.any || 0;
+    const remaining = WS_C_FOOD_TYPES.reduce((s, t) => s + (sim[t] || 0), 0);
+    return remaining >= anyNeed;
+}
+
+function wsFormatCost(cost) {
+    const parts = [];
+    for (const [k, n] of Object.entries(cost)) {
+        parts.push(`${n}${WS_C_FOOD_EMOJI[k] || '?'}`);
+    }
+    return parts.join(' ') || 'free';
+}
+
+function wsSendAction(action) {
+    playerAction(myRoom, myPlayerId, action);
+}
+
 // ─── Results on Phone ──────────────────────────────────────
 
 function showResultsOnPhone() {
@@ -696,5 +1019,11 @@ function showToast(message, duration = 3000) {
     toast.textContent = message;
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), duration);
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
 }
 

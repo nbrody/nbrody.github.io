@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Penrose Tiling — Cut & Project from ℝ⁵ → ℝ²</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="app">
+
+        <header>
+            <div class="title">Penrose · <em>cut &amp; project</em></div>
+            <div class="sub">from ℤ⁵ through the five-fold plane E ⊂ ℝ⁵</div>
+            <div class="meta" id="rhombCount">— rhombi</div>
+        </header>
+
+        <main>
+            <div class="stage" id="stage">
+                <canvas id="tiling"></canvas>
+                <div class="legend">
+                    <div class="row"><span class="sw fat"></span> fat · 72°/108°</div>
+                    <div class="row"><span class="sw thin"></span> thin · 36°/144°</div>
+                </div>
+                <div class="readout" id="readout">
+                    <b>center</b> (0.00, 0.00)<br>
+                    <b>scale</b> 30 px/edge
+                </div>
+            </div>
+
+            <aside>
+
+                <!-- Internal shift -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Internal shift γ</h2>
+                        <span class="hint">&gamma; ∈ (ℝ/ℤ)⁵</span>
+                    </div>
+                    <div id="sliders"></div>
+                    <div class="sum-pill" id="sumPill">
+                        <span>Σ γₖ</span>
+                        <span class="value" id="sumVal">0.000</span>
+                    </div>
+                </section>
+
+                <!-- Parameter space radar -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Parameter radar</h2>
+                        <span class="hint">5-fold view</span>
+                    </div>
+                    <div class="radar-wrap">
+                        <svg viewBox="-1.3 -1.3 2.6 2.6" id="radarSvg" aria-hidden="true"></svg>
+                        <div class="radar-caption">
+                            Each axis carries γₖ ∈ [0,1] along the k-th projection direction. Equal γₖ yields a
+                            five-fold symmetric tiling.
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Presets -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Presets</h2>
+                    </div>
+                    <div class="btn-row">
+                        <button data-preset="sunny">Sunny · γ = ⅕</button>
+                        <button data-preset="starry">Starry · γ = ⅖</button>
+                        <button data-preset="half">Halved · γ = ½</button>
+                        <button data-preset="graded">Graded · k/5</button>
+                        <button data-preset="generic">Generic</button>
+                        <button data-preset="random">Random</button>
+                    </div>
+                </section>
+
+                <!-- Animation -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Animation</h2>
+                        <span class="hint">drift &amp; tumble</span>
+                    </div>
+                    <div class="toggle-row" style="margin-bottom: 12px;">
+                        <button id="wanderBtn">Wander · off</button>
+                        <button id="animBtn">Cubes · off</button>
+                    </div>
+                    <div class="wander-speed">
+                        <span>speed</span>
+                        <input type="range" id="wanderSpeed" min="0.1" max="2" step="0.05" value="1">
+                        <span class="val" id="wanderSpeedVal">1.00</span>
+                    </div>
+                </section>
+
+                <!-- Color mode -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Palette</h2>
+                    </div>
+                    <div class="toggle-row">
+                        <button data-palette="gold" class="active">gold / ink</button>
+                        <button data-palette="bi">bicolor</button>
+                        <button data-palette="orient">by direction</button>
+                        <button data-palette="height">by height</button>
+                    </div>
+                </section>
+
+                <!-- Projection note -->
+                <section class="section">
+                    <div class="proj-wrap">
+                        <em>π : ℝ⁵ → ℝ²,</em> e<sub>k</sub> ↦ (cos 2πk/5, sin 2πk/5).
+                        The three remaining orthogonal directions form the internal space; the shift γ is its
+                        coordinate.
+                        <div class="matrix" id="projMat"></div>
+                    </div>
+                </section>
+
+            </aside>
+        </main>
+
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

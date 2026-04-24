@@ -16,6 +16,11 @@ async function initLobby() {
         currentRoom = roomCode;
         console.log("Room created:", roomCode);
 
+        // Mark the TV as the owner of this room; reassign host if first player
+        // disconnects.
+        setupRoomOwnership(roomCode);
+        setupHostTransfer(roomCode);
+
         // Display room code
         document.getElementById('room-code').textContent = roomCode;
 
@@ -153,6 +158,7 @@ function backToLobby() {
         currentGame.cleanup();
     }
     currentGame = null;
+    resetGameState(currentRoom);
     setRoomState(currentRoom, 'lobby');
     setRoomGame(currentRoom, null);
 }
@@ -160,6 +166,9 @@ function backToLobby() {
 // ─── Game Selection ────────────────────────────────────────
 
 async function selectGame(gameName) {
+    // Clear any leftover game state so the new game's child_added listeners
+    // don't replay stale actions from a previous round.
+    await resetGameState(currentRoom);
     await setRoomGame(currentRoom, gameName);
     await setRoomState(currentRoom, 'playing');
 

@@ -523,13 +523,22 @@ export class Player {
     }
 
     interact() {
-        if (this.currentInteractable) {
-            const userData = this.currentInteractable.userData;
-            console.log(`Interacting with: ${userData.name || 'Unknown'}`);
-            if (userData.onInteract) {
-                userData.onInteract();
+        if (!this.currentInteractable) return;
+        const ud = this.currentInteractable.userData;
+        console.log(`Interacting with: ${ud.name || 'Unknown'}`);
+        // Interior-scene transitions are handled by MathWorld (it owns
+        // scene state, the interior group, and the player terrain fn).
+        if (this.mathWorld) {
+            if (ud.exitInterior) {
+                this.mathWorld.exitInterior();
+                return;
+            }
+            if (ud.interiorId) {
+                this.mathWorld.enterInterior(ud.interiorId);
+                return;
             }
         }
+        if (ud.onInteract) ud.onInteract();
     }
 
     setPositionOnGround(x, y, z, preserveOrientation = false) {

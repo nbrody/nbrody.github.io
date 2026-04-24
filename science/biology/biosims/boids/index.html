@@ -19,18 +19,27 @@
       <p>
         Each agent steers using three local rules — <em>separation</em>,
         <em>alignment</em>, and <em>cohesion</em> — scanning only its nearby
-        neighbours. No leader, no global plan; flocks just emerge. Drag on the
-        canvas to scatter the flock.
+        neighbours. No leader, no global plan; flocks just emerge. In 2D, drag
+        on the canvas to scare the flock; in 3D, drag to orbit the camera.
       </p>
     </section>
 
     <section class="sim-shell">
       <div class="sim-stage">
-        <canvas id="stage" width="900" height="600" aria-label="Boids simulation"></canvas>
+        <canvas id="stage2d" width="900" height="600" aria-label="Boids 2D simulation"></canvas>
+        <canvas id="stage3d" width="900" height="600" aria-label="Boids 3D simulation" style="display:none;"></canvas>
       </div>
 
       <aside class="sim-panel">
         <h2>Controls</h2>
+
+        <div class="row">
+          <label>Dimension</label>
+          <div class="btn-row" style="margin-top: 0.15rem;">
+            <button class="btn primary" id="mode2dBtn" data-mode="2D">2D</button>
+            <button class="btn" id="mode3dBtn" data-mode="3D">3D</button>
+          </div>
+        </div>
 
         <div class="row">
           <label>Boids <span class="val" id="countVal">250</span></label>
@@ -85,6 +94,7 @@
     <footer class="page-footer">BioSims · Boids</footer>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
   <script src="js/boids.js"></script>
 </body>
 </html>

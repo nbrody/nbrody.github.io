@@ -602,9 +602,121 @@ export class UCSCCampus {
             this.group.add(tree);
         }
 
+        // ===== INTERIOR ENTRANCES =====
+        // Pressing E on these portals loads a self-contained interior
+        // scene (see js/interiors/). E again inside exits back here.
+        lib.add(this._makeInteriorEntrance({
+            name: 'Grateful Dead Archive',
+            description: '"The largest archive of Grateful Dead memorabilia in existence" — UCSC Special Collections, donated 2008.',
+            interiorId: 'gratefulDeadArchive',
+            tint: 0xC43D3D,
+            label: 'Grateful Dead Archive',
+            // South face of east wing, clearly visible from approach
+            x: 22, z: 6, rotY: 0
+        }));
+        lib.add(this._makeInteriorEntrance({
+            name: 'Faculty Office 4-12',
+            description: 'Mathematics faculty office on the 4th floor, overlooking the McHenry atrium.',
+            interiorId: 'facultyOffice412',
+            tint: 0x3A5B70,
+            label: 'To Office 4-12 ↑',
+            // Beside the main entry plaza so it's easy to find
+            x: -8, z: -20, rotY: 0
+        }));
+
         lib.position.y = this.getTerrainHeight(0, buildingZ);
         this.group.add(lib);
     }
+
+    // A glowing portal + sign that, on E-press, loads an interior scene.
+    // Placed on the exterior of a building. Works as an ordinary
+    // interactable — main.js picks up `interiorId` and runs the transition.
+    _makeInteriorEntrance(opts) {
+        const g = new THREE.Group();
+        g.userData = {
+            name: opts.name,
+            description: opts.description || '',
+            isInteractable: true,
+            type: 'interiorEntrance',
+            interactionType: 'Enter',
+            interiorId: opts.interiorId
+        };
+
+        // Frame (tinted)
+        const frameMat = new THREE.MeshStandardMaterial({
+            color: opts.tint, emissive: opts.tint, emissiveIntensity: 0.25,
+            roughness: 0.5, metalness: 0.2
+        });
+        // Door panel (darker)
+        const doorMat = new THREE.MeshStandardMaterial({
+            color: 0x1A1A1A, roughness: 0.85
+        });
+        // Subtle glow behind (emissive plane)
+        const glowMat = new THREE.MeshBasicMaterial({
+            color: opts.tint, transparent: true, opacity: 0.35
+        });
+
+        const W = 2.2, H = 3.2, D = 0.25;
+        // Frame
+        const top = new THREE.Mesh(new THREE.BoxGeometry(W + 0.3, 0.2, D), frameMat);
+        top.position.set(0, H + 0.1, 0);
+        g.add(top);
+        for (const sx of [-1, 1]) {
+            const side = new THREE.Mesh(new THREE.BoxGeometry(0.2, H + 0.2, D), frameMat);
+            side.position.set(sx * (W / 2 + 0.15), H / 2, 0);
+            g.add(side);
+        }
+        // Door panel
+        const door = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.1), doorMat);
+        door.position.set(0, H / 2, 0.04);
+        g.add(door);
+        // Glow
+        const glow = new THREE.Mesh(new THREE.PlaneGeometry(W + 0.4, H + 0.5), glowMat);
+        glow.position.set(0, H / 2, -0.05);
+        glow.userData.noCollision = true;
+        g.add(glow);
+        // Sign above
+        const sign = new THREE.Mesh(
+            new THREE.PlaneGeometry(3.2, 0.6),
+            new THREE.MeshBasicMaterial({
+                map: this._makeEntranceSignTexture(opts.label, opts.tint),
+                transparent: true, side: THREE.DoubleSide
+            })
+        );
+        sign.position.set(0, H + 0.7, 0.05);
+        g.add(sign);
+
+        g.position.set(opts.x, 0, opts.z);
+        g.rotation.y = opts.rotY || 0;
+        return g;
+    }
+
+    _makeEntranceSignTexture(text, accentColor) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512; canvas.height = 96;
+        const ctx = canvas.getContext('2d');
+        const c = new THREE.Color(accentColor);
+        c.multiplyScalar(0.25);
+        ctx.fillStyle = `rgb(${Math.round(c.r*255)},${Math.round(c.g*255)},${Math.round(c.b*255)})`;
+        ctx.fillRect(0, 0, 512, 96);
+        ctx.strokeStyle = 'rgba(245,230,200,0.45)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(6, 6, 500, 84);
+        ctx.fillStyle = '#F5EBD0';
+        let fs = 40;
+        ctx.font = `bold ${fs}px "Georgia", serif`;
+        while (ctx.measureText(text).width > 470 && fs > 18) {
+            fs -= 2;
+            ctx.font = `bold ${fs}px "Georgia", serif`;
+        }
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 256, 48);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.anisotropy = 4;
+        return tex;
+    }
+
 
 
     // Helper: Exact footprint check for McHenry Library to prevent overlaps
