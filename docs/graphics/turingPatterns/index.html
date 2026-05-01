@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gray–Scott — Reaction–Diffusion / Turing Patterns</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="app">
+
+        <header>
+            <div class="title">Gray–Scott · <em>reaction–diffusion</em></div>
+            <div class="sub">∂ₜu = D<sub>u</sub>∇²u − uv² + F(1−u)&nbsp;&nbsp;·&nbsp;&nbsp;∂ₜv = D<sub>v</sub>∇²v + uv² − (F+k)v</div>
+            <div class="meta" id="metaReadout">— steps</div>
+        </header>
+
+        <main>
+            <div class="stage" id="stage">
+                <canvas id="sim"></canvas>
+                <div class="legend">
+                    <div class="row"><span class="sw low"></span> v ≈ 0 · only u (substrate)</div>
+                    <div class="row"><span class="sw high"></span> v ≈ 1 · activator</div>
+                </div>
+                <div class="readout" id="readout">
+                    <b>brush</b> <span id="brushReadout">paint v · drag on canvas</span><br>
+                    <b>tool</b> <span id="toolReadout">freehand</span>
+                </div>
+                <div class="hint-overlay" id="hintOverlay">
+                    drag on the canvas to paint a seed of <em>v</em>
+                </div>
+            </div>
+
+            <aside>
+
+                <!-- Parameters -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Kinetics</h2>
+                        <span class="hint">feed &amp; kill</span>
+                    </div>
+                    <div id="paramSliders"></div>
+                </section>
+
+                <!-- Diffusion -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Diffusion</h2>
+                        <span class="hint">D<sub>u</sub>, D<sub>v</sub></span>
+                    </div>
+                    <div id="diffSliders"></div>
+                </section>
+
+                <!-- Integration -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Integration</h2>
+                        <span class="hint">Δt · steps/frame</span>
+                    </div>
+                    <div id="integSliders"></div>
+                </section>
+
+                <!-- Presets -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Presets</h2>
+                        <span class="hint">named regimes</span>
+                    </div>
+                    <div class="btn-row" id="presetRow"></div>
+                </section>
+
+                <!-- Initialization -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Initial state</h2>
+                    </div>
+                    <div class="btn-row">
+                        <button data-init="empty">Clear · u=1</button>
+                        <button data-init="random">Random</button>
+                        <button data-init="centerSeed">Center seed</button>
+                        <button data-init="splatter">Splatter</button>
+                    </div>
+                </section>
+
+                <!-- Brush -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Brush</h2>
+                        <span class="hint">paint v</span>
+                    </div>
+                    <div class="toggle-row" style="margin-bottom: 10px;">
+                        <button data-tool="freehand" class="active">Freehand</button>
+                        <button data-tool="rect">Rect</button>
+                        <button data-tool="circle">Circle</button>
+                        <button data-tool="erase">Erase</button>
+                    </div>
+                    <div id="brushSliders"></div>
+                </section>
+
+                <!-- Palette -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Palette</h2>
+                    </div>
+                    <div class="toggle-row">
+                        <button data-palette="gold" class="active">gold / ink</button>
+                        <button data-palette="ice">ice</button>
+                        <button data-palette="ember">ember</button>
+                        <button data-palette="mono">monochrome</button>
+                    </div>
+                </section>
+
+                <!-- Run controls -->
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Run</h2>
+                    </div>
+                    <div class="btn-row">
+                        <button id="playBtn" class="active">⏸ Pause</button>
+                        <button id="stepBtn">Step ×100</button>
+                    </div>
+                </section>
+
+                <!-- About -->
+                <section class="section">
+                    <div class="proj-wrap">
+                        Two chemicals diffuse and react: <em>v</em> consumes <em>u</em> autocatalytically while <em>u</em> is fed and <em>v</em> is killed. For narrow windows of (F, k) the system is unstable to perturbations of an otherwise uniform state — Turing's mechanism — and patterns emerge.
+                    </div>
+                </section>
+
+            </aside>
+        </main>
+
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

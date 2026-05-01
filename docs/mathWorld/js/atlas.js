@@ -16,6 +16,7 @@ import { REGIONAL_LOCATIONS } from './regionalLocations.js';
 //     northAmerica
 //       western    → norcal → bayArea / santaCruz / yosemite
 //                    socal  → santaBarbara / la
+//                    arizona → sedona
 //       canada     → banff / montreal / britishColumbia
 //       mexico     → cabo / mexicoCity
 //       newYork    → nyc
@@ -45,8 +46,8 @@ const LOCATION_TREE = {
 
     // Regional layer (under a continent)
     western: {
-        children: ['norcal', 'socal'],
-        focusLat: 37.0, focusLon: -120.0, focusHeight: 1800000
+        children: ['norcal', 'socal', 'arizona'],
+        focusLat: 36.0, focusLon: -116.5, focusHeight: 1900000
     },
 
     // Country-level folders under North America
@@ -92,6 +93,10 @@ const LOCATION_TREE = {
     socal: {
         children: ['santaBarbara', 'la'],
         focusLat: 34.3, focusLon: -118.5, focusHeight: 400000
+    },
+    arizona: {
+        children: ['sedona'],
+        focusLat: 34.87, focusLon: -111.76, focusHeight: 550000
     },
 
     // City clusters
@@ -142,6 +147,7 @@ const LOCATION_TREE = {
     chicago:  { children: [], focusLat: 41.8781, focusLon: -87.6298,  focusHeight: 15000 },
     boise:    { children: [], focusLat: 43.6150, focusLon: -116.2023, focusHeight: 10000 },
     maui:     { children: [], focusLat: 20.7984, focusLon: -156.3319, focusHeight: 40000 },
+    sedona:   { children: [], focusLat: 34.8245, focusLon: -111.8063, focusHeight: 12000 },
     banff:    { children: [], focusLat: 51.1784, focusLon: -115.5708, focusHeight: 60000 },
     montreal: { children: [], focusLat: 45.5017, focusLon: -73.5673,  focusHeight: 12000 },
     cabo:     { children: [], focusLat: 22.8905, focusLon: -109.9167, focusHeight: 12000 },

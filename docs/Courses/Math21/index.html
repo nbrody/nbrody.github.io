@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Math 21 — Linear Algebra</title>
+  <meta name="description" content="An interactive online textbook for UCSC Math 21, Fall 2026. Taught by Nic Brody.">
+
+  <!-- KaTeX for math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+
+  <!-- Markdown parser -->
+  <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- Framework styles -->
+  <link rel="stylesheet" href="css/textbook.css">
+</head>
+<body>
+  <!-- Hover trigger zone for TOC (far-left edge) -->
+  <div class="toc-trigger" aria-hidden="true"></div>
+
+  <!-- TOC panel: slides in from the left -->
+  <nav class="toc" id="toc" aria-label="Table of contents">
+    <div class="toc-header">
+      <div class="toc-course">
+        <span class="toc-course-code">Math 21</span>
+        <span class="toc-course-title">Linear Algebra</span>
+      </div>
+      <div class="toc-meta">Fall 2026 · Nic Brody</div>
+      <button class="toc-pin" id="toc-pin" aria-label="Pin table of contents" title="Pin table of contents">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path fill="currentColor" d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .708c-.32.32-.794.4-1.13.27l-2.879 2.88c.027.405.013.95-.014 1.475-.025.485-.067 1.054-.137 1.59L13.78 14.78a.75.75 0 0 1-1.06 1.06l-2.808-2.808-3.535 3.535a.5.5 0 0 1-.708-.707l3.536-3.535-2.97-2.97-2.879 2.879c-.13.336-.05.81.27 1.13a.5.5 0 0 1-.708.707l-4.95-4.95a.5.5 0 0 1 .708-.708c.32.321.794.402 1.13.272l2.88-2.88c-.027-.405-.014-.95.012-1.474.026-.486.068-1.054.138-1.59L.943 1.853a.75.75 0 0 1 1.06-1.06L4.81 3.6 8.347.064a.5.5 0 0 1 .708 0c.32.321.4.795.272 1.131L9.828.722Z"/>
+        </svg>
+      </button>
+    </div>
+    <ol class="toc-list" id="toc-list" role="tree"></ol>
+  </nav>
+
+  <!-- Top-right progress indicator -->
+  <div class="locator" id="locator" aria-live="polite">
+    <div class="locator-chapter" id="locator-chapter">—</div>
+    <div class="locator-section" id="locator-section">Loading…</div>
+  </div>
+
+  <!-- Section dot rail (right edge) -->
+  <ul class="rail" id="rail" aria-label="Section navigation"></ul>
+
+  <!-- Main content viewport -->
+  <main class="textbook" id="textbook">
+    <div class="textbook-track" id="textbook-track">
+      <!-- Title splash -->
+      <section class="page page-splash" data-section-id="splash">
+        <div class="splash-inner">
+          <div class="splash-eyebrow">UCSC · Fall 2026</div>
+          <h1 class="splash-title">Linear Algebra</h1>
+          <div class="splash-subtitle">Math 21 · An Interactive Textbook</div>
+          <div class="splash-author">Nic Brody</div>
+          <div class="splash-hint">
+            <kbd>↓</kbd> or scroll to begin · hover the left edge for contents
+          </div>
+        </div>
+      </section>
+      <!-- Sections are injected here by textbook.js -->
+    </div>
+  </main>
+
+  <!-- Loading state -->
+  <div class="loader" id="loader" aria-hidden="true">
+    <div class="loader-mark">∑</div>
+  </div>
+
+  <!-- Framework scripts (defer so KaTeX/marked load first) -->
+  <script defer src="js/manifest.js"></script>
+  <script defer src="js/toc.js"></script>
+
+  <!-- Demo system: registry must come before any demo file -->
+  <script defer src="js/demos/registry.js"></script>
+  <script defer src="js/demos/plane2d.js"></script>
+  <script defer src="js/demos/vector-playground.js"></script>
+  <script defer src="js/demos/linear-combination.js"></script>
+  <script defer src="js/demos/row-reduction.js"></script>
+  <script defer src="js/demos/tweakable.js"></script>
+  <script defer src="js/demos/transform-3d.js"></script>
+
+  <!-- Textbook engine boots last -->
+  <script defer src="js/textbook.js"></script>
+</body>
+</html>

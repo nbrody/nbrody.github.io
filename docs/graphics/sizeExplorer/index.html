@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Size Explorer · From Quarks to the Cosmos</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="scale-sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="title">Size Explorer</div>
+        <div class="subtitle">quarks → observable universe</div>
+      </div>
+      <div class="track-wrapper" id="track-wrapper">
+        <div class="track" id="track">
+          <div class="track-line"></div>
+          <div class="thumb" id="thumb"></div>
+        </div>
+      </div>
+      <div class="sidebar-footer">
+        <span class="kbd">↑</span><span class="kbd">↓</span> step ·
+        <span class="kbd">Home</span>/<span class="kbd">End</span> ends
+      </div>
+    </aside>
+
+    <main class="viewer" id="viewer">
+      <div class="domain-badge" id="domain">—</div>
+
+      <div class="object-stage" id="stage">
+        <div class="object" id="object">⚛️</div>
+      </div>
+
+      <div class="info">
+        <div class="name" id="name">—</div>
+        <div class="size">
+          <div class="size-sci" id="size-sci">—</div>
+          <div class="size-friendly" id="size-friendly">—</div>
+        </div>
+        <div class="description" id="description">—</div>
+      </div>
+
+      <div class="comparison" id="comparison"></div>
+      <div class="hint">scroll · drag the track · arrow keys</div>
+    </main>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

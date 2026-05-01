@@ -28,6 +28,12 @@ import {
     gpsToLocal as laGpsToLocal,
     getElevation as laGetElevation
 } from './laBasin/index.js';
+import {
+    SedonaTerrain,
+    RedRockCrossing,
+    gpsToLocal as sedonaGpsToLocal,
+    getElevation as sedonaGetElevation
+} from './sedona/index.js';
 import { Player } from './player.js';
 import { Atlas } from './atlas.js';
 import { MobileControls } from './mobileControls.js';
@@ -73,14 +79,18 @@ const LOCATION_REGIONS = {
     topanga: 'laBasin',
     venice: 'laBasin',
     ucla: 'laBasin',
-    laguna: 'laBasin'
+    laguna: 'laBasin',
+
+    // Sedona / Arizona red-rock region
+    sedona: 'sedona'
 };
 
 const REGION_COORDS = {
     santaCruz: { gpsToLocal: scGpsToLocal, getElevation: scGetElevation },
     bayArea: { gpsToLocal: baGpsToLocal, getElevation: baGetElevation },
     santaBarbara: { gpsToLocal: sbGpsToLocal, getElevation: sbGetElevation },
-    laBasin: { gpsToLocal: laGpsToLocal, getElevation: laGetElevation }
+    laBasin: { gpsToLocal: laGpsToLocal, getElevation: laGetElevation },
+    sedona: { gpsToLocal: sedonaGpsToLocal, getElevation: sedonaGetElevation }
 };
 
 function getRegionForLocation(locationId) {
@@ -246,6 +256,8 @@ class MathWorld {
             this.terrain = new SantaBarbaraTerrain(this.scene);
         } else if (targetRegion === 'laBasin') {
             this.terrain = new LABasinTerrain(this.scene);
+        } else if (targetRegion === 'sedona') {
+            this.terrain = new SedonaTerrain(this.scene);
         } else {
             this.terrain = new SantaCruzTerrain(this.scene);
         }
@@ -316,6 +328,9 @@ class MathWorld {
                 break;
             case 'venice':
                 this.locationContent = new VeniceBeach(this.locationGroup, localTerrainFn);
+                break;
+            case 'sedona':
+                this.locationContent = new RedRockCrossing(this.locationGroup, localTerrainFn);
                 break;
         }
 
@@ -688,6 +703,10 @@ class MathWorld {
             // the skatepark, and the Santa Monica Pier at the far end.
             spawnX = 3; spawnZ = 8; faceTowardZ = -200;
             initialYaw = 0; // forward = -Z (north, up the boardwalk)
+        } else if (locationId === 'sedona') {
+            // Spawn on the Devil's Kitchen rim, facing into the Soldier Pass sinkhole.
+            spawnX = 56; spawnZ = -268; faceTowardZ = -320;
+            initialYaw = 0; // forward = -Z (north, into Devil's Kitchen)
         }
 
         this.camera.position.set(local.x + spawnX, elevation + 1.7, local.z + spawnZ);
@@ -728,6 +747,7 @@ class MathWorld {
             region === 'bayArea' ? 'SF Bay Area' :
             region === 'santaBarbara' ? 'Santa Barbara' :
             region === 'laBasin' ? 'Greater LA' :
+            region === 'sedona' ? 'Sedona' :
             'Santa Cruz';
         this.showLocation(`${locData.name} - ${regionLabel}`);
     }

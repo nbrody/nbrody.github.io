@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ice Wall — Voronoi + Domain-Warped FBM</title>
+    <meta name="description"
+        content="Procedural shader inspired by the LINQ Las Vegas LED entrance: domain-warped fbm meltwater layered with a Voronoi ice-block tessellation and a vertical waterfall band.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <canvas id="glCanvas"></canvas>
+
+    <!-- Control Panel -->
+    <div id="controls" class="controls">
+        <h1 id="title">Ice Wall</h1>
+        <div class="subtitle">
+            Voronoi ice-blocks over domain-warped fbm.<br>
+            Inspired by the LINQ Las Vegas LED entrance.
+        </div>
+
+        <div class="section-label">Flow</div>
+
+        <div class="control-group">
+            <label for="speedSlider">Flow Speed <span id="speedValue" class="value-badge">0.40</span></label>
+            <input type="range" id="speedSlider" min="0.0" max="2.0" step="0.01" value="0.40">
+        </div>
+
+        <div class="control-group">
+            <label for="warpSlider">Warp Strength <span id="warpValue" class="value-badge">3.50</span></label>
+            <input type="range" id="warpSlider" min="0.0" max="8.0" step="0.05" value="3.50">
+        </div>
+
+        <div class="control-group">
+            <label for="patternSlider">Pattern Scale <span id="patternValue" class="value-badge">2.20</span></label>
+            <input type="range" id="patternSlider" min="0.5" max="6.0" step="0.05" value="2.20">
+        </div>
+
+        <div class="section-label">Bricks</div>
+
+        <div class="control-group">
+            <label for="brickScaleSlider">Brick Density <span id="brickScaleValue" class="value-badge">9.0</span></label>
+            <input type="range" id="brickScaleSlider" min="2.0" max="24.0" step="0.1" value="9.0">
+        </div>
+
+        <div class="control-group">
+            <label for="rimSlider">Rim Sharpness <span id="rimValue" class="value-badge">1.00</span></label>
+            <input type="range" id="rimSlider" min="0.1" max="3.0" step="0.01" value="1.00">
+        </div>
+
+        <div class="control-group">
+            <label for="cellTintSlider">Cell Tint Variation <span id="cellTintValue" class="value-badge">0.30</span></label>
+            <input type="range" id="cellTintSlider" min="0.0" max="0.8" step="0.01" value="0.30">
+        </div>
+
+        <div class="control-group">
+            <label for="brickJitterSlider">Brick Jitter <span id="brickJitterValue" class="value-badge">0.30</span></label>
+            <input type="range" id="brickJitterSlider" min="0.0" max="1.0" step="0.01" value="0.30">
+        </div>
+
+        <div class="section-label">Waterfall</div>
+
+        <div class="control-group toggle-row">
+            <label for="waterfallToggle">Enable Waterfall</label>
+            <input type="checkbox" id="waterfallToggle" checked>
+        </div>
+
+        <div class="control-group">
+            <label for="waterfallXSlider">Position X <span id="waterfallXValue" class="value-badge">0.50</span></label>
+            <input type="range" id="waterfallXSlider" min="0.0" max="1.0" step="0.005" value="0.50">
+        </div>
+
+        <div class="control-group">
+            <label for="waterfallWidthSlider">Width <span id="waterfallWidthValue" class="value-badge">0.10</span></label>
+            <input type="range" id="waterfallWidthSlider" min="0.02" max="0.40" step="0.005" value="0.10">
+        </div>
+
+        <div class="control-group">
+            <label for="waterfallSpeedSlider">Fall Speed <span id="waterfallSpeedValue" class="value-badge">3.00</span></label>
+            <input type="range" id="waterfallSpeedSlider" min="0.0" max="10.0" step="0.05" value="3.00">
+        </div>
+
+        <div class="section-label">Look</div>
+
+        <div class="control-group">
+            <label for="sparkleSlider">Sparkle <span id="sparkleValue" class="value-badge">0.40</span></label>
+            <input type="range" id="sparkleSlider" min="0.0" max="1.5" step="0.01" value="0.40">
+        </div>
+
+        <div class="control-group">
+            <label for="hueSlider">Hue Shift <span id="hueValue" class="value-badge">0°</span></label>
+            <input type="range" id="hueSlider" min="-60" max="60" step="1" value="0">
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="ledGridToggle">LED Tile Grid</label>
+            <input type="checkbox" id="ledGridToggle">
+        </div>
+
+        <div class="control-group" id="ledDensityGroup">
+            <label for="ledDensitySlider">LED Density <span id="ledDensityValue" class="value-badge">100</span></label>
+            <input type="range" id="ledDensitySlider" min="20" max="240" step="1" value="100">
+        </div>
+
+        <div class="stats" id="stats">
+            <span id="fpsCounter">60 fps</span>
+            <span id="resolution">1920×1080</span>
+        </div>
+
+        <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
+        <button id="pauseBtn" class="pause-btn">⏸ Pause</button>
+    </div>
+
+    <!-- Instructions overlay -->
+    <div id="instructions" class="instructions">
+        <span>🖱️ Click to set waterfall · <kbd>H</kbd> toggle panel · <kbd>Space</kbd> pause</span>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+
+</html>

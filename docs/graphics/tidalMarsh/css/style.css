@@ -1,0 +1,409 @@
+:root {
+    --bg: #0c0a07;
+    --bg-tint: #15110c;
+    --panel: #120f0a;
+    --rule: #2a2319;
+    --rule-dim: #1c1711;
+    --ink: #ebdfc6;
+    --ink-dim: #9a8e74;
+    --ink-mute: #625a4a;
+    --gold: #b9a766;
+    --gold-soft: #8e7d4a;
+    --green: #8fa570;
+    --water: #5e7a72;
+    --accent: var(--green);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Manrope', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+.app {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100dvh;
+}
+
+/* ---------- Header ---------- */
+header {
+    padding: 14px 22px 12px;
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 18px;
+    background: linear-gradient(180deg, var(--bg-tint) 0%, var(--bg) 100%);
+}
+
+header .title {
+    font-family: 'Fraunces', serif;
+    font-size: 17px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+header .title em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--green);
+}
+
+header .sub {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-dim);
+    letter-spacing: 0.005em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+header .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Main layout ---------- */
+main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    min-height: 0;
+}
+
+.stage {
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 45%, #15110c 0%, #0c0a07 70%);
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+/* Floating legend on canvas */
+.legend {
+    position: absolute;
+    left: 18px;
+    bottom: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 13px;
+    background: rgba(12, 10, 7, 0.7);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    backdrop-filter: blur(6px);
+    font-size: 11px;
+    color: var(--ink-dim);
+    letter-spacing: 0.02em;
+    pointer-events: none;
+}
+
+.legend .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.legend .sw {
+    width: 14px;
+    height: 10px;
+    border-radius: 1px;
+}
+
+.legend .sw.water {
+    background: #5b6f5e;
+}
+
+.legend .sw.low {
+    background: #87a274;
+}
+
+.legend .sw.high {
+    background: #c1bd86;
+}
+
+/* Hint overlay */
+.hint-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 12px 22px;
+    background: rgba(12, 10, 7, 0.7);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    backdrop-filter: blur(6px);
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-dim);
+    letter-spacing: 0.01em;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.4s;
+}
+
+.hint-overlay em {
+    color: var(--green);
+}
+
+.hint-overlay.hidden {
+    opacity: 0;
+}
+
+/* ---------- Controls ---------- */
+aside {
+    background: var(--panel);
+    border-left: 1px solid var(--rule);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+aside::-webkit-scrollbar {
+    width: 8px;
+}
+
+aside::-webkit-scrollbar-thumb {
+    background: var(--rule);
+}
+
+aside::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.section {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--rule-dim);
+}
+
+.section:last-child {
+    border-bottom: none;
+}
+
+.section-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.section-title h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+}
+
+.section-title .hint {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 11.5px;
+    color: var(--ink-mute);
+}
+
+/* Sliders */
+.slider-row {
+    display: grid;
+    grid-template-columns: 56px 1fr 60px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 7px;
+}
+
+.slider-row .name {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink);
+}
+
+.slider-row .name sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+    font-size: 10px;
+    color: var(--ink-dim);
+    margin-left: 1px;
+}
+
+.slider-row .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-dim);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 18px;
+    background: transparent;
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+    height: 1px;
+    background: var(--rule);
+}
+
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 11px;
+    height: 11px;
+    margin-top: -5px;
+    border-radius: 50%;
+    background: var(--green);
+    cursor: pointer;
+    box-shadow: 0 0 0 1px var(--bg), 0 0 8px rgba(143, 165, 112, 0.35);
+    transition: transform 0.1s;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+input[type=range]::-moz-range-track {
+    height: 1px;
+    background: var(--rule);
+}
+
+input[type=range]::-moz-range-thumb {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--green);
+    border: none;
+    cursor: pointer;
+}
+
+/* Buttons */
+.btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+button {
+    font-family: 'Manrope', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    background: transparent;
+    color: var(--ink-dim);
+    border: 1px solid var(--rule);
+    padding: 8px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+button:hover {
+    border-color: var(--gold-soft);
+    color: var(--ink);
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+.toggle-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.toggle-row button.active,
+#playBtn.active {
+    background: rgba(143, 165, 112, 0.12);
+    color: var(--green);
+    border-color: var(--gold-soft);
+}
+
+/* About blurb */
+.proj-wrap {
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+    color: var(--ink-dim);
+    line-height: 1.65;
+}
+
+.proj-wrap em {
+    color: var(--green);
+    font-style: italic;
+}
+
+/* Mobile */
+@media (max-width: 800px) {
+    main {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+    }
+
+    aside {
+        border-left: none;
+        border-top: 1px solid var(--rule);
+        max-height: 56vh;
+    }
+
+    header .meta,
+    header .sub {
+        display: none;
+    }
+}
+
+/* Fade-in */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: none; }
+}
+
+.stage {
+    animation: fadeIn 0.5s ease-out 0.15s both;
+}
+
+aside > * {
+    animation: fadeIn 0.45s ease-out both;
+}
+
+aside > *:nth-child(1) { animation-delay: 0.05s; }
+aside > *:nth-child(2) { animation-delay: 0.10s; }
+aside > *:nth-child(3) { animation-delay: 0.15s; }
+aside > *:nth-child(4) { animation-delay: 0.20s; }
+aside > *:nth-child(5) { animation-delay: 0.25s; }
+aside > *:nth-child(6) { animation-delay: 0.30s; }
+aside > *:nth-child(7) { animation-delay: 0.35s; }
+aside > *:nth-child(8) { animation-delay: 0.40s; }

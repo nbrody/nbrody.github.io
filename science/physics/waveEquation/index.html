@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wave Equation — Physics</title>
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <style>
+    html, body { height: 100%; }
+    body { overflow: hidden; }
+
+    #stage {
+      position: fixed; inset: 0;
+      width: 100vw; height: 100vh;
+      display: block; background: #03050b;
+      touch-action: none; cursor: crosshair; z-index: 0;
+    }
+    body.tool-wall #stage { cursor: cell; }
+
+    .ui-toggle {
+      position: fixed; top: 1rem; right: 1rem; z-index: 30;
+      width: 44px; height: 44px; padding: 0; border-radius: 12px;
+      border: 1px solid var(--panel-border); background: var(--panel);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      color: var(--ink); cursor: pointer; display: flex;
+      align-items: center; justify-content: center; box-shadow: var(--shadow);
+    }
+    .ui-toggle:hover { border-color: var(--panel-border-strong); }
+    .ui-toggle svg { width: 20px; height: 20px; }
+    .ui-toggle .icon-close { display: none; }
+    body.ui-open .ui-toggle .icon-open { display: none; }
+    body.ui-open .ui-toggle .icon-close { display: block; }
+
+    .ui-overlay {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: min(380px, 92vw); z-index: 20;
+      overflow-y: auto; padding: 4.25rem 1.25rem 1.5rem;
+      background: linear-gradient(180deg, rgba(6, 8, 15, 0.9), rgba(6, 8, 15, 0.74));
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      border-left: 1px solid var(--panel-border);
+      transform: translateX(100%); transition: transform 280ms ease;
+    }
+    body.ui-open .ui-overlay { transform: translateX(0); }
+
+    .ui-overlay .breadcrumb { margin-bottom: 1rem; font-size: 0.82rem; }
+    .ui-overlay .hero { padding: 1.1rem 1.25rem; border-radius: 16px; margin-bottom: 1rem; }
+    .ui-overlay .hero h1 { font-size: 1.35rem; }
+    .ui-overlay .hero p { font-size: 0.9rem; margin-top: 0.5rem; }
+    .ui-overlay .hero__badge { font-size: 0.7rem; margin-bottom: 0.6rem; }
+    .ui-overlay .sim-panel { margin-bottom: 1rem; box-shadow: none; }
+    .ui-overlay .page-footer { margin-top: 1.25rem; text-align: left; font-size: 0.78rem; }
+
+    .view-hint {
+      position: fixed; left: 1rem; bottom: 1rem; z-index: 5;
+      color: var(--muted); font-size: 0.78rem; letter-spacing: 0.04em;
+      background: rgba(6, 8, 15, 0.55);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      padding: 0.5rem 0.75rem; border-radius: 10px;
+      border: 1px solid var(--panel-border); pointer-events: none; max-width: 70vw;
+    }
+    .view-hint kbd {
+      display: inline-block; padding: 0 0.35rem; border-radius: 4px;
+      border: 1px solid rgba(138, 180, 255, 0.3);
+      background: rgba(138, 180, 255, 0.08); font: inherit; color: var(--ink);
+    }
+
+    .stat-row {
+      display: flex; justify-content: space-between;
+      font-size: 0.82rem; color: var(--muted);
+      letter-spacing: 0.04em; padding: 0.15rem 0;
+    }
+    .stat-row .val { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+    .seg {
+      display: flex; gap: 0.3rem; flex-wrap: wrap;
+    }
+    .seg .btn { flex: 1 1 auto; padding: 0.4rem 0.6rem; font-size: 0.8rem; }
+    .seg .btn.active {
+      background: rgba(110, 243, 196, 0.22);
+      border-color: rgba(110, 243, 196, 0.6);
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body class="ui-open">
+  <canvas id="stage" aria-label="Wave equation simulation"></canvas>
+
+  <button class="ui-toggle" id="uiToggle" aria-label="Toggle controls" title="Toggle controls (U)">
+    <svg class="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+  </button>
+
+  <div class="view-hint">
+    Click to pulse · drag with <kbd>Shift</kbd> to paint walls · <kbd>U</kbd> UI · <kbd>Space</kbd> pause · <kbd>R</kbd> reset
+  </div>
+
+  <div class="ui-overlay" id="uiOverlay">
+    <nav class="breadcrumb">
+      <a href="../../../index.html">Home</a> /
+      <a href="../index.html">Physics</a> / Wave Equation
+    </nav>
+
+    <section class="hero">
+      <span class="hero__badge">Hyperbolic PDE</span>
+      <h1>Wave Equation</h1>
+      <p>
+        The 2D scalar wave equation
+        <em>∂²u/∂t² = c² ∇²u</em>, integrated with a leapfrog finite-difference
+        scheme. Click to drop a Gaussian pulse, drag with <kbd>Shift</kbd> to
+        paint reflective walls, or load a preset like the double slit.
+      </p>
+    </section>
+
+    <aside class="sim-panel">
+      <h2>Controls</h2>
+
+      <div class="row">
+        <label>Grid resolution <span class="val" id="resVal">300</span></label>
+        <input type="range" id="res" min="120" max="500" step="20" value="300" />
+      </div>
+
+      <div class="row">
+        <label>Wave speed κ = c·dt/h <span class="val" id="speedVal">0.50</span></label>
+        <input type="range" id="speed" min="0.10" max="0.70" step="0.01" value="0.50" />
+      </div>
+
+      <div class="row">
+        <label>Damping <span class="val" id="dampVal">0.0005</span></label>
+        <input type="range" id="damp" min="0" max="0.01" step="0.0001" value="0.0005" />
+      </div>
+
+      <div class="row">
+        <label>Pulse amplitude <span class="val" id="ampVal">1.0</span></label>
+        <input type="range" id="amp" min="0.1" max="3.0" step="0.05" value="1.0" />
+      </div>
+
+      <div class="row">
+        <label>Pulse width <span class="val" id="pulseWidthVal">3</span></label>
+        <input type="range" id="pulseWidth" min="1" max="10" step="1" value="3" />
+      </div>
+
+      <div class="row">
+        <label>Brush size <span class="val" id="brushVal">5</span></label>
+        <input type="range" id="brush" min="1" max="20" step="1" value="5" />
+      </div>
+
+      <div class="row" style="margin-top: 0.4rem;">
+        <label>Boundaries</label>
+        <div class="seg" id="bndSeg">
+          <button class="btn active" data-bnd="reflect">Reflect</button>
+          <button class="btn" data-bnd="absorb">Absorb</button>
+          <button class="btn" data-bnd="wrap">Periodic</button>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top: 0.6rem;">
+        <label>Click action</label>
+        <div class="seg" id="toolSeg">
+          <button class="btn active" data-tool="pulse">Pulse</button>
+          <button class="btn" data-tool="wall">Wall</button>
+          <button class="btn" data-tool="erase">Erase</button>
+          <button class="btn" data-tool="src">Source</button>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top: 0.6rem;">
+        <label>Source frequency <span class="val" id="freqVal">0.10</span></label>
+        <input type="range" id="freq" min="0.02" max="0.40" step="0.01" value="0.10" />
+      </div>
+
+      <div class="row" style="margin-top: 0.4rem;">
+        <label>Color palette</label>
+        <select id="palette" class="select">
+          <option value="diverging">Red ↔ Blue</option>
+          <option value="thermal">Thermal</option>
+          <option value="viridis">Viridis</option>
+          <option value="mono">Monochrome</option>
+        </select>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn primary" id="playBtn">Pause</button>
+        <button class="btn" id="resetBtn">Reset</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="clearWallsBtn">Clear walls</button>
+        <button class="btn danger" id="clearAllBtn">Clear all</button>
+      </div>
+
+      <div class="row" style="margin-top: 0.6rem;">
+        <label>Preset</label>
+        <select id="preset" class="select">
+          <option value="">— choose —</option>
+          <option value="pulse">Single Gaussian pulse</option>
+          <option value="doubleSlit">Double slit</option>
+          <option value="singleSlit">Single slit (diffraction)</option>
+          <option value="lens">Convex barrier (gap)</option>
+          <option value="cavity">Resonant cavity</option>
+          <option value="twoSrc">Two-source interference</option>
+        </select>
+      </div>
+
+      <div style="margin-top: 1rem;">
+        <div class="stat-row"><span>Resolution</span><span class="val" id="statRes">—</span></div>
+        <div class="stat-row"><span>Step</span><span class="val" id="statStep">0</span></div>
+        <div class="stat-row"><span>Solver ms</span><span class="val" id="statMs">0.0</span></div>
+        <div class="stat-row"><span>Max |u|</span><span class="val" id="statAmp">0.00</span></div>
+      </div>
+
+      <details>
+        <summary>About the method</summary>
+        <p>
+          Each step uses the leapfrog stencil
+          <em>u<sup>n+1</sup> = 2u<sup>n</sup> − u<sup>n−1</sup> + κ²·∇²u<sup>n</sup></em>,
+          where κ = c·dt/h is the dimensionless wave speed; CFL stability in 2D
+          requires κ ≤ 1/√2. Walls clamp u to zero (perfect reflectors).
+          Absorbing boundaries use a Mur 1st-order condition that lets outgoing
+          waves leave the domain without reflecting.
+        </p>
+      </details>
+    </aside>
+
+    <footer class="page-footer">Physics · Wave Equation</footer>
+  </div>
+
+  <script src="js/wave.js"></script>
+</body>
+</html>

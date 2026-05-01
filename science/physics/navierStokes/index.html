@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Navier–Stokes — Physics</title>
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <style>
+    html, body { height: 100%; }
+    body { overflow: hidden; }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: #03050b;
+      touch-action: none;
+      cursor: crosshair;
+      z-index: 0;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+    }
+
+    .ui-toggle {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 30;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border-radius: 12px;
+      border: 1px solid var(--panel-border);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      color: var(--ink);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow);
+    }
+    .ui-toggle:hover { border-color: var(--panel-border-strong); }
+    .ui-toggle svg { width: 20px; height: 20px; }
+    .ui-toggle .icon-close { display: none; }
+    body.ui-open .ui-toggle .icon-open { display: none; }
+    body.ui-open .ui-toggle .icon-close { display: block; }
+
+    .ui-overlay {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(380px, 92vw);
+      z-index: 20;
+      overflow-y: auto;
+      padding: 4.25rem 1.25rem 1.5rem;
+      background: linear-gradient(180deg, rgba(6, 8, 15, 0.9), rgba(6, 8, 15, 0.74));
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-left: 1px solid var(--panel-border);
+      transform: translateX(100%);
+      transition: transform 280ms ease;
+    }
+    body.ui-open .ui-overlay { transform: translateX(0); }
+
+    .ui-overlay .breadcrumb { margin-bottom: 1rem; font-size: 0.82rem; }
+    .ui-overlay .hero {
+      padding: 1.1rem 1.25rem;
+      border-radius: 16px;
+      margin-bottom: 1rem;
+    }
+    .ui-overlay .hero h1 { font-size: 1.35rem; }
+    .ui-overlay .hero p { font-size: 0.9rem; margin-top: 0.5rem; }
+    .ui-overlay .hero__badge { font-size: 0.7rem; margin-bottom: 0.6rem; }
+    .ui-overlay .sim-panel { margin-bottom: 1rem; box-shadow: none; }
+    .ui-overlay .page-footer { margin-top: 1.25rem; text-align: left; font-size: 0.78rem; }
+
+    .view-hint {
+      position: fixed;
+      left: 1rem;
+      bottom: 1rem;
+      z-index: 5;
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      background: rgba(6, 8, 15, 0.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 0.5rem 0.75rem;
+      border-radius: 10px;
+      border: 1px solid var(--panel-border);
+      pointer-events: none;
+      max-width: 70vw;
+    }
+    .view-hint kbd {
+      display: inline-block;
+      padding: 0 0.35rem;
+      border-radius: 4px;
+      border: 1px solid rgba(138, 180, 255, 0.3);
+      background: rgba(138, 180, 255, 0.08);
+      font: inherit;
+      color: var(--ink);
+    }
+
+    .stat-row {
+      display: flex; justify-content: space-between;
+      font-size: 0.82rem; color: var(--muted);
+      letter-spacing: 0.04em; padding: 0.15rem 0;
+    }
+    .stat-row .val { color: var(--accent); font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body class="ui-open">
+  <canvas id="stage" aria-label="Navier–Stokes fluid simulation"></canvas>
+
+  <button class="ui-toggle" id="uiToggle" aria-label="Toggle controls" title="Toggle controls (U)">
+    <svg class="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+  </button>
+
+  <div class="view-hint">Drag to push fluid &amp; inject dye · <kbd>U</kbd> toggle UI · <kbd>Space</kbd> pause · <kbd>R</kbd> reset</div>
+
+  <div class="ui-overlay" id="uiOverlay">
+    <nav class="breadcrumb">
+      <a href="../../../index.html">Home</a> /
+      <a href="../index.html">Physics</a> / Navier–Stokes
+    </nav>
+
+    <section class="hero">
+      <span class="hero__badge">Fluids</span>
+      <h1>Navier–Stokes</h1>
+      <p>
+        A real-time solver for the incompressible Navier–Stokes equations on a
+        regular grid, using Jos Stam's <em>Stable Fluids</em> method: advect,
+        diffuse, then project onto the divergence-free subspace. Drag on the
+        canvas to apply force and inject dye.
+      </p>
+    </section>
+
+    <aside class="sim-panel">
+      <h2>Controls</h2>
+
+      <div class="row">
+        <label>Grid resolution <span class="val" id="resVal">160</span></label>
+        <input type="range" id="res" min="64" max="320" step="16" value="160" />
+      </div>
+
+      <div class="row">
+        <label>Viscosity <span class="val" id="viscVal">0.0000</span></label>
+        <input type="range" id="visc" min="0" max="0.001" step="0.00001" value="0" />
+      </div>
+
+      <div class="row">
+        <label>Diffusion <span class="val" id="diffVal">0.0000</span></label>
+        <input type="range" id="diff" min="0" max="0.001" step="0.00001" value="0" />
+      </div>
+
+      <div class="row">
+        <label>Time step <span class="val" id="dtVal">0.10</span></label>
+        <input type="range" id="dt" min="0.02" max="0.30" step="0.01" value="0.10" />
+      </div>
+
+      <div class="row">
+        <label>Dye fade <span class="val" id="fadeVal">0.992</span></label>
+        <input type="range" id="fade" min="0.95" max="1.00" step="0.001" value="0.992" />
+      </div>
+
+      <div class="row">
+        <label>Vorticity <span class="val" id="vortVal">2.0</span></label>
+        <input type="range" id="vort" min="0" max="8" step="0.1" value="2.0" />
+      </div>
+
+      <div class="row">
+        <label>Brush size <span class="val" id="brushVal">3</span></label>
+        <input type="range" id="brush" min="1" max="10" step="1" value="3" />
+      </div>
+
+      <div class="row">
+        <label>Force strength <span class="val" id="forceVal">6</span></label>
+        <input type="range" id="force" min="1" max="30" step="0.5" value="6" />
+      </div>
+
+      <div class="row" style="margin-top: 0.4rem;">
+        <label>Color palette</label>
+        <select id="palette" class="select">
+          <option value="aurora">Aurora</option>
+          <option value="ember">Ember</option>
+          <option value="ocean">Ocean</option>
+          <option value="ink">Inkwell</option>
+          <option value="rainbow">Rainbow</option>
+        </select>
+      </div>
+
+      <div class="row" style="margin-top: 0.4rem;">
+        <label>Display field</label>
+        <select id="display" class="select">
+          <option value="dye">Dye density</option>
+          <option value="speed">Speed magnitude</option>
+          <option value="vort">Vorticity (curl)</option>
+          <option value="press">Pressure</option>
+        </select>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn primary" id="playBtn">Pause</button>
+        <button class="btn" id="resetBtn">Reset</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="splatBtn">Random splats</button>
+        <button class="btn" id="boundaryBtn">Walls: on</button>
+      </div>
+
+      <div style="margin-top: 1rem;">
+        <div class="stat-row"><span>Resolution</span><span class="val" id="statRes">—</span></div>
+        <div class="stat-row"><span>Step</span><span class="val" id="statStep">0</span></div>
+        <div class="stat-row"><span>Solver ms</span><span class="val" id="statMs">0.0</span></div>
+        <div class="stat-row"><span>Max ‖u‖</span><span class="val" id="statSpd">0.00</span></div>
+      </div>
+
+      <details>
+        <summary>About the method</summary>
+        <p>
+          Stam's stable fluids splits each step into four pieces: add forces,
+          diffuse via implicit Gauss–Seidel, advect by tracing each cell back
+          along the velocity field (semi-Lagrangian), then project the result
+          onto the divergence-free subspace by solving a Poisson equation for
+          pressure. The same solver is reused to advect a passive dye field for
+          visualization. Vorticity confinement adds a small curl-amplifying
+          force to compensate for numerical diffusion of small eddies.
+        </p>
+      </details>
+    </aside>
+
+    <footer class="page-footer">Physics · Navier–Stokes</footer>
+  </div>
+
+  <script src="js/fluid.js"></script>
+</body>
+</html>

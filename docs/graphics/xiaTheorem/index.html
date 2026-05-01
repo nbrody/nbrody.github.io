@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xia's Theorem — 5-Body Singularity</title>
+    <meta name="description"
+        content="Three.js simulation of Xia's 5-body configuration: two counter-rotating binaries with a central oscillator, illustrating non-collision singularities in the Newtonian n-body problem.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Control Panel -->
+    <div id="controls" class="controls">
+        <h1 id="title">Xia's Theorem</h1>
+        <p class="subtitle">Two counter-rotating binaries · one bouncing oscillator</p>
+
+        <div class="control-group toggle-row">
+            <label for="playPause">Running</label>
+            <input type="checkbox" id="playPause" checked>
+        </div>
+
+        <div class="control-group">
+            <label for="speedSlider">Time Speed <span id="speedValue" class="value-badge">1.0×</span></label>
+            <input type="range" id="speedSlider" min="0.1" max="3.0" step="0.05" value="1.0">
+        </div>
+
+        <div class="control-group">
+            <label for="softSlider">Softening ε <span id="softValue" class="value-badge">0.005</span></label>
+            <input type="range" id="softSlider" min="0.0005" max="0.100" step="0.0005" value="0.005">
+        </div>
+
+        <div class="control-group">
+            <label for="centralMass">Central Mass m₅ <span id="centralValue" class="value-badge">0.50</span></label>
+            <input type="range" id="centralMass" min="0.05" max="2.00" step="0.05" value="0.50">
+        </div>
+
+        <div class="control-group">
+            <label for="kickSlider">Initial Kick v<sub>z</sub> <span id="kickValue" class="value-badge">1.80</span></label>
+            <input type="range" id="kickSlider" min="0.0" max="4.0" step="0.05" value="1.80">
+        </div>
+
+        <div class="control-group">
+            <label for="trailLen">Trail Length <span id="trailValue" class="value-badge">600</span></label>
+            <input type="range" id="trailLen" min="50" max="1500" step="25" value="600">
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="autoOrbit">Auto-Orbit Camera</label>
+            <input type="checkbox" id="autoOrbit">
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="followCom">Follow Center of Mass</label>
+            <input type="checkbox" id="followCom" checked>
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="autoZoom">Auto-Zoom (track extent)</label>
+            <input type="checkbox" id="autoZoom" checked>
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="showBloom">Bloom Glow</label>
+            <input type="checkbox" id="showBloom" checked>
+        </div>
+
+        <div class="stats" id="stats">
+            <span id="simTime">t = 0.00</span>
+            <span id="energyBadge">E = —</span>
+        </div>
+        <div class="stats" id="stats2">
+            <span id="speedBadge">v<sub>max</sub> = —</span>
+            <span id="extentBadge">R = —</span>
+        </div>
+        <div class="stats" id="stats3">
+            <span id="peakBadge">v<sub>peak</sub> = —</span>
+            <span id="dtBadge">dt = —</span>
+        </div>
+
+        <button id="resetBtn" class="reset-btn">↻ Reset</button>
+    </div>
+
+    <!-- Legend overlay -->
+    <div id="legend" class="legend">
+        <div class="legend-row"><span class="dot" style="background:#ff5577"></span> Body 1 · upper binary</div>
+        <div class="legend-row"><span class="dot" style="background:#55aaff"></span> Body 2 · upper binary</div>
+        <div class="legend-row"><span class="dot" style="background:#ff9944"></span> Body 3 · lower binary</div>
+        <div class="legend-row"><span class="dot" style="background:#44ddaa"></span> Body 4 · lower binary</div>
+        <div class="legend-row"><span class="dot" style="background:#ffee66"></span> Body 5 · oscillator</div>
+    </div>
+
+    <!-- Instructions overlay -->
+    <div id="instructions" class="instructions">
+        <span>🖱️ Drag to orbit · Scroll to zoom · <kbd>Space</kbd> pause · <kbd>R</kbd> reset · <kbd>H</kbd> hide panel</span>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module" src="sim.js"></script>
+</body>
+
+</html>

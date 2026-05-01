@@ -14,6 +14,8 @@
  *             islaVista, ucsb, downtownSB
  *           la
  *             venice, ucla, laguna
+ *         arizona
+ *           sedona
  *       (other states – placeholders)
  *     (other continents – placeholders)
  *
@@ -49,7 +51,7 @@ export const REGIONAL_LOCATIONS = {
     // === REGIONS (large North American zones) ===
     western: {
         name: 'Western US',
-        description: 'California and the West Coast',
+        description: 'California, Arizona and the western landscapes',
         lat: 37.0, lon: -120.0,
         type: 'region',
         hasContent: false,
@@ -88,6 +90,14 @@ export const REGIONAL_LOCATIONS = {
         description: 'Santa Barbara, LA and beyond',
         lat: 34.3, lon: -118.5,
         type: 'region',
+        hasContent: false,
+        scaleLevel: 'subregion'
+    },
+    arizona: {
+        name: 'Arizona',
+        description: 'Red-rock country, mesas, canyons and desert sky',
+        lat: 34.87, lon: -111.76,
+        type: 'state',
         hasContent: false,
         scaleLevel: 'subregion'
     },
@@ -198,6 +208,16 @@ export const REGIONAL_LOCATIONS = {
         name: 'Laguna Beach', description: 'Coming soon',
         lat: 33.5427, lon: -117.7854,
         type: 'landmark', hasContent: false, scaleLevel: 'city'
+    },
+
+    // Arizona
+    sedona: {
+        name: 'Sedona',
+        description: 'Red Rock Crossing, Oak Creek, Cathedral Rock spires, junipers and desert trails',
+        lat: 34.8244629, lon: -111.8062666,
+        type: 'nature',
+        hasContent: true,
+        scaleLevel: 'city'
     },
 
     // === COUNTRY / REGIONAL FOLDERS ===

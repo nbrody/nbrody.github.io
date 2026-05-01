@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tidal Marsh — Dendritic Channel Networks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="app">
+
+        <header>
+            <div class="title">Tidal Marsh · <em>channelization instability</em></div>
+            <div class="sub">∂ₜh = −K · A<sup>m</sup> · S<sup>n</sup> &nbsp;+&nbsp; D ∇²h &nbsp;+&nbsp; U &nbsp;&nbsp;·&nbsp;&nbsp; A: drainage area &nbsp; S: slope &nbsp; U: tidal supply</div>
+            <div class="meta" id="metaReadout">— steps</div>
+        </header>
+
+        <main>
+            <div class="stage" id="stage">
+                <canvas id="sim"></canvas>
+                <div class="legend">
+                    <div class="row"><span class="sw water"></span> tidal channel · A &gt;&gt; 1</div>
+                    <div class="row"><span class="sw low"></span> low marsh · vegetated</div>
+                    <div class="row"><span class="sw high"></span> high marsh · drier</div>
+                </div>
+                <div class="hint-overlay" id="hintOverlay">
+                    click on the canvas to <em>punch a basin</em> · channels reorganize
+                </div>
+            </div>
+
+            <aside>
+
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Erosion</h2>
+                        <span class="hint">stream-power law</span>
+                    </div>
+                    <div id="physSliders"></div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Hillslope / sea</h2>
+                        <span class="hint">creep · supply · level</span>
+                    </div>
+                    <div id="slopeSliders"></div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Integration</h2>
+                        <span class="hint">Δt · steps/frame</span>
+                    </div>
+                    <div id="integSliders"></div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Presets</h2>
+                        <span class="hint">named regimes</span>
+                    </div>
+                    <div class="btn-row" id="presetRow"></div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Initial state</h2>
+                    </div>
+                    <div class="btn-row">
+                        <button data-init="random">Dome + noise</button>
+                        <button data-init="plateau">Plateau</button>
+                        <button data-init="islands">Islands</button>
+                        <button data-init="ridge">Tilted ridge</button>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Palette</h2>
+                    </div>
+                    <div class="toggle-row">
+                        <button data-palette="marsh" class="active">marsh</button>
+                        <button data-palette="emerald">emerald</button>
+                        <button data-palette="lagoon">lagoon</button>
+                        <button data-palette="sunset">sunset</button>
+                        <button data-palette="topo">topo</button>
+                        <button data-palette="nocturne">nocturne</button>
+                        <button data-palette="mono">elevation</button>
+                        <button data-palette="flow">flow</button>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">
+                        <h2>Run</h2>
+                    </div>
+                    <div class="btn-row">
+                        <button id="playBtn" class="active">⏸ Pause</button>
+                        <button id="stepBtn">Step ×50</button>
+                    </div>
+                    <div class="btn-row" style="margin-top:6px;">
+                        <button id="resetBtn">Reset</button>
+                        <button disabled style="opacity:0.4">—</button>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="proj-wrap">
+                        Tidal salt marshes — like <em>Bair Island</em> in San Francisco Bay — develop dendritic creek networks through a <em>channelization instability</em>: where ebb-tide flow happens to concentrate along an incipient creek, erosion deepens it, and on the next tide it captures even more flow. Over many cycles this positive feedback breaks a near-uniform tidal flat into the fractal drainage you see from the air (Howard 1971; Smith &amp; Bretherton 1972; for tidal networks Fagherazzi &amp; Sun 2004 and D&rsquo;Alpaos, Lanzoni, Marani 2007).
+                        <br><br>
+                        The model is the simplest version that captures the essential geometry: <em>stream-power</em> erosion ∝ A<sup>m</sup>S<sup>n</sup> coupled with hillslope diffusion (sediment slumping) and a uniform sediment supply <em>U</em>. The same equation governs fluvial landscapes — there <em>U</em> is tectonic uplift; here it stands in for tidal deposition during slack water.
+                        <br><br>
+                        This is <em>not</em> a Turing instability — Turing requires two diffusing fields in activator–inhibitor coupling, and the spatial coupling here is geometric (drainage on a 2D surface), not diffusive. Real marshes also have vegetation feedback and bidirectional tidal flow, both omitted; what survives the simplification is the flow-concentration feedback that is responsible for the network's fractal character.
+                    </div>
+                </section>
+
+            </aside>
+        </main>
+
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

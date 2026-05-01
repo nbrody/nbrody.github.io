@@ -14,9 +14,16 @@
     age: null,      // Uint16Array for coloring by longevity
   };
 
+  // Pan/zoom view transform applied to the grid drawing.
+  const view = { scale: 1, panX: 0, panY: 0 };
+  const MIN_SCALE = 0.1;
+  const MAX_SCALE = 40;
+
   const genEl = document.getElementById('genVal');
   const aliveEl = document.getElementById('aliveVal');
+  const zoomEl = document.getElementById('zoomVal');
   const playBtn = document.getElementById('playBtn');
+  const uiOverlay = document.getElementById('uiOverlay');
 
   function logicalSize() {
     const dpr = window.devicePixelRatio || 1;
@@ -24,14 +31,13 @@
   }
 
   function resize() {
-    const rect = canvas.parentElement.getBoundingClientRect();
-    const w = Math.max(320, Math.floor(rect.width));
-    const h = Math.max(320, Math.round(w * 0.62));
+    const w = window.innerWidth;
+    const h = window.innerHeight;
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width = w + 'px';
     canvas.style.height = h + 'px';
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     reshapeGrid();
     draw();
   }
@@ -107,18 +113,34 @@
   }
 
   function draw() {
-    const { w, h } = logicalSize();
+    const { w, h, dpr } = logicalSize();
     const { cols, rows, cell, grid, age } = state;
 
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = '#05070f';
     ctx.fillRect(0, 0, w, h);
 
+    ctx.translate(view.panX, view.panY);
+    ctx.scale(view.scale, view.scale);
+
+    // Visible-cell culling in world space (avoids drawing offscreen cells when zoomed in).
+    const minWX = -view.panX / view.scale;
+    const minWY = -view.panY / view.scale;
+    const maxWX = (w - view.panX) / view.scale;
+    const maxWY = (h - view.panY) / view.scale;
+    const x0 = Math.max(0, Math.floor(minWX / cell));
+    const y0 = Math.max(0, Math.floor(minWY / cell));
+    const x1 = Math.min(cols, Math.ceil(maxWX / cell) + 1);
+    const y1 = Math.min(rows, Math.ceil(maxWY / cell) + 1);
+
     let alive = 0;
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
+    // Total alive count is over the whole world; draw only the visible window.
+    for (let i = 0; i < grid.length; i++) if (grid[i]) alive++;
+
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
         const i = y * cols + x;
         if (grid[i]) {
-          alive++;
           const a = age[i];
           // Young = mint green, old = soft blue/violet.
           const hue = Math.max(160, 215 - Math.min(a, 120) * 0.3);
@@ -129,24 +151,26 @@
       }
     }
 
-    // Thin grid lines when cells are big enough
-    if (cell >= 8) {
+    // Thin grid lines when on-screen cell size is big enough.
+    const visualCell = cell * view.scale;
+    if (visualCell >= 8) {
       ctx.strokeStyle = 'rgba(138, 180, 255, 0.06)';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1 / view.scale;
       ctx.beginPath();
-      for (let x = 0; x <= cols; x++) {
-        const px = x * cell + 0.5;
-        ctx.moveTo(px, 0); ctx.lineTo(px, rows * cell);
+      for (let x = x0; x <= x1; x++) {
+        const px = x * cell + 0.5 / view.scale;
+        ctx.moveTo(px, y0 * cell); ctx.lineTo(px, y1 * cell);
       }
-      for (let y = 0; y <= rows; y++) {
-        const py = y * cell + 0.5;
-        ctx.moveTo(0, py); ctx.lineTo(cols * cell, py);
+      for (let y = y0; y <= y1; y++) {
+        const py = y * cell + 0.5 / view.scale;
+        ctx.moveTo(x0 * cell, py); ctx.lineTo(x1 * cell, py);
       }
       ctx.stroke();
     }
 
     genEl.textContent = state.gen;
     aliveEl.textContent = alive;
+    if (zoomEl) zoomEl.textContent = view.scale.toFixed(2) + '×';
   }
 
   // --- Pattern stamping ---
@@ -218,21 +242,54 @@
     requestAnimationFrame(loop);
   }
 
-  // --- Painting ---
+  // --- View helpers ---
+  function screenToWorld(sx, sy) {
+    return {
+      x: (sx - view.panX) / view.scale,
+      y: (sy - view.panY) / view.scale,
+    };
+  }
+
+  function zoomAt(sx, sy, factor) {
+    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, view.scale * factor));
+    const f = newScale / view.scale;
+    view.panX = sx - (sx - view.panX) * f;
+    view.panY = sy - (sy - view.panY) * f;
+    view.scale = newScale;
+    draw();
+  }
+
+  function resetView() {
+    view.scale = 1;
+    view.panX = 0;
+    view.panY = 0;
+    draw();
+  }
+
+  // --- Input ---
   let painting = false;
   let paintValue = 1;
+  let paintPointerId = null;
+  let panning = false;
+  let panPointerId = null;
+  let panLastX = 0, panLastY = 0;
+  let spaceDown = false;
+  const activePointers = new Map();
+  let pinchPrev = null;
 
-  function cellAt(evt) {
+  function pointerToCell(evt) {
     const rect = canvas.getBoundingClientRect();
-    const x = (evt.clientX ?? evt.touches?.[0]?.clientX) - rect.left;
-    const y = (evt.clientY ?? evt.touches?.[0]?.clientY) - rect.top;
+    const sx = evt.clientX - rect.left;
+    const sy = evt.clientY - rect.top;
+    const { x, y } = screenToWorld(sx, sy);
     return {
       cx: Math.floor(x / state.cell),
       cy: Math.floor(y / state.cell),
     };
   }
+
   function paintAt(evt) {
-    const { cx, cy } = cellAt(evt);
+    const { cx, cy } = pointerToCell(evt);
     if (cx < 0 || cy < 0 || cx >= state.cols || cy >= state.rows) return;
     const i = cy * state.cols + cx;
     state.grid[i] = paintValue;
@@ -241,21 +298,133 @@
   }
 
   canvas.addEventListener('pointerdown', e => {
-    painting = true;
-    const { cx, cy } = cellAt(e);
-    if (cx < 0 || cy < 0 || cx >= state.cols || cy >= state.rows) return;
-    // Toggle-start: flip the initial cell, then paint the same value while dragging.
-    const i = cy * state.cols + cx;
-    paintValue = state.grid[i] ? 0 : 1;
-    state.grid[i] = paintValue;
-    state.age[i] = paintValue ? 1 : 0;
+    const rect = canvas.getBoundingClientRect();
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    // Two-finger touch begins a pinch — cancel any in-flight paint/pan.
+    if (activePointers.size === 2) {
+      const pts = [...activePointers.values()];
+      pinchPrev = {
+        dist: Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y),
+        midX: (pts[0].x + pts[1].x) / 2,
+        midY: (pts[0].y + pts[1].y) / 2,
+      };
+      painting = false;
+      panning = false;
+      document.body.classList.remove('panning');
+      return;
+    }
+
     canvas.setPointerCapture(e.pointerId);
-    draw();
+
+    const isPanIntent = e.button === 1 || e.button === 2 || spaceDown;
+    if (isPanIntent) {
+      panning = true;
+      panPointerId = e.pointerId;
+      panLastX = e.clientX;
+      panLastY = e.clientY;
+      document.body.classList.add('panning');
+      return;
+    }
+
+    if (e.button === 0) {
+      painting = true;
+      paintPointerId = e.pointerId;
+      const { cx, cy } = pointerToCell(e);
+      if (cx < 0 || cy < 0 || cx >= state.cols || cy >= state.rows) return;
+      const i = cy * state.cols + cx;
+      paintValue = state.grid[i] ? 0 : 1;
+      state.grid[i] = paintValue;
+      state.age[i] = paintValue ? 1 : 0;
+      draw();
+    }
   });
-  canvas.addEventListener('pointermove', e => { if (painting) paintAt(e); });
-  const endPaint = () => { painting = false; };
-  canvas.addEventListener('pointerup', endPaint);
-  canvas.addEventListener('pointercancel', endPaint);
+
+  canvas.addEventListener('pointermove', e => {
+    if (activePointers.has(e.pointerId)) {
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    if (pinchPrev && activePointers.size >= 2) {
+      const pts = [...activePointers.values()].slice(0, 2);
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      const midX = (pts[0].x + pts[1].x) / 2;
+      const midY = (pts[0].y + pts[1].y) / 2;
+      // Pan by midpoint delta in screen space.
+      view.panX += (midX - pinchPrev.midX);
+      view.panY += (midY - pinchPrev.midY);
+      // Then zoom anchored at the (post-pan) midpoint.
+      const rect = canvas.getBoundingClientRect();
+      const factor = dist / pinchPrev.dist;
+      zoomAt(midX - rect.left, midY - rect.top, factor);
+      pinchPrev = { dist, midX, midY };
+      return;
+    }
+
+    if (panning && e.pointerId === panPointerId) {
+      view.panX += e.clientX - panLastX;
+      view.panY += e.clientY - panLastY;
+      panLastX = e.clientX;
+      panLastY = e.clientY;
+      draw();
+      return;
+    }
+
+    if (painting && e.pointerId === paintPointerId) paintAt(e);
+  });
+
+  const endPointer = e => {
+    activePointers.delete(e.pointerId);
+    if (activePointers.size < 2) pinchPrev = null;
+    if (panning && e.pointerId === panPointerId) {
+      panning = false;
+      panPointerId = null;
+      document.body.classList.remove('panning');
+    }
+    if (painting && e.pointerId === paintPointerId) {
+      painting = false;
+      paintPointerId = null;
+    }
+  };
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+
+  // Right-click is reserved for panning.
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    zoomAt(sx, sy, factor);
+  }, { passive: false });
+
+  function isTypingTarget(t) {
+    if (!t) return false;
+    const tag = t.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable;
+  }
+
+  window.addEventListener('keydown', e => {
+    if (isTypingTarget(e.target)) return;
+    if (e.code === 'Space' && !spaceDown) {
+      spaceDown = true;
+      document.body.classList.add('panmode');
+      e.preventDefault();
+    } else if (e.key === 'u' || e.key === 'U') {
+      document.body.classList.toggle('ui-open');
+    } else if (e.key === '0') {
+      resetView();
+    }
+  });
+  window.addEventListener('keyup', e => {
+    if (e.code === 'Space') {
+      spaceDown = false;
+      document.body.classList.remove('panmode');
+    }
+  });
 
   // --- UI ---
   const cellRange = document.getElementById('cell');
@@ -285,10 +454,15 @@
   });
   document.getElementById('clearBtn').addEventListener('click', clear);
   document.getElementById('randBtn').addEventListener('click', () => randomize());
+  document.getElementById('resetViewBtn').addEventListener('click', resetView);
 
   document.getElementById('pattern').addEventListener('change', e => {
     if (e.target.value) stampPattern(e.target.value);
     e.target.value = '';
+  });
+
+  document.getElementById('uiToggle').addEventListener('click', () => {
+    document.body.classList.toggle('ui-open');
   });
 
   window.addEventListener('resize', resize);

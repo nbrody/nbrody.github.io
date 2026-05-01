@@ -1,0 +1,300 @@
+:root { color-scheme: dark; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: #050608;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #e8e8f0;
+}
+
+.app {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* ---------- Sidebar ---------- */
+
+.scale-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(20, 22, 28, 0.95), rgba(12, 13, 18, 0.95));
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(10px);
+}
+
+.sidebar-header {
+  padding: 22px 24px 14px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.subtitle {
+  font-size: 11px;
+  color: #888;
+  margin-top: 3px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.track-wrapper {
+  flex: 1;
+  position: relative;
+  padding: 24px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+}
+.track-wrapper::-webkit-scrollbar { width: 6px; }
+.track-wrapper::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+.track {
+  position: relative;
+  margin: 0 0 0 56px;
+  height: 100%;
+  min-height: 2400px;
+}
+
+.track-line {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    #ff66ff 0%,
+    #aa66ff 8%,
+    #6688ff 18%,
+    #ffcc44 28%,
+    #ff8866 36%,
+    #cccccc 42%,
+    #dd66bb 50%,
+    #cc88dd 58%,
+    #6688dd 66%,
+    #22ddcc 74%,
+    #88e22a 82%,
+    #ffcc44 90%,
+    #ff5566 96%,
+    #ff3366 100%
+  );
+  border-radius: 1px;
+  opacity: 0.7;
+}
+
+.waypoint {
+  position: absolute;
+  left: 1px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 2px 0;
+  pointer-events: auto;
+  user-select: none;
+  transform: translateY(-50%);
+}
+.waypoint .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ddd;
+  border: 2px solid #050608;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+  transition: transform 0.18s, box-shadow 0.18s;
+  transform: translateX(-50%);
+  flex-shrink: 0;
+}
+.waypoint .label {
+  margin-left: 14px;
+  font-size: 11.5px;
+  color: #999;
+  white-space: nowrap;
+  transition: color 0.18s, font-weight 0.18s;
+  letter-spacing: 0.01em;
+}
+.waypoint:hover .dot {
+  transform: translateX(-50%) scale(1.3);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+.waypoint:hover .label {
+  color: #fff;
+}
+.waypoint.active .dot {
+  transform: translateX(-50%) scale(1.6);
+  box-shadow: 0 0 0 2px #fff, 0 0 14px currentColor;
+}
+.waypoint.active .label {
+  color: #fff;
+  font-weight: 600;
+}
+
+.thumb {
+  position: absolute;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.35s,
+              background 0.35s;
+  backdrop-filter: blur(4px);
+  z-index: 2;
+}
+
+.sidebar-footer {
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 10.5px;
+  color: #666;
+  letter-spacing: 0.02em;
+}
+.kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  margin: 0 1px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  color: #aaa;
+}
+
+/* ---------- Viewer ---------- */
+
+.viewer {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at center top, rgba(80, 80, 120, 0.08), transparent 60%),
+    radial-gradient(ellipse at center bottom, rgba(40, 40, 80, 0.05), transparent 60%);
+}
+
+.domain-badge {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #aaa;
+  transition: color 0.4s, border-color 0.4s, background 0.4s;
+}
+
+.object-stage {
+  flex-shrink: 0;
+  width: 360px;
+  height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+  position: relative;
+}
+.object-stage::before {
+  content: '';
+  position: absolute;
+  inset: -40px;
+  border-radius: 50%;
+  background: radial-gradient(circle, currentColor 0%, transparent 60%);
+  opacity: 0.12;
+  filter: blur(40px);
+  pointer-events: none;
+  transition: color 0.4s;
+}
+
+.object {
+  font-size: 200px;
+  line-height: 1;
+  filter: drop-shadow(0 6px 30px rgba(0, 0, 0, 0.7));
+  transition: opacity 0.32s ease, transform 0.32s ease;
+  transform-origin: center;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+               -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+.object.fading {
+  opacity: 0;
+  transform: scale(0.6);
+}
+
+.info {
+  text-align: center;
+  max-width: 620px;
+  min-height: 140px;
+}
+.name {
+  font-size: 30px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+.size {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.size-sci {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 22px;
+  color: #fff;
+  font-feature-settings: "tnum";
+}
+.size-friendly {
+  font-size: 13px;
+  color: #888;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.description {
+  font-size: 14px;
+  color: #aaa;
+  line-height: 1.6;
+}
+
+.comparison {
+  position: absolute;
+  bottom: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: #777;
+  text-align: center;
+  max-width: 80%;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.02em;
+}
+
+.hint {
+  position: absolute;
+  bottom: 16px;
+  right: 20px;
+  font-size: 10.5px;
+  color: #444;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
