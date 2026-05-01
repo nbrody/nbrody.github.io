@@ -178,7 +178,8 @@ async function selectGame(gameName) {
         war: '⚔️ Card War',
         blackjack: '🃏 Blackjack',
         checkers: '🏁 Checkers',
-        drawguess: '🎨 Draw & Guess'
+        drawguess: '🎨 Draw & Guess',
+        wingspan: '🐦 Wingspan'
     };
     document.getElementById('game-name').textContent = nameMap[gameName] || gameName;
 
@@ -204,6 +205,9 @@ async function selectGame(gameName) {
             break;
         case 'drawguess':
             currentGame = new DrawGuessGame(currentRoom, players, gameArea);
+            break;
+        case 'wingspan':
+            currentGame = new WingspanGame(currentRoom, players, gameArea);
             break;
         default:
             gameArea.innerHTML = `
