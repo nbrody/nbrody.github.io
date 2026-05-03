@@ -51,6 +51,16 @@ async function createRoom() {
 
 async function joinRoom(roomCode, playerName, avatar) {
     const roomRef = db.ref(`rooms/${roomCode}`);
+    const initialSnapshot = await roomRef.once('value');
+
+    if (!initialSnapshot.exists()) {
+        throw new Error('Room not found');
+    }
+
+    if (initialSnapshot.val().closedAt) {
+        throw new Error('Room is closed');
+    }
+
     const playerId = db.ref().child('players').push().key;
     const playerColors = [
         '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
