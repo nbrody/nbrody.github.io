@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donut Spiral — Radial Annulus Animation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <canvas id="stage"></canvas>
+
+    <div id="controls" class="controls">
+        <h1>Donut Spiral</h1>
+        <div class="subtitle">A polar grid of red annuli on navy — consistently oriented, then warped, then drawn into the center.</div>
+
+        <div class="section-label">Timeline</div>
+
+        <div class="control-group">
+            <label>Phase
+                <span id="phaseLabel" class="value-badge">form-up</span>
+            </label>
+            <input type="range" id="phaseSlider" min="0" max="1" step="0.001" value="0">
+        </div>
+
+        <div class="btn-row">
+            <button data-phase="0">1 · Form-up</button>
+            <button data-phase="0.25">2 · Spiral pulse</button>
+            <button data-phase="0.5">3 · Warp</button>
+            <button data-phase="0.75">4 · Suction</button>
+        </div>
+
+        <div class="btn-row">
+            <button id="playBtn" class="active">⏸ Pause</button>
+            <button id="restartBtn">↺ Restart</button>
+        </div>
+
+        <div class="control-group">
+            <label>Speed
+                <span id="speedValue" class="value-badge">1.00×</span>
+            </label>
+            <input type="range" id="speedSlider" min="0.1" max="3.0" step="0.05" value="1.0">
+        </div>
+
+        <div class="section-label">Pattern</div>
+
+        <div class="control-group">
+            <label>Spokes
+                <span id="spokesValue" class="value-badge">24</span>
+            </label>
+            <input type="range" id="spokesSlider" min="6" max="64" step="1" value="24">
+        </div>
+
+        <div class="control-group">
+            <label>Rings
+                <span id="ringsValue" class="value-badge">22</span>
+            </label>
+            <input type="range" id="ringsSlider" min="6" max="40" step="1" value="22">
+        </div>
+
+        <div class="control-group">
+            <label>Donut thickness
+                <span id="thickValue" class="value-badge">0.50</span>
+            </label>
+            <input type="range" id="thickSlider" min="0.1" max="0.7" step="0.01" value="0.50">
+        </div>
+
+        <div class="section-label">Palette</div>
+
+        <div class="btn-row palette-row">
+            <button class="palette-btn active" data-bg="#2C6E91" data-fg="#EC0B43">Classic</button>
+            <button class="palette-btn" data-bg="#1d2a55" data-fg="#d8312a">Alt Classic</button>
+            <button class="palette-btn" data-bg="#3D1E6D" data-fg="#4FE066">Fishman</button>
+            <button class="palette-btn" data-bg="#1A4D2E" data-fg="#FFD60A">Green / Gold</button>
+        </div>
+
+        <div class="control-group">
+            <label>Background
+                <span id="bgValue" class="value-badge">#2C6E91</span>
+            </label>
+            <input type="color" id="bgColor" value="#2C6E91">
+        </div>
+
+        <div class="control-group">
+            <label>Donut
+                <span id="fgValue" class="value-badge">#EC0B43</span>
+            </label>
+            <input type="color" id="fgColor" value="#EC0B43">
+        </div>
+
+        <div class="footer">
+            Inspired by a market-stall tapestry. Phase 1: orient. 2: spiral pulse. 3: warp. 4: suction.
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+
+</html>

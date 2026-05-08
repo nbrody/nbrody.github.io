@@ -3,28 +3,36 @@
  *
  *  Three rhombi sharing a vertex whose interior angles sum to 360°
  *  form a "cube cluster" — the projection of three visible faces of a
- *  unit cube from ℝ³. Shading them as top/left/right faces of an
- *  isometric cube makes the tiling look like stacked blocks.
+ *  unit cube. We shade them top / left / right of an isometric cube
+ *  so the tiling looks like stacked blocks.
  *
- *  As γ changes, the pentagrid occasionally crosses a triple
- *  intersection. At each crossing the hexagonal outline of a cube
- *  cluster stays put, but the interior (degree-3) vertex jumps to the
- *  opposite position of the hexagon — the "other three faces" of the
- *  same cube become visible.  We animate that vertex smoothly from
- *  its old location to its new one, deforming the three rhombi along
- *  with it. The hexagon border never moves; only the corner slides.
+ *  When γ crosses a triple intersection, a hexagonal cell flips: the
+ *  three rhombi at one corner of the cell are replaced by three at
+ *  the opposite corner — the "back" faces of the cube become the
+ *  visible ones. We treat that flip as a 3D scene event:
+ *
+ *      • the OLD cube tumbles forward toward the viewer, growing and
+ *        rotating as it fades out — flying out of the scene,
+ *      • the NEW cube emerges from depth, scaling up from small with
+ *        an opposite tumble, fading in — flying into the scene.
+ *
+ *  Both transforms pivot around the hexagon's center (which is the
+ *  midpoint of the body diagonal of the cube), so the hexagon's outer
+ *  silhouette is recovered exactly at t=0 and t=1.
  * ------------------------------------------------------------------ */
 
 import { schedule } from './state.js';
 
-const FLIP_MS   = 520;      // slide duration
-const VKEY_PREC = 1000;     // 1/1000 unit vertex precision
+const DURATION_MS = 640;
+const VKEY_PREC   = 1000;
 
 export const animState = {
     enabled: false,
-    prevClusters: new Map(), // hexKey → cluster record (last frame)
-    flips: new Map(),        // hexKey → { t0, pFrom, pTo, cluster }
+    prevClusters: new Map(),
+    flips: new Map(),
 };
+
+const rhombiInFlight = new Set();
 
 /* ---- Toggle ----------------------------------------------------- */
 export function initAnimations() {
@@ -52,12 +60,35 @@ function rhombusVerts(r) {
     return [[r.x1, r.y1], [r.x2, r.y2], [r.x3, r.y3], [r.x4, r.y4]];
 }
 
+function snapshotRhombus(r) {
+    return {
+        x1: r.x1, y1: r.y1, x2: r.x2, y2: r.y2,
+        x3: r.x3, y3: r.y3, x4: r.x4, y4: r.y4,
+    };
+}
+
+/** Compute the centroid of the 6 outer hexagon vertices of a cluster. */
+function hexCenter(cluster) {
+    const ix = cluster.interior[0], iy = cluster.interior[1];
+    const seen = new Set();
+    let sx = 0, sy = 0, n = 0;
+    for (const r of [cluster.top, cluster.left, cluster.right]) {
+        for (const v of rhombusVerts(r)) {
+            if (Math.abs(v[0] - ix) < 1e-4 && Math.abs(v[1] - iy) < 1e-4) continue;
+            const k = vkey(v[0], v[1]);
+            if (seen.has(k)) continue;
+            seen.add(k);
+            sx += v[0]; sy += v[1]; n++;
+        }
+    }
+    return n > 0 ? [sx / n, sy / n] : [ix, iy];
+}
+
 /* ---- Cluster detection ----------------------------------------- */
 /**
  * Find every vertex shared by exactly three rhombi whose interior
- * angles sum to ~360°.  Key each cluster by its hexagonal outer
- * boundary so we can track it frame-to-frame even when the interior
- * vertex jumps.
+ * angles sum to ~360°. Each cluster is keyed by its hexagonal outer
+ * boundary so it can be tracked across flips.
  */
 export function buildClusters(rhombi) {
     const clusters = new Map();
@@ -80,8 +111,6 @@ export function buildClusters(rhombi) {
         const sum = list[0].angle + list[1].angle + list[2].angle;
         if (Math.abs(sum - 360) > 2) continue;
 
-        // Collect the 6 outer hexagon vertex keys (all vertices of the
-        // 3 rhombi except the shared interior).
         const outerSet = new Set();
         for (const e of list) {
             for (const v of rhombusVerts(e.r)) {
@@ -91,8 +120,6 @@ export function buildClusters(rhombi) {
         }
         const hexKey = [...outerSet].sort().join(';');
 
-        // Classify top / left / right face by rhombus centroid relative
-        // to the shared vertex.
         const withC = list.map(e => {
             const cx = (e.r.x1 + e.r.x2 + e.r.x3 + e.r.x4) / 4 - e.vx;
             const cy = (e.r.y1 + e.r.y2 + e.r.y3 + e.r.y4) / 4 - e.vy;
@@ -113,8 +140,6 @@ export function buildClusters(rhombi) {
 }
 
 /* ---- Flip detection -------------------------------------------- */
-const rhombiInFlight = new Set();
-
 export function updateClusterState(currClusters) {
     if (!animState.enabled) {
         animState.prevClusters = currClusters;
@@ -124,30 +149,30 @@ export function updateClusterState(currClusters) {
     }
     const now = performance.now();
 
-    // Same hexagon boundary, different interior vertex → flip event.
     for (const [hexKey, curr] of currClusters) {
         const prev = animState.prevClusters.get(hexKey);
         if (!prev) continue;
         if (prev.interiorKey === curr.interiorKey) continue;
-        // Replace any in-progress flip for this hexagon (handles rapid back-and-forth).
         animState.flips.set(hexKey, {
             t0: now,
-            pFrom: prev.interior,
-            pTo: curr.interior,
-            cluster: curr,
+            oldSnap: {
+                top: snapshotRhombus(prev.top),
+                left: snapshotRhombus(prev.left),
+                right: snapshotRhombus(prev.right),
+            },
+            curr,
+            hexCenter: hexCenter(curr),
         });
     }
     for (const [hexKey, f] of animState.flips) {
-        if (now - f.t0 > FLIP_MS) animState.flips.delete(hexKey);
+        if (now - f.t0 > DURATION_MS) animState.flips.delete(hexKey);
     }
 
-    // Rebuild the in-flight rhombus set (referenced by render.js to
-    // skip normal drawing for these three rhombi).
     rhombiInFlight.clear();
     for (const f of animState.flips.values()) {
-        rhombiInFlight.add(f.cluster.top);
-        rhombiInFlight.add(f.cluster.left);
-        rhombiInFlight.add(f.cluster.right);
+        rhombiInFlight.add(f.curr.top);
+        rhombiInFlight.add(f.curr.left);
+        rhombiInFlight.add(f.curr.right);
     }
 
     animState.prevClusters = currClusters;
@@ -160,16 +185,13 @@ function cubeColors(face) {
     if (face === 'top')   return ['#e8cd88', '#b88f3a'];
     if (face === 'left')  return ['#8c6c3e', '#5a4326'];
     if (face === 'right') return ['#3f4d57', '#242d34'];
-    return null;
+    return ['#888', '#555'];
 }
 
-/**
- * Static cube-face info for a rhombus belonging to a non-flipping
- * cluster. Returns null otherwise (render.js falls back to palette).
- */
+/** Static cube-face colors for a non-flipping cluster rhombus. */
 export function staticFaceFor(r, clusters) {
     if (!animState.enabled) return null;
-    if (rhombiInFlight.has(r)) return null;       // handled by flip pass
+    if (rhombiInFlight.has(r)) return null;
     for (const c of clusters.values()) {
         let face = null;
         if (c.top === r) face = 'top';
@@ -182,35 +204,63 @@ export function staticFaceFor(r, clusters) {
     return null;
 }
 
+/* ---- 2D affine transform around a pivot ------------------------ */
+function transform(vx, vy, scale, rot, pivot) {
+    const cosR = Math.cos(rot), sinR = Math.sin(rot);
+    const tx = vx - pivot[0], ty = vy - pivot[1];
+    const rx = (tx * cosR - ty * sinR) * scale;
+    const ry = (tx * sinR + ty * cosR) * scale;
+    return [pivot[0] + rx, pivot[1] + ry];
+}
+
+function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+function easeIn(t)  { return t * t * t; }
+
 /**
- * Yields the deformed quads for every active flip. Each quad is the
- * original rhombus with its interior corner slid to the interpolated
- * position — the hexagon border is untouched.
+ * Yields { verts, fill, stroke, alpha } for the fly-out (OLD cube)
+ * and fly-in (NEW cube) rhombi of every live flip.
  */
 export function* iterateFlipQuads() {
     if (!animState.enabled) return;
     const now = performance.now();
-    for (const f of animState.flips.values()) {
-        const t = Math.min(1, (now - f.t0) / FLIP_MS);
-        const ease = 1 - Math.pow(1 - t, 3);       // ease-out cubic
-        const px = f.pFrom[0] + (f.pTo[0] - f.pFrom[0]) * ease;
-        const py = f.pFrom[1] + (f.pTo[1] - f.pFrom[1]) * ease;
 
-        const tx = f.pTo[0], ty = f.pTo[1];
-        const faces = [
-            [f.cluster.top, 'top'],
-            [f.cluster.left, 'left'],
-            [f.cluster.right, 'right'],
+    for (const f of animState.flips.values()) {
+        const t = Math.min(1, (now - f.t0) / DURATION_MS);
+        const eo = easeOut(t);
+        const ei = easeIn(t);
+
+        // OLD cube — flies forward toward the viewer and tumbles out.
+        const oldScale = 1.0 + 0.7 * eo;            // 1.0 → 1.7
+        const oldRot   = 0.55 * eo;                  // ≈ 31° tumble
+        const oldAlpha = Math.max(0, 1.0 - 1.25 * t);
+
+        const oldFaces = [
+            ['top',   f.oldSnap.top],
+            ['left',  f.oldSnap.left],
+            ['right', f.oldSnap.right],
         ];
-        for (const [r, face] of faces) {
-            const verts = rhombusVerts(r).map(v => {
-                if (Math.abs(v[0] - tx) < 1e-4 && Math.abs(v[1] - ty) < 1e-4) {
-                    return [px, py];
-                }
-                return v;
-            });
+        for (const [face, snap] of oldFaces) {
             const [fill, stroke] = cubeColors(face);
-            yield { verts, fill, stroke };
+            const verts = rhombusVerts(snap).map(v =>
+                transform(v[0], v[1], oldScale, oldRot, f.hexCenter));
+            yield { verts, fill, stroke, alpha: oldAlpha };
+        }
+
+        // NEW cube — emerges from depth, settles into place.
+        const newScale = 0.35 + 0.65 * eo;          // 0.35 → 1.0
+        const newRot   = -0.55 * (1 - eo);           // settles to 0
+        const newAlpha = ei;
+
+        const newFaces = [
+            ['top',   f.curr.top],
+            ['left',  f.curr.left],
+            ['right', f.curr.right],
+        ];
+        for (const [face, r] of newFaces) {
+            const [fill, stroke] = cubeColors(face);
+            const verts = rhombusVerts(r).map(v =>
+                transform(v[0], v[1], newScale, newRot, f.hexCenter));
+            yield { verts, fill, stroke, alpha: newAlpha };
         }
     }
 }

@@ -14,75 +14,96 @@
             </nav>
             <h1>Algebraic Tools</h1>
         </header>
-        
+
         <main>
             <div class="section-intro">
                 <p>
-                    Explore the algebraic structure of linear groups through computational tools and visualizations. 
+                    Explore the algebraic structure of linear groups through computational tools and visualizations.
                     These tools focus on representation theory, character varieties, and algebraic group actions.
                 </p>
             </div>
-            
+
             <div class="tools-grid">
-                <a href="Tools/mathParser.html" class="tool-card">
-                    <h3>Expression Parser</h3>
-                    <p>Uses MathQuill, LaTeX, and math.js to parse expressions</p>
-                </a>
-
-                <a href="Tools/numberRing.html" class="tool-card">
-                    <h3>Gröbner Bases</h3>
-                    <p>Compute Gröbner bases for polynomial ideals in linear algebraic groups</p>
-                </a>
-
-                <a href="Tools/minkowskiEmbedding/index.html" class="tool-card">
-                    <h3>Minkowski Embeddings</h3>
-                    <p>Visualize Minkowski embeddings for Z[√2] and Z[1/3]</p>
-                </a>
-
-                <a href="Tools/numberRings/index.html" class="tool-card">
+                <a href="Tools/numberRings/index.html" class="tool-card" data-preview="Tools/numberRings/index.html">
                     <h3>Number Rings</h3>
-                    <p>Explore ℤ-Algebras, Valuations & Algebraic Number Fields</p>
+                    <p>Explore ℤ-algebras, valuations &amp; algebraic number fields</p>
                 </a>
 
-                <a href="Tools/sRingClosure/index.html" class="tool-card">
+                <a href="Tools/sRingClosure/index.html" class="tool-card" data-preview="Tools/sRingClosure/index.html">
                     <h3>S-Ring Closure</h3>
-                    <p>Compute S-integer closures, local completions & Gröbner bases for subrings of Q̄</p>
+                    <p>Compute S-integer closures, local completions &amp; Gröbner bases for subrings of Q̄</p>
+                </a>
+
+                <a href="Tools/minkowskiEmbedding/index.html" class="tool-card" data-preview="Tools/minkowskiEmbedding/index.html">
+                    <h3>Minkowski Embeddings</h3>
+                    <p>Visualize Minkowski embeddings for ℤ[√2] and ℤ[1/3]</p>
+                </a>
+
+                <a href="Tools/zariskiClosure/index.html" class="tool-card" data-preview="Tools/zariskiClosure/index.html">
+                    <h3>Zariski Closure</h3>
+                    <p>Compute the Zariski closure of finitely generated subgroups of algebraic groups over number rings</p>
+                </a>
+
+                <a href="Tools/quaternionAlgebras/index.html" class="tool-card" data-preview="Tools/quaternionAlgebras/index.html">
+                    <h3>Quaternion Algebras</h3>
+                    <p>Unit-group explorer for quaternion algebras over number rings</p>
+                </a>
+
+                <a href="Tools/tautologicalReps/index.html" class="tool-card" data-preview="Tools/tautologicalReps/index.html">
+                    <h3>Tautological Representations</h3>
+                    <p>Browse tautological reps of arithmetic groups</p>
+                </a>
+
+                <a href="Tools/discretenessCertificate.html" class="tool-card" data-preview="Tools/discretenessCertificate.html">
+                    <h3>Discreteness Certificate</h3>
+                    <p>Construct certificates of discreteness for matrix groups</p>
+                </a>
+
+                <a href="Tools/mathParser.html" class="tool-card" data-preview="Tools/mathParser.html">
+                    <h3>Expression Parser</h3>
+                    <p>MathQuill + LaTeX + math.js for parsing complex expressions with variables</p>
+                </a>
+
+                <a href="Tools/mathParserSimple.html" class="tool-card" data-preview="Tools/mathParserSimple.html">
+                    <h3>Expression Parser (Simple)</h3>
+                    <p>Lightweight variant of the MathQuill expression parser</p>
                 </a>
 
                 <div class="tool-card coming-soon">
+                    <div class="tool-preview"></div>
                     <h3>Character Varieties</h3>
                     <p>Compute and visualize character varieties for fundamental groups</p>
                     <span class="status">Coming Soon</span>
                 </div>
-                
+
                 <div class="tool-card coming-soon">
+                    <div class="tool-preview"></div>
                     <h3>Representation Spaces</h3>
-                    <p>Explore representations of finitely generated groups into GL<sub>n</sub></p>
+                    <p>Explore representations of finitely generated groups into GLₙ</p>
                     <span class="status">Coming Soon</span>
                 </div>
-                
-                <a href="Tools/zariskiClosure/index.html" class="tool-card">
-                    <h3>Zariski Closure</h3>
-                    <p>Compute the Zariski closure of finitely generated subgroups of algebraic groups over number rings</p>
-                </a>
-                
+
                 <div class="tool-card coming-soon">
+                    <div class="tool-preview"></div>
                     <h3>Algebraic Subgroups</h3>
                     <p>Classify algebraic subgroups of linear groups</p>
                     <span class="status">Coming Soon</span>
                 </div>
-                
+
                 <div class="tool-card coming-soon">
+                    <div class="tool-preview"></div>
                     <h3>Word Problem Solver</h3>
                     <p>Solve word problems in matrix groups</p>
                     <span class="status">Coming Soon</span>
                 </div>
             </div>
         </main>
-        
+
         <footer>
             <p>Created by Nic Brody, UC Santa Cruz</p>
         </footer>
     </div>
+    <script src="../assets/js/tool-previews.js" defer></script>
+    <script src="../assets/js/site-nav.js" defer></script>
 </body>
 </html>

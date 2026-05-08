@@ -301,3 +301,102 @@ a {
 a:hover {
   color: var(--primary-color);
 }
+
+/* ----- Live iframe previews on tool / nav cards ----- */
+.tool-card[data-preview],
+.nav-card[data-preview] {
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+  overflow: hidden;
+}
+
+.tool-card[data-preview] > h3,
+.tool-card[data-preview] > p,
+.nav-card[data-preview] > h2,
+.nav-card[data-preview] > p,
+.nav-card[data-preview] > .card-icon {
+  padding-left: 25px;
+  padding-right: 25px;
+}
+
+.tool-card[data-preview] > h3 { padding-top: 16px; }
+.nav-card[data-preview] > .card-icon { padding-top: 16px; }
+
+.tool-preview,
+.nav-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: linear-gradient(135deg, #eef2f6 0%, #d9e3ec 100%);
+  border-bottom: 1px solid var(--border-color);
+  pointer-events: none;     /* clicks pass through to the card link */
+  user-select: none;
+}
+
+.tool-preview iframe,
+.nav-preview iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1280px;
+  height: 800px;
+  border: 0;
+  transform: scale(0.265);  /* 1280 * 0.265 ≈ 339, comfortable for ~280–340 px cards */
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+/* Larger cards (nav cards on Home) get a bigger preview window */
+.nav-card[data-preview] .nav-preview {
+  aspect-ratio: 16 / 9;
+}
+.nav-card[data-preview] .nav-preview iframe {
+  transform: scale(0.30);
+}
+
+.tp-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-color);
+  font-family: 'Georgia', serif;
+  font-size: 1.6em;
+  opacity: 0.55;
+}
+
+/* Hover affordance — slight lift was already on .tool-card; reinforce visually */
+.tool-card[data-preview]:hover .tool-preview,
+.nav-card[data-preview]:hover .nav-preview {
+  filter: brightness(1.04) saturate(1.05);
+}
+
+/* Reserve a little space top-left for the global nav hamburger so it doesn't
+ * cover the breadcrumb. The nav itself has position:fixed so this is purely
+ * cosmetic safety margin. */
+body { padding-left: 0; }
+header .breadcrumb { padding-left: 56px; }
+
+/* Section subgroup headers on Geometric/index.html etc. */
+.tools-grid + h2,
+main > h2 {
+  margin-top: 50px;
+  font-weight: normal;
+  color: var(--primary-color);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 6px;
+}
+
+/* "Coming soon" cards keep an empty preview frame for visual consistency */
+.tool-card.coming-soon .tool-preview {
+  background: repeating-linear-gradient(45deg, #f4f6f8, #f4f6f8 10px, #ebeff3 10px, #ebeff3 20px);
+}
+
+/* Mobile tweaks for previews */
+@media (max-width: 768px) {
+  .tool-preview iframe,
+  .nav-preview iframe { transform: scale(0.22); }
+}

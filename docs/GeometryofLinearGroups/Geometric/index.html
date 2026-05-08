@@ -14,132 +14,335 @@
             </nav>
             <h1>Geometric Tools</h1>
         </header>
-        
+
         <main>
             <div class="section-intro">
                 <p>
-                    Visualize the geometric actions of linear groups on various spaces. 
-                    These tools help understand group actions on trees, buildings, symmetric spaces, and hyperbolic manifolds.
+                    Visualize geometric actions of linear groups on various spaces:
+                    Kleinian groups on hyperbolic 3-space, Fuchsian groups on H², lattices on Bruhat–Tits trees, and more.
                 </p>
             </div>
 
-            <h2> Kleinian </h2>
+            <h2>Kleinian groups</h2>
             <div class="tools-grid">
-                <a href="Tools/Kleinian/dirichlet/index.html" class="tool-card">
+                <a href="Tools/Kleinian/dirichlet/index.html" class="tool-card" data-preview="Tools/Kleinian/dirichlet/index.html">
                     <h3>Dirichlet Domains</h3>
-                    <p>Visualize dirichlet domains of Kleinian Groups</p>
+                    <p>Visualize Dirichlet domains of Kleinian groups</p>
                 </a>
-                                
-                <a href="Tools/Kleinian/poincare/index.html" class="tool-card">
-                    <h3>Polyhedron Viewer</h3>
-                    <p>Construct hyperbolic polyhedra</p>
+                <a href="Tools/Kleinian/poincare/index.html" class="tool-card" data-preview="Tools/Kleinian/poincare/index.html">
+                    <h3>Hyperbolic Polyhedron Viewer</h3>
+                    <p>Construct hyperbolic polyhedra in H³</p>
                 </a>
-
-                <a href="Tools/Kleinian/fuchsian/index.html" class="tool-card">
+                <a href="Tools/Kleinian/fuchsian/index.html" class="tool-card" data-preview="Tools/Kleinian/fuchsian/index.html">
                     <h3>Fuchsian Groups</h3>
-                    <p>2-dimensional groups</p>
+                    <p>Tilings and 2-dimensional Kleinian groups</p>
                 </a>
-
-                <a href="Tools/Kleinian/4dKleinian/index.html" class="tool-card">
-                    <h3>4D Kleinian Groups</h3>
-                    <p>Limit sets of 4d Kleinian groups</p>
-                </a>
-
-
-                <a href="Tools/Kleinian/limitsets.html" class="tool-card">
-                    <h3>Limit Sets</h3>
-                    <p>Visualize limit sets of Kleinian Groups</p>
-                </a>
-
-                <a href="Tools/Kleinian/riley/index.html" class="tool-card">
+                <a href="Tools/Kleinian/riley/index.html" class="tool-card" data-preview="Tools/Kleinian/riley/index.html">
                     <h3>Riley Slice</h3>
-                    <p>Explore the Riley slice</p>
+                    <p>Explore the Riley slice of Schottky space</p>
                 </a>
-                
-                <div class="tool-card coming-soon">
+                <a href="Tools/Kleinian/rileySlice/index.html" class="tool-card" data-preview="Tools/Kleinian/rileySlice/index.html">
+                    <h3>Riley Slice (alt)</h3>
+                    <p>Alternate Riley-slice explorer</p>
+                </a>
+                <a href="Tools/Kleinian/schottky/index.html" class="tool-card" data-preview="Tools/Kleinian/schottky/index.html">
+                    <h3>Schottky Groups</h3>
+                    <p>Visualize Schottky group limit sets</p>
+                </a>
+                <a href="Tools/Kleinian/limitsets.html" class="tool-card" data-preview="Tools/Kleinian/limitsets.html">
+                    <h3>Limit Sets</h3>
+                    <p>Visualize limit sets of Kleinian groups</p>
+                </a>
+                <a href="Tools/Kleinian/limitSetExplorer/index.html" class="tool-card" data-preview="Tools/Kleinian/limitSetExplorer/index.html">
+                    <h3>Limit Set Explorer</h3>
+                    <p>Browse Kleinian limit sets interactively</p>
+                </a>
+                <a href="Tools/Kleinian/limitSetLab/index.html" class="tool-card" data-preview="Tools/Kleinian/limitSetLab/index.html">
+                    <h3>Limit Set Laboratory</h3>
+                    <p>Experiment with limit set generators</p>
+                </a>
+                <a href="Tools/Kleinian/cannonThurston/index.html" class="tool-card" data-preview="Tools/Kleinian/cannonThurston/index.html">
+                    <h3>Cannon–Thurston</h3>
+                    <p>Cannon–Thurston map limits</p>
+                </a>
+                <a href="Tools/Kleinian/margulisSpacetimes/index.html" class="tool-card" data-preview="Tools/Kleinian/margulisSpacetimes/index.html">
+                    <h3>Margulis Spacetimes</h3>
+                    <p>Crooked plane construction for Margulis spacetimes</p>
+                </a>
+                <a href="Tools/Kleinian/mirrorOrbifold/index.html" class="tool-card" data-preview="Tools/Kleinian/mirrorOrbifold/index.html">
+                    <h3>Mirror Orbifolds</h3>
+                    <p>Pentagonal mirror orbifolds</p>
+                </a>
+                <a href="Tools/Kleinian/4dExplorer/index.html" class="tool-card" data-preview="Tools/Kleinian/4dExplorer/index.html">
+                    <h3>4D Kleinian Explorer</h3>
+                    <p>Explore 4-dimensional Kleinian groups</p>
+                </a>
+                <a href="Tools/Kleinian/4dKleinian/index.html" class="tool-card" data-preview="Tools/Kleinian/4dKleinian/index.html">
+                    <h3>4D Kleinian Limit Sets</h3>
+                    <p>Limit sets of 4D Kleinian groups</p>
+                </a>
+                <a href="Tools/Kleinian/4dKlein2/index.html" class="tool-card" data-preview="Tools/Kleinian/4dKlein2/index.html">
+                    <h3>4D Kleinian Visualizer</h3>
+                    <p>Alternate 4D Kleinian visualizer</p>
+                </a>
+                <a href="Tools/Kleinian/longReidGame/index.html" class="tool-card" data-preview="Tools/Kleinian/longReidGame/index.html">
+                    <h3>Long–Reid Racer</h3>
+                    <p>Game-style explorer for Long–Reid groups</p>
+                </a>
+                <a href="Tools/Kleinian/longReidRacer2/index.html" class="tool-card" data-preview="Tools/Kleinian/longReidRacer2/index.html">
+                    <h3>Long–Reid Racer 2</h3>
+                    <p>Newer Long–Reid racer build</p>
+                </a>
+                <a href="Tools/Kleinian/longReidRacer/index.html" class="tool-card" data-preview="Tools/Kleinian/longReidRacer/index.html">
+                    <h3>Long–Reid Racer 1</h3>
+                    <p>Earlier Long–Reid racer build</p>
+                </a>
+                <a href="Tools/Kleinian/knotfolio/index.html" class="tool-card" data-preview="Tools/Kleinian/knotfolio/index.html">
+                    <h3>KnotFolio</h3>
+                    <p>Embedded KnotFolio knot drawing tool</p>
+                </a>
+                <a href="Tools/Kleinian/knots/index.html" class="tool-card" data-preview="Tools/Kleinian/knots/index.html">
+                    <h3>Knot Drawing Tool</h3>
+                    <p>Sketch and analyze knot diagrams</p>
+                </a>
+                <a href="Tools/Kleinian/GPS/index.html" class="tool-card" data-preview="Tools/Kleinian/GPS/index.html">
+                    <h3>GPS Manifolds (Kleinian)</h3>
+                    <p>Gromov–Piatetski-Shapiro construction in H³</p>
+                </a>
+                <a href="Tools/Kleinian/QP1Algorithm/index.html" class="tool-card" data-preview="Tools/Kleinian/QP1Algorithm/index.html">
+                    <h3>QP¹ S-A-X Algorithm</h3>
+                    <p>QP¹ dynamics: Stern–Brocot / SAX algorithm</p>
+                </a>
+                <a href="Tools/Kleinian/qp1.html" class="tool-card" data-preview="Tools/Kleinian/qp1.html">
+                    <h3>QP¹ Height Reduction</h3>
+                    <p>Exact interval cover for QP¹ height reduction</p>
+                </a>
+                <a href="Tools/Kleinian/apollonian.html" class="tool-card" data-preview="Tools/Kleinian/apollonian.html">
+                    <h3>Apollonian Packing</h3>
+                    <p>Apollonian circle packing — ray-marched (GLSL)</p>
+                </a>
+                <a href="Tools/Kleinian/apollodense.html" class="tool-card" data-preview="Tools/Kleinian/apollodense.html">
+                    <h3>Apollonian (Dense)</h3>
+                    <p>Dense variant of the Apollonian packing renderer</p>
+                </a>
+                <a href="Tools/Kleinian/bianchi_planes.html" class="tool-card" data-preview="Tools/Kleinian/bianchi_planes.html">
                     <h3>Bianchi Planes</h3>
-                    <p>A calculator for Bianchi groups</p>
-                    <span class="status">Coming Soon</span>
-                </div>
-                
-                <div class="tool-card coming-soon">
-                    <h3>Hyperbolic Space</h3>
-                    <p>Visualize discrete subgroups acting on hyperbolic 2- and 3-space</p>
-                    <span class="status">Coming Soon</span>
-                </div>
-
-                <div class="tool-card coming-soon">
-                    <h3>Symmetric Spaces</h3>
-                    <p>Explore symmetric spaces and their geodesics</p>
-                    <span class="status">Coming Soon</span>
-                </div>
-                
+                    <p>Cusps and totally geodesic surfaces in Bianchi orbifolds</p>
+                </a>
+                <a href="Tools/Kleinian/coxeter.html" class="tool-card" data-preview="Tools/Kleinian/coxeter.html">
+                    <h3>Coxeter Graphs</h3>
+                    <p>Coxeter–Dynkin graphs and reflection groups</p>
+                </a>
+                <a href="Tools/Kleinian/quadraticForms.html" class="tool-card" data-preview="Tools/Kleinian/quadraticForms.html">
+                    <h3>Quadratic Form Reflection Groups</h3>
+                    <p>Reflection groups from indefinite quadratic forms</p>
+                </a>
+                <a href="Tools/Kleinian/orthogonalPhi.html" class="tool-card" data-preview="Tools/Kleinian/orthogonalPhi.html">
+                    <h3>O[1,1,1,−Φ]</h3>
+                    <p>Reflection toolkit for O[1,1,1,−Φ]</p>
+                </a>
+                <a href="Tools/Kleinian/FareyKulkarni.html" class="tool-card" data-preview="Tools/Kleinian/FareyKulkarni.html">
+                    <h3>Farey × Kulkarni</h3>
+                    <p>Farey sequence in the hyperbolic plane</p>
+                </a>
+                <a href="Tools/Kleinian/mandelbrot.html" class="tool-card" data-preview="Tools/Kleinian/mandelbrot.html">
+                    <h3>Mandelbrot &amp; Julia</h3>
+                    <p>Mandelbrot &amp; Julia explorer</p>
+                </a>
+                <a href="Tools/Kleinian/julia.html" class="tool-card" data-preview="Tools/Kleinian/julia.html">
+                    <h3>Julia (escape time)</h3>
+                    <p>Polynomial escape-time renderer</p>
+                </a>
+                <a href="Tools/Kleinian/maskit.html" class="tool-card" data-preview="Tools/Kleinian/maskit.html">
+                    <h3>Maskit</h3>
+                    <p>Kleinian escape-time visualization</p>
+                </a>
+                <a href="Tools/Kleinian/maskit1.html" class="tool-card" data-preview="Tools/Kleinian/maskit1.html">
+                    <h3>Maskit (alt 1)</h3>
+                    <p>Interactive Riley-slice fractal explorer</p>
+                </a>
+                <a href="Tools/Kleinian/maskit2.html" class="tool-card" data-preview="Tools/Kleinian/maskit2.html">
+                    <h3>Maskit (alt 2)</h3>
+                    <p>Second alt Riley-slice fractal explorer</p>
+                </a>
+                <a href="Tools/Kleinian/pleating.html" class="tool-card" data-preview="Tools/Kleinian/pleating.html">
+                    <h3>Pleating Coordinates</h3>
+                    <p>Keen–Series words, matrices &amp; root plotter</p>
+                </a>
+                <a href="Tools/Kleinian/bs12.html" class="tool-card" data-preview="Tools/Kleinian/bs12.html">
+                    <h3>BS(1,2) Cayley Graph</h3>
+                    <p>Cayley graph of the Baumslag–Solitar group BS(1,2)</p>
+                </a>
+                <a href="Tools/Kleinian/bs12wrong.html" class="tool-card" data-preview="Tools/Kleinian/bs12wrong.html">
+                    <h3>BS(1,2) Cayley Complex (UHP)</h3>
+                    <p>Cayley complex in upper half-plane style</p>
+                </a>
+                <a href="Tools/Kleinian/PSL2CtoSO31.html" class="tool-card" data-preview="Tools/Kleinian/PSL2CtoSO31.html">
+                    <h3>PSL(2,ℂ) → SO(3,1)</h3>
+                    <p>Spin/Lorentz isomorphism calculator</p>
+                </a>
+                <a href="Tools/Kleinian/h3axes.html" class="tool-card" data-preview="Tools/Kleinian/h3axes.html">
+                    <h3>H³ Axes</h3>
+                    <p>Axes of hyperbolic isometries in H³</p>
+                </a>
+                <a href="Tools/Kleinian/intersection_halfspace.html" class="tool-card" data-preview="Tools/Kleinian/intersection_halfspace.html">
+                    <h3>Half-Space Intersection</h3>
+                    <p>Marching-cubes intersection of half-spaces</p>
+                </a>
+                <a href="Tools/Kleinian/p13.html" class="tool-card" data-preview="Tools/Kleinian/p13.html">
+                    <h3>⟨T,B⟩ Ford Domain</h3>
+                    <p>Ford domain for ⟨T,B⟩ with z = (√7 + i)/2</p>
+                </a>
+                <a href="Tools/Kleinian/raymarching.html" class="tool-card" data-preview="Tools/Kleinian/raymarching.html">
+                    <h3>3-Torus Raymarcher</h3>
+                    <p>Raymarched 3-torus room with Three.js</p>
+                </a>
+                <a href="Tools/Kleinian/poincare1.html" class="tool-card" data-preview="Tools/Kleinian/poincare1.html">
+                    <h3>Poincaré Polyhedron 1</h3>
+                    <p>Earlier Poincaré polyhedron viewer</p>
+                </a>
+                <a href="Tools/Kleinian/poincare2/index.html" class="tool-card" data-preview="Tools/Kleinian/poincare2/index.html">
+                    <h3>Poincaré Polyhedron 2</h3>
+                    <p>Newer Poincaré polyhedron viewer (Dirichlet domains)</p>
+                </a>
+                <a href="Tools/Kleinian/poincare2/asteroids/index.html" class="tool-card" data-preview="Tools/Kleinian/poincare2/asteroids/index.html">
+                    <h3>Asteroids in T³</h3>
+                    <p>Asteroids on a 3-torus</p>
+                </a>
+                <a href="Tools/Kleinian/poincare3/index.html" class="tool-card" data-preview="Tools/Kleinian/poincare3/index.html">
+                    <h3>Poincaré Polyhedron 3</h3>
+                    <p>Latest Dirichlet-domain build</p>
+                </a>
+                <a href="Tools/Kleinian/dirichlet.html" class="tool-card" data-preview="Tools/Kleinian/dirichlet.html">
+                    <h3>Dirichlet (legacy)</h3>
+                    <p>Older Dirichlet polyhedron viewer</p>
+                </a>
+                <a href="Tools/Kleinian/dirichlet2.html" class="tool-card" data-preview="Tools/Kleinian/dirichlet2.html">
+                    <h3>Dirichlet 2</h3>
+                    <p>Dirichlet domain visualization, version 2</p>
+                </a>
+                <a href="Tools/Kleinian/dirichlet3.html" class="tool-card" data-preview="Tools/Kleinian/dirichlet3.html">
+                    <h3>Dirichlet 3</h3>
+                    <p>Dirichlet domain visualization, version 3</p>
+                </a>
+                <a href="Tools/Kleinian/dirichlet4.html" class="tool-card" data-preview="Tools/Kleinian/dirichlet4.html">
+                    <h3>Dirichlet 4</h3>
+                    <p>Dirichlet domain visualization, version 4</p>
+                </a>
+                <a href="Tools/Kleinian/dirichletBadButFun.html" class="tool-card" data-preview="Tools/Kleinian/dirichletBadButFun.html">
+                    <h3>Dirichlet — Bad but Fun</h3>
+                    <p>Buggy but enjoyable Dirichlet experiment</p>
+                </a>
             </div>
 
-            <h2> <i>p</i>-adic </h2>
+            <h2>Euclidean groups</h2>
             <div class="tools-grid">
-                <a href="Tools/padicGroups/globeGame.html" class="tool-card">
+                <a href="Tools/Euclidean/2deuc/index.html" class="tool-card" data-preview="Tools/Euclidean/2deuc/index.html">
+                    <h3>Discrete Subgroups of Isom(ℝ²)</h3>
+                    <p>Interactive walkthrough of 2D Euclidean discrete subgroups</p>
+                </a>
+                <a href="Tools/Euclidean/3deuc/index.html" class="tool-card" data-preview="Tools/Euclidean/3deuc/index.html">
+                    <h3>Discrete Subgroups of Isom(ℝ³)</h3>
+                    <p>Interactive walkthrough of 3D Euclidean discrete subgroups</p>
+                </a>
+                <a href="Tools/Euclidean/3dIndiscrete/index.html" class="tool-card" data-preview="Tools/Euclidean/3dIndiscrete/index.html">
+                    <h3>Isom(ℝⁿ) over ℤ[1/m]</h3>
+                    <p>Property FAb for Isom over ℤ[1/m]</p>
+                </a>
+                <a href="Tools/Euclidean/triangleSquare/index.html" class="tool-card" data-preview="Tools/Euclidean/triangleSquare/index.html">
+                    <h3>Triangle-Square Tiling</h3>
+                    <p>Aperiodic triangle/square tiling</p>
+                </a>
+            </div>
+
+            <h2><i>p</i>-adic groups</h2>
+            <div class="tools-grid">
+                <a href="Tools/padicGroups/trees/index.html" class="tool-card" data-preview="Tools/padicGroups/trees/index.html">
+                    <h3>Bruhat–Tits Tree</h3>
+                    <p>Walk on the building of PGL₂(ℚₚ)</p>
+                </a>
+                <a href="Tools/padicGroups/globeGame/index.html" class="tool-card" data-preview="Tools/padicGroups/globeGame/index.html">
                     <h3>Globe Game</h3>
-                    <p>Spin the globe</p>
+                    <p>Spin the globe — finite covers of S²</p>
                 </a>
-
-                <a href="Tools/padicGroups/trees/index.html" class="tool-card">
-                    <p3><i>p</i>-adic Tree</p3>
-                    <p>Compute with <i>p</i>-adic groups</p>
+                <a href="Tools/padicGroups/globeGame/beamSearch/index.html" class="tool-card" data-preview="Tools/padicGroups/globeGame/beamSearch/index.html">
+                    <h3>Globe Game — Beam Search</h3>
+                    <p>Beam-search variant of the globe game</p>
                 </a>
-
-                <a href="Tools/padicGroups/primeQuaternions.html" class="tool-card">
-                    <p3>Prime Quaternions</p3>
-                    <p>Calculate quaternions of norm <i>p</i></p>
+                <a href="Tools/padicGroups/globeGame/513coords.html" class="tool-card" data-preview="Tools/padicGroups/globeGame/513coords.html">
+                    <h3>5/13 Coordinates</h3>
+                    <p>5–13 coordinate converter for the globe game</p>
                 </a>
-
-                <a href="Tools/padicGroups/quaternionCalculator/index.html" class="tool-card">
-                    <p3>Quaternion groups</p3>
+                <a href="Tools/padicGroups/quaternionCalculator/index.html" class="tool-card" data-preview="Tools/padicGroups/quaternionCalculator/index.html">
+                    <h3>Quaternion Calculator</h3>
                     <p>Compute with integer quaternion groups</p>
                 </a>
-
-                <div class="tool-card coming-soon">
-                    <h3>Ping-Pong Lemma</h3>
-                    <p>Interactive demonstration of the ping-pong lemma</p>
-                    <span class="status">Coming Soon</span>
-                </div>
-
-                <div class="tool-card coming-soon">
-                    <h3>Bass-Serre Trees</h3>
-                    <p>Visualize group actions on trees and compute fundamental domains</p>
-                    <span class="status">Coming Soon</span>
-                </div>
-                
-                <a href="SL3.html" class="tool-card">
-                    <h3>Bruhat-Tits Buildings</h3>
-                    <p>Explore the building of <i>PGL</i><sub>3</sub>(<i>Q</i><sub>p</sub>)</p>
+                <a href="Tools/padicGroups/quaternionCalculatorClaude/index.html" class="tool-card" data-preview="Tools/padicGroups/quaternionCalculatorClaude/index.html">
+                    <h3>Quaternion Calculator (Claude)</h3>
+                    <p>Quaternion algebras &amp; the Bruhat–Tits tree</p>
+                </a>
+                <a href="Tools/padicGroups/quaternionCalculatorLegacy/index.html" class="tool-card" data-preview="Tools/padicGroups/quaternionCalculatorLegacy/index.html">
+                    <h3>Quaternion Calculator (Legacy)</h3>
+                    <p>Older quaternion calculator with dynamic primes</p>
+                </a>
+                <a href="Tools/padicGroups/quaternions.html" class="tool-card" data-preview="Tools/padicGroups/quaternions.html">
+                    <h3>Integer Quaternion Factorizer</h3>
+                    <p>Factor integer quaternions of given norm</p>
+                </a>
+                <a href="Tools/padicGroups/continuedFractions.html" class="tool-card" data-preview="Tools/padicGroups/continuedFractions.html">
+                    <h3>Continued Fractions</h3>
+                    <p>Interactive continued fraction algorithm</p>
+                </a>
+                <a href="Tools/padicGroups/factorComplex/index.html" class="tool-card" data-preview="Tools/padicGroups/factorComplex/index.html">
+                    <h3>Factor Complex Visualizer</h3>
+                    <p>Visualize the factor complex of a quaternion algebra</p>
+                </a>
+                <a href="SL3.html" class="tool-card" data-preview="SL3.html">
+                    <h3>PGL₃(ℚₚ) Building Viewer</h3>
+                    <p>Walk on the rank-2 building</p>
                 </a>
             </div>
 
-            <h2> Other </h2>
+            <h2>Other</h2>
             <div class="tools-grid">
-                <a href="thetaProduct.html" class="tool-card">
-                    <h3>Theta x Theta</h3>
-                    <p>Remove the diagonal squares from Θ x Θ and see the resulting genus 2 surface</p>
+                <a href="thetaProduct.html" class="tool-card" data-preview="thetaProduct.html">
+                    <h3>Theta × Theta</h3>
+                    <p>Remove the diagonal squares from Θ × Θ to see the resulting genus 2 surface</p>
+                </a>
+                <a href="Tools/freeProduct/index.html" class="tool-card" data-preview="Tools/freeProduct/index.html">
+                    <h3>ℤ² ∗ ℤ in SL₃(ℤ[½])</h3>
+                    <p>Free product realized inside SL₃(ℤ[½])</p>
+                </a>
+                <a href="Tools/mandelbrot.html" class="tool-card" data-preview="Tools/mandelbrot.html">
+                    <h3>Mandelbrot (WGSL)</h3>
+                    <p>Mandelbrot zoom &amp; pan via WebGPU</p>
+                </a>
+                <a href="SL3Rcopy.html" class="tool-card" data-preview="SL3Rcopy.html">
+                    <h3>SL₃(ℤ[½]) Dynamics</h3>
+                    <p>SL₃(ℤ[½]) dynamics on ℝ³ vs ℙ²</p>
                 </a>
 
                 <div class="tool-card coming-soon">
+                    <div class="tool-preview"></div>
                     <h3>Cayley Graphs</h3>
-                    <p>Generate and visualize Cayley graphs of finitely generated groups</p>
+                    <p>Generate Cayley graphs of finitely generated groups</p>
                     <span class="status">Coming Soon</span>
                 </div>
 
                 <div class="tool-card coming-soon">
+                    <div class="tool-preview"></div>
                     <h3>Ping-Pong Lemma</h3>
                     <p>Interactive demonstration of the ping-pong lemma</p>
                     <span class="status">Coming Soon</span>
                 </div>
             </div>
         </main>
-        
+
         <footer>
             <p>Created by Nic Brody, UC Santa Cruz</p>
         </footer>
     </div>
+    <script src="../assets/js/tool-previews.js" defer></script>
+    <script src="../assets/js/site-nav.js" defer></script>
 </body>
 </html>

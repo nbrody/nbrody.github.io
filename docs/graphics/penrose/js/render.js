@@ -70,9 +70,11 @@ function paintRhombus(r, fill, stroke) {
     ctx.stroke();
 }
 
-function paintQuad(verts, fill, stroke) {
+function paintQuad(verts, fill, stroke, alpha = 1) {
     const s = state.scale;
     const halfW = view.W / 2, halfH = view.H / 2;
+    const prev = ctx.globalAlpha;
+    if (alpha !== 1) ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
     ctx.beginPath();
     ctx.moveTo(halfW + (verts[0][0] - state.cx) * s, halfH - (verts[0][1] - state.cy) * s);
     ctx.lineTo(halfW + (verts[1][0] - state.cx) * s, halfH - (verts[1][1] - state.cy) * s);
@@ -83,6 +85,7 @@ function paintQuad(verts, fill, stroke) {
     ctx.fill();
     ctx.strokeStyle = stroke;
     ctx.stroke();
+    if (alpha !== 1) ctx.globalAlpha = prev;
 }
 
 export function draw() {
@@ -111,10 +114,9 @@ export function draw() {
         }
     }
 
-    // Pass 2 — flipping clusters: three deformed quads each, with the interior
-    // vertex sliding from its old position to its new one.
+    // Pass 2 — flipping clusters: OLD cube tumbles out, NEW cube flies in.
     for (const q of iterateFlipQuads()) {
-        paintQuad(q.verts, q.fill, q.stroke);
+        paintQuad(q.verts, q.fill, q.stroke, q.alpha);
     }
 
     updateRadar();

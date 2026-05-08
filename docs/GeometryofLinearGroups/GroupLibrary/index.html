@@ -7,18 +7,10 @@
     <title>Group Library</title>
     <link rel="stylesheet" href="../assets/css/main.css">
     <style>
-        .tools-grid {
-            grid-template-columns: 1fr;
-        }
-        .tool-card {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
         .generators {
             font-size: 0.9em;
             color: var(--text-light);
-            margin-left: 20px;
+            margin-top: 6px;
         }
     </style>
     <script src="../assets/js/mathjax-config.js"></script>
@@ -43,44 +35,60 @@
 
             <div class="tools-grid">
 
-                <a href="Groups/SL2Z.html" class="tool-card">
+                <a href="Groups/SL2Z.html" class="tool-card" data-preview="Groups/SL2Z.html">
                     <h3>\(\SL_2(\Z)\)</h3>
                     <div class="generators">
                         \(\left\langle \begin{pmatrix} 1 & 1 \\ 0 & 1 \end{pmatrix}, \begin{pmatrix} 0 & -1 \\ 1 & 0 \end{pmatrix} \right\rangle\)
                     </div>
                 </a>
 
-                <a href="Groups/SO3Q.html" class="tool-card">
+                <a href="Groups/SO3Q.html" class="tool-card" data-preview="Groups/SO3Q.html">
                     <h3>\(\SO_3(\Q)\)</h3>
+                    <p>The rational orthogonal group of the standard 3-form</p>
                 </a>
 
-                <a href="Groups/LongReid.html" class="tool-card">
-                    <h3>Long-Reid group</h3>
+                <a href="Groups/LongReid.html" class="tool-card" data-preview="Groups/LongReid.html">
+                    <h3>Long–Reid group</h3>
                     <div class="generators">
                         \(\left\langle \frac{1}{3}\begin{pmatrix} 9 & 0 \\ 0 & 1 \end{pmatrix}, \frac{1}{8}\begin{pmatrix} 82 & 2 \\ 9 & 1 \end{pmatrix} \right\rangle\)
                     </div>
                 </a>
 
-                <a href="Groups/Z2SurfaceGroup.html" class="tool-card">
+                <a href="Groups/Z2SurfaceGroup.html" class="tool-card" data-preview="Groups/Z2SurfaceGroup.html">
                     <h3>\(\Z[1/2]\) surface group</h3>
                     <div class="generators">
                         \(\left\langle \begin{pmatrix} 2 & 0 \\ 0 & 1 \end{pmatrix}, \begin{pmatrix} 0 & 1 \\ -1 & 0 \end{pmatrix}, \begin{pmatrix} 1 & 2 \\ 2 & 5 \end{pmatrix} \right\rangle\)
                     </div>
                 </a>
 
+                <a href="Groups/Z2*Z.html" class="tool-card" data-preview="Groups/Z2*Z.html">
+                    <h3>\(\Z^2 * \Z\)</h3>
+                    <p>The free product ℤ² ∗ ℤ inside SL₃</p>
+                </a>
+
+                <a href="Groups/AffineGroups/index.html" class="tool-card" data-preview="Groups/AffineGroups/index.html">
+                    <h3>Affine Groups</h3>
+                    <p>A family of affine groups acting on Euclidean space</p>
+                </a>
+
+                <a href="word_multiplier.html" class="tool-card" data-preview="word_multiplier.html">
+                    <h3>Word Multiplier</h3>
+                    <p>Multiply words in a generating set and watch them simplify</p>
+                </a>
+
                 <div class="tool-card coming-soon">
+                    <div class="tool-preview"></div>
                     <h3>\(\Z^2 \leq \SL_3(\Z)\)</h3>
                     <div class="generators">
-                        \(\left\langle \begin{pmatrix} 0 & 0 & 1 \\ 1 & 0 & 2 \\ 0 & 1 & -1 \end{pmatrix}, \begin{pmatrix} -2 & 1 & 1 \\ 0 & 0 & -1 \\ 1 & -1 & 1 \end{pmatrix} \right\rangle ~ (m, m^2-2I)\)
+                        \(\left\langle \begin{pmatrix} 0 & 0 & 1 \\ 1 & 0 & 2 \\ 0 & 1 & -1 \end{pmatrix}, \begin{pmatrix} -2 & 1 & 1 \\ 0 & 0 & -1 \\ 1 & -1 & 1 \end{pmatrix} \right\rangle ~ (m,~ m^2-2I)\)
                     </div>
+                    <span class="status">Coming Soon</span>
                 </div>
 
                 <div class="tool-card coming-soon">
+                    <div class="tool-preview"></div>
                     <h3>Surface Group in \(\PGL_2(\Z[1/p])\)</h3>
-                </div>
-
-                <div class="tool-card coming-soon">
-                    <h3>Group Name TBD</h3>
+                    <span class="status">Coming Soon</span>
                 </div>
 
             </div>
@@ -90,6 +98,8 @@
             <p>Created by Nic Brody, UC Santa Cruz</p>
         </footer>
     </div>
+    <script src="../assets/js/tool-previews.js" defer></script>
+    <script src="../assets/js/site-nav.js" defer></script>
 </body>
 
 </html>
