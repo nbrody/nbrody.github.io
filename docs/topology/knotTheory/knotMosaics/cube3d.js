@@ -284,6 +284,35 @@
     }
 
     // ── Public API ──
+
+    // Lets smooth3d.js transform face-local points into the current
+    // (folded) world frame without it needing to know about pivots.
+    window.__cubeRoot = function () {
+        if (!cubeGroup) return null;
+        return {
+            isFolded: () => isFolded,
+            // p is in face-local coords (x,y ∈ [-0.5,0.5], z = lift). The
+            // strand groups already shift by `meshes[face].position`; for
+            // the front face there is no pivot, so its parent matrix is
+            // identity. For other faces the pivot's matrixWorld captures
+            // the fold rotation + translation.
+            faceToWorld: (face, v) => {
+                const parent = (face === 'front') ? cubeGroup : pivots[face];
+                if (face === 'back' && pivots.back) {
+                    // back is double-nested (pivots.right ⟶ pivots.back)
+                    parent.updateMatrixWorld(true);
+                }
+                cubeGroup.updateMatrixWorld(true);
+                const local = new THREE.Vector3(
+                    v.x + meshes[face].position.x,
+                    v.y + meshes[face].position.y,
+                    v.z + meshes[face].position.z,
+                );
+                return local.applyMatrix4(parent.matrixWorld);
+            },
+        };
+    };
+
     window.openCubeFold = function () {
         document.getElementById('cube-overlay').style.display = 'block';
         document.getElementById('cube-hide-grid').checked = false;

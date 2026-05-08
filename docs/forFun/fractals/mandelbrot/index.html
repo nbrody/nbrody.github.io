@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mandelbrot Viewer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="panel" class="glass">
+    <div class="panel-head">
+      <h1><span class="logo">M</span>andelbrot</h1>
+      <button id="toggle-panel" class="icon-btn" title="Hide panel">_</button>
+    </div>
+
+    <div class="panel-body">
+      <div class="section">
+        <div class="section-title">Deep zoom presets</div>
+        <div id="presets" class="preset-grid"></div>
+      </div>
+
+      <div class="section">
+        <div class="row">
+          <label for="iter">Iterations</label>
+          <span id="iterval" class="val">512</span>
+        </div>
+        <input type="range" id="iter" min="64" max="8000" step="32" value="512">
+
+        <div class="row">
+          <label for="palette">Palette</label>
+          <select id="palette">
+            <option value="0">Plasma</option>
+            <option value="1">Sunset</option>
+            <option value="2">Ocean</option>
+            <option value="3">Fire</option>
+            <option value="4">Twilight</option>
+            <option value="5">Mono</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label for="shift">Color shift</label>
+          <span id="shiftval" class="val">0.00</span>
+        </div>
+        <input type="range" id="shift" min="0" max="1" step="0.005" value="0">
+
+        <div class="row">
+          <label for="cycles">Color cycles</label>
+          <span id="cyclesval" class="val">1.0</span>
+        </div>
+        <input type="range" id="cycles" min="0.2" max="6" step="0.1" value="1">
+
+        <label class="check">
+          <input type="checkbox" id="autoiter" checked>
+          <span>Auto-scale iterations with zoom</span>
+        </label>
+
+        <label class="check">
+          <input type="checkbox" id="dd">
+          <span>High precision (deep zoom)</span>
+        </label>
+      </div>
+
+      <div class="section info">
+        <div><span class="k">re</span><span id="re">0</span></div>
+        <div><span class="k">im</span><span id="im">0</span></div>
+        <div><span class="k">zoom</span><span id="zoom">1×</span></div>
+        <div><span class="k">prec</span><span id="prec">FP32</span></div>
+      </div>
+
+      <div class="section actions">
+        <button id="reset" class="btn">Reset view</button>
+        <button id="screenshot" class="btn">Save PNG</button>
+      </div>
+    </div>
+  </div>
+
+  <button id="show-panel" class="show-panel-btn glass" title="Show panel">M</button>
+
+  <div id="hint" class="hint">scroll to zoom · drag to pan · double-click to recenter</div>
+
+  <script src="mandelbrot.js"></script>
+</body>
+</html>

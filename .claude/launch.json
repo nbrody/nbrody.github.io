@@ -96,6 +96,30 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics && exec python3 -m http.server 8105"],
       "port": 8105
+    },
+    {
+      "name": "knotEnergy",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/topology/knotTheory/knotEnergy && exec python3 -m http.server 8106"],
+      "port": 8106
+    },
+    {
+      "name": "knotMosaics",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/topology/knotTheory && exec python3 -m http.server 8107"],
+      "port": 8107
+    },
+    {
+      "name": "mandelbrot",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/forFun/fractals/mandelbrot && exec python3 -m http.server 8108"],
+      "port": 8108
+    },
+    {
+      "name": "crepeTalk",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/Talks/Crepe && exec python3 -m http.server 8109"],
+      "port": 8109
     }
   ]
 }

@@ -279,6 +279,7 @@ window.syncRemoteState = function (isDihedral) {
 // Initialize on load
 document.addEventListener('DOMContentLoaded', () => {
     if (isRemote) {
+        document.body.classList.add('remote-mode');
         const remoteUi = document.getElementById('remote-ui');
         if (remoteUi) remoteUi.classList.add('active');
 

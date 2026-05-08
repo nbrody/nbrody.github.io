@@ -783,10 +783,16 @@ class IrrationalRotation {
     }
 }
 
-// Initializing the visualizer
-window.addEventListener('DOMContentLoaded', () => {
+// Initializing the visualizer.
+// Note: this script is loaded as type="module", which defers execution until
+// after DOMContentLoaded — so listening for that event would never fire.
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', () => {
+        window.rotationApp = new IrrationalRotation();
+    });
+} else {
     window.rotationApp = new IrrationalRotation();
-});
+}
 
 // postMessage nav (for iframe embedding)
 window.addEventListener('message', function(e) {

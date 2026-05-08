@@ -1185,6 +1185,7 @@ function onSurfaceChange() {
     initGrid();
     updateHud();
     if (typeof populateExamples === 'function') populateExamples();
+    if (typeof syncSmoothButtonVisibility === 'function') syncSmoothButtonVisibility();
     fitView();
 }
 surfaceSelect.addEventListener('change', onSurfaceChange);
@@ -1320,6 +1321,46 @@ document.getElementById('export-btn').addEventListener('click', () => {
     link.href = canvas.toDataURL('image/png');
     link.click();
 });
+
+// Smooth (disk surface) — embed the mosaic in R³ and relax it via Möbius
+// energy. The actual scene + minimiser lives in smooth3d.js.
+document.getElementById('smooth-btn').addEventListener('click', () => {
+    if (window.openSmooth) window.openSmooth();
+});
+
+// Smooth-after-fold (sphere/torus) — sits in the cube/torus 3D-overlay
+// toolbar. Extracts the folded surface's strand polylines and smooths
+// them. Closes the fold overlay before opening the smooth overlay.
+document.getElementById('cube-smooth-btn').addEventListener('click', () => {
+    let polylines;
+    let label;
+    try {
+        if (state.surface === 'sphere') {
+            polylines = window.__smoothExtract.sphere(state.grid);
+            label = 'Folded sphere';
+        } else if (state.surface === 'torus') {
+            polylines = window.__smoothExtract.torus(state.grid);
+            label = 'Folded torus';
+        } else {
+            return;
+        }
+    } catch (e) {
+        alert('Cannot smooth this folded mosaic:\n\n' + e.message);
+        return;
+    }
+    // Both sphere and torus share the cube-overlay/canvas; closeCubeFold
+    // is overridden by torus3d.js to handle either case.
+    if (window.closeCubeFold) window.closeCubeFold();
+    window.openSmooth({ polylines, label });
+});
+
+// Hide the Smooth button on non-disk surfaces (the strand walker only
+// handles flat grids today).
+function syncSmoothButtonVisibility() {
+    const grp = document.getElementById('smooth-group');
+    if (grp) grp.style.display = (state.surface === 'disk') ? '' : 'none';
+}
+syncSmoothButtonVisibility();
 
 // Panel toggle
 const panel = document.getElementById('ui-panel');

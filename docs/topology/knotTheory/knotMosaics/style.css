@@ -709,6 +709,69 @@ input[type="checkbox"]:checked::after {
     min-width: 16px;
 }
 
+/* ===== Smooth (energy-minimisation) Overlay ===== */
+#smooth-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: #0a0e1a;
+    display: none;
+}
+
+#smooth-overlay canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+#smooth-toolbar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 51;
+    background: var(--panel-bg);
+    backdrop-filter: blur(24px) saturate(1.4);
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 12px 20px;
+    box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.5);
+    max-width: calc(100vw - 32px);
+}
+
+.smooth-readout {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.smooth-readout #smooth-energy {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.smooth-slider-label {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    min-width: 90px;
+}
+.smooth-slider-label span {
+    display: inline-block;
+    color: var(--accent);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    margin-left: 4px;
+}
+.smooth-slider-label input[type="range"] {
+    width: 100%;
+    margin: 0;
+}
+
 /* ===== Animations ===== */
 @keyframes fadeIn {
     from {

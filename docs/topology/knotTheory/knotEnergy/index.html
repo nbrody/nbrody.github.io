@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knot Energy Minimizer</title>
+    <meta name="description"
+        content="Embed a knot diagram into R³ and watch it relax into an energy-minimal position via discrete Möbius energy.">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div id="header-hud">
+        <span id="hud-label">Knot Energy</span>
+        <span id="hud-info">Trefoil</span>
+    </div>
+
+    <div id="error-banner"></div>
+
+    <button id="toggle-panel-btn" title="Toggle Controls">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+    </button>
+
+    <div id="ui-panel" class="glass-panel">
+        <div class="panel-header">
+            <div>
+                <h1>Knot Energy</h1>
+                <div class="subtitle">Discrete Möbius energy · gradient descent</div>
+            </div>
+            <button id="close-panel-btn" class="icon-btn" title="Close Panel">&times;</button>
+        </div>
+
+        <div class="panel-scroll-area">
+
+            <!-- Input mode -->
+            <div class="control-group">
+                <label>Knot input</label>
+                <div class="radio-row">
+                    <label class="radio">
+                        <input type="radio" id="input-mode-preset" name="input-mode" checked>
+                        <span>Preset</span>
+                    </label>
+                    <label class="radio">
+                        <input type="radio" id="input-mode-gauss" name="input-mode">
+                        <span>Gauss</span>
+                    </label>
+                    <label class="radio">
+                        <input type="radio" id="input-mode-mosaic" name="input-mode">
+                        <span>Mosaic</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="preset-row" class="control-group">
+                <select id="preset-select"></select>
+            </div>
+
+            <div id="gauss-row" class="control-group" style="display:none;">
+                <textarea id="gauss-input" rows="3"
+                    placeholder="e.g.  O1+ U2+ O3+ U1+ O2+ U3+">O1+ U2+ O3+ U1+ O2+ U3+</textarea>
+                <button id="gauss-load-btn" class="primary-btn">Load Gauss code</button>
+                <div class="hint">
+                    Format: <code>O</code>=over, <code>U</code>=under, then crossing # and sign.
+                    Each crossing must appear once over and once under.
+                </div>
+            </div>
+
+            <div id="mosaic-row" class="control-group" style="display:none;">
+                <div class="mosaic-toolbar">
+                    <select id="mosaic-size-select">
+                        <option value="3">3 × 3</option>
+                        <option value="4">4 × 4</option>
+                        <option value="5" selected>5 × 5</option>
+                        <option value="6">6 × 6</option>
+                        <option value="7">7 × 7</option>
+                    </select>
+                    <button id="mosaic-clear-btn" class="secondary-btn">Clear</button>
+                </div>
+                <select id="mosaic-shape-select" class="mosaic-shape-select">
+                    <option value="">— Load a known mosaic —</option>
+                    <option value="unknot3">Unknot (3 × 3)</option>
+                    <option value="unknot4">Unknot square (4 × 4)</option>
+                    <option value="trefoil5">Trefoil 3₁ (5 × 5)</option>
+                    <option value="figure85">Figure-eight 4₁ (5 × 5)</option>
+                    <option value="hopf5">Hopf link (5 × 5)</option>
+                </select>
+                <div id="mosaic-grid"></div>
+                <label class="palette-label">Tile palette</label>
+                <div id="mosaic-palette"></div>
+                <div class="hint">
+                    Click a palette tile to select it, then click a grid cell to place.
+                    Right-click a cell to clear. Yellow edges flag mismatches.
+                </div>
+                <div class="btn-row">
+                    <button id="mosaic-load-btn"  class="primary-btn">Build 3D knot</button>
+                    <button id="mosaic-share-btn" class="secondary-btn" title="Copy a shareable link to this mosaic">Copy link</button>
+                </div>
+            </div>
+
+            <!-- Playback -->
+            <div class="control-group">
+                <label>Simulation</label>
+                <div class="btn-row">
+                    <button id="play-btn"  class="primary-btn">Run</button>
+                    <button id="step-btn"  class="secondary-btn">Step</button>
+                    <button id="reset-btn" class="secondary-btn">Reset</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Steps per frame <span id="speed-val" class="accent">4</span></label>
+                <input type="range" id="speed-slider" min="1" max="20" value="4">
+            </div>
+
+            <!-- Energy parameters -->
+            <div class="control-group">
+                <label>Möbius repulsion <span id="repel-val" class="accent">1.60</span></label>
+                <input type="range" id="repel-slider"  min="0"   max="6"  step="0.05" value="1.6">
+            </div>
+
+            <div class="control-group">
+                <label>Edge spring <span id="spring-val" class="accent">6.0</span></label>
+                <input type="range" id="spring-slider" min="0"   max="20" step="0.1"  value="6.0">
+            </div>
+
+            <div class="control-group">
+                <label>Tube barrier <span id="tube-val" class="accent">8.0</span></label>
+                <input type="range" id="tube-slider"   min="0"   max="40" step="0.5"  value="8.0">
+            </div>
+
+            <div class="control-group">
+                <label>Tube radius <span id="radius-val" class="accent">0.18</span></label>
+                <input type="range" id="radius-slider" min="0.04" max="0.5" step="0.01" value="0.18">
+            </div>
+
+            <!-- Color -->
+            <div class="control-group">
+                <label>Strand color</label>
+                <div class="color-row">
+                    <button class="color-swatch active" data-color="#6c8aff" style="background:#6c8aff;"></button>
+                    <button class="color-swatch"        data-color="#f472b6" style="background:#f472b6;"></button>
+                    <button class="color-swatch"        data-color="#22d3ee" style="background:#22d3ee;"></button>
+                    <button class="color-swatch"        data-color="#a78bfa" style="background:#a78bfa;"></button>
+                    <button class="color-swatch"        data-color="#34d399" style="background:#34d399;"></button>
+                    <button class="color-swatch"        data-color="#fbbf24" style="background:#fbbf24;"></button>
+                </div>
+            </div>
+
+            <!-- Energy graph -->
+            <div class="control-group">
+                <label>Energy
+                    <span class="readout">
+                        <span id="energy-readout" class="accent">—</span> /
+                        L = <span id="length-readout">—</span>
+                    </span>
+                </label>
+                <canvas id="energy-graph" width="260" height="64"></canvas>
+            </div>
+
+            <div class="hint footer-hint">
+                Drag to rotate · scroll to zoom · right-drag to pan.
+                The minimizer is a discrete <em>O'Hara Möbius</em> energy with
+                an edge-length spring and a tube-collision barrier so the
+                knot type is preserved.
+            </div>
+        </div>
+    </div>
+
+    <script src="js/knots.js?v=10"></script>
+    <script src="js/physics.js?v=10"></script>
+    <script src="js/scene.js?v=10"></script>
+    <script src="js/mosaic.js?v=10"></script>
+    <script src="js/main.js?v=10"></script>
+</body>
+</html>

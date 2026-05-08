@@ -17,7 +17,7 @@ lean_object* initialize_Init(uint8_t builtin);
 lean_object* initialize_Init(uint8_t builtin);
 lean_object* initialize_mathlib_Mathlib(uint8_t builtin);
 static bool _G_initialized = false;
-LEAN_EXPORT lean_object* initialize_BorelHarishChandra_BorelHarishChandra_Basic(uint8_t builtin) {
+LEAN_EXPORT lean_object* initialize_LeanProjects_BorelHarishChandra_Basic(uint8_t builtin) {
 lean_object * res;
 if (_G_initialized) return lean_io_result_mk_ok(lean_box(0));
 _G_initialized = true;

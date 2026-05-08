@@ -471,6 +471,91 @@
     <script src="remote.js"></script>
 
     <script>
+        // Map of overlay-id → { stepAttr, iframeId, postFn(iframe, stepValue) }
+        // postFn is called after showing the overlay, to drive the embedded tool.
+        const OVERLAY_MAP = [
+            {
+                overlay: 'circle-overlay', iframe: 'circle-iframe', stepAttr: 'data-circle-step',
+                post: (ifr, v) => ifr.contentWindow.postMessage({ type: 'goTo', step: parseInt(v) }, '*'),
+            },
+            {
+                overlay: 'spaces-overlay', iframe: 'spaces-iframe', stepAttr: 'data-space-step',
+                post: (ifr, v) => ifr.contentWindow.postMessage({ type: 'goTo', step: parseInt(v) }, '*'),
+            },
+            {
+                overlay: 'torus-overlay', iframe: 'torus-iframe', stepAttr: 'data-torus-step',
+                post: (ifr, v) => ifr.contentWindow.postMessage({ type: 'goTo', step: parseInt(v) }, '*'),
+            },
+            {
+                overlay: 'tree-overlay', iframe: 'tree-iframe', stepAttr: 'data-tree-step',
+                post: (ifr, cmd) => {
+                    ifr.contentWindow.postMessage('reset', '*');
+                    if (cmd === 'a' || cmd === 'b') {
+                        setTimeout(() => ifr.contentWindow.postMessage(cmd, '*'), 400);
+                    } else if (cmd === 'regions') {
+                        setTimeout(() => ifr.contentWindow.postMessage('showRegions', '*'), 200);
+                    } else if (cmd === 'quotient') {
+                        setTimeout(() => {
+                            ifr.contentWindow.postMessage('showRegions', '*');
+                            setTimeout(() => ifr.contentWindow.postMessage('quotient', '*'), 300);
+                        }, 200);
+                    }
+                },
+            },
+            {
+                overlay: 'rotation-overlay', iframe: 'rotation-iframe', stepAttr: 'data-rotation-step',
+                post: (ifr, v) => ifr.contentWindow.postMessage({ type: 'goTo', step: parseInt(v) }, '*'),
+            },
+            {
+                overlay: 'infinity-overlay', iframe: 'infinity-iframe', stepAttr: 'data-infinity-step',
+                post: (ifr, v) => ifr.contentWindow.postMessage({ type: 'goTo', step: parseInt(v) }, '*'),
+            },
+            {
+                overlay: 'padic-overlay', iframe: 'padic-iframe', stepAttr: 'data-padic-step',
+                post: (ifr) => ifr.contentWindow.postMessage('reset', '*'),
+            },
+            {
+                overlay: 'solenoid-overlay', iframe: 'solenoid-iframe', stepAttr: 'data-solenoid-step',
+                post: (ifr, v) => ifr.contentWindow.postMessage({ type: 'goTo', step: parseInt(v) }, '*'),
+            },
+        ];
+
+        // Look at the currently-active slide and show/hide every overlay accordingly.
+        // Centralising this means we can call it from both afterLoad and afterSlideLoad
+        // (and on demand) without worrying about stale overlays from a previous slide.
+        function syncOverlaysForActiveSlide() {
+            const activeSection = document.querySelector('.fp-section.active');
+            if (!activeSection) return;
+            const activeSlide = activeSection.querySelector('.slide.active') || activeSection;
+
+            for (const cfg of OVERLAY_MAP) {
+                const overlay = document.getElementById(cfg.overlay);
+                if (!overlay) continue;
+                const stepValue = activeSlide.getAttribute(cfg.stepAttr);
+                if (stepValue !== null) {
+                    overlay.style.display = 'block';
+                    const ifr = document.getElementById(cfg.iframe);
+                    // The iframe may not have finished loading on the very first
+                    // visit; queue the postMessage on its load event in that case.
+                    const send = () => { try { cfg.post(ifr, stepValue); } catch (e) {} };
+                    if (ifr.contentDocument && ifr.contentDocument.readyState === 'complete') {
+                        send();
+                    } else {
+                        ifr.addEventListener('load', send, { once: true });
+                        // Belt-and-braces: also try after a short delay in case the
+                        // load event already fired before our listener attached.
+                        setTimeout(send, 400);
+                    }
+                } else {
+                    overlay.style.display = 'none';
+                }
+            }
+
+            const isDihedral = activeSlide.getAttribute('data-anchor') === 'dihedral-viz';
+            if (window.syncRemoteState) window.syncRemoteState(isDihedral);
+        }
+        window.syncOverlaysForActiveSlide = syncOverlaysForActiveSlide;
+
         document.addEventListener('DOMContentLoaded', function () {
             window.fp_api = new fullpage('#fullpage', {
                 licenseKey: 'gplv3-license',
@@ -511,129 +596,10 @@
 
 
                 afterLoad: function (origin, destination) {
-                    const activeSlide = destination.item.querySelector('.slide.active') || destination.item;
-                    const isDihedral = activeSlide.getAttribute('data-anchor') === 'dihedral-viz';
-                    if (window.syncRemoteState) window.syncRemoteState(isDihedral);
-                    // Hide overlays when leaving their sections
-                    if (destination.anchor !== 'title') document.getElementById('circle-overlay').style.display = 'none';
-                    if (destination.anchor !== 'space') document.getElementById('spaces-overlay').style.display = 'none';
-                    if (destination.anchor !== 'quotients') {
-                        document.getElementById('torus-overlay').style.display = 'none';
-                        document.getElementById('tree-overlay').style.display = 'none';
-                    }
-                    if (destination.anchor !== 'infinity') document.getElementById('infinity-overlay').style.display = 'none';
-                    if (destination.anchor !== 'paradox') {
-                        document.getElementById('rotation-overlay').style.display = 'none';
-                        document.getElementById('padic-overlay').style.display = 'none';
-                    }
-                    if (destination.anchor !== 'conclusions') {
-                        document.getElementById('solenoid-overlay').style.display = 'none';
-                    }
+                    syncOverlaysForActiveSlide();
                 },
                 afterSlideLoad: function (section, origin, destination) {
-                    const isDihedral = destination.item.getAttribute('data-anchor') === 'dihedral-viz';
-                    if (window.syncRemoteState) window.syncRemoteState(isDihedral);
-
-                    // Circle overlay
-                    const circleOverlay = document.getElementById('circle-overlay');
-                    const circleStep = destination.item.getAttribute('data-circle-step');
-                    if (circleStep !== null) {
-                        circleOverlay.style.display = 'block';
-                        document.getElementById('circle-iframe').contentWindow.postMessage({ type: 'goTo', step: parseInt(circleStep) }, '*');
-                    } else {
-                        circleOverlay.style.display = 'none';
-                    }
-
-                    // Spaces overlay
-                    const spacesOverlay = document.getElementById('spaces-overlay');
-                    const spaceStep = destination.item.getAttribute('data-space-step');
-                    if (spaceStep !== null) {
-                        spacesOverlay.style.display = 'block';
-                        document.getElementById('spaces-iframe').contentWindow.postMessage({ type: 'goTo', step: parseInt(spaceStep) }, '*');
-                    } else {
-                        spacesOverlay.style.display = 'none';
-                    }
-
-                    // Torus overlay
-                    const torusOverlay = document.getElementById('torus-overlay');
-                    const torusStep = destination.item.getAttribute('data-torus-step');
-                    if (torusStep !== null) {
-                        torusOverlay.style.display = 'block';
-                        document.getElementById('torus-iframe').contentWindow.postMessage({ type: 'goTo', step: parseInt(torusStep) }, '*');
-                    } else {
-                        torusOverlay.style.display = 'none';
-                    }
-
-                    // Tree isometries overlay
-                    const treeOverlay = document.getElementById('tree-overlay');
-                    const treeStep = destination.item.getAttribute('data-tree-step');
-                    if (treeStep !== null) {
-                        treeOverlay.style.display = 'block';
-                        const treeIframe = document.getElementById('tree-iframe');
-                        const cmd = treeStep;
-                        if (cmd === 'show') {
-                            treeIframe.contentWindow.postMessage('reset', '*');
-                        } else if (cmd === 'a') {
-                            treeIframe.contentWindow.postMessage('reset', '*');
-                            setTimeout(() => treeIframe.contentWindow.postMessage('a', '*'), 400);
-                        } else if (cmd === 'b') {
-                            treeIframe.contentWindow.postMessage('reset', '*');
-                            setTimeout(() => treeIframe.contentWindow.postMessage('b', '*'), 400);
-                        } else if (cmd === 'regions') {
-                            treeIframe.contentWindow.postMessage('reset', '*');
-                            setTimeout(() => {
-                                treeIframe.contentWindow.postMessage('showRegions', '*');
-                            }, 200);
-                        } else if (cmd === 'quotient') {
-                            treeIframe.contentWindow.postMessage('reset', '*');
-                            setTimeout(() => {
-                                treeIframe.contentWindow.postMessage('showRegions', '*');
-                                setTimeout(() => treeIframe.contentWindow.postMessage('quotient', '*'), 300);
-                            }, 200);
-                        }
-                    } else {
-                        treeOverlay.style.display = 'none';
-                    }
-
-                    // Irrational Rotation overlay
-                    const rotationOverlay = document.getElementById('rotation-overlay');
-                    const rotationStep = destination.item.getAttribute('data-rotation-step');
-                    if (rotationStep !== null) {
-                        rotationOverlay.style.display = 'block';
-                        document.getElementById('rotation-iframe').contentWindow.postMessage({ type: 'goTo', step: parseInt(rotationStep) }, '*');
-                    } else {
-                        rotationOverlay.style.display = 'none';
-                    }
-
-                    // Infinity overlay
-                    const infinityOverlay = document.getElementById('infinity-overlay');
-                    const infinityStep = destination.item.getAttribute('data-infinity-step');
-                    if (infinityStep !== null) {
-                        infinityOverlay.style.display = 'block';
-                        document.getElementById('infinity-iframe').contentWindow.postMessage({ type: 'goTo', step: parseInt(infinityStep) }, '*');
-                    } else {
-                        infinityOverlay.style.display = 'none';
-                    }
-
-                    // p-adic Tree overlay
-                    const padicOverlay = document.getElementById('padic-overlay');
-                    const padicStep = destination.item.getAttribute('data-padic-step');
-                    if (padicStep !== null) {
-                        padicOverlay.style.display = 'block';
-                        document.getElementById('padic-iframe').contentWindow.postMessage('reset', '*');
-                    } else {
-                        padicOverlay.style.display = 'none';
-                    }
-
-                    // 3-adic Solenoid overlay
-                    const solenoidOverlay = document.getElementById('solenoid-overlay');
-                    const solenoidStep = destination.item.getAttribute('data-solenoid-step');
-                    if (solenoidStep !== null) {
-                        solenoidOverlay.style.display = 'block';
-                        document.getElementById('solenoid-iframe').contentWindow.postMessage({ type: 'goTo', step: parseInt(solenoidStep) }, '*');
-                    } else {
-                        solenoidOverlay.style.display = 'none';
-                    }
+                    syncOverlaysForActiveSlide();
                 }
             });
 
@@ -710,6 +676,44 @@
             });
         });
     </script>
+
+    <!--
+      ──────────────────────────────────────────────────────────────
+      On-screen navigation controls (visible when NOT presenting).
+      Two layouts gated by CSS @media: a desktop floating cluster
+      (bottom-right, small) and a mobile full-width bottom bar.
+      ──────────────────────────────────────────────────────────────
+    -->
+    <div id="nav-controls" aria-label="Slide navigation">
+        <button class="nav-ctrl nav-ctrl-prev" type="button" aria-label="Previous"
+            onclick="window.smartPrev && window.smartPrev()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+            </svg>
+        </button>
+        <button class="nav-ctrl nav-ctrl-section-up" type="button" aria-label="Previous section"
+            onclick="window.fullpage_api && window.fullpage_api.moveSectionUp()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 15l-6-6-6 6" />
+            </svg>
+        </button>
+        <button class="nav-ctrl nav-ctrl-section-down" type="button" aria-label="Next section"
+            onclick="window.fullpage_api && window.fullpage_api.moveSectionDown()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9l6 6 6-6" />
+            </svg>
+        </button>
+        <button class="nav-ctrl nav-ctrl-next" type="button" aria-label="Next"
+            onclick="window.smartNext && window.smartNext()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18l6-6-6-6" />
+            </svg>
+        </button>
+    </div>
 
     <!-- Remote UI (shown only on phone when ?mode=remote) -->
     <div id="remote-ui">

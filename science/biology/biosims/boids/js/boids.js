@@ -19,6 +19,7 @@
     turnFactor: 0.25,
     trails: false,
     mode: '2D',
+    sky: 'dusk',
   };
 
   let running = true;
@@ -290,29 +291,92 @@
     }
   }
 
+  // Build a flat bird-silhouette geometry: nose, two wing tips (with slight
+  // upward dihedral so it doesn't look paper-thin from the side), and a tail.
+  // Nose sits at -Z so Object3D.lookAt(velocity) orients the bird correctly.
+  function makeBirdGeometry(THREE) {
+    const geo = new THREE.BufferGeometry();
+    const verts = new Float32Array([
+       0.0,  0.00, -1.5,  // 0 nose (forward)
+      -1.4,  0.12,  0.1,  // 1 left wing tip (slight dihedral)
+       0.0,  0.00,  0.8,  // 2 tail
+       1.4,  0.12,  0.1,  // 3 right wing tip
+    ]);
+    const idx = new Uint16Array([0, 1, 2,  0, 2, 3]);
+    geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+    geo.setIndex(new THREE.BufferAttribute(idx, 1));
+    geo.computeVertexNormals();
+    geo.scale(8, 8, 8); // roughly match the previous cone footprint
+    return geo;
+  }
+
+  // Build a vertical canvas gradient as a CanvasTexture for use as scene.background.
+  function makeGradientSky(THREE, stops) {
+    const c = document.createElement('canvas');
+    c.width = 8; c.height = 512;
+    const g = c.getContext('2d');
+    const grad = g.createLinearGradient(0, 0, 0, 512);
+    for (const [pos, color] of stops) grad.addColorStop(pos, color);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 8, 512);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  // Each preset bundles: background, fog, arena visibility, and the
+  // saturation/lightness used for per-instance bird hues. Lower lightness
+  // gives silhouette-against-sky boids; higher gives luminous boids that
+  // read against dark backgrounds.
+  function buildSkyPresets(THREE) {
+    return {
+      dusk: {
+        bg:    makeGradientSky(THREE, [
+          [0.00, '#0a1230'], [0.40, '#1d2a5e'], [0.65, '#7e3a6a'],
+          [0.82, '#d8744d'], [1.00, '#f4c97f'],
+        ]),
+        clear: 0x2a1b40,
+        fog:   { color: 0x4a3960, density: 0.0014 },
+        arena: false,
+        bird:  { s: 0.0, l: 0.04 },
+      },
+      day: {
+        bg:    makeGradientSky(THREE, [
+          [0.00, '#3d6ab8'], [0.45, '#7eaee0'], [0.85, '#d6e5f3'], [1.00, '#f1edd8'],
+        ]),
+        clear: 0xb8d8ff,
+        fog:   { color: 0xc6dcf2, density: 0.0013 },
+        arena: false,
+        bird:  { s: 0.0, l: 0.04 },
+      },
+      night: {
+        bg:    0x02040a,
+        clear: 0x02040a,
+        fog:   { color: 0x02040a, density: 0.0010 },
+        arena: false,
+        bird:  { s: 0.45, l: 0.72 },
+      },
+      wireframe: {
+        bg:    0x05070f,
+        clear: 0x05070f,
+        fog:   { color: 0x05070f, density: 0.0011 },
+        arena: true,
+        bird:  { s: 0.8, l: 0.65 },
+      },
+    };
+  }
+
   function initThree() {
     const THREE = window.THREE;
     if (!THREE) { console.error('Three.js not loaded'); return; }
 
     const renderer = new THREE.WebGLRenderer({ canvas: canvas3d, antialias: true, alpha: false });
-    renderer.setClearColor(0x05070f, 1);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x05070f, 0.0011);
 
     const camera = new THREE.PerspectiveCamera(55, 1, 0.5, 5000);
 
-    // Lights
-    scene.add(new THREE.AmbientLight(0xb4c4ff, 0.8));
-    const key = new THREE.DirectionalLight(0xffffff, 1.1);
-    key.position.set(300, 420, 300);
-    scene.add(key);
-    const rim = new THREE.DirectionalLight(0xf39bd2, 0.45);
-    rim.position.set(-250, -200, -150);
-    scene.add(rim);
-    const fill = new THREE.HemisphereLight(0x8ab4ff, 0x1a2040, 0.4);
-    scene.add(fill);
-
-    // Arena wireframe
+    // Arena wireframe (visible only in 'wireframe' sky)
     const box = new THREE.BoxGeometry(BOUND_3D * 2, BOUND_3D * 2, BOUND_3D * 2);
     const edges = new THREE.EdgesGeometry(box);
     const arena = new THREE.LineSegments(
@@ -321,26 +385,41 @@
     );
     scene.add(arena);
 
-    // Instanced boids: cone pointing along -Z (so lookAt forward works)
-    const coneGeo = new THREE.ConeGeometry(4.5, 18, 10);
-    coneGeo.rotateX(-Math.PI / 2); // +Y tip → -Z tip
-    const mat = new THREE.MeshStandardMaterial({
+    // Instanced bird silhouettes — flat color so the sky always reads through.
+    const birdGeo = makeBirdGeometry(THREE);
+    const mat = new THREE.MeshBasicMaterial({
       color: 0xffffff,
-      metalness: 0.1,
-      roughness: 0.4,
+      side: THREE.DoubleSide,
     });
-    const instMesh = new THREE.InstancedMesh(coneGeo, mat, MAX_BOIDS);
+    const instMesh = new THREE.InstancedMesh(birdGeo, mat, MAX_BOIDS);
     instMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     instMesh.count = params.count;
-    // Initialize instance color buffer (setColorAt will fill it).
     const initColor = new THREE.Color(0x6ef3c4);
     for (let i = 0; i < MAX_BOIDS; i++) instMesh.setColorAt(i, initColor);
     scene.add(instMesh);
 
     three = {
       THREE, renderer, scene, camera, instMesh, arena,
+      skyPresets: buildSkyPresets(THREE),
+      birdSL: { s: 0.8, l: 0.65 },
       dummy: new THREE.Object3D(), tmpColor: new THREE.Color(),
     };
+    applySky(params.sky);
+  }
+
+  function applySky(name) {
+    if (!three) return;
+    const preset = three.skyPresets[name];
+    if (!preset) return;
+    const { THREE, renderer, scene, arena } = three;
+
+    scene.background = (typeof preset.bg === 'number') ? new THREE.Color(preset.bg) : preset.bg;
+    renderer.setClearColor(preset.clear, 1);
+    scene.fog = new THREE.FogExp2(preset.fog.color, preset.fog.density);
+    arena.visible = preset.arena;
+
+    three.birdSL.s = preset.bird.s;
+    three.birdSL.l = preset.bird.l;
   }
 
   function updateCamera() {
@@ -354,7 +433,7 @@
 
   function draw3D() {
     if (!three) return;
-    const { instMesh, dummy, tmpColor } = three;
+    const { instMesh, dummy, tmpColor, birdSL } = three;
     instMesh.count = boids3d.length;
     for (let i = 0; i < boids3d.length; i++) {
       const b = boids3d[i];
@@ -363,7 +442,7 @@
       dummy.lookAt(b.x + b.vx / sp, b.y + b.vy / sp, b.z + b.vz / sp);
       dummy.updateMatrix();
       instMesh.setMatrixAt(i, dummy.matrix);
-      tmpColor.setHSL(b.hue / 360, 0.8, 0.65);
+      tmpColor.setHSL(b.hue / 360, birdSL.s, birdSL.l);
       instMesh.setColorAt(i, tmpColor);
     }
     instMesh.instanceMatrix.needsUpdate = true;
@@ -448,6 +527,13 @@
   const mode3dBtn = document.getElementById('mode3dBtn');
   mode2dBtn.addEventListener('click', () => setMode('2D'));
   mode3dBtn.addEventListener('click', () => setMode('3D'));
+
+  const skySel = document.getElementById('sky');
+  skySel.value = params.sky;
+  skySel.addEventListener('change', () => {
+    params.sky = skySel.value;
+    applySky(params.sky);
+  });
 
   // ── Pointer handling ─────────────────────────────────────────
   function pointerPosOn(c, evt) {

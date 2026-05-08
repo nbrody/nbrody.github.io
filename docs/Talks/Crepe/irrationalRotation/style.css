@@ -205,6 +205,17 @@ button:hover {
 .embedded #footer { display: none !important; }
 .embedded #canvas-wrap { height: 100vh !important; }
 
+/* On mobile-sized iframes (where the parent shows a bottom nav bar),
+   pull the in-iframe controls panel up so it doesn't disappear under it. */
+@media (max-width: 768px) {
+    .embedded #controls-panel {
+        bottom: 96px !important;
+        right: 12px !important;
+        left: 12px !important;
+        width: auto !important;
+    }
+}
+
 /* Utility Classes */
 .hidden { display: none !important; }
 .faded { opacity: 0 !important; }

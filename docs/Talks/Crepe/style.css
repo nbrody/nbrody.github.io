@@ -693,6 +693,84 @@ body.presentation-mode .present-btn {
     color: var(--text-primary);
 }
 
+/* ══════════════════════════════════════════════════
+   ON-SCREEN NAVIGATION CONTROLS
+   Visible when NOT presenting. Hidden on the phone-remote
+   view and hidden in presentation-mode (presenter uses the
+   phone remote or keyboard).
+   ══════════════════════════════════════════════════ */
+
+#nav-controls {
+    position: fixed;
+    z-index: 95;
+    pointer-events: none;
+    display: flex;
+    gap: 0.6rem;
+    right: 24px;
+    bottom: 24px;
+    flex-direction: row;
+}
+
+#nav-controls .nav-ctrl {
+    pointer-events: auto;
+    background: rgba(13, 19, 33, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(124, 138, 255, 0.2);
+    color: var(--text-primary);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    -webkit-tap-highlight-color: transparent;
+}
+#nav-controls .nav-ctrl-section-up,
+#nav-controls .nav-ctrl-section-down {
+    opacity: 0.7;
+}
+#nav-controls .nav-ctrl:hover {
+    background: rgba(124, 138, 255, 0.18);
+    border-color: rgba(124, 138, 255, 0.45);
+    transform: translateY(-2px);
+}
+#nav-controls .nav-ctrl:active {
+    transform: translateY(0) scale(0.95);
+}
+
+body.presentation-mode #nav-controls,
+body.remote-mode #nav-controls {
+    display: none !important;
+}
+
+/* Mobile / touch layout: a full-width tap bar at the bottom. */
+@media (max-width: 768px) {
+    #nav-controls {
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 0.6rem 0.8rem;
+        gap: 0.5rem;
+        background: linear-gradient(to top, rgba(6, 10, 20, 0.92), rgba(6, 10, 20, 0.6));
+        justify-content: space-between;
+    }
+    #nav-controls .nav-ctrl {
+        flex: 1 1 auto;
+        max-width: 88px;
+        height: 52px;
+        border-radius: 14px;
+    }
+    #nav-controls .nav-ctrl-prev,
+    #nav-controls .nav-ctrl-next {
+        background: rgba(124, 138, 255, 0.22);
+        border-color: rgba(124, 138, 255, 0.4);
+    }
+}
+
 /* ── Live Indicator ─────────────────────────────── */
 #live-indicator {
     position: fixed;
