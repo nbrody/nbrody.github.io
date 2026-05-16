@@ -35,7 +35,9 @@ const sandbox = {
     console,
     document: {
         getElementById: getElement,
-        querySelectorAll: () => []
+        querySelectorAll: () => [],
+        createElement: () => ({ textContent: '', innerHTML: '' }),
+        addEventListener: () => {}
     },
     resetGameState: async (roomCode) => calls.push(['resetGameState', roomCode]),
     setRoomGame: async (roomCode, gameName) => calls.push(['setRoomGame', roomCode, gameName]),
