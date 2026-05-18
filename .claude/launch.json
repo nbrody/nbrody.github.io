@@ -34,8 +34,8 @@
     {
       "name": "penrose",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics/penrose && exec python3 -m http.server 8095"],
-      "port": 8095
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics/penrose && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8096), H).serve_forever()'"],
+      "port": 8096
     },
     {
       "name": "graphics",
@@ -120,6 +120,12 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/Talks/Crepe && exec python3 -m http.server 8109"],
       "port": 8109
+    },
+    {
+      "name": "brooksMatelski",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/InteractivePapers/brooksMatelski && exec python3 -m http.server 8110"],
+      "port": 8110
     }
   ]
 }

@@ -1,25 +1,24 @@
 /* Geometry of Linear Groups — global site navigation
- * Injects a floating hamburger menu with the full site map on every page.
- * Skips itself when running inside an iframe (so it doesn't show up on preview cards).
+ * Floating ☰ button on every page. The drawer (with ~130 nav links) is built
+ * lazily during browser idle time so it doesn't compete with the page's
+ * initial paint or shader/canvas work.
+ * Skips itself when running inside an iframe (so it doesn't show up in previews).
  */
 (function () {
-  if (window.self !== window.top) return;            // skip inside iframes (previews)
-  if (document.getElementById('golg-nav-root')) return; // avoid double-inject
+  if (window.self !== window.top) return;
+  if (document.getElementById('golg-nav-toggle')) return;
 
   // ---- Resolve project base path ----------------------------------------
-  // Works whether hosted at github.io/docs/GeometryofLinearGroups/ or locally.
   function resolveBase() {
     var p = location.pathname;
     var marker = '/GeometryofLinearGroups/';
     var i = p.indexOf(marker);
     if (i >= 0) return p.substring(0, i + marker.length);
-    // Fallback: walk up to the directory containing index.html
     return p.replace(/[^/]*$/, '');
   }
   var BASE = resolveBase();
 
   // ---- Page manifest -----------------------------------------------------
-  // Edit this list to add/remove pages from the nav drawer.
   var MANIFEST = [
     { section: 'Home', icon: '⌂', items: [
       { t: 'Home',                     u: 'index.html' },
@@ -170,138 +169,165 @@
     ]},
   ];
 
-  // ---- Styles ------------------------------------------------------------
-  var css = "" +
-    "#golg-nav-root{position:fixed;top:14px;left:14px;z-index:2147483600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}" +
-    "#golg-nav-toggle{width:42px;height:42px;border-radius:50%;border:none;background:rgba(44,62,80,0.92);color:#fff;font-size:20px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;transition:transform .2s, background .2s;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}" +
-    "#golg-nav-toggle:hover{background:#3498db;transform:scale(1.05);}" +
-    "#golg-nav-toggle.open{background:#3498db;}" +
-    "#golg-nav-drawer{position:fixed;top:0;left:0;height:100vh;width:340px;max-width:90vw;background:#ffffff;color:#222;box-shadow:2px 0 24px rgba(0,0,0,0.18);transform:translateX(-100%);transition:transform .25s ease;display:flex;flex-direction:column;z-index:2147483599;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}" +
-    "#golg-nav-drawer.open{transform:translateX(0);}" +
-    "#golg-nav-header{padding:16px 18px 12px;border-bottom:1px solid #e3e6ea;flex-shrink:0;}" +
-    "#golg-nav-header h2{margin:0 0 8px 0;font-size:1.05em;font-weight:600;color:#2c3e50;font-family:'Georgia',serif;}" +
-    "#golg-nav-search{width:100%;padding:8px 10px;border:1px solid #d0d4d8;border-radius:6px;font-size:14px;outline:none;}" +
-    "#golg-nav-search:focus{border-color:#3498db;}" +
-    "#golg-nav-list{flex:1;overflow-y:auto;padding:8px 0 16px;}" +
-    "#golg-nav-list .sec{padding:10px 18px 2px;font-size:.78em;letter-spacing:.06em;text-transform:uppercase;color:#7a828b;font-weight:600;display:flex;align-items:center;gap:8px;}" +
-    "#golg-nav-list .sec .ico{font-size:1.2em;color:#3498db;}" +
-    "#golg-nav-list a{display:block;padding:6px 18px 6px 34px;color:#2c3e50;text-decoration:none;font-size:13.5px;line-height:1.35;border-left:3px solid transparent;}" +
-    "#golg-nav-list a:hover{background:#f1f6fa;border-left-color:#3498db;color:#16466b;}" +
-    "#golg-nav-list a.current{background:#eaf3fb;border-left-color:#3498db;font-weight:600;}" +
-    "#golg-nav-list a.hidden{display:none;}" +
-    "#golg-nav-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.30);opacity:0;pointer-events:none;transition:opacity .25s;z-index:2147483598;}" +
-    "#golg-nav-overlay.open{opacity:1;pointer-events:auto;}" +
-    "@media(prefers-color-scheme:dark){#golg-nav-drawer{background:#1f2329;color:#e6e8ea;}#golg-nav-list a{color:#dbe1e8;}#golg-nav-list a:hover{background:#2a3038;color:#fff;}#golg-nav-list .sec{color:#9aa3ad;}#golg-nav-search{background:#2a3038;color:#e6e8ea;border-color:#3a4048;}#golg-nav-header{border-bottom-color:#2a3038;}#golg-nav-header h2{color:#e6e8ea;}}" +
-    "@media print{#golg-nav-root,#golg-nav-drawer,#golg-nav-overlay{display:none !important;}}";
-  var style = document.createElement('style');
-  style.textContent = css;
-  document.head.appendChild(style);
+  // ---- Phase 1: minimal toggle button only --------------------------------
+  // Tiny CSS for the toggle so it appears with zero layout cost.
+  var miniCSS = "" +
+    "#golg-nav-toggle{position:fixed;top:14px;left:14px;width:42px;height:42px;border-radius:50%;border:none;background:rgba(44,62,80,.92);color:#fff;font-size:20px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:2147483600;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;transition:transform .2s,background .2s;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}" +
+    "#golg-nav-toggle:hover{background:#3498db;transform:scale(1.05)}" +
+    "#golg-nav-toggle.open{background:#3498db}" +
+    "@media print{#golg-nav-toggle,#golg-nav-drawer,#golg-nav-overlay{display:none!important}}";
+  var miniStyle = document.createElement('style');
+  miniStyle.id = 'golg-nav-mini-style';
+  miniStyle.textContent = miniCSS;
+  document.head.appendChild(miniStyle);
 
-  // ---- Build DOM ---------------------------------------------------------
-  var root = document.createElement('div');
-  root.id = 'golg-nav-root';
-  root.innerHTML = '<button id="golg-nav-toggle" aria-label="Open site navigation" title="Site navigation">☰</button>';
+  var toggle = document.createElement('button');
+  toggle.id = 'golg-nav-toggle';
+  toggle.type = 'button';
+  toggle.setAttribute('aria-label', 'Open site navigation');
+  toggle.title = 'Site navigation (⌘K / Ctrl-K)';
+  toggle.textContent = '☰';
+  document.body.appendChild(toggle);
 
-  var overlay = document.createElement('div');
-  overlay.id = 'golg-nav-overlay';
+  // ---- Phase 2: full drawer (deferred) ------------------------------------
+  var drawer, overlay, list, search;
+  var built = false;
+  var building = false;
 
-  var drawer = document.createElement('aside');
-  drawer.id = 'golg-nav-drawer';
-  drawer.setAttribute('aria-label', 'Site navigation');
+  function buildDrawer() {
+    if (built || building) return;
+    building = true;
 
-  var header = document.createElement('div');
-  header.id = 'golg-nav-header';
-  header.innerHTML = '<h2>Geometry of Linear Groups</h2><input id="golg-nav-search" type="search" placeholder="Filter pages…" autocomplete="off" />';
+    var fullCSS = "" +
+      "#golg-nav-drawer{position:fixed;top:0;left:0;height:100vh;width:340px;max-width:90vw;background:#fff;color:#222;box-shadow:2px 0 24px rgba(0,0,0,.18);transform:translateX(-100%);transition:transform .25s ease;display:flex;flex-direction:column;z-index:2147483599;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;will-change:transform}" +
+      "#golg-nav-drawer.open{transform:translateX(0)}" +
+      "#golg-nav-header{padding:16px 18px 12px;border-bottom:1px solid #e3e6ea;flex-shrink:0}" +
+      "#golg-nav-header h2{margin:0 0 8px;font-size:1.05em;font-weight:600;color:#2c3e50;font-family:'Georgia',serif}" +
+      "#golg-nav-search{width:100%;padding:8px 10px;border:1px solid #d0d4d8;border-radius:6px;font-size:14px;outline:none}" +
+      "#golg-nav-search:focus{border-color:#3498db}" +
+      "#golg-nav-list{flex:1;overflow-y:auto;padding:8px 0 16px}" +
+      "#golg-nav-list .sec{padding:10px 18px 2px;font-size:.78em;letter-spacing:.06em;text-transform:uppercase;color:#7a828b;font-weight:600;display:flex;align-items:center;gap:8px}" +
+      "#golg-nav-list .sec .ico{font-size:1.2em;color:#3498db}" +
+      "#golg-nav-list a{display:block;padding:6px 18px 6px 34px;color:#2c3e50;text-decoration:none;font-size:13.5px;line-height:1.35;border-left:3px solid transparent}" +
+      "#golg-nav-list a:hover{background:#f1f6fa;border-left-color:#3498db;color:#16466b}" +
+      "#golg-nav-list a.current{background:#eaf3fb;border-left-color:#3498db;font-weight:600}" +
+      "#golg-nav-list a.hidden{display:none}" +
+      "#golg-nav-overlay{position:fixed;inset:0;background:rgba(0,0,0,.30);opacity:0;pointer-events:none;transition:opacity .25s;z-index:2147483598}" +
+      "#golg-nav-overlay.open{opacity:1;pointer-events:auto}" +
+      "@media(prefers-color-scheme:dark){#golg-nav-drawer{background:#1f2329;color:#e6e8ea}#golg-nav-list a{color:#dbe1e8}#golg-nav-list a:hover{background:#2a3038;color:#fff}#golg-nav-list .sec{color:#9aa3ad}#golg-nav-search{background:#2a3038;color:#e6e8ea;border-color:#3a4048}#golg-nav-header{border-bottom-color:#2a3038}#golg-nav-header h2{color:#e6e8ea}}";
+    var fullStyle = document.createElement('style');
+    fullStyle.id = 'golg-nav-full-style';
+    fullStyle.textContent = fullCSS;
+    document.head.appendChild(fullStyle);
 
-  var list = document.createElement('nav');
-  list.id = 'golg-nav-list';
+    overlay = document.createElement('div');
+    overlay.id = 'golg-nav-overlay';
 
-  // Determine the current page for highlighting
-  var here = location.pathname;
-  function isCurrent(absUrl) {
-    try {
-      return new URL(absUrl, location.href).pathname === here;
-    } catch (e) { return false; }
+    drawer = document.createElement('aside');
+    drawer.id = 'golg-nav-drawer';
+    drawer.setAttribute('aria-label', 'Site navigation');
+
+    var header = document.createElement('div');
+    header.id = 'golg-nav-header';
+    header.innerHTML = '<h2>Geometry of Linear Groups</h2><input id="golg-nav-search" type="search" placeholder="Filter pages…" autocomplete="off" />';
+
+    list = document.createElement('nav');
+    list.id = 'golg-nav-list';
+
+    var here = location.pathname;
+    function isCurrent(absUrl) {
+      try { return new URL(absUrl, location.href).pathname === here; }
+      catch (e) { return false; }
+    }
+
+    // Build with a string + single innerHTML (faster than many createElement
+    // calls) then attach event delegation rather than per-anchor listeners.
+    var html = '';
+    for (var s = 0; s < MANIFEST.length; s++) {
+      var sec = MANIFEST[s];
+      html += '<div class="sec"><span class="ico">' + sec.icon + '</span> ' + sec.section + '</div>';
+      for (var i = 0; i < sec.items.length; i++) {
+        var it = sec.items[i];
+        var href = BASE + it.u;
+        var cur = isCurrent(href) ? ' class="current"' : '';
+        var ds = (it.t + ' ' + sec.section).toLowerCase().replace(/"/g, '&quot;');
+        html += '<a href="' + href + '"' + cur + ' data-search="' + ds + '">' + it.t + '</a>';
+      }
+    }
+    list.innerHTML = html;
+
+    drawer.appendChild(header);
+    drawer.appendChild(list);
+    document.body.appendChild(overlay);
+    document.body.appendChild(drawer);
+
+    search = document.getElementById('golg-nav-search');
+    overlay.addEventListener('click', close);
+    search.addEventListener('input', onSearch);
+
+    built = true;
+    building = false;
   }
 
-  MANIFEST.forEach(function (sec) {
-    var sH = document.createElement('div');
-    sH.className = 'sec';
-    sH.innerHTML = '<span class="ico">' + sec.icon + '</span> ' + sec.section;
-    list.appendChild(sH);
-    sec.items.forEach(function (it) {
-      var a = document.createElement('a');
-      var href = BASE + it.u;
-      a.href = href;
-      a.textContent = it.t;
-      a.dataset.search = (it.t + ' ' + sec.section).toLowerCase();
-      if (isCurrent(href)) a.className = 'current';
-      list.appendChild(a);
-    });
-  });
-
-  drawer.appendChild(header);
-  drawer.appendChild(list);
-
-  document.body.appendChild(overlay);
-  document.body.appendChild(drawer);
-  document.body.appendChild(root);
-
-  // ---- Wire up behaviour -------------------------------------------------
-  var toggle = document.getElementById('golg-nav-toggle');
-  var search = document.getElementById('golg-nav-search');
+  function onSearch() {
+    var q = search.value.trim().toLowerCase();
+    var anchors = list.querySelectorAll('a');
+    for (var k = 0; k < anchors.length; k++) {
+      var a = anchors[k];
+      if (!q || a.dataset.search.indexOf(q) >= 0) a.classList.remove('hidden');
+      else a.classList.add('hidden');
+    }
+    var heads = list.querySelectorAll('.sec');
+    for (var h = 0; h < heads.length; h++) {
+      var hd = heads[h], n = hd.nextElementSibling, anyVis = false;
+      while (n && !n.classList.contains('sec')) {
+        if (!n.classList.contains('hidden')) { anyVis = true; break; }
+        n = n.nextElementSibling;
+      }
+      hd.style.display = anyVis ? '' : 'none';
+    }
+  }
 
   function open() {
+    if (!built) buildDrawer();
     drawer.classList.add('open');
     overlay.classList.add('open');
     toggle.classList.add('open');
     toggle.textContent = '✕';
-    setTimeout(function(){ search.focus(); }, 60);
+    setTimeout(function () { search && search.focus(); }, 60);
+    if (open._first !== false) {
+      open._first = false;
+      var cur = list.querySelector('a.current');
+      if (cur) cur.scrollIntoView({ block: 'center' });
+    }
   }
   function close() {
+    if (!drawer) return;
     drawer.classList.remove('open');
     overlay.classList.remove('open');
     toggle.classList.remove('open');
     toggle.textContent = '☰';
   }
+
   toggle.addEventListener('click', function () {
-    if (drawer.classList.contains('open')) close(); else open();
+    if (drawer && drawer.classList.contains('open')) close(); else open();
   });
-  overlay.addEventListener('click', close);
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && drawer.classList.contains('open')) close();
+    if (e.key === 'Escape' && drawer && drawer.classList.contains('open')) close();
     if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      if (drawer.classList.contains('open')) close(); else open();
+      if (drawer && drawer.classList.contains('open')) close(); else open();
     }
   });
 
-  search.addEventListener('input', function () {
-    var q = search.value.trim().toLowerCase();
-    var anchors = list.querySelectorAll('a');
-    anchors.forEach(function (a) {
-      if (!q || a.dataset.search.indexOf(q) >= 0) a.classList.remove('hidden');
-      else a.classList.add('hidden');
-    });
-    // Hide section headers that have no visible items
-    var headers = list.querySelectorAll('.sec');
-    headers.forEach(function (h) {
-      var n = h.nextElementSibling;
-      var anyVisible = false;
-      while (n && !n.classList.contains('sec')) {
-        if (!n.classList.contains('hidden')) { anyVisible = true; break; }
-        n = n.nextElementSibling;
-      }
-      h.style.display = anyVisible ? '' : 'none';
-    });
-  });
-
-  // Scroll the current entry into view when opened, on first open only
-  var firstOpen = true;
-  toggle.addEventListener('click', function once () {
-    if (!firstOpen) return;
-    firstOpen = false;
-    var cur = list.querySelector('a.current');
-    if (cur) cur.scrollIntoView({ block: 'center' });
-  });
+  // Pre-build the drawer in idle time so the first click feels instant —
+  // but only after the page has had time to paint and run its initial JS.
+  function schedule() {
+    if (built) return;
+    var idle = window.requestIdleCallback;
+    if (idle) idle(function () { buildDrawer(); }, { timeout: 4000 });
+    else setTimeout(buildDrawer, 2500);
+  }
+  if (document.readyState === 'complete') schedule();
+  else window.addEventListener('load', schedule, { once: true });
 })();

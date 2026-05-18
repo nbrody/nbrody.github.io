@@ -174,6 +174,19 @@ class KnotChain {
             dtSafety: 0.18,
         };
         this.lastEnergy = 0;
+        this.stepCount = 0;
+        // Number of frames over which the repulsion ramps from
+        // RAMP_FLOOR × kRepel up to full kRepel. Lets the Laplacian damp
+        // out high-frequency content from the initial polygon before the
+        // 1/r² gradient lights up every short-wavelength mode.
+        this.RAMP_FRAMES = 60;
+        this.RAMP_FLOOR  = 0.05;
+
+        // Warm-up: a handful of pure Laplacian smoothing passes to round
+        // off the kinks where mosaic-tile pieces meet, before any forces
+        // are computed. This is the single biggest reduction in the
+        // initial "ringing" effect.
+        for (let k = 0; k < 10; k++) this.smoothLaplacian(0.5);
     }
     averageEdgeLength() {
         let s = 0;
@@ -233,7 +246,18 @@ class KnotChain {
         return F;
     }
     step() {
+        // Ramp kRepel from RAMP_FLOOR × target up to full strength over
+        // RAMP_FRAMES steps. Restore at the end so the slider value the
+        // user sees stays authoritative.
+        const userKRepel = this.params.kRepel;
+        if (this.stepCount < this.RAMP_FRAMES) {
+            const t = this.stepCount / this.RAMP_FRAMES;
+            const factor = this.RAMP_FLOOR + (1 - this.RAMP_FLOOR) * t * t;
+            this.params.kRepel = userKRepel * factor;
+        }
         const F = this.computeForces();
+        this.params.kRepel = userKRepel;
+
         let maxF = 0;
         for (let i = 0; i < this.N; i++) {
             const m = F[i].lengthSq();
@@ -248,7 +272,11 @@ class KnotChain {
             this.points[i].z += dt * F[i].z;
         }
         this.recenter();
-        this.smoothLaplacian(0.05);
+        // Slightly stronger Laplacian damping during the warm-up window,
+        // then settle into the gentle steady-state value.
+        const alpha = this.stepCount < this.RAMP_FRAMES ? 0.15 : 0.05;
+        this.smoothLaplacian(alpha);
+        this.stepCount++;
         return this.lastEnergy;
     }
     recenter() {
@@ -273,23 +301,16 @@ class KnotChain {
 }
 
 function resampleClosed(pts, M) {
-    const N = pts.length;
-    const lens = [0];
-    for (let i = 0; i < N; i++)
-        lens.push(lens[i] + pts[i].distanceTo(pts[(i + 1) % N]));
-    const total = lens[N], step = total / M;
-    const out = [];
-    let seg = 0;
+    if (pts.length < 4) return pts.slice();
+    // Centripetal Catmull-Rom over the loop control points gives a C¹
+    // curve, so the resampled polygon has no sharp kinks at mosaic-tile
+    // boundaries. That eliminates most of the high-frequency content
+    // that the energy gradient would otherwise amplify on step 1.
+    const curve = new THREE.CatmullRomCurve3(pts, /*closed*/ true,
+        'centripetal', 0.5);
+    const out = new Array(M);
     for (let k = 0; k < M; k++) {
-        const tgt = k * step;
-        while (seg < N && lens[seg + 1] < tgt) seg++;
-        const t = (tgt - lens[seg]) / (lens[seg + 1] - lens[seg] + 1e-12);
-        const a = pts[seg], b = pts[(seg + 1) % N];
-        out.push(new THREE.Vector3(
-            a.x + t * (b.x - a.x),
-            a.y + t * (b.y - a.y),
-            a.z + t * (b.z - a.z),
-        ));
+        out[k] = curve.getPoint(k / M);
     }
     return out;
 }

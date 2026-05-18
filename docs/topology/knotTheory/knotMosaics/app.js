@@ -1166,11 +1166,7 @@ function updateHud() {
         disk: 'Disk', sphere: 'Sphere', torus: 'Torus',
         projective: 'RP²', cylinder: 'Cylinder', mobius: 'Möbius'
     };
-    const surfaceLabel = SURFACE_LABELS[state.surface] || state.surface;
-    const sizeLabel = state.surface === 'sphere'
-        ? `6×${state.faceSize}²`
-        : `${state.gridSize}×${state.gridSize}`;
-    hudInfo.textContent = `${surfaceLabel} · ${sizeLabel}`;
+    hudInfo.textContent = SURFACE_LABELS[state.surface] || state.surface;
 }
 
 // Surface selector (dropdown)
@@ -1179,8 +1175,8 @@ const FOLDABLE_SURFACES = ['sphere', 'torus'];
 
 function onSurfaceChange() {
     state.surface = surfaceSelect.value;
-    document.getElementById('fold-group').style.display =
-        FOLDABLE_SURFACES.includes(state.surface) ? '' : 'none';
+    // "View in R³" is unified across all surfaces, so its visibility no
+    // longer needs to be toggled here.
     syncSliderToSurface();
     initGrid();
     updateHud();
@@ -1314,18 +1310,20 @@ document.getElementById('clear-btn').addEventListener('click', () => {
 });
 
 
-// Export
-document.getElementById('export-btn').addEventListener('click', () => {
-    const link = document.createElement('a');
-    link.download = `knot-mosaic-${state.surface}-${Date.now()}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-});
-
-// Smooth (disk surface) — embed the mosaic in R³ and relax it via Möbius
-// energy. The actual scene + minimiser lives in smooth3d.js.
-document.getElementById('smooth-btn').addEventListener('click', () => {
-    if (window.openSmooth) window.openSmooth();
+// "View in R³" — single entry point for embedding the current mosaic into
+// 3-space. The destination depends on the surface:
+//   • disk   → open the smooth (energy-minimisation) overlay directly,
+//              since the disk diagram is already a planar R² embedding.
+//   • sphere → open the cube-fold overlay; "Smooth" appears in its toolbar.
+//   • torus  → open the torus-fold overlay; same.
+document.getElementById('view-r3-btn').addEventListener('click', () => {
+    if (state.surface === 'disk') {
+        if (window.openSmooth) window.openSmooth();
+    } else if (state.surface === 'sphere') {
+        if (window.openCubeFold) window.openCubeFold();
+    } else if (state.surface === 'torus') {
+        if (window.openTorusFold) window.openTorusFold();
+    }
 });
 
 // Smooth-after-fold (sphere/torus) — sits in the cube/torus 3D-overlay
@@ -1354,12 +1352,10 @@ document.getElementById('cube-smooth-btn').addEventListener('click', () => {
     window.openSmooth({ polylines, label });
 });
 
-// Hide the Smooth button on non-disk surfaces (the strand walker only
-// handles flat grids today).
-function syncSmoothButtonVisibility() {
-    const grp = document.getElementById('smooth-group');
-    if (grp) grp.style.display = (state.surface === 'disk') ? '' : 'none';
-}
+// The "View in R³" button is unified across surfaces, so nothing to
+// toggle here. (Older builds had separate Smooth/Fold buttons; this stub
+// remains as a no-op so other call sites stay safe.)
+function syncSmoothButtonVisibility() {}
 syncSmoothButtonVisibility();
 
 // Panel toggle
@@ -1419,14 +1415,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Fold button (unified)
-document.getElementById('fold-btn').addEventListener('click', () => {
-    if (state.surface === 'sphere') {
-        if (window.openCubeFold) window.openCubeFold();
-    } else if (state.surface === 'torus') {
-        if (window.openTorusFold) window.openTorusFold();
-    }
-});
+// (Fold dispatch is folded into the "View in R³" handler above.)
 
 // ============================================================
 // Face texture renderer (for 3D cube)

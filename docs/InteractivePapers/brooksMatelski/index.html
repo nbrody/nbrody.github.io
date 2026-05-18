@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Brooks–Matelski: 2-Generator Subgroups of PSL(2,ℂ)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+<main class="page">
+
+<header class="hero">
+    <div class="hero__content">
+        <p class="hero__eyebrow">A guided tour</p>
+        <h1>The Dynamics of 2-Generator Subgroups of PSL(2,ℂ)</h1>
+        <p class="hero__lede">
+            Brooks &amp; Matelski (Stony Brook, 1978; pub. 1981) asked when a discrete two-generator subgroup
+            of \(\mathrm{PSL}(2,\mathbb{C})\) deforms into an indiscrete one. Their analysis funnels the
+            discreteness question into the iteration of a quadratic polynomial and produces — almost as a
+            byproduct — what is widely cited as the first published image of the Mandelbrot set.
+        </p>
+        <p class="hero__cite">R. Brooks &amp; J. P. Matelski, <em>The Dynamics of 2-Generator Subgroups of PSL(2,ℂ)</em>, in <em>Riemann Surfaces and Related Topics</em> (Stony Brook 1978), Ann. of Math. Studies 97, Princeton 1981.</p>
+    </div>
+    <div class="hero__accent">
+        <span class="hero__formula">\(z \mapsto z^2 + c\)</span>
+        <span class="hero__badge">Interactive paper</span>
+    </div>
+</header>
+
+<nav class="toc" aria-label="Sections">
+    <a href="#sec-mobius">§1 Möbius geometry</a>
+    <a href="#sec-twogen">§2 Two generators</a>
+    <a href="#sec-renorm">§3 Renormalization</a>
+    <a href="#sec-orbit">§4 Quadratic orbits</a>
+    <a href="#sec-mandel">§5 The Mandelbrot set</a>
+    <a href="#sec-julia">§6 Julia sets</a>
+    <a href="#sec-close">§7 Closing the loop</a>
+</nav>
+
+<!-- §1 -->
+<section id="sec-mobius" class="card">
+    <h2 class="card__title"><span class="section-num">§1</span> Möbius transformations on the Riemann sphere</h2>
+    <p>
+        An element of \(\mathrm{PSL}(2,\mathbb{C})\) acts on \(\widehat{\mathbb{C}} = \mathbb{C}\cup\{\infty\}\) by the Möbius transformation
+        \(\displaystyle\gamma(z) = \frac{az+b}{cz+d}\), \(ad-bc=1\). Via stereographic projection this is also a conformal automorphism of the
+        2-sphere \(S^2\), and extends to an isometry of hyperbolic 3-space \(\mathbb{H}^3\). Brooks &amp; Matelski study
+        finitely generated subgroups of this group acting on \(\mathbb{H}^3\).
+    </p>
+    <p class="hint">
+        Drag to rotate the sphere. Each Möbius element has either two fixed points (loxodromic / elliptic) or one
+        fixed point (parabolic). The flow lines on the sphere are the orbits of the one-parameter subgroup it
+        generates.
+    </p>
+
+    <div class="viz-wrap">
+        <div class="viz-canvas" id="viz-mobius"></div>
+        <div class="viz-controls">
+            <label class="control">
+                <span class="control__label">Type</span>
+                <select id="mobius-type">
+                    <option value="loxodromic" selected>Loxodromic</option>
+                    <option value="elliptic">Elliptic (rotation)</option>
+                    <option value="parabolic">Parabolic</option>
+                    <option value="hyperbolic">Hyperbolic (real trace)</option>
+                </select>
+            </label>
+            <label class="control">
+                <span class="control__label">Translation length \(\ell\)</span>
+                <input type="range" id="mobius-len" min="0" max="2" step="0.01" value="0.8" />
+                <span class="control__value" id="mobius-len-v">0.80</span>
+            </label>
+            <label class="control">
+                <span class="control__label">Rotation \(\theta\) (rad)</span>
+                <input type="range" id="mobius-rot" min="-3.14" max="3.14" step="0.01" value="0.6" />
+                <span class="control__value" id="mobius-rot-v">0.60</span>
+            </label>
+            <label class="control">
+                <span class="control__label">Animate</span>
+                <input type="checkbox" id="mobius-anim" checked />
+            </label>
+            <div class="control control--readout">
+                <span class="control__label">Trace</span>
+                <code id="mobius-trace">2 cosh(ℓ/2 + iθ/2)</code>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- §2 -->
+<section id="sec-twogen" class="card">
+    <h2 class="card__title"><span class="section-num">§2</span> Two generators and their limit set</h2>
+    <p>
+        Pick two elements \(A, B \in \mathrm{PSL}(2,\mathbb{C})\). The group \(\Gamma = \langle A, B\rangle\) is
+        <em>Kleinian</em> when it acts properly discontinuously on \(\mathbb{H}^3\); equivalently when \(\Gamma\) is a
+        discrete subgroup. The <em>limit set</em> \(\Lambda(\Gamma) \subset \widehat{\mathbb{C}}\) is where orbits accumulate
+        on \(\partial\mathbb{H}^3\). Generically it is a Cantor set, a circle, or all of \(\widehat{\mathbb{C}}\).
+    </p>
+    <p>
+        Following Brooks &amp; Matelski, fix \(A\) parabolic at \(\infty\), say \(A(z) = z + 1\). Then \(\Gamma\) is determined
+        up to conjugation by a complex parameter \(\mu\) appearing in \(B\). We use the Riley-style normal form
+        \(\displaystyle B = \begin{pmatrix} 1 & 0 \\ -\mu & 1\end{pmatrix}\) so both generators are parabolic
+        and \(\mu \in \mathbb{C}\) is the only continuous datum.
+    </p>
+
+    <div class="viz-wrap">
+        <div class="viz-canvas viz-canvas--limit" id="viz-twogen"></div>
+        <div class="viz-controls">
+            <label class="control">
+                <span class="control__label">Re(μ)</span>
+                <input type="range" id="mu-re" min="-3" max="3" step="0.001" value="1.91" />
+                <span class="control__value" id="mu-re-v">1.910</span>
+            </label>
+            <label class="control">
+                <span class="control__label">Im(μ)</span>
+                <input type="range" id="mu-im" min="-3" max="3" step="0.001" value="0.05" />
+                <span class="control__value" id="mu-im-v">0.050</span>
+            </label>
+            <label class="control">
+                <span class="control__label">Word depth</span>
+                <input type="range" id="word-depth" min="6" max="14" step="1" value="11" />
+                <span class="control__value" id="word-depth-v">11</span>
+            </label>
+            <label class="control">
+                <span class="control__label">Show \(\mathbb{H}^3\) hull</span>
+                <input type="checkbox" id="show-hull" />
+            </label>
+            <div class="control control--buttons">
+                <button class="button button--ghost" data-preset-mu="1.91,0.05">Near Riley boundary</button>
+                <button class="button button--ghost" data-preset-mu="2.0,0.0">μ = 2 (modular)</button>
+                <button class="button button--ghost" data-preset-mu="1.0,1.732">μ = 1 + i√3</button>
+                <button class="button button--ghost" data-preset-mu="0.5,2.5">Indiscrete sample</button>
+            </div>
+        </div>
+    </div>
+    <p class="hint">
+        The point cloud is the orbit of \(0\in\widehat{\mathbb{C}}\) under all words of length \(\le n\) in \(A^{\pm 1}, B^{\pm 1}\).
+        As \(n\to\infty\) it fills out \(\Lambda(\Gamma)\). When \(\mu\) lies in the <em>Riley slice</em>, the group is
+        discrete and free and the limit set is a Cantor circle.
+    </p>
+</section>
+
+<!-- §3 -->
+<section id="sec-renorm" class="card">
+    <h2 class="card__title"><span class="section-num">§3</span> The renormalization trick</h2>
+    <p>
+        Here is the heart of the paper. Suppose \(\Gamma_\mu = \langle A, B_\mu\rangle\) is on the boundary
+        between discrete and indiscrete. Brooks &amp; Matelski study the word
+        \[
+            W_n = A^{a_n} B_\mu A^{a_{n-1}} B_\mu \cdots A^{a_1} B_\mu
+        \]
+        for cleverly chosen integers \(a_k\). After conjugating by a diagonal matrix that pulls \(W_n\) toward
+        the identity, the recursion on the off-diagonal entry collapses to a one-dimensional iteration
+        \[
+            z_{n+1} = z_n^2 + c, \qquad c = c(\mu).
+        \]
+        The complex constant \(c\) depends polynomially on \(\mu\). Discreteness of \(\Gamma_\mu\) translates,
+        after this reduction, into the orbit \(0, c, c^2+c, \ldots\) staying bounded.
+    </p>
+    <p>
+        Below: the moving frame. The black grid is the original picture in coordinates adapted to \(A\). After
+        successive renormalizations \(z \mapsto z^2 + c\), the picture re-coordinates itself; the limit pattern
+        is the Julia set for \(c\). Drag the slider to step through the renormalization tower.
+    </p>
+
+    <div class="viz-wrap">
+        <div class="viz-canvas viz-canvas--renorm" id="viz-renorm"></div>
+        <div class="viz-controls">
+            <label class="control">
+                <span class="control__label">c</span>
+                <input type="range" id="renorm-cre" min="-2" max="1" step="0.001" value="-0.75" />
+                <span class="control__value" id="renorm-cre-v">−0.750</span>
+                <input type="range" id="renorm-cim" min="-1.5" max="1.5" step="0.001" value="0.1" />
+                <span class="control__value" id="renorm-cim-v">0.100</span>
+            </label>
+            <label class="control">
+                <span class="control__label">Renormalization step</span>
+                <input type="range" id="renorm-step" min="0" max="8" step="1" value="0" />
+                <span class="control__value" id="renorm-step-v">0</span>
+            </label>
+        </div>
+    </div>
+</section>
+
+<!-- §4 -->
+<section id="sec-orbit" class="card">
+    <h2 class="card__title"><span class="section-num">§4</span> Iteration of \(z \mapsto z^2 + c\)</h2>
+    <p>
+        Now we forget the group and watch the orbit of \(0\) under \(f_c(z) = z^2 + c\). Brooks &amp; Matelski
+        observed that the set
+        \[
+            M \;=\; \bigl\{\, c\in\mathbb{C} \;:\; \text{the orbit }0,\,c,\,c^2+c,\,\ldots\text{ is bounded}\,\bigr\}
+        \]
+        controls discreteness in their family. Today we call \(M\) the <em>Mandelbrot set</em>.
+    </p>
+    <p>
+        Below, the three-dimensional plot shows the orbit \(z_0=0,\,z_1,\,z_2,\ldots\) lifted by step number on the
+        vertical axis. Drag \(c\) on the left plane and the orbit re-draws live. When \(c \in M\) the curve stays
+        within a bounded vertical cylinder; otherwise it spirals off to infinity.
+    </p>
+
+    <div class="viz-wrap">
+        <div class="viz-twin">
+            <div class="viz-twin__pane viz-twin__pane--small">
+                <canvas id="orbit-cplane" width="320" height="320"></canvas>
+                <p class="hint">Click to set \(c\). Background shading is escape-time of \(0\).</p>
+            </div>
+            <div class="viz-canvas viz-canvas--orbit" id="viz-orbit"></div>
+        </div>
+        <div class="viz-controls">
+            <label class="control">
+                <span class="control__label">c</span>
+                <code id="orbit-c">c = −0.7269 + 0.1889 i</code>
+            </label>
+            <label class="control">
+                <span class="control__label">Orbit length</span>
+                <input type="range" id="orbit-len" min="20" max="400" step="10" value="120" />
+                <span class="control__value" id="orbit-len-v">120</span>
+            </label>
+            <label class="control">
+                <span class="control__label">Vertical scale</span>
+                <input type="range" id="orbit-zscale" min="0.1" max="2" step="0.05" value="0.5" />
+                <span class="control__value" id="orbit-zscale-v">0.50</span>
+            </label>
+        </div>
+    </div>
+</section>
+
+<!-- §5 -->
+<section id="sec-mandel" class="card">
+    <h2 class="card__title"><span class="section-num">§5</span> The Mandelbrot set as a height field</h2>
+    <p>
+        The Brooks–Matelski paper contains the figure reproduced below, generated by a Fortran loop on an
+        IBM mainframe and rendered as ASCII. It is one of the earliest pictures of \(M\) in print
+        (Mandelbrot's first image appeared the same year). Brooks &amp; Matelski draw it to illustrate the
+        discreteness locus in the parameter \(c\).
+    </p>
+
+    <pre class="ascii-mandel">
+                                                  *
+                                                ***
+                                              ******
+                                              *******
+                                            *********
+                                       ****  *********
+                                     ******************
+                                    ********************
+                                  ************************
+                          ****   **************************
+                          *********************************
+                          *********************************
+                     *************************************
+                  ***************************************
+        ************************************************
+                  ***************************************
+                     *************************************
+                          *********************************
+                          *********************************
+                          ****   **************************
+                                  ************************
+                                    ********************
+                                     ******************
+                                       ****  *********
+                                            *********
+                                              *******
+                                              ******
+                                                ***
+                                                  *
+    </pre>
+
+    <p>
+        Below, the same picture, this time rendered in WebGL and lifted to a 3D height field where height is the
+        log escape iteration count. The interior of \(M\) is flat (orbits never escape); the boundary is the
+        fractal we recognise. Drag to rotate.
+    </p>
+
+    <div class="viz-wrap">
+        <div class="viz-canvas viz-canvas--mandel" id="viz-mandel"></div>
+        <div class="viz-controls">
+            <label class="control">
+                <span class="control__label">Iteration cap</span>
+                <input type="range" id="mandel-iter" min="60" max="600" step="20" value="200" />
+                <span class="control__value" id="mandel-iter-v">200</span>
+            </label>
+            <label class="control">
+                <span class="control__label">Height</span>
+                <input type="range" id="mandel-height" min="0" max="1.5" step="0.01" value="0.6" />
+                <span class="control__value" id="mandel-height-v">0.60</span>
+            </label>
+            <label class="control">
+                <span class="control__label">Resolution</span>
+                <select id="mandel-res">
+                    <option value="256">256</option>
+                    <option value="384" selected>384</option>
+                    <option value="512">512</option>
+                </select>
+            </label>
+            <label class="control">
+                <span class="control__label">Color</span>
+                <select id="mandel-palette">
+                    <option value="cosmic" selected>Cosmic</option>
+                    <option value="ember">Ember</option>
+                    <option value="mono">Greyscale</option>
+                </select>
+            </label>
+        </div>
+    </div>
+</section>
+
+<!-- §6 -->
+<section id="sec-julia" class="card">
+    <h2 class="card__title"><span class="section-num">§6</span> Julia sets at a glance</h2>
+    <p>
+        For each \(c\), the <em>filled Julia set</em> \(K_c\) is the set of starting points \(z\) whose orbit under
+        \(f_c\) stays bounded. The dichotomy \(0 \in M \Leftrightarrow K_c\) is connected goes back to Fatou–Julia.
+        Brooks &amp; Matelski's discreteness criterion is parallel: the relevant group is discrete iff a certain orbit is
+        bounded, and the parameter locus is \(M\).
+    </p>
+    <p>
+        Hover the Mandelbrot panel: the right pane shows the Julia set \(K_c\) for the hovered \(c\), and a 3D
+        height field for it. Pin a \(c\) by clicking.
+    </p>
+
+    <div class="viz-wrap">
+        <div class="viz-twin">
+            <div class="viz-twin__pane">
+                <canvas id="julia-mandel" width="380" height="380"></canvas>
+                <p class="hint">Hover/click to pick \(c\).</p>
+            </div>
+            <div class="viz-canvas viz-canvas--julia" id="viz-julia"></div>
+        </div>
+        <div class="viz-controls">
+            <label class="control">
+                <span class="control__label">c</span>
+                <code id="julia-c">c = −0.7269 + 0.1889 i</code>
+            </label>
+            <label class="control">
+                <span class="control__label">Iter cap</span>
+                <input type="range" id="julia-iter" min="60" max="500" step="20" value="200" />
+                <span class="control__value" id="julia-iter-v">200</span>
+            </label>
+            <label class="control">
+                <span class="control__label">Height</span>
+                <input type="range" id="julia-height" min="0" max="1.5" step="0.01" value="0.5" />
+                <span class="control__value" id="julia-height-v">0.50</span>
+            </label>
+            <label class="control">
+                <span class="control__label">Pin</span>
+                <input type="checkbox" id="julia-pin" />
+            </label>
+        </div>
+    </div>
+</section>
+
+<!-- §7 -->
+<section id="sec-close" class="card">
+    <h2 class="card__title"><span class="section-num">§7</span> Closing the loop</h2>
+    <p>
+        We started with two parabolic Möbius elements and a question — when is the group they generate discrete?
+        After conjugating, the answer reduced to whether a single complex parameter \(c\) lies in \(M\). The figure
+        above is the answer set, drawn directly out of group theory.
+    </p>
+    <p>
+        The same scaffolding — fix one generator, vary the other, track a renormalized iterate — recurs across
+        Kleinian-group theory: it is what produces the <em>Riley slice</em>, the <em>Maskit slice</em>, and the
+        general theory of holomorphic families of representations. The Mandelbrot picture sits at one corner of
+        that broader landscape.
+    </p>
+    <div class="footer-links">
+        <a class="button button--ghost" href="../../GeometryofLinearGroups/Geometric/Tools/Kleinian/rileySlice/">Explore the Riley slice →</a>
+        <a class="button button--ghost" href="../../GeometryofLinearGroups/Geometric/Tools/Kleinian/limitSetExplorer/">Limit set explorer →</a>
+        <a class="button button--ghost" href="../../GeometryofLinearGroups/Geometric/Tools/Kleinian/maskit.html">Maskit slice →</a>
+        <a class="button button--ghost" href="../../GeometryofLinearGroups/Geometric/index.html">Back to Geometric tools</a>
+    </div>
+</section>
+
+</main>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

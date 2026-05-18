@@ -6,8 +6,8 @@ import { state, view, schedule } from './state.js';
 import { generateRhombi } from './tiling.js';
 import { updateRadar, updateSumPill, updateReadout, updateRhombCount } from './ui.js';
 import {
-    buildClusters, updateClusterState, staticFaceFor, isRhombusInFlight,
-    iterateFlipQuads, hasLiveAnimations
+    buildClusters, updateClusterState, staticFaceFor,
+    paintFlightTo, hasLiveAnimations
 } from './animations.js';
 
 export const palettes = {
@@ -70,24 +70,6 @@ function paintRhombus(r, fill, stroke) {
     ctx.stroke();
 }
 
-function paintQuad(verts, fill, stroke, alpha = 1) {
-    const s = state.scale;
-    const halfW = view.W / 2, halfH = view.H / 2;
-    const prev = ctx.globalAlpha;
-    if (alpha !== 1) ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-    ctx.beginPath();
-    ctx.moveTo(halfW + (verts[0][0] - state.cx) * s, halfH - (verts[0][1] - state.cy) * s);
-    ctx.lineTo(halfW + (verts[1][0] - state.cx) * s, halfH - (verts[1][1] - state.cy) * s);
-    ctx.lineTo(halfW + (verts[2][0] - state.cx) * s, halfH - (verts[2][1] - state.cy) * s);
-    ctx.lineTo(halfW + (verts[3][0] - state.cx) * s, halfH - (verts[3][1] - state.cy) * s);
-    ctx.closePath();
-    ctx.fillStyle = fill;
-    ctx.fill();
-    ctx.strokeStyle = stroke;
-    ctx.stroke();
-    if (alpha !== 1) ctx.globalAlpha = prev;
-}
-
 export function draw() {
     ctx.clearRect(0, 0, view.W, view.H);
 
@@ -101,11 +83,10 @@ export function draw() {
     ctx.lineJoin = 'round';
     ctx.lineWidth = Math.min(1, state.scale * 0.025);
 
-    // Pass 1 — normal rhombi (cube-shaded if they belong to a non-flipping cluster,
-    // skipped entirely if they're currently being animated).
+    // Pass 1 — the tiling itself. Cluster rhombi get isometric cube shading;
+    // everyone else gets the active palette.
     for (const r of rhombi) {
-        if (isRhombusInFlight(r)) continue;
-        const cf = staticFaceFor(r, clusters);
+        const cf = staticFaceFor(r);
         if (cf) {
             paintRhombus(r, cf.fill, cf.stroke);
         } else {
@@ -114,10 +95,8 @@ export function draw() {
         }
     }
 
-    // Pass 2 — flipping clusters: OLD cube tumbles out, NEW cube flies in.
-    for (const q of iterateFlipQuads()) {
-        paintQuad(q.verts, q.fill, q.stroke, q.alpha);
-    }
+    // Pass 2 — OLD cube ghosts flying out along their axes.
+    paintFlightTo(ctx, state, view);
 
     updateRadar();
     updateSumPill();

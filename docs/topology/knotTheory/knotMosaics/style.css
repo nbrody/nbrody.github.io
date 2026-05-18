@@ -583,12 +583,37 @@ input[type="checkbox"]:checked::after {
     animation: floatUp 0.6s cubic-bezier(0.4, 0, 0.15, 1);
 }
 
+.palette-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
 .palette-label {
     font-size: 0.65rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.15em;
     color: var(--text-secondary);
+}
+
+/* "View in ℝ³" button — keep the MathJax SVG vertically centred with
+   the surrounding text and prevent it from inflating the button height. */
+#view-r3-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4em;
+}
+#view-r3-btn mjx-container[jax="SVG"] {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+    /* MathJax sizes its SVG to 1em by default — tweak slightly so the
+       ℝ³ glyph sits on the same baseline as the "View in" text. */
+    transform: translateY(0.05em);
 }
 
 .palette-tiles-row {

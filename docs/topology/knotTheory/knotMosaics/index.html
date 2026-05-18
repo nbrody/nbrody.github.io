@@ -7,8 +7,18 @@
     <title>Knot Mosaic Playground</title>
     <meta name="description"
         content="Interactive knot mosaic builder — place tiles on disk, sphere, or torus surfaces to create knot diagrams.">
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=4">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- MathJax v3 (SVG output) for the "View in ℝ³" label. -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']] },
+            svg: { fontCache: 'global' },
+            startup: { typeset: true },
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
 </head>
 
 <body>
@@ -103,28 +113,19 @@
 
         <!-- Action Buttons -->
         <div class="button-group">
-            <button id="clear-btn" class="btn btn-outline">Clear</button>
-            <button id="export-btn" class="btn btn-primary">
-                <span class="btn-icon">⬇</span> Export
-            </button>
+            <button id="clear-btn" class="btn btn-outline" style="flex:1">Clear</button>
         </div>
-        <div class="button-group" id="fold-group" style="display: none;">
-            <button id="fold-btn" class="btn btn-primary" style="flex:1">
-                <span class="btn-icon">🔮</span> Fold
-            </button>
-        </div>
-        <div class="button-group" id="smooth-group">
-            <button id="smooth-btn" class="btn btn-primary" style="flex:1"
-                    title="Embed this mosaic in R³ and relax it via Möbius energy">
-                <span class="btn-icon">∿</span> Smooth
+        <div class="button-group" id="view-r3-group">
+            <button id="view-r3-btn" class="btn btn-primary" style="flex:1"
+                    title="Embed this mosaic into R³">
+                View in \(\mathbb{R}^3\)
             </button>
         </div>
     </div>
 
     <!-- Tile Palette -->
     <div id="tile-palette">
-        <div class="palette-header"
-            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div class="palette-header">
             <div class="palette-label">Tiles</div>
             <label class="cube-toggle">
                 <input type="checkbox" id="show-orientations-toggle">
@@ -151,7 +152,7 @@
                 <button id="cube-unfold-btn" class="btn btn-secondary">Unfold</button>
                 <button id="cube-smooth-btn" class="btn btn-primary"
                         title="Energy-minimize the strands of the folded surface">
-                    <span class="btn-icon">∿</span> Smooth
+                    Smooth
                 </button>
                 <button id="cube-close-btn" class="btn btn-outline">Close</button>
             </div>
@@ -169,7 +170,7 @@
                 </span>
                 <label class="smooth-slider-label">
                     speed <span id="smooth-speed-val">4</span>
-                    <input type="range" id="smooth-speed-slider" min="1" max="20" value="4">
+                    <input type="range" id="smooth-speed-slider" min="1" max="100" value="4">
                 </label>
                 <label class="smooth-slider-label">
                     radius <span id="smooth-radius-val">0.18</span>
@@ -182,14 +183,14 @@
         </div>
     </div>
 
-    <script src="tiles.js?v=3"></script>
-    <script src="exampleLibrary.js?v=3"></script>
-    <script src="app.js?v=3"></script>
+    <script src="tiles.js?v=4"></script>
+    <script src="exampleLibrary.js?v=4"></script>
+    <script src="app.js?v=4"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="cube3d.js?v=3"></script>
-    <script src="torus3d.js?v=3"></script>
-    <script src="smooth3d.js?v=3"></script>
+    <script src="cube3d.js?v=4"></script>
+    <script src="torus3d.js?v=4"></script>
+    <script src="smooth3d.js?v=4"></script>
 </body>
 
 </html>
