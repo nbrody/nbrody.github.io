@@ -326,6 +326,11 @@ let stepsPerFrame = 4;
 let tubeRadius = 0.18;
 let frameCounter = 0;
 let userTouchedCamera = false;
+let resetBuilder = null;
+
+function getAppState() {
+    return (typeof window.getAppState === 'function') ? window.getAppState() : null;
+}
 
 function initScene() {
     const c = document.getElementById('smooth-canvas');
@@ -684,13 +689,24 @@ window.openSmooth = function (opts) {
     opts = opts || {};
     let built;
     if (opts.polylines) {
-        built = buildChainsFromPolylines(opts.polylines);
+        resetBuilder = () => buildChainsFromPolylines(opts.polylines);
+        built = resetBuilder();
     } else {
-        if (state.surface !== 'disk') {
+        const st = getAppState();
+        if (!st) {
+            alert('Cannot smooth this mosaic: app state is unavailable.');
+            return;
+        }
+        if (st.surface !== 'disk') {
             alert('To smooth a sphere or torus mosaic, click Fold first, then Smooth.');
             return;
         }
-        built = buildChainsFromGrid(state.grid);
+        resetBuilder = () => {
+            const latest = getAppState();
+            return latest ? buildChainsFromGrid(latest.grid)
+                          : { error: 'App state is unavailable' };
+        };
+        built = resetBuilder();
     }
     if (built.error) {
         alert('Cannot smooth this mosaic:\n\n' + built.error);
@@ -724,7 +740,8 @@ window.closeSmooth = function () {
 document.getElementById('smooth-close-btn').addEventListener('click', window.closeSmooth);
 document.getElementById('smooth-play-btn').addEventListener('click', () => setRunning(!running));
 document.getElementById('smooth-reset-btn').addEventListener('click', () => {
-    const built = buildChainsFromGrid(state.grid);
+    if (!resetBuilder) return;
+    const built = resetBuilder();
     if (built.error) { alert(built.error); return; }
     chains = built.chains;
     buildTubes();
