@@ -4,6 +4,8 @@
 
 export const N = 5;
 export const TAU = 2 * Math.PI;
+export const BASE_MIN_SCALE = 6;
+export const MAX_TILING_RADIUS = 55;
 
 /* Direction vectors */
 export const E = [];   // physical projection  π(e_k)
@@ -25,6 +27,10 @@ export const state = {
 };
 
 export const view = { W: 0, H: 0, DPR: 1 };
+
+export function minScaleForViewport(width = view.W, height = view.H) {
+    return Math.max(BASE_MIN_SCALE, Math.hypot(width, height) / (2 * (MAX_TILING_RADIUS - 1.5)));
+}
 
 /* Draw scheduler – render.js registers the draw fn, everyone else just calls schedule(). */
 let drawFn = null;

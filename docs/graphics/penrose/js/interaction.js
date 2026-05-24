@@ -2,9 +2,8 @@
  *  Pan, wheel-zoom, and two-finger pinch-zoom on the canvas.
  * ------------------------------------------------------------------ */
 
-import { state, schedule } from './state.js';
+import { state, schedule, minScaleForViewport } from './state.js';
 
-const MIN_SCALE = 6;
 const MAX_SCALE = 220;
 
 function zoomAt(canvas, factor, clientX, clientY) {
@@ -13,7 +12,7 @@ function zoomAt(canvas, factor, clientX, clientY) {
     const my = clientY - rect.top - rect.height / 2;
     const wx = state.cx + mx / state.scale;
     const wy = state.cy - my / state.scale;
-    state.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, state.scale * factor));
+    state.scale = Math.max(minScaleForViewport(), Math.min(MAX_SCALE, state.scale * factor));
     state.cx = wx - mx / state.scale;
     state.cy = wy + my / state.scale;
 }
