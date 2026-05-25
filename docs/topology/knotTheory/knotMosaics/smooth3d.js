@@ -680,20 +680,33 @@ window.__smoothExtract = {
     sphere: extractSpherePolylines,
 };
 
+let resetBuilder = null;
+
+function currentAppState() {
+    return window.getAppState && window.getAppState();
+}
+
+function buildChainsFromCurrentDiskGrid() {
+    const st = currentAppState();
+    if (!st || st.surface !== 'disk') {
+        return { error: 'To smooth a sphere or torus mosaic, click Fold first, then Smooth.' };
+    }
+    return buildChainsFromGrid(st.grid);
+}
+
 window.openSmooth = function (opts) {
     opts = opts || {};
     let built;
     if (opts.polylines) {
         built = buildChainsFromPolylines(opts.polylines);
+        resetBuilder = () => buildChainsFromPolylines(opts.polylines);
     } else {
-        if (state.surface !== 'disk') {
-            alert('To smooth a sphere or torus mosaic, click Fold first, then Smooth.');
-            return;
-        }
-        built = buildChainsFromGrid(state.grid);
+        built = buildChainsFromCurrentDiskGrid();
+        resetBuilder = buildChainsFromCurrentDiskGrid;
     }
     if (built.error) {
         alert('Cannot smooth this mosaic:\n\n' + built.error);
+        resetBuilder = null;
         return;
     }
     chains = built.chains;
@@ -724,7 +737,7 @@ window.closeSmooth = function () {
 document.getElementById('smooth-close-btn').addEventListener('click', window.closeSmooth);
 document.getElementById('smooth-play-btn').addEventListener('click', () => setRunning(!running));
 document.getElementById('smooth-reset-btn').addEventListener('click', () => {
-    const built = buildChainsFromGrid(state.grid);
+    const built = (resetBuilder || buildChainsFromCurrentDiskGrid)();
     if (built.error) { alert(built.error); return; }
     chains = built.chains;
     buildTubes();

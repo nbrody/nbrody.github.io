@@ -295,7 +295,8 @@
     // Handle the existing toggle so it works for both depending on what's active
     const domToggle = document.getElementById('cube-hide-grid');
     domToggle.addEventListener('change', e => {
-        if (state.surface === 'torus') {
+        const st = window.getAppState();
+        if (st.surface === 'torus') {
             updateTextures(e.target.checked);
         }
     });
