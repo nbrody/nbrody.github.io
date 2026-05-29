@@ -680,18 +680,28 @@ window.__smoothExtract = {
     sphere: extractSpherePolylines,
 };
 
+let resetSource = null;
+
+function currentAppState() {
+    return window.getAppState ? window.getAppState() : null;
+}
+
+function buildFromResetSource() {
+    if (resetSource && resetSource.polylines) {
+        return buildChainsFromPolylines(resetSource.polylines);
+    }
+    const st = currentAppState();
+    if (!st) return { error: 'Knot mosaic state is not available.' };
+    if (st.surface !== 'disk') {
+        return { error: 'To smooth a sphere or torus mosaic, click Fold first, then Smooth.' };
+    }
+    return buildChainsFromGrid(st.grid);
+}
+
 window.openSmooth = function (opts) {
     opts = opts || {};
-    let built;
-    if (opts.polylines) {
-        built = buildChainsFromPolylines(opts.polylines);
-    } else {
-        if (state.surface !== 'disk') {
-            alert('To smooth a sphere or torus mosaic, click Fold first, then Smooth.');
-            return;
-        }
-        built = buildChainsFromGrid(state.grid);
-    }
+    resetSource = opts.polylines ? { polylines: opts.polylines } : null;
+    const built = buildFromResetSource();
     if (built.error) {
         alert('Cannot smooth this mosaic:\n\n' + built.error);
         return;
@@ -724,7 +734,7 @@ window.closeSmooth = function () {
 document.getElementById('smooth-close-btn').addEventListener('click', window.closeSmooth);
 document.getElementById('smooth-play-btn').addEventListener('click', () => setRunning(!running));
 document.getElementById('smooth-reset-btn').addEventListener('click', () => {
-    const built = buildChainsFromGrid(state.grid);
+    const built = buildFromResetSource();
     if (built.error) { alert(built.error); return; }
     chains = built.chains;
     buildTubes();
