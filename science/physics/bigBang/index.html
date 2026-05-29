@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Big Bang & Cosmic Web — Physics</title>
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <style>
+    html, body { height: 100%; }
+    body { overflow: hidden; }
+
+    #stage {
+      position: fixed; inset: 0;
+      width: 100vw; height: 100vh;
+      display: block; background: #000308;
+      touch-action: none; cursor: crosshair; z-index: 0;
+    }
+
+    .ui-toggle {
+      position: fixed; top: 1rem; right: 1rem; z-index: 30;
+      width: 44px; height: 44px; padding: 0; border-radius: 12px;
+      border: 1px solid var(--panel-border); background: var(--panel);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      color: var(--ink); cursor: pointer; display: flex;
+      align-items: center; justify-content: center; box-shadow: var(--shadow);
+    }
+    .ui-toggle:hover { border-color: var(--panel-border-strong); }
+    .ui-toggle svg { width: 20px; height: 20px; }
+    .ui-toggle .icon-close { display: none; }
+    body.ui-open .ui-toggle .icon-open { display: none; }
+    body.ui-open .ui-toggle .icon-close { display: block; }
+
+    .ui-overlay {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: min(380px, 92vw); z-index: 20;
+      overflow-y: auto; padding: 4.25rem 1.25rem 1.5rem;
+      background: linear-gradient(180deg, rgba(6, 8, 15, 0.9), rgba(6, 8, 15, 0.74));
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+      border-left: 1px solid var(--panel-border);
+      transform: translateX(100%); transition: transform 280ms ease;
+    }
+    body.ui-open .ui-overlay { transform: translateX(0); }
+
+    .ui-overlay .breadcrumb { margin-bottom: 1rem; font-size: 0.82rem; }
+    .ui-overlay .hero { padding: 1.1rem 1.25rem; border-radius: 16px; margin-bottom: 1rem; }
+    .ui-overlay .hero h1 { font-size: 1.35rem; }
+    .ui-overlay .hero p { font-size: 0.9rem; margin-top: 0.5rem; }
+    .ui-overlay .hero__badge { font-size: 0.7rem; margin-bottom: 0.6rem; }
+    .ui-overlay .sim-panel { margin-bottom: 1rem; box-shadow: none; }
+    .ui-overlay .page-footer { margin-top: 1.25rem; text-align: left; font-size: 0.78rem; }
+
+    /* Cosmic-time banner over the canvas */
+    .epoch {
+      position: fixed; left: 50%; top: 1.1rem; transform: translateX(-50%);
+      z-index: 8; text-align: center; pointer-events: none;
+      transition: opacity 400ms ease;
+    }
+    .epoch .epoch__name {
+      font-size: 0.95rem; letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 600; color: var(--ink);
+      text-shadow: 0 0 18px rgba(138, 180, 255, 0.55);
+    }
+    .epoch .epoch__time {
+      margin-top: 0.2rem; font-size: 0.78rem; letter-spacing: 0.12em;
+      color: var(--muted); font-variant-numeric: tabular-nums;
+    }
+
+    .view-hint {
+      position: fixed; left: 1rem; bottom: 1rem; z-index: 5;
+      color: var(--muted); font-size: 0.78rem; letter-spacing: 0.04em;
+      background: rgba(6, 8, 15, 0.55);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      padding: 0.5rem 0.75rem; border-radius: 10px;
+      border: 1px solid var(--panel-border); pointer-events: none; max-width: 70vw;
+    }
+    .view-hint kbd {
+      display: inline-block; padding: 0 0.35rem; border-radius: 4px;
+      border: 1px solid rgba(138, 180, 255, 0.3);
+      background: rgba(138, 180, 255, 0.08); font: inherit; color: var(--ink);
+    }
+
+    .stat-row {
+      display: flex; justify-content: space-between;
+      font-size: 0.82rem; color: var(--muted);
+      letter-spacing: 0.04em; padding: 0.15rem 0;
+    }
+    .stat-row .val { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+    .seg { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+    .seg .btn { flex: 1 1 auto; padding: 0.4rem 0.6rem; font-size: 0.8rem; }
+    .seg .btn.active {
+      background: rgba(110, 243, 196, 0.22);
+      border-color: rgba(110, 243, 196, 0.6);
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body class="ui-open">
+  <canvas id="stage" aria-label="Big Bang and cosmic structure formation simulation"></canvas>
+
+  <div class="epoch" id="epoch">
+    <div class="epoch__name" id="epochName">Singularity</div>
+    <div class="epoch__time" id="epochTime">t = 0</div>
+  </div>
+
+  <button class="ui-toggle" id="uiToggle" aria-label="Toggle controls" title="Toggle controls (U)">
+    <svg class="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+  </button>
+
+  <div class="view-hint">
+    Drag to tug matter into a cluster · <kbd>B</kbd> Big Bang · <kbd>U</kbd> UI · <kbd>Space</kbd> pause
+  </div>
+
+  <div class="ui-overlay" id="uiOverlay">
+    <nav class="breadcrumb">
+      <a href="../../../index.html">Home</a> /
+      <a href="../index.html">Physics</a> / Big Bang
+    </nav>
+
+    <section class="hero">
+      <span class="hero__badge">Structure Formation</span>
+      <h1>Big Bang &amp; Cosmic Web</h1>
+      <p>
+        Start from the singularity: a hot, dense point detonates and matter
+        streams outward into an expanding universe. As it cools, gravity takes
+        over — tiny density ripples grow, and the dust drains out of the voids
+        to settle into the filaments and clusters of the <em>cosmic web</em>.
+      </p>
+    </section>
+
+    <aside class="sim-panel">
+      <h2>Cosmos</h2>
+
+      <div class="row">
+        <label>Matter particles <span class="val" id="countVal">9000</span></label>
+        <input type="range" id="count" min="1000" max="20000" step="500" value="9000" />
+      </div>
+
+      <div class="row">
+        <label>Gravity strength <span class="val" id="gravVal">1.0</span></label>
+        <input type="range" id="grav" min="0" max="3" step="0.05" value="1.0" />
+      </div>
+
+      <div class="row">
+        <label>Gravity reach <span class="val" id="reachVal">6</span></label>
+        <input type="range" id="reach" min="1" max="14" step="1" value="6" />
+      </div>
+
+      <div class="row">
+        <label>Cosmic expansion drag <span class="val" id="dragVal">0.30</span></label>
+        <input type="range" id="drag" min="0" max="1.5" step="0.02" value="0.30" />
+      </div>
+
+      <div class="row">
+        <label>Big Bang energy <span class="val" id="energyVal">1.0</span></label>
+        <input type="range" id="energy" min="0.3" max="2.5" step="0.05" value="1.0" />
+      </div>
+
+      <div class="row">
+        <label>Time flow <span class="val" id="speedVal">1.0</span></label>
+        <input type="range" id="speed" min="0.1" max="2.5" step="0.05" value="1.0" />
+      </div>
+
+      <div class="row" style="margin-top: 0.4rem;">
+        <label>Color by</label>
+        <div class="seg" id="colorSeg">
+          <button class="btn active" data-color="temp">Temperature</button>
+          <button class="btn" data-color="density">Density</button>
+          <button class="btn" data-color="speed">Speed</button>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top: 0.6rem;">
+        <label>Trail persistence <span class="val" id="trailVal">0.82</span></label>
+        <input type="range" id="trail" min="0" max="0.96" step="0.02" value="0.82" />
+      </div>
+
+      <div class="btn-row">
+        <button class="btn primary" id="bangBtn">↯ Big Bang</button>
+        <button class="btn" id="playBtn">Pause</button>
+      </div>
+
+      <div style="margin-top: 1rem;">
+        <div class="stat-row"><span>Epoch</span><span class="val" id="statEpoch">—</span></div>
+        <div class="stat-row"><span>Cosmic time</span><span class="val" id="statTime">0</span></div>
+        <div class="stat-row"><span>Particles</span><span class="val" id="statCount">0</span></div>
+        <div class="stat-row"><span>Mean temp</span><span class="val" id="statTemp">0.00</span></div>
+        <div class="stat-row"><span>FPS</span><span class="val" id="statFps">0</span></div>
+      </div>
+
+      <details>
+        <summary>How it works</summary>
+        <p>
+          Thousands of mass tracers are born in a tiny, hot region and flung
+          outward with a Hubble-like velocity, filling a periodic (wrap-around)
+          universe. Gravity is solved on a grid with a <em>particle&#8211;mesh</em>
+          scheme: matter is deposited into cells, the density field is smoothed
+          to a softened potential, and each particle is accelerated down its
+          gradient toward over-dense regions. An expansion-drag term damps
+          peculiar velocities so structure can freeze out — letting the initial
+          ripples collapse into sheets, filaments, and clusters: the cosmic web.
+          Color tracks blackbody-style temperature (hot blue &rarr; cool red,
+          with cluster cores reheating), local density, or speed.
+        </p>
+      </details>
+    </aside>
+
+    <footer class="page-footer">Physics · Big Bang &amp; Cosmic Web</footer>
+  </div>
+
+  <script src="js/bigbang.js"></script>
+</body>
+</html>
