@@ -279,6 +279,7 @@
         const uiBtn = document.getElementById('cube-unfold-btn');
         uiBtn.textContent = 'Unfold';
         uiBtn.onclick = () => {
+            if (state.surface !== 'torus') return;
             animateFold(!isFolded);
             uiBtn.textContent = isFolded ? 'Unfold' : 'Fold';
         };

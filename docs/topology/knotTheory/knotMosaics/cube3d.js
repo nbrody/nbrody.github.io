@@ -328,6 +328,9 @@
         active = true;
         document.getElementById('cube-overlay').style.display = 'block';
         document.getElementById('cube-hide-grid').checked = false;
+        const unfoldBtn = document.getElementById('cube-unfold-btn');
+        unfoldBtn.textContent = 'Unfold';
+        unfoldBtn.onclick = null;
         if (!renderer) init();
         onResize(); buildNet(); loop();
         foldTimer = setTimeout(() => {
@@ -342,7 +345,9 @@
     };
 
     document.getElementById('cube-close-btn').addEventListener('click', window.closeCubeFold);
-    document.getElementById('cube-unfold-btn').addEventListener('click', () => animateFold(!isFolded));
+    document.getElementById('cube-unfold-btn').addEventListener('click', () => {
+        if (state.surface === 'sphere') animateFold(!isFolded);
+    });
     document.getElementById('cube-hide-grid').addEventListener('change', e => setStrandsOnly(e.target.checked));
 
     // Render mode toggle (tiles/tubes) — wired up in cube3d since it loads first
