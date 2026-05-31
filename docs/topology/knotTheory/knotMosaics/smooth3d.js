@@ -321,6 +321,7 @@ let scene, camera, renderer, controls;
 let tubeMesh, tubeMaterial;
 let chains = [];                // multi-component support
 let animId = null;
+let loopActive = false;
 let running = false;
 let stepsPerFrame = 4;
 let tubeRadius = 0.18;
@@ -407,40 +408,45 @@ function frameAll() {
 }
 
 function loop() {
-    if (running) {
-        for (const ch of chains) {
-            for (let s = 0; s < stepsPerFrame; s++) ch.step();
+    if (animId !== null) cancelAnimationFrame(animId);
+    loopActive = true;
+    (function run() {
+        if (!loopActive) { animId = null; return; }
+        if (running) {
+            for (const ch of chains) {
+                for (let s = 0; s < stepsPerFrame; s++) ch.step();
+            }
+            // Tube radius is auto-scaled to a small fraction of the knot's
+            // bounding sphere so it always reads as a tube, never a hairline,
+            // regardless of how much the chain expands. The user slider is
+            // applied as a multiplier on top.
+            const box = new THREE.Box3();
+            for (const ch of chains) for (const p of ch.points) box.expandByPoint(p);
+            const sph = new THREE.Sphere();
+            box.getBoundingSphere(sph);
+            const effectiveRadius = sph.radius * tubeRadius * 0.18;
+
+            chains.forEach((ch, idx) => {
+                const curve = new THREE.CatmullRomCurve3(ch.points, true, 'centripetal', 0.5);
+                const segs  = Math.max(120, ch.points.length * 3);
+                const newGeo = new THREE.TubeGeometry(curve, segs, effectiveRadius, 16, true);
+                tubeMesh[idx].geometry.dispose();
+                tubeMesh[idx].geometry = newGeo;
+            });
+            const totalE = chains.reduce((s, ch) => s + ch.lastEnergy, 0);
+            const energyEl = document.getElementById('smooth-energy');
+            if (energyEl) energyEl.textContent = totalE.toFixed(1);
+
+            // Re-frame the camera every ~60 frames (≈1 s) until the user
+            // interacts with the OrbitControls — keeps the knot in view as
+            // it expands from its initial mosaic-tile-coordinate scale.
+            frameCounter++;
+            if (!userTouchedCamera && frameCounter % 60 === 0) frameAll();
         }
-        // Tube radius is auto-scaled to a small fraction of the knot's
-        // bounding sphere so it always reads as a tube, never a hairline,
-        // regardless of how much the chain expands. The user slider is
-        // applied as a multiplier on top.
-        const box = new THREE.Box3();
-        for (const ch of chains) for (const p of ch.points) box.expandByPoint(p);
-        const sph = new THREE.Sphere();
-        box.getBoundingSphere(sph);
-        const effectiveRadius = sph.radius * tubeRadius * 0.18;
-
-        chains.forEach((ch, idx) => {
-            const curve = new THREE.CatmullRomCurve3(ch.points, true, 'centripetal', 0.5);
-            const segs  = Math.max(120, ch.points.length * 3);
-            const newGeo = new THREE.TubeGeometry(curve, segs, effectiveRadius, 16, true);
-            tubeMesh[idx].geometry.dispose();
-            tubeMesh[idx].geometry = newGeo;
-        });
-        const totalE = chains.reduce((s, ch) => s + ch.lastEnergy, 0);
-        const energyEl = document.getElementById('smooth-energy');
-        if (energyEl) energyEl.textContent = totalE.toFixed(1);
-
-        // Re-frame the camera every ~60 frames (≈1 s) until the user
-        // interacts with the OrbitControls — keeps the knot in view as
-        // it expands from its initial mosaic-tile-coordinate scale.
-        frameCounter++;
-        if (!userTouchedCamera && frameCounter % 60 === 0) frameAll();
-    }
-    controls.update();
-    renderer.render(scene, camera);
-    animId = requestAnimationFrame(loop);
+        controls.update();
+        renderer.render(scene, camera);
+        animId = requestAnimationFrame(run);
+    })();
 }
 
 function onResize() {
@@ -506,28 +512,28 @@ const CUBE_ADJ = {
              W: { face: 'left',   side: 'E', flip: false },
              E: { face: 'right',  side: 'W', flip: false } },
 
-    // Top face: meets front on its S; meets back on its N (back appears
-    // upside-down on top, so flip); meets left.N on top.W; meets right.N on top.E.
+    // The flips mirror the actual cube3d.js fold transforms. A wrong flip
+    // sends boundary strands to the wrong tile before smoothing.
     top: {    N: { face: 'back',  side: 'N', flip: true  },
               S: { face: 'front', side: 'N', flip: false },
-              W: { face: 'left',  side: 'N', flip: true  },
-              E: { face: 'right', side: 'N', flip: false } },
+              W: { face: 'left',  side: 'N', flip: false },
+              E: { face: 'right', side: 'N', flip: true  } },
 
     // Bottom face: mirror of top across the cube.
     bottom: { N: { face: 'front', side: 'S', flip: false },
               S: { face: 'back',  side: 'S', flip: true  },
-              W: { face: 'left',  side: 'S', flip: false },
-              E: { face: 'right', side: 'S', flip: true  } },
+              W: { face: 'left',  side: 'S', flip: true  },
+              E: { face: 'right', side: 'S', flip: false } },
 
     // Left face: net-adjacent to front on its E; meets back on its W.
-    left: {   N: { face: 'top',    side: 'W', flip: true  },
-              S: { face: 'bottom', side: 'W', flip: false },
+    left: {   N: { face: 'top',    side: 'W', flip: false },
+              S: { face: 'bottom', side: 'W', flip: true  },
               W: { face: 'back',   side: 'E', flip: false },
               E: { face: 'front',  side: 'W', flip: false } },
 
     // Right face: net-adjacent to front (W) and back (E).
-    right: {  N: { face: 'top',    side: 'E', flip: false },
-              S: { face: 'bottom', side: 'E', flip: true  },
+    right: {  N: { face: 'top',    side: 'E', flip: true  },
+              S: { face: 'bottom', side: 'E', flip: false },
               W: { face: 'front',  side: 'E', flip: false },
               E: { face: 'back',   side: 'W', flip: false } },
 
@@ -710,11 +716,12 @@ window.openSmooth = function (opts) {
     document.getElementById('smooth-info').textContent =
         opts.label ? `${opts.label} · ${componentLabel}` : componentLabel;
     setRunning(true);
-    if (animId === null) loop();
+    loop();
 };
 
 window.closeSmooth = function () {
     document.getElementById('smooth-overlay').style.display = 'none';
+    loopActive = false;
     if (animId !== null) { cancelAnimationFrame(animId); animId = null; }
     running = false;
 };
