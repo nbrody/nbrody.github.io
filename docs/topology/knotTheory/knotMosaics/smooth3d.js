@@ -321,6 +321,7 @@ let scene, camera, renderer, controls;
 let tubeMesh, tubeMaterial;
 let chains = [];                // multi-component support
 let animId = null;
+let smoothActive = false;
 let running = false;
 let stepsPerFrame = 4;
 let tubeRadius = 0.18;
@@ -407,6 +408,10 @@ function frameAll() {
 }
 
 function loop() {
+    if (!smoothActive) {
+        animId = null;
+        return;
+    }
     if (running) {
         for (const ch of chains) {
             for (let s = 0; s < stepsPerFrame; s++) ch.step();
@@ -440,7 +445,7 @@ function loop() {
     }
     controls.update();
     renderer.render(scene, camera);
-    animId = requestAnimationFrame(loop);
+    animId = smoothActive ? requestAnimationFrame(loop) : null;
 }
 
 function onResize() {
@@ -709,11 +714,13 @@ window.openSmooth = function (opts) {
         : `${chains.length} components`;
     document.getElementById('smooth-info').textContent =
         opts.label ? `${opts.label} · ${componentLabel}` : componentLabel;
+    smoothActive = true;
     setRunning(true);
     if (animId === null) loop();
 };
 
 window.closeSmooth = function () {
+    smoothActive = false;
     document.getElementById('smooth-overlay').style.display = 'none';
     if (animId !== null) { cancelAnimationFrame(animId); animId = null; }
     running = false;
