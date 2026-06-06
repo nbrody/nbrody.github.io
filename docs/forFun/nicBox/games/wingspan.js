@@ -359,6 +359,7 @@ class WingspanGame {
     // ── Action Handlers ───────────────────────────────────
     handleAction(pid, action) {
         if (pid !== this.activePlayerId || this.phase !== 'awaiting_action') return;
+        if ((this.actionsLeft[pid] || 0) <= 0) return;
 
         const b = this.boards[pid];
         switch (action.type) {

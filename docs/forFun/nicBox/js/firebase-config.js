@@ -27,14 +27,16 @@ function generateRoomCode() {
 }
 
 async function createRoom() {
-    let code = generateRoomCode();
-    const roomRef = db.ref(`rooms/${code}`);
-    const snapshot = await roomRef.once('value');
+    let code;
+    let roomRef;
+    let snapshot;
 
-    // Avoid collisions
-    while (snapshot.exists()) {
+    // Avoid collisions by checking each generated code against its own ref.
+    do {
         code = generateRoomCode();
-    }
+        roomRef = db.ref(`rooms/${code}`);
+        snapshot = await roomRef.once('value');
+    } while (snapshot.exists());
 
     await roomRef.set({
         code: code,
