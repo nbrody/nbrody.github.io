@@ -23,6 +23,14 @@
     let lastBuiltIter = -1;
     let lastBuiltSpiral = -1;
     let lastPaletteKey = null;
+    let lastRevision = -1;
+
+    // Incremental-build cursors: how many ring/edge layers are already in
+    // the scene. A pure append only builds the new tail; a structural
+    // change (revision bump) or palette change forces a full rebuild.
+    let builtRings = 0;
+    let builtEdges = 0;
+    let capMesh = null;
 
     // Smooth camera
     let camZ = CAM_INITIAL;
@@ -240,22 +248,36 @@
         const state = window.PentagramState;
         if (!state || !state.polygonHistory || state.polygonHistory.length === 0) return;
 
-        const { polygonHistory: hist, spiralCounter, currentPaletteKey, PALETTES, skipValue, spiralMode } = state;
+        const { polygonHistory: hist, spiralCounter, currentPaletteKey, PALETTES, skipValue, spiralMode, historyRevision } = state;
         const pal = PALETTES[currentPaletteKey];
         if (!pal) return;
 
         const iters = hist.length;
 
-        clearGroup(layerGroup);
-        clearGroup(edgeGroup);
-        clearGroup(diagGroup);
+        // Full rebuild only when something other than the tail changed:
+        // palette switch, structural edit (revision bump), or the history
+        // got shorter. Otherwise append the new layers onto what's there.
+        const fullRebuild =
+            builtRings === 0 ||
+            currentPaletteKey !== lastPaletteKey ||
+            historyRevision !== lastRevision ||
+            iters < builtEdges;
+
+        if (fullRebuild) {
+            clearGroup(layerGroup);
+            clearGroup(edgeGroup);
+            builtRings = 0;
+            builtEdges = 0;
+            capMesh = null;
+        }
+        clearGroup(diagGroup);  // diagonals are cheap — always rebuilt
 
         const bgCol = new THREE.Color(pal.bg);
         renderer.setClearColor(bgCol);
         scene.background = bgCol;
         if (scene.fog) scene.fog.color.copy(bgCol);
 
-        // Build per-layer centroids for camera centering
+        // Per-layer centroids for camera centering (cheap, always refreshed)
         layerCentroids = [];
         for (let i = 0; i < iters; i++) {
             const c = polyCentroid(hist[i]);
@@ -263,30 +285,21 @@
         }
 
         try {
-            // 1. Half-space slab (the infinite outer block)
-            layerGroup.add(makeHalfSpaceSlab(hist[0], pal));
+            // 1. Half-space slab — only on a full rebuild (hist[0] is fixed)
+            if (fullRebuild) {
+                layerGroup.add(makeHalfSpaceSlab(hist[0], pal));
+            }
 
-            // 2. Ring slabs between consecutive iterations
-            for (let i = 0; i < iters - 1; i++) {
+            // 2. Ring slabs between consecutive iterations (append-only)
+            for (let i = builtRings; i < iters - 1; i++) {
                 const zPos = -i * LAYER_DEPTH;
                 const color = palColor(pal, i);
                 const ring = makeRingMesh(hist[i], hist[i + 1], zPos, LAYER_DEPTH, color, 0.78);
                 layerGroup.add(ring);
             }
 
-            // 3. Innermost solid cap
-            const capZ = -(iters - 1) * LAYER_DEPTH;
-            const capColor = palColor(pal, iters - 1);
-            layerGroup.add(makeCapMesh(hist[iters - 1], capZ, LAYER_DEPTH, capColor));
-
-            // 4. Edge lines for every polygon
-            for (let i = 0; i < iters; i++) {
-                const z = -i * LAYER_DEPTH + 1; // +1 to avoid z-fighting
-                edgeGroup.add(makeEdgeLine(hist[i], z, palColor(pal, i)));
-            }
-
-            // 5. Triangulated faces + connecting lines between consecutive layers
-            for (let i = 0; i < iters - 1; i++) {
+            // 3. Triangulated faces + connecting struts (append-only)
+            for (let i = builtRings; i < iters - 1; i++) {
                 if (hist[i].length !== hist[i + 1].length) continue;
                 const zOuter = -i * LAYER_DEPTH + 0.5;
                 const zInner = -(i + 1) * LAYER_DEPTH + 0.5;
@@ -296,6 +309,25 @@
                 );
                 layerGroup.add(triGroup);
             }
+            builtRings = Math.max(builtRings, iters - 1);
+
+            // 4. Edge lines for every polygon (append-only)
+            for (let i = builtEdges; i < iters; i++) {
+                const z = -i * LAYER_DEPTH + 1; // +1 to avoid z-fighting
+                edgeGroup.add(makeEdgeLine(hist[i], z, palColor(pal, i)));
+            }
+            builtEdges = iters;
+
+            // 5. Innermost solid cap — moves each append, so rebuild it
+            if (capMesh) {
+                layerGroup.remove(capMesh);
+                if (capMesh.geometry) capMesh.geometry.dispose();
+                if (capMesh.material) capMesh.material.dispose();
+            }
+            const capZ = -(iters - 1) * LAYER_DEPTH;
+            const capColor = palColor(pal, iters - 1);
+            capMesh = makeCapMesh(hist[iters - 1], capZ, LAYER_DEPTH, capColor);
+            layerGroup.add(capMesh);
 
             // 6. Spiral diagonals on the front face of the current layer
             if (spiralMode && iters > 0) {
@@ -329,6 +361,7 @@
         lastBuiltIter = iters;
         lastBuiltSpiral = spiralCounter;
         lastPaletteKey = currentPaletteKey;
+        lastRevision = historyRevision;
     }
 
     function clearGroup(grp) {
@@ -378,8 +411,10 @@
             const n = state.polygonHistory.length;
             const sc = state.spiralCounter;
             const pal = state.currentPaletteKey;
+            const rev = state.historyRevision;
 
-            if (n !== lastBuiltIter || sc !== lastBuiltSpiral || pal !== lastPaletteKey) {
+            if (n !== lastBuiltIter || sc !== lastBuiltSpiral ||
+                pal !== lastPaletteKey || rev !== lastRevision) {
                 rebuildScene();
             }
 

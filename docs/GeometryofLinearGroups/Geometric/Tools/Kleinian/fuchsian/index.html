@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hyperbolic 2-Space Viewer</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="js/PSL2RtoSO21.js"></script>
+    <script src="js/PGL2RtoO21.js"></script>
     <script src="js/faceFilter.js"></script>
     <script src="polyhedronLibrary.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
@@ -53,8 +53,8 @@
             <!-- Group Tab (Matrix Input) -->
             <div id="tab-group" class="tab-content active">
                 <div>
-                    <h2 class="text-xl font-semibold text-white mb-2">Matrix Input (PSL(2,R))</h2>
-                    <p class="text-sm text-gray-400 mb-3">Input generators as 2×2 matrices with real entries.</p>
+                    <h2 class="text-xl font-semibold text-white mb-2">Matrix Input (PGL(2,R))</h2>
+                    <p class="text-sm text-gray-400 mb-3">Input generators as 2×2 invertible matrices with real entries. Determinant ±1 (or any nonzero value, normalized automatically).</p>
                 </div>
 
                 <div class="control-group p-3">
@@ -169,7 +169,7 @@
                         <li>Each vector <code>v</code> must be <strong>spacelike</strong> (i.e., x²+y² > t²).</li>
                         <li>You may also enter lines like <code>(a, b, c, d)</code>. These are interpreted as 2×2 real
                             matrices
-                            <code>\begin{pmatrix}a & b \\ c & d\end{pmatrix}</code> in PSL(2,ℝ).
+                            <code>\begin{pmatrix}a & b \\ c & d\end{pmatrix}</code> in PGL(2,ℝ). Determinant +1 gives an orientation-preserving isometry; determinant −1 gives a reflection.
                         </li>
                         <li>The final coordinate <strong>t must be nonpositive (<= 0)</strong>.</li>
                     </ol>

@@ -541,6 +541,63 @@ input[type="checkbox"]:checked::after {
     font-size: 0.7em;
 }
 
+/* ===== Collapsible (details) ===== */
+.control-fold {
+    border: 1px solid var(--control-border);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.18);
+}
+
+.control-fold[open] {
+    padding-bottom: 16px;
+}
+
+.control-fold>summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 11px 14px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    transition: color 0.2s;
+}
+
+.control-fold>summary::-webkit-details-marker {
+    display: none;
+}
+
+.control-fold>summary::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform 0.2s;
+}
+
+.control-fold[open]>summary::before {
+    transform: rotate(45deg);
+}
+
+.control-fold>summary:hover {
+    color: var(--text-primary);
+}
+
+.control-fold[open]>summary {
+    color: var(--accent);
+    border-bottom: 1px solid var(--control-border);
+}
+
+.control-fold>.control-group {
+    margin: 16px 14px 0;
+}
+
 /* ===== Animations ===== */
 @keyframes fadeIn {
     from {

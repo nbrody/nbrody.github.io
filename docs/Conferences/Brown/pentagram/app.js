@@ -67,7 +67,6 @@
             colors: ['#6c8aff', '#8b5cf6', '#c084fc'],
             vertex: '#f0abfc',
             fill: [108, 138, 255],
-            swatch: 'linear-gradient(135deg, #0a0e1a 30%, #6c8aff, #8b5cf6)',
         },
         aurora: {
             name: 'Aurora',
@@ -75,7 +74,6 @@
             colors: ['#22d3ee', '#06b6d4', '#14b8a6'],
             vertex: '#a5f3fc',
             fill: [34, 211, 238],
-            swatch: 'linear-gradient(135deg, #020e1a 30%, #22d3ee, #14b8a6)',
         },
         ember: {
             name: 'Ember',
@@ -83,7 +81,6 @@
             colors: ['#f97316', '#ef4444', '#fbbf24'],
             vertex: '#fde68a',
             fill: [249, 115, 22],
-            swatch: 'linear-gradient(135deg, #1a0808 30%, #f97316, #ef4444)',
         },
         sakura: {
             name: 'Sakura',
@@ -91,7 +88,6 @@
             colors: ['#f472b6', '#ec4899', '#e879f9'],
             vertex: '#fce7f3',
             fill: [244, 114, 182],
-            swatch: 'linear-gradient(135deg, #1a0a14 30%, #f472b6, #e879f9)',
         },
         forest: {
             name: 'Forest',
@@ -99,7 +95,6 @@
             colors: ['#34d399', '#10b981', '#6ee7b7'],
             vertex: '#a7f3d0',
             fill: [52, 211, 153],
-            swatch: 'linear-gradient(135deg, #041210 30%, #34d399, #6ee7b7)',
         },
         neon: {
             name: 'Neon',
@@ -107,7 +102,6 @@
             colors: ['#00ff88', '#ff00ff', '#00ffff'],
             vertex: '#ffffff',
             fill: [0, 255, 136],
-            swatch: 'linear-gradient(135deg, #000000 30%, #00ff88, #ff00ff)',
         },
         ocean: {
             name: 'Ocean',
@@ -115,7 +109,6 @@
             colors: ['#3b82f6', '#2563eb', '#60a5fa'],
             vertex: '#93c5fd',
             fill: [59, 130, 246],
-            swatch: 'linear-gradient(135deg, #0a1628 30%, #3b82f6, #60a5fa)',
         },
         sunset: {
             name: 'Sunset',
@@ -123,7 +116,6 @@
             colors: ['#f59e0b', '#d97706', '#b45309'],
             vertex: '#fef3c7',
             fill: [245, 158, 11],
-            swatch: 'linear-gradient(135deg, #1a0f05 30%, #f59e0b, #d97706)',
         },
         cyberpunk: {
             name: 'Cyberpunk',
@@ -131,7 +123,6 @@
             colors: ['#a855f7', '#7c3aed', '#e879f9'],
             vertex: '#22d3ee',
             fill: [168, 85, 247],
-            swatch: 'linear-gradient(135deg, #0d001a 30%, #a855f7, #e879f9)',
         },
         ivory: {
             name: 'Ivory',
@@ -139,7 +130,6 @@
             colors: ['#e4e4e7', '#a1a1aa', '#d4d4d8'],
             vertex: '#fafafa',
             fill: [228, 228, 231],
-            swatch: 'linear-gradient(135deg, #18181b 30%, #e4e4e7, #a1a1aa)',
         },
         candy: {
             name: 'Candy',
@@ -147,7 +137,6 @@
             colors: ['#fb7185', '#c084fc', '#fbbf24'],
             vertex: '#fecdd3',
             fill: [251, 113, 133],
-            swatch: 'linear-gradient(135deg, #100818 30%, #fb7185, #c084fc)',
         },
         arctic: {
             name: 'Arctic',
@@ -155,7 +144,6 @@
             colors: ['#7dd3fc', '#38bdf8', '#bae6fd'],
             vertex: '#e0f2fe',
             fill: [125, 211, 252],
-            swatch: 'linear-gradient(135deg, #0c1425 30%, #7dd3fc, #bae6fd)',
         },
     };
 
@@ -165,6 +153,9 @@
     let basePolygon = [];
     let polygonHistory = [];
     let currentIteration = 0;
+    // Bumped whenever the whole history is recomputed (drag, n/skip change,
+    // rotate). Lets scene3d.js distinguish a pure append from a full rebuild.
+    let historyRevision = 0;
     let isPlaying = false;
     let lastTime = 0;
     let timeAccumulator = 0;
@@ -277,9 +268,9 @@
     // it with the diagonal from vertex (i-1) to vertex (i-1+skip).
     //
     // Classic Schwartz pentagram = skip 2 on a convex polygon.
-    function computeMapStep(polygon) {
+    // Pure function — caller supplies skip and the normalize flag.
+    function computeMapStep(polygon, skip, normalize) {
         const n = polygon.length;
-        const skip = parseInt(skipSlider.value);
         const next = [];
         for (let i = 0; i < n; i++) {
             // Diagonal through vertex i and vertex i+skip
@@ -290,18 +281,20 @@
             const b2 = polygon[(i + 1 + skip) % n];
             next.push(getIntersection(a1, a2, b1, b2));
         }
-        if (normCB.checked) return normalizePolygon(next);
-        return next;
+        return normalize ? normalizePolygon(next) : next;
     }
 
     function rebuildHistory() {
+        const skip = parseInt(skipSlider.value);
+        const normalize = normCB.checked;
         polygonHistory = [basePolygon];
         let current = basePolygon;
         for (let i = 0; i < currentIteration; i++) {
-            current = computeMapStep(current);
+            current = computeMapStep(current, skip, normalize);
             polygonHistory.push(current);
         }
         iterCount.textContent = currentIteration;
+        historyRevision++;
     }
 
     // ─── Init polygon ────────────────────────────────────────
@@ -587,23 +580,34 @@
     }
 
     // ─── Main loop ───────────────────────────────────────────
+    // ── Shared state for scene3d.js ──
+    // A single stable object, mutated in place each frame — avoids
+    // allocating a fresh object 60×/s and lets scene3d hold a reference.
+    const pentagramState = {
+        polygonHistory, spiralCounter, currentPaletteKey, PALETTES,
+        skipValue: 2, spiralMode: false, autoZoom: false,
+        isPlaying: false, is3D: false, historyRevision: 0,
+    };
+    window.PentagramState = pentagramState;
+
+    function publishState() {
+        pentagramState.polygonHistory = polygonHistory;
+        pentagramState.spiralCounter = spiralCounter;
+        pentagramState.currentPaletteKey = currentPaletteKey;
+        pentagramState.skipValue = parseInt(skipSlider.value);
+        pentagramState.spiralMode = spiralCB.checked;
+        pentagramState.autoZoom = autoZoomCB.checked;
+        pentagramState.isPlaying = isPlaying;
+        pentagramState.is3D = is3D;
+        pentagramState.historyRevision = historyRevision;
+    }
+
     function update(timestamp) {
         if (!lastTime) lastTime = timestamp;
         const dt = timestamp - lastTime;
         lastTime = timestamp;
 
-        // ── Publish shared state for scene3d.js ──
-        window.PentagramState = {
-            polygonHistory,
-            spiralCounter,
-            currentPaletteKey,
-            PALETTES,
-            skipValue: parseInt(skipSlider.value),
-            spiralMode: spiralCB.checked,
-            autoZoom: autoZoomCB.checked,
-            isPlaying,
-            is3D,
-        };
+        publishState();
 
         const pal = PALETTES[currentPaletteKey];
         canvas.style.backgroundColor = pal.bg;
@@ -727,10 +731,15 @@
     }
 
     function advanceStep() {
+        // Pure append — past layers are unchanged, so don't recompute the
+        // whole history. This keeps historyRevision stable, letting scene3d
+        // rebuild incrementally instead of from scratch.
         const prevPoly = polygonHistory[polygonHistory.length - 1];
+        const nextPoly = computeMapStep(
+            prevPoly, parseInt(skipSlider.value), normCB.checked);
+        polygonHistory.push(nextPoly);
         currentIteration++;
-        rebuildHistory();
-        const nextPoly = polygonHistory[polygonHistory.length - 1];
+        iterCount.textContent = currentIteration;
 
         if (morphCB.checked) {
             morphFrom = prevPoly;
@@ -754,10 +763,12 @@
         const grid = $('palette-grid');
         grid.innerHTML = '';
         for (const key of Object.keys(PALETTES)) {
+            const pal = PALETTES[key];
             const swatch = document.createElement('div');
             swatch.className = 'palette-swatch' + (key === currentPaletteKey ? ' active' : '');
-            swatch.style.background = PALETTES[key].swatch;
-            swatch.title = PALETTES[key].name;
+            swatch.style.background =
+                `linear-gradient(135deg, ${pal.bg} 30%, ${pal.colors[0]}, ${pal.colors[1]})`;
+            swatch.title = pal.name;
             swatch.dataset.key = key;
             swatch.addEventListener('click', () => {
                 currentPaletteKey = key;
@@ -1019,17 +1030,7 @@
                 modeToggleBtn.classList.add('active');
 
                 // Publish state immediately so Scene3D has data
-                window.PentagramState = {
-                    polygonHistory,
-                    spiralCounter,
-                    currentPaletteKey,
-                    PALETTES,
-                    skipValue: parseInt(skipSlider.value),
-                    spiralMode: spiralCB.checked,
-                    autoZoom: autoZoomCB.checked,
-                    isPlaying,
-                    is3D,
-                };
+                publishState();
 
                 // Lazy-init the Three.js scene on first activation
                 if (window.Scene3D) {

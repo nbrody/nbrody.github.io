@@ -100,6 +100,30 @@
                    `Basis: ${result.basis.map(b => b.toString()).join('<br>&nbsp;&nbsp;&nbsp;&nbsp;')}`;
         });
 
+        // Test 7: Sturm's Theorem and Root Counting
+        test("Sturm's Theorem and Exact Root Counting", () => {
+            // x^2 - 2 (2 real roots)
+            const p1 = parsePolynomial("x_1^2 - 2", "x_1", "Q");
+            const roots1 = p1.countRealRoots();
+            
+            // x^3 - 2 (1 real root)
+            const p2 = parsePolynomial("x_1^3 - 2", "x_1", "Q");
+            const roots2 = p2.countRealRoots();
+
+            // x^4 - 2 (2 real roots)
+            const p3 = parsePolynomial("x_1^4 - 2", "x_1", "Q");
+            const roots3 = p3.countRealRoots();
+
+            // x^4 + 1 (0 real roots)
+            const p4 = parsePolynomial("x_1^4 + 1", "x_1", "Q");
+            const roots4 = p4.countRealRoots();
+
+            return `x²-2 real roots: ${roots1} (expected 2)<br>` +
+                   `x³-2 real roots: ${roots2} (expected 1)<br>` +
+                   `x⁴-2 real roots: ${roots3} (expected 2)<br>` +
+                   `x⁴+1 real roots: ${roots4} (expected 0)`;
+        });
+
         // Summary
         const allTests = document.querySelectorAll('.test');
         const passed = document.querySelectorAll('.test.pass').length;

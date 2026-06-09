@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Baumslag-Solitar Groups & B(Z[1/n]) Visualizer</title>
+
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+    rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #0b0f19;
+      --panel-bg: rgba(15, 23, 42, 0.75);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --accent-cyan: #00d2ff;
+      --accent-pink: #ff007f;
+      --accent-green: #39ff14;
+      --accent-yellow: #ffd700;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      font-family: 'Inter', sans-serif;
+      color: var(--text-main);
+    }
+
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Glassmorphism Header */
+    header {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--accent-cyan), #a18cd1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header .back-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    header .back-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.2);
+    }
+
+    /* Floating UI Panels */
+    .floating-panel {
+      position: absolute;
+      z-index: 10;
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    }
+
+    .floating-panel::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .floating-panel::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    /* Left Sidebar - Controls */
+    #sidebar-controls {
+      top: 90px;
+      left: 20px;
+      width: 340px;
+    }
+
+    /* Right Sidebar - Explanation / Word Tracer */
+    #sidebar-tracer {
+      top: 20px;
+      right: 20px;
+      width: 360px;
+    }
+
+    h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 8px;
+    }
+
+    .control-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    label span.val {
+      color: var(--accent-cyan);
+      font-family: 'Fira Code', monospace;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+      transition: transform 0.1s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Button Group Toggles */
+    .toggle-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .toggle-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+    }
+
+    .toggle-btn.active {
+      background: rgba(0, 210, 255, 0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(0, 210, 255, 0.15);
+    }
+
+    /* Word Tracer Elements */
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .word-input {
+      flex-grow: 1;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: var(--text-main);
+      padding: 10px 12px;
+      font-family: 'Fira Code', monospace;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .word-input:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.1);
+    }
+
+    .action-btn {
+      background: linear-gradient(135deg, var(--accent-cyan), #0082ff);
+      border: none;
+      color: white;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3);
+    }
+
+    .action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(0, 210, 255, 0.4);
+    }
+
+    .action-btn:active {
+      transform: translateY(1px);
+    }
+
+    .secondary-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+    }
+
+    .secondary-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--text-muted);
+    }
+
+    /* Tracer HUD status indicator */
+    #hud-status {
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 12px;
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .hud-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hud-label {
+      color: var(--text-muted);
+    }
+
+    .hud-value {
+      font-weight: 600;
+      font-family: 'Fira Code', monospace;
+    }
+
+    .status-badge {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .status-idle {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+    }
+
+    .status-running {
+      background: rgba(0, 210, 255, 0.2);
+      color: var(--accent-cyan);
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-success {
+      background: rgba(57, 255, 20, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(57, 255, 20, 0.3);
+    }
+
+    .status-failed {
+      background: rgba(255, 0, 127, 0.15);
+      color: var(--accent-pink);
+      border: 1px solid rgba(255, 0, 127, 0.3);
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 0.6;
+      }
+
+      50% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0.6;
+      }
+    }
+
+    /* Relation Presets */
+    .presets-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .preset-chip {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: 'Fira Code', monospace;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+    }
+
+    .preset-chip:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border-color: var(--accent-cyan);
+    }
+
+    /* Math Text / LaTeX Section */
+    .math-info {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text-muted);
+      margin-top: 15px;
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 8px;
+      padding: 12px;
+      border: 1px dashed rgba(255, 255, 255, 0.05);
+    }
+
+    .math-info p {
+      margin-bottom: 8px;
+    }
+
+    .math-info p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Generator legend overlay */
+    #legend {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 10;
+      background: var(--panel-bg);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 10px 15px;
+      display: flex;
+      gap: 15px;
+      font-size: 11px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    /* Interactive tooltip */
+    #tooltip {
+      position: absolute;
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--accent-cyan);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 11px;
+      font-family: 'Fira Code', monospace;
+      color: var(--text-main);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.1s ease;
+      box-shadow: 0 4px 20px rgba(0, 210, 255, 0.15);
+    }
+
+    .tooltip-title {
+      font-weight: 700;
+      color: var(--accent-cyan);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 4px;
+      margin-bottom: 4px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      #sidebar-controls {
+        width: calc(100% - 40px);
+        max-height: 40vh;
+      }
+
+      #sidebar-tracer {
+        top: auto;
+        bottom: 20px;
+        right: 20px;
+        width: calc(100% - 40px);
+        max-height: 40vh;
+      }
+
+      #legend {
+        display: none;
+      }
+    }
+  </style>
+
+  <!-- CDNs for math & 3D -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+
+  <!-- Background 3D Canvas -->
+  <div id="canvas-container"></div>
+
+  <!-- Interactive Raycaster Tooltip -->
+  <div id="tooltip"></div>
+
+  <!-- Header -->
+  <header>
+    <a href="../../index.html" class="back-btn">← Geometric Groups</a>
+    <h1>B(ℤ[1/n]) & Baumslag-Solitar Groups</h1>
+  </header>
+
+  <!-- Left Sidebar - Control Panel -->
+  <div class="floating-panel" id="sidebar-controls">
+    <h2>Group Parameters</h2>
+
+    <div class="control-group">
+      <label for="param-n">
+        Base n (Scaling power):
+        <span class="val" id="val-n">2</span>
+      </label>
+      <input type="range" id="param-n" min="2" max="5" value="2" step="1" />
+    </div>
+
+    <div class="control-group">
+      <label for="param-k">
+        Level Depth K (Y-levels):
+        <span class="val" id="val-k">2</span>
+      </label>
+      <input type="range" id="param-k" min="1" max="3" value="2" step="1" />
+    </div>
+
+    <div class="control-group">
+      <label for="param-m">
+        Horizontal range M (Vertices):
+        <span class="val" id="val-m">6</span>
+      </label>
+      <input type="range" id="param-m" min="3" max="15" value="6" step="1" />
+    </div>
+
+    <h2>Visualization Mode</h2>
+    <div class="control-group">
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="btn-mode-uniform">Uniform 3D</button>
+        <button class="toggle-btn" id="btn-mode-hyperbolic">Hyperbolic 2D</button>
+      </div>
+    </div>
+
+    <h2>Display Settings</h2>
+    <div class="control-group">
+      <label for="param-height">
+        Level Vertical Spacing:
+        <span class="val" id="val-height">3.0</span>
+      </label>
+      <input type="range" id="param-height" min="1.5" max="5.0" value="3.0" step="0.1" />
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+      <button class="toggle-btn active" id="btn-grid" style="flex-grow: 1;">Show Axes & Grid</button>
+      <button class="toggle-btn" id="btn-reset-view" style="flex-grow: 1;">Reset Camera</button>
+    </div>
+  </div>
+
+  <!-- Right Sidebar - Word Tracer / Explanations -->
+  <div class="floating-panel" id="sidebar-tracer">
+    <h2>Word Tracer</h2>
+
+    <div class="control-group">
+      <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4;">
+        Enter a word using <b>a</b> (horizontal right), <b>b</b> (vertical up).
+        Use capital letters <b>A, B</b> for inverses, or exponents like <b>a^-1</b>, <b>b^2</b>.
+      </p>
+
+      <div class="input-wrapper">
+        <input type="text" class="word-input" id="tracer-input" placeholder="e.g. b a b^-1 a^-2"
+          value="b a b^-1 a^-2" />
+      </div>
+
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 8px;">
+        <button class="action-btn" id="btn-trace">Trace Path</button>
+        <button class="action-btn secondary-btn" id="btn-trace-clear">Reset</button>
+      </div>
+    </div>
+
+    <div id="hud-status">
+      <div class="hud-row">
+        <span class="hud-label">Current Word:</span>
+        <span class="hud-value" id="hud-word">-</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">Trace Status:</span>
+        <span class="status-badge status-idle" id="hud-badge">Idle</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">Starting Node:</span>
+        <span class="hud-value" id="hud-start">(0, 0)</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">Ending Node:</span>
+        <span class="hud-value" id="hud-end">-</span>
+      </div>
+    </div>
+
+    <div class="control-group" style="margin-top: 15px;">
+      <label style="margin-bottom: 4px;">Relation Presets (Click to Load):</label>
+      <div class="presets-container" id="presets-box">
+        <!-- Will be dynamically populated depending on n -->
+      </div>
+    </div>
+
+    <h2>Mathematical Context</h2>
+    <div class="math-info">
+      <p>
+        The group \( B(\mathbb{Z}[1/n]) \) consists of upper-triangular matrices:
+        \[ \begin{pmatrix} n^k & x \\ 0 & 1 \end{pmatrix} \]
+        where \( k \in \mathbb{Z} \) and \( x \in \mathbb{Z}[1/n] \).
+      </p>
+      <p>
+        Its action on the upper half-plane \( \mathbb{H}^2 \) is by affine conformal maps \( z \mapsto n^k z + x \).
+        This preserves horizontal lines (horocycles at infinity).
+      </p>
+      <p>
+        The finitely generated subgroup generated by scaling \( b: z \mapsto nz \) and translation \( a: z \mapsto z+1
+        \) is isomorphic to the <b>Baumslag-Solitar group</b>:
+        \[ BS(1, n) = \langle a, b \mid b a b^{-1} = a^n \rangle \]
+      </p>
+      <p>
+        In the <b>Uniform 3D view</b>, the sheets branch out along the Z-axis in an \( n \)-ary tree. In the
+        <b>Hyperbolic 2D view</b>, the horizontal edges stretch exponentially showing the true hyperbolic scaling!
+      </p>
+    </div>
+  </div>
+
+  <!-- Legend Overlay -->
+  <div id="legend">
+    <div class="legend-item">
+      <div class="legend-color" style="background: var(--accent-cyan); box-shadow: 0 0 6px var(--accent-cyan);"></div>
+      <span>Generator a (Horizontal)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: var(--accent-pink); box-shadow: 0 0 6px var(--accent-pink);"></div>
+      <span>Generator b (Vertical)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: var(--accent-yellow); box-shadow: 0 0 6px var(--accent-yellow);">
+      </div>
+      <span>Tracer Particle / Path</span>
+    </div>
+  </div>
+
+  <!-- 3D Visualization Logic -->
+  <script>
+    // ===== Globals =====
+    let scene, camera, renderer, controls;
+    let gridHelper, axesHelper;
+    let nodeGroup, edgeGroup, tracerGroup;
+    let vertexMap = new Map(); // Key: 'k_x', Value: Vertex data structure
+
+    // UI parameters
+    let paramN = 2;
+    let paramK = 2;
+    let paramM = 6;
+    let paramHeight = 3.0;
+    let viewMode = 'uniform'; // 'uniform' or 'hyperbolic'
+    let showGrid = true;
+
+    // Animation / Tweening
+    let nodesList = [];
+    let edgesList = [];
+    let transitionProgress = 0; // 0 = uniform, 1 = hyperbolic
+    let targetTransition = 0;
+    let transitionSpeed = 0.08;
+
+    // Raycasting
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let hoveredNode = null;
+
+    // Tracer globals
+    let activeTrace = null; // { steps: [], currentIndex: 0, particleMesh: null, trailLine: null, points: [] }
+    let traceTimeout = null;
+
+    // Color Palette
+    const palette = {
+      bg: 0x0b0f19,
+      node: 0xe2e8f0,
+      nodeHover: 0x39ff14,
+      edgeA: 0x00d2ff, // cyan
+      edgeB: 0xff007f, // magenta
+      tracer: 0xffd700, // gold
+      tracerSuccess: 0x39ff14, // green
+      tracerFailed: 0xff007f // red
+    };
+
+    // Preset lists depending on n
+    function getPresets(n) {
+      return [
+        { name: `b a B A^${n}`, word: `b a b^-1 a^-${n}`, desc: "Defining Relator" },
+        { name: `b a^2 B A^${2 * n}`, word: `b a^2 b^-1 a^-${2 * n}`, desc: "Double Translation" },
+        { name: `a b a B A^${n} A`, word: `a b a b^-1 a^-${n + 1}`, desc: "Shifted Relator" },
+        { name: `b^2 a B^2 A^${n * n}`, word: `b^2 a b^-2 a^-${n * n}`, desc: "Two Levels Up" },
+        { name: "b a b A b B", word: "b a b a^-1 b^-1", desc: "Non-relation (Open)" }
+      ];
+    }
+
+    // ===== Geometry & Position Formulas =====
+
+    // Calculate Sheet Z-coordinate (uniform branching tree)
+    function getSheetZ(x, k, n) {
+      if (k <= 0) return 0;
+
+      // The sheet index is determined by r = x mod n^k
+      const divisor = Math.pow(n, k);
+      let r = Math.round(x) % divisor;
+      if (r < 0) r += divisor;
+
+      // Extract base-n digits of r to lay out an n-ary tree along Z
+      let z = 0;
+      let temp = r;
+      let branchWidth = 4.5;
+      for (let j = 0; j < k; j++) {
+        let digit = temp % n;
+        z += (digit - (n - 1) / 2) * branchWidth;
+        temp = Math.floor(temp / n);
+        branchWidth *= 0.55; // Spread decay per level
+      }
+      return z;
+    }
+
+    // Calculate Vertex coordinate representation in horizontal index m
+    function getVertexM(x, k, n) {
+      if (k <= 0) {
+        return x * Math.pow(n, -k);
+      } else {
+        return Math.floor(x / Math.pow(n, k));
+      }
+    }
+
+    // Node coordinate generator
+    // Returns { uniform: Vector3, hyperbolic: Vector3 }
+    function computeNodePositions(k, x, n, hVal) {
+      // 1. Uniform 3D View
+      const m = getVertexM(x, k, n);
+      const uX = m * 1.6;
+      const uY = k * hVal;
+      const uZ = getSheetZ(x, k, n);
+
+      // 2. Hyperbolic 2D View
+      // True upper half-plane: vertical = n^k, horizontal = x.
+      // To keep layout visual and clean, we scale exponential heights.
+      const scaleX = 0.8;
+      const scaleY = 1.2;
+      const hX = x * scaleX;
+      // Exponential height y = n^k
+      const hY = Math.pow(n, k) * scaleY;
+      const hZ = 0;
+
+      return {
+        uniform: new THREE.Vector3(uX, uY, uZ),
+        hyperbolic: new THREE.Vector3(hX, hY, hZ)
+      };
+    }
+
+    // ===== Graph Generation =====
+
+    function buildGraph() {
+      // Clear current meshes
+      while (nodeGroup.children.length > 0) {
+        const obj = nodeGroup.children[0];
+        obj.geometry.dispose();
+        obj.material.dispose();
+        nodeGroup.remove(obj);
+      }
+      while (edgeGroup.children.length > 0) {
+        const obj = edgeGroup.children[0];
+        obj.geometry.dispose();
+        obj.material.dispose();
+        edgeGroup.remove(obj);
+      }
+      vertexMap.clear();
+      nodesList = [];
+      edgesList = [];
+
+      const n = paramN;
+      const K = paramK;
+      const M = paramM;
+      const H = paramHeight;
+
+      // 1. Generate Vertices
+      // We generate vertices for each level k from -K to K.
+      // At level k, vertices represent group elements of the form b^k a^x.
+      // In the Baumslag-Solitar Cayley graph:
+      // - For k <= 0: x is of the form m * n^k. The horizontal spacing in raw coordinates is n^k (which is a fraction).
+      // - For k > 0: there are n^k branches (sheets), each with vertices spaced by n^k, offset by r.
+      // So at all levels, we can think of raw coordinates as: x = m * n^k + offset
+
+      for (let k = -K; k <= K; k++) {
+        const numSheets = k <= 0 ? 1 : Math.pow(n, k);
+        const spacing = Math.pow(n, k);
+
+        for (let sheetIdx = 0; sheetIdx < numSheets; sheetIdx++) {
+          const offset = k <= 0 ? 0 : sheetIdx;
+
+          for (let m = -M; m <= M; m++) {
+            const x = m * spacing + offset;
+            const key = `${k}_${x}`;
+
+            if (vertexMap.has(key)) continue;
+
+            const positions = computeNodePositions(k, x, n, H);
+
+            // Node mesh
+            const geom = new THREE.SphereGeometry(0.12, 16, 16);
+            const mat = new THREE.MeshBasicMaterial({
+              color: palette.node,
+              transparent: true,
+              opacity: 0.85
+            });
+            const mesh = new THREE.Mesh(geom, mat);
+
+            // Set initial position based on active view mode
+            mesh.position.copy(viewMode === 'uniform' ? positions.uniform : positions.hyperbolic);
+            nodeGroup.add(mesh);
+
+            const vertexData = {
+              k: k,
+              x: x,
+              m: m,
+              key: key,
+              positions: positions,
+              mesh: mesh
+            };
+
+            vertexMap.set(key, vertexData);
+            nodesList.push(vertexData);
+          }
+        }
+      }
+
+      // 2. Generate Edges
+      // Generators:
+      // a: (k, x) -> (k, x + n^k)  [Horizontal edge within the same sheet]
+      // b: (k, x) -> (k + 1, x)    [Vertical edge connecting to parent sheet]
+
+      const aEdgeMat = new THREE.LineBasicMaterial({
+        color: palette.edgeA,
+        transparent: true,
+        opacity: 0.45,
+        linewidth: 1.5
+      });
+
+      const bEdgeMat = new THREE.LineBasicMaterial({
+        color: palette.edgeB,
+        transparent: true,
+        opacity: 0.45,
+        linewidth: 1.5
+      });
+
+      vertexMap.forEach((v) => {
+        const spacing = Math.pow(n, v.k);
+
+        // --- Generator A (Horizontal) ---
+        // Connect v to v_next = (k, x + n^k)
+        const nextX = v.x + spacing;
+        const nextKey = `${v.k}_${nextX}`;
+
+        if (vertexMap.has(nextKey)) {
+          const vNext = vertexMap.get(nextKey);
+
+          const geom = new THREE.BufferGeometry().setFromPoints([
+            v.mesh.position,
+            vNext.mesh.position
+          ]);
+          const line = new THREE.Line(geom, aEdgeMat.clone());
+          edgeGroup.add(line);
+
+          edgesList.push({
+            type: 'A',
+            from: v,
+            to: vNext,
+            line: line
+          });
+        }
+
+        // --- Generator B (Vertical) ---
+        // Connect v = (k, x) to v_up = (k + 1, x)
+        if (v.k < K) {
+          const upKey = `${v.k + 1}_${v.x}`;
+          if (vertexMap.has(upKey)) {
+            const vUp = vertexMap.get(upKey);
+
+            const geom = new THREE.BufferGeometry().setFromPoints([
+              v.mesh.position,
+              vUp.mesh.position
+            ]);
+            const line = new THREE.Line(geom, bEdgeMat.clone());
+            edgeGroup.add(line);
+
+            edgesList.push({
+              type: 'B',
+              from: v,
+              to: vUp,
+              line: line
+            });
+          }
+        }
+      });
+
+      // Update layout representation
+      updateAnnotations();
+    }
+
+    // Draw coordinate markers or floor grid in 3D
+    function updateAnnotations() {
+      // In a more complex setup we could draw text labels in 3D.
+      // To keep it highly performant and cross-browser stable, we render beautiful geometric grid axes.
+    }
+
+    // ===== UI Handlers & Interactivity =====
+
+    function setupUI() {
+      // Controls Panel
+      const sliderN = document.getElementById('param-n');
+      const valN = document.getElementById('val-n');
+      sliderN.addEventListener('input', (e) => {
+        paramN = parseInt(e.target.value);
+        valN.innerText = paramN;
+        buildGraph();
+        populatePresets();
+      });
+
+      const sliderK = document.getElementById('param-k');
+      const valK = document.getElementById('val-k');
+      sliderK.addEventListener('input', (e) => {
+        paramK = parseInt(e.target.value);
+        valK.innerText = paramK;
+        buildGraph();
+      });
+
+      const sliderM = document.getElementById('param-m');
+      const valM = document.getElementById('val-m');
+      sliderM.addEventListener('input', (e) => {
+        paramM = parseInt(e.target.value);
+        valM.innerText = paramM;
+        buildGraph();
+      });
+
+      const sliderHeight = document.getElementById('param-height');
+      const valHeight = document.getElementById('val-height');
+      sliderHeight.addEventListener('input', (e) => {
+        paramHeight = parseFloat(e.target.value);
+        valHeight.innerText = paramHeight.toFixed(1);
+        updateNodePositions();
+      });
+
+      // Reset camera
+      document.getElementById('btn-reset-view').addEventListener('click', resetCamera);
+
+      // Mode toggles (Uniform vs Hyperbolic)
+      const btnUniform = document.getElementById('btn-mode-uniform');
+      const btnHyperbolic = document.getElementById('btn-mode-hyperbolic');
+
+      btnUniform.addEventListener('click', () => {
+        if (viewMode === 'uniform') return;
+        viewMode = 'uniform';
+        btnUniform.classList.add('active');
+        btnHyperbolic.classList.remove('active');
+        targetTransition = 0; // Transition to Uniform
+        animateCameraToUniform();
+      });
+
+      btnHyperbolic.addEventListener('click', () => {
+        if (viewMode === 'hyperbolic') return;
+        viewMode = 'hyperbolic';
+        btnHyperbolic.classList.add('active');
+        btnUniform.classList.remove('active');
+        targetTransition = 1; // Transition to Hyperbolic
+        animateCameraToHyperbolic();
+      });
+
+      // Grid toggle
+      const btnGrid = document.getElementById('btn-grid');
+      btnGrid.addEventListener('click', () => {
+        showGrid = !showGrid;
+        gridHelper.visible = showGrid;
+        axesHelper.visible = showGrid;
+        if (showGrid) {
+          btnGrid.classList.add('active');
+        } else {
+          btnGrid.classList.remove('active');
+        }
+      });
+
+      // Word Tracer Button
+      document.getElementById('btn-trace').addEventListener('click', startWordTrace);
+      document.getElementById('btn-trace-clear').addEventListener('click', clearTrace);
+
+      // Populate initial presets
+      populatePresets();
+    }
+
+    function populatePresets() {
+      const presetsBox = document.getElementById('presets-box');
+      presetsBox.innerHTML = '';
+      const list = getPresets(paramN);
+
+      list.forEach((preset) => {
+        const chip = document.createElement('div');
+        chip.className = 'preset-chip';
+        chip.title = preset.desc;
+        chip.innerText = preset.name;
+        chip.addEventListener('click', () => {
+          document.getElementById('tracer-input').value = preset.word;
+          startWordTrace();
+        });
+        presetsBox.appendChild(chip);
+      });
+    }
+
+    function resetCamera() {
+      if (viewMode === 'uniform') {
+        // Angled 3D view
+        controls.target.set(0, 1.5, 0);
+        camera.position.set(10, 8, 12);
+      } else {
+        // Flat 2D view
+        controls.target.set(0, 4, 0);
+        camera.position.set(0, 4, 15);
+      }
+      controls.update();
+    }
+
+    function animateCameraToUniform() {
+      // Smoothly orbit camera back to 3D angled perspective
+      const duration = 40;
+      let tick = 0;
+      const startPos = camera.position.clone();
+      const endPos = new THREE.Vector3(10, 8, 12);
+      const startTar = controls.target.clone();
+      const endTar = new THREE.Vector3(0, 1.5, 0);
+
+      function step() {
+        tick++;
+        const t = easeOutCubic(tick / duration);
+        camera.position.lerpVectors(startPos, endPos, t);
+        controls.target.lerpVectors(startTar, endTar, t);
+        controls.update();
+        if (tick < duration) {
+          requestAnimationFrame(step);
+        }
+      }
+      step();
+    }
+
+    function animateCameraToHyperbolic() {
+      // Smoothly transition camera to face front-on (2D hyperbolic projection)
+      const duration = 40;
+      let tick = 0;
+      const startPos = camera.position.clone();
+      const endPos = new THREE.Vector3(0, 4, 15);
+      const startTar = controls.target.clone();
+      const endTar = new THREE.Vector3(0, 4, 0);
+
+      function step() {
+        tick++;
+        const t = easeOutCubic(tick / duration);
+        camera.position.lerpVectors(startPos, endPos, t);
+        controls.target.lerpVectors(startTar, endTar, t);
+        controls.update();
+        if (tick < duration) {
+          requestAnimationFrame(step);
+        }
+      }
+      step();
+    }
+
+    function easeOutCubic(x) {
+      return 1 - Math.pow(1 - x, 3);
+    }
+
+    // Dynamic vertical spacing adjustment
+    function updateNodePositions() {
+      const n = paramN;
+      const H = paramHeight;
+      nodesList.forEach((v) => {
+        v.positions = computeNodePositions(v.k, v.x, n, H);
+      });
+      // Force instant update of the active position depending on current transition progress
+      updateGeometryTransition(transitionProgress);
+    }
+
+    // ===== Lerp Animation (Uniform <-> Hyperbolic) =====
+
+    function updateGeometryTransition(progress) {
+      // Interpolate Node positions
+      nodesList.forEach((v) => {
+        v.mesh.position.lerpVectors(v.positions.uniform, v.positions.hyperbolic, progress);
+      });
+
+      // Rebuild Edges buffer geometry to match new node positions
+      edgesList.forEach((edge) => {
+        const positions = edge.line.geometry.attributes.position.array;
+        positions[0] = edge.from.mesh.position.x;
+        positions[1] = edge.from.mesh.position.y;
+        positions[2] = edge.from.mesh.position.z;
+        positions[3] = edge.to.mesh.position.x;
+        positions[4] = edge.to.mesh.position.y;
+        positions[5] = edge.to.mesh.position.z;
+        edge.line.geometry.attributes.position.needsUpdate = true;
+      });
+
+      // Re-position the tracer path if active
+      if (activeTrace && activeTrace.particleMesh) {
+        updateTracerPathGeometry();
+      }
+    }
+
+    // ===== Word Tracer Engine =====
+
+    function parseWord(inputStr) {
+      // Remove spaces
+      let cleaned = inputStr.replace(/\s+/g, '');
+
+      // Tokenize: match patterns like a, b, a^-1, b^3, A, B
+      const tokenRegex = /([a-bA-B])(?:\^(-?\d+))?/g;
+      let match;
+      const steps = [];
+
+      while ((match = tokenRegex.exec(cleaned)) !== null) {
+        let char = match[1];
+        let power = match[2] ? parseInt(match[2]) : 1;
+
+        // Convert to lowercase direction and sign
+        // Standard: a = horizontal +, A = horizontal -
+        //           b = vertical +, B = vertical -
+        let type = char.toLowerCase();
+        let sign = (char === char.toUpperCase()) ? -1 : 1;
+
+        // Handle explicit exponent negative signs
+        if (match[2]) {
+          // If power is specified, it overrides the letter casing for direction
+          sign = power >= 0 ? 1 : -1;
+          power = Math.abs(power);
+        }
+
+        for (let i = 0; i < power; i++) {
+          steps.push({
+            char: type,
+            dir: sign
+          });
+        }
+      }
+      return steps;
+    }
+
+    function clearTrace() {
+      if (traceTimeout) {
+        clearTimeout(traceTimeout);
+        traceTimeout = null;
+      }
+
+      if (activeTrace) {
+        if (activeTrace.particleMesh) {
+          tracerGroup.remove(activeTrace.particleMesh);
+          activeTrace.particleMesh.geometry.dispose();
+          activeTrace.particleMesh.material.dispose();
+        }
+        if (activeTrace.trailLine) {
+          tracerGroup.remove(activeTrace.trailLine);
+          activeTrace.trailLine.geometry.dispose();
+          activeTrace.trailLine.material.dispose();
+        }
+        activeTrace = null;
+      }
+
+      // Reset node highlights
+      nodesList.forEach(v => {
+        v.mesh.material.color.setHex(palette.node);
+      });
+
+      document.getElementById('hud-word').innerText = '-';
+      const badge = document.getElementById('hud-badge');
+      badge.className = 'status-badge status-idle';
+      badge.innerText = 'Idle';
+      document.getElementById('hud-start').innerText = '(0, 0)';
+      document.getElementById('hud-end').innerText = '-';
+    }
+
+    function startWordTrace() {
+      clearTrace();
+
+      const inputVal = document.getElementById('tracer-input').value;
+      const steps = parseWord(inputVal);
+
+      if (steps.length === 0) {
+        alert("Please enter a valid word! Use letters 'a', 'b', 'A', 'B' (e.g. b a b^-1 a^-2).");
+        return;
+      }
+
+      // Update UI Status
+      document.getElementById('hud-word').innerText = inputVal;
+      const badge = document.getElementById('hud-badge');
+      badge.className = 'status-badge status-running';
+      badge.innerText = 'Tracing...';
+
+      // 1. Calculate path of coordinates in (k, x) space
+      const n = paramN;
+      let currentK = 0;
+      let currentX = 0;
+
+      const pathPoints = [{ k: currentK, x: currentX }];
+
+      for (let step of steps) {
+        let yVal = Math.pow(n, currentK);
+
+        if (step.char === 'a') {
+          // Horizontal step: translates by +/- n^k in raw coordinates
+          currentX += step.dir * yVal;
+        } else if (step.char === 'b') {
+          // Vertical step: changes vertical level
+          currentK += step.dir;
+        }
+        pathPoints.push({ k: currentK, x: currentX });
+      }
+
+      // 2. Set up Tracer Particle (Gold glowing sphere)
+      const particleGeom = new THREE.SphereGeometry(0.22, 16, 16);
+      const particleMat = new THREE.MeshBasicMaterial({
+        color: palette.tracer,
+        transparent: true,
+        opacity: 0.95
+      });
+      const particleMesh = new THREE.Mesh(particleGeom, particleMat);
+
+      // Starting position
+      const startPos = getInterpolatedPathPos(pathPoints[0], n);
+      particleMesh.position.copy(startPos);
+      tracerGroup.add(particleMesh);
+
+      // 3. Set up Glowing Line Trail
+      const trailGeom = new THREE.BufferGeometry();
+      const trailMat = new THREE.LineBasicMaterial({
+        color: palette.tracer,
+        linewidth: 3,
+        transparent: true,
+        opacity: 0.9
+      });
+      const trailLine = new THREE.Line(trailGeom, trailMat);
+      tracerGroup.add(trailLine);
+
+      activeTrace = {
+        steps: steps,
+        pathPoints: pathPoints,
+        currentIndex: 0,
+        particleMesh: particleMesh,
+        trailLine: trailLine,
+        points3D: [startPos.clone()],
+        nVal: n
+      };
+
+      document.getElementById('hud-start').innerText = `k=0, x=0`;
+
+      // Start Step Loop
+      animateTraceStep();
+    }
+
+    // Find 3D coordinate for an arbitrary (k, x) path point in space, 
+    // even if it exceeds the pre-generated visual graph limits.
+    function getInterpolatedPathPos(pathPoint, n) {
+      const H = paramHeight;
+      const positions = computeNodePositions(pathPoint.k, pathPoint.x, n, H);
+
+      // Interpolate based on current transition progress between uniform and hyperbolic modes
+      const result = new THREE.Vector3();
+      result.lerpVectors(positions.uniform, positions.hyperbolic, transitionProgress);
+      return result;
+    }
+
+    // Recompute path trace nodes when switching view mode during animation
+    function updateTracerPathGeometry() {
+      if (!activeTrace) return;
+
+      // Re-calculate the 3D position vectors for all visited trail points
+      const updatedPoints = [];
+      const len = activeTrace.currentIndex + 1;
+
+      for (let i = 0; i < len; i++) {
+        const pt = activeTrace.pathPoints[i];
+        updatedPoints.push(getInterpolatedPathPos(pt, activeTrace.nVal));
+      }
+
+      activeTrace.points3D = updatedPoints;
+
+      // Update trail geometry
+      activeTrace.trailLine.geometry.setFromPoints(updatedPoints);
+
+      // Update particle mesh position
+      if (activeTrace.currentIndex < activeTrace.pathPoints.length) {
+        // If mid-transit, snap particle to the current end
+        const ptCurr = activeTrace.pathPoints[activeTrace.currentIndex];
+        activeTrace.particleMesh.position.copy(getInterpolatedPathPos(ptCurr, activeTrace.nVal));
+      }
+    }
+
+    function animateTraceStep() {
+      if (!activeTrace) return;
+
+      const totalSteps = activeTrace.pathPoints.length - 1;
+
+      if (activeTrace.currentIndex >= totalSteps) {
+        // Completed tracing!
+        finishTrace();
+        return;
+      }
+
+      const fromPt = activeTrace.pathPoints[activeTrace.currentIndex];
+      const toPt = activeTrace.pathPoints[activeTrace.currentIndex + 1];
+      const n = activeTrace.nVal;
+
+      const fromPos = getInterpolatedPathPos(fromPt, n);
+      const toPos = getInterpolatedPathPos(toPt, n);
+
+      // Animate particle mesh sliding from fromPos to toPos
+      const duration = 25; // frames per step
+      let frame = 0;
+
+      function slide() {
+        if (!activeTrace) return;
+        frame++;
+        const t = frame / duration;
+
+        // Smooth slide
+        activeTrace.particleMesh.position.lerpVectors(fromPos, toPos, t);
+
+        // Dynamic path trail growth
+        const currentTrailPoints = [...activeTrace.points3D, activeTrace.particleMesh.position.clone()];
+        activeTrace.trailLine.geometry.setFromPoints(currentTrailPoints);
+
+        if (frame < duration) {
+          traceTimeout = requestAnimationFrame(slide);
+        } else {
+          // Finished this step
+          activeTrace.currentIndex++;
+
+          // Snap particle exactly to destination
+          activeTrace.particleMesh.position.copy(toPos);
+          activeTrace.points3D.push(toPos.clone());
+          activeTrace.trailLine.geometry.setFromPoints(activeTrace.points3D);
+
+          // Highlight the node if it exists in the graph
+          const toKey = `${toPt.k}_${toPt.x}`;
+          if (vertexMap.has(toKey)) {
+            const v = vertexMap.get(toKey);
+            v.mesh.material.color.setHex(palette.tracer);
+          }
+
+          // Continue to next step
+          traceTimeout = setTimeout(animateTraceStep, 150); // small pause between steps
+        }
+      }
+      slide();
+    }
+
+    function finishTrace() {
+      const startPt = activeTrace.pathPoints[0];
+      const endPt = activeTrace.pathPoints[activeTrace.pathPoints.length - 1];
+
+      const closed = (startPt.k === endPt.k && startPt.x === endPt.x);
+
+      const badge = document.getElementById('hud-badge');
+      const endLabel = document.getElementById('hud-end');
+      endLabel.innerText = `k=${endPt.k}, x=${endPt.x}`;
+
+      if (closed) {
+        badge.className = 'status-badge status-success';
+        badge.innerText = 'Closed Loop (Relation)';
+
+        // Visual reward: flash particle green
+        activeTrace.particleMesh.material.color.setHex(palette.tracerSuccess);
+        activeTrace.trailLine.material.color.setHex(palette.tracerSuccess);
+      } else {
+        badge.className = 'status-badge status-failed';
+        badge.innerText = 'Open Path (Non-relation)';
+
+        // Visual indicator: flash particle red
+        activeTrace.particleMesh.material.color.setHex(palette.tracerFailed);
+        activeTrace.trailLine.material.color.setHex(palette.tracerFailed);
+      }
+    }
+
+    // ===== Raycaster hover effect =====
+
+    function onMouseMove(event) {
+      // Calculate mouse position in normalized device coordinates (-1 to +1)
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      // raycast against node sphere meshes
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(nodeGroup.children);
+
+      const tooltip = document.getElementById('tooltip');
+
+      if (intersects.length > 0) {
+        const intersectedMesh = intersects[0].object;
+
+        // Find corresponding vertex data
+        const vData = nodesList.find(v => v.mesh === intersectedMesh);
+
+        if (vData && vData !== hoveredNode) {
+          // Reset previous
+          if (hoveredNode) {
+            hoveredNode.mesh.scale.set(1, 1, 1);
+            hoveredNode.mesh.material.color.setHex(palette.node);
+          }
+
+          // Hover active node
+          hoveredNode = vData;
+          hoveredNode.mesh.scale.set(1.5, 1.5, 1.5);
+          hoveredNode.mesh.material.color.setHex(palette.nodeHover);
+
+          // Position and show tooltip
+          tooltip.style.opacity = '1';
+          tooltip.style.left = (event.clientX + 15) + 'px';
+          tooltip.style.top = (event.clientY + 15) + 'px';
+
+          // Group elements:
+          // A vertex at (k, x) represents the affine map z -> n^k z + x.
+          // In BS(1, n) presentation, this is exactly the group element b^k a^(x / n^k) ?
+          // Actually, let's write it in standard matrix form or affine form:
+          const matrixLaTeX = `\\begin{pmatrix} ${paramN}^{${vData.k}} & ${vData.x} \\\\ 0 & 1 \\end{pmatrix}`;
+          tooltip.innerHTML = `
+            <div class="tooltip-title">Group Element Vertex</div>
+            <div><b>Coordinates:</b> (k: ${vData.k}, x: ${vData.x})</div>
+            <div><b>Horizontal index m:</b> ${vData.m}</div>
+            <div style="margin-top: 8px; font-size:10px; color:var(--text-muted);">
+              <b>Affine action:</b><br/>z ↦ ${paramN}<sup>${vData.k}</sup>z + ${vData.x}
+            </div>
+          `;
+        } else if (hoveredNode) {
+          // Adjust tooltip position on drag/move
+          tooltip.style.left = (event.clientX + 15) + 'px';
+          tooltip.style.top = (event.clientY + 15) + 'px';
+        }
+      } else {
+        if (hoveredNode) {
+          // Restore original state
+          hoveredNode.mesh.scale.set(1, 1, 1);
+
+          // Keep yellow color if the tracer highlighted it
+          const isTracerHighlighted = activeTrace && activeTrace.pathPoints.some(pt => pt.k === hoveredNode.k && pt.x === hoveredNode.x);
+          hoveredNode.mesh.material.color.setHex(isTracerHighlighted ? palette.tracer : palette.node);
+
+          hoveredNode = null;
+        }
+        tooltip.style.opacity = '0';
+      }
+    }
+
+    // ===== Three.js Scene Setup =====
+
+    function init3D() {
+      const container = document.getElementById('canvas-container');
+
+      // Create Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(palette.bg);
+
+      // Add fog for deep spatial styling
+      scene.fog = new THREE.FogExp2(palette.bg, 0.015);
+
+      // Create Camera
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+      // Create WebGL Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
+
+      // Setup Camera Controls
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI; // Full rotation
+      controls.minDistance = 2;
+      controls.maxDistance = 60;
+
+      // Group containers
+      nodeGroup = new THREE.Group();
+      edgeGroup = new THREE.Group();
+      tracerGroup = new THREE.Group();
+      scene.add(nodeGroup);
+      scene.add(edgeGroup);
+      scene.add(tracerGroup);
+
+      // Ambient Floor grid & Axes helper
+      gridHelper = new THREE.GridHelper(50, 50, 0x1e293b, 0x0f172a);
+      gridHelper.position.y = -2;
+      scene.add(gridHelper);
+
+      axesHelper = new THREE.AxesHelper(5);
+      axesHelper.position.set(-1, -1.8, 0);
+      scene.add(axesHelper);
+
+      // Setup initial camera pos
+      resetCamera();
+
+      // Listeners
+      window.addEventListener('resize', onWindowResize);
+      window.addEventListener('mousemove', onMouseMove);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // ===== Animation Loop =====
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // 1. Smoothly transition between Uniform 3D and Hyperbolic 2D
+      if (transitionProgress !== targetTransition) {
+        const diff = targetTransition - transitionProgress;
+        if (Math.abs(diff) < 0.005) {
+          transitionProgress = targetTransition;
+        } else {
+          transitionProgress += Math.sign(diff) * transitionSpeed;
+        }
+        updateGeometryTransition(transitionProgress);
+      }
+
+      // 2. Add subtle floating rotation to the whole group in Uniform view (for luxury look!)
+      if (viewMode === 'uniform' && transitionProgress === 0 && !controls.state === -1) {
+        // Rotate slowly if controls are idle
+        nodeGroup.rotation.y = Math.sin(Date.now() * 0.00015) * 0.15;
+        edgeGroup.rotation.y = nodeGroup.rotation.y;
+        tracerGroup.rotation.y = nodeGroup.rotation.y;
+      } else {
+        nodeGroup.rotation.y = 0;
+        edgeGroup.rotation.y = 0;
+        tracerGroup.rotation.y = 0;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // ===== App Entry Point =====
+
+    window.addEventListener('DOMContentLoaded', () => {
+      init3D();
+      buildGraph();
+      setupUI();
+      animate();
+    });
+  </script>
+</body>
+
+</html>

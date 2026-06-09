@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quaternion Beam Search · finite-index subgroups of PH(ℤ[1/p])</title>
+<link rel="stylesheet" href="style.css" />
+<script>
+window.MathJax = { tex: { inlineMath: [["$", "$"], ["\\(", "\\)"]] } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
+</head>
+<body>
+<main class="page">
+
+  <header class="hero">
+    <div class="hero__content">
+      <p class="eyebrow">Geometry of Linear Groups · Algebraic tools</p>
+      <h1>Quaternion beam search</h1>
+      <p>Pick two integer quaternions $a,b$ whose reduced norms are prime powers
+      $p^{x}$ and $q^{y}$. The tool runs a Reidemeister–Schreier beam search on the
+      Bruhat–Tits tree $T_{q}$ to extract the elements of $\langle a,b\rangle$ that
+      lie in $\mathrm{PH}(\mathbb{Z}[1/p])$, factors them by the
+      Lubotzky–Phillips–Sarnak rule into the free group
+      $F_{(p+1)/2}=\langle\text{norm-}p\text{ quaternions}\rangle$, and folds them
+      into a <b>Stallings graph</b> to certify finite index.</p>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>Generators</h2>
+    <div class="quatgrid">
+      <div class="quatrow">
+        <span class="qlabel">$a=$</span>
+        <label>w<input id="aw" type="number" value="1"></label>
+        <label>x<input id="ax" type="number" value="2"></label>
+        <label>y<input id="ay" type="number" value="0"></label>
+        <label>z<input id="az" type="number" value="0"></label>
+        <span class="norm">N(a)=<b id="normA">5</b> = <b id="factA">5^1</b></span>
+      </div>
+      <div class="quatrow">
+        <span class="qlabel">$b=$</span>
+        <label>w<input id="bw" type="number" value="3"></label>
+        <label>x<input id="bx" type="number" value="0"></label>
+        <label>y<input id="by" type="number" value="2"></label>
+        <label>z<input id="bz" type="number" value="0"></label>
+        <span class="norm">N(b)=<b id="normB">13</b> = <b id="factB">13^1</b></span>
+      </div>
+    </div>
+
+    <div class="presets">
+      <span>presets:</span>
+      <button data-preset="5,13" class="chip">a=1+2i, b=3+2j (p=5,q=13) → 96</button>
+      <button data-preset="13,5" class="chip">swap (p=13,q=5) → 96</button>
+      <button data-preset="5,17" class="chip">p=5, q=17 → 8</button>
+    </div>
+
+    <div id="validation" class="validation"></div>
+
+    <div class="controls">
+      <label class="ctl">node budget <input id="budget" type="number" value="120000" step="20000"></label>
+      <label class="ctl">q-adic precision <input id="prec" type="number" value="26" min="16" max="60"></label>
+      <button id="runBtn" class="run">Run beam search</button>
+      <button id="stopBtn" class="stop" style="display:none">Stop</button>
+      <span id="spinner" class="spinner" style="display:none"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Progress</h2>
+    <pre id="log" class="log"></pre>
+  </section>
+
+  <section class="card">
+    <h2>Result</h2>
+    <div id="result"></div>
+  </section>
+
+  <section class="card notes">
+    <h2>How it works</h2>
+    <ul>
+      <li><b>Trees.</b> $5\equiv13\equiv1\ (4)$ and more generally any odd $q$ split
+      the Hamilton algebra: $H\otimes\mathbb{Q}_q\cong M_2(\mathbb{Q}_q)$, so
+      $\langle a,b\rangle$ acts on the $(q{+}1)$-regular tree $T_q$.</li>
+      <li><b>Roles.</b> $a$ (norm a power of $p$) is a unit at $q$, so it is
+      <i>elliptic</i> — it fixes the base vertex $v_0$. $b$ (norm a power of $q$) is
+      <i>hyperbolic</i> — it translates $v_0$.</li>
+      <li><b>The intersection.</b>
+      $\langle a,b\rangle\cap\mathrm{PH}(\mathbb{Z}[1/p])=\mathrm{Stab}(v_0)$: the
+      words whose primitive norm is a pure power of $p$. We find them by
+      Reidemeister–Schreier — every <i>fold</i> in the orbit BFS is a generator that
+      fixes $v_0$.</li>
+      <li><b>The “hint”.</b> $a$ acts on the link of $v_0$ as an element of
+      $\mathrm{PGL}_2(\mathbb{F}_q)$ of some order $m$; $a^{m}$ fixes the whole
+      radius-1 ball, so $b\,a^{m}b^{-1}$ lands back in $\mathrm{PH}(\mathbb{Z}[1/p])$.
+      The search discovers these folds automatically.</li>
+      <li><b>Certificate.</b> Each generator is turned into a reduced word in
+      $F_{(p+1)/2}$ by LPS unique factorisation and folded into a Stallings graph.
+      Finite index $\iff$ the graph is complete (every vertex carries all
+      generators); the index is the vertex count.</li>
+    </ul>
+  </section>
+
+</main>
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>

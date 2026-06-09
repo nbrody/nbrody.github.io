@@ -64,16 +64,15 @@ class Monomial {
     }
 
     divide(other) {
+        const n = Math.max(this.exponents.length, other.exponents.length);
         // Check if divisible (all exponents of this >= exponents of other)
-        for (let i = 0; i < this.exponents.length; i++) {
-            const e1 = this.exponents[i];
+        for (let i = 0; i < n; i++) {
+            const e1 = i < this.exponents.length ? this.exponents[i] : 0;
             const e2 = i < other.exponents.length ? other.exponents[i] : 0;
             if (e1 < e2) return null; // Not divisible
         }
 
         const newExponents = [];
-        const n = Math.max(this.numVars(), other.numVars());
-
         for (let i = 0; i < n; i++) {
             const e1 = i < this.exponents.length ? this.exponents[i] : 0;
             const e2 = i < other.exponents.length ? other.exponents[i] : 0;
@@ -99,12 +98,12 @@ class Monomial {
     }
 
     equals(other) {
-        if (this.numVars() !== other.numVars()) return false;
-
-        for (let i = 0; i < this.exponents.length; i++) {
-            if (this.exponents[i] !== other.exponents[i]) return false;
+        const n = Math.max(this.exponents.length, other.exponents.length);
+        for (let i = 0; i < n; i++) {
+            const e1 = i < this.exponents.length ? this.exponents[i] : 0;
+            const e2 = i < other.exponents.length ? other.exponents[i] : 0;
+            if (e1 !== e2) return false;
         }
-
         return true;
     }
 
@@ -165,16 +164,30 @@ class MultivariatePolynomial {
     }
 
     _simplify() {
+        // Find maximum number of variables first
+        let maxVars = this.numVars || 0;
+        for (const term of this.terms) {
+            maxVars = Math.max(maxVars, term.exponents.length);
+        }
+        this.numVars = maxVars;
+
         // Combine like terms and remove zero terms
         const termMap = new Map();
 
         for (const term of this.terms) {
-            const key = term.exponents.join(',');
+            // Pad exponents to maxVars
+            const paddedExponents = [...term.exponents];
+            while (paddedExponents.length < maxVars) {
+                paddedExponents.push(0);
+            }
+            term.exponents = paddedExponents;
+
+            const key = paddedExponents.join(',');
 
             if (termMap.has(key)) {
                 const existing = termMap.get(key);
                 const newCoeff = existing.coeff + term.coeff;
-                termMap.set(key, new Monomial(term.exponents, newCoeff));
+                termMap.set(key, new Monomial(paddedExponents, newCoeff));
             } else {
                 termMap.set(key, term.clone());
             }
@@ -182,11 +195,6 @@ class MultivariatePolynomial {
 
         // Remove zero terms
         this.terms = Array.from(termMap.values()).filter(t => t.coeff !== 0);
-
-        // Update numVars
-        if (this.terms.length > 0) {
-            this.numVars = Math.max(...this.terms.map(t => t.numVars()));
-        }
     }
 
     isZero() {
@@ -652,8 +660,8 @@ function minimizeGrobnerBasis(G, ordering = 'lex') {
             const lt_j = G[j].leadingTerm(ordering);
             if (!lt_j) continue;
 
-            const lm_i = new Monomial(lt_i.exponents, new Rational(1));
-            const lm_j = new Monomial(lt_j.exponents, new Rational(1));
+            const lm_i = new Monomial(lt_i.exponents, 1);
+            const lm_j = new Monomial(lt_j.exponents, 1);
 
             if (lm_i.divide(lm_j)) {
                 isRedundant = true;

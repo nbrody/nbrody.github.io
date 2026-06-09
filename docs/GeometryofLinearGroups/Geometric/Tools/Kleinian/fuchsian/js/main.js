@@ -83,8 +83,11 @@ function hasPointInFundamentalDomain(targetCov, allCovectors, faceIndices, targe
     const eps = 1e-6;
     const boundaryEps = 1e-3; // Points must be strictly inside, not near boundary
 
-    // Sample points along the geodesic
-    const numSamples = 100;
+    // Sample points along the geodesic. Density matters: for groups whose
+    // fundamental domain intersects this geodesic in a narrow arc (e.g.,
+    // triangle groups with the basepoint close to a side), 100 samples can
+    // miss the window entirely and falsely reject the face.
+    const numSamples = 1000;
 
     if (Math.abs(vw) < 1e-6) {
         // Line through origin
@@ -203,8 +206,8 @@ async function updateFromInput(clearGeneratedWords = true) {
         // Check for matrix input: (a, b, c, d)
         const parenMatch = cleanLine.match(/^\s*\(\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*,\s*([-+0-9.eE]+)\s*\)\s*$/);
         if (parenMatch) {
-            if (!(typeof PSL2RtoSDF !== 'undefined' && PSL2RtoSDF)) {
-                errorMessage.textContent = `Matrix input requires PSL2RtoSO21.js to be loaded.`;
+            if (!(typeof PGL2RtoSDF !== 'undefined' && PGL2RtoSDF)) {
+                errorMessage.textContent = `Matrix input requires PGL2RtoO21.js to be loaded.`;
                 renderGutter(lines.length, null, null, _paletteMode);
                 return;
             }
@@ -218,10 +221,10 @@ async function updateFromInput(clearGeneratedWords = true) {
                 return;
             }
             try {
-                const so21 = PSL2RtoSDF.PSL2RtoSO21(a, b, c, d);
+                const so21 = PGL2RtoSDF.PGL2RtoO21(a, b, c, d);
                 let cov;
                 try {
-                    const result = PSL2RtoSDF.sDF_autoFromSO21(so21);
+                    const result = PGL2RtoSDF.sDF_autoFromO21(so21);
                     cov = result?.row || null;
                 } catch (e) {
                     cov = null;
@@ -239,7 +242,7 @@ async function updateFromInput(clearGeneratedWords = true) {
                     cov = [-yx, -yy, yw - 1];
                 }
                 if (!cov || cov.length !== 3 || cov.some(v => !Number.isFinite(v))) {
-                    throw new Error('Invalid sDF from PSL2RtoSO21');
+                    throw new Error('Invalid sDF from PGL2RtoO21');
                 }
                 let [vx, vy, vw] = cov;
                 // Reference point: origin [0, 0, 1] in Minkowski space
@@ -432,9 +435,9 @@ async function updateFromMatrices() {
             return;
         }
 
-        // Check if PSL2RtoSDF is available
-        if (typeof PSL2RtoSDF === 'undefined' || !PSL2RtoSDF) {
-            if (errorMessage) errorMessage.textContent = 'PSL2RtoSO21.js is required for matrix conversion.';
+        // Check if PGL2RtoSDF is available
+        if (typeof PGL2RtoSDF === 'undefined' || !PGL2RtoSDF) {
+            if (errorMessage) errorMessage.textContent = 'PGL2RtoO21.js is required for matrix conversion.';
             return;
         }
 
@@ -456,7 +459,7 @@ async function updateFromMatrices() {
         console.log('Converting all group elements to covectors...');
         const allCovectors = [];
         const allWords = [];
-        const allPSL2RMatrices = []; // Store PSL(2,R) matrices for renderer
+        const allMatrices = []; // Store PSL(2,R) matrices for renderer
 
         for (const item of groupElements) {
             const mat = item.m;
@@ -471,10 +474,10 @@ async function updateFromMatrices() {
             const det = a * d - b * c;
             const scale = (Math.abs(det) > 1e-12) ? (1 / Math.sqrt(Math.abs(det))) : 1;
 
-            const so21 = PSL2RtoSDF.PSL2RtoSO21(a * scale, b * scale, c * scale, d * scale);
+            const so21 = PGL2RtoSDF.PGL2RtoO21(a * scale, b * scale, c * scale, d * scale);
             let cov;
             try {
-                const result = PSL2RtoSDF.sDF_autoFromSO21(so21);
+                const result = PGL2RtoSDF.sDF_autoFromO21(so21);
                 cov = result?.row || null;
             } catch (e) {
                 cov = null;
@@ -514,7 +517,7 @@ async function updateFromMatrices() {
 
             allCovectors.push([vx, vy, vw]);
             allWords.push(word);
-            allPSL2RMatrices.push({ a, b, c, d });
+            allMatrices.push({ a, b, c, d });
         }
 
         console.log(`Converted ${allCovectors.length} group elements to covectors`);
@@ -578,7 +581,7 @@ async function updateFromMatrices() {
         const vectorsWithMeta = standardGeneratorIndices.map(idx => ({
             vector: allCovectors[idx],
             word: allWords[idx],
-            matrix: allPSL2RMatrices[idx]
+            matrix: allMatrices[idx]
         }));
 
         // Step 6: Format and populate page 2 with vectors

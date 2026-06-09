@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PSL₂(ℤ[i]) orbit in the Poincaré ball</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #05070d; color: #cfd6e4;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow: hidden; }
+  #info {
+    position: absolute; top: 12px; left: 12px; z-index: 10;
+    background: rgba(20, 24, 36, 0.55);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 10px 14px; font-size: 13px; line-height: 1.45;
+    user-select: none; max-width: 340px;
+  }
+  #info b { color: #ffffff; }
+  #controls { margin-top: 8px; display: grid; gap: 4px; font-size: 12px; }
+  #controls label { display: flex; align-items: center; gap: 8px; }
+  #controls input[type=range] { width: 140px; }
+  #count { color: #ffd36a; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="info">
+  <b>PSL₂(ℤ[i]) orbit — Poincaré ball view</b><br>
+  Camera starts at the centre of the Poincaré ball — sight-lines through the
+  origin are honest hyperbolic geodesics, and each sphere subtends its true
+  hyperbolic angular size (radius (1−|Q|²)/2). Drag to orbit, scroll to zoom.
+  <div id="controls">
+    <label>ring of integers
+      <select id="ringSel">
+        <option value="i" selected>ℤ[i] — Bianchi d=1 (Picard)</option>
+        <option value="w">ℤ[ω] — Bianchi d=3 (Eisenstein)</option>
+        <option value="d2">ℤ[√−2] — Bianchi d=2</option>
+        <option value="d7">ℤ[(1+√−7)/2] — Bianchi d=7</option>
+        <option value="d11">ℤ[(1+√−11)/2] — Bianchi d=11</option>
+        <option value="c353">[3,5,3] Coxeter — cocompact (φ)</option>
+        <option value="c534">[5,3,4] Coxeter — cocompact (φ)</option>
+        <option value="c535">[5,3,5] Coxeter — cocompact (φ)</option>
+      </select>
+    </label>
+    <label>word depth <input id="dSlider" type="range" min="1" max="13" step="1" value="7"></label>
+    <label>basepoint t₀ <input id="tSlider" type="range" min="0.3" max="2.5" step="0.05" value="0.5"></label>
+    <label>amplitude <input id="aSlider" type="range" min="0" max="0.4" step="0.01" value="0.08"></label>
+    <label>wavenumber <input id="kSlider" type="range" min="0" max="6" step="0.05" value="2"></label>
+    <label>ω rotate <input id="wSlider" type="range" min="0" max="1" step="0.01" value="0.25"></label>
+    <label>sphere scale <input id="rSlider" type="range" min="0.02" max="1" step="0.01" value="0.12"></label>
+    <label><input id="edgeChk" type="checkbox"> Cayley edges (geodesic arcs)</label>
+  </div>
+  <div style="margin-top:6px">orbit size: <span id="count">0</span></div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+(() => {
+  // ---- Complex (Gaussian) arithmetic --------------------------------------
+  const C = {
+    add: (a,b) => [a[0]+b[0], a[1]+b[1]],
+    sub: (a,b) => [a[0]-b[0], a[1]-b[1]],
+    mul: (a,b) => [a[0]*b[0]-a[1]*b[1], a[0]*b[1]+a[1]*b[0]],
+    conj:(a) => [a[0],-a[1]],
+    norm2:(a)=> a[0]*a[0]+a[1]*a[1],
+    neg: (a) => [-a[0],-a[1]],
+    key: (a) => a[0].toFixed(6)+","+a[1].toFixed(6),
+  };
+  const M = {
+    mul: (X,Y) => [
+      C.add(C.mul(X[0],Y[0]), C.mul(X[1],Y[2])),
+      C.add(C.mul(X[0],Y[1]), C.mul(X[1],Y[3])),
+      C.add(C.mul(X[2],Y[0]), C.mul(X[3],Y[2])),
+      C.add(C.mul(X[2],Y[1]), C.mul(X[3],Y[3])),
+    ],
+    keyPSL: (X) => {
+      for (const e of X) {
+        if (Math.abs(e[0])+Math.abs(e[1]) > 1e-9) {
+          if (e[0] < -1e-9 || (Math.abs(e[0])<1e-9 && e[1] < -1e-9)) X = X.map(C.neg);
+          break;
+        }
+      }
+      return X.map(C.key).join("|");
+    },
+  };
+
+  const ONE=[1,0], ZERO=[0,0], I=[0,1], NEG=[-1,0], NEGI=[0,-1];
+
+  // PSL_2(Z[i]) — Picard group.
+  const GENS_I = (() => {
+    const T  = [ONE, ONE,  ZERO, ONE];
+    const Ti = [ONE, NEG,  ZERO, ONE];
+    const U  = [ONE, I,    ZERO, ONE];
+    const Ui = [ONE, NEGI, ZERO, ONE];
+    const S  = [ZERO, NEG, ONE, ZERO];
+    const R  = [I, ZERO, ZERO, NEGI];      // diagonal unit; order 2 in PSL.
+    return [T, Ti, U, Ui, S, R];
+  })();
+
+  // PSL_2(Z[ω]) — Eisenstein, ω = e^(2πi/3) = (−1 + √3 i)/2.
+  const GENS_W = (() => {
+    const w  = [-0.5,  Math.sqrt(3)/2];     // ω
+    const wi = [-0.5, -Math.sqrt(3)/2];     // ω⁻¹ = ω̄ = ω²
+    const T   = [ONE, ONE,  ZERO, ONE];     // z ↦ z + 1
+    const Ti  = [ONE, NEG,  ZERO, ONE];
+    const U   = [ONE, w,    ZERO, ONE];     // z ↦ z + ω
+    const Ui  = [ONE, C.neg(w), ZERO, ONE];
+    const S   = [ZERO, NEG, ONE, ZERO];
+    const E   = [w, ZERO, ZERO, wi];        // diagonal unit; order 3 in PSL.
+    const Ei  = [wi, ZERO, ZERO, w];
+    return [T, Ti, U, Ui, S, E, Ei];
+  })();
+
+  // Bianchi generators for O_K = Z[α] with α a primitive element of K over Q:
+  //   T = (1,1;0,1), Tα = (1,α;0,1) (and inverses), S = (0,−1;1,0),
+  //   plus diagonal units when |units| > 2.
+  function bianchiGens(alpha, units = [ONE]) {
+    const T   = [ONE, ONE,  ZERO, ONE];
+    const Ti  = [ONE, NEG,  ZERO, ONE];
+    const A   = [ONE, alpha, ZERO, ONE];
+    const Ai  = [ONE, C.neg(alpha), ZERO, ONE];
+    const S   = [ZERO, NEG, ONE, ZERO];
+    const gens = [T, Ti, A, Ai, S];
+    for (const u of units) {
+      // u must satisfy u * u⁻¹ = 1 in O_K; for actual units this is automatic.
+      // Diagonal element diag(u, u⁻¹) — det = 1.
+      const inv2 = 1 / (u[0]*u[0] + u[1]*u[1]);
+      const uInv = [u[0]*inv2, -u[1]*inv2];
+      gens.push([u, ZERO, ZERO, uInv]);
+    }
+    return gens;
+  }
+
+  // For d=2, 7, 11 the unit group of O_K is just {±1}, so no diagonal gens.
+  const GENS_D2  = bianchiGens([0, Math.sqrt(2)]);                         // α = √−2
+  const GENS_D7  = bianchiGens([0.5, Math.sqrt(7)/2]);                     // α = (1+√−7)/2
+  const GENS_D11 = bianchiGens([0.5, Math.sqrt(11)/2]);                    // α = (1+√−11)/2
+
+  const GROUPS = { i: GENS_I, w: GENS_W, d2: GENS_D2, d7: GENS_D7, d11: GENS_D11 };
+  let GENS = GENS_I;
+
+  // ---- Cocompact reflection-group machinery (4x4, hyperboloid model) -------
+  // For a chain Coxeter group [m1,m2,m3] we use the Gram matrix
+  //   G_ii = 1,  G_{i,i+1} = G_{i+1,i} = −cos(π/m_i)
+  // with the Tits/quadratic form. For hyperbolic 3-space cases (signature 3,1)
+  // the reflections preserve q(x) = xᵀG x; orbits live on q = −1, x time-like.
+  function _eye4() {
+    return [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+  }
+  function _mul4(A, B) {
+    const C = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+    for (let i=0;i<4;i++) for (let j=0;j<4;j++) {
+      let s=0; for (let k=0;k<4;k++) s += A[i][k]*B[k][j];
+      C[i][j] = s;
+    }
+    return C;
+  }
+  function _apply4(M, v) {
+    return [
+      M[0][0]*v[0]+M[0][1]*v[1]+M[0][2]*v[2]+M[0][3]*v[3],
+      M[1][0]*v[0]+M[1][1]*v[1]+M[1][2]*v[2]+M[1][3]*v[3],
+      M[2][0]*v[0]+M[2][1]*v[1]+M[2][2]*v[2]+M[2][3]*v[3],
+      M[3][0]*v[0]+M[3][1]*v[1]+M[3][2]*v[2]+M[3][3]*v[3],
+    ];
+  }
+  function _key4(M) {
+    let s = '';
+    for (let i=0;i<4;i++) for (let j=0;j<4;j++) s += M[i][j].toFixed(5)+',';
+    return s;
+  }
+  // Jacobi eigendecomposition for symmetric 4x4.
+  function _jacobi(A0) {
+    const a = A0.map(r => r.slice());
+    const V = _eye4();
+    for (let it=0; it<200; it++) {
+      let p=0, q=1, mx = Math.abs(a[0][1]);
+      for (let i=0;i<4;i++) for (let j=i+1;j<4;j++) {
+        if (Math.abs(a[i][j]) > mx) { mx = Math.abs(a[i][j]); p=i; q=j; }
+      }
+      if (mx < 1e-14) break;
+      const apq = a[p][q], app = a[p][p], aqq = a[q][q];
+      const theta = (aqq - app) / (2*apq);
+      const t = (theta >= 0 ? 1 : -1) / (Math.abs(theta) + Math.sqrt(1 + theta*theta));
+      const c = 1 / Math.sqrt(1 + t*t), s = t*c;
+      for (let i=0;i<4;i++) {
+        if (i !== p && i !== q) {
+          const aip = a[i][p], aiq = a[i][q];
+          a[i][p] = a[p][i] = c*aip - s*aiq;
+          a[i][q] = a[q][i] = s*aip + c*aiq;
+        }
+      }
+      a[p][p] = app - t*apq;  a[q][q] = aqq + t*apq;
+      a[p][q] = a[q][p] = 0;
+      for (let i=0;i<4;i++) {
+        const vip = V[i][p], viq = V[i][q];
+        V[i][p] = c*vip - s*viq;
+        V[i][q] = s*vip + c*viq;
+      }
+    }
+    return { vals: [a[0][0], a[1][1], a[2][2], a[3][3]],
+             vecs: [0,1,2,3].map(j => [V[0][j], V[1][j], V[2][j], V[3][j]]) };
+  }
+  function makeCoxeter(orders) {
+    const G = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+    for (let i=0;i<orders.length;i++) {
+      const c = -Math.cos(Math.PI / orders[i]);
+      G[i][i+1] = c; G[i+1][i] = c;
+    }
+    const gens = [];
+    for (let i=0;i<4;i++) {
+      const r = _eye4();
+      for (let j=0;j<4;j++) r[i][j] -= 2 * G[i][j];
+      gens.push(r);
+    }
+    const { vals, vecs } = _jacobi(G);
+    let neg = vals.findIndex(v => v < 0);
+    if (neg < 0) throw new Error('non-hyperbolic Coxeter form');
+    const v = vecs[neg].slice();
+    const n2 = v[0]*v[0]+v[1]*v[1]+v[2]*v[2]+v[3]*v[3];
+    const qv = vals[neg] * n2;   // < 0
+    const sc = 1 / Math.sqrt(-qv);
+    const basepoint = v.map(x => x*sc);   // q(basepoint) = −1
+    const spaceBasis = [];
+    for (let i=0;i<4;i++) {
+      if (i === neg) continue;
+      const e = vecs[i].slice();
+      const en2 = e[0]*e[0]+e[1]*e[1]+e[2]*e[2]+e[3]*e[3];
+      const qe = vals[i] * en2;   // > 0
+      const s2 = 1 / Math.sqrt(qe);
+      spaceBasis.push(e.map(x => x*s2));
+    }
+    return { kind: 'coxeter', G, gens, basepoint, spaceBasis };
+  }
+  function _qPair(G, x, y) {
+    let s = 0;
+    for (let i=0;i<4;i++) {
+      let r = 0;
+      for (let j=0;j<4;j++) r += G[i][j] * y[j];
+      s += x[i] * r;
+    }
+    return s;
+  }
+  function hyperboloidToBall(x, grp) {
+    const t = -_qPair(grp.G, x, grp.basepoint);   // ≥ 1
+    const c = grp.spaceBasis.map(e => _qPair(grp.G, x, e) / (t + 1));
+    return { X: c[0], Y: c[1], Z: c[2] };
+  }
+
+  const COX_GROUPS = {
+    c353: makeCoxeter([3,5,3]),
+    c534: makeCoxeter([5,3,4]),
+    c535: makeCoxeter([5,3,5]),
+  };
+
+  // Möbius action on UHS point (z, t).
+  function actMobius(M2, P) {
+    const [a,b,c,d] = M2;
+    const z = P.z, t = P.t;
+    const cz_d = C.add(C.mul(c,z), d);
+    const az_b = C.add(C.mul(a,z), b);
+    const denom = C.norm2(cz_d) + C.norm2(c)*t*t;
+    const acStar = C.mul(a, C.conj(c));
+    const num = C.add(C.mul(az_b, C.conj(cz_d)), [acStar[0]*t*t, acStar[1]*t*t]);
+    return { z: [num[0]/denom, num[1]/denom], t: t/denom };
+  }
+
+  // Isometry UHS -> Poincaré ball B^3.
+  //   (x, y, t) ↦ ( 2x, 2y, x²+y²+t²−1 ) / ( x²+y²+(t+1)² )
+  // Sends j=(0,0,1) -> origin, plane t=0 -> unit sphere (minus north pole).
+  function uhsToBall(P) {
+    const x = P.z[0], y = P.z[1], t = P.t;
+    const r2 = x*x + y*y;
+    const s = r2 + (t+1)*(t+1);
+    // Rotate so ∞ (north pole of the canonical map) goes to +Z instead of +Y;
+    // that places the cusp at ∞ to the side, so the ball reads clearly as a ball.
+    return {
+      X: 2*x / s,
+      Y: 2*y / s,
+      Z: (r2 + t*t - 1) / s,
+    };
+  }
+
+  // BFS enumeration of orbit. Returns { nodes, edges } where nodes is a list
+  // of orbit points {Q, rho2, key} and edges is a list of [i, j] index pairs
+  // for vertices connected by a single generator (Cayley graph edges).
+  function generateOrbit(basepoint, depth, cullEps) {
+    const seen = new Map();   // key -> matrix
+    const nodes = [];         // visible orbit points
+    const idx = new Map();    // key -> index in nodes (if visible)
+    const id = [ONE,ZERO,ZERO,ONE];
+    const idKey = M.keyPSL(id);
+    const queue = [{ X: id, k: idKey, d: 0 }];
+    seen.set(idKey, id);
+    let qi = 0;
+    const cap2 = (1 - cullEps)*(1 - cullEps);
+    while (qi < queue.length) {
+      const { X, k, d } = queue[qi++];
+      const P = actMobius(X, basepoint);
+      const Q = uhsToBall(P);
+      const rho2 = Q.X*Q.X + Q.Y*Q.Y + Q.Z*Q.Z;
+      if (rho2 < cap2) {
+        idx.set(k, nodes.length);
+        nodes.push({ Q, rho2, key: k, depth: d });
+      }
+      if (d >= depth) continue;
+      for (const g of GENS) {
+        const Y = M.mul(X, g);
+        const ky = M.keyPSL(Y);
+        if (!seen.has(ky)) { seen.set(ky, Y); queue.push({ X: Y, k: ky, d: d+1 }); }
+      }
+      if (nodes.length > 500000) break;
+    }
+    // Build edges: for each visible node, apply every generator and look up
+    // the result in the visible set. De-dup via i<j.
+    const edges = [];
+    for (const [k, i] of idx) {
+      const X = seen.get(k);
+      for (const g of GENS) {
+        const Y = M.mul(X, g);
+        const ky = M.keyPSL(Y);
+        const j = idx.get(ky);
+        if (j !== undefined && i < j) edges.push([i, j]);
+      }
+    }
+    return { nodes, edges };
+  }
+
+  // BFS over a 4x4 reflection-group action on the hyperboloid; same return
+  // shape as generateOrbit so the rest of the pipeline doesn't care.
+  function generateOrbitCoxeter(grp, depth, cullEps) {
+    const seen = new Map();
+    const nodes = [];
+    const idx = new Map();
+    const id = _eye4();
+    const idKey = _key4(id);
+    seen.set(idKey, id);
+    const queue = [{ X: id, k: idKey, d: 0 }];
+    let qi = 0;
+    const cap2 = (1 - cullEps)*(1 - cullEps);
+    while (qi < queue.length) {
+      const { X, k, d } = queue[qi++];
+      const x = _apply4(X, grp.basepoint);
+      const Q = hyperboloidToBall(x, grp);
+      const rho2 = Q.X*Q.X + Q.Y*Q.Y + Q.Z*Q.Z;
+      if (rho2 < cap2) {
+        idx.set(k, nodes.length);
+        nodes.push({ Q, rho2, key: k, depth: d });
+      }
+      if (d >= depth) continue;
+      for (const g of grp.gens) {
+        const Y = _mul4(X, g);
+        const ky = _key4(Y);
+        if (!seen.has(ky)) { seen.set(ky, Y); queue.push({ X: Y, k: ky, d: d+1 }); }
+      }
+      if (nodes.length > 500000) break;
+    }
+    const edges = [];
+    for (const [k, i] of idx) {
+      const X = seen.get(k);
+      for (const g of grp.gens) {
+        const Y = _mul4(X, g);
+        const ky = _key4(Y);
+        const j = idx.get(ky);
+        if (j !== undefined && i < j) edges.push([i, j]);
+      }
+    }
+    return { nodes, edges };
+  }
+
+  // ---- Three.js scene ------------------------------------------------------
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05070d);
+
+  // Camera starts at the centre of the Poincaré ball. Euclidean straight
+  // lines through the origin are hyperbolic geodesics, so the default centre
+  // view looks along honest geodesics. OrbitControls lets you pull back, pan,
+  // and zoom for a more conventional view.
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.0005, 100);
+  camera.position.set(0.0001, 0, 0.0002);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.target.set(0, 0, -0.4);    // start looking toward the basepoint cluster
+  controls.minDistance = 0;
+  controls.maxDistance = 8;
+
+  scene.add(new THREE.AmbientLight(0x405070, 0.6));
+  const key = new THREE.DirectionalLight(0xffffff, 0.9);
+  key.position.set(4, 6, 3); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x7aa7ff, 0.55);
+  rim.position.set(-4, 3, -4); scene.add(rim);
+
+  // Boundary sphere ∂B³: a translucent solid surface seen from inside, plus
+  // three great circles in the coordinate planes for orientation. No
+  // lat/long wireframe — from the centre that grid reads as a perspective
+  // floor, which is exactly the UHS look we are avoiding.
+  const boundary = new THREE.Mesh(
+    new THREE.SphereGeometry(1.0, 96, 64),
+    new THREE.MeshBasicMaterial({ color: 0x12253f, transparent: true, opacity: 0.28, side: THREE.BackSide }),
+  );
+  scene.add(boundary);
+
+  {
+    const N = 256;
+    const mkCircle = (axis, color) => {
+      const pts = [];
+      for (let i = 0; i <= N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        const c = Math.cos(a), s = Math.sin(a);
+        if (axis === 'y') pts.push(new THREE.Vector3(c, 0, s));      // equator (XZ plane)
+        if (axis === 'z') pts.push(new THREE.Vector3(c, s, 0));      // XY plane
+        if (axis === 'x') pts.push(new THREE.Vector3(0, c, s));      // YZ plane
+      }
+      return new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.65 }),
+      );
+    };
+    scene.add(mkCircle('y', 0xffd36a));
+    scene.add(mkCircle('z', 0x6ad0ff));
+    scene.add(mkCircle('x', 0xff8aa8));
+  }
+
+  // Instanced spheres for the orbit.
+  const sphereGeom = new THREE.SphereGeometry(1, 16, 12);
+  const sphereMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, roughness: 0.35, metalness: 0.1,
+    emissive: 0x223066, emissiveIntensity: 0.35,
+  });
+  let mesh = null;
+  let edgeMesh = null;
+  let showEdges = false;
+  let points = [];   // [{X,Y,Z, r, rho2}]
+  const dummy = new THREE.Object3D();
+  const tmpColor = new THREE.Color();
+
+  // Sample a hyperbolic geodesic from P to Q in the Poincaré ball (3D).
+  // Geodesics lie in the 2-plane through 0, P, Q and are arcs of the unique
+  // circle through P, Q meeting ∂B orthogonally. We find that circle via the
+  // standard trick: it also passes through the inversion P* = P/|P|².
+  const _e1 = new THREE.Vector3(), _e2 = new THREE.Vector3(), _tmp = new THREE.Vector3();
+  function geodesicSamples(P, Q, segs, out) {
+    _tmp.set(P.X, P.Y, P.Z);
+    const Pv = _tmp.clone();
+    const Qv = new THREE.Vector3(Q.X, Q.Y, Q.Z);
+    const cross = Pv.clone().cross(Qv);
+    if (cross.lengthSq() < 1e-12) {
+      // Collinear with origin: geodesic is the Euclidean diameter chord.
+      for (let i = 0; i <= segs; i++) {
+        const a = i / segs;
+        out.push(Pv.x*(1-a) + Qv.x*a, Pv.y*(1-a) + Qv.y*a, Pv.z*(1-a) + Qv.z*a);
+      }
+      return;
+    }
+    _e1.copy(Pv).normalize();
+    _e2.copy(Qv).addScaledVector(_e1, -Qv.dot(_e1)).normalize();
+    const px = Pv.dot(_e1), py = Pv.dot(_e2);
+    const qx = Qv.dot(_e1), qy = Qv.dot(_e2);
+    const pn2 = px*px + py*py;
+    const sx = px / pn2, sy = py / pn2;       // P* in 2D
+    // Circumcenter of (p, q, s) in 2D.
+    const ax = px, ay = py, bx = qx, by = qy, cx = sx, cy = sy;
+    const D = 2 * (ax*(by - cy) + bx*(cy - ay) + cx*(ay - by));
+    if (Math.abs(D) < 1e-12) {
+      for (let i = 0; i <= segs; i++) {
+        const a = i / segs;
+        out.push(Pv.x*(1-a) + Qv.x*a, Pv.y*(1-a) + Qv.y*a, Pv.z*(1-a) + Qv.z*a);
+      }
+      return;
+    }
+    const a2 = ax*ax+ay*ay, b2 = bx*bx+by*by, c2 = cx*cx+cy*cy;
+    const ux = (a2*(by - cy) + b2*(cy - ay) + c2*(ay - by)) / D;
+    const uy = (a2*(cx - bx) + b2*(ax - cx) + c2*(bx - ax)) / D;
+    const r = Math.hypot(px - ux, py - uy);
+    let a0 = Math.atan2(py - uy, px - ux);
+    let a1 = Math.atan2(qy - uy, qx - ux);
+    let da = a1 - a0;
+    while (da >  Math.PI) da -= 2*Math.PI;
+    while (da < -Math.PI) da += 2*Math.PI;
+    for (let i = 0; i <= segs; i++) {
+      const a = a0 + da * (i / segs);
+      const x = ux + r * Math.cos(a), y = uy + r * Math.sin(a);
+      out.push(_e1.x*x + _e2.x*y, _e1.y*x + _e2.y*y, _e1.z*x + _e2.z*y);
+    }
+  }
+
+  // Build a merged tube mesh along the hyperbolic geodesic arc of each edge.
+  // Tube radius shrinks with the local conformal factor so a fixed hyperbolic
+  // tube thickness reads as Euclidean taper toward the boundary.
+  function buildEdges(allPoints, edges) {
+    const segs = 14;             // samples per arc
+    const radial = 6;            // tube cross-section sides
+    const baseRadius = 0.004;    // scales with 1−|x|² along the arc
+    const pieces = [];
+    const _buf = [];
+    const _pts = [];
+    for (const [i, j] of edges) {
+      const A = allPoints[i], B = allPoints[j];
+      _buf.length = 0;
+      geodesicSamples(A, B, segs, _buf);
+      _pts.length = 0;
+      for (let k = 0; k <= segs; k++) {
+        _pts.push(new THREE.Vector3(_buf[3*k], _buf[3*k+1], _buf[3*k+2]));
+      }
+      const curve = new THREE.CatmullRomCurve3(_pts);
+      // Use a variable-radius tube via per-segment scaling: TubeGeometry has a
+      // fixed radius, so we approximate by using a mid-arc conformal factor.
+      const mid = _pts[Math.floor(segs/2)];
+      const fac = Math.max(0.15, 1 - mid.lengthSq());
+      const tube = new THREE.TubeGeometry(curve, segs, baseRadius * (0.4 + 1.6 * fac), radial, false);
+      pieces.push(tube);
+    }
+    const merged = mergeGeometries(pieces, false);
+    pieces.forEach(g => g.dispose());
+    edgeMesh = new THREE.Mesh(
+      merged,
+      new THREE.MeshStandardMaterial({
+        color: 0x9fc4ff, roughness: 0.5, metalness: 0.0,
+        emissive: 0x182846, emissiveIntensity: 0.6,
+      }),
+    );
+    scene.add(edgeMesh);
+  }
+
+  // Parameters
+  let depth = 7, t0 = 0.5;
+  let amplitude = 0.08, wavenumber = 2.0, omega = 0.25, timeFreq = 1.4;
+  let cullEps = 1e-9, rScale = 0.12;
+  // Skip orbit points within minSep of the camera (origin) so the basepoint
+  // sphere doesn't engulf the viewer.
+  const minSep = 0.18;
+  const countEl = document.getElementById('count');
+
+  function rebuild() {
+    if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); mesh.dispose?.(); mesh = null; }
+    if (edgeMesh) { scene.remove(edgeMesh); edgeMesh.geometry.dispose(); edgeMesh = null; }
+    const cox = COX_GROUPS[ringSel.value];
+    const { nodes, edges } = cox
+      ? generateOrbitCoxeter(cox, depth, cullEps)
+      : generateOrbit({ z: [0,0], t: t0 }, depth, cullEps);
+    countEl.textContent = nodes.length
+                        + (showEdges ? " · " + edges.length + " edges" : "");
+    // Use the conformal Euclidean radius (1−|Q|²)/2 so every sphere has the
+    // same hyperbolic size, i.e. subtends the correct angle as seen from the
+    // origin along the radial geodesic.
+    const allPoints = nodes.map(o => ({
+      X: o.Q.X, Y: o.Q.Y, Z: o.Q.Z,
+      r: 0.5 * (1 - o.rho2),
+      rho2: o.rho2,
+    }));
+    points = allPoints.filter(p => Math.sqrt(p.X*p.X+p.Y*p.Y+p.Z*p.Z) > minSep);
+
+    if (showEdges && edges.length > 0) buildEdges(allPoints, edges);
+    const count = points.length;
+    if (count === 0) return;
+    mesh = new THREE.InstancedMesh(sphereGeom, sphereMat, count);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(count*3), 3);
+    for (let i = 0; i < count; i++) {
+      const p = points[i];
+      dummy.position.set(p.X, p.Y, p.Z);
+      dummy.scale.setScalar(rScale * p.r);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    scene.add(mesh);
+  }
+
+  // Inputs
+  const dSlider = document.getElementById('dSlider');
+  const tSlider = document.getElementById('tSlider');
+  const aSlider = document.getElementById('aSlider');
+  const kSlider = document.getElementById('kSlider');
+  const wSlider = document.getElementById('wSlider');
+  const rSlider = document.getElementById('rSlider');
+  const edgeChk = document.getElementById('edgeChk');
+  edgeChk.addEventListener('change', () => { showEdges = edgeChk.checked; rebuild(); });
+  const ringSel = document.getElementById('ringSel');
+  ringSel.addEventListener('change', () => {
+    GENS = GROUPS[ringSel.value] || GENS_I;   // (unused when a Coxeter group is selected)
+    rebuild();
+  });
+  dSlider.addEventListener('input', () => { depth = +dSlider.value; rebuild(); });
+  tSlider.addEventListener('input', () => { t0 = +tSlider.value; rebuild(); });
+  aSlider.addEventListener('input', () => { amplitude = +aSlider.value; });
+  kSlider.addEventListener('input', () => { wavenumber = +kSlider.value; });
+  wSlider.addEventListener('input', () => { omega = +wSlider.value; });
+  rSlider.addEventListener('input', () => { rScale = +rSlider.value; rebuild(); });
+
+  rebuild();
+
+  // Animation: small radial pulsation with phase based on direction on the
+  // equatorial plane (cosθ, sinθ) ↦ X*cosθ + Z*sinθ.
+  const clock = new THREE.Clock();
+  let angle = 0;
+  function update(dt, t) {
+    if (!mesh) return;
+    angle += omega * dt;
+    const dx = Math.cos(angle), dz = Math.sin(angle);
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      const phase = (p.X*dx + p.Z*dz) * wavenumber;
+      const s = Math.sin(t*timeFreq + phase);
+      const scl = rScale * p.r * (1 + amplitude * s);
+      dummy.position.set(p.X, p.Y, p.Z);
+      dummy.scale.setScalar(scl);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+      // Hue by distance from origin in the ball (proxy for hyperbolic depth from basepoint).
+      const u = Math.sqrt(p.rho2);
+      tmpColor.setHSL(0.62 - 0.42 * u, 0.7, 0.45 + 0.15 * (1-u));
+      mesh.setColorAt(i, tmpColor);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }
+
+  function animate() {
+    const dt = clock.getDelta();
+    update(dt, clock.elapsedTime);
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+})();
+</script>
+</body>
+</html>

@@ -157,6 +157,10 @@ class Polynomial {
         return c === 0;
     }
 
+    isZero() {
+        return this.coeffs.length === 1 && this._isZero(this.coeffs[0]);
+    }
+
     degree() {
         return this.coeffs.length - 1;
     }
@@ -198,6 +202,17 @@ class Polynomial {
             }
         }
 
+        return new Polynomial(result, this.ring);
+    }
+
+    negate() {
+        const result = this.coeffs.map(c => {
+            if (this.ring === 'Q') {
+                return c.negate();
+            } else {
+                return -c;
+            }
+        });
         return new Polynomial(result, this.ring);
     }
 
@@ -274,6 +289,86 @@ class Polynomial {
 
     clone() {
         return new Polynomial([...this.coeffs], this.ring);
+    }
+
+    derivative() {
+        if (this.degree() === 0) {
+            return new Polynomial([this.ring === 'Z' ? 0 : new Rational(0)], this.ring);
+        }
+        const derivCoeffs = [];
+        for (let i = 1; i < this.coeffs.length; i++) {
+            const c = this.coeffs[i];
+            if (this.ring === 'Q') {
+                derivCoeffs.push(c.multiply(new Rational(i)));
+            } else {
+                derivCoeffs.push(c * i);
+            }
+        }
+        return new Polynomial(derivCoeffs, this.ring);
+    }
+
+    sturmSequence() {
+        const seq = [this.clone()];
+        let p1 = this.derivative();
+        seq.push(p1);
+
+        while (true) {
+            const pPrev = seq[seq.length - 2];
+            const pCurr = seq[seq.length - 1];
+
+            if (pCurr.degree() === 0 || pCurr._isZero(pCurr.leadingCoeff())) {
+                break;
+            }
+
+            const div = pPrev.divmod(pCurr);
+            const remainder = div.remainder;
+
+            if (remainder.degree() === 0 && remainder._isZero(remainder.leadingCoeff())) {
+                break;
+            }
+
+            const negRemainder = remainder.negate();
+            seq.push(negRemainder);
+        }
+
+        return seq;
+    }
+
+    static countSignChanges(signs) {
+        const filtered = signs.filter(s => s !== 0);
+        let changes = 0;
+        for (let i = 0; i < filtered.length - 1; i++) {
+            if (filtered[i] * filtered[i + 1] < 0) {
+                changes++;
+            }
+        }
+        return changes;
+    }
+
+    countRealRoots() {
+        if (this.degree() === 0) return 0;
+        const seq = this.sturmSequence();
+
+        // Signs at -infinity
+        const signsNegInf = seq.map(p => {
+            if (p.isZero()) return 0;
+            const deg = p.degree();
+            const lc = p.leadingCoeff();
+            const lcSign = lc instanceof Rational ? (lc.num > 0 ? 1 : (lc.num < 0 ? -1 : 0)) : (lc > 0 ? 1 : (lc < 0 ? -1 : 0));
+            return deg % 2 === 0 ? lcSign : -lcSign;
+        });
+
+        // Signs at +infinity
+        const signsPosInf = seq.map(p => {
+            if (p.isZero()) return 0;
+            const lc = p.leadingCoeff();
+            return lc instanceof Rational ? (lc.num > 0 ? 1 : (lc.num < 0 ? -1 : 0)) : (lc > 0 ? 1 : (lc < 0 ? -1 : 0));
+        });
+
+        const vNegInf = Polynomial.countSignChanges(signsNegInf);
+        const vPosInf = Polynomial.countSignChanges(signsPosInf);
+
+        return Math.max(0, vNegInf - vPosInf);
     }
 
     toString() {
@@ -561,58 +656,13 @@ class NumberRing {
     _computeSignature(poly) {
         const degree = poly.degree();
 
-        // For polynomials with real coefficients:
-        // Count real roots vs complex roots
-
         if (degree === 1) {
             return { realEmbeddings: 1, complexPairs: 0 };
         }
 
-        if (degree === 2) {
-            // Check discriminant
-            const disc = this._polynomialDiscriminant(poly);
-            const discValue = poly.ring === 'Q' ? disc.toNumber() : disc;
-
-            if (discValue > 0) {
-                // Two distinct real roots
-                return { realEmbeddings: 2, complexPairs: 0 };
-            } else if (discValue < 0) {
-                // Complex conjugate pair
-                return { realEmbeddings: 0, complexPairs: 1 };
-            } else {
-                // Repeated root (shouldn't happen for minimal polynomials)
-                return { realEmbeddings: 2, complexPairs: 0 };
-            }
-        }
-
-        // For degree 3 and higher, use Sturm's theorem or root counting
-        // For now, simplified heuristic based on leading coefficient sign
-        // A better implementation would actually count sign changes
-
-        if (degree === 3) {
-            // Cubic always has at least one real root
-            // Could have 1 real + 2 complex or 3 real
-            // Simplified: assume 1 real + 1 complex pair
-            return { realEmbeddings: 1, complexPairs: 1 };
-        }
-
-        if (degree === 4) {
-            // Could be 0, 2, or 4 real roots
-            // Simplified: assume all real or all complex
-            const disc = this._polynomialDiscriminant(poly);
-            const discValue = poly.ring === 'Q' ? disc.toNumber() : disc;
-
-            if (discValue > 0) {
-                return { realEmbeddings: 4, complexPairs: 0 };
-            } else {
-                return { realEmbeddings: 0, complexPairs: 2 };
-            }
-        }
-
-        // For higher degrees, default to complex case
-        // In a full implementation, we'd use numerical root finding
-        const complexPairs = Math.floor(degree / 2);
-        const realEmbeddings = degree % 2;
+        // Compute exact real roots using Sturm's Theorem
+        const realEmbeddings = poly.countRealRoots();
+        const complexPairs = Math.max(0, Math.floor((degree - realEmbeddings) / 2));
 
         return { realEmbeddings, complexPairs };
     }
@@ -670,6 +720,25 @@ class NumberRing {
                 return b.multiply(b).subtract(a.multiply(c).multiply(new Rational(4)));
             } else {
                 return b * b - 4 * a * c;
+            }
+        }
+
+        if (n === 3) {
+            // For ax^3 + bx^2 + cx + d: disc = 18abcd - 4b^3d + b^2c^2 - 4ac^3 - 27a^2d^2
+            const a = poly.coeffs[3];
+            const b = poly.coeffs[2];
+            const c = poly.coeffs[1];
+            const d = poly.coeffs[0];
+
+            if (poly.ring === 'Q') {
+                const t1 = a.multiply(b).multiply(c).multiply(d).multiply(new Rational(18));
+                const t2 = b.multiply(b).multiply(b).multiply(d).multiply(new Rational(4));
+                const t3 = b.multiply(b).multiply(c).multiply(c);
+                const t4 = a.multiply(c).multiply(c).multiply(c).multiply(new Rational(4));
+                const t5 = a.multiply(a).multiply(d).multiply(d).multiply(new Rational(27));
+                return t1.subtract(t2).add(t3).subtract(t4).subtract(t5);
+            } else {
+                return 18 * a * b * c * d - 4 * b * b * b * d + b * b * c * c - 4 * a * c * c * c - 27 * a * a * d * d;
             }
         }
 

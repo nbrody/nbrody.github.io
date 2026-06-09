@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Number Rings - Polynomial Ideal Analysis</title>
+    <title>Number Rings & Ideals Workspace</title>
+    
+    <!-- Google Fonts: Outfit & Space Grotesk -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     
     <!-- MathQuill CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
@@ -24,413 +29,803 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
     
     <style>
+        :root {
+            --bg-color: hsl(230, 40%, 6%);
+            --panel-bg: hsla(230, 35%, 12%, 0.65);
+            --card-bg: hsla(230, 35%, 15%, 0.45);
+            --accent-purple: hsl(263, 90%, 66%);
+            --accent-purple-glow: rgba(147, 51, 234, 0.4);
+            --accent-emerald: hsl(142, 70%, 50%);
+            --accent-emerald-glow: rgba(16, 185, 129, 0.3);
+            --accent-coral: hsl(20, 85%, 55%);
+            --accent-coral-glow: rgba(249, 115, 22, 0.3);
+            --text-primary: hsl(210, 40%, 98%);
+            --text-secondary: hsl(215, 20%, 75%);
+            --text-muted: hsl(215, 15%, 55%);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-glass-focus: rgba(147, 51, 234, 0.5);
+            --font-display: 'Outfit', -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: var(--font-display);
+            background: radial-gradient(circle at top right, hsl(260, 50%, 12%) 0%, var(--bg-color) 100%);
+            background-attachment: fixed;
             min-height: 100vh;
-            padding: 20px;
-            color: #333;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.5;
         }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.98);
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
         }
-        
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
         header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            font-weight: 700;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .subtitle {
-            font-size: 1.1em;
-            opacity: 0.95;
-            font-weight: 300;
-        }
-        
-        .main-content {
-            padding: 40px;
-        }
-        
-        .section {
-            margin-bottom: 40px;
-        }
-        
-        .section-title {
-            font-size: 1.4em;
-            color: #667eea;
-            margin-bottom: 20px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .section-title::before {
-            content: '';
-            width: 4px;
-            height: 24px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 2px;
-        }
-        
-        .input-area {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 25px;
-            border: 2px solid #e9ecef;
-        }
-        
-        .polynomial-input {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        #math-input {
-            flex: 1;
-            font-size: 1.3em;
-            padding: 12px;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            background: white;
-            min-height: 50px;
-        }
-        
-        #math-input.mq-editable-field {
-            border: 2px solid #dee2e6;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
-        
-        #math-input.mq-editable-field.mq-focused {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-        
-        .polynomial-list {
-            margin-top: 25px;
-        }
-        
-        .polynomial-item {
-            background: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 12px;
+            padding: 24px 40px;
+            border-bottom: 1px solid var(--border-glass);
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border: 1px solid #dee2e6;
-            transition: all 0.3s ease;
-        }
-        
-        .polynomial-item:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            transform: translateX(5px);
-        }
-        
-        .polynomial-math {
-            font-size: 1.2em;
-            flex: 1;
-        }
-        
-        .btn-remove {
-            background: #dc3545;
-            color: white;
-            padding: 6px 12px;
-            font-size: 0.9em;
-        }
-        
-        .btn-remove:hover {
-            background: #c82333;
-        }
-        
-        .results-section {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 12px;
-            padding: 30px;
-            margin-top: 30px;
-            display: none;
-        }
-        
-        .results-section.active {
-            display: block;
-            animation: fadeIn 0.5s ease;
-        }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .result-box {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-left: 4px solid #667eea;
         }
 
-        /* Collapsible styling for the SageMath Code box */
-        .result-box.collapsible details > summary {
-            cursor: pointer;
-            list-style: none;
+        .logo-section {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
-        /* Remove default marker in WebKit */
-        .result-box.collapsible summary::-webkit-details-marker { 
-            display: none; 
+
+        .logo-icon {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-coral));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.3rem;
+            color: white;
+            box-shadow: 0 0 15px var(--accent-purple-glow);
         }
-        .result-box.collapsible details > summary::after {
-            content: '▸'; /* caret */
-            font-size: 0.9em;
-            margin-left: auto;
-            opacity: 0.7;
-            transition: transform 0.2s ease;
+
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #ffffff, var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
-        .result-box.collapsible details[open] > summary::after {
-            content: '▾';
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 2px;
         }
-        
-        .result-title {
+
+        /* Dashboard Layout */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 30px;
+            max-width: 1550px;
+            margin: 0 auto;
+            padding: 30px;
+            min-height: calc(100vh - 90px);
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Glassmorphism Panel */
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
             font-weight: 600;
-            color: #495057;
-            margin-bottom: 12px;
-            font-size: 1.1em;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        
-        .result-content {
-            font-size: 1.05em;
-            line-height: 1.6;
+
+        .section-title::before {
+            content: '';
+            width: 3px;
+            height: 18px;
+            background: var(--accent-purple);
+            border-radius: 2px;
+            box-shadow: 0 0 8px var(--accent-purple-glow);
         }
-        
-        #sagecell {
-            margin-top: 20px;
-            padding: 20px;
-            background: white;
+
+        /* MathQuill Input Container */
+        .math-input-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        #math-input {
+            width: 100%;
+            font-size: 1.25rem;
+            padding: 12px;
+            border: 1px solid var(--border-glass) !important;
+            border-radius: 12px !important;
+            background: rgba(0, 0, 0, 0.3) !important;
+            min-height: 54px;
+            color: var(--text-primary) !important;
+            transition: all 0.3s ease;
+        }
+
+        #math-input.mq-focused {
+            border-color: var(--accent-purple) !important;
+            box-shadow: 0 0 12px var(--accent-purple-glow) !important;
+        }
+
+        /* Interactive Keypad */
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid var(--border-glass);
+        }
+
+        .keypad-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--border-glass);
+            color: var(--text-secondary);
             border-radius: 8px;
-            border: 2px solid #dee2e6;
+            padding: 8px;
+            font-size: 0.95rem;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
         }
-        
-        .sage-output {
-            margin-top: 20px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            white-space: pre-wrap;
-            max-height: 400px;
+
+        .keypad-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+
+        .keypad-btn.action {
+            background: rgba(147, 51, 234, 0.15);
+            color: var(--accent-purple);
+            border-color: rgba(147, 51, 234, 0.25);
+        }
+
+        .keypad-btn.action:hover {
+            background: rgba(147, 51, 234, 0.25);
+            color: white;
+        }
+
+        /* Control Buttons */
+        .btn {
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-purple) 0%, hsl(280, 85%, 55%) 100%);
+            color: white;
+            box-shadow: 0 4px 15px var(--accent-purple-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(147, 51, 234, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--border-glass);
+            color: var(--text-secondary);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Presets Cards Grid */
+        .presets-section {
+            margin-top: 10px;
+        }
+
+        .presets-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            max-height: 240px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .preset-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-align: left;
+        }
+
+        .preset-card:hover {
+            border-color: var(--accent-purple);
+            background: rgba(147, 51, 234, 0.05);
+            transform: scale(1.02);
+        }
+
+        .preset-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .preset-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Active List Container */
+        .poly-list-container {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            border: 1px solid var(--border-glass);
+            padding: 12px;
+            max-height: 180px;
             overflow-y: auto;
         }
-        
-        .info-box {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+
+        .poly-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            border-radius: 6px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-glass);
+            margin-bottom: 8px;
+        }
+
+        .poly-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .poly-math {
+            font-size: 1rem;
+            flex: 1;
+            overflow-x: auto;
+        }
+
+        .btn-remove {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: rgb(239, 68, 68);
+            width: 24px;
+            height: 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-remove:hover {
+            background: rgb(239, 68, 68);
             color: white;
+        }
+
+        /* Active Ideal Banner */
+        .active-ideal-card {
+            background: linear-gradient(135deg, rgba(147, 51, 234, 0.1) 0%, rgba(249, 115, 22, 0.05) 100%);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
             padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
-        
-        .info-box h3 {
+
+        .ideal-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent-coral);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .ideal-formula {
+            font-size: 1.35rem;
+            overflow-x: auto;
+            color: white;
+            font-weight: 500;
+        }
+
+        /* Right Workspace Tabs */
+        .tabs-header {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--border-glass);
+            padding-bottom: 2px;
             margin-bottom: 10px;
-            font-size: 1.2em;
+            overflow-x: auto;
         }
-        
-        .info-box p {
-            opacity: 0.95;
-            line-height: 1.6;
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 500;
+            font-family: var(--font-display);
+            padding: 10px 18px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            white-space: nowrap;
         }
-        
-        .loading {
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-btn.active {
+            color: white;
+            background: rgba(147, 51, 234, 0.15);
+            box-shadow: 0 0 10px rgba(147, 51, 234, 0.1) inset;
+            border: 1px solid rgba(147, 51, 234, 0.2);
+        }
+
+        .tab-content {
             display: none;
-            text-align: center;
-            padding: 40px;
+            animation: fadeIn 0.4s ease;
         }
-        
-        .loading.active {
-            display: block;
+
+        .tab-content.active {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
-        
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Workspace Cards */
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .result-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .result-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border-glass);
+            border-radius: 14px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .result-box:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            background: hsla(230, 35%, 16%, 0.55);
+        }
+
+        .result-box-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .result-box-title .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-purple);
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            box-shadow: 0 0 8px var(--accent-purple-glow);
         }
-        
+
+        .result-box-title .dot.emerald {
+            background: var(--accent-emerald);
+            box-shadow: 0 0 8px var(--accent-emerald-glow);
+        }
+
+        .result-box-title .dot.coral {
+            background: var(--accent-coral);
+            box-shadow: 0 0 8px var(--accent-coral-glow);
+        }
+
+        .result-data {
+            font-size: 1.05rem;
+            line-height: 1.7;
+        }
+
+        .result-data ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .result-data li {
+            position: relative;
+            padding-left: 20px;
+            margin-bottom: 8px;
+        }
+
+        .result-data li::before {
+            content: "•";
+            color: var(--accent-purple);
+            position: absolute;
+            left: 5px;
+            font-weight: bold;
+        }
+
+        .result-data li.emerald::before {
+            color: var(--accent-emerald);
+        }
+
+        /* Loading Overlay */
+        .loading-container {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+            padding: 80px 0;
+        }
+
+        .loading-container.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.05);
+            border-top: 4px solid var(--accent-purple);
+            border-radius: 50%;
+            animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            box-shadow: 0 0 20px rgba(147, 51, 234, 0.1);
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
-        .error-message {
-            background: #dc3545;
+
+        /* Mock Terminal Interface */
+        .terminal {
+            background: #090d16;
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            overflow: hidden;
+            font-family: var(--font-mono);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .terminal-header {
+            background: #111827;
+            padding: 10px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .dot-btn {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+        }
+
+        .dot-btn.close { background: #ef4444; }
+        .dot-btn.minimize { background: #f59e0b; }
+        .dot-btn.expand { background: #10b981; }
+
+        .terminal-title {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .terminal-body {
+            padding: 20px;
+            font-size: 0.9rem;
+            color: #d1d5db;
+            line-height: 1.6;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            padding: 6px 12px;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent-purple);
             color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
+            border-color: transparent;
+        }
+
+        /* Error Notification */
+        .error-toast {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 10px;
+            padding: 14px 20px;
+            color: rgb(239, 68, 68);
+            display: flex;
+            align-items: center;
+            gap: 12px;
             display: none;
+            animation: slideIn 0.3s ease;
         }
-        
-        .error-message.active {
-            display: block;
+
+        .error-toast.active {
+            display: flex;
         }
-        
-        .help-text {
-            color: #6c757d;
-            font-size: 0.9em;
-            margin-top: 10px;
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .help-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 4px;
             font-style: italic;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Number Rings</h1>
-            <p class="subtitle">Explore ℤ-Algebras, Valuations & Algebraic Number Fields</p>
-        </header>
-        
-        <div class="main-content">
-            <div class="info-box">
-                <h3>📐 About This Tool</h3>
-                <p>Explore number rings and polynomial ideals over ℤ. For single variables: analyze number fields $\mathbb{Q}[x]/(f(x))$ with discriminants and valuations. For multiple variables: compute <strong>Gröbner bases over ℤ</strong> using integer arithmetic - perfect for studying ideal theory, elimination, and solving polynomial systems.</p>
+    <header>
+        <div class="logo-section">
+            <div class="logo-icon">𝔑</div>
+            <div>
+                <h1>Algebraic Number Rings</h1>
+                <p class="subtitle">ℤ-Algebras, Field Signatures & Gröbner Bases Workspace</p>
             </div>
-            
-            <div class="section">
-                <h2 class="section-title">Input Polynomials</h2>
-                <div class="input-area">
-                    <div class="polynomial-input">
-                        <span id="math-input"></span>
-                        <button class="btn btn-primary" onclick="addPolynomial()">
-                            <span>+</span> Add Polynomial
-                        </button>
-                    </div>
-                    <p class="help-text">Enter polynomials using x_1, x_2, etc. Example: x_1^2 + 2*x_2 - 3</p>
-                    
-                    <div class="polynomial-list" id="polynomial-list"></div>
-                    
-                    <div style="margin-top: 25px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                        <button class="btn btn-primary" onclick="computeResults()" id="compute-btn">
-                            Generate Number Ring
-                        </button>
-                        <button class="btn btn-secondary" onclick="loadRandomSample()">
-                            Sample Ideal
-                        </button>
-                        <button class="btn btn-secondary" onclick="clearAll()">
-                            Clear All
-                        </button>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <label for="ordering-select" style="font-weight: 500;">Monomial Ordering:</label>
-                            <select id="ordering-select" style="padding: 8px 12px; border-radius: 6px; border: 2px solid #dee2e6; background: white; font-size: 1em; cursor: pointer;">
-                                <option value="lex">Lexicographic (lex)</option>
-                                <option value="grlex">Graded Lexicographic (grlex)</option>
-                                <option value="grevlex" selected>Graded Reverse Lex (grevlex)</option>
-                            </select>
+        </div>
+        <div>
+            <!-- Custom Site Nav script generates header links recursively -->
+        </div>
+    </header>
+
+    <div class="dashboard">
+        <!-- Sidebar Panel -->
+        <div class="glass-panel">
+            <div class="section-title">Configure Ideal</div>
+
+            <div class="math-input-container">
+                <label style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary);">Input Algebraic Generator:</label>
+                <span id="math-input"></span>
+                <p class="help-label">Use variables x_1, x_2, etc. (e.g. x_1^2 - 2, or x_2 - x_1^2)</p>
+            </div>
+
+            <!-- Visual Keypad -->
+            <div class="keypad">
+                <button class="keypad-btn" onclick="keypadPress('x_1')">x₁</button>
+                <button class="keypad-btn" onclick="keypadPress('x_2')">x₂</button>
+                <button class="keypad-btn" onclick="keypadPress('x_3')">x₃</button>
+                <button class="keypad-btn action" onclick="keypadPress('backspace')">⌫</button>
+                <button class="keypad-btn" onclick="keypadPress('^2')">^2</button>
+                <button class="keypad-btn" onclick="keypadPress('^3')">^3</button>
+                <button class="keypad-btn" onclick="keypadPress('^')">^n</button>
+                <button class="keypad-btn action" onclick="keypadPress('clear')">C</button>
+                <button class="keypad-btn" onclick="keypadPress('+')">+</button>
+                <button class="keypad-btn" onclick="keypadPress('-')">-</button>
+                <button class="keypad-btn" onclick="keypadPress('*')">*</button>
+                <button class="keypad-btn" onclick="keypadPress('(')">(</button>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="addPolynomial()">+ Add Ideal Generator</button>
+            </div>
+
+            <div class="section-title">Active Generators</div>
+            <div class="poly-list-container" id="polynomial-list">
+                <!-- Dynamically generated list -->
+                <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 20px;">No generators added. Load a preset below to start.</p>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+                <label style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary);">Monomial Reduction Ordering:</label>
+                <select id="ordering-select" style="padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-glass); background: #111827; color: var(--text-secondary); font-size: 0.95rem; cursor: pointer; transition: border-color 0.3s;">
+                    <option value="grevlex" selected>Graded Reverse Lexicographic (grevlex)</option>
+                    <option value="grlex">Graded Lexicographic (grlex)</option>
+                    <option value="lex">Lexicographic (lex)</option>
+                </select>
+            </div>
+
+            <div class="section-title presets-section">Ideal Preset Library</div>
+            <div class="presets-grid" id="presets-grid">
+                <!-- Dynamically generated presets -->
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 10px; border-top: 1px solid var(--border-glass); padding-top: 15px;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="computeResults()">Compute Workspace</button>
+                <button class="btn btn-secondary" onclick="clearAll()">Reset</button>
+            </div>
+        </div>
+
+        <!-- Main Workspace Panel -->
+        <div class="glass-panel" style="gap: 25px;">
+            <!-- Ideal Banner -->
+            <div class="active-ideal-card">
+                <div class="ideal-title">Active Ideal Workspace</div>
+                <div class="ideal-formula" id="ideal-banner-formula">$I = \langle \emptyset \rangle \subset \mathbb{Z}[x_1]$</div>
+            </div>
+
+            <!-- Tabs Section -->
+            <div class="tabs-container">
+                <div class="tabs-header">
+                    <button class="tab-btn active" id="tab-btn-structure" onclick="switchTab('structure')">Algebraic Structure</button>
+                    <button class="tab-btn" id="tab-btn-valuations" onclick="switchTab('valuations')">Valuations & Places</button>
+                    <button class="tab-btn" id="tab-btn-grobner" onclick="switchTab('grobner')">Gröbner Basis</button>
+                </div>
+
+                <div class="error-toast" id="error-message">
+                    <span style="font-weight: bold; font-size: 1.25rem;">⚠</span>
+                    <span id="error-text">An error occurred during calculations.</span>
+                </div>
+
+                <div class="loading-container" id="loading">
+                    <div class="spinner"></div>
+                    <p style="color: var(--text-secondary); font-size: 0.95rem;">Performing exact algebraic reductions and place computations...</p>
+                </div>
+
+                <div id="workspace-results" style="margin-top: 15px;">
+                    <!-- Tab 1: Structure -->
+                    <div class="tab-content active" id="tab-structure">
+                        <div class="result-grid">
+                            <div class="result-box">
+                                <div class="result-box-title"><span class="dot"></span>Algebraic Extension</div>
+                                <div class="result-data" id="ring-info">
+                                    <p style="color: var(--text-muted);">Please enter generators and click "Compute Workspace" to analyze.</p>
+                                </div>
+                            </div>
+                            <div class="result-box">
+                                <div class="result-box-title"><span class="dot emerald"></span>Ring Attributes</div>
+                                <div class="result-data" id="properties-info">
+                                    <p style="color: var(--text-muted);">Awaiting calculations...</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-            
-            <div class="results-section" id="results-section">
-                <h2 class="section-title">Analysis Results</h2>
-                
-                <div class="loading" id="loading">
-                    <div class="spinner"></div>
-                    <p>Computing number ring properties and valuations...</p>
-                </div>
-                
-                <div id="results-content">
-                    <div class="result-box">
-                        <div class="result-title">Number Ring</div>
-                        <div class="result-content" id="ring-info"></div>
+
+                    <!-- Tab 2: Valuations -->
+                    <div class="tab-content" id="tab-valuations">
+                        <div class="result-box" style="width: 100%;">
+                            <div class="result-box-title"><span class="dot coral"></span>Valuation Space & Infinite Places</div>
+                            <div class="result-data" id="valuations-info">
+                                <p style="color: var(--text-muted);">Awaiting calculations...</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="result-box">
-                        <div class="result-title">Ring Properties</div>
-                        <div class="result-content" id="properties-info"></div>
+                    <!-- Tab 3: Grobner -->
+                    <div class="tab-content" id="tab-grobner">
+                        <div class="result-grid">
+                            <div class="result-box" style="grid-column: span 2;">
+                                <div class="result-box-title"><span class="dot"></span>Calculated Gröbner Basis ($G$-Basis)</div>
+                                <div class="result-data" id="grobner-basis-result">
+                                    <p style="color: var(--text-muted);">Awaiting calculations...</p>
+                                </div>
+                            </div>
+                            <div class="result-box">
+                                <div class="result-box-title"><span class="dot emerald"></span>Ideal Membership Testing</div>
+                                <div class="result-data" id="grobner-reduction-info">
+                                    <p style="color: var(--text-muted);">Awaiting calculations...</p>
+                                </div>
+                            </div>
+                            <div class="result-box">
+                                <div class="result-box-title"><span class="dot coral"></span>Algorithm Saturation Statistics</div>
+                                <div class="result-data" id="analysis-info">
+                                    <p style="color: var(--text-muted);">Awaiting calculations...</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="result-box">
-                        <div class="result-title">Valuations</div>
-                        <div class="result-content" id="valuations-info"></div>
-                    </div>
 
-                    <div class="result-box">
-                        <div class="result-title">Analysis Details</div>
-                        <div class="result-content" id="analysis-info"></div>
-                    </div>
-
-                    <div class="error-message" id="error-message"></div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- jQuery (required for MathQuill) -->
+
+    <!-- jQuery -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     
     <!-- MathQuill JS -->
@@ -443,52 +838,26 @@
     <script src="grobnerBases.js"></script>
 
     <script>
-        // Initialize MathQuill
         const MQ = MathQuill.getInterface(2);
         let mathField;
         let polynomials = [];
+        let activeTab = 'structure';
 
-        // Library of sample ideals (each entry is an array of LaTeX-like strings)
+        // Library of algebraic presets
         const sampleIdealLibrary = [
-            { label: 'ℚ(√2)', polys: ['x_1^2-2'] },
-            { label: 'ℚ(√3)', polys: ['x_1^2-3'] },
-            { label: 'ℚ(√-1)', polys: ['x_1^2+1'] },
-            { label: 'Golden ratio field', polys: ['x_1^2-x_1-1'] },
-            { label: 'ℤ[1/65]', polys: ['65*x_1-1'] },
-            { label: 'ℤ[1/6]', polys: ['6*x_1-1'] },
-            { label: 'Cubic', polys: ['x_1^3-2'] },
-            { label: 'Multivariate 1', polys: ['x_1^2-2', 'x_2^2-3'] },
-            { label: 'Multivariate 2', polys: ['x_1^2-1', 'x_1*x_2-x_2', 'x_2^2-x_2'] },
-            { label: 'Circle intersection', polys: ['x_1^2+x_2^2-1', 'x_1-x_2'] },
-            { label: 'Twisted cubic', polys: ['x_2-x_1^2', 'x_3-x_1^3'] }
+            { label: 'ℚ(√2)', polys: ['x_1^2 - 2'], desc: 'Real quadratic number field' },
+            { label: 'ℚ(√-1)', polys: ['x_1^2 + 1'], desc: 'Gaussian imaginary quadratic field' },
+            { label: 'Golden Ratio field', polys: ['x_1^2 - x_1 - 1'], desc: 'Real quadratic field extension' },
+            { label: 'ℤ[1/6]', polys: ['6*x_1 - 1'], desc: 'Localization of integers by 2 & 3' },
+            { label: 'ℤ[1/65]', polys: ['65*x_1 - 1'], desc: 'Localization of integers by 5 & 13' },
+            { label: 'Cubic Field (x³-2)', polys: ['x_1^3 - 2'], desc: 'Cubic number field extension' },
+            { label: 'Quartic Field (x⁴-2)', polys: ['x_1^4 - 2'], desc: 'Quartic number field extension' },
+            { label: 'Circle Line ∩', polys: ['x_1^2 + x_2^2 - 1', 'x_1 - x_2'], desc: 'Intersection ideal in 2 variables' },
+            { label: 'Twisted Cubic', polys: ['x_2 - x_1^2', 'x_3 - x_1^3'], desc: '3D algebraic space curve' }
         ];
 
-        function loadRandomSample() {
-            // Pick a random sample
-            const pick = sampleIdealLibrary[Math.floor(Math.random() * sampleIdealLibrary.length)];
-
-            // Reset current state
-            polynomials = [];
-            document.getElementById('results-section').classList.remove('active');
-            if (typeof mathField !== 'undefined') {
-                mathField.latex('');
-            }
-
-            // Add each polynomial from the sample ideal
-            pick.polys.forEach((latexStr, idx) => {
-                polynomials.push({
-                    latex: latexStr,
-                    readable: convertLatexToPolynomial(latexStr),
-                    id: Date.now() + idx
-                });
-            });
-
-            // Update the list display
-            updatePolynomialList();
-        }
-        
         $(document).ready(function() {
-            // Initialize MathQuill input field
+            // Initialize MathQuill
             const mathFieldSpan = document.getElementById('math-input');
             mathField = MQ.MathField(mathFieldSpan, {
                 spaceBehavesLikeTab: true,
@@ -498,390 +867,331 @@
                     }
                 }
             });
-            
-            // Focus on input field
+
+            // Populate presets
+            const presetsGrid = document.getElementById('presets-grid');
+            presetsGrid.innerHTML = '';
+            sampleIdealLibrary.forEach((preset, idx) => {
+                const card = document.createElement('button');
+                card.className = 'preset-card';
+                card.onclick = () => loadPreset(idx);
+                card.innerHTML = `
+                    <div class="preset-title">${preset.label}</div>
+                    <div class="preset-desc">${preset.desc}</div>
+                `;
+                presetsGrid.appendChild(card);
+            });
+
             mathField.focus();
         });
-        
+
+        // Keypad Press Handler
+        function keypadPress(key) {
+            if (!mathField) return;
+            if (key === 'clear') {
+                mathField.latex('');
+            } else if (key === 'backspace') {
+                mathField.keystroke('Backspace');
+            } else if (key === '^') {
+                mathField.cmd('^');
+            } else if (key === '^2') {
+                mathField.cmd('^');
+                mathField.write('2');
+            } else if (key === '^3') {
+                mathField.cmd('^');
+                mathField.write('3');
+            } else {
+                mathField.write(key);
+            }
+            mathField.focus();
+        }
+
+        // Switch workspace tabs
+        function switchTab(tabId) {
+            activeTab = tabId;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            document.getElementById(`tab-btn-${tabId}`).classList.add('active');
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+        }
+
+        // Load Preset ideal
+        function loadPreset(index) {
+            polynomials = [];
+            const preset = sampleIdealLibrary[index];
+            preset.polys.forEach((polyStr, idx) => {
+                polynomials.push({
+                    latex: polyStr,
+                    readable: convertLatexToPolynomial(polyStr),
+                    id: Date.now() + idx
+                });
+            });
+            updatePolynomialList();
+            updateIdealBanner();
+        }
+
         function addPolynomial() {
             const latex = mathField.latex();
             if (!latex.trim()) return;
-            
-            // Convert LaTeX to readable format
+
             const polynomial = convertLatexToPolynomial(latex);
             if (!polynomial) {
-                showError('Invalid polynomial format. Please use x_1, x_2, etc.');
+                showError('Invalid polynomial structure. Please use x_1, x_2, etc.');
                 return;
             }
-            
+
             polynomials.push({
                 latex: latex,
                 readable: polynomial,
                 id: Date.now()
             });
-            
+
             updatePolynomialList();
+            updateIdealBanner();
             mathField.latex('');
             mathField.focus();
         }
-        
+
+        function removePolynomial(id) {
+            polynomials = polynomials.filter(p => p.id !== id);
+            updatePolynomialList();
+            updateIdealBanner();
+        }
+
+        function clearAll() {
+            polynomials = [];
+            updatePolynomialList();
+            updateIdealBanner();
+            mathField.latex('');
+            mathField.focus();
+            hideError();
+        }
+
+        function updatePolynomialList() {
+            const listEl = document.getElementById('polynomial-list');
+            if (polynomials.length === 0) {
+                listEl.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 20px;">No generators added. Load a preset below to start.</p>';
+                return;
+            }
+
+            listEl.innerHTML = '';
+            polynomials.forEach((poly, index) => {
+                const item = document.createElement('div');
+                item.className = 'poly-item';
+                item.innerHTML = `
+                    <div class="poly-math">
+                        $p_{${index + 1}} = ${poly.latex}$
+                    </div>
+                    <button class="btn-remove" onclick="removePolynomial(${poly.id})">×</button>
+                `;
+                listEl.appendChild(item);
+            });
+
+            if (window.MathJax) {
+                MathJax.typesetPromise();
+            }
+        }
+
+        function updateIdealBanner() {
+            const banner = document.getElementById('ideal-banner-formula');
+            if (polynomials.length === 0) {
+                banner.innerHTML = '$I = \\langle \\emptyset \\rangle \\subset \\mathbb{Z}[x_1]$';
+                return;
+            }
+
+            const variables = extractVariables();
+            const generators = polynomials.map((p, idx) => `p_{${idx + 1}}`).join(', ');
+            banner.innerHTML = `$I = \\langle ${generators} \\rangle \\subseteq \\mathbb{Z}[${variables.join(', ')}]$`;
+            if (window.MathJax) {
+                MathJax.typesetPromise();
+            }
+        }
+
         function convertLatexToPolynomial(latex) {
-            // Convert LaTeX to a format suitable for SageMath
             let poly = latex;
-            
-            // Replace x_n with x_n format
             poly = poly.replace(/x_\{(\d+)\}/g, 'x_$1');
             poly = poly.replace(/x_(\d+)/g, 'x_$1');
-            
-            // Replace LaTeX operations
             poly = poly.replace(/\\cdot/g, '*');
             poly = poly.replace(/\\times/g, '*');
             poly = poly.replace(/\\left/g, '');
             poly = poly.replace(/\\right/g, '');
             poly = poly.replace(/\\/g, '');
-            
-            // Handle fractions
             poly = poly.replace(/frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)');
-
-            // Replace LaTeX exponentiation with Python/Sage exponentiation
-            // Case 1: ^{...} -> **(...)
             poly = poly.replace(/\^\{([^}]+)\}/g, '**($1)');
-            // Case 2: ^n -> **n (simple numeric or alphanumeric exponents)
             poly = poly.replace(/\^([A-Za-z0-9_]+)/g, '**$1');
-            
-            // Clean up spaces
             poly = poly.replace(/\s+/g, ' ').trim();
-            
             return poly;
         }
-        
-        function updatePolynomialList() {
-            const listEl = document.getElementById('polynomial-list');
-            listEl.innerHTML = '';
-            
-            polynomials.forEach((poly, index) => {
-                const item = document.createElement('div');
-                item.className = 'polynomial-item';
-                item.innerHTML = `
-                    <div class="polynomial-math">
-                        $$p_{${index + 1}} = ${poly.latex}$$
-                    </div>
-                    <button class="btn btn-remove" onclick="removePolynomial(${poly.id})">
-                        Remove
-                    </button>
-                `;
-                listEl.appendChild(item);
+
+        function extractVariables() {
+            const varSet = new Set();
+            polynomials.forEach(poly => {
+                const matches = poly.readable.match(/x_\d+/g) || [];
+                matches.forEach(v => varSet.add(v));
             });
-            
-            // Re-render MathJax
-            if (window.MathJax) {
-                MathJax.typesetPromise();
-            }
+            const vars = Array.from(varSet).sort((a, b) => {
+                const numA = parseInt(a.match(/\d+/)[0]);
+                const numB = parseInt(b.match(/\d+/)[0]);
+                return numA - numB;
+            });
+            return vars.length > 0 ? vars : ['x_1'];
         }
-        
-        function removePolynomial(id) {
-            polynomials = polynomials.filter(p => p.id !== id);
-            updatePolynomialList();
-        }
-        
-        function clearAll() {
-            polynomials = [];
-            updatePolynomialList();
-            document.getElementById('results-section').classList.remove('active');
-            mathField.latex('');
-            mathField.focus();
-        }
-        
+
         function computeResults() {
             if (polynomials.length === 0) {
-                showError('Please add at least one polynomial.');
+                showError('Please add at least one polynomial ideal generator.');
                 return;
             }
 
-            // Show results section
-            const resultsSection = document.getElementById('results-section');
-            resultsSection.classList.add('active');
-
-            // Show loading
+            hideError();
             document.getElementById('loading').classList.add('active');
-            document.getElementById('results-content').style.display = 'none';
+            document.getElementById('workspace-results').style.display = 'none';
 
-            // Compute using NumberRing library
             setTimeout(() => {
                 try {
                     const variables = extractVariables();
                     const n = variables.length;
+                    const ordering = document.getElementById('ordering-select').value;
 
-                    // For single variable polynomial, create a number ring
                     let ring, poly;
 
-                    if (n === 1 && polynomials.length === 1) {
-                        // Single polynomial in one variable - create Q[α]/(poly)
+                    if (n === 1) {
+                        // Single variable algebra/field analysis
                         poly = parsePolynomial(polynomials[0].readable, 'x_1', 'Q');
                         ring = NumberRing.fromPolynomial(poly);
 
-                        displayResults(ring, poly, variables);
-                    } else if (n === 1 && polynomials.length > 1) {
-                        // Multiple polynomials - compute GCD-like analysis
-                        const polys = polynomials.map(p => parsePolynomial(p.readable, 'x_1', 'Q'));
-
-                        // For now, use the first non-zero polynomial
-                        poly = polys.find(p => p.degree() > 0);
-                        if (!poly) {
-                            showError('No non-zero polynomials found');
-                            return;
-                        }
-
-                        ring = NumberRing.fromPolynomial(poly);
-                        displayResults(ring, poly, variables);
+                        renderSingleVariableResults(ring, poly, variables);
+                        switchTab('structure');
                     } else {
-                        // Multiple variables - show analysis
-                        displayMultivariateAnalysis(variables);
+                        // Multivariate ring ideal Gröbner basis calculation
+                        renderMultivariateResults(variables, ordering);
+                        switchTab('grobner');
                     }
-
                 } catch (error) {
+                    showError(error.message);
+                } finally {
                     document.getElementById('loading').classList.remove('active');
-                    document.getElementById('results-content').style.display = 'block';
-                    showError(`Error: ${error.message}`);
-                    console.error(error);
+                    document.getElementById('workspace-results').style.display = 'block';
                 }
-            }, 500);
+            }, 600);
         }
 
-        function displayResults(ring, poly, variables) {
-            document.getElementById('loading').classList.remove('active');
-            document.getElementById('results-content').style.display = 'block';
-
+        function renderSingleVariableResults(ring, poly, variables) {
             const info = ring.getInfo();
-
-            // Display ring information
-            document.getElementById('ring-info').innerHTML = `
-                <p><strong>Ring Structure:</strong> ${ring.toString()}</p>
-                <p><strong>Minimal Polynomial:</strong> $${poly.toString().replace(/x_1/g, '\\alpha')}$</p>
-                <p><strong>Degree:</strong> ${poly.degree()}</p>
-            `;
-
-            // Display properties
             const disc = ring.discriminant();
-            document.getElementById('properties-info').innerHTML = `
-                <p><strong>Rank as ℤ-module:</strong> ${info.rank}</p>
-                <p><strong>Dimension over ℚ:</strong> ${info.dimension}</p>
-                <p><strong>Discriminant:</strong> $\\Delta = ${disc.toString()}$</p>
-                <p><strong>Is Maximal Order:</strong> ${info.isMaximal ? 'Yes' : 'Unknown'}</p>
+
+            // Structure Info
+            document.getElementById('ring-info').innerHTML = `
+                <p style="margin-bottom: 12px;"><strong>Representation:</strong> $K = \\mathbb{Q}[\\alpha]/(\\alpha^3 - ...)$</p>
+                <p style="margin-bottom: 12px;"><strong>Minimal Polynomial:</strong> $f(\\alpha) = ${poly.toString().replace(/x_1/g, '\\alpha')}$</p>
+                <p><strong>Extension Degree:</strong> $[K : \\mathbb{Q}] = ${poly.degree()}$</p>
             `;
 
-            // Display valuations
+            document.getElementById('properties-info').innerHTML = `
+                <p style="margin-bottom: 12px;"><strong>Module Rank over ℤ:</strong> ${info.rank}</p>
+                <p style="margin-bottom: 12px;"><strong>Algebraic Discriminant:</strong> $\\Delta = ${disc.toString()}$</p>
+                <p><strong>Integral Closure Maximal:</strong> ${info.isMaximal ? '<span style="color: var(--accent-emerald); font-weight: 600;">Yes (Maximal Order)</span>' : 'Unknown'}</p>
+            `;
+
+            // Valuations Info
             const valuations = ring.getValuations();
-            if (valuations.length > 0) {
-                // Separate archimedean and non-archimedean
-                const archimedean = valuations.filter(v => v.type === 'archimedean');
-                const nonArchimedean = valuations.filter(v => v.type === 'non-archimedean');
+            let valHTML = `<p style="margin-bottom: 12px;">Total inequivalent non-trivial places (valuations): <strong>${valuations.length}</strong></p>`;
 
-                let valHTML = `<p><strong>Total non-trivial valuations:</strong> ${valuations.length}</p>`;
+            const archimedean = valuations.filter(v => v.type === 'archimedean');
+            const nonArchimedean = valuations.filter(v => v.type === 'non-archimedean');
 
-                if (archimedean.length > 0) {
-                    valHTML += '<p><strong>Archimedean Valuations (Infinite Places):</strong></p><ul>';
-                    archimedean.forEach(v => {
-                        const symbol = v.isReal ? 'ℝ' : 'ℂ';
-                        valHTML += `<li>${v.description} → ${symbol}</li>`;
-                    });
-                    valHTML += '</ul>';
-                }
-
-                if (nonArchimedean.length > 0) {
-                    valHTML += '<p><strong>Non-Archimedean Valuations (Finite Places):</strong></p><ul>';
-                    nonArchimedean.forEach(v => {
-                        valHTML += `<li>${v.description} (ℚ<sub>${v.prime}</sub>)</li>`;
-                    });
-                    valHTML += '</ul>';
-                }
-
-                if (ring.isLocalization) {
-                    valHTML += `<p class="help-text">This ring is ℤ[1/${ring.localizationDenominator}], a localization of ℤ.</p>`;
-                } else if (ring.signature) {
-                    valHTML += `<p class="help-text">Signature: (${ring.signature.realEmbeddings}, ${ring.signature.complexPairs})</p>`;
-                }
-
-                document.getElementById('valuations-info').innerHTML = valHTML;
-            } else {
-                document.getElementById('valuations-info').innerHTML = `
-                    <p>No valuations computed.</p>
-                `;
+            if (archimedean.length > 0) {
+                valHTML += `<p style="color: var(--accent-purple); font-weight: 600; margin-top: 15px;">Infinite Archimedean Places:</p><ul style="margin-top: 8px;">`;
+                archimedean.forEach(v => {
+                    const placeType = v.isReal ? 'Real Embedding into ℝ' : 'Complex Conjugate Embedding Pair into ℂ';
+                    valHTML += `<li class="emerald"><strong>${v.description}:</strong> ${placeType}</li>`;
+                });
+                valHTML += '</ul>';
             }
 
-            // Analysis details
-            let analysisHTML = '<p><strong>Ring Classification:</strong></p>';
+            if (nonArchimedean.length > 0) {
+                valHTML += `<p style="color: var(--accent-coral); font-weight: 600; margin-top: 15px;">Finite Non-Archimedean Places (p-adic):</p><ul style="margin-top: 8px;">`;
+                nonArchimedean.forEach(v => {
+                    valHTML += `<li class="emerald"><strong>${v.description}:</strong> Splitting over the prime p = ${v.prime}</li>`;
+                });
+                valHTML += '</ul>';
+            }
 
             if (ring.isLocalization) {
-                // Localization ring Z[1/n]
-                analysisHTML += `<p>This is the <strong>localization</strong> $\\mathbb{Z}[1/${ring.localizationDenominator}]$.</p>`;
-                analysisHTML += `<p>It consists of all fractions $a/b$ where $a \\in \\mathbb{Z}$ and $b$ is a power of ${ring.localizationDenominator}.</p>`;
-
-                const primes = [...new Set(primeFactorization(ring.localizationDenominator))];
-                analysisHTML += `<p><strong>Primes in denominator:</strong> ${primes.join(', ')}</p>`;
-                analysisHTML += `<p>This ring has ${valuations.length} non-trivial valuations:</p>`;
-                analysisHTML += '<ul>';
-                analysisHTML += '<li>1 archimedean (standard embedding in ℝ)</li>';
-                primes.forEach(p => {
-                    analysisHTML += `<li>1 non-archimedean (${p}-adic valuation)</li>`;
-                });
-                analysisHTML += '</ul>';
-
-            } else if (poly.degree() === 2) {
-                analysisHTML += '<p>This is a <strong>quadratic number field</strong> $\\mathbb{Q}(\\sqrt{d})$ for some square-free $d$.</p>';
-
-                // Extract d from polynomial x^2 + bx + c
-                const c = poly.coeffs[0];
-                const b = poly.coeffs[1];
-
-                if (b.isZero()) {
-                    const d = c.negate();
-                    analysisHTML += `<p>In this case, $d = ${d.toString()}$</p>`;
-
-                    if (d.toNumber() > 0) {
-                        analysisHTML += '<p>This is a <strong>real quadratic field</strong> (d > 0).</p>';
-                        analysisHTML += '<p>The field has exactly <strong>2 real embeddings</strong> into ℝ.</p>';
-                        analysisHTML += '<p>Both embeddings give archimedean valuations (infinite places).</p>';
-                    } else {
-                        analysisHTML += '<p>This is an <strong>imaginary quadratic field</strong> (d < 0).</p>';
-                        analysisHTML += '<p>The field has exactly <strong>1 complex conjugate pair</strong> of embeddings into ℂ.</p>';
-                        analysisHTML += '<p>This gives 1 archimedean valuation (infinite place).</p>';
-                    }
-                }
-            } else if (poly.degree() === 1) {
-                analysisHTML += '<p>This is just $\\mathbb{Q}$ (degree 1 extension).</p>';
-            } else {
-                analysisHTML += `<p>This is a <strong>degree ${poly.degree()} number field</strong>.</p>`;
-                if (ring.signature) {
-                    analysisHTML += `<p>Signature (r, s) = (${ring.signature.realEmbeddings}, ${ring.signature.complexPairs})</p>`;
-                    analysisHTML += `<p>The field has ${ring.signature.realEmbeddings} real embedding(s) and ${ring.signature.complexPairs} complex conjugate pair(s).</p>`;
-                    analysisHTML += `<p>Total archimedean valuations: ${valuations.filter(v => v.type === 'archimedean').length}</p>`;
-                }
+                valHTML += `<p class="help-label" style="margin-top: 15px;">This Z-Algebra is localized at ℤ[1/${ring.localizationDenominator}].</p>`;
+            } else if (ring.signature) {
+                valHTML += `<p class="help-label" style="margin-top: 15px;">Field Signature: (r, s) = (${ring.signature.realEmbeddings}, ${ring.signature.complexPairs})</p>`;
             }
 
-            // Add factorization info (only for number fields, not localizations)
-            if (!ring.isLocalization) {
-                const discValue = disc.toNumber();
-                if (Math.abs(discValue) < 1000 && Math.abs(discValue) > 1) {
-                    const factors = primeFactorization(Math.abs(Math.round(discValue)));
-                    if (factors.length > 0) {
-                        analysisHTML += `<p><strong>Primes dividing discriminant:</strong> ${[...new Set(factors)].join(', ')}</p>`;
-                        analysisHTML += '<p class="help-text">These primes may ramify in the extension.</p>';
-                    }
-                }
-            }
+            document.getElementById('valuations-info').innerHTML = valHTML;
 
-            document.getElementById('analysis-info').innerHTML = analysisHTML;
+            // Gröbner panel (not computed in single variable)
+            document.getElementById('grobner-basis-result').innerHTML = `<p style="color: var(--text-muted);">Ideal Gröbner bases calculations are automatically triggered for <strong>multivariate</strong> rings ($n \\ge 2$).</p>`;
+            document.getElementById('grobner-reduction-info').innerHTML = `<p style="color: var(--text-muted);">Awaiting multivariate system...</p>`;
+            document.getElementById('analysis-info').innerHTML = `<p style="color: var(--text-muted);">Awaiting multivariate system...</p>`;
 
-            // Re-render MathJax
+
+
             if (window.MathJax) {
                 MathJax.typesetPromise();
             }
         }
 
-        function displayMultivariateAnalysis(variables) {
-            document.getElementById('loading').classList.remove('active');
-            document.getElementById('results-content').style.display = 'block';
+        function renderMultivariateResults(variables, ordering) {
+            const mvPolys = polynomials.map(p => MultivariatePolynomial.parse(p.readable));
+            const result = buchberger(mvPolys, ordering, { maxIterations: 1000 });
+            const grobnerBasis = result.basis;
 
-            const n = variables.length;
-            const ordering = document.getElementById('ordering-select').value;
-
+            // Render Structure tab
             document.getElementById('ring-info').innerHTML = `
-                <p><strong>Polynomial Ring:</strong> $\\mathbb{Z}[${variables.join(', ')}]$</p>
-                <p><strong>Number of variables:</strong> ${n}</p>
-                <p><strong>Number of generators:</strong> ${polynomials.length}</p>
+                <p style="margin-bottom: 12px;"><strong>Polynomial Ring:</strong> $\\mathbb{Z}[${variables.join(', ')}]$</p>
+                <p style="margin-bottom: 12px;"><strong>Variable Dimension:</strong> ${variables.length}</p>
+                <p><strong>Ideal Generators:</strong> ${mvPolys.length}</p>
             `;
 
-            // Parse polynomials into multivariate polynomials
-            try {
-                const mvPolys = polynomials.map(p => MultivariatePolynomial.parse(p.readable));
+            document.getElementById('properties-info').innerHTML = `
+                <p style="margin-bottom: 12px;"><strong>Coefficients Field:</strong> Integers (Exact Arithmetic)</p>
+                <p style="margin-bottom: 12px;"><strong>Ordering Strategy:</strong> ${getOrderingName(ordering)}</p>
+                <p><strong>Z-Basis Computed:</strong> <span style="color: var(--accent-emerald); font-weight: 600;">Success</span></p>
+            `;
 
-                // Compute Grobner basis
-                const result = buchberger(mvPolys, ordering, { maxIterations: 1000, verbose: false });
-                const grobnerBasis = result.basis;
+            // Render Gröbner basis Tab
+            let basisHTML = `<p style="margin-bottom: 10px;">The computed reduced Gröbner basis for ideal $I$ consists of <strong>${grobnerBasis.length}</strong> polynomials:</p>`;
+            basisHTML += '<div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px solid var(--border-glass);">';
+            grobnerBasis.forEach((gb, idx) => {
+                basisHTML += `<p style="margin: 8px 0; font-size: 1.15rem;">$g_{${idx + 1}} = ${formatPolynomialToLatex(gb, variables)}$</p>`;
+            });
+            basisHTML += '</div>';
+            document.getElementById('grobner-basis-result').innerHTML = basisHTML;
 
-                const idealLatex = polynomials.map((p, i) => `p_{${i + 1}}`).join(', ');
-                let propertiesHTML = `
-                    <p><strong>Ideal:</strong> $I = \\langle ${idealLatex} \\rangle \\subseteq \\mathbb{Z}[${variables.join(', ')}]$</p>
-                    <p><strong>Monomial Ordering:</strong> ${getOrderingName(ordering)}</p>
-                    <p><strong>Gröbner Basis Size:</strong> ${grobnerBasis.length} polynomials</p>
-                    <p style="color: #667eea; font-weight: 500;">✓ Z-Basis computed using integer arithmetic</p>
-                    <p class="help-text">Buchberger's algorithm: ${result.stats.iterations} iterations, ${result.stats.primitivizationsPerformed} primitivizations</p>
-                `;
-
-                document.getElementById('properties-info').innerHTML = propertiesHTML;
-
-                // Display Grobner basis
-                let grobnerHTML = '<p><strong>Gröbner Basis:</strong></p>';
-                grobnerHTML += '<div style="background: white; padding: 15px; border-radius: 8px; margin-top: 10px;">';
-
-                if (grobnerBasis.length > 0) {
-                    grobnerBasis.forEach((gb, i) => {
-                        const varNames = variables;
-                        grobnerHTML += `<p style="margin: 8px 0;">$g_{${i + 1}} = ${formatPolynomialToLatex(gb, varNames)}$</p>`;
-                    });
-                } else {
-                    grobnerHTML += '<p>Empty basis (ideal is zero)</p>';
-                }
-
-                grobnerHTML += '</div>';
-
-                document.getElementById('valuations-info').innerHTML = grobnerHTML;
-
-                // Analysis details
-                let analysisHTML = '<p><strong>Computation Statistics:</strong></p>';
-                analysisHTML += '<ul>';
-                analysisHTML += `<li>Algorithm iterations: ${result.stats.iterations}</li>`;
-                analysisHTML += `<li>S-polynomials computed: ${result.stats.sPolynomialsComputed}</li>`;
-                analysisHTML += `<li>Polynomial reductions: ${result.stats.reductionsPerformed}</li>`;
-                analysisHTML += `<li>Primitivizations: ${result.stats.primitivizationsPerformed}</li>`;
-                analysisHTML += '</ul>';
-
-                // Add content (GCD) information
-                const contents = grobnerBasis.map(gb => gb.content());
-                const allPrimitive = contents.every(c => c === 1);
-                if (allPrimitive) {
-                    analysisHTML += '<p style="color: #28a745; margin-top: 10px;">✓ All polynomials in basis are primitive (content = 1)</p>';
-                }
-
-                analysisHTML += '<p style="margin-top: 15px;"><strong>About Gröbner Bases over ℤ:</strong></p>';
-                analysisHTML += '<p>A Gröbner basis is a special generating set for a polynomial ideal that makes many ideal-theoretic computations algorithmic. ';
-                analysisHTML += 'This implementation uses <strong>integer arithmetic</strong> to compute a ℤ-basis (all coefficients remain integers). ';
-                analysisHTML += 'Each polynomial is kept in primitive form (GCD of coefficients = 1) to prevent coefficient growth.</p>';
-
-                // Check if basis contains a constant
-                const hasConstant = grobnerBasis.some(gb => {
-                    return gb.terms.length === 1 && gb.terms[0].exponents.every(e => e === 0) && gb.terms[0].coeff !== 0;
-                });
-
-                if (hasConstant) {
-                    analysisHTML += '<p style="color: #dc3545; font-weight: bold; margin-top: 10px;">⚠ The ideal contains a non-zero constant, so it equals the entire ring!</p>';
-                }
-
-                document.getElementById('analysis-info').innerHTML = analysisHTML;
-
-            } catch (error) {
-                document.getElementById('properties-info').innerHTML = `
-                    <p><strong>Error computing Gröbner basis:</strong> ${error.message}</p>
-                    <p class="help-text">Make sure all polynomials are properly formatted.</p>
-                `;
-
-                document.getElementById('valuations-info').innerHTML = '';
-                document.getElementById('analysis-info').innerHTML = '';
+            // Ideal membership check
+            const hasConstant = grobnerBasis.some(gb => {
+                return gb.terms.length === 1 && gb.terms[0].exponents.every(e => e === 0) && gb.terms[0].coeff !== 0;
+            });
+            let membershipHTML = `<p>Ideal $I \\subseteq \\mathbb{Z}[${variables.join(', ')}]$</p>`;
+            if (hasConstant) {
+                membershipHTML += `<p style="color: var(--accent-coral); font-weight: bold; margin-top: 15px;">⚠ The Gröbner basis contains a non-zero integer constant! Therefore, the ideal contains 1 and equals the entire ring: $I = \\mathbb{Z}[${variables.join(', ')}]$.</p>`;
+            } else {
+                membershipHTML += `<p style="color: var(--accent-emerald); font-weight: 500; margin-top: 15px;">✓ Ideal is proper ($I \\subsetneq R$). No non-zero constants in Gröbner basis.</p>`;
             }
+            document.getElementById('grobner-reduction-info').innerHTML = membershipHTML;
 
-            // Re-render MathJax
+            // Saturation Stats
+            document.getElementById('analysis-info').innerHTML = `
+                <p style="margin-bottom: 8px;"><strong>Algorithm Iterations:</strong> ${result.stats.iterations}</p>
+                <p style="margin-bottom: 8px;"><strong>S-Polynomials Built:</strong> ${result.stats.sPolynomialsComputed}</p>
+                <p style="margin-bottom: 8px;"><strong>Reductions Performed:</strong> ${result.stats.reductionsPerformed}</p>
+                <p><strong>Coefficient Primitivizations:</strong> ${result.stats.primitivizationsPerformed}</p>
+            `;
+
+            // Valuations tab indicates it is not used in multivariate
+            document.getElementById('valuations-info').innerHTML = `<p style="color: var(--text-muted);">Places and algebraic valuations calculations are automatically triggered for <strong>univariate</strong> algebraic number fields ($n = 1$).</p>`;
+
+
+
             if (window.MathJax) {
                 MathJax.typesetPromise();
-            }
-        }
-
-        function getOrderingName(ordering) {
-            switch(ordering) {
-                case 'lex': return 'Lexicographic';
-                case 'grlex': return 'Graded Lexicographic';
-                case 'grevlex': return 'Graded Reverse Lexicographic';
-                default: return ordering;
             }
         }
 
@@ -893,14 +1203,11 @@
 
             for (let i = 0; i < sortedTerms.length; i++) {
                 const term = sortedTerms[i];
-                const coeffStr = term.coeff.toString();
-                const absCoeff = Math.abs(term.coeff.toNumber());
-                const isNegative = term.coeff.num < 0;
+                const absCoeff = Math.abs(term.coeff);
+                const isNegative = term.coeff < 0;
                 const isConstant = term.exponents.every(e => e === 0);
 
                 let termStr = '';
-
-                // Build variable part
                 let varPart = '';
                 for (let j = 0; j < term.exponents.length; j++) {
                     if (term.exponents[j] > 0) {
@@ -913,18 +1220,16 @@
                     }
                 }
 
-                // Combine coefficient and variables
                 if (isConstant) {
-                    termStr = Math.abs(term.coeff.toNumber()).toString();
+                    termStr = absCoeff.toString();
                 } else {
                     if (absCoeff === 1) {
                         termStr = varPart;
                     } else {
-                        termStr = `${Math.abs(term.coeff.toNumber())}${varPart}`;
+                        termStr = `${absCoeff}${varPart}`;
                     }
                 }
 
-                // Add sign
                 if (i === 0) {
                     termStrings.push(isNegative ? '-' + termStr : termStr);
                 } else {
@@ -934,30 +1239,26 @@
 
             return termStrings.join(' ');
         }
-        
-        function extractVariables() {
-            const varSet = new Set();
-            polynomials.forEach(poly => {
-                const matches = poly.readable.match(/x_\d+/g) || [];
-                matches.forEach(v => varSet.add(v));
-            });
-            
-            const vars = Array.from(varSet).sort((a, b) => {
-                const numA = parseInt(a.match(/\d+/)[0]);
-                const numB = parseInt(b.match(/\d+/)[0]);
-                return numA - numB;
-            });
-            
-            return vars.length > 0 ? vars : ['x_1'];
+
+        function getOrderingName(ordering) {
+            switch(ordering) {
+                case 'lex': return 'Lexicographic (lex)';
+                case 'grlex': return 'Graded Lexicographic (grlex)';
+                case 'grevlex': return 'Graded Reverse Lexicographic (grevlex)';
+                default: return ordering;
+            }
         }
-        
+
+
+
         function showError(message) {
-            const errorEl = document.getElementById('error-message');
-            errorEl.textContent = message;
-            errorEl.classList.add('active');
-            setTimeout(() => {
-                errorEl.classList.remove('active');
-            }, 5000);
+            const toast = document.getElementById('error-message');
+            document.getElementById('error-text').textContent = message;
+            toast.classList.add('active');
+        }
+
+        function hideError() {
+            document.getElementById('error-message').classList.remove('active');
         }
     </script>
 <!-- golg-nav-bootstrap -->

@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "quaternionBeamSearch",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Algebraic/Tools/quaternionBeamSearch/web && exec python3 -m http.server 8120"],
+      "port": 8120
+    },
+    {
       "name": "rileySlice3D",
       "runtimeExecutable": "bash",
       "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/misc/rileySlice3D && exec python3 -m http.server 8090"],
@@ -122,10 +128,35 @@
       "port": 8109
     },
     {
+      "name": "fuchsian",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io && exec python3 -m http.server 8111"],
+      "port": 8111,
+      "openPath": "/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/fuchsian/"
+    },
+    {
+      "name": "pentagram",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/Conferences/Brown/pentagram && exec python3 -m http.server 8112"],
+      "port": 8112
+    },
+    {
       "name": "brooksMatelski",
       "runtimeExecutable": "bash",
       "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/InteractivePapers/brooksMatelski && exec python3 -m http.server 8110"],
       "port": 8110
+    },
+    {
+      "name": "rileySlice",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/rileySlice && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8113), H).serve_forever()'"],
+      "port": 8113
+    },
+    {
+      "name": "rileyHalfspaces",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/rileyHalfspaces && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8114), H).serve_forever()'"],
+      "port": 8114
     }
   ]
 }

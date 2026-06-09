@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riley Slice — Half-Spaces in ℍ³</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Main 3D Canvas: upper half-space model of ℍ³ -->
+    <canvas id="stage"></canvas>
+
+    <!-- Live basepoint telemetry (bottom-left) -->
+    <div class="hud-coordinates">
+        <div class="hud-line">
+            <span class="hud-label">basepoint</span>
+            <span class="hud-val" id="hudPoint">ζ = 0.000 + 0.000 i,  t = 1.000</span>
+        </div>
+        <div class="hud-line">
+            <span class="hud-label">word</span>
+            <span class="hud-val" id="hudWord">·</span>
+        </div>
+    </div>
+
+    <!-- Riley-slice parameter patch (bottom-right) -->
+    <div class="overlay-panel slice-panel">
+        <h3>Riley parameter&nbsp;&nbsp;<span id="sliceZ">z = 1.000 + 1.000 i</span></h3>
+        <canvas id="sliceCanvas" width="280" height="280"></canvas>
+        <div class="slice-footer">Drag the point in&nbsp;[−2.5,&nbsp;2.5]²&nbsp;⊂&nbsp;ℂ</div>
+    </div>
+
+    <!-- Main control panel (right) -->
+    <div class="overlay-panel controls-panel">
+        <h1>Riley Slice · ℍ³</h1>
+        <div class="subtitle">
+            Two parabolic generators of a Riley group act on the upper half-space model of
+            hyperbolic 3-space. The half-spaces shown are the isometric spheres of the
+            generators and their inverses; the horizontal slab is the horoball at ∞ fixed by&nbsp;X.
+        </div>
+
+        <div class="section-title">Generators (depend on z)</div>
+        <div class="math-card" id="genCard">
+            <span class="math-formula" id="matX">X = [ 1&nbsp;&nbsp;z ; 0&nbsp;&nbsp;1 ]</span>
+            <span class="math-formula" id="matY">Y = [ 1&nbsp;&nbsp;0 ; z&nbsp;&nbsp;1 ]</span>
+        </div>
+
+        <div class="section-title">Apply isometry to basepoint</div>
+        <div class="btn-row">
+            <button id="btnX"  class="active">X &nbsp;·&nbsp; translate</button>
+            <button id="btnXi" class="active">X⁻¹</button>
+        </div>
+        <div class="btn-row">
+            <button id="btnY"  class="purple-btn active">Y</button>
+            <button id="btnYi" class="purple-btn active">Y⁻¹</button>
+        </div>
+        <div class="btn-row">
+            <button id="btnReset">Reset basepoint</button>
+            <button id="btnClear">Clear orbit trail</button>
+        </div>
+        <div class="control-group">
+            <label>Animation speed <span class="badge" id="speedValue">1.0×</span></label>
+            <div class="slider-wrapper">
+                <input type="range" id="speedSlider" min="0.2" max="3" step="0.1" value="1">
+            </div>
+        </div>
+
+        <div class="section-title">Show / hide</div>
+        <div class="btn-row">
+            <button id="tglX"  class="active">∞-horoball (X)</button>
+            <button id="tglY"  class="purple-btn active">iso-spheres (Y, Y⁻¹)</button>
+        </div>
+        <div class="btn-row">
+            <button id="tglTrail" class="active">orbit trail</button>
+            <button id="tglAxes"  class="active">floor &amp; axes</button>
+        </div>
+
+        <div class="section-title">The Mathematics</div>
+        <div class="math-card">
+            Identify ℍ³ with quaternions <span class="math-formula">q = ζ + t·j, &nbsp; t &gt; 0</span>.
+            A matrix <span class="math-formula">g = [a b ; c d] ∈ SL(2,ℂ)</span> acts by
+            <span class="math-formula">q ↦ (a q + b)(c q + d)⁻¹.</span>
+            The generator <span class="math-formula">X = [1 z ; 0 1]</span> fixes ∞ and translates by z; its
+            invariant horoball is the half-space <span class="math-formula">{ t ≥ 1/|z| }</span>.
+            The generator <span class="math-formula">Y = [1 0 ; z 1]</span> fixes 0; its isometric sphere is the
+            hemisphere centered at <span class="math-formula">−1/z</span> of radius
+            <span class="math-formula">1/|z|</span>, and Y⁻¹ gives the hemisphere at <span class="math-formula">+1/z</span>.
+            Both are tangent to ∂ℍ³ at the fixed point 0.
+        </div>
+
+        <div class="footer">
+            Drag in the scene to orbit · scroll to zoom. The buttons animate the one-parameter
+            parabolic flow <span class="math-formula" style="display:inline">g<sub>s</sub>, s: 0→1</span>
+            of each generator on the basepoint, leaving a geodesic-horocyclic trail.
+        </div>
+    </div>
+
+    <!-- ES Module Import Maps -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+    </script>
+
+    <script type="module" src="js/main.js"></script>
+
+    <!-- golg-nav-bootstrap -->
+    <script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+</html>

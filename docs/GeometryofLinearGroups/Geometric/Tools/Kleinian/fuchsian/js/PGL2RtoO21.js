@@ -1,9 +1,12 @@
-// Given g = [[a,b],[c,d]] in SL(2,R), compute the corresponding element of SO^+(2,1)
+// Given g = [[a,b],[c,d]] in GL(2,R), compute the corresponding element of O(2,1)
 // via the standard action on 2x2 symmetric matrices: H -> g H g^T.
 // We identify Minkowski vectors (x,y,t) with symmetric matrices
 //   H(x,y,t) = [[t + x, y], [y, t - x]]
 // so that det(H) = (t+x)(t-x) - y^2 = t^2 - x^2 - y^2.
 // The resulting 3x3 real matrix Λ satisfies v' = Λ v for v ∈ R^{2,1}.
+// det(g) = +1 gives Λ ∈ SO^+(2,1); det(g) = -1 gives an orientation-reversing
+// element (reflection) of O(2,1). The formula g^{-1} = η g^T η used below
+// holds throughout O(2,1).
 
 // 2x2 real matrix helpers
 function matMul2(A, B) {
@@ -36,8 +39,8 @@ function vecFromSymmetric(H) {
     return [x, y, t];
 }
 
-// ------------------ Main map: PSL(2,R) -> SO(2,1) ------------------
-function PSL2RtoSO21(a, b, c, d) {
+// ------------------ Main map: PGL(2,R) -> O(2,1) ------------------
+function PGL2RtoO21(a, b, c, d) {
     const g = [[a, b], [c, d]];
     const gT = matTranspose2(g);
 
@@ -62,7 +65,7 @@ function PSL2RtoSO21(a, b, c, d) {
     return Lambda;
 }
 
-// ------------------ sDF utilities for SO(2,1) ------------------
+// ------------------ sDF utilities for O(2,1) ------------------
 const __ETA = [+1, +1, -1];  // Metric signature for R^{2,1}
 
 function __etaApply(v) {
@@ -85,9 +88,9 @@ function __ginv_ej(g, j) {
     ];
 }
 
-function sDF_autoFromSO21(g) {
+function sDF_autoFromO21(g) {
     if (!Array.isArray(g) || g.length !== 3 || g.some(r => !Array.isArray(r) || r.length !== 3)) {
-        throw new Error('sDF_autoFromSO21 expects a 3x3 matrix');
+        throw new Error('sDF_autoFromO21 expects a 3x3 matrix');
     }
 
     const eps = 1e-8;
@@ -119,16 +122,16 @@ function sDF_autoFromSO21(g) {
 }
 
 // ------------------ Public API ------------------
-(function attachPSL2RtoSDFNamespace(){
+(function attachPGL2RtoSDFNamespace(){
     try {
         var API = {
-            PSL2RtoSO21: PSL2RtoSO21,
-            sDF_autoFromSO21: sDF_autoFromSO21,
+            PGL2RtoO21: PGL2RtoO21,
+            sDF_autoFromO21: sDF_autoFromO21,
             symmetricFromVec: symmetricFromVec,
             vecFromSymmetric: vecFromSymmetric
         };
 
-        var nsName = 'PSL2RtoSDF';
+        var nsName = 'PGL2RtoSDF';
         var root = (typeof globalThis !== 'undefined') ? globalThis : (typeof window !== 'undefined' ? window : this);
         if (root && !root[nsName]) {
             root[nsName] = API;

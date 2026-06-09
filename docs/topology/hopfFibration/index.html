@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hopf Fibration — 4D Hypersphere Visualization</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Main 3D Canvas -->
+    <canvas id="stage"></canvas>
+
+    <!-- Interactive Base Sphere Widget Panel (Top Left) -->
+    <div class="overlay-panel widget-panel">
+        <h3>Base Sphere (S²)</h3>
+        <canvas id="baseSphereCanvas" width="300" height="300"></canvas>
+        <div class="widget-footer">Drag globe to rotate<br>Click to place active fiber</div>
+    </div>
+
+    <!-- Live HUD Telemetry Coordinates (Bottom Left) -->
+    <div class="hud-coordinates">
+        <div class="hud-line">
+            <span class="hud-label">Active S²:</span>
+            <span class="hud-val" id="hudActiveVal">θ=1.57, φ=0.00</span>
+        </div>
+        <div class="hud-line">
+            <span class="hud-label">R⁴ Rot:</span>
+            <span class="hud-val" id="hudRotVal">xw=0.00, yz=0.00, zw=0.00</span>
+        </div>
+    </div>
+
+    <!-- Main Controls Panel (Right) -->
+    <div class="overlay-panel controls-panel">
+        <h1>Hopf Fibration</h1>
+        <div class="subtitle">A mathematical visualization of the map from the 3-sphere (S³) to the 2-sphere (S²), projected into 3D space via stereographic projection.</div>
+
+        <!-- Presets -->
+        <div class="section-title">Presets</div>
+        <div class="btn-row">
+            <button id="presetHopfLink" class="active">Hopf Link</button>
+            <button id="presetSingleTorus">Single Torus</button>
+            <button id="presetNestedTori">Nested Tori</button>
+            <button id="presetSpiral">Foliated Spiral</button>
+            <button id="presetDenseField">Dense Field</button>
+        </div>
+
+        <!-- Fibration Configuration -->
+        <div class="section-title">Geometry & Density</div>
+        <div class="control-group">
+            <label>Tori Shells <span class="badge" id="shellsValue">1</span></label>
+            <div class="slider-wrapper">
+                <input type="range" id="shellsSlider" min="1" max="6" step="1" value="1">
+            </div>
+        </div>
+        <div class="control-group">
+            <label>Fibers Per Shell <span class="badge" id="fibersValue">12</span></label>
+            <div class="slider-wrapper">
+                <input type="range" id="fibersSlider" min="2" max="48" step="1" value="12">
+            </div>
+        </div>
+        <div class="control-group">
+            <label>Fiber Details <span class="badge" id="resolutionValue">120</span></label>
+            <div class="slider-wrapper">
+                <input type="range" id="resolutionSlider" min="40" max="300" step="10" value="120">
+            </div>
+        </div>
+
+        <!-- 4D Rotations -->
+        <div class="section-title">
+            <span>4D Hypersphere Rotations</span>
+            <span class="badge purple">R⁴</span>
+        </div>
+        <div class="control-group">
+            <label>
+                <span>x-w rotation (xw Plane)</span>
+                <span class="slider-wrapper">
+                    <span class="badge purple" id="rotXWValue">0.00 rad</span>
+                    <button class="toggle-btn" id="autoRotXW">▶</button>
+                </span>
+            </label>
+            <div class="slider-wrapper">
+                <input type="range" class="purple-slider" id="rotXW" min="-3.14" max="3.14" step="0.02" value="0">
+            </div>
+        </div>
+        <div class="control-group">
+            <label>
+                <span>y-z rotation (yz Plane)</span>
+                <span class="slider-wrapper">
+                    <span class="badge purple" id="rotYZValue">0.00 rad</span>
+                    <button class="toggle-btn" id="autoRotYZ">▶</button>
+                </span>
+            </label>
+            <div class="slider-wrapper">
+                <input type="range" class="purple-slider" id="rotYZ" min="-3.14" max="3.14" step="0.02" value="0">
+            </div>
+        </div>
+        <div class="control-group">
+            <label>
+                <span>z-w rotation (zw Plane)</span>
+                <span class="slider-wrapper">
+                    <span class="badge purple" id="rotZWValue">0.00 rad</span>
+                    <button class="toggle-btn" id="autoRotZW">▶</button>
+                </span>
+            </label>
+            <div class="slider-wrapper">
+                <input type="range" class="purple-slider" id="rotZW" min="-3.14" max="3.14" step="0.02" value="0">
+            </div>
+        </div>
+
+        <!-- Flow and Display -->
+        <div class="section-title">Dynamics & Render</div>
+        <div class="control-group">
+            <label>Flow Speed <span class="badge" id="flowSpeedValue">1.0×</span></label>
+            <div class="slider-wrapper">
+                <input type="range" id="flowSpeedSlider" min="0" max="3" step="0.1" value="1">
+            </div>
+        </div>
+        <div class="control-group">
+            <label>Active Tube Radius <span class="badge" id="tubeRadiusValue">0.12</span></label>
+            <div class="slider-wrapper">
+                <input type="range" id="tubeRadiusSlider" min="0.02" max="0.30" step="0.01" value="0.12">
+            </div>
+        </div>
+        <div class="control-group">
+            <label>Projection Scale <span class="badge" id="projScaleValue">4.0</span></label>
+            <div class="slider-wrapper">
+                <input type="range" id="projScaleSlider" min="1" max="10" step="0.2" value="4.0">
+            </div>
+        </div>
+        <div class="btn-row">
+            <button id="toggleOrthographic">Perspective View</button>
+            <button id="toggleAutoRotateCamera" class="active">Camera Auto-Orbit</button>
+            <button id="toggleWander">Wander Fibers</button>
+        </div>
+
+        <!-- Math card explanation -->
+        <div class="section-title">The Mathematics</div>
+        <div class="math-card">
+            The Hopf fibration maps a 3-sphere <span class="math-formula">S³ ⊂ ℂ²</span> to a 2-sphere <span class="math-formula">S² ⊂ ℝ³</span>. 
+            Each point <span class="math-formula">p ∈ S²</span> corresponds to an entire circle (fiber) in <span class="math-formula">S³</span>.
+            Under stereographic projection from 4D to 3D, these circles form interlocking circles in <span class="math-formula">ℝ³</span> that fill space. Any two circles are linked exactly once. Rotating the hypersphere in 4D morphs these tori inside-out in a stunning topological dance!
+        </div>
+
+        <div class="footer">
+            Built with Three.js using custom conformal 4D rotations. Drag in 3D scene to rotate camera view.
+        </div>
+    </div>
+
+    <!-- ES Module Import Maps -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+    </script>
+
+    <!-- Main Module Script -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
