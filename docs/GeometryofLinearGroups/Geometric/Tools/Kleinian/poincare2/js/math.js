@@ -1,4 +1,19 @@
+/**
+ * Core algebra + hyperbolic geometry primitives for poincare4.
+ *
+ * Walls (totally geodesic hyperplanes in H^3, Poincaré ball model) are stored
+ * as Minkowski covectors W = (w1, w2, w3, w0) with signature (+,+,+,-),
+ * normalized so <W,W> = |w_sp|^2 - w0^2 = 1, oriented so the DOMAIN side is
+ * F(p) = 2 p·w_sp - (1+|p|^2) w0 < 0.
+ *
+ * Geometrically:
+ *   w0 != 0  -> Euclidean sphere, center c = w_sp/w0, radius r = 1/|w0|,
+ *               orthogonal to the unit sphere.
+ *   w0 == 0  -> Euclidean plane through the origin with normal w_sp.
+ */
 import * as THREE from 'three';
+
+// ---------------- Complex / Matrix algebra ----------------
 
 export class Complex {
     constructor(re, im = 0) { this.re = re; this.im = im; }
@@ -22,6 +37,20 @@ export class Complex {
     }
 }
 
+Complex.sqrt = function (c) {
+    const r = Math.sqrt(Math.sqrt(c.re * c.re + c.im * c.im));
+    const theta = Math.atan2(c.im, c.re) / 2;
+    return new Complex(r * Math.cos(theta), r * Math.sin(theta));
+};
+Complex.log = function (c) {
+    const r = Math.sqrt(c.re * c.re + c.im * c.im);
+    return new Complex(Math.log(r), Math.atan2(c.im, c.re));
+};
+Complex.exp = function (c) {
+    const r = Math.exp(c.re);
+    return new Complex(r * Math.cos(c.im), r * Math.sin(c.im));
+};
+
 export class Matrix2x2 {
     constructor(a, b, c, d) {
         this.a = Complex.from(a);
@@ -35,100 +64,101 @@ export class Matrix2x2 {
             this.c.mul(m.a).add(this.d.mul(m.c)), this.c.mul(m.b).add(this.d.mul(m.d))
         );
     }
+    det() { return this.a.mul(this.d).sub(this.b.mul(this.c)); }
     inv() {
-        const det = this.a.mul(this.d).sub(this.b.mul(this.c));
+        const det = this.det();
         return new Matrix2x2(
             this.d.div(det), this.b.mul(-1).div(det),
             this.c.mul(-1).div(det), this.a.div(det)
         );
     }
+    /** Scale to determinant 1 (choice of sqrt is irrelevant in PSL). */
+    normalized() {
+        const s = Complex.sqrt(this.det());
+        return new Matrix2x2(this.a.div(s), this.b.div(s), this.c.div(s), this.d.div(s));
+    }
     log() {
         let tr = this.a.add(this.d);
-        // tr = 2*cosh(phi)
-        // For SL2C, log is defined except at -I
-
-        // Characteristic equation: lambda^2 - tr*lambda + 1 = 0
-        // lambda = (tr +/- sqrt(tr^2 - 4)) / 2
         const tr2minus4 = tr.mul(tr).sub(new Complex(4));
         const sqrtTr2minus4 = Complex.sqrt(tr2minus4);
         const l1 = tr.add(sqrtTr2minus4).div(2);
-
-        const phi = Complex.log(l1); // phi = log(eigenvalue)
-        const norm = phi.normSq();
-
-        // Parabolic case: eigenvalue ≈ 1, so phi ≈ 0
-        // For parabolic M = I + N where N is nilpotent, log(M) = N = M - I
-        if (norm < 1e-10) {
-            return new Matrix2x2(
-                this.a.sub(new Complex(1)), this.b,
-                this.c, this.d.sub(new Complex(1))
-            );
+        const phi = Complex.log(l1);
+        if (phi.normSq() < 1e-10) {
+            // Parabolic: log(I + N) = N
+            return new Matrix2x2(this.a.sub(new Complex(1)), this.b, this.c, this.d.sub(new Complex(1)));
         }
-
-        // General case: use (M - (tr/2)*I) * (phi / sinh(phi))
         const k2 = tr.div(2);
         const diff = new Matrix2x2(this.a.sub(k2), this.b, this.c, this.d.sub(k2));
-
-        // sinh(phi) = (l1 - 1/l1)/2
         const sphi = l1.sub(new Complex(1).div(l1)).div(2);
         const factor = phi.div(sphi);
-
         return new Matrix2x2(
             diff.a.mul(factor), diff.b.mul(factor),
             diff.c.mul(factor), diff.d.mul(factor)
         );
     }
     static exp(X) {
-        // X has trace 0. det(X) = -a^2 - bc.
-        // lambda^2 = -det(X) = a^2 + bc.
-        const detX = X.a.mul(X.a).add(X.b.mul(X.c)); // Trace 0 => d = -a, so -ad = a^2. -det = -ad-bc = a^2+bc
+        const detX = X.a.mul(X.a).add(X.b.mul(X.c));
         const phi = Complex.sqrt(detX);
-        const norm = phi.normSq();
-
         let s, c;
-        if (norm < 1e-10) {
+        if (phi.normSq() < 1e-10) {
             s = new Complex(1);
             c = new Complex(1);
         } else {
-            // exp(X) = cosh(phi)*I + (sinh(phi)/phi)*X
-            // cosh(phi) = (exp(phi) + exp(-phi))/2
             const ep = Complex.exp(phi);
             const em = new Complex(1).div(ep);
             c = ep.add(em).div(2);
             s = ep.sub(em).div(2).div(phi);
         }
-
         return new Matrix2x2(
             c.add(X.a.mul(s)), X.b.mul(s),
             X.c.mul(s), c.add(X.d.mul(s))
         );
     }
+    static identity() { return new Matrix2x2(1, 0, 0, 1); }
 }
 
-// Extend Complex with sqrt, log, exp
-Complex.sqrt = function (c) {
-    const r = Math.sqrt(Math.sqrt(c.re * c.re + c.im * c.im));
-    const theta = Math.atan2(c.im, c.re) / 2;
-    return new Complex(r * Math.cos(theta), r * Math.sin(theta));
-};
-Complex.log = function (c) {
-    const r = Math.sqrt(c.re * c.re + c.im * c.im);
-    const theta = Math.atan2(c.im, c.re);
-    return new Complex(Math.log(r), theta);
-};
-Complex.exp = function (c) {
-    const r = Math.exp(c.re);
-    return new Complex(r * Math.cos(c.im), r * Math.sin(c.im));
-};
+/** Distance of a matrix (det 1) from ±identity. */
+export function distFromIdentityPSL(m) {
+    const d1 = m.a.sub(new Complex(1)).normSq() + m.b.normSq() + m.c.normSq() + m.d.sub(new Complex(1)).normSq();
+    const d2 = m.a.add(new Complex(1)).normSq() + m.b.normSq() + m.c.normSq() + m.d.add(new Complex(1)).normSq();
+    return Math.sqrt(Math.min(d1, d2));
+}
 
-// Image of origin (0,0,1) in Upper Half Space
+/**
+ * Normalized key for a matrix in PSL(2,C): M and -M get the same key.
+ */
+export function pslKey(m, digits = 5) {
+    let signFlip = false;
+    for (const e of [m.a, m.b, m.c, m.d]) {
+        if (e.normSq() > 1e-12) {
+            if (e.re < -1e-9 || (Math.abs(e.re) < 1e-9 && e.im < -1e-9)) signFlip = true;
+            break;
+        }
+    }
+    const s = signFlip ? -1 : 1;
+    // Clamp near-zero values so 0 and -0 (or ±1e-12) format identically
+    const clamp = (v) => Math.abs(v) < 1e-9 ? 0 : v;
+    const fmt = (z) => `${clamp(s * z.re).toFixed(digits)},${clamp(s * z.im).toFixed(digits)}`;
+    return `[${fmt(m.a)}|${fmt(m.b)}|${fmt(m.c)}|${fmt(m.d)}]`;
+}
+
+// ---------------- Model maps: UHS <-> ball <-> Minkowski ----------------
+
+/** Action of m (det 1) on an upper-half-space point (x, y, t). */
+export function applyMatrixToUHS(m, p) {
+    const z = new Complex(p.x, p.y);
+    const cz_d = m.c.mul(z).add(m.d);          // cz + d
+    const az_b = m.a.mul(z).add(m.b);          // az + b
+    const D = cz_d.normSq() + m.c.normSq() * p.t * p.t;
+    const num = az_b.mul(cz_d.conj()).add(m.a.mul(m.c.conj()).mul(p.t * p.t));
+    return { x: num.re / D, y: num.im / D, t: p.t / D };
+}
+
 export function imageOfOriginUHS(m) {
-    const denom = m.c.normSq() + m.d.normSq();
-    const u = m.a.mul(m.c.conj()).add(m.b.mul(m.d.conj()));
-    return { x: u.re / denom, y: u.im / denom, t: 1.0 / denom };
+    return applyMatrixToUHS(m, { x: 0, y: 0, t: 1 });
 }
 
-// Map UHS (x, y, t) to Poincare Ball (X, Y, Z)
+/** UHS (x, y, t) -> Poincaré ball. Basepoint (0,0,1) -> origin. */
 export function uhsToBall(p) {
     const normSq = p.x * p.x + p.y * p.y;
     const denom = normSq + (p.t + 1) * (p.t + 1);
@@ -139,578 +169,329 @@ export function uhsToBall(p) {
     );
 }
 
-// Poincare Ball (X, Y, Z) to Minkowski (x0, x1, x2, x3)
-export function poincareToMinkowski(p) {
-    const p2 = p.x * p.x + p.y * p.y + p.z * p.z;
-    const factor = 1 / (1 - p2);
+/** Poincaré ball -> UHS. Inverse of uhsToBall. */
+export function ballToUHS(B) {
+    const D = B.x * B.x + B.y * B.y + (1 - B.z) * (1 - B.z);
     return {
-        x0: (1 + p2) * factor,
-        x1: 2 * p.x * factor,
-        x2: 2 * p.y * factor,
-        x3: 2 * p.z * factor
+        x: 2 * B.x / D,
+        y: 2 * B.y / D,
+        t: (1 - B.x * B.x - B.y * B.y - B.z * B.z) / D
     };
 }
 
-export function getBisectorSphere(p1, p2) {
-    const v1 = poincareToMinkowski(p1);
-    const v2 = poincareToMinkowski(p2);
-
-    // Minkowski normal to the bisecting plane: n = v1 - v2
-    const n0 = v1.x0 - v2.x0;
-    const n = new THREE.Vector3(v1.x1 - v2.x1, v1.x2 - v2.x2, v1.x3 - v2.x3);
-
-    // Plane in ball model: n0(1 + |p|^2) - 2 * n . p = 0
-    // If n0 != 0: |p|^2 - 2 (n/n0) . p + 1 = 0
-    // This is a sphere with center C = n/n0 and radius R = sqrt(|C|^2 - 1)
-
-    // Smoothly handle the plane case (n0 approach 0)
-    let safeN0 = n0;
-    if (Math.abs(safeN0) < 1e-10) safeN0 = 1e-10;
-
-    const center = n.clone().divideScalar(safeN0);
-    const radSq = center.lengthSq() - 1;
-    const radius = Math.sqrt(Math.max(0, radSq));
-
-    // The side containing p1 is where n . v < 0 (if n = v1-v2)
-    // Store orientation in radius sign (w)
-    const sign = safeN0 > 0 ? 1 : -1;
-    return new THREE.Vector4(center.x, center.y, center.z, sign * radius);
+/** Action of m (det 1) on a Poincaré ball point. */
+export function applyMatrixToBall(m, p) {
+    return uhsToBall(applyMatrixToUHS(m, ballToUHS(p)));
 }
 
-// --- Group Setup (Jorgensen Group n) ---
-// Kept for backward compatibility
-export function getJorgensenGenerators(n) {
-    const psi = (1 + Math.sqrt(17 - 8 * Math.cos(Math.PI / n))) / 2;
-    const theta = Math.PI / (2 * n);
-    const lambda = new Complex(Math.cos(theta), Math.sin(theta));
-    const lambdaInv = lambda.conj();
-    const rho = (Math.sqrt(psi + 2) + Math.sqrt(psi - 2)) / 2;
-    const denomX = 2 * Math.sqrt(psi - 2);
-    const x = new Complex(Math.sqrt(3 - psi) / denomX, Math.sqrt(psi + 1) / denomX);
-
-    const T = new Matrix2x2(rho, 0, 0, 1 / rho);
-    const xSq = x.mul(x);
-    const onePlusXSq = new Complex(1 + xSq.re, xSq.im);
-    const X = new Matrix2x2(
-        lambda.mul(x).mul(-1),
-        onePlusXSq.mul(-1),
-        1,
-        lambdaInv.mul(x)
-    );
-
-    const Y = T.mul(X.inv()).mul(T.inv()).mul(X);
-
-    return [T, T.inv(), X, X.inv(), Y, Y.inv()];
+/** Ball point -> Minkowski hyperboloid point { sp: Vector3, t }. */
+export function ballToMinkowski(p) {
+    const p2 = p.x * p.x + p.y * p.y + p.z * p.z;
+    const f = 1 / (1 - p2);
+    return { sp: new THREE.Vector3(2 * p.x * f, 2 * p.y * f, 2 * p.z * f), t: (1 + p2) * f };
 }
 
-// Alias for backward compatibility
-export const getGenerators = getJorgensenGenerators;
-
-/**
- * Create a normalized key for a matrix in PSL(2,C) for exploration.
- */
-function exploreMatrixKey(m) {
-    const a = m.a, b = m.b, c = m.c, d = m.d;
-    let signFlip = false;
-    const entries = [a, b, c, d];
-    for (const e of entries) {
-        const norm = e.re * e.re + e.im * e.im;
-        if (norm > 1e-12) {
-            if (e.re < -1e-9 || (Math.abs(e.re) < 1e-9 && e.im < -1e-9)) {
-                signFlip = true;
-            }
-            break;
-        }
-    }
-    const s = signFlip ? -1 : 1;
-    const fmt = (z) => `${(s * z.re).toFixed(5)},${(s * z.im).toFixed(5)}`;
-    return `[${fmt(a)}|${fmt(b)}|${fmt(c)}|${fmt(d)}]`;
-}
-
-// --- Dirichlet domain utilities ---
-
-/**
- * Monotone proxy for hyperbolic distance in the Poincaré ball model.
- * cosh(d(p,q)) = 1 + 2|p-q|^2 / ((1-|p|^2)(1-|q|^2))
- * We return the ratio, which is monotone in d and avoids acosh.
- */
-function hypDistProxy(p, q) {
+/** Hyperbolic distance between two ball points. */
+export function hypDist(p, q) {
     const dx = p.x - q.x, dy = p.y - q.y, dz = p.z - q.z;
-    const distSq = dx * dx + dy * dy + dz * dz;
-    const pNormSq = p.x * p.x + p.y * p.y + p.z * p.z;
-    const qNormSq = q.x * q.x + q.y * q.y + q.z * q.z;
-    const denom = (1 - pNormSq) * (1 - qNormSq);
+    const d2 = dx * dx + dy * dy + dz * dz;
+    const denom = (1 - p.lengthSq()) * (1 - q.lengthSq());
     if (denom <= 0) return Infinity;
-    return distSq / denom;
+    return Math.acosh(1 + 2 * d2 / denom);
+}
+
+/** Monotone proxy for hyperbolic distance (avoids acosh). */
+export function hypDistProxy(p, q) {
+    const dx = p.x - q.x, dy = p.y - q.y, dz = p.z - q.z;
+    const d2 = dx * dx + dy * dy + dz * dz;
+    const denom = (1 - p.lengthSq()) * (1 - q.lengthSq());
+    if (denom <= 0) return Infinity;
+    return d2 / denom;
+}
+
+// ---------------- Walls as Minkowski covectors ----------------
+
+/**
+ * Bisector wall between ball points p1, p2 as a normalized covector
+ * (THREE.Vector4: xyz = spatial part, w = time part), oriented so the
+ * p1-side is the domain side (F < 0).
+ */
+export function bisectorCov(p1, p2) {
+    const v1 = ballToMinkowski(p1);
+    const v2 = ballToMinkowski(p2);
+    const sp = v2.sp.clone().sub(v1.sp);
+    const t = v2.t - v1.t;
+    const normSq = sp.lengthSq() - t * t;   // > 0 for distinct points
+    if (normSq <= 1e-30) return null;
+    const inv = 1 / Math.sqrt(normSq);
+    return new THREE.Vector4(sp.x * inv, sp.y * inv, sp.z * inv, t * inv);
+}
+
+/** F(p) for covector W: negative on the domain side, zero on the wall. */
+export function wallF(p, W) {
+    const p2 = p.x * p.x + p.y * p.y + p.z * p.z;
+    return 2 * (p.x * W.x + p.y * W.y + p.z * W.z) - (1 + p2) * W.w;
 }
 
 /**
- * Signed distance from a point to a face (bisector sphere) in the ball model.
- * Matches the shader's sdFace function.
+ * Euclidean geometry of a wall: sphere {c, r, s} or plane {n}.
+ * s = sign such that signed distance = s * (|p-c| - r), negative on domain side.
  */
-export function sdFace(p, face) {
-    const cx = face.x, cy = face.y, cz = face.z;
-    const r = face.w;
-    const s = r > 0 ? 1 : -1;
-    const dx = p.x - cx, dy = p.y - cy, dz = p.z - cz;
-    return s * (Math.sqrt(dx * dx + dy * dy + dz * dz) - Math.abs(r));
+export function covToGeom(W) {
+    if (Math.abs(W.w) < 1e-9) {
+        const n = new THREE.Vector3(W.x, W.y, W.z).normalize();
+        return { type: 'plane', n };
+    }
+    const c = new THREE.Vector3(W.x / W.w, W.y / W.w, W.z / W.w);
+    const r = 1 / Math.abs(W.w);
+    const s = W.w > 0 ? -1 : 1;   // w0>0: domain is OUTSIDE the sphere
+    return { type: 'sphere', c, r, s };
+}
+
+/** Euclidean signed distance to wall surface; negative on domain side. */
+export function wallSD(p, geom) {
+    if (geom.type === 'plane') {
+        return p.x * geom.n.x + p.y * geom.n.y + p.z * geom.n.z;
+    }
+    const dx = p.x - geom.c.x, dy = p.y - geom.c.y, dz = p.z - geom.c.z;
+    return geom.s * (Math.sqrt(dx * dx + dy * dy + dz * dz) - geom.r);
+}
+
+/** Outward (away-from-domain) Euclidean unit normal of a wall at p (on the wall). */
+export function wallOutwardNormal(p, geom) {
+    if (geom.type === 'plane') return geom.n.clone();
+    const n = new THREE.Vector3().subVectors(p, geom.c).normalize();
+    return geom.s > 0 ? n : n.negate();
 }
 
 /**
- * Check if a point is inside the current domain (unit ball ∩ all accepted half-spaces).
+ * Is p in the closed domain (unit ball ∩ all wall half-spaces), tolerance tol?
+ * `skip` (optional) is an index to ignore.
  */
-function isInsideDomain(px, py, pz, acceptedFaces, numFaces) {
-    if (px * px + py * py + pz * pz >= 1.0) return false;
-    for (let i = 0; i < numFaces; i++) {
-        const f = acceptedFaces[i];
-        const dx = px - f.x, dy = py - f.y, dz = pz - f.z;
-        const r = f.w;
-        const s = r > 0 ? 1 : -1;
-        if (s * (Math.sqrt(dx * dx + dy * dy + dz * dz) - Math.abs(r)) > 1e-6) return false;
+export function isInsideWalls(p, geoms, tol = 1e-6, skip = -1) {
+    if (p.x * p.x + p.y * p.y + p.z * p.z >= 1.0) return false;
+    for (let i = 0; i < geoms.length; i++) {
+        if (i === skip) continue;
+        if (wallSD(p, geoms[i]) > tol) return false;
     }
     return true;
 }
 
 /**
- * Check if a bisector sphere is redundant (doesn't intersect the current domain).
- * Tests the closest point to basepoint on the sphere, plus a ring of 8 samples.
- * Used during incremental beam search for fast early filtering.
+ * Sample points on a wall surface (inside the unit ball), spread from the
+ * point of the wall nearest to `basept`. Returns array of Vector3.
  */
-function isFaceRedundant(bisector, acceptedFaces, numFaces, basepoint) {
-    if (numFaces === 0) return false;
+export function sampleWallPoints(geom, basept, dense = true) {
+    const out = [];
+    const push = (p) => { if (p.lengthSq() < 0.9999) out.push(p); };
 
-    const cx = bisector.x, cy = bisector.y, cz = bisector.z;
-    const R = Math.abs(bisector.w);
-    if (R < 1e-12) return true;
-
-    // Direction from sphere center toward basepoint
-    let dx = basepoint.x - cx, dy = basepoint.y - cy, dz = basepoint.z - cz;
-    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    if (dist < 1e-12) return true;
-    dx /= dist; dy /= dist; dz /= dist;
-
-    // Primary sample: closest point on sphere to basepoint
-    const px = cx + R * dx, py = cy + R * dy, pz = cz + R * dz;
-    if (isInsideDomain(px, py, pz, acceptedFaces, numFaces)) return false;
-
-    // Build tangent frame at the primary point for ring samples
-    // Choose an "up" vector not parallel to dir
-    let ux, uy, uz;
-    if (Math.abs(dx) < 0.9) {
-        // Cross dir with (1,0,0)
-        ux = 0; uy = dz; uz = -dy;
-    } else {
-        // Cross dir with (0,1,0)
-        ux = -dz; uy = 0; uz = dx;
-    }
-    let len = Math.sqrt(ux * ux + uy * uy + uz * uz);
-    ux /= len; uy /= len; uz /= len;
-    // Second tangent: dir × u
-    const vx = dy * uz - dz * uy, vy = dz * ux - dx * uz, vz = dx * uy - dy * ux;
-
-    // Ring at ~30° from primary direction
-    const cosA = Math.cos(Math.PI / 6);  // cos(30°)
-    const sinA = Math.sin(Math.PI / 6);  // sin(30°)
-
-    for (let k = 0; k < 8; k++) {
-        const theta = k * Math.PI * 0.25;
-        const ct = Math.cos(theta), st = Math.sin(theta);
-        // Direction on sphere: cosA * dir + sinA * (cos(theta)*u + sin(theta)*v)
-        const rx = cosA * dx + sinA * (ct * ux + st * vx);
-        const ry = cosA * dy + sinA * (ct * uy + st * vy);
-        const rz = cosA * dz + sinA * (ct * uz + st * vz);
-        const rl = Math.sqrt(rx * rx + ry * ry + rz * rz);
-        const sx = cx + R * rx / rl, sy = cy + R * ry / rl, sz = cz + R * rz / rl;
-        if (isInsideDomain(sx, sy, sz, acceptedFaces, numFaces)) return false;
-    }
-
-    return true;
-}
-
-/**
- * Dense redundancy check for post-processing pruning.
- * Uses many more sample points across the bisector sphere (multiple rings at
- * different latitudes) to reliably determine whether ANY part of the bisector
- * sphere touches the domain boundary.
- *
- * @param {number} faceIdx - Index of the face to test within otherFaces
- * @param {THREE.Vector4[]} allFaces - All currently accepted faces
- * @param {number} numFaces - Number of valid faces in allFaces
- * @param {number} faceIdx - Index of the face we're testing for redundancy
- * @param {THREE.Vector3} basepoint - The basepoint of the domain
- * @returns {boolean} true if the face is redundant (does not contribute to domain boundary)
- */
-function isFaceRedundantDense(allFaces, numFaces, faceIdx, basepoint) {
-    if (numFaces <= 1) return false;
-
-    const bisector = allFaces[faceIdx];
-    const cx = bisector.x, cy = bisector.y, cz = bisector.z;
-    const R = Math.abs(bisector.w);
-    if (R < 1e-12) return true;
-
-    // Direction from sphere center toward basepoint
-    let dx = basepoint.x - cx, dy = basepoint.y - cy, dz = basepoint.z - cz;
-    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    if (dist < 1e-12) return true;
-    dx /= dist; dy /= dist; dz /= dist;
-
-    // Build tangent frame
-    let ux, uy, uz;
-    if (Math.abs(dx) < 0.9) {
-        ux = 0; uy = dz; uz = -dy;
-    } else {
-        ux = -dz; uy = 0; uz = dx;
-    }
-    let len = Math.sqrt(ux * ux + uy * uy + uz * uz);
-    ux /= len; uy /= len; uz /= len;
-    const vx = dy * uz - dz * uy, vy = dz * ux - dx * uz, vz = dx * uy - dy * ux;
-
-    // Build the "other faces" array excluding faceIdx
-    const otherFaces = [];
-    for (let i = 0; i < numFaces; i++) {
-        if (i !== faceIdx) otherFaces.push(allFaces[i]);
-    }
-    const otherCount = otherFaces.length;
-
-    // Check point against all faces EXCEPT faceIdx
-    function isInsideOtherFaces(px, py, pz) {
-        if (px * px + py * py + pz * pz >= 1.0) return false;
-        for (let i = 0; i < otherCount; i++) {
-            const f = otherFaces[i];
-            const fdx = px - f.x, fdy = py - f.y, fdz = pz - f.z;
-            const r = f.w;
-            const s = r > 0 ? 1 : -1;
-            if (s * (Math.sqrt(fdx * fdx + fdy * fdy + fdz * fdz) - Math.abs(r)) > 1e-6) return false;
+    if (geom.type === 'plane') {
+        // Pole: projection of basept onto the plane
+        const n = geom.n;
+        const d = basept.dot(n);
+        const pole = new THREE.Vector3().subVectors(basept, n.clone().multiplyScalar(d));
+        // Tangent frame in the plane
+        let u = new THREE.Vector3(1, 0, 0);
+        if (Math.abs(n.x) > 0.9) u.set(0, 1, 0);
+        u.sub(n.clone().multiplyScalar(u.dot(n))).normalize();
+        const v = new THREE.Vector3().crossVectors(n, u);
+        push(pole.clone());
+        const radii = dense ? [0.02, 0.06, 0.13, 0.25, 0.4, 0.6, 0.8, 0.95, 1.2, 1.5]
+            : [0.05, 0.2, 0.5, 0.9];
+        const nTheta = dense ? 12 : 8;
+        for (const rho of radii) {
+            for (let k = 0; k < nTheta; k++) {
+                const th = (k + 0.5 * (radii.indexOf(rho) % 2)) * 2 * Math.PI / nTheta;
+                push(pole.clone()
+                    .add(u.clone().multiplyScalar(rho * Math.cos(th)))
+                    .add(v.clone().multiplyScalar(rho * Math.sin(th))));
+            }
         }
-        return true;
+        return out;
     }
 
-    // Test point on sphere given direction (rx, ry, rz)
-    function testDir(rx, ry, rz) {
-        const rl = Math.sqrt(rx * rx + ry * ry + rz * rz);
-        if (rl < 1e-12) return false;
-        const sx = cx + R * rx / rl, sy = cy + R * ry / rl, sz = cz + R * rz / rl;
-        return isInsideOtherFaces(sx, sy, sz);
-    }
+    // Sphere: pole = closest point to basept
+    const { c, r } = geom;
+    let dir = new THREE.Vector3().subVectors(basept, c);
+    if (dir.lengthSq() < 1e-24) dir.set(0, 0, 1);
+    dir.normalize();
+    let u = new THREE.Vector3(1, 0, 0);
+    if (Math.abs(dir.x) > 0.9) u.set(0, 1, 0);
+    u.sub(dir.clone().multiplyScalar(u.dot(dir))).normalize();
+    const v = new THREE.Vector3().crossVectors(dir, u);
 
-    // Primary: closest point on sphere to basepoint (pole of the cap)
-    if (testDir(dx, dy, dz)) return false;
-
-    // Multiple rings at different latitudes from the pole
-    // Angles from pole: 10°, 25°, 40°, 55°, 70°, 85°
-    const latitudes = [10, 25, 40, 55, 70, 85];
-    const samplesPerRing = 12;
-
-    for (const latDeg of latitudes) {
+    const mk = (cl, sl, th) => {
+        const ct = Math.cos(th), st = Math.sin(th);
+        const rd = new THREE.Vector3(
+            cl * dir.x + sl * (ct * u.x + st * v.x),
+            cl * dir.y + sl * (ct * u.y + st * v.y),
+            cl * dir.z + sl * (ct * u.z + st * v.z)
+        );
+        push(new THREE.Vector3().addVectors(c, rd.multiplyScalar(r)));
+    };
+    push(new THREE.Vector3().addVectors(c, dir.clone().multiplyScalar(r)));
+    const lats = dense ? [5, 12, 22, 34, 47, 60, 72, 85] : [15, 40, 70];
+    const nTheta = dense ? 12 : 8;
+    for (const latDeg of lats) {
         const lat = latDeg * Math.PI / 180;
-        const cosL = Math.cos(lat);
-        const sinL = Math.sin(lat);
-
-        for (let k = 0; k < samplesPerRing; k++) {
-            const theta = (k + (latDeg % 20 === 0 ? 0 : 0.5)) * (2 * Math.PI / samplesPerRing);
-            const ct = Math.cos(theta), st = Math.sin(theta);
-            const rx = cosL * dx + sinL * (ct * ux + st * vx);
-            const ry = cosL * dy + sinL * (ct * uy + st * vy);
-            const rz = cosL * dz + sinL * (ct * uz + st * vz);
-            if (testDir(rx, ry, rz)) return false;
+        const cl = Math.cos(lat), sl = Math.sin(lat);
+        for (let k = 0; k < nTheta; k++) {
+            mk(cl, sl, (k + 0.5 * (lats.indexOf(latDeg) % 2)) * 2 * Math.PI / nTheta);
         }
     }
+    return out;
+}
 
-    return true;
+/** Project a point onto a wall surface. */
+export function projectToWall(p, geom) {
+    if (geom.type === 'plane') {
+        const d = p.dot(geom.n);
+        return p.clone().sub(geom.n.clone().multiplyScalar(d));
+    }
+    const d = p.clone().sub(geom.c);
+    if (d.lengthSq() < 1e-24) d.set(0, 0, 1);
+    d.setLength(geom.r);
+    return geom.c.clone().add(d);
 }
 
 /**
- * Post-processing pass: prune faces that are redundant given ALL other faces.
- * This catches faces that were non-redundant when first added during incremental
- * beam search, but became redundant as later faces were added.
- *
- * Also removes the corresponding pairings entries.
- * Iterates until stable (no more faces can be removed).
+ * Violation functional: max over the other walls (and the unit sphere) of the
+ * signed distance at p. Negative ⇔ p is in the interior of the face region.
  */
-function pruneRedundantFaces(acceptedFaces, pairings, basepoint) {
-    let changed = true;
-    while (changed) {
-        changed = false;
-        const numFaces = acceptedFaces.length;
-
-        // Check in reverse order so that removing doesn't shift earlier indices
-        for (let i = numFaces - 1; i >= 0; i--) {
-            if (isFaceRedundantDense(acceptedFaces, acceptedFaces.length, i, basepoint)) {
-                acceptedFaces.splice(i, 1);
-                pairings.splice(i, 1);
-                changed = true;
-            }
-        }
+export function faceViolation(p, geoms, skip) {
+    let m = p.length() - 1.0;
+    for (let j = 0; j < geoms.length; j++) {
+        if (j === skip) continue;
+        const v = wallSD(p, geoms[j]);
+        if (v > m) m = v;
     }
-
-    // Re-index faceIndex in pairings after pruning
-    for (let i = 0; i < pairings.length; i++) {
-        pairings[i].faceIndex = i;
-    }
+    return m;
 }
 
-// Pre-allocated buffer to avoid GC pressure during animation
-const _paddedBuffer = new Array(256);
-for (let i = 0; i < 256; i++) _paddedBuffer[i] = new THREE.Vector4(10, 0, 0, 0.1);
-
 /**
- * Compute the Dirichlet domain using beam search with redundancy detection.
- * Returns both faces (for shader) and face-pairing elements (for UI).
- *
- * @param {Matrix2x2[]} generators - [g1, g1^-1, g2, g2^-1, ...]
- * @param {Matrix2x2} viewMat - Current view isometry
- * @param {number} maxFaces - Hard cap on accepted faces
- * @param {Object} [options] - { maxDepth: 25, beamWidth: 1024, barrenLimit: 3 }
- * @returns {{ faces: THREE.Vector4[], count: number, pairings: Array, stabilizers: Array }}
+ * Local pattern search ON the wall surface, minimizing the violation
+ * functional. Finds interior points of sliver faces that a fixed sample grid
+ * misses. Returns {p, v}.
  */
-export function computeDirichletDomain(generators = [], viewMat = new Matrix2x2(1, 0, 0, 1), maxFaces = 64, options = {}) {
-    const { maxDepth = 25, beamWidth = 1024, barrenLimit = 3 } = options;
-
-    if (!generators || generators.length === 0) {
-        for (let i = 0; i < 256; i++) _paddedBuffer[i].set(10, 0, 0, 0.1);
-        return { faces: _paddedBuffer, count: 0, pairings: [], stabilizers: [] };
+export function refineOnWall(geom, start, geoms, skip) {
+    let p = projectToWall(start, geom);
+    let v = faceViolation(p, geoms, skip);
+    let h = 0.05;
+    const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1],
+    [0.7071, 0.7071], [0.7071, -0.7071], [-0.7071, 0.7071], [-0.7071, -0.7071]];
+    for (let it = 0; it < 80 && h > 1e-9; it++) {
+        const n = geom.type === 'plane' ? geom.n : p.clone().sub(geom.c).normalize();
+        let u = Math.abs(n.x) > 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+        u.sub(n.clone().multiplyScalar(u.dot(n))).normalize();
+        const w = new THREE.Vector3().crossVectors(n, u);
+        let improved = false;
+        for (const [du, dw] of DIRS) {
+            const cand = projectToWall(
+                p.clone().add(u.clone().multiplyScalar(h * du)).add(w.clone().multiplyScalar(h * dw)),
+                geom);
+            const cv = faceViolation(cand, geoms, skip);
+            if (cv < v - 1e-15) { v = cv; p = cand; improved = true; break; }
+        }
+        if (!improved) h *= 0.6;
+        if (v < -1e-4) break;   // comfortably interior — done
     }
-
-    const numGens = generators.length;
-    const basepoint = uhsToBall(imageOfOriginUHS(viewMat));
-
-    const seenMatrices = new Set();
-    seenMatrices.add(exploreMatrixKey(viewMat));
-
-    const acceptedFaces = [];
-    const pairings = [];
-    const stabilizers = [];
-
-    // Beam: starts with identity (viewMat)
-    let beam = [{ matrix: viewMat, wordArr: [], lastGenIdx: -1 }];
-    let depthsWithoutNewFace = 0;
-
-    for (let depth = 1; depth <= maxDepth; depth++) {
-        // 1. EXPAND: multiply every beam element by every generator
-        const candidates = [];
-
-        for (const entry of beam) {
-            for (let i = 0; i < numGens; i++) {
-                // Generators are interleaved: [g1, g1^-1, g2, g2^-1, ...]
-                // The inverse of index i is i^1 (XOR): 0↔1, 2↔3, etc.
-                if (entry.lastGenIdx >= 0 && i === (entry.lastGenIdx ^ 1)) continue;
-
-                const next = entry.matrix.mul(generators[i]);
-                const matKey = exploreMatrixKey(next);
-                if (seenMatrices.has(matKey)) continue;
-                seenMatrices.add(matKey);
-
-                const orbitPt = uhsToBall(imageOfOriginUHS(next));
-                const dist = hypDistProxy(basepoint, orbitPt);
-
-                // Word index: generators [g1, g1^-1, g2, g2^-1, ...]
-                // Even indices are generators (positive), odd are inverses (negative)
-                const base = (i >> 1) + 1;  // 1-based generator number
-                const genIdx = (i & 1) === 0 ? base : -base;
-
-                candidates.push({
-                    matrix: next,
-                    wordArr: [...entry.wordArr, genIdx],
-                    lastGenIdx: i,
-                    orbitPt,
-                    dist
-                });
-            }
-        }
-
-        if (candidates.length === 0) break;
-
-        // 2. SORT by hyperbolic distance proxy
-        candidates.sort((a, b) => a.dist - b.dist);
-
-        // 3. PRUNE to beam width
-        beam = candidates.slice(0, beamWidth);
-
-        // 4. CHECK each beam element for face contribution
-        let newFacesThisDepth = 0;
-
-        for (const entry of beam) {
-            if (acceptedFaces.length >= maxFaces) break;
-
-            const orbitPt = entry.orbitPt;
-            const dx = orbitPt.x - basepoint.x;
-            const dy = orbitPt.y - basepoint.y;
-            const dz = orbitPt.z - basepoint.z;
-            const distSq = dx * dx + dy * dy + dz * dz;
-
-            // Stabilizer check
-            if (distSq < 1e-8) {
-                stabilizers.push({
-                    matrix: entry.matrix,
-                    wordArr: entry.wordArr,
-                    isStabilizer: true,
-                    face: null
-                });
-                continue;
-            }
-
-            const bisector = getBisectorSphere(basepoint, orbitPt);
-
-            if (!isFaceRedundant(bisector, acceptedFaces, acceptedFaces.length, basepoint)) {
-                const faceIndex = acceptedFaces.length;
-                acceptedFaces.push(bisector);
-                pairings.push({
-                    matrix: entry.matrix,
-                    wordArr: entry.wordArr,
-                    face: bisector,
-                    faceIndex,
-                    isParabolic: orbitPt.lengthSq() > 0.9025,
-                    isStabilizer: false
-                });
-                newFacesThisDepth++;
-            }
-        }
-
-        // 5. EARLY TERMINATION
-        if (newFacesThisDepth === 0) {
-            depthsWithoutNewFace++;
-            if (depthsWithoutNewFace >= barrenLimit) break;
-        } else {
-            depthsWithoutNewFace = 0;
-        }
-
-        if (acceptedFaces.length >= maxFaces) break;
-    }
-
-    // 6. POST-PROCESSING: prune faces that became redundant after later faces were added
-    pruneRedundantFaces(acceptedFaces, pairings, basepoint);
-
-    // Package results into the 256-entry buffer
-    const count = acceptedFaces.length;
-    for (let i = 0; i < 256; i++) {
-        if (i < count) {
-            _paddedBuffer[i].copy(acceptedFaces[i]);
-        } else {
-            _paddedBuffer[i].set(10, 0, 0, 0.1);
-        }
-    }
-
-    return { faces: _paddedBuffer, count, pairings, stabilizers };
+    return { p, v };
 }
 
-
 /**
- * Format a word array as MathJax: [1, -2, 1] -> "g_1 g_2^{-1} g_1"
+ * Does the wall contribute a (codim-1) face to the domain cut out by `geoms`?
+ * I.e., does some point of the wall lie STRICTLY inside all other half-spaces?
+ * The negative tolerance rejects bisectors merely tangent to the domain along
+ * an edge or vertex (those would create zero-area "faces").
+ * With `refine`, a local search is run from the best grid sample so that even
+ * sliver faces (far below the grid resolution) are detected.
  */
+export function wallContributes(geom, geoms, idx, basept, dense = true, tol = -1e-5, refine = false) {
+    const samples = sampleWallPoints(geom, basept, dense);
+    let best = null, bestV = Infinity;
+    for (const p of samples) {
+        const v = faceViolation(p, geoms, idx);
+        if (v < tol && p.lengthSq() < 1) return true;
+        if (v < bestV) { bestV = v; best = p; }
+    }
+    if (refine && best) {
+        const r = refineOnWall(geom, best, geoms, idx);
+        if (r.v < -1e-6 && r.p.lengthSq() < 1) return true;
+    }
+    return false;
+}
+
+// ---------------- Words ----------------
+
 export function formatWordMathJax(wordArr) {
-    if (!wordArr || wordArr.length === 0) return 'e';  // Identity
-    return wordArr.map(idx => {
-        const absIdx = Math.abs(idx);
-        return idx > 0 ? `g_{${absIdx}}` : `g_{${absIdx}}^{-1}`;
-    }).join(' ');
+    if (!wordArr || wordArr.length === 0) return 'e';
+    // Compress runs: g g g -> g^3
+    const parts = [];
+    let i = 0;
+    while (i < wordArr.length) {
+        let j = i;
+        while (j < wordArr.length && wordArr[j] === wordArr[i]) j++;
+        const idx = Math.abs(wordArr[i]);
+        const count = j - i;
+        const exp = wordArr[i] > 0 ? count : -count;
+        parts.push(exp === 1 ? `g_{${idx}}` : `g_{${idx}}^{${exp}}`);
+        i = j;
+    }
+    return parts.join(' ');
 }
 
-/**
- * Reduce a word by cancelling adjacent inverse pairs.
- * [1, -1, 2] -> [2], [1, 2, -2, 3] -> [1, 3]
- */
 export function reduceWord(wordArr) {
     const result = [];
     for (const idx of wordArr) {
-        if (result.length > 0 && result[result.length - 1] === -idx) {
-            result.pop();  // Cancel inverse pair
-        } else {
-            result.push(idx);
-        }
+        if (result.length > 0 && result[result.length - 1] === -idx) result.pop();
+        else result.push(idx);
     }
     return result;
 }
 
-
-/**
- * Create a normalized key for a matrix in PSL(2,C).
- * Two matrices M1 and M2 represent the same PSL(2,C) element iff M1 = ±M2.
- * We normalize by making the first non-zero entry have positive real part.
- */
-function matrixKey(m) {
-    // Get the entries as Complex objects
-    const a = m.a, b = m.b, c = m.c, d = m.d;
-
-    // Find the first non-zero entry to determine sign normalization
-    let signFlip = false;
-    const entries = [a, b, c, d];
-    for (const e of entries) {
-        const norm = e.re * e.re + e.im * e.im;
-        if (norm > 1e-12) {
-            // Flip if real part is negative, or real part is ~0 and imaginary is negative
-            if (e.re < -1e-9 || (Math.abs(e.re) < 1e-9 && e.im < -1e-9)) {
-                signFlip = true;
-            }
-            break;
-        }
-    }
-
-    const s = signFlip ? -1 : 1;
-
-    // Format each entry with sign applied
-    const fmt = (z) => `${(s * z.re).toFixed(5)},${(s * z.im).toFixed(5)}`;
-
-    return `[${fmt(a)}|${fmt(b)}|${fmt(c)}|${fmt(d)}]`;
+export function invertWord(wordArr) {
+    return wordArr.slice().reverse().map(i => -i);
 }
 
-/**
- * Compute Cayley graph for the given generators.
- * Uses matrix-based keys to properly handle generators that fix the basepoint.
- * @param {Matrix2x2[]} generators - Array of generators (including inverses)
- * @param {number} maxDepth - Maximum word length
- * @param {Matrix2x2} viewMat - Current view matrix
- * @param {number} maxNodes - Hard cap on number of vertices to prevent combinatorial explosion
- */
-export function getCayleyGraph(generators = [], maxDepth = 4, viewMat = new Matrix2x2(1, 0, 0, 1), maxNodes = 4000) {
-    // If no generators provided, return empty
-    if (!generators || generators.length === 0) {
-        return { points: [], edges: [] };
-    }
+// ---------------- Cayley graph ----------------
+
+export function getCayleyGraph(generators = [], maxDepth = 4, viewMat = Matrix2x2.identity(), maxNodes = 4000) {
+    if (!generators || generators.length === 0) return { points: [], edges: [] };
 
     const queue = [{ matrix: viewMat, depth: 0, index: 0 }];
-    const matrices = [viewMat]; // Store matrices for edge drawing
+    const matrices = [viewMat];
     const edges = [];
-
-    const seenMatrices = new Map(); // Map from matrix key to index
+    const seenMatrices = new Map();
     const seenEdges = new Set();
-    seenMatrices.set(matrixKey(viewMat), 0);
+    seenMatrices.set(pslKey(viewMat), 0);
 
     let head = 0;
     while (head < queue.length) {
         const { matrix, depth, index: uIdx } = queue[head++];
         if (depth >= maxDepth) continue;
-
         for (let genIdx = 0; genIdx < generators.length; genIdx++) {
-            const g = generators[genIdx];
-            const nextMat = matrix.mul(g);
-            const k = matrixKey(nextMat);
-
+            const nextMat = matrix.mul(generators[genIdx]);
+            const k = pslKey(nextMat);
             let vIdx;
             if (seenMatrices.has(k)) {
                 vIdx = seenMatrices.get(k);
             } else {
-                // Stop adding new nodes once we hit the cap
                 if (matrices.length >= maxNodes) continue;
                 vIdx = matrices.length;
                 matrices.push(nextMat);
                 seenMatrices.set(k, vIdx);
                 queue.push({ matrix: nextMat, depth: depth + 1, index: vIdx });
             }
-
             if (uIdx !== vIdx) {
                 const edgeKey = uIdx < vIdx ? `${uIdx}-${vIdx}` : `${vIdx}-${uIdx}`;
                 if (!seenEdges.has(edgeKey)) {
                     seenEdges.add(edgeKey);
-                    // Edge type based on which generator pair (0, 1, 2, ...)
                     edges.push({ u: uIdx, v: vIdx, type: Math.floor(genIdx / 2) });
                 }
             }
         }
     }
 
-    // Convert matrices to points for visualization
     const points = matrices.map(m => uhsToBall(imageOfOriginUHS(m)));
-
     return { points, edges };
 }
-

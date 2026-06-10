@@ -4,159 +4,246 @@
     {
       "name": "quaternionBeamSearch",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Algebraic/Tools/quaternionBeamSearch/web && exec python3 -m http.server 8120"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Algebraic/Tools/quaternionBeamSearch/web && exec python3 -m http.server 8120"
+      ],
       "port": 8120
     },
     {
       "name": "rileySlice3D",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/misc/rileySlice3D && exec python3 -m http.server 8090"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/misc/rileySlice3D && exec python3 -m http.server 8090"
+      ],
       "port": 8090
     },
     {
       "name": "freeProduct",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/freeProduct && exec python3 -m http.server 8091"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/freeProduct && exec python3 -m http.server 8091"
+      ],
       "port": 8091
     },
     {
       "name": "dolphinOlympics",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/forFun/dolphinOlympics && exec python3 -m http.server 8092"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/forFun/dolphinOlympics && exec python3 -m http.server 8092"
+      ],
       "port": 8092
     },
     {
       "name": "kleinianRiley",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/riley && exec python3 -m http.server 8093"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/riley && exec python3 -m http.server 8093"
+      ],
       "port": 8093
     },
     {
       "name": "nicBox",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/forFun/nicBox && exec python3 -m http.server 8094"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/forFun/nicBox && exec python3 -m http.server 8094"
+      ],
       "port": 8094
     },
     {
       "name": "penrose",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics/penrose && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8096), H).serve_forever()'"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics/penrose && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8096), H).serve_forever()'"
+      ],
       "port": 8096
     },
     {
       "name": "graphics",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/graphics && exec python3 -m http.server 8096"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/graphics && exec python3 -m http.server 8096"
+      ],
       "port": 8096
     },
     {
       "name": "turingPatterns",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics/turingPatterns && exec python3 -m http.server 8097"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics/turingPatterns && exec python3 -m http.server 8097"
+      ],
       "port": 8097
     },
     {
       "name": "tidalMarsh",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics/tidalMarsh && exec python3 -m http.server 8098"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics/tidalMarsh && exec python3 -m http.server 8098"
+      ],
       "port": 8098
     },
     {
       "name": "longReidRacer2",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/longReidRacer2 && exec python3 -m http.server 8099"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/longReidRacer2 && exec python3 -m http.server 8099"
+      ],
       "port": 8099
     },
     {
       "name": "xiaTheorem",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics/xiaTheorem && exec python3 -m http.server 8100"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics/xiaTheorem && exec python3 -m http.server 8100"
+      ],
       "port": 8100
     },
     {
       "name": "gameOfLife",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/science/biology/biosims && exec python3 -m http.server 8101"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/science/biology/biosims && exec python3 -m http.server 8101"
+      ],
       "port": 8101
     },
     {
       "name": "physics",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/science/physics && exec python3 -m http.server 8102"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/science/physics && exec python3 -m http.server 8102"
+      ],
       "port": 8102
     },
     {
       "name": "sizeExplorer",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics/sizeExplorer && exec python3 -m http.server 8103"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics/sizeExplorer && exec python3 -m http.server 8103"
+      ],
       "port": 8103
     },
     {
       "name": "mathMap",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics && exec python3 -m http.server 8104"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics && exec python3 -m http.server 8104"
+      ],
       "port": 8104
     },
     {
       "name": "scienceMap",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics && exec python3 -m http.server 8105"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics && exec python3 -m http.server 8105"
+      ],
       "port": 8105
     },
     {
       "name": "knotEnergy",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/topology/knotTheory/knotEnergy && exec python3 -m http.server 8106"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/topology/knotTheory/knotEnergy && exec python3 -m http.server 8106"
+      ],
       "port": 8106
     },
     {
       "name": "knotMosaics",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/topology/knotTheory && exec python3 -m http.server 8107"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/topology/knotTheory && exec python3 -m http.server 8107"
+      ],
       "port": 8107
     },
     {
       "name": "mandelbrot",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/forFun/fractals/mandelbrot && exec python3 -m http.server 8108"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/forFun/fractals/mandelbrot && exec python3 -m http.server 8108"
+      ],
       "port": 8108
     },
     {
       "name": "crepeTalk",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/Talks/Crepe && exec python3 -m http.server 8109"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/Talks/Crepe && exec python3 -m http.server 8109"
+      ],
       "port": 8109
     },
     {
       "name": "fuchsian",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io && exec python3 -m http.server 8111"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io && exec python3 -m http.server 8111"
+      ],
       "port": 8111,
       "openPath": "/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/fuchsian/"
     },
     {
       "name": "pentagram",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/Conferences/Brown/pentagram && exec python3 -m http.server 8112"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/Conferences/Brown/pentagram && exec python3 -m http.server 8112"
+      ],
       "port": 8112
     },
     {
       "name": "brooksMatelski",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/InteractivePapers/brooksMatelski && exec python3 -m http.server 8110"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/InteractivePapers/brooksMatelski && exec python3 -m http.server 8110"
+      ],
       "port": 8110
     },
     {
       "name": "rileySlice",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/rileySlice && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8113), H).serve_forever()'"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/rileySlice && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8113), H).serve_forever()'"
+      ],
       "port": 8113
     },
     {
       "name": "rileyHalfspaces",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/rileyHalfspaces && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8114), H).serve_forever()'"],
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/rileyHalfspaces && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8114), H).serve_forever()'"
+      ],
       "port": 8114
+    },
+    {
+      "name": "poincare4",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/poincare4 && exec python3 serve.py 8741"
+      ],
+      "port": 8741
     }
   ]
 }

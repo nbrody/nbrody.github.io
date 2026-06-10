@@ -260,7 +260,9 @@ export function getMatricesFromUI() {
             throw new Error('Matrix has determinant 0 (not invertible)');
         }
 
-        matrices.push(new Matrix2x2(a, b, c, d));
+        // Normalize to determinant 1 so all downstream formulas (orbit maps,
+        // log/exp animation) can assume SL(2,C).
+        matrices.push(new Matrix2x2(a, b, c, d).normalized());
     }
 
     return matrices;
@@ -278,7 +280,7 @@ export function getGeneratorsFromUI() {
 }
 
 // Load an example
-function setExample(example, exampleName = '') {
+function setExample(example, exampleName = '', consts = null) {
     const matrixContainer = document.getElementById('matrixInputs');
     const constantsContainer = document.getElementById('constantsInputs');
     if (!matrixContainer) return;
@@ -293,6 +295,11 @@ function setExample(example, exampleName = '') {
     if (exampleName === 'Hecke group') {
         const randomN = Math.floor(Math.random() * 8) + 3; // Random integer from 3 to 10
         addConstantInput('n', String(randomN));
+    }
+
+    // Library-provided constants ([name, latex] pairs, defined in order)
+    if (consts) {
+        consts.forEach(([name, expr]) => addConstantInput(name, expr));
     }
 
     example.forEach(vals => addMatrixInput(vals.map(v => String(v).replace(/\*\*/g, '^'))));
@@ -317,7 +324,7 @@ function populateExampleDropdown() {
         const idx = parseInt(sel.value, 10);
         if (idx >= 0 && idx < exampleLibrary.length) {
             const example = exampleLibrary[idx];
-            setExample(example.mats, example.name);
+            setExample(example.mats, example.name, example.consts);
             // Trigger refresh after a short delay for MathQuill to initialize
             if (refreshCallback) {
                 setTimeout(refreshCallback, 50);
@@ -334,7 +341,7 @@ export function setupMatrixInput(onRefresh) {
     const figEightIndex = exampleLibrary.findIndex(e => e.name === 'Figure eight knot group');
     if (figEightIndex >= 0) {
         const example = exampleLibrary[figEightIndex];
-        setExample(example.mats, example.name);
+        setExample(example.mats, example.name, example.consts);
     } else {
         // Fallback to basic matrices
         addMatrixInput(['1', '0', '0', '1']);

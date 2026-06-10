@@ -4,51 +4,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dirichlet Domains</title>
+    <title>Canonical Dirichlet Domains</title>
 
     <!-- MathQuill dependencies -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-    <!-- MathJax for high-quality mathematical typesetting -->
+    <!-- MathJax -->
     <script>
         window.MathJax = {
             tex: {
                 inlineMath: [['$', '$'], ['\\(', '\\)']],
                 displayMath: [['$$', '$$'], ['\\[', '\\]']]
-            },
-            startup: {
-                pageReady: () => {
-                    return MathJax.startup.defaultPageReady();
-                }
             }
         };
     </script>
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-    <!-- Import Map for Three.js and Addons -->
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    <!-- Import Map for Three.js + cache-busted local modules -->
+    <script>
+        (function () {
+            // APP_VERSION busts stale module caches; bump on releases.
+            const APP_VERSION = '2026-06-10c';
+            const im = {
+                imports: {
+                    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                }
+            };
+            const mods = ['main', 'math', 'canonical', 'certifier', 'shaders', 'mirror',
+                'matrixInput', 'controlPanel', 'groupLibrary', 'export3mf'];
+            for (const m of mods) {
+                im.imports[new URL(`js/${m}.js`, location.href).href] = `./js/${m}.js?v=${APP_VERSION}`;
             }
-        }
+            document.write(`<script type="importmap">${JSON.stringify(im)}<\/script>`);
+        })();
     </script>
 
-    <!-- External Stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <!-- 3D Scene Container (full screen) -->
+    <!-- 3D Scene Container -->
     <div id="viz-container"></div>
 
-    <!-- Floating Control Panel (right side) -->
+    <!-- Discreteness status banner -->
+    <div id="status-banner" class="status-banner" style="display:none;"></div>
+
+    <!-- Floating Control Panel -->
     <div id="control-panel">
-        <!-- Tab Navigation -->
         <div class="tab-navigation">
             <button class="tab-btn active" data-tab="group">Group</button>
             <button class="tab-btn" data-tab="polyhedron">Domain</button>
@@ -66,24 +73,18 @@
             <div id="tab-group" class="tab-content active">
                 <div>
                     <h2 class="panel-title">Matrix Generators</h2>
-                    <p class="panel-subtitle">Input generators as 2×2 matrices with complex entries.</p>
+                    <p class="panel-subtitle">Input generators of a subgroup of PSL₂(ℂ) as 2×2 complex matrices.</p>
                 </div>
 
                 <div class="control-group">
                     <div id="matrixInputs"></div>
-                    <button id="addMatrixBtn" class="btn btn-add">
-                        + Add Matrix
-                    </button>
+                    <button id="addMatrixBtn" class="btn btn-add">+ Add Matrix</button>
                 </div>
 
                 <div class="control-group">
-                    <label class="control-label">
-                        Constants <span class="label-hint">(optional)</span>
-                    </label>
+                    <label class="control-label">Constants <span class="label-hint">(optional)</span></label>
                     <div id="constantsInputs"></div>
-                    <button id="addConstantBtn" class="btn btn-add-alt">
-                        + Add Constant
-                    </button>
+                    <button id="addConstantBtn" class="btn btn-add-alt">+ Add Constant</button>
                 </div>
 
                 <div class="control-group">
@@ -95,18 +96,23 @@
                     </div>
                     <div class="control-row" style="margin-top: 12px;">
                         <label for="wordLength" class="control-label">Word Length</label>
-                        <input id="wordLength" type="number" value="6" min="1" max="12" step="1" class="number-input">
+                        <input id="wordLength" type="number" value="8" min="1" max="14" step="1" class="number-input">
                     </div>
                 </div>
 
                 <p id="matrix-error-message" class="error-message"></p>
             </div>
 
-            <!-- Polyhedron/Domain Tab -->
+            <!-- Domain Tab -->
             <div id="tab-polyhedron" class="tab-content">
                 <div>
-                    <h2 class="panel-title">Dirichlet Domain</h2>
-                    <p class="panel-subtitle">Standard generators that pair faces of the domain.</p>
+                    <h2 class="panel-title">Canonical Domain</h2>
+                    <p class="panel-subtitle">Dirichlet domain at the basepoint, intersected with a fundamental cone
+                        for the basepoint stabilizer.</p>
+                </div>
+
+                <div class="control-group">
+                    <div id="stabilizer-info" class="stabilizer-info"></div>
                 </div>
 
                 <div class="control-group current-element-group">
@@ -115,22 +121,30 @@
                 </div>
 
                 <div class="control-group">
-                    <label class="control-label">Face Pairings</label>
+                    <label class="control-label">Standard Geometric Generators</label>
                     <div class="std-gen-list" id="std-generators-list">
-                        <!-- Populated dynamically by main.js -->
-                        <p class="empty-message">Click Refresh to compute standard generators</p>
+                        <p class="empty-message">Click Refresh to compute the domain</p>
                     </div>
+                </div>
+
+                <div class="control-group">
+                    <details class="cert-details">
+                        <summary>Discreteness certificate</summary>
+                        <pre id="cert-log" class="cert-log">(not yet run)</pre>
+                    </details>
                 </div>
 
                 <div class="info-section">
                     <h3 class="info-title">Face Pairings</h3>
-                    <p>Each face of the Dirichlet domain corresponds to a group element g.
-                        The face is the perpendicular bisector between the basepoint and g(basepoint).</p>
-                    <p>Click a generator to animate the isometry.</p>
+                    <p>Each codimension-1 face of the domain is paired to another face by a group element,
+                        written as a word in your generators. Faces of the stabilizer cone are paired by
+                        rotations fixing the basepoint.</p>
+                    <p>Click a generator to animate its isometry (⌘/Ctrl-click for the inverse).
+                        Double-click a face of the polyhedron to apply its pairing.</p>
                 </div>
             </div>
 
-            <!-- Graphics/View Tab -->
+            <!-- View Tab -->
             <div id="tab-graphics" class="tab-content">
                 <div>
                     <h2 class="panel-title">View Options</h2>
@@ -139,7 +153,7 @@
                 <div class="control-group">
                     <div class="control-row">
                         <label for="face-count-input" class="control-label">Face Count</label>
-                        <input type="number" id="face-count-input" value="64" step="4" min="1" max="256"
+                        <input type="number" id="face-count-input" value="96" step="4" min="1" max="256"
                             class="number-input">
                     </div>
                 </div>
@@ -147,8 +161,7 @@
                 <div class="control-group">
                     <div class="control-row">
                         <label for="color-palette-select" class="control-label">Color Palette</label>
-                        <select id="color-palette-select" class="select-input">
-                        </select>
+                        <select id="color-palette-select" class="select-input"></select>
                     </div>
                 </div>
 
@@ -167,41 +180,41 @@
                             <button id="cayley-t" class="cayley-opt" data-mode="T">T</button>
                         </div>
                     </div>
-                    <button id="toggle-tiedye" class="toggle-btn">
-                        Tie-Dye
-                    </button>
+                    <button id="toggle-tiedye" class="toggle-btn">Tie-Dye</button>
+                    <button id="toggle-mirror" class="toggle-btn">Mirror</button>
+                    <button id="auto-rotate" class="toggle-btn active">Auto-rotate</button>
+                    <button id="reset-camera" class="toggle-btn">Reset View</button>
+                </div>
 
-                    <button id="auto-rotate" class="toggle-btn active">
-                        Auto-rotate
-                    </button>
-                    <button id="reset-camera" class="toggle-btn">
-                        Reset View
-                    </button>
-                    <button id="open-mirror-btn" class="toggle-btn">
-                        Mirror
-                    </button>
+                <div class="control-group">
+                    <label class="control-label">Model <span class="label-hint">(coming soon)</span></label>
+                    <button id="view-uhs" class="toggle-btn" disabled
+                        title="Upper half-space model — coming soon">Upper Half-Space</button>
+                    <button id="view-inside" class="toggle-btn" disabled
+                        title="First-person view from inside the domain — coming soon">Inside View</button>
+                </div>
+
+                <div class="control-group">
+                    <button id="export-3mf" class="btn btn-add-alt"
+                        title="Export the domain as a 3D-printable mesh">⬇ Export .3MF</button>
                 </div>
 
                 <div class="info-section">
                     <h3 class="info-title">How it Works</h3>
-                    <p>This tool visualizes Kleinian groups and their fundamental domains in the Poincaré
-                        ball model of hyperbolic 3-space.</p>
-                    <p><strong>Cayley Graph:</strong> Vertices represent group elements, edges connect
-                        elements differing by one generator. Edge colors match generator colors.</p>
+                    <p>The tool computes a canonical Dirichlet domain for the group generated by your matrices,
+                        verifies Poincaré's polyhedron conditions numerically (face pairings + edge cycles),
+                        and reports the standard geometric generators.</p>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Bottom Controls (isometry buttons) -->
-    <div id="isometry-controls">
-        <!-- Dynamically populated by main.js -->
-    </div>
+    <div id="isometry-controls"></div>
 
-    <!-- Application Entry Point -->
-    <script type="module" src="js/main.js"></script>
-<!-- golg-nav-bootstrap -->
-<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+    <script type="module">import('./js/main.js');</script>
+    <!-- golg-nav-bootstrap -->
+    <script>(function () { if (window.self !== window.top) return; var p = location.pathname, m = "/GeometryofLinearGroups/", i = p.indexOf(m), b = i >= 0 ? p.substring(0, i + m.length) : p.replace(/[^/]*$/, ""); var s = document.createElement("script"); s.src = b + "assets/js/site-nav.js"; s.defer = true; document.head.appendChild(s); })();</script>
 </body>
 
 </html>

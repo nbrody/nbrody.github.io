@@ -1,12 +1,18 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { computeDirichletDomain, sdFace, getCayleyGraph, formatWordMathJax, reduceWord, Matrix2x2, getBisectorSphere } from './math.js';
+import {
+    Matrix2x2, formatWordMathJax, reduceWord, invertWord,
+    getCayleyGraph, wallSD, covToGeom
+} from './math.js';
+import { computeCanonicalDomain } from './canonical.js';
+import { certifyDomain } from './certifier.js';
 import { vertexShader, fragmentShader } from './shaders.js';
-import { setupMatrixInput, getGeneratorsFromUI, getMatricesFromUI } from './matrixInput.js';
+import { setupMatrixInput, getMatricesFromUI } from './matrixInput.js';
 import { setupControlPanel, updateToggleBtn, colorPalettes, getPaletteSettings } from './controlPanel.js';
 import { mirrorFragmentShader, mirrorDefaults } from './mirror.js';
+import { exportDomainAs3MF } from './export3mf.js';
 
-// --- Three.js Setup ---
+// --- Three.js setup ---
 const container = document.getElementById('viz-container');
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
@@ -18,7 +24,6 @@ renderer.setSize(container.clientWidth, container.clientHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 container.appendChild(renderer.domElement);
 
-// OrbitControls
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
@@ -26,34 +31,28 @@ controls.rotateSpeed = 0.8;
 controls.zoomSpeed = 1.2;
 controls.autoRotate = true;
 controls.autoRotateSpeed = 1.0;
-
-// Stop auto-rotate on interaction
 controls.addEventListener('start', () => {
     controls.autoRotate = false;
     updateToggleBtn(document.getElementById('auto-rotate'), false);
 });
 
-// Raymarching Proxy Geometry
 const geometry = new THREE.BoxGeometry(2.5, 2.5, 2.5);
-let currentMaxFaces = 64;
-let currentDepth = 6;
-let viewMatrix = new Matrix2x2(1, 0, 0, 1);
+let currentMaxFaces = 96;
+let currentDepth = 8;
+let viewMatrix = Matrix2x2.identity();
 let animatingIsometry = false;
 
-// Store current generators (will be updated from UI)
-let currentGenerators = [];
 let currentMatrices = [];
+let currentGenerators = [];   // interleaved [g, g^-1, ...]
 
-const { faces: facesArr, count: actualCount } = computeDirichletDomain([], viewMatrix, currentMaxFaces);
-
-// Initial palette settings
+const initialDomain = computeCanonicalDomain([], viewMatrix, currentMaxFaces);
 const initialPalette = getPaletteSettings();
 
 const material = new THREE.ShaderMaterial({
     uniforms: {
         u_cameraPos: { value: new THREE.Vector3() },
-        u_faces: { value: facesArr },
-        u_faceCount: { value: actualCount },
+        u_faces: { value: initialDomain.facesBuffer },
+        u_faceCount: { value: initialDomain.count },
         u_time: { value: 0 },
         u_opacity: { value: 1.0 },
         u_colorMode: { value: initialPalette.mode },
@@ -61,14 +60,11 @@ const material = new THREE.ShaderMaterial({
         u_colorFreq: { value: initialPalette.freq },
         u_showTiling: { value: false },
         u_maxBounces: { value: mirrorDefaults.maxBounces },
-        u_mirrorOpacity: { value: mirrorDefaults.mirrorOpacity },
-        u_transparency: { value: mirrorDefaults.transparency },
         u_edgeLightWidth: { value: mirrorDefaults.edgeLightWidth },
-        u_blackBorderWidth: { value: mirrorDefaults.blackBorderWidth },
         u_lightIntensity: { value: mirrorDefaults.lightIntensity }
     },
-    vertexShader: vertexShader,
-    fragmentShader: fragmentShader,
+    vertexShader,
+    fragmentShader,
     transparent: true,
     depthWrite: true,
     depthTest: true,
@@ -76,23 +72,19 @@ const material = new THREE.ShaderMaterial({
 });
 
 const mesh = new THREE.Mesh(geometry, material);
-mesh.renderOrder = -1;  // Render polyhedron first so Cayley graph overlays correctly
+mesh.renderOrder = -1;
 scene.add(mesh);
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-scene.add(ambientLight);
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 const pointLight = new THREE.PointLight(0xffffff, 1);
 pointLight.position.set(5, 5, 5);
 scene.add(pointLight);
 
-// Cayley Graph Objects
 const cayleyGroup = new THREE.Group();
 cayleyGroup.visible = false;
 scene.add(cayleyGroup);
-let cayleyMode = 'off';  // 'off', 'S', or 'T'
-let showPolyhedron = true;
+let cayleyMode = 'off';
 
-// Walls Group (hemisphere bisectors)
 const wallsGroup = new THREE.Group();
 wallsGroup.visible = false;
 scene.add(wallsGroup);
@@ -100,36 +92,201 @@ let wallsOpacity = 0;
 let showTiedye = false;
 let mirrorMode = false;
 
-// Generator colors for Cayley graph edges
+function setMirrorMode(enabled) {
+    mirrorMode = enabled;
+    material.fragmentShader = mirrorMode ? mirrorFragmentShader : fragmentShader;
+    material.needsUpdate = true;
+    updateToggleBtn(document.getElementById('toggle-mirror'), mirrorMode);
+}
+
 const generatorColors = [
-    0x38bdf8, // Light Blue
-    0xf472b6, // Pink
-    0xfbbf24, // Amber
-    0x22c55e, // Green
-    0xa78bfa, // Purple
-    0xfb7185, // Rose
-    0x34d399, // Emerald
-    0xf97316  // Orange
+    0x38bdf8, 0xf472b6, 0xfbbf24, 0x22c55e,
+    0xa78bfa, 0xfb7185, 0x34d399, 0xf97316
 ];
 
-function getHyperbolicGeodesic(p1, p2, segments = 16) {
-    const cross = new THREE.Vector3().crossVectors(p1, p2);
-    if (cross.length() < 1e-6) {
-        return [p1, p2];
+// --- Domain state ---
+let cachedDomain = null;
+let stdGenerators = [];       // [{matrix, word, kind, isParabolic, wallIndex}]
+let cumulativeWord = [];
+let certToken = 0;            // staleness token for deferred certification
+
+function updateDomain(opts = {}) {
+    cachedDomain = computeCanonicalDomain(currentGenerators, viewMatrix, currentMaxFaces, {
+        maxDepth: currentDepth,
+        skipPairings: opts.fast === true
+    });
+    material.uniforms.u_faces.value = cachedDomain.facesBuffer;
+    material.uniforms.u_faceCount.value = cachedDomain.count;
+    window.__domain = cachedDomain;   // debug handle
+    return cachedDomain;
+}
+
+// --- Status banner + certificate ---
+function setBanner(state, text) {
+    const banner = document.getElementById('status-banner');
+    if (!banner) return;
+    banner.className = 'status-banner ' + state;   // 'verified' | 'warning' | 'failed' | 'pending'
+    banner.innerHTML = '';
+    if (text) {
+        const span = document.createElement('span');
+        span.className = 'status-banner-text';
+        span.textContent = text;
+        banner.appendChild(span);
+        const close = document.createElement('button');
+        close.className = 'status-banner-close';
+        close.setAttribute('aria-label', 'Dismiss');
+        close.textContent = '\u00d7';
+        close.addEventListener('click', () => { banner.style.display = 'none'; });
+        banner.appendChild(close);
+    }
+    banner.style.display = text ? 'flex' : 'none';
+}
+
+function setCertLog(lines) {
+    const el = document.getElementById('cert-log');
+    if (!el) return;
+    el.textContent = lines.join('\n');
+}
+
+function runCertifier() {
+    if (!cachedDomain || cachedDomain.count === 0) {
+        setBanner('warning', currentGenerators.length ? 'No domain faces found.' : '');
+        return;
+    }
+    const token = ++certToken;
+    setBanner('pending', 'Verifying domain (Poincaré conditions)…');
+    // Defer so the UI paints first
+    setTimeout(() => {
+        if (token !== certToken) return;
+        try {
+            const report = certifyDomain(cachedDomain.walls, cachedDomain.basepoint);
+            if (token !== certToken) return;
+            setCertLog(report.log);
+            if (report.status === 'verified') {
+                setBanner('verified', `✓ Discrete: all Poincaré conditions verified numerically (${cachedDomain.count} faces).`);
+            } else if (report.status === 'incomplete') {
+                setBanner('warning', `✓ All resolvable Poincaré conditions pass (${cachedDomain.count} faces) — see certificate for caveats (cusps / near-degenerate edges).`);
+            } else {
+                setBanner('failed', '✗ Discreteness NOT verified — see certificate log. Try a larger word length, or the group may be non-discrete.');
+            }
+            if (cachedDomain.stabilizer.capped) {
+                setBanner('failed', '✗ Basepoint stabilizer did not close into a finite group — the group is likely NOT discrete.');
+            }
+        } catch (e) {
+            console.error('Certifier error:', e);
+            setBanner('warning', 'Certifier error: ' + e.message);
+        }
+    }, 30);
+}
+
+// --- Standard generators UI ---
+function updateStdGeneratorsList() {
+    const container = document.getElementById('std-generators-list');
+    const stabInfo = document.getElementById('stabilizer-info');
+    if (!container || !cachedDomain) return;
+
+    // The standard geometric generators are the face-pairing transformations.
+    // Keep one per {s, s^-1} pair.
+    stdGenerators = [];
+    const taken = new Set();
+    cachedDomain.walls.forEach((w, i) => {
+        if (taken.has(i)) return;
+        const pairing = w.pairing;
+        if (!pairing) {
+            stdGenerators.push({ matrix: w.elem, word: w.word, kind: w.kind, isParabolic: w.isParabolic, wallIndex: i, unpaired: true });
+            return;
+        }
+        taken.add(i);
+        if (pairing.partner >= 0) taken.add(pairing.partner);
+        stdGenerators.push({
+            // pairing.alg is the pure word s = g^{-1} in the basepoint frame;
+            // list the generator g whose wall is Bis(q, g·q).
+            matrix: pairing.alg.inv().normalized(),
+            sMatrix: pairing.alg,
+            word: invertWord(pairing.word),
+            kind: w.kind,
+            isParabolic: w.isParabolic,
+            wallIndex: i,
+            partnerIndex: pairing.partner
+        });
+    });
+
+    stdGenerators.sort((a, b) => {
+        if (a.kind !== b.kind) return a.kind === 'cone' ? -1 : 1;
+        if (a.word.length !== b.word.length) return a.word.length - b.word.length;
+        for (let i = 0; i < a.word.length; i++) {
+            if (a.word[i] !== b.word[i]) return a.word[i] - b.word[i];
+        }
+        return 0;
+    });
+
+    // Stabilizer summary
+    if (stabInfo) {
+        const H = cachedDomain.stabilizer;
+        if (H.order <= 1) {
+            stabInfo.innerHTML = '<span class="stab-trivial">Basepoint stabilizer: trivial</span>';
+        } else {
+            const capNote = H.capped ? ' <strong class="stab-warning">(did not close — likely non-discrete!)</strong>' : '';
+            stabInfo.innerHTML = `Basepoint stabilizer: order <strong>${H.order}</strong>${capNote}` +
+                `<br><span class="stab-note">Domain = Dirichlet domain ∩ fundamental cone for the stabilizer.</span>`;
+        }
     }
 
-    const v1 = p1.clone();
-    const v2 = p2.clone();
-    const v3 = new THREE.Vector3().crossVectors(p1, p2);
+    container.innerHTML = '';
+    if (stdGenerators.length === 0) {
+        container.innerHTML = '<p class="empty-message">No faces — click Refresh to compute.</p>';
+        return;
+    }
 
+    stdGenerators.forEach((gen, idx) => {
+        const item = document.createElement('div');
+        item.className = 'std-gen-item'
+            + (gen.kind === 'cone' ? ' stabilizer' : '')
+            + (gen.isParabolic ? ' parabolic' : '')
+            + (gen.unpaired ? ' unpaired' : '');
+
+        const wordSpan = document.createElement('span');
+        wordSpan.className = 'std-gen-word';
+        wordSpan.innerHTML = `\\(${formatWordMathJax(gen.word)}\\)`;
+
+        const typeSpan = document.createElement('span');
+        typeSpan.className = 'std-gen-type';
+        typeSpan.textContent = gen.unpaired ? 'unpaired!'
+            : (gen.kind === 'cone' ? 'rotation' : (gen.isParabolic ? 'cusp' : 'face'));
+
+        item.appendChild(wordSpan);
+        item.appendChild(typeSpan);
+        item.addEventListener('click', (e) => animateStdGenerator(idx, e));
+        container.appendChild(item);
+    });
+
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise([container]);
+    }
+    updateCurrentElementDisplay();
+}
+
+function updateCurrentElementDisplay() {
+    const display = document.getElementById('current-element-display');
+    if (!display) return;
+    display.innerHTML = `\\(${formatWordMathJax(reduceWord(cumulativeWord))}\\)`;
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise([display]);
+    }
+}
+
+// --- Cayley graph ---
+function getHyperbolicGeodesic(p1, p2, segments = 16) {
+    const cross = new THREE.Vector3().crossVectors(p1, p2);
+    if (cross.length() < 1e-6) return [p1, p2];
+
+    const v1 = p1.clone(), v2 = p2.clone(), v3 = cross;
     const d1 = (p1.lengthSq() + 1) / 2;
     const d2 = (p2.lengthSq() + 1) / 2;
     const d3 = 0;
-
     const detM = (v1.x * (v2.y * v3.z - v2.z * v3.y) -
         v1.y * (v2.x * v3.z - v2.z * v3.x) +
         v1.z * (v2.x * v3.y - v2.y * v3.x));
-
     if (Math.abs(detM) < 1e-9) return [p1, p2];
 
     const center = new THREE.Vector3(
@@ -137,42 +294,32 @@ function getHyperbolicGeodesic(p1, p2, segments = 16) {
         (v1.x * (d2 * v3.z - v2.z * d3) - d1 * (v2.x * v3.z - v2.z * v3.x) + v1.z * (v2.x * d3 - d2 * v3.x)) / detM,
         (v1.x * (v2.y * d3 - d2 * v3.y) - v1.y * (v2.x * d3 - d2 * v3.x) + d1 * (v2.x * v3.y - v2.y * v3.x)) / detM
     );
-
     const radius = Math.sqrt(Math.max(0, center.lengthSq() - 1));
     const r1 = p1.clone().sub(center);
     const r2 = p2.clone().sub(center);
-
     const arcPoints = [];
     for (let i = 0; i <= segments; i++) {
         const t = i / segments;
-        const p = new THREE.Vector3().lerpVectors(r1, r2, t).normalize().multiplyScalar(radius).add(center);
-        arcPoints.push(p);
+        arcPoints.push(new THREE.Vector3().lerpVectors(r1, r2, t).normalize().multiplyScalar(radius).add(center));
     }
     return arcPoints;
 }
 
 function buildTGenerators() {
-    // Build generators list from standard generators (face pairings)
-    // Each std generator t gets paired with its inverse: [t1, t1^-1, t2, t2^-1, ...]
-    // We skip stabilizers — only face pairings contribute edges
     const tGens = [];
     const seen = new Set();
-
     for (const gen of stdGenerators) {
-        if (gen.isStabilizer) continue;
-        // Use word as a dedup key (avoid adding both t and t^{-1} as separate generators)
-        const wordKey = gen.wordArr.join(',');
-        const invWordKey = gen.wordArr.slice().reverse().map(i => -i).join(',');
-        if (seen.has(wordKey) || seen.has(invWordKey)) continue;
+        if (gen.unpaired) continue;
+        const wordKey = gen.word.join(',');
+        const invKey = invertWord(gen.word).join(',');
+        if (seen.has(wordKey) || seen.has(invKey)) continue;
         seen.add(wordKey);
-        tGens.push({ matrix: gen.matrix, wordArr: gen.wordArr });
+        tGens.push(gen);
     }
-
-    // Build interleaved [g, g^-1, ...] array
     const generators = [];
     for (const g of tGens) {
         generators.push(g.matrix);
-        generators.push(g.matrix.inv());
+        generators.push(g.matrix.inv().normalized());
     }
     return { generators, numTypes: tGens.length };
 }
@@ -182,367 +329,124 @@ function updateCayley() {
     if (cayleyMode === 'off') return;
 
     let generators, numTypes;
-
     let depth = currentDepth;
-
     if (cayleyMode === 'T') {
-        // Use standard generators (face pairings)
         if (stdGenerators.length === 0) return;
-        const tResult = buildTGenerators();
-        generators = tResult.generators;
-        numTypes = tResult.numTypes;
-        // Auto-clamp depth for T generators to prevent combinatorial explosion
-        // With n generators (2n with inverses), BFS grows as ~(2n-1)^depth
+        const t = buildTGenerators();
+        generators = t.generators;
+        numTypes = t.numTypes;
         if (numTypes > 20) depth = Math.min(depth, 2);
         else if (numTypes > 10) depth = Math.min(depth, 3);
         else if (numTypes > 5) depth = Math.min(depth, 4);
     } else {
-        // Use input generators (S)
         if (currentGenerators.length === 0) return;
         generators = currentGenerators;
         numTypes = currentMatrices.length;
     }
-
     if (generators.length === 0) return;
 
-    const maxNodes = cayleyMode === 'T' ? 15000 : 15000;
-    const { points, edges } = getCayleyGraph(generators, depth, viewMatrix, maxNodes);
+    const { points, edges } = getCayleyGraph(generators, depth, viewMatrix, 15000);
 
-    // Vertices - deduplicate by position for visualization
     const ptGeom = new THREE.SphereGeometry(0.015, 8, 8);
-    const ptMat = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 1.0,
-        depthTest: true,
-        depthWrite: false
-    });
+    const ptMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false });
     const seenPositions = new Set();
-
     points.forEach(p => {
         const key = `${p.x.toFixed(5)},${p.y.toFixed(5)},${p.z.toFixed(5)}`;
-        if (!seenPositions.has(key)) {
-            seenPositions.add(key);
-            const pt = new THREE.Mesh(ptGeom, ptMat);
-            pt.position.copy(p);
-            const distToBoundary = 1.0 - p.length();
-            pt.scale.setScalar(Math.max(0.1, distToBoundary * 1.5));
-            pt.renderOrder = 1;
-            cayleyGroup.add(pt);
-        }
+        if (seenPositions.has(key)) return;
+        seenPositions.add(key);
+        const pt = new THREE.Mesh(ptGeom, ptMat);
+        pt.position.copy(p);
+        pt.scale.setScalar(Math.max(0.1, (1 - p.length()) * 1.5));
+        pt.renderOrder = 1;
+        cayleyGroup.add(pt);
     });
 
-    // Create a separate LineSegments object for each generator type
     for (let type = 0; type < numTypes; type++) {
         const typeEdges = edges.filter(e => e.type === type);
         if (typeEdges.length === 0) continue;
-
         const edgePoints = [];
         for (const { u, v } of typeEdges) {
-            // Skip degenerate edges (both endpoints at same position - from stabilizers)
-            const dist = points[u].distanceTo(points[v]);
-            if (dist < 1e-5) continue;
-
-            const geodesic = getHyperbolicGeodesic(points[u], points[v]);
-            for (let i = 0; i < geodesic.length - 1; i++) {
-                edgePoints.push(geodesic[i], geodesic[i + 1]);
-            }
+            if (points[u].distanceTo(points[v]) < 1e-5) continue;
+            const geo = getHyperbolicGeodesic(points[u], points[v]);
+            for (let i = 0; i < geo.length - 1; i++) edgePoints.push(geo[i], geo[i + 1]);
         }
-
         if (edgePoints.length === 0) continue;
-
         const lineGeom = new THREE.BufferGeometry().setFromPoints(edgePoints);
         const lineMat = new THREE.LineBasicMaterial({
             color: generatorColors[type % generatorColors.length],
-            transparent: true,
-            opacity: 0.8,
-            depthTest: true,
-            depthWrite: false
+            transparent: true, opacity: 0.8, depthWrite: false
         });
         const lines = new THREE.LineSegments(lineGeom, lineMat);
         lines.renderOrder = 1;
         cayleyGroup.add(lines);
     }
 }
-// Create a spherical cap mesh for a hyperbolic bisector
-// The bisector is a sphere orthogonal to the unit sphere
-function createBisectorWall(p1, p2, color) {
-    // Skip if points are too close or on boundary
-    if (p1.distanceTo(p2) < 0.001) return null;
-    if (p1.lengthSq() > 0.999 || p2.lengthSq() > 0.999) return null;
 
-    // Get the proper hyperbolic bisector sphere
-    const bisector = getBisectorSphere(p1, p2);
-    const center = new THREE.Vector3(bisector.x, bisector.y, bisector.z);
-    const radius = Math.abs(bisector.w);
+// --- Walls (translucent meshes of accepted domain walls) ---
+function createWallMesh(wall, color) {
+    const geom = wall.geom;
+    let mesh = null;
 
-    // Skip degenerate cases
-    if (radius < 0.001 || radius > 100) return null;
+    if (geom.type === 'plane') {
+        // Disk: plane through origin ∩ unit ball = unit disk
+        const g = new THREE.CircleGeometry(1, 64);
+        const mat = new THREE.MeshBasicMaterial({
+            color, transparent: true, opacity: wallsOpacity * 0.4,
+            side: THREE.DoubleSide, depthWrite: false
+        });
+        mesh = new THREE.Mesh(g, mat);
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), geom.n);
+    } else {
+        const { c: center, r: radius } = geom;
+        const centerDist = center.length();
+        if (centerDist < 0.001 || radius > 100) return null;
+        const cosTheta = Math.min(1, radius / centerDist);
+        const thetaMax = Math.acos(Math.min(1, Math.max(-1, cosTheta)));
 
-    // The bisector sphere intersects the unit sphere orthogonally
-    // The intersection circle has radius: sqrt(R^2 - (d^2 - 1)) where d = |center|
-    // For orthogonal spheres: |center|^2 = R^2 + 1, so the cap angle is:
-    // cos(theta) = 1/|center| (where theta is from center toward unit sphere)
-
-    const centerDist = center.length();
-    if (centerDist < 0.001) return null;
-
-    // Compute the angular extent of the cap (portion inside unit ball)
-    // The sphere intersects unit sphere at angle theta from center direction
-    // where cos(theta) = (|C|^2 + R^2 - 1) / (2 * |C| * R)
-    // For orthogonal case: |C|^2 = R^2 + 1, so cos(theta) = R / |C|
-    const cosTheta = radius / centerDist;
-    const thetaMax = Math.acos(Math.min(1, Math.max(-1, cosTheta)));
-
-    // Create a partial sphere geometry (spherical cap)
-    // We want the portion of the sphere that's inside the unit ball
-    // This is a cap from phi=0 to phi=thetaMax
-    const segments = 32;
-    const rings = 16;
-
-    const geometry = new THREE.BufferGeometry();
-    const vertices = [];
-    const indices = [];
-
-    // Generate vertices for spherical cap
-    for (let i = 0; i <= rings; i++) {
-        const phi = (i / rings) * thetaMax;  // From pole to edge
-        const sinPhi = Math.sin(phi);
-        const cosPhi = Math.cos(phi);
-
-        for (let j = 0; j <= segments; j++) {
-            const theta = (j / segments) * Math.PI * 2;
-
-            // Point on unit sphere centered at origin
-            const x = sinPhi * Math.cos(theta);
-            const y = sinPhi * Math.sin(theta);
-            const z = cosPhi;
-
-            vertices.push(x * radius, y * radius, z * radius);
+        const segments = 32, rings = 16;
+        const g = new THREE.BufferGeometry();
+        const vertices = [], indices = [];
+        for (let i = 0; i <= rings; i++) {
+            const phi = (i / rings) * thetaMax;
+            const sinPhi = Math.sin(phi), cosPhi = Math.cos(phi);
+            for (let j = 0; j <= segments; j++) {
+                const th = (j / segments) * Math.PI * 2;
+                vertices.push(sinPhi * Math.cos(th) * radius, sinPhi * Math.sin(th) * radius, cosPhi * radius);
+            }
         }
-    }
-
-    // Generate indices
-    for (let i = 0; i < rings; i++) {
-        for (let j = 0; j < segments; j++) {
-            const a = i * (segments + 1) + j;
-            const b = a + segments + 1;
-
-            indices.push(a, b, a + 1);
-            indices.push(b, b + 1, a + 1);
+        for (let i = 0; i < rings; i++) {
+            for (let j = 0; j < segments; j++) {
+                const a = i * (segments + 1) + j;
+                const b = a + segments + 1;
+                indices.push(a, b, a + 1, b, b + 1, a + 1);
+            }
         }
+        g.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        g.setIndex(indices);
+        g.computeVertexNormals();
+        const mat = new THREE.MeshBasicMaterial({
+            color, transparent: true, opacity: wallsOpacity * 0.4,
+            side: THREE.DoubleSide, depthWrite: false
+        });
+        mesh = new THREE.Mesh(g, mat);
+        mesh.position.copy(center);
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), center.clone().negate().normalize());
     }
-
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-
-    const mat = new THREE.MeshBasicMaterial({
-        color: color,
-        transparent: true,
-        opacity: wallsOpacity * 0.4,  // Max opacity of 0.4 when fully visible
-        side: THREE.DoubleSide,
-        depthWrite: false
-    });
-
-    const mesh = new THREE.Mesh(geometry, mat);
-
-    // Position at center and orient so the cap points toward origin
-    mesh.position.copy(center);
-
-    // Rotate so +Z (the pole) points toward origin
-    const toOrigin = center.clone().negate().normalize();
-    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), toOrigin);
-
     return mesh;
 }
 
 function updateWalls() {
     wallsGroup.clear();
-    if (currentGenerators.length === 0) return;
-
-    const { points, edges } = getCayleyGraph(currentGenerators, currentDepth, viewMatrix);
-    const numMatrices = currentMatrices.length;
-
-    // Track seen bisectors to avoid duplicates
-    const seenBisectors = new Set();
-
-    for (const { u, v, type } of edges) {
-        const p1 = points[u];
-        const p2 = points[v];
-
-        // Create a key for this bisector (order-independent)
-        const key1 = `${p1.x.toFixed(4)},${p1.y.toFixed(4)},${p1.z.toFixed(4)}`;
-        const key2 = `${p2.x.toFixed(4)},${p2.y.toFixed(4)},${p2.z.toFixed(4)}`;
-        const bisectorKey = key1 < key2 ? `${key1}-${key2}` : `${key2}-${key1}`;
-
-        if (seenBisectors.has(bisectorKey)) continue;
-        seenBisectors.add(bisectorKey);
-
-        const color = generatorColors[type % generatorColors.length];
-        const wall = createBisectorWall(p1, p2, color);
-        if (wall) {
-            wallsGroup.add(wall);
-        }
-    }
-}
-
-function updateIsometryButtons() {
-    const container = document.getElementById('isometry-controls');
-    if (!container) return;
-    container.innerHTML = '';
-
-    currentMatrices.forEach((_, idx) => {
-        const btn = document.createElement('button');
-        btn.className = 'isometry-btn';
-        btn.setAttribute('data-gen', idx);
-        btn.textContent = `g${idx + 1}`;
-        btn.addEventListener('click', (e) => animateIsometry(idx, e));
-        container.appendChild(btn);
-    });
-}
-
-
-// Store cached domain result and standard generators
-let cachedDomain = null;
-let stdGenerators = [];
-let actualFaceCount = 0;
-
-function updateDomain() {
-    cachedDomain = computeDirichletDomain(currentGenerators, viewMatrix, currentMaxFaces);
-    material.uniforms.u_faces.value = cachedDomain.faces;
-    material.uniforms.u_faceCount.value = cachedDomain.count;
-    return cachedDomain.count;
-}
-let cumulativeWord = [];  // Track the word representing the current viewMatrix
-
-function updateCurrentElementDisplay() {
-    const display = document.getElementById('current-element-display');
-    if (!display) return;
-
-    const reducedWord = reduceWord(cumulativeWord);
-    const wordLatex = formatWordMathJax(reducedWord);
-    display.innerHTML = `\\(${wordLatex}\\)`;
-
-    // Trigger MathJax to re-render
-    if (window.MathJax && window.MathJax.typesetPromise) {
-        window.MathJax.typesetPromise([display]);
-    }
-}
-
-function updateStdGeneratorsList() {
-    const container = document.getElementById('std-generators-list');
-    if (!container) return;
-
-    // Build stdGenerators from cached domain result
     if (!cachedDomain) return;
-
-    stdGenerators = [
-        ...cachedDomain.stabilizers.map(s => ({ ...s, isStabilizer: true, face: null, faceUniformIdx: undefined })),
-        ...cachedDomain.pairings.map(p => ({
-            ...p,
-            faceUniformIdx: p.faceIndex  // Direct index — no matching needed
-        }))
-    ];
-
-    // Sort by word length, then lexicographic
-    stdGenerators.sort((a, b) => {
-        if (a.wordArr.length !== b.wordArr.length) return a.wordArr.length - b.wordArr.length;
-        for (let i = 0; i < a.wordArr.length; i++) {
-            if (a.wordArr[i] !== b.wordArr[i]) return a.wordArr[i] - b.wordArr[i];
-        }
-        return 0;
+    cachedDomain.walls.forEach((w, i) => {
+        const color = w.kind === 'cone' ? 0xffffff : generatorColors[i % generatorColors.length];
+        const m = createWallMesh(w, color);
+        if (m) wallsGroup.add(m);
     });
-
-    container.innerHTML = '';
-
-    if (stdGenerators.length === 0) {
-        container.innerHTML = '<p class="empty-message">No standard generators found</p>';
-        return;
-    }
-
-    stdGenerators.forEach((gen, idx) => {
-        const item = document.createElement('div');
-        item.className = 'std-gen-item' + (gen.isStabilizer ? ' stabilizer' : '') + (gen.isParabolic ? ' parabolic' : '');
-
-        const wordSpan = document.createElement('span');
-        wordSpan.className = 'std-gen-word';
-        const wordLatex = formatWordMathJax(gen.wordArr);
-        wordSpan.innerHTML = `\\(${wordLatex}\\)`;
-
-        const typeSpan = document.createElement('span');
-        typeSpan.className = 'std-gen-type';
-        typeSpan.textContent = gen.isStabilizer ? 'stabilizer' : (gen.isParabolic ? 'cusp' : 'face');
-
-        item.appendChild(wordSpan);
-        item.appendChild(typeSpan);
-
-        // Click to animate this isometry
-        item.addEventListener('click', (e) => {
-            animateStdGenerator(idx, e);
-        });
-
-        container.appendChild(item);
-    });
-
-    // Trigger MathJax to render the words
-    if (window.MathJax && window.MathJax.typesetPromise) {
-        window.MathJax.typesetPromise([container]);
-    }
-
-    // Update the current element display
-    updateCurrentElementDisplay();
 }
 
-function setMirrorStatus(message = '', statusClass = '') {
-    const statusEl = document.getElementById('mirror-status');
-    if (!statusEl) return;
-    statusEl.textContent = message;
-    statusEl.classList.remove('success', 'error');
-    if (statusClass) statusEl.classList.add(statusClass);
-}
-
-function setMirrorMode(enabled) {
-    mirrorMode = enabled;
-    material.fragmentShader = mirrorMode ? mirrorFragmentShader : fragmentShader;
-    material.needsUpdate = true;
-
-    const mirrorBtn = document.getElementById('open-mirror-btn');
-    if (mirrorBtn) {
-        mirrorBtn.textContent = 'Mirror';
-        updateToggleBtn(mirrorBtn, mirrorMode);
-    }
-
-    if (mirrorMode) {
-        setMirrorStatus('Mirror rendering active in this viewport.', 'success');
-    } else {
-        setMirrorStatus('Standard polyhedron rendering active.');
-    }
-}
-
-function toggleMirrorView() {
-    const faceCount = material.uniforms.u_faceCount.value || 0;
-    if (faceCount <= 0) {
-        setMirrorStatus('No domain faces available. Click Refresh first.', 'error');
-        return;
-    }
-    setMirrorMode(!mirrorMode);
-}
-
-function animateStdGenerator(idx, event) {
-    if (animatingIsometry || idx >= stdGenerators.length) return;
-
-    const gen = stdGenerators[idx];
-    let g = gen.matrix;
-    let wordToAppend = [...gen.wordArr];
-
-    // Use inverse if Cmd/Ctrl is held
-    if (event && (event.metaKey || event.ctrlKey)) {
-        g = g.inv();
-        // Invert the word: reverse and negate each index
-        wordToAppend = gen.wordArr.slice().reverse().map(idx => -idx);
-    }
-
+// --- Isometry animation ---
+function animateMatrix(g, wordToAppend, onDone) {
     try {
         const X = g.log();
         const startView = viewMatrix;
@@ -553,15 +457,10 @@ function animateStdGenerator(idx, event) {
         function step(now) {
             const t = Math.min((now - startTime) / duration, 1);
             const eased = t * t * (3 - 2 * t);
+            const tX = new Matrix2x2(X.a.mul(eased), X.b.mul(eased), X.c.mul(eased), X.d.mul(eased));
+            viewMatrix = startView.mul(Matrix2x2.exp(tX));
 
-            const tX = new Matrix2x2(
-                X.a.mul(eased), X.b.mul(eased),
-                X.c.mul(eased), X.d.mul(eased)
-            );
-            const gt = Matrix2x2.exp(tX);
-            viewMatrix = startView.mul(gt);
-
-            updateDomain();
+            updateDomain({ fast: true });
             if (cayleyMode !== 'off') updateCayley();
             if (wallsOpacity > 0) updateWalls();
 
@@ -569,9 +468,12 @@ function animateStdGenerator(idx, event) {
                 requestAnimationFrame(step);
             } else {
                 animatingIsometry = false;
-                // Append to cumulative word and reduce
                 cumulativeWord = reduceWord([...cumulativeWord, ...wordToAppend]);
+                updateDomain();          // full recompute with pairings
                 updateStdGeneratorsList();
+                if (wallsOpacity > 0) updateWalls();
+                runCertifier();
+                if (onDone) onDone();
             }
         }
         requestAnimationFrame(step);
@@ -581,190 +483,129 @@ function animateStdGenerator(idx, event) {
     }
 }
 
-// --- Double-click to animate face pairing ---
-function mapSDF(p, faces, faceCount) {
-    // Returns {d, bestId} - matches shader map() function
-    // Domain is intersection of half-spaces, so we use max
-    let d = p.length() - 1.0;  // Start with unit ball distance
-    let bestId = -1;
+function animateStdGenerator(idx, event) {
+    if (animatingIsometry || idx >= stdGenerators.length) return;
+    const gen = stdGenerators[idx];
+    let g = gen.matrix;
+    let word = [...gen.word];
+    if (event && (event.metaKey || event.ctrlKey)) {
+        g = g.inv().normalized();
+        word = invertWord(gen.word);
+    }
+    animateMatrix(g, word);
+}
 
-    for (let i = 0; i < faceCount; i++) {
-        const df = sdFace(p, faces[i]);
-        if (df > d) {
-            d = df;
-            bestId = i;
-        }
+function animateIsometry(genIndex, event) {
+    if (animatingIsometry || genIndex >= currentMatrices.length) return;
+    let g = currentMatrices[genIndex];
+    let word = [genIndex + 1];
+    if (event && (event.metaKey || event.ctrlKey)) {
+        g = g.inv().normalized();
+        word = [-(genIndex + 1)];
+    }
+    animateMatrix(g, word);
+}
+
+// --- Face picking (double-click) ---
+function mapSDF(p) {
+    const walls = cachedDomain ? cachedDomain.walls : [];
+    let d = p.length() - 1.0;
+    let bestId = -1;
+    for (let i = 0; i < walls.length; i++) {
+        const df = wallSD(p, walls[i].geom);
+        if (df > d) { d = df; bestId = i; }
     }
     return { d, bestId };
 }
 
-function findClickedFace(ray) {
-    // Raymarch along the ray to find where we hit the domain boundary
-    const faces = material.uniforms.u_faces.value;
-    const faceCount = material.uniforms.u_faceCount.value;
-
-    if (faceCount === 0) return -1;
-
-    const EPSILON = 0.002;
-    const MAX_DIST = 10;
-    let t = 0.01;  // Start slightly forward
-
+function findClickedWall(ray) {
+    if (!cachedDomain || cachedDomain.count === 0) return -1;
+    const EPSILON = 0.002, MAX_DIST = 10;
+    let t = 0.01;
     for (let iter = 0; iter < 200; iter++) {
         const p = ray.origin.clone().add(ray.direction.clone().multiplyScalar(t));
-
-        // If we're way outside, early exit
         if (p.length() > 2.0) {
             t += 0.05;
             if (t > MAX_DIST) return -1;
             continue;
         }
-
-        const { d, bestId } = mapSDF(p, faces, faceCount);
-
-        // We're on the surface when d is close to 0
-        if (Math.abs(d) < EPSILON && bestId >= 0) {
-            return bestId;
-        }
-
-        // Step by the absolute distance (we might be inside or outside)
-        const stepSize = Math.max(EPSILON, Math.abs(d) * 0.9);
-        t += stepSize;
-
+        const { d, bestId } = mapSDF(p);
+        if (Math.abs(d) < EPSILON && bestId >= 0) return bestId;
+        t += Math.max(EPSILON, Math.abs(d) * 0.9);
         if (t > MAX_DIST) return -1;
     }
     return -1;
 }
 
 function handleDoubleClick(event) {
-    if (animatingIsometry) return;
-
+    if (animatingIsometry || !cachedDomain) return;
     const rect = renderer.domElement.getBoundingClientRect();
     const mouse = new THREE.Vector2(
         ((event.clientX - rect.left) / rect.width) * 2 - 1,
         -((event.clientY - rect.top) / rect.height) * 2 + 1
     );
-
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, camera);
-
-    const faceIdx = findClickedFace(raycaster.ray);
-    if (faceIdx < 0) return;
-
-    // Find the stdGenerator that matches this face by uniform index
-    for (let i = 0; i < stdGenerators.length; i++) {
-        const gen = stdGenerators[i];
-        if (gen.faceUniformIdx === faceIdx) {
-            // Apply inverse so that clicking on a face moves it to its paired face
-            // Create a fake event with ctrlKey set to invert the isometry
-            const inverseEvent = { metaKey: true, ctrlKey: true };
-            animateStdGenerator(i, inverseEvent);
-            return;
-        }
-    }
+    const wallIdx = findClickedWall(raycaster.ray);
+    if (wallIdx < 0) return;
+    const wall = cachedDomain.walls[wallIdx];
+    if (!wall.pairing) return;
+    // Apply the pairing transformation: moves this face onto its partner.
+    animateMatrix(wall.pairing.alg, wall.pairing.word);
 }
-
-// Add double-click listener
 renderer.domElement.addEventListener('dblclick', handleDoubleClick);
+
+// --- UI plumbing ---
+function updateIsometryButtons() {
+    const c = document.getElementById('isometry-controls');
+    if (!c) return;
+    c.innerHTML = '';
+    currentMatrices.forEach((_, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'isometry-btn';
+        btn.textContent = `g${idx + 1}`;
+        btn.addEventListener('click', (e) => animateIsometry(idx, e));
+        c.appendChild(btn);
+    });
+}
 
 function refreshFromUI() {
     const errorEl = document.getElementById('matrix-error-message');
     try {
         currentMatrices = getMatricesFromUI();
-        currentGenerators = getGeneratorsFromUI();
-
-        // Update word length from input
-        const wordLengthInput = document.getElementById('wordLength');
-        if (wordLengthInput) {
-            currentDepth = parseInt(wordLengthInput.value) || 6;
+        currentGenerators = [];
+        for (const m of currentMatrices) {
+            currentGenerators.push(m);
+            currentGenerators.push(m.inv().normalized());
         }
+        const wordLengthInput = document.getElementById('wordLength');
+        if (wordLengthInput) currentDepth = parseInt(wordLengthInput.value) || 8;
 
         if (errorEl) errorEl.textContent = '';
-
-        // Reset view matrix and cumulative word when generators change
-        viewMatrix = new Matrix2x2(1, 0, 0, 1);
+        viewMatrix = Matrix2x2.identity();
         cumulativeWord = [];
 
-        actualFaceCount = updateDomain();
+        updateDomain();
         updateIsometryButtons();
         updateStdGeneratorsList();
-        if (!mirrorMode) setMirrorStatus('');
         if (cayleyMode !== 'off') updateCayley();
         if (wallsOpacity > 0) updateWalls();
+        runCertifier();
     } catch (e) {
         if (errorEl) errorEl.textContent = e.message;
         console.error('Error parsing matrices:', e);
     }
 }
 
-function animateIsometry(genIndex, event) {
-    if (animatingIsometry || genIndex >= currentMatrices.length) return;
-
-    let g = currentMatrices[genIndex];
-
-    // Use inverse if Cmd/Ctrl is held
-    if (event && (event.metaKey || event.ctrlKey)) {
-        g = g.inv();
-    }
-
-    try {
-        const X = g.log();
-        const startView = viewMatrix;
-        const duration = 1000;
-        const startTime = performance.now();
-        animatingIsometry = true;
-
-        function step(now) {
-            const t = Math.min((now - startTime) / duration, 1);
-            const eased = t * t * (3 - 2 * t);
-
-            const tX = new Matrix2x2(
-                X.a.mul(eased), X.b.mul(eased),
-                X.c.mul(eased), X.d.mul(eased)
-            );
-            const gt = Matrix2x2.exp(tX);
-            viewMatrix = startView.mul(gt);
-
-            updateDomain();
-            if (cayleyMode !== 'off') updateCayley();
-            if (wallsOpacity > 0) updateWalls();
-
-            if (t < 1) {
-                requestAnimationFrame(step);
-            } else {
-                animatingIsometry = false;
-            }
-        }
-        requestAnimationFrame(step);
-    } catch (e) {
-        console.error('Animation error:', e);
-        animatingIsometry = false;
-    }
-}
-
-// --- UI Setup ---
 function initUI() {
     setupControlPanel({
-        onOpacityChange: (opacity) => {
-            material.uniforms.u_opacity.value = opacity;
-            mesh.visible = opacity > 0;
-        },
-        onPolyhedronOpacity: (opacity) => {
-            material.uniforms.u_opacity.value = opacity;
-            mesh.visible = opacity > 0;
-        },
-        onWallsOpacity: (opacity) => {
-            wallsOpacity = opacity;
-            wallsGroup.visible = opacity > 0;
-            // Update all existing wall materials
-            wallsGroup.children.forEach(child => {
-                if (child.material) {
-                    child.material.opacity = opacity * 0.4;
-                }
-            });
-            // Rebuild walls if turning on and empty
-            if (opacity > 0 && wallsGroup.children.length === 0) {
-                updateWalls();
-            }
+        onOpacityChange: (o) => { material.uniforms.u_opacity.value = o; mesh.visible = o > 0; },
+        onPolyhedronOpacity: (o) => { material.uniforms.u_opacity.value = o; mesh.visible = o > 0; },
+        onWallsOpacity: (o) => {
+            wallsOpacity = o;
+            wallsGroup.visible = o > 0;
+            wallsGroup.children.forEach(ch => { if (ch.material) ch.material.opacity = o * 0.4; });
+            if (o > 0 && wallsGroup.children.length === 0) updateWalls();
         },
         onCayleyModeChange: (mode) => {
             cayleyMode = mode;
@@ -790,38 +631,59 @@ function initUI() {
         onFaceCountChange: (count) => {
             currentMaxFaces = count;
             updateDomain();
+            updateStdGeneratorsList();
+            runCertifier();
         },
         onWordLengthChange: (depth) => {
             currentDepth = depth;
+            updateDomain();
+            updateStdGeneratorsList();
             if (cayleyMode !== 'off') updateCayley();
             if (wallsOpacity > 0) updateWalls();
+            runCertifier();
         },
         onPaletteChange: (paletteKey) => {
-            const palette = colorPalettes[paletteKey];
-            material.uniforms.u_colorMode.value = palette.mode;
-            material.uniforms.u_colorOffset.value.copy(palette.offset);
-            material.uniforms.u_colorFreq.value = palette.freq;
+            const p = colorPalettes[paletteKey];
+            material.uniforms.u_colorMode.value = p.mode;
+            material.uniforms.u_colorOffset.value.copy(p.offset);
+            material.uniforms.u_colorFreq.value = p.freq;
         },
-        controls,
-        mesh,
-        cayleyGroup,
-        material
+        controls, mesh, cayleyGroup, material
     });
 
-    const mirrorBtn = document.getElementById('open-mirror-btn');
+    const mirrorBtn = document.getElementById('toggle-mirror');
     if (mirrorBtn) {
-        mirrorBtn.addEventListener('click', toggleMirrorView);
+        mirrorBtn.addEventListener('click', () => setMirrorMode(!mirrorMode));
     }
-    setMirrorMode(false);
+
+    const exportBtn = document.getElementById('export-3mf');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', async () => {
+            if (exportBtn.disabled) return;
+            const label = exportBtn.textContent;
+            exportBtn.disabled = true;
+            exportBtn.textContent = 'Exporting…';
+            try {
+                // Yield a frame so the button repaints before the mesh build
+                await new Promise(r => setTimeout(r, 30));
+                const { vertices, triangles } = await exportDomainAs3MF(cachedDomain);
+                console.log(`3MF export: ${vertices} vertices, ${triangles} triangles`);
+            } catch (e) {
+                console.error('3MF export failed:', e);
+                setBanner('warning', '3MF export failed: ' + e.message);
+            } finally {
+                exportBtn.disabled = false;
+                exportBtn.textContent = label;
+            }
+        });
+    }
 }
 
 function animate(time) {
     requestAnimationFrame(animate);
     controls.update();
-
     material.uniforms.u_cameraPos.value.copy(camera.position);
     material.uniforms.u_time.value = time * 0.001;
-
     renderer.render(scene, camera);
 }
 
@@ -831,13 +693,7 @@ window.addEventListener('resize', () => {
     renderer.setSize(container.clientWidth, container.clientHeight);
 });
 
-// Initialize
 initUI();
 setupMatrixInput(refreshFromUI);
-
-// Initial refresh after a short delay to let MathQuill initialize
-setTimeout(() => {
-    refreshFromUI();
-}, 200);
-
+setTimeout(refreshFromUI, 200);
 animate(0);
