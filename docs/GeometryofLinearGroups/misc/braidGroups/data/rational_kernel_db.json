@@ -1,0 +1,796 @@
+{
+ "_meta": {
+  "title": "Kernel words for the reduced Burau representation of B4 at rational specializations t = p/q",
+  "date": "2026-06-11",
+  "construction": "Work in Birman's free subgroup F2 = <X, Y> of B4 (X = s3 s1^-1, Y = s2 s3 s1^-1 s2^-1). The element u = x Y X y is lower triangular over Z[t,t^-1] with diagonal (t^4, t^-2, t^-2); its Levi 2x2 block is the central matrix t^-2 I. Hence for any word p whose Burau matrix at t has first row proportional to e1^T ('parabolic'), v = [p, u] lies in the abelian unipotent group N = I + (a e2 + b e3) e1^T, where conjugation by u^-1 is multiplication by t^6 and v^k = I + k(v - I). At t = p/q this gives the exact relation u^-1 v^{q^6} u = v^{p^6}, so R = u^-1 v^{q^6} u v^{-p^6} is a nontrivial element of F2 (conjugate powers in a free group have equal exponents) in the kernel of Burau at t. Parabolic words are found by exact projective collisions of first rows. All verifications use exact rational arithmetic.",
+  "scripts": [
+   "rationalKernelSearch.py",
+   "symbolicParabolicSweep.py",
+   "padicTriBeam.py"
+  ],
+  "headline_results": [
+   "t=2: kernel words confirmed; new shorter unipotent v of length 36 (previous v = w2 u^-1 had length 96); explicit kernel word u^-1 v u v^-64 of length 2340 verified exactly.",
+   "t=1/2: mirror of t=2 under the t <-> 1/t symmetry; u^-1 v^64 u = v.",
+   "Among all 84 rationals p/q with |p|,q <= 8 (t != 0,+-1), ONLY t = 2 and t = 1/2 admit parabolic words with both collision constituents of length <= 11 (p of length <= 22).",
+   "Symbolic sweep of all 1,062,880 reduced words of length <= 12: no word is parabolic at any rational t outside {0,+-1} (no linear factors at all). 145,184 words are parabolic at algebraic points, dominated by the cyclotomic factor t^2-t+1 (zeta_6, 118,042 events) where t^6=1 makes the relation degenerate; non-cyclotomic algebraic specializations reachable at length <= 12 include roots of t^2+t-1, t^3-t^2+1, t^4+t-1, and many quintics/sextics.",
+   "t=3 deep scan: no parabolic words from collision constituents of length <= 15 (p of length <= 30).",
+   "The only words whose first row is proportional to e1^T identically in t (length <= 12) are the powers of u itself.",
+   "The 62-letter t=2 'relation' produced by the float beam search (formerly in relation_db.json drafts) is NOT a relation in exact arithmetic; the 92-letter w2 relation IS exact."
+  ],
+  "exponent_pattern": "The Baumslag-Solitar exponent is always t^6 = p^6/q^6, forced by diag(u) = (t^4, t^-2, t^-2): 64 = 2^6 at t=2. Conjugating by u^k gives t^{6k}."
+ },
+ "specializations": {
+  "-1/2": {
+   "t": "-1/2",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "1/2": {
+   "t": "1/2",
+   "n_parabolic_candidates": 131,
+   "bs_kernel_words": [
+    {
+     "p_word": "Y X Y X X Y Y x x Y Y x Y Y Y",
+     "v_word": "y y y X y y X X y y x x y x x y X Y X Y X X Y Y x x Y Y x Y Y Y x Y X y",
+     "v_length": 36,
+     "exponents": [
+      64,
+      1
+     ],
+     "ratio_t6": "1/64",
+     "kernel_word": "u^-1 v^64 u v^-1  (u = x Y X y, v = y y y X y y X X y y x x y x x y X Y X Y X X Y Y x x Y Y x Y Y Y x Y X y)",
+     "kernel_word_length": 2348,
+     "kernel_word_explicit_length": 2340
+    },
+    {
+     "p_word": "x x x x y x x y y x x Y Y x Y",
+     "v_word": "y X y y X X Y Y X X Y X X X X Y x y x x x y x x y y x x Y Y x Y x Y X y",
+     "v_length": 36,
+     "exponents": [
+      64,
+      1
+     ],
+     "ratio_t6": "1/64",
+     "kernel_word": "u^-1 v^64 u v^-1  (u = x Y X y, v = y X y y X X Y Y X X Y X X X X Y x y x x x y x x y y x x Y Y x Y x Y X y)",
+     "kernel_word_length": 2348
+    },
+    {
+     "p_word": "y X y y X X Y Y X X Y X X X X",
+     "v_word": "x x x x y x x y y x x Y Y x Y Y x y X y X y y X X Y Y X X Y X X X Y X y",
+     "v_length": 36,
+     "exponents": [
+      64,
+      1
+     ],
+     "ratio_t6": "1/64",
+     "kernel_word": "u^-1 v^64 u v^-1  (u = x Y X y, v = x x x x y x x y y x x Y Y x Y Y x y X y X y y X X Y Y X X Y X X X Y X y)",
+     "kernel_word_length": 2348
+    }
+   ],
+   "direct_kernel_words": [],
+   "params": {
+    "max_len": 11
+   },
+   "status": "kernel words found"
+  },
+  "-2": {
+   "t": "-2",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "2": {
+   "t": "2",
+   "n_parabolic_candidates": 135,
+   "bs_kernel_words": [
+    {
+     "p_word": "X X X y X X y y X X Y Y X Y X",
+     "v_word": "x y x y y x x Y Y x x Y x x x Y x y X X X X y X X y y X X Y Y X Y Y X y",
+     "v_length": 36,
+     "exponents": [
+      1,
+      64
+     ],
+     "ratio_t6": "64",
+     "kernel_word": "u^-1 v^1 u v^-64  (u = x Y X y, v = x y x y y x x Y Y x x Y x x x Y x y X X X X y X X y y X X Y Y X Y Y X y)",
+     "kernel_word_length": 2348,
+     "kernel_word_explicit_length": 2340
+    },
+    {
+     "p_word": "X y X X y y x x y y x y y y y",
+     "v_word": "Y Y Y Y X Y Y X X Y Y x x Y x Y x y X X y X X y y x x y y x y y y y x Y X y",
+     "v_length": 38,
+     "exponents": [
+      1,
+      64
+     ],
+     "ratio_t6": "64",
+     "kernel_word": "u^-1 v^1 u v^-64  (u = x Y X y, v = Y Y Y Y X Y Y X X Y Y x x Y x Y x y X X y X X y y x x y y x y y y y x Y X y)",
+     "kernel_word_length": 2478
+    },
+    {
+     "p_word": "Y Y Y Y X Y Y X X Y Y x x Y x",
+     "v_word": "X y X X y y x x y y x y y y x y X Y Y Y Y X Y Y X X Y Y x x Y x x Y X y",
+     "v_length": 36,
+     "exponents": [
+      1,
+      64
+     ],
+     "ratio_t6": "64",
+     "kernel_word": "u^-1 v^1 u v^-64  (u = x Y X y, v = X y X X y y x x y y x y y y x y X Y Y Y Y X Y Y X X Y Y x x Y x x Y X y)",
+     "kernel_word_length": 2348
+    }
+   ],
+   "direct_kernel_words": [],
+   "params": {
+    "max_len": 11
+   },
+   "status": "kernel words found"
+  },
+  "-1/3": {
+   "t": "-1/3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "1/3": {
+   "t": "1/3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "-2/3": {
+   "t": "-2/3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "2/3": {
+   "t": "2/3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "-3/2": {
+   "t": "-3/2",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "3/2": {
+   "t": "3/2",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "-3": {
+   "t": "-3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "3": {
+   "t": "3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 30,
+    "method": "deep collision scan, constituents <= 15"
+   }
+  },
+  "-1/4": {
+   "t": "-1/4",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "1/4": {
+   "t": "1/4",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-3/4": {
+   "t": "-3/4",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "3/4": {
+   "t": "3/4",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-4/3": {
+   "t": "-4/3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "4/3": {
+   "t": "4/3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "-4": {
+   "t": "-4",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "4": {
+   "t": "4",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "-1/5": {
+   "t": "-1/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "1/5": {
+   "t": "1/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-2/5": {
+   "t": "-2/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "2/5": {
+   "t": "2/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-3/5": {
+   "t": "-3/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "3/5": {
+   "t": "3/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-4/5": {
+   "t": "-4/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "4/5": {
+   "t": "4/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-5/4": {
+   "t": "-5/4",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "5/4": {
+   "t": "5/4",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "-5/3": {
+   "t": "-5/3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "5/3": {
+   "t": "5/3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "-5/2": {
+   "t": "-5/2",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "5/2": {
+   "t": "5/2",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "-5": {
+   "t": "-5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "5": {
+   "t": "5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "-1/6": {
+   "t": "-1/6",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "1/6": {
+   "t": "1/6",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-5/6": {
+   "t": "-5/6",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "5/6": {
+   "t": "5/6",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-6/5": {
+   "t": "-6/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "6/5": {
+   "t": "6/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-6": {
+   "t": "-6",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "6": {
+   "t": "6",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "-1/7": {
+   "t": "-1/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "1/7": {
+   "t": "1/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-2/7": {
+   "t": "-2/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "2/7": {
+   "t": "2/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-3/7": {
+   "t": "-3/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "3/7": {
+   "t": "3/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-4/7": {
+   "t": "-4/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "4/7": {
+   "t": "4/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-5/7": {
+   "t": "-5/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "5/7": {
+   "t": "5/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-6/7": {
+   "t": "-6/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "6/7": {
+   "t": "6/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-7/6": {
+   "t": "-7/6",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "7/6": {
+   "t": "7/6",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-7/5": {
+   "t": "-7/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "7/5": {
+   "t": "7/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-7/4": {
+   "t": "-7/4",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "7/4": {
+   "t": "7/4",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-7/3": {
+   "t": "-7/3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "7/3": {
+   "t": "7/3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-7/2": {
+   "t": "-7/2",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "7/2": {
+   "t": "7/2",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "-7": {
+   "t": "-7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "7": {
+   "t": "7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11",
+    "also": "direct search at max_len 12"
+   }
+  },
+  "-1/8": {
+   "t": "-1/8",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "1/8": {
+   "t": "1/8",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-3/8": {
+   "t": "-3/8",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "3/8": {
+   "t": "3/8",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-5/8": {
+   "t": "-5/8",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "5/8": {
+   "t": "5/8",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-7/8": {
+   "t": "-7/8",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "7/8": {
+   "t": "7/8",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-8/7": {
+   "t": "-8/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "8/7": {
+   "t": "8/7",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-8/5": {
+   "t": "-8/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "8/5": {
+   "t": "8/5",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-8/3": {
+   "t": "-8/3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "8/3": {
+   "t": "8/3",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "-8": {
+   "t": "-8",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  },
+  "8": {
+   "t": "8",
+   "status": "none found",
+   "search_depth": {
+    "max_p_len_excluded": 22,
+    "method": "projective first-row collision scan, constituents <= 11"
+   }
+  }
+ }
+}

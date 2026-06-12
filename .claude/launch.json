@@ -2,6 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "quaternionCalculatorLegacy",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/padicGroups/quaternionCalculatorLegacy && exec python3 -m http.server $PORT"
+      ],
+      "port": 8743,
+      "autoPort": true
+    },
+    {
       "name": "quaternionBeamSearch",
       "runtimeExecutable": "bash",
       "runtimeArgs": [
@@ -235,6 +245,34 @@
         "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/rileyHalfspaces && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8114), H).serve_forever()'"
       ],
       "port": 8114
+    },
+    {
+      "name": "burau",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/misc/braidGroups && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8744), H).serve_forever()'"
+      ],
+      "port": 8744,
+      "openPath": "/burau/"
+    },
+    {
+      "name": "longReid",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/misc/LongReid && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8745), H).serve_forever()'"
+      ],
+      "port": 8745
+    },
+    {
+      "name": "margulisSpacetimes",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/margulisSpacetimes && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8746), H).serve_forever()'"
+      ],
+      "port": 8746
     },
     {
       "name": "poincare4",

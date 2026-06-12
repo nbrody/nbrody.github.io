@@ -47,6 +47,9 @@ body, html {
     width: 100vw;
     height: 100vh;
     z-index: 0;
+    /* Backdrop behind the transparent WebGL canvas: deep-space vignette */
+    background:
+        radial-gradient(1100px 750px at 50% 42%, #0c1530 0%, #060c1e 55%, #02060f 100%);
 }
 
 #viz-container canvas {
@@ -79,6 +82,10 @@ body, html {
     transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
         opacity 0.3s ease,
         transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#theory-panel.hidden {
+    display: none;
 }
 
 #theory-panel.collapsed {
@@ -513,6 +520,19 @@ body, html {
     border-color: rgba(99, 102, 241, 0.4);
     color: var(--text);
     box-shadow: 0 0 8px rgba(99, 102, 241, 0.15);
+}
+
+.toggle-btn:disabled,
+.isometry-btn:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+.control-note {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: 2px 0 0;
 }
 
 /* Info sections */

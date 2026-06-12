@@ -551,6 +551,330 @@
     <script>
         var MQ = MathQuill.getInterface(2);
     </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- ============================================================
+         Modern overhaul stylesheet — overrides the legacy rules above.
+         Preserves all class/ID selectors the JS relies on.
+         ============================================================ -->
+    <style>
+        :root {
+            --bg-color: #eef1f8;
+            --bg-gradient: radial-gradient(1200px 700px at 15% -10%, #e7ecfb 0%, transparent 55%),
+                           radial-gradient(1000px 600px at 110% 10%, #f3e9fb 0%, transparent 50%),
+                           linear-gradient(180deg, #eef1f8 0%, #e9edf6 100%);
+            --container-bg: rgba(255, 255, 255, 0.72);
+            --container-border: rgba(255, 255, 255, 0.65);
+            --text-color: #2b3245;
+            --text-muted: #6b7689;
+            --heading-color: #1f2740;
+            --accent: #6366f1;
+            --accent-2: #8b5cf6;
+            --accent-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            --section-bg: rgba(255, 255, 255, 0.55);
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --border-muted: rgba(120, 130, 160, 0.25);
+            --shadow-soft: 0 10px 30px -12px rgba(40, 50, 90, 0.25);
+            --shadow-card: 0 4px 14px -6px rgba(40, 50, 90, 0.18);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', ui-monospace, "Fira Code", monospace;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0b0e17;
+            --bg-gradient: radial-gradient(1200px 700px at 15% -10%, #182135 0%, transparent 55%),
+                           radial-gradient(1000px 600px at 110% 10%, #221833 0%, transparent 50%),
+                           linear-gradient(180deg, #0b0e17 0%, #0d1019 100%);
+            --container-bg: rgba(24, 28, 42, 0.72);
+            --container-border: rgba(120, 140, 200, 0.18);
+            --text-color: #d8deee;
+            --text-muted: #8b95ad;
+            --heading-color: #e8edff;
+            --accent: #818cf8;
+            --accent-2: #a78bfa;
+            --accent-grad: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+            --section-bg: rgba(255, 255, 255, 0.04);
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --border-muted: rgba(140, 160, 220, 0.18);
+            --shadow-soft: 0 12px 36px -14px rgba(0, 0, 0, 0.7);
+            --shadow-card: 0 6px 18px -8px rgba(0, 0, 0, 0.6);
+        }
+
+        body {
+            font-family: var(--font-ui);
+            background: var(--bg-color);
+            background-image: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-color);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            padding: 2.5em 1.5em;
+        }
+
+        .container {
+            max-width: 1240px;
+            background: var(--container-bg);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            border: 1px solid var(--container-border);
+            border-radius: 24px;
+            box-shadow: var(--shadow-soft);
+            padding: 2em 2.2em;
+        }
+
+        h1 {
+            font-size: clamp(1.9rem, 3vw, 2.6rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            text-align: center;
+            border: none;
+            padding: 0;
+            margin: 0.2em 0 0.1em;
+            background: var(--accent-grad);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Section headers */
+        h2.collapsible-header {
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--heading-color);
+            border: none;
+            background: var(--section-bg);
+            border: 1px solid var(--border-muted);
+            border-radius: var(--radius);
+            padding: 14px 18px;
+            margin: 14px 0 0;
+            transition: background 0.25s, box-shadow 0.25s, transform 0.15s;
+        }
+
+        h2.collapsible-header:hover {
+            box-shadow: var(--shadow-card);
+            transform: translateY(-1px);
+        }
+
+        h2.collapsible-header:not(.collapsed) {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            background: linear-gradient(180deg, var(--section-bg), transparent);
+        }
+
+        .carat {
+            color: var(--accent);
+            font-size: 0.85em;
+            margin-right: 12px;
+        }
+
+        .section-content {
+            border: 1px solid var(--border-muted);
+            border-top: none;
+            border-radius: 0 0 var(--radius) var(--radius);
+            padding: 18px;
+            margin-bottom: 6px;
+            background: var(--card-bg);
+        }
+        .section-content.hidden { display: none; }
+
+        hr { display: none; }
+
+        /* Prime input + control bars */
+        .prime-input-section,
+        .controls,
+        .generator-filter {
+            background: var(--section-bg);
+            border: 1px solid var(--border-muted);
+            border-radius: var(--radius);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .controls { flex-wrap: wrap; gap: 14px 18px; }
+
+        label { color: var(--text-color); font-weight: 600; }
+
+        /* Inputs */
+        input[type="text"],
+        select,
+        textarea {
+            font-family: var(--font-ui);
+            background: var(--card-bg);
+            color: var(--text-color);
+            border: 1.5px solid var(--border-muted);
+            border-radius: var(--radius-sm);
+            padding: 9px 12px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input[type="text"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+        }
+        #mult-q1, #mult-q2, #factor-q, #word-gen-a, #word-gen-b, #word-expr {
+            font-family: var(--font-mono);
+        }
+
+        /* Range sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 999px;
+            background: var(--border-muted);
+            padding: 0;
+            border: none;
+            cursor: pointer;
+            vertical-align: middle;
+            width: 160px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            background: var(--accent-grad);
+            border: 2px solid #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px; height: 18px; border: 2px solid #fff;
+            border-radius: 50%; background: var(--accent); cursor: pointer;
+        }
+
+        /* Checkboxes */
+        input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+        .inline-check { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; font-size: 0.92em; cursor: pointer; }
+
+        /* Buttons */
+        button,
+        .prime-input-section button,
+        #btn-multiply, #btn-factor, #btn-tree, #btn-calc-word, #btn-gen-so3z {
+            font-family: var(--font-ui);
+            font-weight: 600;
+            color: #fff;
+            background: var(--accent-grad);
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 10px 18px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px -4px color-mix(in srgb, var(--accent) 60%, transparent);
+            transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+        }
+        button:hover,
+        .prime-input-section button:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.05);
+            box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--accent) 65%, transparent);
+        }
+        button:active { transform: translateY(0); }
+
+        /* Cards / panels */
+        .relation-square,
+        #generators-container,
+        .pq-relation-table-wrapper {
+            background: var(--card-bg);
+            border: 1px solid var(--border-muted);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-card);
+        }
+
+        /* Visualization containers */
+        #vis-container,
+        #square-complex-container,
+        #generator-vis-container,
+        #factor-vis-container,
+        #tree-vis-container {
+            border: 1px solid var(--border-muted);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-card);
+        }
+        #square-complex-container { background: var(--card-bg); }
+
+        /* Pills / legends */
+        .legend span,
+        .generators-row span,
+        #square-complex-legend span {
+            box-shadow: 0 2px 6px -2px rgba(0,0,0,0.25);
+            letter-spacing: 0.01em;
+        }
+        .legend-title, .generators-legend-title { color: var(--heading-color); }
+
+        /* Hints + result panels */
+        .hint {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            margin: 12px 0 4px;
+        }
+        .hint code, p code, .section-content code {
+            font-family: var(--font-mono);
+            font-size: 0.85em;
+            background: color-mix(in srgb, var(--accent) 12%, transparent);
+            color: var(--accent);
+            padding: 1px 7px;
+            border-radius: 6px;
+        }
+
+        .result-panel {
+            margin: 16px auto 4px;
+            max-width: 680px;
+            text-align: center;
+            background: var(--section-bg);
+            border: 1px solid var(--border-muted);
+            border-left: 4px solid var(--accent);
+            border-radius: var(--radius-sm);
+            padding: 14px 20px;
+            color: var(--text-color);
+            box-shadow: var(--shadow-card);
+            min-height: 24px;
+        }
+        .result-panel:empty::before {
+            content: "Result will appear here…";
+            color: var(--text-muted);
+            font-style: italic;
+        }
+        .result-panel.error {
+            border-left-color: #ef4444;
+            color: #ef4444;
+            font-weight: 600;
+        }
+        .mult-times { color: var(--text-muted); font-weight: 700; margin: 0 4px; }
+
+        /* PQ relation table polish */
+        .pq-relation-table th { background: var(--accent-grad); }
+        .pq-relation-table .row-header { background: linear-gradient(135deg, #10b981, #059669); }
+        .pq-relation-table .corner-cell { background: linear-gradient(to bottom left, var(--accent) 50%, #10b981 50%); }
+        .pq-relation-table td { background: var(--card-bg); color: var(--text-color); }
+
+        /* Theme toggle */
+        .theme-toggle {
+            background: var(--container-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--container-border);
+            box-shadow: var(--shadow-card);
+            width: 44px; height: 44px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .theme-toggle:hover { transform: rotate(-12deg) scale(1.08); }
+
+        /* Status message */
+        #status-message { color: var(--text-muted); font-weight: 500; }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--border-muted); border-radius: 999px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* Generic paragraphs inside sections */
+        .container > p, .section-content p { color: var(--text-muted); }
+    </style>
 </head>
 
 <body>
@@ -656,7 +980,19 @@
 
         <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Square Complex</h2>
         <div class="section-content hidden">
+            <div class="controls">
+                <label for="sc-size">Patch size:</label>
+                <input type="range" id="sc-size" min="1" max="64" value="4">
+                <span id="sc-size-value">4</span>
+                <label for="sc-arrows" style="cursor: pointer;">
+                    <input type="checkbox" id="sc-arrows" checked style="margin-right: 5px;">Show arrows
+                </label>
+                <label for="sc-squares" style="cursor: pointer;">
+                    <input type="checkbox" id="sc-squares" style="margin-right: 5px;">Show squares
+                </label>
+            </div>
             <div id="square-complex-container"></div>
+            <div id="square-complex-legend" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 10px;"></div>
         </div>
 
 
@@ -666,18 +1002,18 @@
         <h2 class="collapsible-header collapsed"><span class="carat">▼</span> Multiplication</h2>
         <div class="section-content hidden">
             <div class="controls">
-                <label for="mult-q1">Q1:</label>
-                <input type="text" id="mult-q1" value="1,0,0,0" placeholder="w,x,y,z" style="width: 120px;">
-                <span style="margin: 0 10px;">×</span>
-                <label for="mult-q2">Q2:</label>
-                <input type="text" id="mult-q2" value="1,0,0,0" placeholder="w,x,y,z" style="width: 120px;">
+                <label for="mult-q1">\(q_1\):</label>
+                <input type="text" id="mult-q1" value="3+2i" placeholder="e.g. 3+2i" style="width: 140px;">
+                <span class="mult-times">×</span>
+                <label for="mult-q2">\(q_2\):</label>
+                <input type="text" id="mult-q2" value="5-3i+k" placeholder="e.g. 5-3i+k" style="width: 140px;">
                 <button id="btn-multiply">Multiply</button>
-                <div style="margin-left: 10px; display: inline-flex; align-items: center;">
-                    <input type="checkbox" id="mult-primitize" style="margin-right: 5px;">
-                    <label for="mult-primitize" style="font-size: 0.9em; cursor: pointer;">Primitize</label>
-                </div>
+                <label for="mult-primitize" class="inline-check">
+                    <input type="checkbox" id="mult-primitize">Primitize
+                </label>
             </div>
-            <div id="mult-result" style="text-align: center; margin: 10px; font-weight: bold; color: #2c3e50;"></div>
+            <p class="hint">Enter quaternions as algebraic expressions like <code>3+2i</code>, <code>5-3i+k</code>, or <code>1+i+j+k</code>.</p>
+            <div id="mult-result" class="result-panel"></div>
         </div>
 
         <hr>
@@ -719,10 +1055,7 @@
                 </div>
             </div>
 
-            <div id="word-result"
-                style="margin-top: 20px; padding: 20px; background: #ecf0f1; border-radius: 8px; border-left: 5px solid #27ae60; text-align: center; font-family: monospace; font-weight: bold; color: #2c3e50; font-size: 1.1em; word-break: break-all; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                Result will appear here...
-            </div>
+            <div id="word-result" class="result-panel" style="font-family: var(--font-mono); font-weight: 600; word-break: break-all;"></div>
         </div>
 
         <hr>
@@ -744,10 +1077,10 @@
                     </div>
                 </div>
             </div>
-            <div id="factor-result" style="text-align: center; margin: 10px; color: #2c3e50;"></div>
+            <div id="factor-result" class="result-panel"></div>
             <div id="factor-vis-container"
-                style="width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 8px; background: #fdfdfd; overflow: auto; display: flex; justify-content: center; align-items: center;">
-                <p style="color: #7f8c8d;">Enter a quaternion to see its factorization complex.</p>
+                style="width: 100%; height: 520px; border-radius: 16px; background: radial-gradient(120% 120% at 50% 0%, #1a2138 0%, #0a0d17 70%); overflow: hidden; display: flex; justify-content: center; align-items: center;">
+                <p style="color: #8b95ad;">Enter a quaternion to see its factorization complex.</p>
             </div>
         </div>
 
@@ -762,7 +1095,7 @@
                 <!-- p input removed as it is auto-detected -->
                 <button id="btn-tree">Show Trees</button>
             </div>
-            <div id="tree-result" style="text-align: center; margin: 10px; color: #2c3e50;"></div>
+            <div id="tree-result" class="result-panel"></div>
             <div id="tree-vis-container"
                 style="width: 100%; height: 600px; border: 1px solid #ccc; border-radius: 8px; background: #fdfdfd; overflow: hidden;">
                 <p style="text-align: center; margin-top: 20px; color: #7f8c8d;">Enter a quaternion and prime to see the
@@ -783,6 +1116,9 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
         import {
             QMath,
             computeRelations,
@@ -1530,38 +1866,25 @@
                             const pGen = GENERATORS[pGenKey];
                             const qGen = GENERATORS[qGenKey];
 
-                            // Compute p_i * q_j
-                            const pq = QMath.multiply(pGen.q, qGen.q);
+                            // Look up the unique relation p_i * q_j = ± q_k * p_l
+                            const rel = RELATIONS.find(r => r.a === pGenKey && r.b === qGenKey);
 
-                            // Try to find q_k * p_l that equals pq (up to sign)
-                            let found = false;
-                            for (const qkKey of qGens) {
-                                if (found) break;
-                                for (const plKey of pGens) {
-                                    const qk = GENERATORS[qkKey];
-                                    const pl = GENERATORS[plKey];
-                                    const qp = QMath.multiply(qk.q, pl.q);
+                            if (rel) {
+                                const qk = GENERATORS[rel.bp];
+                                const pl = GENERATORS[rel.ap];
+                                const cell = H('td', { className: 'pq-relation-cell' });
 
-                                    if (QMath.areEqual(pq, qp) || QMath.areEqual(pq, qp.map(x => -x))) {
-                                        // Found the relation: p_i * q_j = q_k * p_l
-                                        // Create square diagram showing the relation
-                                        const cell = H('td', { className: 'pq-relation-cell' });
+                                // Create SVG square with:
+                                // Bottom: p_i, Right: q_j, Left: q_k, Top: p_l
+                                const squareSVG = createRelationSquareSVG(pGenKey, qGenKey, rel.bp, rel.ap);
 
-                                        // Create SVG square with:
-                                        // Bottom: p_i, Right: q_j, Left: q_k, Top: p_l
-                                        const squareSVG = createRelationSquareSVG(pGenKey, qGenKey, qkKey, plKey);
-
-                                        const sign = QMath.areEqual(pq, qp) ? '' : '-';
-                                        cell.title = `(${formatQuaternion(pGen.q)})(${formatQuaternion(qGen.q)}) = ${sign}(${formatQuaternion(qk.q)})(${formatQuaternion(pl.q)})`;
-                                        cell.appendChild(squareSVG);
-                                        row.appendChild(cell);
-                                        found = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (!found) {
+                                const pq = QMath.multiply(pGen.q, qGen.q);
+                                const qp = QMath.multiply(qk.q, pl.q);
+                                const sign = QMath.areEqual(pq, qp) ? '' : '-';
+                                cell.title = `(${formatQuaternion(pGen.q)})(${formatQuaternion(qGen.q)}) = ${sign}(${formatQuaternion(qk.q)})(${formatQuaternion(pl.q)})`;
+                                cell.appendChild(squareSVG);
+                                row.appendChild(cell);
+                            } else {
                                 console.warn(`No relation found for p=${p} (label ${pLabel}), q=${q} (label ${qLabel})`);
                                 row.appendChild(H('td', { text: '?' }));
                             }
@@ -1622,16 +1945,68 @@
             legendContainer.appendChild(legend);
             wrapper.appendChild(legendContainer);
 
-            const relHeading = H('p', {
-                text: 'Relations',
-                style: { margin: '6px 0 4px 0', textAlign: 'center', fontWeight: '600' }
+            // Each geometric square is read from 4 corners, giving 4 relation tuples.
+            // Dedupe by canonical (lexicographically smallest) form among the 4.
+            const conjKeyOf = (key) => {
+                const q = GENERATORS[key].q;
+                const conj = [q[0], -q[1], -q[2], -q[3]].join(',');
+                const entry = Object.entries(GENERATORS).find(([k, g]) => g.q.join(',') === conj);
+                return entry ? entry[0] : key;
+            };
+            const squareKey = (rel) => {
+                const c = conjKeyOf;
+                const tuples = [
+                    [rel.a, rel.b, rel.bp, rel.ap],
+                    [c(rel.ap), c(rel.bp), c(rel.b), c(rel.a)],
+                    [c(rel.a), rel.bp, rel.b, c(rel.ap)],
+                    [rel.ap, c(rel.b), c(rel.bp), rel.a]
+                ];
+                return tuples.map(t => t.join(',')).sort()[0];
+            };
+
+            const seenSquares = new Set();
+            const distinctRels = RELATIONS.filter(rel => {
+                const key = squareKey(rel);
+                if (seenSquares.has(key)) return false;
+                seenSquares.add(key);
+                return true;
             });
-            wrapper.appendChild(relHeading);
 
-            const grid = H('div', { className: 'squares-grid' });
-            wrapper.appendChild(grid);
+            // Group by prime pair {p, q}, sorted
+            const groups = new Map();
+            distinctRels.forEach(rel => {
+                const p = GENERATORS[rel.a].prime;
+                const q = GENERATORS[rel.b].prime;
+                const gKey = [Math.min(p, q), Math.max(p, q)].join('×');
+                if (!groups.has(gKey)) groups.set(gKey, []);
+                groups.get(gKey).push(rel);
+            });
 
-            RELATIONS.forEach((rel, i) => {
+            const labelOrder = (key) => {
+                const l = GENERATORS[key].p1Label;
+                return l === '∞' ? -1 : parseInt(l);
+            };
+
+            [...groups.keys()].sort().forEach(gKey => {
+                const rels = groups.get(gKey);
+                rels.sort((r1, r2) => labelOrder(r1.a) - labelOrder(r2.a) || labelOrder(r1.b) - labelOrder(r2.b));
+
+                const relHeading = H('p', {
+                    text: `Norm ${gKey} relations (${rels.length} squares)`,
+                    style: { margin: '6px 0 4px 0', textAlign: 'center', fontWeight: '600' }
+                });
+                wrapper.appendChild(relHeading);
+
+                const grid = H('div', { className: 'squares-grid' });
+                wrapper.appendChild(grid);
+                drawSquareGrid(grid, rels);
+            });
+
+            container.appendChild(wrapper);
+        }
+
+        function drawSquareGrid(grid, rels) {
+            rels.forEach((rel, i) => {
                 const cell = H('div', { className: 'square-cell' });
                 const svg = S('svg', { width: 150, height: 150, viewBox: '0 0 100 100' });
                 const defs = S('defs');
@@ -1670,8 +2045,6 @@
                 cell.appendChild(svg);
                 grid.appendChild(cell);
             });
-
-            container.appendChild(wrapper);
         }
 
         // --- SELECTOR POPULATION ---
@@ -1767,6 +2140,7 @@
                 factorCamera.aspect = factorContainer.clientWidth / factorContainer.clientHeight;
                 factorCamera.updateProjectionMatrix();
                 factorRenderer.setSize(factorContainer.clientWidth, factorContainer.clientHeight);
+                if (factorComposer) factorComposer.setSize(factorContainer.clientWidth, factorContainer.clientHeight);
             }
         }
 
@@ -1880,13 +2254,91 @@
                 container.textContent = 'Compute generators and select axes first.';
                 return;
             }
+            if (GENERATORS[genX_key].prime === GENERATORS[genY_key].prime) {
+                container.textContent = 'Select X and Y generators from different primes to build the square complex.';
+                return;
+            }
 
             const svg = S('svg', { width: '100%', height: '100%', viewBox: '0 0 1000 1000' });
             container.appendChild(svg);
             const defs = S('defs');
             svg.appendChild(defs);
 
-            const depth = parseInt(document.getElementById('depth-slider').value);
+            // Local marker cache (the global markerForColor caches IDs across SVGs,
+            // so on redraw it returns an ID whose marker element no longer exists in
+            // this freshly-cleared defs — the arrows would then fail to render).
+            const localMarkerCache = new Map();
+            const localMarkerForColor = (color) => {
+                if (localMarkerCache.has(color)) return localMarkerCache.get(color);
+                const id = `sc-arrow-${localMarkerCache.size}`;
+                const m = S('marker', { id, viewBox: '0 0 10 10', refX: 5, refY: 5, markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse', markerUnits: 'strokeWidth' });
+                m.append(S('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: color, stroke: color }));
+                defs.appendChild(m);
+                localMarkerCache.set(color, id);
+                return id;
+            };
+
+            const depth = parseInt(document.getElementById('sc-size').value);
+            const showArrows = document.getElementById('sc-arrows').checked;
+            const showSquares = document.getElementById('sc-squares').checked;
+
+            // Convert an hsl(h, s%, l%) string to [r,g,b] in 0..255
+            const hslToRgb = (str) => {
+                const m = str.match(/hsl\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)/);
+                if (!m) return [128, 128, 128];
+                const h = parseFloat(m[1]) / 360, s = parseFloat(m[2]) / 100, l = parseFloat(m[3]) / 100;
+                if (s === 0) { const v = Math.round(l * 255); return [v, v, v]; }
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1; if (t > 1) t -= 1;
+                    if (t < 1 / 6) return p + (q - p) * 6 * t;
+                    if (t < 1 / 2) return q;
+                    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                    return p;
+                };
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                return [hue2rgb(p, q, h + 1 / 3), hue2rgb(p, q, h), hue2rgb(p, q, h - 1 / 3)].map(x => Math.round(x * 255));
+            };
+            // Average of the (up to four) edge colors bordering a square
+            const sumEdgeColors = (colors) => {
+                const valid = colors.filter(Boolean);
+                if (valid.length === 0) return null;
+                const acc = [0, 0, 0];
+                valid.forEach(c => { const rgb = hslToRgb(c); acc[0] += rgb[0]; acc[1] += rgb[1]; acc[2] += rgb[2]; });
+                return `rgb(${acc.map(v => Math.round(v / valid.length)).join(',')})`;
+            };
+
+            // Local palettes for maximum clarity: warm hues for horizontal edges,
+            // cool hues for vertical edges. Conjugate pairs share a color (an edge
+            // traversed backwards is the conjugate generator, so unoriented edges
+            // are unambiguous even without arrows).
+            const buildPalette = (primeVal, hueStart, hueEnd) => {
+                const keys = Object.keys(GENERATORS).filter(k => GENERATORS[k].prime === primeVal);
+                const colorOf = {};
+                const pairs = [];
+                const seen = new Set();
+                keys.forEach(k => {
+                    if (seen.has(k)) return;
+                    const q = GENERATORS[k].q;
+                    const conjStr = [q[0], -q[1], -q[2], -q[3]].join(',');
+                    const mate = keys.find(k2 => GENERATORS[k2].q.join(',') === conjStr);
+                    seen.add(k);
+                    if (mate) seen.add(mate);
+                    pairs.push(mate && mate !== k ? [k, mate] : [k]);
+                });
+                pairs.forEach((pair, idx) => {
+                    const t = pairs.length > 1 ? idx / (pairs.length - 1) : 0;
+                    const hue = hueStart + t * (hueEnd - hueStart);
+                    // Alternate lightness so neighboring hues stay distinguishable
+                    const light = idx % 2 === 0 ? 42 : 58;
+                    const c = `hsl(${Math.round(hue)}, 85%, ${light}%)`;
+                    pair.forEach(k => { colorOf[k] = c; });
+                });
+                return colorOf;
+            };
+            const horzColors = buildPalette(GENERATORS[genX_key].prime, 0, 50);    // reds → oranges/yellows
+            const vertColors = buildPalette(GENERATORS[genY_key].prime, 175, 290); // teals → purples
+
             const squareSize = 900 / (2 * depth + 1);
             const transform = (i, j) => [500 + i * squareSize, 500 - j * squareSize];
 
@@ -1974,10 +2426,32 @@
                 }
             }
 
+            // Shade squares by the sum (average) of their four edge colors
+            if (showSquares) {
+                const horzColorOf = (gen) => gen ? (horzColors[gen] || GENERATORS[gen].color) : null;
+                const vertColorOf = (gen) => gen ? (vertColors[gen] || GENERATORS[gen].color) : null;
+                for (let i = -depth; i < depth; i++) {
+                    for (let j = -depth; j < depth; j++) {
+                        const fill = sumEdgeColors([
+                            horzColorOf(getHorzEdge(i, j)),       // bottom
+                            horzColorOf(getHorzEdge(i, j + 1)),   // top
+                            vertColorOf(getVertEdge(i, j)),       // left
+                            vertColorOf(getVertEdge(i + 1, j))    // right
+                        ]);
+                        if (!fill) continue;
+                        const [x, y] = transform(i, j + 1); // top-left corner in screen space
+                        svg.appendChild(S('rect', {
+                            x, y, width: squareSize, height: squareSize,
+                            fill, stroke: 'none'
+                        }));
+                    }
+                }
+            }
+
             // Draw edges
-            const drawEdge = (x1, y1, x2, y2, genKey) => {
+            const drawEdge = (x1, y1, x2, y2, genKey, isHorz) => {
                 if (!genKey) return;
-                const gen = GENERATORS[genKey];
+                const color = (isHorz ? horzColors : vertColors)[genKey] || GENERATORS[genKey].color;
                 let [p1x, p1y] = transform(x1, y1);
                 let [p2x, p2y] = transform(x2, y2);
                 if (isStar(genKey)) {
@@ -1986,28 +2460,58 @@
                 }
                 const mx = (p1x + p2x) / 2;
                 const my = (p1y + p2y) / 2;
-                const markerId = markerForColor(defs, gen.color);
-                const pathEl = S('path', {
+                const attrs = {
                     d: `M ${p1x} ${p1y} L ${mx} ${my} L ${p2x} ${p2y}`,
-                    fill: 'none', stroke: gen.color, 'stroke-width': 2.5,
-                    'marker-mid': `url(#${markerId})`
-                });
-                svg.appendChild(pathEl);
+                    fill: 'none', stroke: color, 'stroke-width': 2.5
+                };
+                if (showArrows) {
+                    attrs['marker-mid'] = `url(#${localMarkerForColor(color)})`;
+                }
+                svg.appendChild(S('path', attrs));
             };
 
             // Draw all edges
             for (let i = -depth; i < depth; i++) {
                 for (let j = -depth; j <= depth; j++) {
                     const gen = getHorzEdge(i, j);
-                    if (gen) drawEdge(i, j, i + 1, j, gen);
+                    if (gen) drawEdge(i, j, i + 1, j, gen, true);
                 }
             }
             for (let i = -depth; i <= depth; i++) {
                 for (let j = -depth; j < depth; j++) {
                     const gen = getVertEdge(i, j);
-                    if (gen) drawEdge(i, j, i, j + 1, gen);
+                    if (gen) drawEdge(i, j, i, j + 1, gen, false);
                 }
             }
+
+            // Legend: which color is which generator (conjugate pairs share a color)
+            const legendDiv = document.getElementById('square-complex-legend');
+            legendDiv.innerHTML = '';
+            const addLegendGroup = (title, colorMap) => {
+                const group = H('div', { style: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' } });
+                group.appendChild(H('strong', { text: title, style: { marginRight: '4px' } }));
+                const byColor = new Map();
+                Object.entries(colorMap).forEach(([k, c]) => {
+                    if (!byColor.has(c)) byColor.set(c, []);
+                    byColor.get(c).push(k);
+                });
+                byColor.forEach((keys, color) => {
+                    // Show the non-conjugate representative first
+                    keys.sort((a, b) => isStar(a) - isStar(b));
+                    const span = H('span', {
+                        text: keys.map(k => formatQuaternion(GENERATORS[k].q)).join(' / '),
+                        style: {
+                            backgroundColor: color, color: getContrastColor(color),
+                            padding: '2px 8px', borderRadius: '999px',
+                            fontSize: '11px', fontWeight: '600'
+                        }
+                    });
+                    group.appendChild(span);
+                });
+                legendDiv.appendChild(group);
+            };
+            addLegendGroup('Horizontal:', horzColors);
+            addLegendGroup('Vertical:', vertColors);
 
             // Draw origin marker
             const [cx, cy] = transform(0, 0);
@@ -2233,6 +2737,23 @@
             return a;
         }
 
+        // Format a quaternion as LaTeX, e.g. [3,-2,0,1] -> "3-2i+k"
+        function formatQuaternionLatex(q) {
+            const [w, x, y, z] = q;
+            const parts = [];
+            if (w !== 0) parts.push(String(w));
+            const term = (coef, sym) => {
+                if (coef === 0) return;
+                const sign = coef > 0 ? (parts.length ? '+' : '') : '-';
+                const abs = Math.abs(coef);
+                parts.push(`${sign}${abs === 1 ? '' : abs}\\mathbf{${sym}}`);
+            };
+            term(x, 'i');
+            term(y, 'j');
+            term(z, 'k');
+            return parts.length > 0 ? parts.join('') : '0';
+        }
+
         function runMultiplication() {
             const q1In = document.getElementById('mult-q1').value;
             const q2In = document.getElementById('mult-q2').value;
@@ -2244,25 +2765,25 @@
                 const q2 = parseQuaternionInput(q2In);
                 const prod = QMath.multiply(q1, q2);
 
-                let output = "";
+                const lhs = `\\left(${formatQuaternionLatex(q1)}\\right)\\left(${formatQuaternionLatex(q2)}\\right)`;
+                let rhs;
                 if (primitize) {
-                    // GCD of all 4 components
-                    const g = [prod[0], prod[1], prod[2], prod[3]].reduce((acc, val) => gcd(acc, val), 0);
-
+                    const g = prod.reduce((acc, val) => gcd(acc, val), 0);
                     if (g > 1) {
-                        const primQ = prod.map(x => x / g);
-                        output = `Product: ${g} · (${formatQuaternion(primQ)})`;
+                        rhs = `${g}\\left(${formatQuaternionLatex(prod.map(x => x / g))}\\right)`;
                     } else {
-                        output = `Product: ${formatQuaternion(prod)} (Primitive)`;
+                        rhs = `${formatQuaternionLatex(prod)} \\quad\\text{(primitive)}`;
                     }
                 } else {
-                    output = `Product: ${formatQuaternion(prod)}`;
+                    rhs = formatQuaternionLatex(prod);
                 }
 
-                resDiv.innerHTML = output;
+                resDiv.classList.remove('error');
+                resDiv.innerHTML = `\\[ ${lhs} = ${rhs} \\]`;
                 MathJax.typesetPromise([resDiv]);
             } catch (err) {
-                resDiv.innerHTML = `<span style="color:red">${err.message}</span>`;
+                resDiv.classList.add('error');
+                resDiv.textContent = err.message;
             }
         }
 
@@ -2443,7 +2964,7 @@
         }
 
         // --- FACTOR COMPLEX THREE.JS ---
-        let factorScene, factorCamera, factorRenderer, factorControls;
+        let factorScene, factorCamera, factorRenderer, factorControls, factorComposer;
         let factorNodes = [], factorLinks = [], factorAxesMeshes = [];
         let factorPrimeAxes = []; // Vectors for each prime
         let isDraggingAxis = -1; // Index of axis being dragged
@@ -2452,25 +2973,69 @@
 
         function initFactorScene(container) {
             factorScene = new THREE.Scene();
-            factorScene.background = new THREE.Color(0xfdfdfd);
+            factorScene.background = new THREE.Color(0x0a0d17);
+            factorScene.fog = new THREE.FogExp2(0x0a0d17, 0.0011);
 
             const aspect = container.clientWidth / container.clientHeight;
-            factorCamera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
-            factorCamera.position.set(0, 0, 400);
+            factorCamera = new THREE.PerspectiveCamera(55, aspect, 0.1, 4000);
+            factorCamera.position.set(180, 220, 380);
 
             factorRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             factorRenderer.setSize(container.clientWidth, container.clientHeight);
+            factorRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            factorRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+            factorRenderer.toneMappingExposure = 1.15;
             container.appendChild(factorRenderer.domElement);
 
             factorControls = new OrbitControls(factorCamera, factorRenderer.domElement);
             factorControls.enableDamping = true;
+            factorControls.dampingFactor = 0.08;
+            factorControls.autoRotate = true;
+            factorControls.autoRotateSpeed = 0.6;
 
-            // Lights
-            const amb = new THREE.AmbientLight(0xffffff, 0.6);
-            factorScene.add(amb);
-            const dir = new THREE.DirectionalLight(0xffffff, 0.6);
-            dir.position.set(100, 200, 100);
-            factorScene.add(dir);
+            // Lighting: cool ambient fill + two warm/cool key lights + rim
+            factorScene.add(new THREE.HemisphereLight(0x9bb0ff, 0x1a1030, 0.55));
+            const key = new THREE.DirectionalLight(0xffffff, 1.1);
+            key.position.set(150, 280, 200);
+            factorScene.add(key);
+            const fill = new THREE.PointLight(0x6366f1, 0.8, 0, 1.5);
+            fill.position.set(-220, 60, -120);
+            factorScene.add(fill);
+            const rim = new THREE.PointLight(0xa78bfa, 0.7, 0, 1.5);
+            rim.position.set(120, -120, 220);
+            factorScene.add(rim);
+
+            // Subtle ground grid for depth reference
+            const grid = new THREE.GridHelper(900, 18, 0x3a4a6a, 0x222a40);
+            grid.material.transparent = true;
+            grid.material.opacity = 0.18;
+            grid.position.y = -10;
+            factorScene.add(grid);
+            grid.userData.isDecor = true;
+
+            // Faint starfield backdrop
+            const starGeo = new THREE.BufferGeometry();
+            const starPos = [];
+            for (let i = 0; i < 600; i++) {
+                starPos.push(
+                    (Math.cos(i * 2.4) * 0.5 + Math.sin(i * 1.1) * 0.5) * 1600,
+                    (Math.sin(i * 1.7)) * 1200,
+                    (Math.cos(i * 0.9) * 0.5 + Math.sin(i * 3.3) * 0.5) * 1600
+                );
+            }
+            starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+            const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x6677aa, size: 2.2, transparent: true, opacity: 0.5, sizeAttenuation: false }));
+            stars.userData.isDecor = true;
+            factorScene.add(stars);
+
+            // Bloom post-processing for glow
+            factorComposer = new EffectComposer(factorRenderer);
+            factorComposer.addPass(new RenderPass(factorScene, factorCamera));
+            const bloom = new UnrealBloomPass(
+                new THREE.Vector2(container.clientWidth, container.clientHeight),
+                0.85, 0.55, 0.12
+            );
+            factorComposer.addPass(bloom);
 
             // Interaction
             factorRaycaster = new THREE.Raycaster();
@@ -2482,6 +3047,8 @@
             canvas.addEventListener('mousedown', onFactorMouseDown);
             canvas.addEventListener('mousemove', onFactorMouseMove);
             canvas.addEventListener('mouseup', onFactorMouseUp);
+            // Pause auto-rotation while the user is interacting
+            canvas.addEventListener('pointerdown', () => { if (factorControls) factorControls.autoRotate = false; });
 
             animateFactorScene();
         }
@@ -2489,7 +3056,8 @@
         function animateFactorScene() {
             requestAnimationFrame(animateFactorScene);
             if (factorControls) factorControls.update();
-            if (factorRenderer && factorScene) factorRenderer.render(factorScene, factorCamera);
+            if (factorComposer) factorComposer.render();
+            else if (factorRenderer && factorScene) factorRenderer.render(factorScene, factorCamera);
         }
 
         function createTextSprite(text, fontSize = 24, color = 'black') {
@@ -2537,9 +3105,14 @@
             // Keeping lights/camera
             const toRemove = [];
             factorScene.traverse(obj => {
-                if (obj.isMesh || obj.isLine || obj.isSprite) toRemove.push(obj);
+                if (obj.userData && obj.userData.isDecor) return;
+                if (obj.isMesh || obj.isLine || obj.isSprite || obj.isPoints) toRemove.push(obj);
             });
-            toRemove.forEach(o => factorScene.remove(o));
+            toRemove.forEach(o => {
+                if (o.userData && o.userData.isDecor) return;
+                factorScene.remove(o);
+                if (o.geometry) o.geometry.dispose();
+            });
 
             factorNodes = [];
             factorLinks = [];
@@ -2562,38 +3135,58 @@
                 });
             }
 
+            // Distinct vivid color per prime (drives axes, links, and labels)
+            const primeColor = (i) => {
+                const hue = (i * 360 / Math.max(1, primes.length) + 200) % 360;
+                return new THREE.Color(`hsl(${Math.round(hue)}, 85%, 62%)`);
+            };
+
             // Create Axis Tips (Draggable handles)
             primes.forEach((p, i) => {
-                const tipGeom = new THREE.ConeGeometry(5, 10, 16);
-                const tipMat = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+                const col = primeColor(i);
+                const tipGeom = new THREE.OctahedronGeometry(7, 0);
+                const tipMat = new THREE.MeshStandardMaterial({
+                    color: col, emissive: col, emissiveIntensity: 1.4,
+                    metalness: 0.3, roughness: 0.25
+                });
                 const tip = new THREE.Mesh(tipGeom, tipMat);
                 tip.userData = { axisIndex: i, isAxisHandle: true };
                 factorScene.add(tip);
                 factorAxesMeshes.push(tip);
 
-                // Axis Line
+                // Axis Line (glowing, tinted to the prime)
                 const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 10, 0)]);
-                const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xcccccc }));
-                // Will update positions in updateFactorPositions
+                const lineMat = new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.55 });
+                const line = new THREE.Line(lineGeo, lineMat);
                 factorScene.add(line);
                 tip.userData.line = line;
             });
 
-            // Create Nodes
-            const nodeGeom = new THREE.SphereGeometry(3, 16, 16);
-            const defaultMat = new THREE.MeshLambertMaterial({ color: 0x3498db });
-            const startMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-
+            // Create Nodes — glowing emissive spheres; start/end highlighted
+            const nodeGeom = new THREE.SphereGeometry(4, 24, 24);
             nodes.forEach(n => {
                 const isStart = n.level === 0;
                 const isEnd = targetQ && QMath.areEqual(n.q, targetQ);
+                const special = isStart || isEnd;
 
-                const mesh = new THREE.Mesh(nodeGeom, (isStart || isEnd) ? startMat : defaultMat);
+                const baseCol = isStart ? new THREE.Color(0xffd166)
+                    : isEnd ? new THREE.Color(0x34f5c5)
+                        : new THREE.Color(0x7aa2ff);
+                const mat = new THREE.MeshStandardMaterial({
+                    color: baseCol,
+                    emissive: baseCol,
+                    emissiveIntensity: special ? 1.6 : 0.55,
+                    metalness: 0.4,
+                    roughness: special ? 0.2 : 0.45
+                });
+                const mesh = new THREE.Mesh(nodeGeom, mat);
+                if (special) mesh.scale.setScalar(1.7);
                 mesh.userData = { node: n };
 
                 // Label Sprite
                 const label = createTextSprite(formatQuaternion(n.q), 18);
                 label.visible = false; // toggled later
+                label.position.y = 8;
                 mesh.add(label);
                 mesh.userData.label = label;
 
@@ -2601,16 +3194,21 @@
                 factorNodes.push(mesh);
             });
 
-            // Create Links
+            // Create Links — additive glowing lines tinted to their prime
+            const primeIndex = {};
+            primes.forEach((p, i) => { primeIndex[p] = i; });
             links.forEach(l => {
+                const col = primeColor(primeIndex[l.prime] ?? 0);
                 const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)]);
-                const color = `hsl(${(l.prime * 40) % 360}, 70%, 50%)`;
-                const mat = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
+                const mat = new THREE.LineBasicMaterial({
+                    color: col, transparent: true, opacity: 0.7,
+                    blending: THREE.AdditiveBlending, depthWrite: false
+                });
                 const line = new THREE.Line(geo, mat);
                 line.userData = { link: l };
 
                 // Edge Label
-                const label = createTextSprite(formatQuaternion(l.factor), 14, color);
+                const label = createTextSprite(formatQuaternion(l.factor), 14, '#' + col.getHexString());
                 label.visible = false;
                 factorScene.add(label);
                 line.userData.label = label;
@@ -2960,6 +3558,14 @@
 
             genX.addEventListener('change', updateAll);
             genY.addEventListener('change', updateAll);
+
+            const scSize = document.getElementById('sc-size');
+            scSize.addEventListener('input', () => {
+                document.getElementById('sc-size-value').textContent = scSize.value;
+                drawSquareComplex();
+            });
+            document.getElementById('sc-arrows').addEventListener('change', drawSquareComplex);
+            document.getElementById('sc-squares').addEventListener('change', drawSquareComplex);
 
             depthSlider.addEventListener('input', () => {
                 depthValue.textContent = depthSlider.value;

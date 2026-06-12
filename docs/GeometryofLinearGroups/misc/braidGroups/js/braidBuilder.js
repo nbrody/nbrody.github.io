@@ -13,7 +13,7 @@
 
 import { getStrandCount, setStrandCount, makeBurauGenerators } from './burau.js';
 import { BraidVisualizer, getStrandColor } from './braidVisualizer.js';
-import { DiskVisualizer } from './diskVisualizer.js';
+import { DiskVisualizer } from './diskVisualizer.js?v=dyn2';
 
 // ============================================================
 //  DOM References
@@ -334,6 +334,7 @@ function init() {
 
     const diskCanvas = document.getElementById('disk-viz-canvas');
     if (diskCanvas) diskViz = new DiskVisualizer(diskCanvas);
+    window.__diskViz = diskViz;   // debug handle
 
     // Set initial title
     if (heroTitle) heroTitle.innerHTML = `Braid Group B<sub>${getStrandCount()}</sub>`;

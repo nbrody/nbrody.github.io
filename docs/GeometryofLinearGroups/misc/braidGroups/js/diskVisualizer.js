@@ -1,12 +1,14 @@
 /**
  * Disk Visualizer — Mapping Class of the n-Punctured Disk
  *
- * Canvas2D rendering of a disk with n punctures and arcs between
- * adjacent punctures.  Integrates with DiskAnimator for smooth
- * half-twist animations as braid generators are applied.
+ * Canvas2D rendering of a disk with n punctures and the images of the
+ * n-1 standard loops (each encircling two adjacent punctures) under the
+ * current braid, drawn in canonical (taut) position from their Dynnikov
+ * coordinates.  Integrates with DiskAnimator for half-twist warps and
+ * cross-fades as braid generators are applied.
  */
 
-import { DiskAnimator, getPuncturePositions, getDiskRadius, TWIST_R_OUTER } from './diskAnimation.js';
+import { DiskAnimator, getPuncturePositions, getDiskRadius, TWIST_R_OUTER } from './diskAnimation.js?v=dyn2';
 import { getStrandCount } from './burau.js';
 
 // ============================================================
@@ -20,7 +22,7 @@ const PUNCTURE_PALETTE = [
     '#1dd1a1', '#f368e0', '#ee5a24', '#0abde3'
 ];
 
-/** Extended palette for arc colors (wraps). */
+/** Extended palette for loop colors (wraps). */
 const ARC_PALETTE = [
     '#ff6b6b', '#feca57', '#54a0ff', '#ff9ff3',
     '#1dd1a1', '#f368e0', '#ee5a24', '#0abde3',
@@ -38,11 +40,9 @@ const PUNCTURE_GLOW = 9;
 export class DiskVisualizer {
     constructor(container) {
         this.container = container;
-        this.currentArcs = null;
-        this.twistInfo = null;
+        this.scene = null;
         this.numStrands = getStrandCount();
         this.punctures = getPuncturePositions(this.numStrands);
-        this.wordLength = 0;
 
         this._initCanvas();
         this.animator = new DiskAnimator(this);
@@ -89,12 +89,10 @@ export class DiskVisualizer {
     // --- Public API ---
 
     setCrossings(symbols, transitionType = 'add') {
-        this.wordLength = symbols.length;
         this.animator.transitionTo(symbols, transitionType);
     }
 
     clear() {
-        this.wordLength = 0;
         this.animator.reset();
     }
 
@@ -111,11 +109,13 @@ export class DiskVisualizer {
         if (this._resizeObserver) this._resizeObserver.disconnect();
     }
 
-    /** Called by DiskAnimator to push new visual state. */
-    setArcs(arcs, punctures, twistInfo) {
-        this.currentArcs = arcs;
-        this.currentPunctures = punctures;
-        this.twistInfo = twistInfo;
+    /**
+     * Called by DiskAnimator to push new visual state.
+     * scene = { sets: [{loops, alpha}], punctures, twistInfo, pgap, notice }
+     * where loops = array (per loop) of arrays of polylines in disk coords.
+     */
+    setScene(scene) {
+        this.scene = scene;
         this._needsRedraw = true;
     }
 
@@ -132,13 +132,16 @@ export class DiskVisualizer {
 
     _render() {
         const ctx = this.ctx;
-        if (!this.currentArcs) return;
+        if (!this.scene) return;
         ctx.clearRect(0, 0, this.w, this.h);
 
         this._drawDisk();
         this._drawTwistDisk();
-        this._drawArcs();
+        for (const set of (this.scene.sets || [])) {
+            this._drawLoopSet(set);
+        }
         this._drawPunctures();
+        if (this.scene.notice) this._drawNotice(this.scene.notice);
     }
 
     // --- Drawing methods ---
@@ -167,7 +170,7 @@ export class DiskVisualizer {
     }
 
     _drawTwistDisk() {
-        const info = this.twistInfo;
+        const info = this.scene && this.scene.twistInfo;
         if (!info) return;
         const ctx = this.ctx;
         const [cx, cy] = this._toCanvas(info.center.x, info.center.y);
@@ -212,50 +215,47 @@ export class DiskVisualizer {
         ctx.restore();
     }
 
-    _drawArcs() {
+    _drawLoopSet(set) {
         const ctx = this.ctx;
-        const arcs = this.currentArcs;
+        const pgap = (this.scene.pgap || 0.1);
+        // strand width follows the slot spacing, so dense diagrams thin out
+        const w = Math.max(0.55, Math.min(ARC_WIDTH, pgap * this.scale * 0.45));
+        const glow = w > 1.1;
 
-        // Arc width tapers as the word gets longer
-        const arcWidth = Math.max(0.6, ARC_WIDTH / (1 + this.wordLength * 0.15));
+        ctx.save();
+        ctx.globalAlpha = set.alpha;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
-        for (let a = 0; a < arcs.length; a++) {
-            const arc = arcs[a];
-            const color = ARC_PALETTE[a % ARC_PALETTE.length];
-
-            // Glow pass
-            ctx.beginPath();
-            for (let i = 0; i < arc.length; i++) {
-                const [px, py] = this._toCanvas(arc[i].x, arc[i].y);
-                i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        for (let l = 0; l < set.loops.length; l++) {
+            const color = ARC_PALETTE[l % ARC_PALETTE.length];
+            const path = new Path2D();
+            for (const pl of set.loops[l]) {
+                for (let i = 0; i < pl.length; i++) {
+                    const [px, py] = this._toCanvas(pl[i].x, pl[i].y);
+                    i === 0 ? path.moveTo(px, py) : path.lineTo(px, py);
+                }
             }
-            ctx.strokeStyle = color.replace(')', ',0.2)').replace('rgb', 'rgba');
-            ctx.lineWidth = arcWidth + 4;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.stroke();
-
-            // Main stroke
-            ctx.beginPath();
-            for (let i = 0; i < arc.length; i++) {
-                const [px, py] = this._toCanvas(arc[i].x, arc[i].y);
-                i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+            if (glow) {
+                ctx.strokeStyle = color + '33';
+                ctx.lineWidth = w + 4;
+                ctx.stroke(path);
             }
             ctx.strokeStyle = color;
-            ctx.lineWidth = arcWidth;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.stroke();
+            ctx.lineWidth = w;
+            ctx.stroke(path);
         }
+        ctx.restore();
     }
 
     _drawPunctures() {
         const ctx = this.ctx;
-        const puncts = this.currentPunctures || this.punctures;
+        const puncts = (this.scene && this.scene.punctures) || this.punctures;
 
         for (let i = 0; i < puncts.length; i++) {
             const [px, py] = this._toCanvas(puncts[i].x, puncts[i].y);
-            const color = PUNCTURE_PALETTE[i % PUNCTURE_PALETTE.length];
+            const label = puncts[i].label !== undefined ? puncts[i].label : i;
+            const color = PUNCTURE_PALETTE[label % PUNCTURE_PALETTE.length];
 
             // Glow
             const r = parseInt(color.slice(1, 3), 16);
@@ -277,7 +277,16 @@ export class DiskVisualizer {
             ctx.fillStyle = 'rgba(255,255,255,0.5)';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            ctx.fillText(`${i + 1}`, px, py + PUNCTURE_GLOW + 3);
+            ctx.fillText(`${label + 1}`, px, py + PUNCTURE_GLOW + 3);
         }
+    }
+
+    _drawNotice(text) {
+        const ctx = this.ctx;
+        ctx.font = '500 12px "JetBrains Mono", monospace';
+        ctx.fillStyle = 'rgba(255,171,64,0.85)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, this.w / 2, this.h - 24);
     }
 }

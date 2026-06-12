@@ -1,0 +1,2493 @@
+{
+ "_meta": {
+  "description": "Integer matrices of infinite order in the Magnus curve group <A,B>, A=[[t,0],[0,1]], B=[[t^2+1,2],[t,1]], at algebraic values of t.",
+  "generators": {
+   "A": "[[t,0],[0,1]]",
+   "B": "[[t^2+1,2],[t,1]]"
+  },
+  "word_alphabet": "A B a b  (lowercase = inverse)",
+  "scripts": [
+   "fieldSweep.py",
+   "integerBeam.py"
+  ],
+  "updated": "2026-06-11"
+ },
+ "fields": {
+  "t-9": {
+   "minpoly": [
+    -9,
+    1
+   ],
+   "label": "Long-Reid group at t = 9 (PSL2-normalized, witnesses of non-properness on trees)",
+   "t_numeric": 9.0,
+   "unit_t": false,
+   "unit_t_minus_1": false,
+   "norm_t": -9,
+   "norm_t_minus_1": -8,
+   "status": "found",
+   "search": {
+    "beam": [
+     {
+      "depth": 90,
+      "width": 4000,
+      "score": "gcd",
+      "normalized": true
+     },
+     {
+      "depth": 90,
+      "width": 6000,
+      "score": "lcm",
+      "normalized": true
+     },
+     {
+      "depth": 90,
+      "width": 6000,
+      "score": "mixed",
+      "normalized": true
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "AABaabABAAbabAABaBAAbabABAbABaBAAbAAABaabAbaaBBAbaaBabAbaaBAbAABaBAbABaBAAbAAABaab",
+     "length": 82,
+     "matrix": [
+      [
+       "646279884109511971664607",
+       "-6162511442411222450262052"
+      ],
+      [
+       "4193268331567764626734",
+       "-39984323680432243295081"
+      ]
+     ],
+     "trace": "606295560429079728369526",
+     "det": "1",
+     "infinite_order": true,
+     "projective": true,
+     "found_by": "arXiv:2512.19760 Thm 1 (verified)"
+    }
+   ],
+   "mode": "psl2_normalized",
+   "total_distinct": 1
+  },
+  "t^2+t-1": {
+   "minpoly": [
+    -1,
+    1,
+    1
+   ],
+   "label": "inverse golden ratio 1/phi",
+   "t_numeric": 0.6180339887498949,
+   "unit_t": true,
+   "unit_t_minus_1": true,
+   "norm_t": -1,
+   "norm_t_minus_1": 1,
+   "status": "found",
+   "search": {
+    "exhaustive_len": 12,
+    "beam": [
+     {
+      "depth": 32,
+      "width": 6000,
+      "score": "gcd"
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "ABabABab",
+     "length": 8,
+     "matrix": [
+      [
+       "-1",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2",
+     "det": "1",
+     "infinite_order": false,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "ABab",
+     "exponent": 2
+    }
+   ],
+   "total_distinct": 1
+  },
+  "t^2-2": {
+   "minpoly": [
+    -2,
+    0,
+    1
+   ],
+   "label": "sqrt(2)",
+   "t_numeric": 1.414213562373095,
+   "unit_t": false,
+   "unit_t_minus_1": true,
+   "norm_t": -2,
+   "norm_t_minus_1": -1,
+   "status": "found",
+   "search": {
+    "exhaustive_len": 12,
+    "beam": [
+     {
+      "depth": 32,
+      "width": 6000,
+      "score": "gcd"
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "AA",
+     "length": 2,
+     "matrix": [
+      [
+       "2",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "3",
+     "det": "2",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 2,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAA",
+     "length": 4,
+     "matrix": [
+      [
+       "4",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "5",
+     "det": "4",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 4,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAAA",
+     "length": 6,
+     "matrix": [
+      [
+       "8",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "9",
+     "det": "8",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 6,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAAAAA",
+     "length": 8,
+     "matrix": [
+      [
+       "16",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "17",
+     "det": "16",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 8,
+     "power_of_generator": true
+    },
+    {
+     "word": "ABAbaBAb",
+     "length": 8,
+     "matrix": [
+      [
+       "-2",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-3",
+     "det": "2",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "ABabABab",
+     "length": 8,
+     "matrix": [
+      [
+       "-1",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2",
+     "det": "1",
+     "infinite_order": false,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "ABab",
+     "exponent": 2
+    },
+    {
+     "word": "AAAAAAAAAA",
+     "length": 10,
+     "matrix": [
+      [
+       "32",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "33",
+     "det": "32",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 10,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAABAbaBAb",
+     "length": 10,
+     "matrix": [
+      [
+       "-4",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-5",
+     "det": "4",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "AAAAAAAAAAAA",
+     "length": 12,
+     "matrix": [
+      [
+       "64",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "65",
+     "det": "64",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 12,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAABAbaBAb",
+     "length": 12,
+     "matrix": [
+      [
+       "-8",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-9",
+     "det": "8",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "AAAAAAAAAAAAAA",
+     "length": 14,
+     "matrix": [
+      [
+       "128",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "129",
+     "det": "128",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)",
+     "power_of": "A",
+     "exponent": 14,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAAAABAbaBAb",
+     "length": 14,
+     "matrix": [
+      [
+       "-16",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-17",
+     "det": "16",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    },
+    {
+     "word": "AAAAAAAAAAAAAAAA",
+     "length": 16,
+     "matrix": [
+      [
+       "256",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "257",
+     "det": "256",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)",
+     "power_of": "A",
+     "exponent": 16,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAAAABAbaBAbAA",
+     "length": 16,
+     "matrix": [
+      [
+       "-32",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-33",
+     "det": "32",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    },
+    {
+     "word": "AAAAAAAAAAAAAAAAAA",
+     "length": 18,
+     "matrix": [
+      [
+       "512",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "513",
+     "det": "512",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)",
+     "power_of": "A",
+     "exponent": 18,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAAAABAbaBAbAAAA",
+     "length": 18,
+     "matrix": [
+      [
+       "-64",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-65",
+     "det": "64",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    },
+    {
+     "word": "AAAAAAABAbaBAbAAAAAA",
+     "length": 20,
+     "matrix": [
+      [
+       "-128",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-129",
+     "det": "128",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    }
+   ],
+   "total_distinct": 17
+  },
+  "t^2-3": {
+   "minpoly": [
+    -3,
+    0,
+    1
+   ],
+   "label": "sqrt(3)",
+   "t_numeric": 1.7320508075688772,
+   "unit_t": false,
+   "unit_t_minus_1": false,
+   "norm_t": -3,
+   "norm_t_minus_1": -2,
+   "status": "found",
+   "search": {
+    "exhaustive_len": 12,
+    "beam": [
+     {
+      "depth": 32,
+      "width": 6000,
+      "score": "gcd"
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "AA",
+     "length": 2,
+     "matrix": [
+      [
+       "3",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "4",
+     "det": "3",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 2,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAA",
+     "length": 4,
+     "matrix": [
+      [
+       "9",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "10",
+     "det": "9",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 4,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAAA",
+     "length": 6,
+     "matrix": [
+      [
+       "27",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "28",
+     "det": "27",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 6,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAAAAA",
+     "length": 8,
+     "matrix": [
+      [
+       "81",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "82",
+     "det": "81",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 8,
+     "power_of_generator": true
+    },
+    {
+     "word": "ABAbaBAb",
+     "length": 8,
+     "matrix": [
+      [
+       "-3",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-4",
+     "det": "3",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "ABabABab",
+     "length": 8,
+     "matrix": [
+      [
+       "-1",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2",
+     "det": "1",
+     "infinite_order": false,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "ABab",
+     "exponent": 2
+    },
+    {
+     "word": "AAAAAAAAAA",
+     "length": 10,
+     "matrix": [
+      [
+       "243",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "244",
+     "det": "243",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 10,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAABAbaBAb",
+     "length": 10,
+     "matrix": [
+      [
+       "-9",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-10",
+     "det": "9",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "AAAAAAAAAAAA",
+     "length": 12,
+     "matrix": [
+      [
+       "729",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "730",
+     "det": "729",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 12,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAABAbaBAb",
+     "length": 12,
+     "matrix": [
+      [
+       "-27",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-28",
+     "det": "27",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "AAAAAAAAAAAAAA",
+     "length": 14,
+     "matrix": [
+      [
+       "2187",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "2188",
+     "det": "2187",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)",
+     "power_of": "A",
+     "exponent": 14,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAAAABAbaBAb",
+     "length": 14,
+     "matrix": [
+      [
+       "-81",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-82",
+     "det": "81",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    },
+    {
+     "word": "AAAAAAAAAAAAAAAA",
+     "length": 16,
+     "matrix": [
+      [
+       "6561",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "6562",
+     "det": "6561",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)",
+     "power_of": "A",
+     "exponent": 16,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAAAABAbaBAbAA",
+     "length": 16,
+     "matrix": [
+      [
+       "-243",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-244",
+     "det": "243",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    },
+    {
+     "word": "AAAAAAABAbaBAbAAAA",
+     "length": 18,
+     "matrix": [
+      [
+       "-729",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-730",
+     "det": "729",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    },
+    {
+     "word": "AAAAAAABAbaBAbAAAAAA",
+     "length": 20,
+     "matrix": [
+      [
+       "-2187",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2188",
+     "det": "2187",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    }
+   ],
+   "total_distinct": 16
+  },
+  "t^2-3t+1": {
+   "minpoly": [
+    1,
+    -3,
+    1
+   ],
+   "label": "phi^2  (t + 1/t = 3)",
+   "t_numeric": 2.618033988749895,
+   "unit_t": true,
+   "unit_t_minus_1": true,
+   "norm_t": 1,
+   "norm_t_minus_1": -1,
+   "status": "found",
+   "search": {
+    "exhaustive_len": 12,
+    "beam": [
+     {
+      "depth": 32,
+      "width": 6000,
+      "score": "gcd"
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "Ab",
+     "length": 2,
+     "matrix": [
+      [
+       "1",
+       "-2"
+      ],
+      [
+       "-1",
+       "3"
+      ]
+     ],
+     "trace": "4",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "Ba",
+     "length": 2,
+     "matrix": [
+      [
+       "3",
+       "2"
+      ],
+      [
+       "1",
+       "1"
+      ]
+     ],
+     "trace": "4",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "AbAb",
+     "length": 4,
+     "matrix": [
+      [
+       "3",
+       "-8"
+      ],
+      [
+       "-4",
+       "11"
+      ]
+     ],
+     "trace": "14",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ab",
+     "exponent": 2
+    },
+    {
+     "word": "BaBa",
+     "length": 4,
+     "matrix": [
+      [
+       "11",
+       "8"
+      ],
+      [
+       "4",
+       "3"
+      ]
+     ],
+     "trace": "14",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 2
+    },
+    {
+     "word": "AbAbAb",
+     "length": 6,
+     "matrix": [
+      [
+       "11",
+       "-30"
+      ],
+      [
+       "-15",
+       "41"
+      ]
+     ],
+     "trace": "52",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ab",
+     "exponent": 3
+    },
+    {
+     "word": "BaBaBa",
+     "length": 6,
+     "matrix": [
+      [
+       "41",
+       "30"
+      ],
+      [
+       "15",
+       "11"
+      ]
+     ],
+     "trace": "52",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 3
+    },
+    {
+     "word": "aBAbaB",
+     "length": 6,
+     "matrix": [
+      [
+       "-3",
+       "-2"
+      ],
+      [
+       "-1",
+       "-1"
+      ]
+     ],
+     "trace": "-4",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "bABabA",
+     "length": 6,
+     "matrix": [
+      [
+       "-1",
+       "2"
+      ],
+      [
+       "1",
+       "-3"
+      ]
+     ],
+     "trace": "-4",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "AAbaBAbb",
+     "length": 8,
+     "matrix": [
+      [
+       "-3",
+       "8"
+      ],
+      [
+       "4",
+       "-11"
+      ]
+     ],
+     "trace": "-14",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "ABabABab",
+     "length": 8,
+     "matrix": [
+      [
+       "-1",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2",
+     "det": "1",
+     "infinite_order": false,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "ABab",
+     "exponent": 2
+    },
+    {
+     "word": "AbAbAbAb",
+     "length": 8,
+     "matrix": [
+      [
+       "41",
+       "-112"
+      ],
+      [
+       "-56",
+       "153"
+      ]
+     ],
+     "trace": "194",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ab",
+     "exponent": 4
+    },
+    {
+     "word": "BBabABaa",
+     "length": 8,
+     "matrix": [
+      [
+       "-11",
+       "-8"
+      ],
+      [
+       "-4",
+       "-3"
+      ]
+     ],
+     "trace": "-14",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "BaBaBaBa",
+     "length": 8,
+     "matrix": [
+      [
+       "153",
+       "112"
+      ],
+      [
+       "56",
+       "41"
+      ]
+     ],
+     "trace": "194",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 4
+    },
+    {
+     "word": "AAbaBAbbAb",
+     "length": 10,
+     "matrix": [
+      [
+       "-11",
+       "30"
+      ],
+      [
+       "15",
+       "-41"
+      ]
+     ],
+     "trace": "-52",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "AbAbAbAbAb",
+     "length": 10,
+     "matrix": [
+      [
+       "153",
+       "-418"
+      ],
+      [
+       "-209",
+       "571"
+      ]
+     ],
+     "trace": "724",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ab",
+     "exponent": 5
+    },
+    {
+     "word": "BBabABaaBa",
+     "length": 10,
+     "matrix": [
+      [
+       "-41",
+       "-30"
+      ],
+      [
+       "-15",
+       "-11"
+      ]
+     ],
+     "trace": "-52",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "BaBaBaBaBa",
+     "length": 10,
+     "matrix": [
+      [
+       "571",
+       "418"
+      ],
+      [
+       "209",
+       "153"
+      ]
+     ],
+     "trace": "724",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 5
+    },
+    {
+     "word": "AAbaBAbbAbAb",
+     "length": 12,
+     "matrix": [
+      [
+       "-41",
+       "112"
+      ],
+      [
+       "56",
+       "-153"
+      ]
+     ],
+     "trace": "-194",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "AbAbAbAbAbAb",
+     "length": 12,
+     "matrix": [
+      [
+       "571",
+       "-1560"
+      ],
+      [
+       "-780",
+       "2131"
+      ]
+     ],
+     "trace": "2702",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ab",
+     "exponent": 6
+    },
+    {
+     "word": "BBabABaaBaBa",
+     "length": 12,
+     "matrix": [
+      [
+       "-153",
+       "-112"
+      ],
+      [
+       "-56",
+       "-41"
+      ]
+     ],
+     "trace": "-194",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "BaBaBaBaBaBa",
+     "length": 12,
+     "matrix": [
+      [
+       "2131",
+       "1560"
+      ],
+      [
+       "780",
+       "571"
+      ]
+     ],
+     "trace": "2702",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 6
+    },
+    {
+     "word": "AbAbAbAbAbAbAb",
+     "length": 14,
+     "matrix": [
+      [
+       "2131",
+       "-5822"
+      ],
+      [
+       "-2911",
+       "7953"
+      ]
+     ],
+     "trace": "10084",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)",
+     "power_of": "Ab",
+     "exponent": 7
+    },
+    {
+     "word": "aBAbaBBaBaBaBa",
+     "length": 14,
+     "matrix": [
+      [
+       "-571",
+       "-418"
+      ],
+      [
+       "-209",
+       "-153"
+      ]
+     ],
+     "trace": "-724",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    },
+    {
+     "word": "bABabAAbAbAbAb",
+     "length": 14,
+     "matrix": [
+      [
+       "-153",
+       "418"
+      ],
+      [
+       "209",
+       "-571"
+      ]
+     ],
+     "trace": "-724",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    },
+    {
+     "word": "aBAbaBBaBaBaBaBa",
+     "length": 16,
+     "matrix": [
+      [
+       "-2131",
+       "-1560"
+      ],
+      [
+       "-780",
+       "-571"
+      ]
+     ],
+     "trace": "-2702",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    },
+    {
+     "word": "bABabAAbAbAbAbAb",
+     "length": 16,
+     "matrix": [
+      [
+       "-571",
+       "1560"
+      ],
+      [
+       "780",
+       "-2131"
+      ]
+     ],
+     "trace": "-2702",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    },
+    {
+     "word": "bABabAAbAbAbAbAbAb",
+     "length": 18,
+     "matrix": [
+      [
+       "-2131",
+       "5822"
+      ],
+      [
+       "2911",
+       "-7953"
+      ]
+     ],
+     "trace": "-10084",
+     "det": "1",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    }
+   ],
+   "total_distinct": 27
+  },
+  "t^2-4t+1": {
+   "minpoly": [
+    1,
+    -4,
+    1
+   ],
+   "label": "2 + sqrt(3)  (t + 1/t = 4)",
+   "t_numeric": 3.7320508075688776,
+   "unit_t": true,
+   "unit_t_minus_1": false,
+   "norm_t": 1,
+   "norm_t_minus_1": -2,
+   "status": "found",
+   "search": {
+    "exhaustive_len": 12,
+    "beam": [
+     {
+      "depth": 32,
+      "width": 6000,
+      "score": "gcd"
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "Ba",
+     "length": 2,
+     "matrix": [
+      [
+       "4",
+       "2"
+      ],
+      [
+       "1",
+       "1"
+      ]
+     ],
+     "trace": "5",
+     "det": "2",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "BaBa",
+     "length": 4,
+     "matrix": [
+      [
+       "18",
+       "10"
+      ],
+      [
+       "5",
+       "3"
+      ]
+     ],
+     "trace": "21",
+     "det": "4",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 2
+    },
+    {
+     "word": "BaBaBa",
+     "length": 6,
+     "matrix": [
+      [
+       "82",
+       "46"
+      ],
+      [
+       "23",
+       "13"
+      ]
+     ],
+     "trace": "95",
+     "det": "8",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 3
+    },
+    {
+     "word": "aBAbaB",
+     "length": 6,
+     "matrix": [
+      [
+       "-4",
+       "-2"
+      ],
+      [
+       "-1",
+       "-1"
+      ]
+     ],
+     "trace": "-5",
+     "det": "2",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "ABabABab",
+     "length": 8,
+     "matrix": [
+      [
+       "-1",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2",
+     "det": "1",
+     "infinite_order": false,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "ABab",
+     "exponent": 2
+    },
+    {
+     "word": "BBabABaa",
+     "length": 8,
+     "matrix": [
+      [
+       "-18",
+       "-10"
+      ],
+      [
+       "-5",
+       "-3"
+      ]
+     ],
+     "trace": "-21",
+     "det": "4",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "BaBaBaBa",
+     "length": 8,
+     "matrix": [
+      [
+       "374",
+       "210"
+      ],
+      [
+       "105",
+       "59"
+      ]
+     ],
+     "trace": "433",
+     "det": "16",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 4
+    },
+    {
+     "word": "BBabABaaBa",
+     "length": 10,
+     "matrix": [
+      [
+       "-82",
+       "-46"
+      ],
+      [
+       "-23",
+       "-13"
+      ]
+     ],
+     "trace": "-95",
+     "det": "8",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "BaBaBaBaBa",
+     "length": 10,
+     "matrix": [
+      [
+       "1706",
+       "958"
+      ],
+      [
+       "479",
+       "269"
+      ]
+     ],
+     "trace": "1975",
+     "det": "32",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 5
+    },
+    {
+     "word": "BBabABaaBaBa",
+     "length": 12,
+     "matrix": [
+      [
+       "-374",
+       "-210"
+      ],
+      [
+       "-105",
+       "-59"
+      ]
+     ],
+     "trace": "-433",
+     "det": "16",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "BaBaBaBaBaBa",
+     "length": 12,
+     "matrix": [
+      [
+       "7782",
+       "4370"
+      ],
+      [
+       "2185",
+       "1227"
+      ]
+     ],
+     "trace": "9009",
+     "det": "64",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 6
+    },
+    {
+     "word": "aBAbaBBaBaBaBa",
+     "length": 14,
+     "matrix": [
+      [
+       "-1706",
+       "-958"
+      ],
+      [
+       "-479",
+       "-269"
+      ]
+     ],
+     "trace": "-1975",
+     "det": "32",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    }
+   ],
+   "total_distinct": 12
+  },
+  "t^2-5t+1": {
+   "minpoly": [
+    1,
+    -5,
+    1
+   ],
+   "label": "(5 + sqrt(21))/2  (t + 1/t = 5)",
+   "t_numeric": 4.7912878474779195,
+   "unit_t": true,
+   "unit_t_minus_1": false,
+   "norm_t": 1,
+   "norm_t_minus_1": -3,
+   "status": "found",
+   "search": {
+    "exhaustive_len": 12,
+    "beam": [
+     {
+      "depth": 32,
+      "width": 6000,
+      "score": "gcd"
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "Ba",
+     "length": 2,
+     "matrix": [
+      [
+       "5",
+       "2"
+      ],
+      [
+       "1",
+       "1"
+      ]
+     ],
+     "trace": "6",
+     "det": "3",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "BaBa",
+     "length": 4,
+     "matrix": [
+      [
+       "27",
+       "12"
+      ],
+      [
+       "6",
+       "3"
+      ]
+     ],
+     "trace": "30",
+     "det": "9",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 2
+    },
+    {
+     "word": "BaBaBa",
+     "length": 6,
+     "matrix": [
+      [
+       "147",
+       "66"
+      ],
+      [
+       "33",
+       "15"
+      ]
+     ],
+     "trace": "162",
+     "det": "27",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 3
+    },
+    {
+     "word": "aBAbaB",
+     "length": 6,
+     "matrix": [
+      [
+       "-5",
+       "-2"
+      ],
+      [
+       "-1",
+       "-1"
+      ]
+     ],
+     "trace": "-6",
+     "det": "3",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "ABabABab",
+     "length": 8,
+     "matrix": [
+      [
+       "-1",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2",
+     "det": "1",
+     "infinite_order": false,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "ABab",
+     "exponent": 2
+    },
+    {
+     "word": "BBabABaa",
+     "length": 8,
+     "matrix": [
+      [
+       "-27",
+       "-12"
+      ],
+      [
+       "-6",
+       "-3"
+      ]
+     ],
+     "trace": "-30",
+     "det": "9",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "BaBaBaBa",
+     "length": 8,
+     "matrix": [
+      [
+       "801",
+       "360"
+      ],
+      [
+       "180",
+       "81"
+      ]
+     ],
+     "trace": "882",
+     "det": "81",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 4
+    },
+    {
+     "word": "BBabABaaBa",
+     "length": 10,
+     "matrix": [
+      [
+       "-147",
+       "-66"
+      ],
+      [
+       "-33",
+       "-15"
+      ]
+     ],
+     "trace": "-162",
+     "det": "27",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "BaBaBaBaBa",
+     "length": 10,
+     "matrix": [
+      [
+       "4365",
+       "1962"
+      ],
+      [
+       "981",
+       "441"
+      ]
+     ],
+     "trace": "4806",
+     "det": "243",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 5
+    },
+    {
+     "word": "BBabABaaBaBa",
+     "length": 12,
+     "matrix": [
+      [
+       "-801",
+       "-360"
+      ],
+      [
+       "-180",
+       "-81"
+      ]
+     ],
+     "trace": "-882",
+     "det": "81",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "BaBaBaBaBaBa",
+     "length": 12,
+     "matrix": [
+      [
+       "23787",
+       "10692"
+      ],
+      [
+       "5346",
+       "2403"
+      ]
+     ],
+     "trace": "26190",
+     "det": "729",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "Ba",
+     "exponent": 6
+    },
+    {
+     "word": "aBAbaBBaBaBaBa",
+     "length": 14,
+     "matrix": [
+      [
+       "-4365",
+       "-1962"
+      ],
+      [
+       "-981",
+       "-441"
+      ]
+     ],
+     "trace": "-4806",
+     "det": "243",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    },
+    {
+     "word": "aBAbaBBaBaBaBaBa",
+     "length": 16,
+     "matrix": [
+      [
+       "-23787",
+       "-10692"
+      ],
+      [
+       "-5346",
+       "-2403"
+      ]
+     ],
+     "trace": "-26190",
+     "det": "729",
+     "infinite_order": true,
+     "found_by": "beam(d=32,w=6000,gcd)"
+    }
+   ],
+   "total_distinct": 13
+  },
+  "t^2-t-1": {
+   "minpoly": [
+    -1,
+    -1,
+    1
+   ],
+   "label": "golden ratio phi",
+   "t_numeric": 1.618033988749895,
+   "unit_t": true,
+   "unit_t_minus_1": true,
+   "norm_t": -1,
+   "norm_t_minus_1": -1,
+   "status": "found",
+   "search": {
+    "exhaustive_len": 12,
+    "beam": [
+     {
+      "depth": 32,
+      "width": 6000,
+      "score": "gcd"
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "ABabABab",
+     "length": 8,
+     "matrix": [
+      [
+       "-1",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2",
+     "det": "1",
+     "infinite_order": false,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "ABab",
+     "exponent": 2
+    }
+   ],
+   "total_distinct": 1
+  },
+  "t^3-2": {
+   "minpoly": [
+    -2,
+    0,
+    0,
+    1
+   ],
+   "label": "cbrt(2)",
+   "t_numeric": 1.259921049894873,
+   "unit_t": false,
+   "unit_t_minus_1": true,
+   "norm_t": -2,
+   "norm_t_minus_1": -1,
+   "status": "found",
+   "search": {
+    "exhaustive_len": 12,
+    "beam": [
+     {
+      "depth": 28,
+      "width": 5000,
+      "score": "gcd"
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "AAA",
+     "length": 3,
+     "matrix": [
+      [
+       "2",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "3",
+     "det": "2",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 3,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAAA",
+     "length": 6,
+     "matrix": [
+      [
+       "4",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "5",
+     "det": "4",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 6,
+     "power_of_generator": true
+    },
+    {
+     "word": "ABabABab",
+     "length": 8,
+     "matrix": [
+      [
+       "-1",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2",
+     "det": "1",
+     "infinite_order": false,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "ABab",
+     "exponent": 2
+    },
+    {
+     "word": "AAAAAAAAA",
+     "length": 9,
+     "matrix": [
+      [
+       "8",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "9",
+     "det": "8",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 9,
+     "power_of_generator": true
+    },
+    {
+     "word": "AABAbaBAb",
+     "length": 9,
+     "matrix": [
+      [
+       "-2",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-3",
+     "det": "2",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "AAAAAAAAAAAA",
+     "length": 12,
+     "matrix": [
+      [
+       "16",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "17",
+     "det": "16",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "A",
+     "exponent": 12,
+     "power_of_generator": true
+    },
+    {
+     "word": "AAAAABAbaBAb",
+     "length": 12,
+     "matrix": [
+      [
+       "-4",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-5",
+     "det": "4",
+     "infinite_order": true,
+     "found_by": "exhaustive(L=12)"
+    },
+    {
+     "word": "AAAAAAAAAAAAAAA",
+     "length": 15,
+     "matrix": [
+      [
+       "32",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "33",
+     "det": "32",
+     "infinite_order": true,
+     "found_by": "beam(d=28,w=5000,gcd)",
+     "power_of": "A",
+     "exponent": 15,
+     "power_of_generator": true
+    },
+    {
+     "word": "BAbaBAbAAAAAAAA",
+     "length": 15,
+     "matrix": [
+      [
+       "-8",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-9",
+     "det": "8",
+     "infinite_order": true,
+     "found_by": "beam(d=28,w=5000,gcd)"
+    },
+    {
+     "word": "AAAAAAAAAAAAAAAAAA",
+     "length": 18,
+     "matrix": [
+      [
+       "64",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "65",
+     "det": "64",
+     "infinite_order": true,
+     "found_by": "beam(d=28,w=5000,gcd)",
+     "power_of": "A",
+     "exponent": 18,
+     "power_of_generator": true
+    },
+    {
+     "word": "BAbaBAbAAAAAAAAAAA",
+     "length": 18,
+     "matrix": [
+      [
+       "-16",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-17",
+     "det": "16",
+     "infinite_order": true,
+     "found_by": "beam(d=28,w=5000,gcd)"
+    },
+    {
+     "word": "AAAAAAAAAAAAAAAAAAAAA",
+     "length": 21,
+     "matrix": [
+      [
+       "128",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "129",
+     "det": "128",
+     "infinite_order": true,
+     "found_by": "beam(d=28,w=5000,gcd)",
+     "power_of": "A",
+     "exponent": 21,
+     "power_of_generator": true
+    },
+    {
+     "word": "BAbaBAbAAAAAAAAAAAAAA",
+     "length": 21,
+     "matrix": [
+      [
+       "-32",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-33",
+     "det": "32",
+     "infinite_order": true,
+     "found_by": "beam(d=28,w=5000,gcd)"
+    },
+    {
+     "word": "AAAAAAAAAAAAAAAAAAAAAAAA",
+     "length": 24,
+     "matrix": [
+      [
+       "256",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "257",
+     "det": "256",
+     "infinite_order": true,
+     "found_by": "beam(d=28,w=5000,gcd)",
+     "power_of": "A",
+     "exponent": 24,
+     "power_of_generator": true
+    },
+    {
+     "word": "BAbaBAbAAAAAAAAAAAAAAAAA",
+     "length": 24,
+     "matrix": [
+      [
+       "-64",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-65",
+     "det": "64",
+     "infinite_order": true,
+     "found_by": "beam(d=28,w=5000,gcd)"
+    },
+    {
+     "word": "AAAAAAAAAAAAAAAAAAAAAAAAAAA",
+     "length": 27,
+     "matrix": [
+      [
+       "512",
+       "0"
+      ],
+      [
+       "0",
+       "1"
+      ]
+     ],
+     "trace": "513",
+     "det": "512",
+     "infinite_order": true,
+     "found_by": "beam(d=28,w=5000,gcd)",
+     "power_of": "A",
+     "exponent": 27,
+     "power_of_generator": true
+    },
+    {
+     "word": "BAbaBAbAAAAAAAAAAAAAAAAAAAA",
+     "length": 27,
+     "matrix": [
+      [
+       "-128",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-129",
+     "det": "128",
+     "infinite_order": true,
+     "found_by": "beam(d=28,w=5000,gcd)"
+    }
+   ],
+   "total_distinct": 17
+  },
+  "t^3-t-1": {
+   "minpoly": [
+    -1,
+    -1,
+    0,
+    1
+   ],
+   "label": "plastic number",
+   "t_numeric": 1.3247179572447458,
+   "unit_t": true,
+   "unit_t_minus_1": true,
+   "norm_t": -1,
+   "norm_t_minus_1": -1,
+   "status": "found",
+   "search": {
+    "exhaustive_len": 12,
+    "beam": [
+     {
+      "depth": 28,
+      "width": 5000,
+      "score": "gcd"
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "ABabABab",
+     "length": 8,
+     "matrix": [
+      [
+       "-1",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2",
+     "det": "1",
+     "infinite_order": false,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "ABab",
+     "exponent": 2
+    }
+   ],
+   "total_distinct": 1
+  },
+  "t^3-t^2+1": {
+   "minpoly": [
+    1,
+    0,
+    -1,
+    1
+   ],
+   "label": "cubic unit t^3 = t^2 - 1",
+   "t_numeric": -0.7548776662466927,
+   "unit_t": true,
+   "unit_t_minus_1": true,
+   "norm_t": 1,
+   "norm_t_minus_1": 1,
+   "status": "found",
+   "search": {
+    "exhaustive_len": 12,
+    "beam": [
+     {
+      "depth": 28,
+      "width": 5000,
+      "score": "gcd"
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "ABabABab",
+     "length": 8,
+     "matrix": [
+      [
+       "-1",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2",
+     "det": "1",
+     "infinite_order": false,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "ABab",
+     "exponent": 2
+    }
+   ],
+   "total_distinct": 1
+  },
+  "t^3-t^2-1": {
+   "minpoly": [
+    -1,
+    0,
+    -1,
+    1
+   ],
+   "label": "cubic unit t^3 = t^2 + 1",
+   "t_numeric": 1.4655712318767682,
+   "unit_t": true,
+   "unit_t_minus_1": true,
+   "norm_t": -1,
+   "norm_t_minus_1": -1,
+   "status": "found",
+   "search": {
+    "exhaustive_len": 12,
+    "beam": [
+     {
+      "depth": 28,
+      "width": 5000,
+      "score": "gcd"
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "ABabABab",
+     "length": 8,
+     "matrix": [
+      [
+       "-1",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2",
+     "det": "1",
+     "infinite_order": false,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "ABab",
+     "exponent": 2
+    }
+   ],
+   "total_distinct": 1
+  },
+  "t^4-t^3-1": {
+   "minpoly": [
+    -1,
+    0,
+    0,
+    -1,
+    1
+   ],
+   "label": "quartic unit t^4 = t^3 + 1",
+   "t_numeric": 1.380277569097614,
+   "unit_t": true,
+   "unit_t_minus_1": true,
+   "norm_t": -1,
+   "norm_t_minus_1": -1,
+   "status": "found",
+   "search": {
+    "exhaustive_len": 12,
+    "beam": [
+     {
+      "depth": 28,
+      "width": 5000,
+      "score": "gcd"
+     }
+    ]
+   },
+   "matrices": [
+    {
+     "word": "ABabABab",
+     "length": 8,
+     "matrix": [
+      [
+       "-1",
+       "0"
+      ],
+      [
+       "0",
+       "-1"
+      ]
+     ],
+     "trace": "-2",
+     "det": "1",
+     "infinite_order": false,
+     "found_by": "exhaustive(L=12)",
+     "power_of": "ABab",
+     "exponent": 2
+    }
+   ],
+   "total_distinct": 1
+  }
+ }
+}

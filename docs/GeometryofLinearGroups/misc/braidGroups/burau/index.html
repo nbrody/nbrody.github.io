@@ -347,6 +347,61 @@
                     </p>
                 </div>
 
+                <h3>Why \(64 = t^6\): the parabolic mechanism</h3>
+                <p>
+                    The exponent in the relation above is no accident. Over \(\mathbb{Z}[t,t^{-1}]\) the
+                    reduced Burau matrix of \(u = X^{-1}YXY^{-1}\) is <em>lower triangular</em> with diagonal
+                    \((t^4,\, t^{-2},\, t^{-2})\) — and its Levi \(2\times 2\) block is the <em>central</em>
+                    matrix \(t^{-2} I\). Consequently, for <em>any</em> word \(p\) whose specialized matrix
+                    has first row proportional to \(e_1^{T}\) (i.e. \(p\) lies in the parabolic subgroup
+                    \(\widetilde P\) stabilizing the covector flag of \(u\)), the commutator \(v = [p, u]\)
+                    automatically lands in the abelian unipotent group
+                    \(N = \{\, I + (a e_2 + b e_3)e_1^{T} \,\}\), on which conjugation by \(u^{-1}\) acts as
+                    multiplication by \(t^6\) and \(v^k = I + k(v - I)\). At any rational \(t = p/q\) this
+                    yields the <em>exact</em> relation
+                </p>
+                <div class="math-block">
+                    \[
+                    u^{-1}\, v^{\,q^6}\, u \;=\; v^{\,p^6},
+                    \]
+                </div>
+                <p>
+                    and since conjugate powers of an element of a free group must have equal exponents,
+                    \(u^{-1} v^{q^6} u\, v^{-p^6}\) is a <em>nontrivial</em> element of \(F_2\) in the kernel of
+                    the specialized Burau representation whenever \(v \neq 1\). At \(t = 2\) this explains
+                    \(64 = 2^6\). Parabolic words \(p\) can be found by exact projective <em>collisions</em>:
+                    whenever two words have projectively equal first rows, \(p = w_1 w_2^{-1} \in \widetilde P\).
+                    This produces a shorter unipotent than \(w_2 u^{-1}\) (36 letters instead of 96): with
+                    \(p = \texttt{X X X y X X y y X X Y Y X Y X}\) and \(v = [p,u]\), the word
+                    \(u^{-1} v u\, v^{-64}\) (2340 letters after free reduction) is verified to be the identity
+                    in exact rational arithmetic.
+                </p>
+                <div class="definition-box">
+                    <div class="def-title">How special is \(t = 2\)?</div>
+                    <p>
+                        An exhaustive search (<code>python/rationalKernelSearch.py</code>,
+                        <code>python/symbolicParabolicSweep.py</code>; results in
+                        <code>data/rational_kernel_db.json</code>) shows the construction is surprisingly rigid:
+                    </p>
+                    <ul>
+                        <li>Among all 84 rationals \(p/q\) with \(|p|, q \le 8\) (excluding \(0, \pm 1\)),
+                            only \(t = 2\) and its mirror \(t = 1/2\) admit parabolic words built from
+                            collision constituents of length \(\le 11\); a deeper scan at \(t = 3\) excludes
+                            parabolic words of length \(\le 30\).</li>
+                        <li>A symbolic sweep of all \(1{,}062{,}880\) reduced words of length \(\le 12\) over
+                            \(\mathbb{Z}[t,t^{-1}]\) finds <em>no</em> word that is parabolic at any rational
+                            \(t \notin \{0, \pm 1\}\) — the shortest at \(t=2\) has length 15. The same sweep
+                            finds 145,184 words parabolic at <em>algebraic</em> points, dominated by the
+                            cyclotomic factor \(t^2 - t + 1\) (i.e. \(t = \zeta_6\), where \(t^6 = 1\) makes the
+                            relation degenerate to commutation), plus genuinely non-cyclotomic specializations
+                            such as roots of \(t^2 + t - 1\), \(t^3 - t^2 + 1\), and \(t^4 + t - 1\).</li>
+                        <li>The only words of length \(\le 12\) that are parabolic <em>identically in</em>
+                            \(t\) are the powers of \(u\) itself. Both length-15 parabolic words at \(t=2\)
+                            have first-row gcd exactly \((t-2)(t^2-t+1)\), tying the rational point \(t = 2\)
+                            to \(\zeta_6\).</li>
+                    </ul>
+                </div>
+
                 <p>
                     You can use the <strong>generator checkboxes</strong> in the search panel to restrict
                     which generators (and their inverses) are available during the FlashBeam expansion.

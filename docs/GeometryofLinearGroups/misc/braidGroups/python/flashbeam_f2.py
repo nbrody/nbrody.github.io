@@ -418,8 +418,12 @@ class FlashBeamF2:
 
 def verify_over_laurent(word: str):
     """
-    Given a word found at a specific t, check if it's also the identity 
+    Given a word found at a specific t, check if it's also the identity
     in the full Laurent polynomial ring ℤ[t, t⁻¹].
+
+    NOTE: requires the (currently absent) flashbeam_f2_symbolic module;
+    callers guard the resulting ImportError.  For symbolic checks use
+    symbolicParabolicSweep.py instead.
     """
     # Build symbolic generators
     from flashbeam_f2_symbolic import build_f2_generators, mat_mul, mat_id, mat_eq, mat_str

@@ -2,7 +2,7 @@
  * main.js — Orchestration: UI controls, panel logic, animations
  */
 import { MargulisScene } from './scene.js';
-import { computeTranslations, eigendata, A1, A2, lorentzDot } from './math.js';
+import { computeTranslations, eigendata, A1, A2, U1, U2, lorentzDot } from './math.js';
 
 /* =========================================
    INIT
@@ -80,6 +80,35 @@ document.getElementById('pair-0').addEventListener('click', () => selectPair(0))
 document.getElementById('pair-1').addEventListener('click', () => selectPair(1));
 document.getElementById('pair-both').addEventListener('click', () => selectPair(-1));
 
+/* =========================================
+   GENERATOR PRESETS
+   ========================================= */
+
+function selectPreset(name) {
+    scene.setPreset(name);
+    document.getElementById('preset-adjoint').classList.toggle('active', name === 'adjoint');
+    document.getElementById('preset-unipotent').classList.toggle('active', name === 'unipotent');
+
+    // Crooked-plane machinery only applies to the hyperbolic preset
+    const isUni = name === 'unipotent';
+    ['pair-0', 'pair-1', 'pair-both', 'animate-pairing-btn'].forEach(id => {
+        document.getElementById(id).disabled = isUni;
+    });
+    document.getElementById('translation-scale').disabled = isUni;
+    document.getElementById('legend').style.display = isUni ? 'none' : '';
+    // setPreset may auto-enable the Cayley graph
+    document.getElementById('toggle-orbit').classList.toggle('active', scene.visible.orbit);
+
+    document.getElementById('preset-note').textContent = isUni
+        ? 'Unipotent pair in SL(3,ℤ) acting linearly on ℝ³. The plane x₃ = 1 is invariant, giving an affine F₂-action on the plane (Cayley orbit shown there). Not Lorentzian — no crooked planes.'
+        : 'Hyperbolic linear parts from Ad(SL(2,ℤ)) paired with translations — Drumm\'s crooked-plane construction.';
+
+    updateInvariantDisplay();
+}
+
+document.getElementById('preset-adjoint').addEventListener('click', () => selectPreset('adjoint'));
+document.getElementById('preset-unipotent').addEventListener('click', () => selectPreset('unipotent'));
+
 document.getElementById('auto-rotate').addEventListener('click', (e) => {
     const isActive = e.target.classList.toggle('active');
     scene.setAutoRotate(isActive);
@@ -151,9 +180,18 @@ document.getElementById('reset-btn').addEventListener('click', () => {
    ========================================= */
 
 function updateInvariantDisplay() {
-    const data = computeTranslations(parseFloat(document.getElementById('translation-scale').value));
     const alpha1El = document.getElementById('alpha1');
     const alpha2El = document.getElementById('alpha2');
+
+    if (scene.preset === 'unipotent') {
+        alpha1El.textContent = '— (unipotent)';
+        alpha2El.textContent = '— (unipotent)';
+        alpha1El.style.color = '';
+        alpha2El.style.color = '';
+        return;
+    }
+
+    const data = computeTranslations(parseFloat(document.getElementById('translation-scale').value));
 
     alpha1El.textContent = data.alpha1.toFixed(4);
     alpha2El.textContent = data.alpha2.toFixed(4);
@@ -170,13 +208,6 @@ function updateInvariantDisplay() {
 
 function showGeneratorInfo(genIdx) {
     const infoEl = document.getElementById('generator-info');
-    const matrices = [A1, A1, A2, A2]; // A1 for γ₁, γ₁⁻¹; A2 for γ₂, γ₂⁻¹
-    const A = matrices[genIdx];
-    const ed = eigendata(A);
-
-    const scale = parseFloat(document.getElementById('translation-scale').value);
-    const data = computeTranslations(scale);
-    const b = genIdx < 2 ? data.b1 : data.b2;
 
     const fmtVec = v => `(${v.map(x => x.toFixed(3)).join(', ')})`;
     const fmtMat = M => M.map(row => row.map(x => {
@@ -186,6 +217,33 @@ function showGeneratorInfo(genIdx) {
 
     const isInverse = genIdx === 1 || genIdx === 3;
     const label = genLabels[genIdx];
+
+    if (scene.preset === 'unipotent') {
+        const U = genIdx < 2 ? U1 : U2;
+        const fixedDir = genIdx < 2 ? '(1, 0, 0)' : '(0, 1, 0)';
+        infoEl.innerHTML = `
+            <div style="margin-bottom: 8px;">
+                <span style="color: ${genColors[genIdx]}; font-weight: 700; font-size: 1.1rem;">${label}</span>
+                <span style="color: var(--text-dim); font-size: 0.78rem;"> — ${isInverse ? 'Inverse of' : ''} ${genIdx < 2 ? 'Generator 1' : 'Generator 2'} (unipotent)</span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-dim); line-height: 1.6;">
+                <div><strong style="color: var(--text);">Matrix${isInverse ? ' (of the generator)' : ''}:</strong></div>
+                <pre style="margin: 4px 0 8px; color: var(--text); font-size: 0.75rem; line-height: 1.5;">${fmtMat(U)}</pre>
+                <div><strong style="color: var(--text);">Eigenvalues:</strong> 1, 1, 1 (unipotent)</div>
+                <div><strong style="color: var(--text);">Fixed direction:</strong> ${fixedDir}</div>
+                <div>Preserves the plane x₃ = 1, acting there as an affine map.</div>
+            </div>
+        `;
+        return;
+    }
+
+    const matrices = [A1, A1, A2, A2]; // A1 for γ₁, γ₁⁻¹; A2 for γ₂, γ₂⁻¹
+    const A = matrices[genIdx];
+    const ed = eigendata(A);
+
+    const scale = parseFloat(document.getElementById('translation-scale').value);
+    const data = computeTranslations(scale);
+    const b = genIdx < 2 ? data.b1 : data.b2;
 
     infoEl.innerHTML = `
         <div style="margin-bottom: 8px;">
@@ -220,6 +278,7 @@ document.addEventListener('keydown', (e) => {
         case 'h': document.getElementById('toggle-hyperboloid').click(); break;
         case 'c': selectPair(scene.activePair === 0 ? 1 : 0); break;
         case 'o': document.getElementById('toggle-orbit').click(); break;
+        case '?': document.getElementById('theory-panel').classList.toggle('hidden'); break;
     }
 });
 

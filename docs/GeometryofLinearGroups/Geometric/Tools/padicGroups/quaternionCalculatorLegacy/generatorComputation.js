@@ -72,47 +72,43 @@ export function removeDuplicatesUpToSign(quaternions) {
 }
 
 // Compute all relations between generators
-// A relation is: a * b = bp * ap (possibly up to sign)
+// A relation is: a * b = bp * ap (possibly up to sign), where a, ap share one
+// prime and b, bp share a different prime. Unique factorization of quaternions
+// of norm pq makes the pair (bp, ap) unique for each (a, b), so the complete
+// list has one relation per mixed-prime ordered pair (a, b).
 export function computeRelations(generators) {
     const relations = [];
     const genKeys = Object.keys(generators);
-    const relationSet = new Set(); // To avoid duplicates
 
     console.log(`Computing relations for ${genKeys.length} generators...`);
 
-    // For each pair (a, b)
     for (const aKey of genKeys) {
-        // Skip conjugate generators (those ending in *)
-        if (aKey.endsWith('*')) continue;
-
         for (const bKey of genKeys) {
-            if (bKey.endsWith('*')) continue;
+            const A = generators[aKey];
+            const B = generators[bKey];
+            // Relations only mix two distinct primes
+            if (A.prime === B.prime) continue;
 
-            const a = generators[aKey].q;
-            const b = generators[bKey].q;
-            const ab = QMath.multiply(a, b);
+            const ab = QMath.multiply(A.q, B.q);
 
-            // Try to find bp, ap such that ab = bp * ap
+            // Find the unique bp (norm = B.prime), ap (norm = A.prime) with ab = ±bp*ap
             let found = false;
             for (const bpKey of genKeys) {
-                if (found) break;
+                if (generators[bpKey].prime !== B.prime) continue;
                 for (const apKey of genKeys) {
-                    const bp = generators[bpKey].q;
-                    const ap = generators[apKey].q;
-                    const bpap = QMath.multiply(bp, ap);
+                    if (generators[apKey].prime !== A.prime) continue;
+                    const bpap = QMath.multiply(generators[bpKey].q, generators[apKey].q);
 
-                    // Check if equal or equal up to sign
                     if (QMath.areEqual(ab, bpap) || QMath.areEqual(ab, bpap.map(x => -x))) {
-                        // Found a relation
-                        const relKey = `${aKey},${bKey},${bpKey},${apKey}`;
-                        if (!relationSet.has(relKey)) {
-                            relationSet.add(relKey);
-                            relations.push({ a: aKey, b: bKey, bp: bpKey, ap: apKey });
-                        }
+                        relations.push({ a: aKey, b: bKey, bp: bpKey, ap: apKey });
                         found = true;
                         break;
                     }
                 }
+                if (found) break;
+            }
+            if (!found) {
+                console.warn(`No relation found for ${aKey}·${bKey} (${A.prime}·${B.prime})`);
             }
         }
     }

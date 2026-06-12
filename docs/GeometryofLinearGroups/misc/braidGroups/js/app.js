@@ -23,7 +23,7 @@ import {
 
 import { FlashBeamSolver } from './flashbeam.js';
 import { BraidVisualizer, getStrandColor } from './braidVisualizer.js';
-import { DiskVisualizer } from './diskVisualizer.js';
+import { DiskVisualizer } from './diskVisualizer.js?v=dyn2';
 import { handleReduction, formatHandleReductionResult } from './handleReduction.js';
 import { inducedPermutation, isIdentityPermutation, permutationToCycleNotation } from './inducedPermutation.js';
 

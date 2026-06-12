@@ -437,7 +437,34 @@ export function interpolateAffine(A, b, t) {
     return { matrix: At, translation: bt };
 }
 
-export function getGenerators(translationScale = 1.0) {
+/* =========================================
+   UNIPOTENT AFFINE PRESET
+
+   U₁, U₂ are unipotent elements of SL(3,Z) with bottom row (0,0,1):
+   they act linearly on R³, preserve every plane x₃ = c, and on the
+   invariant plane x₃ = 1 they restrict to the affine maps
+     (x,y) ↦ (x + 2y, y + 1)   and   (x,y) ↦ (x + 1, 2x + y).
+   Not Lorentzian — no crooked planes / Margulis invariant here.
+   ========================================= */
+
+export const U1 = [[1, 2, 0], [0, 1, 1], [0, 0, 1]];
+export const U2 = [[1, 0, 1], [2, 1, 0], [0, 0, 1]];
+
+export function getGenerators(translationScale = 1.0, preset = 'adjoint') {
+    if (preset === 'unipotent') {
+        const zero = [0, 0, 0];
+        return {
+            generators: [
+                { matrix: U1, translation: zero, label: 'γ₁' },
+                { matrix: matInverse(U1), translation: zero, label: 'γ₁⁻¹' },
+                { matrix: U2, translation: zero, label: 'γ₂' },
+                { matrix: matInverse(U2), translation: zero, label: 'γ₂⁻¹' }
+            ],
+            data: null,
+            basePoint: [0, 0, 1] // orbit lives in the invariant plane x₃ = 1
+        };
+    }
+
     const data = computeTranslations(translationScale);
     const { b1, b2 } = data;
 
@@ -454,6 +481,7 @@ export function getGenerators(translationScale = 1.0) {
             { matrix: A2, translation: b2, label: 'γ₂' },
             { matrix: A2inv, translation: b2inv, label: 'γ₂⁻¹' }
         ],
-        data
+        data,
+        basePoint: [0, 0, 0]
     };
 }

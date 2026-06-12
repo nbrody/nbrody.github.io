@@ -52,7 +52,7 @@
     <div id="viz-container"></div>
 
     <!-- Theory Panel (left) -->
-    <div id="theory-panel">
+    <div id="theory-panel" class="hidden">
         <div class="panel-header">
             <h1 class="panel-title">Margulis Spacetimes</h1>
             <p class="panel-subtitle">Drumm's Crooked Plane Construction</p>
@@ -173,6 +173,18 @@
 
             <!-- View Tab -->
             <div id="tab-view" class="tab-content active">
+                <div class="control-group">
+                    <label class="control-label">Generators</label>
+                    <button id="preset-adjoint" class="toggle-btn active"
+                        title="Hyperbolic linear parts A₁, A₂ ∈ SO(2,1) via the adjoint representation of SL(2,ℤ), with translations bᵢ">
+                        Hyperbolic · Ad(SL₂ℤ)
+                    </button>
+                    <button id="preset-unipotent" class="toggle-btn"
+                        title="γ₁ = [[1,2,0],[0,1,1],[0,0,1]], γ₂ = [[1,0,1],[2,1,0],[0,0,1]] — unipotent pair preserving the plane x₃ = 1">
+                        Unipotent · affine pair
+                    </button>
+                    <p id="preset-note" class="control-note">Hyperbolic linear parts from Ad(SL(2,ℤ)) paired with translations — Drumm's crooked-plane construction.</p>
+                </div>
                 <div class="control-group">
                     <label class="control-label">Display</label>
                     <button id="toggle-light-cone" class="toggle-btn active">Light Cone</button>

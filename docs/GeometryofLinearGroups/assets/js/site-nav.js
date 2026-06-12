@@ -154,7 +154,6 @@
       { t: 'Misc — Overview',           u: 'misc/index.html' },
       { t: 'Braid Groups',              u: 'misc/braidGroups/index.html' },
       { t: 'Burau Relation Finder',     u: 'misc/braidGroups/burau/index.html' },
-      { t: 'FlashBeam Burau Search',    u: 'misc/braidGroups/templates/index.html' },
       { t: 'Penrose Tiling',            u: 'misc/penrose/index.html' },
       { t: 'Coxeter Group Explorer',    u: 'misc/coxeter/index.html' },
       { t: 'Zonotopal Tilings',         u: 'misc/zonotope/index.html' },

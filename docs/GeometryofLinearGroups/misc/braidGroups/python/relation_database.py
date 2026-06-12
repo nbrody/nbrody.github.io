@@ -698,7 +698,8 @@ def beam_search(spec_name, gens_info, beam_width=5000, flash_size=80,
 # 5. DATABASE I/O
 # ============================================================================
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'relation_db.json')
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data',
+                       'relation_db.json')
 
 
 def load_db():
