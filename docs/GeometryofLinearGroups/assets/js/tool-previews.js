@@ -24,6 +24,7 @@
   var SETTLE_DELAYS = [900, 1800, 3500]; // additional time-based capture attempts (ms)
   var HARD_TIMEOUT_MS = 6000;      // unload uncaptured iframe after this long
   var GRACE_OUT_OF_VIEW_MS = 600;  // grace period before unloading on scroll-out
+  var MIN_CAPTURE_INTERVAL_MS = 400; // throttle expensive canvas readbacks
   var hasHover = !window.matchMedia || window.matchMedia('(hover: hover)').matches;
 
   var live = new Set();        // cards with a running iframe
@@ -58,11 +59,11 @@
 
   function loadIframe(card) {
     if (captured.has(card) || live.has(card)) return;
-    live.add(card);
-    enforceCap();
     var slot = ensureSlot(card);
     var url = card.dataset.preview;
     if (!url) return;
+    live.add(card);
+    enforceCap();
     setHint(card, 'rendering…');
     var iframe = document.createElement('iframe');
     iframe.className = 'tp-iframe';
@@ -83,6 +84,7 @@
     if (!slot) return;
     var ifr = slot.querySelector('iframe');
     if (ifr) {
+      if (ifr._tpRestoreRAF) ifr._tpRestoreRAF();
       try { ifr.src = 'about:blank'; } catch (e) {}
       ifr.remove();
     }
@@ -115,9 +117,18 @@
     catch (e) { return; }
     if (!win || !doc) return;
 
-    function attempt() {
+    var lastAttempt = 0;
+    var restoreRAF = null;
+
+    function attempt(force) {
       if (done || captured.has(card) || iframe.parentNode === null) return;
-      if (tryCapture(card, iframe)) done = true;
+      var now = performance.now();
+      if (!force && now - lastAttempt < MIN_CAPTURE_INTERVAL_MS) return;
+      lastAttempt = now;
+      if (tryCapture(card, iframe)) {
+        done = true;
+        if (restoreRAF) restoreRAF();
+      }
     }
 
     // Patch requestAnimationFrame so we can capture immediately after a draw,
@@ -127,24 +138,34 @@
       var orig = win.requestAnimationFrame;
       if (typeof orig === 'function') {
         var frames = 0;
-        win.requestAnimationFrame = function (cb) {
+        restoreRAF = function () {
+          if (win.requestAnimationFrame === patchedRAF) win.requestAnimationFrame = orig;
+          iframe._tpRestoreRAF = null;
+        };
+        function patchedRAF(cb) {
           return orig.call(win, function (t) {
             try { cb(t); } catch (e) { /* swallow inner errors */ }
-            // Wait a few frames for shaders to compile / textures to upload.
-            if (++frames >= 8 && !done) attempt();
+            // Wait a few frames for shaders to compile / textures to upload,
+            // then sample at most a few times per second. canvas.toDataURL()
+            // forces a GPU readback and can hang heavy multi-RAF previews if
+            // attempted every frame.
+            if (++frames >= 8 && !done) attempt(false);
           });
-        };
+        }
+        win.requestAnimationFrame = patchedRAF;
+        iframe._tpRestoreRAF = restoreRAF;
       }
     } catch (e) { /* cross-origin or sealed window */ }
 
     // Fallback time-based attempts (works for Canvas2D / SVG-based pages too).
-    SETTLE_DELAYS.forEach(function (ms) { setTimeout(attempt, ms); });
+    SETTLE_DELAYS.forEach(function (ms) { setTimeout(function () { attempt(true); }, ms); });
 
     // Hard timeout: free GPU even if capture failed.
     setTimeout(function () {
       if (done || captured.has(card)) return;
-      attempt();
+      attempt(true);
       if (!done && live.has(card)) {
+        if (restoreRAF) restoreRAF();
         unloadIframe(card);
         setHint(card, hasHover ? '▸ hover to preview' : 'tap to open');
       }
@@ -196,7 +217,11 @@
     // Once the image has decoded, drop the iframe.
     function swap() {
       var ifr = slot.querySelector('iframe');
-      if (ifr) { try { ifr.src = 'about:blank'; } catch (e) {} ifr.remove(); }
+      if (ifr) {
+        if (ifr._tpRestoreRAF) ifr._tpRestoreRAF();
+        try { ifr.src = 'about:blank'; } catch (e) {}
+        ifr.remove();
+      }
       slot.classList.add('tp-captured');
       var ph = slot.querySelector('.tp-static');
       if (ph) ph.remove();
