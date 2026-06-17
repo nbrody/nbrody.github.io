@@ -1171,12 +1171,10 @@ function updateHud() {
 
 // Surface selector (dropdown)
 const surfaceSelect = document.getElementById('surface-select');
-const FOLDABLE_SURFACES = ['sphere', 'torus'];
+const EMBEDDABLE_SURFACES = ['disk', 'sphere', 'torus'];
 
 function onSurfaceChange() {
     state.surface = surfaceSelect.value;
-    // "View in R³" is unified across all surfaces, so its visibility no
-    // longer needs to be toggled here.
     syncSliderToSurface();
     initGrid();
     updateHud();
@@ -1323,6 +1321,8 @@ document.getElementById('view-r3-btn').addEventListener('click', () => {
         if (window.openCubeFold) window.openCubeFold();
     } else if (state.surface === 'torus') {
         if (window.openTorusFold) window.openTorusFold();
+    } else {
+        syncSmoothButtonVisibility();
     }
 });
 
@@ -1352,10 +1352,10 @@ document.getElementById('cube-smooth-btn').addEventListener('click', () => {
     window.openSmooth({ polylines, label });
 });
 
-// The "View in R³" button is unified across surfaces, so nothing to
-// toggle here. (Older builds had separate Smooth/Fold buttons; this stub
-// remains as a no-op so other call sites stay safe.)
-function syncSmoothButtonVisibility() {}
+function syncSmoothButtonVisibility() {
+    const grp = document.getElementById('view-r3-group');
+    if (grp) grp.style.display = EMBEDDABLE_SURFACES.includes(state.surface) ? '' : 'none';
+}
 syncSmoothButtonVisibility();
 
 // Panel toggle
