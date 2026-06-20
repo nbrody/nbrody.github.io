@@ -6,6 +6,7 @@
     let scene, camera, renderer, controls;
     let cubeGroup, pivots = {}, meshes = {}, strandGroups = {}, elbowGroup;
     let animId = null, isFolded = false;
+    let active = false, foldTimer = null;
     let renderMode = 'tubes'; // 'tiles' or 'tubes'
 
     const FOLD_DURATION = 1500;
@@ -242,6 +243,7 @@
         });
         const t0 = performance.now();
         function step(now) {
+            if (!active) { animId = null; return; }
             const t = Math.min((now - t0) / FOLD_DURATION, 1);
             const p = ease(t);
             Object.keys(FOLD_TARGETS).forEach(n => {
@@ -264,10 +266,18 @@
 
     function loop() {
         if (animId) cancelAnimationFrame(animId);
+        active = true;
         (function run() {
+            if (!active) { animId = null; return; }
             controls.update(); renderer.render(scene, camera);
             animId = requestAnimationFrame(run);
         })();
+    }
+
+    function stop() {
+        active = false;
+        if (foldTimer !== null) { clearTimeout(foldTimer); foldTimer = null; }
+        if (animId) { cancelAnimationFrame(animId); animId = null; }
     }
 
     // ── Toggle Grid ──
@@ -314,20 +324,30 @@
     };
 
     window.openCubeFold = function () {
+        stop();
+        active = true;
         document.getElementById('cube-overlay').style.display = 'block';
         document.getElementById('cube-hide-grid').checked = false;
+        const unfoldBtn = document.getElementById('cube-unfold-btn');
+        unfoldBtn.textContent = 'Unfold';
+        unfoldBtn.onclick = null;
         if (!renderer) init();
         onResize(); buildNet(); loop();
-        setTimeout(() => animateFold(true), 300);
+        foldTimer = setTimeout(() => {
+            foldTimer = null;
+            if (active) animateFold(true);
+        }, 300);
     };
 
     window.closeCubeFold = function () {
         document.getElementById('cube-overlay').style.display = 'none';
-        if (animId) { cancelAnimationFrame(animId); animId = null; }
+        stop();
     };
 
     document.getElementById('cube-close-btn').addEventListener('click', window.closeCubeFold);
-    document.getElementById('cube-unfold-btn').addEventListener('click', () => animateFold(!isFolded));
+    document.getElementById('cube-unfold-btn').addEventListener('click', () => {
+        if (state.surface === 'sphere') animateFold(!isFolded);
+    });
     document.getElementById('cube-hide-grid').addEventListener('change', e => setStrandsOnly(e.target.checked));
 
     // Render mode toggle (tiles/tubes) — wired up in cube3d since it loads first

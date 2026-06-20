@@ -5,6 +5,7 @@
     let scene, camera, renderer, controls;
     let mainGroup, baseGeoms = [];
     let animId = null, isFolded = false;
+    let active = false, foldTimer = null;
     let renderMode = 'tubes'; // 'tiles' or 'tubes'
 
     const FOLD_DURATION = 2000;
@@ -211,6 +212,7 @@
 
         const t0 = performance.now();
         function step(now) {
+            if (!active) { animId = null; return; }
             const t = Math.min((now - t0) / FOLD_DURATION, 1);
             const p = ease(t);
             applyFold(s + (e - s) * p);
@@ -232,10 +234,18 @@
 
     function loop() {
         if (animId) cancelAnimationFrame(animId);
+        active = true;
         (function run() {
+            if (!active) { animId = null; return; }
             controls.update(); renderer.render(scene, camera);
             animId = requestAnimationFrame(run);
         })();
+    }
+
+    function stop() {
+        active = false;
+        if (foldTimer !== null) { clearTimeout(foldTimer); foldTimer = null; }
+        if (animId) { cancelAnimationFrame(animId); animId = null; }
     }
 
     // ── Grid Toggle ──
@@ -264,9 +274,12 @@
 
     // ── Public API ──
     window.openTorusFold = function () {
+        stop();
+        active = true;
         const uiBtn = document.getElementById('cube-unfold-btn');
         uiBtn.textContent = 'Unfold';
         uiBtn.onclick = () => {
+            if (state.surface !== 'torus') return;
             animateFold(!isFolded);
             uiBtn.textContent = isFolded ? 'Unfold' : 'Fold';
         };
@@ -278,7 +291,9 @@
         onResize();
         buildModel();
         loop();
-        setTimeout(() => {
+        foldTimer = setTimeout(() => {
+            foldTimer = null;
+            if (!active) return;
             animateFold(true);
             uiBtn.textContent = 'Unfold';
         }, 300);
@@ -288,7 +303,7 @@
     const originalClose = window.closeCubeFold;
     window.closeCubeFold = function () {
         document.getElementById('cube-overlay').style.display = 'none';
-        if (animId) { cancelAnimationFrame(animId); animId = null; }
+        stop();
         if (originalClose) originalClose();
     };
 
