@@ -120,7 +120,6 @@
       { t: 'SL₃(ℤ[½]) Dynamics',           u: 'Geometric/SL3Rcopy.html' },
       { t: 'Theta-Graph Product',          u: 'Geometric/thetaProduct.html' },
       { t: 'ℤ² ∗ ℤ in SL₃(ℤ[1/2])',        u: 'Geometric/Tools/freeProduct/index.html' },
-      { t: 'Mandelbrot (WGSL)',            u: 'Geometric/Tools/mandelbrot.html' },
     ]},
     { section: 'Group Library', icon: 'Γ', items: [
       { t: 'Group Library',         u: 'GroupLibrary/index.html' },
