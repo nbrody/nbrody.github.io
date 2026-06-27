@@ -27,26 +27,31 @@ function generateRoomCode() {
 }
 
 async function createRoom() {
-    let code = generateRoomCode();
-    const roomRef = db.ref(`rooms/${code}`);
-    const snapshot = await roomRef.once('value');
+    const maxAttempts = 25;
 
-    // Avoid collisions
-    while (snapshot.exists()) {
-        code = generateRoomCode();
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const code = generateRoomCode();
+        const roomRef = db.ref(`rooms/${code}`);
+        const initialRoom = {
+            code: code,
+            state: 'lobby', // lobby | picking | playing | results
+            host: null,
+            players: {},
+            game: null,
+            gameState: {},
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+        };
+
+        // Atomic allocation avoids both infinite loops on existing codes and
+        // two TVs racing to claim the same newly generated code.
+        const result = await roomRef.transaction((currentRoom) => {
+            return currentRoom === null ? initialRoom : undefined;
+        });
+
+        if (result.committed) return code;
     }
 
-    await roomRef.set({
-        code: code,
-        state: 'lobby', // lobby | picking | playing | results
-        host: null,
-        players: {},
-        game: null,
-        gameState: {},
-        createdAt: firebase.database.ServerValue.TIMESTAMP
-    });
-
-    return code;
+    throw new Error('Could not allocate a unique room code');
 }
 
 async function joinRoom(roomCode, playerName, avatar) {
