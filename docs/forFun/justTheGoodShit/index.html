@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JTGS™ — Just The Good Sh*t</title>
+<meta name="description" content="The world's first pre-digestive intake processor. Eat freely. Excrete never. Absorb only the good part.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#070a08;
+    --bg2:#0d130e;
+    --glass:rgba(255,255,255,0.055);
+    --glass-border:rgba(255,255,255,0.12);
+    --ink:#f1f7f2;
+    --muted:#9db3a4;
+    --good:#5bd97b;     /* the good shit */
+    --waste:#a87c4a;    /* the bad shit */
+    --gold:#ffd166;
+    --hot:#ff5d8f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 12% -10%, rgba(91,217,123,0.16), transparent 60%),
+      radial-gradient(1000px 700px at 92% 8%, rgba(168,124,74,0.13), transparent 55%),
+      linear-gradient(180deg,var(--bg),var(--bg2));
+    color:var(--ink);
+    line-height:1.6;
+    overflow-x:hidden;
+  }
+  .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+  h1,h2,h3,.kicker{font-family:'Bebas Neue',sans-serif;letter-spacing:1px}
+  .kicker{color:var(--good);font-size:1rem;letter-spacing:4px;text-transform:uppercase}
+  a{color:inherit}
+
+  /* ===== HERO ===== */
+  header{padding:88px 0 28px;text-align:center}
+  header h1{
+    font-size:clamp(3.2rem,9vw,7.2rem);
+    line-height:0.9;
+    background:linear-gradient(92deg,var(--good),var(--gold));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 4px 30px rgba(91,217,123,0.35));
+  }
+  header h1 .tm{font-size:0.32em;vertical-align:super;color:var(--gold);-webkit-text-fill-color:var(--gold)}
+  header .sub{font-family:'Bebas Neue';letter-spacing:6px;color:var(--muted);font-size:1.1rem;margin-top:6px}
+  header .tag{font-size:1.25rem;color:var(--muted);max-width:640px;margin:20px auto 0;font-weight:300}
+  .cta{
+    display:inline-block;margin-top:34px;padding:16px 38px;border-radius:999px;
+    font-family:'Bebas Neue';font-size:1.35rem;letter-spacing:3px;text-decoration:none;color:#06210e;
+    background:linear-gradient(92deg,var(--good),var(--gold));
+    box-shadow:0 12px 40px rgba(91,217,123,0.35);transition:transform .2s ease, box-shadow .2s ease;
+  }
+  .cta:hover{transform:translateY(-2px);box-shadow:0 18px 52px rgba(91,217,123,0.5)}
+  .fine{font-size:0.8rem;color:var(--muted);margin-top:14px;font-weight:300}
+
+  /* ===== THE MACHINE ===== */
+  .stage{
+    position:relative;margin:46px auto 10px;border-radius:24px;overflow:hidden;
+    border:1px solid var(--glass-border);
+    box-shadow:0 30px 80px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.03);
+    background:linear-gradient(180deg,#05080620,#0a0f0b);
+  }
+  #scene{display:block;width:100%;height:auto}
+  .stage .hud{
+    position:absolute;left:16px;bottom:14px;font-size:0.78rem;color:var(--muted);
+    background:rgba(0,0,0,0.4);padding:6px 12px;border-radius:999px;border:1px solid var(--glass-border);
+    backdrop-filter:blur(8px);
+  }
+  .stage .sync{
+    position:absolute;right:16px;top:14px;font-family:'Bebas Neue';letter-spacing:2px;
+    color:var(--good);font-size:1rem;background:rgba(0,0,0,0.4);padding:6px 14px;border-radius:999px;
+    border:1px solid rgba(91,217,123,0.35);backdrop-filter:blur(8px);
+  }
+  .stage .sync .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good);
+    margin-right:6px;box-shadow:0 0 10px var(--good);animation:pulse 1.4s infinite}
+  @keyframes pulse{50%{opacity:0.25}}
+
+  /* ===== SECTIONS ===== */
+  section{padding:60px 0}
+  h2{font-size:clamp(2.2rem,5vw,3.4rem);line-height:1;margin-bottom:8px}
+  .lead{color:var(--muted);font-size:1.15rem;max-width:660px;font-weight:300;margin-bottom:34px}
+
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
+  .card{
+    background:var(--glass);border:1px solid var(--glass-border);border-radius:18px;padding:26px;
+    backdrop-filter:blur(14px);transition:transform .25s ease, border-color .25s ease;
+  }
+  .card:hover{transform:translateY(-4px);border-color:rgba(91,217,123,0.4)}
+  .card .num{font-family:'Bebas Neue';font-size:2.4rem;color:var(--good);line-height:1}
+  .card h3{font-size:1.5rem;margin:6px 0 8px}
+  .card p{color:var(--muted);font-weight:300;font-size:0.98rem}
+
+  /* split spec */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:8px}
+  .split .panel{border-radius:18px;padding:26px;border:1px solid var(--glass-border);backdrop-filter:blur(14px)}
+  .panel.good{background:linear-gradient(180deg,rgba(91,217,123,0.12),rgba(91,217,123,0.03))}
+  .panel.waste{background:linear-gradient(180deg,rgba(168,124,74,0.12),rgba(168,124,74,0.03))}
+  .panel h3{font-size:1.6rem;margin-bottom:6px}
+  .panel.good h3{color:var(--good)}
+  .panel.waste h3{color:var(--waste)}
+  .panel ul{list-style:none;color:var(--muted);font-weight:300}
+  .panel li{padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.08)}
+  .panel li:last-child{border-bottom:none}
+
+  /* testimonials */
+  .quotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+  .quote{background:var(--glass);border:1px solid var(--glass-border);border-radius:18px;padding:26px;backdrop-filter:blur(14px)}
+  .quote p{font-size:1.05rem;font-weight:300}
+  .quote .who{margin-top:14px;color:var(--good);font-family:'Bebas Neue';letter-spacing:2px}
+  .quote .who small{display:block;color:var(--muted);font-family:'Inter';letter-spacing:0;font-weight:300}
+  .stars{color:var(--gold);letter-spacing:2px}
+
+  /* faq */
+  details{background:var(--glass);border:1px solid var(--glass-border);border-radius:14px;padding:18px 22px;margin-bottom:12px;backdrop-filter:blur(14px)}
+  summary{cursor:pointer;font-size:1.15rem;font-weight:600;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"+ ";color:var(--good);font-weight:800}
+  details[open] summary::before{content:"– "}
+  details p{color:var(--muted);font-weight:300;margin-top:10px}
+
+  footer{padding:50px 0 70px;text-align:center;color:var(--muted);font-weight:300}
+  footer .disclaimer{max-width:720px;margin:0 auto 22px;font-size:0.82rem;opacity:0.8}
+  footer a.back{color:var(--good);text-decoration:none;font-family:'Bebas Neue';letter-spacing:2px}
+
+  @media(max-width:620px){.split{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="kicker">Pre-Digestive Intake Processing</div>
+    <h1>Just The Good Sh<span style="-webkit-text-fill-color:var(--gold)">*</span>t<span class="tm">™</span></h1>
+    <div class="sub">EAT FREELY · EXCRETE NEVER</div>
+    <p class="tag">The world's first countertop appliance that digests your meal <em>for</em> you, siphons off everything destined to become waste, and hands back only the nutritious part — pre-absorbed, plate-ready, and frankly delicious.</p>
+    <a class="cta" href="#order">Reserve Yours →</a>
+    <div class="fine">Ships Q4 · Limited founders' run · Sewer hookup not included</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="stage">
+    <div class="sync"><span class="dot"></span>PROCESSING</div>
+    <svg id="scene" viewBox="0 0 1100 420" xmlns="http://www.w3.org/2000/svg" aria-label="Diagram of the JTGS processing pipeline">
+      <defs>
+        <linearGradient id="gFood" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#ffd166"/><stop offset="1" stop-color="#ff9f4a"/>
+        </linearGradient>
+        <linearGradient id="gGood" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#5bd97b"/><stop offset="1" stop-color="#bdf0c7"/>
+        </linearGradient>
+        <linearGradient id="gWaste" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#a87c4a"/><stop offset="1" stop-color="#6b4e2e"/>
+        </linearGradient>
+        <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+
+      <!-- intake -->
+      <text x="120" y="56" fill="#9db3a4" font-family="Bebas Neue" font-size="20" letter-spacing="3" text-anchor="middle">YOU EAT</text>
+      <text x="120" y="210" font-size="46" text-anchor="middle">🍔</text>
+
+      <!-- intake pipe -->
+      <path id="pipeIn" d="M170,195 H430" stroke="#26352b" stroke-width="26" fill="none" stroke-linecap="round"/>
+      <path d="M170,195 H430" stroke="rgba(255,255,255,0.06)" stroke-width="2" fill="none"/>
+
+      <!-- the core unit -->
+      <rect x="430" y="120" width="200" height="160" rx="22" fill="#0e1712" stroke="#5bd97b" stroke-width="2"/>
+      <rect x="430" y="120" width="200" height="160" rx="22" fill="none" stroke="rgba(91,217,123,0.25)" stroke-width="10" filter="url(#glow)"/>
+      <text x="530" y="150" fill="#5bd97b" font-family="Bebas Neue" font-size="18" letter-spacing="3" text-anchor="middle">JTGS CORE</text>
+      <!-- spinning separator -->
+      <g transform="translate(530,210)">
+        <circle r="44" fill="none" stroke="#1c2a22" stroke-width="10"/>
+        <g id="rotor">
+          <circle r="44" fill="none" stroke="url(#gGood)" stroke-width="6" stroke-dasharray="40 36" stroke-linecap="round"/>
+        </g>
+        <text y="8" font-size="30" text-anchor="middle">⚙️</text>
+      </g>
+
+      <!-- good shit out (to you) -->
+      <path id="pipeGood" d="M630,170 H930" stroke="#1c3322" stroke-width="22" fill="none" stroke-linecap="round"/>
+      <text x="930" y="150" fill="#5bd97b" font-family="Bebas Neue" font-size="20" letter-spacing="3" text-anchor="middle">↑ BACK TO YOU</text>
+      <text x="985" y="180" font-size="40">🤤</text>
+
+      <!-- waste out (to sewer) -->
+      <path id="pipeWaste" d="M630,250 H850 Q890,250 890,300 V370" stroke="#2a2116" stroke-width="22" fill="none" stroke-linecap="round"/>
+      <text x="890" y="405" fill="#a87c4a" font-family="Bebas Neue" font-size="18" letter-spacing="2" text-anchor="middle">↓ THE BAD SH*T</text>
+
+      <!-- flowing particles -->
+      <g id="flow"></g>
+    </svg>
+    <div class="hud">JTGS Core v1.0 · throughput shown at 1× speed · particles are illustrative</div>
+  </div>
+</div>
+
+<section class="wrap">
+  <div class="kicker">How it works</div>
+  <h2>Three steps. Zero bathroom.</h2>
+  <p class="lead">You've always done the hard part of eating — the chewing, the swallowing, the <em>consequences</em>. JTGS™ keeps the part you like and quietly handles the rest.</p>
+  <div class="steps">
+    <div class="card"><div class="num">01</div><h3>Eat</h3><p>Load your meal into the intake hopper. Burgers, ramen, a questionable gas-station burrito — the Core doesn't judge.</p></div>
+    <div class="card"><div class="num">02</div><h3>Separate</h3><p>Our patented MacroSieve™ pre-digests everything and splits it at the molecular fork: nutrients on one side, future-waste on the other.</p></div>
+    <div class="card"><div class="num">03</div><h3>Absorb</h3><p>The good part flows straight back to you, fully broken down. The bad part goes down the drain. You never get up.</p></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="kicker">The split</div>
+  <h2>What stays vs. what goes</h2>
+  <div class="split">
+    <div class="panel good">
+      <h3>You keep</h3>
+      <ul>
+        <li>Glucose, amino acids, fatty acids</li>
+        <li>Vitamins, minerals, electrolytes</li>
+        <li>The full flavor profile (re-injected)</li>
+        <li>That post-meal contentment</li>
+        <li>Your entire afternoon</li>
+      </ul>
+    </div>
+    <div class="panel waste">
+      <h3>We take</h3>
+      <ul>
+        <li>Indigestible fiber & roughage</li>
+        <li>Spent bile, dead cells, the works</li>
+        <li>~150g of future regret per meal</li>
+        <li>The need to ever locate a restroom</li>
+        <li>Awkward post-dinner exits</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="kicker">The believers</div>
+  <h2>People can't stop not pooping</h2>
+  <div class="quotes">
+    <div class="quote">
+      <div class="stars">★★★★★</div>
+      <p>"I ate an entire wedding buffet and gave the toast in the same breath. Nobody knew. <em>I</em> barely knew."</p>
+      <div class="who">DARREN P.<small>Best man, repeat offender</small></div>
+    </div>
+    <div class="quote">
+      <div class="stars">★★★★★</div>
+      <p>"Cross-country drive, zero rest stops. The JTGS™ paid for itself in saved gas-station coffee alone."</p>
+      <div class="who">MONICA R.<small>Long-haul enthusiast</small></div>
+    </div>
+    <div class="quote">
+      <div class="stars">★★★★☆</div>
+      <p>"Five stars for the freedom. Minus one because the drain pipe is, unavoidably, exactly what you think it is."</p>
+      <div class="who">THE INTERNET<small>Verified-ish buyer</small></div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="kicker">Questions you definitely have</div>
+  <h2>FAQ</h2>
+  <details><summary>Wait — so I never poop again?</summary><p>Correct. The JTGS™ Core intercepts the meal before your body ever has to. Whatever would have eventually become waste is diverted at the source and sent to your home's existing plumbing. You simply absorb the good shit.</p></details>
+  <details><summary>Where does the bad sh*t go?</summary><p>Down the drain, via the included MacroSieve™ outflow hose. Think of it as outsourcing the least fun 40 seconds of your day to a quiet appliance on your counter.</p></details>
+  <details><summary>Does it hurt?</summary><p>Our legal team has asked us to describe the sensation as "novel." Most users report a gentle, warm reabsorption. A small minority report "profound philosophical unease," which fades by week two.</p></details>
+  <details><summary>Can I still taste my food?</summary><p>Absolutely. FlavorLoop™ re-injects the full taste profile during reabsorption. You get all the joy of the meal and none of the aftermath. Some say it tastes <em>better</em> the second time, which we are choosing not to think about.</p></details>
+  <details><summary>Is this real?</summary><p>No. This is a joke. Please continue using your digestive system as intended. It's doing great.</p></details>
+</section>
+
+<section class="wrap" id="order">
+  <div class="card" style="text-align:center;padding:48px 28px;background:linear-gradient(180deg,rgba(91,217,123,0.10),rgba(255,209,102,0.05))">
+    <div class="kicker">Founders' Edition</div>
+    <h2 style="margin-top:8px">Free yourself from the loop</h2>
+    <p class="lead" style="margin:10px auto 24px">One device. Infinite meals. Zero bathroom breaks. The future of eating is just the good shit.</p>
+    <a class="cta" href="#" onclick="return reserve()">Reserve for $0 (it's a joke) →</a>
+    <div class="fine">By reserving you acknowledge that this product does not, will not, and should not exist.</div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <p class="disclaimer">JTGS™ is a satirical concept appliance. It is not a medical device, a real device, or a good idea. Your gastrointestinal tract remains the original, best-in-class, fully waste-managed solution. Do not attempt to siphon anything.</p>
+  <a class="back" href="../index.html">← back to For Fun</a>
+</footer>
+
+<script>
+  // ---- spin the rotor ----
+  const rotor = document.getElementById('rotor');
+  let ang = 0;
+  // ---- flowing particles along the pipes ----
+  const flow = document.getElementById('flow');
+  const NS = 'http://www.w3.org/2000/svg';
+
+  // sample points along each path to animate dots
+  const pipes = {
+    in:   { el: document.getElementById('pipeIn'),    color:'url(#gFood)',  r:7, n:5, dir:1 },
+    good: { el: document.getElementById('pipeGood'),  color:'url(#gGood)',  r:6, n:5, dir:1 },
+    waste:{ el: document.getElementById('pipeWaste'), color:'url(#gWaste)', r:6, n:4, dir:1 },
+  };
+  const particles = [];
+  Object.values(pipes).forEach(p=>{
+    const L = p.el.getTotalLength();
+    for(let i=0;i<p.n;i++){
+      const c = document.createElementNS(NS,'circle');
+      c.setAttribute('r', p.r); c.setAttribute('fill', p.color);
+      flow.appendChild(c);
+      particles.push({ c, path:p.el, L, t:(i/p.n) , speed:0.0016 + Math.random()*0.0008 });
+    }
+  });
+
+  function tick(){
+    ang = (ang + 2.2) % 360;
+    rotor.setAttribute('transform', `rotate(${ang})`);
+    particles.forEach(p=>{
+      p.t += p.speed;
+      if(p.t>1) p.t -= 1;
+      const pt = p.path.getPointAtLength(p.t * p.L);
+      p.c.setAttribute('cx', pt.x); p.c.setAttribute('cy', pt.y);
+    });
+    requestAnimationFrame(tick);
+  }
+  tick();
+
+  function reserve(){
+    alert("Reservation declined: your digestive system filed a successful counter-claim.\n\nIt's a joke. Go eat something — the normal way.");
+    return false;
+  }
+</script>
+</body>
+</html>

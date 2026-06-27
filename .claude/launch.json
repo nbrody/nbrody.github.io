@@ -48,6 +48,15 @@
       "port": 8092
     },
     {
+      "name": "doubleFeature",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/forFun/doubleFeature && exec python3 -m http.server 8121"
+      ],
+      "port": 8121
+    },
+    {
       "name": "kleinianRiley",
       "runtimeExecutable": "bash",
       "runtimeArgs": [
@@ -282,6 +291,54 @@
         "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/poincare4 && exec python3 serve.py 8741"
       ],
       "port": 8741
+    },
+    {
+      "name": "poincare2",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/poincare2 && exec python3 serve.py 8742"
+      ],
+      "port": 8742
+    },
+    {
+      "name": "graphicsStudio",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/graphics && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8747), H).serve_forever()'"
+      ],
+      "port": 8747
+    },
+    {
+      "name": "fuchsianDiscreteness",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8748), H).serve_forever()'"
+      ],
+      "port": 8748,
+      "openPath": "/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/fuchsianDiscreteness/"
+    },
+    {
+      "name": "forFun",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io && exec python3 -m http.server 8749"
+      ],
+      "port": 8749,
+      "openPath": "/docs/forFun/"
+    },
+    {
+      "name": "justTheGoodShit",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io && exec python3 -m http.server 8750"
+      ],
+      "port": 8750,
+      "openPath": "/docs/forFun/justTheGoodShit/"
     }
   ]
 }

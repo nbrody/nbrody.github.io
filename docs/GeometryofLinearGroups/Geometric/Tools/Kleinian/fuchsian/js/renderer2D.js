@@ -16,27 +16,13 @@ export class PoincareRenderer {
         this.sphereRadii = [];
         this.planeNormals = [];
         this.faceMatrices = []; // Store matrix for each face
-        this.vertices = []; // Store vertices of fundamental domain
-        this.vertexCycles = []; // Store vertex equivalence classes
-        this.vertexAngleSums = []; // Store angle sums for each cycle
-        this.selectedFaceId = -1;
-        this.hoveredFaceId = -1;
-        this.mappedFaceId = -1; // Face that the selected face maps to
-        this.selectedVertexId = -1; // Selected vertex
-        this.hoveredVertexId = -1; // Hovered vertex
         this.paletteMode = 0;
+        this.colorMode = 'last';   // tile coloring logic: 'word' | 'distance' | 'first' | 'last' | 'parity' | 'solid'
+        this.edgeWidth = 1.0;      // tessellation edge thickness in screen pixels (0 = none)
         this.showBoundary = true;
         this.showFundamentalDomain = true; // Show fundamental domain and geodesics
         this.showDomainOrbit = false; // Show orbit coloring
         this.showCayleyGraph = false; // Show Cayley graph
-        this.selectedEdgeFaces = [-1, -1];
-        this.shiftClickedFaceId = -1; // For angle calculation
-
-        // Animation state
-        this.popFaceId = -1;
-        this.popStrength = 0;
-        this.popStartTime = 0;
-        this.popDuration = 600;
 
         this.isUpperHalfPlane = false;
 
@@ -99,17 +85,23 @@ export class PoincareRenderer {
 
     setupEventListeners() {
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        this.canvas.addEventListener('click', (e) => this.handleClick(e));
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         this.canvas.addEventListener('mouseleave', (e) => this.handleMouseUp(e));
         this.canvas.addEventListener('dblclick', (e) => this.resetView());
     }
 
-    handleMouseDown(e) {
+    // Map a mouse event to backing-store (device-pixel) canvas coords. The backing store is
+    // DPR-scaled, so client coords are scaled by (backing size / CSS display size).
+    eventToScreen(e) {
         const rect = this.canvas.getBoundingClientRect();
-        const screenX = e.clientX - rect.left;
-        const screenY = e.clientY - rect.top;
+        const sx = rect.width ? this.width / rect.width : 1;
+        const sy = rect.height ? this.height / rect.height : 1;
+        return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+    }
+
+    handleMouseDown(e) {
+        const { x: screenX, y: screenY } = this.eventToScreen(e);
         const disk = this.screenToDisk(screenX, screenY);
 
         // Only start drag if inside the disk
@@ -158,18 +150,15 @@ export class PoincareRenderer {
         }
     }
 
-    setGeometry(sphereCenters, sphereRadii, planeNormals, faceMatrices = [], faceCovectors = []) {
+    setGeometry(sphereCenters, sphereRadii, planeNormals, faceMatrices = [], faceCovectors) {
         this.sphereCenters = sphereCenters;
         this.sphereRadii = sphereRadii;
         this.planeNormals = planeNormals;
         this.faceMatrices = faceMatrices;
-        this.faceCovectors = faceCovectors;
-    }
-
-    setVertices(vertices, cycles, angleSums) {
-        this.vertices = vertices || [];
-        this.vertexCycles = cycles || [];
-        this.vertexAngleSums = angleSums || [];
+        // Only overwrite covectors when explicitly provided — the matrix path calls this a
+        // second time (to attach face matrices) without covectors, and clobbering the ones
+        // set by updateFromInput broke the domain-orbit pull-back (the tiling).
+        if (faceCovectors !== undefined) this.faceCovectors = faceCovectors;
     }
 
     // Convert from Poincaré disk coordinates to screen coordinates
@@ -373,257 +362,9 @@ export class PoincareRenderer {
         ctx.stroke();
     }
 
-    // Draw a geodesic circle in the Poincaré disk
-    drawGeodesicCircle(center, radius, faceId, isSelected = false, isHovered = false, isMapped = false, isShiftClicked = false) {
-        const ctx = this.ctx;
-        const screenCenter = this.diskToScreen(center.x, center.y);
-        const screenRadius = radius * this.scale;
-
-        // Determine stroke width and style
-        let strokeWidth = 2;
-        let alpha = 0.8;
-        let dashPattern = [];
-
-        if (isSelected) {
-            strokeWidth = 4;
-            alpha = 1.0;
-        } else if (isMapped) {
-            strokeWidth = 4;
-            alpha = 1.0;
-            dashPattern = [10, 5]; // Dashed line for mapped geodesic
-        } else if (isShiftClicked) {
-            strokeWidth = 4;
-            alpha = 1.0;
-            dashPattern = [5, 5]; // Different dash pattern for shift-clicked
-        } else if (isHovered) {
-            strokeWidth = 3;
-            alpha = 0.9;
-        }
-
-        // Add pop effect
-        if (this.popFaceId === faceId && this.popStrength > 0) {
-            const popScale = 1 + this.popStrength * 0.05;
-            strokeWidth *= popScale;
-            ctx.save();
-        }
-
-        ctx.strokeStyle = this.getFaceColor(faceId, alpha);
-        ctx.lineWidth = strokeWidth;
-        ctx.setLineDash(dashPattern);
-
-        // Find vertices on this face
-        const verticesOnFace = [];
-        if (this.vertices && this.vertices.length > 0) {
-            for (let i = 0; i < this.vertices.length; i++) {
-                const vertex = this.vertices[i];
-                if (vertex.faces && vertex.faces.includes(faceId)) {
-                    verticesOnFace.push(vertex.point);
-                }
-            }
-        }
-
-        if (verticesOnFace.length >= 2) {
-            // Draw arcs between consecutive vertices on this circle
-            // Sort vertices by angle around the circle center
-            const sortedVertices = verticesOnFace.map(v => {
-                const angle = Math.atan2(v.y - center.y, v.x - center.x);
-                return { point: v, angle };
-            }).sort((a, b) => a.angle - b.angle);
-
-            ctx.beginPath();
-            for (let i = 0; i < sortedVertices.length; i++) {
-                const curr = sortedVertices[i];
-                const next = sortedVertices[(i + 1) % sortedVertices.length];
-
-                const p1 = this.diskToScreen(curr.point.x, curr.point.y);
-                const p2 = this.diskToScreen(next.point.x, next.point.y);
-
-                // Draw arc from p1 to p2
-                const startAngle = curr.angle;
-                const endAngle = next.angle;
-
-                // Handle wrap-around
-                let actualEndAngle = endAngle;
-                if (endAngle < startAngle) {
-                    actualEndAngle = endAngle + 2 * Math.PI;
-                }
-
-                // Draw arc
-                ctx.arc(screenCenter.x, screenCenter.y, screenRadius, startAngle, actualEndAngle);
-            }
-            ctx.stroke();
-        } else {
-            // No vertices or only one vertex - draw full circle as fallback
-            ctx.beginPath();
-            ctx.arc(screenCenter.x, screenCenter.y, screenRadius, 0, 2 * Math.PI);
-            ctx.stroke();
-        }
-
-        ctx.setLineDash([]); // Reset dash pattern
-
-        if (this.popFaceId === faceId && this.popStrength > 0) {
-            ctx.restore();
-        }
-    }
-
-    // Draw a geodesic line through origin in the Poincaré disk
-    drawGeodesicLine(normal, faceId, isSelected = false, isHovered = false, isMapped = false, isShiftClicked = false) {
-        const ctx = this.ctx;
-
-        // Determine stroke style
-        let strokeWidth = 2;
-        let alpha = 0.8;
-        let dashPattern = [];
-
-        if (isSelected) {
-            strokeWidth = 4;
-            alpha = 1.0;
-        } else if (isMapped) {
-            strokeWidth = 4;
-            alpha = 1.0;
-            dashPattern = [10, 5]; // Dashed line for mapped geodesic
-        } else if (isShiftClicked) {
-            strokeWidth = 4;
-            alpha = 1.0;
-            dashPattern = [5, 5]; // Different dash pattern for shift-clicked
-        } else if (isHovered) {
-            strokeWidth = 3;
-            alpha = 0.9;
-        }
-
-        // Add pop effect
-        if (this.popFaceId === faceId && this.popStrength > 0) {
-            const popScale = 1 + this.popStrength * 0.05;
-            strokeWidth *= popScale;
-        }
-
-        ctx.strokeStyle = this.getFaceColor(faceId, alpha);
-        ctx.lineWidth = strokeWidth;
-        ctx.setLineDash(dashPattern);
-
-        // Find vertices on this face
-        const verticesOnFace = [];
-        if (this.vertices && this.vertices.length > 0) {
-            for (let i = 0; i < this.vertices.length; i++) {
-                const vertex = this.vertices[i];
-                if (vertex.faces && vertex.faces.includes(faceId)) {
-                    verticesOnFace.push(vertex.point);
-                }
-            }
-        }
-
-        if (verticesOnFace.length >= 2) {
-            // Draw segments between consecutive vertices on this line
-            // For a line through the origin, project each vertex onto the line and sort by position
-            const dx = -normal.y;
-            const dy = normal.x;
-            const len = Math.sqrt(dx * dx + dy * dy);
-            if (len < 1e-9) return;
-
-            const ux = dx / len; // Unit direction along line
-            const uy = dy / len;
-
-            const sortedVertices = verticesOnFace.map(v => {
-                const t = v.x * ux + v.y * uy; // Position along line
-                return { point: v, t };
-            }).sort((a, b) => a.t - b.t);
-
-            // Draw line segments between consecutive vertices
-            ctx.beginPath();
-            for (let i = 0; i < sortedVertices.length - 1; i++) {
-                const p1 = this.diskToScreen(sortedVertices[i].point.x, sortedVertices[i].point.y);
-                const p2 = this.diskToScreen(sortedVertices[i + 1].point.x, sortedVertices[i + 1].point.y);
-                ctx.moveTo(p1.x, p1.y);
-                ctx.lineTo(p2.x, p2.y);
-            }
-            ctx.stroke();
-        } else {
-            // No vertices or only one - draw full line as fallback
-            const dx = -normal.y;
-            const dy = normal.x;
-            const len = Math.sqrt(dx * dx + dy * dy);
-            if (len < 1e-9) return;
-
-            const t = 1.0 / len;
-            const p1 = this.diskToScreen(t * dx, t * dy);
-            const p2 = this.diskToScreen(-t * dx, -t * dy);
-
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
-        }
-
-        ctx.setLineDash([]); // Reset dash pattern
-    }
-
-    // Find which vertex is at a given screen position
-    getVertexAtScreen(screenX, screenY) {
-        if (!this.vertices || this.vertices.length === 0) return -1;
-
-        const clickRadius = 10; // pixels
-
-        for (let i = 0; i < this.vertices.length; i++) {
-            const vertex = this.vertices[i];
-            const screen = this.diskToScreen(vertex.point.x, vertex.point.y);
-
-            const dx = screenX - screen.x;
-            const dy = screenY - screen.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            if (dist <= clickRadius) {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    // Find which face is at a given point in the disk
-    getFaceAtPoint(diskX, diskY) {
-        // Check if point is inside unit disk
-        const r = Math.sqrt(diskX * diskX + diskY * diskY);
-        if (r >= 1.0) return -1;
-
-        let closestFaceId = -1;
-        let minDist = Infinity;
-
-        // Check circles (sphere geodesics)
-        for (let i = 0; i < this.sphereCenters.length; i++) {
-            const center = this.sphereCenters[i];
-            const radius = this.sphereRadii[i];
-
-            const dx = diskX - center.x;
-            const dy = diskY - center.y;
-            const distToCenter = Math.sqrt(dx * dx + dy * dy);
-            const distToBoundary = Math.abs(distToCenter - radius);
-
-            if (distToBoundary < minDist) {
-                minDist = distToBoundary;
-                closestFaceId = i;
-            }
-        }
-
-        // Check lines (plane geodesics through origin)
-        const numSpheres = this.sphereCenters.length;
-        for (let i = 0; i < this.planeNormals.length; i++) {
-            const normal = this.planeNormals[i];
-            const distToLine = Math.abs(diskX * normal.x + diskY * normal.y);
-
-            if (distToLine < minDist) {
-                minDist = distToLine;
-                closestFaceId = numSpheres + i;
-            }
-        }
-
-        // Return face if we're close enough to a boundary
-        return minDist < 0.05 ? closestFaceId : -1;
-    }
 
     handleMouseMove(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const screenX = e.clientX - rect.left;
-        const screenY = e.clientY - rect.top;
+        const { x: screenX, y: screenY } = this.eventToScreen(e);
 
         // Handle dragging for hyperbolic panning or rotation
         if (this.isDragging) {
@@ -657,28 +398,6 @@ export class PoincareRenderer {
 
             this.render();
             return;
-        }
-
-        // Check for vertex hover first
-        const vertexId = this.getVertexAtScreen(screenX, screenY);
-
-        if (vertexId >= 0) {
-            // Hovering over a vertex
-            if (vertexId !== this.hoveredVertexId || this.hoveredFaceId !== -1) {
-                this.hoveredVertexId = vertexId;
-                this.hoveredFaceId = -1;
-                this.render();
-            }
-        } else {
-            // Check for face hover
-            const disk = this.screenToDisk(screenX, screenY);
-            const faceId = this.getFaceAtPoint(disk.x, disk.y);
-
-            if (faceId !== this.hoveredFaceId || this.hoveredVertexId !== -1) {
-                this.hoveredFaceId = faceId;
-                this.hoveredVertexId = -1;
-                this.render();
-            }
         }
     }
 
@@ -901,22 +620,6 @@ export class PoincareRenderer {
         return minDist < 0.1 ? closestId : -1;
     }
 
-    // Compute which geodesic this face maps to under side-pairing
-    // For a face corresponding to generator g, it pairs with the face for g⁻¹
-    computeMappedGeodesic(faceId) {
-        if (faceId < 0 || faceId >= this.faceMatrices.length) return -1;
-        if (!this.faceMatrices[faceId]) return -1;
-
-        const matrix = this.faceMatrices[faceId];
-
-        // Compute the inverse matrix
-        const invMatrix = this.invertMatrix(matrix);
-        if (!invMatrix) return -1;
-
-        // Find which face has a matrix closest to the inverse
-        return this.findFaceWithMatrix(invMatrix);
-    }
-
     // Invert a 2x2 matrix
     invertMatrix(matrix) {
         if (!matrix) return null;
@@ -940,126 +643,9 @@ export class PoincareRenderer {
         };
     }
 
-    // Find which face has a matrix closest to the given matrix
-    findFaceWithMatrix(targetMatrix) {
-        if (!targetMatrix) return -1;
-
-        const ta = targetMatrix.a?.re ?? targetMatrix.a;
-        const tb = targetMatrix.b?.re ?? targetMatrix.b;
-        const tc = targetMatrix.c?.re ?? targetMatrix.c;
-        const td = targetMatrix.d?.re ?? targetMatrix.d;
-
-        let minDist = Infinity;
-        let closestFaceId = -1;
-
-        for (let faceId = 0; faceId < this.faceMatrices.length; faceId++) {
-            const matrix = this.faceMatrices[faceId];
-            if (!matrix) continue;
-
-            const a = matrix.a?.re ?? matrix.a;
-            const b = matrix.b?.re ?? matrix.b;
-            const c = matrix.c?.re ?? matrix.c;
-            const d = matrix.d?.re ?? matrix.d;
-
-            // Compute distance (also check negative since PSL(2,R) = SL(2,R)/{±I})
-            const dist1 = Math.sqrt(
-                (a - ta) ** 2 + (b - tb) ** 2 + (c - tc) ** 2 + (d - td) ** 2
-            );
-            const dist2 = Math.sqrt(
-                (a + ta) ** 2 + (b + tb) ** 2 + (c + tc) ** 2 + (d + td) ** 2
-            );
-
-            const dist = Math.min(dist1, dist2);
-
-            if (dist < minDist) {
-                minDist = dist;
-                closestFaceId = faceId;
-            }
-        }
-
-        return minDist < 0.1 ? closestFaceId : -1;
-    }
-
-    handleClick(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const screenX = e.clientX - rect.left;
-        const screenY = e.clientY - rect.top;
-
-        // Check for vertex click first
-        const vertexId = this.getVertexAtScreen(screenX, screenY);
-
-        if (vertexId >= 0) {
-            // Vertex click
-            this.selectedVertexId = vertexId;
-            this.selectedFaceId = -1;
-            this.shiftClickedFaceId = -1;
-            this.mappedFaceId = -1;
-
-            // Dispatch custom event for vertex selection
-            this.canvas.dispatchEvent(new CustomEvent('vertexSelected', {
-                detail: { vertexId }
-            }));
-
-            this.render();
-            return;
-        }
-
-        // Check for face click
-        const disk = this.screenToDisk(screenX, screenY);
-        const faceId = this.getFaceAtPoint(disk.x, disk.y);
-
-        if (e.shiftKey && faceId >= 0) {
-            // Shift+click: select for angle calculation
-            if (this.selectedFaceId >= 0 && this.selectedFaceId !== faceId) {
-                this.shiftClickedFaceId = faceId;
-
-                // Dispatch custom event for angle calculation
-                this.canvas.dispatchEvent(new CustomEvent('angleBetweenFaces', {
-                    detail: { faceId1: this.selectedFaceId, faceId2: faceId }
-                }));
-            }
-        } else if (faceId >= 0) {
-            // Normal click: select face and find mapped geodesic
-            this.selectedFaceId = faceId;
-            this.selectedVertexId = -1;
-            this.shiftClickedFaceId = -1;
-            this.triggerPop(faceId);
-
-            // Compute which geodesic this one maps to
-            this.mappedFaceId = this.computeMappedGeodesic(faceId);
-
-            // Dispatch custom event for main.js to handle
-            this.canvas.dispatchEvent(new CustomEvent('faceSelected', {
-                detail: { faceId, mappedFaceId: this.mappedFaceId }
-            }));
-        } else {
-            this.selectedFaceId = -1;
-            this.selectedVertexId = -1;
-            this.shiftClickedFaceId = -1;
-            this.mappedFaceId = -1;
-        }
-
-        this.render();
-    }
-
-    triggerPop(faceId) {
-        this.popFaceId = faceId;
-        this.popStrength = 1.0;
-        this.popStartTime = Date.now();
-    }
 
     updateAnimation() {
         let isMoving = false;
-        if (this.popStrength > 0) {
-            const elapsed = Date.now() - this.popStartTime;
-            const t = Math.min(1, elapsed / this.popDuration);
-            this.popStrength = 1.0 - t;
-            if (t >= 1) {
-                this.popStrength = 0;
-                this.popFaceId = -1;
-            }
-            isMoving = true;
-        }
 
         if (this.isAnimating) {
             const now = performance.now();
@@ -1137,33 +723,6 @@ export class PoincareRenderer {
             ctx.stroke();
         }
 
-        // Draw all geodesics (only if fundamental domain is shown)
-        if (this.showFundamentalDomain) {
-            // Draw circles
-            for (let i = 0; i < this.sphereCenters.length; i++) {
-                const isSelected = this.selectedFaceId === i || this.selectedEdgeFaces[0] === i || this.selectedEdgeFaces[1] === i;
-                const isMapped = this.mappedFaceId === i;
-                const isShiftClicked = this.shiftClickedFaceId === i;
-                const isHovered = this.hoveredFaceId === i;
-                this.drawGeodesicCircle(this.sphereCenters[i], this.sphereRadii[i], i, isSelected, isHovered, isMapped, isShiftClicked);
-            }
-
-            // Draw lines
-            const numSpheres = this.sphereCenters.length;
-            for (let i = 0; i < this.planeNormals.length; i++) {
-                const faceId = numSpheres + i;
-                const isSelected = this.selectedFaceId === faceId || this.selectedEdgeFaces[0] === faceId || this.selectedEdgeFaces[1] === faceId;
-                const isMapped = this.mappedFaceId === faceId;
-                const isShiftClicked = this.shiftClickedFaceId === faceId;
-                const isHovered = this.hoveredFaceId === faceId;
-                this.drawGeodesicLine(this.planeNormals[i], faceId, isSelected, isHovered, isMapped, isShiftClicked);
-            }
-        }
-
-        // Draw vertices (only if fundamental domain is shown)
-        if (this.showFundamentalDomain) {
-            this.drawVertices();
-        }
 
         // Restore context state (removes clipping)
         ctx.restore();
@@ -1206,33 +765,6 @@ export class PoincareRenderer {
             ctx.stroke();
         }
 
-        // Draw all geodesics
-        if (this.showFundamentalDomain) {
-            // Draw circles
-            for (let i = 0; i < this.sphereCenters.length; i++) {
-                const isSelected = this.selectedFaceId === i || this.selectedEdgeFaces[0] === i || this.selectedEdgeFaces[1] === i;
-                const isMapped = this.mappedFaceId === i;
-                const isShiftClicked = this.shiftClickedFaceId === i;
-                const isHovered = this.hoveredFaceId === i;
-                this.drawGeodesicCircleUHP(this.sphereCenters[i], this.sphereRadii[i], i, isSelected, isHovered, isMapped, isShiftClicked);
-            }
-
-            // Draw lines
-            const numSpheres = this.sphereCenters.length;
-            for (let i = 0; i < this.planeNormals.length; i++) {
-                const faceId = numSpheres + i;
-                const isSelected = this.selectedFaceId === faceId || this.selectedEdgeFaces[0] === faceId || this.selectedEdgeFaces[1] === faceId;
-                const isMapped = this.mappedFaceId === faceId;
-                const isShiftClicked = this.shiftClickedFaceId === faceId;
-                const isHovered = this.hoveredFaceId === faceId;
-                this.drawGeodesicLineUHP(this.planeNormals[i], faceId, isSelected, isHovered, isMapped, isShiftClicked);
-            }
-        }
-
-        // Draw vertices
-        if (this.showFundamentalDomain) {
-            this.drawVerticesUHP();
-        }
 
         ctx.restore();
     }
@@ -1279,6 +811,7 @@ export class PoincareRenderer {
         const ctx = this.ctx;
         const w = this.width;
         const h = this.height;
+        if (!w || !h) return;                       // canvas not sized yet (avoids createImageData crash)
         const imageData = ctx.createImageData(w, h);
         const data = imageData.data;
 
@@ -1360,6 +893,18 @@ export class PoincareRenderer {
             }
         }
 
+        // Tile coloring logic + the active palette as RGB (used by the palette-based color modes)
+        const colorMode = this.colorMode || 'word';
+        const palRGB = [];
+        for (let i = 0; i < 8; i++) {
+            const m = this.getFaceColor(i, 1.0).match(/(\d+),\s*(\d+),\s*(\d+)/);
+            palRGB.push(m ? [+m[1], +m[2], +m[3]] : [128, 128, 128]);
+        }
+
+        // Edge styling (anti-aliased, constant screen-pixel width)
+        const edgeHalfW = (this.edgeWidth ?? 1.5) * 0.5;
+        const EDGE_R = 24, EDGE_G = 24, EDGE_B = 30;
+
         // Performance constants
         const eps = 1e-6;
 
@@ -1371,8 +916,10 @@ export class PoincareRenderer {
                 let rSq = px * px + py * py;
 
                 if (rSq >= 1.0) continue;
+                const r0Sq = rSq;   // original disk radius² — for converting the edge SDF to screen px
 
                 let lastViolatedFace = -1;
+                let firstViolatedFace = -1;
                 let wordHash = 0;
                 let wordLength = 0;
 
@@ -1405,6 +952,7 @@ export class PoincareRenderer {
                     if (ma === 0 && mb === 0) break; // No matrix for this face
 
                     lastViolatedFace = mostViolatedFace;
+                    if (firstViolatedFace === -1) firstViolatedFace = mostViolatedFace;   // first letter
                     wordHash = (wordHash * 37 + (mostViolatedFace + 1)) | 0;
 
                     // Apply inverse transformation (inline for speed)
@@ -1415,19 +963,18 @@ export class PoincareRenderer {
                     const my_inv = (2.0 * py) / d_inv;
                     const mt_inv = (1.0 + rSqCur) / d_inv;
 
-                    // Inversion of PSL(2,R) matrix [[a,b],[c,d]] is [[d,-b],[-c,a]]
-                    const det = ma * md - mb * mc;
-                    const ia = md / det, ib = -mb / det, ic = -mc / det, id = ma / det;
-
+                    // Pull the point toward the fundamental domain by applying the face's
+                    // stored pairing matrix FORWARD: H ↦ g·H·gᵀ. (The stored matrix is already
+                    // the pull-back generator; inverting it here sent points the wrong way.)
                     const h11 = mt_inv + mx_inv, h12 = my_inv, h22 = mt_inv - mx_inv;
-                    const gh11 = ia * h11 + ib * h12;
-                    const gh12 = ia * h12 + ib * h22;
-                    const gh21 = ic * h11 + id * h12;
-                    const gh22 = ic * h12 + id * h22;
+                    const gh11 = ma * h11 + mb * h12;
+                    const gh12 = ma * h12 + mb * h22;
+                    const gh21 = mc * h11 + md * h12;
+                    const gh22 = mc * h12 + md * h22;
 
-                    const r11 = gh11 * ia + gh12 * ib;
-                    const r12 = gh11 * ic + gh12 * id;
-                    const r22 = gh21 * ic + gh22 * id;
+                    const r11 = gh11 * ma + gh12 * mb;
+                    const r12 = gh11 * mc + gh12 * md;
+                    const r22 = gh21 * mc + gh22 * md;
 
                     const tP = (r11 + r22) * 0.5;
                     const xP = (r11 - r22) * 0.5;
@@ -1447,31 +994,48 @@ export class PoincareRenderer {
                 const final_my = (2.0 * py) / denomFinal;
                 const final_mw = (1.0 + rSqFinal) / denomFinal;
 
-                if (lastViolatedFace !== -1) {
-                    maxViolation = covX[lastViolatedFace] * final_mx + covY[lastViolatedFace] * final_my + covW[lastViolatedFace] * final_mw;
-                } else {
-                    for (let i = 0; i < numFaces; i++) {
-                        const val = covX[i] * final_mx + covY[i] * final_my + covW[i] * final_mw;
-                        if (val > maxViolation) maxViolation = val;
-                    }
+                // Distance to the nearest tile edge: max over ALL faces (the reduced point is
+                // inside the fundamental domain, so every value ≤ 0; the max is the least-negative
+                // = nearest bisector, which is correct even at corners).
+                for (let i = 0; i < numFaces; i++) {
+                    const val = covX[i] * final_mx + covY[i] * final_my + covW[i] * final_mw;
+                    if (val > maxViolation) maxViolation = val;
                 }
 
-                // Color selection
-                let pr, pg, pb, pa;
-                // Threshold for edge detection (hyperbolic distance proxy)
-                // Since covectors are normalized, maxViolation is sinh(dist)
-                const edgeThreshold = 0.004;
-
-                if (maxViolation > -edgeThreshold && maxViolation < edgeThreshold) {
-                    pr = 30; pg = 30; pb = 35; pa = 255;
+                // --- tile colour (the fundamental domain, wordLength 0, is coloured like any tile) ---
+                let pr, pg, pb, pa = 160;
+                if (colorMode === 'distance') {
+                    const c = palRGB[wordLength % palRGB.length];                  // shells by graph distance (domain = shell 0)
+                    pr = c[0]; pg = c[1]; pb = c[2];
+                } else if (colorMode === 'first' || colorMode === 'last' || colorMode === 'generator') {
+                    // first vs last side-pairing of the reduction word ('generator' = alias for 'last');
+                    // fundamental domain has no letters (face === -1) → first palette colour ("home").
+                    const f = (colorMode === 'first') ? firstViolatedFace : lastViolatedFace;
+                    const c = (f >= 0) ? [faceR[f], faceG[f], faceB[f]] : palRGB[0];
+                    pr = c[0]; pg = c[1]; pb = c[2];
+                } else if (colorMode === 'parity') {
+                    const c = palRGB[wordLength % 2];                              // two-colour by word-length parity
+                    pr = c[0]; pg = c[1]; pb = c[2];
+                } else if (colorMode === 'solid') {
+                    const c = palRGB[0];
+                    pr = c[0]; pg = c[1]; pb = c[2];
+                } else {                                                          // 'word' — hash of the reduction word
+                    const col = this.getColorFromHash(wordHash);
+                    pr = col.r; pg = col.g; pb = col.b;
                 }
 
-                if (pr === undefined) {
-                    if (wordLength === 0) {
-                        pr = 255; pg = 255; pb = 255; pa = 140;
-                    } else {
-                        const col = this.getColorFromHash(wordHash);
-                        pr = col.r; pg = col.g; pb = col.b; pa = 160;
+                // --- anti-aliased edges of CONSTANT screen width ---
+                // |maxViolation| = sinh(hyperbolic distance to the nearest edge). Convert to screen
+                // pixels via the Poincaré metric at the pixel's radius so every edge is the same
+                // width, with a ~1px soft ramp for anti-aliasing (replaces the old hard ±ε cutoff).
+                if (edgeHalfW > 0) {
+                    const edgeDistPx = Math.abs(maxViolation) * (1 - r0Sq) * 0.5 * this.scale;
+                    const edgeA = Math.min(1, Math.max(0, edgeHalfW + 0.5 - edgeDistPx));
+                    if (edgeA > 0) {
+                        pr = (pr * (1 - edgeA) + EDGE_R * edgeA) | 0;
+                        pg = (pg * (1 - edgeA) + EDGE_G * edgeA) | 0;
+                        pb = (pb * (1 - edgeA) + EDGE_B * edgeA) | 0;
+                        pa = (pa * (1 - edgeA) + 255 * edgeA) | 0;
                     }
                 }
 
@@ -1509,8 +1073,29 @@ export class PoincareRenderer {
 
     drawCayleyGraph(projectionFn = null) {
         const ctx = this.ctx;
-        const maxDepth = 4;
-        const project = projectionFn || ((x, y) => this.diskToScreen(x, y));
+        const maxDepth = Math.max(1, this.cayleyDepth || 4);   // tied to the "Word Length" control
+        const NODE_CAP = 5000;                                  // safety bound at large depths
+        // Project a disk-model point to screen in the CURRENT model: disk applies the in-disk
+        // view transform then diskToScreen; UHP uses the passed projectionFn (disk→UHP→screen).
+        const toScreen = projectionFn || ((x, y) => { const t = this.applyViewTransform(x, y); return this.diskToScreen(t.x, t.y); });
+        // Sample the hyperbolic geodesic between two disk points (returned as disk points) so it
+        // can be projected correctly in either model.
+        const sampleGeodesic = (p1, p2) => {
+            const eps = 1e-9, N = 24, out = [];
+            const x1 = p1.x, y1 = p1.y, x2 = p2.x, y2 = p2.y;
+            const cross = x1 * y2 - y1 * x2;
+            const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, perpX = -(y2 - y1), perpY = (x2 - x1);
+            const r1sq = x1 * x1 + y1 * y1, lhsConst = 2 * x1 * mx + 2 * y1 * my, lhsT = 2 * x1 * perpX + 2 * y1 * perpY;
+            if (Math.abs(cross) < eps || Math.abs(lhsT) < eps) {       // diameter ⇒ straight
+                for (let i = 0; i <= N; i++) { const u = i / N; out.push({ x: x1 + (x2 - x1) * u, y: y1 + (y2 - y1) * u }); }
+                return out;
+            }
+            const t = (1 + r1sq - lhsConst) / lhsT, cx = mx + t * perpX, cy = my + t * perpY, r = Math.hypot(x1 - cx, y1 - cy);
+            let a1 = Math.atan2(y1 - cy, x1 - cx), a2 = Math.atan2(y2 - cy, x2 - cx), d = a2 - a1;
+            while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+            for (let i = 0; i <= N; i++) { const a = a1 + d * i / N; out.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }); }
+            return out;
+        };
 
         // Identify generator indices and matrices
         const generators = [];
@@ -1567,6 +1152,19 @@ export class PoincareRenderer {
             return `${a.toFixed(4)},${b.toFixed(4)},${c.toFixed(4)},${d.toFixed(4)}`;
         };
 
+        // Make the generating set symmetric (add inverses) so the BFS explores both
+        // directions — otherwise non-involution generators only walk one way and the graph
+        // comes out lopsided and small.
+        const genKeys = new Set(generators.map(g => getMatrixKey(g.matrix)));
+        for (const g of generators.slice()) {
+            const a = g.matrix.a?.re ?? g.matrix.a, b = g.matrix.b?.re ?? g.matrix.b, c = g.matrix.c?.re ?? g.matrix.c, d = g.matrix.d?.re ?? g.matrix.d;
+            const det = a * d - b * c;
+            if (Math.abs(det) < 1e-12) continue;
+            const inv = { a: d / det, b: -b / det, c: -c / det, d: a / det };
+            const k = getMatrixKey(inv);
+            if (!genKeys.has(k)) { genKeys.add(k); generators.push({ matrix: inv, faceId: g.faceId }); }
+        }
+
         const identity = { a: 1, b: 0, c: 0, d: 1 };
         const originPoint = { x: 0, y: 0 };
 
@@ -1582,6 +1180,7 @@ export class PoincareRenderer {
         const edges = [];
 
         while (head < queue.length) {
+            if (visited.size > NODE_CAP) break;
             const currentKey = queue[head++];
             const current = visited.get(currentKey);
 
@@ -1613,18 +1212,28 @@ export class PoincareRenderer {
             }
         }
 
-        // Draw edges as hyperbolic geodesics
+        // Draw edges as hyperbolic geodesics (sample in the disk, project in the current model)
         for (const edge of edges) {
-            this.drawGeodesicArc(edge.p1, edge.p2, edge.color, 1.5);
+            const pts = sampleGeodesic(edge.p1, edge.p2);
+            ctx.strokeStyle = edge.color;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            let started = false;
+            for (const dp of pts) {
+                const s = toScreen(dp.x, dp.y);
+                if (!s || !isFinite(s.x) || !isFinite(s.y)) { started = false; continue; }
+                if (!started) { ctx.moveTo(s.x, s.y); started = true; } else ctx.lineTo(s.x, s.y);
+            }
+            ctx.stroke();
         }
 
-        // Draw vertices (apply view transform)
+        // Draw vertices
         ctx.fillStyle = '#FFF';
         for (const node of visited.values()) {
-            const tp = this.applyViewTransform(node.point.x, node.point.y);
-            const p = this.diskToScreen(tp.x, tp.y);
+            const s = toScreen(node.point.x, node.point.y);
+            if (!s || !isFinite(s.x) || !isFinite(s.y)) continue;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
+            ctx.arc(s.x, s.y, 3, 0, 2 * Math.PI);
             ctx.fill();
         }
     }
@@ -1800,41 +1409,6 @@ export class PoincareRenderer {
     }
 
     // Draw vertices of the fundamental domain
-    drawVertices() {
-        if (!this.vertices || this.vertices.length === 0) return;
-
-        const ctx = this.ctx;
-
-        for (let i = 0; i < this.vertices.length; i++) {
-            const vertex = this.vertices[i];
-            const screen = this.diskToScreen(vertex.point.x, vertex.point.y);
-
-            const isSelected = this.selectedVertexId === i;
-            const isHovered = this.hoveredVertexId === i;
-
-            // Draw vertex as a circle
-            ctx.beginPath();
-            ctx.arc(screen.x, screen.y, isSelected ? 8 : (isHovered ? 6 : 4), 0, 2 * Math.PI);
-
-            if (isSelected) {
-                ctx.fillStyle = '#FFD700'; // Gold for selected
-                ctx.strokeStyle = '#FF6B35';
-                ctx.lineWidth = 2;
-            } else if (isHovered) {
-                ctx.fillStyle = '#FFA07A'; // Light salmon for hover
-                ctx.strokeStyle = '#FF6B35';
-                ctx.lineWidth = 2;
-            } else {
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 1;
-            }
-
-            ctx.fill();
-            ctx.stroke();
-        }
-    }
-
     // Draw the fundamental domain (intersection of all half-spaces)
     drawFundamentalDomain() {
         const ctx = this.ctx;
@@ -1862,155 +1436,5 @@ export class PoincareRenderer {
         }
 
         ctx.putImageData(imageData, 0, 0);
-    }
-    drawGeodesicCircleUHP(center, radius, faceId, isSelected, isHovered, isMapped, isShiftClicked) {
-        // Find intersection with unit circle in D
-        // Circle: |z-c|^2 = r^2
-        // Unit circle: |z|^2 = 1
-        // 2 Re(z c_bar) = 1 + |c|^2 - r^2
-        // 2(x cx + y cy) = 1 + cx^2 + cy^2 - r^2
-
-        const cx = center.x;
-        const cy = center.y;
-        const C = 1 + cx * cx + cy * cy - radius * radius;
-
-        // Intersection of line 2*cx*x + 2*cy*y = C and x^2+y^2=1
-        const A = 2 * cx;
-        const B = 2 * cy;
-
-        // Distance from origin to line
-        const dist = Math.abs(C) / Math.sqrt(A * A + B * B);
-        if (dist >= 1.0) return; // Should not happen for geodesics intersecting disk
-
-        // Find points
-        const x0 = A * C / (A * A + B * B);
-        const y0 = B * C / (A * A + B * B);
-
-        const d = Math.sqrt(1 - dist * dist);
-        const mult = Math.sqrt(d * d / (A * A + B * B));
-
-        const ax = x0 + B * mult;
-        const ay = y0 - A * mult;
-        const bx = x0 - B * mult;
-        const by = y0 + A * mult;
-
-        // Map to UHP
-        const p1 = this.diskToUHP(ax, ay);
-        const p2 = this.diskToUHP(bx, by);
-
-        this.drawGeodesicUHPFromEndpoints(p1, p2, faceId, isSelected, isHovered, isMapped, isShiftClicked);
-    }
-
-    drawGeodesicLineUHP(normal, faceId, isSelected, isHovered, isMapped, isShiftClicked) {
-        // Line through origin with normal (nx, ny)
-        // Intersects unit circle at (-ny, nx) and (ny, -nx)
-        const ax = -normal.y;
-        const ay = normal.x;
-        const bx = normal.y;
-        const by = -normal.x;
-
-        const p1 = this.diskToUHP(ax, ay);
-        const p2 = this.diskToUHP(bx, by);
-
-        this.drawGeodesicUHPFromEndpoints(p1, p2, faceId, isSelected, isHovered, isMapped, isShiftClicked);
-    }
-
-    drawGeodesicUHPFromEndpoints(p1, p2, faceId, isSelected, isHovered, isMapped, isShiftClicked) {
-        const ctx = this.ctx;
-
-        // Set styles
-        let strokeWidth = 2;
-        let alpha = 0.8;
-        let dashPattern = [];
-
-        if (isSelected) {
-            strokeWidth = 4;
-            alpha = 1.0;
-        } else if (isMapped) {
-            strokeWidth = 4;
-            alpha = 1.0;
-            dashPattern = [10, 5];
-        } else if (isShiftClicked) {
-            strokeWidth = 4;
-            alpha = 1.0;
-            dashPattern = [5, 5];
-        } else if (isHovered) {
-            strokeWidth = 3;
-            alpha = 0.9;
-        }
-
-        if (this.popFaceId === faceId && this.popStrength > 0) {
-            const popScale = 1 + this.popStrength * 0.05;
-            strokeWidth *= popScale;
-        }
-
-        ctx.strokeStyle = this.getFaceColor(faceId, alpha);
-        ctx.lineWidth = strokeWidth;
-        ctx.setLineDash(dashPattern);
-        ctx.beginPath();
-
-        // Check if vertical line
-        // p1 or p2 might be at infinity (v large)
-        const isInf1 = p1.v > 1000;
-        const isInf2 = p2.v > 1000;
-
-        if (isInf1 || isInf2) {
-            // Vertical line
-            const u = isInf1 ? p2.u : p1.u;
-            const top = this.UHPToScreen(u, 10); // High up
-            const bottom = this.UHPToScreen(u, 0);
-            ctx.moveTo(top.x, top.y);
-            ctx.lineTo(bottom.x, bottom.y);
-        } else {
-            // Semicircle
-            const centerU = (p1.u + p2.u) / 2;
-            const radius = Math.abs(p1.u - p2.u) / 2;
-
-            const screenCenter = this.UHPToScreen(centerU, 0);
-            // Radius in screen pixels
-            // UHPToScreen scales u by 'scale'
-            const scale = this.height / 5;
-            const screenRadius = radius * scale;
-
-            // Draw semicircle
-            ctx.arc(screenCenter.x, screenCenter.y, screenRadius, Math.PI, 0);
-        }
-
-        ctx.stroke();
-        ctx.setLineDash([]);
-    }
-
-    drawVerticesUHP() {
-        if (!this.vertices || this.vertices.length === 0) return;
-        const ctx = this.ctx;
-
-        for (let i = 0; i < this.vertices.length; i++) {
-            const vertex = this.vertices[i];
-            const uhp = this.diskToUHP(vertex.point.x, vertex.point.y);
-            const screen = this.UHPToScreen(uhp.u, uhp.v);
-
-            const isSelected = this.selectedVertexId === i;
-            const isHovered = this.hoveredVertexId === i;
-
-            ctx.beginPath();
-            ctx.arc(screen.x, screen.y, isSelected ? 8 : (isHovered ? 6 : 4), 0, 2 * Math.PI);
-
-            if (isSelected) {
-                ctx.fillStyle = '#FFD700';
-                ctx.strokeStyle = '#FF6B35';
-                ctx.lineWidth = 2;
-            } else if (isHovered) {
-                ctx.fillStyle = '#FFA07A';
-                ctx.strokeStyle = '#FF6B35';
-                ctx.lineWidth = 2;
-            } else {
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 1;
-            }
-
-            ctx.fill();
-            ctx.stroke();
-        }
     }
 }

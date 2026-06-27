@@ -1,21 +1,47 @@
-// Von Dyck (rotational) generators for the (p,q,r) triangle group, in PSL(2,R).
+// Von Dyck (rotational) generators for the (p,q,r) triangle group, in PSL(2,R), with EXACT entries.
 //
-// A = order-p rotation centered at i·m, B = order-q rotation centered at i/m,
-// where m = e^h and cosh(2h) = (cos(π/p)cos(π/q) + cos(π/r)) / (sin(π/p)sin(π/q)).
-// With this choice the basepoint i sits on the perpendicular bisector of the
-// two rotation centers — interior to the fundamental domain — so the Dirichlet
-// domain at i is non-degenerate. trace(AB) = -2cos(π/r), giving (AB) order r.
+//   A = [[cos(π/p), −m·sin(π/p)], [sin(π/p)/m, cos(π/p)]]   (order-p rotation centered at i·m)
+//   B = [[cos(π/q), −sin(π/q)/m], [m·sin(π/q), cos(π/q)]]   (order-q rotation centered at i/m)
+//   m = √(K + √(K²−1)),   K = (cos(π/p)cos(π/q) + cos(π/r)) / (sin(π/p)sin(π/q)).
+// With this m the basepoint i sits on the perpendicular bisector of the two rotation centers
+// (interior to the fundamental domain). trace(AB) = −2cos(π/r) ⇒ (AB) has order r.
+//
+// cos/sin(π/n) are emitted as exact fraction/radical LaTeX where elementary, else as \cos(π/n);
+// the irrational translation parameter m (generally a nested radical) is emitted as a constant
+// in math.js syntax. The entries are therefore exact rather than decimal approximations.
 function vonDyck(p, q, r) {
-    const cP = Math.cos(Math.PI / p), sP = Math.sin(Math.PI / p);
-    const cQ = Math.cos(Math.PI / q), sQ = Math.sin(Math.PI / q);
-    const cR = Math.cos(Math.PI / r);
-    const K = (cP * cQ + cR) / (sP * sQ);
-    const m = Math.sqrt(K + Math.sqrt(K * K - 1));
-    const fmt = x => x.toFixed(10);
-    return [
-        [fmt(cP), fmt(-m * sP), fmt(sP / m), fmt(cP)],
-        [fmt(cQ), fmt(-sQ / m), fmt(m * sQ), fmt(cQ)]
-    ];
+    // exact cos/sin(π/n) as {num, den} LaTeX fragments (elementary where possible). Keeping numerator
+    // and denominator separate lets us build NON-nested fractions (the LaTeX→math.js \frac regex is
+    // non-greedy and mis-parses \frac{\frac{..}{..}}{..}).
+    const trig = (fn, n) => {
+        const table = {
+            cos: { 2: ['0', '1'], 3: ['1', '2'], 4: ['\\sqrt{2}', '2'], 6: ['\\sqrt{3}', '2'] },
+            sin: { 2: ['1', '1'], 3: ['\\sqrt{3}', '2'], 4: ['\\sqrt{2}', '2'], 6: ['1', '2'] }
+        };
+        const e = table[fn][n];
+        return e ? { num: e[0], den: e[1] } : { num: `\\${fn}(\\frac{\\pi}{${n}})`, den: '1' };
+    };
+    const cP = trig('cos', p), sP = trig('sin', p), cQ = trig('cos', q), sQ = trig('sin', q);
+    const val = c => (c.den === '1' ? c.num : `\\frac{${c.num}}{${c.den}}`);          // c
+    const mTimes = c => {                                                              // m·c
+        if (c.num === '0') return '0';
+        const numer = (c.num === '1') ? 'm' : `m\\times ${c.num}`;                     // \times, since \cdot isn't parsed
+        return (c.den === '1') ? numer : `\\frac{${numer}}{${c.den}}`;
+    };
+    const overM = c => {                                                               // c/m
+        if (c.num === '0') return '0';
+        return (c.den === '1') ? `\\frac{${c.num}}{m}` : `\\frac{${c.num}}{${c.den}m}`;
+    };
+    // m as a math.js-syntax constant (constant values are NOT LaTeX-parsed): √(K + √(K²−1)).
+    const K = `(cos(pi/${p})*cos(pi/${q})+cos(pi/${r}))/(sin(pi/${p})*sin(pi/${q}))`;
+    const m = `sqrt((${K})+sqrt((${K})^2-1))`;
+    return {
+        mats: [
+            [val(cP), `-${mTimes(sP)}`, overM(sP), val(cP)],
+            [val(cQ), `-${overM(sQ)}`, mTimes(sQ), val(cQ)]
+        ],
+        constants: { m }
+    };
 }
 
 export const exampleLibrary = [
@@ -25,23 +51,30 @@ export const exampleLibrary = [
     },
     {
         name: '(2,3,7) triangle group (von Dyck)',
-        mats: vonDyck(2, 3, 7)
+        ...vonDyck(2, 3, 7)
     },
     {
         name: '(2,3,8) triangle group (von Dyck)',
-        mats: vonDyck(2, 3, 8)
+        ...vonDyck(2, 3, 8)
     },
     {
         name: '(2,4,6) triangle group (von Dyck)',
-        mats: vonDyck(2, 4, 6)
+        ...vonDyck(2, 4, 6)
     },
     {
         name: '(3,3,4) triangle group (von Dyck)',
-        mats: vonDyck(3, 3, 4)
+        ...vonDyck(3, 3, 4)
     },
     {
         name: '(2,3,11) triangle group (von Dyck)',
-        mats: vonDyck(2, 3, 11)
+        ...vonDyck(2, 3, 11)
+    },
+    {
+        // Reflections in the three sides of the ideal triangle (−½, ½, ∞): x=−½, x=½, |z|=½.
+        // All generators are orientation-reversing (det = −1, a reflection). Basepoint i is
+        // interior to the triangle, off every reflection axis.
+        name: 'Ideal triangle reflections',
+        mats: [['-1', '-1', '0', '1'], ['-1', '1', '0', '1'], ['0', '1', '4', '0']]
     },
     {
         name: 'Hecke group H(5)',

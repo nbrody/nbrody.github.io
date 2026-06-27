@@ -432,7 +432,8 @@ export function computeCanonicalDomain(generators = [], viewMat = Matrix2x2.iden
         maxDepth = 8,
         beamWidth = 600,
         maxOrbit = 6000,
-        skipPairings = false
+        skipPairings = false,
+        fullDirichlet = false
     } = options;
 
     const basepoint = uhsToBall(imageOfOriginUHS(viewMat));
@@ -461,7 +462,13 @@ export function computeCanonicalDomain(generators = [], viewMat = Matrix2x2.iden
     // basepoint-bisectors up to O(ε).
     const hasStab = H.length > 1;
     const vInv = viewMat.inv().normalized();
-    const q0 = hasStab
+    // fullDirichlet: render the full (symmetric) Dirichlet domain D(p) instead
+    // of the canonical fundamental domain. We then DON'T perturb the basepoint
+    // and DON'T add the stabilizer cone walls — at the true basepoint those
+    // bisectors are degenerate (h·p = p), so D(p) is H-invariant and symmetric
+    // (it is |H| copies of a fundamental domain).
+    const usePerturb = hasStab && !fullDirichlet;
+    const q0 = usePerturb
         ? GENERIC_DIR.clone().multiplyScalar(PERTURB_EPS)
         : new THREE.Vector3(0, 0, 0);
     const conePoint = applyMatrixToBall(viewMat, q0);
@@ -469,9 +476,11 @@ export function computeCanonicalDomain(generators = [], viewMat = Matrix2x2.iden
     // Candidate walls: stabilizer elements first (their walls bound the cone
     // and pass through the basepoint), then orbit elements by distance.
     const candidates = [];
-    for (const h of H) {
-        if (distFromIdentityPSL(h.matrix) < 1e-7) continue;  // skip identity
-        candidates.push({ matrix: h.matrix, word: h.word, kind: 'cone' });
+    if (!fullDirichlet) {
+        for (const h of H) {
+            if (distFromIdentityPSL(h.matrix) < 1e-7) continue;  // skip identity
+            candidates.push({ matrix: h.matrix, word: h.word, kind: 'cone' });
+        }
     }
     for (const entry of orbit) {
         candidates.push({ matrix: entry.matrix, word: entry.word, kind: 'face' });

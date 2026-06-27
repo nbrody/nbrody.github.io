@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuchsian Discreteness Calculator</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
+
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="status-banner" class="status-banner" style="display:none;"></div>
+    <div class="legend" id="legend"></div>
+
+    <aside class="panel" id="panel">
+        <button id="collapse-btn" class="collapse-btn" title="Collapse / expand panel">✕</button>
+        <div class="panel-body">
+        <header class="panel-head">
+            <a class="back" href="../../../index.html">← Geometric tools</a>
+            <h1>Fuchsian Discreteness</h1>
+            <p class="tagline">Decide whether a finite set of matrices in PGL₂(ℚ) generates a discrete
+                group acting on the hyperbolic plane — with an exact certificate either way.</p>
+        </header>
+
+        <section class="card">
+            <div class="card-title">Generators <span class="hint">2×2, rational entries</span></div>
+            <div id="matrixInputs"></div>
+            <div class="row">
+                <button id="addMatrixBtn" class="btn btn-soft">＋ Add generator</button>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-title">Examples</div>
+            <select id="example-select" class="select"></select>
+            <p id="example-desc" class="example-desc"></p>
+        </section>
+
+        <button id="check-btn" class="btn btn-primary">Check discreteness</button>
+
+        <section class="card">
+            <div class="card-title">View</div>
+            <div class="seg" id="model-toggle">
+                <button class="seg-btn active" data-model="uhp">Upper half-plane</button>
+                <button class="seg-btn" data-model="disk">Poincaré disk</button>
+            </div>
+            <div class="checks">
+                <label><input type="checkbox" id="opt-domain" checked> Fundamental domain</label>
+                <label><input type="checkbox" id="opt-iso"> Isometric circles</label>
+                <label><input type="checkbox" id="opt-axes" checked> Axes</label>
+                <label><input type="checkbox" id="opt-fp" checked> Fixed points</label>
+                <label><input type="checkbox" id="opt-base" checked> Basepoint</label>
+                <label><input type="checkbox" id="opt-tess"> Domain tiling</label>
+            </div>
+            <button id="reset-view" class="btn btn-soft small">Reset view</button>
+        </section>
+
+        <section id="results" class="results"></section>
+        </div>
+    </aside>
+</body>
+<script type="module" src="js/main.js"></script>
+
+</html>

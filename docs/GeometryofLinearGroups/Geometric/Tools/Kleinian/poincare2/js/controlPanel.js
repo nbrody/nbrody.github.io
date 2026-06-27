@@ -163,6 +163,26 @@ export function setupControlPanel(handlers) {
         });
     }
 
+    // Dual mode selector (Off / S / T) — tiling walls dual to the Cayley graph
+    const dualOpts = document.querySelectorAll('.dual-opt');
+    if (dualOpts.length && handlers.onDualModeChange) {
+        dualOpts.forEach(btn => {
+            btn.addEventListener('click', () => {
+                dualOpts.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                handlers.onDualModeChange(btn.dataset.mode);
+            });
+        });
+    }
+
+    // Dual tiling opacity (live)
+    const dualOpacityInput = document.getElementById('dual-opacity');
+    if (dualOpacityInput && handlers.onDualOpacityChange) {
+        dualOpacityInput.addEventListener('input', () => {
+            handlers.onDualOpacityChange(parseFloat(dualOpacityInput.value));
+        });
+    }
+
     // Slider button helper - handles both click and drag
     function setupSliderButton(btnId, initialValue, onChange) {
         const btn = document.getElementById(btnId);

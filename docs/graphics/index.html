@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Graphics Studio — Playlists & Remote</title>
+  <meta name="description"
+    content="Build playlists of interactive math & generative visualizations and drive them with a remote control.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="app/style.css">
+  <style>
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.8rem 1.4rem;
+      margin: 0;
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      border-top: none;
+    }
+    .brand { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; display: flex; align-items: center; gap: 0.5rem; }
+    .brand b { color: var(--accent); }
+    .brand .glyph {
+      font-size: 1.3rem;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 1.2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1.4rem;
+      align-items: start;
+    }
+    @media (max-width: 940px) { .layout { grid-template-columns: 1fr; } }
+
+    .library { padding-bottom: 3rem; }
+    .lib-head { display: flex; align-items: baseline; gap: 0.8rem; margin: 0.4rem 0 1.1rem; }
+    .lib-head h1 { font-size: 1.5rem; }
+    .lib-head p { margin: 0; }
+
+    .cat-title {
+      display: flex; align-items: center; gap: 0.6rem;
+      font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.12em;
+      color: var(--ink-dim); margin: 1.4rem 0 0.7rem;
+    }
+    .cat-title::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--cat, var(--accent)); box-shadow: 0 0 12px var(--cat, var(--accent)); }
+
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.9rem; }
+
+    .card {
+      position: relative;
+      border-radius: var(--radius);
+      border: 1px solid var(--stroke);
+      overflow: hidden;
+      cursor: default;
+      background: linear-gradient(160deg, color-mix(in srgb, var(--cat) 22%, transparent), rgba(13, 15, 23, 0.6));
+      transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+      min-height: 150px;
+      display: flex;
+      flex-direction: column;
+    }
+    .card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--cat) 60%, var(--stroke)); box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5); }
+    .card .thumb {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      font-size: 2.6rem; min-height: 78px;
+      filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.5));
+    }
+    .card .meta { padding: 0.6rem 0.7rem 0.7rem; background: rgba(7, 8, 13, 0.5); border-top: 1px solid var(--stroke); }
+    .card .meta .name { font-weight: 600; font-size: 0.92rem; }
+    .card .meta .blurb { font-size: 0.74rem; color: var(--ink-dim); margin-top: 0.15rem; line-height: 1.35; }
+    .card .actions { position: absolute; top: 0.5rem; right: 0.5rem; display: flex; gap: 0.35rem; opacity: 0; transition: opacity 0.12s; }
+    .card:hover .actions, .card:focus-within .actions { opacity: 1; }
+    .card .actions .btn { backdrop-filter: blur(6px); background: rgba(7, 8, 13, 0.6); }
+
+    /* editor */
+    .editor { position: sticky; top: 70px; padding: 1rem; display: flex; flex-direction: column; gap: 0.9rem; max-height: calc(100vh - 90px); }
+    .editor h2 { font-size: 1.05rem; }
+    .pl-picker { display: flex; gap: 0.5rem; }
+    .pl-picker select { flex: 1; }
+    .pl-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem 0.8rem; align-items: center; font-size: 0.85rem; }
+    .pl-settings label { color: var(--ink-dim); }
+    .pl-settings .full { grid-column: 1 / -1; }
+    .pl-name { font-size: 1rem; font-weight: 600; }
+
+    .items { display: flex; flex-direction: column; gap: 0.4rem; overflow-y: auto; flex: 1; min-height: 60px; padding-right: 2px; }
+    .pl-item { display: flex; align-items: center; gap: 0.55rem; padding: 0.45rem 0.55rem; border-radius: var(--radius-sm); border: 1px solid var(--stroke); background: rgba(255, 255, 255, 0.03); }
+    .pl-item .idx { color: var(--ink-faint); font-size: 0.72rem; width: 1.2rem; text-align: right; font-family: var(--mono); }
+    .pl-item .g { font-size: 1.1rem; }
+    .pl-item .t { flex: 1; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pl-item .ord { display: flex; flex-direction: column; }
+    .pl-item .ord button, .pl-item .x { background: none; border: none; color: var(--ink-faint); cursor: pointer; padding: 0 0.2rem; line-height: 1; font-size: 0.8rem; }
+    .pl-item .ord button:hover, .pl-item .x:hover { color: var(--ink); }
+    .pl-item.dragover { border-color: var(--accent); }
+    .empty-hint { color: var(--ink-faint); font-size: 0.85rem; text-align: center; padding: 1.4rem 0.6rem; border: 1px dashed var(--stroke); border-radius: var(--radius-sm); }
+
+    .pl-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .pl-actions .full { grid-column: 1 / -1; }
+
+    dialog { background: var(--panel-solid); color: var(--ink); border: 1px solid var(--stroke-strong); border-radius: var(--radius); padding: 1.2rem; max-width: 520px; width: 92vw; box-shadow: var(--shadow); }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(3px); }
+    dialog textarea { min-height: 200px; font-family: var(--mono); font-size: 0.8rem; resize: vertical; }
+  </style>
+</head>
+
+<body class="wrapper">
+  <header class="topbar glass">
+    <div class="brand"><span class="glyph">◧</span> Graphics <b>Studio</b></div>
+    <span class="chip" title="Playlists are stored locally in this browser">local</span>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="importBtn">⇪ Import</button>
+    <button class="btn" id="newPlBtn">+ New playlist</button>
+    <a class="btn ghost" href="../index.html" title="Back to nbrody.github.io">↩ Site</a>
+  </header>
+
+  <main class="layout">
+    <section class="library">
+      <div class="lib-head">
+        <h1>Visualization library</h1>
+        <p class="muted">Build a playlist, then drive it from the stage or a remote.</p>
+      </div>
+      <div id="catalog"><!-- categories + cards injected by gallery.js --></div>
+    </section>
+
+    <aside class="editor glass" id="editor"><!-- playlist editor injected by gallery.js --></aside>
+  </main>
+
+  <div id="toast"></div>
+
+  <dialog id="importDialog">
+    <h2 style="margin-bottom:0.6rem">Import playlists</h2>
+    <p class="muted" style="font-size:0.85rem;margin:0 0 0.6rem">Paste exported playlist JSON (a single playlist or an array). Unknown visualizations are skipped.</p>
+    <textarea id="importText" placeholder="Paste JSON here…"></textarea>
+    <div class="row" style="margin-top:0.8rem;justify-content:flex-end">
+      <button class="btn ghost" id="importCancel">Cancel</button>
+      <button class="btn primary" id="importConfirm">Import</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="app/gallery.js"></script>
+</body>
+
+</html>

@@ -496,7 +496,8 @@ button {
     border-radius: var(--r-md);
 }
 
-.cayley-opt {
+.cayley-opt,
+.dual-opt {
     flex: 1;
     padding: 6px 0;
     background: transparent;
@@ -510,15 +511,66 @@ button {
     transition: background 0.15s ease, color 0.15s ease, box-shadow 0.2s ease;
 }
 
-.cayley-opt:hover {
+.cayley-opt:hover,
+.dual-opt:hover {
     color: var(--ink);
     background: var(--w05);
 }
 
-.cayley-opt.active {
+.cayley-opt.active,
+.dual-opt.active {
     background: var(--accent-soft);
     color: var(--ink);
     box-shadow: 0 0 10px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Dual opacity slider */
+.dual-opacity-row {
+    margin-top: 6px;
+    transition: opacity 0.2s ease;
+}
+
+.dual-opacity-row.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.opacity-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--field-bg);
+    border: 1px solid var(--hairline);
+    cursor: pointer;
+    outline: none;
+}
+
+.opacity-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 0 10px var(--accent-glow);
+    cursor: pointer;
+}
+
+.opacity-slider::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 0 10px var(--accent-glow);
+    cursor: pointer;
+}
+
+.opacity-slider:focus-visible {
+    border-color: var(--accent-line);
 }
 
 /* ---------------- Drag-slider buttons (Polyhedron / Walls) ---------------- */
@@ -1057,6 +1109,70 @@ button {
 
 #isometry-controls .isometry-btn:active {
     transform: translateY(0) scale(0.97);
+}
+
+/* ---------------- Face inspector panel ---------------- */
+.face-info {
+    position: fixed;
+    left: 20px;
+    bottom: 24px;
+    z-index: 60;
+    max-width: 320px;
+    padding: 12px 16px;
+    background: var(--glass);
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-lg);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.45;
+    box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.7);
+}
+
+.face-info .fi-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.face-info .fi-key {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-dim);
+}
+
+.face-info .fi-type {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--accent-2);
+}
+
+.face-info .fi-angle {
+    margin-top: 6px;
+    font-size: 19px;
+    font-weight: 600;
+}
+
+.face-info .fi-angle .fi-sub {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--ink-dim);
+}
+
+.face-info .fi-matrix {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--ink);
+}
+
+.face-info .fi-hint {
+    margin-top: 8px;
+    font-size: 10.5px;
+    color: var(--ink-faint);
 }
 
 /* ============================================================

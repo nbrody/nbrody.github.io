@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>🔒 FOR FUN - ACCESS RESTRICTED 🔒</title>
+    <title>FOR FUN</title>
     <style>
         /* Y2K Matrix/Vault Aesthetic */
         body {
@@ -119,11 +119,7 @@
         }
 
         #directory {
-            display: none;
-            margin-top: 30px;
             text-align: left;
-            border-top: 2px solid #0f0;
-            padding-top: 20px;
         }
 
         #directory ul {
@@ -169,95 +165,37 @@
 <body>
     <div class="scanline"></div>
     <div id="vault-container">
-        <div id="login-screen">
-            <h1>Top Secret Access</h1>
-            <p>IDENTiFY YOURSELF </p>
-            <input type="password" id="password" placeholder="ENTER PASSCODE" />
-            <br />
-            <button onclick="checkPassword()">Decrypt</button>
-            <div id="error-msg"></div>
-        </div>
-
         <div id="directory">
-            <h2>Authorized Access Granted</h2>
+            <h1>For Fun</h1>
             <p>Welcome to the forFun Subdirectory</p>
             <ul id="file-list">
                 <!-- Populated by JS -->
             </ul>
-            <button onclick="logout()" style="margin-top: 20px; font-size: 12px; padding: 5px 10px;">Security
-                Logout</button>
         </div>
     </div>
 
     <script>
-        // Simple hash function for demonstration (not military grade, just for fun)
-        function hashPassword(str) {
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                hash = ((hash << 5) - hash) + str.charCodeAt(i);
-                hash |= 0;
-            }
-            return hash;
-        }
-
-        // The password is "password1" -> hash is 1858447606
-        const TARGET_HASH = 1858447606;
-
         const files = [
+            { name: "🚽 Just The Good Sh*t™", path: "justTheGoodShit/index.html" },
+            { name: "🎬 Double Feature™", path: "doubleFeature/index.html" },
             { name: "💖 Rachie's Valentine", path: "rachie/index.html" },
             { name: "🏰 nicCage Puzzle Hunt", path: "nicCage/index.html" },
             { name: "🎮 Kids Games", path: "kidsGames/index.html" },
-            { name: "🌀 Roadblocks", path: "Roadblocks/index.html" },
-            { name: "🦎 Gecko Out", path: "geckoOut/index.html" },
+            { name: "🌀 Roadblocks", path: "miscGames/Roadblocks/index.html" },
+            { name: "🦎 Gecko Out", path: "miscGames/geckoOut/index.html" },
             { name: "🃏 Card Table", path: "cardGames/index.html" },
-            { name: "🧩 Khet Chess", path: "khet/index.html" },
+            { name: "🧩 Khet Chess", path: "miscGames/khet/index.html" },
             { name: "🏗️ Rube Goldberg", path: "rubeGoldberg/index.html" },
             { name: "🕺 OzDDR", path: "ozDDR/index.html" },
-            { name: "🗺️ Map Tiles", path: "mapTile/index.html" },
             { name: "🎨 Mosaic Fractal", path: "MosaicFractal/index.html" },
             { name: "🕶️ AR Test", path: "ARTest/index.html" }
         ];
 
-        function checkPassword() {
-            const pass = document.getElementById('password').value;
-            const error = document.getElementById('error-msg');
-
-            if (hashPassword(pass.toUpperCase()) === TARGET_HASH) {
-                localStorage.setItem('forFun_auth', 'true');
-                showDirectory();
-            } else {
-                error.textContent = "INVALiD PASSCODE. ATTEMPT LOGGED.";
-                document.getElementById('password').value = '';
-                setTimeout(() => error.textContent = '', 2000);
-            }
-        }
-
-        function showDirectory() {
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('directory').style.display = 'block';
-
-            const list = document.getElementById('file-list');
-            list.innerHTML = '';
-            files.forEach(f => {
-                const li = document.createElement('li');
-                li.innerHTML = `<a href="${f.path}">[EXECUTE] ${f.name}</a>`;
-                list.appendChild(li);
-            });
-        }
-
-        function logout() {
-            localStorage.removeItem('forFun_auth');
-            location.reload();
-        }
-
-        // Check if already authorized
-        if (localStorage.getItem('forFun_auth') === 'true') {
-            showDirectory();
-        }
-
-        // Allow Enter key
-        document.getElementById('password').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') checkPassword();
+        const list = document.getElementById('file-list');
+        files.forEach(f => {
+            const li = document.createElement('li');
+            li.innerHTML = `<a href="${f.path}">[EXECUTE] ${f.name}</a>`;
+            list.appendChild(li);
         });
     </script>
 </body>

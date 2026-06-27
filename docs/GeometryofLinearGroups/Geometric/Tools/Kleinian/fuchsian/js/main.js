@@ -12,8 +12,35 @@ import {
     formatAngle
 } from './utils.js';
 import { renderGutter, highlightGutterFaces, showFaceMeta, setupTabs, setupPanelToggle } from './ui.js';
-import { setupMatrixInput, getMatricesFromUI, Complex } from './matrixInput.js';
+import { setupMatrixInput, getMatricesFromUI, Complex, Matrix2 } from './matrixInput.js';
 import { generateGroupElements } from './dirichletUtils.js';
+import { runExactCertificate } from './exactCertificate.js';
+
+// The domain/orbit pipeline centers the Dirichlet domain at the disk origin = i. If a short
+// word fixes i (e.g. S=[[0,-1],[1,0]] in the modular/Hecke groups), that domain degenerates
+// and the tiling collapses. Detect this and conjugate the group by a generic isometry so the
+// effective basepoint is interior — the rendered tessellation is then an isometric copy.
+function perturbIfBasepointFixed(matrices) {
+    const gi = m => { // g·i = u + v i, entries real
+        const a = m.a.re, b = m.b.re, c = m.c.re, d = m.d.re, den = c * c + d * d || 1e-30;
+        return { u: (b * d + a * c) / den, v: (a * d - b * c) / den };
+    };
+    const sym = [];
+    matrices.forEach(m => { sym.push(m); sym.push(m.inverse()); });
+    const words = [...sym];
+    for (const a of sym) for (const b of sym) words.push(a.multiply(b));
+    const fixesI = words.some(m => m && !m.isIdentity() && Math.hypot(gi(m).u, gi(m).v - 1) < 1e-6);
+    if (!fixesI) return matrices;
+
+    // c: z ↦ s·z — move the basepoint UP the imaginary axis (i ↦ s·i), off the elliptic fixed
+    // point but STAYING on the axis. This preserves the symmetry of symmetric groups: e.g. for
+    // PSL(2,Z) / Hecke groups the Dirichlet domain at iy (y>1) is the standard {|x|<λ/2, |z|>1}.
+    // A horizontal shift would move the basepoint off the symmetry axis and skew the cell.
+    const s = 1.3, rs = Math.sqrt(s);
+    const C = new Matrix2(new Complex(rs), new Complex(0), new Complex(0), new Complex(1 / rs));
+    const Ci = C.inverse();
+    return matrices.map(g => Ci.multiply(g).multiply(C));
+}
 
 
 // Constants
@@ -57,107 +84,68 @@ class Vec2 {
     }
 }
 
-// Helper function: Check if a point satisfies an SDF constraint
-// Helper function: Check if a point satisfies an SDF constraint
-function satisfiesSDF(point, cov, eps = 1e-6) {
-    const [px, py] = point;
-    const [vx, vy, vw] = cov;
+// (Removed: satisfiesSDF / hasPointInFundamentalDomain — the old per-geodesic point-sampling
+// face filter. Faces are now found robustly by activeDirichletFaces below.)
 
-    // Minkowski coordinates of the point in H^2 (disk model)
-    const r2 = px * px + py * py;
-    if (r2 >= 1.0) return false;
-
-    const denom = 1.0 - r2;
-    const x = (2 * px) / denom;
-    const y = (2 * py) / denom;
-    const w = (1.0 + r2) / denom;
-
-    // Condition: <X, cov> <= 0
-    return (vx * x + vy * y + vw * w) <= eps;
-}
-
-// Helper function: Check if a geodesic has a point in the fundamental domain
-// AND passes through the INTERIOR of the disk (not just touching the boundary)
-function hasPointInFundamentalDomain(targetCov, allCovectors, faceIndices, targetIdx) {
-    const [vx, vy, vw] = targetCov;
-    const eps = 1e-6;
-    const boundaryEps = 1e-3; // Points must be strictly inside, not near boundary
-
-    // Sample points along the geodesic. Density matters: for groups whose
-    // fundamental domain intersects this geodesic in a narrow arc (e.g.,
-    // triangle groups with the basepoint close to a side), 100 samples can
-    // miss the window entirely and falsely reject the face.
-    const numSamples = 1000;
-
-    if (Math.abs(vw) < 1e-6) {
-        // Line through origin
-        const dx = -vy;
-        const dy = vx;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len < 1e-9) return false;
-
-        const dirX = dx / len;
-        const dirY = dy / len;
-
-        // Sample along the line from -1 to +1
-        for (let i = 0; i <= numSamples; i++) {
-            const t = -1 + (2 * i / numSamples);
-            const px = t * dirX;
-            const py = t * dirY;
-
-            // Check if STRICTLY in interior of unit disk
-            const r = Math.sqrt(px * px + py * py);
-            if (r >= 1.0 - boundaryEps) continue; // Must be in interior, not on boundary
-
-            // Check if this point is in the fundamental domain
-            let inDomain = true;
-            for (const idx of faceIndices) {
-                if (idx === targetIdx) continue; // Skip the target SDF itself
-
-                const cov = allCovectors[idx];
-                if (!satisfiesSDF([px, py], cov, eps)) {
-                    inDomain = false;
-                    break;
-                }
-            }
-
-            if (inDomain) return true;
-        }
-    } else {
-        // Circle
-        const cx = vx / vw;
-        const cy = vy / vw;
-        const nSq = vx * vx + vy * vy;
-        const wSq = vw * vw;
-        const r = Math.sqrt(nSq / wSq - 1);
-
-        // Sample around the circle
-        for (let i = 0; i <= numSamples; i++) {
-            const angle = (i / numSamples) * 2 * Math.PI;
-            const px = cx + r * Math.cos(angle);
-            const py = cy + r * Math.sin(angle);
-
-            // Check if STRICTLY in interior of unit disk
-            const diskR = Math.sqrt(px * px + py * py);
-            if (diskR >= 1.0 - boundaryEps) continue; // Must be in interior, not on boundary
-
-            // Check if this point is in the fundamental domain
-            let inDomain = true;
-            for (const idx of faceIndices) {
-                if (idx === targetIdx) continue; // Skip the target SDF itself
-
-                const cov = allCovectors[idx];
-                if (!satisfiesSDF([px, py], cov, eps)) {
-                    inDomain = false;
-                    break;
-                }
-            }
-
-            if (inDomain) return true;
-        }
+/**
+ * Robustly determine the faces of the Dirichlet (Voronoi) cell of the basepoint.
+ *
+ * Each covector (a,b,c) is a bisector half-plane: a point of the hyperboloid (mx,my,mw)
+ * is inside when a·mx + b·my + c·mw ≤ 0. Dividing by mw>0 gives the *Klein* coordinates
+ * k=(mx/mw, my/mw) and a plain linear half-plane  a·kx + b·ky + c ≤ 0.  The cell is the
+ * intersection of these half-planes with the open unit (Klein) disk.
+ *
+ * A face k is *active* (it actually bounds the cell) iff the portion of its boundary line that
+ * lies inside every other half-plane — and inside the disk — is a non-degenerate segment. We
+ * test that directly by 1-D interval clipping along each line. This is robust even for faces
+ * that only graze the cell near the ideal boundary (which a polygon-edge scan can miss), and
+ * it replaces the old point-sampling filter that silently dropped genuine faces.
+ */
+function activeDirichletFaces(covectors) {
+    // Deduplicate identical bisector lines (same orbit point reached by different words).
+    const uniq = [];
+    const seen = new Set();
+    for (let i = 0; i < covectors.length; i++) {
+        const c = covectors[i];
+        if (!c || c.length !== 3 || !c.every(Number.isFinite)) continue;
+        const n = Math.hypot(c[0], c[1], c[2]) || 1;
+        const key = `${Math.round(c[0] / n * 1e4)},${Math.round(c[1] / n * 1e4)},${Math.round(c[2] / n * 1e4)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        uniq.push({ c, i });
     }
 
-    return false;
+    const active = [];
+    for (const { c: ck, i: idx } of uniq) {
+        const [a, b, c] = ck;
+        const ab2 = a * a + b * b;
+        if (ab2 < 1e-15) continue;                       // covector with no spatial part
+        // A point of line k:  p0 = -c·(a,b)/|.. |² ;  direction d = (-b, a).
+        const p0x = -c * a / ab2, p0y = -c * b / ab2, dx = -b, dy = a;
+
+        // Clip the parameter t to "inside every other half-plane".
+        let tmin = -Infinity, tmax = Infinity, feasible = true;
+        for (const { c: cj } of uniq) {
+            if (cj === ck) continue;
+            const A = cj[0] * dx + cj[1] * dy;           // d(constraint)/dt
+            const B = -(cj[0] * p0x + cj[1] * p0y + cj[2]);
+            if (Math.abs(A) < 1e-12) { if (B < -1e-9) { feasible = false; break; } }  // parallel, fully outside
+            else if (A > 0) { if (B / A < tmax) tmax = B / A; }
+            else { if (B / A > tmin) tmin = B / A; }
+        }
+        if (!feasible || tmax - tmin <= 1e-6) continue;
+
+        // Intersect with the open unit (Klein) disk:  |p0 + t·d|² < 1.
+        const qa = dx * dx + dy * dy, qb = 2 * (p0x * dx + p0y * dy), qc = p0x * p0x + p0y * p0y - 1;
+        const disc = qb * qb - 4 * qa * qc;
+        if (disc <= 0) continue;                          // line misses the disk
+        const sq = Math.sqrt(disc);
+        tmin = Math.max(tmin, (-qb - sq) / (2 * qa));
+        tmax = Math.min(tmax, (-qb + sq) / (2 * qa));
+
+        if (tmax - tmin > 1e-6) active.push(idx);         // non-empty edge ⇒ active face
+    }
+    return active;
 }
 
 // Parse input and update renderer
@@ -310,24 +298,14 @@ async function updateFromInput(clearGeneratedWords = true) {
         wordsByLine.push(word);
     }
 
-    // Filter covectors by strict support
+    // Keep only the covectors that actually bound the Dirichlet (Voronoi) cell — the active
+    // faces of the half-plane intersection. (Robust line-clipping; the previous
+    // filterFaceDefiningCovectorsCone sampling heuristic silently dropped genuine faces, e.g.
+    // far faces that graze the cell near the ideal boundary.)
     let survivorsIdx = [];
-    const filterFn = (typeof window !== 'undefined' && typeof window.filterFaceDefiningCovectorsCone === 'function')
-        ? window.filterFaceDefiningCovectorsCone
-        : null;
-
     if (covRowsByLine.length > 0) {
-        if (filterFn) {
-            try {
-                survivorsIdx = filterFn(covRowsByLine.slice(), { eps: 1e-9, initBox: 1e6, strict_margin: 1e-9 });
-            } catch (e) {
-                console.warn('filterFaceDefiningCovectorsCone failed, falling back to keeping all:', e);
-                survivorsIdx = covRowsByLine.map((_, i) => i);
-            }
-        } else {
-            // Fallback: keep all if filter utility is not available
-            survivorsIdx = covRowsByLine.map((_, i) => i);
-        }
+        survivorsIdx = activeDirichletFaces(covRowsByLine.slice());
+        if (survivorsIdx.length === 0) survivorsIdx = covRowsByLine.map((_, i) => i);  // safety net
     }
 
     // Rebuild sphere/plane arrays from survivors only
@@ -428,8 +406,11 @@ async function updateFromMatrices() {
     const errorMessage = document.getElementById('matrix-error-message');
     if (errorMessage) errorMessage.textContent = '';
 
+    // Exact discreteness/indiscreteness certificate (independent of the float pipeline).
+    runExactCertificate();
+
     try {
-        const matrices = getMatricesFromUI();
+        const matrices = perturbIfBasepointFixed(getMatricesFromUI());
         if (matrices.length === 0) {
             if (errorMessage) errorMessage.textContent = 'Please add at least one matrix.';
             return;
@@ -442,6 +423,7 @@ async function updateFromMatrices() {
         }
 
         const wordLength = parseInt(document.getElementById('wordLength')?.value) || 4;
+        if (renderer) renderer.cayleyDepth = wordLength;   // "Word Length" also drives the Cayley graph BFS depth
 
         // Step 1: Generate all group elements up to word length
         console.log(`Generating group elements up to word length ${wordLength}...`);
@@ -474,31 +456,23 @@ async function updateFromMatrices() {
             const det = a * d - b * c;
             const scale = (Math.abs(det) > 1e-12) ? (1 / Math.sqrt(Math.abs(det))) : 1;
 
-            const so21 = PGL2RtoSDF.PGL2RtoO21(a * scale, b * scale, c * scale, d * scale);
-            let cov;
-            try {
-                const result = PGL2RtoSDF.sDF_autoFromO21(so21);
-                cov = result?.row || null;
-            } catch (e) {
-                cov = null;
-            }
+            // Dirichlet/Voronoi bisector face for this element, computed DIRECTLY (the previous
+            // sDF_autoFromO21 path fell back to non-timelike pivots for some elements, yielding
+            // covectors that were not the basepoint bisector and cut into the cell).
+            //
+            // Basepoint o = (0,0,1). The face is the perpendicular bisector of [o, g⁻¹·o], so that
+            // the stored matrix g — applied FORWARD (H ↦ g·H·gᵀ) by the renderer's pull-back —
+            // maps the neighbouring tile across this face back onto the fundamental domain.
+            // With g normalised (det = ±1), g⁻¹ ∝ [[D,−B],[−C,A]] and  g⁻¹·o  comes from g⁻¹(g⁻¹)ᵀ:
+            const A = a * scale, B = b * scale, C = c * scale, D = d * scale;
+            const n1 = D * D + B * B, n2 = C * C + A * A;
+            const Px = (n1 - n2) / 2, Py = -(C * D + A * B), Pw = (n1 + n2) / 2;
+            // Renderer convention: inside = { cov·m ≤ 0 }, with cov = (Px, Py, 1−Pw).
+            let cov = [Px, Py, 1 - Pw];
 
-            // Fallback to Dirichlet bisector if needed
-            if (!cov || !Array.isArray(cov) || cov.length !== 3 || cov.some(v => !Number.isFinite(v)) ||
-                (Math.abs(cov[0]) + Math.abs(cov[1]) + Math.abs(cov[2]) < 1e-12)) {
-                let yx = 0, yy = 0, yw = 1;
-                if (Array.isArray(so21) && so21.length === 3 && Array.isArray(so21[0])) {
-                    yx = so21[0][2]; yy = so21[1][2]; yw = so21[2][2];
-                } else if (Array.isArray(so21) && so21.length === 9) {
-                    yx = so21[2]; yy = so21[5]; yw = so21[8];
-                }
-                // Correct Minkowski bisector: V = O - gO = (-yx, -yy, 1-yw)
-                // For Euclidean dot, we use (Vx, Vy, -Vw) = (-yx, -yy, yw-1)
-                cov = [-yx, -yy, yw - 1];
-            }
-
-            if (!cov || cov.length !== 3 || cov.some(v => !Number.isFinite(v))) {
-                console.warn('Invalid sDF for group element', word);
+            // Degenerate (element fixes the basepoint ⇒ no bisector): skip it.
+            const covNormSq = Px * Px + Py * Py - (1 - Pw) * (1 - Pw);
+            if (!cov.every(Number.isFinite) || covNormSq < 1e-12) {
                 continue;
             }
 
@@ -522,57 +496,19 @@ async function updateFromMatrices() {
 
         console.log(`Converted ${allCovectors.length} group elements to covectors`);
 
-        // Step 3: Filter covectors to keep only face-defining ones
-        console.log('Filtering face-defining covectors...');
-        let faceIndices = [];
+        // Step 3+4: Determine the active Dirichlet (Voronoi) faces by intersecting the bisector
+        // half-planes into the actual cell polygon. This is the set of group elements whose
+        // bisector with the basepoint bounds the cell — i.e. the true side-pairing generators.
+        // (The old point-sampling filter dropped genuine faces, so the rendered region wasn't the
+        // Voronoi cell of the basepoint orbit — e.g. it kept only 4 of the 6 faces for (2,3,7).)
+        console.log('Building Dirichlet (Voronoi) cell from bisector half-planes...');
+        const standardGeneratorIndices = activeDirichletFaces(allCovectors);
 
-        if (typeof window.filterFaceDefiningCovectorsCone === 'function') {
-            try {
-                faceIndices = window.filterFaceDefiningCovectorsCone(allCovectors, {
-                    eps: 1e-9,
-                    strict_margin: 1e-9
-                });
-            } catch (e) {
-                console.warn('Face filtering failed, keeping all covectors:', e);
-                faceIndices = allCovectors.map((_, i) => i);
-            }
-        } else {
-            console.warn('filterFaceDefiningCovectorsCone not available, keeping all covectors');
-            faceIndices = allCovectors.map((_, i) => i);
-        }
-
-        console.log(`Found ${faceIndices.length} face-defining covectors out of ${allCovectors.length}`);
-
-        if (faceIndices.length === 0) {
-            if (errorMessage) {
-                errorMessage.textContent = 'No faces found. Try increasing word length or check your matrices.';
-            }
-            return;
-        }
-
-        // Step 4: Filter to only standard generators (geodesics that touch the fundamental domain)
-        console.log('Filtering to standard generators only...');
-        const standardGeneratorIndices = [];
-
-        for (const idx of faceIndices) {
-            const cov = allCovectors[idx];
-            const [vx, vy, vw] = cov;
-
-            // Check if this geodesic has a point on the fundamental domain
-            // by testing if there exists a point P where:
-            // - This SDF is zero: F(P) = 0
-            // - All other SDFs are non-negative (in fundamental domain)
-
-            if (hasPointInFundamentalDomain(cov, allCovectors, faceIndices, idx)) {
-                standardGeneratorIndices.push(idx);
-            }
-        }
-
-        console.log(`Found ${standardGeneratorIndices.length} standard generators out of ${faceIndices.length} faces`);
+        console.log(`Active Voronoi faces: ${standardGeneratorIndices.length} of ${allCovectors.length}`);
 
         if (standardGeneratorIndices.length === 0) {
             if (errorMessage) {
-                errorMessage.textContent = 'No standard generators found. Try increasing word length.';
+                errorMessage.textContent = 'No Dirichlet faces found. Try increasing word length or check your matrices.';
             }
             return;
         }
@@ -625,9 +561,6 @@ async function updateFromMatrices() {
                 renderer.paletteMode = _paletteMode;
                 renderer.render();
             }
-
-            // Compute and display vertex angle sums
-            displayVertexAngleSums();
         }
 
         console.log(`Successfully generated ${vectorsWithMeta.length} vectors with metadata`);
@@ -645,31 +578,16 @@ async function init() {
     const canvas = document.getElementById('canvas');
     const container = document.getElementById('container');
 
-    // Set canvas size
-    canvas.width = container.clientWidth;
-    canvas.height = container.clientHeight;
+    // Size the canvas backing store at the device pixel ratio (capped at 2×) so the render is
+    // crisp on HiDPI / Retina displays instead of being upscaled from CSS-pixel resolution.
+    // CSS keeps the canvas at the container size (inline style width/height: 100%); only the
+    // backing store is enlarged.
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(container.clientWidth * dpr);
+    canvas.height = Math.round(container.clientHeight * dpr);
 
     // Create renderer
     renderer = new PoincareRenderer(canvas);
-
-    // Listen for face selection events from renderer
-    canvas.addEventListener('faceSelected', (e) => {
-        const faceId = e.detail.faceId;
-        const mappedFaceId = e.detail.mappedFaceId;
-        handleFaceSelection(faceId, mappedFaceId);
-    });
-
-    // Listen for angle calculation events
-    canvas.addEventListener('angleBetweenFaces', (e) => {
-        const { faceId1, faceId2 } = e.detail;
-        handleAngleCalculation(faceId1, faceId2);
-    });
-
-    // Listen for vertex selection events
-    canvas.addEventListener('vertexSelected', (e) => {
-        const vertexId = e.detail.vertexId;
-        handleVertexSelection(vertexId);
-    });
 
     setupEventHandlers();
     await setupUI();
@@ -707,575 +625,6 @@ function handleFaceSelection(faceId, mappedFaceId = -1) {
     }
 }
 
-// Calculate angle between two geodesics
-function calculateAngleBetweenGeodesics(faceId1, faceId2) {
-    const numSpheres = _currentSphereCenters.length;
-
-    // Get geodesic data for both faces
-    let geo1, geo2;
-
-    if (faceId1 < numSpheres) {
-        geo1 = { type: 'circle', center: _currentSphereCenters[faceId1], radius: _currentSphereRadii[faceId1] };
-    } else {
-        geo1 = { type: 'line', normal: _currentPlaneNormals[faceId1 - numSpheres] };
-    }
-
-    if (faceId2 < numSpheres) {
-        geo2 = { type: 'circle', center: _currentSphereCenters[faceId2], radius: _currentSphereRadii[faceId2] };
-    } else {
-        geo2 = { type: 'line', normal: _currentPlaneNormals[faceId2 - numSpheres] };
-    }
-
-    // Find intersection points
-    const intersections = findGeodesicIntersections(geo1, geo2);
-
-    if (intersections.length === 0) {
-        return null; // No intersection
-    }
-
-    // Use the first intersection point (they're in the unit disk)
-    const intersection = intersections[0];
-
-    // Calculate tangent vectors at intersection
-    const tangent1 = getTangentVector(geo1, intersection);
-    const tangent2 = getTangentVector(geo2, intersection);
-
-    if (!tangent1 || !tangent2) return null;
-
-    // Calculate angle between tangents
-    const dot = tangent1.x * tangent2.x + tangent1.y * tangent2.y;
-    const mag1 = Math.sqrt(tangent1.x * tangent1.x + tangent1.y * tangent1.y);
-    const mag2 = Math.sqrt(tangent2.x * tangent2.x + tangent2.y * tangent2.y);
-
-    const cosAngle = dot / (mag1 * mag2);
-    const angleRad = Math.acos(Math.max(-1, Math.min(1, cosAngle)));
-    const angleDeg = angleRad * 180 / Math.PI;
-
-    return { angleRad, angleDeg, intersection };
-}
-
-// Find intersection points between two geodesics
-function findGeodesicIntersections(geo1, geo2) {
-    const intersections = [];
-    const eps = 1e-9;
-
-    if (geo1.type === 'line' && geo2.type === 'line') {
-        // Two lines through origin: only intersect at origin
-        intersections.push({ x: 0, y: 0 });
-    } else if (geo1.type === 'line' && geo2.type === 'circle') {
-        // Line and circle
-        const { normal } = geo1;
-        const { center, radius } = geo2;
-
-        // Line: normal.x * x + normal.y * y = 0
-        // Circle: (x - cx)^2 + (y - cy)^2 = r^2
-
-        // Parametric line: (t * (-normal.y), t * normal.x)
-        const dx = -normal.y;
-        const dy = normal.x;
-
-        // Substitute into circle equation
-        const a = dx * dx + dy * dy;
-        const b = 2 * (dx * (-center.x) + dy * (-center.y));
-        const c = center.x * center.x + center.y * center.y - radius * radius;
-
-        const discriminant = b * b - 4 * a * c;
-        if (discriminant >= -eps) {
-            const t1 = (-b + Math.sqrt(Math.max(0, discriminant))) / (2 * a);
-            const t2 = (-b - Math.sqrt(Math.max(0, discriminant))) / (2 * a);
-
-            const p1 = { x: t1 * dx, y: t1 * dy };
-            const p2 = { x: t2 * dx, y: t2 * dy };
-
-            if (p1.x * p1.x + p1.y * p1.y < 1.0 + eps) intersections.push(p1);
-            if (Math.abs(t1 - t2) > eps && p2.x * p2.x + p2.y * p2.y < 1.0 + eps) intersections.push(p2);
-        }
-    } else if (geo1.type === 'circle' && geo2.type === 'line') {
-        return findGeodesicIntersections(geo2, geo1);
-    } else if (geo1.type === 'circle' && geo2.type === 'circle') {
-        // Two circles
-        const { center: c1, radius: r1 } = geo1;
-        const { center: c2, radius: r2 } = geo2;
-
-        const dx = c2.x - c1.x;
-        const dy = c2.y - c1.y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-
-        if (d < eps || d > r1 + r2 + eps || d < Math.abs(r1 - r2) - eps) {
-            return intersections; // No intersection
-        }
-
-        const a = (r1 * r1 - r2 * r2 + d * d) / (2 * d);
-        const h = Math.sqrt(Math.max(0, r1 * r1 - a * a));
-
-        const px = c1.x + a * dx / d;
-        const py = c1.y + a * dy / d;
-
-        const p1 = { x: px + h * (-dy) / d, y: py + h * dx / d };
-        const p2 = { x: px - h * (-dy) / d, y: py - h * dx / d };
-
-        if (p1.x * p1.x + p1.y * p1.y < 1.0 + eps) intersections.push(p1);
-        if (h > eps && p2.x * p2.x + p2.y * p2.y < 1.0 + eps) intersections.push(p2);
-    }
-
-    return intersections;
-}
-
-// Get tangent vector to geodesic at a point
-function getTangentVector(geo, point) {
-    if (geo.type === 'line') {
-        // Tangent to a line is just the direction of the line
-        return { x: -geo.normal.y, y: geo.normal.x };
-    } else {
-        // Tangent to circle at point p is perpendicular to radius at p
-        const { center } = geo;
-        const dx = point.x - center.x;
-        const dy = point.y - center.y;
-        // Perpendicular: (-dy, dx)
-        return { x: -dy, y: dx };
-    }
-}
-
-function handleAngleCalculation(faceId1, faceId2) {
-    const result = calculateAngleBetweenGeodesics(faceId1, faceId2);
-
-    const edgeOut = document.getElementById('selected-edge');
-    if (!edgeOut) return;
-
-    if (result) {
-        const { angleDeg } = result;
-        edgeOut.textContent = `Angle between geodesics: ${angleDeg.toFixed(2)}°`;
-    } else {
-        edgeOut.textContent = 'Geodesics do not intersect in the disk';
-    }
-}
-
-// Find all vertices of the fundamental domain
-function findFundamentalDomainVertices() {
-    const vertices = [];
-    const numFaces = _currentSphereCenters.length + _currentPlaneNormals.length;
-    const eps = 1e-6;
-
-    console.log(`Finding vertices from ${numFaces} faces...`);
-
-    // Check all pairs of geodesics for intersections
-    for (let i = 0; i < numFaces; i++) {
-        for (let j = i + 1; j < numFaces; j++) {
-            const numSpheres = _currentSphereCenters.length;
-
-            let geo1, geo2;
-            if (i < numSpheres) {
-                geo1 = { type: 'circle', center: _currentSphereCenters[i], radius: _currentSphereRadii[i] };
-            } else {
-                geo1 = { type: 'line', normal: _currentPlaneNormals[i - numSpheres] };
-            }
-
-            if (j < numSpheres) {
-                geo2 = { type: 'circle', center: _currentSphereCenters[j], radius: _currentSphereRadii[j] };
-            } else {
-                geo2 = { type: 'line', normal: _currentPlaneNormals[j - numSpheres] };
-            }
-
-            const intersections = findGeodesicIntersections(geo1, geo2);
-
-            for (const pt of intersections) {
-                // Check if this point is on the boundary of the fundamental domain
-                // It should satisfy equality (distance ~ 0) for faces i and j,
-                // and inequality (in half-space) for all other faces
-
-                if (!isOnFundamentalDomainBoundary(pt, i, j)) {
-                    continue;
-                }
-
-                // Get the word labels for these faces
-                const word1 = _facesMetaById[i]?.word || `F${i}`;
-                const word2 = _facesMetaById[j]?.word || `F${j}`;
-
-                // This is a vertex of the fundamental domain
-                vertices.push({
-                    point: pt,
-                    faces: [i, j],
-                    angle: null,  // Will be computed later
-                    label: `(${word1}, ${word2})`  // For debugging
-                });
-
-                console.log(`  Found vertex ${vertices.length - 1} at (${pt.x.toFixed(4)}, ${pt.y.toFixed(4)}) on faces ${word1} and ${word2}`);
-            }
-        }
-    }
-
-    // Compute angles at each vertex
-    for (let i = 0; i < vertices.length; i++) {
-        const vertex = vertices[i];
-        const [f1, f2] = vertex.faces;
-        const result = calculateAngleBetweenGeodesics(f1, f2);
-        if (result) {
-            vertex.angle = result.angleRad;
-            console.log(`  Vertex ${i}: angle = ${(vertex.angle * 180 / Math.PI).toFixed(2)}°`);
-        }
-    }
-
-    return vertices;
-}
-
-// Check if a point is on the boundary of the fundamental domain
-function isOnFundamentalDomainBoundary(point, face1, face2) {
-    const eps = 1e-5;
-    const { x, y } = point;
-
-    // Check if point is in unit disk
-    const r = Math.sqrt(x * x + y * y);
-    if (r >= 1.0 - eps) return false; // On or outside boundary circle
-
-    let onBoundaryCount = 0;
-
-    // Check all faces
-    const numSpheres = _currentSphereCenters.length;
-    const numFaces = numSpheres + _currentPlaneNormals.length;
-
-    for (let faceId = 0; faceId < numFaces; faceId++) {
-        let distToFace;
-
-        if (faceId < numSpheres) {
-            // Circle: SDF is distance to center minus radius
-            // Fundamental domain is where SDF >= 0 (outside circle)
-            const center = _currentSphereCenters[faceId];
-            const radius = _currentSphereRadii[faceId];
-            const dx = x - center.x;
-            const dy = y - center.y;
-            const distToCenter = Math.sqrt(dx * dx + dy * dy);
-            distToFace = distToCenter - radius;
-        } else {
-            // Line: SDF is -normal·point
-            // Fundamental domain is where SDF >= 0, i.e., normal·point <= 0
-            const normal = _currentPlaneNormals[faceId - numSpheres];
-            distToFace = -(normal.x * x + normal.y * y);
-        }
-
-        if (faceId === face1 || faceId === face2) {
-            // Should be on this face (distance ~ 0)
-            if (Math.abs(distToFace) < eps) {
-                onBoundaryCount++;
-            } else {
-                return false; // Not on expected boundary
-            }
-        } else {
-            // Should be in the half-space (distance >= 0)
-            if (distToFace < -eps) {
-                return false; // Outside fundamental domain
-            }
-        }
-    }
-
-    return onBoundaryCount === 2;
-}
-
-// Apply a matrix to a point in the Poincaré disk
-function applyMatrixToDiskPoint(matrix, point) {
-    if (!matrix || !point) return null;
-
-    const { x, y } = point;
-
-    // Convert disk point to Minkowski space
-    // In the Poincaré disk model, point (x,y) corresponds to Minkowski point
-    // using the map: (x,y) -> (x,y,1) normalized to the hyperboloid
-
-    // Actually, we need to use the correct embedding
-    // Point (x,y) in the disk corresponds to the Minkowski point:
-    // (2x/(1-r²), 2y/(1-r²), (1+r²)/(1-r²)) where r² = x²+y²
-
-    const rSq = x * x + y * y;
-    if (rSq >= 1.0) return null;
-
-    const denom = 1 - rSq;
-    const mx = 2 * x / denom;
-    const my = 2 * y / denom;
-    const mt = (1 + rSq) / denom;
-
-    // Apply the matrix via SO(2,1) action
-    const a = matrix.a?.re ?? matrix.a;
-    const b = matrix.b?.re ?? matrix.b;
-    const c = matrix.c?.re ?? matrix.c;
-    const d = matrix.d?.re ?? matrix.d;
-
-    // Apply using symmetric matrix conjugation
-    const h11 = mt + mx;
-    const h12 = my;
-    const h22 = mt - mx;
-
-    // Compute g H
-    const gh11 = a * h11 + b * h12;
-    const gh12 = a * h12 + b * h22;
-    const gh21 = c * h11 + d * h12;
-    const gh22 = c * h12 + d * h22;
-
-    // Compute g H g^T
-    const result11 = gh11 * a + gh12 * c;
-    const result12 = gh11 * b + gh12 * d;
-    const result22 = gh21 * b + gh22 * d;
-
-    // Extract Minkowski coordinates
-    const tPrime = (result11 + result22) / 2;
-    const xPrime = (result11 - result22) / 2;
-    const yPrime = result12;
-
-    // Convert back to disk coordinates
-    // (x,y,t) -> (x/(1+t), y/(1+t))
-    const diskX = xPrime / (1 + tPrime);
-    const diskY = yPrime / (1 + tPrime);
-
-    return { x: diskX, y: diskY };
-}
-
-// Find which vertex a point is closest to
-function findClosestVertex(point, vertices) {
-    const eps = 1e-3; // Increased tolerance for numerical precision
-    let minDist = Infinity;
-    let closestIdx = -1;
-
-    for (let i = 0; i < vertices.length; i++) {
-        const v = vertices[i].point;
-        const dx = point.x - v.x;
-        const dy = point.y - v.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < minDist) {
-            minDist = dist;
-            closestIdx = i;
-        }
-    }
-
-    if (minDist < eps) {
-        return closestIdx;
-    } else {
-        // Log when we can't find a close vertex
-        console.log(`  Warning: No vertex found close to (${point.x.toFixed(4)}, ${point.y.toFixed(4)}), closest is ${minDist.toFixed(6)} away`);
-        return -1;
-    }
-}
-
-// Compute vertex cycles under side-pairing
-function computeVertexCycles(vertices) {
-    const n = vertices.length;
-    const visited = new Array(n).fill(false);
-    const cycles = [];
-
-    console.log(`Computing vertex cycles for ${n} vertices...`);
-
-    for (let i = 0; i < n; i++) {
-        if (visited[i]) continue;
-
-        const cycle = [];
-        const queue = [i];
-        visited[i] = true;
-
-        while (queue.length > 0) {
-            const idx = queue.shift();
-            const vertex = vertices[idx];
-            cycle.push(idx);
-
-            // For each face this vertex lies on, apply the transformation
-            // The side-pairing g maps vertices on geodesic G_g to vertices on geodesic G_{g^-1}
-            for (const faceId of vertex.faces) {
-                const matrix = _facesMetaById[faceId]?.matrix;
-                if (!matrix) continue;
-
-                // Apply the transformation to this vertex
-                const mappedPoint = applyMatrixToDiskPoint(matrix, vertex.point);
-                if (!mappedPoint) continue;
-
-                // Find closest vertex to the mapped point
-                const mappedIdx = findClosestVertex(mappedPoint, vertices);
-                if (mappedIdx >= 0 && !visited[mappedIdx]) {
-                    console.log(`  Vertex ${idx} on face ${faceId} maps to vertex ${mappedIdx}`);
-                    visited[mappedIdx] = true;
-                    queue.push(mappedIdx);
-                }
-            }
-        }
-
-        if (cycle.length > 0) {
-            cycles.push(cycle);
-            console.log(`  Cycle ${cycles.length}: ${cycle.length} vertices`);
-        }
-    }
-
-    return cycles;
-}
-
-// Build a map of which faces pair with which
-function buildFacePairingMap() {
-    const pairing = new Map();
-    const numFaces = _currentSphereCenters.length + _currentPlaneNormals.length;
-
-    for (let faceId = 0; faceId < numFaces; faceId++) {
-        const matrix = _facesMetaById[faceId]?.matrix;
-        if (!matrix) continue;
-
-        // Find the paired face (the one with the inverse matrix)
-        const pairedFaceId = findPairedFace(faceId, matrix);
-        if (pairedFaceId >= 0) {
-            pairing.set(faceId, pairedFaceId);
-        }
-    }
-
-    return pairing;
-}
-
-// Find which face corresponds to the inverse of the given matrix
-function findPairedFace(sourceFaceId, matrix) {
-    const numFaces = _currentSphereCenters.length + _currentPlaneNormals.length;
-
-    // Compute inverse matrix
-    const a = matrix.a?.re ?? matrix.a;
-    const b = matrix.b?.re ?? matrix.b;
-    const c = matrix.c?.re ?? matrix.c;
-    const d = matrix.d?.re ?? matrix.d;
-
-    const det = a * d - b * c;
-    if (Math.abs(det) < 1e-10) return -1;
-
-    const invA = d / det;
-    const invB = -b / det;
-    const invC = -c / det;
-    const invD = a / det;
-
-    // Find the face with the closest matrix
-    let minDist = Infinity;
-    let pairedFaceId = -1;
-
-    for (let faceId = 0; faceId < numFaces; faceId++) {
-        if (faceId === sourceFaceId) continue;
-
-        const otherMatrix = _facesMetaById[faceId]?.matrix;
-        if (!otherMatrix) continue;
-
-        const oa = otherMatrix.a?.re ?? otherMatrix.a;
-        const ob = otherMatrix.b?.re ?? otherMatrix.b;
-        const oc = otherMatrix.c?.re ?? otherMatrix.c;
-        const od = otherMatrix.d?.re ?? otherMatrix.d;
-
-        // Check both ±M since PSL(2,R)
-        const dist1 = Math.sqrt(
-            (oa - invA) ** 2 + (ob - invB) ** 2 + (oc - invC) ** 2 + (od - invD) ** 2
-        );
-        const dist2 = Math.sqrt(
-            (oa + invA) ** 2 + (ob + invB) ** 2 + (oc + invC) ** 2 + (od + invD) ** 2
-        );
-
-        const dist = Math.min(dist1, dist2);
-
-        if (dist < minDist) {
-            minDist = dist;
-            pairedFaceId = faceId;
-        }
-    }
-
-    return minDist < 0.1 ? pairedFaceId : -1;
-}
-
-// Display vertex angle sums
-function displayVertexAngleSums() {
-    const vertices = findFundamentalDomainVertices();
-
-    if (vertices.length === 0) {
-        console.log('No vertices found');
-        if (renderer) {
-            renderer.setVertices([], [], []);
-        }
-        return;
-    }
-
-    console.log(`Found ${vertices.length} vertices`);
-
-    const cycles = computeVertexCycles(vertices);
-
-    console.log(`Found ${cycles.length} vertex cycles`);
-
-    // Compute angle sum for each cycle
-    const angleSums = [];
-    for (const cycle of cycles) {
-        let sum = 0;
-        for (const vertexIdx of cycle) {
-            const angle = vertices[vertexIdx].angle;
-            if (angle !== null) {
-                sum += angle;
-            }
-        }
-        angleSums.push(sum);
-    }
-
-    // Pass vertex data to renderer
-    if (renderer) {
-        renderer.setVertices(vertices, cycles, angleSums);
-        renderer.render();
-    }
-
-    // Display summary on page 2
-    const metaEl = document.getElementById('selected-face-meta');
-    if (metaEl) {
-        let text = 'Vertex angle sums (as multiples of π):\n';
-        for (let i = 0; i < angleSums.length; i++) {
-            const multiple = angleSums[i] / Math.PI;
-            text += `  Vertex cycle ${i + 1}: ${multiple.toFixed(4)}π (${cycles[i].length} vertices)\n`;
-        }
-        metaEl.textContent = text;
-    }
-
-    return { vertices, cycles, angleSums };
-}
-
-// Handle vertex selection
-function handleVertexSelection(vertexId) {
-    if (!renderer || !renderer.vertices || !renderer.vertexCycles || !renderer.vertexAngleSums) {
-        return;
-    }
-
-    // Find which cycle this vertex belongs to
-    let cycleIndex = -1;
-    for (let i = 0; i < renderer.vertexCycles.length; i++) {
-        if (renderer.vertexCycles[i].includes(vertexId)) {
-            cycleIndex = i;
-            break;
-        }
-    }
-
-    if (cycleIndex < 0) return;
-
-    const cycle = renderer.vertexCycles[cycleIndex];
-    const angleSum = renderer.vertexAngleSums[cycleIndex];
-    const vertex = renderer.vertices[vertexId];
-
-    // Display information
-    const edgeOut = document.getElementById('selected-edge');
-    if (edgeOut) {
-        const multiple = angleSum / Math.PI;
-        const vertexAngle = vertex.angle ? (vertex.angle * 180 / Math.PI).toFixed(2) : 'N/A';
-        edgeOut.textContent = `Vertex cycle ${cycleIndex + 1}: angle sum = ${multiple.toFixed(4)}π\n` +
-            `This vertex: ${vertexAngle}°, cycle has ${cycle.length} vertices`;
-    }
-
-    const normalOut = document.getElementById('selected-face-normal');
-    if (normalOut) {
-        const { x, y } = vertex.point;
-        normalOut.textContent = `Vertex at (${x.toFixed(4)}, ${y.toFixed(4)})`;
-    }
-
-    const metaEl = document.getElementById('selected-face-meta');
-    if (metaEl) {
-        let text = `Vertex cycle ${cycleIndex + 1} details:\n`;
-        text += `  Total angle sum: ${(angleSum / Math.PI).toFixed(4)}π\n`;
-        text += `  Number of vertices in cycle: ${cycle.length}\n`;
-        text += `  Vertices in this cycle:\n`;
-        for (const vIdx of cycle) {
-            const v = renderer.vertices[vIdx];
-            const vAngle = v.angle ? (v.angle * 180 / Math.PI).toFixed(2) : 'N/A';
-            text += `    Vertex ${vIdx}: (${v.point.x.toFixed(4)}, ${v.point.y.toFixed(4)}), angle ${vAngle}°\n`;
-        }
-        metaEl.textContent = text;
-    }
-}
-
 function setupEventHandlers() {
     window.addEventListener('resize', onWindowResize, false);
     window.addEventListener('resize', () => {
@@ -1288,7 +637,7 @@ function setupEventHandlers() {
     const boundaryToggle = document.getElementById('toggle-boundary-btn');
     const domainOrbitToggle = document.getElementById('toggle-domain-orbit-btn');
     const cayleyGraphToggle = document.getElementById('toggle-cayley-graph-btn');
-    const uhpToggle = document.getElementById('toggle-upper-half-plane-btn');
+    const modelToggle = document.getElementById('model-toggle');
 
     // Sync initial renderer state with UI button classes
     if (renderer) {
@@ -1296,10 +645,9 @@ function setupEventHandlers() {
         if (boundaryToggle) renderer.showBoundary = boundaryToggle.classList.contains('active');
         if (domainOrbitToggle) renderer.showDomainOrbit = domainOrbitToggle.classList.contains('active');
         if (cayleyGraphToggle) renderer.showCayleyGraph = cayleyGraphToggle.classList.contains('active');
-        // Initial UHP state
-        if (uhpToggle && uhpToggle.classList.contains('active')) {
-            renderer.isUpperHalfPlane = true;
-        }
+        // Initial model (Poincaré disk vs upper half-plane)
+        const activeModel = modelToggle?.querySelector('.seg-btn.active');
+        if (activeModel) renderer.isUpperHalfPlane = activeModel.dataset.model === 'uhp';
     }
 
     // Refresh button - triggers updateFromMatrices
@@ -1346,6 +694,30 @@ function setupEventHandlers() {
         });
     }
 
+    // Region coloring-logic selector (how the tessellation tiles are colored)
+    const coloringSelect = document.getElementById('coloring-select');
+    if (coloringSelect) {
+        if (renderer) renderer.colorMode = coloringSelect.value;
+        coloringSelect.addEventListener('change', () => {
+            if (renderer) {
+                renderer.colorMode = coloringSelect.value;
+                renderer.render();
+            }
+        });
+    }
+
+    // Edge thickness slider (screen-pixel width of the tessellation edges)
+    const edgeWidthInput = document.getElementById('edge-width');
+    if (edgeWidthInput) {
+        if (renderer) renderer.edgeWidth = parseFloat(edgeWidthInput.value);
+        edgeWidthInput.addEventListener('input', () => {
+            if (renderer) {
+                renderer.edgeWidth = parseFloat(edgeWidthInput.value);
+                renderer.render();
+            }
+        });
+    }
+
     // Domain orbit toggle listener
     if (domainOrbitToggle) {
         domainOrbitToggle.addEventListener('click', () => {
@@ -1353,9 +725,6 @@ function setupEventHandlers() {
             if (renderer) {
                 const isActive = domainOrbitToggle.classList.contains('active');
                 renderer.showDomainOrbit = isActive;
-                if (isActive && (!renderer.vertices || renderer.vertices.length === 0)) {
-                    displayVertexAngleSums();
-                }
                 renderer.render();
             }
         });
@@ -1372,12 +741,14 @@ function setupEventHandlers() {
         });
     }
 
-    // Upper half-plane toggle listener
-    if (uhpToggle) {
-        uhpToggle.addEventListener('click', () => {
-            uhpToggle.classList.toggle('active');
+    // Model toggle (Poincaré disk / Upper half-plane)
+    if (modelToggle) {
+        modelToggle.addEventListener('click', (e) => {
+            const btn = e.target.closest('.seg-btn');
+            if (!btn) return;
+            modelToggle.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b === btn));
             if (renderer) {
-                renderer.toggleUpperHalfPlane(uhpToggle.classList.contains('active'));
+                renderer.toggleUpperHalfPlane(btn.dataset.model === 'uhp');
             }
         });
     }
@@ -1393,8 +764,6 @@ function setupEventHandlers() {
                 const faceId = parseInt(trigger.dataset.faceId, 10);
                 const matrix = _facesMetaById[faceId]?.matrix;
                 if (matrix && renderer) {
-                    renderer.selectedFaceId = faceId;
-                    renderer.triggerPop(faceId);
                     renderer.animateIsometry(matrix);
                 }
             }
@@ -1419,16 +788,12 @@ function setupGutterClickHandlers() {
         if (wordTrigger) {
             const matrix = _facesMetaById[faceId]?.matrix;
             if (matrix && renderer) {
-                renderer.selectedFaceId = faceId;
-                renderer.triggerPop(faceId);
                 renderer.animateIsometry(matrix);
                 return;
             }
         }
 
         if (renderer) {
-            renderer.selectedFaceId = faceId;
-            renderer.triggerPop(faceId);
             renderer.render();
         }
 
@@ -1522,7 +887,8 @@ function onWindowResize() {
     const container = document.getElementById('container');
     const canvas = document.getElementById('canvas');
     if (renderer && canvas && container) {
-        renderer.resize(container.clientWidth, container.clientHeight);
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        renderer.resize(Math.round(container.clientWidth * dpr), Math.round(container.clientHeight * dpr));
     }
 }
 

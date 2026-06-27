@@ -31,16 +31,33 @@ export const fragmentShader = `
     uniform vec3 u_colorOffset;
     uniform float u_colorFreq;
     uniform bool u_showTiling;
+    uniform bool u_uhs;
     uniform mat4 projectionMatrix;
     uniform mat4 modelViewMatrix;
 
-    const float MAX_DIST = 10.0;
-    const int MAX_STEPS = 100;
+    const float MAX_DIST = 24.0;
+    const int MAX_STEPS = 140;
     const float EPSILON = 0.001;
     const float PLANE_EPS = 1e-6;
 
     // Signed Euclidean distance to a wall; negative on the domain side.
+    // Ball model: walls are spheres / planes-through-origin (covector W).
+    // UHS model: z is height (domain z>0); the SAME covector reads as a
+    // vertical plane when w3≈w0, else a hemisphere centred on z=0.
     float sdWall(vec3 p, vec4 W) {
+        if (u_uhs) {
+            // y is the height (domain y>0); boundary plane ℂ is the x–z floor.
+            float d = W.z - W.w;
+            if (abs(d) < 1e-4) {
+                float nl = length(W.xy);
+                if (nl < 1e-9) return 1e9;
+                return (W.x * p.x + W.y * p.z - 0.5 * (W.z + W.w)) / nl;
+            }
+            vec3 c = vec3(-W.x / d, 0.0, -W.y / d);
+            float rr = dot(W.xy, W.xy) / (d * d) + (W.z + W.w) / d;
+            if (rr <= 0.0) return 1e9;
+            return sign(d) * (length(p - c) - sqrt(rr));
+        }
         if (abs(W.w) < PLANE_EPS) {
             return dot(p, normalize(W.xyz));
         }
@@ -52,6 +69,22 @@ export const fragmentShader = `
 
     // Hyperbolic reflection through a wall (sphere inversion / mirror).
     vec3 reflectThroughWall(vec3 p, vec4 W) {
+        if (u_uhs) {
+            float d = W.z - W.w;
+            if (abs(d) < 1e-4) {
+                float nl = length(W.xy);
+                vec2 n = W.xy / nl;
+                float off = 0.5 * (W.z + W.w) / nl;
+                float s = (p.x * n.x + p.z * n.y) - off;
+                return vec3(p.x - 2.0 * s * n.x, p.y, p.z - 2.0 * s * n.y);
+            }
+            vec3 c = vec3(-W.x / d, 0.0, -W.y / d);
+            float rr = dot(W.xy, W.xy) / (d * d) + (W.z + W.w) / d;
+            vec3 dd = p - c;
+            float l2 = dot(dd, dd);
+            if (l2 < 1e-6) return p;
+            return c + (rr / l2) * dd;
+        }
         if (abs(W.w) < PLANE_EPS) {
             vec3 n = normalize(W.xyz);
             return p - 2.0 * dot(p, n) * n;
@@ -82,7 +115,8 @@ export const fragmentShader = `
     }
 
     vec2 map(vec3 p) {
-        float d = length(p) - 1.0;
+        // Ideal boundary: unit sphere (ball) or the floor y=0 (UHS, domain y>0).
+        float d = u_uhs ? -p.y : length(p) - 1.0;
         int bestId = -1;
         for (int i = 0; i < 256; i++) {
             if (i >= u_faceCount) break;
@@ -160,7 +194,8 @@ export const fragmentShader = `
 
             vec3 col = baseCol * diff + fresnel * 0.5;
             col += edge * 0.3;
-            float fog = smoothstep(0.8, 1.0, length(p));
+            // Ball: fade toward the ideal sphere. UHS: gently fade toward the floor (y→0).
+            float fog = u_uhs ? 0.7 * smoothstep(0.18, 0.0, p.y) : smoothstep(0.8, 1.0, length(p));
             col = mix(col, vec3(0.0), fog);
 
             vec4 clipPos = projectionMatrix * modelViewMatrix * vec4(p, 1.0);

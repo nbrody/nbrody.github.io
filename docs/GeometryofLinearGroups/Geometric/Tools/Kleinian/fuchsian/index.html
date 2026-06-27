@@ -28,6 +28,7 @@
             }
         };
     </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./css/styles.css">
 </head>
 
@@ -52,11 +53,6 @@
         <div class="panel-content">
             <!-- Group Tab (Matrix Input) -->
             <div id="tab-group" class="tab-content active">
-                <div>
-                    <h2 class="text-xl font-semibold text-white mb-2">Matrix Input (PGL(2,R))</h2>
-                    <p class="text-sm text-gray-400 mb-3">Input generators as 2×2 invertible matrices with real entries. Determinant ±1 (or any nonzero value, normalized automatically).</p>
-                </div>
-
                 <div class="control-group p-3">
                     <div id="matrixInputs"></div>
                     <button id="addMatrixBtn"
@@ -72,19 +68,22 @@
                             + Add Constant
                         </button>
                     </div>
-                </div>
 
-                <div class="control-group p-3 mt-3">
-                    <div class="flex items-center gap-2 mb-3">
+                    <div class="flex items-center gap-2 mt-4 border-t border-gray-700 pt-3">
                         <label for="matrix-example-select" class="text-sm font-medium text-gray-300">Examples</label>
                         <select id="matrix-example-select"
                             class="flex-1 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                             <option value="">-- Select an Example --</option>
                         </select>
                     </div>
+                </div>
+
+                <div id="discreteness-result" class="control-group p-3 mt-3"></div>
+
+                <div class="control-group p-3 mt-3">
                     <div class="flex items-center gap-2">
                         <label for="wordLength" class="text-sm font-medium text-gray-300">Word Length</label>
-                        <input id="wordLength" type="number" value="4" min="1" step="1"
+                        <input id="wordLength" type="number" value="7" min="1" step="1"
                             class="flex-1 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2">
                     </div>
                 </div>
@@ -136,10 +135,21 @@
             <div id="tab-graphics" class="tab-content">
                 <div>
                     <h2 class="text-xl font-semibold text-white mb-2">Color Palette</h2>
-                    <p class="text-sm text-gray-400 mb-3">Choose how faces are colored.</p>
+                    <p class="text-sm text-gray-400 mb-3">Choose how the tessellation regions are colored.</p>
                 </div>
                 <div class="control-group p-3">
-                    <label for="palette-select" class="block text-sm font-medium text-gray-300 mb-2">Palette</label>
+                    <label for="coloring-select" class="block text-sm font-medium text-gray-300 mb-2">Region coloring</label>
+                    <select id="coloring-select"
+                        class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        <option value="word">Per-tile (word hash)</option>
+                        <option value="distance">Distance from center</option>
+                        <option value="first">First letter</option>
+                        <option value="last" selected>Last letter (side-pairing)</option>
+                        <option value="parity">Two-color (parity)</option>
+                        <option value="solid">Solid</option>
+                    </select>
+
+                    <label for="palette-select" class="block text-sm font-medium text-gray-300 mb-2 mt-3">Palette</label>
                     <select id="palette-select"
                         class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                         <option value="colorful" selected>colorful</option>
@@ -149,6 +159,9 @@
                         <option value="tie-dye">tie-dye</option>
                         <option value="sunset">sunset</option>
                     </select>
+
+                    <label for="edge-width" class="block text-sm font-medium text-gray-300 mb-2 mt-3">Edge thickness</label>
+                    <input id="edge-width" type="range" min="0" max="4" step="0.5" value="1" class="w-full">
                 </div>
 
                 <div class="control-group p-3 mt-3">
@@ -157,7 +170,10 @@
                     <button id="toggle-boundary-btn" class="toggle-btn active">Boundary circle</button>
                     <button id="toggle-domain-orbit-btn" class="toggle-btn active">Domain orbit</button>
                     <button id="toggle-cayley-graph-btn" class="toggle-btn">Cayley graph</button>
-                    <button id="toggle-upper-half-plane-btn" class="toggle-btn">Upper half-plane</button>
+                    <div id="model-toggle" class="model-toggle">
+                        <button class="seg-btn active" data-model="disk">Poincaré disk</button>
+                        <button class="seg-btn" data-model="uhp">Upper half-plane</button>
+                    </div>
                 </div>
 
                 <!-- About Section -->

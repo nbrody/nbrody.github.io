@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Double Feature™ — Twice the Fun, Half the Time</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a12;
+    --bg2:#13101f;
+    --glass:rgba(255,255,255,0.06);
+    --glass-border:rgba(255,255,255,0.12);
+    --ink:#f4f1ff;
+    --muted:#a59fc4;
+    --hot:#ff3d7f;
+    --cool:#22d3ee;
+    --gold:#ffd166;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(255,61,127,0.18), transparent 60%),
+      radial-gradient(1000px 700px at 90% 10%, rgba(34,211,238,0.15), transparent 55%),
+      linear-gradient(180deg,var(--bg),var(--bg2));
+    color:var(--ink);
+    line-height:1.6;
+    overflow-x:hidden;
+  }
+  .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+  h1,h2,.kicker{font-family:'Bebas Neue',sans-serif;letter-spacing:1px}
+  .kicker{color:var(--hot);font-size:1rem;letter-spacing:4px;text-transform:uppercase}
+
+  /* ===== HERO ===== */
+  header{padding:90px 0 40px;text-align:center}
+  header h1{
+    font-size:clamp(3.2rem,9vw,7rem);
+    line-height:0.92;
+    background:linear-gradient(90deg,var(--hot),var(--cool));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 4px 30px rgba(255,61,127,0.35));
+  }
+  header .tag{font-size:1.25rem;color:var(--muted);max-width:620px;margin:18px auto 0;font-weight:300}
+  header .tm{font-size:0.5em;vertical-align:super;color:var(--gold);-webkit-text-fill-color:var(--gold)}
+
+  /* ===== THREE.JS STAGE ===== */
+  .stage{
+    position:relative;margin:40px auto;border-radius:22px;overflow:hidden;
+    border:1px solid var(--glass-border);
+    box-shadow:0 30px 80px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.03);
+    background:#05050a;
+  }
+  #scene{display:block;width:100%;height:520px}
+  .stage .hud{
+    position:absolute;left:16px;bottom:14px;font-size:0.78rem;color:var(--muted);
+    background:rgba(0,0,0,0.4);padding:6px 12px;border-radius:999px;border:1px solid var(--glass-border);
+    backdrop-filter:blur(8px);
+  }
+  .stage .sync{
+    position:absolute;right:16px;top:14px;font-family:'Bebas Neue';letter-spacing:2px;
+    color:var(--cool);font-size:1rem;background:rgba(0,0,0,0.4);padding:6px 14px;border-radius:999px;
+    border:1px solid rgba(34,211,238,0.35);backdrop-filter:blur(8px);
+  }
+  .stage .sync .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cool);
+    margin-right:6px;box-shadow:0 0 10px var(--cool);animation:pulse 1.4s infinite}
+  @keyframes pulse{50%{opacity:0.25}}
+
+  /* ===== SECTIONS ===== */
+  section{padding:64px 0}
+  h2{font-size:clamp(2.2rem,5vw,3.4rem);line-height:1;margin-bottom:8px}
+  .lead{color:var(--muted);font-size:1.15rem;max-width:640px;font-weight:300;margin-bottom:32px}
+
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
+  .card{
+    background:var(--glass);border:1px solid var(--glass-border);border-radius:18px;padding:26px;
+    backdrop-filter:blur(14px);transition:transform .25s ease, border-color .25s ease;
+  }
+  .card:hover{transform:translateY(-6px);border-color:var(--hot)}
+  .card .num{font-family:'Bebas Neue';font-size:2.4rem;color:var(--hot);line-height:1}
+  .card h3{font-size:1.15rem;margin:6px 0 8px}
+  .card p{color:var(--muted);font-size:0.98rem;font-weight:300}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+  @media(max-width:780px){.split{grid-template-columns:1fr}}
+
+  .feature-visual{
+    border-radius:18px;border:1px solid var(--glass-border);padding:30px;
+    background:linear-gradient(135deg,rgba(255,61,127,0.12),rgba(34,211,238,0.1));
+    min-height:260px;display:flex;align-items:center;justify-content:center;
+  }
+  .checks{list-style:none;display:grid;gap:14px;margin-top:10px}
+  .checks li{display:flex;gap:12px;align-items:flex-start;color:var(--ink);font-weight:300}
+  .checks li b{color:var(--ink);font-weight:600}
+  .checks .mk{color:var(--cool);font-weight:800;flex:none}
+
+  /* seat / charger illustration */
+  .seat{width:100%;max-width:320px}
+  .battery{font-family:'Bebas Neue';font-size:1.4rem;color:var(--gold);text-align:center;margin-top:14px}
+
+  /* sync timeline */
+  .timeline{position:relative;height:120px;border-radius:14px;overflow:hidden;border:1px solid var(--glass-border);background:rgba(0,0,0,0.3)}
+  .track{position:absolute;left:0;right:0;height:42px;display:flex;align-items:center;padding:0 14px;font-size:0.85rem;font-weight:600}
+  .track.a{top:14px;background:linear-gradient(90deg,rgba(255,61,127,0.5),rgba(255,61,127,0.05))}
+  .track.b{top:64px;background:linear-gradient(90deg,rgba(34,211,238,0.5),rgba(34,211,238,0.05))}
+  .playhead{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 12px #fff;left:0}
+
+  blockquote{
+    border-left:3px solid var(--hot);padding:14px 22px;margin:24px 0;color:var(--muted);
+    font-style:italic;font-size:1.1rem;background:var(--glass);border-radius:0 14px 14px 0;
+  }
+  blockquote cite{display:block;margin-top:8px;color:var(--ink);font-style:normal;font-weight:600;font-size:0.95rem}
+
+  .cta{text-align:center;padding:80px 0 60px}
+  .btn{
+    display:inline-block;font-family:'Bebas Neue';letter-spacing:2px;font-size:1.4rem;
+    padding:16px 44px;border-radius:999px;color:#0a0a12;text-decoration:none;
+    background:linear-gradient(90deg,var(--hot),var(--gold));
+    box-shadow:0 14px 40px rgba(255,61,127,0.4);transition:transform .2s}
+  .btn:hover{transform:scale(1.05)}
+
+  footer{text-align:center;color:var(--muted);font-size:0.82rem;padding:40px 0 60px;font-weight:300}
+  footer .fine{max-width:680px;margin:14px auto 0;opacity:0.7;font-size:0.74rem}
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="kicker">The Future of Cinema</div>
+  <h1>Double Feature<span class="tm">™</span></h1>
+  <p class="tag">Two movies. One screening. Played at the <b>exact same time</b>. Because why have <i>one</i> film when you were born with <b>two eyes</b>?</p>
+</header>
+
+<div class="wrap">
+  <div class="stage">
+    <canvas id="scene"></canvas>
+    <div class="sync"><span class="dot"></span>PERFECTLY SYNCED · 02:01:33</div>
+    <div class="hud">One eye per screen · one ear per film · drag to orbit · 👉 click his right arm 📱</div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="wrap">
+  <div class="kicker">How it works</div>
+  <h2>Twice the entertainment.<br>Identical runtime.</h2>
+  <p class="lead">Our patented Stereo-Cinema™ process projects two motion pictures side by side onto a single mega-screen. Your brain does the rest — it's literally what it's there for.</p>
+  <div class="steps">
+    <div class="card"><div class="num">01</div><h3>Pick a pair</h3><p>Choose any two films of matching length. Our algorithm guarantees they cross the finish line together.</p></div>
+    <div class="card"><div class="num">02</div><h3>Take your seat</h3><p>Recline into a fully-charged Comfort Throne™ and align your face with the median of the screen.</p></div>
+    <div class="card"><div class="num">03</div><h3>Split your senses</h3><p>Left eye drinks in Film A. Right eye savors Film B. Each ear independently selects its own soundtrack.</p></div>
+    <div class="card"><div class="num">04</div><h3>Walk out doubly cultured</h3><p>You've now seen two movies in the time it takes to watch one. You are, mathematically, ahead.</p></div>
+  </div>
+</section>
+
+<!-- ONE EYE / ONE EAR -->
+<section class="wrap">
+  <div class="split">
+    <div>
+      <div class="kicker">Anatomically optimized</div>
+      <h2>You have two of everything.<br>We finally noticed.</h2>
+      <p class="lead">For a century, cinemas asked your second eye to simply... watch the same thing as the first. A staggering 50% waste of ocular bandwidth. Not here.</p>
+      <ul class="checks">
+        <li><span class="mk">▸</span><span><b>Left eye</b> locks onto the left screen — a tender indie drama, perhaps.</span></li>
+        <li><span class="mk">▸</span><span><b>Right eye</b> tracks the right screen — an explosive action sequel, naturally.</span></li>
+        <li><span class="mk">▸</span><span><b>Left ear</b> receives Soundtrack A. <b>Right ear</b> receives Soundtrack B. Stereo, reinvented.</span></li>
+        <li><span class="mk">▸</span><span>Your <b>brain</b> fuses both into one unforgettable, slightly overwhelming memory.</span></li>
+      </ul>
+    </div>
+    <div class="feature-visual">
+      <svg class="seat" viewBox="0 0 320 240" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gA" x1="0" x2="1"><stop offset="0" stop-color="#ff3d7f"/><stop offset="1" stop-color="#ff8fb0"/></linearGradient>
+          <linearGradient id="gB" x1="0" x2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#7ef0ff"/></linearGradient>
+        </defs>
+        <rect x="10" y="20" width="135" height="95" rx="8" fill="url(#gA)" opacity="0.85"/>
+        <rect x="175" y="20" width="135" height="95" rx="8" fill="url(#gB)" opacity="0.85"/>
+        <text x="77" y="74" text-anchor="middle" font-family="Bebas Neue" font-size="22" fill="#0a0a12">FILM A</text>
+        <text x="242" y="74" text-anchor="middle" font-family="Bebas Neue" font-size="22" fill="#0a0a12">FILM B</text>
+        <!-- face -->
+        <circle cx="160" cy="185" r="46" fill="#fceabb"/>
+        <ellipse cx="143" cy="178" rx="9" ry="12" fill="#fff"/><circle cx="139" cy="180" r="5" fill="#222"/>
+        <ellipse cx="177" cy="178" rx="9" ry="12" fill="#fff"/><circle cx="181" cy="180" r="5" fill="#222"/>
+        <path d="M146 205 q14 12 28 0" stroke="#b5651d" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <circle cx="113" cy="185" r="9" fill="#fceabb"/><circle cx="207" cy="185" r="9" fill="#fceabb"/>
+        <!-- sightlines -->
+        <line x1="139" y1="180" x2="77" y2="100" stroke="#ff3d7f" stroke-width="2" stroke-dasharray="4 4"/>
+        <line x1="181" y1="180" x2="242" y2="100" stroke="#22d3ee" stroke-width="2" stroke-dasharray="4 4"/>
+        <line x1="113" y1="185" x2="77" y2="115" stroke="#ff3d7f" stroke-width="1.5" stroke-dasharray="2 3" opacity="0.7"/>
+        <line x1="207" y1="185" x2="242" y2="115" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="2 3" opacity="0.7"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- SEAT CHARGERS -->
+<section class="wrap">
+  <div class="split">
+    <div class="feature-visual">
+      <div style="text-align:center">
+        <svg class="seat" viewBox="0 0 240 220" xmlns="http://www.w3.org/2000/svg">
+          <!-- seat -->
+          <path d="M40 70 q0 -30 30 -30 h100 q30 0 30 30 v60 h-160 z" fill="#2a2440" stroke="#6a5db0" stroke-width="2"/>
+          <rect x="30" y="130" width="180" height="40" rx="10" fill="#1d1933" stroke="#6a5db0" stroke-width="2"/>
+          <rect x="20" y="70" width="22" height="80" rx="8" fill="#241f3a" stroke="#6a5db0" stroke-width="2"/>
+          <rect x="198" y="70" width="22" height="80" rx="8" fill="#241f3a" stroke="#6a5db0" stroke-width="2"/>
+          <!-- phone charging on armrest -->
+          <rect x="190" y="40" width="34" height="56" rx="6" fill="#0a0a12" stroke="#22d3ee" stroke-width="2"/>
+          <rect x="195" y="46" width="24" height="40" rx="2" fill="#13344a"/>
+          <text x="207" y="72" text-anchor="middle" font-family="Bebas Neue" font-size="16" fill="#ffd166">⚡</text>
+          <!-- charge cable -->
+          <path d="M207 96 q-6 14 -20 18" stroke="#ffd166" stroke-width="2.5" fill="none"/>
+          <!-- charge icon on seat -->
+          <text x="120" y="110" text-anchor="middle" font-family="Bebas Neue" font-size="40" fill="#ffd166">⚡</text>
+        </svg>
+        <div class="battery">⚡ 100% — and climbing</div>
+      </div>
+    </div>
+    <div>
+      <div class="kicker">Comfort Throne™</div>
+      <h2>Built-in chargers in<br>every single seat.</h2>
+      <p class="lead">We know what you really came for. That's why every seat keeps your phone topped up at a blistering rate — so you can scroll, swipe, and game uninterrupted from the opening logos to the final credits.</p>
+      <ul class="checks">
+        <li><span class="mk">⚡</span><span>Fast-charge ports at <b>both armrests</b>, because two films demand two devices.</span></li>
+        <li><span class="mk">⚡</span><span>Scroll social media <b>guilt-free</b> — you're technically still watching two whole movies.</span></li>
+        <li><span class="mk">⚡</span><span>Hit a tough level? The plot of <b>both films</b> keeps advancing without you. Efficiency!</span></li>
+        <li><span class="mk">⚡</span><span>Battery anxiety: <b>cured</b>. Attention span: <b>respectfully unbothered</b>.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- SYNCHRONIZATION -->
+<section class="wrap">
+  <div class="kicker">The science of sync</div>
+  <h2>Same length. Same finish line.</h2>
+  <p class="lead">A Double Feature only works if both films end at precisely the same moment. Our runtime-matching engine pairs movies down to the second, so the credits roll in glorious unison.</p>
+  <div class="timeline" id="tl">
+    <div class="track a">🎬 Film A — “The Quiet Letter” · 121:33</div>
+    <div class="track b">💥 Film B — “Maximum Velocity 4” · 121:33</div>
+    <div class="playhead" id="ph"></div>
+  </div>
+  <blockquote>
+    I watched a wedding and a car chase merge into a single emotional climax. The bride drifted around a corner at 140 mph. I have never felt more alive.
+    <cite>— Early Double Feature™ pioneer</cite>
+  </blockquote>
+</section>
+
+<!-- CTA -->
+<section class="cta wrap">
+  <div class="kicker">Limited engagement</div>
+  <h2 style="margin:8px 0 24px">Why see one movie?</h2>
+  <a class="btn" href="#" onclick="alert('🎟️ Two tickets dispensed — for the same showtime. Enjoy both!');return false;">Book Two At Once</a>
+</section>
+
+<footer class="wrap">
+  Double Feature™ — Twice the fun, exactly the same amount of time.
+  <div class="fine">
+    Double Feature™ is a work of satire. Side effects may include mild disorientation, narrative whiplash, rooting for the wrong protagonist, and an inability to recall which film the explosion was in. Charging your phone during a movie remains, ethically, between you and the people sitting behind you.
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+/* ---------- Sync timeline playhead ---------- */
+(function(){
+  const ph = document.getElementById('ph');
+  const tl = document.getElementById('tl');
+  let t = 0;
+  setInterval(()=>{ t=(t+0.0025)%1; ph.style.left=(t*100)+'%'; }, 30);
+})();
+
+/* ---------- Three.js: the two-screen face ---------- */
+(function(){
+  const canvas = document.getElementById('scene');
+  const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05050a);
+  scene.fog = new THREE.Fog(0x05050a, 14, 30);
+
+  const camera = new THREE.PerspectiveCamera(50, 2, 0.1, 100);
+  camera.position.set(8.5, 4.2, 7.5);
+
+  const controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.minDistance = 7; controls.maxDistance = 22;
+  controls.maxPolarAngle = Math.PI*0.6;
+  controls.target.set(0, 1.5, -0.6);
+  controls.autoRotate = true; controls.autoRotateSpeed = 0.55;
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 0.8); key.position.set(3,6,6); scene.add(key);
+  const rimA = new THREE.PointLight(0xff3d7f, 0.9, 40); rimA.position.set(-6,2,3); scene.add(rimA);
+  const rimB = new THREE.PointLight(0x22d3ee, 0.9, 40); rimB.position.set(6,2,3); scene.add(rimB);
+
+  /* ----- animated "movie" canvas textures ----- */
+  function makeMovie(kind){
+    const c = document.createElement('canvas'); c.width=512; c.height=300;
+    const ctx = c.getContext('2d');
+    const tex = new THREE.CanvasTexture(c);
+    return {
+      tex,
+      draw(time){
+        if(kind==='drama'){ // Film A: warm, slow, romantic
+          ctx.fillStyle='#2a0f1c'; ctx.fillRect(0,0,512,300);
+          const g=ctx.createRadialGradient(256,150,20,256,150,260);
+          g.addColorStop(0,'#ff3d7f'); g.addColorStop(1,'#3a0f24');
+          ctx.globalAlpha=0.6+0.2*Math.sin(time*0.8); ctx.fillStyle=g;
+          ctx.beginPath(); ctx.arc(256,150,120,0,7); ctx.fill(); ctx.globalAlpha=1;
+          // two figures drifting closer
+          const d = 80+50*Math.sin(time*0.5);
+          ctx.fillStyle='#ffd9e6';
+          ctx.beginPath(); ctx.arc(256-d,170,28,0,7); ctx.fill();
+          ctx.beginPath(); ctx.arc(256+d,170,28,0,7); ctx.fill();
+          ctx.fillStyle='#fff'; ctx.font='28px Georgia'; ctx.textAlign='center';
+          ctx.fillText('“…stay.”', 256, 60);
+        } else { // Film B: cool, fast, explosive
+          ctx.fillStyle='#06222e'; ctx.fillRect(0,0,512,300);
+          for(let i=0;i<26;i++){ // speed lines
+            const y=(i*23 + time*300)%300;
+            ctx.strokeStyle='rgba(126,240,255,'+(0.15+0.25*Math.random())+')';
+            ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(512,y-40); ctx.stroke();
+          }
+          // explosion burst
+          const burst = (Math.sin(time*3)+1)/2;
+          const r = 30+burst*90;
+          const eg=ctx.createRadialGradient(256,150,5,256,150,r);
+          eg.addColorStop(0,'#fff'); eg.addColorStop(0.4,'#ffd166'); eg.addColorStop(1,'rgba(255,61,0,0)');
+          ctx.fillStyle=eg; ctx.beginPath(); ctx.arc(256,150,r,0,7); ctx.fill();
+          ctx.fillStyle='#7ef0ff'; ctx.font='bold 30px Arial'; ctx.textAlign='center';
+          ctx.fillText('GO GO GO!', 256, 280);
+        }
+        tex.needsUpdate=true;
+      }
+    };
+  }
+  const movieA = makeMovie('drama');
+  const movieB = makeMovie('fast');
+
+  function makeScreen(movie, x, color){
+    const grp = new THREE.Group();
+    // frame
+    const frame = new THREE.Mesh(
+      new THREE.BoxGeometry(6.6,4.0,0.25),
+      new THREE.MeshStandardMaterial({color:0x111118, metalness:0.4, roughness:0.6})
+    );
+    grp.add(frame);
+    // screen
+    const screen = new THREE.Mesh(
+      new THREE.PlaneGeometry(6.2,3.6),
+      new THREE.MeshBasicMaterial({map:movie.tex})
+    );
+    screen.position.z=0.14; grp.add(screen);
+    // glow edge
+    const glow = new THREE.Mesh(
+      new THREE.PlaneGeometry(6.9,4.3),
+      new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.18})
+    );
+    glow.position.z=-0.2; grp.add(glow);
+    grp.position.set(x, 2.4, -3.5);
+    grp.rotation.y = x>0 ? -0.32 : 0.32;
+    scene.add(grp);
+    return grp;
+  }
+  makeScreen(movieA, -4.3, 0xff3d7f);
+  makeScreen(movieB,  4.3, 0x22d3ee);
+
+  /* ----- floor ----- */
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(16,48),
+    new THREE.MeshStandardMaterial({color:0x0c0a14, roughness:0.95, metalness:0.05}));
+  floor.rotation.x = -Math.PI/2; floor.position.y = -2.0; scene.add(floor);
+
+  /* ----- phone feed texture (endless scrolling social media) ----- */
+  function rrect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  function makePhoneFeed(){
+    const c=document.createElement('canvas'); c.width=256; c.height=512;
+    const ctx=c.getContext('2d'); const tex=new THREE.CanvasTexture(c);
+    return {tex, draw(t){
+      ctx.fillStyle='#0a0a12'; ctx.fillRect(0,0,256,512);
+      const off=(t*95)%190;
+      for(let i=-1;i<5;i++){
+        const y=46 + i*190 - off;
+        const hue=(i*57 + Math.floor(t*18))%360;
+        ctx.fillStyle='#16131f'; rrect(ctx,10,y,236,172,14); ctx.fill();
+        ctx.fillStyle='hsl('+hue+',65%,55%)'; ctx.beginPath(); ctx.arc(34,y+26,14,0,7); ctx.fill();
+        ctx.fillStyle='#cfc8ee'; ctx.fillRect(56,y+15,110,9);
+        ctx.fillStyle='#6f689a'; ctx.fillRect(56,y+31,70,7);
+        ctx.fillStyle='hsl('+hue+',45%,40%)'; ctx.fillRect(14,y+48,228,94);
+        ctx.fillStyle='#8e86bd'; ctx.font='13px Arial'; ctx.textAlign='left';
+        ctx.fillText('♥ '+(((i+7)*173)%900)+'    ↻ '+(((i+2)*61)%300), 16, y+162);
+      }
+      ctx.fillStyle='#0a0a12'; ctx.fillRect(0,0,256,40);
+      ctx.fillStyle='#7ef0ff'; ctx.font='bold 18px Arial'; ctx.textAlign='left'; ctx.fillText('Scrollr', 12, 27);
+      ctx.fillStyle='#ffd166'; ctx.textAlign='right'; ctx.fillText('100% ⚡', 244, 27);
+      tex.needsUpdate=true;
+    }};
+  }
+  const phoneFeed = makePhoneFeed();
+
+  /* ----- materials ----- */
+  const skin   = new THREE.MeshStandardMaterial({color:0xfceabb, roughness:0.85});
+  const shirt  = new THREE.MeshStandardMaterial({color:0x5b4bb8, roughness:0.7, metalness:0.1});
+  const pants  = new THREE.MeshStandardMaterial({color:0x2f2c54, roughness:0.85});
+  const seatM  = new THREE.MeshStandardMaterial({color:0x39203a, roughness:0.6, metalness:0.15});
+  const seatM2 = new THREE.MeshStandardMaterial({color:0x24142a, roughness:0.7});
+  const blackM = new THREE.MeshStandardMaterial({color:0x101018, roughness:0.5, metalness:0.3});
+  function box(w,h,d,m){ return new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m); }
+
+  /* ----- the moviegoer + recliner (he faces -z, toward the screens) ----- */
+  const rig = new THREE.Group();
+  rig.position.set(0, 0, 1.7);
+  scene.add(rig);
+
+  // recliner chair (backrest at +z, behind him)
+  const cushion = box(2.5,0.5,2.3, seatM); cushion.position.set(0,-0.2,0); rig.add(cushion);
+  const back    = box(2.5,2.7,0.5, seatM); back.position.set(0,1.1,1.1); rig.add(back);
+  const backPad = box(2.05,2.25,0.22, seatM2); backPad.position.set(0,1.05,0.86); rig.add(backPad);
+  const armLc   = box(0.36,0.55,2.3, seatM); armLc.position.set(-1.38,0.2,0); rig.add(armLc);
+  const armRc   = box(0.36,0.55,2.3, seatM); armRc.position.set( 1.38,0.2,0); rig.add(armRc);
+  const ped     = new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.8,1.3,16), seatM2); ped.position.set(0,-1.15,0); rig.add(ped);
+  const baseP   = new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,0.2,28), seatM); baseP.position.set(0,-1.85,0); rig.add(baseP);
+  // built-in charger port on his right armrest (the seat-charger gag)
+  const port = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.07,0.55),
+    new THREE.MeshStandardMaterial({color:0x22d3ee, emissive:0x22d3ee, emissiveIntensity:0.7}));
+  port.position.set(1.38,0.5,-0.55); rig.add(port);
+
+  // legs (seated: thighs forward, shins down)
+  function leg(side){
+    const g=new THREE.Group(); g.position.set(side*0.5,-0.15,0);
+    const thigh=new THREE.Mesh(new THREE.CylinderGeometry(0.27,0.25,1.25,16), pants);
+    thigh.rotation.x=Math.PI/2; thigh.position.set(0,0,-0.6); g.add(thigh);
+    const shin=new THREE.Mesh(new THREE.CylinderGeometry(0.23,0.2,1.3,16), pants);
+    shin.position.set(0,-0.7,-1.15); g.add(shin);
+    const shoe=box(0.42,0.32,0.78, blackM); shoe.position.set(0,-1.35,-1.46); g.add(shoe);
+    rig.add(g);
+  }
+  leg(-1); leg(1);
+
+  // torso + shoulders + neck
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.82,1.0,1.7,24), shirt);
+  torso.position.set(0,0.78,0); rig.add(torso);
+  const shoulders = new THREE.Mesh(new THREE.SphereGeometry(0.95,24,16), shirt);
+  shoulders.scale.set(1.35,0.6,0.85); shoulders.position.set(0,1.5,0); rig.add(shoulders);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.34,0.5,16), skin);
+  neck.position.set(0,1.78,0); rig.add(neck);
+
+  // head
+  const head = new THREE.Group(); head.position.set(0,2.45,0); rig.add(head);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(1.05,48,48), skin);
+  skull.scale.set(1,1.07,0.96); head.add(skull);
+  const hair = new THREE.Mesh(
+    new THREE.SphereGeometry(1.08,32,24,0,Math.PI*2,0,Math.PI*0.55),
+    new THREE.MeshStandardMaterial({color:0x39271a, roughness:0.95}));
+  hair.scale.set(1,1.0,0.99); hair.position.y=0.1; head.add(hair);
+
+  // ears (face outward, glow with each film)
+  function makeEar(side, color){
+    const ear = new THREE.Group();
+    const outer = new THREE.Mesh(new THREE.TorusGeometry(0.3,0.12,16,32), skin);
+    outer.rotation.y = Math.PI/2;
+    const inner = new THREE.Mesh(new THREE.CircleGeometry(0.2,24),
+      new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.65, side:THREE.DoubleSide}));
+    inner.rotation.y = side*Math.PI/2; inner.position.x = side*0.03;
+    ear.add(outer, inner);
+    ear.position.set(side*1.02, 0.0, 0); head.add(ear);
+    return inner;
+  }
+  const earL = makeEar(-1, 0xff3d7f);
+  const earR = makeEar( 1, 0x22d3ee);
+
+  // eyes — now with real irises, pupils and a glint (front of head, -z)
+  function makeEye(x){
+    const g = new THREE.Group(); g.position.set(x, 0.12, -0.84);
+    const white = new THREE.Mesh(new THREE.SphereGeometry(0.34,32,32),
+      new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.25}));
+    white.scale.set(1,1.18,0.85);
+    const eyeball = new THREE.Group();
+    const iris  = new THREE.Mesh(new THREE.SphereGeometry(0.205,24,24),
+      new THREE.MeshStandardMaterial({color:0x3a63a6, roughness:0.35}));
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.12,20,20),
+      new THREE.MeshBasicMaterial({color:0x05050a}));
+    const glint = new THREE.Mesh(new THREE.SphereGeometry(0.045,12,12),
+      new THREE.MeshBasicMaterial({color:0xffffff}));
+    iris.position.z=0.235; pupil.position.z=0.30; glint.position.set(0.07,0.08,0.33);
+    eyeball.add(iris, pupil, glint);
+    g.add(white, eyeball); head.add(g);
+    return {g, eyeball};
+  }
+  const eyeL = makeEye(-0.42);
+  const eyeR = makeEye( 0.42);
+
+  // mouth
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.4,0.08,12,24,Math.PI),
+    new THREE.MeshStandardMaterial({color:0x8a3b2a, roughness:0.6}));
+  mouth.position.set(0,-0.45,-0.9); mouth.rotation.z=Math.PI; head.add(mouth);
+
+  // resting left arm draped on the armrest
+  (function staticArm(side){
+    const g=new THREE.Group(); g.position.set(side*1.05,1.4,0);
+    const upper=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.18,1.1,16), shirt);
+    upper.position.y=-0.5; g.add(upper);
+    const fore=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.15,1.0,16), skin);
+    fore.position.set(0,-1.0,-0.42); fore.rotation.x=-1.05; g.add(fore);
+    const hand=new THREE.Mesh(new THREE.SphereGeometry(0.2,16,16), skin);
+    hand.position.set(0,-1.05,-0.92); g.add(hand);
+    rig.add(g);
+  })(-1);
+
+  // phone arm (his right) — articulated so it can raise the phone to his face
+  const armPivot = new THREE.Group(); armPivot.position.set(1.05,1.4,0); rig.add(armPivot);
+  const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.18,1.1,16), shirt);
+  upperArm.position.y=-0.5; armPivot.add(upperArm);
+  const elbow = new THREE.Group(); elbow.position.set(0,-1.0,0); armPivot.add(elbow);
+  const foreArm = new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.15,1.0,16), skin);
+  foreArm.position.y=-0.5; elbow.add(foreArm);
+  const hand = new THREE.Group(); hand.position.set(0,-1.0,0); elbow.add(hand);
+  hand.add(new THREE.Mesh(new THREE.SphereGeometry(0.2,16,16), skin));
+  // generous invisible click zone so "near his right arm" registers
+  const hot = new THREE.Mesh(new THREE.SphereGeometry(1.5,8,8),
+    new THREE.MeshBasicMaterial({visible:false}));
+  hot.position.set(0,-0.7,-0.3); armPivot.add(hot);
+
+  // the phone (placed in his hand each frame when it's out)
+  const phone = new THREE.Group(); phone.visible=false; rig.add(phone);
+  phone.add(new THREE.Mesh(new THREE.BoxGeometry(0.44,0.84,0.05), blackM));
+  const pscreen = new THREE.Mesh(new THREE.PlaneGeometry(0.37,0.74),
+    new THREE.MeshBasicMaterial({map:phoneFeed.tex}));
+  pscreen.position.z=0.03; phone.add(pscreen);
+  const phoneGlow = new THREE.PointLight(0xa9d4ff, 0, 5); phone.position.z=0.0; phone.add(phoneGlow);
+
+  // screen gaze targets
+  const sA = new THREE.Vector3(-4.3, 2.4, -3.5);
+  const sB = new THREE.Vector3( 4.3, 2.4, -3.5);
+
+  /* ----- click his right arm to pull out the phone ----- */
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const clickable=[]; armPivot.traverse(o=>{ if(o.isMesh) clickable.push(o); });
+  let phoneTarget=0, phoneT=0, down=null;
+  canvas.addEventListener('pointerdown', e=>{ down={x:e.clientX,y:e.clientY,t:performance.now()}; });
+  canvas.addEventListener('pointerup', e=>{
+    if(!down) return;
+    const moved=Math.hypot(e.clientX-down.x, e.clientY-down.y);
+    const quick=performance.now()-down.t < 500; down=null;
+    if(moved>6 || !quick) return;                       // ignore orbit drags
+    const r=canvas.getBoundingClientRect();
+    ndc.x=((e.clientX-r.left)/r.width)*2-1;
+    ndc.y=-((e.clientY-r.top)/r.height)*2+1;
+    raycaster.setFromCamera(ndc, camera);
+    if(raycaster.intersectObjects(clickable,true).length){ phoneTarget = phoneTarget>0.5?0:1; }
+  });
+
+  function resize(){
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if(canvas.width!==w*renderer.getPixelRatio()||canvas.height!==h*renderer.getPixelRatio()){
+      renderer.setSize(w,h,false);
+      camera.aspect=w/h; camera.updateProjectionMatrix();
+    }
+  }
+
+  const _hw = new THREE.Vector3();
+  const clock = new THREE.Clock();
+  function animate(){
+    requestAnimationFrame(animate);
+    const t = clock.getElapsedTime();
+    resize();
+    movieA.draw(t); movieB.draw(t);
+    phoneFeed.draw(t);
+
+    // ease the phone in / out and pose the arm
+    phoneT += (phoneTarget - phoneT) * 0.1;
+    phone.visible = phoneT > 0.02;
+    elbow.rotation.x    = 0.85 + (2.55-0.85)*phoneT;
+    armPivot.rotation.x = 0.22*phoneT;
+
+    // gentle breathing; look down at the phone when it's out
+    rig.position.y = Math.sin(t*1.3)*0.04;
+    head.rotation.x = 0.45*phoneT + Math.sin(t*0.7)*0.02*(1-phoneT);
+    head.rotation.y = Math.sin(t*0.4)*0.05*(1-phoneT);
+
+    rig.updateMatrixWorld(true);
+
+    // put the phone in his hand; screen faces the camera so we can see the doomscrolling
+    hand.getWorldPosition(_hw);
+    if(phone.visible){
+      phone.position.copy(rig.worldToLocal(_hw.clone()));
+      phone.updateMatrixWorld();
+      phone.lookAt(camera.position);
+    }
+    phoneGlow.intensity = 2.0*phoneT;
+
+    // gaze: each eye tracks its own screen, then drops to the phone when it's out
+    eyeL.eyeball.lookAt(sA.clone().lerp(_hw, phoneT));
+    eyeR.eyeball.lookAt(sB.clone().lerp(_hw, phoneT));
+
+    // ears pulse with their film
+    earL.material.opacity = 0.45 + 0.3*Math.abs(Math.sin(t*0.5));
+    earR.material.opacity = 0.45 + 0.3*Math.abs(Math.sin(t*3));
+
+    controls.autoRotate = phoneT < 0.4;   // hold still while he scrolls
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+})();
+</script>
+</body>
+</html>

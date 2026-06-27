@@ -28,7 +28,7 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-06-10c';
+            const APP_VERSION = '2026-06-19h';
             const im = {
                 imports: {
                     "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -172,6 +172,11 @@
                     <button id="slider-walls" class="slider-btn" style="--fill: 0%">
                         <span>Walls</span>
                     </button>
+                    <button id="toggle-full-domain" class="toggle-btn"
+                        title="When the basepoint has a symmetry (nontrivial stabilizer), show the full symmetric Dirichlet domain instead of the canonical fundamental domain cut by the stabilizer cone.">Full
+                        Domain</button>
+                    <button id="toggle-tiling" class="toggle-btn"
+                        title="Show the nearby copies of the fundamental domain as translucent polyhedra (the tiling of hyperbolic space).">Tiling</button>
                     <div class="cayley-selector">
                         <span class="cayley-label">Cayley</span>
                         <div class="cayley-options">
@@ -179,6 +184,19 @@
                             <button id="cayley-s" class="cayley-opt" data-mode="S">S</button>
                             <button id="cayley-t" class="cayley-opt" data-mode="T">T</button>
                         </div>
+                    </div>
+                    <div class="cayley-selector">
+                        <span class="cayley-label">Dual</span>
+                        <div class="cayley-options">
+                            <button id="dual-off" class="dual-opt active" data-mode="off">Off</button>
+                            <button id="dual-s" class="dual-opt" data-mode="S">S</button>
+                            <button id="dual-t" class="dual-opt" data-mode="T">T</button>
+                        </div>
+                    </div>
+                    <div class="cayley-selector dual-opacity-row disabled" id="dual-opacity-row">
+                        <span class="cayley-label">Opacity</span>
+                        <input id="dual-opacity" class="opacity-slider" type="range" min="0" max="1"
+                            step="0.01" value="0.3">
                     </div>
                     <button id="toggle-tiedye" class="toggle-btn">Tie-Dye</button>
                     <button id="toggle-mirror" class="toggle-btn">Mirror</button>
@@ -211,6 +229,9 @@
 
     <!-- Bottom Controls (isometry buttons) -->
     <div id="isometry-controls"></div>
+
+    <!-- Face inspector (group element / dihedral angle on click) -->
+    <div id="face-info" class="face-info" style="display:none;"></div>
 
     <script type="module">import('./js/main.js');</script>
     <!-- golg-nav-bootstrap -->
