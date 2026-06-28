@@ -44,8 +44,18 @@
 
                 <div id="game-board"></div>
 
-                <p class="hint-text">Arrow Keys · Swipe · Mouse Drag</p>
+                <p class="hint-text">Slide with Arrow Keys · Swipe · Mouse Drag — you don't stop until you hit something</p>
                 <p class="feedback" id="feedback"></p>
+
+                <div class="legend" id="legend">
+                    <span class="legend-item"><span class="lg lg-wall"></span>Wall — brake</span>
+                    <span class="legend-item"><span class="lg lg-void"></span>Void — fatal</span>
+                    <span class="legend-item"><span class="lg lg-sand"></span>Sand — stops you</span>
+                    <span class="legend-item"><span class="lg lg-mirror"></span>Mirror — reflects</span>
+                    <span class="legend-item"><span class="lg lg-jump"></span>Jump pad — vault</span>
+                    <span class="legend-item"><span class="lg lg-portal"></span>Portal — teleport</span>
+                    <span class="legend-item"><span class="lg lg-goal"></span>Goal</span>
+                </div>
             </div>
 
             <div id="victory-screen" class="glass-panel hidden">
@@ -99,6 +109,7 @@
                             <div class="creator-actions">
                                 <button class="btn btn-secondary" id="btn-fill-border">🔲 Border</button>
                                 <button class="btn btn-secondary" id="btn-clear">🗑 Clear</button>
+                                <button class="btn btn-secondary" id="btn-generate">🎲 Generate</button>
                                 <button class="btn btn-success" id="btn-test-play">▶ Test</button>
                                 <button class="btn btn-primary" id="btn-export">📋 Export</button>
                                 <button class="btn btn-secondary" id="btn-import">📥 Import</button>
@@ -157,7 +168,7 @@
             <!-- Solve custom level -->
             <div class="glass-panel" style="margin-top:1rem;">
                 <h3 style="font-size:1rem; font-weight:600; margin-bottom:0.75rem;">Solve Custom Level</h3>
-                <textarea id="custom-level-input" placeholder='Paste a level JSON array, e.g. [[1,1,1],[1,2,3],[1,1,1]]'
+                <textarea id="custom-level-input" placeholder='Paste ASCII art (one row per line) — e.g.&#10;#####&#10;#S.G#&#10;#####&#10;Glyphs: . floor  # wall  S start  G goal  \ / mirrors  J jump  O portal  + sand  (space) void'
                     style="width:100%; min-height:80px; background:var(--bg-primary); color:var(--text-primary); border:1px solid var(--glass-border); border-radius:var(--radius-md); padding:0.75rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem; resize:vertical; outline:none;"></textarea>
                 <button class="btn btn-primary" id="btn-solve-custom" style="margin-top:0.75rem;">Solve Custom
                     Level</button>
@@ -182,7 +193,7 @@
         <div class="modal-content">
             <h3>Import Level</h3>
             <textarea id="import-input"
-                placeholder='Paste a level JSON array, e.g. [[1,1,1],[1,2,3],[1,1,1]]'></textarea>
+                placeholder='Paste ASCII art (one row per line) or a JSON 2D array'></textarea>
             <div class="modal-actions">
                 <button class="btn btn-primary" id="btn-do-import">Import</button>
                 <button class="btn btn-secondary" id="btn-close-import">Cancel</button>
@@ -192,6 +203,7 @@
 
     <!-- Scripts — order matters -->
     <script src="engine.js"></script>
+    <script src="renderer.js"></script>
     <script src="levels.js"></script>
     <script src="creator.js"></script>
     <script src="solver-ui.js"></script>

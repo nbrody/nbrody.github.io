@@ -4,198 +4,328 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>FOR FUN</title>
+    <title>Nic Brody — For Fun</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Josefin+Sans:wght@300;400&display=swap"
+        rel="stylesheet">
     <style>
-        /* Y2K Matrix/Vault Aesthetic */
-        body {
+        :root {
+            --ink: #1a1810;
+            --cream: #f5f0e8;
+            --warm-white: #faf8f4;
+            --accent: #8b4513;
+            --accent-light: #c4783a;
+            --muted: #7a7060;
+            --rule: #d4cfc4;
+            --paper: #f0ebe0;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            background: #000;
-            color: #0f0;
-            font-family: 'Courier New', Courier, monospace;
-            height: 100vh;
+        }
+
+        body {
+            background: var(--warm-white);
+            color: var(--ink);
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-size: 18px;
+            line-height: 1.7;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
             display: flex;
             align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            background-image:
-                radial-gradient(circle at center, rgba(0, 255, 0, 0.1) 0%, transparent 70%),
-                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
-                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 100%, 100% 2px, 3px 100%;
+            justify-content: space-between;
+            padding: 1.1rem 3rem;
+            background: rgba(250, 248, 244, 0.92);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--rule);
         }
 
-        #vault-container {
-            border: 4px solid #0f0;
-            padding: 40px;
-            background: rgba(0, 20, 0, 0.9);
-            box-shadow: 0 0 20px #0f0, inset 0 0 10px #0f0;
-            text-align: center;
-            max-width: 500px;
-            width: 90%;
-            position: relative;
+        .nav-name {
+            font-family: 'Cormorant Garamond', serif;
+            font-weight: 500;
+            font-size: 1.1rem;
+            letter-spacing: 0.02em;
+            color: var(--ink);
+            text-decoration: none;
         }
 
-        #vault-container::before {
-            content: "SECURE NODE 774-B";
-            position: absolute;
-            top: -15px;
-            left: 20px;
-            background: #000;
-            padding: 0 10px;
-            font-size: 12px;
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            font-family: 'Josefin Sans', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 300;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--ink);
+        }
+
+        /* ── MAIN ── */
+        main {
+            flex: 1;
+            max-width: 980px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 10rem 3rem 6rem;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: baseline;
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .section-label {
+            font-family: 'Josefin Sans', sans-serif;
+            font-size: 0.62rem;
+            font-weight: 300;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--accent);
         }
 
         h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 5px;
-            animation: flicker 2s infinite;
+            font-family: 'Cormorant Garamond', serif;
+            font-weight: 400;
+            font-size: 2.6rem;
+            color: var(--ink);
+            letter-spacing: -0.01em;
         }
 
-        @keyframes flicker {
-
-            0%,
-            19.999%,
-            22%,
-            62.999%,
-            64%,
-            64.999%,
-            70%,
-            100% {
-                opacity: 1;
-            }
-
-            20%,
-            21.999%,
-            63%,
-            63.999%,
-            65%,
-            69.999% {
-                opacity: 0.4;
-            }
+        .intro {
+            font-size: 1.05rem;
+            line-height: 1.8;
+            color: #3a3428;
+            max-width: 620px;
+            margin: 2rem 0 3.5rem;
         }
 
-        input {
-            background: #000;
-            border: 2px solid #0f0;
-            color: #0f0;
-            padding: 10px;
-            width: 80%;
-            font-size: 20px;
-            text-align: center;
-            margin-bottom: 20px;
-            outline: none;
+        .intro em {
+            font-style: italic;
+            color: var(--muted);
         }
 
-        input:focus {
-            box-shadow: 0 0 10px #0f0;
+        /* ── GROUPS ── */
+        .group {
+            margin-top: 3.5rem;
         }
 
-        button {
-            background: #0f0;
-            color: #000;
-            border: none;
-            padding: 10px 30px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            text-transform: uppercase;
-            transition: all 0.3s;
+        .group:first-child {
+            margin-top: 0;
         }
 
-        button:hover {
-            background: #000;
-            color: #0f0;
-            box-shadow: 0 0 15px #0f0;
+        .group-title {
+            font-family: 'Cormorant Garamond', serif;
+            font-weight: 400;
+            font-size: 1.7rem;
+            color: var(--ink);
+            letter-spacing: -0.01em;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.6rem;
+            border-bottom: 1px solid var(--rule);
         }
 
-        #error-msg {
-            color: #f00;
-            margin-top: 20px;
-            height: 1.5em;
-            font-size: 14px;
+        /* ── CARD GRID ── */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 1.5rem;
         }
 
-        #directory {
-            text-align: left;
-        }
-
-        #directory ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        #directory li {
-            margin: 10px 0;
-        }
-
-        #directory a {
-            color: #0f0;
+        .card {
+            background: var(--warm-white);
+            border: 1px solid var(--rule);
+            padding: 1.6rem 1.8rem;
             text-decoration: none;
-            display: block;
-            padding: 5px;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
         }
 
-        #directory a:hover {
-            background: #0f0;
-            color: #000;
+        .card:hover {
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.07);
+            transform: translateY(-2px);
+            border-color: var(--accent-light);
         }
 
-        .scanline {
-            width: 100%;
-            height: 100px;
-            z-index: 99;
-            background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(0, 255, 0, 0.1) 50%, rgba(0, 0, 0, 0) 100%);
-            opacity: 0.1;
-            position: absolute;
-            bottom: 100%;
-            animation: scan 3s linear infinite;
+        .card-emoji {
+            font-size: 1.7rem;
+            line-height: 1;
+            margin-bottom: 0.5rem;
         }
 
-        @keyframes scan {
-            to {
-                bottom: -100px;
+        .card-label {
+            font-family: 'Josefin Sans', sans-serif;
+            font-size: 0.58rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent-light);
+        }
+
+        .card-title {
+            font-family: 'Cormorant Garamond', serif;
+            font-weight: 500;
+            font-size: 1.2rem;
+            color: var(--ink);
+            line-height: 1.3;
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            background: var(--ink);
+            color: rgba(245, 240, 232, 0.5);
+            padding: 2.5rem 5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: 'Josefin Sans', sans-serif;
+            font-size: 0.65rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        footer a {
+            color: rgba(245, 240, 232, 0.7);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            color: var(--cream);
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 700px) {
+            nav {
+                padding: 1rem 1.5rem;
+            }
+
+            .nav-links {
+                gap: 1.5rem;
+            }
+
+            main {
+                padding: 8rem 1.5rem 4rem;
+            }
+
+            footer {
+                padding: 2rem 1.5rem;
+                flex-direction: column;
+                gap: 0.8rem;
+                text-align: center;
             }
         }
     </style>
 </head>
 
 <body>
-    <div class="scanline"></div>
-    <div id="vault-container">
-        <div id="directory">
+
+    <nav>
+        <a class="nav-name" href="../index.html">Nic Brody</a>
+        <ul class="nav-links">
+            <li><a href="../index.html#research">Research</a></li>
+            <li><a href="../GeometryofLinearGroups/index.html">GOLG</a></li>
+            <li><a href="mailto:nic@ucsc.edu">Contact</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <div class="section-header">
+            <span class="section-label">Games &amp; Experiments</span>
             <h1>For Fun</h1>
-            <p>Welcome to the forFun Subdirectory</p>
-            <ul id="file-list">
-                <!-- Populated by JS -->
-            </ul>
         </div>
-    </div>
+
+        <p class="intro">
+            A scrapbook of small things I&rsquo;ve built outside of research &mdash;
+            games, puzzles, and the occasional <em>questionable</em> experiment.
+        </p>
+
+        <div id="content">
+            <!-- Populated by JS -->
+        </div>
+    </main>
+
+    <footer>
+        <span>Nic Brody &nbsp;·&nbsp; UC Santa Cruz</span>
+        <a href="mailto:nic@ucsc.edu">nic@ucsc.edu</a>
+    </footer>
 
     <script>
         const files = [
-            { name: "🚽 Just The Good Sh*t™", path: "justTheGoodShit/index.html" },
-            { name: "🎬 Double Feature™", path: "doubleFeature/index.html" },
-            { name: "💖 Rachie's Valentine", path: "rachie/index.html" },
-            { name: "🏰 nicCage Puzzle Hunt", path: "nicCage/index.html" },
-            { name: "🎮 Kids Games", path: "kidsGames/index.html" },
-            { name: "🌀 Roadblocks", path: "miscGames/Roadblocks/index.html" },
-            { name: "🦎 Gecko Out", path: "miscGames/geckoOut/index.html" },
-            { name: "🃏 Card Table", path: "cardGames/index.html" },
-            { name: "🧩 Khet Chess", path: "miscGames/khet/index.html" },
-            { name: "🏗️ Rube Goldberg", path: "rubeGoldberg/index.html" },
-            { name: "🕺 OzDDR", path: "ozDDR/index.html" },
-            { name: "🎨 Mosaic Fractal", path: "MosaicFractal/index.html" },
-            { name: "🕶️ AR Test", path: "ARTest/index.html" }
+            { emoji: "🚽", category: "Funny", label: "Satire", name: "Just The Good Sh*t™", path: "justTheGoodShit/index.html" },
+            { emoji: "🎬", category: "Funny", label: "Video", name: "Double Feature™", path: "doubleFeature/index.html" },
+            { emoji: "🏰", category: "Games", label: "Puzzle Hunt", name: "nicCage Puzzle Hunt", path: "nicCage/index.html" },
+            { emoji: "🎮", category: "Games", label: "Games", name: "Kids Games", path: "kidsGames/index.html" },
+            { emoji: "🌀", category: "Games", label: "Puzzle", name: "Roadblocks", path: "miscGames/Roadblocks/index.html" },
+            { emoji: "🦎", category: "Games", label: "Puzzle", name: "Gecko Out", path: "miscGames/geckoOut/index.html" },
+            { emoji: "🃏", category: "Games", label: "Multiplayer", name: "Card Table", path: "cardGames/index.html" },
+            { emoji: "🧩", category: "Games", label: "Strategy", name: "Khet Chess", path: "miscGames/khet/index.html" },
+            { emoji: "🕺", category: "Games", label: "Rhythm", name: "OzDDR", path: "ozDDR/index.html" },
+            { emoji: "💖", category: "Misc", label: "Personal", name: "Rachie's Valentine", path: "rachie/index.html" },
+            { emoji: "🏗️", category: "Misc", label: "Sandbox", name: "Rube Goldberg", path: "rubeGoldberg/index.html" },
+            { emoji: "🎨", category: "Misc", label: "Generative", name: "Mosaic Fractal", path: "MosaicFractal/index.html" },
+            { emoji: "🕶️", category: "Misc", label: "Experiment", name: "AR Test", path: "ARTest/index.html" }
         ];
 
-        const list = document.getElementById('file-list');
-        files.forEach(f => {
-            const li = document.createElement('li');
-            li.innerHTML = `<a href="${f.path}">[EXECUTE] ${f.name}</a>`;
-            list.appendChild(li);
+        const order = ["Games", "Funny", "Misc"];
+        const content = document.getElementById('content');
+
+        order.forEach(cat => {
+            const items = files.filter(f => f.category === cat);
+            if (!items.length) return;
+
+            const group = document.createElement('section');
+            group.className = 'group';
+
+            const title = document.createElement('h2');
+            title.className = 'group-title';
+            title.textContent = cat;
+            group.appendChild(title);
+
+            const grid = document.createElement('div');
+            grid.className = 'card-grid';
+            items.forEach(f => {
+                const a = document.createElement('a');
+                a.className = 'card';
+                a.href = f.path;
+                a.innerHTML =
+                    `<span class="card-emoji">${f.emoji}</span>` +
+                    `<span class="card-label">${f.label}</span>` +
+                    `<span class="card-title">${f.name}</span>`;
+                grid.appendChild(a);
+            });
+            group.appendChild(grid);
+            content.appendChild(group);
         });
     </script>
 </body>

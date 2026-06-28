@@ -47,14 +47,16 @@ class LevelCreator {
         if (!palette) return;
 
         const tools = [
-            { type: CELL.EMPTY, label: 'Erase', icon: '·', cls: 'rb-empty' },
+            { type: CELL.EMPTY, label: 'Floor', icon: '·', cls: 'rb-empty' },
+            { type: CELL.VOID, label: 'Void', icon: '╳', cls: 'rb-void' },
             { type: CELL.WALL, label: 'Wall', icon: '█', cls: 'rb-wall' },
+            { type: CELL.SAND, label: 'Sand', icon: '▒', cls: 'rb-sand' },
             { type: CELL.START, label: 'Start', icon: 'S', cls: 'preview-start' },
             { type: CELL.GOAL, label: 'Goal', icon: '★', cls: 'preview-goal' },
-            { type: CELL.TRI_NW, label: 'Tri \\', icon: '\\', cls: 'preview-tri-nw' },
-            { type: CELL.TRI_NE, label: 'Tri /', icon: '/', cls: 'preview-tri-ne' },
-            { type: CELL.RAMP, label: 'Ramp', icon: '⤴', cls: 'preview-ramp' },
-            { type: CELL.WORMHOLE, label: 'Wormhole', icon: '◉', cls: 'preview-wormhole' },
+            { type: CELL.TRI_NW, label: 'Mirror \\', icon: '\\', cls: 'preview-tri-nw' },
+            { type: CELL.TRI_NE, label: 'Mirror /', icon: '/', cls: 'preview-tri-ne' },
+            { type: CELL.RAMP, label: 'Jump', icon: '⤒', cls: 'preview-ramp' },
+            { type: CELL.WORMHOLE, label: 'Portal', icon: '◉', cls: 'preview-wormhole' },
         ];
 
         palette.innerHTML = '';
@@ -88,6 +90,10 @@ class LevelCreator {
         switch (type) {
             case CELL.WALL:
                 return 'background: linear-gradient(135deg, #374151, #4b5563); color: white;';
+            case CELL.VOID:
+                return 'background: radial-gradient(circle, #0b0d1c, #05060d); color: #3a4060;';
+            case CELL.SAND:
+                return 'background: rgba(201,163,107,0.25); color: #c9a36b;';
             case CELL.START:
                 return 'background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border-radius: 50%;';
             case CELL.GOAL:
@@ -264,6 +270,12 @@ class LevelCreator {
             case CELL.WORMHOLE:
                 cell.classList.add('rb-wormhole');
                 break;
+            case CELL.VOID:
+                cell.classList.add('rb-void');
+                break;
+            case CELL.SAND:
+                cell.classList.add('rb-sand');
+                break;
             default:
                 cell.classList.add('rb-empty');
                 break;
@@ -295,18 +307,41 @@ class LevelCreator {
         if (colInput) colInput.value = this.cols;
     }
 
+    /** Export as shareable ASCII art (falls back-compatible with the schema). */
     exportJSON() {
-        return JSON.stringify(this.getGrid());
+        return gridToAscii(this.getGrid()).join('\n');
     }
 
-    importJSON(json) {
+    /** Import either ASCII art (newline-separated glyph rows) or a JSON grid. */
+    importJSON(text) {
+        const str = (text || '').trim();
+        if (!str) return false;
+        // JSON grid form: [[...],[...]]
+        if (str[0] === '[') {
+            try {
+                const grid = JSON.parse(str);
+                if (Array.isArray(grid) && grid.length > 0 && Array.isArray(grid[0])) {
+                    this.loadGrid(grid);
+                    return true;
+                }
+            } catch (e) { return false; }
+            return false;
+        }
+        // ASCII art form
         try {
-            const grid = JSON.parse(json);
-            if (Array.isArray(grid) && grid.length > 0 && Array.isArray(grid[0])) {
+            const rows = str.split('\n');
+            const grid = parseLevel(rows);
+            if (grid.length > 0 && grid[0].length > 0) {
                 this.loadGrid(grid);
                 return true;
             }
         } catch (e) { }
         return false;
+    }
+
+    /** Drop in a fresh, guaranteed-solvable random level. */
+    generate() {
+        const grid = generateLevel({ rows: this.rows, cols: this.cols });
+        this.loadGrid(grid);
     }
 }

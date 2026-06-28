@@ -1,94 +1,350 @@
 /**
- * Roadblocks Level Pack
- * 
- * Cell codes: 0=Empty, 1=Wall, 2=Start, 3=Goal,
- *             4=Triangle(\), 5=Triangle(/), 6=Ramp, 7=Wormhole
+ * Roadblocks — Level Schema & Pack
+ * ════════════════════════════════════════════════════════════════
  *
- * Tier 1 (1–10):  Basic navigation + Abyss awareness
- * Tier 2 (11–20): Triangle reflectors
- * Tier 3 (21–25): Ramps (jump mechanics)
- * Tier 4 (26–30): Wormholes (teleportation)
+ * Levels are authored as ASCII art instead of nested number arrays.
+ * Each level is an array of equal-or-ragged strings; ragged rows are
+ * padded on the right with VOID. One glyph per cell:
+ *
+ *     '.'   Floor      — slide across it
+ *     ' '   Void       — the abyss; sliding in is fatal (so is the off-grid edge)
+ *     '#'   Wall       — a brake; you stop against it, never enter it
+ *     'S'   Start
+ *     'G'   Goal
+ *     '\'   Mirror \   — reflects: right↔down, left↔up
+ *     '/'   Mirror /   — reflects: right↔up,  left↔down
+ *     'J'   Jump pad   — leap over the very next cell
+ *     'O'   Portal     — teleport to the matching portal (place exactly two)
+ *     '+'   Sand       — friction; the slide halts the instant you enter
+ *
+ * Design grammar:
+ *   • Walls and sand are BRAKES — the only way to stop short of an edge.
+ *   • Open edges and interior Void are HAZARDS — overshooting is death.
+ *   • A good level makes the naive slide fall into the void and rewards
+ *     a route that brakes at the right cells.
+ *
+ *   parseLevel(rows)   → numeric grid (what the engine consumes)
+ *   gridToAscii(grid)  → array of glyph strings (for export/sharing)
+ *   generateLevel(opts)→ a fresh, guaranteed-solvable random level
  */
 
-const LEVEL_PACK = [
-    // ── Tier 1: Basic Navigation ──────────────
-    // 1. Straight Shot
-    [[1, 1, 1, 1, 1], [1, 2, 0, 3, 1], [1, 1, 1, 1, 1]],
-    // 2. L-Shape
-    [[1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 0, 0, 1], [1, 0, 1, 0, 1, 0, 1], [1, 0, 0, 0, 3, 0, 1], [1, 1, 1, 1, 1, 1, 1]],
-    // 3. Maze
-    [[1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 0, 1], [1, 0, 1, 1, 0, 1], [1, 0, 0, 3, 0, 1], [1, 1, 1, 1, 1, 1]],
-    // 4. Switchback
-    [[1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 1, 1], [1, 1, 0, 0, 0, 1], [1, 1, 1, 0, 3, 1], [1, 1, 1, 1, 1, 1]],
-    // 5. Cross
-    [[1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 0, 0, 1], [1, 1, 1, 0, 0, 0, 1], [1, 0, 0, 0, 0, 3, 1], [1, 1, 1, 1, 1, 1, 1]],
-    // 6. Gallery
-    [[1, 1, 1, 1, 1, 1, 1], [1, 0, 2, 0, 1, 0, 1], [1, 0, 1, 0, 0, 0, 1], [1, 1, 3, 0, 1, 0, 1], [1, 1, 1, 1, 1, 1, 1]],
-    // 7. Reverse
-    [[1, 1, 1, 1, 1, 1, 1], [1, 3, 0, 0, 1, 0, 1], [1, 0, 1, 0, 0, 0, 1], [1, 0, 2, 0, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1]],
-    // 8. Wide
-    [[1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 0, 0, 0, 1], [1, 0, 1, 1, 1, 1, 0, 1], [1, 0, 0, 0, 0, 1, 3, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
-    // 9. Descent
-    [[1, 1, 1, 1, 1, 1, 1, 1], [1, 3, 0, 0, 0, 0, 1, 1], [1, 1, 1, 1, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 2, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
-    // 10. U-Turn
-    [[1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 0, 1], [1, 3, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1]],
+const GLYPH_TO_CELL = {
+    '.': 0, ' ': 8, '#': 1, 'S': 2, 'G': 3,
+    '\\': 4, '/': 5, 'J': 6, 'O': 7, '+': 9,
+    '~': 8 // alias for void
+};
 
-    // ── Tier 2: Triangle Reflectors ───────────
-    // 11. First Bounce
-    [[1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 4, 1], [1, 0, 1, 0, 1, 1], [1, 3, 0, 0, 1, 1], [1, 1, 1, 1, 1, 1]],
-    // 12. Slash Intro
-    [[1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 5, 1], [1, 1, 1, 0, 0, 1], [1, 1, 1, 1, 3, 1], [1, 1, 1, 1, 1, 1]],
-    // 13. Combo Bounce
-    [[1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 0, 4, 1], [1, 0, 1, 1, 0, 0, 1], [1, 3, 0, 0, 0, 1, 1], [1, 1, 1, 1, 1, 1, 1]],
-    // 14. Long Reflect
-    [[1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 0, 4, 0, 1], [1, 0, 1, 1, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 3, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
-    // 15. Slash Lane
-    [[1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 5, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 3, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
-    // 16. Double Bounce
-    [[1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 0, 4, 0, 1], [1, 0, 0, 0, 1, 1, 0, 1], [1, 3, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
-    // 17. Mixed Triangles
-    [[1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 4, 0, 0, 5, 1], [1, 0, 0, 0, 0, 0, 0, 1], [1, 3, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
-    // 18. Triangle Chain
-    [[1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 4, 0, 5, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 3, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1]],
-    // 19. Scattered Mirrors
-    [[1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 4, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 1, 5, 0, 1], [1, 0, 0, 0, 0, 0, 0, 3, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1]],
-    // 20. Mirror Maze
-    [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 4, 0, 0, 0, 5, 0, 1], [1, 0, 0, 1, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 4, 0, 0, 3, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]],
+const CELL_TO_GLYPH = {
+    0: '.', 1: '#', 2: 'S', 3: 'G', 4: '\\', 5: '/', 6: 'J', 7: 'O', 8: ' ', 9: '+'
+};
 
-    // ── Tier 3: Ramps ─────────────────────────
-    // 21. Ramp Intro
-    [[1, 1, 1, 1, 1, 1], [1, 2, 0, 6, 0, 1], [1, 1, 1, 1, 3, 1], [1, 1, 1, 1, 1, 1]],
-    // 22. Ramp Over Wall
-    [[1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 6, 1, 0, 0, 1, 1], [1, 1, 1, 1, 0, 0, 3, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
-    // 23. Ramp + Triangle
-    [[1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 0, 5, 1], [1, 1, 1, 0, 1, 0, 1], [1, 0, 0, 4, 3, 0, 1], [1, 1, 1, 1, 1, 1, 1]],
-    // 24. Double Jump
-    [[1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 6, 1, 6, 3, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
-    // 25. Ramp + Reflect
-    [[1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 6, 1, 4, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 3, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1]],
-
-    // ── Tier 4: Wormholes ─────────────────────
-    // 26. Wormhole Intro
-    [[1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 7, 1, 0, 1], [1, 0, 0, 1, 1, 3, 1], [1, 0, 0, 1, 1, 0, 1], [1, 0, 0, 7, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1]],
-    // 27. Wormhole Bypass
-    [[1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 0, 7, 1, 1, 1, 1], [1, 1, 1, 1, 0, 1, 1, 1, 1], [1, 1, 1, 1, 0, 7, 0, 3, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1]],
-    // 28. Wormhole + Triangle
-    [[1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 7, 0, 0, 1], [1, 0, 4, 1, 1, 0, 1], [1, 0, 0, 1, 1, 7, 1], [1, 0, 0, 0, 0, 3, 1], [1, 1, 1, 1, 1, 1, 1]],
-    // 29. Wormhole + Ramp
-    [[1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 6, 7, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 0, 1], [1, 3, 0, 0, 0, 0, 7, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
-    // 30. The Loop
-    [[1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 0, 7, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 1, 0, 1], [1, 3, 0, 1, 1, 1, 1, 0, 1], [1, 0, 0, 7, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1]]
-];
-
-const TIER_NAMES = ['Basic Navigation', 'Triangle Reflectors', 'Ramp Jumping', 'Wormholes'];
-
-function getTierForLevel(levelIdx) {
-    if (levelIdx < 10) return 0;
-    if (levelIdx < 20) return 1;
-    if (levelIdx < 25) return 2;
-    return 3;
+/** Parse an ASCII level (array of strings) into a numeric grid. */
+function parseLevel(rows) {
+    const width = rows.reduce((m, r) => Math.max(m, r.length), 0);
+    return rows.map(row => {
+        const cells = [];
+        for (let c = 0; c < width; c++) {
+            const ch = c < row.length ? row[c] : ' ';
+            cells.push(ch in GLYPH_TO_CELL ? GLYPH_TO_CELL[ch] : 8);
+        }
+        return cells;
+    });
 }
 
-function getTierName(levelIdx) {
-    return TIER_NAMES[getTierForLevel(levelIdx)];
+/** Serialize a numeric grid back to ASCII glyph rows. */
+function gridToAscii(grid) {
+    return grid.map(row => row.map(v => CELL_TO_GLYPH[v] ?? ' ').join(''));
+}
+
+// ════════════════════════════════════════════════════════════════
+//  The Level Pack — curated, hand-tuned, each verified solvable.
+// ════════════════════════════════════════════════════════════════
+
+const LEVEL_DEFS = [
+    // ── Tier 1 · Brakes & the Void ────────────────────────────
+    { tier: 0, name: 'Mind the Ledge', art: [
+        ' #### ',
+        ' #S.. ',
+        ' ..G# ',
+        ' #### '] },
+    { tier: 0, name: 'Floating Path', art: [
+        '  ###  ',
+        ' #S..# ',
+        ' #.##  ',
+        ' #..G# ',
+        '  ###  '] },
+    { tier: 0, name: 'Tightrope', art: [
+        '   ###  ',
+        '  #S..# ',
+        '  #.#.# ',
+        '  #.#G# ',
+        '  #...# ',
+        '   ###  '] },
+    { tier: 0, name: 'Overshoot', art: [
+        '######',
+        '#S...#',
+        '####.#',
+        '#G...#',
+        '######'] },
+    { tier: 0, name: 'The Pit', art: [
+        '#######',
+        '#S....#',
+        '#.###.#',
+        '#.#G..#',
+        '#.#.###',
+        '#...###',
+        '#######'] },
+    { tier: 0, name: 'Switchback', art: [
+        '########',
+        '#S....##',
+        '###.#.##',
+        '#...#.##',
+        '#.#G#.##',
+        '#.....##',
+        '########'] },
+
+    // ── Tier 2 · Mirrors ──────────────────────────────────────
+    { tier: 1, name: 'First Reflection', art: [
+        '######',
+        '#S..\\#',
+        '#  #.#',
+        '#G..\\#',
+        '######'] },
+    { tier: 1, name: 'Bank Shot', art: [
+        '#######',
+        '#S#...#',
+        '#.#.#.#',
+        '#.#.#.#',
+        '#..\\.G#',
+        '#######'] },
+    { tier: 1, name: 'Junction', art: [
+        '#######',
+        '#S..#G#',
+        '#.#.#.#',
+        '#.#.#.#',
+        '#..\\..#',
+        '#######'] },
+    { tier: 1, name: 'Weave', art: [
+        '########',
+        '#S...\\.#',
+        '#.####.#',
+        '#.#....#',
+        '#.#.##.#',
+        '#/.\\#.G#',
+        '########'] },
+    { tier: 1, name: 'Vertical Bank', art: [
+        '#######',
+        '#S..\\.#',
+        '#.....#',
+        '#####.#',
+        '#G...\\#',
+        '#######'] },
+
+    // ── Tier 3 · Jump Pads ────────────────────────────────────
+    { tier: 2, name: 'First Leap', art: [
+        '#######',
+        '#S.J#.G',
+        '#######'] },
+    { tier: 2, name: 'Double Vault', art: [
+        '#########',
+        '#S.J#.J#G',
+        '#########'] },
+    { tier: 2, name: 'Switch Leap', art: [
+        '#######',
+        '#S.J..#',
+        '#####J#',
+        '#G....#',
+        '#######'] },
+    { tier: 2, name: 'Turnaround', art: [
+        '#######',
+        '#S.J#.#',
+        '#####.#',
+        '#G....#',
+        '#######'] },
+    { tier: 2, name: 'Relay', art: [
+        '#########',
+        '#S.J#.#G#',
+        '#####.#.#',
+        '#.....J.#',
+        '#########'] },
+
+    // ── Tier 4 · Portals ──────────────────────────────────────
+    { tier: 3, name: 'Through the Looking Glass', art: [
+        '#######',
+        '#S..O.#',
+        '#.....#',
+        '#.O..G#',
+        '#######'] },
+    { tier: 3, name: 'Detour', art: [
+        '########',
+        '#S..#O.#',
+        '#.#..#.#',
+        '#.#G.#.#',
+        '#O...#.#',
+        '########'] },
+    { tier: 3, name: 'Relay Portal', art: [
+        '########',
+        '#S..#O.#',
+        '#.#.#.##',
+        '#.#.#..#',
+        '#.#G#.O#',
+        '#.....##',
+        '########'] },
+    { tier: 3, name: 'Crossover', art: [
+        '########',
+        '#S.#.O.#',
+        '#..#.#.#',
+        '#O.#.#G#',
+        '#..#...#',
+        '########'] },
+    { tier: 3, name: 'The Loop', art: [
+        '#######',
+        '#S#.#G#',
+        '#.#.#.#',
+        '#O...O#',
+        '#.....#',
+        '#######'] },
+
+    // ── Tier 5 · Sand & Synthesis ─────────────────────────────
+    { tier: 4, name: 'Soft Landing', art: [
+        '       ',
+        '#S..+.G',
+        '#######'] },
+    { tier: 4, name: 'Crossfire', art: [
+        '#######',
+        '#..#..#',
+        '#S.+.G#',
+        '#..#..#',
+        '#######'] },
+    { tier: 4, name: 'Quicksand Maze', art: [
+        '########',
+        '#S..+..#',
+        '#.####.#',
+        '#+....+#',
+        '#.####.#',
+        '#....+G#',
+        '########'] },
+    { tier: 4, name: 'Brake & Bank', art: [
+        '########',
+        '#S...+.#',
+        '#.\\....#',
+        '#.....+#',
+        '#+...\\.#',
+        '#.G....#',
+        '########'] },
+    { tier: 4, name: 'Gauntlet', art: [
+        '#########',
+        '#S..\\..+#',
+        '#.J.# #.#',
+        '#+..O..\\#',
+        '## ###.##',
+        '#G..+.O.#',
+        '#########'] },
+];
+const TIER_NAMES = ['Brakes & the Void', 'Mirrors', 'Jump Pads', 'Portals', 'Sand & Synthesis'];
+
+const LEVEL_PACK = LEVEL_DEFS.map(d => parseLevel(d.art));
+
+function getTierForLevel(idx) {
+    return (LEVEL_DEFS[idx] && LEVEL_DEFS[idx].tier) || 0;
+}
+function getTierName(idx) {
+    return TIER_NAMES[getTierForLevel(idx)] || TIER_NAMES[0];
+}
+function getLevelName(idx) {
+    return (LEVEL_DEFS[idx] && LEVEL_DEFS[idx].name) || `Level ${idx + 1}`;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Procedural Generator
+//  ───────────────────────────────────────────────────────────────
+//  Carves a forced path: it makes a sequence of slides and drops a
+//  wall just past each intended stopping cell, so the route is always
+//  reproducible (hence guaranteed solvable). Overshooting the carved
+//  brakes drops the player into the surrounding void.
+// ════════════════════════════════════════════════════════════════
+
+function generateLevel(opts = {}) {
+    const rows = opts.rows || (6 + Math.floor(Math.random() * 3));
+    const cols = opts.cols || (8 + Math.floor(Math.random() * 3));
+    const targetMoves = opts.moves || (4 + Math.floor(Math.random() * 4));
+    const border = opts.border !== false; // walled border by default keeps it fair
+
+    const FLOOR = 0, WALL = 1, VOID = 8;
+
+    for (let attempt = 0; attempt < 200; attempt++) {
+        const grid = Array.from({ length: rows }, () => new Array(cols).fill(VOID));
+        const inBounds = (r, c) => r >= 0 && r < rows && c >= 0 && c < cols;
+
+        // Inner playable area
+        const r0 = border ? 1 : 0, c0 = border ? 1 : 0;
+        const r1 = border ? rows - 2 : rows - 1, c1 = border ? cols - 2 : cols - 1;
+        if (r1 - r0 < 2 || c1 - c0 < 2) continue;
+
+        let r = r0 + Math.floor(Math.random() * (r1 - r0 + 1));
+        let c = c0 + Math.floor(Math.random() * (c1 - c0 + 1));
+        const start = { r, c };
+        grid[r][c] = FLOOR;
+
+        const dirs = [{ dr: -1, dc: 0 }, { dr: 1, dc: 0 }, { dr: 0, dc: -1 }, { dr: 0, dc: 1 }];
+        let lastDir = null;
+        let placed = 0;
+
+        for (let step = 0; step < targetMoves; step++) {
+            // pick a direction (avoid immediate reversal) with room to slide ≥1
+            const options = dirs.filter(d => !(lastDir && d.dr === -lastDir.dr && d.dc === -lastDir.dc));
+            let moved = false;
+            for (const d of shuffle(options)) {
+                const dist = 1 + Math.floor(Math.random() * 3);
+                let nr = r, nc = c, ok = true, traveled = 0;
+                for (let i = 0; i < dist; i++) {
+                    const tr = nr + d.dr, tc = nc + d.dc;
+                    if (!inBounds(tr, tc) || tr < r0 || tr > r1 || tc < c0 || tc > c1) { ok = false; break; }
+                    if (grid[tr][tc] === WALL) { ok = false; break; }
+                    nr = tr; nc = tc; traveled++;
+                }
+                if (!ok || traveled === 0) continue;
+                // carve the lane to floor
+                let cr = r, cc = c;
+                for (let i = 0; i < traveled; i++) { cr += d.dr; cc += d.dc; grid[cr][cc] = FLOOR; }
+                // drop a brake just past the stop (if inside, otherwise the void edge brakes us)
+                const br = nr + d.dr, bc = nc + d.dc;
+                if (inBounds(br, bc) && br >= r0 && br <= r1 && bc >= c0 && bc <= c1 && grid[br][bc] === VOID) {
+                    grid[br][bc] = WALL; placed++;
+                }
+                r = nr; c = nc; lastDir = d; moved = true; break;
+            }
+            if (!moved) break;
+        }
+
+        // place goal at final resting cell, start marker at origin
+        if (r === start.r && c === start.c) continue;
+        grid[r][c] = 3;            // GOAL
+        grid[start.r][start.c] = 2; // START
+
+        if (border) {
+            for (let i = 0; i < rows; i++) { grid[i][0] = WALL; grid[i][cols - 1] = WALL; }
+            for (let j = 0; j < cols; j++) { grid[0][j] = WALL; grid[rows - 1][j] = WALL; }
+            grid[start.r][start.c] = 2; grid[r][c] = 3;
+        }
+
+        const sol = solveBFS(grid);
+        if (sol && sol.length >= Math.max(3, targetMoves - 2)) return grid;
+    }
+    // Fallback: a trivial but valid level
+    return parseLevel(['#####', '#S.G#', '#####']);
+}
+
+function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+// Node export (for the verification harness); harmless in the browser.
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { parseLevel, gridToAscii, generateLevel, LEVEL_PACK, LEVEL_DEFS };
 }

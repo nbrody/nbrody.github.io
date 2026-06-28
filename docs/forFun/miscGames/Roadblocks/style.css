@@ -285,10 +285,14 @@ body::before {
 }
 
 /* ──────────────────────────────────────────────
-   Grid Container (game board)
+   Canvas board (Play / Solver)
    ────────────────────────────────────────────── */
-#game-board {
+#game-board,
+#solver-board,
+#test-board {
     margin: 0 auto;
+    display: flex;
+    justify-content: center;
     cursor: grab;
     user-select: none;
     -webkit-user-select: none;
@@ -296,6 +300,79 @@ body::before {
 
 #game-board:active {
     cursor: grabbing;
+}
+
+.rb-canvas {
+    display: block;
+    margin: 0 auto;
+    border-radius: 16px;
+    background: #05060d;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+        0 0 60px rgba(99, 102, 241, 0.10);
+    touch-action: none;
+    /* Shrink to fit narrow screens while preserving the board's aspect ratio. */
+    max-width: 100%;
+    height: auto !important;
+}
+
+/* ──────────────────────────────────────────────
+   Mechanics legend
+   ────────────────────────────────────────────── */
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--glass-border);
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.lg {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.lg-wall {
+    background: linear-gradient(135deg, #5b6478, #2f3543);
+}
+
+.lg-void {
+    background: radial-gradient(circle, #0b0d1c, #05060d);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.lg-sand {
+    background: rgba(201, 163, 107, 0.55);
+}
+
+.lg-mirror {
+    background: linear-gradient(135deg, #f5a60b 0 50%, #06b6d4 50% 100%);
+}
+
+.lg-jump {
+    background: rgba(16, 185, 129, 0.6);
+}
+
+.lg-portal {
+    background: radial-gradient(circle, #fff, #8b5cf6);
+    border-radius: 50%;
+}
+
+.lg-goal {
+    background: radial-gradient(circle, #f5c518, #b8860b);
+    border-radius: 50%;
 }
 
 /* ──────────────────────────────────────────────
@@ -313,6 +390,22 @@ body::before {
     background: linear-gradient(135deg, #374151, #4b5563);
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.4);
+    border-radius: 4px;
+}
+
+.rb-void {
+    background: radial-gradient(circle at 50% 50%, #0b0d1c, #04050a);
+    border-radius: 4px;
+    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8);
+}
+
+.rb-sand {
+    background:
+        radial-gradient(circle at 30% 30%, rgba(201, 163, 107, 0.5) 1px, transparent 1.5px),
+        radial-gradient(circle at 70% 60%, rgba(201, 163, 107, 0.5) 1px, transparent 1.5px),
+        rgba(201, 163, 107, 0.18);
+    background-size: 8px 8px, 11px 11px, 100% 100%;
+    border: 1px solid rgba(201, 163, 107, 0.35);
     border-radius: 4px;
 }
 

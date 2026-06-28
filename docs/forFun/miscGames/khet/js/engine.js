@@ -2,6 +2,10 @@
 // Board: 10 columns × 8 rows
 // Pieces: Pharaoh, Sphinx, Pyramid, Scarab, Anubis (Khet 2.0)
 
+// Set to true to log every applyMove. MUST stay false: during MCTS, applyMove
+// runs hundreds of thousands of times per turn, so logging here freezes the page.
+export const DEBUG_MOVES = false;
+
 export const COLS = 10;
 export const ROWS = 8;
 
@@ -78,7 +82,7 @@ export class KhetGame {
         this.winner = null;
         this.lastLaserPath = [];
         this.lastHitPiece = null;
-        this.moveHistory = [];
+        this.ply = 0;
         this.setupClassic();
     }
 
@@ -89,7 +93,31 @@ export class KhetGame {
         g.winner = this.winner;
         g.lastLaserPath = [];
         g.lastHitPiece = null;
-        g.moveHistory = [];
+        g.pendingHit = null;
+        g.ply = this.ply;
+        return g;
+    }
+
+    /** Compact, structured-clone-friendly snapshot (used to ship state to the worker / undo stack). */
+    serialize() {
+        return {
+            board: this.board.map(p => p ? { t: p.type, p: p.player, f: p.facing } : null),
+            currentPlayer: this.currentPlayer,
+            winner: this.winner,
+            ply: this.ply,
+        };
+    }
+
+    /** Rebuild a game from a serialize() snapshot. */
+    static fromSerialized(s) {
+        const g = Object.create(KhetGame.prototype);
+        g.board = s.board.map(c => c ? new Piece(c.t, c.p, c.f) : null);
+        g.currentPlayer = s.currentPlayer;
+        g.winner = s.winner;
+        g.ply = s.ply || 0;
+        g.lastLaserPath = [];
+        g.lastHitPiece = null;
+        g.pendingHit = null;
         return g;
     }
 
@@ -205,7 +233,9 @@ export class KhetGame {
         const p = this.getAt(move.col, move.row);
         if (!p) return null;
 
-        console.log(`Move: ${p.player === PLAYER.SILVER ? 'Silver' : 'Red'} ${p.type} at (${move.col},${move.row}) -> ${move.type}`, move);
+        if (DEBUG_MOVES) {
+            console.log(`Move: ${p.player === PLAYER.SILVER ? 'Silver' : 'Red'} ${p.type} at (${move.col},${move.row}) -> ${move.type}`, move);
+        }
 
         if (move.type === 'rotate') {
             if (move.toFacing !== undefined) {
@@ -224,6 +254,7 @@ export class KhetGame {
 
         const hitInfo = this.fireLaser();
         this.currentPlayer = 1 - this.currentPlayer;
+        this.ply++;
         return hitInfo;
     }
 

@@ -15,16 +15,17 @@
 /** Create a Float32Array of given size, optionally filled with a value. */
 function zeros(n) { return new Float32Array(n); }
 
-/** 
- * Conv2d: (C_in, H, W) → (C_out, H, W) with 3x3 kernel, padding=1, no bias.
- * Weights shape: [C_out, C_in, kH, kW] stored flat.
+/**
+ * Conv2d: (C_in, H, W) → (C_out, H, W) with 3x3 kernel, padding=1.
+ * Weights shape: [C_out, C_in, kH, kW] stored flat. Optional per-channel bias.
  */
-function conv2d_3x3(input, weight, C_in, C_out, H, W) {
+function conv2d_3x3(input, weight, bias, C_in, C_out, H, W) {
     const out = zeros(C_out * H * W);
     for (let co = 0; co < C_out; co++) {
+        const b = bias ? bias[co] : 0;
         for (let y = 0; y < H; y++) {
             for (let x = 0; x < W; x++) {
-                let sum = 0;
+                let sum = b;
                 for (let ci = 0; ci < C_in; ci++) {
                     for (let ky = -1; ky <= 1; ky++) {
                         const iy = y + ky;
@@ -61,23 +62,6 @@ function conv2d_1x1(input, weight, bias, C_in, C_out, H, W) {
                 }
                 out[co * H * W + y * W + x] = sum;
             }
-        }
-    }
-    return out;
-}
-
-/**
- * BatchNorm2d inference: y = (x - mean) / sqrt(var + eps) * weight + bias
- */
-function batchnorm2d(input, weight, bias, running_mean, running_var, C, H, W) {
-    const out = zeros(C * H * W);
-    const eps = 1e-5;
-    for (let c = 0; c < C; c++) {
-        const scale = weight[c] / Math.sqrt(running_var[c] + eps);
-        const shift = bias[c] - running_mean[c] * scale;
-        const offset = c * H * W;
-        for (let i = 0; i < H * W; i++) {
-            out[offset + i] = input[offset + i] * scale + shift;
         }
     }
     return out;
@@ -157,6 +141,7 @@ export class KhetNN {
     constructor() {
         this.loaded = false;
         this.weights = {};
+        this.bias = {};          // folded-BN biases, keyed by conv name
         this.hiddenChannels = 32;
         this.numResBlocks = 4;
     }
@@ -176,8 +161,10 @@ export class KhetNN {
                 this.weights[key] = decodeWeights(value.data);
             }
 
+            this._foldBatchNorm();
+
             this.loaded = true;
-            console.log(`KhetNN loaded: ${this.hiddenChannels}ch, ${this.numResBlocks} blocks`);
+            console.log(`KhetNN loaded: ${this.hiddenChannels}ch, ${this.numResBlocks} blocks (BN folded)`);
             return true;
         } catch (e) {
             console.warn('Could not load neural network weights:', e);
@@ -185,8 +172,58 @@ export class KhetNN {
         }
     }
 
+    /**
+     * Fold every Conv→BatchNorm pair into a single biased conv:
+     *   scale = gamma / sqrt(var + eps)
+     *   W'    = W * scale   (per output channel)
+     *   b'    = beta - mean * scale
+     * This removes an entire batchnorm pass per layer at inference time and
+     * lets the conv kernels apply the bias inline. The BN tensors are dropped.
+     */
+    _foldBatchNorm() {
+        const eps = 1e-5;
+        const pairs = [
+            // [convWeightKey, bnPrefix, C_out, C_in, kArea]
+            ['input_conv.weight', 'input_bn', this.hiddenChannels, INPUT_CHANNELS, 9],
+            ['value_conv.weight', 'value_bn', 1, this.hiddenChannels, 1],
+            ['policy_conv1.weight', 'policy_bn', this.hiddenChannels, this.hiddenChannels, 1],
+        ];
+        for (let i = 0; i < this.numResBlocks; i++) {
+            pairs.push([`res_blocks.${i}.conv1.weight`, `res_blocks.${i}.bn1`, this.hiddenChannels, this.hiddenChannels, 9]);
+            pairs.push([`res_blocks.${i}.conv2.weight`, `res_blocks.${i}.bn2`, this.hiddenChannels, this.hiddenChannels, 9]);
+        }
+
+        for (const [wKey, bn, cOut, cIn, kArea] of pairs) {
+            const W = this.weights[wKey];
+            const gamma = this.weights[`${bn}.weight`];
+            const beta = this.weights[`${bn}.bias`];
+            const mean = this.weights[`${bn}.running_mean`];
+            const variance = this.weights[`${bn}.running_var`];
+            if (!W || !gamma) continue;
+
+            const blockLen = cIn * kArea;
+            const bias = new Float32Array(cOut);
+            for (let co = 0; co < cOut; co++) {
+                const scale = gamma[co] / Math.sqrt(variance[co] + eps);
+                const base = co * blockLen;
+                for (let j = 0; j < blockLen; j++) W[base + j] *= scale;
+                bias[co] = beta[co] - mean[co] * scale;
+            }
+            this.bias[wKey] = bias;
+
+            // Drop the now-redundant BN tensors to free memory.
+            delete this.weights[`${bn}.weight`];
+            delete this.weights[`${bn}.bias`];
+            delete this.weights[`${bn}.running_mean`];
+            delete this.weights[`${bn}.running_var`];
+        }
+    }
+
     /** Get a weight tensor by key */
     w(key) { return this.weights[key]; }
+
+    /** Get a folded-BN bias by conv key (null if none) */
+    b(key) { return this.bias[key] || null; }
 
     /**
      * Forward pass.
@@ -197,42 +234,26 @@ export class KhetNN {
         const H = BOARD_H, W = BOARD_W;
         const ch = this.hiddenChannels;
 
-        // Input conv + BN + ReLU
-        let x = conv2d_3x3(input, this.w('input_conv.weight'), INPUT_CHANNELS, ch, H, W);
-        x = batchnorm2d(x,
-            this.w('input_bn.weight'), this.w('input_bn.bias'),
-            this.w('input_bn.running_mean'), this.w('input_bn.running_var'),
-            ch, H, W);
+        // Input conv (BN folded in) + ReLU
+        let x = conv2d_3x3(input, this.w('input_conv.weight'), this.b('input_conv.weight'), INPUT_CHANNELS, ch, H, W);
         x = relu(x);
 
         // Residual blocks
         for (let i = 0; i < this.numResBlocks; i++) {
             const prefix = `res_blocks.${i}`;
-            let residual = x;
+            const residual = x;
 
-            x = conv2d_3x3(x, this.w(`${prefix}.conv1.weight`), ch, ch, H, W);
-            x = batchnorm2d(x,
-                this.w(`${prefix}.bn1.weight`), this.w(`${prefix}.bn1.bias`),
-                this.w(`${prefix}.bn1.running_mean`), this.w(`${prefix}.bn1.running_var`),
-                ch, H, W);
+            x = conv2d_3x3(x, this.w(`${prefix}.conv1.weight`), this.b(`${prefix}.conv1.weight`), ch, ch, H, W);
             x = relu(x);
 
-            x = conv2d_3x3(x, this.w(`${prefix}.conv2.weight`), ch, ch, H, W);
-            x = batchnorm2d(x,
-                this.w(`${prefix}.bn2.weight`), this.w(`${prefix}.bn2.bias`),
-                this.w(`${prefix}.bn2.running_mean`), this.w(`${prefix}.bn2.running_var`),
-                ch, H, W);
+            x = conv2d_3x3(x, this.w(`${prefix}.conv2.weight`), this.b(`${prefix}.conv2.weight`), ch, ch, H, W);
 
             x = add(x, residual);
             x = relu(x);
         }
 
-        // ---- Value head ----
-        let v = conv2d_1x1(x, this.w('value_conv.weight'), null, ch, 1, H, W);
-        v = batchnorm2d(v,
-            this.w('value_bn.weight'), this.w('value_bn.bias'),
-            this.w('value_bn.running_mean'), this.w('value_bn.running_var'),
-            1, H, W);
+        // ---- Value head (BN folded into value_conv) ----
+        let v = conv2d_1x1(x, this.w('value_conv.weight'), this.b('value_conv.weight'), ch, 1, H, W);
         v = relu(v);
         // Flatten to 80
         v = linear(v, this.w('value_fc1.weight'), this.w('value_fc1.bias'), H * W, 64);
@@ -240,12 +261,8 @@ export class KhetNN {
         v = linear(v, this.w('value_fc2.weight'), this.w('value_fc2.bias'), 64, 1);
         const value = tanh(v[0]);
 
-        // ---- Policy head ----
-        let p = conv2d_1x1(x, this.w('policy_conv1.weight'), null, ch, ch, H, W);
-        p = batchnorm2d(p,
-            this.w('policy_bn.weight'), this.w('policy_bn.bias'),
-            this.w('policy_bn.running_mean'), this.w('policy_bn.running_var'),
-            ch, H, W);
+        // ---- Policy head (BN folded into policy_conv1) ----
+        let p = conv2d_1x1(x, this.w('policy_conv1.weight'), this.b('policy_conv1.weight'), ch, ch, H, W);
         p = relu(p);
 
         // policy_conv2 has bias
@@ -302,7 +319,7 @@ export class KhetNN {
         }
 
         // Move count (channel 15)
-        const moveVal = Math.min((game.moveHistory?.length || 0) / 300.0, 1.0);
+        const moveVal = Math.min((game.ply || 0) / 300.0, 1.0);
         const ch15 = 15 * BOARD_H * BOARD_W;
         for (let i = 0; i < BOARD_H * BOARD_W; i++) planes[ch15 + i] = moveVal;
 

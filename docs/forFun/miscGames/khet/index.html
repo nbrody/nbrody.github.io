@@ -46,6 +46,9 @@
                         <button id="newGame" class="btn btn-primary" title="New game (N)">
                             <span class="icon">⟳</span> New
                         </button>
+                        <button id="undo" class="btn btn-secondary" title="Undo (Z)" disabled>
+                            <span class="icon">↶</span> Undo
+                        </button>
                         <button id="switchSides" class="btn btn-secondary" title="Switch sides">
                             <span class="icon">⇄</span> Switch
                         </button>
@@ -62,6 +65,11 @@
                             Rotate</button>
                         <span id="selectedPieceLabel" class="selected-label"></span>
                         <button id="rotateCW" class="btn btn-rotate" title="Rotate clockwise (E)">Rotate ↻</button>
+                    </div>
+                    <div id="thinking" class="thinking">
+                        <span class="thinking-spinner"></span>
+                        <span class="thinking-label">AI thinking</span>
+                        <span class="thinking-track"><span id="thinkingBar" class="thinking-bar"></span></span>
                     </div>
                     <div id="status" class="status">Click a piece to select it.</div>
                 </div>
@@ -107,6 +115,7 @@
                     <div class="help-grid">
                         <span class="key">Click</span><span>Select / Move</span>
                         <span class="key">Q / E</span><span>Rotate piece</span>
+                        <span class="key">Z</span><span>Undo move</span>
                         <span class="key">Esc</span><span>Deselect</span>
                         <span class="key">N</span><span>New game</span>
                     </div>

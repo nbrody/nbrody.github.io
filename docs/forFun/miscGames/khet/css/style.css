@@ -207,6 +207,64 @@ body::before {
     padding: 2px 16px;
 }
 
+/* AI thinking indicator */
+.thinking {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 14px;
+    border-radius: 8px;
+    background: rgba(79, 195, 247, 0.06);
+    border: 1px solid rgba(79, 195, 247, 0.18);
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+}
+
+.thinking.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.thinking-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(79, 195, 247, 0.25);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+
+.thinking-label {
+    font-size: 0.76rem;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.thinking-track {
+    width: 120px;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(79, 195, 247, 0.12);
+    overflow: hidden;
+}
+
+.thinking-bar {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+    transition: width 0.12s linear;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 /* ========================
    Canvas
    ======================== */

@@ -1,17 +1,20 @@
 /**
  * Roadblocks Engine — Core sliding block puzzle logic
- * 
- * Block Types:
- *   0: Empty    1: Wall       2: Start     3: Goal
- *   4: Triangle \ (NW-SE)     5: Triangle / (NE-SW)
- *   6: Ramp (jump over next)  7: Wormhole (teleport pair)
  *
- * Triangle Reflection Rules:
+ * Block Types:
+ *   0: Floor    1: Wall       2: Start     3: Goal
+ *   4: Mirror \ (NW-SE)       5: Mirror / (NE-SW)
+ *   6: Jump pad (leap over next cell)
+ *   7: Portal (teleport pair)
+ *   8: Void  (interior abyss — falling in is fatal, same as off-grid)
+ *   9: Sand  (friction — the slide halts the instant you enter)
+ *
+ * Mirror Reflection Rules:
  *   Type 4 (\): (dr, dc) → (dc, dr)        — swaps row/col velocity
  *   Type 5 (/): (dr, dc) → (-dc, -dr)      — negates and swaps
  *
- * The player slides frictionlessly until hitting a wall, falling off
- * the grid (Abyss), or reaching the goal.
+ * The player slides frictionlessly until hitting a wall, stopping on sand,
+ * falling into the void (off-grid or an interior hole), or reaching the goal.
  */
 
 const CELL = {
@@ -21,19 +24,23 @@ const CELL = {
     GOAL: 3,
     TRI_NW: 4,   // backslash \
     TRI_NE: 5,   // slash /
-    RAMP: 6,
-    WORMHOLE: 7
+    RAMP: 6,     // jump pad
+    WORMHOLE: 7, // portal
+    VOID: 8,     // interior abyss
+    SAND: 9      // friction / stop tile
 };
 
 const CELL_NAMES = {
-    [CELL.EMPTY]: 'Empty',
+    [CELL.EMPTY]: 'Floor',
     [CELL.WALL]: 'Wall',
     [CELL.START]: 'Start',
     [CELL.GOAL]: 'Goal',
-    [CELL.TRI_NW]: 'Triangle \\',
-    [CELL.TRI_NE]: 'Triangle /',
-    [CELL.RAMP]: 'Ramp',
-    [CELL.WORMHOLE]: 'Wormhole'
+    [CELL.TRI_NW]: 'Mirror \\',
+    [CELL.TRI_NE]: 'Mirror /',
+    [CELL.RAMP]: 'Jump Pad',
+    [CELL.WORMHOLE]: 'Portal',
+    [CELL.VOID]: 'Void',
+    [CELL.SAND]: 'Sand'
 };
 
 const DIRECTIONS = {
@@ -81,9 +88,29 @@ function simulateSlide(grid, startR, startC, dr, dc, goal) {
 
         const cell = grid[nr][nc];
 
-        // 2. Wall — stop in place
+        // 2. Wall — stop in place (don't enter)
         if (cell === CELL.WALL) {
             path.push({ target: { r, c }, distance: 0, status: 'stop' });
+            return path;
+        }
+
+        // 2b. Void — slide in and fall (fatal, like the Abyss)
+        if (cell === CELL.VOID) {
+            path.push({ target: { r: nr, c: nc }, distance: 1, status: 'lost' });
+            return path;
+        }
+
+        // 2c. Sand — friction: enter the cell, then halt
+        if (cell === CELL.SAND) {
+            r = nr; c = nc;
+            const last = path[path.length - 1];
+            if (last && last.status === 'moving' && last.dr === dr && last.dc === dc) {
+                last.target = { r, c };
+                last.distance++;
+                last.status = 'stop';
+            } else {
+                path.push({ target: { r, c }, distance: 1, status: 'stop' });
+            }
             return path;
         }
 
@@ -105,21 +132,36 @@ function simulateSlide(grid, startR, startC, dr, dc, goal) {
             continue;
         }
 
-        // 4. Ramp — jump over next cell
+        // 4. Jump pad — vault the cell immediately after the pad, landing
+        //    two cells beyond the pad. This cleanly leaps over a single wall
+        //    or void gap. (The vaulted cell can be anything.)
         if (cell === CELL.RAMP) {
-            const jr = nr + dr;
-            const jc = nc + dc;
-            path.push({ target: { r: jr, c: jc }, distance: 2, status: 'jump' });
-            r = jr; c = jc;
+            const landR = nr + 2 * dr;
+            const landC = nc + 2 * dc;
+            const landOOB = landR < 0 || landR >= rows || landC < 0 || landC >= cols;
+            const landCell = landOOB ? null : grid[landR][landC];
 
-            // Check win on landing
+            // Can't land on a wall — ride up onto the pad and stop.
+            if (!landOOB && landCell === CELL.WALL) {
+                path.push({ target: { r: nr, c: nc }, distance: 1, status: 'stop' });
+                return path;
+            }
+
+            path.push({ target: { r: landR, c: landC }, distance: 2, status: 'jump' });
+            r = landR; c = landC;
+
             if (r === goal.r && c === goal.c) {
                 path[path.length - 1].status = 'win';
                 return path;
             }
-            // Check bounds on landing
-            if (r < 0 || r >= rows || c < 0 || c >= cols) {
+            // Overshot into the abyss (edge or interior hole) — fatal.
+            if (landOOB || landCell === CELL.VOID) {
                 path[path.length - 1].status = 'lost';
+                return path;
+            }
+            // Landed on sand — friction halts the leap.
+            if (landCell === CELL.SAND) {
+                path[path.length - 1].status = 'stop';
                 return path;
             }
             continue;
@@ -242,9 +284,13 @@ class RoadblocksGame {
         this.onLevelComplete = options.onLevelComplete || null;
         this.onLost = options.onLost || null;
         this.onMove = options.onMove || null;
-        this.cellSize = options.cellSize || 40;
-        this.gap = options.gap || 2;
+        this.cellSize = options.cellSize || 46;
+        this.gap = options.gap || 5;
         this.moveCount = 0;
+
+        this.renderer = new BoardRenderer(containerEl, { cellSize: this.cellSize, gap: this.gap });
+        this.moveQueue = [];
+        this.isProcessingQueue = false;
         this._setupInput();
     }
 
@@ -267,8 +313,8 @@ class RoadblocksGame {
         this.active = true;
         this.isMoving = false;
         this.moveCount = 0;
+        this.moveQueue = [];
 
-        // Find start and goal, clear start marker
         for (let r = 0; r < this.grid.length; r++) {
             for (let c = 0; c < this.grid[0].length; c++) {
                 if (this.grid[r][c] === CELL.START) {
@@ -277,38 +323,37 @@ class RoadblocksGame {
                 }
                 if (this.grid[r][c] === CELL.GOAL) {
                     this.goal = { r, c };
-                    // Keep goal in grid for visual reference but track logically
                 }
             }
         }
 
-        this.render();
+        this.renderer.setGrid(this.grid);
+        this.renderer.setPlayerCell(this.player.r, this.player.c);
     }
 
     // ── Input ──
     _setupInput() {
-        this.moveQueue = [];
-        this.isProcessingQueue = false;
-
         // Keyboard
-        document.addEventListener('keydown', (e) => {
+        if (!RoadblocksGame._keyBound) RoadblocksGame._keyBound = [];
+        const keyHandler = (e) => {
             if (!this.active) return;
             const map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
             if (map[e.key]) {
                 e.preventDefault();
                 this._queueMove(map[e.key]);
             }
-        });
+        };
+        document.addEventListener('keydown', keyHandler);
+
+        const target = this.renderer.canvas;
 
         // Touch
         let startX = 0, startY = 0;
-        this.container.addEventListener('touchstart', (e) => {
+        target.addEventListener('touchstart', (e) => {
             startX = e.changedTouches[0].screenX;
             startY = e.changedTouches[0].screenY;
-            // e.preventDefault(); // Might interfere with scrolling if not on board
         }, { passive: true });
-
-        this.container.addEventListener('touchend', (e) => {
+        target.addEventListener('touchend', (e) => {
             const dx = e.changedTouches[0].screenX - startX;
             const dy = e.changedTouches[0].screenY - startY;
             this._handleInputSwipe(dx, dy);
@@ -316,7 +361,7 @@ class RoadblocksGame {
 
         // Mouse drag
         let dragging = false;
-        this.container.addEventListener('mousedown', (e) => {
+        target.addEventListener('mousedown', (e) => {
             startX = e.screenX; startY = e.screenY; dragging = true;
         });
         window.addEventListener('mouseup', (e) => {
@@ -331,9 +376,9 @@ class RoadblocksGame {
     _handleInputSwipe(dx, dy) {
         if (!this.active) return;
         if (Math.abs(dx) > Math.abs(dy)) {
-            if (Math.abs(dx) > 30) this._queueMove(dx > 0 ? 'right' : 'left');
+            if (Math.abs(dx) > 24) this._queueMove(dx > 0 ? 'right' : 'left');
         } else {
-            if (Math.abs(dy) > 30) this._queueMove(dy > 0 ? 'down' : 'up');
+            if (Math.abs(dy) > 24) this._queueMove(dy > 0 ? 'down' : 'up');
         }
     }
 
@@ -343,228 +388,66 @@ class RoadblocksGame {
         this._processQueue();
     }
 
+    move(dir) { this._queueMove(dir); }
+
     async _processQueue() {
         if (this.isProcessingQueue || this.moveQueue.length === 0) return;
         this.isProcessingQueue = true;
 
-        while (this.moveQueue.length > 0) {
-            if (this.isMoving) {
-                // Wait for current animation to finish
-                await new Promise(resolve => {
-                    this._onMoveCompleteOnce = resolve;
-                });
-            }
-
+        while (this.moveQueue.length > 0 && this.active) {
             const dir = this.moveQueue.shift();
             const { dr, dc } = DIRECTIONS[dir];
             const path = simulateSlide(this.grid, this.player.r, this.player.c, dr, dc, this.goal);
 
-            if (path && path.length > 0 && !(path.length === 1 && path[0].distance === 0 && path[0].status !== 'lost')) {
+            // Ignore no-op moves (immediately blocked by a wall)
+            const noop = path.length === 1 && path[0].distance === 0 && path[0].status === 'stop';
+            if (path && path.length > 0 && !noop) {
                 this.moveCount++;
                 if (this.onMove) this.onMove(dir, this.moveCount);
-                await this._animatePath(path);
-            }
-
-            // Small delay between moves in queue for "intended" feel
-            if (this.moveQueue.length > 0) {
-                await new Promise(r => setTimeout(r, 50));
-            }
-        }
-
-        this.isProcessingQueue = false;
-    }
-
-    // Allow external calls to immediately queue a move
-    move(dir) {
-        this._queueMove(dir);
-    }
-
-    // ── Animation ──
-    async _animatePath(path) {
-        this.isMoving = true;
-        const playerEl = this.container.querySelector('.rb-player');
-        if (!playerEl) {
-            this.isMoving = false;
-            return;
-        }
-
-        for (let i = 0; i < path.length; i++) {
-            const seg = path[i];
-
-            // Timing constants
-            let duration;
-            if (seg.status === 'teleport') duration = 150;
-            else if (seg.status === 'teleport_end') duration = 0;
-            else if (seg.status === 'jump') duration = 120;
-            else if (seg.status === 'reflect') duration = 100;
-            else duration = Math.max(seg.distance * 40, 60);
-
-            if (seg.status === 'teleport') {
-                playerEl.style.transition = 'transform 0.15s ease-in, opacity 0.15s';
-                playerEl.style.opacity = '0';
-                playerEl.style.transform += ' scale(0.1) rotate(90deg)';
-                await new Promise(r => setTimeout(r, 150));
-            } else if (seg.status === 'teleport_end') {
-                playerEl.style.transition = 'none';
-                const { x, y } = this._cellPixel(seg.target.r, seg.target.c);
-                playerEl.style.transform = `translate(${x}px, ${y}px)`;
-                playerEl.getBoundingClientRect(); // reflow
-                playerEl.style.transition = 'transform 0.15s ease-out, opacity 0.15s';
-                playerEl.style.opacity = '1';
-                await new Promise(r => setTimeout(r, 50));
-            } else {
-                playerEl.style.transition = `transform ${duration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)`;
-                playerEl.style.opacity = '1';
-                const { x, y } = this._cellPixel(seg.target.r, seg.target.c);
-                playerEl.style.transform = `translate(${x}px, ${y}px)`;
-                // Wait for this segment to finish
-                await new Promise(r => setTimeout(r, duration));
-            }
-
-            this.player = { r: seg.target.r, c: seg.target.c };
-
-            // If it's the last segment, handle end state
-            if (i === path.length - 1) {
+                this.isMoving = true;
+                const status = await this.renderer.tweenPath(path);
                 this.isMoving = false;
-                this._handleMoveEnd(seg.status);
-                if (this._onMoveCompleteOnce) {
-                    const cb = this._onMoveCompleteOnce;
-                    this._onMoveCompleteOnce = null;
-                    cb();
-                }
+                const last = path[path.length - 1];
+                this.player = { r: last.target.r, c: last.target.c };
+                this._handleMoveEnd(status);
+            }
+            if (this.moveQueue.length > 0) {
+                await new Promise(r => setTimeout(r, 40));
             }
         }
-    }
-
-    _cellPixel(r, c) {
-        const pad = this.gap + 2;
-        return {
-            x: pad + c * (this.cellSize + this.gap),
-            y: pad + r * (this.cellSize + this.gap)
-        };
+        this.isProcessingQueue = false;
     }
 
     _handleMoveEnd(status) {
         if (status === 'lost') {
             this.active = false;
+            this.moveQueue = [];
             if (this.onLost) this.onLost(this.currentLevel);
+            this.renderer.playDeath();
 
-            const playerEl = this.container.querySelector('.rb-player');
-            if (playerEl) {
-                playerEl.style.transition = 'transform 0.5s ease-in, opacity 0.5s';
-                playerEl.style.opacity = '0';
-                playerEl.style.transform += ' scale(0) rotate(180deg)';
-            }
-
-            // Flash effect
             const flash = document.getElementById('flash-screen');
             if (flash) {
                 flash.classList.add('flash-active');
                 setTimeout(() => flash.classList.remove('flash-active'), 600);
             }
-
-            // Shake
             this.container.closest('.glass-panel')?.classList.add('shake');
-            setTimeout(() => {
-                this.container.closest('.glass-panel')?.classList.remove('shake');
-            }, 500);
+            setTimeout(() => this.container.closest('.glass-panel')?.classList.remove('shake'), 500);
 
-            setTimeout(() => this._loadLevel(this.currentLevel), 800);
+            setTimeout(() => this._loadLevel(this.currentLevel), 900);
 
         } else if (status === 'win') {
+            this.active = false;
+            this.moveQueue = [];
+            this.renderer.playWin();
             if (this.currentLevel < this.levels.length - 1) {
-                this.active = false;
                 if (this.onLevelComplete) this.onLevelComplete(this.currentLevel, this.moveCount);
-
-                const playerEl = this.container.querySelector('.rb-player');
-                if (playerEl) {
-                    playerEl.style.transition = 'transform 0.5s ease-in, opacity 0.5s';
-                    playerEl.style.transform += ' scale(0.5)';
-                    playerEl.style.opacity = '0';
-                }
-
                 setTimeout(() => {
                     this.currentLevel++;
                     this._loadLevel(this.currentLevel);
-                }, 800);
+                }, 1000);
             } else {
-                this.active = false;
                 if (this.onWin) this.onWin(this.moveCount);
             }
-        }
-    }
-
-    // ── Rendering ──
-    render() {
-        this.container.innerHTML = '';
-        const rows = this.grid.length;
-        const cols = this.grid[0].length;
-        const sz = this.cellSize;
-        const gap = this.gap;
-
-        this.container.style.display = 'grid';
-        this.container.style.gridTemplateColumns = `repeat(${cols}, ${sz}px)`;
-        this.container.style.gridTemplateRows = `repeat(${rows}, ${sz}px)`;
-        this.container.style.gap = `${gap}px`;
-        this.container.style.width = 'fit-content';
-        this.container.style.padding = `${gap + 2}px`;
-        this.container.style.position = 'relative';
-        this.container.style.margin = '0 auto';
-
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                const cell = document.createElement('div');
-                cell.className = 'rb-cell';
-                cell.style.width = `${sz}px`;
-                cell.style.height = `${sz}px`;
-                cell.style.borderRadius = '4px';
-                cell.style.position = 'relative';
-                cell.dataset.r = r;
-                cell.dataset.c = c;
-
-                const type = this.grid[r][c];
-                this._styleCellType(cell, type);
-
-                // Goal overlay
-                if (r === this.goal.r && c === this.goal.c) {
-                    const goalEl = document.createElement('div');
-                    goalEl.className = 'rb-goal';
-                    cell.appendChild(goalEl);
-                }
-
-                this.container.appendChild(cell);
-            }
-        }
-
-        // Player
-        const playerEl = document.createElement('div');
-        playerEl.className = 'rb-player';
-        this.container.appendChild(playerEl);
-
-        const { x, y } = this._cellPixel(this.player.r, this.player.c);
-        playerEl.style.transform = `translate(${x}px, ${y}px)`;
-    }
-
-    _styleCellType(cell, type) {
-        switch (type) {
-            case CELL.WALL:
-                cell.classList.add('rb-wall');
-                break;
-            case CELL.TRI_NW:
-                cell.classList.add('rb-tri-nw');
-                break;
-            case CELL.TRI_NE:
-                cell.classList.add('rb-tri-ne');
-                break;
-            case CELL.RAMP:
-                cell.classList.add('rb-ramp');
-                break;
-            case CELL.WORMHOLE:
-                cell.classList.add('rb-wormhole');
-                break;
-            default:
-                cell.classList.add('rb-empty');
-                break;
         }
     }
 }

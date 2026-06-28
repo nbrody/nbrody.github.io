@@ -46,10 +46,34 @@ export class KhetRenderer {
         this.laserAnimDuration = 800; // ms
         this.hitFlashProgress = 0;
 
+        this.lastMove = null;      // {from:{col,row}, to:{col,row}}
+        this.previewPath = null;   // faint laser path for the move under the cursor
+        this.now = 0;              // timestamp for idle pulse animations
+
         this.pieceAnimations = []; // {type, piece, startX, startY, endX, endY, startFacing, endFacing, progress}
 
         this.setupCanvas();
         this.bindEvents();
+        this.startIdleLoop();
+    }
+
+    // A light rAF loop that keeps subtle effects (selection pulse, sphinx glow,
+    // move-dot breathing) alive — but only repaints while something is animated,
+    // so an idle board costs nothing.
+    startIdleLoop() {
+        const loop = (t) => {
+            this.now = t;
+            const needsPaint = this.selectedPiece || this.hoverCell ||
+                this.animatingLaser || this.pieceAnimations.length > 0;
+            if (needsPaint) this.render();
+            requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+    }
+
+    setLastMove(squares) {
+        this.lastMove = squares;
+        this.render();
     }
 
     setupCanvas() {
@@ -91,16 +115,37 @@ export class KhetRenderer {
     }
 
     bindEvents() {
-        this.canvas.addEventListener('mousemove', (e) => {
+        // Pointer events cover mouse + touch + pen in one path.
+        this.canvas.addEventListener('pointermove', (e) => {
             const pos = this.getMousePos(e);
-            this.hoverCell = this.pixelToCell(pos.x, pos.y);
-            this.render();
+            const cell = this.pixelToCell(pos.x, pos.y);
+            this.updateHover(cell);
         });
 
-        this.canvas.addEventListener('mouseleave', () => {
-            this.hoverCell = null;
-            this.render();
+        this.canvas.addEventListener('pointerleave', () => {
+            this.updateHover(null);
         });
+    }
+
+    // Update hover cell and recompute the laser preview for the move under it.
+    updateHover(cell) {
+        const changed = (cell?.col) !== (this.hoverCell?.col) || (cell?.row) !== (this.hoverCell?.row);
+        this.hoverCell = cell;
+
+        if (changed) {
+            this.previewPath = null;
+            if (this.selectedPiece && cell) {
+                const move = this.validMoves.find(
+                    m => (m.type === 'move' || m.type === 'swap') && m.toCol === cell.col && m.toRow === cell.row
+                );
+                if (move) {
+                    const g = this.game.clone();
+                    g.applyMove(move);
+                    this.previewPath = g.lastLaserPath;
+                }
+            }
+        }
+        this.render();
     }
 
     // Set click handler (called from main.js)
@@ -121,6 +166,7 @@ export class KhetRenderer {
     clearSelection() {
         this.selectedPiece = null;
         this.validMoves = [];
+        this.previewPath = null;
         this.render();
     }
 
@@ -257,13 +303,33 @@ export class KhetRenderer {
         ctx.fillRect(0, 0, totalWidth, totalHeight);
 
         this.drawBoard();
+        this.drawLastMove();
         this.drawPieces();
         this.drawAnimations();
         this.drawHighlights();
+        if (this.previewPath && !this.animatingLaser) {
+            this.drawLaserPath(this.previewPath, { preview: true });
+        }
         if (this.animatingLaser || this.game.lastLaserPath.length > 0) {
             this.drawLaser();
         }
         this.drawBoardLabels();
+    }
+
+    drawLastMove() {
+        if (!this.lastMove) return;
+        const ctx = this.ctx;
+        const cells = [this.lastMove.from, this.lastMove.to];
+        for (const c of cells) {
+            if (!c) continue;
+            const { x, y } = this.cellToPixel(c.col, c.row);
+            const rx = x - CELL_SIZE / 2, ry = y - CELL_SIZE / 2;
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.10)';
+            ctx.fillRect(rx, ry, CELL_SIZE, CELL_SIZE);
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.35)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(rx + 1.5, ry + 1.5, CELL_SIZE - 3, CELL_SIZE - 3);
+        }
     }
 
     drawBoard() {
@@ -795,13 +861,18 @@ export class KhetRenderer {
             const rx = x - CELL_SIZE / 2;
             const ry = y - CELL_SIZE / 2;
 
+            const pulse = 0.5 + 0.5 * Math.sin(this.now / 250);
             ctx.fillStyle = COLORS.selected;
             ctx.fillRect(rx, ry, CELL_SIZE, CELL_SIZE);
 
-            // Pulsing border
-            ctx.strokeStyle = 'rgba(255, 215, 0, 0.8)';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(rx + 1, ry + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+            // Pulsing glow border
+            ctx.save();
+            ctx.shadowColor = 'rgba(255, 215, 0, 0.8)';
+            ctx.shadowBlur = 6 + pulse * 12;
+            ctx.strokeStyle = `rgba(255, 215, 0, ${0.6 + pulse * 0.4})`;
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(rx + 1.5, ry + 1.5, CELL_SIZE - 3, CELL_SIZE - 3);
+            ctx.restore();
         }
 
         // Valid move targets
@@ -818,83 +889,137 @@ export class KhetRenderer {
                 }
                 ctx.fillRect(rx, ry, CELL_SIZE, CELL_SIZE);
 
-                // Dot indicator
+                // Breathing dot indicator
+                const breathe = 5 + 1.5 * Math.sin(this.now / 220);
                 ctx.beginPath();
-                ctx.arc(x, y, 6, 0, Math.PI * 2);
-                ctx.fillStyle = move.type === 'swap' ? 'rgba(255, 165, 0, 0.6)' : 'rgba(100, 255, 100, 0.6)';
+                ctx.arc(x, y, breathe, 0, Math.PI * 2);
+                ctx.fillStyle = move.type === 'swap' ? 'rgba(255, 165, 0, 0.7)' : 'rgba(120, 255, 120, 0.7)';
                 ctx.fill();
             }
         }
     }
 
     drawLaser() {
-        const ctx = this.ctx;
         const path = this.game.lastLaserPath;
         if (path.length < 2) return;
-
-        const isSilverLaser = this.game.currentPlayer === PLAYER.RED; // Laser was fired by previous player
-        // After applyMove, currentPlayer has switched, so laser belongs to 1 - currentPlayer
+        // After applyMove the turn has switched, so the beam belongs to 1 - currentPlayer.
         const laserPlayer = 1 - this.game.currentPlayer;
-        const laserColor = laserPlayer === PLAYER.SILVER ? COLORS.laserSilver : COLORS.laserRed;
+        const color = laserPlayer === PLAYER.SILVER ? COLORS.laserSilver : COLORS.laserRed;
+        const total = path.length - 1;
+        const reveal = this.animatingLaser ? Math.floor(this.laserProgress * total) + 1 : total;
+        this.drawLaserPath(path, { color, reveal, impact: true });
+    }
 
-        // Calculate total path length in segments
-        const totalSegments = path.length - 1;
-        const animSegments = this.animatingLaser
-            ? Math.floor(this.laserProgress * totalSegments) + 1
-            : totalSegments;
+    /**
+     * Draw a laser beam along `path`.
+     * opts: { color, reveal (segments to show), impact (show explosion), preview (faint dashed) }
+     */
+    drawLaserPath(path, opts = {}) {
+        const ctx = this.ctx;
+        if (!path || path.length < 2) return;
+
+        const preview = !!opts.preview;
+        const laserPlayer = 1 - this.game.currentPlayer;
+        const color = opts.color || (laserPlayer === PLAYER.SILVER ? COLORS.laserSilver : COLORS.laserRed);
+        const reveal = opts.reveal != null ? opts.reveal : path.length - 1;
+
+        // Collect visible points (stop at the edge of the board).
+        const pts = [];
+        for (let i = 0; i < Math.min(reveal + 1, path.length); i++) {
+            const seg = path[i];
+            if (seg.offBoard) break;
+            pts.push({ ...this.cellToPixel(seg.col, seg.row), seg });
+        }
+        if (pts.length < 2) return;
+
+        const tracePolyline = () => {
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+            ctx.stroke();
+        };
 
         ctx.save();
-
-        // Glow effect
-        ctx.shadowColor = laserColor;
-        ctx.shadowBlur = 15;
-        ctx.strokeStyle = laserColor;
-        ctx.lineWidth = 3;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
-        ctx.beginPath();
-        for (let i = 0; i < Math.min(animSegments + 1, path.length); i++) {
-            const segment = path[i];
-            if (segment.offBoard) break;
-
-            const { x, y } = this.cellToPixel(segment.col, segment.row);
-
-            if (i === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
+        if (preview) {
+            // Faint, dashed projection of where the beam would go after this move.
+            ctx.setLineDash([6, 7]);
+            ctx.lineDashOffset = -(this.now / 40) % 13;
+            ctx.strokeStyle = color;
+            ctx.globalAlpha = 0.35;
+            ctx.lineWidth = 3;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 6;
+            tracePolyline();
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 1;
+        } else {
+            const pulse = 0.85 + 0.15 * Math.sin(this.now / 90);
+            // Wide outer glow.
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 22;
+            ctx.strokeStyle = color;
+            ctx.globalAlpha = 0.45 * pulse;
+            ctx.lineWidth = 9;
+            tracePolyline();
+            // Mid beam.
+            ctx.globalAlpha = 0.9;
+            ctx.shadowBlur = 10;
+            ctx.lineWidth = 4;
+            tracePolyline();
+            // Hot white core.
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.6;
+            tracePolyline();
         }
-        ctx.stroke();
 
-        // Draw impact
-        const lastVisible = path[Math.min(animSegments, path.length - 1)];
-        if (lastVisible && lastVisible.hit && (!this.animatingLaser || this.laserProgress >= 0.95)) {
-            const { x, y } = this.cellToPixel(lastVisible.col, lastVisible.row);
-
-            // Explosion effect
-            const explosionR = 20 + (this.hitFlashProgress || 0) * 15;
-            const gradient = ctx.createRadialGradient(x, y, 0, x, y, explosionR);
-            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-            gradient.addColorStop(0.3, laserColor);
-            gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
-
-            ctx.fillStyle = gradient;
+        // Reflection sparkles.
+        ctx.globalAlpha = preview ? 0.5 : 1;
+        for (const p of pts) {
+            if (p.seg.reflectDir === undefined) continue;
+            ctx.fillStyle = preview ? color : 'rgba(255,255,255,0.9)';
             ctx.beginPath();
-            ctx.arc(x, y, explosionR, 0, Math.PI * 2);
+            ctx.arc(p.x, p.y, preview ? 3 : 4.5, 0, Math.PI * 2);
             ctx.fill();
         }
+        ctx.globalAlpha = 1;
 
-        // Draw reflection points
-        for (let i = 0; i < Math.min(animSegments + 1, path.length); i++) {
-            const segment = path[i];
-            if (segment.reflectDir !== undefined) {
-                const { x, y } = this.cellToPixel(segment.col, segment.row);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        const last = pts[pts.length - 1];
+        if (preview && last.seg.hit) {
+            // Target reticle on the piece that would be destroyed.
+            ctx.strokeStyle = '#ff5252';
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.7 + 0.3 * Math.sin(this.now / 150);
+            ctx.beginPath();
+            ctx.arc(last.x, last.y, CELL_SIZE * 0.34, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        } else if (opts.impact && last.seg.hit && (!this.animatingLaser || this.laserProgress >= 0.95)) {
+            // Explosion flash + sparks.
+            const f = this.hitFlashProgress || 0;
+            const explosionR = 18 + f * 22;
+            const grad = ctx.createRadialGradient(last.x, last.y, 0, last.x, last.y, explosionR);
+            grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+            grad.addColorStop(0.3, color);
+            grad.addColorStop(1, 'rgba(255,80,0,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(last.x, last.y, explosionR, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(255,220,150,' + (1 - f) + ')';
+            ctx.lineWidth = 2;
+            for (let k = 0; k < 8; k++) {
+                const a = (k / 8) * Math.PI * 2;
+                const r0 = explosionR * 0.5, r1 = explosionR * (0.9 + f * 0.8);
                 ctx.beginPath();
-                ctx.arc(x, y, 5, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.moveTo(last.x + Math.cos(a) * r0, last.y + Math.sin(a) * r0);
+                ctx.lineTo(last.x + Math.cos(a) * r1, last.y + Math.sin(a) * r1);
+                ctx.stroke();
             }
         }
 

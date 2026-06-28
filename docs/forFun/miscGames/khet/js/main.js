@@ -1,14 +1,15 @@
 // Khet - Main Application
-import { KhetGame, COLS, ROWS, PLAYER, PIECE_TYPE, DIR } from './engine.js';
+import { KhetGame, PLAYER, PIECE_TYPE } from './engine.js';
 import { KhetRenderer } from './renderer.js';
-import { KhetAI } from './ai.js';
-import { KhetNN } from './nn.js';
+import { AIClient } from './ai-client.js';
 
-let game, renderer, ai, nn;
+let game, renderer, aiClient;
 
 let playerSide = PLAYER.SILVER; // Human plays silver by default
 let aiThinking = false;
-let gameMode = 'vs-ai'; // 'vs-ai', 'vs-human'
+let gameMode = 'vs-ai';         // 'vs-ai', 'vs-human'
+let difficulty = 'medium';
+const undoStack = [];           // serialized snapshots taken before each human move
 
 // ========================
 // Initialization
@@ -19,32 +20,28 @@ function init() {
     const canvas = document.getElementById('board');
     renderer = new KhetRenderer(canvas, game);
 
-    const difficulty = document.getElementById('difficulty')?.value || 'medium';
+    difficulty = document.getElementById('difficulty')?.value || 'medium';
 
-    // Load neural network weights
-    nn = new KhetNN();
-    nn.loadWeights('data/khet_weights.json').then(loaded => {
+    // Spin up the AI worker (loads NN weights off-thread).
+    const weightsUrl = new URL('data/khet_weights.json', window.location.href).href;
+    aiClient = new AIClient(weightsUrl);
+    aiClient.ready.then((loaded) => {
         if (loaded) {
             updateStatus('Your turn! Click a piece to select it.');
         } else {
-            updateStatus('AI unavailable — try 2-player mode.');
+            updateStatus('AI weights unavailable — try 2-player mode.');
         }
-        ai = new KhetAI(difficulty, nn);
-    }).catch(() => {
-        updateStatus('⚠️ Could not load neural network — AI unavailable.');
-        ai = new KhetAI(difficulty, null);
+        maybeStartAITurn();
     });
-
-    // Create AI immediately (will be recreated when NN loads)
-    ai = new KhetAI(difficulty, null);
 
     renderer.onClick(handleClick);
 
     // UI bindings
     document.getElementById('newGame')?.addEventListener('click', newGame);
+    document.getElementById('undo')?.addEventListener('click', undoMove);
     document.getElementById('difficulty')?.addEventListener('change', (e) => {
-        ai = new KhetAI(e.target.value, nn);
-        updateStatus('AI difficulty: ' + e.target.value);
+        difficulty = e.target.value;
+        updateStatus('AI difficulty: ' + difficulty);
     });
     document.getElementById('switchSides')?.addEventListener('click', switchSides);
     document.getElementById('modeSelect')?.addEventListener('change', (e) => {
@@ -52,81 +49,65 @@ function init() {
         newGame();
     });
 
-    // Rotate buttons
     document.getElementById('rotateCCW')?.addEventListener('click', () => rotateSelected(-1));
     document.getElementById('rotateCW')?.addEventListener('click', () => rotateSelected(1));
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'q' || e.key === 'Q') {
-            rotateSelected(-1);
-        } else if (e.key === 'e' || e.key === 'E') {
-            rotateSelected(1);
-        } else if (e.key === 'Escape') {
-            renderer.clearSelection();
-            hideRotateControls();
-        } else if (e.key === 'n' || e.key === 'N') {
-            newGame();
-        }
+        if (e.key === 'q' || e.key === 'Q') rotateSelected(-1);
+        else if (e.key === 'e' || e.key === 'E') rotateSelected(1);
+        else if (e.key === 'Escape') { renderer.clearSelection(); hideRotateControls(); }
+        else if (e.key === 'n' || e.key === 'N') newGame();
+        else if ((e.key === 'z' || e.key === 'Z') && !aiThinking) undoMove();
     });
 
     renderer.render();
     updateStatus('Click a piece to select it.');
     updateTurnIndicator();
+    updateUndoButton();
 }
 
 // ========================
 // Game Logic
 // ========================
 
-function handleClick(cell, event) {
-    if (!cell) return;
-    if (aiThinking || game.winner !== null) return;
-    if (gameMode === 'vs-ai' && game.currentPlayer !== playerSide) return;
+function isHumanTurn() {
+    if (game.winner !== null || aiThinking) return false;
+    if (gameMode === 'vs-ai' && game.currentPlayer !== playerSide) return false;
+    return true;
+}
+
+function handleClick(cell) {
+    if (!cell || !isHumanTurn()) return;
 
     const { col, row } = cell;
     const piece = game.getAt(col, row);
 
     if (renderer.selectedPiece) {
-        // Check if clicking on a valid move target
         const validMoveTarget = renderer.validMoves.find(
             m => (m.type === 'move' || m.type === 'swap') && m.toCol === col && m.toRow === row
         );
+        if (validMoveTarget) { executeMove(validMoveTarget); return; }
 
-        if (validMoveTarget) {
-            executeMove(validMoveTarget);
-            return;
-        }
-
-        // Check if clicking on the same piece (deselect)
+        // Click same piece → deselect
         if (renderer.selectedPiece.col === col && renderer.selectedPiece.row === row) {
             renderer.clearSelection();
             hideRotateControls();
             return;
         }
-
-        // Check if clicking on own piece (reselect)
-        if (piece && piece.player === game.currentPlayer) {
-            selectPiece(col, row);
-            return;
-        }
+        // Click own piece → reselect
+        if (piece && piece.player === game.currentPlayer) { selectPiece(col, row); return; }
 
         renderer.clearSelection();
         hideRotateControls();
         return;
     }
 
-    // Select a piece
-    if (piece && piece.player === game.currentPlayer) {
-        selectPiece(col, row);
-    }
+    if (piece && piece.player === game.currentPlayer) selectPiece(col, row);
 }
 
 function selectPiece(col, row) {
-    const moves = game.getLegalMoves();
-    const pieceMoves = moves.filter(m => m.col === col && m.row === row);
-
-    // Filter to show movement targets (not rotations in the valid moves display)
+    const pieceMoves = game.getLegalMoves().filter(m => m.col === col && m.row === row);
     const movementMoves = pieceMoves.filter(m => m.type === 'move' || m.type === 'swap');
     const hasRotation = pieceMoves.some(m => m.type === 'rotate');
 
@@ -159,109 +140,49 @@ function showRotateControls(pieceName, canRotate) {
 }
 
 function hideRotateControls() {
-    const el = document.getElementById('rotateControls');
-    if (el) el.classList.add('hidden');
-}
-
-// ========================
-// Audio System
-// ========================
-
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-function playSound(type) {
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-
-    const now = audioCtx.currentTime;
-
-    if (type === 'move') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(440, now);
-        osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        osc.start(now);
-        osc.stop(now + 0.1);
-    } else if (type === 'rotate') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(330, now);
-        osc.frequency.exponentialRampToValueAtTime(220, now + 0.1);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        osc.start(now);
-        osc.stop(now + 0.1);
-    } else if (type === 'laser') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(110, now);
-        osc.frequency.exponentialRampToValueAtTime(10, now + 0.5);
-        gain.gain.setValueAtTime(0.05, now);
-        gain.gain.linearRampToValueAtTime(0, now + 0.5);
-        osc.start(now);
-        osc.stop(now + 0.5);
-    } else if (type === 'win') {
-        osc.type = 'square';
-        [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
-            const o = audioCtx.createOscillator();
-            const g = audioCtx.createGain();
-            o.type = 'square';
-            o.connect(g);
-            g.connect(audioCtx.destination);
-            o.frequency.setValueAtTime(freq, now + i * 0.1);
-            g.gain.setValueAtTime(0.1, now + i * 0.1);
-            g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.3);
-            o.start(now + i * 0.1);
-            o.stop(now + i * 0.1 + 0.3);
-        });
-    }
+    document.getElementById('rotateControls')?.classList.add('hidden');
 }
 
 function rotateSelected(dir) {
-    if (!renderer.selectedPiece) return;
-    if (aiThinking || game.winner !== null) return;
-    if (gameMode === 'vs-ai' && game.currentPlayer !== playerSide) return;
+    if (!renderer.selectedPiece || !isHumanTurn()) return;
 
     const { col, row } = renderer.selectedPiece;
     const moves = game.getLegalMoves();
 
-    // Find a rotation move for this piece
     let rotateMove = moves.find(
         m => m.type === 'rotate' && m.col === col && m.row === row && m.dir === dir
     );
-
-    // If no dir-based move, check for fixed facing moves (Sphinx)
     if (!rotateMove) {
         rotateMove = moves.find(
             m => m.type === 'rotate' && m.col === col && m.row === row && m.toFacing !== undefined
         );
     }
-
-    if (rotateMove) {
-        playSound('rotate');
-        executeMove(rotateMove);
-    }
+    if (rotateMove) executeMove(rotateMove);
 }
 
+function moveSquares(move) {
+    return {
+        from: { col: move.col, row: move.row },
+        to: { col: move.toCol ?? move.col, row: move.toRow ?? move.row },
+    };
+}
+
+// ---- A full human action: animate piece, fire laser, then let the AI reply ----
 async function executeMove(move) {
-    if (move.type === 'move' || move.type === 'swap') {
-        playSound('move');
-    }
+    // Snapshot so this whole round (human + AI reply) can be undone.
+    undoStack.push(game.serialize());
+    updateUndoButton();
+
+    if (move.type === 'move' || move.type === 'swap') playSound('move');
+    else playSound('rotate');
+
     renderer.clearSelection();
     hideRotateControls();
 
-    // Animate the piece moving/rotating physically call this BEFORE applying to engine
     await renderer.animatePiece(move);
-
     game.applyMove(move);
+    renderer.setLastMove(moveSquares(move));
 
-    // Animate laser
     const laserPromise = renderer.animateLaser();
     playSound('laser');
     await laserPromise;
@@ -269,54 +190,130 @@ async function executeMove(move) {
     game.resolveLaserHit();
     renderer.render();
 
-    if (game.winner !== null) {
-        playSound('win');
-        const winnerName = game.winner === PLAYER.SILVER ? 'Silver' : 'Red';
-        updateStatus(`🎉 ${winnerName} wins!`);
-        updateTurnIndicator();
-        showWinOverlay(winnerName);
+    if (checkGameOver()) return;
+
+    updateTurnIndicator();
+    await maybeStartAITurn();
+}
+
+async function maybeStartAITurn() {
+    if (gameMode !== 'vs-ai' || game.winner !== null) {
+        if (game.winner === null) {
+            const name = game.currentPlayer === PLAYER.SILVER ? 'Silver' : 'Red';
+            updateStatus(`${name}'s turn`);
+        }
+        return;
+    }
+    if (game.currentPlayer === playerSide) {
+        updateStatus('Your turn!');
         return;
     }
 
+    aiThinking = true;
+    updateUndoButton();
+    showThinking(true);
+
+    await aiClient.ready;
+    const move = await aiClient.chooseMove(game, difficulty, ({ iterations, total }) => {
+        setThinkingProgress(iterations / total);
+    });
+
+    if (move) {
+        if (move.type === 'rotate') playSound('rotate'); else playSound('move');
+        game.applyMove(move);
+        renderer.setLastMove(moveSquares(move));
+        const laserPromise = renderer.animateLaser();
+        playSound('laser');
+        await laserPromise;
+        game.resolveLaserHit();
+        renderer.render();
+    }
+
+    aiThinking = false;
+    showThinking(false);
+    updateUndoButton();
+
+    if (checkGameOver()) return;
+    updateStatus('Your turn!');
     updateTurnIndicator();
+}
 
-    // AI move
-    if (gameMode === 'vs-ai' && game.currentPlayer !== playerSide) {
-        aiThinking = true;
-        updateStatus('AI is thinking...');
+function checkGameOver() {
+    if (game.winner === null) return false;
+    playSound('win');
+    const winnerName = game.winner === PLAYER.SILVER ? 'Silver' : 'Red';
+    updateStatus(`🎉 ${winnerName} wins!`);
+    updateTurnIndicator();
+    showWinOverlay(winnerName);
+    return true;
+}
 
-        // Small delay so the UI updates
-        await new Promise(r => setTimeout(r, 100));
+function undoMove() {
+    if (aiThinking || undoStack.length === 0) return;
+    const snapshot = undoStack.pop();
+    game = KhetGame.fromSerialized(snapshot);
+    renderer.game = game;
+    renderer.clearSelection();
+    renderer.setLastMove(null);
+    hideRotateControls();
+    renderer.render();
+    updateTurnIndicator();
+    updateUndoButton();
+    updateStatus('Move undone — your turn.');
+}
 
-        const aiMove = ai.chooseMove(game);
-        if (aiMove) {
-            if (aiMove.type === 'move' || aiMove.type === 'swap') playSound('move');
-            if (aiMove.type === 'rotate') playSound('rotate');
+// ========================
+// Audio System
+// ========================
 
-            game.applyMove(aiMove);
-            const laserPromise = renderer.animateLaser();
-            playSound('laser');
-            await laserPromise;
-            game.resolveLaserHit();
-            renderer.render();
+let audioCtx = null;
+function getAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+}
 
-            if (game.winner !== null) {
-                playSound('win');
-                const winnerName = game.winner === PLAYER.SILVER ? 'Silver' : 'Red';
-                updateStatus(`🎉 ${winnerName} wins!`);
-                updateTurnIndicator();
-                showWinOverlay(winnerName);
-                aiThinking = false;
-                return;
-            }
-        }
+function playSound(type) {
+    const ctx = getAudio();
+    if (ctx.state === 'suspended') ctx.resume();
 
-        aiThinking = false;
-        updateStatus('Your turn!');
-        updateTurnIndicator();
-    } else {
-        const playerName = game.currentPlayer === PLAYER.SILVER ? 'Silver' : 'Red';
-        updateStatus(`${playerName}'s turn`);
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'move') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now); osc.stop(now + 0.1);
+    } else if (type === 'rotate') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(330, now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + 0.1);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now); osc.stop(now + 0.1);
+    } else if (type === 'laser') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.5);
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.5);
+        osc.start(now); osc.stop(now + 0.5);
+    } else if (type === 'win') {
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = 'square';
+            o.connect(g); g.connect(ctx.destination);
+            o.frequency.setValueAtTime(freq, now + i * 0.1);
+            g.gain.setValueAtTime(0.1, now + i * 0.1);
+            g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.3);
+            o.start(now + i * 0.1); o.stop(now + i * 0.1 + 0.3);
+        });
     }
 }
 
@@ -332,7 +329,6 @@ function updateStatus(text) {
 function updateTurnIndicator() {
     const indicator = document.getElementById('turnIndicator');
     if (!indicator) return;
-
     if (game.winner !== null) {
         indicator.className = 'turn-indicator ' + (game.winner === PLAYER.SILVER ? 'silver' : 'red');
         indicator.textContent = (game.winner === PLAYER.SILVER ? 'Silver' : 'Red') + ' Wins!';
@@ -340,6 +336,25 @@ function updateTurnIndicator() {
         indicator.className = 'turn-indicator ' + (game.currentPlayer === PLAYER.SILVER ? 'silver' : 'red');
         indicator.textContent = (game.currentPlayer === PLAYER.SILVER ? 'Silver' : 'Red') + "'s Turn";
     }
+}
+
+function updateUndoButton() {
+    const btn = document.getElementById('undo');
+    if (btn) btn.disabled = aiThinking || undoStack.length === 0;
+}
+
+function showThinking(on) {
+    const el = document.getElementById('thinking');
+    if (el) el.classList.toggle('visible', on);
+    if (on) {
+        setThinkingProgress(0);
+        updateStatus('AI is thinking…');
+    }
+}
+
+function setThinkingProgress(frac) {
+    const bar = document.getElementById('thinkingBar');
+    if (bar) bar.style.width = Math.round(Math.min(1, Math.max(0, frac)) * 100) + '%';
 }
 
 function showWinOverlay(winner) {
@@ -352,38 +367,23 @@ function showWinOverlay(winner) {
 }
 
 function newGame() {
-    const overlay = document.getElementById('winOverlay');
-    if (overlay) overlay.classList.remove('visible');
+    document.getElementById('winOverlay')?.classList.remove('visible');
 
     game = new KhetGame();
     renderer.game = game;
     renderer.clearSelection();
+    renderer.setLastMove(null);
+    hideRotateControls();
     renderer.render();
     aiThinking = false;
+    undoStack.length = 0;
+    showThinking(false);
 
     updateTurnIndicator();
+    updateUndoButton();
 
-    if (gameMode === 'vs-ai' && game.currentPlayer !== playerSide) {
-        // AI goes first
-        setTimeout(async () => {
-            aiThinking = true;
-            updateStatus('AI is thinking...');
-            await new Promise(r => setTimeout(r, 100));
-
-            const aiMove = ai.chooseMove(game);
-            if (aiMove) {
-                game.applyMove(aiMove);
-                await renderer.animateLaser();
-                game.resolveLaserHit();
-                renderer.render();
-            }
-            aiThinking = false;
-            updateStatus('Your turn!');
-            updateTurnIndicator();
-        }, 300);
-    } else {
-        updateStatus('Your turn! Click a piece to select it.');
-    }
+    maybeStartAITurn();
+    if (isHumanTurn()) updateStatus('Your turn! Click a piece to select it.');
 }
 
 function switchSides() {

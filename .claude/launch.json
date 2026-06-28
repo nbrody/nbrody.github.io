@@ -75,6 +75,16 @@
       "port": 8094
     },
     {
+      "name": "roadblocks",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/forFun/miscGames/Roadblocks && exec python3 -m http.server $PORT"
+      ],
+      "port": 8131,
+      "autoPort": true
+    },
+    {
       "name": "penrose",
       "runtimeExecutable": "bash",
       "runtimeArgs": [
@@ -339,6 +349,16 @@
       ],
       "port": 8750,
       "openPath": "/docs/forFun/justTheGoodShit/"
+    },
+    {
+      "name": "khet",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8751), H).serve_forever()'"
+      ],
+      "port": 8751,
+      "openPath": "/docs/forFun/miscGames/khet/"
     }
   ]
 }

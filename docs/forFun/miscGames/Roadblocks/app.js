@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     LEVEL_PACK.forEach((_, i) => {
         const opt = document.createElement('option');
         opt.value = i;
-        opt.textContent = `Level ${i + 1}`;
+        opt.textContent = `${i + 1}. ${getLevelName(i)}`;
         levelSelect.appendChild(opt);
     });
 
@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function updateLevelUI(idx) {
-        levelTitle.textContent = `Level ${idx + 1}`;
+        levelTitle.textContent = `${idx + 1}. ${getLevelName(idx)}`;
         tierBadge.textContent = getTierName(idx);
         levelSelect.value = idx;
         moveCounter.textContent = 'Moves: 0';
@@ -116,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Actions
     document.getElementById('btn-fill-border').addEventListener('click', () => creator.fillBorder());
     document.getElementById('btn-clear').addEventListener('click', () => creator.clear());
+    document.getElementById('btn-generate').addEventListener('click', () => creator.generate());
 
     // Export
     document.getElementById('btn-export').addEventListener('click', () => {
@@ -238,14 +239,14 @@ document.addEventListener('DOMContentLoaded', () => {
     LEVEL_PACK.forEach((_, i) => {
         const opt = document.createElement('option');
         opt.value = i;
-        opt.textContent = `Level ${i + 1}`;
+        opt.textContent = `${i + 1}. ${getLevelName(i)}`;
         solverLevelSelect.appendChild(opt);
     });
 
     solverLevelSelect.addEventListener('change', () => {
         const idx = parseInt(solverLevelSelect.value);
         solver.loadLevelByIndex(idx);
-        solverLevelTitle.textContent = `Level ${idx + 1}`;
+        solverLevelTitle.textContent = `${idx + 1}. ${getLevelName(idx)}`;
     });
 
     // Load first level
@@ -281,16 +282,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Custom level solve
     document.getElementById('btn-solve-custom').addEventListener('click', () => {
         const input = document.getElementById('custom-level-input').value.trim();
-        try {
-            const grid = JSON.parse(input);
-            if (Array.isArray(grid) && grid.length > 0 && Array.isArray(grid[0])) {
-                solver.loadLevel(grid);
-                solverLevelTitle.textContent = 'Custom Level';
-            } else {
-                alert('Invalid format. Expected a 2D array.');
-            }
-        } catch (e) {
-            alert('Invalid JSON. Check your syntax.');
+        if (!input) return;
+        let grid = null;
+        if (input[0] === '[') {
+            try {
+                const parsed = JSON.parse(input);
+                if (Array.isArray(parsed) && parsed.length > 0 && Array.isArray(parsed[0])) grid = parsed;
+            } catch (e) { /* fall through */ }
+        } else {
+            grid = parseLevel(input.split('\n'));
+        }
+        if (grid) {
+            solver.loadLevel(grid);
+            solverLevelTitle.textContent = 'Custom Level';
+        } else {
+            alert('Invalid level. Paste ASCII art (one row per line) or a JSON 2D array.');
         }
     });
 });

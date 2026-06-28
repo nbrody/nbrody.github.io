@@ -32,7 +32,30 @@ export class KhetAI {
             hard: 2000,
             brutal: 5000
         }[difficulty] || 800;
+        // Wall-clock ceiling per move (ms) so high difficulties stay responsive.
+        this.maxThinkMs = {
+            easy: 600,
+            medium: 1500,
+            hard: 3500,
+            brutal: 7000
+        }[difficulty] || 1500;
         this.nn = nn;
+        // Transposition cache of NN evaluations, keyed by position hash.
+        // Cleared each move so it never grows unbounded.
+        this.evalCache = new Map();
+        // Optional progress hook: ({ iterations, total }) => void
+        this.onProgress = null;
+    }
+
+    /** NN evaluation with a per-move cache. Returns { value, policy }. */
+    _evaluate(game) {
+        const key = game.getHash() + '#' + (game.ply || 0);
+        let cached = this.evalCache.get(key);
+        if (cached) return cached;
+        const tensor = this.nn.encodeBoard(game);
+        cached = this.nn.forward(tensor);
+        this.evalCache.set(key, cached);
+        return cached;
     }
 
     // ========================
@@ -44,6 +67,8 @@ export class KhetAI {
             console.warn('Neural network not loaded — cannot choose move');
             return null;
         }
+
+        this.evalCache.clear();
 
         const moves = game.getLegalMoves();
         if (moves.length === 0) return null;
@@ -85,10 +110,19 @@ export class KhetAI {
         const rootNode = new MCTSNode(null, null, game.currentPlayer);
         this._expandWithNN(rootNode, game, searchMoves);
 
-        for (let i = 0; i < this.mctsIterations; i++) {
+        const deadline = (typeof performance !== 'undefined' ? performance.now() : Date.now()) + this.maxThinkMs;
+        const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+        let i = 0;
+        for (; i < this.mctsIterations; i++) {
             const gameCopy = game.clone();
             this.mctsIteration(rootNode, gameCopy, searchMoves);
+            // Check the clock every 32 iterations to bound per-move latency.
+            if ((i & 31) === 0) {
+                if (this.onProgress) this.onProgress({ iterations: i, total: this.mctsIterations });
+                if (now() > deadline) { i++; break; }
+            }
         }
+        if (this.onProgress) this.onProgress({ iterations: i, total: this.mctsIterations });
 
         // Select best move by visit count
         let bestVisits = -1;
@@ -145,8 +179,7 @@ export class KhetAI {
         if (game.winner !== null) {
             score = game.winner === rootNode.player ? 1.0 : 0.0;
         } else {
-            const boardTensor = this.nn.encodeBoard(game);
-            const { value } = this.nn.forward(boardTensor);
+            const { value } = this._evaluate(game);
             // value is from current player's perspective — convert to root's perspective
             if (game.currentPlayer === rootNode.player) {
                 score = (value + 1) / 2; // Map [-1,1] to [0,1]
@@ -167,8 +200,7 @@ export class KhetAI {
         if (moves.length === 0) return;
 
         // Get NN policy priors
-        const boardTensor = this.nn.encodeBoard(game);
-        const { policy } = this.nn.forward(boardTensor);
+        const { policy } = this._evaluate(game);
 
         // Extract priors for legal moves
         let priors = [];
