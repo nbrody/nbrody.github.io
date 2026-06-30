@@ -9,7 +9,7 @@ import { vizById } from './manifest.js';
 import { createTransport } from './transport.js';
 import { CMD, EVT } from './protocol.js';
 import { renderControls } from './controlsView.js';
-import { qs, el, clear, params, clock } from './util.js';
+import { qs, el, clear, params, studioQuery, clock } from './util.js';
 
 const transport = createTransport({ role: 'remote' });
 const p = params();
@@ -103,8 +103,11 @@ qs('#uReload').onclick = () => dispatch(CMD.RELOAD);
 qs('#uFs').onclick = () => dispatch(CMD.FULLSCREEN);
 
 qs('#openStageBtn').onclick = () => {
-  const q = p.pl ? `?pl=${encodeURIComponent(p.pl)}` : '';
-  window.open(`stage.html${q}`, 'graphics-stage');
+  const launch = {};
+  if (p.pl) launch.pl = p.pl;
+  else if (p.viz) launch.viz = p.viz;
+  else if (p.all != null) launch.all = p.all;
+  window.open(`stage.html${studioQuery(launch)}`, 'graphics-stage');
 };
 
 // ── boot ─────────────────────────────────────────────────────────────────────

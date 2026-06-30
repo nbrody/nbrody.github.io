@@ -40,6 +40,23 @@ export function params() {
   return Object.fromEntries(new URLSearchParams(location.search));
 }
 
+/** Build a query string while preserving transport pairing params. */
+export function studioQuery(extra = {}) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(extra)) {
+    if (value == null || value === false) continue;
+    search.set(key, String(value));
+  }
+
+  const current = new URLSearchParams(location.search);
+  for (const key of ['transport', 'room']) {
+    if (!search.has(key) && current.has(key)) search.set(key, current.get(key));
+  }
+
+  const query = search.toString();
+  return query ? `?${query}` : '';
+}
+
 /** Short, sortable-ish unique id. */
 export function uid(prefix = 'id') {
   const rand = Math.random().toString(36).slice(2, 8);
