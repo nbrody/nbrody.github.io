@@ -5,7 +5,7 @@
   window.__commonLibsInjected = true;
 
   const libs = [
-    "https://polyfill.io/v3/polyfill.min.js?features=es6",
+    "https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6",
     "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js",
     "https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.2/math.min.js",
     "https://cdnjs.cloudflare.com/ajax/libs/three.js/r153/three.min.js",
