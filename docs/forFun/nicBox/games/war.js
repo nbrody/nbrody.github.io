@@ -52,6 +52,11 @@ class WarGame {
         this.playerIds.forEach((pid, idx) => {
             this.decks[pid] = deck.slice(idx * perPlayer, (idx + 1) * perPlayer);
         });
+
+        // Never schedule more rounds than the shortest hand. With 4 players,
+        // each gets 13 cards, so a fixed 15-round game stalls forever once
+        // decks empty (plays are ignored and reveal never fires).
+        this.maxRounds = Math.min(this.maxRounds, perPlayer);
     }
 
     render() {
