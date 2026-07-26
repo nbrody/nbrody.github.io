@@ -109,10 +109,12 @@ function testDoubleSubmitDoesNotDeletePieceOrDoubleScore() {
     const handler = ctx.__getActionHandler();
     assert.ok(handler, 'move listener must be attached');
 
-    // Craft a capture for red (player 0): black piece at (4,3), red at (5,2), empty (3,4)
+    // Craft a capture for red (player 0): black piece at (4,3), red at (5,2), empty (3,4).
+    // Keep a second black piece so this capture alone does not trigger win scoring.
     game.board = Array(8).fill(null).map(() => Array(8).fill(0));
     game.board[5][2] = 1; // red
     game.board[4][3] = 2; // black (to capture)
+    game.board[0][1] = 2; // surviving black piece
     game.currentTurnIndex = 0;
     game.movePending = false;
     game.availableMoves = [{
