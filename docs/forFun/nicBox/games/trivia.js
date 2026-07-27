@@ -12,6 +12,8 @@ class TriviaGame {
         this.timeLeft = 20;
         this.answers = {};
         this.listeners = [];
+        this.pendingTimeouts = [];
+        this.dead = false;
 
         // Trivia question bank
         this.questions = [
@@ -114,6 +116,16 @@ class TriviaGame {
         this.init();
     }
 
+    schedule(fn, ms) {
+        const id = setTimeout(() => {
+            this.pendingTimeouts = this.pendingTimeouts.filter(t => t !== id);
+            if (this.dead) return;
+            fn();
+        }, ms);
+        this.pendingTimeouts.push(id);
+        return id;
+    }
+
     init() {
         this.render();
         this.listenForAnswers();
@@ -144,6 +156,7 @@ class TriviaGame {
     }
 
     showQuestion() {
+        if (this.dead) return;
         if (this.currentQuestionIndex >= this.totalQuestions) {
             this.endTrivia();
             return;
@@ -159,12 +172,18 @@ class TriviaGame {
         });
 
         // Update UI
-        document.getElementById('trivia-progress').textContent =
-            `Question ${this.currentQuestionIndex + 1} / ${this.totalQuestions}`;
-        document.getElementById('trivia-category').textContent = q.category;
-        document.getElementById('trivia-text').textContent = q.question;
-
+        const progressEl = document.getElementById('trivia-progress');
+        const categoryEl = document.getElementById('trivia-category');
+        const textEl = document.getElementById('trivia-text');
         const answersEl = document.getElementById('trivia-answers');
+        const tallyEl = document.getElementById('answer-tally');
+        if (!progressEl || !categoryEl || !textEl || !answersEl) return;
+
+        progressEl.textContent =
+            `Question ${this.currentQuestionIndex + 1} / ${this.totalQuestions}`;
+        categoryEl.textContent = q.category;
+        textEl.textContent = q.question;
+
         const labels = ['A', 'B', 'C', 'D'];
         answersEl.innerHTML = q.answers.map((a, i) => `
             <div class="trivia-answer-btn" id="trivia-ans-${i}">
@@ -173,7 +192,7 @@ class TriviaGame {
             </div>
         `).join('');
 
-        document.getElementById('answer-tally').innerHTML = '';
+        if (tallyEl) tallyEl.innerHTML = '';
 
         // Start timer
         this.timeLeft = 20;
@@ -219,7 +238,7 @@ class TriviaGame {
                 // Check if all players answered
                 if (Object.keys(this.answers).length >= Object.keys(this.players).length) {
                     clearInterval(this.timer);
-                    setTimeout(() => this.revealAnswer(), 500);
+                    this.schedule(() => this.revealAnswer(), 500);
                 }
             }
         });
@@ -259,6 +278,7 @@ class TriviaGame {
     }
 
     revealAnswer() {
+        if (this.dead) return;
         const q = this.questions[this.currentQuestionIndex];
         const correct = q.correct;
 
@@ -296,7 +316,7 @@ class TriviaGame {
         renderScoreboard();
 
         // Clear actions for next question
-        setTimeout(() => {
+        this.schedule(() => {
             getRoomRef(this.roomCode).child('gameState/actions').remove();
             this.currentQuestionIndex++;
             this.showQuestion();
@@ -309,7 +329,10 @@ class TriviaGame {
     }
 
     cleanup() {
+        this.dead = true;
         if (this.timer) clearInterval(this.timer);
+        this.pendingTimeouts.forEach(clearTimeout);
+        this.pendingTimeouts = [];
         this.listeners.forEach(l => l.ref.off(l.event));
         this.listeners = [];
     }
