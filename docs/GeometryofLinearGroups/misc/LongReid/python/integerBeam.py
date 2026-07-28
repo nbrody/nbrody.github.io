@@ -37,7 +37,7 @@ import time
 from magnusCore import (
     NumberField, SYMS, INV, magnus_generators, mat_mul, mat_identity,
     matrix_is_integral, integral_entries, matrix_score, make_record,
-    load_db, save_db, field_entry, merge_records, parse_poly, poly_str,
+    update_db, field_entry, merge_records, parse_poly, poly_str,
 )
 
 
@@ -100,10 +100,11 @@ def main():
     ap.add_argument('--no-save', action='store_true')
     args = ap.parse_args()
 
-    db = load_db()
+    pending = []
     for p in args.poly:
         coeffs = parse_poly(p)
-        K = NumberField(coeffs, args.label if len(args.poly) == 1 else None)
+        label = args.label if len(args.poly) == 1 else None
+        K = NumberField(coeffs, label)
         print(f'== beam at {poly_str(coeffs)} '
               f'(depth {args.depth}, width {args.width}, {args.score})')
         records, stats = beam_search(K, args.depth, args.width, args.score)
@@ -113,17 +114,20 @@ def main():
         for r in sorted(inf, key=lambda r: r['length'])[:8]:
             print(f"     {r['word']}  ->  {r['matrix']}  "
                   f"tr={r['trace']} det={r['det']}")
-        if not args.no_save:
-            entry = field_entry(db, K, args.label if len(args.poly) == 1
-                                else None)
-            merge_records(entry, records, cap=args.cap)
-            bs = entry['search'].setdefault('beam', [])
-            bs.append(stats)
-            if not records and entry['status'] == 'unsearched':
-                entry['status'] = 'none_found'
+        pending.append((coeffs, label, records, stats))
 
     if not args.no_save:
-        path = save_db(db, time.strftime('%Y-%m-%d'))
+        def apply(db):
+            for coeffs, label, records, stats in pending:
+                K = NumberField(coeffs, label)
+                entry = field_entry(db, K, label)
+                merge_records(entry, records, cap=args.cap)
+                bs = entry['search'].setdefault('beam', [])
+                bs.append(stats)
+                if not records and entry['status'] == 'unsearched':
+                    entry['status'] = 'none_found'
+
+        path = update_db(apply, time.strftime('%Y-%m-%d'))
         print('wrote', path)
 
 
