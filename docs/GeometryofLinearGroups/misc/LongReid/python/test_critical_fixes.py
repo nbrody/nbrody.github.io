@@ -48,11 +48,13 @@ class ConcurrentDbUpdate(unittest.TestCase):
                 barrier = threading.Barrier(2)
                 errors = []
 
-                def writer(key, delay):
+                def writer(key):
                     try:
+                        barrier.wait(timeout=5)
+
                         def apply(db):
-                            barrier.wait(timeout=5)
-                            time.sleep(delay)  # force overlapping mutate windows
+                            # Hold the lock briefly so the other writer queues.
+                            time.sleep(0.05)
                             db['fields'][key] = {
                                 'minpoly': [0, 1],
                                 'label': key,
@@ -65,8 +67,8 @@ class ConcurrentDbUpdate(unittest.TestCase):
                     except Exception as exc:  # pragma: no cover - surface in assert
                         errors.append(exc)
 
-                t1 = threading.Thread(target=writer, args=('field-A', 0.05))
-                t2 = threading.Thread(target=writer, args=('field-B', 0.05))
+                t1 = threading.Thread(target=writer, args=('field-A',))
+                t2 = threading.Thread(target=writer, args=('field-B',))
                 t1.start(); t2.start()
                 t1.join(timeout=10); t2.join(timeout=10)
 
