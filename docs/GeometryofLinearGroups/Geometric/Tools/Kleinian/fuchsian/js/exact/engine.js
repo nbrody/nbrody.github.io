@@ -28,10 +28,13 @@ function invLabel(i) { return i < 26 ? ALPHA[i].toUpperCase() : `g${i + 1}⁻¹`
 function babs(x) { return x < 0n ? -x : x; }
 function bmax4(a, b, c, d) { let m = babs(a); for (const x of [b, c, d]) { const v = babs(x); if (v > m) m = v; } return m; }
 function perfectSqrt(n) {            // exact integer sqrt or null
+    // Must not use Math.sqrt(Number(n)): for |n| ≳ 2^53 the float seed can
+    // overshoot by ~2^{bits/2-53}, and the linear `while (x*x>n) x--` then
+    // freezes the UI; for |n| ≳ 2^1024, Number(n) is Infinity and BigInt() throws.
     if (n < 0n) return null;
     if (n < 2n) return n;
-    let x = BigInt(Math.floor(Math.sqrt(Number(n)))) + 2n;
-    while (x * x > n) x--;
+    let x = n, y = (x + 1n) / 2n;
+    while (y < x) { x = y; y = (x + n / x) / 2n; }
     return x * x === n ? x : null;
 }
 function factorize(n) {              // n: positive BigInt → Map<bigint,int>
