@@ -8,38 +8,7 @@
 // mod q^n, n = v_q(N).
 
 import { qnorm, primitive, vP } from "./quaternion.js";
-
-function modpow(base, exp, mod) {
-  base %= mod; let r = 1n;
-  while (exp > 0n) { if (exp & 1n) r = (r*base) % mod; base = (base*base) % mod; exp >>= 1n; }
-  return r;
-}
-function modinv(a, m) {
-  let [old_r, r] = [((a % m) + m) % m, m];
-  let [old_s, s] = [1n, 0n];
-  while (r !== 0n) { const qq = old_r / r; [old_r, r] = [r, old_r - qq*r]; [old_s, s] = [s, old_s - qq*s]; }
-  return ((old_s % m) + m) % m;
-}
-// sqrt of a (a a QR) modulo q^M, q odd prime, via sqrt mod q + Hensel.
-function sqrtModPrime(a, q) {
-  a = ((a % q) + q) % q;
-  if (a === 0n) return 0n;
-  for (let r = 1n; r < q; r++) if ((r*r) % q === a) return r;
-  return null;
-}
-function sqrtModPrimePower(a, q, M) {
-  const mod = q ** BigInt(M);
-  let r = sqrtModPrime(a, q);
-  if (r === null) return null;
-  let cur = q;
-  while (cur < mod) {
-    cur *= cur; if (cur > mod) cur = mod;
-    // Newton: r -> r - (r^2 - a) / (2r)
-    const inv2r = modinv((2n*r) % cur, cur);
-    r = (((r - ((r*r - a) % cur) * inv2r) % cur) + cur) % cur;
-  }
-  return r;
-}
+import { modinv, sqrtModPrimePower } from "./numbertheory.js";
 
 export class PrimeTree {
   constructor(q, precision = 30) {

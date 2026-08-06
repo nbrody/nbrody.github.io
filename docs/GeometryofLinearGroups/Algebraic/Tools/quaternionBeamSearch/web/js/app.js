@@ -1,38 +1,19 @@
 // UI controller for the quaternion beam-search tool.
 import { qmul, keyOf } from "./quaternion.js";
-
-// ---- number theory helpers ------------------------------------------------
-function isqrt(n) { if (n < 2n) return n; let x = n, y = (x + 1n) / 2n; while (y < x) { x = y; y = (x + n / x) / 2n; } return x; }
-function isPrime(n) {
-  if (n < 2n) return false;
-  for (const p of [2n,3n,5n,7n,11n,13n,17n,19n,23n,29n,31n,37n]) { if (n % p === 0n) return n === p; }
-  // Miller-Rabin
-  let d = n - 1n, r = 0n; while (d % 2n === 0n) { d /= 2n; r++; }
-  const wit = [2n,3n,5n,7n,11n,13n,17n,19n,23n,29n,31n,37n];
-  for (const a of wit) {
-    let x = modpow(a % n, d, n); if (x === 1n || x === n - 1n) continue;
-    let ok = false;
-    for (let i = 0n; i < r - 1n; i++) { x = (x*x) % n; if (x === n - 1n) { ok = true; break; } }
-    if (!ok) return false;
-  }
-  return true;
-}
-function modpow(b, e, m) { b %= m; let r = 1n; while (e > 0n) { if (e & 1n) r = (r*b) % m; b = (b*b) % m; e >>= 1n; } return r; }
-// return {p, e} if n = p^e (p prime), else null
-function primePower(n) {
-  if (n < 2n) return null;
-  // find smallest prime factor
-  let p = null;
-  if (n % 2n === 0n) p = 2n;
-  else { for (let i = 3n; i*i <= n; i += 2n) { if (n % i === 0n) { p = i; break; } } if (p === null) p = n; }
-  if (!isPrime(p)) return null;
-  let e = 0, m = n; while (m % p === 0n) { m /= p; e++; } if (m !== 1n) return null;
-  return { p, e };
-}
+import { primePower, MAX_INTERACTIVE_PRIME } from "./numbertheory.js";
 
 const Q = (id) => document.getElementById(id);
-const coordsA = () => ["aw","ax","ay","az"].map((id) => BigInt(Q(id).value || "0"));
-const coordsB = () => ["bw","bx","by","bz"].map((id) => BigInt(Q(id).value || "0"));
+
+/** Parse a quaternion coordinate from an <input type="number">. Rejects
+ *  scientific notation / non-integers (BigInt would throw and break validate). */
+function parseCoord(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s || s === "+" || s === "-") return 0n;
+  if (!/^[+-]?\d+$/.test(s)) throw new Error("non-integer coordinate");
+  return BigInt(s);
+}
+const coordsA = () => ["aw","ax","ay","az"].map((id) => parseCoord(Q(id).value));
+const coordsB = () => ["bw","bx","by","bz"].map((id) => parseCoord(Q(id).value));
 const qnormJS = (A) => A[0]*A[0]+A[1]*A[1]+A[2]*A[2]+A[3]*A[3];
 
 function fmtQuat(A) {
@@ -45,10 +26,18 @@ function fmtQuat(A) {
 let worker = null;
 
 function validate() {
-  const a = coordsA(), b = coordsB();
+  const msg = Q("validation");
+  let a, b;
+  try {
+    a = coordsA(); b = coordsB();
+  } catch {
+    msg.className = "validation bad";
+    msg.textContent = "⚠ Coordinates must be integers (scientific notation from huge number inputs is rejected).";
+    Q("runBtn").disabled = true;
+    return null;
+  }
   const Na = qnormJS(a), Nb = qnormJS(b);
   const pa = primePower(Na), pb = primePower(Nb);
-  const msg = Q("validation");
   Q("normA").textContent = Na.toString();
   Q("normB").textContent = Nb.toString();
   Q("factA").textContent = pa ? `${pa.p}^${pa.e}` : "not a prime power";
@@ -60,6 +49,12 @@ function validate() {
   if (pa && pa.p % 4n !== 1n) problems.push(`p = ${pa.p} must be ≡ 1 (mod 4) for the LPS free-group structure`);
   if (pa && pa.p === 2n) problems.push("p must be odd");
   if (pb && pb.p === 2n) problems.push("q must be odd");
+  // Cap interactive primes: LPS enumeration is O(p^{3/2}) and the tree
+  // splitter loops over residue classes mod q; large primes hang the worker.
+  if (pa && pa.p > MAX_INTERACTIVE_PRIME)
+    problems.push(`p = ${pa.p} exceeds the interactive bound ${MAX_INTERACTIVE_PRIME} (LPS generator enumeration would hang)`);
+  if (pb && pb.p > MAX_INTERACTIVE_PRIME)
+    problems.push(`q = ${pb.p} exceeds the interactive bound ${MAX_INTERACTIVE_PRIME} (Bruhat–Tits splitter would hang)`);
   const ok = problems.length === 0;
   // soft warning: commuting generators can never give finite index
   let warn = "";
