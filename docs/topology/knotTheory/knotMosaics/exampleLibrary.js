@@ -46,6 +46,43 @@ const EXAMPLES = {
                 [0, 0, 0, 5, 6],
                 [0, 0, 0, 3, 4]
             ]
+        },
+        // ── Virtual knots (tile 11 = virtual crossing ⊗) ──
+        {
+            // Virtualizing one crossing of the standard trefoil diagram
+            // yields the virtual trefoil (2 classical + 1 virtual crossing).
+            name: 'Virtual Trefoil (2.1)',
+            gridSize: 5,
+            grid: [
+                [0, 5, 1, 6, 0],
+                [5, 8, 1, 7, 6],
+                [2, 3, 6, 2, 2],
+                [3, 1, 11, 4, 2],
+                [0, 0, 3, 1, 4]
+            ]
+        },
+        {
+            name: 'Figure Eight, virtualized',
+            gridSize: 5,
+            grid: [
+                [0, 5, 1, 6, 0],
+                [5, 7, 6, 2, 0],
+                [2, 3, 11, 8, 6],
+                [3, 1, 8, 4, 2],
+                [0, 0, 3, 1, 4]
+            ]
+        },
+        {
+            // One classical + one virtual crossing — the simplest
+            // nontrivial virtual link.
+            name: 'Virtual Hopf Link',
+            gridSize: 4,
+            grid: [
+                [5, 1, 6, 0],
+                [2, 5, 7, 6],
+                [3, 11, 4, 2],
+                [0, 3, 1, 4]
+            ]
         }
     ],
     torus: [

@@ -35,6 +35,11 @@ const state = {
     dragTile: 0,
     ghostEl: null,
     selectedCells: [],  // [{row, col}, ...] or [{face, row, col}, ...]
+
+    // strand drawing (✏️ Draw mode)
+    drawMode: false,
+    isDrawing: false,
+    stroke: null,       // { cells:[...], startExit, prevEntry }
 };
 
 // ============================================================
@@ -777,13 +782,8 @@ function hitTest(sx, sy) {
 // ============================================================
 function placeTile(hit, tileIndex) {
     if (!hit) return;
-    if (state.surface === 'sphere') {
-        if (state.grid[hit.face][hit.row][hit.col] === tileIndex) return;
-        state.grid[hit.face][hit.row][hit.col] = tileIndex;
-    } else {
-        if (state.grid[hit.row][hit.col] === tileIndex) return;
-        state.grid[hit.row][hit.col] = tileIndex;
-    }
+    if (getTileAt(hit) === tileIndex) return;
+    setTileAt(hit, tileIndex);
     render();
 }
 
@@ -819,6 +819,8 @@ function getTileAt(cell) {
 
 function setTileAt(cell, tileIndex) {
     if (!cell) return;
+    if (getTileAt(cell) === tileIndex) return;
+    commitGesture();
     if (state.surface === 'sphere') {
         state.grid[cell.face][cell.row][cell.col] = tileIndex;
     } else {
@@ -834,7 +836,8 @@ const TILE_FAMILIES = [
     [1, 2],
     [3, 4, 5, 6],
     [9, 10],
-    [7, 8]
+    [7, 8],
+    [11]
 ];
 
 function buildPalette() {
@@ -945,6 +948,7 @@ function startDrag(e, tileIndex) {
         }
         const hit = hitTest(ev.clientX, ev.clientY);
         if (hit) {
+            beginGesture();
             const ti = tileIndex >= 0 ? tileIndex : 0;
             placeTile(hit, ti);
             state.selectedCells = [hit];
@@ -957,6 +961,173 @@ function startDrag(e, tileIndex) {
 }
 
 // ============================================================
+// Undo / Redo (⌘Z / ⌘⇧Z)
+//
+// Snapshots the whole grid (plus surface & size, so undo works across
+// resizes and surface switches). One snapshot per gesture: a paint-drag
+// or a drawn stroke undoes as a unit.
+// ============================================================
+const undoStack = [];
+const redoStack = [];
+const UNDO_LIMIT = 100;
+
+function copyGrid(g) {
+    return Array.isArray(g)
+        ? g.map(r => [...r])
+        : Object.fromEntries(Object.keys(g).map(f => [f, g[f].map(r => [...r])]));
+}
+
+function captureState() {
+    return {
+        surface: state.surface,
+        gridSize: state.gridSize,
+        faceSize: state.faceSize,
+        grid: copyGrid(state.grid),
+    };
+}
+
+function pushUndo() {
+    pendingUndo = null;
+    undoStack.push(captureState());
+    if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+    redoStack.length = 0;
+}
+
+// Gesture-scoped snapshots: capture at gesture start, but only commit to
+// the undo stack when a tile actually changes — so accidental clicks or
+// no-op strokes don't consume an undo step.
+let pendingUndo = null;
+function beginGesture() { pendingUndo = captureState(); }
+function commitGesture() {
+    if (!pendingUndo) return;
+    undoStack.push(pendingUndo);
+    pendingUndo = null;
+    if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+    redoStack.length = 0;
+}
+
+function restoreState(s) {
+    state.surface = s.surface;
+    state.gridSize = s.gridSize;
+    state.faceSize = s.faceSize;
+    state.grid = copyGrid(s.grid);
+    state.selectedCells = [];
+    endStroke();
+    const surfaceSelect = document.getElementById('surface-select');
+    if (surfaceSelect.value !== s.surface) {
+        surfaceSelect.value = s.surface;
+        if (typeof populateExamples === 'function') populateExamples();
+    }
+    syncSliderToSurface();
+    updateHud();
+    render();
+}
+
+function undo() {
+    if (undoStack.length === 0) return;
+    redoStack.push(captureState());
+    restoreState(undoStack.pop());
+}
+
+function redo() {
+    if (redoStack.length === 0) return;
+    undoStack.push(captureState());
+    restoreState(redoStack.pop());
+}
+
+// ============================================================
+// Strand drawing (✏️ Draw mode)
+//
+// Drag across cells; each cell we pass through gets the tile whose
+// connections match the entry/exit sides of the drag path. Dragging
+// over an existing strand combines into a crossing (new strand goes
+// over) or a double-arc tile when the connections are disjoint.
+// ============================================================
+const OPP_SIDE = { N: 'S', S: 'N', E: 'W', W: 'E' };
+
+// Canonical key for an unordered side pair (sides sorted alphabetically).
+function sidePairKey(a, b) {
+    return a < b ? a + b : b + a;
+}
+
+// key → plain tile index (keys: EW ─, NS │, EN ╰-style NE, NW, ES, SW)
+const PAIR_TILE = { EW: 1, NS: 2, EN: 3, NW: 4, ES: 5, SW: 6 };
+
+// tile index → its connection pair keys
+const TILE_PAIRS = {
+    1: ['EW'], 2: ['NS'], 3: ['EN'], 4: ['NW'], 5: ['ES'], 6: ['SW'],
+    7: ['EW', 'NS'], 8: ['NS', 'EW'], 9: ['EN', 'SW'], 10: ['NW', 'ES'],
+    11: ['EW', 'NS'],
+};
+
+// Given the tile already in a cell and the new connection's pair key,
+// return the tile to place.
+function drawTileFor(existingTi, key) {
+    const plain = PAIR_TILE[key];
+    const pairs = TILE_PAIRS[existingTi];
+    if (!pairs) return plain;              // blank cell
+    if (existingTi >= 7) return plain;     // already two strands: overwrite
+    const ex = pairs[0];
+    if (ex === key) return existingTi;     // same strand: keep
+    // Shares a side with the existing strand → can't combine; overwrite.
+    if (ex.includes(key[0]) || ex.includes(key[1])) return plain;
+    // Disjoint: crossing (new strand over) or double arc.
+    if (ex === 'EW' && key === 'NS') return 8;   // │ over ─
+    if (ex === 'NS' && key === 'EW') return 7;   // ─ over │
+    if ((ex === 'EN' && key === 'SW') || (ex === 'SW' && key === 'EN')) return 9;
+    if ((ex === 'NW' && key === 'ES') || (ex === 'ES' && key === 'NW')) return 10;
+    return plain;
+}
+
+// Position of a cell in unified "net" coordinates, so cross-face drags
+// on the sphere net work (all net-adjacent faces are glued rotation-free).
+function cellNetPos(cell) {
+    if (state.surface === 'sphere') {
+        const l = sphereNetLayout()[cell.face];
+        return { x: l.ox + cell.col, y: l.oy + cell.row };
+    }
+    return { x: cell.col, y: cell.row };
+}
+
+function strokeStep(hit) {
+    const st = state.stroke;
+    if (!st) return;
+    const last = st.cells[st.cells.length - 1];
+    if (isSameCell(hit, last)) return;
+    const a = cellNetPos(last), b = cellNetPos(hit);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    if (Math.abs(dx) + Math.abs(dy) !== 1) return;   // only 4-adjacent steps
+    const dir = dx === 1 ? 'E' : dx === -1 ? 'W' : dy === 1 ? 'S' : 'N';
+
+    // The cell we're leaving now has both entry and exit sides — place it.
+    if (st.cells.length === 1) {
+        st.startExit = dir;
+    } else if (st.prevEntry && st.prevEntry !== dir) {
+        setTileAt(last, drawTileFor(getTileAt(last), sidePairKey(st.prevEntry, dir)));
+    }
+
+    const entry = OPP_SIDE[dir];
+    const first = st.cells[0];
+    if (st.cells.length > 1 && isSameCell(hit, first) &&
+        st.startExit && st.startExit !== entry) {
+        // Closed the loop: complete the starting cell too and end the stroke.
+        setTileAt(hit, drawTileFor(getTileAt(hit), sidePairKey(entry, st.startExit)));
+        state.stroke = null;
+        state.isDrawing = false;
+    } else {
+        st.prevEntry = entry;
+        st.cells.push(hit);
+    }
+    render();
+}
+
+function endStroke() {
+    state.isDrawing = false;
+    state.stroke = null;
+    pendingUndo = null;   // gesture over; uncommitted snapshot is a no-op
+}
+
+// ============================================================
 // Canvas interaction (pan, zoom, click-to-place)
 // ============================================================
 canvas.addEventListener('mousedown', (e) => {
@@ -966,6 +1137,7 @@ canvas.addEventListener('mousedown', (e) => {
     if (e.button === 2) {
         e.preventDefault();
         if (hit) {
+            beginGesture();
             placeTile(hit, 0);
             state.selectedCells = [hit];
         } else {
@@ -988,7 +1160,17 @@ canvas.addEventListener('mousedown', (e) => {
         return;
     }
 
+    if (hit && state.drawMode) {
+        beginGesture();
+        state.stroke = { cells: [hit], startExit: null, prevEntry: null };
+        state.isDrawing = true;
+        state.selectedCells = [];
+        render();
+        return;
+    }
+
     if (hit) {
+        beginGesture();
         const ti = state.selectedTile;
         placeTile(hit, ti);
         state.selectedCells = [hit]; // reset selection to current cell
@@ -1009,6 +1191,9 @@ canvas.addEventListener('mousemove', (e) => {
         state.pan.y += e.clientY - state.lastMouse.y;
         state.lastMouse = { x: e.clientX, y: e.clientY };
         render();
+    } else if (state.isDrawing) {
+        const hit = hitTest(e.clientX, e.clientY);
+        if (hit) strokeStep(hit);
     } else if (state.isPainting) {
         const hit = hitTest(e.clientX, e.clientY);
         if (hit) {
@@ -1022,13 +1207,15 @@ canvas.addEventListener('mouseup', () => {
     state.isPanning = false;
     state.isPainting = false;
     state.lastMouse = null;
-    canvas.style.cursor = 'grab';
+    endStroke();
+    canvas.style.cursor = state.drawMode ? 'crosshair' : 'grab';
 });
 
 canvas.addEventListener('mouseleave', () => {
     state.isPanning = false;
     state.isPainting = false;
     state.lastMouse = null;
+    endStroke();
 });
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -1054,7 +1241,12 @@ canvas.addEventListener('touchstart', (e) => {
     const touches = [...e.touches];
     if (touches.length === 1) {
         const hit = hitTest(touches[0].clientX, touches[0].clientY);
-        if (hit) {
+        if (hit && state.drawMode) {
+            beginGesture();
+            state.stroke = { cells: [hit], startExit: null, prevEntry: null };
+            state.isDrawing = true;
+        } else if (hit) {
+            beginGesture();
             const ti = state.selectedTile === -1 ? 0 : state.selectedTile;
             placeTile(hit, ti);
             state.isPainting = true;
@@ -1065,6 +1257,7 @@ canvas.addEventListener('touchstart', (e) => {
     } else if (touches.length === 2) {
         state.isPanning = false;
         state.isPainting = false;
+        endStroke();
         lastPinchDist = Math.hypot(
             touches[1].clientX - touches[0].clientX,
             touches[1].clientY - touches[0].clientY
@@ -1085,6 +1278,9 @@ canvas.addEventListener('touchmove', (e) => {
             state.pan.y += touches[0].clientY - state.lastMouse.y;
             state.lastMouse = { x: touches[0].clientX, y: touches[0].clientY };
             render();
+        } else if (state.isDrawing) {
+            const hit = hitTest(touches[0].clientX, touches[0].clientY);
+            if (hit) strokeStep(hit);
         } else if (state.isPainting) {
             const hit = hitTest(touches[0].clientX, touches[0].clientY);
             if (hit) {
@@ -1128,6 +1324,7 @@ canvas.addEventListener('touchend', (e) => {
     if (touches.length === 0) {
         state.isPanning = false;
         state.isPainting = false;
+        endStroke();
     }
 });
 
@@ -1174,6 +1371,7 @@ const surfaceSelect = document.getElementById('surface-select');
 const FOLDABLE_SURFACES = ['sphere', 'torus'];
 
 function onSurfaceChange() {
+    pushUndo();
     state.surface = surfaceSelect.value;
     // "View in R³" is unified across all surfaces, so its visibility no
     // longer needs to be toggled here.
@@ -1186,35 +1384,62 @@ function onSurfaceChange() {
 }
 surfaceSelect.addEventListener('change', onSurfaceChange);
 
-// Grid size / face size (unified slider)
+// Grid size / face size (unified slider + editable number input)
 const gridSlider = document.getElementById('grid-size-slider');
-const gridVal = document.getElementById('grid-size-val');
+const gridInput = document.getElementById('grid-size-input');
 
 function syncSliderToSurface() {
     if (state.surface === 'sphere') {
         gridSlider.min = 1;
-        gridSlider.max = 10;
-        gridSlider.value = state.faceSize;
-        gridVal.textContent = state.faceSize;
+        gridSlider.max = 16;
+        gridInput.min = 1;
+        gridInput.max = 60;
+        gridSlider.value = Math.min(state.faceSize, 16);
+        gridInput.value = state.faceSize;
     } else {
         gridSlider.min = 3;
-        gridSlider.max = 10;
-        gridSlider.value = state.gridSize;
-        gridVal.textContent = state.gridSize;
+        gridSlider.max = 25;
+        gridInput.min = 3;
+        gridInput.max = 60;
+        gridSlider.value = Math.min(state.gridSize, 25);
+        gridInput.value = state.gridSize;
     }
 }
 
-gridSlider.addEventListener('input', () => {
-    const val = parseInt(gridSlider.value);
-    gridVal.textContent = val;
+function applyGridSize(val) {
+    const min = parseInt(gridInput.min) || 1;
+    const max = parseInt(gridInput.max) || 60;
+    val = Math.max(min, Math.min(max, val));
     if (state.surface === 'sphere') {
         state.faceSize = val;
     } else {
         state.gridSize = val;
     }
+    gridSlider.value = Math.min(val, parseInt(gridSlider.max));
+    gridInput.value = val;
     initGrid();
     updateHud();
     fitView();
+}
+
+// A slider drag fires many 'input' events; snapshot once per drag so the
+// whole resize undoes in one step.
+let sliderUndoCaptured = false;
+gridSlider.addEventListener('input', () => {
+    if (!sliderUndoCaptured) { pushUndo(); sliderUndoCaptured = true; }
+    applyGridSize(parseInt(gridSlider.value));
+});
+gridSlider.addEventListener('change', () => { sliderUndoCaptured = false; });
+
+gridInput.addEventListener('change', () => {
+    const val = parseInt(gridInput.value);
+    if (!isNaN(val) && val !== (state.surface === 'sphere' ? state.faceSize : state.gridSize)) {
+        pushUndo();
+        applyGridSize(val);
+    }
+});
+gridInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') gridInput.blur();
 });
 
 // ============================================================
@@ -1239,11 +1464,12 @@ exampleSelect.addEventListener('change', () => {
     const examples = EXAMPLES[state.surface] || [];
     const ex = examples[idx];
     if (!ex) return;
+    pushUndo();
 
     if (state.surface === 'sphere') {
         state.faceSize = ex.faceSize || state.faceSize;
-        gridSlider.value = state.faceSize;
-        gridVal.textContent = state.faceSize;
+        gridSlider.value = Math.min(state.faceSize, parseInt(gridSlider.max));
+        gridInput.value = state.faceSize;
         // Deep copy face grids
         state.grid = {};
         for (const face of Object.keys(ex.grid)) {
@@ -1251,8 +1477,8 @@ exampleSelect.addEventListener('change', () => {
         }
     } else {
         state.gridSize = ex.gridSize || state.gridSize;
-        gridSlider.value = state.gridSize;
-        gridVal.textContent = state.gridSize;
+        gridSlider.value = Math.min(state.gridSize, parseInt(gridSlider.max));
+        gridInput.value = state.gridSize;
         state.grid = ex.grid.map(row => [...row]);
     }
 
@@ -1305,6 +1531,7 @@ document.querySelectorAll('.bg-toggle').forEach(btn => {
 
 // Clear
 document.getElementById('clear-btn').addEventListener('click', () => {
+    pushUndo();
     initGrid();
     render();
 });
@@ -1375,6 +1602,13 @@ document.getElementById('toggle-panel-btn').addEventListener('click', () => {
 document.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT') return;
 
+    // Undo / redo
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        if (e.shiftKey) redo(); else undo();
+        return;
+    }
+
     // Number keys to select tiles: 0-9
     const num = parseInt(e.key);
     if (!isNaN(num)) {
@@ -1389,6 +1623,7 @@ document.addEventListener('keydown', (e) => {
         render();
     } else if (e.key === 'ArrowRight') {
         e.preventDefault();
+        beginGesture();
         state.selectedCells.forEach(sc => {
             const ct = getTileAt(sc);
             if (ct > 0) setTileAt(sc, rotateTileCW(ct));
@@ -1396,6 +1631,7 @@ document.addEventListener('keydown', (e) => {
         render();
     } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
+        beginGesture();
         state.selectedCells.forEach(sc => {
             const ct = getTileAt(sc);
             if (ct > 0) setTileAt(sc, rotateTileCCW(ct));
@@ -1403,13 +1639,22 @@ document.addEventListener('keydown', (e) => {
         render();
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
+        beginGesture();
         state.selectedCells.forEach(sc => {
             setTileAt(sc, 0);
         });
         render();
     } else if (e.key === 'f' || e.key === 'F') {
         fitView();
+    } else if (e.key === 'd' || e.key === 'D') {
+        const cb = document.getElementById('draw-mode-toggle');
+        cb.checked = !cb.checked;
+        cb.dispatchEvent(new Event('change'));
+    } else if (e.key === 'v' || e.key === 'V') {
+        // Virtual crossing tile (index 11 — beyond the 0-9 number keys)
+        selectTile(11);
     } else if ((e.key === 'c' || e.key === 'C') && !e.metaKey && !e.ctrlKey) {
+        pushUndo();
         initGrid();
         render();
     }
@@ -1528,3 +1773,16 @@ updateHud();
 requestAnimationFrame(() => fitView());
 
 document.getElementById('show-orientations-toggle')?.addEventListener('change', buildPalette);
+
+// ✏️ Draw mode toggle
+document.getElementById('draw-mode-toggle')?.addEventListener('change', (e) => {
+    state.drawMode = e.target.checked;
+    endStroke();
+    canvas.style.cursor = state.drawMode ? 'crosshair' : 'grab';
+    const hint = document.getElementById('palette-hint');
+    if (hint) {
+        hint.textContent = state.drawMode
+            ? 'Drag across cells to draw a strand · Close the loop to finish · Cross an existing strand for a crossing · D = exit draw mode'
+            : 'Click or drag to place · Right-click to erase · V = virtual crossing ⊗ · D = draw mode';
+    }
+});

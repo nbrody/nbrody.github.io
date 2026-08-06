@@ -7,7 +7,7 @@
     <title>Knot Mosaic Playground</title>
     <meta name="description"
         content="Interactive knot mosaic builder — place tiles on disk, sphere, or torus surfaces to create knot diagrams.">
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=5">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- MathJax v3 (SVG output) for the "View in ℝ³" label. -->
@@ -63,8 +63,11 @@
         <!-- Scrollable content area -->
         <div class="panel-scroll-area">
             <div class="control-group">
-                <label>Grid Size <span id="grid-size-val" class="accent">5</span></label>
-                <input type="range" id="grid-size-slider" min="1" max="10" value="5">
+                <label>Grid Size</label>
+                <div class="grid-size-row">
+                    <input type="range" id="grid-size-slider" min="3" max="25" value="5">
+                    <input type="number" id="grid-size-input" class="accent" min="1" max="60" value="5">
+                </div>
             </div>
 
 
@@ -128,12 +131,16 @@
         <div class="palette-header">
             <div class="palette-label">Tiles</div>
             <label class="cube-toggle">
+                <input type="checkbox" id="draw-mode-toggle">
+                <span>✏️ Draw</span>
+            </label>
+            <label class="cube-toggle">
                 <input type="checkbox" id="show-orientations-toggle">
                 <span>All orientations</span>
             </label>
         </div>
         <div id="palette-tiles" class="palette-tiles-row"></div>
-        <div class="palette-hint">Click or drag to place · Right-click to erase</div>
+        <div class="palette-hint" id="palette-hint">Click or drag to place · Right-click to erase · V = virtual crossing ⊗ · D = draw mode</div>
     </div>
 
     <!-- 3D Cube Overlay -->
@@ -166,8 +173,18 @@
             <div class="cube-toolbar-inner">
                 <span class="smooth-readout">
                     <span id="smooth-info">—</span>
-                    · E = <span id="smooth-energy">—</span>
+                    · <span id="smooth-energy-label">E</span> = <span id="smooth-energy">—</span>
                 </span>
+                <label class="smooth-slider-label">
+                    energy
+                    <select id="smooth-energy-select">
+                        <option value="mobius" selected>Möbius (O’Hara)</option>
+                        <option value="coulomb">Coulomb 1/r</option>
+                        <option value="quartic">Steep 1/r⁴</option>
+                        <option value="ropelength">Ropelength</option>
+                        <option value="elastic">Elastic bending</option>
+                    </select>
+                </label>
                 <label class="smooth-slider-label">
                     speed <span id="smooth-speed-val">4</span>
                     <input type="range" id="smooth-speed-slider" min="1" max="100" value="4">
@@ -176,21 +193,21 @@
                     radius <span id="smooth-radius-val">0.18</span>
                     <input type="range" id="smooth-radius-slider" min="0.04" max="0.5" step="0.01" value="0.18">
                 </label>
-                <button id="smooth-play-btn"  class="btn btn-primary">Pause</button>
+                <button id="smooth-play-btn"  class="btn btn-primary">Smooth</button>
                 <button id="smooth-reset-btn" class="btn btn-secondary">Reset</button>
                 <button id="smooth-close-btn" class="btn btn-outline">Close</button>
             </div>
         </div>
     </div>
 
-    <script src="tiles.js?v=4"></script>
-    <script src="exampleLibrary.js?v=4"></script>
-    <script src="app.js?v=4"></script>
+    <script src="tiles.js?v=5"></script>
+    <script src="exampleLibrary.js?v=5"></script>
+    <script src="app.js?v=5"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="cube3d.js?v=4"></script>
     <script src="torus3d.js?v=4"></script>
-    <script src="smooth3d.js?v=4"></script>
+    <script src="smooth3d.js?v=5"></script>
 </body>
 
 </html>

@@ -230,6 +230,41 @@ const TILE_TYPES = [
             ctx.lineCap = 'round';
             ctx.stroke();
         }
+    },
+    {
+        id: 'cross_virtual',
+        name: '⊗',
+        connections: { N: true, E: true, S: true, W: true },
+        crossType: 'virtual', // no over/under information — a virtual crossing
+        draw(ctx, x, y, size, color, lw, bgColor) {
+            const mid = size / 2;
+            const r = size * 0.16;
+
+            // Both strands drawn fully — neither passes over the other.
+            ctx.beginPath();
+            ctx.moveTo(x + mid, y);
+            ctx.lineTo(x + mid, y + size);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lw;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(x, y + mid);
+            ctx.lineTo(x + size, y + mid);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lw;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Small circle around the intersection — standard virtual
+            // crossing notation (Kauffman).
+            ctx.beginPath();
+            ctx.arc(x + mid, y + mid, r, 0, Math.PI * 2);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = Math.max(1, lw * 0.75);
+            ctx.stroke();
+        }
     }
 ];
 
@@ -262,9 +297,10 @@ function connectionsMatch(tileA, tileB, sideFromA) {
  *   arc_ne(3) → arc_se(5) → arc_sw(6) → arc_nw(4) → arc_ne(3)
  *   cross_pos(7) ↔ cross_neg(8)
  *   double_arc_nesw(9) ↔ double_arc_nwse(10)
+ *   cross_virtual(11) → cross_virtual(11)
  */
-const ROTATE_CW = [0, 2, 1, 5, 3, 6, 4, 8, 7, 10, 9];
-const ROTATE_CCW = [0, 2, 1, 4, 6, 3, 5, 8, 7, 10, 9];
+const ROTATE_CW = [0, 2, 1, 5, 3, 6, 4, 8, 7, 10, 9, 11];
+const ROTATE_CCW = [0, 2, 1, 4, 6, 3, 5, 8, 7, 10, 9, 11];
 
 function rotateTileCW(tileIndex) {
     return (tileIndex >= 0 && tileIndex < ROTATE_CW.length) ? ROTATE_CW[tileIndex] : tileIndex;

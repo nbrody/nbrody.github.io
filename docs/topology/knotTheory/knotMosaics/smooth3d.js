@@ -1,7 +1,8 @@
 /**
  * smooth3d.js — Take the current disk mosaic, embed it in R³, and let it
- * relax into an energy-minimal position via discrete Möbius energy +
- * gradient descent. Renders a smooth tube around the polygonal knot in
+ * relax into an energy-minimal position via gradient descent on a
+ * selectable knot energy (Möbius/O'Hara, Coulomb, 1/r⁴, ropelength,
+ * elastic bending). Renders a smooth tube around the polygonal knot in
  * a fullscreen overlay (mirrors the cube/torus 3D overlays).
  *
  * Uses the global THREE and THREE.OrbitControls already loaded by
@@ -15,7 +16,7 @@
 // Tile indices match tiles.js / app.js:
 //   0 blank, 1 ─, 2 │, 3 ╮, 4 ╭, 5 ╯, 6 ╰,
 //   7 ⊕ horiz-over-vert, 8 ⊖ vert-over-horiz,
-//   9 ⟋ NE+SW arcs, 10 ⟍ NW+SE arcs.
+//   9 ⟋ NE+SW arcs, 10 ⟍ NW+SE arcs, 11 ⊗ virtual crossing.
 
 const Z_LIFT    = 0.35;
 const SAMP_LINE = 4;
@@ -83,6 +84,16 @@ function makePieces(t, i, j) {
             { sides:['N','W'], points: arcSamples(i,   -j,         0,         -0.5*Math.PI, SAMP_ARC) },
             { sides:['S','E'], points: arcSamples(i+1, -(j+1),     Math.PI,    0.5*Math.PI, SAMP_ARC) },
         ];
+        case 11:
+            // A virtual crossing carries no over/under information, so the
+            // diagram determines a knot in a thickened surface — not in R³.
+            throw new Error(
+                'This mosaic contains a virtual crossing (⊗) at tile ' +
+                `(${i},${j}). Virtual crossings carry no over/under ` +
+                'information, so a virtual knot diagram has no canonical ' +
+                'embedding in R³ — it represents a knot in a thickened ' +
+                'higher-genus surface. Resolve the virtual crossings, or ' +
+                'realize the diagram on the torus surface instead.');
     }
     return [];
 }
@@ -152,19 +163,58 @@ function mosaicToPolygons(grid, topology, transform) {
 
 // ─── Energy minimiser ────────────────────────────────────────────────
 //
-// Polygonal closed loop p_0..p_{N-1} with energy
-//   E = α·Σ_{|i−j|>1} 1/|p_i−p_j|² (Möbius repulsion)
-//     + β·Σ_edges (|e|−L)²        (edge spring)
-//     + γ·tube barrier             (preserves knot type)
+// Polygonal closed loop p_0..p_{N-1}. All models share
+//     β·Σ_edges (|e|−L)²   (edge spring, keeps discretization even)
+//   + γ·tube barrier        (self-avoidance, preserves knot type)
+// and add their own driving term:
+//
+//   'pair'       — O'Hara-style repulsion Σ_{|i−j|>1} 1/|p_i−p_j|^α.
+//                  α=2 is the (discrete) Möbius energy, α=1 Coulomb,
+//                  α=4 a steeper, more short-range repulsion.
+//   'ropelength' — no long-range term; the spring rest length shrinks
+//                  each step at fixed tube radius, so the knot tightens
+//                  toward its ropelength minimum (SONO-style).
+//   'elastic'    — discrete bending energy Σ κ² ds (biharmonic force);
+//                  relaxes toward an elastic (Kirchhoff) knot shape.
 //
 // Forces are −∇E; we descend via adaptive Euler with light Laplacian
 // smoothing.
 
+const ENERGY_MODELS = {
+    mobius: {
+        label: 'Möbius (O’Hara)',
+        kind: 'pair', alpha: 2, kRepel: 1.6,
+        readout: 'E',
+    },
+    coulomb: {
+        label: 'Coulomb 1/r',
+        kind: 'pair', alpha: 1, kRepel: 3.0,
+        readout: 'E',
+    },
+    quartic: {
+        label: 'Steep 1/r⁴',
+        kind: 'pair', alpha: 4, kRepel: 0.8,
+        readout: 'E',
+    },
+    ropelength: {
+        label: 'Ropelength',
+        kind: 'ropelength',
+        shrink: 0.0015,        // fractional rest-length shrink per step
+        readout: 'L/D',
+    },
+    elastic: {
+        label: 'Elastic bending',
+        kind: 'elastic', kBend: 0.6,
+        readout: 'E',
+    },
+};
+
 class KnotChain {
-    constructor(points) {
+    constructor(points, energyKey) {
         this.points = points.map(p => p.clone());
         this.N = points.length;
         this.targetEdge = this.averageEdgeLength();
+        this.restEdge = this.targetEdge;
         this.params = {
             kRepel:   1.6,
             kSpring:  6.0,
@@ -175,6 +225,8 @@ class KnotChain {
         };
         this.lastEnergy = 0;
         this.stepCount = 0;
+        this.rampFactor = 1;
+        this.setEnergyModel(energyKey || 'mobius');
         // Number of frames over which the repulsion ramps from
         // RAMP_FLOOR × kRepel up to full kRepel. Lets the Laplacian damp
         // out high-frequency content from the initial polygon before the
@@ -187,6 +239,14 @@ class KnotChain {
         // are computed. This is the single biggest reduction in the
         // initial "ringing" effect.
         for (let k = 0; k < 10; k++) this.smoothLaplacian(0.5);
+    }
+    setEnergyModel(key) {
+        this.energyKey = ENERGY_MODELS[key] ? key : 'mobius';
+        this.model = ENERGY_MODELS[this.energyKey];
+        if (this.model.kind === 'pair') this.params.kRepel = this.model.kRepel;
+        // Ropelength tightens by shrinking the spring rest length; restore
+        // it when switching to any other energy.
+        if (this.model.kind !== 'ropelength') this.targetEdge = this.restEdge;
     }
     averageEdgeLength() {
         let s = 0;
@@ -209,8 +269,11 @@ class KnotChain {
     }
     computeForces() {
         const N = this.N, P = this.points, F = this._scratch();
-        const { kRepel, kSpring, kTube, tubeR } = this.params;
+        const { kSpring, kTube, tubeR } = this.params;
+        const model = this.model;
         let energy = 0;
+
+        // Edge springs (all models).
         for (let i = 0; i < N; i++) {
             const j = (i + 1) % N, a = P[i], b = P[j];
             const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
@@ -221,18 +284,72 @@ class KnotChain {
             F[j].x -= f * dx; F[j].y -= f * dy; F[j].z -= f * dz;
             energy += 0.5 * kSpring * stretch * stretch;
         }
+
+        // Bending term (elastic model): E = (kB/2)·Σ|p_{i−1}−2p_i+p_{i+1}|²
+        // with kB normalized by h³ so it approximates ∫κ²ds independently
+        // of the discretization density.
+        if (model.kind === 'elastic') {
+            const h = this.targetEdge;
+            const kB = this.rampFactor * model.kBend / (h * h * h);
+            for (let i = 0; i < N; i++) {
+                const im = (i - 1 + N) % N, ip = (i + 1) % N;
+                const a = P[im], c = P[i], b = P[ip];
+                const lx = a.x - 2 * c.x + b.x;
+                const ly = a.y - 2 * c.y + b.y;
+                const lz = a.z - 2 * c.z + b.z;
+                energy += 0.5 * kB * (lx * lx + ly * ly + lz * lz);
+                F[im].x -= kB * lx; F[im].y -= kB * ly; F[im].z -= kB * lz;
+                F[ip].x -= kB * lx; F[ip].y -= kB * ly; F[ip].z -= kB * lz;
+                F[i].x += 2 * kB * lx; F[i].y += 2 * kB * ly; F[i].z += 2 * kB * lz;
+            }
+        }
+
         const tube2 = (2 * tubeR) * (2 * tubeR);
-        for (let i = 0; i < N; i++) {
-            for (let j = i + 2; j < N; j++) {
-                if (i === 0 && j === N - 1) continue;
-                const a = P[i], b = P[j];
-                const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-                const r2 = dx * dx + dy * dy + dz * dz + 1e-9;
-                const fMag = (2 * kRepel) / (r2 * r2);
-                F[i].x += fMag * dx; F[i].y += fMag * dy; F[i].z += fMag * dz;
-                F[j].x -= fMag * dx; F[j].y -= fMag * dy; F[j].z -= fMag * dz;
-                energy += kRepel / r2;
-                if (r2 < tube2) {
+        if (model.kind === 'pair') {
+            // O'Hara-style pairwise repulsion 1/r^α plus tube barrier.
+            const alpha = model.alpha;
+            const kRepel = this.rampFactor * this.params.kRepel;
+            for (let i = 0; i < N; i++) {
+                for (let j = i + 2; j < N; j++) {
+                    if (i === 0 && j === N - 1) continue;
+                    const a = P[i], b = P[j];
+                    const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+                    const r2 = dx * dx + dy * dy + dz * dz + 1e-9;
+                    // rPowE = r^α, rPowF = r^(α+2); force = α·k/r^(α+1) r̂,
+                    // i.e. α·k/r^(α+2) per displacement component.
+                    let rPowE, rPowF;
+                    if (alpha === 1)      { const r = Math.sqrt(r2); rPowE = r;       rPowF = r2 * r; }
+                    else if (alpha === 2) { rPowE = r2;      rPowF = r2 * r2; }
+                    else                  { rPowE = r2 * r2; rPowF = r2 * r2 * r2; }
+                    const fMag = (alpha * kRepel) / rPowF;
+                    F[i].x += fMag * dx; F[i].y += fMag * dy; F[i].z += fMag * dz;
+                    F[j].x -= fMag * dx; F[j].y -= fMag * dy; F[j].z -= fMag * dz;
+                    energy += kRepel / rPowE;
+                    if (r2 < tube2) {
+                        const r = Math.sqrt(r2);
+                        const overlap = (2 * tubeR) - r;
+                        const fb = kTube * overlap / r;
+                        F[i].x += fb * dx; F[i].y += fb * dy; F[i].z += fb * dz;
+                        F[j].x -= fb * dx; F[j].y -= fb * dy; F[j].z -= fb * dz;
+                        energy += 0.5 * kTube * overlap * overlap;
+                    }
+                }
+            }
+        } else {
+            // No long-range repulsion — self-avoidance comes from the tube
+            // barrier alone. Skip pairs that are close *along the curve*:
+            // once the rope tightens, arc-length neighbours sit within the
+            // tube diameter of each other and must not be treated as
+            // contacts.
+            const skip = Math.max(2, Math.min(N >> 2,
+                Math.ceil((2.2 * tubeR) / this.targetEdge) + 1));
+            for (let i = 0; i < N; i++) {
+                for (let j = i + skip; j < N; j++) {
+                    if (i + N - j < skip) continue;   // circular distance
+                    const a = P[i], b = P[j];
+                    const dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+                    const r2 = dx * dx + dy * dy + dz * dz + 1e-9;
+                    if (r2 >= tube2) continue;
                     const r = Math.sqrt(r2);
                     const overlap = (2 * tubeR) - r;
                     const fb = kTube * overlap / r;
@@ -242,21 +359,31 @@ class KnotChain {
                 }
             }
         }
-        this.lastEnergy = energy;
+
+        // Ropelength's natural readout is length over diameter, not the
+        // internal spring/barrier bookkeeping energy.
+        this.lastEnergy = (model.kind === 'ropelength')
+            ? this.totalLength() / (2 * tubeR)
+            : energy;
         return F;
     }
     step() {
-        // Ramp kRepel from RAMP_FLOOR × target up to full strength over
-        // RAMP_FRAMES steps. Restore at the end so the slider value the
-        // user sees stays authoritative.
-        const userKRepel = this.params.kRepel;
+        // Ramp the driving term (repulsion or bending) from RAMP_FLOOR up
+        // to full strength over RAMP_FRAMES steps.
+        this.rampFactor = 1;
         if (this.stepCount < this.RAMP_FRAMES) {
             const t = this.stepCount / this.RAMP_FRAMES;
-            const factor = this.RAMP_FLOOR + (1 - this.RAMP_FLOOR) * t * t;
-            this.params.kRepel = userKRepel * factor;
+            this.rampFactor = this.RAMP_FLOOR + (1 - this.RAMP_FLOOR) * t * t;
+        }
+        // Ropelength: tighten by shrinking the spring rest length at fixed
+        // tube radius. Floor keeps edges long enough for a sane contact
+        // discretization.
+        if (this.model.kind === 'ropelength') {
+            const minEdge = 0.5 * this.params.tubeR;
+            this.targetEdge = Math.max(minEdge,
+                this.targetEdge * (1 - this.model.shrink));
         }
         const F = this.computeForces();
-        this.params.kRepel = userKRepel;
 
         let maxF = 0;
         for (let i = 0; i < this.N; i++) {
@@ -323,6 +450,7 @@ let chains = [];                // multi-component support
 let animId = null;
 let running = false;
 let stepsPerFrame = 4;
+let energyKey = 'mobius';
 let tubeRadius = 0.18;
 let frameCounter = 0;
 let userTouchedCamera = false;
@@ -652,7 +780,7 @@ function buildChainsFromPolylines(polygons) {
     }
     const newChains = polygons.map(loop => {
         const target = Math.max(160, loop.length * 4);
-        return new KnotChain(resampleClosed(loop, target));
+        return new KnotChain(resampleClosed(loop, target), energyKey);
     });
     return { chains: newChains, count: polygons.length };
 }
@@ -663,10 +791,15 @@ function setRunning(on) {
     running = on;
     const btn = document.getElementById('smooth-play-btn');
     if (btn) {
-        btn.textContent = on ? 'Pause' : 'Run';
+        btn.textContent = on ? 'Pause' : 'Smooth';
         btn.classList.toggle('btn-primary',   on);
         btn.classList.toggle('btn-secondary', !on);
     }
+}
+
+function updateEnergyLabel() {
+    const el = document.getElementById('smooth-energy-label');
+    if (el) el.textContent = ENERGY_MODELS[energyKey].readout;
 }
 
 // openSmooth(opts)
@@ -709,7 +842,10 @@ window.openSmooth = function (opts) {
         : `${chains.length} components`;
     document.getElementById('smooth-info').textContent =
         opts.label ? `${opts.label} · ${componentLabel}` : componentLabel;
-    setRunning(true);
+    updateEnergyLabel();
+    // Open paused: show the raw 3D embedding first; the "Smooth" button
+    // starts the energy-minimisation flow.
+    setRunning(false);
     if (animId === null) loop();
 };
 
@@ -729,7 +865,12 @@ document.getElementById('smooth-reset-btn').addEventListener('click', () => {
     chains = built.chains;
     buildTubes();
     frameAll();
-    setRunning(true);
+    setRunning(false);
+});
+document.getElementById('smooth-energy-select').addEventListener('change', e => {
+    energyKey = e.target.value;
+    for (const ch of chains) ch.setEnergyModel(energyKey);
+    updateEnergyLabel();
 });
 document.getElementById('smooth-radius-slider').addEventListener('input', e => {
     tubeRadius = parseFloat(e.target.value);
