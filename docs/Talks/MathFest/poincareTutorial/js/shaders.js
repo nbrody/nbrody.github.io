@@ -32,6 +32,11 @@ export const fragmentShader = `
     uniform float u_colorFreq;
     uniform bool u_showTiling;
     uniform bool u_uhs;
+    // Theme: u_lightMode is 0 (dark) or 1 (light); u_bgColor is what the
+    // scene fades into at the ideal boundary, so the domain dissolves into
+    // the page rather than into a black halo.
+    uniform float u_lightMode;
+    uniform vec3 u_bgColor;
     uniform mat4 projectionMatrix;
     uniform mat4 modelViewMatrix;
 
@@ -139,10 +144,16 @@ export const fragmentShader = `
     }
 
     vec3 getBaseColor(float faceId) {
+        vec3 c;
         if (u_colorMode == 1) {
-            return vec3(0.3 + 0.2 * sin(faceId * u_colorFreq));
+            // Monochrome: dark greys on a light page, light greys on a dark one.
+            float g = 0.3 + 0.2 * sin(faceId * u_colorFreq);
+            c = vec3(mix(g, 1.0 - g * 0.75, u_lightMode));
+        } else {
+            c = 0.5 + 0.5 * cos(faceId * u_colorFreq + u_colorOffset);
         }
-        return 0.5 + 0.5 * cos(faceId * u_colorFreq + u_colorOffset);
+        // Light mode washes the hues toward pastel so they sit on paper.
+        return mix(c, mix(c, vec3(1.0), 0.62), u_lightMode);
     }
 
     void main() {
@@ -178,10 +189,12 @@ export const fragmentShader = `
             vec4 W = faceIdx >= 0 ? u_faces[faceIdx] : vec4(0.0);
             float colorId = dot(W, vec4(7.3, 11.7, 13.1, 5.9));
             vec3 baseCol = getBaseColor(colorId);
-            if (faceIdx < 0) baseCol = vec3(0.05);
+            if (faceIdx < 0) baseCol = mix(vec3(0.05), u_bgColor * 0.92, u_lightMode);
 
             vec3 lightDir = normalize(vec3(1, 1, 1));
-            float diff = max(0.2, dot(n, lightDir));
+            // Lift the shadow floor on light backgrounds: unlit faces should
+            // read as tinted paper, not as holes.
+            float diff = max(mix(0.2, 0.62, u_lightMode), dot(n, lightDir));
             float fresnel = pow(1.0 - max(0.0, dot(n, -rd)), 5.0);
 
             float d2 = -1e10;
@@ -192,11 +205,13 @@ export const fragmentShader = `
             }
             float edge = faceIdx >= 0 ? smoothstep(0.005, 0.0, abs(sdWall(p, u_faces[faceIdx]) - d2)) : 0.0;
 
-            vec3 col = baseCol * diff + fresnel * 0.5;
-            col += edge * 0.3;
+            // Rim light reads as a white sheen on dark, but as grime on light,
+            // so it softens; edges darken instead of glowing.
+            vec3 col = baseCol * diff + fresnel * mix(0.5, 0.12, u_lightMode);
+            col += edge * mix(0.3, -0.22, u_lightMode);
             // Ball: fade toward the ideal sphere. UHS: gently fade toward the floor (y→0).
             float fog = u_uhs ? 0.7 * smoothstep(0.18, 0.0, p.y) : smoothstep(0.8, 1.0, length(p));
-            col = mix(col, vec3(0.0), fog);
+            col = mix(col, u_bgColor, fog);
 
             vec4 clipPos = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
             float ndcDepth = clipPos.z / clipPos.w;

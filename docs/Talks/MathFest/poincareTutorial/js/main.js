@@ -62,6 +62,8 @@ const material = new THREE.ShaderMaterial({
         u_colorFreq: { value: initialPalette.freq },
         u_showTiling: { value: false },
         u_uhs: { value: false },
+        u_lightMode: { value: 0 },
+        u_bgColor: { value: new THREE.Color(0x05070f) },
         u_maxBounces: { value: mirrorDefaults.maxBounces },
         u_edgeLightWidth: { value: mirrorDefaults.edgeLightWidth },
         u_lightIntensity: { value: mirrorDefaults.lightIntensity }
@@ -82,6 +84,62 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 const pointLight = new THREE.PointLight(0xffffff, 1);
 pointLight.position.set(5, 5, 5);
 scene.add(pointLight);
+
+// --- Theme (dark / light) ---
+// The page background is CSS (the renderer is alpha), so a theme switch is
+// three things: the <html> class for the UI, the shader's fog/palette mood,
+// and the colours of the scene decorations that were picked for a dark sky.
+const THEMES = {
+    dark: {
+        bg: 0x05070f,
+        dust: { color: 0xdce6ff, emissive: 0xb8c8ff, intensity: 0.6, opacity: 0.85 },
+        cayleyVertex: { color: 0xffffff, emissive: 0xbcd4ff, intensity: 0.25 },
+        generators: [0x38bdf8, 0xf472b6, 0xfbbf24, 0x22c55e,
+                     0xa78bfa, 0xfb7185, 0x34d399, 0xf97316],
+        cone: 0xffffff,
+        isoFlow: 0x22d3ee,
+    },
+    light: {
+        bg: 0xeef1f8,
+        dust: { color: 0x5a6488, emissive: 0x3d4668, intensity: 0.15, opacity: 0.7 },
+        cayleyVertex: { color: 0x3b4463, emissive: 0x4b5578, intensity: 0.1 },
+        generators: [0x0284c7, 0xdb2777, 0xb45309, 0x15803d,
+                     0x7c3aed, 0xe11d48, 0x0f766e, 0xc2410c],
+        cone: 0x64748b,
+        isoFlow: 0x0e7490,
+    },
+};
+let themeMode = 'dark';
+const theme = () => THEMES[themeMode];
+
+function setTheme(mode) {
+    if (mode !== 'light' && mode !== 'dark') return;
+    themeMode = mode;
+    const T = theme();
+    document.documentElement.classList.toggle('light', mode === 'light');
+    material.uniforms.u_lightMode.value = mode === 'light' ? 1 : 0;
+    // Assign the components raw: this ShaderMaterial writes gl_FragColor
+    // without a colour-space conversion, so the fog target must carry the
+    // literal sRGB values of the CSS background to blend into the page.
+    const bg = material.uniforms.u_bgColor.value;
+    bg.r = ((T.bg >> 16) & 255) / 255;
+    bg.g = ((T.bg >> 8) & 255) / 255;
+    bg.b = (T.bg & 255) / 255;
+    // Same array, new contents — every consumer keeps its reference.
+    T.generators.forEach((c, i) => { generatorColors[i] = c; });
+    // Rebuild whatever is currently drawn with the old colours.
+    if (cayleyMode !== 'off') updateCayley();
+    if (dualMode !== 'off') updateDual();
+    if (showTiling) updateTiling();
+    if (wallsOpacity > 0) updateWalls();
+    if (showDust) updateDust();
+    document.getElementById('theme-dark')?.classList.toggle('active', mode === 'dark');
+    document.getElementById('theme-light')?.classList.toggle('active', mode === 'light');
+}
+
+// generatorColors is read all over (Cayley edges, walls, tiling); keep the
+// same array identity and rewrite its contents on a theme change.
+const generatorColors = THEMES.dark.generators.slice();
 
 // --- View model: Poincaré ball vs upper half-space ---
 // All overlay geometry is built in BALL coordinates; in UHS mode the final
@@ -199,11 +257,6 @@ function setMirrorMode(enabled) {
     material.needsUpdate = true;
     updateToggleBtn(document.getElementById('toggle-mirror'), mirrorMode);
 }
-
-const generatorColors = [
-    0x38bdf8, 0xf472b6, 0xfbbf24, 0x22c55e,
-    0xa78bfa, 0xfb7185, 0x34d399, 0xf97316
-];
 
 // --- Domain state ---
 let cachedDomain = null;
@@ -547,7 +600,8 @@ function buildCayleyVertices(points) {
     if (uniq.length === 0) return;
     const geom = new THREE.SphereGeometry(0.015, 10, 8);
     const mat = new THREE.MeshStandardMaterial({
-        color: 0xffffff, emissive: 0xbcd4ff, emissiveIntensity: 0.25,
+        color: theme().cayleyVertex.color, emissive: theme().cayleyVertex.emissive,
+        emissiveIntensity: theme().cayleyVertex.intensity,
         roughness: 0.35, metalness: 0.1, transparent: true, opacity: 0.95, depthWrite: false
     });
     const inst = new THREE.InstancedMesh(geom, mat, uniq.length);
@@ -731,7 +785,7 @@ function updateWalls() {
     disposeGroup(wallsGroup);
     if (!cachedDomain) return;
     cachedDomain.walls.forEach((w, i) => {
-        const color = w.kind === 'cone' ? 0xffffff : generatorColors[i % generatorColors.length];
+        const color = w.kind === 'cone' ? theme().cone : generatorColors[i % generatorColors.length];
         const m = createWallMesh(w, color);
         if (!m) return;
         if (viewModel === 'uhs') {
@@ -983,7 +1037,7 @@ function updateTiling(opts = {}) {
         const g = new THREE.BufferGeometry();
         g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
         geomToWorld(g);
-        const color = walls[j].kind === 'cone' ? 0xffffff : generatorColors[j % generatorColors.length];
+        const color = walls[j].kind === 'cone' ? theme().cone : generatorColors[j % generatorColors.length];
         const mat = new THREE.MeshBasicMaterial({
             color, transparent: true, opacity: TILING_OPACITY,
             side: THREE.DoubleSide, depthWrite: false
@@ -1058,8 +1112,10 @@ function updateDust() {
     }
     const geom = new THREE.SphereGeometry(0.012, 8, 6);
     const mat = new THREE.MeshStandardMaterial({
-        color: 0xdce6ff, emissive: 0xb8c8ff, emissiveIntensity: 0.6,
-        roughness: 0.5, metalness: 0.05, transparent: true, opacity: 0.85, depthWrite: false
+        color: theme().dust.color, emissive: theme().dust.emissive,
+        emissiveIntensity: theme().dust.intensity,
+        roughness: 0.5, metalness: 0.05, transparent: true,
+        opacity: theme().dust.opacity, depthWrite: false
     });
     const inst = new THREE.InstancedMesh(geom, mat, dustPoints.length);
     inst.renderOrder = 1;
@@ -1112,6 +1168,182 @@ function classifyIsometry(G) {
     return { type, p1, p2 };
 }
 
+// --- Boundary flow lines on ∂H³ = S² ---
+//
+// The one-parameter flow W(s) = V₀·exp(sX)·V₀⁻¹ acts on the sphere at
+// infinity; its orbits are the loxodromes spiralling between the two fixed
+// points (hyperbolic/loxodromic), circles mutually tangent at the fixed
+// point (parabolic), or circles around the axis endpoints (elliptic).
+//
+// Rather than deriving the curves analytically, we use the eigenbasis only
+// to choose good seeds and an s-range, then trace the TRUE orbits by
+// applying the flow itself. Boundary points are carried in homogeneous
+// coordinates [z : w], so ∞ needs no special case.
+
+function cplx(re, im) { return new Complex(re, im); }
+
+/** Möbius action on a homogeneous boundary point. */
+function projImage(M, num, den) {
+    return [M.a.mul(num).add(M.b.mul(den)), M.c.mul(num).add(M.d.mul(den))];
+}
+
+/** Homogeneous boundary point → Poincaré-ball boundary point. */
+function projToBall(num, den) {
+    if (den.normSq() < 1e-22) return new THREE.Vector3(0, 0, 1);   // ∞
+    const z = num.div(den);
+    if (!Number.isFinite(z.re) || !Number.isFinite(z.im)) return new THREE.Vector3(0, 0, 1);
+    return uhsToBall({ x: z.re, y: z.im, t: 0 });
+}
+
+/**
+ * Eigenframe of G: P has the eigenvectors as columns, so P⁻¹GP is diagonal
+ * (or upper-triangular when parabolic). Column 1 ↔ ∞, column 2 ↔ 0 in the
+ * normalized coordinate.
+ */
+function eigenFrame(G) {
+    const tr = G.a.add(G.d);
+    const disc = tr.mul(tr).sub(cplx(4, 0));
+    const parabolic = Math.sqrt(disc.normSq()) < 1e-9;
+    const two = cplx(2, 0);
+    const sq = Complex.sqrt(disc);
+    const k1 = tr.add(sq).div(two);
+    const k2 = tr.sub(sq).div(two);
+    // Eigenvector for κ: either (b, κ−a) or (κ−d, c); take the better-conditioned one.
+    const evec = (k) => {
+        const u = [G.b, k.sub(G.a)], v = [k.sub(G.d), G.c];
+        return (u[0].normSq() + u[1].normSq()) >= (v[0].normSq() + v[1].normSq()) ? u : v;
+    };
+    const v1 = evec(k1);
+    let v2;
+    if (parabolic) {
+        // One eigendirection only: complete the basis with whichever axis is
+        // most independent of v1.
+        v2 = v1[1].normSq() >= v1[0].normSq() ? [cplx(1, 0), cplx(0, 0)] : [cplx(0, 0), cplx(1, 0)];
+    } else {
+        v2 = evec(k2);
+    }
+    const P = new Matrix2x2(v1[0], v2[0], v1[1], v2[1]);   // columns = v1, v2
+    if (Math.sqrt(P.det ? P.det().normSq() : 1) < 1e-12) return null;
+    let N;
+    try { N = P.inv(); } catch (e) { return null; }
+    const M = N.mul(G).mul(P);        // normal form
+    return { P, M, parabolic };
+}
+
+function buildBoundaryFlowLines(G, flowAt) {
+    const fr = eigenFrame(G);
+    if (!fr) return;
+    const { P, M, parabolic } = fr;
+
+    // Read the normal form to size the flow.
+    let sMin, sMax, seeds = [];
+    if (parabolic) {
+        const c = M.b.div(M.d);                     // translation per application
+        const cAbs = Math.sqrt(c.normSq());
+        if (!(cAbs > 1e-9)) return;
+        const span = 26 / cAbs;
+        sMin = -span; sMax = span;
+        // Seed on a line perpendicular to the translation. Offsets grow
+        // geometrically, so the nested tangent circles stay evenly spaced
+        // once they are drawn on the sphere.
+        const perp = cplx(-c.im, c.re).div(cplx(cAbs, 0));
+        for (let k = 0; k < 10; k++) {
+            const d = 0.35 * Math.pow(1.52, k);
+            seeds.push(perp.mul(cplx(d, 0)));
+            seeds.push(perp.mul(cplx(-d, 0)));
+        }
+    } else {
+        const mu = M.a.div(M.d);                    // multiplier
+        const ell = 0.5 * Math.log(Math.max(1e-30, mu.normSq()));   // ln|μ|
+        const theta = Math.atan2(mu.im, mu.re);
+        if (Math.abs(ell) < 1e-6) {
+            // Elliptic: closed circles; one full turn, seeds at several radii.
+            if (Math.abs(theta) < 1e-6) return;
+            sMin = 0; sMax = 2 * Math.PI / Math.abs(theta);
+            // Log-spaced radii → latitude circles spread evenly from one
+            // fixed point to the other.
+            const N = 16;
+            for (let k = 0; k < N; k++) {
+                seeds.push(cplx(0.08 * Math.pow(150, k / (N - 1)), 0));
+            }
+        } else {
+            // Loxodromic: spirals from one fixed point to the other. Seed the
+            // unit circle (the "equator" between them) and run until the
+            // orbits have swept several decades of radius.
+            const span = Math.log(600) / Math.abs(ell);
+            sMin = -span; sMax = span;
+            const n = 24;
+            for (let i = 0; i < n; i++) {
+                const ph = 2 * Math.PI * i / n;
+                seeds.push(cplx(Math.cos(ph), Math.sin(ph)));
+            }
+        }
+    }
+    if (seeds.length === 0) return;
+
+    // Precompute the flow matrices once, then push every seed through them.
+    const STEPS = 150;
+    const mats = [];
+    for (let k = 0; k <= STEPS; k++) {
+        mats.push(flowAt(sMin + (sMax - sMin) * k / STEPS));
+    }
+
+    // Most of the family is drawn as faint hairlines to give the texture of
+    // the flow; every fourth one is a solid tube, so the eye has a few
+    // curves it can actually follow from end to end.
+    const color = theme().isoFlow;
+    const ACCENT_EVERY = 4;
+    const lineMat = new THREE.LineBasicMaterial({
+        color, transparent: true, opacity: 0.34, depthTest: false, depthWrite: false
+    });
+    const coneMat = (accent) => new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity: accent ? 0.95 : 0.55,
+        depthTest: false, depthWrite: false
+    });
+
+    seeds.forEach((z0, idx) => {
+        const accent = idx % ACCENT_EVERY === 0;
+        const s0 = projImage(P, z0, cplx(1, 0));       // seed in world coords
+        const ball = [];
+        for (const W of mats) {
+            const [n1, d1] = projImage(W, s0[0], s0[1]);
+            const b = projToBall(n1, d1);
+            // Keep the polyline just off the sphere; drop numerical stragglers.
+            if (Number.isFinite(b.x)) ball.push(b.multiplyScalar(1.002));
+        }
+        if (ball.length < 2) return;
+
+        if (accent) {
+            // isoTube maps ball → world itself, so it gets the raw points.
+            const tube = isoTube(ball, color, 0.0045);
+            tube.material.opacity = 0.82;
+            tube.renderOrder = 6;          // stays under the axis (7)
+            isoAxisGroup.add(tube);
+        } else {
+            const geom = new THREE.BufferGeometry().setFromPoints(ball.map(toWorld));
+            const line = new THREE.Line(geom, lineMat);
+            line.renderOrder = 6;
+            isoAxisGroup.add(line);
+        }
+
+        // Direction arrows ride the accent curves only, and sit at their
+        // midpoint: orbit endpoints all pile onto the fixed points, so an
+        // arrowhead there would be a heap rather than a hint.
+        if (!accent) return;
+        const m = Math.floor(ball.length / 2);
+        const wMid = toWorld(ball[m]);
+        const dir = toWorld(ball[Math.min(ball.length - 1, m + 1)]).sub(wMid);
+        if (dir.lengthSq() > 1e-12) {
+            const cone = new THREE.Mesh(
+                new THREE.ConeGeometry(0.02, 0.055, 10), coneMat(true));
+            cone.position.copy(wMid);
+            cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+            cone.renderOrder = 6;
+            isoAxisGroup.add(cone);
+        }
+    });
+}
+
 function isoTube(points, color, radius = 0.008) {
     const geom = new THREE.TubeGeometry(
         new THREE.CatmullRomCurve3(points), Math.max(32, points.length), radius, 8, false);
@@ -1150,6 +1382,10 @@ function showIsometryAxis(g, V0, X) {
     disposeGroup(isoAxisGroup);
 
     const noop = { onFrame() { }, finish() { } };
+    // The axis, fixed points and boundary flow ride along with Dust: they are
+    // the same "what is this isometry doing to space" story, and without the
+    // dust to move against they clutter a clean domain view.
+    if (!showDust) return noop;
     let G, V0i;
     try {
         V0i = V0.inv().normalized();
@@ -1159,6 +1395,8 @@ function showIsometryAxis(g, V0, X) {
     if (!p1) return noop;
 
     const flowAt = (s) => V0.mul(Matrix2x2.exp(scaleMat(X, s))).mul(V0i).normalized();
+
+    try { buildBoundaryFlowLines(G, flowAt); } catch (e) { console.warn('flow lines:', e); }
 
     let marker = null;
     let probe = null;      // ball point whose W(t)-image the marker tracks
@@ -1920,6 +2158,10 @@ function initUI() {
         }
     }
 
+    document.querySelectorAll('.theme-opt').forEach(btn => {
+        btn.addEventListener('click', () => setTheme(btn.dataset.theme));
+    });
+
     const dustBtn = document.getElementById('toggle-dust');
     if (dustBtn) {
         dustBtn.addEventListener('click', () => {
@@ -2008,6 +2250,8 @@ window.PoincareAPI = {
     },
     setTiling(on) { showTiling = on; tilingGroup.visible = on; updateTiling(); },
     setMirror(on) { if (on !== mirrorMode) setMirrorMode(on); },
+    setTheme,
+    getTheme: () => themeMode,
     setDust(on) {
         showDust = on;
         dustGroup.visible = on;

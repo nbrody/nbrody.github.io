@@ -1364,3 +1364,135 @@ html.embed-mode #status-banner {
     border-top: 1px solid var(--hairline);
     padding-top: 8px;
 }
+
+/* ================================================================
+   Light mode — a soft, pastel counterpart to the dark workbench.
+   Tokens are re-declared on <html class="light">, so every
+   component that speaks in tokens follows automatically. The 3D
+   scene's own colours are set from js/main.js (setTheme).
+   ================================================================ */
+
+html.light {
+    --bg: #eef1f8;
+    --ink: #171c2b;
+    --ink-dim: #545d75;
+    --ink-faint: #8b93a8;
+
+    --accent: #6366f1;
+    --accent-2: #0891b2;
+    --success: #15a34a;
+    --warning: #c2740a;
+    --danger: #e11d48;
+
+    /* the translucent ladder inverts: dark films over a light scene */
+    --w03: rgba(23, 28, 43, 0.03);
+    --w05: rgba(23, 28, 43, 0.05);
+    --w08: rgba(23, 28, 43, 0.07);
+    --w12: rgba(23, 28, 43, 0.11);
+    --hairline: rgba(23, 28, 43, 0.10);
+    --hairline-strong: rgba(23, 28, 43, 0.18);
+
+    --field-bg: rgba(255, 255, 255, 0.72);
+    --glass: rgba(255, 255, 255, 0.78);
+
+    --accent-soft: rgba(99, 102, 241, 0.14);
+    --accent-line: rgba(99, 102, 241, 0.45);
+    --accent-glow: rgba(99, 102, 241, 0.22);
+}
+
+/* A soft wash behind the scene, so the ball sits on paper rather than a slab. */
+html.light body {
+    background:
+        radial-gradient(ellipse at 28% 18%, #ffffff 0%, rgba(255, 255, 255, 0) 55%),
+        linear-gradient(160deg, #f3f5fc 0%, var(--bg) 55%, #e6eaf4 100%);
+}
+
+/* Panels lift off the light background instead of glowing on dark. */
+html.light #control-panel,
+html.light .status-banner,
+html.light .face-info {
+    box-shadow: 0 10px 34px rgba(23, 28, 43, 0.13);
+}
+
+/* The MathQuill fields ship with dark-scene assumptions. */
+html.light .mq-matrix-input,
+html.light .constant-label-input,
+html.light .constant-expr-input {
+    color: var(--ink);
+}
+
+/* ---------------- Dark / light segmented control ---------------- */
+
+.theme-options {
+    display: flex;
+    flex: none;
+    gap: 3px;
+    padding: 3px;
+    background: var(--field-bg);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+}
+
+.theme-opt {
+    padding: 6px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    color: var(--ink-dim);
+    font-family: var(--font);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.theme-opt:hover {
+    color: var(--ink);
+    background: var(--w05);
+}
+
+.theme-opt.active {
+    background: var(--accent-soft);
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+/* A few components bake in dark-scene assumptions (white sheen borders,
+   black scrims); restate them for light. */
+html.light #control-panel {
+    background:
+        linear-gradient(var(--glass), var(--glass)) padding-box,
+        linear-gradient(165deg,
+            rgba(255, 255, 255, 0.9),
+            rgba(23, 28, 43, 0.06) 30%,
+            rgba(99, 102, 241, 0.28) 90%) border-box;
+    box-shadow:
+        0 24px 60px -20px rgba(23, 28, 43, 0.28),
+        0 4px 16px rgba(23, 28, 43, 0.10);
+}
+
+html.light .tab-navigation {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+html.light .tab-btn.active {
+    background: linear-gradient(180deg, var(--accent-soft), rgba(99, 102, 241, 0.06));
+    box-shadow:
+        0 0 14px var(--accent-glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Banners and the face inspector are glass over a dark sky; on paper they
+   become white cards with a coloured hairline. */
+html.light .status-banner {
+    background:
+        linear-gradient(rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.86)) padding-box,
+        linear-gradient(165deg,
+            color-mix(in srgb, var(--tone) 60%, transparent),
+            color-mix(in srgb, var(--tone) 22%, transparent)) border-box;
+    box-shadow: 0 12px 32px -14px rgba(23, 28, 43, 0.35);
+}
+
+html.light .face-info {
+    background: rgba(255, 255, 255, 0.88);
+}

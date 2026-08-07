@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Computation and Illustration | MathFest 2026</title>
     <meta name="description"
-        content="MathFest talk: beam search in matrix groups (the Long–Reid group), and building interactive geometry tools at conversational speed.">
+        content="MathFest talk: beam search in matrix groups, and building interactive geometry tools.">
 
     <!-- Reveal.js -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.css">
@@ -30,18 +30,14 @@
                  ═══════════════════════════════════════════════ -->
             <section data-anchor="title">
                 <h1 class="deck-title">Computation<br>and Illustration</h1>
-                <p class="deck-subtitle">Search, AI, and hands-on tools for matrix groups</p>
+                <p class="deck-subtitle">Computation and visualization in group theory and topology</p>
                 <p class="deck-byline">MathFest 2026 &middot; Nic Brody &middot; UC Santa Cruz</p>
                 <button class="present-btn" onclick="startPresentation()">Present</button>
-                <aside class="notes">
-                    Hook: the same math that builds language models can hunt for theorems.
-                    Two 10-minute experiments: a search, and a build.
-                </aside>
             </section>
 
             <!-- Outline / framing -->
             <section data-anchor="outline">
-                <h2>Two experiments</h2>
+                <h2>Two stories</h2>
                 <div class="two-col">
                     <div class="col-card fragment">
                         <h3><span class="part-num">I</span> The Hunt</h3>
@@ -74,7 +70,7 @@
                     data-background-iframe="../Boise/js/torusOrbifold/torusOrbifold.html?embed=true"
                     data-background-interactive>
                     <aside class="notes">
-                        Torus-orbifold / surface group animation from the Boise talk.
+                        Torus-orbifold / surface group animation
                         Remote: Play/Pause button (sends 'toggle'). Or click the viz's own controls.
                     </aside>
                 </section>
@@ -84,7 +80,7 @@
                     data-background-iframe="../Boise/js/productOfTrees/productOfTrees.html?embed=true"
                     data-background-interactive>
                     <aside class="notes">
-                        Product-of-trees animation from the Boise talk.
+                        Product-of-trees animation
                         Remote: Play/Pause ('toggle') and Link ('toggle-link').
                     </aside>
                 </section>
@@ -199,25 +195,29 @@
                 <!-- The find (title from Boise: summary) -->
                 <section>
                     <h2>An integer matrix in the Long&#8209;Reid group</h2>
+                    <p class="tight">The length 82 word</p>
                     <div class="math-card word-card">
-                        \[ \begin{aligned} w = {} &
-                            b\,a^{-1}b^{-1}a^{-1}\,b\,a^{3}\,b^{-1}a^{-1}b^{-1}\,a^{2}\,b\,a^{-1}b^{-2}\,a^{4}\,b\,a^{-1}b^{-1} \\
-                            & a^{-4}\,b\,a\,b\,a^{-1}b^{-1}a^{-1}\,b\,a\,b\,a^{-3}\,b^{-1}\,a\,b\,a\,b^{-1}a^{-1}
+                        \[ \begin{aligned}
+                            & a^{2}\,b\,a^{-2}b^{-1}\,a\,b\,a^{2}b^{-1}a^{-1}b^{-1}\,a^{2}\,b\,a^{-1}\,b\,a^{2}b^{-1} \\
+                            & a^{-1}b^{-1}\,a\,b\,a\,b^{-1}\,a\,b\,a^{-1}\,b\,a^{2}b^{-1}\,a^{3}\,b\,a^{-2}b^{-1} \\
+                            & a\,b^{-1}a^{-2}\,b^{2}\,a\,b^{-1}a^{-2}\,b\,a^{-1}b^{-1}\,a\,b^{-1}a^{-2}\,b\,a\,b^{-1} \\
+                            & a^{2}\,b\,a^{-1}\,b\,a\,b^{-1}\,a\,b\,a^{-1}\,b\,a^{2}b^{-1}\,a^{3}\,b\,a^{-2}b^{-1}
                         \end{aligned} \]
                     </div>
+                    <p class="fragment tight">evaluates to the infinite-order integer matrix</p>
                     <div class="fragment">
                         <div class="math-card matrix-card">
-                            \[ g = \begin{pmatrix} 8{,}139{,}770{,}816{,}915 & -139{,}391{,}930{,}284{,}334 \\
-                                   4{,}277{,}886{,}240{,}264 & -73{,}257{,}937{,}352{,}245 \end{pmatrix} \]
+                            \[ \begin{pmatrix} -646279884109511971664607 & 6162511442411222450262052 \\
+                                   -4193268331567764626734 & 39984323680432243295081 \end{pmatrix} \]
                         </div>
                     </div>
-                    <p class="fragment punchline">\( \det g = 1, \qquad |\mathrm{tr}\,g| > 2 \)</p>
                     <aside class="notes">
-                        Search stats: beam 8000, no flash, converged well within 400 iterations.
-                        The raw word product is g/9 — integral exactly after clearing the 2s and 3s
-                        (projectively the same Möbius map). Compare the length-82 witness in
-                        Brody, "An improper surface group action" (arXiv:2512.19760) — the racer's
-                        built-in solution on the next slide.
+                        This is the witness from Brody, "An improper surface group action"
+                        (arXiv:2512.19760): the length-82 word above, evaluated in
+                        a = (1/3)[[9,0],[0,1]], b = (1/8)[[82,2],[9,1]].
+                        Verified here: entries exactly integral, det = 1,
+                        trace = −606295560429079728369526 (so infinite order).
+                        The racer on the next slide plays exactly this word.
                     </aside>
                 </section>
 

@@ -93,9 +93,10 @@
     box-shadow: 0 0 40px rgba(124, 138, 255, 0.07);
 }
 .math-card p { margin: 0.4em 0; }
-.word-card { font-size: 0.66em; }
-.matrix-card { font-size: 0.72em; }
-.tight { font-size: 0.75em; margin-bottom: 0; }
+.word-card { font-size: 0.6em; }
+/* 25-digit entries: sized to fit the slide whole — the scale IS the point */
+.matrix-card { font-size: 0.4em; }
+.tight { font-size: 0.68em; margin-bottom: 0; }
 
 /* Boise-style theorem/question box */
 .theorem-card {
