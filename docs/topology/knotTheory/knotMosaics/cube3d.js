@@ -42,9 +42,33 @@
 
     function faceParent(n) { return n === 'front' ? cubeGroup : pivots[n]; }
 
+    function disposeObject3D(root) {
+        if (!root) return;
+        const seenMat = new Set();
+        const seenGeo = new Set();
+        root.traverse(obj => {
+            if (obj.geometry && !seenGeo.has(obj.geometry)) {
+                seenGeo.add(obj.geometry);
+                obj.geometry.dispose();
+            }
+            const mats = obj.material
+                ? (Array.isArray(obj.material) ? obj.material : [obj.material])
+                : [];
+            for (const m of mats) {
+                if (!m || seenMat.has(m)) continue;
+                seenMat.add(m);
+                if (m.map) m.map.dispose();
+                m.dispose();
+            }
+        });
+    }
+
     // ── Build Net ──
     function buildNet() {
-        if (cubeGroup) scene.remove(cubeGroup);
+        if (cubeGroup) {
+            scene.remove(cubeGroup);
+            disposeObject3D(cubeGroup);
+        }
         cubeGroup = new THREE.Group(); scene.add(cubeGroup);
         pivots = {}; meshes = {}; strandGroups = {};
 
@@ -137,6 +161,9 @@
             case 'arc_sw': return [arc(BL, 0, Math.PI / 2, h, zB)];
             case 'cross_pos': return [ln(N, S, zB), ln(W, E, zO)];
             case 'cross_neg': return [ln(W, E, zB), ln(N, S, zO)];
+            case 'cross_virtual':
+                // Virtual crossings have no over/under — both strands share z.
+                return [ln(N, S, zB), ln(W, E, zB)];
             case 'double_arc_nesw': return [arc(TR, Math.PI, 1.5 * Math.PI, h, zB), arc(BL, 0, Math.PI / 2, h, zB)];
             case 'double_arc_nwse': return [arc(TL, 0, -Math.PI / 2, h, zB), arc(BR, Math.PI, Math.PI / 2, h, zB)];
             default: return [];
@@ -314,6 +341,11 @@
     };
 
     window.openCubeFold = function () {
+        const st = window.getAppState();
+        const msg = window.r3SizeGuardMessage
+            ? window.r3SizeGuardMessage('sphere', st.faceSize)
+            : null;
+        if (msg) { alert(msg); return; }
         document.getElementById('cube-overlay').style.display = 'block';
         document.getElementById('cube-hide-grid').checked = false;
         if (!renderer) init();

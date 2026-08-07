@@ -1547,8 +1547,12 @@ document.getElementById('view-r3-btn').addEventListener('click', () => {
     if (state.surface === 'disk') {
         if (window.openSmooth) window.openSmooth();
     } else if (state.surface === 'sphere') {
+        const msg = window.r3SizeGuardMessage('sphere', state.faceSize);
+        if (msg) { alert(msg); return; }
         if (window.openCubeFold) window.openCubeFold();
     } else if (state.surface === 'torus') {
+        const msg = window.r3SizeGuardMessage('torus', state.gridSize);
+        if (msg) { alert(msg); return; }
         if (window.openTorusFold) window.openTorusFold();
     }
 });
@@ -1665,9 +1669,36 @@ document.addEventListener('keydown', (e) => {
 // ============================================================
 // Face texture renderer (for 3D cube)
 // ============================================================
+// Texture cell size for R³ face/torus canvases. Fixed 96px/cell blows past
+// browser memory once faceSize/gridSize climbs toward the new 60-cell 2D
+// editing limit (6 × 5760² RGBA ≈ 800 MiB for a sphere). Cap the canvas
+// edge at 2048px so R³ stays usable.
+window.r3TextureCellSize = function (dim) {
+    const d = Math.max(1, dim | 0);
+    return Math.max(8, Math.min(96, Math.floor(2048 / d)));
+};
+
+// Hard ceilings for fold/smooth R³ views. Larger grids remain editable in 2D.
+const R3_MAX_SPHERE_FACE = 16;
+const R3_MAX_TORUS_GRID = 25;
+
+window.r3SizeGuardMessage = function (surface, size) {
+    if (surface === 'sphere' && size > R3_MAX_SPHERE_FACE) {
+        return `Sphere face size ${size} is too large for the R³ fold view ` +
+            `(max ${R3_MAX_SPHERE_FACE}). Larger sizes are fine for 2D editing — ` +
+            `reduce the grid size before viewing in R³.`;
+    }
+    if (surface === 'torus' && size > R3_MAX_TORUS_GRID) {
+        return `Torus grid size ${size} is too large for the R³ fold view ` +
+            `(max ${R3_MAX_TORUS_GRID}). Larger sizes are fine for 2D editing — ` +
+            `reduce the grid size before viewing in R³.`;
+    }
+    return null;
+};
+
 window.renderFaceTexture = function (faceName, showGrid, strandsOnly) {
     const fs = state.faceSize;
-    const cs = 96;
+    const cs = window.r3TextureCellSize(fs);
     const size = fs * cs;
     const c = document.createElement('canvas');
     c.width = size;
@@ -1717,7 +1748,7 @@ window.renderFaceTexture = function (faceName, showGrid, strandsOnly) {
 // ============================================================
 window.renderTorusTexture = function (showGrid, strandsOnly) {
     const gs = state.gridSize;
-    const cs = 96;
+    const cs = window.r3TextureCellSize(gs);
     const size = gs * cs;
     const c = document.createElement('canvas');
     c.width = size;

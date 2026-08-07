@@ -779,7 +779,9 @@ function buildChainsFromPolylines(polygons) {
         return { error: 'No closed loops found' };
     }
     const newChains = polygons.map(loop => {
-        const target = Math.max(160, loop.length * 4);
+        // Cap vertices so large 2D mosaics cannot create O(N²) force
+        // evaluations that freeze the tab when Smooth is pressed.
+        const target = Math.min(720, Math.max(160, loop.length * 4));
         return new KnotChain(resampleClosed(loop, target), energyKey);
     });
     return { chains: newChains, count: polygons.length };

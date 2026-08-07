@@ -35,8 +35,32 @@
         d2.position.set(-2, -1, 3); scene.add(d2);
     }
 
+    function disposeObject3D(root) {
+        if (!root) return;
+        const seenMat = new Set();
+        const seenGeo = new Set();
+        root.traverse(obj => {
+            if (obj.geometry && !seenGeo.has(obj.geometry)) {
+                seenGeo.add(obj.geometry);
+                obj.geometry.dispose();
+            }
+            const mats = obj.material
+                ? (Array.isArray(obj.material) ? obj.material : [obj.material])
+                : [];
+            for (const m of mats) {
+                if (!m || seenMat.has(m)) continue;
+                seenMat.add(m);
+                if (m.map) m.map.dispose();
+                m.dispose();
+            }
+        });
+    }
+
     function buildModel() {
-        if (mainGroup) scene.remove(mainGroup);
+        if (mainGroup) {
+            scene.remove(mainGroup);
+            disposeObject3D(mainGroup);
+        }
         mainGroup = new THREE.Group(); scene.add(mainGroup);
         morphTargets = [];
         tubeMorphTargets = [];
@@ -46,8 +70,10 @@
         const st = window.getAppState();
         const gs = st.gridSize;
 
-        // 1. Surface Plane (highly subdivided for smooth bending)
-        const planeGeo = new THREE.PlaneGeometry(1, 1, gs * 8, gs * 8);
+        // 1. Surface Plane (highly subdivided for smooth bending).
+        // Cap segments so large 2D grids cannot allocate millions of verts.
+        const segs = Math.min(gs * 8, 160);
+        const planeGeo = new THREE.PlaneGeometry(1, 1, segs, segs);
         const tc = window.renderTorusTexture(showGrid, false);
         const tex = new THREE.CanvasTexture(tc);
         tex.minFilter = THREE.LinearFilter;
@@ -103,6 +129,9 @@
             case 'arc_sw': return [arc(BL, 0, Math.PI / 2, h, zB)];
             case 'cross_pos': return [ln(N, S, zB), ln(W, E, zO)];
             case 'cross_neg': return [ln(W, E, zB), ln(N, S, zO)];
+            case 'cross_virtual':
+                // Virtual crossings have no over/under — both strands share z.
+                return [ln(N, S, zB), ln(W, E, zB)];
             case 'double_arc_nesw': return [arc(TR, Math.PI, 1.5 * Math.PI, h, zB), arc(BL, 0, Math.PI / 2, h, zB)];
             case 'double_arc_nwse': return [arc(TL, 0, -Math.PI / 2, h, zB), arc(BR, Math.PI, Math.PI / 2, h, zB)];
             default: return [];
@@ -264,6 +293,12 @@
 
     // ── Public API ──
     window.openTorusFold = function () {
+        const st = window.getAppState();
+        const msg = window.r3SizeGuardMessage
+            ? window.r3SizeGuardMessage('torus', st.gridSize)
+            : null;
+        if (msg) { alert(msg); return; }
+
         const uiBtn = document.getElementById('cube-unfold-btn');
         uiBtn.textContent = 'Unfold';
         uiBtn.onclick = () => {
