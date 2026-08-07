@@ -98,6 +98,7 @@ const THEMES = {
                      0xa78bfa, 0xfb7185, 0x34d399, 0xf97316],
         cone: 0xffffff,
         isoFlow: 0x22d3ee,
+        orbit: 0xc084fc,
     },
     light: {
         bg: 0xeef1f8,
@@ -107,6 +108,7 @@ const THEMES = {
                      0x7c3aed, 0xe11d48, 0x0f766e, 0xc2410c],
         cone: 0x64748b,
         isoFlow: 0x0e7490,
+        orbit: 0x7e22ce,
     },
 };
 let themeMode = 'dark';
@@ -133,6 +135,10 @@ function setTheme(mode) {
     if (showTiling) updateTiling();
     if (wallsOpacity > 0) updateWalls();
     if (showDust) updateDust();
+    if (orbitRun) {
+        orbitRun.mesh.material.color.set(T.orbit);
+        orbitRun.mesh.material.emissive.set(T.orbit);
+    }
     document.getElementById('theme-dark')?.classList.toggle('active', mode === 'dark');
     document.getElementById('theme-light')?.classList.toggle('active', mode === 'light');
 }
@@ -196,6 +202,7 @@ function setViewModel(model) {
     if (showTiling) updateTiling();
     if (wallsOpacity > 0) updateWalls();
     if (showDust) updateDust();
+    markOrbitDirty();
     updateToggleBtn(document.getElementById('view-uhs'), uhs);
     const mirrorBtn = document.getElementById('toggle-mirror');
     if (mirrorBtn) mirrorBtn.disabled = uhs;
@@ -1123,6 +1130,119 @@ function updateDust() {
     repositionDust();
 }
 
+// --- Orbit generation ---
+// Breadth-first growth of the orbit of the basepoint: start at the identity
+// and repeatedly multiply by the generators and their inverses, adding a
+// small batch of new points on each tick so the orbit visibly spreads out
+// toward the ideal boundary. Elements are stored in the identity frame and
+// positioned through the live viewMatrix, so the orbit rides isometry
+// animations exactly like the dust does.
+const orbitGroup = new THREE.Group();
+scene.add(orbitGroup);
+let orbitRun = null;
+const ORBIT_MAX = 2600;      // hard cap: growth is exponential
+const ORBIT_BATCH = 16;      // new points per tick
+const ORBIT_TICK = 70;       // ms between batches
+const ORBIT_POP = 420;       // ms for a new point to scale in
+const ORBIT_ORIGIN = new THREE.Vector3(0, 0, 0);
+
+function stopOrbit() {
+    if (orbitRun && orbitRun.timer) clearTimeout(orbitRun.timer);
+    disposeGroup(orbitGroup);
+    orbitRun = null;
+}
+
+function startOrbit() {
+    stopOrbit();
+    if (!currentGenerators || currentGenerators.length === 0) return;
+    const mat = new THREE.MeshStandardMaterial({
+        color: theme().orbit, emissive: theme().orbit, emissiveIntensity: 0.45,
+        roughness: 0.35, metalness: 0.1, transparent: true, opacity: 0.95, depthWrite: false
+    });
+    const mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.018, 12, 8), mat, ORBIT_MAX);
+    mesh.frustumCulled = false;      // instances are placed far from the origin
+    mesh.renderOrder = 2;
+    mesh.count = 0;
+    orbitGroup.add(mesh);
+
+    const I = Matrix2x2.identity();
+    orbitRun = {
+        mesh,
+        mats: [I],
+        born: [performance.now()],
+        seen: new Set([pslKey(I)]),
+        gens: currentGenerators.slice(),
+        head: 0,
+        growing: true,
+        dirty: true,
+        timer: null,
+    };
+    mesh.count = 1;
+    tickOrbit();
+}
+
+function tickOrbit() {
+    if (!orbitRun) return;
+    const R = orbitRun;
+    R.timer = null;
+    let added = 0;
+    while (added < ORBIT_BATCH && R.head < R.mats.length && R.mats.length < ORBIT_MAX) {
+        const m = R.mats[R.head++];
+        for (const g of R.gens) {
+            if (R.mats.length >= ORBIT_MAX) break;
+            const prod = m.mul(g).normalized();
+            const key = pslKey(prod);
+            if (R.seen.has(key)) continue;
+            R.seen.add(key);
+            R.mats.push(prod);
+            R.born.push(performance.now());
+            added++;
+        }
+    }
+    R.mesh.count = R.mats.length;
+    R.dirty = true;
+    if (R.mats.length >= ORBIT_MAX || R.head >= R.mats.length) {
+        R.growing = false;                       // frontier exhausted or capped
+    } else {
+        R.timer = setTimeout(tickOrbit, ORBIT_TICK);
+    }
+}
+
+/** Re-place every orbit point; returns true while further frames are needed. */
+function updateOrbitInstances(now) {
+    if (!orbitRun) return false;
+    const R = orbitRun;
+    const dummy = new THREE.Object3D();
+    let popping = false;
+    for (let i = 0; i < R.mats.length; i++) {
+        const q = applyMatrixToBall(viewMatrix.mul(R.mats[i]).normalized(), ORBIT_ORIGIN);
+        const qv = new THREE.Vector3(q.x, q.y, q.z);
+        const w = toWorld(qv);
+        let s;
+        if (viewModel === 'uhs') {
+            s = (w.y > 18 || Math.abs(w.x) > 18 || Math.abs(w.z) > 18)
+                ? 0 : Math.min(8, Math.max(0.06, w.y * 0.85));
+        } else {
+            s = Math.max(0.12, (1 - qv.length()) * 1.5);
+        }
+        const age = (now - R.born[i]) / ORBIT_POP;
+        let pop = 1;
+        if (age < 1) { popping = true; const t = Math.max(0, age); pop = t * t * (3 - 2 * t); }
+        dummy.position.copy(w);
+        dummy.scale.setScalar(s * pop);
+        dummy.updateMatrix();
+        R.mesh.setMatrixAt(i, dummy.matrix);
+    }
+    R.mesh.instanceMatrix.needsUpdate = true;
+    R.dirty = popping || R.growing;
+    return R.dirty;
+}
+
+/** The view moved (or the model changed): orbit positions need a rebuild. */
+function markOrbitDirty() {
+    if (orbitRun) orbitRun.dirty = true;
+}
+
 // --- Isometry axis visualization ---
 // While an isometry animates, show its geometry: the axis and boundary
 // fixed points (hyperbolic/loxodromic, with a marker sliding along the
@@ -1500,6 +1620,7 @@ function animateMatrix(g, wordToAppend, onDone) {
             if (showTiling) updateTiling({ fast: true });
             if (wallsOpacity > 0) updateWalls();
             if (showDust) repositionDust();   // dust rides the isometry
+            markOrbitDirty();
 
             if (t < 1) {
                 requestAnimationFrame(step);
@@ -1513,6 +1634,7 @@ function animateMatrix(g, wordToAppend, onDone) {
                 if (dualMode !== 'off') updateDual();
                 if (showTiling) updateTiling();
                 if (showDust) repositionDust();
+                markOrbitDirty();
                 axisViz.finish();
                 runCertifier();
                 if (onDone) onDone();
@@ -1973,6 +2095,7 @@ function refreshFromUI() {
         if (showTiling) updateTiling();
         if (wallsOpacity > 0) updateWalls();
         if (showDust) repositionDust();   // viewMatrix was reset to identity
+        if (orbitRun) startOrbit();       // new generators → regrow the orbit
         runCertifier();
         window.dispatchEvent(new CustomEvent('poincare:refreshed'));
     } catch (e) {
@@ -2162,6 +2285,15 @@ function initUI() {
         btn.addEventListener('click', () => setTheme(btn.dataset.theme));
     });
 
+    const orbitBtn = document.getElementById('toggle-orbit');
+    if (orbitBtn) {
+        orbitBtn.addEventListener('click', () => {
+            const on = !orbitRun;
+            updateToggleBtn(orbitBtn, on);
+            if (on) startOrbit(); else stopOrbit();
+        });
+    }
+
     const dustBtn = document.getElementById('toggle-dust');
     if (dustBtn) {
         dustBtn.addEventListener('click', () => {
@@ -2199,6 +2331,7 @@ function initUI() {
 function animate(time) {
     requestAnimationFrame(animate);
     controls.update();
+    if (orbitRun && orbitRun.dirty) updateOrbitInstances(time);
     material.uniforms.u_cameraPos.value.copy(camera.position);
     material.uniforms.u_time.value = time * 0.001;
     renderer.render(scene, camera);
@@ -2252,6 +2385,11 @@ window.PoincareAPI = {
     setMirror(on) { if (on !== mirrorMode) setMirrorMode(on); },
     setTheme,
     getTheme: () => themeMode,
+    setOrbit(on) {
+        if (on) startOrbit(); else stopOrbit();
+        updateToggleBtn(document.getElementById('toggle-orbit'), !!on);
+    },
+    orbitSize: () => (orbitRun ? orbitRun.mats.length : 0),
     setDust(on) {
         showDust = on;
         dustGroup.visible = on;
