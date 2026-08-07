@@ -1,0 +1,394 @@
+/* ================================================================
+   MathFest 2026 — Computation and Illustration
+   Custom reveal.js theme + phone-remote UI
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+
+/* ── Design Tokens (shared with previous talks) ─────── */
+:root {
+    --bg-deep:    #060a14;
+    --bg-surface: #0d1321;
+    --bg-card:    rgba(13, 19, 33, 0.88);
+    --text-primary:  #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted:    #64748b;
+    --accent:       #7c8aff;
+    --accent-warm:  #f59e0b;
+    --accent-rose:  #f472b6;
+    --accent-teal:  #2dd4bf;
+    --border:       rgba(124, 138, 255, 0.15);
+    --glow:         rgba(124, 138, 255, 0.35);
+    --radius-sm:    8px;
+    --radius-md:    16px;
+    --radius-lg:    24px;
+    --font-body:  'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-display: 'Playfair Display', Georgia, serif;
+}
+
+/* ── Reveal theme overrides ─────────────────────────── */
+.reveal-viewport {
+    background: radial-gradient(ellipse at 30% 20%, #0a1128 0%, var(--bg-deep) 60%);
+}
+
+.reveal {
+    font-family: var(--font-body);
+    color: var(--text-primary);
+}
+
+.reveal h1, .reveal h2, .reveal h3 {
+    font-family: var(--font-display);
+    color: #ffffff;
+    text-transform: none;
+    letter-spacing: -0.01em;
+}
+
+.reveal h1 { font-size: 2.6em; font-weight: 700; }
+.reveal h2 { font-size: 1.6em; font-weight: 700; margin-bottom: 0.7em; }
+
+.reveal p, .reveal li { color: var(--text-secondary); line-height: 1.55; }
+.reveal li { margin: 0.45em 0; }
+.reveal strong { color: var(--text-primary); }
+.reveal em { color: var(--accent); font-style: italic; }
+
+.reveal .progress { color: var(--accent); }
+.reveal .controls { color: var(--accent); }
+.reveal .slide-number { background: transparent; color: var(--text-muted); }
+
+/* Title slide */
+.deck-title {
+    background: linear-gradient(120deg, #fff 30%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1.12;
+}
+.deck-subtitle { font-size: 0.85em; color: var(--text-secondary); margin-top: 0.4em; }
+.deck-byline   { font-size: 0.55em; color: var(--text-muted); margin-top: 2.2em; letter-spacing: 0.04em; }
+
+.part-label {
+    font-size: 0.6em;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: var(--accent);
+    margin-bottom: 0.2em;
+}
+
+.subtle { color: var(--text-muted) !important; }
+
+.punchline {
+    margin-top: 0.8em;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--accent) !important;
+}
+
+/* Cards */
+.math-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.3em 0.8em;
+    margin: 0.5em auto;
+    box-shadow: 0 0 40px rgba(124, 138, 255, 0.07);
+}
+.math-card p { margin: 0.4em 0; }
+.word-card { font-size: 0.66em; }
+.matrix-card { font-size: 0.72em; }
+.tight { font-size: 0.75em; margin-bottom: 0; }
+
+/* Boise-style theorem/question box */
+.theorem-card {
+    background: var(--bg-card);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: var(--radius-md);
+    padding: 1em 1.4em;
+    margin: 0.9em auto 0;
+    max-width: 24em;
+    box-shadow: 0 0 40px rgba(245, 158, 11, 0.08);
+}
+.theorem-card .th-label {
+    display: block;
+    font-size: 0.5em;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--accent-warm);
+    margin-bottom: 0.9em;
+    font-weight: 700;
+}
+.theorem-card p {
+    color: var(--text-primary);
+    font-size: 1.05em;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* Text-heavy Boise slides: shrink a notch so they fit comfortably */
+.reveal .dense h2 { font-size: 1.2em; margin-bottom: 0.45em; }
+.reveal .dense p, .reveal .dense li { font-size: 0.72em; line-height: 1.45; }
+.reveal .dense li { margin: 0.3em 0; }
+.reveal .dense .math-card { font-size: 0.72em; padding: 0.2em 0.8em; margin: 0.45em auto; }
+.reveal .dense .punchline { margin-top: 0.5em; }
+
+.two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1em;
+    margin-top: 0.8em;
+    text-align: left;
+}
+.col-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1em 1.2em;
+}
+.col-card h3 { font-size: 0.9em; margin-bottom: 0.5em; }
+.col-card p  { font-size: 0.62em; margin: 0; }
+.part-num {
+    display: inline-block;
+    color: var(--accent);
+    font-family: var(--font-display);
+    margin-right: 0.35em;
+}
+
+.separator {
+    width: 80px; height: 2px;
+    background: var(--accent);
+    margin: 1.2em auto;
+    opacity: 0.6;
+}
+
+/* Tutorial slide: content lives in the data-background-iframe */
+.slide-background iframe { background: var(--bg-deep); }
+
+/* Present button */
+.present-btn {
+    margin-top: 2rem;
+    padding: 0.6rem 2rem;
+    font-size: 0.4em;
+    font-family: var(--font-body);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    background: rgba(124, 138, 255, 0.12);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+.present-btn:hover {
+    background: rgba(124, 138, 255, 0.25);
+    box-shadow: 0 0 24px var(--glow);
+}
+.presentation-mode .present-btn { display: none; }
+
+/* ── Live indicator ─────────────────────────────────── */
+#live-indicator {
+    position: fixed;
+    bottom: 14px;
+    left: 14px;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid;
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+}
+#live-indicator .live-detail { display: none; }
+#live-indicator.expanded .live-detail { display: inline; }
+
+/* ── Presentation setup modal ───────────────────────── */
+#present-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(4, 6, 12, 0.8);
+    backdrop-filter: blur(10px);
+    font-family: var(--font-body);
+}
+#present-modal.active { display: flex; }
+
+.modal-content {
+    position: relative;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem 3rem;
+    max-width: 420px;
+    text-align: center;
+    color: var(--text-primary);
+}
+.modal-content h3 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 0.8rem; }
+.modal-content p { font-size: 0.9rem; line-height: 1.5; }
+
+.close-modal {
+    position: absolute;
+    top: 12px; right: 18px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.6rem;
+    cursor: pointer;
+}
+
+#qr-container {
+    background: #fff;
+    border-radius: var(--radius-md);
+    padding: 12px;
+    display: inline-block;
+    margin-bottom: 1.2rem;
+    line-height: 0;
+}
+
+.remote-url {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    background: rgba(124, 138, 255, 0.08);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 1rem;
+    word-break: break-all;
+    user-select: all;
+}
+
+/* ── Remote UI (phone) ──────────────────────────────── */
+#remote-ui { display: none; }
+
+body.remote-mode { background: var(--bg-deep); overflow: hidden; }
+body.remote-mode .reveal { display: none; }
+
+body.remote-mode #remote-ui {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    padding: max(env(safe-area-inset-top), 18px) 18px max(env(safe-area-inset-bottom), 18px);
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    background: radial-gradient(ellipse at 30% 0%, #0a1128 0%, var(--bg-deep) 65%);
+}
+
+.remote-header { text-align: center; }
+.remote-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.remote-session-id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin-top: 4px;
+}
+
+.clickpad-container {
+    position: relative;
+    flex: 1;
+    min-height: 260px;
+    display: grid;
+    grid-template-areas:
+        ". up ."
+        "left center right"
+        ". down .";
+    grid-template-columns: 1fr 1.4fr 1fr;
+    grid-template-rows: 1fr 1.4fr 1fr;
+    gap: 10px;
+}
+
+.clickpad-item, .clickpad-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s ease, transform 0.08s ease;
+}
+.clickpad-item:active, .clickpad-center:active,
+.control-btn:active {
+    background: rgba(124, 138, 255, 0.22);
+    transform: scale(0.97);
+}
+
+.clickpad-up    { grid-area: up; }
+.clickpad-down  { grid-area: down; }
+.clickpad-left  { grid-area: left; }
+.clickpad-right { grid-area: right; }
+.clickpad-center {
+    grid-area: center;
+    background: rgba(124, 138, 255, 0.14);
+    border-color: rgba(124, 138, 255, 0.4);
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    box-shadow: 0 0 30px rgba(124, 138, 255, 0.15);
+}
+
+.remote-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.control-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 54px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s ease, transform 0.08s ease;
+}
+
+#tutorial-controls {
+    display: none; /* shown via remote.js when the tutorial slide is live */
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: 100%;
+    grid-column: 1 / -1;
+}
+
+#viz-controls {
+    display: none; /* shown via remote.js on animation slides */
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    width: 100%;
+    grid-column: 1 / -1;
+}
+
+.remote-status-bar {
+    text-align: center;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+}
