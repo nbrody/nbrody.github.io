@@ -37,26 +37,26 @@ and the tutorial resumes cleanly from wherever it was.
 - Show only the **caption bar**: a single line of MathJax-capable text at the
   bottom, plus a subtle step counter (e.g. `4 / 9`).
 
-## The step sequence (draft — ~5 minutes on stage)
+## The step sequence (11 steps, all on the figure-eight knot group)
 
-| # | State shown | Caption (one line) |
-|---|-------------|--------------------|
-| 0 | Empty Poincaré ball, slow auto-rotate | Hyperbolic 3-space, packed into a ball: distances blow up near the boundary. |
-| 1 | Two generator matrices appear (preset group), basepoint marked | A group of isometries, given by two matrices. |
-| 2 | One isometry animates: basepoint ↦ image | One element $g$ moves the basepoint. |
-| 3 | The bisector wall between basepoint and image fades in | Halfway between: the wall of points equidistant from $x_0$ and $g x_0$. |
-| 4 | All walls for short words fade in, intersection highlighted | Every group element contributes a wall… |
-| 5 | Dirichlet domain solidifies (walls fade out) | …and the innermost region is the Dirichlet domain: one tile of the tessellation. |
-| 6 | Face-pairing animation: click through 2–3 pairings | Faces come in pairs — each pairing is a generator recovered from pure geometry. |
-| 7 | Mirror mode: the domain's walls turn reflective (slow auto-rotate) | Turn the walls into mirrors — the reflections carry one tile to the whole tessellation. |
-| 8 | Cayley graph toggles on, domain translates around | The pattern of tiles **is** the group: its Cayley graph, drawn in hyperbolic space. |
-| 9 | Long–Reid group loaded | And here is the group we were hunting in — the tool and the theorem meet. |
+| # | State shown | Idea |
+|---|-------------|------|
+| 1 | Hyperbolic dust (ball shell + 9000-mote scatter) | Hyperbolic space, uniform in hyperbolic volume. |
+| 2 | Matrices card, exact mode enabled (Q(w), w²+w+1=0, entry rewritten as w) | Entering matrices, with exact entries. |
+| 3 | g₁ then g₂ animate; dust streams; axis + boundary flow lines | The isometries the matrices determine. |
+| 4 | Orbit grows breadth-first from the basepoint | Growing the orbit. |
+| 5 | Cayley edges join the orbit | The Cayley graph. |
+| 6 | Dual bisector walls over the Cayley graph | The dual bisectors. |
+| 7 | Domain fades in; everything else clears | Intersect: the Dirichlet domain. |
+| 8 | Two face-pairing rolls | The face pairings. |
+| 9 | Theorem card over the slowly rotating domain | The Poincaré Polyhedron Theorem. |
+| 10 | Presentation + certificate card (relations exact over Q(w)) | Presentation and discreteness certificate. |
+| 11 | Mirrored walls, slow rotate | Just for fun. |
 
-Step 9 bridges back to Part I and the closing slides. `groupLibrary.js` already
-has a `Long-Reid Group` preset, and it is exactly the $t=9$ group from Part I,
-normalized into $\mathrm{SL}_2$: $a = \mathrm{diag}(3, 1/3)$,
-$b = \frac{1}{8}\begin{pmatrix}1&9\\2&82\end{pmatrix}$ (entries in
-$\mathbb{Z}[1/6]$, same as the Racer).
+Stepping past step 11 hands navigation to the deck, which lands on the
+**full-app slide** — the same workbench with all controls, for free demo.
+The caption bar has clickable ‹ › arrows; the phone remote's joystick
+orbits the camera on any 3D slide (data-orbit).
 
 ## As built
 
@@ -90,8 +90,13 @@ Keys (inside the iframe): `→`/`Space`/`PgDn` next · `←`/`PgUp` prev ·
 `Home` reset. Past either end, the step handler posts `iframeNav` to the deck,
 which maps it to `Reveal.next()/prev()` — so arrows feel seamless on stage.
 
-Decisions taken (formerly open questions): figure-eight knot group for steps
-0–7; captions bottom-center with a step counter; step 2 uses a basepoint-orbit
-flight along the geodesic (not the face-pairing machinery — that appears at
-step 6 where it belongs). Step 9 shows Long–Reid with its Cayley graph and a
-slow auto-rotate.
+Decisions taken (formerly open questions): the figure-eight knot group for all
+11 steps; captions bottom-center with a step counter and clickable ‹ › arrows.
+Step 2 enables **exact mode** by driving the app's own Group-tab controls
+(minpoly `w^2+w+1`, root with Im > 0, the g₁ entry rewritten as `w`), so the
+matrices card and the step-10 certificate both read live app state. Step 3
+plays the isometry demos (`animateGenerator`); face pairings appear at step 8;
+steps 9–10 lift the theorem and the already-typeset `#presentation-display`
+HTML (plus the status banner, with tone) into fixed overlay cards; step 11 is
+the mirrored polyhedron. Long–Reid moved out of the tutorial entirely — it
+lives on the Computation slide (cayleyHeights).

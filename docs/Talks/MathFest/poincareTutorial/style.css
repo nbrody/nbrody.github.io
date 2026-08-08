@@ -1558,3 +1558,99 @@ html.light .face-info {
     color: var(--danger);
     background: var(--w08);
 }
+
+/* ---------------- tutorial: caption arrows + overlay cards ---------------- */
+
+.tut-arrow {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0 3px;
+    background: var(--w05);
+    border: 1px solid var(--hairline);
+    border-radius: 50%;
+    color: var(--ink-dim);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+
+.tut-arrow:hover {
+    color: var(--ink);
+    background: var(--accent-soft);
+}
+
+.tut-arrow:active {
+    transform: scale(0.92);
+}
+
+/* Theorem statement — a centered reading card over the scene. */
+#tutorial-theorem {
+    position: fixed;
+    left: 50%;
+    top: 16%;
+    transform: translateX(-50%);
+    z-index: 60;
+    max-width: min(620px, calc(100vw - 48px));
+    padding: 20px 26px;
+    background: rgba(5, 7, 15, 0.86);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 1rem;
+    line-height: 1.55;
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45);
+}
+
+#tutorial-theorem p { margin: 0.55em 0 0; }
+
+.tut-thm-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--warning);
+}
+
+/* Presentation + certificate — reuses the panel's presentation styling. */
+#tutorial-pres {
+    position: fixed;
+    left: 50%;
+    top: 12%;
+    transform: translateX(-50%);
+    z-index: 60;
+    width: min(640px, calc(100vw - 48px));
+    padding: 16px 20px;
+    background: rgba(5, 7, 15, 0.88);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    color: var(--ink);
+    font-family: var(--font);
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45);
+}
+
+.tut-cert {
+    font-size: 0.82rem;
+    line-height: 1.45;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    border-radius: 9px;
+}
+
+.tut-cert-ok   { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+.tut-cert-warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+.tut-cert-bad  { color: var(--danger);  background: color-mix(in srgb, var(--danger) 10%, transparent); }
+
+html.light #tutorial-theorem,
+html.light #tutorial-pres,
+html.light #tutorial-matrices,
+html.light #tutorial-caption {
+    background: rgba(255, 255, 255, 0.88);
+}

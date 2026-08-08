@@ -2537,6 +2537,13 @@ window.PoincareAPI = {
         if (mode !== 'off') updateCayley(); else disposeGroup(cayleyGroup);
     },
     setTiling(on) { showTiling = on; tilingGroup.visible = on; updateTiling(); },
+    setDual(mode) {
+        dualMode = mode;
+        dualGroup.visible = mode !== 'off';
+        const row = document.getElementById('dual-opacity-row');
+        if (row) row.classList.toggle('disabled', mode === 'off');
+        updateDual();
+    },
     setMirror(on) { if (on !== mirrorMode) setMirrorMode(on); },
     setTheme,
     getTheme: () => themeMode,
@@ -2568,6 +2575,19 @@ window.PoincareAPI = {
     animateGenerator: animateIsometry,          // (genIndex, event?)
     animateFacePairing: animateStdGenerator,    // (idx, event?)
 };
+
+// Remote joystick: the deck forwards {type:'orbit', dx, dy} from the phone;
+// nudge the camera around the target in spherical coordinates.
+window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.type !== 'orbit') return;
+    controls.autoRotate = false;
+    const offset = camera.position.clone().sub(controls.target);
+    const sph = new THREE.Spherical().setFromVector3(offset);
+    sph.theta -= (d.dx || 0) * 0.006;
+    sph.phi = Math.max(0.05, Math.min(Math.PI - 0.05, sph.phi - (d.dy || 0) * 0.006));
+    camera.position.setFromSpherical(sph).add(controls.target);
+});
 
 initUI();
 setupMatrixInput(refreshFromUI);

@@ -3,73 +3,84 @@
  *
  * Loaded only with ?tutorial=true (see index.html). Drives the visualizer
  * through a fixed sequence of prepared states, each with a one-line caption,
- * advanced by the phone remote (postMessage {type:'tutorial', cmd}) or the
- * arrow keys. See TUTORIAL.md for the design.
+ * advanced by the phone remote (postMessage {type:'tutorial', cmd}), the
+ * arrow keys, or the ‹ › buttons in the caption bar. See TUTORIAL.md.
+ *
+ * The eleven steps tell one story on the figure-eight knot group:
+ *   dust → exact matrices → isometries → orbit → Cayley graph →
+ *   dual bisectors → the Dirichlet domain → face pairings →
+ *   Poincaré Polyhedron Theorem → presentation + certificate → mirrors.
  *
  * Steps are declarative and idempotent: applyStep(k) fully reconstructs the
  * state for step k, so prev/reset are trivial and free mouse exploration
- * can't wedge the sequence. `enter` effects (animations) play only when a
- * step is reached by moving forward.
+ * can't wedge the sequence. Expensive toggles (dust, orbit, Cayley, dual)
+ * are only touched when their value actually changes, so stepping doesn't
+ * needlessly regrow or rebuild. `enter` effects play only moving forward.
  */
 
 import * as THREE from 'three';
-import { applyMatrixToBall } from './math.js';
 import { exampleLibrary } from './groupLibrary.js';
 
 const FIG8 = 'Figure eight knot group';
-const LONGREID = 'Long-Reid Group';
-
-const ACCENT = 0x7c8aff;
-const AMBER = 0xfbbf24;
-const ROSE = 0xf472b6;
 
 // ---------------------------------------------------------------- steps ---
 
 const STEPS = [
-    {
-        caption: 'Hyperbolic 3-space, packed into a ball — distances blow up near the boundary.',
-        state: { group: FIG8, domain: false, autoRotate: 0.5 },
+    {   // (1) hyperbolic dust
+        caption: 'Hyperbolic space, filled with dust — uniform in hyperbolic volume, ' +
+            'so it crowds toward the ideal boundary.',
+        state: { dust: true, autoRotate: 0.5 },
     },
-    {
-        caption: 'A group of isometries of this space, given by two matrices.',
-        state: { group: FIG8, domain: false, autoRotate: 0.5, marker: true, card: true },
+    {   // (2) entering matrices, exact entries
+        caption: 'Two matrices define a group of isometries — entered with <strong>exact</strong> ' +
+            'entries in \\(\\mathbb{Q}(w)\\), where \\(w^2+w+1=0\\).',
+        state: { dust: true, card: true, autoRotate: 0.35, exact: true },
     },
-    {
-        caption: 'One element \\(g\\) moves the basepoint \\(x_0\\) to \\(g\\,x_0\\).',
-        state: { group: FIG8, domain: false, marker: true, card: true, image: true, trail: true },
-        enter: animateBasepointFlight,
+    {   // (3) the isometries they determine
+        caption: 'Each matrix acts on the space — watch it carry the dust, ' +
+            'with its axis and boundary flow.',
+        state: { dust: true, card: true, exact: true },
+        enter: playIsometryDemo,
     },
-    {
-        caption: 'Halfway in between: the wall of points equidistant from \\(x_0\\) and \\(g\\,x_0\\).',
-        state: { group: FIG8, domain: false, marker: true, card: true, image: true, trail: true, bisector: true },
-        enter: fadeInBisector,
+    {   // (4) growing the orbit
+        caption: 'Grow the <strong>orbit</strong> of a basepoint: repeatedly apply the ' +
+            'generators and their inverses.',
+        state: { orbit: true, exact: true },
     },
-    {
-        caption: 'Every group element contributes a wall…',
-        state: { group: FIG8, domain: false, marker: true, card: true, walls: 0.7 },
-        enter: fadeInWalls,
+    {   // (5) Cayley graph
+        caption: 'Join each orbit point to its neighbours: the <strong>Cayley graph</strong> ' +
+            'of the group, drawn in hyperbolic space.',
+        state: { orbit: true, cayley: 'S', exact: true },
     },
-    {
-        caption: '…and the region inside them all is the <strong>Dirichlet domain</strong> — one tile of the tessellation.',
-        state: { group: FIG8, domain: true },
-        enter: fadeOutWallsIntoDomain,
+    {   // (6) dual bisectors
+        caption: 'Each edge is crossed by a <strong>bisector</strong> — the wall of points ' +
+            'equidistant from its two endpoints.',
+        state: { cayley: 'S', dual: 'S', exact: true },
     },
-    {
-        caption: 'Faces come in pairs — each pairing is a generator, recovered from pure geometry.',
-        state: { group: FIG8, domain: true },
+    {   // (7) intersect → polyhedron
+        caption: 'Intersect the half-spaces the bisectors cut out, and one tile remains: ' +
+            'the <strong>Dirichlet domain</strong>.',
+        state: { domain: true, exact: true },
+        enter: fadeInDomain,
+    },
+    {   // (8) face pairings
+        caption: 'Faces come in pairs — each pairing is a generator, recovered from ' +
+            'pure geometry.',
+        state: { domain: true, exact: true },
         enter: playFacePairings,
     },
-    {
-        caption: 'Turn the walls into <strong>mirrors</strong> — the reflections carry one tile to the whole tessellation.',
-        state: { group: FIG8, domain: true, mirror: true, autoRotate: 0.4 },
+    {   // (9) Poincaré Polyhedron Theorem
+        caption: 'The <strong>Poincaré Polyhedron Theorem</strong> turns this picture into algebra.',
+        state: { domain: true, theoremCard: true, autoRotate: 0.3, exact: true },
     },
-    {
-        caption: 'The pattern of tiles <em>is</em> the group: its Cayley graph, drawn in hyperbolic space.',
-        state: { group: FIG8, domain: true, cayley: 'S', tiling: true },
+    {   // (10) presentation + certificate
+        caption: 'The reward: a <strong>presentation</strong> of the group, and a certificate ' +
+            'of discreteness — with the relations verified exactly.',
+        state: { domain: true, presCard: true, autoRotate: 0.3, exact: true },
     },
-    {
-        caption: 'And this is the group we were hunting in Part I — the search and the geometry meet.',
-        state: { group: LONGREID, domain: true, cayley: 'S', autoRotate: 0.5 },
+    {   // (11) mirrors, just for fun
+        caption: 'And just for fun — the same polyhedron with mirrored walls.',
+        state: { domain: true, mirror: true, autoRotate: 0.4, exact: true },
     },
 ];
 
@@ -77,13 +88,14 @@ const STEPS = [
 
 let api = null;                 // window.PoincareAPI
 let step = -1;
-let busy = false;               // a step application (incl. group load) in flight
+let busy = false;               // a step application in flight
 let applySeq = 0;               // staleness token for enter-effect chains
-let currentGroup = null;        // name of the group currently loaded
-let overlay = null;             // THREE.Group for markers / trail / bisector
-let bisectorMesh = null;
+let overlay = null;             // THREE.Group for the ball shell
 
-const ui = {};                  // caption / counter / matrices card elements
+// Expensive toggles, applied only on change.
+const cur = { dust: null, orbit: null, cayley: null, dual: null, tiling: null };
+
+const ui = {};                  // caption / cards
 
 // ------------------------------------------------------------- boot -------
 
@@ -104,7 +116,6 @@ function whenReady(fn) {
 
 whenReady(() => {
     api = window.PoincareAPI;
-    currentGroup = FIG8;        // main.js loads the figure-eight group by default
     overlay = new THREE.Group();
     api.scene.add(overlay);
     buildUI();
@@ -117,16 +128,37 @@ whenReady(() => {
 function buildUI() {
     const cap = document.createElement('div');
     cap.id = 'tutorial-caption';
-    cap.innerHTML = '<span id="tutorial-caption-text"></span><span id="tutorial-counter"></span>';
+    cap.innerHTML =
+        '<button id="tut-prev" class="tut-arrow" aria-label="Previous step">&lsaquo;</button>' +
+        '<span id="tutorial-caption-text"></span>' +
+        '<span id="tutorial-counter"></span>' +
+        '<button id="tut-next" class="tut-arrow" aria-label="Next step">&rsaquo;</button>';
     document.body.appendChild(cap);
     ui.caption = cap;
     ui.captionText = cap.querySelector('#tutorial-caption-text');
     ui.counter = cap.querySelector('#tutorial-counter');
+    cap.querySelector('#tut-prev').addEventListener('click', () => requestCmd('prev'));
+    cap.querySelector('#tut-next').addEventListener('click', () => requestCmd('next'));
 
-    const card = document.createElement('div');
-    card.id = 'tutorial-matrices';
-    document.body.appendChild(card);
-    ui.card = card;
+    for (const id of ['tutorial-matrices', 'tutorial-theorem', 'tutorial-pres']) {
+        const card = document.createElement('div');
+        card.id = id;
+        card.style.display = 'none';
+        document.body.appendChild(card);
+    }
+    ui.card = document.getElementById('tutorial-matrices');
+    ui.theorem = document.getElementById('tutorial-theorem');
+    ui.pres = document.getElementById('tutorial-pres');
+
+    ui.theorem.innerHTML =
+        '<div class="tut-thm-title">Poincaré Polyhedron Theorem</div>' +
+        '<p>Suppose a polyhedron \\(P\\) comes with isometries pairing its faces, and around ' +
+        'every edge the dihedral angles sum to \\(2\\pi/m\\), with the cycle transformation ' +
+        'of order \\(m\\).</p>' +
+        '<p>Then the pairings generate a <strong>discrete</strong> group \\(\\Gamma\\) with ' +
+        '\\(P\\) as fundamental polyhedron — and the pairings and edge cycles give a ' +
+        '<strong>presentation</strong> of \\(\\Gamma\\).</p>';
+    typeset(ui.theorem);
 }
 
 function typeset(el) {
@@ -141,53 +173,48 @@ function setCaption(html) {
     typeset(ui.caption);
 }
 
-function setMatricesCard(show, groupName) {
+// The matrices card reads the LIVE inputs, so after the exact-mode rewrite
+// it shows the entry as `w` rather than the preset's decimal-free surd.
+function setMatricesCard(show) {
     if (!show) { ui.card.style.display = 'none'; return; }
-    const ex = exampleLibrary.find(e => e.name === groupName);
-    if (!ex) { ui.card.style.display = 'none'; return; }
-    ui.card.innerHTML = ex.mats.map((m, i) =>
-        `<div class="tut-mat">\\(g_{${i + 1}} = \\begin{pmatrix} ${m[0]} & ${m[1]} \\\\ ${m[2]} & ${m[3]} \\end{pmatrix}\\)</div>`
-    ).join('');
+    const blocks = document.querySelectorAll('#matrixInputs .matrix-block');
+    const rows = [];
+    blocks.forEach((block, i) => {
+        const latex = [...block.querySelectorAll('.mq-matrix-input')].map(sp => {
+            try { return sp.MathQuill ? sp.MathQuill().latex() || '0' : '0'; }
+            catch (e) { return '0'; }
+        });
+        if (latex.length === 4) {
+            rows.push(`<div class="tut-mat">\\(g_{${i + 1}} = \\begin{pmatrix} ` +
+                `${latex[0]} & ${latex[1]} \\\\ ${latex[2]} & ${latex[3]} \\end{pmatrix}\\)</div>`);
+        }
+    });
+    ui.card.innerHTML = rows.join('');
     ui.card.style.display = 'block';
     typeset(ui.card);
 }
 
+// Presentation + certificate card: lift the already-typeset presentation
+// out of the (hidden) Domain panel, topped with the certificate verdict.
+function setPresCard(show) {
+    if (!show) { ui.pres.style.display = 'none'; return; }
+    const src = document.getElementById('presentation-display');
+    const banner = document.getElementById('status-banner');
+    let head = '';
+    if (banner && banner.textContent.trim()) {
+        const tone = banner.className.includes('verified') ? 'ok'
+            : banner.className.includes('failed') ? 'bad' : 'warn';
+        head = `<div class="tut-cert tut-cert-${tone}">` +
+            `${banner.textContent.replace(/×\s*$/, '').trim()}</div>`;
+    }
+    const body = (src && src.innerHTML.trim())
+        ? src.innerHTML
+        : '<p class="empty-message">certificate still running…</p>';
+    ui.pres.innerHTML = head + body;
+    ui.pres.style.display = 'block';
+}
+
 // ------------------------------------------------------------ overlay -----
-
-function basepoint() {
-    const d = api.state().domain;
-    const p = (d && (d.basepoint || d.conePoint)) || { x: 0, y: 0, z: 0 };
-    return new THREE.Vector3(p.x, p.y, p.z);
-}
-
-function imagePoint() {
-    const g = api.state().matrices[0];
-    if (!g) return basepoint();
-    const q = applyMatrixToBall(g, basepoint());
-    return new THREE.Vector3(q.x, q.y, q.z);
-}
-
-function makeMarker(p, color, r = 0.035) {
-    const m = new THREE.Mesh(
-        new THREE.SphereGeometry(r, 20, 14),
-        new THREE.MeshStandardMaterial({
-            color, emissive: color, emissiveIntensity: 0.7,
-            roughness: 0.3, metalness: 0.1, transparent: true, depthWrite: false
-        }));
-    m.position.copy(p);
-    m.renderOrder = 5;
-    return m;
-}
-
-function makeTrail(p1, p2, color) {
-    const pts = api.geodesic(p1, p2, 48);
-    const geom = new THREE.BufferGeometry().setFromPoints(pts);
-    const line = new THREE.Line(geom, new THREE.LineBasicMaterial({
-        color, transparent: true, opacity: 0.9, depthWrite: false
-    }));
-    line.renderOrder = 4;
-    return line;
-}
 
 // A glassy stand-in for the ideal boundary, shown while the raymarched
 // domain is hidden (the shader renders black with zero faces).
@@ -209,24 +236,49 @@ function makeBallShell() {
     return shell;
 }
 
-// Rebuild the overlay to match a step's flags (static version — enter
-// effects animate on top of this).
 function buildOverlay(s) {
     overlay.clear();
-    bisectorMesh = null;
     if (!s.domain) overlay.add(makeBallShell());
-    if (!s.marker) return;
-    const q0 = basepoint();
-    overlay.add(makeMarker(q0, AMBER));
-    if (s.trail || s.image) {
-        const q1 = imagePoint();
-        if (s.trail) overlay.add(makeTrail(q0, q1, AMBER));
-        if (s.image) overlay.add(makeMarker(q1, ROSE));
-    }
-    if (s.bisector) {
-        bisectorMesh = api.buildBisectorMesh(q0, imagePoint(), ACCENT, 0.45);
-        if (bisectorMesh) overlay.add(bisectorMesh);
-    }
+}
+
+// -------------------------------------------------------- exact set-up ----
+
+// Enable exact arithmetic once, by driving the app's own Group-tab controls:
+// field Q(w), w²+w+1 = 0, the figure-eight entry rewritten as w, and the
+// embedding with positive imaginary part. Sticky for the rest of the talk;
+// on any failure the tutorial simply continues numerically.
+let exactStarted = false;
+
+function ensureExact() {
+    if (exactStarted) return Promise.resolve();
+    exactStarted = true;
+    return new Promise((resolve) => {
+        let done = false;
+        const finish = () => {
+            if (done) return;
+            done = true;
+            window.removeEventListener('poincare:refreshed', finish);
+            resolve();
+        };
+        try {
+            const btn = document.getElementById('toggle-exact');
+            const mp = document.getElementById('field-minpoly');
+            const rs = document.getElementById('field-root');
+            if (!btn || !mp || !rs) { finish(); return; }
+            mp.value = 'w^2+w+1';
+            if (!btn.classList.contains('active')) btn.click();
+            const spans = document.querySelectorAll('#matrixInputs .matrix-block')[0]
+                ?.querySelectorAll('.mq-matrix-input');
+            if (spans && spans[1] && spans[1].MathQuill) spans[1].MathQuill().latex('w');
+            window.addEventListener('poincare:refreshed', finish);
+            rs.value = '1';                       // the root with Im(w) > 0
+            rs.dispatchEvent(new Event('change'));
+            setTimeout(finish, 3000);             // never hang the tutorial on this
+        } catch (e) {
+            console.warn('exact set-up failed — continuing numerically:', e);
+            finish();
+        }
+    });
 }
 
 // ------------------------------------------------------- enter effects ----
@@ -245,43 +297,29 @@ function tween(ms, onFrame, onDone) {
     requestAnimationFrame(tick);
 }
 
-function animateBasepointFlight() {
-    // Rebuild without the end state, then fly a marker along the geodesic.
-    overlay.clear();
-    overlay.add(makeBallShell());
-    const q0 = basepoint(), q1 = imagePoint();
-    overlay.add(makeMarker(q0, AMBER));
-    const flyer = makeMarker(q0.clone(), ROSE);
-    overlay.add(flyer);
-    const path = api.geodesic(q0, q1, 64);
-    const trail = makeTrail(q0, q1, AMBER);
-    trail.material.opacity = 0;
-    overlay.add(trail);
-    tween(1400, (e) => {
-        const i = Math.min(path.length - 1, Math.floor(e * (path.length - 1)));
-        flyer.position.copy(path[i]);
-        trail.material.opacity = 0.9 * e;
-    });
+function playIsometryDemo() {
+    // Animate g1, then g2 — the dust streams and the axis/flow lines show.
+    const seq = applySeq;
+    const mats = api.state().matrices;
+    if (!mats.length) return;
+    const play = (i) => {
+        if (seq !== applySeq || i >= Math.min(2, mats.length)) return;
+        api.animateMatrix(mats[i], [i + 1], () => {
+            if (seq !== applySeq) return;
+            setTimeout(() => play(i + 1), 650);
+        });
+    };
+    play(0);
 }
 
-function fadeInBisector() {
-    if (!bisectorMesh) return;
-    const target = bisectorMesh.material.opacity;
-    bisectorMesh.material.opacity = 0;
-    tween(700, (e) => { bisectorMesh.material.opacity = target * e; });
-}
-
-function fadeInWalls() {
-    tween(900, (e) => api.setWallsOpacity(0.7 * e));
-}
-
-function fadeOutWallsIntoDomain() {
-    api.setWallsOpacity(0.7);
-    tween(900, (e) => api.setWallsOpacity(0.7 * (1 - e)));
+function fadeInDomain() {
+    api.setDomainVisible(true);
+    api.setPolyhedronOpacity(0);
+    tween(1100, (e) => api.setPolyhedronOpacity(e));
 }
 
 function playFacePairings() {
-    // Roll the domain across a face and back, then across a second face.
+    // Roll the domain across a face, then across a second face.
     const seq = applySeq;
     const gens = api.state().stdGenerators.filter(g => !g.unpaired);
     if (gens.length === 0) return;
@@ -297,27 +335,11 @@ function playFacePairings() {
 
 // ----------------------------------------------------------- stepping -----
 
-function loadGroup(name) {
-    return new Promise((resolve) => {
-        if (currentGroup === name && !api.isViewDirty()) { resolve(); return; }
-        if (currentGroup === name) {           // same group, drifted view: just reset
-            api.refresh();
-            currentGroup = name;
-            resolve();
-            return;
-        }
-        const idx = exampleLibrary.findIndex(e => e.name === name);
-        if (idx < 0) { resolve(); return; }
-        const onRef = () => {
-            window.removeEventListener('poincare:refreshed', onRef);
-            currentGroup = name;
-            resolve();
-        };
-        window.addEventListener('poincare:refreshed', onRef);
-        const sel = document.getElementById('matrix-example-select');
-        sel.value = String(idx);
-        sel.dispatchEvent(new Event('change'));   // setExample + deferred refresh
-    });
+// The whole tutorial lives on the figure-eight group; a "load" here only
+// resets the view when free exploration or an animation has moved it.
+function settleView() {
+    if (api.isViewDirty()) api.refresh();
+    return Promise.resolve();
 }
 
 const LOG = (window.__tutLog = []);
@@ -329,20 +351,34 @@ async function applyStep(k, animate) {
     const { state: s, caption, enter } = STEPS[k];
     step = k;
     setCaption(caption);
-    setMatricesCard(!!s.card, s.group);
     try {
-        await loadGroup(s.group);
-        // Visual flags — after the group load, since refresh resets some of them.
-        // While the domain is hidden the overlay's ball shell stands in for the
-        // ideal boundary (the raymarch shader renders black with zero faces).
+        if (s.exact) await ensureExact();
+        await settleView();
+
+        // Expensive toggles: only touch what changed.
+        const want = {
+            dust: !!s.dust, orbit: !!s.orbit,
+            cayley: s.cayley || 'off', dual: s.dual || 'off', tiling: !!s.tiling,
+        };
+        if (cur.dust !== want.dust) { api.setDust(want.dust); cur.dust = want.dust; }
+        if (cur.orbit !== want.orbit) { api.setOrbit(want.orbit); cur.orbit = want.orbit; }
+        if (cur.cayley !== want.cayley) { api.setCayleyMode(want.cayley); cur.cayley = want.cayley; }
+        if (cur.dual !== want.dual) { api.setDual(want.dual); cur.dual = want.dual; }
+        if (cur.tiling !== want.tiling) { api.setTiling(want.tiling); cur.tiling = want.tiling; }
+
+        // Cheap flags: apply unconditionally.
+        // While the domain is hidden the overlay's ball shell stands in for
+        // the ideal boundary (the raymarcher renders black with zero faces).
         api.setPolyhedronOpacity(s.domain ? 1 : 0);
         api.setDomainVisible(!!s.domain);
-        api.setWallsOpacity(animate && enter ? 0 : (s.walls || 0));
-        api.setCayleyMode(s.cayley || 'off');
-        api.setTiling(!!s.tiling);
+        api.setWallsOpacity(s.walls || 0);
         api.setMirror(!!s.mirror);
         api.setAutoRotate(!!s.autoRotate, s.autoRotate || 1);
         buildOverlay(s);
+        setMatricesCard(!!s.card);
+        ui.theorem.style.display = s.theoremCard ? 'block' : 'none';
+        setPresCard(!!s.presCard);
+
         if (animate && enter) enter();
     } finally {
         busy = false;

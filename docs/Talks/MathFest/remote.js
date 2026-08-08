@@ -42,10 +42,17 @@ if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
 // ── Master side: execute commands ───────────────────────────────
 
 function activeBackgroundFrame() {
-    // Embedded tools live either inline on the slide or in its background
-    // iframe (data-background-iframe).
+    // Embedded tools live in one of three places: a body-level .viz-stage
+    // overlay the slide has revealed (data-viz-show fragment), an inline
+    // iframe on the slide, or the slide's background iframe.
     const slide = Reveal.getCurrentSlide();
     if (!slide) return null;
+    const trig = slide.querySelector('.fragment.visible[data-viz-show]');
+    if (trig) {
+        const stage = document.getElementById(trig.dataset.vizShow);
+        const f = stage && stage.querySelector('iframe');
+        if (f) return f;
+    }
     const inline = slide.querySelector('iframe');
     if (inline) return inline;
     const bg = slide.slideBackgroundElement;
@@ -71,6 +78,11 @@ function handleCommand(cmd) {
             // which listen for plain strings ('toggle', 'toggle-link').
             if (cmd.startsWith('tut-')) {
                 ifr.contentWindow.postMessage({ type: 'tutorial', cmd: cmd.replace('tut-', '') }, '*');
+            } else if (cmd.startsWith('orbit:')) {
+                const [dx, dy] = cmd.slice(6).split(',').map(Number);
+                if (Number.isFinite(dx) && Number.isFinite(dy)) {
+                    ifr.contentWindow.postMessage({ type: 'orbit', dx, dy }, '*');
+                }
             } else if (cmd === 'viz-toggle') {
                 ifr.contentWindow.postMessage('toggle', '*');
             } else if (cmd === 'viz-link') {
@@ -91,6 +103,7 @@ function publishState() {
         progress: Math.round(Reveal.getProgress() * 100),
         hasTutorial: !!(slide && slide.hasAttribute('data-tutorial')),
         hasViz: !!(slide && slide.hasAttribute('data-viz')),
+        hasOrbit: !!(slide && slide.hasAttribute('data-orbit')),
     });
 }
 
@@ -127,6 +140,8 @@ function updateRemoteUI(state) {
     if (tut) tut.style.display = state.hasTutorial ? 'grid' : 'none';
     const viz = document.getElementById('viz-controls');
     if (viz) viz.style.display = state.hasViz ? 'grid' : 'none';
+    const joy = document.getElementById('orbit-joystick');
+    if (joy) joy.style.display = state.hasOrbit ? 'flex' : 'none';
 
     const bar = document.getElementById('remote-status-bar');
     if (bar) {
@@ -201,6 +216,53 @@ function closePresentModal() {
     if (modal) modal.classList.remove('active');
 }
 
+// ── Orbit joystick (remote side) ────────────────────────────────
+// While the knob is held off-centre, stream small orbit deltas to the
+// deck (~11 Hz — coarse but plenty for wiggling a scene around).
+function initJoystick() {
+    const base = document.getElementById('joy-base');
+    const knob = document.getElementById('joy-knob');
+    if (!base || !knob) return;
+    let active = false, dx = 0, dy = 0, timer = null;
+
+    const setKnob = () => {
+        knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    };
+    const update = (e) => {
+        const t = e.touches ? e.touches[0] : e;
+        const r = base.getBoundingClientRect();
+        const max = r.width / 2 - 18;
+        dx = t.clientX - (r.left + r.width / 2);
+        dy = t.clientY - (r.top + r.height / 2);
+        const len = Math.hypot(dx, dy);
+        if (len > max) { dx *= max / len; dy *= max / len; }
+        setKnob();
+    };
+    const start = (e) => {
+        e.preventDefault();
+        active = true;
+        update(e);
+        if (!timer) {
+            timer = setInterval(() => {
+                if (active && (dx || dy)) sendRemoteCommand(`orbit:${Math.round(dx)},${Math.round(dy)}`);
+            }, 90);
+        }
+    };
+    const end = () => {
+        active = false;
+        dx = 0; dy = 0;
+        setKnob();
+        if (timer) { clearInterval(timer); timer = null; }
+    };
+    base.addEventListener('touchstart', start, { passive: false });
+    base.addEventListener('touchmove', (e) => { if (active) { e.preventDefault(); update(e); } }, { passive: false });
+    base.addEventListener('touchend', end);
+    base.addEventListener('touchcancel', end);
+    base.addEventListener('mousedown', start);
+    window.addEventListener('mousemove', (e) => { if (active) update(e); });
+    window.addEventListener('mouseup', end);
+}
+
 // ── Init ────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -212,6 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const bar = document.getElementById('remote-status-bar');
             if (bar) bar.textContent = 'Cloud sync disabled — same-machine mode only';
         }
+        initJoystick();
         setupMasterListener();
     } else {
         if (sessionId && sessionId !== 'presentation-session') {

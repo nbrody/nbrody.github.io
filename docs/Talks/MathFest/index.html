@@ -98,15 +98,10 @@
                         faithful and \(\Gamma_t\cap \PGL_2(\Z)\) is finite.</p>
                     <p class="fragment punchline">The particular case \(t=9\) gives a surface group acting on the
                         product of the 2-adic and 3-adic trees.</p>
-                    <aside class="notes">
-                        Normalized into SL2: a = (1/3)diag(9,1), b = (1/8)[[82,2],[9,1]];
-                        all entries in Z[1/6]. The relator [a,b]^2 = -I makes ±I unavoidable torsion,
-                        so a properness witness must be a non-central integer matrix.
-                    </aside>
                 </section>
 
                 <!-- Cost functions (Boise: computation/goals), then the cost landscape -->
-                <section data-anchor="computation" data-viz>
+                <section data-anchor="computation" data-viz data-orbit>
                     <div class="fragment fade-out" data-fragment-index="2">
                         <h2>Computation</h2>
                         <p>Suppose that \(G\) is a finitely generated group, and \(C\colon G\to \R_{\geq 0}\)
@@ -127,17 +122,6 @@
                     <span class="fragment viz-trigger" data-fragment-index="3"
                         data-viz-target="cayley-stage"
                         data-viz-cmd="lift" data-viz-cmd-undo="flatten"></span>
-
-                    <aside class="notes">
-                        Cayley graph of Γ₉ in the hyperbolic plane. Γ₉ IS discrete in SL₂(R) — it is
-                        the cocompact Fuchsian group of the torus-with-cone-point orbifold, from
-                        the explicit hyperbolic rectangle; the open question is properness on the
-                        trees, i.e. whether Γ₉ ∩ PGL₂(Z) is finite. Next step lifts each element to
-                        its cost: e₂ + e₃ where the cancelled matrix is N/(2^e₂·3^e₃), computed in
-                        exact Z[1/6] arithmetic. Cost climbs as you walk out, so the search is
-                        hunting for a distant element that has come back down to height 0.
-                        Phone remote: Play/Pause toggles the lift. Keys in the frame: space, R.
-                    </aside>
                 </section>
 
                 <!-- BFS (Boise: bfs) -->
@@ -171,20 +155,17 @@
                 <!-- Beam search (Boise: beam-search) -->
                 <section class="dense">
                     <h2>Beam Search</h2>
-                    <p class="fragment">We first choose a beam width \(W\). We initialize the <i>beam</i>
-                        \(B_0=\{I\}\).</p>
-                    <p class="fragment">Given the current beam \(B_n\), we first build the set
-                        \(B_{n+1}'=B_n\cdot S\), the <i>extended beam</i>. We then prune this set to \(B_{n+1}\)
-                        by taking the top \(W\) elements with the smallest cost. Let \(\mathsf{WMin}(X)\) denote
-                        this operation.</p>
+                    <p>The breadth-first search is slow and thorough - keeping all of the group elements as it searches. The greedy algorithm is fast and myopic, keeping only one element. Beam search keeps the best \(W\).</p>
                     <div class="math-card fragment">
-                        \[ B_{n+1} = \mathsf{WMin}(B_n\cdot S) \]
+                        \[ B_0=\{I\}, \qquad B_{n+1} = \mathsf{WMin}(B_n\cdot S) \]
                     </div>
+                    <p class="fragment">\(\mathsf{WMin}\) extends the beam by every generator, then keeps the
+                        \(W\) elements of smallest cost.</p>
                     <ul>
-                        <li class="fragment"><strong>Pros:</strong> An excellent compromise of speed and success
-                            rate. Each iteration takes a constant amount of time.</li>
+                        <li class="fragment"><strong>Pros:</strong> A compromise of speed and success rate —
+                            each iteration takes a constant amount of time.</li>
                         <li class="fragment"><strong>Cons:</strong> If the minimal length of a successful word is
-                            \(k\), we will require at least \(k\) iterations.</li>
+                            \(k\), we still need at least \(k\) iterations.</li>
                     </ul>
                 </section>
 
@@ -211,6 +192,20 @@
                     <p class="fragment">This can be useful in finding "optimal" generators for a group, such as
                         computing Dirichlet domains.</p>
                     <aside class="notes">Bridge to Part II — the Dirichlet-domain tutorial.</aside>
+                </section>
+
+                <!-- Live demo: the Long-Reid Racer -->
+                <section data-anchor="racer" data-tutorial
+                    data-background-iframe="longReidRacer/index.html?embed=true"
+                    data-background-interactive>
+                    <aside class="notes">
+                        The Long-Reid Racer: drive the Cayley graph of Γ₉ over the Poincaré disk;
+                        altitude = height (how far from integral). Win = land at height 0 away from ±I.
+                        Built-in solution is the length-82 witness from arXiv:2512.19760.
+                        Keys: WASD absolute moves, arrows relative, ↓ undo, R restart,
+                        "," step the solution, "!" autoplay (~12s).
+                        Phone remote: step → / step ← / Reset drive the solution via postMessage.
+                    </aside>
                 </section>
 
                 <!-- The find (title from Boise: summary) -->
@@ -242,20 +237,6 @@
                     </aside>
                 </section>
 
-                <!-- Live demo: the Long-Reid Racer -->
-                <section data-anchor="racer" data-tutorial
-                    data-background-iframe="longReidRacer/index.html?embed=true"
-                    data-background-interactive>
-                    <aside class="notes">
-                        The Long-Reid Racer: drive the Cayley graph of Γ₉ over the Poincaré disk;
-                        altitude = height (how far from integral). Win = land at height 0 away from ±I.
-                        Built-in solution is the length-82 witness from arXiv:2512.19760.
-                        Keys: WASD absolute moves, arrows relative, ↓ undo, R restart,
-                        "," step the solution, "!" autoplay (~12s).
-                        Phone remote: step → / step ← / Reset drive the solution via postMessage.
-                    </aside>
-                </section>
-
             </section>
 
             <!-- ═══════════════════════════════════════════════
@@ -266,32 +247,43 @@
                 <section>
                     <p class="part-label">Part II</p>
                     <h1>Poincaré</h1>
-                    <p class="deck-subtitle">Applying to Kleinian Groups</p>
+                    <p class="deck-subtitle">Visualizing and computing with Kleinian Groups</p>
                 </section>
 
                 <section>
-                    <h2>The new workflow</h2>
+                    <h2>Testing for discreteness</h2>
                     <ul>
-                        <li class="fragment">Describe the mathematical object; get a working interactive tool
-                            the same afternoon.</li>
-                        <li class="fragment">Iterate by conversation: <em>"make the faces translucent,"
-                            "animate the side pairing," "add a Cayley graph."</em></li>
-                        <li class="fragment">The bottleneck moves from <em>programming</em> back
-                            to <em>mathematics</em>.</li>
+                        <li class="fragment">Suppose $S\subseteq \mathsf{PSL}_2(\mathbb{C})$ is a finite set of isometries of $\mathbb{H}^3$. </li>
+                        <li class="fragment">What is $\langle S\rangle$? When is it discrete?</li>
+                        <li class="fragment">We will explore a </li>
                     </ul>
-                    <p class="fragment punchline">Let's use one.</p>
                 </section>
 
                 <!-- Live tutorial: Dirichlet domains in the Poincaré ball.
                      data-background-iframe gives a true full-viewport embed;
                      data-background-interactive lets the mouse reach the tool. -->
-                <section data-anchor="tutorial" data-tutorial
+                <section data-anchor="tutorial" data-tutorial data-orbit
                     data-background-iframe="poincareTutorial/index.html?embed=true&tutorial=true"
                     data-background-interactive>
                     <aside class="notes">
-                        Step-through tutorial (driven from the phone remote): Poincaré ball →
-                        one isometry → bisector wall → Dirichlet domain → face pairings → Cayley graph.
+                        Eleven-step tutorial (phone remote, caption arrows, or arrow keys):
+                        dust → exact matrices → isometries → orbit → Cayley graph → dual
+                        bisectors → Dirichlet domain → face pairings → Poincaré Polyhedron
+                        Theorem → presentation + certificate → mirrors.
+                        Joystick on the remote orbits the camera.
                         See poincareTutorial/TUTORIAL.md for the step plan.
+                    </aside>
+                </section>
+
+                <!-- Free play: the full workbench, no tutorial chrome. Stepping
+                     past the tutorial's last step lands here. -->
+                <section data-anchor="full-app" data-orbit
+                    data-background-iframe="poincareTutorial/index.html?full=1"
+                    data-background-interactive>
+                    <aside class="notes">
+                        The complete app with all controls — demo whatever the audience asks
+                        for: exact arithmetic, dust, orbits, certificates, light mode, UHS view.
+                        Joystick on the remote orbits the camera.
                     </aside>
                 </section>
 
@@ -302,16 +294,6 @@
                  CLOSING
                  ═══════════════════════════════════════════════ -->
             <section data-anchor="closing">
-                <section>
-                    <h2>Conclusions</h2>
-                    <ul>
-                        <li class="fragment">The math inside AI systems — search, scoring, optimization —
-                            is <em>already ours</em>. Point it back at mathematics.</li>
-                        <li class="fragment">Computation finds the phenomena; we still get to find the reasons.</li>
-                        <li class="fragment">And when an idea is interactive, more of it survives the trip
-                            from one mind to another.</li>
-                    </ul>
-                </section>
                 <section>
                     <h2>Thank you!</h2>
                     <div class="separator"></div>
@@ -384,6 +366,14 @@
                         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                     <span>Link</span>
                 </div>
+            </div>
+
+            <!-- Orbit joystick (shown on 3D slides; managed by remote.js) -->
+            <div id="orbit-joystick">
+                <div class="joy-base" id="joy-base">
+                    <div class="joy-knob" id="joy-knob"></div>
+                </div>
+                <span class="joy-label">orbit</span>
             </div>
 
             <!-- Tutorial controls (shown only on the tutorial slide; managed by remote.js) -->

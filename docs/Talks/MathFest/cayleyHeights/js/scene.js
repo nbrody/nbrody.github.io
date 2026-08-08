@@ -283,9 +283,9 @@ document.querySelector('.legend-hi').textContent = String(maxH);
 
 function setCaption(raised) {
     captionText.innerHTML = raised
-        ? 'Each element rises to its <strong>cost</strong>: the number of primes, with ' +
-          'multiplicity, in the denominator of its matrix once cancelled.'
-        : 'The Cayley graph of <em>\u0393\u2089</em>, drawn in the hyperbolic plane.';
+        ? 'Lift each element to its <strong>cost</strong>: the number of primes, with ' +
+          'multiplicity, in the denominator of the corresponding matrix.'
+        : 'The Cayley graph of <em>\u0393\u2089</em>.';
     legend.classList.toggle('hidden', !raised);
 }
 
@@ -346,6 +346,15 @@ function handle(cmd) {
 window.addEventListener('message', (e) => {
     const d = e.data;
     if (typeof d === 'string') handle(d);
+    else if (d && d.type === 'orbit') {
+        // Remote joystick: nudge the camera around the target.
+        cameraAuto = false;
+        const offset = camera.position.clone().sub(controls.target);
+        const s = new THREE.Spherical().setFromVector3(offset);
+        s.theta -= (d.dx || 0) * 0.006;
+        s.phi = Math.max(0.05, Math.min(Math.PI - 0.05, s.phi - (d.dy || 0) * 0.006));
+        camera.position.setFromSpherical(s).add(controls.target);
+    }
     else if (d && typeof d.cmd === 'string') handle(d.cmd);
 });
 
