@@ -27,18 +27,16 @@ const FIG8 = 'Figure eight knot group';
 
 const STEPS = [
     {   // (1) hyperbolic dust
-        caption: 'Hyperbolic space, filled with dust — uniform in hyperbolic volume, ' +
-            'so it crowds toward the ideal boundary.',
+        caption: 'Hyperbolic space, filled with dust.',
         state: { dust: true, autoRotate: 0.5 },
     },
     {   // (2) entering matrices, exact entries
-        caption: 'Two matrices define a group of isometries — entered with <strong>exact</strong> ' +
-            'entries in \\(\\mathbb{Q}(w)\\), where \\(w^2+w+1=0\\).',
+        caption: 'We can choose some generating matrices, and consider the group they generate.' +
+            'Here, we choose \(w=\frac{-1+\sqrt{-3}}{2}\), and the matrices are defined over in \\(\\mathbb{Q}(w)\\).',
         state: { dust: true, card: true, autoRotate: 0.35, exact: true },
     },
     {   // (3) the isometries they determine
-        caption: 'Each matrix acts on the space — watch it carry the dust, ' +
-            'with its axis and boundary flow.',
+        caption: 'Each matrix determines an isometry of hyperbolic space - here we see its action',
         state: { dust: true, card: true, exact: true },
         enter: playIsometryDemo,
     },
@@ -53,33 +51,29 @@ const STEPS = [
         state: { orbit: true, cayley: 'S', exact: true },
     },
     {   // (6) dual bisectors
-        caption: 'Each edge is crossed by a <strong>bisector</strong> — the wall of points ' +
-            'equidistant from its two endpoints.',
+        caption: 'Each pair of points determines a bisector plane',
         state: { cayley: 'S', dual: 'S', exact: true },
     },
     {   // (7) intersect → polyhedron
-        caption: 'Intersect the half-spaces the bisectors cut out, and one tile remains: ' +
-            'the <strong>Dirichlet domain</strong>.',
+        caption: 'Intersect the half-spaces cut out by the bisectors to obtain the Dirichlet domain.',
         state: { domain: true, exact: true },
         enter: fadeInDomain,
     },
     {   // (8) face pairings
-        caption: 'Faces come in pairs — each pairing is a generator, recovered from ' +
-            'pure geometry.',
+        caption: 'The domain comes with face-pairings, each of which is a word in the original generators.',
         state: { domain: true, exact: true },
         enter: playFacePairings,
     },
     {   // (9) Poincaré Polyhedron Theorem
-        caption: 'The <strong>Poincaré Polyhedron Theorem</strong> turns this picture into algebra.',
+        caption: 'The <strong>Poincaré Polyhedron Theorem</strong> determines whether this group is discrete.',
         state: { domain: true, theoremCard: true, autoRotate: 0.3, exact: true },
     },
     {   // (10) presentation + certificate
-        caption: 'The reward: a <strong>presentation</strong> of the group, and a certificate ' +
-            'of discreteness — with the relations verified exactly.',
+        caption: 'We obtain a <strong>presentation</strong> of the group, and a certificate of discreteness.',
         state: { domain: true, presCard: true, autoRotate: 0.3, exact: true },
     },
     {   // (11) mirrors, just for fun
-        caption: 'And just for fun — the same polyhedron with mirrored walls.',
+        caption: 'And just for fun — we can make the walls one-way mirrors.',
         state: { domain: true, mirror: true, autoRotate: 0.4, exact: true },
     },
 ];

@@ -29,8 +29,8 @@
                  TITLE
                  ═══════════════════════════════════════════════ -->
             <section data-anchor="title">
-                <h1 class="deck-title">Computation<br>and Illustration</h1>
-                <p class="deck-subtitle">Computation and visualization in group theory and topology</p>
+                <h1 class="deck-title">Computation and Visualization</h1>
+                <p class="deck-subtitle">in group theory and topology</p>
                 <p class="deck-byline">MathFest 2026 &middot; Nic Brody &middot; UC Santa Cruz</p>
                 <button class="present-btn" onclick="startPresentation()">Present</button>
             </section>
@@ -155,14 +155,14 @@
                 <!-- Beam search (Boise: beam-search) -->
                 <section class="dense">
                     <h2>Beam Search</h2>
-                    <p>The breadth-first search is slow and thorough - keeping all of the group elements as it searches. The greedy algorithm is fast and myopic, keeping only one element. Beam search keeps the best \(W\).</p>
+                    <p>The breadth-first search is slow and thorough, keeping all of the group elements as it searches. The greedy algorithm is fast and myopic, keeping only one element. Beam search keeps the best \(W\).</p>
                     <div class="math-card fragment">
                         \[ B_0=\{I\}, \qquad B_{n+1} = \mathsf{WMin}(B_n\cdot S) \]
                     </div>
                     <p class="fragment">\(\mathsf{WMin}\) extends the beam by every generator, then keeps the
                         \(W\) elements of smallest cost.</p>
                     <ul>
-                        <li class="fragment"><strong>Pros:</strong> A compromise of speed and success rate —
+                        <li class="fragment"><strong>Pros:</strong> A compromise of speed and success rate;
                             each iteration takes a constant amount of time.</li>
                         <li class="fragment"><strong>Cons:</strong> If the minimal length of a successful word is
                             \(k\), we still need at least \(k\) iterations.</li>
