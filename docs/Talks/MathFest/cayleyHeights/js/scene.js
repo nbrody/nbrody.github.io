@@ -233,13 +233,33 @@ scene.add(edgeMesh);
 
 // ------------------------------------------------------------ animation ---
 
-const CAM_FLAT = new THREE.Vector3(0.0, 3.05, 0.0001);
-const CAM_TILT = new THREE.Vector3(2.75, 2.30, 2.75);
+// The camera moves in SPHERICAL coordinates about the target with the azimuth
+// held fixed, so the reveal is a pure drop from overhead to a raking view —
+// interpolating Cartesian endpoints instead swings the azimuth round (and is
+// degenerate directly above, where the azimuth is undefined), which reads as
+// the whole scene rotating.
+const CAM_POLAR_FLAT = 0.05;     // ~3° off vertical: still reads as top-down,
+const CAM_POLAR_TILT = 1.14;     //   but never degenerate for lookAt
+const CAM_RADIUS_FLAT = 3.05;
+const CAM_RADIUS_TILT = 4.28;
+const CAM_TARGET_Y = 0.52;
+let camAzimuth = Math.PI * 0.25;
+const sph = new THREE.Spherical();
 
 let lift = 0;                 // 0 = flat in the plane, 1 = fully raised
 let liftTarget = 0;
 let cameraAuto = true;        // stop steering once the user grabs the scene
 controls.addEventListener('start', () => { cameraAuto = false; });
+
+/** Place the camera for lift-progress e ∈ [0,1]: same azimuth throughout. */
+function placeCamera(e) {
+    controls.target.set(0, CAM_TARGET_Y * e, 0);
+    sph.set(
+        CAM_RADIUS_FLAT + (CAM_RADIUS_TILT - CAM_RADIUS_FLAT) * e,
+        CAM_POLAR_FLAT + (CAM_POLAR_TILT - CAM_POLAR_FLAT) * e,
+        camAzimuth);
+    camera.position.setFromSpherical(sph).add(controls.target);
+}
 
 const dummy = new THREE.Object3D();
 function applyLift() {
@@ -272,7 +292,6 @@ function setCaption(raised) {
 function setLift(target) {
     liftTarget = target ? 1 : 0;
     setCaption(!!target);
-    if (liftTarget === 1) cameraAuto = true;   // re-take the camera for the reveal
 }
 
 function resize() {
@@ -284,8 +303,7 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
-camera.position.copy(CAM_FLAT);
-controls.target.set(0, 0, 0);
+placeCamera(0);
 resize();
 applyLift();
 
@@ -301,11 +319,8 @@ function frame(now) {
                                  : Math.max(liftTarget, lift - step);
         applyLift();
         if (cameraAuto) {
-            // Ease from looking straight down at the plane to a raking view,
-            // so the relief appears exactly as it is created.
-            const e = lift * lift * (3 - 2 * lift);
-            camera.position.lerpVectors(CAM_FLAT, CAM_TILT, e);
-            controls.target.set(0, 0.52 * e, 0);
+            // Drop from overhead to a raking view as the relief appears.
+            placeCamera(lift * lift * (3 - 2 * lift));
         }
     }
 
@@ -323,8 +338,8 @@ function handle(cmd) {
     else if (cmd === 'reset') {
         setLift(false);
         cameraAuto = true;
-        camera.position.copy(CAM_FLAT);
-        controls.target.set(0, 0, 0);
+        camAzimuth = Math.PI * 0.25;
+        placeCamera(0);
     }
 }
 
@@ -341,7 +356,7 @@ window.addEventListener('keydown', (e) => {
 
 // Handy for the console / the deck.
 window.cayleyHeights = {
-    handle, nodes: nodes.length, edges: edges.length, maxH,
+    handle, camera, controls, nodes: nodes.length, edges: edges.length, maxH,
     vertices: vertCount,
     segs: { min: Math.min(...edgeSegs), max: Math.max(...edgeSegs),
             avg: +(edgeSegs.reduce((a, b) => a + b, 0) / edgeSegs.length).toFixed(1) },
