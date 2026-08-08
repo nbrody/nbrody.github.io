@@ -20,7 +20,13 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const LR = window.LRMath;
 const LABELS = ['a', 'A', 'b', 'B'];
 const MAX_NODES = 4400;
-const SEG = 7;               // geodesic samples per edge
+// Edge sampling. A geodesic of the disk is an arc of a circle orthogonal to
+// the ideal boundary, so a fixed segment count leaves the strongly curved
+// ones visibly polygonal. Segments are spent per edge instead: the deviation
+// of a polyline from an arc falls like sagitta / n², so n ~ √(sagitta / tol).
+const ARC_TOL = 0.0009;
+const MIN_SEG = 6;
+const MAX_SEG = 96;
 const TOP_HEIGHT = 1.45;     // world height of the tallest element
 const LIFT_SECONDS = 2.6;
 
@@ -171,10 +177,24 @@ const nodeScale = new Float32Array(nodes.length);
     nodeMesh.instanceColor.needsUpdate = true;
 }
 
-// ---- edges: hyperbolic geodesics, sampled once ----
+// ---- edges: hyperbolic geodesics, adaptively sampled ----
 // Each vertex remembers the height it should rise to, so lifting the whole
 // graph is one pass writing the y components.
-const vertCount = edges.length * SEG * 2;
+
+/** How far this geodesic bows away from its chord, in the disk. */
+function sagitta(z1, z2) {
+    const mid = LR.geodesicPoint(z1, z2, 0.5);
+    return Math.hypot(mid.re - 0.5 * (z1.re + z2.re),
+                      mid.im - 0.5 * (z1.im + z2.im));
+}
+
+function segmentsFor(z1, z2) {
+    const n = Math.ceil(2 * Math.sqrt(sagitta(z1, z2) / ARC_TOL));
+    return Math.max(MIN_SEG, Math.min(MAX_SEG, n));
+}
+
+const edgeSegs = edges.map(([i, j]) => segmentsFor(pos[i], pos[j]));
+const vertCount = edgeSegs.reduce((a, n) => a + n * 2, 0);
 const edgePos = new Float32Array(vertCount * 3);
 const edgeCol = new Float32Array(vertCount * 3);
 const edgeH = new Float32Array(vertCount);
@@ -188,18 +208,19 @@ const edgeH = new Float32Array(vertCount);
         edgeCol[v * 3] = cr; edgeCol[v * 3 + 1] = cg; edgeCol[v * 3 + 2] = cb;
         v++;
     };
-    for (const [i, j] of edges) {
+    edges.forEach(([i, j], e) => {
         const z1 = pos[i], z2 = pos[j];
         const h1 = nodes[i].h, h2 = nodes[j].h;
+        const segs = edgeSegs[e];
         let prevZ = z1, prevT = 0;
-        for (let s = 1; s <= SEG; s++) {
-            const t = s / SEG;
+        for (let s = 1; s <= segs; s++) {
+            const t = s / segs;
             const z = LR.geodesicPoint(z1, z2, t);
             put(prevZ, h1 + (h2 - h1) * prevT);
             put(z, h1 + (h2 - h1) * t);
             prevZ = z; prevT = t;
         }
-    }
+    });
 }
 const edgeGeom = new THREE.BufferGeometry();
 edgeGeom.setAttribute('position', new THREE.BufferAttribute(edgePos, 3));
@@ -319,4 +340,9 @@ window.addEventListener('keydown', (e) => {
 });
 
 // Handy for the console / the deck.
-window.cayleyHeights = { handle, nodes: nodes.length, edges: edges.length, maxH };
+window.cayleyHeights = {
+    handle, nodes: nodes.length, edges: edges.length, maxH,
+    vertices: vertCount,
+    segs: { min: Math.min(...edgeSegs), max: Math.max(...edgeSegs),
+            avg: +(edgeSegs.reduce((a, b) => a + b, 0) / edgeSegs.length).toFixed(1) },
+};
