@@ -1531,20 +1531,24 @@ function buildBoundaryFlowLines(G, flowAt) {
     }
 
     // Most of the family is drawn as faint hairlines to give the texture of
-    // the flow; every fourth one is a solid tube, so the eye has a few
+    // the flow; roughly a quarter are solid tubes, so the eye has a few
     // curves it can actually follow from end to end.
     const color = theme().isoFlow;
     const ACCENT_EVERY = 4;
     const lineMat = new THREE.LineBasicMaterial({
-        color, transparent: true, opacity: 0.34, depthTest: false, depthWrite: false
+        color, transparent: true, opacity: 0.5, depthTest: false, depthWrite: false
     });
     const coneMat = (accent) => new THREE.MeshBasicMaterial({
         color, transparent: true, opacity: accent ? 0.95 : 0.55,
         depthTest: false, depthWrite: false
     });
 
-    seeds.forEach((z0, idx) => {
-        const accent = idx % ACCENT_EVERY === 0;
+    // Trace every orbit first; the accents are chosen afterwards from the
+    // geometry. Seeds equally spaced in the normalized coordinate land
+    // bunched to one side of the sphere after the Möbius map, so picking
+    // every fourth INDEX piles the arrows onto half the ball.
+    const curves = [];
+    seeds.forEach((z0) => {
         const s0 = projImage(P, z0, cplx(1, 0));       // seed in world coords
         const ball = [];
         for (const W of mats) {
@@ -1553,11 +1557,32 @@ function buildBoundaryFlowLines(G, flowAt) {
             // Keep the polyline just off the sphere; drop numerical stragglers.
             if (Number.isFinite(b.x)) ball.push(b.multiplyScalar(1.002));
         }
-        if (ball.length < 2) return;
+        if (ball.length >= 2) curves.push({ ball, mid: ball[Math.floor(ball.length / 2)] });
+    });
+    if (curves.length === 0) return;
+
+    // Farthest-point sampling on the midpoints (where the arrows sit)
+    // spreads the accents evenly over the sphere for any isometry.
+    const nAccents = Math.max(1, Math.round(curves.length / ACCENT_EVERY));
+    const accentSet = new Set([0]);
+    while (accentSet.size < nAccents) {
+        let best = -1, bestD = -1;
+        curves.forEach((c, i) => {
+            if (accentSet.has(i)) return;
+            let d = Infinity;
+            for (const j of accentSet) d = Math.min(d, c.mid.distanceToSquared(curves[j].mid));
+            if (d > bestD) { bestD = d; best = i; }
+        });
+        if (best < 0) break;
+        accentSet.add(best);
+    }
+
+    curves.forEach(({ ball }, idx) => {
+        const accent = accentSet.has(idx);
 
         if (accent) {
             // isoTube maps ball → world itself, so it gets the raw points.
-            const tube = isoTube(ball, color, 0.0045);
+            const tube = isoTube(ball, color, 0.0032);
             tube.material.opacity = 0.82;
             tube.renderOrder = 6;          // stays under the axis (7)
             isoAxisGroup.add(tube);
@@ -1577,7 +1602,7 @@ function buildBoundaryFlowLines(G, flowAt) {
         const dir = toWorld(ball[Math.min(ball.length - 1, m + 1)]).sub(wMid);
         if (dir.lengthSq() > 1e-12) {
             const cone = new THREE.Mesh(
-                new THREE.ConeGeometry(0.02, 0.055, 10), coneMat(true));
+                new THREE.ConeGeometry(0.016, 0.048, 10), coneMat(true));
             cone.position.copy(wMid);
             cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
             cone.renderOrder = 6;
