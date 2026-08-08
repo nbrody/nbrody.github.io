@@ -42,9 +42,12 @@ if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
 // ── Master side: execute commands ───────────────────────────────
 
 function activeBackgroundFrame() {
-    // Embedded tools live in the slide's background iframe (data-background-iframe).
+    // Embedded tools live either inline on the slide or in its background
+    // iframe (data-background-iframe).
     const slide = Reveal.getCurrentSlide();
     if (!slide) return null;
+    const inline = slide.querySelector('iframe');
+    if (inline) return inline;
     const bg = slide.slideBackgroundElement;
     return bg ? bg.querySelector('iframe') : null;
 }

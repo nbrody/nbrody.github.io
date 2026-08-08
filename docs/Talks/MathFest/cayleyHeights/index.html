@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Long–Reid Cayley graph — cost as height</title>
+
+    <!-- Exact Z[1/6] arithmetic for the t = 9 Long-Reid group (shared with the racer).
+         A group element is N / (2^e2 · 3^e3) in lowest terms, so its height —
+         the number of primes in the denominator, with multiplicity — is e2 + e3. -->
+    <script src="../longReidRacer/js/math.js"></script>
+    <!-- math.js declares LRMath with `const`, which is script-scoped rather than
+         a property of window; publish it so the ES module below can see it. -->
+    <script>window.LRMath = LRMath;</script>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="scene"></div>
+
+    <div id="caption">
+        <div id="caption-text">The Cayley graph of <em>Γ₉</em>, drawn in the hyperbolic plane.</div>
+        <div id="legend" class="hidden">
+            <span class="legend-label">height</span>
+            <span class="legend-bar"></span>
+            <span class="legend-lo">0</span>
+            <span class="legend-hi"></span>
+        </div>
+    </div>
+
+    <script type="module" src="js/scene.js"></script>
+</body>
+
+</html>

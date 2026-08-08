@@ -105,15 +105,37 @@
                     </aside>
                 </section>
 
-                <!-- Cost functions (Boise: computation/goals) -->
-                <section>
-                    <h2>Computation</h2>
-                    <p>Suppose that \(G\) is a finitely generated group, and \(C\colon G\to \R_{\geq 0}\)
-                        is a cost function.</p>
-                    <p class="fragment">For example, the cost might be a norm on the group, or the size of the
-                        denominator of an element.</p>
-                    <p class="fragment">We want to somehow efficiently navigate the group to find elements
-                        with small cost.</p>
+                <!-- Cost functions (Boise: computation/goals), then the cost landscape -->
+                <section data-anchor="computation" data-viz>
+                    <div class="fragment fade-out" data-fragment-index="2">
+                        <h2>Computation</h2>
+                        <p>Suppose that \(G\) is a finitely generated group, and \(C\colon G\to \R_{\geq 0}\)
+                            is a cost function.</p>
+                        <p class="fragment" data-fragment-index="0">For example, the cost might be a norm on the
+                            group, or the size of the denominator of an element.</p>
+                        <p class="fragment" data-fragment-index="1">We want to somehow efficiently navigate the
+                            group to find elements with small cost.</p>
+                    </div>
+
+                    <!-- The text fades out as the Cayley graph fades in (same index).
+                         The scene itself lives in #cayley-stage outside .reveal, since a
+                         fixed overlay inside reveal's transformed slide container would be
+                         clipped to the slide box. -->
+                    <span class="fragment viz-trigger" data-fragment-index="2"
+                        data-viz-show="cayley-stage"></span>
+                    <!-- Stepping on raises the graph into the cost landscape; stepping back flattens it. -->
+                    <span class="fragment viz-trigger" data-fragment-index="3"
+                        data-viz-target="cayley-stage"
+                        data-viz-cmd="lift" data-viz-cmd-undo="flatten"></span>
+
+                    <aside class="notes">
+                        Cayley graph of Γ₉ in the hyperbolic plane (it is dense in SL₂(R) — the
+                        discreteness lives in the trees, not here). Next step lifts each element to
+                        its cost: e₂ + e₃ where the cancelled matrix is N/(2^e₂·3^e₃), computed in
+                        exact Z[1/6] arithmetic. Cost climbs as you walk out, so the search is
+                        hunting for a distant element that has come back down to height 0.
+                        Phone remote: Play/Pause toggles the lift. Keys in the frame: space, R.
+                    </aside>
                 </section>
 
                 <!-- BFS (Boise: bfs) -->
@@ -299,6 +321,12 @@
         </div>
     </div>
 
+    <!-- Full-bleed scene overlays. These sit outside .reveal so they can cover
+         the viewport; fragments carrying data-viz-show reveal them. -->
+    <div id="cayley-stage" class="viz-stage">
+        <iframe data-src="cayleyHeights/index.html" allow="fullscreen"></iframe>
+    </div>
+
     <!-- Remote UI (shown only on phone with ?mode=remote) -->
     <div id="remote-ui">
         <div class="remote-header">
@@ -416,6 +444,47 @@
                 },
                 plugins: [RevealMath.MathJax3, RevealNotes]
             });
+
+            // Fragment-driven scenes, kept DECLARATIVE: rather than toggling on
+            // fragmentshown/hidden (which never fire when you jump straight to a
+            // slide), we re-derive every overlay's state from the DOM.
+            //   data-viz-show="id"  → the #id overlay is visible exactly while
+            //                         this fragment is visible;
+            //   data-viz-cmd="…"    → the scene is sent this command while the
+            //                         fragment is visible, data-viz-cmd-undo while not.
+            const frameFor = (fragment) => {
+                const id = fragment.dataset.vizTarget || fragment.dataset.vizShow;
+                if (id) return document.querySelector('#' + id + ' iframe');
+                const slide = Reveal.getCurrentSlide();
+                return slide.querySelector('iframe') ||
+                    (slide.slideBackgroundElement && slide.slideBackgroundElement.querySelector('iframe'));
+            };
+            function syncViz() {
+                const slide = Reveal.getCurrentSlide();
+                if (!slide) return;
+                document.querySelectorAll('.viz-stage').forEach((stage) => {
+                    const trigger = slide.querySelector(`.fragment[data-viz-show="${stage.id}"]`);
+                    const on = !!(trigger && trigger.classList.contains('visible'));
+                    const ifr = stage.querySelector('iframe');
+                    if (on && ifr && !ifr.src && ifr.dataset.src) {
+                        // Re-sync once the scene is actually alive to receive commands.
+                        ifr.addEventListener('load', () => setTimeout(syncViz, 120), { once: true });
+                        ifr.src = ifr.dataset.src;
+                    }
+                    stage.classList.toggle('active', on);
+                });
+                slide.querySelectorAll('.fragment[data-viz-cmd]').forEach((f) => {
+                    const cmd = f.classList.contains('visible')
+                        ? f.dataset.vizCmd : f.dataset.vizCmdUndo;
+                    if (!cmd) return;
+                    const ifr = frameFor(f);
+                    if (ifr && ifr.contentWindow) ifr.contentWindow.postMessage(cmd, '*');
+                });
+            }
+            Reveal.on('fragmentshown', syncViz);
+            Reveal.on('fragmenthidden', syncViz);
+            Reveal.on('slidechanged', syncViz);
+            Reveal.on('ready', syncViz);
 
             // Embedded tutorial iframes hand navigation back to the deck when
             // stepping past either end of their sequence.
