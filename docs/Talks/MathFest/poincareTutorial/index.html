@@ -7,11 +7,11 @@
     <title>Canonical Dirichlet Domains</title>
 
     <!-- MathQuill dependencies -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css">
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="stylesheet" href="../vendor/mathquill/build/mathquill.css">
+    <script src="../vendor/jquery/jquery-3.7.1.min.js"></script>
+    <script src="../vendor/mathquill/build/mathquill.min.js"></script>
+    <script src="../vendor/mathjs/math.min.js"></script>
+    <script src="../vendor/jszip/jszip.min.js"></script>
 
     <!-- MathJax -->
     <script>
@@ -22,7 +22,7 @@
             }
         };
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../vendor/mathjax/tex-mml-chtml.js"></script>
 
     <!-- Import Map for Three.js + cache-busted local modules -->
     <script>
@@ -31,8 +31,8 @@
             const APP_VERSION = '2026-06-19h';
             const im = {
                 imports: {
-                    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                    "three": "../vendor/three/three.module.js",
+                    "three/addons/": "../vendor/three/addons/"
                 }
             };
             const mods = ['main', 'math', 'canonical', 'certifier', 'shaders', 'mirror',

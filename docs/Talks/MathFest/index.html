@@ -8,13 +8,14 @@
     <meta name="description"
         content="MathFest talk: beam search in matrix groups, and building interactive geometry tools.">
 
-    <!-- Reveal.js -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/theme/black.css" id="theme">
+    <!-- Reveal.js (vendored — the talk must work with no network) -->
+    <link rel="stylesheet" href="vendor/reveal/dist/reveal.css">
+    <link rel="stylesheet" href="vendor/reveal/dist/theme/black.css" id="theme">
 
-    <!-- Firebase SDK (phone remote sync) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <!-- Firebase SDK (phone remote sync; needs network — the deck runs
+         without it, remote.js guards against `firebase` being undefined) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js" onerror="console.warn('Firebase SDK unavailable (offline?) — phone remote disabled')"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js" onerror="void 0"></script>
 
     <!-- Custom theme + remote UI -->
     <link rel="stylesheet" href="style.css">
@@ -408,9 +409,9 @@
     </div>
 
     <!-- Reveal.js core + plugins -->
-    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/dist/reveal.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/plugin/math/math.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.2.1/plugin/notes/notes.js"></script>
+    <script src="vendor/reveal/dist/reveal.js"></script>
+    <script src="vendor/reveal/plugin/math/math.js"></script>
+    <script src="vendor/reveal/plugin/notes/notes.js"></script>
 
     <!-- Remote control logic -->
     <script src="remote.js"></script>
@@ -426,7 +427,7 @@
                 transition: 'slide',
                 preloadIframes: true,
                 mathjax3: {
-                    mathjax: 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js',
+                    mathjax: 'vendor/mathjax/tex-mml-chtml.js',
                     tex: {
                         macros: {
                             R: "\\mathbb{R}", Z: "\\mathbb{Z}", Q: "\\mathbb{Q}", C: "\\mathbb{C}",

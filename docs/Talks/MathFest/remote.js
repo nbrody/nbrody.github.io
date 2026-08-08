@@ -31,12 +31,12 @@ window.IS_REMOTE = isRemote;
 // Local fallback for same-machine testing
 const bc = new BroadcastChannel('mathfest-sync');
 
-if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+if (typeof firebase !== 'undefined' && firebaseConfig.apiKey !== "YOUR_API_KEY") {
     firebase.initializeApp(firebaseConfig);
     db = firebase.database();
     sessionRef = db.ref('sessions/' + sessionId);
 } else {
-    console.warn("Firebase not configured. Remote control will only work in same-browser/same-machine mode.");
+    console.warn("Firebase unavailable or not configured. Remote control will only work in same-browser/same-machine mode (BroadcastChannel).");
 }
 
 // ── Master side: execute commands ───────────────────────────────
