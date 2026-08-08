@@ -36,8 +36,7 @@ const STEPS = [
         state: { dust: true, card: true, autoRotate: 0.35, exact: true },
     },
     {   // (3) the isometries they determine — interactive
-        caption: 'Each matrix determines an isometry of hyperbolic space — ' +
-            '<strong>click one</strong> to watch it act (⌘-click applies its inverse).',
+        caption: 'Each matrix determines an isometry of hyperbolic space.',
         state: { dust: true, isoCard: true, exact: true },
     },
     {   // (4) growing the orbit
