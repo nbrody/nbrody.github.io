@@ -43,7 +43,7 @@ and the tutorial resumes cleanly from wherever it was.
 |---|-------------|------|
 | 1 | Hyperbolic dust (ball shell + 9000-mote scatter) | Hyperbolic space, uniform in hyperbolic volume. |
 | 2 | Matrices card, exact mode enabled (Q(w), w²+w+1=0, entry rewritten as w) | Entering matrices, with exact entries. |
-| 3 | g₁ then g₂ animate; dust streams; axis + boundary flow lines | The isometries the matrices determine. |
+| 3 | Interactive: chips for g₁ (parabolic), r = (w 0; 0 1) (elliptic), g₁g₂ (loxodromic); click applies, ⌘-click the inverse; dust streams, axis + flow lines, no polyhedron | The isometries the matrices determine. |
 | 4 | Orbit grows breadth-first from the basepoint | Growing the orbit. |
 | 5 | Cayley edges join the orbit | The Cayley graph. |
 | 6 | Dual bisector walls over the Cayley graph | The dual bisectors. |

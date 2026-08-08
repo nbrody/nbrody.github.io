@@ -1489,7 +1489,7 @@ function buildBoundaryFlowLines(G, flowAt) {
         // geometrically, so the nested tangent circles stay evenly spaced
         // once they are drawn on the sphere.
         const perp = cplx(-c.im, c.re).div(cplx(cAbs, 0));
-        for (let k = 0; k < 10; k++) {
+        for (let k = 0; k < 13; k++) {
             const d = 0.35 * Math.pow(1.52, k);
             seeds.push(perp.mul(cplx(d, 0)));
             seeds.push(perp.mul(cplx(-d, 0)));
@@ -1504,7 +1504,7 @@ function buildBoundaryFlowLines(G, flowAt) {
             sMin = 0; sMax = 2 * Math.PI / Math.abs(theta);
             // Log-spaced radii → latitude circles spread evenly from one
             // fixed point to the other.
-            const N = 16;
+            const N = 20;
             for (let k = 0; k < N; k++) {
                 seeds.push(cplx(0.08 * Math.pow(150, k / (N - 1)), 0));
             }
@@ -1514,7 +1514,7 @@ function buildBoundaryFlowLines(G, flowAt) {
             // orbits have swept several decades of radius.
             const span = Math.log(600) / Math.abs(ell);
             sMin = -span; sMax = span;
-            const n = 24;
+            const n = 32;
             for (let i = 0; i < n; i++) {
                 const ph = 2 * Math.PI * i / n;
                 seeds.push(cplx(Math.cos(ph), Math.sin(ph)));
@@ -1524,7 +1524,7 @@ function buildBoundaryFlowLines(G, flowAt) {
     if (seeds.length === 0) return;
 
     // Precompute the flow matrices once, then push every seed through them.
-    const STEPS = 150;
+    const STEPS = 220;
     const mats = [];
     for (let k = 0; k <= STEPS; k++) {
         mats.push(flowAt(sMin + (sMax - sMin) * k / STEPS));

@@ -32,13 +32,13 @@ const STEPS = [
     },
     {   // (2) entering matrices, exact entries
         caption: 'We can choose some generating matrices, and consider the group they generate.' +
-            'Here, we choose \(w=\frac{-1+\sqrt{-3}}{2}\), and the matrices are defined over in \\(\\mathbb{Q}(w)\\).',
+            'Here, we choose \\(w=\\frac{-1+\\sqrt{-3}}{2}\\), and the matrices are defined over in \\(\\mathbb{Q}(w)\\).',
         state: { dust: true, card: true, autoRotate: 0.35, exact: true },
     },
-    {   // (3) the isometries they determine
-        caption: 'Each matrix determines an isometry of hyperbolic space - here we see its action',
-        state: { dust: true, card: true, exact: true },
-        enter: playIsometryDemo,
+    {   // (3) the isometries they determine — interactive
+        caption: 'Each matrix determines an isometry of hyperbolic space — ' +
+            '<strong>click one</strong> to watch it act (⌘-click applies its inverse).',
+        state: { dust: true, isoCard: true, exact: true },
     },
     {   // (4) growing the orbit
         caption: 'Grow the <strong>orbit</strong> of a basepoint: repeatedly apply the ' +
@@ -134,15 +134,28 @@ function buildUI() {
     cap.querySelector('#tut-prev').addEventListener('click', () => requestCmd('prev'));
     cap.querySelector('#tut-next').addEventListener('click', () => requestCmd('next'));
 
-    for (const id of ['tutorial-matrices', 'tutorial-theorem', 'tutorial-pres']) {
+    for (const id of ['tutorial-matrices', 'tutorial-iso', 'tutorial-theorem', 'tutorial-pres']) {
         const card = document.createElement('div');
         card.id = id;
         card.style.display = 'none';
         document.body.appendChild(card);
     }
     ui.card = document.getElementById('tutorial-matrices');
+    ui.iso = document.getElementById('tutorial-iso');
     ui.theorem = document.getElementById('tutorial-theorem');
     ui.pres = document.getElementById('tutorial-pres');
+
+    ui.iso.innerHTML =
+        ISO_DEMOS.map((d, i) =>
+            `<button class="tut-iso-chip" data-iso="${i}">` +
+            `<span class="tut-iso-mat">\\(${d.latex}\\)</span>` +
+            `<span class="tut-iso-type">${d.type}</span></button>`
+        ).join('') +
+        '<div class="tut-iso-hint">click to apply · ⌘-click for the inverse</div>';
+    ui.iso.querySelectorAll('.tut-iso-chip').forEach((btn) => {
+        btn.addEventListener('click', (e) => applyIsoDemo(ISO_DEMOS[+btn.dataset.iso], e));
+    });
+    typeset(ui.iso);
 
     ui.theorem.innerHTML =
         '<div class="tut-thm-title">Poincaré Polyhedron Theorem</div>' +
@@ -291,19 +304,44 @@ function tween(ms, onFrame, onDone) {
     requestAnimationFrame(tick);
 }
 
-function playIsometryDemo() {
-    // Animate g1, then g2 — the dust streams and the axis/flow lines show.
-    const seq = applySeq;
+// The step-3 demo set: one isometry of each type, all expressed in the
+// figure-eight generators' entries so no extra matrix classes are needed.
+// g₁ = (1 w; 0 1) is parabolic; g₁g₂ is loxodromic; (w 0; 0 1) — built by
+// rearranging g₁'s own entries — is the order-3 elliptic rotation (not a
+// group element, but this step is about matrices → isometries).
+const ISO_DEMOS = [
+    {
+        latex: 'g_1=\\begin{pmatrix}1 & w\\\\ 0 & 1\\end{pmatrix}',
+        type: 'parabolic',
+        mat: (m) => m[0], word: [1],
+    },
+    {
+        latex: 'r=\\begin{pmatrix}w & 0\\\\ 0 & 1\\end{pmatrix}',
+        type: 'elliptic',
+        mat: (m) => {
+            const M2 = m[0].constructor;
+            return new M2(m[0].b, m[0].c, m[0].c, m[0].a).normalized();
+        },
+        word: [],
+    },
+    {
+        latex: 'g_1g_2=\\begin{pmatrix}1+w & w\\\\ 1 & 1\\end{pmatrix}',
+        type: 'loxodromic',
+        mat: (m) => m[0].mul(m[1]).normalized(), word: [1, 2],
+    },
+];
+
+function applyIsoDemo(demo, ev) {
+    if (!api || api.isAnimating() || busy) return;
     const mats = api.state().matrices;
-    if (!mats.length) return;
-    const play = (i) => {
-        if (seq !== applySeq || i >= Math.min(2, mats.length)) return;
-        api.animateMatrix(mats[i], [i + 1], () => {
-            if (seq !== applySeq) return;
-            setTimeout(() => play(i + 1), 650);
-        });
-    };
-    play(0);
+    if (mats.length < 2) return;
+    let g = demo.mat(mats);
+    let word = demo.word;
+    if (ev && (ev.metaKey || ev.ctrlKey)) {
+        g = g.inv().normalized();
+        word = word.slice().reverse().map(x => -x);
+    }
+    api.animateMatrix(g, word);
 }
 
 function fadeInDomain() {
@@ -370,6 +408,7 @@ async function applyStep(k, animate) {
         api.setAutoRotate(!!s.autoRotate, s.autoRotate || 1);
         buildOverlay(s);
         setMatricesCard(!!s.card);
+        ui.iso.style.display = s.isoCard ? 'flex' : 'none';
         ui.theorem.style.display = s.theoremCard ? 'block' : 'none';
         setPresCard(!!s.presCard);
 

@@ -1651,6 +1651,66 @@ html.light .face-info {
 html.light #tutorial-theorem,
 html.light #tutorial-pres,
 html.light #tutorial-matrices,
+html.light #tutorial-iso,
 html.light #tutorial-caption {
     background: rgba(255, 255, 255, 0.88);
 }
+
+/* Step-3 interactive isometry chips */
+#tutorial-iso {
+    position: fixed;
+    top: 24px;
+    left: 24px;
+    z-index: 60;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    background: rgba(5, 7, 15, 0.82);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    color: var(--ink);
+    font-family: var(--font);
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45);
+}
+
+.tut-iso-chip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 8px 12px;
+    background: rgba(124, 138, 255, 0.08);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.12s;
+}
+
+.tut-iso-chip:hover {
+    background: rgba(124, 138, 255, 0.18);
+    border-color: var(--hairline-strong);
+    transform: translateY(-1px);
+}
+
+.tut-iso-chip:active { transform: none; }
+
+.tut-iso-type {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    opacity: 0.7;
+}
+
+.tut-iso-hint {
+    font-size: 0.7rem;
+    opacity: 0.6;
+    letter-spacing: 0.03em;
+    text-align: center;
+}
+
+html.light .tut-iso-chip { background: rgba(90, 105, 240, 0.08); }
