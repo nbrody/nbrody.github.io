@@ -495,10 +495,132 @@ function updateStdGeneratorsList() {
 
 function updateCurrentElementDisplay() {
     const display = document.getElementById('current-element-display');
-    if (!display) return;
-    display.innerHTML = `\\(${formatWordMathJax(reduceWord(cumulativeWord))}\\)`;
+    const matBox = document.getElementById('current-element-matrix');
+    // viewMatrix IS the product of everything applied so far, so it is the
+    // matrix of the (freely reduced) current word.
+    if (display) display.innerHTML = `\\(${formatWordMathJax(reduceWord(cumulativeWord))}\\)`;
+    if (matBox) matBox.innerHTML = matrixLatex(viewMatrix);
+    const targets = [display, matBox].filter(Boolean);
+    if (targets.length && window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise(targets);
+    }
+}
+
+// --- User-defined elements ---
+// Words the user types are stored as signed generator indices (the same
+// representation the rest of the app uses), so they survive a change of
+// generators: the matrix is recomputed from the word on every render.
+let userElements = [];
+
+/**
+ * Parse a word in the generators. Accepts lower case for a generator and
+ * upper case for its inverse (`a b A B`), or explicit `g1`, `g2`, … , with
+ * optional `'` and `^n` / `^{-n}` exponents. Separators are optional.
+ */
+function parseWord(str, nGens) {
+    const s = String(str || '');
+    const out = [];
+    let i = 0;
+    while (i < s.length) {
+        const ch = s[i];
+        if (/[\s*,.·]/.test(ch)) { i++; continue; }
+        let idx, sign = 1;
+        if (ch === 'g' || ch === 'G') {
+            const m = /^[gG]_?\{?(\d+)\}?/.exec(s.slice(i));
+            if (!m) throw new Error(`expected a generator number after “${ch}”`);
+            idx = parseInt(m[1], 10);
+            i += m[0].length;
+        } else if (/[a-z]/.test(ch)) {
+            idx = ch.charCodeAt(0) - 96;          // a → 1
+            i++;
+        } else if (/[A-Z]/.test(ch)) {
+            idx = ch.charCodeAt(0) - 64;          // A → g₁⁻¹
+            sign = -1;
+            i++;
+        } else {
+            throw new Error(`unexpected character “${ch}”`);
+        }
+        if (!(idx >= 1 && idx <= nGens)) {
+            throw new Error(`g${idx} is not a generator of this group (it has ${nGens})`);
+        }
+        while (s[i] === "'" || s[i] === '′') { sign = -sign; i++; }
+        let exp = 1;
+        if (s[i] === '^') {
+            i++;
+            const m = /^\s*\{?\s*(-?\d+)\s*\}?/.exec(s.slice(i));
+            if (!m) throw new Error('expected an integer exponent after “^”');
+            exp = parseInt(m[1], 10);
+            i += m[0].length;
+        }
+        const total = sign * exp;
+        for (let k = 0; k < Math.abs(total); k++) out.push(total >= 0 ? idx : -idx);
+    }
+    return out;
+}
+
+/** Matrix of a word in the current input generators. */
+function wordToMatrix(word) {
+    let M = Matrix2x2.identity();
+    for (const w of word) {
+        const g = currentMatrices[Math.abs(w) - 1];
+        if (!g) throw new Error(`g${Math.abs(w)} is not defined`);
+        M = M.mul(w > 0 ? g : g.inv().normalized());
+    }
+    return M.normalized();
+}
+
+function renderUserElements() {
+    const list = document.getElementById('user-elements-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (userElements.length === 0) {
+        list.innerHTML = '<p class="empty-message">No stored elements yet.</p>';
+        return;
+    }
+    userElements.forEach((el, idx) => {
+        const item = document.createElement('div');
+        item.className = 'std-gen-item user-elem';
+
+        let M = null, err = null;
+        try { M = wordToMatrix(el.word); } catch (e) { err = e.message; }
+
+        const head = document.createElement('div');
+        head.className = 'user-elem-head';
+        const word = document.createElement('span');
+        word.className = 'std-gen-word';
+        word.innerHTML = `\\(w_{${idx + 1}} = ${formatWordMathJax(el.word)}\\)`;
+        head.appendChild(word);
+
+        const del = document.createElement('button');
+        del.className = 'user-elem-del';
+        del.textContent = '✕';
+        del.title = 'Remove this element';
+        del.addEventListener('click', (e) => {
+            e.stopPropagation();
+            userElements.splice(idx, 1);
+            renderUserElements();
+        });
+        head.appendChild(del);
+        item.appendChild(head);
+
+        const mat = document.createElement('div');
+        mat.className = 'element-matrix';
+        mat.innerHTML = err ? `<span class="elem-error">${err}</span>` : matrixLatex(M);
+        item.appendChild(mat);
+
+        if (M) {
+            item.title = 'Click to apply this element (⌘/Ctrl-click for its inverse)';
+            item.addEventListener('click', (e) => {
+                if (animatingIsometry) return;
+                const inv = e.metaKey || e.ctrlKey;
+                animateMatrix(inv ? M.inv().normalized() : M,
+                    inv ? invertWord(el.word) : [...el.word]);
+            });
+        }
+        list.appendChild(item);
+    });
     if (window.MathJax && window.MathJax.typesetPromise) {
-        window.MathJax.typesetPromise([display]);
+        window.MathJax.typesetPromise([list]);
     }
 }
 
@@ -2096,6 +2218,7 @@ function refreshFromUI() {
         if (wallsOpacity > 0) updateWalls();
         if (showDust) repositionDust();   // viewMatrix was reset to identity
         if (orbitRun) startOrbit();       // new generators → regrow the orbit
+        renderUserElements();             // stored words: recompute their matrices
         runCertifier();
         window.dispatchEvent(new CustomEvent('poincare:refreshed'));
     } catch (e) {
@@ -2284,6 +2407,38 @@ function initUI() {
     document.querySelectorAll('.theme-opt').forEach(btn => {
         btn.addEventListener('click', () => setTheme(btn.dataset.theme));
     });
+
+    // --- Define / store elements (Domain tab) ---
+    const wordInput = document.getElementById('word-input');
+    const wordErr = document.getElementById('word-error');
+    const setWordError = (msg) => { if (wordErr) wordErr.textContent = msg || ''; };
+    const addElement = (word) => {
+        userElements.push({ word });
+        setWordError('');
+        renderUserElements();
+    };
+    const storeTyped = () => {
+        if (!wordInput) return;
+        try {
+            const w = parseWord(wordInput.value, currentMatrices.length);
+            if (w.length === 0) throw new Error('type a word first, e.g. “a b A B”');
+            addElement(w);
+            wordInput.value = '';
+        } catch (e) {
+            setWordError(e.message);
+        }
+    };
+    document.getElementById('word-store')?.addEventListener('click', storeTyped);
+    wordInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); storeTyped(); }
+    });
+    wordInput?.addEventListener('input', () => setWordError(''));
+    document.getElementById('word-from-current')?.addEventListener('click', () => {
+        const w = reduceWord(cumulativeWord);
+        if (w.length === 0) { setWordError('the current element is the identity'); return; }
+        addElement([...w]);
+    });
+    renderUserElements();
 
     const orbitBtn = document.getElementById('toggle-orbit');
     if (orbitBtn) {

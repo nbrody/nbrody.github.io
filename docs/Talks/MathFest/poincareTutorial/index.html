@@ -156,6 +156,23 @@
                 <div class="control-group current-element-group">
                     <label class="control-label">Current Element</label>
                     <div id="current-element-display" class="current-element-display">\(e\)</div>
+                    <div id="current-element-matrix" class="element-matrix"></div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Define Element</label>
+                    <div class="control-row">
+                        <input id="word-input" type="text" class="number-input" style="flex: 1;"
+                            placeholder="a b A B   or   g1 g2^-1 g1^2" spellcheck="false"
+                            title="Lower case = generator, upper case = its inverse (a, B, …); or g1, g2 with optional ^n exponents.">
+                        <button id="word-store" class="btn btn-add"
+                            style="width: auto; padding: 0 14px; margin: 0;">Store</button>
+                    </div>
+                    <p id="word-error" class="error-message"></p>
+                    <button id="word-from-current" class="btn btn-add-alt">Store the current element</button>
+                    <div class="std-gen-list" id="user-elements-list">
+                        <p class="empty-message">No stored elements yet.</p>
+                    </div>
                 </div>
 
                 <div class="control-group">
