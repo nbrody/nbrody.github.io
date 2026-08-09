@@ -13,6 +13,7 @@ import { NumberField, parsePoly } from './exact.js';
 import { setupControlPanel, updateToggleBtn, colorPalettes, getPaletteSettings } from './controlPanel.js';
 import { mirrorFragmentShader, mirrorDefaults } from './mirror.js';
 import { exportDomainAs3MF } from './export3mf.js';
+import { parseWord } from './word.js';
 
 // --- Three.js setup ---
 const container = document.getElementById('viz-container');
@@ -511,52 +512,6 @@ function updateCurrentElementDisplay() {
 // representation the rest of the app uses), so they survive a change of
 // generators: the matrix is recomputed from the word on every render.
 let userElements = [];
-
-/**
- * Parse a word in the generators. Accepts lower case for a generator and
- * upper case for its inverse (`a b A B`), or explicit `g1`, `g2`, … , with
- * optional `'` and `^n` / `^{-n}` exponents. Separators are optional.
- */
-function parseWord(str, nGens) {
-    const s = String(str || '');
-    const out = [];
-    let i = 0;
-    while (i < s.length) {
-        const ch = s[i];
-        if (/[\s*,.·]/.test(ch)) { i++; continue; }
-        let idx, sign = 1;
-        if (ch === 'g' || ch === 'G') {
-            const m = /^[gG]_?\{?(\d+)\}?/.exec(s.slice(i));
-            if (!m) throw new Error(`expected a generator number after “${ch}”`);
-            idx = parseInt(m[1], 10);
-            i += m[0].length;
-        } else if (/[a-z]/.test(ch)) {
-            idx = ch.charCodeAt(0) - 96;          // a → 1
-            i++;
-        } else if (/[A-Z]/.test(ch)) {
-            idx = ch.charCodeAt(0) - 64;          // A → g₁⁻¹
-            sign = -1;
-            i++;
-        } else {
-            throw new Error(`unexpected character “${ch}”`);
-        }
-        if (!(idx >= 1 && idx <= nGens)) {
-            throw new Error(`g${idx} is not a generator of this group (it has ${nGens})`);
-        }
-        while (s[i] === "'" || s[i] === '′') { sign = -sign; i++; }
-        let exp = 1;
-        if (s[i] === '^') {
-            i++;
-            const m = /^\s*\{?\s*(-?\d+)\s*\}?/.exec(s.slice(i));
-            if (!m) throw new Error('expected an integer exponent after “^”');
-            exp = parseInt(m[1], 10);
-            i += m[0].length;
-        }
-        const total = sign * exp;
-        for (let k = 0; k < Math.abs(total); k++) out.push(total >= 0 ? idx : -idx);
-    }
-    return out;
-}
 
 /** Matrix of a word in the current input generators. */
 function wordToMatrix(word) {
