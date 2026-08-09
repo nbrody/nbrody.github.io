@@ -26,6 +26,8 @@
  * residuals); the group relations are exact when an exact context is given.
  */
 import * as THREE from 'three';
+import { MAX_CYCLE_ORDER, cycleOrderFromAngleSum } from './cycleOrder.js';
+export { MAX_CYCLE_ORDER, cycleOrderFromAngleSum } from './cycleOrder.js';
 import {
     Matrix2x2, Complex, pslKey, distFromIdentityPSL,
     applyMatrixToBall, wallSD, wallOutwardNormal, isInsideWalls,
@@ -742,24 +744,29 @@ export function certifyDomain(walls, basepoint, exactCtx = null) {
             continue;
         }
 
-        // Angle condition: angleSum = 2π/m
-        const mFloat = 2 * Math.PI / angleSum;
-        const m = Math.round(mFloat);
-        const angleOk = m >= 1 && Math.abs(angleSum - 2 * Math.PI / m) < ANGLE_TOL;
+        // Angle condition: angleSum = 2π/m. Guard before checking P^m:
+        // degenerate cycles can make m infinite or enormous, which would hang
+        // the browser if used as the loop bound (or EP.pow argument) below.
+        const { m, orderCheckable } = cycleOrderFromAngleSum(angleSum);
+        const angleOk = orderCheckable && Math.abs(angleSum - 2 * Math.PI / m) < ANGLE_TOL;
 
         // Cycle transformation condition: P^m = ±I
-        let Pm = Matrix2x2.identity();
-        for (let k = 0; k < Math.max(1, m); k++) Pm = Pm.mul(P);
-        const orderRes = distFromIdentityPSL(Pm.normalized());
-        let orderOk = orderRes < 1e-5;
+        let orderRes = Infinity;
+        let orderOk = false;
+        if (orderCheckable) {
+            let Pm = Matrix2x2.identity();
+            for (let k = 0; k < m; k++) Pm = Pm.mul(P);
+            orderRes = distFromIdentityPSL(Pm.normalized());
+            orderOk = orderRes < 1e-5;
+        }
 
         // Exact cycle relation: P^m ≡ I projectively in PGL2(K). The exact
         // verdict overrides the numeric one in either direction.
         let cycleExactLine = null;
-        if (angleOk && m >= 1) {
+        if (angleOk && orderCheckable) {
             const EP = exactCheck(words);
             if (EP) {
-                const exactHolds = EP.pow(Math.max(1, m)).isProjectiveIdentity();
+                const exactHolds = EP.pow(m).isProjectiveIdentity();
                 if (exactHolds) {
                     orderOk = true;
                     cycleExactLine = `  · exact: (cycle elt)^${m} ≡ I in PGL₂(${exactCtx.field.describe()}) ✓`;
@@ -770,16 +777,19 @@ export function certifyDomain(walls, basepoint, exactCtx = null) {
             }
         }
 
+        const mLabel = m === null ? 'invalid' : (m > MAX_CYCLE_ORDER ? `>${MAX_CYCLE_ORDER}` : m);
         const desc = `${cyclePairs.length} edges, Σθ = ${(angleSum / Math.PI).toFixed(5)}π ` +
-            `(2π/${m}), cycle elt ${wordStr(reduceWord(words))}` +
-            (m > 1 ? `, order ${m} residual ${orderRes.toExponential(1)}` : '');
+            `(2π/${mLabel}), cycle elt ${wordStr(reduceWord(words))}` +
+            (orderCheckable && m > 1 ? `, order ${m} residual ${orderRes.toExponential(1)}` : '');
         if (angleOk && orderOk) {
             log.push(`✓ edge cycle at (${e0.i},${e0.j}): ${desc}`);
             if (cycleExactLine) log.push(cycleExactLine);
         } else {
             ok = false;
-            log.push(`✗ edge cycle at (${e0.i},${e0.j}): ${desc} — ` +
-                (!angleOk ? `angle sum is not 2π/m` : `cycle element does not have order ${m}`));
+            const failure = !orderCheckable
+                ? `cycle order is invalid or exceeds ${MAX_CYCLE_ORDER}`
+                : (!angleOk ? `angle sum is not 2π/m` : `cycle element does not have order ${m}`);
+            log.push(`✗ edge cycle at (${e0.i},${e0.j}): ${desc} — ` + failure);
             if (cycleExactLine) log.push(cycleExactLine);
         }
         edgeCycles.push({ pairs: cyclePairs, ok: angleOk && orderOk, m, angleSum });
