@@ -1,5 +1,5 @@
 // Khet Board Renderer
-import { COLS, ROWS, PLAYER, PIECE_TYPE, DIR, DX, DY } from './engine.js';
+import { COLS, ROWS, PLAYER, PIECE_TYPE, DIR, DX, DY, pyramidFacingIndex } from './engine.js';
 
 const CELL_SIZE = 70;
 const BOARD_PADDING = 40;
@@ -206,6 +206,9 @@ export class KhetRenderer {
                 startRow: move.toRow,
                 endCol: move.col,
                 endRow: move.row,
+                // Facing required: drawPyramid/draw* use startFacing during animation.
+                startFacing: piece2.facing,
+                endFacing: piece2.facing,
                 progress: 0
             };
             this.pieceAnimations.push(anim2);
@@ -618,9 +621,12 @@ export class KhetRenderer {
         // Draw the triangle based on facing
         const s = r * 0.9; // half-size
 
-        // Triangle vertices for each facing:
+        // Triangle vertices for each facing.
+        // JS `%` preserves sign, so CCW rotation (facing interpolates through
+        // negative values) must be normalized before the switch — otherwise
+        // verts stays undefined and render throws mid-animation.
         let verts;
-        const facing = Math.round(angle / (Math.PI / 2)) % 4;
+        const facing = pyramidFacingIndex(angle);
 
         switch (facing) {
             case 0: // N: NE triangle - point at NE, mirror from N to E
@@ -634,6 +640,9 @@ export class KhetRenderer {
                 break;
             case 3: // W: NW triangle
                 verts = [[-s, s], [-s, -s], [s, -s]]; // bottom-left, top-left, top-right
+                break;
+            default:
+                verts = [[-s, -s], [s, -s], [s, s]];
                 break;
         }
 
