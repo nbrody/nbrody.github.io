@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoViz — a daily mathematical visualization</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --accent-dim: rgba(110, 231, 216, 0.14);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.6;
+    padding: 3rem 1.5rem 4rem;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+  header h1 {
+    font-size: 2.4rem;
+    font-weight: normal;
+    letter-spacing: 0.01em;
+  }
+  header h1 .dot { color: var(--accent); }
+  header p.sub { color: var(--muted); font-style: italic; margin-top: 0.3rem; }
+  /* hero: latest entry */
+  .hero {
+    margin-top: 2.2rem;
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+    border-radius: 14px;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+  }
+  .hero .frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+  .hero iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .hero .frame a.cover { position: absolute; inset: 0; }
+  .hero .meta { padding: 1.1rem 1.4rem 1.3rem; }
+  .hero .meta .date { color: var(--accent); font-size: 0.85rem; letter-spacing: 0.12em; }
+  .hero .meta h2 { font-weight: normal; font-size: 1.5rem; margin: 0.15rem 0 0.25rem; }
+  .hero .meta h2 a { color: var(--ink); text-decoration: none; }
+  .hero .meta h2 a:hover { color: var(--accent); }
+  .hero .meta .area { color: var(--muted); font-size: 0.9rem; margin-bottom: 0.4rem; }
+  .hero .meta .blurb { font-size: 1rem; }
+  /* grid of past days */
+  .grid {
+    margin-top: 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .card {
+    display: block;
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 1rem 1.1rem 1.1rem;
+    text-decoration: none;
+    color: var(--ink);
+    transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    transform: translateY(-2px);
+  }
+  .card .date { color: var(--accent); font-size: 0.78rem; letter-spacing: 0.12em; }
+  .card h3 { font-weight: normal; font-size: 1.12rem; margin: 0.15rem 0 0.1rem; }
+  .card .area { color: var(--muted); font-size: 0.82rem; margin-bottom: 0.35rem; }
+  .card .blurb { font-size: 0.9rem; color: #c9c6cf; }
+  .empty { margin-top: 2.5rem; color: var(--muted); font-style: italic; }
+  footer { margin-top: 3.5rem; color: var(--muted); font-size: 0.85rem; text-align: center; }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AutoViz<span class="dot">.</span></h1>
+    <p class="sub">One mathematical visualization per day — geometry, group theory, topology, and beyond. Generated each morning by Claude (Fable&nbsp;5).</p>
+  </header>
+  <div id="content"></div>
+  <footer>Part of <a href="../index.html">nbrody.github.io</a> · harness spec in <span style="font-family: monospace;">HARNESS.md</span></footer>
+</div>
+<script src="manifest.js"></script>
+<script>
+(function () {
+  const entries = (window.AUTOVIZ || []).slice();
+  const root = document.getElementById('content');
+  if (!entries.length) {
+    root.innerHTML = '<p class="empty">No visualizations yet — the first one arrives tomorrow at 8 am.</p>';
+    return;
+  }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const latest = entries[0];
+  const href = e => 'days/' + encodeURIComponent(e.file);
+  const hero = document.createElement('section');
+  hero.className = 'hero';
+  hero.innerHTML =
+    '<div class="frame"><iframe src="' + href(latest) + '" title="' + esc(latest.title) + '" loading="lazy"></iframe>' +
+    '<a class="cover" href="' + href(latest) + '" aria-label="open ' + esc(latest.title) + '"></a></div>' +
+    '<div class="meta"><div class="date">' + esc(latest.date) + ' · today</div>' +
+    '<h2><a href="' + href(latest) + '">' + esc(latest.title) + '</a></h2>' +
+    '<div class="area">' + esc(latest.area) + '</div>' +
+    '<div class="blurb">' + esc(latest.blurb) + '</div></div>';
+  root.appendChild(hero);
+  const rest = entries.slice(1);
+  if (rest.length) {
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    grid.innerHTML = rest.map(e =>
+      '<a class="card" href="' + href(e) + '">' +
+      '<div class="date">' + esc(e.date) + '</div>' +
+      '<h3>' + esc(e.title) + '</h3>' +
+      '<div class="area">' + esc(e.area) + '</div>' +
+      '<div class="blurb">' + esc(e.blurb) + '</div></a>').join('');
+    root.appendChild(grid);
+  }
+})();
+</script>
+</body>
+</html>

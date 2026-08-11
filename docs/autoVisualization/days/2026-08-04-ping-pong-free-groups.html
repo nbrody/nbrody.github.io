@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ping-Pong and Free Groups — AutoViz 2026-08-04</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --good: #7ee787;
+    --bad: #ff7b72;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.55;
+    padding: 1.6rem 1.2rem 2.5rem;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; letter-spacing: 0.06em; }
+  h1 { font-weight: normal; font-size: 1.9rem; margin: 0.4rem 0 0.5rem; }
+  p.math { color: #c9c6cf; max-width: 62rem; font-size: 1.02rem; }
+  p.math i { color: var(--ink); }
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 1.1rem;
+    margin: 1rem 0 0.8rem; padding: 0.7rem 1rem;
+    border: 1px solid var(--panel-border); background: var(--panel);
+    border-radius: 10px; font-size: 0.92rem;
+  }
+  .controls label { display: flex; align-items: center; gap: 0.5rem; color: var(--muted); }
+  input[type=range] { accent-color: var(--accent); width: 180px; }
+  button {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 0.25rem 0.7rem; font-family: inherit; font-size: 0.88rem;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  #verdict { font-style: italic; }
+  #verdict.good { color: var(--good); }
+  #verdict.bad { color: var(--bad); }
+  .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: stretch; }
+  .stage {
+    border: 1px solid var(--panel-border); background: rgba(0, 0, 0, 0.25);
+    border-radius: 12px; overflow: hidden; flex: 1 1 480px; min-width: 320px;
+  }
+  canvas { display: block; width: 100%; height: auto; }
+  .side {
+    flex: 0 1 300px; min-width: 260px; border: 1px solid var(--panel-border);
+    background: var(--panel); border-radius: 12px; padding: 1rem 1.1rem;
+    font-size: 0.95rem;
+  }
+  .side .mat { font-family: monospace; font-size: 1rem; margin: 0.35rem 0 0.8rem; color: var(--accent); }
+  .side .word { font-family: monospace; font-size: 1.05rem; word-break: break-all; min-height: 3.2rem; }
+  .side .legend { margin-top: 0.8rem; color: var(--muted); font-size: 0.85rem; }
+  .legend span { display: inline-block; width: 0.75em; height: 0.75em; border-radius: 50%; margin-right: 0.35em; }
+  footer { margin-top: 1.2rem; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; AutoViz</a>
+  <h1>Ping-Pong and Free Groups</h1>
+  <p class="math">
+    The ping-pong lemma: if <i>A</i> maps the complement of an interval <i>Y</i> into <i>Y</i>&hellip;
+    more precisely, if all nonzero powers of <i>A</i> send <i>Y</i> into <i>X</i> and all nonzero powers
+    of <i>B</i> send <i>X</i> into <i>Y</i>, for disjoint sets <i>X</i>, <i>Y</i>, then &#10216;<i>A</i>,&thinsp;<i>B</i>&#10217;
+    is a free group. Sanov's classical instance: <i>A</i> = [[1,&thinsp;t],[0,&thinsp;1]] and
+    <i>B</i> = [[1,&thinsp;0],[t,&thinsp;1]] acting on &Ropf;P&sup1; = &part;&Hopf;&sup2; by M&ouml;bius
+    transformations, with <i>Y</i> = [&minus;1,&thinsp;1] and <i>X</i> its complement. The certificate works
+    exactly when |t| &ge; 2 — drag the slider and watch the intervals collide. At <i>t</i> = 1 the pair
+    generates all of SL(2,&Zopf;), which contains torsion, so freeness genuinely fails for small integers.
+  </p>
+  <div class="controls">
+    <label>t <input type="range" id="t" min="0.5" max="3.2" step="0.01" value="2"><span id="tVal">2.00</span></label>
+    <button data-t="1">t = 1</button>
+    <button data-t="1.5">t = 3/2</button>
+    <button data-t="2">t = 2</button>
+    <button data-t="2.8">t = 2.8</button>
+    <span id="verdict"></span>
+  </div>
+  <div class="row">
+    <div class="stage"><canvas id="cv"></canvas></div>
+    <div class="side">
+      <div>generators</div>
+      <div class="mat" id="mats"></div>
+      <div>random reduced word, applied to the marked point one letter at a time:</div>
+      <div class="word" id="word"></div>
+      <button id="playBtn">pause orbit</button>
+      <button id="resetBtn">new word</button>
+      <div class="legend">
+        <div><span style="background:#6ee7d8"></span>Y = [&minus;1, 1]</div>
+        <div><span style="background:#f0a35e"></span>A(Y) and A&#8315;&sup1;(Y) — must land outside Y</div>
+        <div><span style="background:#b493e6"></span>B(X) and B&#8315;&sup1;(X) — must land inside Y</div>
+      </div>
+    </div>
+  </div>
+  <footer>AutoViz · 2026-08-04 · generated by Claude (Fable 5)</footer>
+</div>
+<script>
+(function () {
+  'use strict';
+  const INF = Infinity;
+  // Möbius action of [[a,b],[c,d]] on RP^1 = R ∪ {∞}
+  function mob(M, x) {
+    const [a, b, c, d] = M;
+    if (x === INF) return c === 0 ? INF : a / c;
+    const den = c * x + d;
+    if (Math.abs(den) < 1e-12) return INF;
+    return (a * x + b) / den;
+  }
+  // RP^1 as a circle: x -> angle 2·atan(x), ∞ at the top, 0 at the bottom.
+  const angOf = x => x === INF ? Math.PI : 2 * Math.atan(x);
+  function pos(theta, cx, cy, R, off) {
+    return [cx + (R + off) * Math.sin(theta), cy + (R + off) * Math.cos(theta)];
+  }
+
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const tEl = document.getElementById('t');
+  const tVal = document.getElementById('tVal');
+  const verdict = document.getElementById('verdict');
+  const matsEl = document.getElementById('mats');
+  const wordEl = document.getElementById('word');
+  let t = 2, view = null;
+  let orbit = { x: 0.3, word: [], step: 0, trail: [], playing: true };
+
+  const A = () => [1, t, 0, 1];
+  const Ai = () => [1, -t, 0, 1];
+  const B = () => [1, 0, t, 1];
+  const Bi = () => [1, 0, -t, 1];
+  const LETTERS = [
+    { name: 'A', M: A, inv: 'A⁻¹' }, { name: 'A⁻¹', M: Ai, inv: 'A' },
+    { name: 'B', M: B, inv: 'B⁻¹' }, { name: 'B⁻¹', M: Bi, inv: 'B' }
+  ];
+
+  function newWord() {
+    const w = [];
+    let prev = null;
+    for (let i = 0; i < 14; i++) {
+      let L;
+      do { L = LETTERS[Math.floor(Math.random() * 4)]; } while (prev && L.name === prev.inv);
+      w.push(L); prev = L;
+    }
+    orbit = { x: 0.3, word: w, step: 0, trail: [orbitPoint(0.3)], playing: orbit.playing };
+    renderWord();
+  }
+  function orbitPoint(x) { return angOf(x); }
+
+  // draw an arc along the circle between real points x1 < x2; throughInf routes it over the top
+  function strokeInterval(x1, x2, throughInf, off, color, width) {
+    let th1 = angOf(x1), th2 = angOf(x2);
+    if (throughInf) th1 += 2 * Math.PI; // go the long way, past θ=π
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    const N = 72;
+    for (let i = 0; i <= N; i++) {
+      const th = th1 + (th2 - th1) * i / N;
+      const [px, py] = pos(th, view.cx, view.cy, view.R, off);
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  function layout() {
+    const cssW = cv.parentElement.clientWidth || 600;
+    const cssH = Math.round(cssW * 0.85);
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(cssW * dpr);
+    cv.height = Math.round(cssH * dpr);
+    cv.style.height = cssH + 'px';
+    view = { cx: cssW / 2, cy: cssH / 2, R: Math.min(cssW, cssH) / 2 - 58, dpr, cssW, cssH };
+    draw();
+  }
+
+  function draw() {
+    const { cx, cy, R, dpr, cssW, cssH } = view;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    // base circle
+    ctx.strokeStyle = 'rgba(232,230,225,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, 2 * Math.PI); ctx.stroke();
+    // reference ticks at 0, ±1, ∞
+    ctx.fillStyle = 'rgba(154,151,160,0.9)';
+    ctx.font = '13px Georgia'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const [x, lab] of [[0, '0'], [1, '1'], [-1, '−1'], [INF, '∞']]) {
+      const th = angOf(x);
+      const [px, py] = pos(th, cx, cy, R, 14);
+      ctx.fillText(lab, px, py);
+    }
+    // Y = [−1,1] on the circle itself
+    strokeInterval(-1, 1, false, 0, '#6ee7d8', 7);
+    // A(Y) = [t−1, t+1], A⁻¹(Y) = [−t−1, −t+1] — ring 1
+    strokeInterval(t - 1, t + 1, false, 14, '#f0a35e', 5);
+    strokeInterval(-t - 1, -t + 1, false, 14, '#f0a35e', 5);
+    // B(X) and B⁻¹(X): images of the closed complement of Y (through ∞) — ring 2
+    // B(x)=x/(tx+1): endpoints B(1), B(−1), passing through B(∞)=1/t
+    const b = x => mob(B(), x), bi = x => mob(Bi(), x);
+    drawImageOfX(b, 26, '#b493e6');
+    drawImageOfX(bi, 26, '#b493e6');
+    // orbit trail + marker
+    const tr = orbit.trail;
+    for (let i = 0; i < tr.length; i++) {
+      const [px, py] = pos(tr[i], cx, cy, R, 0);
+      ctx.fillStyle = 'rgba(110,231,216,' + (0.15 + 0.85 * i / tr.length) + ')';
+      ctx.beginPath(); ctx.arc(px, py, i === tr.length - 1 ? 6 : 3, 0, 2 * Math.PI); ctx.fill();
+      if (i === tr.length - 1) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke(); }
+    }
+  }
+
+  // image of X = RP1 ∖ (−1,1) under a Möbius map g: an arc from g(1) to g(−1) through g(∞)
+  function drawImageOfX(g, off, color) {
+    const p1 = g(1), p2 = g(-1), pm = g(INF);
+    // sample X directly and map: X goes 1 → ∞ → −1
+    ctx.strokeStyle = color; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath();
+    const N = 120;
+    for (let i = 0; i <= N; i++) {
+      // parametrize X through infinity: x = tan(θ/2) for θ from angOf(1) to angOf(−1)+2π
+      const th = Math.PI / 2 + (Math.PI) * i / N; // θ ∈ [π/2, 3π/2] ⇔ x ∈ [1, ∞] ∪ [−∞, −1]
+      const x = Math.abs(th - Math.PI) < 1e-9 ? INF : Math.tan(th / 2);
+      const y = g(x);
+      const [px, py] = pos(angOf(y), view.cx, view.cy, view.R, off);
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.stroke();
+    void p1; void p2; void pm;
+  }
+
+  function renderWord() {
+    wordEl.innerHTML = orbit.word.map((L, i) =>
+      '<span style="' + (i < orbit.step ? 'color:#6ee7d8' : 'color:#9a97a0') + '">' + L.name + '</span>'
+    ).join(' ');
+  }
+
+  function stepOrbit() {
+    if (!orbit.playing) return;
+    if (orbit.step >= orbit.word.length) { newWord(); return; }
+    const L = orbit.word[orbit.step];
+    orbit.x = mob(L.M(), orbit.x);
+    orbit.step++;
+    orbit.trail.push(orbitPoint(orbit.x));
+    if (orbit.trail.length > 15) orbit.trail.shift();
+    renderWord();
+    draw();
+  }
+
+  function update() {
+    t = +tEl.value;
+    tVal.textContent = t.toFixed(2);
+    const free = t >= 2 - 1e-9;
+    verdict.textContent = free
+      ? 'ping-pong certificate holds — ⟨A, B⟩ is free'
+      : 'intervals overlap — certificate fails (t = 1 gives SL(2,ℤ), not free)';
+    verdict.className = free ? 'good' : 'bad';
+    matsEl.innerHTML = 'A = [[1, ' + t.toFixed(2) + '], [0, 1]]<br>B = [[1, 0], [' + t.toFixed(2) + ', 1]]';
+    draw();
+  }
+
+  tEl.addEventListener('input', update);
+  document.querySelectorAll('button[data-t]').forEach(btn =>
+    btn.addEventListener('click', () => { tEl.value = btn.dataset.t; update(); }));
+  document.getElementById('playBtn').addEventListener('click', e => {
+    orbit.playing = !orbit.playing;
+    e.target.textContent = orbit.playing ? 'pause orbit' : 'play orbit';
+  });
+  document.getElementById('resetBtn').addEventListener('click', newWord);
+  window.addEventListener('resize', layout);
+
+  newWord();
+  layout();
+  update();
+  setInterval(stepOrbit, 700);
+  // sanity check: at t=2, A(Y) should touch Y exactly at 1: A maps −1 ↦ 1
+  console.log('Sanov check: A_2(−1) =', mob([1, 2, 0, 1], -1), '(should be 1, tangency at t=2)');
+})();
+</script>
+</body>
+</html>

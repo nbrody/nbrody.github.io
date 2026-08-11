@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Triangle-Group Kaleidoscopes — AutoViz 2026-08-11</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --good: #7ee787;
+    --warn: #ffd479;
+    --bad: #ff7b72;
+    --mA: #ff9f6e;
+    --mB: #6ee7d8;
+    --mC: #b8a1f0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.55;
+    padding: 1.6rem 1.2rem 2.5rem;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; letter-spacing: 0.06em; }
+  h1 { font-weight: normal; font-size: 1.9rem; margin: 0.4rem 0 0.5rem; }
+  p.math { color: #c9c6cf; max-width: 64rem; font-size: 1.02rem; }
+  p.math i { color: var(--ink); }
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 1.0rem;
+    margin: 1rem 0 0.8rem; padding: 0.7rem 1rem;
+    border: 1px solid var(--panel-border); background: var(--panel);
+    border-radius: 10px; font-size: 0.92rem;
+  }
+  .controls label { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); }
+  .controls .val { color: var(--ink); font-family: monospace; font-size: 0.86rem; min-width: 1.9em; }
+  input[type=range] { accent-color: var(--accent); width: 108px; }
+  button {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 0.25rem 0.7rem; font-family: inherit; font-size: 0.88rem;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  .presets { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.8rem; }
+  .presets button { font-family: monospace; font-size: 0.84rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: stretch; }
+  .stage {
+    border: 1px solid var(--panel-border); background: rgba(0, 0, 0, 0.32);
+    border-radius: 12px; overflow: hidden; flex: 1 1 560px; min-width: 320px;
+    position: relative;
+  }
+  canvas { display: block; touch-action: none; }
+  #cv { width: 100%; cursor: crosshair; }
+  #ov { position: absolute; inset: 0; width: 100%; pointer-events: none; }
+  .hint {
+    position: absolute; left: 0.7rem; bottom: 0.5rem; color: var(--muted);
+    font-size: 0.78rem; pointer-events: none; text-shadow: 0 0 6px #000;
+  }
+  .side {
+    flex: 0 1 330px; min-width: 268px; border: 1px solid var(--panel-border);
+    background: var(--panel); border-radius: 12px; padding: 1rem 1.1rem;
+    font-size: 0.95rem;
+  }
+  .side h2 { font-size: 0.82rem; font-weight: normal; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--muted); margin: 0.95rem 0 0.3rem; }
+  .side h2:first-child { margin-top: 0; }
+  #verdict { font-style: italic; }
+  #verdict.sph { color: var(--warn); }
+  #verdict.euc { color: var(--good); }
+  #verdict.hyp { color: var(--accent); }
+  .stat { font-family: monospace; font-size: 0.86rem; color: var(--ink); }
+  .stat span { color: var(--accent); }
+  .pres { font-family: monospace; font-size: 0.8rem; color: #c9c6cf; word-break: break-word; }
+  .word { font-family: monospace; font-size: 1.05rem; letter-spacing: 0.1em;
+          word-break: break-all; min-height: 2.4rem; color: var(--accent); }
+  .legend { color: var(--muted); font-size: 0.85rem; }
+  .legend div { margin-top: 0.14rem; }
+  .legend i { display: inline-block; width: 1.5em; height: 0.24em; vertical-align: middle;
+              margin-right: 0.5em; border-radius: 2px; }
+  footer { margin-top: 1.2rem; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; AutoViz</a>
+  <h1>Triangle-Group Kaleidoscopes</h1>
+  <p class="math">
+    Fix integers <i>p</i>,&thinsp;<i>q</i>,&thinsp;<i>r</i> &ge; 2 and a geodesic triangle
+    <i>ABC</i> with angles &pi;/<i>p</i>, &pi;/<i>q</i>, &pi;/<i>r</i>. Poincar&eacute;'s theorem for
+    reflection groups says the reflections <i>a</i>, <i>b</i>, <i>c</i> in the sides opposite
+    <i>A</i>, <i>B</i>, <i>C</i> generate a discrete group
+    &#10216;<i>a</i>,<i>b</i>,<i>c</i> | <i>a</i>&sup2;=<i>b</i>&sup2;=<i>c</i>&sup2;=(<i>bc</i>)<sup><i>p</i></sup>=(<i>ca</i>)<sup><i>q</i></sup>=(<i>ab</i>)<sup><i>r</i></sup>=1&#10217;
+    with that triangle as a strict fundamental domain, so its images tile the whole space
+    exactly once each. The sign of 1/<i>p</i>&thinsp;+&thinsp;1/<i>q</i>&thinsp;+&thinsp;1/<i>r</i>&thinsp;&minus;&thinsp;1
+    decides the space: positive gives the round sphere, where the group is <em>finite</em> of
+    order 4/(1/<i>p</i>+1/<i>q</i>+1/<i>r</i>&minus;1); zero gives the Euclidean plane; negative gives the
+    hyperbolic plane, where Gauss&ndash;Bonnet makes the triangle's area exactly the angle defect
+    &pi;(1&thinsp;&minus;&thinsp;1/<i>p</i>&thinsp;&minus;&thinsp;1/<i>q</i>&thinsp;&minus;&thinsp;1/<i>r</i>).
+    Tiles below are colored by word length, so the cascade you watch is the ball of radius
+    <i>d</i> growing in the Cayley graph of the group.
+  </p>
+  <div class="presets">
+    <button data-t="2,3,7">(2,3,7)</button>
+    <button data-t="2,3,5">(2,3,5)</button>
+    <button data-t="2,3,4">(2,3,4)</button>
+    <button data-t="2,2,7">(2,2,7)</button>
+    <button data-t="2,3,6">(2,3,6)</button>
+    <button data-t="2,4,4">(2,4,4)</button>
+    <button data-t="3,3,3">(3,3,3)</button>
+    <button data-t="3,4,5">(3,4,5)</button>
+    <button data-t="7,7,7">(7,7,7)</button>
+    <button data-t="2,5,11">(2,5,11)</button>
+  </div>
+  <div class="controls">
+    <label>p <input type="range" id="p" min="2" max="12" step="1" value="2"><span class="val" id="pV">2</span></label>
+    <label>q <input type="range" id="q" min="2" max="12" step="1" value="3"><span class="val" id="qV">3</span></label>
+    <label>r <input type="range" id="r" min="2" max="12" step="1" value="7"><span class="val" id="rV">7</span></label>
+    <label>word length &le; <input type="range" id="dep" min="1" max="30" step="1" value="22"><span class="val" id="depV">22</span></label>
+    <button id="casBtn" class="on">cascade: on</button>
+    <button id="mirBtn" class="on">mirrors: on</button>
+    <button id="playBtn">pause</button>
+  </div>
+  <div class="row">
+    <div class="stage">
+      <canvas id="cv"></canvas>
+      <canvas id="ov"></canvas>
+      <div class="hint" id="hint">click a tile to read its word &middot; drag to rotate the sphere</div>
+    </div>
+    <div class="side">
+      <h2>geometry</h2>
+      <div id="verdict"></div>
+      <div class="stat" id="sumline"></div>
+      <h2>the group</h2>
+      <div class="pres" id="pres"></div>
+      <div class="stat" id="sizeline"></div>
+      <div class="stat">tiles drawn: <span id="ntile"></span></div>
+      <div class="stat" id="ballline"></div>
+      <div class="stat" id="capline" style="color:var(--warn)"></div>
+      <h2>selected tile</h2>
+      <div class="word" id="word">e &nbsp;<span style="color:var(--muted);font-size:.8rem">(fundamental triangle)</span></div>
+      <h2>mirrors</h2>
+      <div class="legend">
+        <div><i style="background:var(--mA)"></i>a — reflection in BC (opposite A)</div>
+        <div><i style="background:var(--mB)"></i>b — reflection in CA (opposite B)</div>
+        <div><i style="background:var(--mC)"></i>c — reflection in AB (opposite C)</div>
+      </div>
+    </div>
+  </div>
+  <footer>AutoViz · 2026-08-11 · generated by Claude (Fable 5)</footer>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  // ---------------- complex arithmetic ----------------
+  var cadd = function (a, b) { return [a[0] + b[0], a[1] + b[1]]; };
+  var csub = function (a, b) { return [a[0] - b[0], a[1] - b[1]]; };
+  var cmul = function (a, b) { return [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]]; };
+  var cconj = function (a) { return [a[0], -a[1]]; };
+  var cabs2 = function (a) { return a[0] * a[0] + a[1] * a[1]; };
+  var cscl = function (a, s) { return [a[0] * s, a[1] * s]; };
+  var cdiv = function (a, b) {
+    var d = cabs2(b);
+    return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d];
+  };
+  var clamp1 = function (t) { return t < -1 ? -1 : (t > 1 ? 1 : t); };
+
+  // ---------------- Mobius / anti-Mobius transforms ----------------
+  // T = { m: [a,b,c,d] (complex), f: conjugate-first flag }.  T(z) = (a w + b)/(c w + d),
+  // w = f ? conj(z) : z.  Every mirror below is anti-holomorphic (f = true).
+  function tapply(T, z) {
+    var w = T.f ? cconj(z) : z;
+    var num = cadd(cmul(T.m[0], w), T.m[1]);
+    var den = cadd(cmul(T.m[2], w), T.m[3]);
+    if (cabs2(den) < 1e-26) return [1e12, 1e12];
+    return cdiv(num, den);
+  }
+  function mmul(M, N) {
+    return [
+      cadd(cmul(M[0], N[0]), cmul(M[1], N[2])), cadd(cmul(M[0], N[1]), cmul(M[1], N[3])),
+      cadd(cmul(M[2], N[0]), cmul(M[3], N[2])), cadd(cmul(M[2], N[1]), cmul(M[3], N[3]))
+    ];
+  }
+  function tcomp(T, U) { // T o U
+    var N = T.f ? [cconj(U.m[0]), cconj(U.m[1]), cconj(U.m[2]), cconj(U.m[3])] : U.m;
+    return { m: mmul(T.m, N), f: T.f !== U.f };
+  }
+  var ID = { m: [[1, 0], [0, 0], [0, 0], [1, 0]], f: false };
+
+  // reflection in the line through 0 at angle phi:  z -> e^{2 i phi} conj(z)
+  function mirrorDiam(phi) {
+    return { m: [[Math.cos(2 * phi), Math.sin(2 * phi)], [0, 0], [0, 0], [1, 0]], f: true,
+             kind: 'diam', phi: phi };
+  }
+  // reflection in the line through P with unit direction u: z -> u^2 conj(z) + (P - u^2 conj(P))
+  function mirrorLine(P, u) {
+    var u2 = cmul(u, u);
+    return { m: [u2, csub(P, cmul(u2, cconj(P))), [0, 0], [1, 0]], f: true,
+             kind: 'line', P: P, u: u };
+  }
+  // inversion in the circle (O,R):  z -> O + R^2/(conj(z) - conj(O))
+  function mirrorCirc(O, R) {
+    return { m: [O, [R * R - cabs2(O), 0], [1, 0], cscl(cconj(O), -1)], f: true,
+             kind: 'circ', O: O, R: R };
+  }
+
+  // circle through P and Q with |O|^2 - R^2 = sgn  (sgn=+1: orthogonal to the unit circle,
+  // i.e. a Poincare geodesic; sgn=-1: the stereographic image of a great circle).
+  function solveCenter(P, Q, sgn) {
+    var det = 4 * (P[0] * Q[1] - P[1] * Q[0]);
+    var bp = cabs2(P) + sgn, bq = cabs2(Q) + sgn;
+    return [(bp * 2 * Q[1] - bq * 2 * P[1]) / det, (2 * P[0] * bq - 2 * Q[0] * bp) / det];
+  }
+
+  // ---------------- the (p,q,r) triangle ----------------
+  // A at the origin with angle pi/p; B on the positive real axis; C at argument pi/p.
+  // Mirror index 0 = a (side BC), 1 = b (side CA), 2 = c (side AB).
+  function buildGeometry(p, q, r) {
+    var al = Math.PI / p, be = Math.PI / q, ga = Math.PI / r;
+    var num = q * r + p * r + p * q, den = p * q * r;
+    var kind = num === den ? 'euc' : (num > den ? 'sph' : 'hyp');
+    var A = [0, 0], B, Cv;
+    if (kind === 'hyp') {
+      // hyperbolic law of cosines for angles
+      var chAB = (Math.cos(ga) + Math.cos(al) * Math.cos(be)) / (Math.sin(al) * Math.sin(be));
+      var chAC = (Math.cos(be) + Math.cos(al) * Math.cos(ga)) / (Math.sin(al) * Math.sin(ga));
+      var rB = Math.tanh(Math.acosh(Math.max(1, chAB)) / 2);
+      var rC = Math.tanh(Math.acosh(Math.max(1, chAC)) / 2);
+      B = [rB, 0]; Cv = [rC * Math.cos(al), rC * Math.sin(al)];
+    } else if (kind === 'sph') {
+      var cAB = (Math.cos(ga) + Math.cos(al) * Math.cos(be)) / (Math.sin(al) * Math.sin(be));
+      var cAC = (Math.cos(be) + Math.cos(al) * Math.cos(ga)) / (Math.sin(al) * Math.sin(ga));
+      var sB = Math.tan(Math.acos(clamp1(cAB)) / 2), sC = Math.tan(Math.acos(clamp1(cAC)) / 2);
+      B = [sB, 0]; Cv = [sC * Math.cos(al), sC * Math.sin(al)];
+    } else {
+      var lAC = Math.sin(be) / Math.sin(ga);   // law of sines with AB = 1
+      B = [1, 0]; Cv = [lAC * Math.cos(al), lAC * Math.sin(al)];
+    }
+    var mc = mirrorDiam(0), mb = mirrorDiam(al), ma;
+    if (kind === 'euc') {
+      var d = csub(Cv, B), n = Math.hypot(d[0], d[1]);
+      ma = mirrorLine(B, [d[0] / n, d[1] / n]);
+    } else {
+      var sgn = kind === 'hyp' ? 1 : -1;
+      var O = solveCenter(B, Cv, sgn);
+      ma = mirrorCirc(O, Math.sqrt(Math.max(1e-12, cabs2(O) - sgn)));
+    }
+    // generic interior-ish base point: its stabiliser in the group is trivial, so the
+    // orbit of this point is a faithful label for the tiles.
+    var base = [0.3411 * A[0] + 0.3299 * B[0] + 0.3290 * Cv[0],
+                0.3411 * A[1] + 0.3299 * B[1] + 0.3290 * Cv[1]];
+    return { kind: kind, p: p, q: q, r: r, al: al, be: be, ga: ga,
+             verts: [A, B, Cv], mirrors: [ma, mb, mc], base: base, num: num, den: den };
+  }
+
+  // stereographic lift (plane -> unit sphere, north pole at the origin of the plane)
+  function lift(w) {
+    var t2 = cabs2(w);
+    if (!(t2 < 1e18)) return [0, 0, -1];
+    var s = 1 / (1 + t2);
+    return [2 * w[0] * s, 2 * w[1] * s, (1 - t2) * s];
+  }
+
+  // ---------------- tiling by breadth-first search on words ----------------
+  // Tiles are in bijection with group elements, and the group acts freely on the orbit of
+  // the generic base point, so the rounded orbit point is a faithful label.  Near the ideal
+  // boundary consecutive orbit points crowd together like e^{-2rho}; once that separation
+  // approaches the rounding grid we stop expanding rather than risk merging two tiles.
+  var MAXT = 3000;
+  var RESOL = 1e-11;
+  function generate(g, maxDepth, maxTiles) {
+    var tiles = [], seen = Object.create(null), head = 0;
+    var keyOf = function (z) {
+      if (g.kind === 'sph') {
+        var s = lift(z);
+        return s[0].toFixed(8) + ',' + s[1].toFixed(8) + ',' + s[2].toFixed(8);
+      }
+      return z[0].toFixed(7) + ',' + z[1].toFixed(7);
+    };
+    var resolved = function (z) { return g.kind !== 'hyp' || 1 - cabs2(z) > RESOL; };
+    tiles.push({ T: ID, w: [] });
+    seen[keyOf(tapply(ID, g.base))] = 1;
+    var capped = false, limited = false;
+    while (head < tiles.length) {
+      var t = tiles[head++];
+      if (t.w.length >= maxDepth) continue;
+      for (var k = 0; k < 3; k++) {
+        if (t.w.length && t.w[t.w.length - 1] === k) continue;   // generators are involutions
+        var T2 = tcomp(t.T, g.mirrors[k]);
+        var z2 = tapply(T2, g.base);
+        if (!resolved(z2)) { limited = true; continue; }
+        var kk = keyOf(z2);
+        if (seen[kk]) continue;
+        if (tiles.length >= maxTiles) { capped = true; break; }
+        seen[kk] = 1;
+        tiles.push({ T: T2, w: t.w.concat(k) });
+      }
+      if (capped) break;
+    }
+    for (var i = 0; i < tiles.length; i++) {
+      var v = g.verts, T = tiles[i].T;
+      tiles[i].v = [tapply(T, v[0]), tapply(T, v[1]), tapply(T, v[2])];
+      tiles[i].d = tiles[i].w.length;
+    }
+    return { tiles: tiles, capped: capped, limited: limited };
+  }
+
+  // ---------------- exact growth series (independent check on the BFS) ----------------
+  // Steinberg's formula for a Coxeter group W: sum over T with W_T finite of
+  // (-1)^{|T|}/W_T(t) equals 1/W(1/t).  For an infinite triangle group the finite parabolics
+  // are the trivial one, the three Z/2's, and the three dihedral groups of orders 2p,2q,2r
+  // (growth series [2][m]), so after t -> 1/t
+  //     1/W(t) = 1 - 3t/[2] + t^p/([2][p]) + t^q/([2][q]) + t^r/([2][r]).
+  // Its partial sums are the exact sizes of balls in the Cayley graph.
+  var pmul = function (a, b) {
+    var c = new Array(a.length + b.length - 1).fill(0n);
+    for (var i = 0; i < a.length; i++) for (var j = 0; j < b.length; j++) c[i + j] += a[i] * b[j];
+    return c;
+  };
+  var padd = function (a, b) {
+    var n = Math.max(a.length, b.length), c = new Array(n).fill(0n);
+    for (var i = 0; i < n; i++) c[i] = (a[i] || 0n) + (b[i] || 0n);
+    return c;
+  };
+  var pones = function (m) { return new Array(m).fill(1n); };          // [m] = 1+t+...+t^{m-1}
+  var pmono = function (k) { var a = new Array(k + 1).fill(0n); a[k] = 1n; return a; };
+  var pdiv = function (D, d) {                                        // exact division
+    var out = new Array(D.length - d.length + 1).fill(0n), R = D.slice(), i, j;
+    for (i = out.length - 1; i >= 0; i--) {
+      var c = R[i + d.length - 1] / d[d.length - 1];
+      out[i] = c;
+      for (j = 0; j < d.length; j++) R[i + j] -= c * d[j];
+    }
+    return out;
+  };
+  function ballSizes(p, q, r, N) {
+    var P = [1n, 1n];
+    var Ds = [pmul(P, pones(p)), pmul(P, pones(q)), pmul(P, pones(r))];
+    var D = [1n], i;
+    [P, Ds[0], Ds[1], Ds[2]].forEach(function (d) { D = pmul(D, d); });
+    var Nn = D.slice();
+    Nn = padd(Nn, pmul(pmono(1), pdiv(D, P)).map(function (x) { return -3n * x; }));
+    Nn = padd(Nn, pmul(pmono(p), pdiv(D, Ds[0])));
+    Nn = padd(Nn, pmul(pmono(q), pdiv(D, Ds[1])));
+    Nn = padd(Nn, pmul(pmono(r), pdiv(D, Ds[2])));
+    var w = [], acc = 0n, out = [];
+    for (var n = 0; n <= N; n++) {
+      var s = D[n] || 0n;
+      for (var k = 1; k <= n; k++) s -= (Nn[k] || 0n) * w[n - k];
+      w.push(s / Nn[0]);
+      acc += w[n];
+      out.push(acc);
+    }
+    return out;
+  }
+
+  // ---------------- boundary sampling ----------------
+  function geodesicArc(kind, P, Q, n) {
+    var out = [], i, t;
+    var cr = P[0] * Q[1] - P[1] * Q[0];
+    if (Math.abs(cr) < 1e-11) {
+      for (i = 0; i < n; i++) { t = i / n; out.push([P[0] + (Q[0] - P[0]) * t, P[1] + (Q[1] - P[1]) * t]); }
+      return out;
+    }
+    var O = solveCenter(P, Q, 1), R2 = cabs2(O) - 1;
+    if (!(R2 > 1e-14)) {
+      for (i = 0; i < n; i++) { t = i / n; out.push([P[0] + (Q[0] - P[0]) * t, P[1] + (Q[1] - P[1]) * t]); }
+      return out;
+    }
+    var R = Math.sqrt(R2);
+    var t0 = Math.atan2(P[1] - O[1], P[0] - O[0]), t1 = Math.atan2(Q[1] - O[1], Q[0] - O[0]);
+    var dt = t1 - t0;
+    while (dt > Math.PI) dt -= 2 * Math.PI;
+    while (dt < -Math.PI) dt += 2 * Math.PI;
+    for (i = 0; i < n; i++) {
+      var th = t0 + dt * (i / n);
+      out.push([O[0] + R * Math.cos(th), O[1] + R * Math.sin(th)]);
+    }
+    return out;
+  }
+  function slerp(a, b, n) {
+    var d = clamp1(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]), th = Math.acos(d), out = [], i;
+    if (th < 1e-9) { for (i = 0; i < n; i++) out.push(a.slice()); return out; }
+    var st = Math.sin(th);
+    for (i = 0; i < n; i++) {
+      var t = i / n, s1 = Math.sin((1 - t) * th) / st, s2 = Math.sin(t * th) / st;
+      out.push([a[0] * s1 + b[0] * s2, a[1] * s1 + b[1] * s2, a[2] * s1 + b[2] * s2]);
+    }
+    return out;
+  }
+  function tileBoundary(g, v) {
+    var i, out = [];
+    if (g.kind === 'euc') return [v[0], v[1], v[2]];
+    if (g.kind === 'hyp') {
+      for (i = 0; i < 3; i++) out = out.concat(geodesicArc('hyp', v[i], v[(i + 1) % 3], 7));
+      return out;
+    }
+    var s = [lift(v[0]), lift(v[1]), lift(v[2])];
+    for (i = 0; i < 3; i++) out = out.concat(slerp(s[i], s[(i + 1) % 3], 9));
+    return out;
+  }
+
+  // full mirror curves (for the highlight overlay)
+  function mirrorCurve(g, k) {
+    var m = g.mirrors[k], pts = [], i, th;
+    if (g.kind === 'sph') {
+      if (m.kind === 'diam') {
+        for (i = 0; i <= 96; i++) {
+          th = i / 96 * 2 * Math.PI;
+          pts.push([Math.sin(th) * Math.cos(m.phi), Math.sin(th) * Math.sin(m.phi), Math.cos(th)]);
+        }
+      } else {
+        for (i = 0; i <= 96; i++) {
+          th = i / 96 * 2 * Math.PI;
+          pts.push(lift([m.O[0] + m.R * Math.cos(th), m.O[1] + m.R * Math.sin(th)]));
+        }
+      }
+      return pts;
+    }
+    if (g.kind === 'hyp') {
+      if (m.kind === 'diam') return [[-Math.cos(m.phi), -Math.sin(m.phi)], [Math.cos(m.phi), Math.sin(m.phi)]];
+      var d = Math.hypot(m.O[0], m.O[1]);
+      if (!(d > 1)) return [];
+      var psi = Math.acos(clamp1(1 / d)), ph = Math.atan2(m.O[1], m.O[0]);
+      var P1 = [Math.cos(ph - psi), Math.sin(ph - psi)], P2 = [Math.cos(ph + psi), Math.sin(ph + psi)];
+      var a0 = Math.atan2(P1[1] - m.O[1], P1[0] - m.O[0]), a1 = Math.atan2(P2[1] - m.O[1], P2[0] - m.O[0]);
+      var da = a1 - a0;
+      while (da > Math.PI) da -= 2 * Math.PI;
+      while (da < -Math.PI) da += 2 * Math.PI;
+      var mid = [m.O[0] + m.R * Math.cos(a0 + da / 2), m.O[1] + m.R * Math.sin(a0 + da / 2)];
+      if (cabs2(mid) > 1) da = da > 0 ? da - 2 * Math.PI : da + 2 * Math.PI;
+      for (i = 0; i <= 64; i++) pts.push([m.O[0] + m.R * Math.cos(a0 + da * i / 64),
+                                          m.O[1] + m.R * Math.sin(a0 + da * i / 64)]);
+      return pts;
+    }
+    var L = 60;
+    if (m.kind === 'diam') return [[-L * Math.cos(m.phi), -L * Math.sin(m.phi)], [L * Math.cos(m.phi), L * Math.sin(m.phi)]];
+    return [[m.P[0] - L * m.u[0], m.P[1] - L * m.u[1]], [m.P[0] + L * m.u[0], m.P[1] + L * m.u[1]]];
+  }
+
+  // ---------------- DOM / state ----------------
+  var cv = document.getElementById('cv'), ov = document.getElementById('ov');
+  var ctx = cv.getContext('2d'), octx = ov.getContext('2d');
+  var W = 0, H = 0, DPR = 1;
+  var g = null, tiles = [], capped = false, limited = false;
+  var reveal = 0, drawn = 0, holdT = 0, last = 0;
+  var playing = true, cascade = true, showMirrors = true;
+  var yaw = 0.6, pitch = -0.45, dragging = false, dragged = false, lastXY = null;
+  var view = { cx: 0, cy: 0, s: 1 };
+  var sel = 0;
+
+  var el = function (id) { return document.getElementById(id); };
+  var pS = el('p'), qS = el('q'), rS = el('r'), dS = el('dep');
+
+  // ---------------- projection ----------------
+  function rot3(v) {
+    var cy = Math.cos(yaw), sy = Math.sin(yaw), cx = Math.cos(pitch), sx = Math.sin(pitch);
+    var x = v[0] * cy - v[2] * sy, z = v[0] * sy + v[2] * cy, y = v[1];
+    return [x, y * cx - z * sx, y * sx + z * cx];
+  }
+  function projSph(v) {
+    var q = rot3(v);
+    var X = q[0], Y = q[1];
+    if (q[2] < 0) { var n = Math.hypot(X, Y) || 1e-9; X /= n; Y /= n; }
+    return [view.cx + view.s * X, view.cy - view.s * Y];
+  }
+  function projPlane(w) { return [view.cx + view.s * w[0], view.cy - view.s * w[1]]; }
+
+  function layout() {
+    // Measure the stage, never the canvas: giving a flex-item canvas an explicit pixel
+    // width makes the ResizeObserver chase its own shrink.  CSS keeps cv at width:100%.
+    var w = Math.max(320, Math.round(cv.parentElement.clientWidth));
+    var h = Math.round(Math.min(660, Math.max(340, w * 0.74)));
+    if (w === W && h === H) return;
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = w; H = h;
+    [cv, ov].forEach(function (c) {
+      c.width = Math.round(W * DPR); c.height = Math.round(H * DPR);
+      c.style.height = H + 'px';
+      c.getContext('2d').setTransform(DPR, 0, 0, DPR, 0, 0);
+    });
+    fitView();
+    rebuildScreen();
+    drawn = 0; clearBase(); render();
+  }
+
+  function fitView() {
+    view.cx = W / 2; view.cy = H / 2;
+    if (!g) { view.s = 0.45 * Math.min(W, H); return; }
+    if (g.kind === 'euc') {
+      var x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      for (var i = 0; i < tiles.length; i++) for (var j = 0; j < 3; j++) {
+        var v = tiles[i].v[j];
+        if (v[0] < x0) x0 = v[0]; if (v[0] > x1) x1 = v[0];
+        if (v[1] < y0) y0 = v[1]; if (v[1] > y1) y1 = v[1];
+      }
+      var bw = Math.max(1e-6, x1 - x0), bh = Math.max(1e-6, y1 - y0);
+      view.s = 0.94 * Math.min(W / bw, H / bh);
+      view.cx = W / 2 - view.s * (x0 + x1) / 2;
+      view.cy = H / 2 + view.s * (y0 + y1) / 2;
+    } else {
+      view.s = 0.46 * Math.min(W, H);
+    }
+  }
+
+  function rebuildScreen() {
+    for (var i = 0; i < tiles.length; i++) {
+      var t = tiles[i];
+      if (g.kind === 'sph') { t.sp3 = tileBoundary(g, t.v); t.sp = null; }
+      else {
+        var b = tileBoundary(g, t.v), a = new Float32Array(b.length * 2);
+        for (var j = 0; j < b.length; j++) { var s = projPlane(b[j]); a[2 * j] = s[0]; a[2 * j + 1] = s[1]; }
+        t.sp = a; t.sp3 = null;
+      }
+    }
+  }
+
+  // ---------------- colours ----------------
+  function fillFor(d) {
+    var even = (d % 2) === 0;
+    var Hh = even ? 172 + 14 * Math.sin(d * 0.55) : 274 + 16 * Math.sin(d * 0.55);
+    var L = even ? 40 + 11 * Math.cos(d * 0.85) : 25 + 9 * Math.cos(d * 0.85);
+    return 'hsl(' + Hh.toFixed(1) + ',' + (even ? 58 : 44) + '%,' + L.toFixed(1) + '%)';
+  }
+
+  // ---------------- drawing ----------------
+  function clearBase() { ctx.clearRect(0, 0, W, H); }
+
+  function pathFlat(c, a) {
+    c.beginPath();
+    c.moveTo(a[0], a[1]);
+    for (var i = 1; i * 2 < a.length; i++) c.lineTo(a[2 * i], a[2 * i + 1]);
+    c.closePath();
+  }
+  function pathSph(c, pts) {
+    c.beginPath();
+    var s = projSph(pts[0]);
+    c.moveTo(s[0], s[1]);
+    for (var i = 1; i < pts.length; i++) { s = projSph(pts[i]); c.lineTo(s[0], s[1]); }
+    c.closePath();
+  }
+
+  function paintTiles(from, to) {
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 0.6;
+    ctx.strokeStyle = 'rgba(8,10,16,0.55)';
+    for (var i = from; i < to; i++) {
+      var t = tiles[i];
+      if (g.kind === 'sph') {
+        var c3 = rot3(centroid3(t.sp3));
+        t.front = c3[2] > 0.02;
+        if (!t.front) { t.pp = null; continue; }
+        pathSph(ctx, t.sp3);
+        t.pp = t.sp3;
+      } else {
+        pathFlat(ctx, t.sp);
+      }
+      ctx.fillStyle = fillFor(t.d);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+  function centroid3(pts) {
+    var x = 0, y = 0, z = 0;
+    for (var i = 0; i < pts.length; i++) { x += pts[i][0]; y += pts[i][1]; z += pts[i][2]; }
+    var n = Math.hypot(x, y, z) || 1;
+    return [x / n, y / n, z / n];
+  }
+
+  function drawOverlay(n) {
+    octx.clearRect(0, 0, W, H);
+    var i;
+    // outer boundary of the model
+    if (g.kind === 'hyp' || g.kind === 'sph') {
+      octx.beginPath();
+      octx.arc(view.cx, view.cy, view.s, 0, 2 * Math.PI);
+      octx.strokeStyle = g.kind === 'hyp' ? 'rgba(110,231,216,0.55)' : 'rgba(255,255,255,0.18)';
+      octx.lineWidth = 1.3;
+      octx.stroke();
+    }
+    // growth front
+    var f0 = Math.max(0, n - 26);
+    octx.lineWidth = 1.4;
+    octx.strokeStyle = 'rgba(255,255,255,0.55)';
+    if (cascade && n < tiles.length) {
+      for (i = f0; i < n; i++) {
+        var t = tiles[i];
+        if (g.kind === 'sph') { if (!t.pp) continue; pathSph(octx, t.pp); }
+        else pathFlat(octx, t.sp);
+        octx.stroke();
+      }
+    }
+    // the three mirrors of the fundamental triangle
+    if (showMirrors) {
+      var cols = ['#ff9f6e', '#6ee7d8', '#b8a1f0'];
+      for (var k = 0; k < 3; k++) {
+        var curve = mirrorCurve(g, k);
+        if (!curve.length) continue;
+        octx.beginPath();
+        var started = false;
+        for (i = 0; i < curve.length; i++) {
+          var s, skip = false;
+          if (g.kind === 'sph') {
+            var q3 = rot3(curve[i]);
+            if (q3[2] < 0) skip = true;
+            s = [view.cx + view.s * q3[0], view.cy - view.s * q3[1]];
+          } else s = projPlane(curve[i]);
+          if (skip) { started = false; continue; }
+          if (!started) { octx.moveTo(s[0], s[1]); started = true; } else octx.lineTo(s[0], s[1]);
+        }
+        octx.lineWidth = 4.2;                       // dark casing, so the mirrors read
+        octx.strokeStyle = 'rgba(6,8,13,0.72)';     // against tiles of any colour
+        octx.stroke();
+        octx.lineWidth = 2.1;
+        octx.strokeStyle = cols[k];
+        octx.stroke();
+      }
+    }
+    // selected tile
+    if (sel >= 0 && sel < tiles.length && sel < n) {
+      var ts = tiles[sel], ok = true;
+      if (g.kind === 'sph') { if (!ts.pp) ok = false; else pathSph(octx, ts.pp); }
+      else pathFlat(octx, ts.sp);
+      if (ok) {
+        octx.fillStyle = 'rgba(255,255,255,0.30)';
+        octx.fill();
+        octx.strokeStyle = '#ffffff';
+        octx.lineWidth = 2;
+        octx.stroke();
+      }
+    }
+  }
+
+  function render() {
+    if (!g) return;
+    var n = Math.min(tiles.length, Math.floor(reveal));
+    if (g.kind === 'sph') { clearBase(); paintTiles(0, n); }
+    else if (n > drawn) { paintTiles(drawn, n); drawn = n; }
+    drawOverlay(n);
+  }
+
+  // ---------------- hit testing ----------------
+  function inPoly(px, py, pts) {
+    var inside = false;
+    for (var i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      var xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+      if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function pick(px, py) {
+    var n = Math.min(tiles.length, Math.floor(reveal));
+    for (var i = n - 1; i >= 0; i--) {
+      var t = tiles[i], pts;
+      if (g.kind === 'sph') {
+        if (!t.pp) continue;
+        pts = t.pp.map(projSph);
+      } else {
+        pts = [];
+        for (var j = 0; j * 2 < t.sp.length; j++) pts.push([t.sp[2 * j], t.sp[2 * j + 1]]);
+      }
+      if (inPoly(px, py, pts)) return i;
+    }
+    return -1;
+  }
+
+  // ---------------- panel ----------------
+  function gcd(a, b) { while (b) { var t = a % b; a = b; b = t; } return a; }
+  function updatePanel() {
+    var num = g.num, den = g.den, G = gcd(num, den);
+    var vn = num / G, vd = den / G;
+    var v = el('verdict');
+    v.className = g.kind;
+    v.textContent = g.kind === 'sph' ? 'spherical — the round 2-sphere, finite group'
+      : g.kind === 'euc' ? 'Euclidean — the flat plane, infinite'
+      : 'hyperbolic — the Poincaré disk, infinite';
+    el('sumline').innerHTML = '1/' + g.p + ' + 1/' + g.q + ' + 1/' + g.r + ' = <span>' +
+      vn + '/' + vd + '</span> ' + (num > den ? '&gt;' : num === den ? '=' : '&lt;') + ' 1';
+    el('pres').innerHTML = '&#10216;a,b,c | a² = b² = c² = (bc)<sup>' + g.p + '</sup> = (ca)<sup>' +
+      g.q + '</sup> = (ab)<sup>' + g.r + '</sup> = 1&#10217;';
+    if (g.kind === 'sph') {
+      var ord = 4 * den / (num - den);
+      el('sizeline').innerHTML = 'order = 4/(Σ−1) = <span>' + Math.round(ord) + '</span>';
+    } else if (g.kind === 'euc') {
+      el('sizeline').innerHTML = 'triangle area: any scale (χ<sub>orb</sub> = 0)';
+    } else {
+      var area = Math.PI * (1 - num / den);
+      el('sizeline').innerHTML = 'triangle area = π(1−Σ) = <span>' + area.toFixed(5) + '</span>';
+    }
+    el('ntile').textContent = tiles.length;
+    var bl = el('ballline');
+    if (g.kind === 'sph') bl.innerHTML = '';
+    else {
+      var exact = ballSizes(g.p, g.q, g.r, +dS.value)[+dS.value].toString();
+      var agree = !capped && !limited && exact === String(tiles.length);
+      bl.innerHTML = '|B(' + dS.value + ')| from the growth series: <span>' + exact + '</span>' +
+        (agree ? ' <span style="color:var(--good)">&#10003;</span>' : '');
+    }
+    el('capline').textContent = capped ? 'ball truncated at ' + MAXT + ' tiles'
+      : (limited ? 'stopped at the double-precision resolution limit' : '');
+    el('hint').textContent = g.kind === 'sph'
+      ? 'click a tile to read its word · drag to rotate the sphere'
+      : 'click a tile to read its word in the reflections';
+  }
+  function showWord(i) {
+    var w = tiles[i].w, L = 'abc';
+    var s = w.length ? w.map(function (k) { return L[k]; }).join(' ') : 'e';
+    el('word').innerHTML = s + (w.length ? ' &nbsp;<span style="color:var(--muted);font-size:.8rem">(length ' +
+      w.length + ')</span>' : ' &nbsp;<span style="color:var(--muted);font-size:.8rem">(fundamental triangle)</span>');
+  }
+
+  // ---------------- rebuild ----------------
+  function rebuild() {
+    var p = +pS.value, q = +qS.value, r = +rS.value, dep = +dS.value;
+    g = buildGeometry(p, q, r);
+    var res = generate(g, dep, MAXT);
+    tiles = res.tiles; capped = res.capped; limited = res.limited;
+    sel = 0;
+    fitView();
+    rebuildScreen();
+    reveal = cascade ? 0 : tiles.length;
+    drawn = 0; holdT = 0;
+    clearBase();
+    updatePanel();
+    showWord(0);
+    render();
+  }
+
+  // ---------------- animation ----------------
+  function frame(ts) {
+    var dt = last ? Math.min(0.05, (ts - last) / 1000) : 0;
+    last = ts;
+    if (playing) {
+      if (cascade) {
+        if (reveal < tiles.length) reveal = Math.min(tiles.length, reveal + Math.max(26, tiles.length / 4.5) * dt);
+        else { holdT += dt; if (holdT > 2.6) { holdT = 0; reveal = 0; drawn = 0; clearBase(); } }
+      } else reveal = tiles.length;
+      if (g && g.kind === 'sph' && !dragging) yaw += 0.32 * dt;
+    }
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  // ---------------- events ----------------
+  [['p', 'pV'], ['q', 'qV'], ['r', 'rV'], ['dep', 'depV']].forEach(function (pr) {
+    el(pr[0]).addEventListener('input', function () {
+      el(pr[1]).textContent = this.value;
+      rebuild();
+    });
+  });
+  document.querySelectorAll('.presets button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var t = b.dataset.t.split(',');
+      pS.value = t[0]; qS.value = t[1]; rS.value = t[2];
+      el('pV').textContent = t[0]; el('qV').textContent = t[1]; el('rV').textContent = t[2];
+      rebuild();
+    });
+  });
+  el('casBtn').addEventListener('click', function () {
+    cascade = !cascade;
+    this.textContent = 'cascade: ' + (cascade ? 'on' : 'off');
+    this.classList.toggle('on', cascade);
+    if (!cascade) { reveal = tiles.length; }
+    else { reveal = 0; drawn = 0; holdT = 0; clearBase(); }
+    render();
+  });
+  el('mirBtn').addEventListener('click', function () {
+    showMirrors = !showMirrors;
+    this.textContent = 'mirrors: ' + (showMirrors ? 'on' : 'off');
+    this.classList.toggle('on', showMirrors);
+    render();
+  });
+  el('playBtn').addEventListener('click', function () {
+    playing = !playing;
+    this.textContent = playing ? 'pause' : 'play';
+  });
+
+  cv.addEventListener('pointerdown', function (e) {
+    dragging = true; dragged = false;
+    lastXY = [e.offsetX, e.offsetY];
+    cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove', function (e) {
+    if (!dragging || !lastXY) return;
+    var dx = e.offsetX - lastXY[0], dy = e.offsetY - lastXY[1];
+    if (Math.abs(dx) + Math.abs(dy) > 2) dragged = true;
+    if (g && g.kind === 'sph') {
+      yaw += dx * 0.008;
+      pitch = Math.max(-1.5, Math.min(1.5, pitch + dy * 0.008));
+      render();
+    }
+    lastXY = [e.offsetX, e.offsetY];
+  });
+  cv.addEventListener('pointerup', function (e) {
+    dragging = false;
+    if (dragged) return;
+    var i = pick(e.offsetX, e.offsetY);
+    if (i >= 0) { sel = i; showWord(i); render(); }
+  });
+
+  window.addEventListener('resize', layout);
+  if (window.ResizeObserver) new ResizeObserver(layout).observe(cv.parentElement);
+
+  // ---------------- sanity checks (logged once) ----------------
+  function angleAtB(gg) {
+    // In both conformal models the angle between two geodesics is the Euclidean angle
+    // between their tangents.  Side AB is the real axis; side BC is mirror 0.
+    var B = gg.verts[1], C = gg.verts[2], m = gg.mirrors[0];
+    var t1 = [-1, 0];                              // tangent at B along BA (the real axis)
+    var t2;
+    if (m.kind === 'circ') {
+      var d = csub(B, m.O);
+      t2 = [-d[1], d[0]];
+    } else t2 = [m.u[0], m.u[1]];
+    if (t2[0] * (C[0] - B[0]) + t2[1] * (C[1] - B[1]) < 0) t2 = [-t2[0], -t2[1]];
+    var n1 = Math.hypot(t1[0], t1[1]), n2 = Math.hypot(t2[0], t2[1]);
+    return Math.acos(clamp1((t1[0] * t2[0] + t1[1] * t2[1]) / (n1 * n2)));
+  }
+  (function selfTest() {
+    var orders = [[2, 3, 5, 120], [2, 3, 4, 48], [2, 3, 3, 24], [2, 2, 6, 24], [2, 2, 2, 8]];
+    var msg = orders.map(function (o) {
+      var gg = buildGeometry(o[0], o[1], o[2]);
+      var n = generate(gg, 60, 4000).tiles.length;
+      return '(' + o[0] + ',' + o[1] + ',' + o[2] + ') ' + n + (n === o[3] ? '=' : '≠') + o[3];
+    }).join('  ');
+    console.log('[triangle-groups] finite orders 4/(Σ−1):', msg);
+    var ang = [[2, 3, 7], [3, 4, 5], [2, 3, 6], [2, 3, 5], [7, 7, 7]].map(function (o) {
+      var gg = buildGeometry(o[0], o[1], o[2]);
+      return '(' + o.join(',') + ') err=' + Math.abs(angleAtB(gg) - Math.PI / o[1]).toExponential(1);
+    }).join('  ');
+    console.log('[triangle-groups] angle at B vs π/q:', ang);
+    // the BFS tile count must reproduce the exact Coxeter growth series of the group
+    var gr = [[2, 3, 7, 24], [3, 4, 5, 12], [7, 7, 7, 9], [2, 3, 6, 20], [2, 4, 4, 20], [3, 3, 3, 20]]
+      .map(function (o) {
+        var gg = buildGeometry(o[0], o[1], o[2]);
+        var n = generate(gg, o[3], 1e6).tiles.length;
+        var e = ballSizes(o[0], o[1], o[2], o[3])[o[3]].toString();
+        return '(' + o[0] + ',' + o[1] + ',' + o[2] + ')|B(' + o[3] + ')|=' + n +
+               (String(n) === e ? '=' : '≠') + e;
+      }).join('  ');
+    console.log('[triangle-groups] BFS vs Steinberg growth series:', gr);
+  })();
+
+  // ---------------- go ----------------
+  el('pV').textContent = pS.value; el('qV').textContent = qS.value;
+  el('rV').textContent = rS.value; el('depV').textContent = dS.value;
+  rebuild();
+  layout();
+
+  window.__tri = {
+    step: function (ts) { frame(ts); },
+    stats: function () {
+      return { kind: g.kind, tiles: tiles.length, capped: capped, reveal: Math.floor(reveal),
+               sel: tiles[sel] ? tiles[sel].w.join('') : null };
+    },
+    set: function (p, q, r) { pS.value = p; qS.value = q; rS.value = r; rebuild(); },
+    pick: pick
+  };
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

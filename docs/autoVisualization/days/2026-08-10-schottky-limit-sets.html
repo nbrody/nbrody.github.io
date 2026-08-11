@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schottky Groups and Their Limit Sets — AutoViz 2026-08-10</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --good: #7ee787;
+    --bad: #ff7b72;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.55;
+    padding: 1.6rem 1.2rem 2.5rem;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; letter-spacing: 0.06em; }
+  h1 { font-weight: normal; font-size: 1.9rem; margin: 0.4rem 0 0.5rem; }
+  p.math { color: #c9c6cf; max-width: 64rem; font-size: 1.02rem; }
+  p.math i { color: var(--ink); }
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 1.1rem;
+    margin: 1rem 0 0.8rem; padding: 0.7rem 1rem;
+    border: 1px solid var(--panel-border); background: var(--panel);
+    border-radius: 10px; font-size: 0.92rem;
+  }
+  .controls label { display: flex; align-items: center; gap: 0.5rem; color: var(--muted); }
+  .controls .val { color: var(--ink); font-family: monospace; font-size: 0.86rem; min-width: 3.2em; }
+  input[type=range] { accent-color: var(--accent); width: 130px; }
+  button {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 0.25rem 0.7rem; font-family: inherit; font-size: 0.88rem;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: stretch; }
+  .stage {
+    border: 1px solid var(--panel-border); background: rgba(0, 0, 0, 0.32);
+    border-radius: 12px; overflow: hidden; flex: 1 1 560px; min-width: 320px;
+    position: relative;
+  }
+  canvas { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+  .hint {
+    position: absolute; left: 0.7rem; bottom: 0.5rem; color: var(--muted);
+    font-size: 0.78rem; pointer-events: none; text-shadow: 0 0 6px #000;
+  }
+  .side {
+    flex: 0 1 320px; min-width: 262px; border: 1px solid var(--panel-border);
+    background: var(--panel); border-radius: 12px; padding: 1rem 1.1rem;
+    font-size: 0.95rem;
+  }
+  .side h2 { font-size: 0.82rem; font-weight: normal; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--muted); margin: 0.9rem 0 0.3rem; }
+  .side h2:first-child { margin-top: 0; }
+  #verdict { font-style: italic; }
+  #verdict.good { color: var(--good); }
+  #verdict.bad { color: var(--bad); }
+  .stat { font-family: monospace; font-size: 0.88rem; color: var(--ink); }
+  .stat span { color: var(--accent); }
+  .word { font-family: monospace; font-size: 0.95rem; word-break: break-all; min-height: 2.6rem;
+          color: var(--accent); }
+  .legend { color: var(--muted); font-size: 0.85rem; }
+  .legend div { margin-top: 0.12rem; }
+  .legend i { display: inline-block; width: 0.7em; height: 0.7em; border-radius: 50%;
+              margin-right: 0.45em; }
+  footer { margin-top: 1.2rem; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; AutoViz</a>
+  <h1>Schottky Groups and Their Limit Sets</h1>
+  <p class="math">
+    Take two pairs of pairwise disjoint circles in the Riemann sphere. For a pair
+    <i>C</i> = (<i>c</i>,&thinsp;<i>r</i>), <i>C</i>&prime; = (<i>c</i>&prime;,&thinsp;<i>r</i>&prime;) the M&ouml;bius map
+    <i>A</i>(<i>z</i>) = <i>c</i>&prime; + &lambda;/(<i>z</i> &minus; <i>c</i>) with |&lambda;| = <i>rr</i>&prime;
+    carries <i>C</i> onto <i>C</i>&prime; and the <em>exterior</em> of <i>C</i> onto the <em>interior</em> of
+    <i>C</i>&prime;; the argument of &lambda; is a free twist. Ping-pong on the four disks then shows
+    &#10216;<i>A</i>,&thinsp;<i>B</i>&#10217; is discrete and free of rank two — a classical Schottky group — and
+    that its limit set &Lambda; is a Cantor set, the intersection of the nested level-<i>k</i> disks
+    <i>g</i><sub>1</sub>&hellip;<i>g</i><sub><i>k</i>&minus;1</sub>(<i>D</i><sub><i>g<sub>k</sub></i></sub>) drawn below.
+    By Patterson&ndash;Sullivan dim<sub>H</sub>&thinsp;&Lambda; equals the critical exponent &delta;(&Gamma;),
+    which Bowen's formula estimates as the root <i>s</i> of &sum;<sub>|w|=k</sub> <i>r</i><sub><i>w</i></sub><sup><i>s</i></sup> = 1.
+  </p>
+  <div class="controls">
+    <label>depth <input type="range" id="depth" min="1" max="7" step="1" value="5"><span class="val" id="depthV">5</span></label>
+    <label>twist &theta;<sub>A</sub> <input type="range" id="thA" min="-180" max="180" step="1" value="0"><span class="val" id="thAV">0&deg;</span></label>
+    <label>twist &theta;<sub>B</sub> <input type="range" id="thB" min="-180" max="180" step="1" value="0"><span class="val" id="thBV">0&deg;</span></label>
+    <button data-preset="snug">snug</button>
+    <button data-preset="dust">fine dust</button>
+    <button data-preset="tangent">near-tangent</button>
+    <button data-preset="collide">overlapping</button>
+    <button id="cascadeBtn">cascade: on</button>
+    <button id="playBtn">pause</button>
+  </div>
+  <div class="row">
+    <div class="stage">
+      <canvas id="cv"></canvas>
+      <div class="hint">drag a disk to move it &middot; drag its rim to resize &middot; scroll to zoom &middot; drag the background to pan</div>
+    </div>
+    <div class="side">
+      <h2>ping-pong certificate</h2>
+      <div id="verdict"></div>
+      <h2>the group</h2>
+      <div class="stat">level-<span id="dlev"></span> disks: <span id="ndisk"></span></div>
+      <div class="stat">smallest radius: <span id="rmin"></span></div>
+      <div class="stat">&delta;(&Gamma;) &asymp; <span id="dim"></span> <span style="color:var(--muted)">(depth 6)</span></div>
+      <div class="stat">pairing error: <span id="err"></span></div>
+      <h2>random reduced word</h2>
+      <div class="word" id="word"></div>
+      <div class="stat" style="color:var(--muted)">orbit points plotted: <span id="npts"></span></div>
+      <h2>colour = first letter</h2>
+      <div class="legend">
+        <div><i style="background:#6ee7d8"></i>A &nbsp;&mdash;&nbsp; disks inside <i style="background:none"></i>C<sub>A</sub>&prime;</div>
+        <div><i style="background:#5aa9ff"></i>A&#8315;&sup1; &nbsp;&mdash;&nbsp; disks inside C<sub>A</sub></div>
+        <div><i style="background:#f0a35e"></i>B &nbsp;&mdash;&nbsp; disks inside C<sub>B</sub>&prime;</div>
+        <div><i style="background:#b493e6"></i>B&#8315;&sup1; &nbsp;&mdash;&nbsp; disks inside C<sub>B</sub></div>
+        <div style="margin-top:0.5rem">white specks: the orbit of one point under a random reduced word — it converges to &Lambda;.</div>
+      </div>
+    </div>
+  </div>
+  <footer>AutoViz · 2026-08-10 · generated by Claude (Fable 5)</footer>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- complex arithmetic ---------- */
+  const C = (x, y) => ({ x: x, y: y });
+  const cadd = (a, b) => ({ x: a.x + b.x, y: a.y + b.y });
+  const csub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y });
+  const cmul = (a, b) => ({ x: a.x * b.x - a.y * b.y, y: a.x * b.y + a.y * b.x });
+  const cdiv = (a, b) => {
+    const d = b.x * b.x + b.y * b.y;
+    if (d === 0) return C(Infinity, Infinity);
+    return { x: (a.x * b.x + a.y * b.y) / d, y: (a.y * b.x - a.x * b.y) / d };
+  };
+  const cabs = a => Math.hypot(a.x, a.y);
+  const cconj = a => ({ x: a.x, y: -a.y });
+  const cneg = a => ({ x: -a.x, y: -a.y });
+  const cscl = (a, s) => ({ x: a.x * s, y: a.y * s });
+
+  /* ---------- 2x2 complex matrices, acting by Möbius transformations ---------- */
+  const ID = [C(1, 0), C(0, 0), C(0, 0), C(1, 0)];
+  function mmul(M, N) {
+    return [
+      cadd(cmul(M[0], N[0]), cmul(M[1], N[2])),
+      cadd(cmul(M[0], N[1]), cmul(M[1], N[3])),
+      cadd(cmul(M[2], N[0]), cmul(M[3], N[2])),
+      cadd(cmul(M[2], N[1]), cmul(M[3], N[3]))
+    ];
+  }
+  // Scaling a matrix does not change its Möbius action; rescale to keep entries O(1).
+  function mnorm(M) {
+    let m = 0;
+    for (let i = 0; i < 4; i++) m = Math.max(m, cabs(M[i]));
+    if (!(m > 0) || !isFinite(m)) return M;
+    return M.map(e => cscl(e, 1 / m));
+  }
+  function mob(M, z) {
+    const den = cadd(cmul(M[2], z), M[3]);
+    if (cabs(den) < 1e-300) return C(Infinity, Infinity);
+    return cdiv(cadd(cmul(M[0], z), M[1]), den);
+  }
+  // Möbius image of the circle |z - p| = r, again a circle.
+  // Its centre is the image of the point symmetric to the pole -d/c across the circle.
+  function imageCircle(M, p, r) {
+    let cen;
+    if (cabs(M[2]) < 1e-14) {
+      cen = mob(M, p);
+      return { c: cen, r: cabs(cdiv(M[0], M[3])) * r };
+    }
+    const pole = cneg(cdiv(M[3], M[2]));
+    const dp = csub(pole, p);
+    if (cabs(dp) < 1e-13) {
+      cen = cdiv(M[0], M[2]);            // pole at the centre: image centre is f(∞)
+    } else {
+      cen = mob(M, cadd(p, cdiv(C(r * r, 0), cconj(dp))));
+    }
+    const onCircle = mob(M, cadd(p, C(r, 0)));
+    return { c: cen, r: cabs(csub(onCircle, cen)) };
+  }
+
+  /* ---------- the Schottky configuration ---------- */
+  // circles 0,1 = C_A, C_A'  (paired by A);  circles 2,3 = C_B, C_B'  (paired by B)
+  // letters 0,1,2,3 = A, A^-1, B, B^-1
+  const LNAME = ['A', 'A⁻¹', 'B', 'B⁻¹'];
+  const INV = [1, 0, 3, 2];
+  const TARGET = [1, 0, 3, 2];   // letter g maps everything outside its source into disk TARGET[g]
+  const SOURCE = [0, 1, 2, 3];   // ... from outside disk SOURCE[g]
+  const LCOL = ['#6ee7d8', '#5aa9ff', '#f0a35e', '#b493e6'];
+  const DCOL = ['#5aa9ff', '#6ee7d8', '#b493e6', '#f0a35e']; // disk i carries the colour of the letter landing in it
+
+  let centers = [C(-2.2, 0), C(2.2, 0), C(0, 2.2), C(0, -2.2)];
+  let radii = [1.48, 1.48, 1.48, 1.48];
+  let thA = 0, thB = 0;
+  let depth = 5;
+  let gens = null, disks = [], levelCount = 0, minR = 0, dimEst = NaN, pairErr = 0;
+  let ok = true;
+
+  function buildGens() {
+    // A(z) = c1 + lambda/(z - c0),  |lambda| = r0 r1   =>   [[c1, lambda - c1 c0], [1, -c0]]
+    function pair(i, j, theta) {
+      const lam = C(radii[i] * radii[j] * Math.cos(theta), radii[i] * radii[j] * Math.sin(theta));
+      const c0 = centers[i], c1 = centers[j];
+      return mnorm([c1, csub(lam, cmul(c1, c0)), C(1, 0), cneg(c0)]);
+    }
+    gens = [pair(0, 1, thA), pair(1, 0, thA), pair(2, 3, thB), pair(3, 2, thB)];
+  }
+
+  // Sanity check: each generator must carry its source circle exactly onto its partner,
+  // and g * g^-1 must be the identity Möbius map.
+  function checkPairing() {
+    let worst = 0;
+    for (let g = 0; g < 4; g++) {
+      const s = SOURCE[g], t = TARGET[g];
+      for (let k = 0; k < 32; k++) {
+        const a = 2 * Math.PI * k / 32;
+        const z = cadd(centers[s], C(radii[s] * Math.cos(a), radii[s] * Math.sin(a)));
+        const w = mob(gens[g], z);
+        worst = Math.max(worst, Math.abs(cabs(csub(w, centers[t])) - radii[t]) / radii[t]);
+      }
+      const P = mmul(gens[g], gens[INV[g]]);       // should be a scalar matrix
+      const sc = cabs(P[0]) + 1e-30;
+      worst = Math.max(worst, (cabs(P[1]) + cabs(P[2]) + cabs(csub(P[0], P[3]))) / sc);
+    }
+    return worst;
+  }
+
+  function disjoint() {
+    for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) {
+      if (cabs(csub(centers[i], centers[j])) <= radii[i] + radii[j] + 1e-9) return false;
+    }
+    return true;
+  }
+
+  const BUILD_MIN = 6;          // always go to depth 6 for the dimension estimate
+  function buildTree() {
+    buildGens();
+    pairErr = checkPairing();
+    ok = disjoint();
+    disks = [];
+    const B = Math.max(depth, BUILD_MIN);
+    let guard = 0;
+    (function rec(M, last, len, root) {
+      for (let g = 0; g < 4; g++) {
+        if (last >= 0 && g === INV[last]) continue;
+        const t = TARGET[g];
+        const im = imageCircle(M, centers[t], radii[t]);
+        if (!isFinite(im.r) || !isFinite(im.c.x) || !isFinite(im.c.y) || im.r > 80) continue;
+        if (++guard > 20000) return;
+        const rt = root < 0 ? g : root;
+        disks.push({ x: im.c.x, y: im.c.y, r: im.r, lev: len + 1, root: rt });
+        if (len + 1 < B) rec(mnorm(mmul(M, gens[g])), g, len + 1, rt);
+      }
+    })(ID, -1, 0, -1);
+
+    levelCount = 0; minR = Infinity;
+    for (const d of disks) if (d.lev === depth) { levelCount++; minR = Math.min(minR, d.r); }
+    if (!isFinite(minR)) minR = 0;
+    dimEst = ok ? bowen(6) : NaN;   // no Cantor limit set to measure once ping-pong fails
+  }
+
+  // Bowen / Patterson–Sullivan: the critical exponent is the root of the pressure
+  // equation, approximated at finite depth by  sum_{|w|=k} r_w^s = 1.
+  function bowen(k) {
+    const rs = [];
+    for (const d of disks) if (d.lev === k && d.r > 0) rs.push(d.r);
+    if (rs.length < 4) return NaN;
+    for (const r of rs) if (r >= 1) return NaN;   // sum is monotone in s only when all r < 1
+    const f = s => { let t = 0; for (const r of rs) t += Math.pow(r, s); return t - 1; };
+    let lo = 1e-3, hi = 2;
+    if (f(lo) < 0 || f(hi) > 0) return NaN;
+    for (let i = 0; i < 60; i++) { const m = 0.5 * (lo + hi); if (f(m) > 0) lo = m; else hi = m; }
+    return 0.5 * (lo + hi);
+  }
+
+  /* ---------- canvas / view ---------- */
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const layer = document.createElement('canvas');   // cached disks
+  const lctx = layer.getContext('2d');
+  const pts = document.createElement('canvas');     // accumulated orbit points
+  const pctx = pts.getContext('2d');
+  let W = 900, H = 600, DPR = 1;
+  let view = { cx: 0, cy: 0, s: 110 };
+
+  // scale that fits the four generating circles, whatever their radii
+  function fitScale() {
+    let ext = 1;
+    for (let i = 0; i < 4; i++) ext = Math.max(ext, cabs(centers[i]) + radii[i]);
+    return Math.min(W / (2.15 * ext), H / (2.15 * ext));
+  }
+  const sx = x => W / 2 + (x - view.cx) * view.s;
+  const sy = y => H / 2 - (y - view.cy) * view.s;
+  const wx = px => view.cx + (px - W / 2) / view.s;
+  const wy = py => view.cy - (py - H / 2) / view.s;
+
+  let lastW = -1, lastH = -1;
+  function resize() {
+    const box = cv.parentElement.getBoundingClientRect();
+    if (!(box.width > 2)) return;                     // not laid out yet — the observer will call back
+    const nW = Math.max(320, Math.round(box.width));
+    const nH = Math.round(Math.max(360, Math.min(660, nW * 0.66)));
+    if (nW === lastW && nH === lastH) return;
+    W = lastW = nW; H = lastH = nH;
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    for (const c of [cv, layer, pts]) { c.width = W * DPR; c.height = H * DPR; }
+    cv.style.height = H + 'px';                       // width stays 100% of the stage
+    for (const g of [ctx, lctx, pctx]) { g.setTransform(DPR, 0, 0, DPR, 0, 0); }
+    view = { cx: 0, cy: 0, s: fitScale() };
+    redrawAll();
+  }
+
+  function drawLayer() {
+    lctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    lctx.clearRect(0, 0, W, H);
+    // deep disks filled, shallower ones outlined
+    for (const d of disks) {
+      if (d.lev > depth) continue;
+      const R = d.r * view.s;
+      if (R < 0.12) continue;
+      const px = sx(d.x), py = sy(d.y);
+      if (px < -R - 20 || px > W + R + 20 || py < -R - 20 || py > H + R + 20) continue;
+      const col = LCOL[d.root];
+      if (d.lev === depth) {
+        lctx.fillStyle = col;
+        lctx.globalAlpha = 0.5;
+        lctx.beginPath(); lctx.arc(px, py, Math.max(R, 0.5), 0, 6.2832); lctx.fill();
+      } else {
+        lctx.globalAlpha = 0.13 + 0.30 / d.lev;
+        lctx.strokeStyle = col;
+        lctx.lineWidth = 1;
+        lctx.beginPath(); lctx.arc(px, py, R, 0, 6.2832); lctx.stroke();
+      }
+    }
+    // the four generating circles
+    lctx.globalAlpha = 1;
+    lctx.lineWidth = 2;
+    const LAB = [['A', ''], ['A', '′'], ['B', ''], ['B', '′']];
+    for (let i = 0; i < 4; i++) {
+      lctx.strokeStyle = ok ? DCOL[i] : '#ff7b72';
+      lctx.beginPath(); lctx.arc(sx(centers[i].x), sy(centers[i].y), radii[i] * view.s, 0, 6.2832);
+      lctx.stroke();
+      lctx.fillStyle = ok ? DCOL[i] : '#ff7b72';
+      lctx.globalAlpha = 0.8;
+      lctx.textAlign = 'left';
+      const sub = LAB[i][0] + LAB[i][1];
+      lctx.font = '15px Georgia, serif';
+      const wC = lctx.measureText('C').width;
+      lctx.font = '10px Georgia, serif';
+      const wS = lctx.measureText(sub).width;
+      const x0 = sx(centers[i].x) - (wC + wS) / 2, y0 = sy(centers[i].y) + 5;
+      lctx.font = '15px Georgia, serif';
+      lctx.fillText('C', x0, y0);
+      lctx.font = '10px Georgia, serif';
+      lctx.fillText(sub, x0 + wC, y0 + 3);
+      lctx.globalAlpha = 1;
+    }
+  }
+
+  /* ---------- the chaos game: a random reduced word applied to one point ---------- */
+  let orbit = { z: C(0, 0), last: 1, word: [], n: 0, playing: true };
+  function resetOrbit() {
+    orbit.z = centers[0];
+    orbit.last = 1;                 // z lies in disk 0 = D_{A^-1}
+    orbit.word = [];
+    orbit.n = 0;
+    pctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    pctx.clearRect(0, 0, W, H);
+  }
+  function orbitStep() {
+    let g;
+    do { g = (Math.random() * 4) | 0; } while (g === INV[orbit.last]);
+    orbit.z = mob(gens[g], orbit.z);
+    orbit.last = g;
+    orbit.word.push(g);
+    if (orbit.word.length > 400) orbit.word.splice(0, 200);
+    if (!isFinite(orbit.z.x) || !isFinite(orbit.z.y) || cabs(orbit.z) > 1e6) {
+      orbit.z = centers[0]; orbit.last = 1; return;
+    }
+    if (orbit.n < 30000) {
+      orbit.n++;
+      pctx.globalCompositeOperation = 'lighter';
+      pctx.fillStyle = 'rgba(190,225,255,0.42)';
+      pctx.fillRect(sx(orbit.z.x) - 0.7, sy(orbit.z.y) - 0.7, 1.4, 1.4);
+    }
+  }
+
+  /* ---------- frame ---------- */
+  let t0 = 0, cascade = true;
+  function frame(t) {
+    if (orbit.playing) for (let i = 0; i < 40; i++) orbitStep();
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(layer, 0, 0, W, H);
+    ctx.drawImage(pts, 0, 0, W, H);
+    if (cascade && ok) {
+      const lev = 1 + Math.floor(((t || 0) / 900) % depth);
+      const ph = (((t || 0) / 900) % 1);
+      ctx.globalAlpha = 0.55 * Math.sin(Math.PI * ph);
+      ctx.lineWidth = 1.6;
+      for (const d of disks) {
+        if (d.lev !== lev) continue;
+        const R = d.r * view.s;
+        if (R < 0.4) continue;
+        ctx.strokeStyle = LCOL[d.root];
+        ctx.beginPath(); ctx.arc(sx(d.x), sy(d.y), R, 0, 6.2832); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    // marker for the current orbit point
+    if (isFinite(orbit.z.x)) {
+      const px = sx(orbit.z.x), py = sy(orbit.z.y);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(px, py, 4.5, 0, 6.2832); ctx.stroke();
+    }
+    const w = orbit.word.slice(-14).map(g => LNAME[g]).join('·');
+    wordEl.textContent = w || '—';
+    nptsEl.textContent = orbit.n;
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- readouts ---------- */
+  const verdict = document.getElementById('verdict');
+  const wordEl = document.getElementById('word');
+  const nptsEl = document.getElementById('npts');
+  function readout() {
+    if (ok) {
+      verdict.className = 'good';
+      verdict.textContent = 'the four disks are pairwise disjoint — ping-pong applies: ⟨A,B⟩ is free of rank 2 and discrete.';
+    } else {
+      verdict.className = 'bad';
+      verdict.textContent = 'two disks overlap — the ping-pong hypothesis fails and the group need not be discrete or free.';
+    }
+    document.getElementById('dlev').textContent = depth;
+    document.getElementById('ndisk').textContent = levelCount + ' / ' + (4 * Math.pow(3, depth - 1));
+    document.getElementById('rmin').textContent = minR ? minR.toExponential(2) : '—';
+    document.getElementById('dim').textContent = isFinite(dimEst) ? dimEst.toFixed(4) : '—';
+    document.getElementById('err').textContent = pairErr.toExponential(1);
+  }
+
+  function redrawAll() { buildTree(); drawLayer(); resetOrbit(); readout(); }
+
+  /* ---------- controls ---------- */
+  const dEl = document.getElementById('depth');
+  dEl.addEventListener('input', () => {
+    depth = +dEl.value;
+    document.getElementById('depthV').textContent = depth;
+    redrawAll();
+  });
+  const aEl = document.getElementById('thA'), bEl = document.getElementById('thB');
+  aEl.addEventListener('input', () => {
+    thA = +aEl.value * Math.PI / 180;
+    document.getElementById('thAV').textContent = aEl.value + '°';
+    redrawAll();
+  });
+  bEl.addEventListener('input', () => {
+    thB = +bEl.value * Math.PI / 180;
+    document.getElementById('thBV').textContent = bEl.value + '°';
+    redrawAll();
+  });
+  const PRESETS = {
+    snug: 1.48, dust: 0.9, tangent: 1.545, collide: 1.62
+  };
+  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+    const r = PRESETS[b.dataset.preset];
+    centers = [C(-2.2, 0), C(2.2, 0), C(0, 2.2), C(0, -2.2)];
+    radii = [r, r, r, r];
+    view = { cx: 0, cy: 0, s: fitScale() };
+    redrawAll();
+  }));
+  const casBtn = document.getElementById('cascadeBtn');
+  casBtn.classList.add('on');
+  casBtn.addEventListener('click', () => {
+    cascade = !cascade;
+    casBtn.textContent = 'cascade: ' + (cascade ? 'on' : 'off');
+    casBtn.classList.toggle('on', cascade);
+  });
+  const playBtn = document.getElementById('playBtn');
+  playBtn.addEventListener('click', () => {
+    orbit.playing = !orbit.playing;
+    playBtn.textContent = orbit.playing ? 'pause' : 'resume';
+  });
+
+  /* ---------- pointer: drag disks, drag background, wheel zoom ---------- */
+  let drag = null;
+  function local(e) {
+    const r = cv.getBoundingClientRect();
+    return { px: e.clientX - r.left, py: e.clientY - r.top };
+  }
+  cv.addEventListener('pointerdown', e => {
+    const p = local(e);
+    const z = C(wx(p.px), wy(p.py));
+    const tol = 9 / view.s;
+    for (let i = 0; i < 4; i++) {
+      const d = cabs(csub(z, centers[i]));
+      if (Math.abs(d - radii[i]) < tol) { drag = { mode: 'r', i: i }; break; }
+      if (d < radii[i]) { drag = { mode: 'c', i: i, off: csub(z, centers[i]) }; break; }
+    }
+    if (!drag) drag = { mode: 'pan', p: p, cx: view.cx, cy: view.cy };
+    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointers */ }
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const p = local(e);
+    const z = C(wx(p.px), wy(p.py));
+    if (drag.mode === 'c') centers[drag.i] = csub(z, drag.off);
+    else if (drag.mode === 'r') radii[drag.i] = Math.max(0.12, cabs(csub(z, centers[drag.i])));
+    else {
+      view.cx = drag.cx - (p.px - drag.p.px) / view.s;
+      view.cy = drag.cy + (p.py - drag.p.py) / view.s;
+    }
+    redrawAll();
+  });
+  const endDrag = e => { if (drag) { drag = null; redrawAll(); } };
+  cv.addEventListener('pointerup', endDrag);
+  cv.addEventListener('pointercancel', endDrag);
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const p = local(e);
+    const zx = wx(p.px), zy = wy(p.py);
+    view.s = Math.max(6, Math.min(4e5, view.s * Math.exp(-e.deltaY * 0.0015)));
+    view.cx = zx - (p.px - W / 2) / view.s;
+    view.cy = zy + (p.py - H / 2) / view.s;
+    drawLayer(); resetOrbit();
+  }, { passive: false });
+
+  window.addEventListener('resize', resize);
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(cv.parentElement);
+  resize();
+  if (lastW < 0) { W = 900; H = 594; lastW = W; lastH = H; DPR = 1;
+    for (const c of [cv, layer, pts]) { c.width = W; c.height = H; }
+    cv.style.height = H + 'px'; view.s = fitScale(); redrawAll(); }
+
+  // --- numeric sanity check, logged once ---
+  console.log('[schottky] pairing/inverse error =', pairErr.toExponential(3),
+              '| level-6 disks =', disks.filter(d => d.lev === 6).length,
+              '(expected', 4 * Math.pow(3, 5) + ') | delta =', dimEst.toFixed(5));
+
+  window.__schottky = {
+    step: t => frame(t),
+    stats: () => ({ err: pairErr, dim: dimEst, ok: ok, n: disks.length, pts: orbit.n }),
+    setDepth: d => { depth = d; dEl.value = d; redrawAll(); }
+  };
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
