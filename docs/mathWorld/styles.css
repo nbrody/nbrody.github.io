@@ -478,6 +478,66 @@ body {
     color: var(--color-text);
 }
 
+/* Info card (landmark details, opened with E) */
+#info-card {
+    position: absolute;
+    bottom: 12%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(520px, calc(100vw - 48px));
+    padding: 18px 22px;
+    background: var(--color-bg-glass-strong);
+    backdrop-filter: blur(16px);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-primary);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 24px var(--color-primary-glow);
+    transition: all var(--transition-medium);
+}
+
+#info-card.hidden {
+    opacity: 0;
+    transform: translateX(-50%) translateY(24px);
+    pointer-events: none;
+}
+
+.info-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.info-card-type {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-bg-dark);
+    background: var(--color-primary);
+    padding: 3px 10px;
+    border-radius: var(--radius-sm);
+}
+
+.info-card-dismiss {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--color-text-subtle);
+}
+
+#info-card h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-primary-light);
+    margin-bottom: 6px;
+}
+
+#info-card p {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--color-text-muted);
+}
+
 /* Location Indicator */
 #location-indicator {
     position: absolute;

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<!-- POST TEMPLATE
+     1. Copy this file to posts/<yyyy-mm-dd-slug>/index.html
+     2. Fill in the title (two places), date, and content.
+     3. Add an entry to ../posts.js (newest first) so it appears on the index.
+     Relative paths below assume the post lives at posts/<slug>/index.html. -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POST TITLE - Geometry of Linear Groups</title>
+    <link rel="stylesheet" href="../../../assets/css/main.css">
+    <link rel="stylesheet" href="../../assets/blog.css">
+    <script src="../../../assets/js/mathjax-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a> /
+                <a href="../../index.html">Blog</a> /
+                POST TITLE
+            </nav>
+        </header>
+
+        <main>
+            <article class="post">
+                <div class="post-header">
+                    <h1>POST TITLE</h1>
+                    <span class="post-date">Month D, YYYY</span>
+                </div>
+
+                <p>
+                    Post content goes here. Inline math like $\SL_2(\Z)$ works, as do the
+                    site-wide macros from mathjax-config.js ($\Z$, $\Q$, $\PSL$, $\PGL$, …).
+                </p>
+            </article>
+
+            <nav class="post-nav">
+                <span></span>
+                <a href="../../index.html">All posts →</a>
+            </nav>
+        </main>
+
+        <footer>
+            <p>Created by Nic Brody, UC Santa Cruz</p>
+        </footer>
+    </div>
+    <script src="../../../assets/js/site-nav.js" defer></script>
+</body>
+</html>

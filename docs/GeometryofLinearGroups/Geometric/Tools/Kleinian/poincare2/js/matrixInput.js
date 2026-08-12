@@ -333,13 +333,48 @@ function populateExampleDropdown() {
     });
 }
 
+// Format a complex number as a MathQuill-friendly string like "1.25-0.5i"
+function formatComplexEntry(re, im) {
+    const fmt = x => String(Number(x.toPrecision(12)));
+    if (Math.abs(im) < 1e-12) return fmt(re);
+    const imPart = (Math.abs(Math.abs(im) - 1) < 1e-12 ? '' : fmt(Math.abs(im))) + 'i';
+    if (Math.abs(re) < 1e-12) return (im < 0 ? '-' : '') + imPart;
+    return fmt(re) + (im < 0 ? '-' : '+') + imPart;
+}
+
+// A group passed in the URL, e.g. exported from the Riley slice tool:
+//   ?riley=<re>,<im>   →  ⟨(1 ρ; 0 1), (1 0; 1 1)⟩      (classical Riley ρ)
+//   ?rileyz=<re>,<im>  →  ⟨(1 z; 0 1), (0 −1; 1 0)⟩     (symmetric z, ρ = z²)
+function loadGroupFromURL() {
+    const qs = new URLSearchParams(location.search);
+    const parseComplex = s => {
+        if (!s) return null;
+        const parts = s.split(',').map(Number);
+        return parts.length === 2 && parts.every(Number.isFinite)
+            ? formatComplexEntry(parts[0], parts[1]) : null;
+    };
+    const rho = parseComplex(qs.get('riley'));
+    if (rho) {
+        setExample([['1', rho, '0', '1'], ['1', '0', '1', '1']], 'Riley');
+        return true;
+    }
+    const z = parseComplex(qs.get('rileyz'));
+    if (z) {
+        setExample([['1', z, '0', '1'], ['0', '-1', '1', '0']], 'Riley symmetric');
+        return true;
+    }
+    return false;
+}
+
 // Setup matrix input UI
 export function setupMatrixInput(onRefresh) {
     refreshCallback = onRefresh;
 
-    // Find and load Figure eight knot group as default
+    // A group in the URL wins; otherwise load Figure eight knot group
     const figEightIndex = exampleLibrary.findIndex(e => e.name === 'Figure eight knot group');
-    if (figEightIndex >= 0) {
+    if (loadGroupFromURL()) {
+        // loaded from ?riley=...
+    } else if (figEightIndex >= 0) {
         const example = exampleLibrary[figEightIndex];
         setExample(example.mats, example.name, example.consts);
     } else {

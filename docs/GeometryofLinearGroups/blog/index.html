@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog - Geometry of Linear Groups</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <link rel="stylesheet" href="assets/blog.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <nav class="breadcrumb">
+                <a href="../index.html">Home</a> / Blog
+            </nav>
+            <h1>Blog</h1>
+        </header>
+
+        <main>
+            <div class="section-intro">
+                <p>
+                    Notes, observations, and works in progress on the geometry of linear groups —
+                    shorter and more informal than the tools elsewhere on the site.
+                </p>
+            </div>
+
+            <ul class="post-list" id="post-list">
+                <li class="post-list-empty">No posts yet — check back soon.</li>
+            </ul>
+        </main>
+
+        <footer>
+            <p>Created by Nic Brody, UC Santa Cruz</p>
+        </footer>
+    </div>
+
+    <script src="posts.js"></script>
+    <script>
+    (function () {
+      var posts = window.GOLG_BLOG_POSTS || [];
+      if (!posts.length) return;
+      var list = document.getElementById('post-list');
+      var html = '';
+      for (var i = 0; i < posts.length; i++) {
+        var p = posts[i];
+        html += '<li><a href="posts/' + p.slug + '/index.html">' +
+                  '<span class="post-date">' + p.date + '</span>' +
+                  '<h2>' + p.title + '</h2>' +
+                  (p.blurb ? '<p class="post-blurb">' + p.blurb + '</p>' : '') +
+                '</a></li>';
+      }
+      list.innerHTML = html;
+    })();
+    </script>
+    <script src="../assets/js/site-nav.js" defer></script>
+</body>
+</html>

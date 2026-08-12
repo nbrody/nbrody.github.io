@@ -162,27 +162,46 @@ function initGeometryData() {
 }
 
 function createFullTiling(engine, baseVerts, rotFunc) {
-    const orbit = engine.getTilingOrbit(600);
+    const orbit = engine.getTilingOrbit(2400);
     const tilePositions = [];
+    const tileColors = [];
     const edgePositions = [];
 
-    const tileMat = new THREE.MeshStandardMaterial({
-        color: 0x1e293b,
+    const tileMat = new THREE.MeshBasicMaterial({
+        vertexColors: true,
         transparent: true,
         opacity: 0,
-        side: THREE.DoubleSide,
-        roughness: 0.9,
-        metalness: 0.1
+        side: THREE.DoubleSide
     });
 
-    // ── Vertex welding infrastructure ──
-    // Two adjacent tiles compute the same shared vertex/edge-point through
-    // different Möbius transformations, producing slightly different floats.
-    // We snap all computed positions to a spatial hash so that the first 
-    // computation wins and all later ones reuse the same exact coordinates.
+    // Group-theoretic coloring: tile g·D is colored by the image of g in
+    // H1 mod 2 (exponent sums of a, b). The relation [a,b]^2 abelianizes to 0,
+    // so this is well-defined, and every face-pairing generator has nonzero
+    // image, so adjacent tiles always differ.
+    // Default: two-tone checkerboard by (x+y) mod 2 — every face pairing has
+    // odd exponent sum, so it is a proper 2-coloring, periodic under an
+    // index-2 subgroup. ?palette=quad switches to the 4-color H1 mod 2 scheme
+    // (periodic under the index-4 subgroup).
+    const QUAD_MODE = new URLSearchParams(window.location.search).get('palette') === 'quad';
+    const DUO_COLORS = [
+        new THREE.Color(0x6366f1), // even class — matches central domain
+        new THREE.Color(0xe0e7ff)  // odd class — pale lavender
+    ];
+    const CLASS_COLORS = [
+        new THREE.Color(0x6366f1), // (0,0) — identity class, matches central domain
+        new THREE.Color(0xec4899), // (1,0)
+        new THREE.Color(0x10b981), // (0,1)
+        new THREE.Color(0xf59e0b)  // (1,1)
+    ];
+
+    // ── Corner welding ──
+    // Adjacent tiles compute the same shared corner through different Möbius
+    // transformations, producing slightly different floats. Snap corners to a
+    // spatial hash so the first computation wins; welded corners get stable
+    // ids so shared edges can be cached and reused from both sides.
     const WELD_TOL = 0.001;   // screen-coord snap radius
     const GRID_SZ = 0.005;   // spatial hash cell size
-    const weldPool = [];       // [{x, y}]
+    const weldPool = [];       // [{x, y, id}]
     const weldGrid = {};       // "gx,gy" -> [index into weldPool]
 
     function weld(x, y) {
@@ -201,24 +220,12 @@ function createFullTiling(engine, baseVerts, rotFunc) {
                 }
             }
         }
-        const v = { x, y };
+        const v = { x, y, id: weldPool.length };
         const key = `${gx},${gy}`;
         if (!weldGrid[key]) weldGrid[key] = [];
         weldGrid[key].push(weldPool.length);
         weldPool.push(v);
         return v;
-    }
-
-    // ── Pre-compute reference edge samples in UHP ──
-    const EDGE_SAMPLES = 60;
-    const refEdgeSamples = [];
-    for (let i = 0; i < 6; i++) {
-        const samples = [];
-        const z1 = baseVerts[i], z2 = baseVerts[(i + 1) % 6];
-        for (let k = 0; k <= EDGE_SAMPLES; k++) {
-            samples.push(uhpGeodesicSample(z1, z2, k / EDGE_SAMPLES));
-        }
-        refEdgeSamples.push(samples);
     }
 
     // Convert UHP → Disk → rotate → scale/shift, then weld
@@ -233,6 +240,30 @@ function createFullTiling(engine, baseVerts, rotFunc) {
         return { x: d.re * GLOBAL_SCALE, y: d.im * GLOBAL_SCALE - GLOBAL_SHIFT };
     }
 
+    // ── Exact geodesic edges ──
+    // Each edge is the circular arc through its two corners orthogonal to the
+    // boundary circle (a true disk geodesic), sampled by screen size and cached
+    // per corner pair — both tiles sharing an edge reuse identical geometry.
+    const edgeCache = new Map();
+
+    function geodesicPolyline(c1, c2) {
+        const key = c1.id < c2.id ? `${c1.id}_${c2.id}` : `${c2.id}_${c1.id}`;
+        const hit = edgeCache.get(key);
+        if (hit) return hit.firstId === c1.id ? hit.pts : hit.pts.slice().reverse();
+
+        // back to unit-disk coordinates for the arc construction
+        const d1 = { re: c1.x / GLOBAL_SCALE, im: (c1.y + GLOBAL_SHIFT) / GLOBAL_SCALE };
+        const d2 = { re: c2.x / GLOBAL_SCALE, im: (c2.y + GLOBAL_SHIFT) / GLOBAL_SCALE };
+        const chord = Math.hypot(d1.re - d2.re, d1.im - d2.im);
+        const nSeg = Math.max(4, Math.min(96, Math.ceil(chord * 160)));
+        const pts = samplePath(d1, d2, nSeg).map(v =>
+            ({ x: v.x * GLOBAL_SCALE, y: v.y * GLOBAL_SCALE - GLOBAL_SHIFT }));
+        pts[0] = c1;
+        pts[pts.length - 1] = c2;
+        edgeCache.set(key, { firstId: c1.id, pts });
+        return pts;
+    }
+
     orbit.forEach((cell, idx) => {
         if (idx === 0) return;
 
@@ -244,41 +275,38 @@ function createFullTiling(engine, baseVerts, rotFunc) {
         const cScreen = toScreen(centerUHP);
         const cx = cScreen.x, cy = cScreen.y;
 
-        // Build tile boundary — all points are welded
+        const col = QUAD_MODE
+            ? CLASS_COLORS[((cell.ab[0] % 2 + 2) % 2) + 2 * ((cell.ab[1] % 2 + 2) % 2)]
+            : DUO_COLORS[((cell.ab[0] + cell.ab[1]) % 2 + 2) % 2];
+
+        // Welded corner images of the 6 base vertices
+        const corners = baseVerts.map(v => toScreenWelded(cell.g.action(v)));
+
+        // Tile boundary: concatenated per-edge geodesic arcs
         const tilePath = [];
         for (let i = 0; i < 6; i++) {
-            const edgeSamples = refEdgeSamples[i];
-            for (let k = 0; k < EDGE_SAMPLES; k++) {
-                const zUHP = cell.g.action(edgeSamples[k]);
-                tilePath.push(toScreenWelded(zUHP));
-            }
+            const arc = geodesicPolyline(corners[i], corners[(i + 1) % 6]);
+            for (let k = 0; k < arc.length - 1; k++) tilePath.push(arc[k]);
         }
 
-        // Fan triangulation from tile center
+        // Fan triangulation from tile center, plus edge lines
         for (let i = 0; i < tilePath.length; i++) {
             const p1 = tilePath[i], p2 = tilePath[(i + 1) % tilePath.length];
             tilePositions.push(cx, cy, -0.2, p1.x, p1.y, -0.2, p2.x, p2.y, -0.2);
-        }
-
-        // Edge lines (geodesic polylines along the 6 sides)
-        for (let i = 0; i < 6; i++) {
-            const edgeSamples = refEdgeSamples[i];
-            for (let k = 0; k < edgeSamples.length - 1; k++) {
-                const pa = toScreenWelded(cell.g.action(edgeSamples[k]));
-                const pb = toScreenWelded(cell.g.action(edgeSamples[k + 1]));
-                edgePositions.push(pa.x, pa.y, -0.15, pb.x, pb.y, -0.15);
-            }
+            tileColors.push(col.r, col.g, col.b, col.r, col.g, col.b, col.r, col.g, col.b);
+            edgePositions.push(p1.x, p1.y, -0.15, p2.x, p2.y, -0.15);
         }
     });
 
-    const tGeo = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(tilePositions, 3));
-    tGeo.computeVertexNormals();
+    const tGeo = new THREE.BufferGeometry();
+    tGeo.setAttribute('position', new THREE.Float32BufferAttribute(tilePositions, 3));
+    tGeo.setAttribute('color', new THREE.Float32BufferAttribute(tileColors, 3));
     backgroundMesh = new THREE.Mesh(tGeo, tileMat);
     scene.add(backgroundMesh);
 
     const eGeo = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
     backgroundEdges = new THREE.LineSegments(eGeo, new THREE.LineBasicMaterial({
-        color: 0x334155,
+        color: 0x0f172a,
         transparent: true,
         opacity: 0
     }));
@@ -292,23 +320,6 @@ function createFullTiling(engine, baseVerts, rotFunc) {
     }));
     backgroundRim.position.set(0, -GLOBAL_SHIFT, -0.25);
     scene.add(backgroundRim);
-}
-
-// Sample a point along the UHP geodesic from z1 to z2 at parameter t ∈ [0,1]
-function uhpGeodesicSample(z1, z2, t) {
-    const x1 = z1.re, y1 = z1.im, x2 = z2.re, y2 = z2.im;
-    if (Math.abs(x1 - x2) < 1e-9) {
-        const logY = Math.log(y1) * (1 - t) + Math.log(y2) * t;
-        return { re: x1, im: Math.exp(logY) };
-    }
-    const center = (x2 * x2 + y2 * y2 - x1 * x1 - y1 * y1) / (2 * (x2 - x1));
-    const radius = Math.sqrt((x1 - center) * (x1 - center) + y1 * y1);
-    let a1 = Math.atan2(y1, x1 - center);
-    let a2 = Math.atan2(y2, x2 - center);
-    if (a1 <= 0) a1 += Math.PI * 2;
-    if (a2 <= 0) a2 += Math.PI * 2;
-    const ang = a1 * (1 - t) + a2 * t;
-    return { re: center + radius * Math.cos(ang), im: radius * Math.sin(ang) };
 }
 
 function createHexGrid() {

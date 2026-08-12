@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Bop the hamsters, catch the stars, but don't tap the skunk!">
+    <title>Whack-a-Mole</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <a id="home-btn" class="chrome-btn" href="../index.html" aria-label="Back to all games">🏠</a>
+    <button id="sound-btn" class="chrome-btn" type="button" aria-label="Toggle sound">🔊</button>
+
+    <main id="game-screen">
+        <header id="hud">
+            <span class="hud-chip">⭐ <span class="lbl">Score</span> <b id="score">0</b></span>
+            <span class="hud-chip">⏰ <b id="time-num">45</b>s</span>
+        </header>
+        <div id="timer-track"><div id="timer-bar"></div></div>
+        <div id="board-area">
+            <div id="field"></div>
+        </div>
+    </main>
+
+    <div id="menu-overlay" class="overlay show">
+        <div class="menu-card">
+            <h1 class="game-title">🐹 Whack-a-Mole</h1>
+            <p class="tagline">Bop hamsters ⭐ catch stars — don't tap the skunk!</p>
+
+            <div class="picker-label">Pick a speed</div>
+            <div class="picker" id="mode-picker">
+                <button type="button" class="pick-btn" data-mode="chill">🐢 Chill</button>
+                <button type="button" class="pick-btn" data-mode="normal">🐰 Normal</button>
+                <button type="button" class="pick-btn" data-mode="speedy">🚀 Speedy</button>
+            </div>
+
+            <button id="play-btn" class="big-btn" type="button">▶ Play!</button>
+        </div>
+    </div>
+
+    <div id="end-overlay" class="overlay">
+        <div class="menu-card">
+            <h2 id="end-title" class="game-title">⏰ Time's up!</h2>
+            <div id="end-stats"></div>
+            <div class="btn-row">
+                <button id="again-btn" class="big-btn" type="button">🔄 Play Again</button>
+                <button id="menu-btn" class="big-btn secondary" type="button">📋 Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="confetti-canvas" aria-hidden="true"></canvas>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perpetual Commotion — a kinetic ball machine</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.12.0/+esm"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div id="overlay">
+  <div class="card">
+    <h1>Perpetual Commotion</h1>
+    <p>a rolling-ball sculpture, after George&nbsp;Rhoads</p>
+    <button id="btn-start" disabled>assembling&hellip;</button>
+    <p class="hint">drag to orbit · scroll to zoom · sound on</p>
+  </div>
+</div>
+
+<div id="hud">
+  <div id="title">
+    <h2>Perpetual Commotion</h2>
+    <span>after the audiokinetic sculptures of George Rhoads</span>
+  </div>
+  <div id="controls-bar">
+    <button id="btn-mute">🔊 sound</button>
+    <button id="btn-follow">🎯 follow</button>
+    <button id="btn-view">⟲ view</button>
+    <span id="stats"></span>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

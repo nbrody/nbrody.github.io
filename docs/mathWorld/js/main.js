@@ -85,6 +85,17 @@ const LOCATION_REGIONS = {
     sedona: 'sedona'
 };
 
+// Per-region atmosphere: distance fog tuned to each region's sky-dome
+// horizon color, so distant terrain fades into the sky instead of
+// popping against it. Far distances stay inside each dome's radius.
+const REGION_FOG = {
+    santaCruz: { color: 0xAAD4E6, near: 4000, far: 42000 },
+    bayArea: { color: 0xB0C8D8, near: 5000, far: 48000 },
+    santaBarbara: { color: 0xA8D8EA, near: 4000, far: 45000 },
+    laBasin: { color: 0xC2B9A0, near: 3000, far: 38000 }, // smog haze
+    sedona: { color: 0xD9A97C, near: 4000, far: 40000 }  // desert dust
+};
+
 const REGION_COORDS = {
     santaCruz: { gpsToLocal: scGpsToLocal, getElevation: scGetElevation },
     bayArea: { gpsToLocal: baGpsToLocal, getElevation: baGetElevation },
@@ -138,6 +149,13 @@ class MathWorld {
         this.controlsHint = document.getElementById('controls-hint');
         this.locationIndicator = document.getElementById('location-indicator');
         this.clickToLook = document.getElementById('click-to-look');
+
+        // Info card (landmark details on E)
+        this.infoCard = document.getElementById('info-card');
+        this.infoCardType = document.getElementById('info-card-type');
+        this.infoCardTitle = document.getElementById('info-card-title');
+        this.infoCardBody = document.getElementById('info-card-body');
+        this._infoCardTarget = null;
 
         // HUD + pause menu
         this.hud = document.getElementById('hud');
@@ -263,7 +281,15 @@ class MathWorld {
         }
         await this.terrain.generate();
         this.currentRegion = targetRegion;
+        this._applyRegionAtmosphere(targetRegion);
         console.log(`Switched regional terrain → ${targetRegion}`);
+    }
+
+    _applyRegionAtmosphere(region) {
+        const f = REGION_FOG[region] || REGION_FOG.santaCruz;
+        this._regionFog = new THREE.Fog(f.color, f.near, f.far);
+        this.scene.fog = this._regionFog;
+        this.scene.background = new THREE.Color(f.color);
     }
 
     async loadLocation(locationId) {
@@ -277,10 +303,16 @@ class MathWorld {
         const targetRegion = getRegionForLocation(locationId);
         await this.ensureRegion(targetRegion);
 
-        // Remove old location group
+        // Remove old location group — and actually free its GPU resources.
+        // Location classes may also expose dispose() to stop timers etc.
+        if (this.locationContent && typeof this.locationContent.dispose === 'function') {
+            this.locationContent.dispose();
+        }
         if (this.locationGroup) {
             this.scene.remove(this.locationGroup);
+            this._disposeGroup(this.locationGroup);
         }
+        this.locationContent = null;
 
         // Create new location group
         this.locationGroup = new THREE.Group();
@@ -363,8 +395,9 @@ class MathWorld {
     setupScene() {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0xAAD4E6);
-        // Pushed fog back significantly to allow seeing the new 100km terrain range
-        this.scene.fog = new THREE.Fog(0xAAD4E6, 20000, 150000);
+        // Region-tinted distance fog; swapped by _applyRegionAtmosphere.
+        this._regionFog = new THREE.Fog(0xAAD4E6, 4000, 42000);
+        this.scene.fog = this._regionFog;
     }
 
     setupCamera() {
@@ -508,6 +541,56 @@ class MathWorld {
         }
     }
 
+    // ==========================================================
+    //  INFO CARD
+    // ==========================================================
+    // Any interactable without an interiorId/onInteract shows this
+    // card on E: name + type badge + description. Toggled by E,
+    // hidden when the player looks away, pauses, or teleports.
+
+    toggleInfoCard(userData) {
+        if (this._infoCardTarget === userData && !this.infoCard.classList.contains('hidden')) {
+            this.hideInfoCard();
+        } else {
+            this.showInfoCard(userData);
+        }
+    }
+
+    showInfoCard(userData) {
+        if (!this.infoCard || !userData) return;
+        const typeLabels = {
+            building: 'Building',
+            landmark: 'Landmark',
+            chalkboard: 'Chalkboard',
+            sign: 'Sign',
+            attraction: 'Attraction',
+            shop: 'Shop',
+            storefront: 'Shop',
+            district: 'District',
+            statue: 'Statue',
+            gate: 'Gate',
+            cabin: 'Cabin',
+            venue: 'Music Venue',
+            museum: 'Museum',
+            theater: 'Theater',
+            exhibit: 'Exhibit'
+        };
+        const type = userData.type || 'landmark';
+        this.infoCardType.textContent = typeLabels[type]
+            || type.charAt(0).toUpperCase() + type.slice(1);
+        this.infoCardTitle.textContent = userData.name || 'Unknown';
+        this.infoCardBody.textContent = userData.description
+            || 'A notable spot in Math World.';
+        this.infoCard.classList.remove('hidden');
+        this._infoCardTarget = userData;
+    }
+
+    hideInfoCard() {
+        if (!this.infoCard) return;
+        this.infoCard.classList.add('hidden');
+        this._infoCardTarget = null;
+    }
+
     getInteractables() {
         // When inside an interior, only the interior's interactables
         // count — the exterior is hidden and its entrance markers
@@ -537,6 +620,7 @@ class MathWorld {
             console.warn(`No interior registered for id: ${interiorId}`);
             return;
         }
+        this.hideInfoCard();
 
         // Remember where we were outside so exit can restore position.
         this._savedExterior = {
@@ -650,6 +734,7 @@ class MathWorld {
         // locations.
         if (this.inInterior) this.exitInterior();
 
+        this.hideInfoCard();
         this.player.disable();
         this.isRunning = false;
 
@@ -833,6 +918,7 @@ class MathWorld {
         this.isPaused = true;
         this.pauseMenu.classList.remove('hidden');
         this.clickToLook.classList.add('hidden');
+        this.hideInfoCard();
         // Disable player (also clears held keys) so no input leaks through the menu.
         if (this.player) this.player.disable();
     }
@@ -853,6 +939,9 @@ class MathWorld {
     }
 
     onResize() {
+        // A hidden/minimized window can report zero size; a 0 aspect
+        // poisons the projection matrix with NaNs and kills raycasts.
+        if (window.innerWidth === 0 || window.innerHeight === 0) return;
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -869,6 +958,7 @@ class MathWorld {
             // Compass/altitude aren't meaningful inside the Atlas.
             if (this.hud) this.hud.classList.add('hidden');
             if (this.speedIndicator) this.speedIndicator.classList.add('hidden');
+            this.hideInfoCard();
         } else if (this.isPaused) {
             // Paused: hold still, HUD and world freeze.
         } else if (this.isRunning) {

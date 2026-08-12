@@ -405,7 +405,9 @@ function transportBoundary(m, p) {
     if (D < 1e-12) {
         img = Math.sqrt(m.c.normSq()) < 1e-10 ? null : m.a.div(m.c);
     } else {
-        const z = new Complex(2 * p.x / D, 2 * p.y / D);
+        // Orientation-reversing m acts as z ↦ (a·z̄+b)/(c·z̄+d)
+        const zim = 2 * p.y / D;
+        const z = new Complex(2 * p.x / D, m.anti ? -zim : zim);
         const den = m.c.mul(z).add(m.d);
         img = Math.sqrt(den.normSq()) < 1e-10 ? null : m.a.mul(z).add(m.b).div(den);
     }
@@ -786,8 +788,27 @@ export function certifyDomain(walls, basepoint, exactCtx = null) {
     }
 
     // ---- (3) Cusp completeness ----
-    const hasCusps = walls.some(w => w.isParabolic);
+    let hasCusps = walls.some(w => w.isParabolic);
     let cuspResolved = true;
+    // In a reflection group no single wall is parabolic — cusps appear as
+    // TANGENT mirror pairs (parabolics are products of two mirrors meeting at
+    // a boundary point). ⟨W_i, W_j⟩ = ±1 for normalized covectors ⇔ tangent.
+    if (walls.some(w => w.elem.anti)) {
+        let tangentPairs = 0;
+        for (let i = 0; i < walls.length; i++) {
+            for (let j = i + 1; j < walls.length; j++) {
+                const W1 = walls[i].cov, W2 = walls[j].cov;
+                const inner = W1.x * W2.x + W1.y * W2.y + W1.z * W2.z - W1.w * W2.w;
+                if (Math.abs(Math.abs(inner) - 1) < 1e-7) tangentPairs++;
+            }
+        }
+        if (tangentPairs > 0 && !hasCusps) {
+            incomplete = true;
+            log.push('— Cusp completeness check —');
+            log.push(`⚠ ${tangentPairs} tangent mirror pair(s) found — the domain has ideal points, ` +
+                `but cusp completeness for reflection groups is not yet implemented; check unresolved.`);
+        }
+    }
     if (hasCusps) {
         log.push('— Cusp completeness check —');
         try {
@@ -906,6 +927,14 @@ export function certifyDomain(walls, basepoint, exactCtx = null) {
                             cuspResolved = false;
                             log.push(`⚠ cusp ${cid}: a holonomy loop does not fix the base ideal vertex ` +
                                 `(residual ${Math.sqrt(fx.distanceToSquared(nodes[s0].p)).toExponential(1)}) — check unresolved.`);
+                            continue;
+                        }
+                        if (M.anti) {
+                            // Orientation-reversing holonomy (z ↦ a·z̄+b on the
+                            // horosphere): classification not implemented yet.
+                            cuspResolved = false;
+                            log.push(`⚠ cusp ${cid}: holonomy ${wordStr(reduceWord(word))} is orientation-reversing — ` +
+                                `classification not yet implemented; check unresolved.`);
                             continue;
                         }
                         const verdict = classifyCuspHolonomy(M, word, exactCtx ? exactCheck : null, exactCtx);

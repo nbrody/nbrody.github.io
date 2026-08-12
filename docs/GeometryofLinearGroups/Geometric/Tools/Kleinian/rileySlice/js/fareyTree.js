@@ -2,11 +2,18 @@
 // Farey Tree Construction
 // ═══════════════════════════════════════════════════════
 //
-// Builds the Stern-Brocot / Farey tree of fractions from 0/1 to 1/0.
-// Each node stores the fraction p/q, a GLSL variable name, and indices
-//   Φ_{mediant} = 8 - Φ_{left} · Φ_{right} − Φ_{diff}
+// Builds the Farey tree of fractions p/q ∈ [0, 1]. Slopes outside [0,1]
+// are redundant: the trace polynomials satisfy Φ_{(p+2q)/q} = Φ_{p/q}
+// (e.g. Φ_{2/1} = Φ_{0/1}), so [0,1] together with complex conjugation
+// covers the whole Riley slice picture.
 //
-// where diff = |p_left − p_right| / |q_left − q_right|.
+// Each node stores the fraction p/q, a GLSL variable name, and parent
+// indices for the trace recurrence
+//
+//   Φ_{mediant} = 8 − Φ_{left} · Φ_{right} − Φ_{diff}
+//
+// where diff = |p_left − p_right| / |q_left − q_right|, with base cases
+//   Φ_{0/1} = 2 − ρ,  Φ_{1/0} = 2,  Φ_{1/1} = 2 + ρ.
 
 export function buildFareyTree(maxDepth) {
     const nodes = [];
@@ -25,9 +32,9 @@ export function buildFareyTree(maxDepth) {
     }
 
     // Base nodes
-    addNode(0, 1); // index 0: Q_{0/1} = 2 - ρ
-    addNode(1, 0); // index 1: Q_{1/0} = 2
-    addNode(1, 1); // index 2: Q_{1/1} = 2 + ρ
+    addNode(0, 1); // index 0: Φ_{0/1} = 2 - ρ
+    addNode(1, 0); // index 1: Φ_{1/0} = 2
+    addNode(1, 1); // index 2: Φ_{1/1} = 2 + ρ
 
     function buildSubtree(li, ri, depth) {
         if (depth <= 0) return;
@@ -51,7 +58,31 @@ export function buildFareyTree(maxDepth) {
     }
 
     buildSubtree(0, 2, maxDepth); // 0/1 – 1/1
-    buildSubtree(2, 1, maxDepth); // 1/1 – 1/0
 
     return nodes;
+}
+
+// Consistent hue for a slope p/q ∈ [0,1]: rainbow from red (0/1) to violet (1/1).
+export function slopeHue(p, q) {
+    return 0.83 * (p / q);
+}
+
+// Evaluate every Farey trace Φ_{p/q}(ρ) at a complex point ρ = re + im·i,
+// using the same recurrence as the shader. Returns an array of {re, im}
+// parallel to `nodes`.
+export function evaluateTraces(nodes, re, im) {
+    const vals = new Array(nodes.length);
+    vals[0] = { re: 2 - re, im: -im };
+    vals[1] = { re: 2, im: 0 };
+    vals[2] = { re: 2 + re, im: im };
+    for (let i = 3; i < nodes.length; i++) {
+        const n = nodes[i];
+        if (n.leftParent < 0) { vals[i] = { re: 0, im: 0 }; continue; }
+        const a = vals[n.leftParent], b = vals[n.rightParent], d = vals[n.diffParent];
+        vals[i] = {
+            re: 8 - (a.re * b.re - a.im * b.im) - d.re,
+            im: -(a.re * b.im + a.im * b.re) - d.im
+        };
+    }
+    return vals;
 }

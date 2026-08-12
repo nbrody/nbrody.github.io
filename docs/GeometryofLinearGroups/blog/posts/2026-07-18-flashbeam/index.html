@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The FlashBeam Search - Geometry of Linear Groups</title>
+    <link rel="stylesheet" href="../../../assets/css/main.css">
+    <link rel="stylesheet" href="../../assets/blog.css">
+    <script src="../../../assets/js/mathjax-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a> /
+                <a href="../../index.html">Blog</a> /
+                The FlashBeam Search
+            </nav>
+        </header>
+
+        <main>
+            <article class="post">
+                <div class="post-header">
+                    <h1>The FlashBeam search</h1>
+                    <span class="post-date">July 18, 2026</span>
+                </div>
+
+                <p>
+                    Here is a problem that comes up constantly when experimenting with
+                    groups: we have a finite set of generators — matrices, say — and we
+                    want a word in the generators whose product is some target element, or
+                    at least comes as close to it as possible. Perhaps we want words
+                    representing the identity, or an integral matrix, or an element with a
+                    particular trace. The space of words of length $\ell$ grows
+                    exponentially in $\ell$, and the interesting words are often hundreds
+                    of letters long, so exhaustive search is hopeless almost immediately.
+                </p>
+
+                <h2>Beam search</h2>
+
+                <p>
+                    The standard heuristic here is a <em>beam search</em>. Choose a score
+                    function on words — some measure of how far the product matrix is from
+                    the target. Maintain a "beam" of the $W$ best words found so far.
+                    At each step, extend every word in the beam by every generator,
+                    score all the resulting products, and keep the best $W$ of those as the
+                    new beam. This is a breadth-first search that only ever remembers a
+                    bounded frontier, so it runs forever in constant memory.
+                </p>
+
+                <p>
+                    Beam search has two chronic weaknesses. First, it's slow: words grow by
+                    one letter per iteration, so a 500-letter solution takes at least 500
+                    iterations. Second, it's greedy: if every single-letter extension of the
+                    current beam makes the score worse, the search stalls on a plateau, and
+                    a wider beam only postpones the problem.
+                </p>
+
+                <h2>The FlashBeam variation</h2>
+
+                <p>
+                    FlashBeam modifies the <em>generating set itself</em> as the search
+                    runs. Alongside the beam, we maintain a second population: the
+                    <em>flash pool</em>, consisting of the $F$ best-scoring words seen at
+                    any point so far — not just in the current generation. The expansion
+                    step then multiplies beam words not only by the original generators,
+                    but by every word in the flash pool, on both the left and the right.
+                </p>
+
+                <div class="conjecture-box">
+                    <span class="box-label">One FlashBeam iteration</span>
+                    <ol>
+                        <li>Form the expansion pool: the original generators together with the flash pool of the $F$ best words seen so far.</li>
+                        <li>Multiply every beam word by every pool word, on both sides, skipping products that immediately cancel.</li>
+                        <li>Score each product, discard any whose matrix has been visited before, and keep the best $W$ as the new beam.</li>
+                        <li>Merge the new beam into the flash pool, keeping the best $F$ — so good words are promoted into the generating set for every later iteration.</li>
+                    </ol>
+                </div>
+
+                <p>
+                    In effect the search builds its own vocabulary. Once it discovers a good
+                    block — a word that lands unusually close to the target — that block
+                    becomes a macro-generator and gets reused wholesale. Word length can
+                    double in a single iteration instead of growing by one, the way repeated
+                    squaring reaches $x^{512}$ in nine multiplications rather than 511. And
+                    plateaus are less sticky: even when no single letter improves the score,
+                    multiplying by a substantial block often does.
+                </p>
+
+                <h2>Practical notes</h2>
+
+                <ul>
+                    <li>
+                        <strong>Deduplication.</strong> Hash each product matrix and never
+                        revisit a state. Without this, the beam fills up with dozens of
+                        spellings of the same element.
+                    </li>
+                    <li>
+                        <strong>Free reduction.</strong> A word that hits the target should
+                        be checked for nontriviality — a word that freely reduces to
+                        nothing is the identity for boring reasons. Similarly, skip
+                        extensions that immediately cancel against the end of the word.
+                    </li>
+                    <li>
+                        <strong>Two knobs.</strong> The beam width $W$ controls breadth and
+                        the flash size $F$ controls how aggressive the macro-moves are.
+                        In practice $W$ in the hundreds with $F$ around a few dozen works
+                        well; a huge $F$ makes each iteration quadratically expensive
+                        without finding much more.
+                    </li>
+                    <li>
+                        <strong>Verify exactly.</strong> If the score is computed in
+                        floating point, a "solution" is only a candidate: roundoff can
+                        manufacture convincing near-misses. Every hit should be re-verified
+                        in exact arithmetic before it's believed.
+                    </li>
+                </ul>
+
+                <p>
+                    Nothing about the method is specific to matrices — it applies whenever
+                    elements can be multiplied, hashed, and scored. Several search tools on
+                    this site run FlashBeam live in the browser, with the beam and flash
+                    pool visible as they evolve.
+                </p>
+            </article>
+
+            <nav class="post-nav">
+                <a href="../2026-07-18-classification-conjecture/index.html">← The classification conjecture</a>
+                <a href="../../index.html">All posts →</a>
+            </nav>
+        </main>
+
+        <footer>
+            <p>Created by Nic Brody, UC Santa Cruz</p>
+        </footer>
+    </div>
+    <script src="../../../assets/js/site-nav.js" defer></script>
+</body>
+</html>

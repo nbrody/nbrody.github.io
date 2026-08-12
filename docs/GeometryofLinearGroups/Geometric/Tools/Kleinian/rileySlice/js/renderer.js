@@ -24,7 +24,7 @@ export class RileyRenderer {
         // Camera state
         this.centerX = 0.0;
         this.centerY = 0.0;
-        this.zoom = 0.3;
+        this.zoom = 0.09;
         this.currentParam = 0;
 
         // Display toggles
@@ -60,6 +60,7 @@ export class RileyRenderer {
 
     buildProgram(depth) {
         const gl = this.gl;
+        this.depth = depth;
         const fsSource = generateFragmentShader(depth);
 
         const vs = this._compileShader(gl.VERTEX_SHADER, VERTEX_SHADER);
@@ -130,6 +131,18 @@ export class RileyRenderer {
         return {
             x: this.centerX + nx * aspect / this.zoom,
             y: this.centerY + ny / this.zoom
+        };
+    }
+
+    // Inverse of cssToComplex: screen-plane coordinate → client pixels
+    complexToCss(x, y) {
+        const rect = this.canvas.getBoundingClientRect();
+        const aspect = rect.width / rect.height;
+        const nx = (x - this.centerX) * this.zoom / aspect;
+        const ny = (y - this.centerY) * this.zoom;
+        return {
+            x: rect.left + (nx + 0.5) * rect.width,
+            y: rect.bottom - (ny + 0.5) * rect.height
         };
     }
 

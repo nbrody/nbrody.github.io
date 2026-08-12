@@ -1,0 +1,17 @@
+
+  /* ---- title actions + playtest panel ---- */
+  .title-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  #dev-btn{margin-top:12px;opacity:.7}
+  #dev-screen{padding:16px}
+  .dev-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin:10px 0 4px}
+  .dev-grid label{
+    display:flex;flex-direction:column;gap:4px;
+    font-family:'Julius Sans One',sans-serif;font-size:10px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--black);
+  }
+  .dev-grid label.chk{flex-direction:row;align-items:center;gap:8px;font-size:11px}
+  .dev-grid select,.dev-grid input[type=number]{
+    background:var(--black);color:var(--cream);border:1px solid #574433;
+    border-radius:6px;padding:8px;font-family:'Alegreya',serif;font-size:14px;
+  }
+  .dev-grid input[type=checkbox]{accent-color:var(--gold);width:16px;height:16px}

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Non-Sofic Group | Interactive Paper</title>
+    <meta name="description"
+        content="An interactive walkthrough of the counterexample to the soficity conjecture: the unit group of the binary Leavitt algebra is not sofic.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Outfit:wght@400;700&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css">
+
+    <style>
+        :root {
+            --bg-deep: #050505;
+            --accent-cyan: #00f2ff;
+            --accent-violet: #b48cff;
+            --accent-ochre: #ffc861;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #e0e0e0;
+            --text-dim: #a0a0a0;
+        }
+
+        .reveal-viewport {
+            background: radial-gradient(ellipse at 50% -20%, rgba(0, 242, 255, 0.06), transparent 60%), var(--bg-deep);
+        }
+
+        .reveal {
+            font-family: 'Inter', sans-serif;
+            font-size: 30px;
+            color: var(--text-main);
+        }
+
+        .reveal h1,
+        .reveal h2,
+        .reveal h3 {
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: -0.02em;
+            text-transform: none;
+        }
+
+        .reveal h2 {
+            font-size: 1.5em;
+            margin-bottom: 0.7em;
+        }
+
+        .reveal .slide-number {
+            background: transparent;
+            color: var(--text-dim);
+        }
+
+        .glass {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 0.7em 1em;
+            backdrop-filter: blur(6px);
+        }
+
+        .dim {
+            color: var(--text-dim);
+        }
+
+        .cyan {
+            color: var(--accent-cyan);
+        }
+
+        .violet {
+            color: var(--accent-violet);
+        }
+
+        .ochre {
+            color: var(--accent-ochre);
+        }
+
+        .reveal .thm {
+            border-left: 3px solid var(--accent-cyan);
+            padding: 0.5em 1em;
+            background: var(--glass-bg);
+            border-radius: 0 12px 12px 0;
+            text-align: left;
+            margin: 0.8em auto;
+        }
+
+        .reveal .thm .label {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            margin-right: 0.5em;
+        }
+
+        .reveal .small {
+            font-size: 0.72em;
+        }
+
+        .reveal .cols {
+            display: flex;
+            gap: 1em;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .reveal .cols>div {
+            flex: 1;
+        }
+
+        /* Placeholder boxes for future interactive widgets */
+        .todo-widget {
+            border: 1px dashed rgba(255, 200, 97, 0.5);
+            color: var(--accent-ochre);
+            border-radius: 12px;
+            padding: 1em;
+            font-size: 0.6em;
+            margin-top: 0.8em;
+        }
+
+        .reveal table.uv-table td,
+        .reveal table.uv-table th {
+            border: 1px solid var(--glass-border);
+            padding: 0.25em 0.7em;
+            text-align: center;
+        }
+
+        .reveal .embed-frame {
+            width: 1080px;
+            height: 440px;
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            background: rgba(0, 0, 0, 0.25);
+            margin-top: 0.4em;
+        }
+
+        .reveal .down-hint {
+            font-size: 0.55em;
+            color: var(--accent-cyan);
+            opacity: 0.75;
+            margin-top: 1em;
+        }
+
+        .reveal h3.sub-title {
+            font-size: 1.05em;
+            font-weight: 400;
+            color: var(--text-dim);
+            margin-bottom: 0.4em;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- ============ 0. TITLE ============ -->
+            <section>
+                <h1 style="font-size:1.7em">A Non-Sofic Group</h1>
+                <p class="dim">A counterexample to the soficity conjecture</p>
+                <div class="thm">
+                    <span class="label">Theorem.</span>
+                    The unit group $L_{\mathbb{F}_2}(1,2)^\times$ of the binary Leavitt algebra is not sofic.
+                </div>
+                <p class="small dim">From <em>Ten Advances in Mathematics and Theoretical Computer Science</em>
+                    (OpenAI), Chapter 3 &mdash; <a href="nonsofic-chapter.pdf" style="color:var(--accent-cyan)">extracted
+                        chapter (PDF)</a></p>
+            </section>
+
+            <!-- ============ 1. WHAT IS A SOFIC GROUP ============ -->
+            <section>
+                <h2>What is a sofic group?</h2>
+                <p class="small">A countable group $H$ is <span class="cyan">sofic</span> if finite pieces of its
+                    multiplication table can be almost-faithfully modeled by permutations of a finite set: maps
+                    $p_n\colon H \to \mathrm{Sym}(Y_n)$ with</p>
+                <div class="glass small">
+                    $$p_n(1)=1,\qquad d_H\big(p_n(gh),\,p_n(g)p_n(h)\big)\to 0,\qquad d_H\big(p_n(g),1\big)\to 1 \ (g\neq
+                    1)$$
+                </div>
+                <p class="small dim">where $d_H$ is normalized Hamming distance: multiplication holds at almost every
+                    point, and every nonidentity element moves almost every point.</p>
+                <div class="todo-widget">TODO interactive: Hamming-distance sandbox &mdash; drag permutations of a small
+                    set, watch how well they model a chosen finite group patch.</div>
+            </section>
+
+            <!-- ============ 2. THE CONJECTURE ============ -->
+            <section>
+                <h2>The soficity conjecture</h2>
+                <ul class="small">
+                    <li>Gromov (1999) introduced the approximation property in symbolic dynamics; Weiss (2000) named
+                        sofic groups and asked: <em>is every countable group sofic?</em></li>
+                    <li>Residually finite groups, amenable groups, LEF groups, and many more are sofic &mdash; for 25
+                        years no counterexample was known.</li>
+                    <li>Soficity implies Gottschalk surjunctivity, Kaplansky direct finiteness (over fields), the
+                        determinant conjecture, ...</li>
+                </ul>
+                <div class="thm small">
+                    <span class="label">Question (now settled).</span> Does a non-sofic group exist? &mdash;
+                    <strong>Yes.</strong>
+                </div>
+            </section>
+
+            <!-- ============ 3. THE STAR: LEAVITT ALGEBRA (calculator below) ============ -->
+            <section>
+                <section>
+                    <h2>The star of the show</h2>
+                    <p class="small">The <span class="cyan">binary Leavitt algebra</span> over $\mathbb{F}_2$:</p>
+                    <div class="glass">
+                        $$R = L_{\mathbb{F}_2}(1,2) = \mathbb{F}_2\langle s_0,s_1,t_0,t_1 \mid t_i s_j = \delta_{ij},\
+                        s_0 t_0 + s_1 t_1 = 1\rangle$$
+                    </div>
+                    <ul class="small">
+                        <li>$t_0 s_0 = 1$ but $s_0 t_0$ is a proper idempotent &mdash; one-sided inverses.</li>
+                        <li>$R \cong R^2$ as right $R$-modules: <em>binary self-similarity</em>.</li>
+                        <li>$R$ is countable; its unit group $R^\times$ is the non-sofic group.</li>
+                    </ul>
+                    <p class="down-hint">▼ elements of $R$, visually: a guided calculator walkthrough</p>
+                </section>
+                <section>
+                    <h3 class="sub-title">Elements of $R$, visually</h3>
+                    <iframe class="embed-frame" data-src="calculator/index.html?embed=1" data-preload></iframe>
+                    <p class="small dim" style="margin-top:0.3em">Vertex sets and arrows on the binary tree.
+                        <a href="calculator/index.html" target="_blank"
+                            style="color:var(--accent-cyan)">Open the full calculator ↗</a></p>
+                </section>
+            </section>
+
+            <!-- ============ 4. PREFIX CODES ============ -->
+            <section>
+                <h2>Prefix codes and self-similarity</h2>
+                <p class="small">A <span class="cyan">complete prefix code</span> $E=(a_1,\dots,a_q)$: pairwise
+                    prefix-incomparable binary words whose cylinders $[a_i]$ partition the boundary of the binary tree.
+                    Each such code gives a unital ring isomorphism</p>
+                <div class="glass">$$\Theta_E\colon M_q(R) \xrightarrow{\ \sim\ } R,\qquad (r_{ij}) \mapsto \sum_{i,j}
+                    s_{a_i}\, r_{ij}\, t_{a_j}$$</div>
+                <p class="small dim">So $R$ contains matrix algebras over itself of every size &mdash; the engine that
+                    lets small groups be conjugated into corners.</p>
+                <div class="todo-widget">TODO interactive: click tree leaves to split cylinders and build complete
+                    prefix codes; show $e_E = \sum e_{a_i} = 1$.</div>
+            </section>
+
+            <!-- ============ 5. CAST OF CHARACTERS (nine-leaf figure below) ============ -->
+            <section>
+                <section>
+                    <h2>Cast of characters</h2>
+                    <p class="small">The nine-leaf code $D = (\alpha_1,\alpha_2,\alpha_3,\beta_1,\beta_2,\beta_3,\nu_1,\nu_2,\nu_3)$ with blocks</p>
+                    <div class="glass small">
+                        $$\alpha = (000,001,01),\qquad \beta = (1000,1001,101),\qquad \nu = (1100,1101,111)$$
+                    </div>
+                    <ul class="small">
+                        <li>$G = \mathrm{EL}_D(R) \cong \mathrm{EL}_9(R)$ &mdash; elementary group, has property (T)
+                            (Ershov&ndash;Jaikin-Zapirain).</li>
+                        <li>$\Gamma = \mathrm{EL}_\alpha(R) \cong \mathrm{EL}_3(R) \le G$ &mdash; acts only inside $[0]$,
+                            also property (T).</li>
+                        <li>$J = V_{1000} \cong V$ &mdash; a copy of Thompson's group $V$ acting only inside $[1000]$.</li>
+                    </ul>
+                    <p class="down-hint">▼ the nine-leaf tree: supports of $\Gamma$ and $J$, contractions $u$ and $v$</p>
+                </section>
+                <section>
+                    <h3 class="sub-title">The nine-leaf tree</h3>
+                    <iframe class="embed-frame" data-src="nineleaf.html?embed=1" data-preload></iframe>
+                    <p class="small dim" style="margin-top:0.3em">Hover leaves and blocks; toggle $\Gamma$, $J$, $u$,
+                        $v$. <a href="nineleaf.html" target="_blank"
+                            style="color:var(--accent-cyan)">Open full figure ↗</a></p>
+                </section>
+            </section>
+
+            <!-- ============ 6. THOMPSON'S GROUP V ============ -->
+            <section>
+                <h2>Thompson's group $V$</h2>
+                <p class="small">Elements of $V$: bijections of infinite binary strings given by <span
+                        class="cyan">prefix replacement</span> between two complete codes, $a_i\omega \mapsto
+                    b_i\omega$. Realized in $R^\times$ by</p>
+                <div class="glass">$$U_g = \sum_{a\in E} s_{g(a)}\, t_a,\qquad U_h U_g = U_{h\circ g}$$</div>
+                <ul class="small">
+                    <li>$V$ is finitely presented, infinite, and <em>simple</em>.</li>
+                    <li>Hence $V$ is <strong>not LEF</strong> (locally embeddable into finite groups): a finitely
+                        presented LEF group is residually finite, but an infinite simple group has no finite quotients.</li>
+                    <li>This is the contradiction the whole proof aims at.</li>
+                </ul>
+                <div class="todo-widget">TODO interactive: prefix-replacement playground &mdash; build a table $E\to
+                    E'$, watch it act on strings / tree.</div>
+            </section>
+
+            <!-- ============ 7. PROOF INPUT 1: KUN ============ -->
+            <section>
+                <h2>Input 1: Kun's expander decomposition</h2>
+                <div class="thm small">
+                    <span class="label">Theorem (Kun).</span> For a property-(T) group, the generator graph of any sofic
+                    approximation becomes a disjoint union of uniformly expanding graphs after editing $o(|Y_n|)$
+                    edges.
+                </div>
+                <p class="small dim">Uniform expansion constant $\gamma$ &mdash; but possibly <em>many</em> components:
+                    disjoint copies of a sofic approximation are still a sofic approximation.</p>
+                <div class="todo-widget">TODO interactive: expander vs. union-of-expanders picture; edit edges and watch
+                    components.</div>
+            </section>
+
+            <!-- ============ 8. PROOF INPUT 2: KUN–THOM ============ -->
+            <section>
+                <h2>Input 2: the Kun&ndash;Thom obstruction</h2>
+                <div class="thm small">
+                    <span class="label">Theorem (Kun&ndash;Thom).</span> If $K$ has property (T), $J$ is finitely
+                    generated, and $K\times J$ has a sofic approximation whose $K$-generator graph is a <em>single</em>
+                    uniform expander on the whole set, then $J$ is LEF.
+                </div>
+                <p class="small">The single-expander hypothesis is essential:</p>
+                <div class="glass small">
+                    $\Lambda = SL_3(\mathbb{Z})$ (property (T), sofic) and $B = BS(2,3)$ (sofic, <em>not</em> LEF), yet
+                    $\Lambda\times B$ is sofic. Many expanding $\Lambda$-components cannot force $B$ to be LEF.
+                </div>
+            </section>
+
+            <!-- ============ 9. THE NEW CRITERION ============ -->
+            <section>
+                <h2>The new bridge: expander matching</h2>
+                <div class="thm small">
+                    <span class="label">Proposition 2.3.</span> Let $\Gamma \le G$ be infinite f.g. property-(T) groups
+                    with
+                    $$G = \langle \Gamma, t_1,\dots,t_m\rangle,\qquad t_i\,\Gamma\,t_i^{-1} \le \Gamma,$$
+                    and let $J \le G$ be finitely generated with
+                    $$[\Gamma,J]=1,\qquad \Gamma\cap J = \{1\},\qquad t_1\,J\,t_1^{-1} \le \Gamma.$$
+                    Then soficity of $G$ forces $J$ to be LEF.
+                </div>
+                <p class="small dim">The extra <em>nesting</em> &mdash; one conjugation compresses both commuting
+                    factors into $\Gamma$ &mdash; is exactly what the $SL_3(\mathbb{Z})\times BS(2,3)$ example lacks.</p>
+            </section>
+
+            <!-- ============ 10. PROOF SKETCH OF 2.3 ============ -->
+            <section>
+                <h2>How the matching works</h2>
+                <ol class="small">
+                    <li>Run Kun's theorem twice: $\Gamma$-components $\mathcal{Q}$ and $G$-components $\mathcal{A}$ of
+                        the same finite set.</li>
+                    <li>Since $t_i\Gamma t_i^{-1}\le\Gamma$, each transported component $\tau_i C$ lands almost inside
+                        some $\Gamma$-component $Q$.</li>
+                    <li><span class="cyan">Median trick:</span> $f(z) = \frac{M(z)}{M(z)+m_A}$ (component size,
+                        normalized by an ambient median) is almost nondecreasing under every generator; permutations
+                        conserve the total, so expansion pins $f \approx \tfrac12$ &mdash; matched components have
+                        nearly equal sizes.</li>
+                    <li>A transported component fills $&gt;\tfrac12$ of its target, so the matching is
+                        <em>injective</em>.</li>
+                    <li>Conjugating back by $\tau_1^{-1}$: the $J$-generators preserve the $\Gamma$-components. Select
+                        one good component, repair the actions &mdash; a sofic approximation of $\Gamma\times J$ on a
+                        <em>single</em> expander. Kun&ndash;Thom applies.</li>
+                </ol>
+                <div class="todo-widget">TODO interactive: animated matching of transported components onto original
+                    components; slider for the median function $f$.</div>
+            </section>
+
+            <!-- ============ 11. THE CONFIGURATION ============ -->
+            <section>
+                <h2>Realizing the hypotheses in $R^\times$</h2>
+                <p class="small">Two prefix replacements $u,v \in V \le G$, with $\zeta = (100,101,11)$ partitioning $[1]$:</p>
+                <table class="uv-table small" style="margin:0 auto">
+                    <tr>
+                        <th></th>
+                        <th>$\alpha_i$</th>
+                        <th>$\beta_i$</th>
+                        <th>$\nu_i$</th>
+                    </tr>
+                    <tr>
+                        <td>$u$</td>
+                        <td>$\alpha_i 0$</td>
+                        <td>$\alpha_i 1$</td>
+                        <td>$\zeta_i$</td>
+                    </tr>
+                    <tr>
+                        <td>$v$</td>
+                        <td>$\alpha_i 0$</td>
+                        <td>$\zeta_i$</td>
+                        <td>$\alpha_i 1$</td>
+                    </tr>
+                </table>
+                <div class="glass small" style="margin-top:0.8em">
+                    $$u\Gamma u^{-1} = v\Gamma v^{-1} = \mathrm{EL}_{(\alpha_1 0,\alpha_2 0,\alpha_3 0)}(R) \le
+                    \Gamma,\qquad uJu^{-1} = V_{0001} \le \Gamma,\qquad G = \langle \Gamma, u, v\rangle$$
+                </div>
+                <p class="small dim">$\Gamma$ lives on $[0]$, $J = V_{1000}$ on the disjoint cylinder $[1000]$; $u$
+                    carries $J$ into $[0001] \subseteq [0]$.</p>
+                <div class="todo-widget">TODO interactive: animate $u$ and $v$ as cylinder shuffles on the tree;
+                    show the contraction of supports into $[0]$.</div>
+            </section>
+
+            <!-- ============ 12. ENDGAME ============ -->
+            <section>
+                <h2>Endgame</h2>
+                <ol class="small">
+                    <li>Suppose $G = \mathrm{EL}_D(R)$ were sofic.</li>
+                    <li>Proposition 2.3 (with $t_1 = u$, $t_2 = v$) forces $J$ to be LEF.</li>
+                    <li>But $J \cong V$ is finitely presented, infinite, simple &mdash; not LEF. Contradiction.</li>
+                    <li>So $G$ is not sofic; soficity passes to subgroups, and $G \le R^\times$, so:</li>
+                </ol>
+                <div class="thm">
+                    <span class="label">Theorem.</span> $L_{\mathbb{F}_2}(1,2)^\times$ is not sofic.
+                </div>
+            </section>
+
+            <!-- ============ 13. WHAT REMAINS ============ -->
+            <section>
+                <h2>What remains open</h2>
+                <ul class="small">
+                    <li><span class="cyan">Hyperlinearity:</span> is $R^\times$ hyperlinear? No non-hyperlinear group
+                        is known (Connes's embedding conjecture for groups).</li>
+                    <li><span class="cyan">Surjunctivity:</span> if $R^\times$ is surjunctive, it is a surjunctive
+                        non-sofic group; if not, Gottschalk's conjecture fails.</li>
+                    <li><span class="cyan">Determinant &amp; algebraic eigenvalue conjectures</span> for $R^\times$.</li>
+                    <li><span class="cyan">Kaplansky direct finiteness</span> for $k[R^\times]$ in positive
+                        characteristic.</li>
+                </ul>
+                <p class="small dim">Related: the Aldous&ndash;Lyons conjecture was disproved by
+                    Bowen&ndash;Chapman&ndash;Lubotzky&ndash;Vidick; soficity is its restriction to invariant random
+                    subgroups concentrated on a single normal subgroup.</p>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: true,
+            transition: 'fade',
+            width: 1200,
+            height: 800,
+            margin: 0.06,
+            plugins: [RevealMath.MathJax3],
+            mathjax3: {
+                mathjax: 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js',
+                tex: {
+                    inlineMath: [['$', '$'], ['\\(', '\\)']]
+                }
+            }
+        });
+
+        // Embedded tools forward navigation keys via postMessage so arrow keys
+        // still drive the deck while an iframe has focus.
+        window.addEventListener('message', e => {
+            const d = e.data || {};
+            if (d.type === 'iframeNav') {
+                if (d.key === 'ArrowLeft') Reveal.left();
+                else if (d.key === 'ArrowUp') Reveal.up();
+                else if (d.key === 'ArrowDown') Reveal.down();
+                else Reveal.right();
+            }
+        });
+    </script>
+</body>
+
+</html>

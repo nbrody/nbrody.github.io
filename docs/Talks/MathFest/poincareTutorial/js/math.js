@@ -52,32 +52,48 @@ Complex.exp = function (c) {
 };
 
 export class Matrix2x2 {
-    constructor(a, b, c, d) {
+    /**
+     * An isometry of H^3: the Möbius map of the matrix, preceded by complex
+     * conjugation z ↦ z̄ when `anti` is set (orientation-reversing:
+     * z ↦ (a·z̄+b)/(c·z̄+d) — reflections, glide reflections, …).
+     */
+    constructor(a, b, c, d, anti = false) {
         this.a = Complex.from(a);
         this.b = Complex.from(b);
         this.c = Complex.from(c);
         this.d = Complex.from(d);
+        this.anti = anti;
     }
     mul(m) {
+        // Pulling this.anti's conjugation past m conjugates m entrywise:
+        // (M,ε)(N,δ) = (M·N̄^ε, ε⊕δ).
+        const n = this.anti
+            ? new Matrix2x2(m.a.conj(), m.b.conj(), m.c.conj(), m.d.conj())
+            : m;
         return new Matrix2x2(
-            this.a.mul(m.a).add(this.b.mul(m.c)), this.a.mul(m.b).add(this.b.mul(m.d)),
-            this.c.mul(m.a).add(this.d.mul(m.c)), this.c.mul(m.b).add(this.d.mul(m.d))
+            this.a.mul(n.a).add(this.b.mul(n.c)), this.a.mul(n.b).add(this.b.mul(n.d)),
+            this.c.mul(n.a).add(this.d.mul(n.c)), this.c.mul(n.b).add(this.d.mul(n.d)),
+            this.anti !== m.anti
         );
     }
     det() { return this.a.mul(this.d).sub(this.b.mul(this.c)); }
     inv() {
+        // (M,ε)^{-1} = (M̄^{-1} if ε else M^{-1}, ε)
         const det = this.det();
-        return new Matrix2x2(
-            this.d.div(det), this.b.mul(-1).div(det),
-            this.c.mul(-1).div(det), this.a.div(det)
-        );
+        let a = this.d.div(det), b = this.b.mul(-1).div(det);
+        let c = this.c.mul(-1).div(det), d = this.a.div(det);
+        if (this.anti) { a = a.conj(); b = b.conj(); c = c.conj(); d = d.conj(); }
+        return new Matrix2x2(a, b, c, d, this.anti);
     }
     /** Scale to determinant 1 (choice of sqrt is irrelevant in PSL). */
     normalized() {
         const s = Complex.sqrt(this.det());
-        return new Matrix2x2(this.a.div(s), this.b.div(s), this.c.div(s), this.d.div(s));
+        return new Matrix2x2(this.a.div(s), this.b.div(s), this.c.div(s), this.d.div(s), this.anti);
     }
     log() {
+        if (this.anti) {
+            throw new Error('log: an orientation-reversing isometry has no one-parameter flow');
+        }
         let tr = this.a.add(this.d);
         const tr2minus4 = tr.mul(tr).sub(new Complex(4));
         const sqrtTr2minus4 = Complex.sqrt(tr2minus4);
@@ -119,6 +135,7 @@ export class Matrix2x2 {
 
 /** Distance of a matrix (det 1) from ±identity. */
 export function distFromIdentityPSL(m) {
+    if (m.anti) return Infinity;   // orientation-reversing: never the identity
     const d1 = m.a.sub(new Complex(1)).normSq() + m.b.normSq() + m.c.normSq() + m.d.sub(new Complex(1)).normSq();
     const d2 = m.a.add(new Complex(1)).normSq() + m.b.normSq() + m.c.normSq() + m.d.add(new Complex(1)).normSq();
     return Math.sqrt(Math.min(d1, d2));
@@ -139,13 +156,14 @@ export function pslKey(m, digits = 5) {
     // Clamp near-zero values so 0 and -0 (or ±1e-12) format identically
     const clamp = (v) => Math.abs(v) < 1e-9 ? 0 : v;
     const fmt = (z) => `${clamp(s * z.re).toFixed(digits)},${clamp(s * z.im).toFixed(digits)}`;
-    return `[${fmt(m.a)}|${fmt(m.b)}|${fmt(m.c)}|${fmt(m.d)}]`;
+    return `${m.anti ? 'A' : ''}[${fmt(m.a)}|${fmt(m.b)}|${fmt(m.c)}|${fmt(m.d)}]`;
 }
 
 // ---------------- Model maps: UHS <-> ball <-> Minkowski ----------------
 
 /** Action of m (det 1) on an upper-half-space point (x, y, t). */
 export function applyMatrixToUHS(m, p) {
+    if (m.anti) p = { x: p.x, y: -p.y, t: p.t };   // conjugate first: z ↦ z̄
     const z = new Complex(p.x, p.y);
     const cz_d = m.c.mul(z).add(m.d);          // cz + d
     const az_b = m.a.mul(z).add(m.b);          // az + b

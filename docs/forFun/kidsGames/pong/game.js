@@ -1,470 +1,1011 @@
-/**
- * Pong — Two-Player iPad Touch Game
- * ─────────────────────────────────
- * Each player touches their half of the screen to control their paddle.
- *   • Player 1 (left,  cyan)    → left  half of screen
- *   • Player 2 (right, magenta) → right half of screen
- *
- * Touch Y position maps directly to paddle center.
- */
-
-(() => {
+/* ============================================================
+   Paddle Party — kid-friendly pong for the Kids' Games hub
+   1P vs a cute robot (3 speeds) or 2P shared-screen.
+   Touch-first (each player drags their half), keyboard too.
+   ============================================================ */
+(function () {
     'use strict';
 
-    /* ── DOM refs ──────────────────────────────────────── */
-    const canvas = document.getElementById('pong-canvas');
-    const ctx = canvas.getContext('2d');
-    const menuOverlay = document.getElementById('menu-overlay');
-    const winOverlay = document.getElementById('win-overlay');
-    const winText = document.getElementById('win-text');
-    const countdown = document.getElementById('countdown');
-    const countText = document.getElementById('countdown-text');
-    const scoreLeftEl = document.getElementById('score-left');
-    const scoreRightEl = document.getElementById('score-right');
-    const startBtn = document.getElementById('start-btn');
-    const rematchBtn = document.getElementById('rematch-btn');
-    const menuBtn = document.getElementById('menu-btn');
-    const winScoreEl = document.getElementById('winning-score');
+    /* ---------- DOM ---------- */
+    var canvas = document.getElementById('game-canvas');
+    var ctx = canvas.getContext('2d');
+    var fxCanvas = document.getElementById('fx-canvas');
+    var fxCtx = fxCanvas.getContext('2d');
 
-    /* ── Settings ──────────────────────────────────────── */
-    let winningScore = 7;
+    var menuOverlay = document.getElementById('menu-overlay');
+    var pauseOverlay = document.getElementById('pause-overlay');
+    var winOverlay = document.getElementById('win-overlay');
+    var countdownEl = document.getElementById('countdown');
+    var countdownText = document.getElementById('countdown-text');
+    var winEmoji = document.getElementById('win-emoji');
+    var winText = document.getElementById('win-text');
+    var winSub = document.getElementById('win-sub');
 
-    /* Score selector buttons */
-    document.querySelectorAll('.score-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const d = parseInt(btn.dataset.delta, 10);
-            winningScore = Math.max(1, Math.min(21, winningScore + d));
-            winScoreEl.textContent = winningScore;
-        });
-    });
+    var playBtn = document.getElementById('play-btn');
+    var rematchBtn = document.getElementById('rematch-btn');
+    var winMenuBtn = document.getElementById('win-menu-btn');
+    var pauseBtn = document.getElementById('pause-btn');
+    var resumeBtn = document.getElementById('resume-btn');
+    var pauseMenuBtn = document.getElementById('pause-menu-btn');
+    var soundBtn = document.getElementById('sound-btn');
+    var modeRow = document.getElementById('mode-row');
+    var difficultySetting = document.getElementById('difficulty-setting');
+    var difficultyRow = document.getElementById('difficulty-row');
+    var pointsRow = document.getElementById('points-row');
 
-    /* ── Game constants ────────────────────────────────── */
-    const PADDLE_WIDTH = 18;
-    const PADDLE_HEIGHT = 130;
-    const PADDLE_MARGIN = 36;
-    const BALL_RADIUS = 12;
-    const BALL_SPEED_INIT = 7;
-    const BALL_SPEED_MAX = 16;
-    const BALL_ACCEL = 0.35;   // speed increase per paddle hit
+    /* ---------- Palette ---------- */
+    var CORAL = '#ff6b6b';
+    var PURPLE = '#a29bfe';
+    var YELLOW = '#ffe66d';
+    var TEAL = '#4ecdc4';
+    var MINT = '#55efc4';
+    var INK = '#2d3436';
+    var CONFETTI_COLORS = [CORAL, TEAL, YELLOW, PURPLE, MINT, '#ff9ff3', '#74b9ff'];
 
-    /* Colors */
-    const COL_CYAN = '#00f0ff';
-    const COL_MAGENTA = '#ff2daa';
-    const COL_BALL = '#ffffff';
-    const COL_NET = 'rgba(255,255,255,0.06)';
+    /* ---------- Settings (persisted) ---------- */
+    var LS = 'kidsGames.pong.';
+    var settings = {
+        mode: localStorage.getItem(LS + 'mode') || '1p',
+        diff: localStorage.getItem(LS + 'diff') || 'easy',
+        points: parseInt(localStorage.getItem(LS + 'points') || '5', 10)
+    };
+    if ([5, 7, 11].indexOf(settings.points) < 0) settings.points = 5;
+    if (['1p', '2p'].indexOf(settings.mode) < 0) settings.mode = '1p';
+    if (['easy', 'medium', 'fast'].indexOf(settings.diff) < 0) settings.diff = 'easy';
 
-    /* ── Game state ────────────────────────────────────── */
-    let W, H;                           // canvas pixel size
-    let dpr;                            // device-pixel-ratio
-    let running = false;
-    let animId = null;
+    var DIFFS = {
+        easy: { speed: 0.42, errFrac: 0.55, react: 0.40, predict: false, ballMul: 0.85 },
+        medium: { speed: 0.62, errFrac: 0.32, react: 0.24, predict: false, ballMul: 1.0 },
+        fast: { speed: 0.88, errFrac: 0.20, react: 0.13, predict: true, ballMul: 1.14 }
+    };
 
-    const paddle1 = { x: 0, y: 0, vy: 0, targetY: null, score: 0 };
-    const paddle2 = { x: 0, y: 0, vy: 0, targetY: null, score: 0 };
-    const ball = { x: 0, y: 0, vx: 0, vy: 0, speed: BALL_SPEED_INIT, trail: [] };
+    /* ---------- Audio ---------- */
+    var audio = (function () {
+        var actx = null, master = null;
+        var muted = localStorage.getItem('kidsGames.muted') === '1';
 
-    /* Particles for goal effects */
-    let particles = [];
+        function unlock() {
+            if (!actx) {
+                var AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return;
+                actx = new AC();
+                master = actx.createGain();
+                master.gain.value = muted ? 0 : 1;
+                master.connect(actx.destination);
+            }
+            if (actx.state === 'suspended') actx.resume();
+        }
 
-    /* ── Canvas sizing ─────────────────────────────────── */
+        function tone(freq, dur, opts) {
+            if (!actx || muted) return;
+            opts = opts || {};
+            var t0 = actx.currentTime + (opts.delay || 0);
+            var osc = actx.createOscillator();
+            var g = actx.createGain();
+            osc.type = opts.type || 'sine';
+            osc.frequency.setValueAtTime(freq, t0);
+            if (opts.slide) osc.frequency.exponentialRampToValueAtTime(opts.slide, t0 + dur);
+            var vol = opts.vol || 0.18;
+            g.gain.setValueAtTime(0.0001, t0);
+            g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+            osc.connect(g);
+            g.connect(master);
+            osc.start(t0);
+            osc.stop(t0 + dur + 0.05);
+        }
+
+        function setMuted(m) {
+            muted = m;
+            localStorage.setItem('kidsGames.muted', m ? '1' : '0');
+            if (master && actx) master.gain.setTargetAtTime(m ? 0 : 1, actx.currentTime, 0.01);
+        }
+
+        return {
+            unlock: unlock,
+            setMuted: setMuted,
+            isMuted: function () { return muted; },
+            click: function () { tone(520, 0.06, { type: 'triangle', vol: 0.12 }); },
+            paddle: function (rally) {
+                var f = 300 * Math.pow(1.059463, Math.min(rally, 18));
+                tone(f, 0.09, { type: 'triangle', vol: 0.22, slide: f * 1.3 });
+            },
+            wall: function () { tone(215, 0.05, { type: 'sine', vol: 0.1 }); },
+            score: function () {
+                tone(523, 0.12, { type: 'sine', vol: 0.18 });
+                tone(659, 0.16, { type: 'sine', vol: 0.18, delay: 0.1 });
+            },
+            beep: function () { tone(440, 0.1, { type: 'sine', vol: 0.14 }); },
+            go: function () { tone(700, 0.2, { type: 'triangle', vol: 0.2, slide: 880 }); },
+            win: function () {
+                var notes = [523, 659, 784, 1047];
+                for (var i = 0; i < notes.length; i++) {
+                    tone(notes[i], 0.22, { type: 'triangle', vol: 0.2, delay: i * 0.13 });
+                    tone(notes[i] * 2, 0.2, { type: 'sine', vol: 0.07, delay: i * 0.13 });
+                }
+            },
+            lose: function () {
+                var notes = [392, 349, 311];
+                for (var i = 0; i < notes.length; i++) {
+                    tone(notes[i], 0.3, { type: 'sine', vol: 0.13, delay: i * 0.22 });
+                }
+            }
+        };
+    })();
+
+    document.addEventListener('pointerdown', function () { audio.unlock(); });
+
+    /* ---------- Geometry ---------- */
+    var W = 0, H = 0, dpr = 1;
+    var court = { x: 0, y: 0, w: 0, h: 0 };   // white card play area
+    var U = 0;                                 // scale unit = min(W,H)
+    var diag = 0;
+    var PADDLE_W = 22, PADDLE_H = 150, BALL_R = 11, PADDLE_INSET = 34;
+
     function resize() {
+        var oldCourt = { x: court.x, y: court.y, w: court.w, h: court.h };
         dpr = window.devicePixelRatio || 1;
         W = window.innerWidth;
         H = window.innerHeight;
-        canvas.width = W * dpr;
-        canvas.height = H * dpr;
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
         canvas.style.width = W + 'px';
         canvas.style.height = H + 'px';
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        fxCanvas.width = canvas.width;
+        fxCanvas.height = canvas.height;
+        fxCanvas.style.width = W + 'px';
+        fxCanvas.style.height = H + 'px';
+        fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        paddle1.x = PADDLE_MARGIN;
-        paddle2.x = W - PADDLE_MARGIN - PADDLE_WIDTH;
-        // If paddles haven't been placed yet, center them
-        if (paddle1.y === 0) paddle1.y = H / 2 - PADDLE_HEIGHT / 2;
-        if (paddle2.y === 0) paddle2.y = H / 2 - PADDLE_HEIGHT / 2;
+        var m = 8;
+        court = { x: m, y: m, w: W - 2 * m, h: H - 2 * m };
+        U = Math.min(W, H);
+        diag = Math.hypot(court.w, court.h);
+        PADDLE_W = Math.max(18, Math.min(30, U * 0.028));
+        PADDLE_H = Math.max(96, U * 0.23);
+        BALL_R = Math.max(9, Math.min(15, U * 0.018));
+        PADDLE_INSET = Math.max(26, U * 0.045);
+
+        pLeft.x = court.x + PADDLE_INSET;
+        pRight.x = court.x + court.w - PADDLE_INSET;
+
+        if (oldCourt.w > 0) {
+            // keep everything proportional through a resize
+            var fy = court.h / oldCourt.h, fx = court.w / oldCourt.w;
+            pLeft.y = court.y + (pLeft.y - oldCourt.y) * fy;
+            pRight.y = court.y + (pRight.y - oldCourt.y) * fy;
+            ball.x = court.x + (ball.x - oldCourt.x) * fx;
+            ball.y = court.y + (ball.y - oldCourt.y) * fy;
+            var sp = ballSpeedFrac * diag;
+            var ang = Math.atan2(ball.vy, ball.vx);
+            ball.vx = Math.cos(ang) * sp;
+            ball.vy = Math.sin(ang) * sp;
+        } else {
+            pLeft.y = court.y + court.h / 2;
+            pRight.y = court.y + court.h / 2;
+            ball.x = W / 2;
+            ball.y = H / 2;
+        }
+        clampPaddles();
     }
-    window.addEventListener('resize', resize);
-    resize();
 
-    /* ── Touch handling ────────────────────────────────── */
-    const activeTouches = {};  // identifier → { side: 'left'|'right' }
+    /* ---------- Entities ---------- */
+    function makePaddle(side) {
+        return {
+            side: side,               // 'left' | 'right'
+            x: 0, y: 0,               // y = center
+            targetY: null,            // pointer target (center)
+            score: 0,
+            popT: 0,                  // score pop animation
+            squash: 0,                // hit squash animation
+            isRobot: false,
+            blinkT: 2 + Math.random() * 3
+        };
+    }
 
-    function handleTouchStart(e) {
+    var pLeft = makePaddle('left');
+    var pRight = makePaddle('right');
+    var ball = { x: 0, y: 0, vx: 0, vy: 0, trail: [] };
+    var ballSpeedFrac = 0.38;      // current speed as fraction of court diagonal
+    var BASE_SPEED_FRAC = 0.36;
+    var MAX_SPEED_FRAC = 0.72;
+    var rally = 0;
+    var hueBase = 0;
+
+    var robot = { aimY: 0, err: 0, reactT: 0, tracking: false };
+
+    var particles = [];
+    var confetti = [];
+    var confettiBursts = 0, confettiTimer = 0;
+
+    /* ---------- State machine ---------- */
+    // menu | serve | play | point | win   (+ paused flag on top)
+    var state = 'menu';
+    var stateT = 0;
+    var paused = false;
+    var serveDir = 1;
+    var serveStep = -1;
+    var pointSide = null;      // who just scored
+    var winnerSide = null;
+    var celebrate = true;
+
+    function setState(s) {
+        state = s;
+        stateT = 0;
+        pauseBtn.classList.toggle('hidden', !(s === 'serve' || s === 'play' || s === 'point'));
+        if (s !== 'serve') countdownEl.classList.add('hidden');
+    }
+
+    /* ---------- Helpers ---------- */
+    function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+    function rand(a, b) { return a + Math.random() * (b - a); }
+
+    function clampPaddles() {
+        var half = PADDLE_H / 2;
+        pLeft.y = clamp(pLeft.y, court.y + half, court.y + court.h - half);
+        pRight.y = clamp(pRight.y, court.y + half, court.y + court.h - half);
+    }
+
+    function resetBall(dir) {
+        ball.x = court.x + court.w / 2;
+        ball.y = court.y + court.h / 2;
+        ball.trail = [];
+        ballSpeedFrac = BASE_SPEED_FRAC * (settings.mode === '1p' ? DIFFS[settings.diff].ballMul : 1);
+        var ang = rand(-0.35, 0.35);
+        var sp = ballSpeedFrac * diag;
+        ball.vx = Math.cos(ang) * sp * dir;
+        ball.vy = Math.sin(ang) * sp;
+        rally = 0;
+        rollRobotError();
+    }
+
+    function rollRobotError() {
+        var d = DIFFS[settings.diff];
+        robot.err = rand(-1, 1) * d.errFrac * PADDLE_H;
+        robot.reactT = d.react;
+    }
+
+    /* ---------- Input: pointers ---------- */
+    var pointerMap = {};   // pointerId -> paddle
+
+    function paddleForPointer(clientX) {
+        if (settings.mode === '1p' || state === 'menu') return pLeft;
+        return clientX < W / 2 ? pLeft : pRight;
+    }
+
+    canvas.addEventListener('pointerdown', function (e) {
         e.preventDefault();
-        for (const t of e.changedTouches) {
-            const side = t.clientX < W / 2 ? 'left' : 'right';
-            activeTouches[t.identifier] = { side };
-            setPaddleTarget(side, t.clientY);
-        }
-    }
-
-    function handleTouchMove(e) {
-        e.preventDefault();
-        for (const t of e.changedTouches) {
-            const info = activeTouches[t.identifier];
-            if (info) setPaddleTarget(info.side, t.clientY);
-        }
-    }
-
-    function handleTouchEnd(e) {
-        for (const t of e.changedTouches) {
-            const info = activeTouches[t.identifier];
-            if (info) {
-                const p = info.side === 'left' ? paddle1 : paddle2;
-                p.targetY = null;
-            }
-            delete activeTouches[t.identifier];
-        }
-    }
-
-    function setPaddleTarget(side, clientY) {
-        const p = side === 'left' ? paddle1 : paddle2;
-        p.targetY = Math.max(0, Math.min(H - PADDLE_HEIGHT, clientY - PADDLE_HEIGHT / 2));
-    }
-
-    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-    canvas.addEventListener('touchend', handleTouchEnd);
-    canvas.addEventListener('touchcancel', handleTouchEnd);
-
-    /* ── Mouse fallback (for testing on desktop) ──────── */
-    canvas.addEventListener('mousemove', e => {
-        const side = e.clientX < W / 2 ? 'left' : 'right';
-        setPaddleTarget(side, e.clientY);
+        if (paused || state === 'win') return;
+        var p = paddleForPointer(e.clientX);
+        pointerMap[e.pointerId] = p;
+        p.targetY = e.clientY;
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ok */ }
     });
 
-    /* ── Ball reset ────────────────────────────────────── */
-    function resetBall(serveDirection) {
-        ball.x = W / 2;
-        ball.y = H / 2;
-        ball.speed = BALL_SPEED_INIT;
-        ball.trail = [];
-        const angle = (Math.random() * 0.8 - 0.4); // ±~23°
-        ball.vx = Math.cos(angle) * ball.speed * serveDirection;
-        ball.vy = Math.sin(angle) * ball.speed;
+    canvas.addEventListener('pointermove', function (e) {
+        if (paused || state === 'win') return;
+        var p = pointerMap[e.pointerId];
+        if (!p && e.pointerType === 'mouse') p = paddleForPointer(e.clientX);
+        if (p && !(settings.mode === '1p' && p === pRight)) p.targetY = e.clientY;
+    });
+
+    function releasePointer(e) {
+        var p = pointerMap[e.pointerId];
+        if (p) p.targetY = null;
+        delete pointerMap[e.pointerId];
+    }
+    canvas.addEventListener('pointerup', releasePointer);
+    canvas.addEventListener('pointercancel', releasePointer);
+    canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+    /* ---------- Input: keyboard ---------- */
+    var keys = {};
+    window.addEventListener('keydown', function (e) {
+        var k = e.key;
+        if (k === ' ' || k.indexOf('Arrow') === 0) e.preventDefault();
+        keys[k.length === 1 ? k.toLowerCase() : k] = true;
+        if ((k === 'p' || k === 'P' || k === 'Escape') &&
+            (state === 'serve' || state === 'play' || state === 'point')) {
+            togglePause();
+        }
+        if ((k === 'Enter' || k === ' ') && state === 'menu' && !menuOverlay.classList.contains('hidden')) {
+            startMatch();
+        }
+    });
+    window.addEventListener('keyup', function (e) {
+        var k = e.key;
+        keys[k.length === 1 ? k.toLowerCase() : k] = false;
+    });
+
+    /* ---------- Menu wiring ---------- */
+    function selectIn(row, attr, value) {
+        var btns = row.querySelectorAll('.pick-btn');
+        for (var i = 0; i < btns.length; i++) {
+            btns[i].classList.toggle('selected', btns[i].getAttribute(attr) === String(value));
+        }
     }
 
-    /* ── Particles ─────────────────────────────────────── */
-    function spawnGoalParticles(x, y, color) {
-        for (let i = 0; i < 40; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 2 + Math.random() * 6;
+    function refreshMenuUI() {
+        selectIn(modeRow, 'data-mode', settings.mode);
+        selectIn(difficultyRow, 'data-diff', settings.diff);
+        selectIn(pointsRow, 'data-points', settings.points);
+        difficultySetting.classList.toggle('hidden', settings.mode !== '1p');
+    }
+
+    modeRow.addEventListener('click', function (e) {
+        var b = e.target.closest('.pick-btn');
+        if (!b) return;
+        settings.mode = b.getAttribute('data-mode');
+        localStorage.setItem(LS + 'mode', settings.mode);
+        refreshMenuUI();
+        audio.click();
+    });
+    difficultyRow.addEventListener('click', function (e) {
+        var b = e.target.closest('.pick-btn');
+        if (!b) return;
+        settings.diff = b.getAttribute('data-diff');
+        localStorage.setItem(LS + 'diff', settings.diff);
+        refreshMenuUI();
+        audio.click();
+    });
+    pointsRow.addEventListener('click', function (e) {
+        var b = e.target.closest('.pick-btn');
+        if (!b) return;
+        settings.points = parseInt(b.getAttribute('data-points'), 10);
+        localStorage.setItem(LS + 'points', settings.points);
+        refreshMenuUI();
+        audio.click();
+    });
+
+    playBtn.addEventListener('click', function () { audio.click(); startMatch(); });
+    rematchBtn.addEventListener('click', function () { audio.click(); startMatch(); });
+    winMenuBtn.addEventListener('click', function () { audio.click(); goMenu(); });
+    pauseBtn.addEventListener('click', function () { audio.click(); togglePause(); });
+    resumeBtn.addEventListener('click', function () { audio.click(); togglePause(); });
+    pauseMenuBtn.addEventListener('click', function () {
+        audio.click();
+        paused = false;
+        pauseOverlay.classList.add('hidden');
+        goMenu();
+    });
+
+    /* ---------- Sound toggle ---------- */
+    function refreshSoundBtn() {
+        soundBtn.textContent = audio.isMuted() ? '🔇' : '🔊';
+        soundBtn.setAttribute('aria-label', audio.isMuted() ? 'Sound off' : 'Sound on');
+    }
+    soundBtn.addEventListener('click', function () {
+        audio.setMuted(!audio.isMuted());
+        refreshSoundBtn();
+        audio.click();
+    });
+    refreshSoundBtn();
+
+    /* ---------- Flow ---------- */
+    function startMatch() {
+        menuOverlay.classList.add('hidden');
+        winOverlay.classList.add('hidden');
+        pLeft.score = 0;
+        pRight.score = 0;
+        pLeft.popT = 0;
+        pRight.popT = 0;
+        pLeft.y = court.y + court.h / 2;
+        pRight.y = court.y + court.h / 2;
+        pLeft.targetY = null;
+        pRight.targetY = null;
+        pRight.isRobot = settings.mode === '1p';
+        particles = [];
+        confetti = [];
+        serveDir = Math.random() < 0.5 ? 1 : -1;
+        beginServe();
+    }
+
+    function beginServe() {
+        resetBall(serveDir);
+        serveStep = -1;
+        setState('serve');
+        countdownEl.classList.remove('hidden');
+    }
+
+    function goMenu() {
+        winOverlay.classList.add('hidden');
+        menuOverlay.classList.remove('hidden');
+        pRight.isRobot = true;   // attract mode: both sides drift
+        pLeft.targetY = null;
+        pRight.targetY = null;
+        confetti = [];
+        resetBall(Math.random() < 0.5 ? 1 : -1);
+        refreshMenuUI();
+        setState('menu');
+    }
+
+    function togglePause() {
+        if (state === 'menu' || state === 'win') return;
+        paused = !paused;
+        pauseOverlay.classList.toggle('hidden', !paused);
+    }
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden && !paused && (state === 'serve' || state === 'play' || state === 'point')) {
+            togglePause();
+        }
+    });
+
+    function playerName(side) {
+        if (settings.mode === '1p') return side === 'left' ? 'You' : 'Robot';
+        return side === 'left' ? 'Coral' : 'Purple';
+    }
+
+    function scorePoint(side) {
+        var p = side === 'left' ? pLeft : pRight;
+        p.score++;
+        p.popT = 1;
+        pointSide = side;
+        audio.score();
+        var gx = side === 'left' ? court.x + court.w : court.x;
+        burstParticles(gx, ball.y, side === 'left' ? CORAL : PURPLE, 26);
+        setState('point');
+    }
+
+    function endMatch(side) {
+        winnerSide = side;
+        celebrate = !(settings.mode === '1p' && side === 'right');
+        if (celebrate) {
+            winEmoji.textContent = '🎉';
+            if (settings.mode === '1p') {
+                winText.textContent = 'You beat the robot!';
+                winSub.textContent = 'Amazing paddling! 🏓';
+            } else {
+                winText.textContent = (side === 'left' ? '🍓 Coral' : '🍇 Purple') + ' Player wins!';
+                winSub.textContent = 'What a match! High five! ✋';
+            }
+            audio.win();
+            confettiBursts = 4;
+            confettiTimer = 0;
+            spawnConfetti(W / 2, H * 0.3, 90);
+        } else {
+            winEmoji.textContent = '🤖';
+            winText.textContent = 'Robot wins this time!';
+            winSub.textContent = 'Oopsie! Try again — you almost had it!';
+            audio.lose();
+        }
+        winOverlay.classList.remove('hidden');
+        setState('win');
+    }
+
+    /* ---------- Particles & confetti ---------- */
+    function burstParticles(x, y, color, n) {
+        for (var i = 0; i < n; i++) {
+            var a = Math.random() * Math.PI * 2;
+            var sp = rand(60, 380);
             particles.push({
-                x, y,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
+                x: x, y: y,
+                vx: Math.cos(a) * sp,
+                vy: Math.sin(a) * sp,
                 life: 1,
-                decay: 0.015 + Math.random() * 0.02,
-                radius: 3 + Math.random() * 5,
-                color
+                decay: rand(1.2, 2.6),
+                r: rand(2.5, 6.5),
+                color: color === 'rainbow' ? CONFETTI_COLORS[i % CONFETTI_COLORS.length] : color
             });
         }
     }
 
-    function updateParticles() {
-        for (let i = particles.length - 1; i >= 0; i--) {
-            const p = particles[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            p.life -= p.decay;
+    function spawnConfetti(x, y, n) {
+        for (var i = 0; i < n; i++) {
+            confetti.push({
+                x: x + rand(-40, 40),
+                y: y + rand(-20, 20),
+                vx: rand(-360, 360),
+                vy: rand(-620, -120),
+                rot: Math.random() * Math.PI * 2,
+                vr: rand(-9, 9),
+                size: rand(6, 13),
+                color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+                life: rand(1.7, 2.7),
+                shape: i % 3
+            });
+        }
+    }
+
+    function updateParticles(dt) {
+        for (var i = particles.length - 1; i >= 0; i--) {
+            var p = particles[i];
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.vx *= (1 - 2.2 * dt);
+            p.vy += 500 * dt;
+            p.life -= p.decay * dt;
             if (p.life <= 0) particles.splice(i, 1);
         }
     }
 
-    /* ── Update ────────────────────────────────────────── */
-    function update() {
-        /* Paddle smoothing */
-        smoothPaddle(paddle1);
-        smoothPaddle(paddle2);
+    function updateConfetti(dt) {
+        if (state === 'win' && celebrate && confettiBursts > 0) {
+            confettiTimer -= dt;
+            if (confettiTimer <= 0) {
+                spawnConfetti(rand(W * 0.25, W * 0.75), H * 0.25, 55);
+                confettiBursts--;
+                confettiTimer = 1.3;
+            }
+        }
+        for (var i = confetti.length - 1; i >= 0; i--) {
+            var c = confetti[i];
+            c.x += c.vx * dt;
+            c.y += c.vy * dt;
+            c.vy += 880 * dt;
+            c.vx *= (1 - 0.8 * dt);
+            c.rot += c.vr * dt;
+            c.life -= dt;
+            if (c.life <= 0 || c.y > H + 40) confetti.splice(i, 1);
+        }
+    }
 
-        /* Ball movement */
-        ball.x += ball.vx;
-        ball.y += ball.vy;
+    /* ---------- Robot AI ---------- */
+    function predictBallY(targetX) {
+        if (Math.abs(ball.vx) < 1) return ball.y;
+        var t = (targetX - ball.x) / ball.vx;
+        if (t < 0) return ball.y;
+        var yRaw = ball.y + ball.vy * t;
+        // fold reflections off top/bottom walls
+        var top = court.y + BALL_R, bot = court.y + court.h - BALL_R;
+        var span = bot - top;
+        var yy = (yRaw - top) % (2 * span);
+        if (yy < 0) yy += 2 * span;
+        return yy <= span ? top + yy : top + (2 * span - yy);
+    }
 
-        /* Trail */
+    function updateRobot(pad, dt, attract) {
+        var d = DIFFS[settings.diff];
+        var maxV = (attract ? 0.35 : d.speed) * court.h;
+        var toward = pad.side === 'right' ? ball.vx > 0 : ball.vx < 0;
+        if (toward || attract) {
+            if (robot.reactT > 0 && !attract) {
+                robot.reactT -= dt;
+            } else {
+                var aim = (d.predict && !attract) ? predictBallY(pad.x) : ball.y;
+                robot.aimY = aim + (attract ? 0 : robot.err);
+            }
+        } else {
+            robot.aimY = court.y + court.h / 2 + Math.sin(perfT * 1.3) * court.h * 0.08;
+        }
+        var dy = robot.aimY - pad.y;
+        var step = clamp(dy * 6 * dt, -maxV * dt, maxV * dt);
+        pad.y += step;
+    }
+
+    /* ---------- Update ---------- */
+    var perfT = 0;
+
+    function movePaddleByInput(pad, dt, upKeys, downKeys) {
+        var kv = 0;
+        for (var i = 0; i < upKeys.length; i++) if (keys[upKeys[i]]) kv -= 1;
+        for (var j = 0; j < downKeys.length; j++) if (keys[downKeys[j]]) kv += 1;
+        if (kv !== 0) {
+            pad.targetY = null;
+            pad.y += kv * court.h * 1.05 * dt;
+        } else if (pad.targetY !== null) {
+            var diff = pad.targetY - pad.y;
+            pad.y += diff * Math.min(1, dt * 16);
+        }
+    }
+
+    function updatePaddles(dt) {
+        var attract = state === 'menu';
+        if (attract) {
+            // both paddles lazily chase the ball for the menu backdrop
+            pLeft.y += clamp((ball.y - pLeft.y) * 2.2 * dt, -court.h * 0.3 * dt, court.h * 0.3 * dt);
+            updateRobot(pRight, dt, true);
+        } else {
+            if (settings.mode === '1p') {
+                movePaddleByInput(pLeft, dt, ['w', 'ArrowUp'], ['s', 'ArrowDown']);
+                updateRobot(pRight, dt, false);
+            } else {
+                movePaddleByInput(pLeft, dt, ['w'], ['s']);
+                movePaddleByInput(pRight, dt, ['ArrowUp'], ['ArrowDown']);
+            }
+        }
+        clampPaddles();
+        pLeft.squash = Math.max(0, pLeft.squash - dt * 4);
+        pRight.squash = Math.max(0, pRight.squash - dt * 4);
+        pLeft.popT = Math.max(0, pLeft.popT - dt * 2);
+        pRight.popT = Math.max(0, pRight.popT - dt * 2);
+        pLeft.blinkT -= dt;
+        pRight.blinkT -= dt;
+        if (pLeft.blinkT < -0.15) pLeft.blinkT = 2 + Math.random() * 3;
+        if (pRight.blinkT < -0.15) pRight.blinkT = 2 + Math.random() * 3;
+    }
+
+    function deflect(pad, dir, hitY) {
+        var half = PADDLE_H / 2 + BALL_R;
+        var hitPos = clamp((hitY - pad.y) / half, -1, 1);
+        var ang = hitPos * (Math.PI / 3);   // up to 60 degrees
+        ballSpeedFrac = Math.min(MAX_SPEED_FRAC, ballSpeedFrac * 1.05);
+        var sp = ballSpeedFrac * diag;
+        ball.vx = Math.cos(ang) * sp * dir;
+        ball.vy = Math.sin(ang) * sp;
+        rally++;
+        pad.squash = 1;
+        audio.paddle(rally);
+        burstParticles(pad.x + dir * (PADDLE_W / 2 + BALL_R), hitY,
+            pad.side === 'left' ? CORAL : PURPLE, 10);
+        if (pad === pLeft) rollRobotError();   // robot re-reads the ball each rally
+    }
+
+    function updateBall(dt) {
+        var ox = ball.x, oy = ball.y;
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
+
         ball.trail.push({ x: ball.x, y: ball.y });
-        if (ball.trail.length > 18) ball.trail.shift();
+        if (ball.trail.length > 24) ball.trail.shift();
 
-        /* Top / bottom bounce */
-        if (ball.y - BALL_RADIUS < 0) {
-            ball.y = BALL_RADIUS;
-            ball.vy *= -1;
+        // top/bottom walls
+        if (ball.y - BALL_R < court.y) {
+            ball.y = court.y + BALL_R;
+            if (ball.vy < 0) { ball.vy *= -1; audio.wall(); burstParticles(ball.x, court.y + 2, YELLOW, 6); }
         }
-        if (ball.y + BALL_RADIUS > H) {
-            ball.y = H - BALL_RADIUS;
-            ball.vy *= -1;
-        }
-
-        /* Paddle collision – left */
-        if (ball.vx < 0 &&
-            ball.x - BALL_RADIUS <= paddle1.x + PADDLE_WIDTH &&
-            ball.x - BALL_RADIUS >= paddle1.x &&
-            ball.y >= paddle1.y && ball.y <= paddle1.y + PADDLE_HEIGHT) {
-            deflect(paddle1, 1);
+        if (ball.y + BALL_R > court.y + court.h) {
+            ball.y = court.y + court.h - BALL_R;
+            if (ball.vy > 0) { ball.vy *= -1; audio.wall(); burstParticles(ball.x, court.y + court.h - 2, YELLOW, 6); }
         }
 
-        /* Paddle collision – right */
-        if (ball.vx > 0 &&
-            ball.x + BALL_RADIUS >= paddle2.x &&
-            ball.x + BALL_RADIUS <= paddle2.x + PADDLE_WIDTH &&
-            ball.y >= paddle2.y && ball.y <= paddle2.y + PADDLE_HEIGHT) {
-            deflect(paddle2, -1);
+        // paddles (swept so a fast ball can't tunnel through)
+        if (ball.vx < 0) {
+            var face = pLeft.x + PADDLE_W / 2;
+            if (ox - BALL_R >= face && ball.x - BALL_R <= face) {
+                var t = ((ox - BALL_R) - face) / ((ox - BALL_R) - (ball.x - BALL_R));
+                var hy = oy + (ball.y - oy) * t;
+                if (Math.abs(hy - pLeft.y) <= PADDLE_H / 2 + BALL_R) {
+                    ball.x = face + BALL_R + 0.5;
+                    ball.y = hy;
+                    deflect(pLeft, 1, hy);
+                }
+            }
+        } else if (ball.vx > 0) {
+            var face2 = pRight.x - PADDLE_W / 2;
+            if (ox + BALL_R <= face2 && ball.x + BALL_R >= face2) {
+                var t2 = (face2 - (ox + BALL_R)) / ((ball.x + BALL_R) - (ox + BALL_R));
+                var hy2 = oy + (ball.y - oy) * t2;
+                if (Math.abs(hy2 - pRight.y) <= PADDLE_H / 2 + BALL_R) {
+                    ball.x = face2 - BALL_R - 0.5;
+                    ball.y = hy2;
+                    deflect(pRight, -1, hy2);
+                }
+            }
         }
 
-        /* Goal – right wall → player 1 scores */
-        if (ball.x - BALL_RADIUS > W) {
-            paddle1.score++;
-            scoreLeftEl.textContent = paddle1.score;
-            flashScore('left');
-            spawnGoalParticles(W, ball.y, COL_CYAN);
-            if (paddle1.score >= winningScore) return endGame(1);
-            resetBall(-1);
+        if (state === 'menu') {
+            // attract mode: never score, just rebound at the goal lines
+            if (ball.x - BALL_R < court.x && ball.vx < 0) { ball.x = court.x + BALL_R; ball.vx *= -1; }
+            if (ball.x + BALL_R > court.x + court.w && ball.vx > 0) { ball.x = court.x + court.w - BALL_R; ball.vx *= -1; }
+            return;
         }
 
-        /* Goal – left wall → player 2 scores */
-        if (ball.x + BALL_RADIUS < 0) {
-            paddle2.score++;
-            scoreRightEl.textContent = paddle2.score;
-            flashScore('right');
-            spawnGoalParticles(0, ball.y, COL_MAGENTA);
-            if (paddle2.score >= winningScore) return endGame(2);
-            resetBall(1);
-        }
-
-        updateParticles();
+        // goals
+        if (ball.x + BALL_R < court.x - 30) scorePoint('right');
+        else if (ball.x - BALL_R > court.x + court.w + 30) scorePoint('left');
     }
 
-    function smoothPaddle(p) {
-        if (p.targetY !== null) {
-            const diff = p.targetY - p.y;
-            p.y += diff * 0.25;   // smooth follow
+    function updateServe(dt) {
+        // ball waits in the middle; countdown 3-2-1-GO
+        var step = Math.floor(stateT / 0.7);
+        if (step !== serveStep) {
+            serveStep = step;
+            var labels = ['3', '2', '1', 'GO!'];
+            if (step < 3) {
+                countdownText.textContent = labels[step];
+                countdownText.classList.remove('go');
+                audio.beep();
+            } else if (step === 3) {
+                countdownText.textContent = 'GO!';
+                countdownText.classList.add('go');
+                audio.go();
+            }
+            countdownText.style.animation = 'none';
+            void countdownText.offsetWidth;
+            countdownText.style.animation = '';
+        }
+        if (stateT >= 2.55) {
+            countdownEl.classList.add('hidden');
+            setState('play');
         }
     }
 
-    function deflect(paddle, dirX) {
-        /* Where on the paddle the ball hit (–1 to 1) */
-        const hitPos = ((ball.y - paddle.y) / PADDLE_HEIGHT) * 2 - 1;
-        const angle = hitPos * (Math.PI / 3.2);  // max ~56°
-        ball.speed = Math.min(BALL_SPEED_MAX, ball.speed + BALL_ACCEL);
-        ball.vx = Math.cos(angle) * ball.speed * dirX;
-        ball.vy = Math.sin(angle) * ball.speed;
-        /* Nudge ball out of paddle */
-        ball.x += ball.vx;
+    function update(dt) {
+        perfT += dt;
+        hueBase = (hueBase + dt * 160) % 360;
+        updateParticles(dt);
+        updateConfetti(dt);
+
+        if (paused) return;
+
+        switch (state) {
+            case 'menu':
+                updatePaddles(dt);
+                updateBall(dt);
+                break;
+            case 'serve':
+                updatePaddles(dt);
+                updateServe(dt);
+                break;
+            case 'play':
+                updatePaddles(dt);
+                updateBall(dt);
+                break;
+            case 'point':
+                updatePaddles(dt);
+                if (stateT > 0.9) {
+                    var scorer = pointSide === 'left' ? pLeft : pRight;
+                    if (scorer.score >= settings.points) {
+                        endMatch(pointSide);
+                    } else {
+                        serveDir = pointSide === 'left' ? 1 : -1;  // loser receives
+                        beginServe();
+                    }
+                }
+                break;
+            case 'win':
+                break;
+        }
+        stateT += dt;
     }
 
-    function flashScore(side) {
-        const el = side === 'left' ? scoreLeftEl : scoreRightEl;
-        el.classList.add('flash-' + side);
-        setTimeout(() => el.classList.remove('flash-' + side), 300);
+    /* ---------- Drawing ---------- */
+    function roundRectPath(c, x, y, w, h, r) {
+        r = Math.min(r, w / 2, h / 2);
+        c.beginPath();
+        c.moveTo(x + r, y);
+        c.arcTo(x + w, y, x + w, y + h, r);
+        c.arcTo(x + w, y + h, x, y + h, r);
+        c.arcTo(x, y + h, x, y, r);
+        c.arcTo(x, y, x + w, y, r);
+        c.closePath();
     }
 
-    /* ── Draw ──────────────────────────────────────────── */
-    function draw() {
-        ctx.clearRect(0, 0, W, H);
-
-        /* Background subtle radial glow */
-        const grad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.6);
-        grad.addColorStop(0, 'rgba(20,20,50,1)');
-        grad.addColorStop(1, 'rgba(10,10,26,1)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, H);
-
-        /* Center net */
-        drawNet();
-
-        /* Paddles */
-        drawPaddle(paddle1, COL_CYAN);
-        drawPaddle(paddle2, COL_MAGENTA);
-
-        /* Ball trail */
-        drawTrail();
-
-        /* Ball */
-        drawBall();
-
-        /* Particles */
-        drawParticles();
-
-        /* Touch zone indicator (subtle) */
-        drawTouchZones();
-    }
-
-    function drawNet() {
-        const dashLen = 16, gap = 14;
+    function drawCourt() {
         ctx.save();
-        ctx.strokeStyle = COL_NET;
-        ctx.lineWidth = 3;
-        ctx.setLineDash([dashLen, gap]);
+        ctx.shadowColor = 'rgba(162, 155, 254, 0.3)';
+        ctx.shadowBlur = 26;
+        ctx.fillStyle = 'rgba(255,255,255,0.78)';
+        roundRectPath(ctx, court.x, court.y, court.w, court.h, 30);
+        ctx.fill();
+        ctx.restore();
+
+        // soft team-half tints
+        ctx.save();
+        roundRectPath(ctx, court.x, court.y, court.w, court.h, 30);
+        ctx.clip();
+        ctx.fillStyle = 'rgba(255,107,107,0.045)';
+        ctx.fillRect(court.x, court.y, court.w / 2, court.h);
+        ctx.fillStyle = 'rgba(162,155,254,0.055)';
+        ctx.fillRect(court.x + court.w / 2, court.y, court.w / 2, court.h);
+
+        // dashed net + center circle
+        ctx.strokeStyle = 'rgba(45,52,54,0.10)';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([14, 16]);
         ctx.beginPath();
-        ctx.moveTo(W / 2, 0);
-        ctx.lineTo(W / 2, H);
+        ctx.moveTo(court.x + court.w / 2, court.y + 8);
+        ctx.lineTo(court.x + court.w / 2, court.y + court.h - 8);
         ctx.stroke();
         ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(court.x + court.w / 2, court.y + court.h / 2, U * 0.09, 0, Math.PI * 2);
+        ctx.stroke();
         ctx.restore();
     }
 
-    function drawPaddle(p, color) {
-        const r = 8;
+    function drawScores() {
+        if (state === 'menu') return;
+        var fs = Math.round(U * 0.15);
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        var lScale = 1 + 0.55 * easeOut(pLeft.popT);
+        var rScale = 1 + 0.55 * easeOut(pRight.popT);
+        var y = court.y + U * 0.13;
+
+        ctx.font = '700 ' + fs + 'px Fredoka, system-ui, sans-serif';
+        ctx.fillStyle = 'rgba(255,107,107,' + (0.3 + 0.45 * pLeft.popT) + ')';
+        ctx.save();
+        ctx.translate(court.x + court.w * 0.25, y);
+        ctx.scale(lScale, lScale);
+        ctx.fillText(String(pLeft.score), 0, 0);
+        ctx.restore();
+
+        ctx.fillStyle = 'rgba(162,155,254,' + (0.35 + 0.45 * pRight.popT) + ')';
+        ctx.save();
+        ctx.translate(court.x + court.w * 0.75, y);
+        ctx.scale(rScale, rScale);
+        ctx.fillText(String(pRight.score), 0, 0);
+        ctx.restore();
+
+        if (state === 'serve') {
+            ctx.font = '600 ' + Math.round(U * 0.032) + 'px Fredoka, system-ui, sans-serif';
+            ctx.fillStyle = 'rgba(45,52,54,0.4)';
+            ctx.fillText(playerName('left'), court.x + court.w * 0.25, y + fs * 0.72);
+            ctx.fillText(playerName('right') + (pRight.isRobot ? ' 🤖' : ''), court.x + court.w * 0.75, y + fs * 0.72);
+        }
+        ctx.restore();
+    }
+
+    function easeOut(t) { return 1 - Math.pow(1 - clamp(t, 0, 1), 3); }
+
+    function drawPaddle(pad) {
+        var color = pad.side === 'left' ? CORAL : PURPLE;
+        var s = easeOut(pad.squash);
+        var w = PADDLE_W * (1 + 0.65 * s);
+        var h = PADDLE_H * (1 - 0.16 * s);
+        var x = pad.x - w / 2;
+        var y = pad.y - h / 2;
+
+        ctx.save();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = color;
+        roundRectPath(ctx, x, y, w, h, w / 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        // gloss stripe
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        roundRectPath(ctx, x + w * 0.18, y + h * 0.05, w * 0.28, h * 0.9, w * 0.14);
+        ctx.fill();
+        ctx.restore();
+
+        if (pad.isRobot && settings.mode === '1p' && state !== 'menu') drawRobotFace(pad);
+    }
+
+    function drawRobotFace(pad) {
+        var r = Math.max(16, PADDLE_W * 1.35);
+        var cx = pad.x, cy = pad.y;
         ctx.save();
 
-        /* Glow */
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 24;
-
-        /* Body */
-        ctx.fillStyle = color;
-        roundRect(ctx, p.x, p.y, PADDLE_WIDTH, PADDLE_HEIGHT, r);
+        // antenna
+        ctx.strokeStyle = '#8478f0';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - r + 2);
+        ctx.lineTo(cx, cy - r - 10);
+        ctx.stroke();
+        ctx.fillStyle = YELLOW;
+        ctx.beginPath();
+        ctx.arc(cx, cy - r - 14, 5 + Math.sin(perfT * 6) * 1.2, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.shadowBlur = 0;
-        ctx.restore();
-    }
+        // head
+        ctx.fillStyle = '#b7aefe';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath();
+        ctx.arc(cx - r * 0.25, cy - r * 0.3, r * 0.4, 0, Math.PI * 2);
+        ctx.fill();
 
-    function drawTrail() {
-        for (let i = 0; i < ball.trail.length; i++) {
-            const t = ball.trail[i];
-            const alpha = (i / ball.trail.length) * 0.35;
-            const radius = BALL_RADIUS * (0.3 + 0.7 * (i / ball.trail.length));
+        // eyes track the ball
+        var dx = ball.x - cx, dy = ball.y - cy;
+        var len = Math.hypot(dx, dy) || 1;
+        var px = (dx / len) * r * 0.14, py = (dy / len) * r * 0.14;
+        var blink = pad.blinkT < 0 ? 0.15 : 1;
+        var er = r * 0.3;
+        for (var side = -1; side <= 1; side += 2) {
+            var ex = cx + side * r * 0.38, ey = cy - r * 0.12;
+            ctx.fillStyle = '#ffffff';
             ctx.beginPath();
-            ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+            ctx.ellipse(ex, ey, er, er * blink, 0, 0, Math.PI * 2);
             ctx.fill();
+            if (blink === 1) {
+                ctx.fillStyle = INK;
+                ctx.beginPath();
+                ctx.arc(ex + px, ey + py, er * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(ex + px - er * 0.15, ey + py - er * 0.15, er * 0.14, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
+
+        // smile
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(cx, cy + r * 0.25, r * 0.35, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+        ctx.restore();
     }
 
     function drawBall() {
+        if (state === 'point' || state === 'win') return;
+        // rainbow trail
+        for (var i = 0; i < ball.trail.length; i++) {
+            var t = ball.trail[i];
+            var f = i / ball.trail.length;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, BALL_R * (0.25 + 0.75 * f), 0, Math.PI * 2);
+            ctx.fillStyle = 'hsla(' + ((hueBase + i * 14) % 360) + ', 85%, 65%, ' + (f * 0.45) + ')';
+            ctx.fill();
+        }
         ctx.save();
-        ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur = 20;
+        ctx.shadowColor = 'rgba(45,52,54,0.35)';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
-        ctx.fillStyle = COL_BALL;
+        ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
+        ctx.strokeStyle = 'hsl(' + hueBase + ', 85%, 62%)';
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
         ctx.restore();
     }
 
     function drawParticles() {
-        for (const p of particles) {
-            ctx.globalAlpha = p.life;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.radius * p.life, 0, Math.PI * 2);
+        for (var i = 0; i < particles.length; i++) {
+            var p = particles[i];
+            ctx.globalAlpha = clamp(p.life, 0, 1);
             ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
             ctx.fill();
         }
         ctx.globalAlpha = 1;
     }
 
-    function drawTouchZones() {
-        /* Very faint vertical half-line at center */
-        ctx.save();
-        ctx.globalAlpha = 0.02;
-        ctx.fillStyle = COL_CYAN;
-        ctx.fillRect(0, 0, W / 2, H);
-        ctx.fillStyle = COL_MAGENTA;
-        ctx.fillRect(W / 2, 0, W / 2, H);
-        ctx.restore();
-    }
-
-    function roundRect(c, x, y, w, h, r) {
-        c.beginPath();
-        c.moveTo(x + r, y);
-        c.lineTo(x + w - r, y);
-        c.arcTo(x + w, y, x + w, y + r, r);
-        c.lineTo(x + w, y + h - r);
-        c.arcTo(x + w, y + h, x + w - r, y + h, r);
-        c.lineTo(x + r, y + h);
-        c.arcTo(x, y + h, x, y + h - r, r);
-        c.lineTo(x, y + r);
-        c.arcTo(x, y, x + r, y, r);
-        c.closePath();
-    }
-
-    /* ── Game loop ─────────────────────────────────────── */
-    function loop() {
-        if (!running) return;
-        update();
-        draw();
-        animId = requestAnimationFrame(loop);
-    }
-
-    /* ── Countdown & start ─────────────────────────────── */
-    function startCountdown(cb) {
-        countdown.classList.remove('hidden');
-        let n = 3;
-        countText.textContent = n;
-        // Re-trigger animation
-        countText.style.animation = 'none';
-        void countText.offsetWidth;
-        countText.style.animation = '';
-
-        const iv = setInterval(() => {
-            n--;
-            if (n > 0) {
-                countText.textContent = n;
-                countText.style.animation = 'none';
-                void countText.offsetWidth;
-                countText.style.animation = '';
+    function drawConfetti() {
+        fxCtx.clearRect(0, 0, W, H);
+        for (var i = 0; i < confetti.length; i++) {
+            var c = confetti[i];
+            fxCtx.save();
+            fxCtx.translate(c.x, c.y);
+            fxCtx.rotate(c.rot);
+            fxCtx.globalAlpha = clamp(c.life, 0, 1);
+            fxCtx.fillStyle = c.color;
+            if (c.shape === 0) {
+                fxCtx.fillRect(-c.size / 2, -c.size / 3, c.size, c.size * 0.66);
+            } else if (c.shape === 1) {
+                fxCtx.beginPath();
+                fxCtx.arc(0, 0, c.size / 2, 0, Math.PI * 2);
+                fxCtx.fill();
             } else {
-                countText.textContent = 'GO';
-                countText.style.animation = 'none';
-                void countText.offsetWidth;
-                countText.style.animation = '';
-                clearInterval(iv);
-                setTimeout(() => {
-                    countdown.classList.add('hidden');
-                    cb();
-                }, 500);
+                fxCtx.beginPath();
+                fxCtx.moveTo(0, -c.size / 2);
+                fxCtx.lineTo(c.size / 2, c.size / 2);
+                fxCtx.lineTo(-c.size / 2, c.size / 2);
+                fxCtx.closePath();
+                fxCtx.fill();
             }
-        }, 700);
+            fxCtx.restore();
+        }
     }
 
-    function startGame() {
-        menuOverlay.classList.add('hidden');
-        winOverlay.classList.add('hidden');
+    function draw() {
+        ctx.clearRect(0, 0, W, H);
+        drawCourt();
+        drawScores();
+        drawPaddle(pLeft);
+        drawPaddle(pRight);
+        drawBall();
+        drawParticles();
+        drawConfetti();
+    }
 
-        paddle1.score = 0;
-        paddle2.score = 0;
-        scoreLeftEl.textContent = '0';
-        scoreRightEl.textContent = '0';
-        paddle1.y = H / 2 - PADDLE_HEIGHT / 2;
-        paddle2.y = H / 2 - PADDLE_HEIGHT / 2;
-        paddle1.targetY = null;
-        paddle2.targetY = null;
-        particles = [];
-
-        resetBall(Math.random() < 0.5 ? 1 : -1);
-
-        // Draw initial frame behind countdown
+    /* ---------- Main loop ---------- */
+    var lastT = performance.now();
+    function loop(now) {
+        var dt = Math.min((now - lastT) / 1000, 0.05);
+        lastT = now;
+        update(dt);
         draw();
-
-        startCountdown(() => {
-            running = true;
-            loop();
-        });
+        requestAnimationFrame(loop);
     }
 
-    function endGame(winner) {
-        running = false;
-        if (animId) cancelAnimationFrame(animId);
-        winText.textContent = `Player ${winner} Wins!`;
-        winOverlay.classList.remove('hidden');
-    }
-
-    /* ── Button wiring ─────────────────────────────────── */
-    startBtn.addEventListener('click', startGame);
-    rematchBtn.addEventListener('click', startGame);
-    menuBtn.addEventListener('click', () => {
-        winOverlay.classList.add('hidden');
-        menuOverlay.classList.remove('hidden');
-    });
-
-    /* ── Prevent scroll / zoom on iOS ──────────────────── */
-    document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
-    document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
-    document.addEventListener('gestureend', e => e.preventDefault(), { passive: false });
-
-    /* ── Initial paint (menu visible, canvas behind) ───── */
-    draw();
-
+    /* ---------- Boot ---------- */
+    window.addEventListener('resize', resize);
+    resize();
+    goMenu();
+    requestAnimationFrame(loop);
 })();

@@ -3,85 +3,102 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="description" content="Classic Snake arcade game with neon aesthetics. Swipe or use arrow keys to play.">
-    <title>Snake</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Snakey Snack Time — a cute, kid-friendly snake game. Swipe or use arrow keys!">
+    <title>Snakey Snack Time</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600&display=swap"
-        rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <!-- Start / menu overlay -->
-    <div id="menu-overlay">
-        <div class="menu-card">
-            <h1 class="menu-title">🐍<br>SNAKE</h1>
-            <p class="menu-sub">Swipe or Arrow Keys</p>
-            <div class="difficulty-picker">
-                <button class="diff-btn active" data-speed="120">Easy</button>
-                <button class="diff-btn" data-speed="85">Medium</button>
-                <button class="diff-btn" data-speed="55">Hard</button>
-            </div>
-            <button id="start-btn" class="glow-btn">START GAME</button>
+    <!-- Soft pastel background blobs -->
+    <div class="blob blob-1" aria-hidden="true"></div>
+    <div class="blob blob-2" aria-hidden="true"></div>
+    <div class="blob blob-3" aria-hidden="true"></div>
+
+    <!-- Floating chrome -->
+    <a id="home-btn" class="chrome-btn" href="../index.html" aria-label="Back to games">🏠</a>
+    <button id="sound-btn" class="chrome-btn" aria-label="Toggle sound">🔊</button>
+
+    <!-- Game layout -->
+    <main class="game-shell">
+        <div class="hud">
+            <div class="hud-pill">🍎 <span id="score-val">0</span></div>
+            <div class="hud-pill">🏆 <span id="best-val">0</span></div>
+            <button id="pause-btn" class="chrome-btn hud-pause hidden" aria-label="Pause">⏸️</button>
         </div>
+        <div id="board-area">
+            <div id="board-frame" class="walls-off">
+                <canvas id="board"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <!-- On-screen D-pad (touch devices) -->
+    <div id="dpad" class="hidden" aria-hidden="true">
+        <button class="dpad-btn dpad-up" data-dir="up" aria-label="Up">▲</button>
+        <button class="dpad-btn dpad-left" data-dir="left" aria-label="Left">◀</button>
+        <button class="dpad-btn dpad-right" data-dir="right" aria-label="Right">▶</button>
+        <button class="dpad-btn dpad-down" data-dir="down" aria-label="Down">▼</button>
     </div>
 
-    <!-- In-game HUD -->
-    <div id="hud" class="hidden">
-        <div id="hud-left">
-            <span class="hud-label">SCORE</span>
-            <span id="score-display" class="hud-value">0</span>
-        </div>
-        <div id="hud-center">
-            <span class="hud-label">HIGH</span>
-            <span id="high-display" class="hud-value">0</span>
-        </div>
-        <div id="hud-right">
-            <span class="hud-label">LENGTH</span>
-            <span id="length-display" class="hud-value">3</span>
+    <!-- Start menu overlay -->
+    <div id="menu-overlay" class="overlay">
+        <div class="card">
+            <div class="card-emoji">🐍</div>
+            <h1 class="card-title">Snakey<br>Snack Time</h1>
+            <p class="card-sub">Munch the fruit and grow!</p>
+
+            <div class="option-label">Speed</div>
+            <div class="chip-row" id="speed-row">
+                <button class="chip" data-speed="slow">🐢<span>Slow</span></button>
+                <button class="chip" data-speed="fast">🐰<span>Fast</span></button>
+                <button class="chip" data-speed="zoom">🚀<span>Zoom!</span></button>
+            </div>
+
+            <div class="option-label">Walls</div>
+            <div class="chip-row" id="walls-row">
+                <button class="chip" data-walls="off">🌀<span>No walls</span></button>
+                <button class="chip" data-walls="on">🧱<span>Walls</span></button>
+            </div>
+
+            <button id="play-btn" class="btn btn-coral btn-huge">▶ Play</button>
+            <p class="card-hint">Swipe, tap the arrows, or use ⬅️⬆️⬇️➡️</p>
+            <p class="card-hint">🏆 Best: <span id="menu-best-val">0</span></p>
         </div>
     </div>
 
     <!-- Pause overlay -->
-    <div id="pause-overlay" class="hidden">
-        <div class="menu-card">
-            <h1 class="menu-title">⏸️<br>PAUSED</h1>
-            <button id="resume-btn" class="glow-btn">RESUME</button>
-            <button id="pause-menu-btn" class="glow-btn outline">MENU</button>
+    <div id="pause-overlay" class="overlay hidden">
+        <div class="card">
+            <div class="card-emoji">😴</div>
+            <h1 class="card-title">Snoozing…</h1>
+            <button id="resume-btn" class="btn btn-teal btn-huge">▶ Keep Going</button>
+            <button id="pause-menu-btn" class="btn btn-ghost">🏡 Menu</button>
         </div>
     </div>
 
-    <!-- Game Over overlay -->
-    <div id="gameover-overlay" class="hidden">
-        <div class="menu-card">
-            <h1 class="lose-title">GAME OVER</h1>
-            <p class="menu-sub" id="final-score-text">Score: 0</p>
-            <p class="menu-sub new-high hidden" id="new-high-text">🎉 NEW HIGH SCORE! 🎉</p>
-            <button id="retry-btn" class="glow-btn">PLAY AGAIN</button>
-            <button id="menu-btn" class="glow-btn outline">MENU</button>
+    <!-- Game over overlay -->
+    <div id="over-overlay" class="overlay hidden">
+        <div class="card">
+            <div class="card-emoji" id="over-emoji">🙈</div>
+            <h1 class="card-title" id="over-title">Oopsie!</h1>
+            <p class="card-sub" id="over-msg">Bonk! Try again?</p>
+            <div id="new-best-badge" class="best-badge hidden">🌟 New Best! 🌟</div>
+            <div class="score-row">
+                <div class="hud-pill">🍎 <span id="over-score-val">0</span></div>
+                <div class="hud-pill">🏆 <span id="over-best-val">0</span></div>
+            </div>
+            <button id="retry-btn" class="btn btn-coral btn-huge">🔁 Try Again</button>
+            <button id="over-menu-btn" class="btn btn-ghost">🏡 Menu</button>
         </div>
     </div>
 
-    <!-- Countdown -->
-    <div id="countdown" class="hidden">
-        <span id="countdown-text">3</span>
-    </div>
-
-    <!-- The game canvas -->
-    <canvas id="game-canvas"></canvas>
-
-    <!-- On-screen D-pad for touch -->
-    <div id="dpad" class="hidden">
-        <button class="dpad-btn dpad-up" data-dir="up">▲</button>
-        <button class="dpad-btn dpad-left" data-dir="left">◀</button>
-        <button class="dpad-btn dpad-right" data-dir="right">▶</button>
-        <button class="dpad-btn dpad-down" data-dir="down">▼</button>
-        <button class="dpad-btn dpad-pause" id="dpad-pause">⏸</button>
-    </div>
+    <!-- Confetti / celebration layer -->
+    <canvas id="fx" aria-hidden="true"></canvas>
 
     <script src="game.js"></script>
 </body>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Mix and match silly parts to build your own monster!">
+    <title>Monster Maker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <a id="home-btn" class="chrome-btn" href="../index.html" aria-label="Back to all games">🏠</a>
+    <button id="sound-btn" class="chrome-btn" type="button" aria-label="Toggle sound">🔊</button>
+
+    <main id="maker">
+        <h1 class="game-title">👾 Monster Maker</h1>
+
+        <div id="stage-card">
+            <div id="monster-wrap">
+                <svg id="monster" viewBox="0 0 400 440" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse id="ground-shadow" cx="200" cy="415" rx="110" ry="18" fill="rgba(45,52,54,.12)" />
+                    <g id="g-body"></g>
+                    <g id="g-eyes"></g>
+                    <g id="g-mouth"></g>
+                    <g id="g-top"></g>
+                    <g id="g-extra"></g>
+                </svg>
+            </div>
+            <div id="monster-name">&nbsp;</div>
+        </div>
+
+        <div id="controls">
+            <div id="tabs">
+                <button class="tab selected" data-cat="body" type="button">🫧 Body</button>
+                <button class="tab" data-cat="eyes" type="button">👀 Eyes</button>
+                <button class="tab" data-cat="mouth" type="button">👄 Mouth</button>
+                <button class="tab" data-cat="top" type="button">🎀 Top</button>
+                <button class="tab" data-cat="extra" type="button">✨ Extra</button>
+            </div>
+
+            <div id="cycler">
+                <button id="prev-btn" class="arrow-btn" type="button" aria-label="Previous">◀</button>
+                <div id="cycle-mid">
+                    <div id="option-name">Blob</div>
+                    <div id="dots"></div>
+                </div>
+                <button id="next-btn" class="arrow-btn" type="button" aria-label="Next">▶</button>
+            </div>
+
+            <div id="swatches"></div>
+
+            <div id="actions">
+                <button id="random-btn" class="big-btn" type="button">🎲 Randomize</button>
+                <button id="name-btn" class="big-btn secondary" type="button">📛 Name Me</button>
+                <button id="save-btn" class="big-btn tertiary" type="button">💾 Save</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

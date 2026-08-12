@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Space Rocks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Pastel background blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <!-- Play area -->
+    <div id="game-wrap">
+        <canvas id="game-canvas"></canvas>
+
+        <!-- HUD -->
+        <div id="hud" class="hidden">
+            <div class="hud-pill">⭐ <span id="hud-score">0</span></div>
+            <div class="hud-pill">🌊 <span id="hud-wave">1</span></div>
+            <div class="hud-pill" id="hud-shield-pill">🛡️
+                <span class="pip" id="pip-0"></span>
+                <span class="pip" id="pip-1"></span>
+                <span class="pip" id="pip-2"></span>
+            </div>
+        </div>
+
+        <!-- Wave banner -->
+        <div id="wave-banner" class="hidden">Wave 1!</div>
+
+        <!-- First-play touch hints -->
+        <div id="touch-hints" class="hidden">
+            <div class="hint hint-left">
+                <div class="hint-joy">
+                    <div class="hint-knob"></div>
+                </div>
+                <div class="hint-label">Slide to fly!</div>
+            </div>
+            <div class="hint hint-right">
+                <div class="hint-tap">✨</div>
+                <div class="hint-label">Tap to shoot!</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Start menu -->
+    <div id="menu-overlay" class="overlay">
+        <div class="card">
+            <div class="card-emoji">🚀</div>
+            <h1 class="card-title">Space Rocks</h1>
+            <p class="card-sub">Pop the sleepy space rocks!</p>
+            <button id="play-btn" class="big-btn btn-coral">▶&nbsp; Play</button>
+            <p class="best-line" id="menu-best">Best: 0 ⭐</p>
+            <p class="hint-line">🕹️ Left side: fly &nbsp;·&nbsp; ✨ Right side: shoot<br>⌨️ Arrows fly · Space shoots</p>
+        </div>
+    </div>
+
+    <!-- Game over -->
+    <div id="over-overlay" class="overlay hidden">
+        <div class="card">
+            <div class="card-emoji">💫</div>
+            <h1 class="card-title">Oopsie!</h1>
+            <p class="card-sub">Your rocket got dizzy. Try again?</p>
+            <div class="score-row">
+                <div class="score-box">Score<b id="over-score">0</b></div>
+                <div class="score-box">Best<b id="over-best">0</b></div>
+            </div>
+            <p id="new-best" class="new-best hidden">🎉 New best score! 🎉</p>
+            <button id="retry-btn" class="big-btn btn-teal">🔄&nbsp; Try Again</button>
+            <button id="over-menu-btn" class="mini-btn">Menu</button>
+        </div>
+    </div>
+
+    <!-- Pause -->
+    <div id="pause-overlay" class="overlay hidden">
+        <div class="card">
+            <div class="card-emoji">😴</div>
+            <h1 class="card-title">Paused</h1>
+            <p class="card-sub">Your rocket is taking a breather.</p>
+            <button id="resume-btn" class="big-btn btn-teal">▶&nbsp; Keep Playing</button>
+            <button id="restart-btn" class="mini-btn">🔄 Restart</button>
+            <button id="pause-menu-btn" class="mini-btn">Menu</button>
+        </div>
+    </div>
+
+    <!-- Floating chrome -->
+    <a id="home-btn" class="chrome-btn" href="../index.html" aria-label="Back to games">🏠</a>
+    <button id="sound-btn" class="chrome-btn" aria-label="Toggle sound">🔊</button>
+    <button id="pause-btn" class="chrome-btn hidden" aria-label="Pause">⏸️</button>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

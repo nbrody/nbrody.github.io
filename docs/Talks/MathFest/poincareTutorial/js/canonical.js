@@ -312,7 +312,7 @@ function completeMissingWalls(walls, conePoint, q0, vMat, vInv, maxFaces) {
             cov, geom,
             elem: matrix, word,
             kind: isStab ? 'cone' : 'face',
-            isParabolic: !isStab && tr2m4.normSq() < 1e-12,
+            isParabolic: !isStab && !matrix.anti && tr2m4.normSq() < 1e-12,
             seed: seed ? projectToWall(seed, geom) : undefined
         });
         added++;
@@ -399,7 +399,7 @@ function edgeCompletion(walls, orbit, conePoint, q0, vMat, maxFaces) {
             cov, geom,
             elem: matrix, word,
             kind: isStab ? 'cone' : 'face',
-            isParabolic: !isStab && tr2m4.normSq() < 1e-12,
+            isParabolic: !isStab && !matrix.anti && tr2m4.normSq() < 1e-12,
             seed: seed ? projectToWall(seed, geom) : undefined
         });
         added++;
@@ -505,14 +505,15 @@ export function computeCanonicalDomain(generators = [], viewMat = Matrix2x2.iden
         // Quick test with sparse samples first, then dense
         if (wallContributes(geom, geoms, idx, conePoint, false) ||
             wallContributes(geom, geoms, idx, conePoint, true)) {
-            // Parabolic ⇔ tr² = 4 (det 1, non-identity)
+            // Parabolic ⇔ tr² = 4 (det 1, non-identity, orientation-preserving —
+            // the trace test does not classify anti elements)
             const tr = cand.matrix.a.add(cand.matrix.d);
             const tr2m4 = tr.mul(tr).sub(new Complex(4));
             walls.push({
                 cov, geom,
                 elem: cand.matrix, word: cand.word,
                 kind: cand.kind,
-                isParabolic: cand.kind === 'face' && tr2m4.normSq() < 1e-12
+                isParabolic: cand.kind === 'face' && !cand.matrix.anti && tr2m4.normSq() < 1e-12
             });
         } else {
             geoms.pop();

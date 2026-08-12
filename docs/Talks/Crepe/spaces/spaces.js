@@ -206,7 +206,9 @@
         ctx.font = '600 12px "JetBrains Mono", monospace';
         ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
         const mx = (ax + bx) / 2, my = (ay + by) / 2;
-        const angle = Math.atan2(by - ay, bx - ax);
+        let angle = Math.atan2(by - ay, bx - ax);
+        // Keep the label upright — never render text upside-down
+        if (angle > Math.PI / 2 || angle < -Math.PI / 2) angle += Math.PI;
         ctx.save(); ctx.translate(mx, my); ctx.rotate(angle);
         ctx.fillText(`d = ${d.toFixed(1)}`, 0, -10);
         ctx.restore();
@@ -375,6 +377,35 @@
         shading.addColorStop(1, 'rgba(6,10,20,0.3)');
         ctx.fillStyle = shading; ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fill();
 
+        // Wireframe — meridians and parallels rotating with the sphere,
+        // so it reads as a globe rather than a flat disk
+        ctx.lineWidth = 1;
+        for (let m = 0; m < 6; m++) {
+            const lon = m * Math.PI / 6;
+            ctx.beginPath();
+            for (let i = 0; i <= 48; i++) {
+                const th = (i / 48) * TAU;
+                const v = [Math.sin(th) * Math.cos(lon), Math.cos(th), Math.sin(th) * Math.sin(lon)];
+                const p = project3d(v);
+                if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+            }
+            ctx.strokeStyle = 'rgba(124,138,255,0.10)';
+            ctx.stroke();
+        }
+        for (let q = -2; q <= 2; q++) {
+            const lat = q * Math.PI / 6;
+            const rr = Math.cos(lat), yy = Math.sin(lat);
+            ctx.beginPath();
+            for (let i = 0; i <= 48; i++) {
+                const ph = (i / 48) * TAU;
+                const v = [rr * Math.cos(ph), yy, rr * Math.sin(ph)];
+                const p = project3d(v);
+                if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+            }
+            ctx.strokeStyle = q === 0 ? 'rgba(124,138,255,0.16)' : 'rgba(124,138,255,0.08)';
+            ctx.stroke();
+        }
+
         // Points
         const v1 = [
             Math.sin(Math.PI * 0.35) * Math.cos(t * 1.3),
@@ -404,7 +435,7 @@
             if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
         }
         
-        ctx.strokeStyle = 'rgba(45, 212, 191, 0.3)'; // Dimmed C.teal for back part
+        ctx.strokeStyle = 'rgba(45, 212, 191, 0.45)'; // Dimmed C.teal for back part
         ctx.setLineDash([5, 4]);
         ctx.stroke();
 
@@ -434,16 +465,17 @@
         ctx.textAlign = 'center';
         const vMid = slerp(v1, v2, 0.5);
         const pMid = project3d(vMid);
-        if (pMid.z < 0) { // Only show label when roughly in front
-            ctx.fillText(`d = ${omega.toFixed(2)}`, pMid.x, pMid.y - 12);
-        }
+        // Dim rather than hide when the arc midpoint rotates to the back
+        ctx.globalAlpha = pMid.z < 0 ? 1 : 0.45;
+        ctx.fillText(`d = ${omega.toFixed(2)}`, pMid.x, pMid.y - 12);
+        ctx.globalAlpha = 1;
 
         // Draw points with back-side dimming
         if (p1.z < 0) drawGlowDot(ctx, p1.x, p1.y, 7, C.accent);
-        else drawGlowDot(ctx, p1.x, p1.y, 3, C.dim);
+        else drawGlowDot(ctx, p1.x, p1.y, 4.5, C.dim);
 
         if (p2.z < 0) drawGlowDot(ctx, p2.x, p2.y, 7, C.rose);
-        else drawGlowDot(ctx, p2.x, p2.y, 3, C.dim);
+        else drawGlowDot(ctx, p2.x, p2.y, 4.5, C.dim);
     }
 
     /* ──────────────────────────────────────────────────────
@@ -497,11 +529,23 @@
     }
 
     /* ── Keyboard ──────────────────────────────────────── */
+    /* Embedded: forward to the parent presentation instead, so
+       slides keep advancing even when this iframe has focus. */
     const isEmbedded = new URLSearchParams(window.location.search).get('embed') === 'true';
     if (!isEmbedded) {
         document.addEventListener('keydown', e => {
             if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); window.next(); }
             if (e.key === 'ArrowLeft') { e.preventDefault(); window.prev(); }
+        });
+    } else {
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                window.parent.postMessage({ type: 'iframeNav', direction: 'next' }, '*');
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                window.parent.postMessage({ type: 'iframeNav', direction: 'prev' }, '*');
+            }
         });
     }
 

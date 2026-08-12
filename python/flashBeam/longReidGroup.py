@@ -1,10 +1,25 @@
 import math
+import os
+import sys
+from fractions import Fraction
 from flint import fmpz, fmpz_mat
 from sympy import factorint
 from flashbeam import FlashBeam, SearchProblem, Node
 
 # --- Group Configuration ---
-T_PARAM = fmpz(9) 
+# t may be overridden via the FLASHBEAM_T_PARAM environment variable
+# (set by runner.py / the web frontend). Accepts integers and rationals
+# ("9", "5/2", "2.5"); defaults to 9.
+T_PARAM = Fraction(os.environ.get("FLASHBEAM_T_PARAM", "9"))
+if T_PARAM in (0, 1):
+    sys.exit(f"t must not be 0 or 1 (got {T_PARAM})")
+T_NUM = fmpz(T_PARAM.numerator)    # p, where t = p/q in lowest terms
+T_DEN = fmpz(T_PARAM.denominator)  # q
+
+# For rational t the generators are scaled to integer matrices:
+#   a = [[t,0],[0,1]]     ~  q   * a = [[p, 0], [0, q]]
+#   b = [[1+t^2,2],[t,1]] ~  q^2 * b = [[q^2+p^2, 2q^2], [pq, q^2]]
+# Scaling is harmless: matrices are canonicalized projectively below.
 
 # --- Search Configuration ---
 BEAM_WIDTH = 5000         # Beam size
@@ -12,16 +27,18 @@ FLASH_SIZE = 50           # Best elements to keep in persistent flash
 MAX_SOLUTIONS = 10        # Stop after finding this many solutions
 MAX_ITERATIONS = 1000     # Deep search
 
-# Factor t(t-1) for canonicalization
-PRIMES = {p for p, _ in (T_PARAM * (T_PARAM - 1)).factor()}
+# Factor p*q*(p-q) for canonicalization (equals t(t-1) for integer t)
+PRIMES = {p for p, _ in
+          fmpz(abs(int(T_NUM) * int(T_DEN) * int(T_NUM - T_DEN))).factor()}
 
 class LongReidProblem(SearchProblem):
     def __init__(self):
-        # Define Generators
-        self.MAT_a = fmpz_mat(2, 2, [T_PARAM, 0, 0, 1])
-        self.MAT_b = fmpz_mat(2, 2, [1 + T_PARAM**2, 2, T_PARAM, 1])
-        self.MAT_ai = fmpz_mat(2, 2, [1, 0, 0, T_PARAM]) # Inverse a
-        self.MAT_bi = fmpz_mat(2, 2, [1, -2, -T_PARAM, 1 + T_PARAM**2]) # Inverse b
+        # Define Generators (scaled to integer matrices; p/q = t in lowest terms)
+        p, q = T_NUM, T_DEN
+        self.MAT_a = fmpz_mat(2, 2, [p, 0, 0, q])
+        self.MAT_b = fmpz_mat(2, 2, [q*q + p*p, 2*q*q, p*q, q*q])
+        self.MAT_ai = fmpz_mat(2, 2, [q, 0, 0, p])                    # adj(a)
+        self.MAT_bi = fmpz_mat(2, 2, [q*q, -2*q*q, -p*q, q*q + p*p])  # adj(b)
         
         self.actions = [self.MAT_a, self.MAT_b, self.MAT_ai, self.MAT_bi]
         self.names = ['a', 'b', 'ai', 'bi']
@@ -113,6 +130,13 @@ class LongReidProblem(SearchProblem):
 if __name__ == "__main__":
     # You can now easily swap matrices or scoring logic here
     problem = LongReidProblem()
+    print(f"Long-Reid group with t = {T_PARAM}: "
+          f"a = [[{T_PARAM},0],[0,1]], b = [[{1 + T_PARAM**2},2],[{T_PARAM},1]]")
+    if T_DEN != 1:
+        print(f"Scaled integer generators (t = {T_NUM}/{T_DEN}): "
+              f"a ~ {problem.MAT_a.entries()}, b ~ {problem.MAT_b.entries()}")
+    print(f"Canonicalizing primes of p*q*(p-q): {sorted(int(x) for x in PRIMES)}")
+    print()
     
     solver = FlashBeam(
         problem=problem,

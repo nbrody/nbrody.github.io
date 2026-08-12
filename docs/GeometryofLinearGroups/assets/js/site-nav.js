@@ -22,8 +22,8 @@
   var MANIFEST = [
     { section: 'Home', icon: '⌂', items: [
       { t: 'Home',                     u: 'index.html' },
-      { t: 'About',                    u: 'about/index.html' },
-      { t: 'Conjectures',              u: 'about/conjectures/index.html' },
+      { t: 'Blog',                     u: 'blog/index.html' },
+      { t: 'Conjectures',              u: 'conjectures/index.html' },
       { t: 'Presentation Calculator',  u: 'PresentationCalc/index.html' },
     ]},
     { section: 'Algebraic', icon: '𝔾', items: [
@@ -75,6 +75,7 @@
       { t: 'Margulis Spacetimes',           u: 'Geometric/Tools/Kleinian/margulisSpacetimes/index.html' },
       { t: 'Mirror Orbifold',               u: 'Geometric/Tools/Kleinian/mirrorOrbifold/index.html' },
       { t: 'Long-Reid Racer',               u: 'Geometric/Tools/Kleinian/longReidGame/index.html' },
+      { t: 'Long-Reid Racer 3',             u: 'Geometric/Tools/Kleinian/longReidRacer3/index.html' },
       { t: 'Long-Reid Racer 2',             u: 'Geometric/Tools/Kleinian/longReidRacer2/index.html' },
       { t: 'Long-Reid Racer 1',             u: 'Geometric/Tools/Kleinian/longReidRacer/index.html' },
       { t: 'KnotFolio',                     u: 'Geometric/Tools/Kleinian/knotfolio/index.html' },

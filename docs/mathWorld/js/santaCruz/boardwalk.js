@@ -26,10 +26,6 @@ export class BeachBoardwalk {
         this.createNeptunesKingdom();
         this.createCoconutGrove();
         this.createArcadeBuildings();
-        this.createSky();
-
-        // Start animations
-        this.startAnimations();
     }
 
     createBeach() {
@@ -151,7 +147,8 @@ export class BeachBoardwalk {
             name: 'Giant Dipper Roller Coaster',
             isInteractable: true,
             type: 'attraction',
-            interactionType: 'Ride the Giant Dipper!'
+            interactionType: 'Ride',
+            description: 'A wooden roller coaster from 1924 and a National Historic Landmark — its half-mile of white lattice track still rattles riders through the first dark tunnel drop. One of the oldest coasters in the world still running.'
         };
 
         const woodMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.9 });
@@ -322,7 +319,8 @@ export class BeachBoardwalk {
             name: 'Sky Glider Rube Goldberg Machine',
             isInteractable: true,
             type: 'attraction',
-            interactionType: 'Launch the Sky Glider Machine!'
+            interactionType: 'Visit',
+            description: 'The Boardwalk\'s Sky Glider chairlift has drifted lazily above the crowds since 1967 — here reimagined as a Rube Goldberg contraption, sending gliders looping along branching color-coded tracks.'
         };
 
         const metalMat = new THREE.MeshStandardMaterial({
@@ -565,7 +563,8 @@ export class BeachBoardwalk {
             name: 'Bumper Cars',
             isInteractable: true,
             type: 'attraction',
-            interactionType: 'Drive Bumper Cars!'
+            interactionType: 'Visit',
+            description: 'A Boardwalk classic: sparks crackle overhead as drivers spin, dodge, and collide across the polished steel floor. Rear-ending your friends is not just allowed — it\'s the whole point.'
         };
 
         // Pavilion building
@@ -772,7 +771,8 @@ export class BeachBoardwalk {
             name: 'Looff Carousel',
             isInteractable: true,
             type: 'attraction',
-            interactionType: 'Ride the Carousel!'
+            interactionType: 'Ride',
+            description: 'Carved by Charles I.D. Looff in 1911, this carousel still spins with hand-painted horses and a 342-pipe band organ. Grab a ring from the dispenser as you pass and try to toss it into the clown\'s mouth.'
         };
 
         // Platform base
@@ -861,7 +861,8 @@ export class BeachBoardwalk {
             name: "Neptune's Kingdom",
             isInteractable: true,
             type: 'attraction',
-            interactionType: 'Play Arcade Games!'
+            interactionType: 'Visit',
+            description: 'A two-story arcade and pirate-themed mini golf hall housed in the old Plunge building, once home to a giant heated indoor swimming pool. The 1907 barrel-vaulted roof still arches over the games below.'
         };
 
         // Main building - distinctive blue/teal color
@@ -995,7 +996,8 @@ export class BeachBoardwalk {
             name: 'Coconut Grove',
             isInteractable: true,
             type: 'venue',
-            interactionType: 'Visit the Coconut Grove!'
+            interactionType: 'Visit',
+            description: 'The Boardwalk\'s grand ballroom, opened in 1907, where big bands like Benny Goodman and Glenn Miller once packed the dance floor. It still hosts weddings and concerts beneath its Art Deco sun room.'
         };
 
         // Main ballroom building - elegant cream/white
@@ -1225,67 +1227,27 @@ export class BeachBoardwalk {
         }
     }
 
-    createSky() {
-        const skyGeo = new THREE.SphereGeometry(400, 32, 32);
-        const skyMat = new THREE.ShaderMaterial({
-            uniforms: {
-                topColor: { value: new THREE.Color(0x0088FF) },
-                horizonColor: { value: new THREE.Color(0xFFEEDD) }
-            },
-            vertexShader: `
-                varying vec3 vPos;
-                void main() {
-                    vPos = position;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    // Per-frame update, driven by the game loop
+    // (main.js calls locationContent.update(delta, elapsedTime) each frame)
+    update(delta, time) {
+        this.animatedObjects.forEach(item => {
+            if (item.type === 'rubeGlider') {
+                const progress = (time * item.speed + item.offset) % 1;
+                const point = item.curve.getPointAt(progress);
+                const tangent = item.curve.getTangentAt(progress);
+                item.obj.position.copy(point);
+                item.obj.lookAt(point.clone().add(tangent));
+                item.obj.rotation.z = Math.sin(time * 6 + item.offset * 10) * 0.1;
+                if (!item.obj.userData.trail) {
+                    item.obj.userData.trail = 0;
                 }
-            `,
-            fragmentShader: `
-                uniform vec3 topColor, horizonColor;
-                varying vec3 vPos;
-                void main() {
-                    float h = normalize(vPos).y;
-                    vec3 color = mix(horizonColor, topColor, max(0.0, pow(h, 0.5)));
-                    gl_FragColor = vec4(color, 1.0);
-                }
-            `,
-            side: THREE.BackSide
+                const trailScale = THREE.MathUtils.lerp(0.5, 1.2, progress);
+                item.obj.scale.setScalar(trailScale);
+            } else if (item.type === 'carousel') {
+                // Rotate carousel platform
+                item.obj.rotation.y = time * 0.3;
+            }
         });
-        this.group.add(new THREE.Mesh(skyGeo, skyMat));
-    }
-
-    startAnimations() {
-        // Animation loop for moving parts
-        const animate = () => {
-            const time = Date.now() * 0.001;
-
-            this.animatedObjects.forEach(item => {
-                if (item.type === 'gondola') {
-                    // Move gondolas along the cable
-                    const baseX = item.obj.userData.baseX;
-                    item.obj.position.x = baseX + Math.sin(time * 0.2) * 80;
-                    // Gentle sway
-                    item.obj.rotation.z = Math.sin(time * 2) * 0.05;
-                } else if (item.type === 'rubeGlider') {
-                    const progress = (time * item.speed + item.offset) % 1;
-                    const point = item.curve.getPointAt(progress);
-                    const tangent = item.curve.getTangentAt(progress);
-                    item.obj.position.copy(point);
-                    item.obj.lookAt(point.clone().add(tangent));
-                    item.obj.rotation.z = Math.sin(time * 6 + item.offset * 10) * 0.1;
-                    if (!item.obj.userData.trail) {
-                        item.obj.userData.trail = 0;
-                    }
-                    const trailScale = THREE.MathUtils.lerp(0.5, 1.2, progress);
-                    item.obj.scale.setScalar(trailScale);
-                } else if (item.type === 'carousel') {
-                    // Rotate carousel platform
-                    item.obj.rotation.y = time * 0.3;
-                }
-            });
-
-            requestAnimationFrame(animate);
-        };
-        animate();
     }
 
     getInteractables() {

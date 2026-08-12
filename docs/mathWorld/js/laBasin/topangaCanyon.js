@@ -225,6 +225,7 @@ export class TopangaCanyon {
 
         const segments = 60;
         const zMin = -380, zMax = 380;
+        this._waterMeshes = [];
         for (let i = 0; i < segments; i++) {
             const t0 = i / segments;
             const t1 = (i + 1) / segments;
@@ -245,7 +246,9 @@ export class TopangaCanyon {
             water.rotation.z = Math.atan2(dx, dz);
             water.position.set(cx, waterY, cz);
             water.userData.noCollision = true;
+            water.userData.baseY = waterY;
             this.group.add(water);
+            this._waterMeshes.push(water);
         }
 
         // Rocks in the creek bed
@@ -387,10 +390,10 @@ export class TopangaCanyon {
         const store = new THREE.Group();
         store.userData = {
             name: 'Topanga Country Store',
-            description: '1930s wooden general store — the heart of the canyon town.',
+            description: 'A canyon institution since the 1920s, this barn-red general store has served ranchers, hippies, and hikers alike. Still the beating heart of Topanga\'s tiny town center.',
             isInteractable: true,
             type: 'landmark',
-            interactionType: 'Enter'
+            interactionType: 'Visit'
         };
 
         const redWoodMat = new THREE.MeshStandardMaterial({
@@ -629,7 +632,7 @@ export class TopangaCanyon {
         const gallery = new THREE.Group();
         gallery.userData = {
             name: 'Topanga Art Gallery',
-            description: 'A small co-op gallery in a cedar-sided cottage.',
+            description: 'A small artist-run gallery in a cedar-sided cottage, showing paintings, ceramics, and jewelry by canyon locals. Topanga has drawn artists and free spirits since the 1960s.',
             isInteractable: true,
             type: 'building',
             interactionType: 'Browse'
@@ -712,7 +715,7 @@ export class TopangaCanyon {
         const theatre = new THREE.Group();
         theatre.userData = {
             name: 'Theatricum Botanicum',
-            description: 'Outdoor Shakespeare theatre founded 1973 by Will Geer.',
+            description: 'An outdoor amphitheater founded by actor Will Geer, who retreated here with fellow blacklisted artists in the 1950s and staged Shakespeare among the oaks. Summer performances continue under the canyon sky.',
             isInteractable: true,
             type: 'landmark',
             interactionType: 'Explore'
@@ -1428,5 +1431,16 @@ export class TopangaCanyon {
             if (obj.userData && obj.userData.isInteractable) out.push(obj);
         });
         return out;
+    }
+
+    update(delta, time) {
+        // Gentle bob on the creek segments so the water reads as alive
+        // (same convention as Red Rock Crossing's Oak Creek).
+        if (this._waterMeshes) {
+            for (let i = 0; i < this._waterMeshes.length; i++) {
+                const w = this._waterMeshes[i];
+                w.position.y = w.userData.baseY + Math.sin(time * 1.6 + i * 0.5) * 0.03;
+            }
+        }
     }
 }

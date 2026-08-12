@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Algebraic Starscape — the Character Variety of ⟨a,b | [a,b]²⟩</title>
+  <meta name="description"
+    content="Rational points on the character variety of the group ⟨a,b | [a,b]²⟩, plotted as an algebraic starscape on the Markov-type surface x²+y²+z²−xyz=2." />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        macros: {
+          Z: '\\mathbb{Z}', Q: '\\mathbb{Q}', R: '\\mathbb{R}',
+          SL: '\\mathrm{SL}', PSL: '\\mathrm{PSL}', SU: '\\mathrm{SU}',
+          tr: '\\operatorname{tr}',
+        }
+      },
+      options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'] }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+
+<body>
+  <div id="app">
+    <aside id="panel">
+      <h1>An Algebraic Starscape</h1>
+      <p class="subtitle">Rational points on the character variety of
+        $\Gamma = \langle a, b \mid [a,b]^2 \rangle$ — and of its neighbors: torus
+        orbifolds, the trefoil, the figure-eight knot, the Whitehead link</p>
+
+      <div class="control-group">
+        <div class="group-label">Torus orbifolds &nbsp;<span class="muted">(levels of $\kappa = x^2{+}y^2{+}z^2{-}xyz$)</span></div>
+        <label class="radio-card">
+          <input type="radio" name="component" value="k2" checked />
+          <span><b>κ = 2</b> — ⟨a,b | [a,b]²⟩: tr[A,B] = 0<br />
+            <span class="muted">smooth cubic · SU(2) pillow + 4 sheets</span></span>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="component" value="k0" />
+          <span><b>κ = 0</b> — Markov cone: tr[A,B] = −2<br />
+            <span class="muted">x² + y² + z² = xyz · gold = 3 × Markov triples</span></span>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="component" value="k1" />
+          <span><b>κ = 1</b> — ⟨a,b | [a,b]³⟩: tr[A,B] = −1<br />
+            <span class="muted">torus with a cone point of angle 2π/3</span></span>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="component" value="k3" />
+          <span><b>κ = 3</b> — ⟨a,b | [a,b]³⟩, other lift: tr[A,B] = +1<br />
+            <span class="muted">rational points exist but start large</span></span>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="component" value="k4" />
+          <span><b>κ = 4</b> — reducible characters: tr[A,B] = +2<br />
+            <span class="muted">Cayley's nodal cubic · star-streams along its lines</span></span>
+        </label>
+        <div class="group-label" style="margin-top:10px">Knots &amp; links &nbsp;<span class="muted">(x = y = meridian trace)</span></div>
+        <label class="radio-card">
+          <input type="radio" name="component" value="trefoil" />
+          <span><b>Trefoil</b> — ⟨a,b | aba = bab⟩<br />
+            <span class="muted">nonabelian line z = 1 + abelian parabola z = t² − 2</span></span>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="component" value="fig8" />
+          <span><b>Figure-eight knot</b> — z² − (t²+1)z + 2t² − 1 = 0<br />
+            <span class="muted">a genus-1 curve: rational stars are scarce gems</span></span>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="component" value="whitehead" />
+          <span><b>Whitehead link</b> — z³ − xyz² + (x²+y²−2)z − xy = 0<br />
+            <span class="muted">a quartic surface · cusp field ℚ(i)</span></span>
+        </label>
+      </div>
+
+      <div class="control-group">
+        <div class="slider-row"><span>view box ±</span>
+          <input type="range" id="boxM" min="4" max="60" step="1" value="12" />
+          <span class="val" id="boxMVal">12</span>
+        </div>
+        <div class="slider-row"><span>size falloff α</span>
+          <input type="range" id="alpha" min="0.3" max="1.1" step="0.01" value="0.6" />
+          <span class="val" id="alphaVal">0.60</span>
+        </div>
+        <div class="slider-row"><span>star scale</span>
+          <input type="range" id="scale" min="3" max="24" step="0.5" value="10" />
+          <span class="val" id="scaleVal">10</span>
+        </div>
+        <div class="slider-row checks">
+          <label><input type="checkbox" id="dust" checked /> surface dust</label>
+          <button id="resetView" class="mini">reset view</button>
+        </div>
+        <div class="slider-row checks">
+          <label title="a wave of shimmer travels out from the basepoint through the Vieta moves"><input
+              type="checkbox" id="twinkleBox" /> twinkle · Markov wave</label>
+        </div>
+        <div class="btn-row">
+          <button id="deepen">Deepen the sky ✦</button>
+        </div>
+        <div class="status" id="status">…</div>
+      </div>
+
+      <div id="selCard" class="sel-card hidden"></div>
+
+      <details open>
+        <summary>The group and its character variety</summary>
+        <p>
+          $\Gamma = \langle a, b \mid [a,b]^2 \rangle$ is the orbifold fundamental group of a
+          torus with a single cone point of angle $\pi$: killing the square of the commutator
+          turns the boundary of the once-punctured torus into a rotation of order 2. Its
+          orbifold Euler characteristic is $-\tfrac12$, so it carries hyperbolic structures.
+        </p>
+        <p>
+          For $\rho:\Gamma \to \SL_2$, the traces $x = \tr\rho(a)$, $y = \tr\rho(b)$,
+          $z = \tr\rho(ab)$ determine the character, and every word's trace is an integer
+          polynomial in $(x,y,z)$. The Fricke identity gives
+          $$\tr\,\rho([a,b]) \;=\; x^2 + y^2 + z^2 - xyz - 2 \;=\; \kappa(x,y,z) - 2 .$$
+        </p>
+      </details>
+
+      <details open>
+        <summary>Why κ = 2 is the surface</summary>
+        <p>
+          In $\SL_2$ itself, $[A,B]^2 = I$ forces $[A,B] = \pm I$. The case $[A,B] = I$ gives
+          the <em>reducible</em> characters, the nodal Cayley cubic $\kappa = 4$; the case
+          $[A,B] = -I$ is achieved only by the quaternion representation
+          $a, b \mapsto i, j$, the single character $(0,0,0)$ on $\kappa = 0$.
+        </p>
+        <p>
+          The geometric representations live in $\PSL_2$: there $\rho([a,b])$ is the
+          rotation by $\pi$ about the cone point, whose lifts have trace $0$. So the
+          character variety of the orbifold is the smooth cubic surface
+          $$X:\quad x^2 + y^2 + z^2 - xyz = 2 .$$
+          Its real locus is a compact "pillow" of $\SU(2)$-characters together with four
+          unbounded sheets; the Teichmüller space of the orbifold sits inside a sheet, with
+          the most symmetric (hexagonal) structure at the irrational point
+          $\big(1{+}\sqrt3\big)(1,1,1)$ — no star shines exactly there.
+        </p>
+      </details>
+
+      <details>
+        <summary>Stars, heights, and gold</summary>
+        <p>
+          $X$ is a cubic surface with rational points, hence unirational over $\Q$: its
+          rational points are Zariski-dense. Each star is a rational point, drawn with radius
+          $H^{-\alpha}$ where $H$ is the height — the largest numerator or denominator among
+          the three coordinates in lowest terms. Unusual cancellation makes low, bright stars,
+          in the spirit of the <em>algebraic number starscapes</em> of
+          Harriss–Stange–Trettel (arXiv:2008.07655). Integral points are drawn gold, warm
+          stars lie on the compact $\SU(2)$ part, icy ones on the unbounded sheets.
+        </p>
+        <p>
+          On the Markov cone $\kappa = 0$ the origin is a cone singularity, and projecting
+          from it enumerates <em>every</em> rational point exactly once: a primitive triple
+          $(u,v,w)$ gives
+          $$\left( \tfrac{u^2+v^2+w^2}{vw},\; \tfrac{u^2+v^2+w^2}{uw},\; \tfrac{u^2+v^2+w^2}{uv} \right).$$
+          The integral points are precisely $3\times$(Markov triples) — the gold stars —
+          and the quaternion character glows at the origin. Integral points on the whole
+          family $\kappa = k$ are the "Markoff-type surfaces" studied by Ghosh–Sarnak.
+        </p>
+      </details>
+
+      <details>
+        <summary>Knot and link groups</summary>
+        <p>
+          For a two-bridge knot group $\langle a, b \mid aw = wb\rangle$ the generators are
+          conjugate meridians, so every character has $x = y = t$ and the variety is a
+          <em>curve</em> in the plane $x = y$: the abelian characters trace the parabola
+          $z = t^2 - 2$, and the nonabelian characters form their own curve, meeting the
+          parabola exactly where $t^2 - 2$ hits a root of the Alexander polynomial.
+        </p>
+        <p>
+          <b>Trefoil</b> $\langle a,b \mid aba = bab\rangle$: the nonabelian curve is the
+          line $z = 1$ — rational points are dense beads (they meet the parabola at
+          $t^2 = 3$, irrational, so the two strands of stars never collide).
+        </p>
+        <p>
+          <b>Figure-eight knot</b>: elimination gives the nonabelian curve
+          $$z^2 - (t^2+1)\,z + 2t^2 - 1 = 0,$$
+          which meets the parabola at $t^2 = 5$ (the Alexander roots of $u^2-3u+1$) and at
+          the cusp $t = 2$ recovers $z = \tfrac{5 \pm i\sqrt3}{2}$, the trace field
+          $\Q(\sqrt{-3})$. A rational point needs $(t^2-1)(t^2-5)$ to be a rational square —
+          a <em>genus-one</em> condition, so by Mordell–Weil the rational stars are scarce: a
+          search through denominator $120$ finds only $t = \pm 1$, the two gems $(\pm1,\pm1,1)$
+          where the $\SU(2)$ arc meets the $\mathrm{SL}(2,\R)$ branches. Real nonabelian
+          characters exist for $|t| \le 1$ ($\SU(2)$) and $|t| \ge \sqrt5$ (Fuchsian).
+        </p>
+        <p>
+          <b>Whitehead link</b>: the meridians of the two components are independent, so the
+          nonabelian characters form a genuine <em>surface</em>,
+          $$z^3 - xyz^2 + (x^2+y^2-2)\,z - xy = 0,$$
+          symmetric in $x \leftrightarrow y$ and containing the coordinate lines
+          $(t,0,0)$, $(0,t,0)$. At the cusp $x = y = 2$ it gives $z = 1 \pm i$ — the trace
+          field $\Q(i)$. Its $z$-fibers are conics, so the same chord-parametrization and
+          quadratic-flip machinery applies; rational points are plentiful. (The abelian
+          characters of the link form the Cayley cubic — the κ = 4 entry above.)
+        </p>
+      </details>
+
+      <details>
+        <summary>Symmetries and the Markov tree</summary>
+        <p>
+          Twisting $\rho$ by the four characters $\Gamma \to \{\pm 1\}$ flips signs of
+          coordinates in pairs, and the mapping class group acts by permutations together
+          with the Vieta involutions such as $z \mapsto xy - z$ (each coordinate is a root
+          of a quadratic whose other root is again rational). Click a star to see its exact
+          trace coordinates and its three Vieta partners; clicking partners walks the
+          Markov-style tree across the sky.
+        </p>
+      </details>
+
+      <details>
+        <summary>How the points are found · controls</summary>
+        <p>
+          For $\kappa = 0$, the cone projection above is a complete search. Otherwise the
+          tool sweeps all $(x,y)$ with bounded denominator and tests the discriminant
+          $x^2y^2 - 4x^2 - 4y^2 + 4k$ for being a rational square, then walks the conic
+          fibers $\{x = \xi\}$ through every known point by chord parametrization, and closes
+          up under Vieta moves. <b>Deepen the sky</b> pushes all bounds further. All
+          arithmetic is exact (BigInt rationals).
+        </p>
+        <p class="muted">
+          Drag to orbit · shift-drag or right-drag to pan · scroll to zoom · hover for
+          coordinates · click a star to select it. <b>Twinkle</b> sends a repeating wave of
+          shimmer traveling out the Markov tree: every star is assigned its
+          <em>generation</em> — the number of height-decreasing Vieta moves to the minimal
+          point of its tree (for gold stars on the Markov cone, exactly the Markov-tree
+          level) — and the wave lights up the generations in order, starting from the
+          selected star's generation (or from the tree roots). On the Whitehead surface the
+          quadratic flips play the role of the Vieta moves; on the knot curves, where no
+          such tree exists, the wave travels out by height shells ($\log_2 H$).
+        </p>
+      </details>
+
+      <footer>
+        <a href="../../index.html">← Arithmetic tools</a>
+      </footer>
+    </aside>
+
+    <main id="view">
+      <canvas id="sky"></canvas>
+      <div id="tooltip"></div>
+    </main>
+  </div>
+
+  <script src="js/rational.js"></script>
+  <script src="js/generate.js"></script>
+  <script src="js/starfield.js"></script>
+  <script src="js/main.js"></script>
+</body>
+
+</html>

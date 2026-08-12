@@ -4,451 +4,496 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JTGS™ — Just The Good Sh*t</title>
-<meta name="description" content="The world's first pre-digestive intake processor. Eat freely. Excrete never. Absorb only the good part.">
+<meta name="description" content="The world's first pre-digestive appliance. It eats first, sends the doomed fraction to the sewer, and serves you the rest. No bathroom. Just the good sh*t.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#070a08;
-    --bg2:#0d130e;
-    --glass:rgba(255,255,255,0.055);
-    --glass-border:rgba(255,255,255,0.12);
-    --ink:#f1f7f2;
-    --muted:#9db3a4;
-    --good:#5bd97b;     /* the good shit */
-    --waste:#a87c4a;    /* the bad shit */
-    --gold:#ffd166;
-    --hot:#ff5d8f;
+    --paper:#f7f3ec;
+    --card:#fffdf8;
+    --ink:#171310;
+    --soft:#6e6558;
+    --line:#e3dbca;
+    --pipe:#eae2d1;
+    --good:#1e7d43;
+    --good-soft:#e2efe3;
+    --waste:#8a6134;
+    --waste-soft:#efe6d8;
+    --gold:#d8a41a;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
   body{
-    font-family:'Inter',system-ui,sans-serif;
-    background:
-      radial-gradient(1200px 600px at 12% -10%, rgba(91,217,123,0.16), transparent 60%),
-      radial-gradient(1000px 700px at 92% 8%, rgba(168,124,74,0.13), transparent 55%),
-      linear-gradient(180deg,var(--bg),var(--bg2));
+    font-family:'Space Grotesk',system-ui,sans-serif;
+    background:var(--paper);
     color:var(--ink);
     line-height:1.6;
-    overflow-x:hidden;
   }
-  .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
-  h1,h2,h3,.kicker{font-family:'Bebas Neue',sans-serif;letter-spacing:1px}
-  .kicker{color:var(--good);font-size:1rem;letter-spacing:4px;text-transform:uppercase}
-  a{color:inherit}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+  em.serif, .serif{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400}
+
+  /* ===== NAV ===== */
+  nav{
+    position:sticky;top:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 28px;border-bottom:1px solid var(--line);
+    background:rgba(247,243,236,0.9);backdrop-filter:blur(10px);
+  }
+  .logo{font-weight:700;letter-spacing:2px;font-size:1.05rem}
+  .logo sup{color:var(--good)}
+  nav .links{display:flex;gap:26px;font-size:0.85rem;color:var(--soft)}
+  nav .links a{color:inherit;text-decoration:none}
+  nav .links a:hover{color:var(--ink)}
+  .btn{
+    display:inline-block;border:1.5px solid var(--ink);border-radius:999px;
+    padding:9px 22px;font-size:0.88rem;font-weight:500;color:var(--ink);
+    text-decoration:none;background:transparent;cursor:pointer;font-family:inherit;
+    transition:background .15s ease,color .15s ease,transform .15s ease;
+  }
+  .btn:hover{background:var(--ink);color:var(--paper)}
+  .btn.solid{background:var(--ink);color:var(--paper)}
+  .btn.solid:hover{transform:translateY(-2px)}
 
   /* ===== HERO ===== */
-  header{padding:88px 0 28px;text-align:center}
-  header h1{
-    font-size:clamp(3.2rem,9vw,7.2rem);
-    line-height:0.9;
-    background:linear-gradient(92deg,var(--good),var(--gold));
-    -webkit-background-clip:text;background-clip:text;color:transparent;
-    filter:drop-shadow(0 4px 30px rgba(91,217,123,0.35));
+  .hero{padding:96px 0 72px;text-align:center}
+  .kicker{
+    font-size:0.72rem;font-weight:500;letter-spacing:4px;text-transform:uppercase;
+    color:var(--good);margin-bottom:22px;
   }
-  header h1 .tm{font-size:0.32em;vertical-align:super;color:var(--gold);-webkit-text-fill-color:var(--gold)}
-  header .sub{font-family:'Bebas Neue';letter-spacing:6px;color:var(--muted);font-size:1.1rem;margin-top:6px}
-  header .tag{font-size:1.25rem;color:var(--muted);max-width:640px;margin:20px auto 0;font-weight:300}
-  .cta{
-    display:inline-block;margin-top:34px;padding:16px 38px;border-radius:999px;
-    font-family:'Bebas Neue';font-size:1.35rem;letter-spacing:3px;text-decoration:none;color:#06210e;
-    background:linear-gradient(92deg,var(--good),var(--gold));
-    box-shadow:0 12px 40px rgba(91,217,123,0.35);transition:transform .2s ease, box-shadow .2s ease;
+  .hero h1{
+    font-family:'Instrument Serif',serif;font-weight:400;
+    font-size:clamp(2.9rem,7.5vw,5.8rem);line-height:1.02;letter-spacing:-0.01em;
   }
-  .cta:hover{transform:translateY(-2px);box-shadow:0 18px 52px rgba(91,217,123,0.5)}
-  .fine{font-size:0.8rem;color:var(--muted);margin-top:14px;font-weight:300}
-
-  /* ===== THE MACHINE ===== */
-  .stage{
-    position:relative;margin:46px auto 10px;border-radius:24px;overflow:hidden;
-    border:1px solid var(--glass-border);
-    box-shadow:0 30px 80px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.03);
-    background:linear-gradient(180deg,#05080620,#0a0f0b);
+  .hero h1 .go{font-style:italic;color:var(--good)}
+  .hero p{
+    max-width:640px;margin:28px auto 0;color:var(--soft);
+    font-size:1.08rem;font-weight:300;
   }
-  #scene{display:block;width:100%;height:auto}
-  .stage .hud{
-    position:absolute;left:16px;bottom:14px;font-size:0.78rem;color:var(--muted);
-    background:rgba(0,0,0,0.4);padding:6px 12px;border-radius:999px;border:1px solid var(--glass-border);
-    backdrop-filter:blur(8px);
+  .hero p b{color:var(--ink);font-weight:500}
+  .hero .ctas{margin-top:36px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .hero .fine{margin-top:16px;font-size:0.75rem;color:var(--soft)}
+
+  /* ===== DEMO ===== */
+  section{padding:72px 0}
+  .sec-head{text-align:center;max-width:640px;margin:0 auto 40px}
+  h2{font-family:'Instrument Serif',serif;font-weight:400;font-size:clamp(2rem,4.5vw,3.1rem);line-height:1.1}
+  .sec-head p{color:var(--soft);margin-top:12px;font-weight:300}
+
+  .chips{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:26px}
+  .chip{
+    display:flex;align-items:center;gap:10px;cursor:pointer;font-family:inherit;
+    background:var(--card);border:1.5px solid var(--line);border-radius:16px;
+    padding:12px 20px;text-align:left;transition:border-color .15s ease,transform .15s ease,box-shadow .15s ease;
   }
-  .stage .sync{
-    position:absolute;right:16px;top:14px;font-family:'Bebas Neue';letter-spacing:2px;
-    color:var(--good);font-size:1rem;background:rgba(0,0,0,0.4);padding:6px 14px;border-radius:999px;
-    border:1px solid rgba(91,217,123,0.35);backdrop-filter:blur(8px);
+  .chip .emo{font-size:1.7rem;line-height:1}
+  .chip b{display:block;font-size:0.95rem;font-weight:500;line-height:1.2}
+  .chip small{color:var(--soft);font-size:0.74rem;font-weight:300}
+  .chip:hover{transform:translateY(-2px);border-color:#c9bda2}
+  .chip.on{border-color:var(--good);box-shadow:0 6px 22px rgba(30,125,67,0.14)}
+
+  .machine{
+    background:var(--card);border:1px solid var(--line);border-radius:24px;
+    padding:10px 10px 0;box-shadow:0 24px 60px rgba(23,19,16,0.07);
+    overflow:hidden;
   }
-  .stage .sync .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good);
-    margin-right:6px;box-shadow:0 0 10px var(--good);animation:pulse 1.4s infinite}
-  @keyframes pulse{50%{opacity:0.25}}
-
-  /* ===== SECTIONS ===== */
-  section{padding:60px 0}
-  h2{font-size:clamp(2.2rem,5vw,3.4rem);line-height:1;margin-bottom:8px}
-  .lead{color:var(--muted);font-size:1.15rem;max-width:660px;font-weight:300;margin-bottom:34px}
-
-  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
-  .card{
-    background:var(--glass);border:1px solid var(--glass-border);border-radius:18px;padding:26px;
-    backdrop-filter:blur(14px);transition:transform .25s ease, border-color .25s ease;
+  #stage{display:block;width:100%;height:auto}
+  .partLabel{
+    font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:700;
+    letter-spacing:2px;fill:#a87c0e;text-anchor:middle;
   }
-  .card:hover{transform:translateY(-4px);border-color:rgba(91,217,123,0.4)}
-  .card .num{font-family:'Bebas Neue';font-size:2.4rem;color:var(--good);line-height:1}
-  .card h3{font-size:1.5rem;margin:6px 0 8px}
-  .card p{color:var(--muted);font-weight:300;font-size:0.98rem}
 
-  /* split spec */
-  .split{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:8px}
-  .split .panel{border-radius:18px;padding:26px;border:1px solid var(--glass-border);backdrop-filter:blur(14px)}
-  .panel.good{background:linear-gradient(180deg,rgba(91,217,123,0.12),rgba(91,217,123,0.03))}
-  .panel.waste{background:linear-gradient(180deg,rgba(168,124,74,0.12),rgba(168,124,74,0.03))}
-  .panel h3{font-size:1.6rem;margin-bottom:6px}
-  .panel.good h3{color:var(--good)}
-  .panel.waste h3{color:var(--waste)}
-  .panel ul{list-style:none;color:var(--muted);font-weight:300}
-  .panel li{padding:6px 0;border-bottom:1px dashed rgba(255,255,255,0.08)}
-  .panel li:last-child{border-bottom:none}
+  .tallies{
+    display:flex;gap:14px;justify-content:center;flex-wrap:wrap;
+    padding:18px 16px 8px;border-top:1px dashed var(--line);
+  }
+  .tally{
+    display:flex;align-items:center;gap:12px;border-radius:14px;padding:12px 20px;min-width:230px;
+  }
+  .tally.good{background:var(--good-soft)}
+  .tally.waste{background:var(--waste-soft)}
+  .tally .t-emo{font-size:1.6rem}
+  .tally b{font-size:1.5rem;line-height:1;font-weight:700}
+  .tally.good b{color:var(--good)}
+  .tally.waste b{color:var(--waste)}
+  .tally small{display:block;font-size:0.72rem;letter-spacing:1px;text-transform:uppercase;color:var(--soft)}
+  .tally em{font-style:normal;font-weight:700}
+  .tally.good em{color:var(--good)}
+  .tally.waste em{color:var(--waste)}
 
-  /* testimonials */
-  .quotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
-  .quote{background:var(--glass);border:1px solid var(--glass-border);border-radius:18px;padding:26px;backdrop-filter:blur(14px)}
-  .quote p{font-size:1.05rem;font-weight:300}
-  .quote .who{margin-top:14px;color:var(--good);font-family:'Bebas Neue';letter-spacing:2px}
-  .quote .who small{display:block;color:var(--muted);font-family:'Inter';letter-spacing:0;font-weight:300}
-  .stars{color:var(--gold);letter-spacing:2px}
+  #verdict{
+    text-align:center;color:var(--soft);font-weight:300;font-size:1rem;
+    padding:10px 26px 24px;min-height:58px;max-width:680px;margin:0 auto;
+    opacity:0;transition:opacity .5s ease;
+  }
+  #verdict.show{opacity:1}
+  #verdict b{color:var(--ink);font-weight:500}
 
-  /* faq */
-  details{background:var(--glass);border:1px solid var(--glass-border);border-radius:14px;padding:18px 22px;margin-bottom:12px;backdrop-filter:blur(14px)}
-  summary{cursor:pointer;font-size:1.15rem;font-weight:600;list-style:none}
+  /* ===== STEPS ===== */
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:28px}
+  .step .n{font-family:'Instrument Serif',serif;font-size:2.2rem;color:var(--good);line-height:1}
+  .step h3{margin:10px 0 8px;font-size:1.05rem;font-weight:700;letter-spacing:2px;text-transform:uppercase}
+  .step p{color:var(--soft);font-weight:300;font-size:0.95rem}
+
+  /* ===== QUOTES ===== */
+  .quotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px}
+  .quote{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:28px}
+  .quote p{font-family:'Instrument Serif',serif;font-style:italic;font-size:1.2rem;line-height:1.4}
+  .quote .who{margin-top:16px;font-size:0.78rem;letter-spacing:2px;text-transform:uppercase;font-weight:700}
+  .quote .who small{display:block;color:var(--soft);font-weight:300;letter-spacing:0;text-transform:none;font-size:0.78rem}
+
+  /* ===== FAQ ===== */
+  .faq{max-width:720px;margin:0 auto}
+  details{border-bottom:1px solid var(--line);padding:18px 4px}
+  summary{cursor:pointer;font-weight:500;font-size:1.05rem;list-style:none;display:flex;justify-content:space-between;align-items:center}
   summary::-webkit-details-marker{display:none}
-  summary::before{content:"+ ";color:var(--good);font-weight:800}
-  details[open] summary::before{content:"– "}
-  details p{color:var(--muted);font-weight:300;margin-top:10px}
+  summary::after{content:"+";font-size:1.4rem;color:var(--good);font-weight:300}
+  details[open] summary::after{content:"–"}
+  details p{color:var(--soft);font-weight:300;margin-top:10px;font-size:0.96rem}
 
-  /* food picker + readout */
-  .controls{padding:18px 18px 20px;display:flex;flex-direction:column;gap:14px;border-top:1px solid var(--glass-border);background:rgba(0,0,0,0.18)}
-  .pickrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center}
-  .pickrow .lbl{font-family:'Bebas Neue';letter-spacing:3px;color:var(--muted);font-size:0.95rem;margin-right:4px}
-  .food{
-    display:flex;align-items:center;gap:8px;cursor:pointer;
-    background:var(--glass);border:1px solid var(--glass-border);border-radius:999px;
-    padding:9px 16px;color:var(--ink);font-weight:600;font-size:0.98rem;
-    transition:transform .15s ease, border-color .15s ease, background .15s ease;
+  /* ===== RESERVE ===== */
+  .reserve-card{
+    background:var(--ink);color:var(--paper);border-radius:28px;text-align:center;
+    padding:64px 28px;
   }
-  .food .emo{font-size:1.3rem;line-height:1}
-  .food:hover{transform:translateY(-2px);border-color:rgba(91,217,123,0.5)}
-  .food.active{background:linear-gradient(92deg,rgba(91,217,123,0.22),rgba(255,209,102,0.12));border-color:var(--good);box-shadow:0 0 18px rgba(91,217,123,0.25)}
-  .readout{
-    display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 22px;
-    text-align:center;min-height:62px;
+  .reserve-card h2{color:var(--paper)}
+  .reserve-card .price{margin:14px 0 6px;font-size:1.2rem}
+  .reserve-card .price s{color:#9b9184;margin-right:10px}
+  .reserve-card .price b{color:#7fd99a}
+  .reserve-card p.note{color:#9b9184;font-weight:300;font-size:0.9rem;max-width:520px;margin:0 auto 28px}
+  .reserve-card .btn{border-color:var(--paper);color:var(--paper)}
+  .reserve-card .btn:hover{background:var(--paper);color:var(--ink)}
+
+  footer{padding:48px 24px 64px;text-align:center;color:var(--soft);font-weight:300}
+  footer .disclaimer{max-width:680px;margin:0 auto 20px;font-size:0.78rem}
+  footer a{color:var(--good);text-decoration:none;font-weight:500}
+
+  @media(max-width:640px){
+    nav .links{display:none}
+    .tally{min-width:0;flex:1}
   }
-  .readout .meal{font-family:'Bebas Neue';letter-spacing:2px;font-size:1.5rem}
-  .readout .meal .emo{font-size:1.6rem}
-  .ratio{display:flex;gap:18px;align-items:baseline}
-  .ratio .num{font-family:'Bebas Neue';font-size:2.1rem;line-height:1}
-  .ratio .num small{display:block;font-family:'Inter';font-weight:300;font-size:0.72rem;letter-spacing:1px}
-  .ratio .good .num,.ratio .good{color:var(--good)}
-  .ratio .waste .num,.ratio .waste{color:var(--waste)}
-  .readout .blurb{flex-basis:100%;color:var(--muted);font-weight:300;font-size:1rem}
-  .readout .blurb em{color:var(--ink);font-style:normal;font-weight:600}
-  .bar{flex-basis:100%;max-width:520px;height:12px;border-radius:999px;overflow:hidden;display:flex;border:1px solid var(--glass-border)}
-  .bar .b-good{background:linear-gradient(90deg,#5bd97b,#bdf0c7);transition:width .6s cubic-bezier(.2,.7,.2,1)}
-  .bar .b-waste{background:linear-gradient(90deg,#6b4e2e,#a87c4a);transition:width .6s cubic-bezier(.2,.7,.2,1)}
-
-  footer{padding:50px 0 70px;text-align:center;color:var(--muted);font-weight:300}
-  footer .disclaimer{max-width:720px;margin:0 auto 22px;font-size:0.82rem;opacity:0.8}
-  footer a.back{color:var(--good);text-decoration:none;font-family:'Bebas Neue';letter-spacing:2px}
-
-  @media(max-width:620px){.split{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
-<header>
+<nav>
+  <div class="logo">JTGS<sup>™</sup></div>
+  <div class="links">
+    <a href="#demo">Demo</a><a href="#how">How it works</a><a href="#faq">FAQ</a>
+  </div>
+  <a class="btn" href="#reserve">Reserve</a>
+</nav>
+
+<header class="hero">
   <div class="wrap">
-    <div class="kicker">Pre-Digestive Intake Processing</div>
-    <h1>Just The Good Sh<span style="-webkit-text-fill-color:var(--gold)">*</span>t<span class="tm">™</span></h1>
-    <div class="sub">EAT FREELY · EXCRETE NEVER</div>
-    <p class="tag">The world's first countertop appliance that digests your meal <em>for</em> you, siphons off everything destined to become waste, and hands back only the nutritious part — pre-absorbed, plate-ready, and frankly delicious.</p>
-    <a class="cta" href="#order">Reserve Yours →</a>
-    <div class="fine">Ships Q4 · Limited founders' run · Sewer hookup not included</div>
+    <div class="kicker">The World's First Pre-Digestive Appliance</div>
+    <h1>It eats first.<br>So you never <span class="go">have to go.</span></h1>
+    <p>JTGS™ intercepts every meal, digests it on your countertop, pipes the doomed fraction straight to the sewer — <b>where it was headed anyway</b> — and serves you the rest. No waste in, no waste out. No bathroom. No schedule. Just the good sh*t.</p>
+    <div class="ctas">
+      <a class="btn solid" href="#demo">Feed it something ↓</a>
+      <a class="btn" href="#reserve">Reserve yours</a>
+    </div>
+    <div class="fine">Ships never · Patent emphatically not pending · Sewer hookup sold separately</div>
   </div>
 </header>
 
-<div class="wrap">
-  <div class="stage">
-    <div class="sync"><span class="dot"></span>PROCESSING</div>
-    <svg id="scene" viewBox="0 0 1100 420" xmlns="http://www.w3.org/2000/svg" aria-label="Diagram of the JTGS processing pipeline">
-      <defs>
-        <linearGradient id="gFood" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#ffd166"/><stop offset="1" stop-color="#ff9f4a"/>
-        </linearGradient>
-        <linearGradient id="gGood" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stop-color="#5bd97b"/><stop offset="1" stop-color="#bdf0c7"/>
-        </linearGradient>
-        <linearGradient id="gWaste" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stop-color="#a87c4a"/><stop offset="1" stop-color="#6b4e2e"/>
-        </linearGradient>
-        <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      </defs>
+<section id="demo">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>Feed it something.</h2>
+      <p>Every food is mostly future waste. The Core inspects your meal one unit at a time and finds out exactly how much.</p>
+    </div>
 
-      <!-- intake -->
-      <text x="120" y="56" fill="#9db3a4" font-family="Bebas Neue" font-size="20" letter-spacing="3" text-anchor="middle">YOU EAT</text>
-      <text id="intakeFood" x="120" y="212" font-size="48" text-anchor="middle">🍔</text>
+    <div class="chips">
+      <button class="chip" data-food="smoothie"><span class="emo">🥤</span><span><b>Green Smoothie</b><small>pre-blended optimism</small></span></button>
+      <button class="chip" data-food="tacobell"><span class="emo">🌮</span><span><b>Taco Bell</b><small>the whole order · a decision</small></span></button>
+      <button class="chip" data-food="corn"><span class="emo">🌽</span><span><b>Corn on the Cob</b><small>the control group</small></span></button>
+    </div>
 
-      <!-- intake pipe -->
-      <path id="pipeIn" d="M170,195 H430" stroke="#26352b" stroke-width="26" fill="none" stroke-linecap="round"/>
-      <path d="M170,195 H430" stroke="rgba(255,255,255,0.06)" stroke-width="2" fill="none"/>
+    <div class="machine">
+      <svg id="stage" viewBox="0 0 1000 470" xmlns="http://www.w3.org/2000/svg" aria-label="JTGS Core inspecting a meal and splitting it into a stream for you and a stream for the drain">
+        <!-- pipes -->
+        <path id="pathIn" d="M150,235 H400" stroke="var(--pipe)" stroke-width="20" fill="none" stroke-linecap="round"/>
+        <path d="M150,235 H400" stroke="#cdc2a8" stroke-width="1.5" stroke-dasharray="2 7" fill="none"/>
+        <path id="pathGood" d="M620,200 H770 C815,200 830,175 862,158" stroke="var(--pipe)" stroke-width="18" fill="none" stroke-linecap="round"/>
+        <path d="M620,200 H770 C815,200 830,175 862,158" stroke="#b9d4bd" stroke-width="1.5" stroke-dasharray="2 7" fill="none"/>
+        <path id="pathWaste" d="M620,290 H755 C800,290 810,325 818,360 L822,398" stroke="var(--pipe)" stroke-width="18" fill="none" stroke-linecap="round"/>
+        <path d="M620,290 H755 C800,290 810,325 818,360 L822,398" stroke="#d4c3ab" stroke-width="1.5" stroke-dasharray="2 7" fill="none"/>
 
-      <!-- the core unit -->
-      <rect x="430" y="120" width="200" height="160" rx="22" fill="#0e1712" stroke="#5bd97b" stroke-width="2"/>
-      <rect x="430" y="120" width="200" height="160" rx="22" fill="none" stroke="rgba(91,217,123,0.25)" stroke-width="10" filter="url(#glow)"/>
-      <text x="530" y="150" fill="#5bd97b" font-family="Bebas Neue" font-size="18" letter-spacing="3" text-anchor="middle">JTGS CORE</text>
-      <!-- spinning separator -->
-      <g transform="translate(530,210)">
-        <circle r="44" fill="none" stroke="#1c2a22" stroke-width="10"/>
-        <g id="rotor">
-          <circle r="44" fill="none" stroke="url(#gGood)" stroke-width="6" stroke-dasharray="40 36" stroke-linecap="round"/>
+        <!-- plate -->
+        <circle cx="105" cy="235" r="50" fill="var(--card)" stroke="var(--ink)" stroke-width="2"/>
+        <circle cx="105" cy="235" r="38" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+        <text id="plateFood" x="105" y="252" font-size="42" text-anchor="middle">🍽️</text>
+        <text x="105" y="315" font-size="12" letter-spacing="3" text-anchor="middle" fill="#6e6558" font-weight="500">YOUR MEAL</text>
+
+        <!-- core -->
+        <rect x="400" y="140" width="220" height="190" rx="26" fill="var(--card)" stroke="var(--ink)" stroke-width="2"/>
+        <text x="510" y="172" font-size="13" letter-spacing="4" text-anchor="middle" fill="#171310" font-weight="700">JTGS™ CORE</text>
+        <circle id="led" cx="592" cy="166" r="5" fill="#d5cbb8"/>
+        <!-- dial -->
+        <circle cx="510" cy="240" r="42" fill="none" stroke="var(--ink)" stroke-width="2"/>
+        <g id="dialTicks">
+          <g stroke="var(--good)" stroke-width="3" stroke-linecap="round">
+            <line x1="510" y1="206" x2="510" y2="216"/><line x1="510" y1="264" x2="510" y2="274"/>
+            <line x1="476" y1="240" x2="486" y2="240"/><line x1="534" y1="240" x2="544" y2="240"/>
+            <line x1="486" y1="216" x2="493" y2="223"/><line x1="527" y1="257" x2="534" y2="264"/>
+            <line x1="534" y1="216" x2="527" y2="223"/><line x1="493" y1="257" x2="486" y2="264"/>
+          </g>
         </g>
-        <text y="8" font-size="30" text-anchor="middle">⚙️</text>
-      </g>
+        <circle cx="510" cy="240" r="5" fill="var(--ink)"/>
+        <text id="coreStatus" x="510" y="312" font-size="12" letter-spacing="3" text-anchor="middle" fill="#6e6558" font-weight="500">IDLE</text>
 
-      <!-- good shit out (to you) -->
-      <path id="pipeGood" d="M630,170 H930" stroke="#1c3322" stroke-width="22" fill="none" stroke-linecap="round"/>
-      <text x="930" y="150" fill="#5bd97b" font-family="Bebas Neue" font-size="20" letter-spacing="3" text-anchor="middle">↑ BACK TO YOU</text>
-      <text x="985" y="180" font-size="40">🤤</text>
-      <text id="goodTag" x="930" y="118" fill="#5bd97b" font-family="Bebas Neue" font-size="16" letter-spacing="2" text-anchor="middle" opacity="0"></text>
+        <!-- to you -->
+        <text x="905" y="152" font-size="38" text-anchor="middle">😌</text>
+        <text x="905" y="112" font-size="12" letter-spacing="3" text-anchor="middle" fill="#1e7d43" font-weight="700">TO YOU</text>
 
-      <!-- waste out (to sewer) -->
-      <path id="pipeWaste" d="M630,250 H850 Q890,250 890,300 V370" stroke="#2a2116" stroke-width="22" fill="none" stroke-linecap="round"/>
-      <text x="890" y="405" fill="#a87c4a" font-family="Bebas Neue" font-size="18" letter-spacing="2" text-anchor="middle">↓ THE BAD SH*T</text>
+        <!-- to the drain -->
+        <ellipse cx="822" cy="415" rx="26" ry="9" fill="#171310" opacity="0.85"/>
+        <ellipse cx="822" cy="415" rx="26" ry="9" fill="none" stroke="var(--ink)" stroke-width="2"/>
+        <text x="822" y="448" font-size="12" letter-spacing="3" text-anchor="middle" fill="#8a6134" font-weight="700">TO THE DRAIN</text>
 
-      <!-- flowing particles -->
-      <g id="flow"></g>
-    </svg>
+        <!-- particles live here -->
+        <g id="flow"></g>
+      </svg>
 
-    <div class="controls">
-      <div class="pickrow">
-        <span class="lbl">FEED IT:</span>
-        <button class="food" data-food="smoothie"><span class="emo">🥤</span> Green Smoothie</button>
-        <button class="food" data-food="tacobell"><span class="emo">🌮</span> Taco Bell Run</button>
-        <button class="food" data-food="corn"><span class="emo">🌽</span> Corn on the Cob</button>
+      <div class="tallies">
+        <div class="tally good"><span class="t-emo">😌</span><div><b id="nGood">—</b><small>units to you <em id="pGood"></em></small></div></div>
+        <div class="tally waste"><span class="t-emo">🚽</span><div><b id="nWaste">—</b><small>units to the drain <em id="pWaste"></em></small></div></div>
       </div>
-      <div class="readout" id="readout">
-        <div class="blurb">Pick a food above to run it through the JTGS™ Core.</div>
+      <p id="verdict"></p>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>How it works</h2>
+      <p>Three stages. Zero bathrooms. One increasingly judgmental appliance.</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="n serif">01</div><h3>Intercept</h3><p>Your meal goes into the hopper, not your mouth. The Core chews so you don't have to. It has better teeth than you. They're titanium.</p></div>
+      <div class="step"><div class="n serif">02</div><h3>Adjudicate</h3><p>MacroSieve™ runs every molecule through a single question: <em class="serif">will this someday need a bathroom?</em> Everything that answers yes exits through the floor.</p></div>
+      <div class="step"><div class="n serif">03</div><h3>Return</h3><p>What survives — glucose, amino acids, vitamins, and the entire flavor profile (FlavorBack™) — is served back to you as a warm, blameless purée.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head">
+      <h2>People can't stop not going</h2>
+    </div>
+    <div class="quotes">
+      <div class="quote">
+        <p>"I watched it flag 96% of my order as future waste, and honestly? Fair."</p>
+        <div class="who">Devon K.<small>Taco Bell survivor</small></div>
+      </div>
+      <div class="quote">
+        <p>"I haven't seen my bathroom in three weeks. We're strangers now. I mailed it a postcard."</p>
+        <div class="who">Priya S.<small>Founders' Edition owner</small></div>
+      </div>
+      <div class="quote">
+        <p>"As a gastroenterologist, I have so many questions, and the company has answered none of them."</p>
+        <div class="who">Dr. M.<small>Professionally alarmed</small></div>
       </div>
     </div>
-    <div class="hud">JTGS Core v1.0 · throughput shown at 1× speed · particles are illustrative</div>
-  </div>
-</div>
-
-<section class="wrap">
-  <div class="kicker">How it works</div>
-  <h2>Three steps. Zero bathroom.</h2>
-  <p class="lead">You've always done the hard part of eating — the chewing, the swallowing, the <em>consequences</em>. JTGS™ keeps the part you like and quietly handles the rest.</p>
-  <div class="steps">
-    <div class="card"><div class="num">01</div><h3>Eat</h3><p>Load your meal into the intake hopper. Burgers, ramen, a questionable gas-station burrito — the Core doesn't judge.</p></div>
-    <div class="card"><div class="num">02</div><h3>Separate</h3><p>Our patented MacroSieve™ pre-digests everything and splits it at the molecular fork: nutrients on one side, future-waste on the other.</p></div>
-    <div class="card"><div class="num">03</div><h3>Absorb</h3><p>The good part flows straight back to you, fully broken down. The bad part goes down the drain. You never get up.</p></div>
   </div>
 </section>
 
-<section class="wrap">
-  <div class="kicker">The split</div>
-  <h2>What stays vs. what goes</h2>
-  <div class="split">
-    <div class="panel good">
-      <h3>You keep</h3>
-      <ul>
-        <li>Glucose, amino acids, fatty acids</li>
-        <li>Vitamins, minerals, electrolytes</li>
-        <li>The full flavor profile (re-injected)</li>
-        <li>That post-meal contentment</li>
-        <li>Your entire afternoon</li>
-      </ul>
-    </div>
-    <div class="panel waste">
-      <h3>We take</h3>
-      <ul>
-        <li>Indigestible fiber & roughage</li>
-        <li>Spent bile, dead cells, the works</li>
-        <li>~150g of future regret per meal</li>
-        <li>The need to ever locate a restroom</li>
-        <li>Awkward post-dinner exits</li>
-      </ul>
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head"><h2>Questions you definitely have</h2></div>
+    <div class="faq">
+      <details><summary>So I never poop again?</summary><p>Never. That is the product. The Core digests your meal before your body gets involved, so the waste portion of your food simply never enters you. You absorb; it excretes. Division of labor.</p></details>
+      <details><summary>Where does it all go?</summary><p>Into your existing plumbing — the same destination as always, minus you as the middleman. We didn't invent anything new. We just removed you from the supply chain.</p></details>
+      <details><summary>Is the returned food still… food?</summary><p>Legally, it is a "nutritive slurry" with the identical macros of your original meal and, thanks to FlavorBack™, the identical taste. Spiritually, yes, it's still lunch.</p></details>
+      <details><summary>What about fiber? My gut microbiome?</summary><p>Great question. Next question.</p></details>
+      <details><summary>Is this real?</summary><p>No. This is a joke website. Please continue digesting things yourself — your colon has been doing this for free, without complaint, your entire life. Maybe thank it today.</p></details>
     </div>
   </div>
 </section>
 
-<section class="wrap">
-  <div class="kicker">The believers</div>
-  <h2>People can't stop not pooping</h2>
-  <div class="quotes">
-    <div class="quote">
-      <div class="stars">★★★★★</div>
-      <p>"I ate an entire wedding buffet and gave the toast in the same breath. Nobody knew. <em>I</em> barely knew."</p>
-      <div class="who">DARREN P.<small>Best man, repeat offender</small></div>
-    </div>
-    <div class="quote">
-      <div class="stars">★★★★★</div>
-      <p>"Cross-country drive, zero rest stops. The JTGS™ paid for itself in saved gas-station coffee alone."</p>
-      <div class="who">MONICA R.<small>Long-haul enthusiast</small></div>
-    </div>
-    <div class="quote">
-      <div class="stars">★★★★☆</div>
-      <p>"Five stars for the freedom. Minus one because the drain pipe is, unavoidably, exactly what you think it is."</p>
-      <div class="who">THE INTERNET<small>Verified-ish buyer</small></div>
+<section id="reserve">
+  <div class="wrap">
+    <div class="reserve-card">
+      <div class="kicker" style="color:#7fd99a">Founders' Edition</div>
+      <h2>Leave the loop forever.</h2>
+      <div class="price"><s>$1,299</s><b>$0 — it's a joke</b></div>
+      <p class="note">By reserving, you acknowledge that this appliance does not exist, should not exist, and that your digestive system remains the market leader.</p>
+      <button class="btn" onclick="reserve()">Reserve for $0 →</button>
     </div>
   </div>
 </section>
 
-<section class="wrap">
-  <div class="kicker">Questions you definitely have</div>
-  <h2>FAQ</h2>
-  <details><summary>Wait — so I never poop again?</summary><p>Correct. The JTGS™ Core intercepts the meal before your body ever has to. Whatever would have eventually become waste is diverted at the source and sent to your home's existing plumbing. You simply absorb the good shit.</p></details>
-  <details><summary>Where does the bad sh*t go?</summary><p>Down the drain, via the included MacroSieve™ outflow hose. Think of it as outsourcing the least fun 40 seconds of your day to a quiet appliance on your counter.</p></details>
-  <details><summary>Does it hurt?</summary><p>Our legal team has asked us to describe the sensation as "novel." Most users report a gentle, warm reabsorption. A small minority report "profound philosophical unease," which fades by week two.</p></details>
-  <details><summary>Can I still taste my food?</summary><p>Absolutely. FlavorLoop™ re-injects the full taste profile during reabsorption. You get all the joy of the meal and none of the aftermath. Some say it tastes <em>better</em> the second time, which we are choosing not to think about.</p></details>
-  <details><summary>Is this real?</summary><p>No. This is a joke. Please continue using your digestive system as intended. It's doing great.</p></details>
-</section>
-
-<section class="wrap" id="order">
-  <div class="card" style="text-align:center;padding:48px 28px;background:linear-gradient(180deg,rgba(91,217,123,0.10),rgba(255,209,102,0.05))">
-    <div class="kicker">Founders' Edition</div>
-    <h2 style="margin-top:8px">Free yourself from the loop</h2>
-    <p class="lead" style="margin:10px auto 24px">One device. Infinite meals. Zero bathroom breaks. The future of eating is just the good shit.</p>
-    <a class="cta" href="#" onclick="return reserve()">Reserve for $0 (it's a joke) →</a>
-    <div class="fine">By reserving you acknowledge that this product does not, will not, and should not exist.</div>
-  </div>
-</section>
-
-<footer class="wrap">
-  <p class="disclaimer">JTGS™ is a satirical concept appliance. It is not a medical device, a real device, or a good idea. Your gastrointestinal tract remains the original, best-in-class, fully waste-managed solution. Do not attempt to siphon anything.</p>
-  <a class="back" href="../index.html">← back to For Fun</a>
+<footer>
+  <p class="disclaimer">JTGS™ is a satirical concept, not a medical device, kitchen appliance, or investment opportunity. No slurry was produced in the making of this page. Your gastrointestinal tract is the original just-the-good-sh*t machine — 30 feet of proven infrastructure with a 100% uptime record. Do not attempt to outsource it.</p>
+  <a href="../index.html">← back to For Fun</a>
 </footer>
 
 <script>
+(() => {
   const NS = 'http://www.w3.org/2000/svg';
-  const rotor   = document.getElementById('rotor');
-  const flow    = document.getElementById('flow');
-  const intake  = document.getElementById('intakeFood');
-  const goodTag = document.getElementById('goodTag');
-  const readout = document.getElementById('readout');
+  const $ = id => document.getElementById(id);
+  const flow = $('flow'), plate = $('plateFood'), led = $('led');
+  const dial = $('dialTicks'), statusEl = $('coreStatus'), verdictEl = $('verdict');
+  const nGood = $('nGood'), nWaste = $('nWaste'), pGood = $('pGood'), pWaste = $('pWaste');
+  const pathIn = $('pathIn'), pathGood = $('pathGood'), pathWaste = $('pathWaste');
+  const LEN = { in: pathIn.getTotalLength(), good: pathGood.getTotalLength(), waste: pathWaste.getTotalLength() };
 
-  // pipe geometry (sampled once)
-  const pIn    = document.getElementById('pipeIn');
-  const pGood  = document.getElementById('pipeGood');
-  const pWaste = document.getElementById('pipeWaste');
-  const LIn = pIn.getTotalLength(), LGood = pGood.getTotalLength(), LWaste = pWaste.getTotalLength();
+  const GOODC = '#1e7d43', WASTEC = '#8a6134';
+  const SPAWN_GAP = 110, T_IN = 900, T_BRANCH = 950;
 
-  // ---- the menu ----
   const FOODS = {
     smoothie: {
-      emoji:'🥤', name:'Green Smoothie', good:0.92,
-      goodTag:'PURE FUEL',
-      blurb:'Pre-blended, pre-digested basically. <em>92%</em> flows right back to you — barely anything left to flush.'
+      emoji: '🥤', color: '#7cb356', total: 24, good: 22, pct: 92,
+      statuses: ['INTERCEPTING', 'ADJUDICATING', 'APPROVING…'],
+      verdict: '<b>22 of 24 units cleared inspection — 92% admissible.</b> A near-perfect meal. The drain barely noticed you ate.'
     },
     tacobell: {
-      emoji:'🌮', name:'Taco Bell Run', good:0.04,
-      goodTag:'…that’s it',
-      blurb:'A <em>teeny, tiny</em> 4% trickles back to you. The other 96%? Express lane to the drain. Live más, flush más.'
+      emoji: '🌮', color: '#d98a3a', total: 25, good: 1, pct: 4,
+      statuses: ['INTERCEPTING', 'ANALYZING', 'RE-ANALYZING', 'CONCERNED', 'SALVAGING…'],
+      verdict: 'Inspection complete. Of your entire order, <b>one (1) unit was found to be food</b> — a teeny, tiny 4%. It is being returned to you now. Savor it.'
     },
     corn: {
-      emoji:'🌽', name:'Corn on the Cob', good:0.07,
-      goodTag:'mostly intact',
-      blurb:'Corn does what corn does — <em>93%</em> sails through completely unprocessed, kernels and all.'
+      emoji: '🌽', color: '#e3b93c', total: 24, good: 2, pct: 8,
+      statuses: ['INTERCEPTING', 'RECOGNIZING…', 'WAVING IT THROUGH'],
+      verdict: '<b>2 of 24 units absorbed.</b> The remainder passed through fully intact and will arrive at the sewer exactly as it arrived at you. Corn cannot be processed, only witnessed.'
     }
   };
 
-  // ---- particle engine ----
-  let ang = 0;
-  let active = null;        // current food config
-  let goodDebt = 0;         // accumulator so the trickle matches the ratio exactly
-  let spawnTimer = 0;
-  const SPAWN_EVERY = 11;   // frames between intake particles
-  const particles = [];
-
-  function spawn(){
-    const c = document.createElementNS(NS,'circle');
-    c.setAttribute('r', 7);
-    c.setAttribute('fill', 'url(#gFood)');
-    flow.appendChild(c);
-    particles.push({ c, lane:'in', t:0, speed:0.012 + Math.random()*0.004 });
+  // spread `count` indices evenly among `total` slots
+  function spreadIndices(total, count) {
+    const s = new Set();
+    for (let k = 0; k < count; k++) s.add(Math.min(total - 1, Math.floor((k + 0.5) * total / count)));
+    return s;
+  }
+  function goodSet(total, good) {
+    if (good <= 0) return new Set();
+    if (good >= total) return spreadIndices(total, total);
+    if (good <= total / 2) return spreadIndices(total, good);
+    const waste = spreadIndices(total, total - good);
+    const s = new Set();
+    for (let i = 0; i < total; i++) if (!waste.has(i)) s.add(i);
+    return s;
   }
 
-  function routeLane(){
-    // deterministic trickle: accumulate the good ratio, emit a "good" only when it crests 1
-    goodDebt += active ? active.good : 0;
-    if(goodDebt >= 1){ goodDebt -= 1; return 'good'; }
-    return 'waste';
+  let run = null, dialAngle = 0, lastStatusAt = 0;
+
+  function setPos(p, pt) {
+    if (p.el.tagName === 'rect') { p.el.setAttribute('x', pt.x - 5); p.el.setAttribute('y', pt.y - 5); }
+    else { p.el.setAttribute('cx', pt.x); p.el.setAttribute('cy', pt.y); }
+    if (p.halo) { p.halo.setAttribute('cx', pt.x); p.halo.setAttribute('cy', pt.y); }
+    if (p.label) { p.label.setAttribute('x', pt.x); p.label.setAttribute('y', pt.y - 18); }
   }
 
-  function step(){
-    ang = (ang + 2.4) % 360;
-    rotor.setAttribute('transform', `rotate(${ang})`);
+  function startRun(key) {
+    const f = FOODS[key];
+    if (run) run.parts.forEach(p => p.nodes.forEach(n => n.remove()));
+    document.querySelectorAll('.chip').forEach(b => b.classList.toggle('on', b.dataset.food === key));
+    plate.textContent = f.emoji;
+    verdictEl.classList.remove('show');
+    verdictEl.innerHTML = '';
+    nGood.textContent = '0'; nWaste.textContent = '0';
+    pGood.textContent = ''; pWaste.textContent = '';
+    led.setAttribute('fill', GOODC);
 
-    if(active){
-      if(++spawnTimer >= SPAWN_EVERY){ spawnTimer = 0; spawn(); }
-    }
-
-    for(let i=particles.length-1;i>=0;i--){
-      const p = particles[i];
-      p.t += p.speed;
-      if(p.lane==='in'){
-        if(p.t>=1){
-          const lane = routeLane();
-          p.lane = lane; p.t = 0;
-          if(lane==='good'){ p.c.setAttribute('fill','url(#gGood)'); p.c.setAttribute('r',7); }
-          else { p.c.setAttribute('fill','url(#gWaste)'); p.c.setAttribute('r',6); }
-        } else {
-          const pt = pIn.getPointAtLength(p.t*LIn);
-          p.c.setAttribute('cx',pt.x); p.c.setAttribute('cy',pt.y);
-        }
+    const good = goodSet(f.total, f.good);
+    const parts = [];
+    for (let i = 0; i < f.total; i++) {
+      const isGood = good.has(i);
+      let el;
+      if (key === 'corn') {
+        el = document.createElementNS(NS, 'rect');
+        el.setAttribute('width', 10); el.setAttribute('height', 10); el.setAttribute('rx', 3);
       } else {
-        const path = p.lane==='good' ? pGood : pWaste;
-        const L    = p.lane==='good' ? LGood : LWaste;
-        if(p.t>=1){ p.c.remove(); particles.splice(i,1); continue; }
-        const pt = path.getPointAtLength(p.t*L);
-        p.c.setAttribute('cx',pt.x); p.c.setAttribute('cy',pt.y);
+        el = document.createElementNS(NS, 'circle');
+        el.setAttribute('r', 6.5);
+      }
+      el.setAttribute('fill', f.color);
+      el.setAttribute('opacity', '0');
+      flow.appendChild(el);
+      const nodes = [el];
+      let halo = null, label = null;
+      if (key === 'tacobell' && isGood) {
+        // the lone survivor gets the full ceremony
+        el.setAttribute('r', 8);
+        halo = document.createElementNS(NS, 'circle');
+        halo.setAttribute('r', 15); halo.setAttribute('fill', 'rgba(216,164,26,0.3)');
+        flow.insertBefore(halo, el);
+        label = document.createElementNS(NS, 'text');
+        label.textContent = 'THE GOOD PART';
+        label.setAttribute('class', 'partLabel');
+        flow.appendChild(label);
+        nodes.push(halo, label);
+      }
+      parts.push({ el, halo, label, nodes, delay: i * SPAWN_GAP, isGood, routed: false, done: false });
+    }
+    run = { f, key, parts, t0: performance.now(), goodN: 0, wasteN: 0, statusIdx: 0 };
+    statusEl.textContent = f.statuses[0];
+    lastStatusAt = run.t0;
+  }
+
+  function finishRun() {
+    const f = run.f;
+    statusEl.textContent = 'IDLE';
+    led.setAttribute('fill', '#d5cbb8');
+    pGood.textContent = '· ' + f.pct + '%';
+    pWaste.textContent = '· ' + (100 - f.pct) + '%';
+    verdictEl.innerHTML = f.verdict;
+    verdictEl.classList.add('show');
+  }
+
+  function frame(t) {
+    const running = run && run.parts.some(p => !p.done);
+    dialAngle = (dialAngle + (running ? 3.2 : 0.25)) % 360;
+    dial.setAttribute('transform', `rotate(${dialAngle} 510 240)`);
+
+    if (run && running) {
+      if (t - lastStatusAt > 650 && run.statusIdx < run.f.statuses.length - 1) {
+        run.statusIdx++;
+        statusEl.textContent = run.f.statuses[run.statusIdx];
+        lastStatusAt = t;
+      }
+      for (const p of run.parts) {
+        if (p.done) continue;
+        const lt = t - run.t0 - p.delay;
+        if (lt < 0) continue;
+        if (lt < T_IN) {
+          p.el.setAttribute('opacity', '1');
+          setPos(p, pathIn.getPointAtLength(lt / T_IN * LEN.in));
+        } else if (lt < T_IN + T_BRANCH) {
+          if (!p.routed) {
+            p.routed = true;
+            if (p.isGood) p.el.setAttribute('fill', run.key === 'tacobell' ? '#d8a41a' : GOODC);
+            else if (run.key !== 'corn') p.el.setAttribute('fill', WASTEC);
+            // corn waste keeps its kernel color: structurally unchanged
+          }
+          const path = p.isGood ? pathGood : pathWaste;
+          const L = p.isGood ? LEN.good : LEN.waste;
+          setPos(p, path.getPointAtLength((lt - T_IN) / T_BRANCH * L));
+        } else {
+          p.done = true;
+          p.nodes.forEach(n => n.remove());
+          if (p.isGood) run.goodN++; else run.wasteN++;
+          nGood.textContent = run.goodN;
+          nWaste.textContent = run.wasteN;
+          if (run.parts.every(q => q.done)) finishRun();
+        }
       }
     }
-    requestAnimationFrame(step);
+    requestAnimationFrame(frame);
   }
-  step();
+  requestAnimationFrame(frame);
 
-  // ---- selection ----
-  function selectFood(key, btn){
-    active = FOODS[key];
-    goodDebt = 0;
-    intake.textContent = active.emoji;
-    goodTag.textContent = active.goodTag;
-    goodTag.setAttribute('opacity','1');
-
-    document.querySelectorAll('.food').forEach(b=>b.classList.toggle('active', b===btn));
-
-    const goodPct  = Math.round(active.good*100);
-    const wastePct = 100 - goodPct;
-    readout.innerHTML = `
-      <div class="meal"><span class="emo">${active.emoji}</span> ${active.name}</div>
-      <div class="ratio">
-        <div class="good"><div class="num">${goodPct}%<small>BACK TO YOU</small></div></div>
-        <div class="waste"><div class="num">${wastePct}%<small>TO THE DRAIN</small></div></div>
-      </div>
-      <div class="bar"><div class="b-good" style="width:0%"></div><div class="b-waste" style="width:0%"></div></div>
-      <div class="blurb">${active.blurb}</div>`;
-    // animate the bar fill on next frame
-    requestAnimationFrame(()=>{
-      readout.querySelector('.b-good').style.width  = goodPct+'%';
-      readout.querySelector('.b-waste').style.width = wastePct+'%';
-    });
-  }
-
-  document.querySelectorAll('.food').forEach(btn=>{
-    btn.addEventListener('click', ()=>selectFood(btn.dataset.food, btn));
+  document.querySelectorAll('.chip').forEach(btn => {
+    btn.addEventListener('click', () => startRun(btn.dataset.food));
   });
 
-  function reserve(){
-    alert("Reservation declined: your digestive system filed a successful counter-claim.\n\nIt's a joke. Go eat something — the normal way.");
-    return false;
-  }
+  window.reserve = function () {
+    alert("Reservation declined.\n\nYour digestive system has filed a successful counter-claim citing 'decades of loyal service.'\n\nIt's a joke — go eat something the normal way.");
+  };
+})();
 </script>
 </body>
 </html>

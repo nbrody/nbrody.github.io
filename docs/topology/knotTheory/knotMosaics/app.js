@@ -1497,15 +1497,54 @@ document.getElementById('show-connections-checkbox').addEventListener('change', 
 
 
 
-// Strand color
+// Strand color — current-color box opens a popup palette
+const colorCurrent = document.getElementById('color-current');
+const colorPopup = document.getElementById('color-popup');
+
+function setStrandColor(color) {
+    state.strandColor = color;
+    colorCurrent.style.background = color;
+    document.querySelectorAll('.color-swatch').forEach(s => {
+        s.classList.toggle('active', s.dataset.color === color);
+    });
+    buildPalette();
+    render();
+}
+
+function hideColorPopup() {
+    colorPopup.classList.add('hidden');
+}
+
+colorCurrent.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!colorPopup.classList.contains('hidden')) {
+        hideColorPopup();
+        return;
+    }
+    colorPopup.classList.remove('hidden');
+    // Position next to the box, kept on-screen.
+    const r = colorCurrent.getBoundingClientRect();
+    const pw = colorPopup.offsetWidth, ph = colorPopup.offsetHeight;
+    let left = r.left;
+    let top = r.bottom + 8;
+    if (left + pw > innerWidth - 12) left = innerWidth - pw - 12;
+    if (top + ph > innerHeight - 12) top = r.top - ph - 8;
+    colorPopup.style.left = left + 'px';
+    colorPopup.style.top = top + 'px';
+});
+
+colorPopup.addEventListener('click', (e) => e.stopPropagation());
+
 document.querySelectorAll('.color-swatch').forEach(swatch => {
     swatch.addEventListener('click', () => {
-        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
-        swatch.classList.add('active');
-        state.strandColor = swatch.dataset.color;
-        buildPalette();
-        render();
+        setStrandColor(swatch.dataset.color);
+        hideColorPopup();
     });
+});
+
+document.addEventListener('click', hideColorPopup);
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hideColorPopup();
 });
 
 // Background toggle
@@ -1515,17 +1554,7 @@ document.querySelectorAll('.bg-toggle').forEach(btn => {
         btn.classList.add('active');
         state.bgMode = btn.dataset.bg;
         // Auto-switch strand color for contrast
-        if (state.bgMode === 'white') {
-            state.strandColor = '#111111';
-        } else {
-            state.strandColor = '#6c8aff';
-        }
-        // Update swatch selection to match
-        document.querySelectorAll('.color-swatch').forEach(s => {
-            s.classList.toggle('active', s.dataset.color === state.strandColor);
-        });
-        buildPalette();
-        render();
+        setStrandColor(state.bgMode === 'white' ? '#111111' : '#6c8aff');
     });
 });
 

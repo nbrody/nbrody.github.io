@@ -185,8 +185,9 @@ export function getConstantsFromUI() {
     return constants;
 }
 
-// Add a matrix input UI element
-export function addMatrixInput(values = ['1', '0', '0', '1']) {
+// Add a matrix input UI element. `anti` marks the generator as
+// orientation-reversing: the map z ↦ (a·z̄+b)/(c·z̄+d).
+export function addMatrixInput(values = ['1', '0', '0', '1'], anti = false) {
     const container = document.getElementById('matrixInputs');
     if (!container) return;
 
@@ -205,6 +206,10 @@ export function addMatrixInput(values = ['1', '0', '0', '1']) {
                     <span class="mq-matrix-input" data-initial="${values[3]}"></span>
                 </span>
                 <span class="matrix-bracket">)</span>
+                <label class="anti-toggle" title="Click to conjugate first: z ↦ (a·z̄+b)/(c·z̄+d) — an orientation-reversing generator (reflection / glide reflection).">
+                    <input type="checkbox" class="anti-checkbox"${anti ? ' checked' : ''}>
+                    <span class="anti-glyph">z</span>
+                </label>
             </label>
             <button class="delete-matrix-btn" style="position:absolute;right:0;top:50%;transform:translateY(-50%);width:26px;height:30px;">✖</button>
         </div>`;
@@ -272,6 +277,14 @@ export function getMatricesFromUI() {
 
     for (const block of blocks) {
         const spans = block.querySelectorAll('.mq-matrix-input');
+        const antiBox = block.querySelector('.anti-checkbox');
+        const anti = !!(antiBox && antiBox.checked);
+        if (exactField && anti && !exactField.hasConj()) {
+            throw new Error('Orientation-reversing (z̄) generators in exact mode need complex ' +
+                'conjugation as a field automorphism, which is not configured for this field/root — ' +
+                'use a field closed under conjugation (real embedding or degree 2), a preset that ' +
+                'supplies σ(w), or turn off exact mode.');
+        }
 
         let a, b, c, d;
         if (exactField) {
@@ -279,7 +292,7 @@ export function getMatricesFromUI() {
             const toK = (latex) => parseKElem(latexToExpr(String(latex || '0')), exactField);
             const ea = toK(getLatex(spans[0])), eb = toK(getLatex(spans[1]));
             const ec = toK(getLatex(spans[2])), ed = toK(getLatex(spans[3]));
-            const em = new ExactMat(ea, eb, ec, ed);
+            const em = new ExactMat(ea, eb, ec, ed, anti);
             if (em.det().isZero()) {
                 throw new Error('Matrix has determinant 0 exactly (not invertible)');
             }
@@ -301,7 +314,7 @@ export function getMatricesFromUI() {
 
         // Normalize to determinant 1 so all downstream formulas (orbit maps,
         // log/exp animation) can assume SL(2,C).
-        matrices.push(new Matrix2x2(a, b, c, d).normalized());
+        matrices.push(new Matrix2x2(a, b, c, d, anti).normalized());
     }
 
     if (exactField) lastExactGens = exactGens;
@@ -319,8 +332,9 @@ export function getGeneratorsFromUI() {
     return generators;
 }
 
-// Load an example
-function setExample(example, exampleName = '', consts = null) {
+// Load an example. `anti` is an optional per-matrix array of booleans marking
+// orientation-reversing generators.
+function setExample(example, exampleName = '', consts = null, anti = null) {
     const matrixContainer = document.getElementById('matrixInputs');
     const constantsContainer = document.getElementById('constantsInputs');
     if (!matrixContainer) return;
@@ -342,35 +356,110 @@ function setExample(example, exampleName = '', consts = null) {
         consts.forEach(([name, expr]) => addConstantInput(name, expr));
     }
 
-    example.forEach(vals => addMatrixInput(vals.map(v => String(v).replace(/\*\*/g, '^'))));
+    example.forEach((vals, i) => addMatrixInput(
+        vals.map(v => String(v).replace(/\*\*/g, '^')),
+        !!(anti && anti[i])));
 }
 
-// Store the onRefresh callback for use by example dropdown
+/**
+ * Configure exact mode for a library example: examples with an `exact` spec
+ * ({gen?, minpoly, root, conj?}) enable exact mode with that field; examples
+ * without one disable it (their entries are plain float expressions).
+ * main.js owns the exact-panel state and listens for this event.
+ */
+function setExampleExact(spec) {
+    window.dispatchEvent(new CustomEvent('poincare:set-exact', { detail: spec || null }));
+}
+
+// Store the onRefresh callback for use by the example picker
 let refreshCallback = null;
 
-// Populate example dropdown
-function populateExampleDropdown() {
-    const sel = document.getElementById('matrix-example-select');
-    if (!sel) return;
+/** Load library example `idx` into the inputs and refresh. */
+export function loadExample(idx) {
+    if (!(idx >= 0 && idx < exampleLibrary.length)) return;
+    const example = exampleLibrary[idx];
+    setExample(example.mats, example.name, example.consts, example.anti);
+    setExampleExact(example.exact);
+    // Trigger refresh after a short delay for MathQuill to initialize
+    if (refreshCallback) {
+        setTimeout(refreshCallback, 50);
+    }
+}
 
+// ---- Example picker modal ----
+// Categories are shown in this order; presets keep library order inside each.
+const CATEGORY_ORDER = [
+    'Knots, links & bundles',
+    'Kaleidoscopes — reflection groups',
+    'Arithmetic & Bianchi groups',
+    'Surfaces & Fuchsian groups',
+    'Closed 3-manifolds',
+    'Fractal limit sets'
+];
+
+function buildExampleModal() {
+    const modal = document.createElement('div');
+    modal.id = 'example-modal';
+    modal.className = 'example-modal';
+    modal.hidden = true;
+
+    const cats = new Map();
     exampleLibrary.forEach((ex, idx) => {
-        const opt = document.createElement('option');
-        opt.value = String(idx);
-        opt.textContent = ex.name;
-        sel.appendChild(opt);
+        const cat = ex.cat || 'Other';
+        if (!cats.has(cat)) cats.set(cat, []);
+        cats.get(cat).push({ ex, idx });
+    });
+    const ordered = [
+        ...CATEGORY_ORDER.filter(c => cats.has(c)),
+        ...[...cats.keys()].filter(c => !CATEGORY_ORDER.includes(c))
+    ];
+
+    let html = `
+        <div class="example-modal-backdrop"></div>
+        <div class="example-modal-panel" role="dialog" aria-label="Example library">
+            <div class="example-modal-head">
+                <h3>Example Library</h3>
+                <button class="example-modal-close" aria-label="Close">×</button>
+            </div>
+            <div class="example-modal-body">`;
+    for (const cat of ordered) {
+        html += `<section class="example-cat">
+                <h4 class="example-cat-title">${cat}</h4>
+                <div class="example-grid">`;
+        for (const { ex, idx } of cats.get(cat)) {
+            const badges =
+                (ex.exact ? '<span class="ex-badge exact" title="Certifies with exact arithmetic">exact</span>' : '') +
+                (ex.anti ? '<span class="ex-badge mirrors" title="Orientation-reversing generators">mirrors</span>' : '');
+            html += `<button class="example-card" data-idx="${idx}">
+                    <span class="example-card-head">
+                        <span class="example-name">${ex.name}</span>
+                        <span class="example-badges">${badges}</span>
+                    </span>
+                    ${ex.desc ? `<span class="example-desc">${ex.desc}</span>` : ''}
+                </button>`;
+        }
+        html += `</div></section>`;
+    }
+    html += `</div></div>`;
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
+
+    const close = () => { modal.hidden = true; };
+    modal.querySelector('.example-modal-backdrop').addEventListener('click', close);
+    modal.querySelector('.example-modal-close').addEventListener('click', close);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.hidden) { e.stopPropagation(); close(); }
+    }, true);
+    modal.querySelectorAll('.example-card').forEach(card => {
+        card.addEventListener('click', () => {
+            close();
+            loadExample(parseInt(card.dataset.idx, 10));
+        });
     });
 
-    sel.addEventListener('change', () => {
-        const idx = parseInt(sel.value, 10);
-        if (idx >= 0 && idx < exampleLibrary.length) {
-            const example = exampleLibrary[idx];
-            setExample(example.mats, example.name, example.consts);
-            // Trigger refresh after a short delay for MathQuill to initialize
-            if (refreshCallback) {
-                setTimeout(refreshCallback, 50);
-            }
-        }
-    });
+    const openBtn = document.getElementById('load-example-btn');
+    if (openBtn) openBtn.addEventListener('click', () => { modal.hidden = false; });
+    return modal;
 }
 
 // Format a complex number as a MathQuill-friendly string like "1.25-0.5i"
@@ -416,15 +505,15 @@ export function setupMatrixInput(onRefresh) {
         // loaded from ?riley=...
     } else if (figEightIndex >= 0) {
         const example = exampleLibrary[figEightIndex];
-        setExample(example.mats, example.name, example.consts);
+        setExample(example.mats, example.name, example.consts, example.anti);
     } else {
         // Fallback to basic matrices
         addMatrixInput(['1', '0', '0', '1']);
         addMatrixInput(['0', '-1', '1', '0']);
     }
 
-    // Populate examples
-    populateExampleDropdown();
+    // Example picker modal (opened by the Load Example button)
+    buildExampleModal();
 
     // Add matrix button
     const addMatrixBtn = document.getElementById('addMatrixBtn');

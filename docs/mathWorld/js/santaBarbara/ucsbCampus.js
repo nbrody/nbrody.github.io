@@ -31,6 +31,7 @@
  */
 
 import * as THREE from 'three';
+import { chalkTexture, chalkDescription } from '../shared/chalkboards.js';
 
 export class UCSBCampus {
     constructor(campusGroup, terrainHeightFn = null) {
@@ -349,7 +350,8 @@ export class UCSBCampus {
         const g = new THREE.Group();
         g.userData = {
             name: 'Lagoon Observation Deck', isInteractable: true,
-            type: 'landmark', interactionType: 'Look'
+            type: 'landmark', interactionType: 'Look',
+            description: 'A wooden overlook above the 94-acre Campus Lagoon, where herons and egrets stalk the shallows. Beyond the water, the Pacific stretches toward the Channel Islands.'
         };
         const deckMat = new THREE.MeshStandardMaterial({
             color: 0x8A6540, roughness: 0.85
@@ -643,7 +645,8 @@ export class UCSBCampus {
         const g = new THREE.Group();
         g.userData = {
             name: 'Storke Tower', isInteractable: true,
-            type: 'landmark', interactionType: 'Admire'
+            type: 'landmark', interactionType: 'Admire',
+            description: 'Completed in 1969, this 61-meter carillon tower is the tallest steel-and-concrete structure in Santa Barbara County. Its bells chime over campus, and the student media offices work away at its base.'
         };
 
         const concreteMat = new THREE.MeshStandardMaterial({
@@ -877,7 +880,8 @@ export class UCSBCampus {
         const sh = new THREE.Group();
         sh.userData = {
             name: 'South Hall', isInteractable: true,
-            type: 'building', interactionType: 'Enter'
+            type: 'building', interactionType: 'Visit',
+            description: 'Home of the UCSB Mathematics Department, its halls lined with chalkboards and seminar rooms. Generations of mathematicians have scribbled their way through this concrete landmark.'
         };
 
         const concreteMat = new THREE.MeshStandardMaterial({
@@ -1022,7 +1026,8 @@ export class UCSBCampus {
         const uc = new THREE.Group();
         uc.userData = {
             name: 'University Center (UCen)', isInteractable: true,
-            type: 'building', interactionType: 'Enter'
+            type: 'building', interactionType: 'Visit',
+            description: 'The student union, perched above the Campus Lagoon with eateries, the bookstore, and lounges. A favorite spot to grab coffee and watch the water.'
         };
 
         const stuccoMat = new THREE.MeshStandardMaterial({
@@ -1228,7 +1233,8 @@ export class UCSBCampus {
         const lib = new THREE.Group();
         lib.userData = {
             name: 'Davidson Library', isInteractable: true,
-            type: 'building', interactionType: 'Enter'
+            type: 'building', interactionType: 'Visit',
+            description: 'The heart of research at UCSB, holding some three million volumes. Its eight-story tower offers sweeping views of the campus, mountains, and sea.'
         };
 
         const concreteMat = new THREE.MeshStandardMaterial({
@@ -1717,7 +1723,8 @@ export class UCSBCampus {
     createChalkboard(name) {
         const g = new THREE.Group();
         g.userData = {
-            name, isInteractable: true, type: 'chalkboard', interactionType: 'Read'
+            name, isInteractable: true, type: 'chalkboard', interactionType: 'Read',
+            description: chalkDescription(name)
         };
         const postMat = new THREE.MeshStandardMaterial({
             color: 0x5A3C28, roughness: 0.9
@@ -1747,6 +1754,14 @@ export class UCSBCampus {
         );
         slate.position.set(0, 1.85, 0.06);
         g.add(slate);
+        // Chalk writing on the slate face
+        const face = new THREE.Mesh(
+            new THREE.PlaneGeometry(2.7, 1.66),
+            new THREE.MeshBasicMaterial({ map: chalkTexture(name) })
+        );
+        face.position.set(0, 1.85, 0.09);
+        face.userData.noCollision = true;
+        g.add(face);
         const tray = new THREE.Mesh(
             new THREE.BoxGeometry(2.55, 0.08, 0.14), frameMat
         );

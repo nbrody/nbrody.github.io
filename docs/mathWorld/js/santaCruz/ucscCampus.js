@@ -4,6 +4,7 @@
  * Local details only - terrain handled by regional santaCruz.js
  */
 import * as THREE from 'three';
+import { chalkTexture, chalkDescription } from '../shared/chalkboards.js';
 
 export class UCSCCampus {
     constructor(campusGroup, terrainHeightFn = null) {
@@ -32,64 +33,6 @@ export class UCSCCampus {
         this.createChalkboards();
         this.createStudyCabins();
         this.createBenches();
-    }
-
-    createLocalSky() {
-        const skyGeo = new THREE.SphereGeometry(500, 32, 32);
-        const skyMat = new THREE.ShaderMaterial({
-            uniforms: {
-                topColor: { value: new THREE.Color(0x0077ff) },
-                horizonColor: { value: new THREE.Color(0xB4D7E8) },
-                bottomColor: { value: new THREE.Color(0x87CEEB) }
-            },
-            vertexShader: `
-                varying vec3 vWorldPosition;
-                void main() {
-                    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-                    vWorldPosition = worldPosition.xyz;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }
-            `,
-            fragmentShader: `
-                uniform vec3 topColor;
-                uniform vec3 horizonColor;
-                uniform vec3 bottomColor;
-                varying vec3 vWorldPosition;
-                void main() {
-                    float h = normalize(vWorldPosition).y;
-                    vec3 color;
-                    if (h < 0.0) color = bottomColor;
-                    else if (h < 0.25) color = mix(horizonColor, bottomColor, pow(1.0 - h * 4.0, 1.5));
-                    else color = mix(horizonColor, topColor, pow((h - 0.25) / 0.75, 0.6));
-                    gl_FragColor = vec4(color, 1.0);
-                }
-            `,
-            side: THREE.BackSide
-        });
-        this.group.add(new THREE.Mesh(skyGeo, skyMat));
-        this.createClouds();
-    }
-
-    createClouds() {
-        const cloudMat = new THREE.MeshStandardMaterial({
-            color: 0xffffff, transparent: true, opacity: 0.85, roughness: 1
-        });
-        const positions = [
-            { x: -100, y: 80, z: -150, s: 1.5 }, { x: 50, y: 90, z: -180, s: 1.2 },
-            { x: 120, y: 75, z: -140, s: 1.0 }, { x: -60, y: 85, z: -200, s: 1.3 }
-        ];
-        positions.forEach(p => {
-            const cloud = new THREE.Group();
-            [{ x: 0, y: 0, z: 0, r: 12 }, { x: 10, y: 3, z: 3, r: 9 },
-            { x: -9, y: 2, z: -2, r: 10 }, { x: 6, y: -2, z: -3, r: 7 }].forEach(pf => {
-                const mesh = new THREE.Mesh(new THREE.SphereGeometry(pf.r, 10, 8), cloudMat);
-                mesh.position.set(pf.x, pf.y, pf.z);
-                cloud.add(mesh);
-            });
-            cloud.position.set(p.x, p.y, p.z);
-            cloud.scale.setScalar(p.s);
-            this.group.add(cloud);
-        });
     }
 
     createTerrain() {
@@ -318,7 +261,10 @@ export class UCSCCampus {
 
     createMcHenryLibrary() {
         const lib = new THREE.Group();
-        lib.userData = { name: 'McHenry Library', isInteractable: true, type: 'building', interactionType: 'Enter' };
+        lib.userData = {
+            name: 'McHenry Library', isInteractable: true, type: 'building', interactionType: 'Visit',
+            description: 'UCSC\'s main library, a 1968 Brutalist landmark of raw concrete nestled among the redwoods. Walk around the building to find two doors you can enter: the Grateful Dead Archive and Faculty Office 4-12.'
+        };
 
         // ============================================
         // McHenry Library - UCSC
@@ -946,7 +892,10 @@ export class UCSCCampus {
 
     createChalkboard(name) {
         const g = new THREE.Group();
-        g.userData = { name, isInteractable: true, type: 'chalkboard', interactionType: 'Read' };
+        g.userData = {
+            name, isInteractable: true, type: 'chalkboard', interactionType: 'Read',
+            description: chalkDescription(name)
+        };
         const pm = new THREE.MeshStandardMaterial({ color: 0x654321, roughness: 0.9 });
         const fm = new THREE.MeshStandardMaterial({ color: 0x4A3728, roughness: 0.8 });
         const bm = new THREE.MeshStandardMaterial({ color: 0x1A4030, roughness: 0.75 });
@@ -959,6 +908,14 @@ export class UCSCCampus {
         frame.position.set(0, 1.8, 0); g.add(frame);
         const board = new THREE.Mesh(new THREE.BoxGeometry(2.7, 1.7, 0.05), bm);
         board.position.set(0, 1.8, 0.06); g.add(board);
+        // Chalk writing on the slate face
+        const face = new THREE.Mesh(
+            new THREE.PlaneGeometry(2.6, 1.6),
+            new THREE.MeshBasicMaterial({ map: chalkTexture(name) })
+        );
+        face.position.set(0, 1.8, 0.09);
+        face.userData.noCollision = true;
+        g.add(face);
         const tray = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.08, 0.12), fm);
         tray.position.set(0, 0.9, 0.12); g.add(tray);
 
@@ -966,18 +923,24 @@ export class UCSCCampus {
     }
 
     createStudyCabins() {
-        [{ x: -35, z: 15, ry: Math.PI / 6, name: 'Quiet Study' },
-        { x: 40, z: -20, ry: -Math.PI / 4, name: 'Group Study' }].forEach(p => {
-            const cabin = this.createCabin(p.name);
+        [{
+            x: -35, z: 15, ry: Math.PI / 6, name: 'Quiet Study',
+            description: 'A hushed one-room cabin tucked into the redwood shade, where the only sounds are turning pages and the occasional squirrel on the roof. Perfect for finals-week focus.'
+        },
+        {
+            x: 40, z: -20, ry: -Math.PI / 4, name: 'Group Study',
+            description: 'A cozy timber cabin for study sessions with friends — chalk-dusted problem sets, shared snacks, and arguments about lemmas that spill out onto the meadow.'
+        }].forEach(p => {
+            const cabin = this.createCabin(p.name, p.description);
             cabin.position.set(p.x, 0, p.z);
             cabin.rotation.y = p.ry;
             this.group.add(cabin);
         });
     }
 
-    createCabin(name) {
+    createCabin(name, description) {
         const g = new THREE.Group();
-        g.userData = { name, isInteractable: true, type: 'cabin', interactionType: 'Enter' };
+        g.userData = { name, isInteractable: true, type: 'cabin', interactionType: 'Visit', description };
         const lm = new THREE.MeshStandardMaterial({ color: 0x8B6914, roughness: 0.9 });
         const rm = new THREE.MeshStandardMaterial({ color: 0x5C4033, roughness: 0.85 });
 

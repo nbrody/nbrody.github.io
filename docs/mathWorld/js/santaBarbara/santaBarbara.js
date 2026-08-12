@@ -281,8 +281,9 @@ export class SantaBarbaraTerrain {
 
         this.terrainMesh = new THREE.Mesh(geometry, material);
         this.terrainMesh.rotation.x = -Math.PI / 2;
+        // Receive only: a region-sized ground plane casting shadows is
+        // wasteful and produces self-shadow acne.
         this.terrainMesh.receiveShadow = true;
-        this.terrainMesh.castShadow = true;
 
         this._track(this.terrainMesh);
     }

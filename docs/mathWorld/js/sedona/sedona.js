@@ -205,15 +205,44 @@ export class SedonaTerrain {
             vertexColors: true, roughness: 0.95, metalness: 0
         }));
         terrain.rotation.x = -Math.PI / 2;
+        // Receive only: a region-sized ground plane casting shadows is
+        // wasteful and produces self-shadow acne (matches sibling regions).
         terrain.receiveShadow = true;
-        terrain.castShadow = true;
         this._track(terrain);
     }
 
     createSky() {
+        // Gradient dome matching the other regions' sky shader: deep desert
+        // blue overhead falling to dusty orange at the horizon.
         const skyGeo = new THREE.SphereGeometry(50000, 32, 32);
-        const skyMat = new THREE.MeshBasicMaterial({
-            color: 0xC98A5B,
+        const skyMat = new THREE.ShaderMaterial({
+            uniforms: {
+                topColor: { value: new THREE.Color(0x3A6EA8) },
+                horizonColor: { value: new THREE.Color(0xC98A5B) },
+                fogColor: { value: new THREE.Color(0xD9A97C) }
+            },
+            vertexShader: `
+                varying vec3 vWorldPosition;
+                void main() {
+                    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                    vWorldPosition = worldPosition.xyz;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 topColor;
+                uniform vec3 horizonColor;
+                uniform vec3 fogColor;
+                varying vec3 vWorldPosition;
+                void main() {
+                    float h = normalize(vWorldPosition).y;
+                    if (h < 0.12) {
+                        gl_FragColor = vec4(mix(fogColor, horizonColor, max(h, 0.0) / 0.12), 1.0);
+                    } else {
+                        gl_FragColor = vec4(mix(horizonColor, topColor, pow((h - 0.12) / 0.88, 0.6)), 1.0);
+                    }
+                }
+            `,
             side: THREE.BackSide
         });
         this._track(new THREE.Mesh(skyGeo, skyMat));

@@ -222,12 +222,64 @@
         }
 
         .canvas-wrap {
+            position: relative;
             width: 100%;
             overflow: auto;
             border-radius: 14px;
             border: 1px solid rgba(140, 220, 190, 0.2);
             background: rgba(2, 7, 9, 0.8);
             box-shadow: inset 0 0 0 1px rgba(140, 220, 190, 0.08);
+        }
+
+        .win-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-align: center;
+            border-radius: 14px;
+            background: radial-gradient(circle at 50% 40%, rgba(18, 216, 127, 0.22), rgba(2, 7, 9, 0.82) 70%);
+            backdrop-filter: blur(2px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .win-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .win-overlay h2 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.6rem;
+            letter-spacing: 0.05em;
+            color: #8effc9;
+        }
+
+        .win-overlay p {
+            color: #d0efe2;
+            font-size: 0.95rem;
+        }
+
+        .win-overlay button {
+            margin-top: 6px;
+        }
+
+        .solver-link {
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 0.82rem;
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px dashed rgba(85, 240, 170, 0.4);
+        }
+
+        .solver-link:hover {
+            color: #aeffd9;
         }
 
         canvas {
@@ -325,6 +377,7 @@
         <section class="card control-card">
             <h1>Gecko Out Clone</h1>
             <p class="subtitle">Each level is randomly generated from a reversible scramble, then verified by simulation. Every generated board includes a full solution key.</p>
+            <a class="solver-link" href="index.html">Open the AI screenshot solver &rarr;</a>
 
             <div class="controls-grid">
                 <label for="difficultySelect">Difficulty
@@ -362,8 +415,13 @@
         <section class="card board-card">
             <div class="canvas-wrap">
                 <canvas id="gameCanvas" aria-label="Gecko Out board"></canvas>
+                <div class="win-overlay" id="winOverlay">
+                    <h2>Level Cleared!</h2>
+                    <p>Every gecko slithered into its matching hole.</p>
+                    <button id="winNextBtn" class="primary">New Level</button>
+                </div>
             </div>
-            <p class="help">Controls: Arrow keys move selected end. Tab switches between head/tail. U also undoes.</p>
+            <p class="help">Tap or click a gecko to select it, then use the arrow keys (or tap an adjacent cell) to slither. Tab switches between head/tail; U undoes. Lead an end into its matching hole and the whole gecko follows it out.</p>
         </section>
     </main>
 
@@ -450,7 +508,9 @@
             seedValue: document.getElementById('seedValue'),
             moveValue: document.getElementById('moveValue'),
             remainingValue: document.getElementById('remainingValue'),
-            keyLengthValue: document.getElementById('keyLengthValue')
+            keyLengthValue: document.getElementById('keyLengthValue'),
+            winOverlay: document.getElementById('winOverlay'),
+            winNextBtn: document.getElementById('winNextBtn')
         };
 
         const state = {
@@ -466,7 +526,9 @@
             cellSize: 64,
             keyVisible: true,
             replayTimer: null,
-            replayIndex: 0
+            replayIndex: 0,
+            anim: null,
+            rafId: null
         };
 
         class Gecko {
@@ -619,20 +681,27 @@
 
             completeGeckoIfNeeded(geckoId) {
                 const index = this.geckos.findIndex(gecko => gecko.id === geckoId);
-                if (index === -1) return false;
+                if (index === -1) return null;
 
                 const gecko = this.geckos[index];
                 const hole = this.holes.get(gecko.color);
-                if (!hole) return false;
+                if (!hole) return null;
 
-                const onHole =
-                    (gecko.head.r === hole.r && gecko.head.c === hole.c) ||
-                    (gecko.tail.r === hole.r && gecko.tail.c === hole.c);
-
-                if (!onHole) return false;
+                const headOnHole = gecko.head.r === hole.r && gecko.head.c === hole.c;
+                const tailOnHole = gecko.tail.r === hole.r && gecko.tail.c === hole.c;
+                if (!headOnHole && !tailOnHole) return null;
 
                 this.geckos.splice(index, 1);
-                return true;
+
+                // Return a snapshot so the renderer can play a "slither out" animation.
+                // Order the body so the segment sitting on the hole comes first; the
+                // rest of the gecko follows it through the hole.
+                const body = gecko.body.map(point => ({ r: point.r, c: point.c }));
+                return {
+                    color: gecko.color,
+                    body: headOnHole ? body : body.reverse(),
+                    hole: { r: hole.r, c: hole.c }
+                };
             }
 
             isSolved() {
@@ -961,6 +1030,117 @@
             drawBoard();
         }
 
+        function animClock() {
+            return (typeof performance !== 'undefined' && performance.now)
+                ? performance.now()
+                : Date.now();
+        }
+
+        function easeInOut(t) {
+            return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        }
+
+        function startAnim(moves, exits, duration) {
+            if (moves.size === 0 && exits.length === 0) {
+                drawBoard();
+                return;
+            }
+            state.anim = { start: animClock(), duration, moves, exits };
+            if (state.rafId == null) {
+                state.rafId = requestAnimationFrame(animFrame);
+            }
+        }
+
+        function animFrame() {
+            state.rafId = null;
+            if (!state.anim) {
+                drawBoard();
+                return;
+            }
+            const elapsed = animClock() - state.anim.start;
+            if (elapsed >= state.anim.duration) {
+                state.anim = null;
+                drawBoard();
+                return;
+            }
+            drawBoard();
+            state.rafId = requestAnimationFrame(animFrame);
+        }
+
+        function animProgress() {
+            if (!state.anim) return 1;
+            return Math.min(1, (animClock() - state.anim.start) / state.anim.duration);
+        }
+
+        function renderBodyFor(gecko) {
+            // Returns the body to draw, interpolated if this gecko is mid-move.
+            if (state.anim && state.anim.moves.has(gecko.id)) {
+                const tween = state.anim.moves.get(gecko.id);
+                const p = easeInOut(animProgress());
+                return tween.to.map((point, i) => {
+                    const from = tween.from[i] || point;
+                    return { r: from.r + (point.r - from.r) * p, c: from.c + (point.c - from.c) * p };
+                });
+            }
+            return gecko.body;
+        }
+
+        function drawGeckoBody(ctx, body, color, cell, alpha) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = cell * 0.56 * (0.45 + 0.55 * alpha);
+            ctx.beginPath();
+            body.forEach((segment, index) => {
+                const x = segment.c * cell + cell / 2;
+                const y = segment.r * cell + cell / 2;
+                if (index === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            const tail = body[body.length - 1];
+            ctx.beginPath();
+            ctx.arc(tail.c * cell + cell / 2, tail.r * cell + cell / 2, cell * 0.14, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.33)';
+            ctx.fill();
+
+            const head = body[0];
+            const headX = head.c * cell + cell / 2;
+            const headY = head.r * cell + cell / 2;
+            ctx.beginPath();
+            ctx.arc(headX, headY, cell * 0.26, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            ctx.fillStyle = '#eefdf6';
+            ctx.beginPath();
+            ctx.arc(headX - cell * 0.08, headY - cell * 0.06, cell * 0.05, 0, Math.PI * 2);
+            ctx.arc(headX + cell * 0.08, headY - cell * 0.06, cell * 0.05, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawExits(ctx, cell) {
+            if (!state.anim || !state.anim.exits.length) return;
+            const p = easeInOut(animProgress());
+            for (const exit of state.anim.exits) {
+                const color = COLOR_MAP[exit.color] || '#ffffff';
+                // Slither the body into the hole: each segment drifts toward the hole
+                // (which sits at body[0]) and the whole thing fades as it disappears.
+                const pulled = exit.body.map((segment, index) => {
+                    const slide = Math.min(1, p + index * 0.06);
+                    return {
+                        r: segment.r + (exit.hole.r - segment.r) * slide,
+                        c: segment.c + (exit.hole.c - segment.c) * slide
+                    };
+                });
+                drawGeckoBody(ctx, pulled, color, cell, 1 - p);
+            }
+        }
+
         function drawBoard() {
             if (!state.board) return;
             const ctx = ui.canvas.getContext('2d');
@@ -1008,43 +1188,13 @@
 
             for (const gecko of board.geckos) {
                 const color = COLOR_MAP[gecko.color] || '#ffffff';
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                ctx.strokeStyle = color;
-                ctx.lineWidth = cell * 0.56;
-                ctx.beginPath();
-
-                gecko.body.forEach((segment, index) => {
-                    const x = segment.c * cell + cell / 2;
-                    const y = segment.r * cell + cell / 2;
-                    if (index === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                });
-                ctx.stroke();
-
-                const tail = gecko.tail;
-                ctx.beginPath();
-                ctx.arc(tail.c * cell + cell / 2, tail.r * cell + cell / 2, cell * 0.14, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(0,0,0,0.33)';
-                ctx.fill();
-
-                const head = gecko.head;
-                const headX = head.c * cell + cell / 2;
-                const headY = head.r * cell + cell / 2;
-                ctx.beginPath();
-                ctx.arc(headX, headY, cell * 0.26, 0, Math.PI * 2);
-                ctx.fillStyle = color;
-                ctx.fill();
-
-                ctx.fillStyle = '#eefdf6';
-                ctx.beginPath();
-                ctx.arc(headX - cell * 0.08, headY - cell * 0.06, cell * 0.05, 0, Math.PI * 2);
-                ctx.arc(headX + cell * 0.08, headY - cell * 0.06, cell * 0.05, 0, Math.PI * 2);
-                ctx.fill();
+                drawGeckoBody(ctx, renderBodyFor(gecko), color, cell, 1);
             }
 
+            drawExits(ctx, cell);
+
             const selected = board.getGeckoById(state.selectedGeckoId);
-            if (selected) {
+            if (selected && !(state.anim && state.anim.moves.has(selected.id))) {
                 const marker = state.selectedEnd === 'head' ? selected.head : selected.tail;
                 const x = marker.c * cell + cell / 2;
                 const y = marker.r * cell + cell / 2;
@@ -1140,12 +1290,16 @@
             const recordHistory = options.recordHistory !== false;
             const countMove = options.countMove !== false;
             const quiet = options.quiet === true;
+            const animate = options.animate !== false;
 
             if (!state.board) return false;
 
             if (recordHistory) {
                 state.moveHistory.push(state.board.clone());
             }
+
+            const movingGecko = state.board.getGeckoById(move.geckoId);
+            const fromBody = movingGecko ? movingGecko.body.map(point => ({ r: point.r, c: point.c })) : null;
 
             const result = state.board.applyMove(move, { allowHole: true, allowCompletion: true });
             if (!result.ok) {
@@ -1162,8 +1316,9 @@
                 state.selectedEnd = 'head';
             }
 
-            if (state.board.isSolved()) {
-                setStatus('Solved! The generated key was valid, and the level is complete.');
+            const solved = state.board.isSolved();
+            if (solved) {
+                setStatus('Solved! Every gecko found its hole. Generate a new level to keep playing.');
             } else if (!quiet) {
                 const chosen = state.board.getGeckoById(state.selectedGeckoId);
                 if (chosen) {
@@ -1171,12 +1326,42 @@
                 }
             }
 
-            refreshUi();
+            updateStats();
+            renderLegend();
+
+            if (animate && fromBody) {
+                const moves = new Map();
+                const exits = [];
+                if (result.completed) {
+                    exits.push(result.completed);
+                } else {
+                    const after = state.board.getGeckoById(move.geckoId);
+                    if (after) {
+                        moves.set(move.geckoId, { from: fromBody, to: after.body.map(p => ({ r: p.r, c: p.c })) });
+                    }
+                }
+                startAnim(moves, exits, result.completed ? 320 : 130);
+            } else {
+                state.anim = null;
+                drawBoard();
+            }
+
+            if (solved) showWin();
             return true;
+        }
+
+        function showWin() {
+            if (ui.winOverlay) ui.winOverlay.classList.add('show');
+        }
+
+        function hideWin() {
+            if (ui.winOverlay) ui.winOverlay.classList.remove('show');
         }
 
         function generateLevel() {
             stopReplay();
+            hideWin();
+            state.anim = null;
             const difficulty = ui.difficulty.value;
             const seedSource = ui.seedInput.value.trim() || undefined;
 
@@ -1212,6 +1397,8 @@
         function resetBoard() {
             if (!state.initialBoard) return;
             stopReplay();
+            hideWin();
+            state.anim = null;
             state.board = state.initialBoard.clone();
             state.moveHistory = [];
             state.movesMade = 0;
@@ -1227,6 +1414,8 @@
                 return;
             }
             stopReplay();
+            hideWin();
+            state.anim = null;
             state.board = state.moveHistory.pop();
             state.movesMade = Math.max(0, state.movesMade - 1);
             if (!state.board.getGeckoById(state.selectedGeckoId)) {
@@ -1254,6 +1443,8 @@
             }
 
             stopReplay();
+            hideWin();
+            state.anim = null;
             state.board = state.initialBoard.clone();
             state.moveHistory = [];
             state.movesMade = 0;
@@ -1272,7 +1463,7 @@
                 }
 
                 const move = state.solutionMoves[state.replayIndex];
-                const moved = executeMove(move, { recordHistory: false, countMove: true, quiet: true });
+                const moved = executeMove(move, { recordHistory: false, countMove: true, quiet: true, animate: false });
                 state.replayIndex += 1;
 
                 if (!moved) {
@@ -1414,6 +1605,13 @@
         ui.toggleKeyBtn.addEventListener('click', toggleKeyVisibility);
         ui.copyKeyBtn.addEventListener('click', copySolutionKey);
         ui.canvas.addEventListener('mousedown', handleCanvasClick);
+        ui.canvas.addEventListener('touchstart', (event) => {
+            if (!event.changedTouches.length) return;
+            event.preventDefault();
+            const touch = event.changedTouches[0];
+            handleCanvasClick({ clientX: touch.clientX, clientY: touch.clientY });
+        }, { passive: false });
+        if (ui.winNextBtn) ui.winNextBtn.addEventListener('click', generateLevel);
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('resize', () => {
             if (state.board) {

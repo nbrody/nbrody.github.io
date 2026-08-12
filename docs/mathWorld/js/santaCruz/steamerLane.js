@@ -521,7 +521,7 @@ export class SteamerLane {
             description: 'Home of the Santa Cruz Surfing Museum. Built in 1967 as a memorial.',
             isInteractable: true,
             type: 'landmark',
-            interactionType: 'Explore'
+            interactionType: 'Visit'
         };
 
         const brickMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.85 });
@@ -1082,7 +1082,11 @@ export class SteamerLane {
 
     _addMonarchInfoSign(x, z) {
         const post = new THREE.Group();
-        post.userData = { name: 'Monarch Butterfly Grove', type: 'sign' };
+        post.userData = {
+            name: 'Monarch Butterfly Grove', type: 'sign',
+            isInteractable: true, interactionType: 'Read',
+            description: 'Each fall, thousands of monarch butterflies return to the eucalyptus groves of Lighthouse Field and nearby Natural Bridges to overwinter, clustering in dense orange garlands on the branches. Look up on a warm day and the trees seem to shiver into flight.'
+        };
 
         const postMat = new THREE.MeshStandardMaterial({
             color: 0x3A2A1A, roughness: 0.85
@@ -1281,8 +1285,14 @@ export class SteamerLane {
     // ==========================================================
     createSignage() {
         const signs = [
-            { x: 0, z: -45, name: 'Lighthouse Field\nState Beach' },
-            { x: STAIR.topX - 4, z: STAIR.topZ - 1, name: '↓ Stairs to Beach' }
+            {
+                x: 0, z: -45, name: 'Lighthouse Field\nState Beach',
+                description: 'A breezy blufftop meadow above Steamer Lane, one of California\'s most storied surf breaks. From here you can watch surfers line up at the Point, Indicators, and Middle Peak as sets roll in off Monterey Bay.'
+            },
+            {
+                x: STAIR.topX - 4, z: STAIR.topZ - 1, name: '↓ Stairs to Beach',
+                description: 'These stairs drop from the cliff to the cove below Steamer Lane, where surfers paddle out toward the break. Mind the swell — at high tide the bottom steps disappear under whitewater.'
+            }
         ];
         const postMat = new THREE.MeshStandardMaterial({
             color: 0x2A2A2A, roughness: 0.5, metalness: 0.5
@@ -1295,7 +1305,11 @@ export class SteamerLane {
         });
         signs.forEach(s => {
             const g = new THREE.Group();
-            g.userData = { name: s.name.replace('\n', ' · '), type: 'sign' };
+            g.userData = {
+                name: s.name.replace('\n', ' · '), type: 'sign',
+                isInteractable: true, interactionType: 'Read',
+                description: s.description
+            };
 
             const post = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.07, 0.07, 2.3, 6), postMat

@@ -461,6 +461,40 @@ input[type="checkbox"]:checked::after {
     flex-wrap: wrap;
 }
 
+#color-current {
+    width: 48px;
+    height: 28px;
+    border-radius: 8px;
+    border: 2px solid var(--control-border);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#color-current:hover {
+    border-color: var(--text-primary);
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+#color-popup {
+    position: fixed;
+    z-index: 300;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    width: 178px;
+    padding: 10px;
+    border-radius: 12px;
+    background: var(--panel-bg, rgba(16, 20, 38, 0.92));
+    border: 1px solid var(--control-border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+#color-popup.hidden {
+    display: none;
+}
+
 .color-swatch {
     width: 28px;
     height: 28px;

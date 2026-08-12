@@ -545,10 +545,14 @@
         }
 
         // ── Keyboard nav ────────────────────────────────────
-        document.addEventListener('keydown', e => {
-            if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextStep(); }
-            if (e.key === 'ArrowLeft') { e.preventDefault(); prevStep(); }
-        });
+        // (standalone only — embedded, the forwarder below sends
+        // arrows to the parent deck, which drives steps via goTo)
+        if (params.get('embed') !== 'true') {
+            document.addEventListener('keydown', e => {
+                if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextStep(); }
+                if (e.key === 'ArrowLeft') { e.preventDefault(); prevStep(); }
+            });
+        }
 
         // ══════════════════════════════════════════════════
         //  VANISHING TRICK CANVAS

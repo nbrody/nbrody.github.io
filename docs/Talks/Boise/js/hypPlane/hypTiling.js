@@ -31,6 +31,16 @@ class TilingEngine {
             A.mul(b).mul(A),     // AbA
             b.mul(A).mul(A)      // bAA
         ];
+        // Images of the face-pairing generators in H1 = Z^2 (exponent sums of a, b).
+        // Well-defined on group elements because the relation [a,b]^2 abelianizes to 0.
+        this.domainAb = [
+            [1, 0],   // a
+            [-1, 0],  // A
+            [2, -1],  // aaB
+            [2, -1],  // aBa
+            [-2, 1],  // AbA
+            [-2, 1]   // bAA
+        ];
     }
 
     getBisector(p1, p2) {
@@ -108,7 +118,32 @@ class TilingEngine {
                 Math.atan2(b.im - this.z0.im, b.re - this.z0.re);
         });
 
+        this.polishVertices();
         return this.baseVertices;
+    }
+
+    // The bisector intersections above are only ~1e-2 accurate, so the face
+    // pairings map them onto each other only approximately and tiles visibly
+    // overlap near vertices. The pairing combinatorics (a: v1→v5, v2→v4;
+    // aBa: v2→v1, v3→v0; aaB: v3→v0, v4→v5) constrain the hexagon exactly:
+    // v3 must be the fixed point of the order-2 cone rotation
+    // e3 = (aaB)⁻¹·(aBa), v2 is a free parameter (the closing word
+    // (aaB·a)⁻¹·(a·aBa) is the identity), and the rest are pairing images.
+    // Rebuilding the vertices this way makes every identification exact, so
+    // tiles meet with no gaps or overlaps at any depth.
+    polishVertices() {
+        const a = this.domainGens[0];
+        const aBa = this.domainGens[3];
+        const bAA = this.domainGens[5];
+
+        const e3 = bAA.mul(aBa);
+        const ea = e3.a.toNumber(), eb = e3.b.toNumber(), ec = e3.c.toNumber(), ed = e3.d.toNumber();
+        const disc = (ea + ed) * (ea + ed) - 4 * (ea * ed - eb * ec);
+        const v3 = { re: (ea - ed) / (2 * ec), im: Math.sqrt(Math.max(0, -disc)) / (2 * Math.abs(ec)) };
+
+        const v2 = this.baseVertices[2]; // free parameter — keeps the Dirichlet-like shape
+        const v1 = aBa.action(v2);
+        this.baseVertices = [aBa.action(v3), v1, v2, v3, a.action(v2), a.action(v1)];
     }
 
     // Canonical key for PSL(2, Q): normalize so the first nonzero entry is positive
@@ -129,7 +164,7 @@ class TilingEngine {
 
     getTilingOrbit(maxTiles = 500) {
         const id = new BigMat(1, 0, 0, 1);
-        const orbit = [{ g: id, depth: 0 }];
+        const orbit = [{ g: id, depth: 0, ab: [0, 0] }];
         const queue = [orbit[0]];
         const seen = new Set([this.canonicalKey(id)]);
         const gens = this.domainGens;
@@ -137,12 +172,16 @@ class TilingEngine {
         while (queue.length > 0 && orbit.length < maxTiles) {
             const curr = queue.shift();
             if (curr.depth >= 12) continue;
-            for (let g of gens) {
-                const next = g.mul(curr.g);
+            for (let gi = 0; gi < gens.length; gi++) {
+                const next = gens[gi].mul(curr.g);
                 const key = this.canonicalKey(next);
                 if (!seen.has(key)) {
                     seen.add(key);
-                    const obj = { g: next, depth: curr.depth + 1 };
+                    const obj = {
+                        g: next,
+                        depth: curr.depth + 1,
+                        ab: [curr.ab[0] + this.domainAb[gi][0], curr.ab[1] + this.domainAb[gi][1]]
+                    };
                     orbit.push(obj);
                     queue.push(obj);
                 }

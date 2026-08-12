@@ -263,7 +263,7 @@ export class RedRockCrossing {
         sinkhole.position.set(DEVILS_KITCHEN.x, rimY, DEVILS_KITCHEN.z);
         sinkhole.userData = {
             name: "Devil's Kitchen Sinkhole",
-            description: 'Soldier Pass sinkhole, modeled from the 4,510 ft rim and compressed into the Sedona tile.',
+            description: "The largest sinkhole in the Sedona area, sitting right on the Soldier Pass trail. Its walls last gave way in 1989, and the jumbled blocks at the bottom still look freshly fallen.",
             isInteractable: true,
             type: 'landmark',
             interactionType: 'Inspect'
@@ -324,10 +324,10 @@ export class RedRockCrossing {
         cave.rotation.y = -0.45;
         cave.userData = {
             name: 'Birthing Cave',
-            description: 'A shallow red sandstone alcove above Long Canyon, reached by a short side trail.',
+            description: 'A shallow, wind-carved alcove in the red sandstone, sacred to the Hopi people. A short hike off the Long Canyon trail leads up to its smooth, egg-shaped hollow.',
             isInteractable: true,
             type: 'landmark',
-            interactionType: 'Enter'
+            interactionType: 'Inspect'
         };
 
         const backWall = new THREE.Mesh(
@@ -378,7 +378,7 @@ export class RedRockCrossing {
         base.position.set(238, this.localHeight(238, 95), 95);
         base.userData = {
             name: 'Cathedral Rock',
-            description: 'Red sandstone spires above Oak Creek, compressed from the real summit east of Red Rock Crossing.',
+            description: "One of the most photographed sights in Arizona, this iconic cluster of sandstone spires rises high above Oak Creek. It's also counted among Sedona's famous \"vortex\" sites, said to radiate an energizing calm.",
             isInteractable: true,
             type: 'landmark',
             interactionType: 'Observe'
@@ -429,7 +429,7 @@ export class RedRockCrossing {
         deck.receiveShadow = true;
         deck.userData = {
             name: 'Red Rock Crossing',
-            description: 'A shallow Oak Creek crossing with the classic Cathedral Rock view.',
+            description: 'A historic crossing of Oak Creek and one of the loveliest spots in Sedona. On a still day the water catches a perfect reflection of Cathedral Rock — the classic postcard view.',
             isInteractable: true,
             type: 'landmark',
             interactionType: 'Cross'
@@ -511,7 +511,7 @@ export class RedRockCrossing {
         platform.position.set(86, this.localHeight(86, -84) + 0.25, -84);
         platform.userData = {
             name: 'Oak Creek Overlook',
-            description: 'A quiet pullout above the cottonwoods and creek bend.',
+            description: 'A quiet wooden platform above a bend in Oak Creek, where cottonwoods shade the year-round stream below. A fine place to pause and listen to the water on its way through red rock country.',
             isInteractable: true,
             type: 'viewpoint',
             interactionType: 'Look'

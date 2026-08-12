@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Newton Fractals — Pisot &amp; Salem Numbers</title>
+<style>
+  :root {
+    --bg: #020617;
+    --surface: #1e293b;
+    --primary: #38bdf8;
+    --primary-dim: rgba(56, 189, 248, 0.2);
+    --accent: #6366f1;
+    --accent-dim: rgba(99, 102, 241, 0.2);
+    --text: #f8fafc;
+    --text-dim: #94a3b8;
+    --text-muted: #64748b;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-light: rgba(255, 255, 255, 0.15);
+    --glass-bg: rgba(15, 23, 42, 0.85);
+    --glass-hover: rgba(255, 255, 255, 0.08);
+    --success: #22c55e;
+    --danger: #ef4444;
+    --gold: #e8c34a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow: hidden;
+  }
+
+  /* Full-screen fractal stage */
+  #stage { position: fixed; inset: 0; z-index: 0; cursor: grab; }
+  #stage.dragging { cursor: grabbing; }
+  #stage.orbit-mode { cursor: crosshair; }
+  #stage canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  #glcanvas { z-index: 0; }
+  #overlay { z-index: 1; pointer-events: none; }
+
+  #coords {
+    position: fixed; left: 14px; bottom: 12px; z-index: 50;
+    font-size: 11.5px; color: var(--text-dim);
+    background: var(--glass-bg); backdrop-filter: blur(10px);
+    border: 1px solid var(--border); padding: 4px 10px; border-radius: 8px;
+    font-variant-numeric: tabular-nums; pointer-events: none;
+  }
+
+  /* ============ floating glass control panel ============ */
+  #control-panel {
+    position: fixed; top: 20px; right: 20px;
+    width: 360px; max-height: calc(100vh - 40px);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-light); border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    z-index: 100;
+    display: flex; flex-direction: column; overflow: hidden;
+    transition: width 0.38s cubic-bezier(0.4,0,0.2,1),
+                height 0.38s cubic-bezier(0.4,0,0.2,1),
+                border-radius 0.38s cubic-bezier(0.4,0,0.2,1);
+  }
+  .panel-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 56px 12px 18px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+  .panel-title {
+    flex: 1; font-size: 1.02rem; font-weight: 600; margin: 0;
+    background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .panel-subtitle { font-size: 0.72rem; color: var(--text-muted); margin: 2px 0 0; white-space: nowrap; }
+  .panel-subtitle a { color: var(--primary); text-decoration: none; }
+  #collapseBtn {
+    position: absolute; top: 12px; right: 12px; z-index: 5;
+    width: 32px; height: 32px; padding: 0;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border); border-radius: 50%;
+    color: var(--text); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: top 0.38s cubic-bezier(0.4,0,0.2,1),
+                right 0.38s cubic-bezier(0.4,0,0.2,1),
+                width 0.38s cubic-bezier(0.4,0,0.2,1),
+                height 0.38s cubic-bezier(0.4,0,0.2,1),
+                background 0.25s ease, border-color 0.25s ease;
+  }
+  #collapseBtn:hover { background: var(--glass-hover); border-color: var(--border-light); }
+  .collapse-icon {
+    display: block;
+    transform: rotate(45deg);   /* the + reads as x while the panel is open */
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  /* fade the innards out before the box folds, in after it grows */
+  .panel-content, .header-text {
+    transition: opacity 0.25s ease 0.14s, visibility 0s linear 0s;
+  }
+  #control-panel.collapsed { width: 56px; height: 56px; min-height: 56px; border-radius: 28px; }
+  #control-panel.collapsed .panel-content,
+  #control-panel.collapsed .header-text {
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0s linear 0.15s;
+  }
+  #control-panel.collapsed .panel-header { background: transparent; border-bottom-color: transparent; }
+  #control-panel.collapsed #collapseBtn {
+    /* fill the chip's 54px padding box (inside the panel's 1px borders) */
+    top: 0; right: 0; width: 54px; height: 54px;
+    background: transparent; border-color: transparent;
+  }
+  #control-panel.collapsed .collapse-icon { transform: rotate(0deg); }
+
+  .panel-content {
+    flex: 1; padding: 14px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 12px;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .panel-content::-webkit-scrollbar { width: 6px; }
+  .panel-content::-webkit-scrollbar-track { background: transparent; }
+  .panel-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .control-group {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .control-group:hover { background: rgba(255,255,255,0.05); border-color: var(--border-light); }
+  .group-title {
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-muted); margin: 0;
+  }
+  .control-row { display: flex; align-items: center; gap: 10px; }
+  .control-label { font-size: 0.82rem; font-weight: 500; color: var(--text-dim); white-space: nowrap; }
+  .label-val { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  .select-input, .text-input {
+    flex: 1; width: 100%;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 7px 10px; font-size: 0.82rem;
+    transition: all 0.2s ease;
+  }
+  .select-input:focus, .text-input:focus {
+    outline: none; background: rgba(30,41,59,0.95);
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
+
+  .slider-input {
+    flex: 1; height: 6px; -webkit-appearance: none; appearance: none;
+    background: rgba(30,41,59,0.8);
+    border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
+  }
+  .slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; background: var(--accent); border-radius: 50%;
+    cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: all 0.2s ease;
+  }
+  .slider-input::-webkit-slider-thumb:hover { transform: scale(1.1); box-shadow: 0 2px 8px rgba(99,102,241,0.5); }
+  .slider-input::-moz-range-thumb {
+    width: 16px; height: 16px; background: var(--accent); border: none; border-radius: 50%;
+    cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  .seg { display: flex; flex: 1; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button {
+    flex: 1; padding: 7px 0; background: rgba(255,255,255,0.05);
+    border: none; border-right: 1px solid var(--border);
+    color: var(--text-dim); font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s ease; text-align: center;
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button:hover { background: var(--glass-hover); color: var(--text); }
+  .seg button.active {
+    background: var(--accent-dim); color: var(--text);
+    box-shadow: inset 0 0 12px rgba(99,102,241,0.15);
+  }
+
+  .toggle-btn {
+    width: 100%; padding: 9px 14px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text-dim); font-size: 0.82rem; font-weight: 500;
+    cursor: pointer; transition: all 0.2s ease; text-align: center;
+  }
+  .toggle-btn:hover { background: var(--glass-hover); color: var(--text); }
+  .toggle-btn.active {
+    background: var(--accent-dim); border-color: rgba(99,102,241,0.4);
+    color: var(--text); box-shadow: 0 0 12px rgba(99,102,241,0.15);
+  }
+  .btn {
+    flex: 1; padding: 8px 12px; border-radius: 8px;
+    font-size: 0.8rem; font-weight: 500; cursor: pointer;
+    transition: all 0.2s ease; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.05); color: var(--text-dim);
+  }
+  .btn:hover { background: var(--glass-hover); color: var(--text); transform: translateY(-1px); }
+
+  .chk { display: flex; align-items: center; gap: 7px; font-size: 0.82rem; color: var(--text-dim); cursor: pointer; }
+  .chk input { margin: 0; accent-color: var(--accent); }
+
+  #polyDisplay {
+    font-family: 'Times New Roman', Georgia, serif;
+    font-size: 1.12rem; text-align: center; color: #fff; padding: 2px 0 0;
+  }
+  #classLine { text-align: center; font-size: 0.76rem; }
+  #classLine .tag { display: inline-block; padding: 2px 10px; border-radius: 10px; font-weight: 600; }
+  .tag.pisot { background: rgba(34,197,94,0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.35); }
+  .tag.salem { background: rgba(232,195,74,0.12); color: #fde68a; border: 1px solid rgba(232,195,74,0.35); }
+  .tag.other { background: rgba(239,68,68,0.12); color: #fca5a5; border: 1px solid rgba(239,68,68,0.35); }
+
+  #rootTable { width: 100%; border-collapse: collapse; font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+  #rootTable td { padding: 3px 4px; border-top: 1px solid var(--border); color: var(--text-dim); }
+  #rootTable tr:first-child td { border-top: none; color: var(--text); font-weight: 600; }
+  #rootTable td:first-child { color: var(--text); }
+  #rootTable tr.dominant td { color: var(--gold); }
+  #rootTable tr.orbit-target td { color: var(--primary); }
+  #rootTable tr.orbit-target td:first-child::after { content: ' ←'; color: var(--primary); }
+
+  .hint { color: var(--text-muted); font-size: 0.72rem; line-height: 1.45; margin: 0; }
+  .hint code { background: rgba(255,255,255,0.06); padding: 0 4px; border-radius: 4px; }
+  #err { color: #fca5a5; font-size: 0.76rem; margin: 0; display: none; }
+  #orbitStatus { font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; min-height: 1.2em; }
+  #orbitStatus b { color: var(--primary); font-weight: 600; }
+  .info-section {
+    background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px;
+    font-size: 0.74rem; color: var(--text-dim); line-height: 1.55;
+  }
+  .info-section b { color: var(--text); }
+
+  @media (max-width: 768px) {
+    #control-panel { width: calc(100vw - 40px); max-width: 360px; }
+  }
+</style>
+</head>
+<body>
+<div id="stage" class="orbit-mode">
+  <canvas id="glcanvas"></canvas>
+  <canvas id="overlay"></canvas>
+</div>
+<div id="coords"></div>
+
+<div id="control-panel">
+  <button id="collapseBtn" title="Collapse panel" aria-label="Collapse panel">
+    <svg class="collapse-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    </svg>
+  </button>
+  <div class="panel-header">
+    <div class="header-text" style="flex:1; min-width:0">
+      <h1 class="panel-title">Newton Fractals</h1>
+      <p class="panel-subtitle">Pisot &amp; Salem numbers · <a href="../../index.html">Arithmetic Tools</a></p>
+    </div>
+  </div>
+  <div class="panel-content">
+
+    <div class="control-group">
+      <p class="group-title">Polynomial</p>
+      <div class="seg" id="familySeg">
+        <button data-family="pisot" class="active">Pisot</button>
+        <button data-family="salem">Salem</button>
+        <button data-family="custom">Custom</button>
+      </div>
+      <div id="presetBlock">
+        <select class="select-input" id="polySelect"></select>
+      </div>
+      <div id="customBlock" style="display:none">
+        <input type="text" class="text-input" id="customCoeffs" value="1, -1, 0, 0, -1" spellcheck="false">
+        <p class="hint" style="margin-top:6px">Integer coefficients, highest degree first — <code>1, -1, 0, 0, -1</code> is z⁴ − z³ − 1. Press Enter.</p>
+      </div>
+      <div id="polyDisplay"></div>
+      <div id="classLine"></div>
+      <p id="err"></p>
+      <p class="hint" id="numberLine"></p>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Orbit tracking</p>
+      <button class="toggle-btn active" id="orbitToggle">Click the plane to track an orbit</button>
+      <div class="control-row">
+        <span class="control-label">Speed</span>
+        <input type="range" class="slider-input" id="speedSlider" min="1" max="20" step="0.5" value="4">
+        <span class="control-label label-val" id="speedVal">4</span>
+      </div>
+      <label class="chk"><input type="checkbox" id="chkFollow"> Camera follows the orbit</label>
+      <div id="orbitStatus">No orbit yet — click anywhere on the fractal.</div>
+      <div class="control-row">
+        <button class="btn" id="replayBtn">Replay</button>
+        <button class="btn" id="clearBtn">Clear</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Rendering</p>
+      <div class="control-row">
+        <span class="control-label">Coloring</span>
+        <div class="seg" id="colorSeg">
+          <button data-mode="0">Spectrum</button>
+          <button data-mode="1" class="active">By root</button>
+        </div>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Iterations</span>
+        <input type="range" class="slider-input" id="iterSlider" min="20" max="300" step="5" value="80">
+        <span class="control-label label-val" id="iterVal">80</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Bands</span>
+        <input type="range" class="slider-input" id="bandSlider" min="8" max="120" step="2" value="18">
+        <span class="control-label label-val" id="bandVal">18</span>
+      </div>
+      <div class="control-row" style="flex-wrap:wrap; gap:12px">
+        <label class="chk"><input type="checkbox" id="chkCircle"> Unit circle</label>
+        <label class="chk"><input type="checkbox" id="chkRoots" checked> Roots</label>
+        <label class="chk"><input type="checkbox" id="chkAxes"> Axes</label>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">View</p>
+      <div class="control-row">
+        <button class="btn" id="zoomIn">Zoom +</button>
+        <button class="btn" id="zoomOut">Zoom −</button>
+        <button class="btn" id="resetView">Reset</button>
+      </div>
+      <p class="hint">Drag to pan · scroll to zoom · double-click to zoom in.</p>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Roots</p>
+      <table id="rootTable"></table>
+    </div>
+
+    <div class="info-section">
+      A <b>Pisot number</b> is a real algebraic integer θ &gt; 1 all of whose Galois
+      conjugates lie strictly inside the unit circle. A <b>Salem number</b> is a real
+      algebraic integer τ &gt; 1 whose conjugates all lie on or inside the unit circle
+      with at least one on it (so τ⁻¹ is a conjugate and the rest have modulus exactly 1).
+      The plane is shaded by how fast Newton's method z ↦ z − p(z)/p′(z) converges;
+      the basins of the conjugates tile ℂ in a fractal pattern. Click any point to
+      watch its orbit find a conjugate.
+    </div>
+
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ---------- polynomial catalogue (coefficients: highest degree first) ----------
+// All entries verified numerically: Pisot = one real root > 1, all conjugates
+// strictly inside the unit circle; Salem = one root tau > 1, one root 1/tau,
+// remaining conjugates on the unit circle.
+const PISOT = [
+  { name: 'θ₁ ≈ 1.324718 (plastic number)',        coeffs: [1, 0, -1, -1] },
+  { name: 'θ₂ ≈ 1.380278',                          coeffs: [1, -1, 0, 0, -1] },
+  { name: 'θ₃ ≈ 1.443269',                          coeffs: [1, -1, -1, 1, 0, -1] },
+  { name: 'θ₄ ≈ 1.465571 (supergolden ratio)',      coeffs: [1, -1, 0, -1] },
+  { name: 'θ₅ ≈ 1.501595',                          coeffs: [1, -1, -1, 0, 1, 0, -1] },
+  { name: 'θ₆ ≈ 1.534158',                          coeffs: [1, 0, -1, -1, -1, -1] },
+  { name: 'θ₇ ≈ 1.545216',                          coeffs: [1, -1, -1, 0, 0, 1, 0, -1] },
+  { name: 'θ₈ ≈ 1.570147',                          coeffs: [1, -1, 0, -1, 0, -1] },
+  { name: 'φ ≈ 1.618034 (golden ratio)',            coeffs: [1, -1, -1] },
+  { name: '≈ 1.839287 (tribonacci constant)',       coeffs: [1, -1, -1, -1] },
+  { name: '≈ 1.927562 (tetranacci constant)',       coeffs: [1, -1, -1, -1, -1] },
+  { name: '1 + √2 ≈ 2.414214 (silver ratio)',       coeffs: [1, -2, -1] },
+];
+const SALEM = [
+  { name: 'λ ≈ 1.176281 (Lehmer’s number, deg 10)', coeffs: [1, 1, 0, -1, -1, -1, -1, -1, 0, 1, 1] },
+  { name: '≈ 1.188368 (2nd smallest known, deg 18)', coeffs: [1, -1, 1, -1, 0, 0, -1, 1, -1, 1, -1, 1, -1, 0, 0, -1, 1, -1, 1] },
+  { name: '≈ 1.280638 (smallest of degree 8)',       coeffs: [1, 0, 0, -1, -1, -1, 0, 0, 1] },
+  { name: '≈ 1.401268 (smallest of degree 6)',       coeffs: [1, 0, -1, -1, -1, 0, 1] },
+  { name: '≈ 1.722084 (smallest of degree 4)',       coeffs: [1, -1, -1, -1, 1] },
+];
+const MAXD = 20; // shader-side maximum degree
+
+// ---------- complex / root utilities ----------
+function findRoots(coeffs) {
+  // Durand–Kerner; coeffs highest-first, returns array of [re, im]
+  const n = coeffs.length - 1;
+  const c = coeffs.map(x => x / coeffs[0]);
+  let zs = [];
+  for (let k = 0; k < n; k++) {
+    const ang = (2 * Math.PI * k) / n + 0.35;
+    zs.push([1.3 * Math.cos(ang), 1.3 * Math.sin(ang)]);
+  }
+  const evalp = z => {
+    let re = c[0], im = 0;
+    for (let i = 1; i <= n; i++) {
+      const r = re * z[0] - im * z[1] + c[i];
+      im = re * z[1] + im * z[0];
+      re = r;
+    }
+    return [re, im];
+  };
+  for (let iter = 0; iter < 1000; iter++) {
+    let maxd = 0;
+    for (let i = 0; i < n; i++) {
+      let dr = 1, di = 0;
+      for (let j = 0; j < n; j++) {
+        if (j === i) continue;
+        const ar = zs[i][0] - zs[j][0], ai = zs[i][1] - zs[j][1];
+        const r = dr * ar - di * ai;
+        di = dr * ai + di * ar;
+        dr = r;
+      }
+      const p = evalp(zs[i]);
+      const d2 = dr * dr + di * di;
+      const qr = (p[0] * dr + p[1] * di) / d2;
+      const qi = (p[1] * dr - p[0] * di) / d2;
+      zs[i][0] -= qr; zs[i][1] -= qi;
+      maxd = Math.max(maxd, Math.hypot(qr, qi));
+    }
+    if (maxd < 1e-13) break;
+  }
+  return zs;
+}
+
+function classifyRoots(roots) {
+  const eps = 1e-6;
+  let big = 0, on = 0, inside = 0, largest = 0;
+  for (const z of roots) {
+    const m = Math.hypot(z[0], z[1]);
+    largest = Math.max(largest, m);
+    if (m > 1 + eps) big++;
+    else if (m < 1 - eps) inside++;
+    else on++;
+  }
+  let type = 'other';
+  if (big === 1 && inside === roots.length - 1) type = 'pisot';
+  else if (big === 1 && on === roots.length - 2 && inside === 1) type = 'salem';
+  return { type, largest };
+}
+
+function formatPoly(coeffs) {
+  const sup = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const pow = e => e === 1 ? 'z' : 'z' + String(e).split('').map(d => sup[+d]).join('');
+  const n = coeffs.length - 1;
+  let out = '';
+  for (let i = 0; i <= n; i++) {
+    const a = coeffs[i];
+    if (a === 0) continue;
+    const e = n - i;
+    const mag = Math.abs(a);
+    const coefStr = (mag === 1 && e > 0) ? '' : String(mag);
+    const term = e === 0 ? String(mag) : coefStr + pow(e);
+    if (out === '') out = (a < 0 ? '−' : '') + term;
+    else out += (a < 0 ? ' − ' : ' + ') + term;
+  }
+  return out || '0';
+}
+
+function fmtC(z, digits = 4) {
+  if (Math.abs(z[1]) < 1e-9) return z[0].toFixed(digits);
+  return `${z[0].toFixed(digits)} ${z[1] < 0 ? '−' : '+'} ${Math.abs(z[1]).toFixed(digits)}i`;
+}
+
+// ---------- WebGL setup ----------
+const glCanvas = document.getElementById('glcanvas');
+const gl = glCanvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: false });
+
+const VS = `#version 300 es
+in vec2 a_pos;
+void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }`;
+
+const FS = `#version 300 es
+precision highp float;
+out vec4 outColor;
+
+uniform vec2  u_center;     // complex-plane center
+uniform float u_span;       // vertical span in complex units
+uniform vec2  u_res;        // canvas resolution (pixels)
+uniform int   u_degree;
+uniform float u_coeffs[${MAXD + 1}];   // p, highest degree first
+uniform float u_dcoeffs[${MAXD}];      // p', highest degree first
+uniform vec2  u_roots[${MAXD}];
+uniform int   u_maxIter;
+uniform float u_bands;      // iterations mapped onto full palette
+uniform int   u_mode;       // 0 = spectrum, 1 = by root
+
+vec2 cmul(vec2 a, vec2 b) { return vec2(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x); }
+vec2 cdiv(vec2 a, vec2 b) {
+  float d = dot(b, b);
+  return vec2(dot(a, b), a.y*b.x - a.x*b.y) / d;
+}
+
+// palette: green core -> blues -> purple -> dark red -> red -> orange -> yellow
+vec3 spectrum(float t) {
+  const int N = 10;
+  vec3 stops[N] = vec3[](
+    vec3(0.72, 0.90, 0.35),  // pale green
+    vec3(0.23, 0.63, 0.26),  // green
+    vec3(0.05, 0.45, 0.34),  // deep green
+    vec3(0.15, 0.47, 0.75),  // blue
+    vec3(0.14, 0.27, 0.62),  // deep blue
+    vec3(0.30, 0.16, 0.58),  // indigo
+    vec3(0.45, 0.09, 0.30),  // maroon
+    vec3(0.72, 0.13, 0.13),  // red
+    vec3(0.93, 0.42, 0.06),  // orange
+    vec3(1.00, 0.92, 0.35)   // yellow
+  );
+  float x = clamp(t, 0.0, 1.0) * float(N - 1);
+  int i = int(floor(x));
+  i = min(i, N - 2);
+  return mix(stops[i], stops[i + 1], fract(x));
+}
+
+vec3 hsl2rgb(float h, float s, float l) {
+  vec3 k = mod(vec3(0.0, 8.0, 4.0) + h * 12.0, 12.0);
+  float a = s * min(l, 1.0 - l);
+  return l - a * max(min(min(k - 3.0, 9.0 - k), vec3(1.0)), vec3(-1.0));
+}
+
+void main() {
+  float pxScale = u_span / u_res.y;
+  vec2 z = u_center + (gl_FragCoord.xy - 0.5 * u_res) * pxScale;
+
+  int it = -1;
+  for (int i = 0; i < 400; i++) {
+    if (i >= u_maxIter) break;
+    // Horner evaluation of p and p'
+    vec2 p = vec2(u_coeffs[0], 0.0);
+    for (int k = 1; k <= ${MAXD}; k++) {
+      if (k > u_degree) break;
+      p = cmul(p, z) + vec2(u_coeffs[k], 0.0);
+    }
+    vec2 dp = vec2(u_dcoeffs[0], 0.0);
+    for (int k = 1; k <= ${MAXD - 1}; k++) {
+      if (k > u_degree - 1) break;
+      dp = cmul(dp, z) + vec2(u_dcoeffs[k], 0.0);
+    }
+    if (dot(dp, dp) < 1e-24) break;
+    vec2 step = cdiv(p, dp);
+    z -= step;
+    if (dot(step, step) < 1e-12) { it = i; break; }
+  }
+
+  if (it < 0) { outColor = vec4(1.0, 0.95, 0.45, 1.0); return; }  // no convergence
+
+  float t = clamp(float(it) / u_bands, 0.0, 1.0);
+  vec3 col;
+  if (u_mode == 0) {
+    col = spectrum(t);
+  } else {
+    // nearest root -> hue
+    int best = 0;
+    float bd = 1e30;
+    for (int k = 0; k < ${MAXD}; k++) {
+      if (k >= u_degree) break;
+      vec2 d = z - u_roots[k];
+      float dd = dot(d, d);
+      if (dd < bd) { bd = dd; best = k; }
+    }
+    float hue = fract(float(best) * 0.618034 + 0.15);
+    float l = clamp(0.62 - 0.5 * t, 0.10, 0.62);
+    col = hsl2rgb(hue, 0.75, l);
+  }
+  outColor = vec4(col, 1.0);
+}`;
+
+let program = null;
+let uni = {};
+if (!gl) {
+  const errBox0 = document.getElementById('err');
+  errBox0.style.display = 'block';
+  errBox0.textContent = 'WebGL2 is required but not available in this browser.';
+} else {
+  const compile = (type, src) => {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      throw new Error(gl.getShaderInfoLog(s));
+    }
+    return s;
+  };
+  program = gl.createProgram();
+  gl.attachShader(program, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(program, compile(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    throw new Error(gl.getProgramInfoLog(program));
+  }
+  gl.useProgram(program);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(program, 'a_pos');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  for (const name of ['u_center', 'u_span', 'u_res', 'u_degree', 'u_coeffs',
+                      'u_dcoeffs', 'u_roots', 'u_maxIter', 'u_bands', 'u_mode']) {
+    uni[name] = gl.getUniformLocation(program, name);
+  }
+}
+
+// ---------- state ----------
+const state = {
+  family: 'pisot',
+  presetIndex: { pisot: 1, salem: 0 },   // default: z^4 - z^3 - 1
+  coeffs: PISOT[1].coeffs.slice(),
+  roots: [],
+  classification: null,
+  center: { x: 0.25, y: 0 },
+  span: 2.8,
+  maxIter: 80,
+  bands: 18,
+  mode: 1,
+  showCircle: false,
+  showRoots: true,
+  showAxes: false,
+  orbitMode: true,
+  orbitSpeed: 4,       // steps per second
+  followCam: false,
+};
+
+// orbit: { pts: [[re,im],...], start, targetIdx (root index or -1), status }
+let orbit = null;
+// animation: t = fractional step position; pulse = seconds since arrival
+const anim = { t: 0, playing: false, pulse: 0, last: 0, raf: 0, running: false };
+
+// ---------- DOM ----------
+const overlay = document.getElementById('overlay');
+const octx = overlay.getContext('2d');
+const stage = document.getElementById('stage');
+const polySelect = document.getElementById('polySelect');
+const errBox = document.getElementById('err');
+const orbitStatus = document.getElementById('orbitStatus');
+
+function populateSelect() {
+  const list = state.family === 'salem' ? SALEM : PISOT;
+  polySelect.innerHTML = '';
+  list.forEach((p, i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = p.name;
+    polySelect.appendChild(o);
+  });
+  polySelect.value = state.presetIndex[state.family];
+}
+
+function setPolynomial(coeffs) {
+  if (coeffs.length - 1 > MAXD) {
+    errBox.style.display = 'block';
+    errBox.textContent = `Degree at most ${MAXD} supported.`;
+    return;
+  }
+  if (coeffs.length < 3 || coeffs[0] === 0) {
+    errBox.style.display = 'block';
+    errBox.textContent = 'Need degree ≥ 2 with nonzero leading coefficient.';
+    return;
+  }
+  errBox.style.display = 'none';
+  state.coeffs = coeffs.slice();
+  state.roots = findRoots(coeffs);
+  state.classification = classifyRoots(state.roots);
+  // re-track the existing orbit start point under the new map
+  if (orbit) startOrbit(orbit.start);
+  updateInfo();
+  render();
+}
+
+function updateInfo() {
+  document.getElementById('polyDisplay').textContent = formatPoly(state.coeffs);
+  const cl = state.classification;
+  const tagNames = { pisot: 'Pisot', salem: 'Salem', other: 'neither Pisot nor Salem' };
+  document.getElementById('classLine').innerHTML =
+    `<span class="tag ${cl.type}">${tagNames[cl.type]}</span>`;
+  const nl = document.getElementById('numberLine');
+  if (cl.type === 'pisot') {
+    nl.innerHTML = `Pisot number θ = <b>${cl.largest.toFixed(8)}</b>; all conjugates lie strictly inside the unit circle.`;
+  } else if (cl.type === 'salem') {
+    nl.innerHTML = `Salem number τ = <b>${cl.largest.toFixed(8)}</b>; conjugates: τ⁻¹ = ${(1 / cl.largest).toFixed(8)} and ${state.roots.length - 2} of modulus 1.`;
+  } else {
+    nl.textContent = `Largest root modulus ${cl.largest.toFixed(8)}.`;
+  }
+  updateRootTable();
+}
+
+function updateRootTable() {
+  const rows = state.roots
+    .map((z, i) => ({ z, i, m: Math.hypot(z[0], z[1]) }))
+    .sort((a, b) => b.m - a.m);
+  const tbl = document.getElementById('rootTable');
+  tbl.innerHTML = '<tr><td>root</td><td>|z|</td></tr>';
+  for (const { z, i, m } of rows) {
+    const tr = document.createElement('tr');
+    const cls = [];
+    if (m === rows[0].m && m > 1) cls.push('dominant');
+    if (orbit && orbit.targetIdx === i) cls.push('orbit-target');
+    tr.className = cls.join(' ');
+    tr.innerHTML = `<td>${fmtC(z, Math.abs(z[1]) < 1e-9 ? 6 : 4)}</td><td>${m.toFixed(6)}</td>`;
+    tbl.appendChild(tr);
+  }
+}
+
+// ---------- orbit tracking ----------
+function newtonOrbit(z0) {
+  const c = state.coeffs, deg = c.length - 1;
+  const d = [];
+  for (let i = 0; i < deg; i++) d.push(c[i] * (deg - i));
+  const pts = [[z0[0], z0[1]]];
+  let zr = z0[0], zi = z0[1];
+  let status = 'maxed';
+  for (let s = 0; s < 400; s++) {
+    // Horner for p and p'
+    let pr = c[0], pi = 0;
+    for (let k = 1; k <= deg; k++) {
+      const r = pr * zr - pi * zi + c[k];
+      pi = pr * zi + pi * zr;
+      pr = r;
+    }
+    let dr = d[0], di = 0;
+    for (let k = 1; k < deg; k++) {
+      const r = dr * zr - di * zi + d[k];
+      di = dr * zi + di * zr;
+      dr = r;
+    }
+    const dd = dr * dr + di * di;
+    if (dd < 1e-30) { status = 'critical'; break; }
+    const wr = (pr * dr + pi * di) / dd;
+    const wi = (pi * dr - pr * di) / dd;
+    zr -= wr; zi -= wi;
+    pts.push([zr, zi]);
+    if (wr * wr + wi * wi < 1e-24) { status = 'converged'; break; }
+    if (zr * zr + zi * zi > 1e12) { status = 'diverged'; break; }
+  }
+  // nearest root
+  let targetIdx = -1, best = Infinity;
+  state.roots.forEach((r, i) => {
+    const dx = zr - r[0], dy = zi - r[1];
+    const dist = dx * dx + dy * dy;
+    if (dist < best) { best = dist; targetIdx = i; }
+  });
+  if (best > 1e-6) targetIdx = -1;
+  return { pts, start: [z0[0], z0[1]], targetIdx, status };
+}
+
+function startOrbit(z0) {
+  orbit = newtonOrbit(z0);
+  anim.t = 0;
+  anim.pulse = 0;
+  anim.playing = true;
+  anim.last = performance.now();
+  updateOrbitStatus();
+  updateRootTable();
+  startAnimLoop();
+}
+
+function updateOrbitStatus() {
+  if (!orbit) {
+    orbitStatus.textContent = 'No orbit yet — click anywhere on the fractal.';
+    return;
+  }
+  const n = orbit.pts.length - 1;
+  const stepShown = Math.min(Math.floor(anim.t), n);
+  let tail;
+  if (orbit.targetIdx >= 0) {
+    const r = state.roots[orbit.targetIdx];
+    const m = Math.hypot(r[0], r[1]);
+    tail = `→ <b>${fmtC(r)}</b> (|z| = ${m.toFixed(4)}) in <b>${n}</b> steps`;
+  } else if (orbit.status === 'diverged') {
+    tail = '→ escapes to ∞';
+  } else {
+    tail = `→ no root reached after ${n} steps`;
+  }
+  orbitStatus.innerHTML = `z₀ = ${fmtC(orbit.start)} ${tail}` +
+    (anim.playing ? ` · step ${stepShown}/${n}` : '');
+}
+
+// current animated dot position (plane coords) and the active hop length
+function orbitDotPlane() {
+  const end = orbit.pts.length - 1;
+  const t = Math.min(anim.t, end);
+  const full = Math.floor(t);
+  if (full >= end) {
+    const a = orbit.pts[Math.max(end - 1, 0)], b = orbit.pts[end];
+    return { pos: [b[0], b[1]], segLen: Math.hypot(b[0] - a[0], b[1] - a[1]) };
+  }
+  const a = orbit.pts[full], b = orbit.pts[full + 1];
+  const frac = t - full;
+  const e = frac * frac * (3 - 2 * frac);
+  return {
+    pos: [a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e],
+    segLen: Math.hypot(b[0] - a[0], b[1] - a[1]),
+  };
+}
+
+// the fractal is rendered in float32, so don't chase convergence below this span
+const FOLLOW_MIN_SPAN = 1e-3;
+const FOLLOW_MAX_SPAN = 3.5;
+
+function startAnimLoop() {
+  cancelAnimationFrame(anim.raf);
+  anim.running = true;
+  const tick = now => {
+    const dt = Math.min((now - anim.last) / 1000, 0.1);
+    anim.last = now;
+    let more = false;
+    if (orbit) {
+      const end = orbit.pts.length - 1;
+      if (anim.t < end) {
+        anim.t = Math.min(anim.t + dt * state.orbitSpeed, end);
+        anim.playing = anim.t < end;
+        more = true;
+        if (Math.floor(anim.t) !== Math.floor(anim.t - dt * state.orbitSpeed)) updateOrbitStatus();
+      } else if (anim.pulse < 2.0) {
+        anim.playing = false;
+        anim.pulse += dt;
+        more = true;
+      }
+      if (!anim.playing && anim.t >= end && anim.pulse === 0) updateOrbitStatus();
+    }
+    let camMoved = false;
+    if (state.followCam && orbit) {
+      const { pos, segLen } = orbitDotPlane();
+      const targetSpan = Math.min(FOLLOW_MAX_SPAN, Math.max(FOLLOW_MIN_SPAN, segLen * 6));
+      const kc = Math.min(1, dt * 5);
+      const ks = Math.min(1, dt * 2.5);
+      state.center.x += (pos[0] - state.center.x) * kc;
+      state.center.y += (pos[1] - state.center.y) * kc;
+      state.span += (targetSpan - state.span) * ks;
+      camMoved = true;
+    }
+    if (camMoved) render(); else drawOverlay();
+    if (more) {
+      anim.raf = requestAnimationFrame(tick);
+    } else {
+      anim.running = false;
+      updateOrbitStatus();
+    }
+  };
+  anim.raf = requestAnimationFrame(tick);
+}
+
+// ---------- rendering ----------
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = stage.clientWidth, h = stage.clientHeight;
+  for (const c of [glCanvas, overlay]) {
+    c.width = Math.round(w * dpr);
+    c.height = Math.round(h * dpr);
+  }
+  render();
+}
+
+function render() {
+  if (!gl || !state.roots.length) return;
+  const w = glCanvas.width, h = glCanvas.height;
+  gl.viewport(0, 0, w, h);
+  const deg = state.coeffs.length - 1;
+  const cf = new Float32Array(MAXD + 1);
+  const dcf = new Float32Array(MAXD);
+  for (let i = 0; i <= deg; i++) cf[i] = state.coeffs[i];
+  for (let i = 0; i < deg; i++) dcf[i] = state.coeffs[i] * (deg - i);
+  const rootsFlat = new Float32Array(MAXD * 2);
+  state.roots.forEach((z, i) => { rootsFlat[2 * i] = z[0]; rootsFlat[2 * i + 1] = z[1]; });
+
+  gl.uniform2f(uni.u_center, state.center.x, state.center.y);
+  gl.uniform1f(uni.u_span, state.span);
+  gl.uniform2f(uni.u_res, w, h);
+  gl.uniform1i(uni.u_degree, deg);
+  gl.uniform1fv(uni.u_coeffs, cf);
+  gl.uniform1fv(uni.u_dcoeffs, dcf);
+  gl.uniform2fv(uni.u_roots, rootsFlat);
+  gl.uniform1i(uni.u_maxIter, state.maxIter);
+  gl.uniform1f(uni.u_bands, state.bands);
+  gl.uniform1i(uni.u_mode, state.mode);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  drawOverlay();
+}
+
+function planeToPx(x, y) {
+  const w = overlay.width, h = overlay.height;
+  const s = h / state.span;   // px per complex unit
+  return [w / 2 + (x - state.center.x) * s, h / 2 - (y - state.center.y) * s];
+}
+
+function lerpColor(a, b, t) {
+  return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
+}
+const ORBIT_C0 = [125, 211, 252];   // sky
+const ORBIT_C1 = [255, 235, 120];   // gold
+
+function drawOverlay() {
+  const w = overlay.width, h = overlay.height;
+  octx.clearRect(0, 0, w, h);
+  const s = h / state.span;
+  const px = Math.max(1, h / 800);
+  const gold = '#d4c22a';
+
+  if (state.showAxes) {
+    octx.save();
+    octx.strokeStyle = 'rgba(255,255,255,0.35)';
+    octx.lineWidth = px;
+    const [ox, oy] = planeToPx(0, 0);
+    octx.beginPath();
+    octx.moveTo(0, oy); octx.lineTo(w, oy);
+    octx.moveTo(ox, 0); octx.lineTo(ox, h);
+    octx.stroke();
+    octx.restore();
+  }
+  if (state.showCircle) {
+    const [cx, cy] = planeToPx(0, 0);
+    octx.strokeStyle = gold;
+    octx.lineWidth = px;
+    octx.beginPath();
+    octx.arc(cx, cy, s, 0, 2 * Math.PI);
+    octx.stroke();
+  }
+  if (state.showRoots) {
+    const r = Math.max(2.5, h / 240);
+    octx.fillStyle = gold;
+    for (const z of state.roots) {
+      const [rx, ry] = planeToPx(z[0], z[1]);
+      octx.beginPath();
+      octx.arc(rx, ry, r, 0, 2 * Math.PI);
+      octx.fill();
+    }
+  }
+
+  // ----- orbit trail -----
+  if (orbit && orbit.pts.length > 1) {
+    const end = orbit.pts.length - 1;
+    const t = Math.min(anim.t, end);
+    const full = Math.floor(t);
+    const frac = t - full;
+
+    // visited segments, colored along the sky->gold ramp
+    octx.lineWidth = Math.max(1.5, 1.5 * px);
+    octx.lineCap = 'round';
+    for (let i = 0; i < full; i++) {
+      const [x0, y0] = planeToPx(orbit.pts[i][0], orbit.pts[i][1]);
+      const [x1, y1] = planeToPx(orbit.pts[i + 1][0], orbit.pts[i + 1][1]);
+      octx.strokeStyle = lerpColor(ORBIT_C0, ORBIT_C1, end > 1 ? i / (end - 1) : 0);
+      octx.globalAlpha = 0.9;
+      octx.beginPath();
+      octx.moveTo(x0, y0); octx.lineTo(x1, y1);
+      octx.stroke();
+    }
+    // partial current segment + moving dot
+    let dot = planeToPx(orbit.pts[full][0], orbit.pts[full][1]);
+    if (full < end && frac > 0) {
+      const a = orbit.pts[full], b = orbit.pts[full + 1];
+      // ease the hop within each step
+      const e = frac * frac * (3 - 2 * frac);
+      const mx = a[0] + (b[0] - a[0]) * e, my = a[1] + (b[1] - a[1]) * e;
+      const [x0, y0] = planeToPx(a[0], a[1]);
+      const m = planeToPx(mx, my);
+      octx.strokeStyle = lerpColor(ORBIT_C0, ORBIT_C1, end > 1 ? full / (end - 1) : 0);
+      octx.beginPath();
+      octx.moveTo(x0, y0); octx.lineTo(m[0], m[1]);
+      octx.stroke();
+      dot = m;
+    } else if (t >= end) {
+      dot = planeToPx(orbit.pts[end][0], orbit.pts[end][1]);
+    }
+    octx.globalAlpha = 1;
+
+    // visited vertices
+    const vr = Math.max(2, 2 * px);
+    for (let i = 0; i <= full; i++) {
+      const [vx, vy] = planeToPx(orbit.pts[i][0], orbit.pts[i][1]);
+      octx.fillStyle = lerpColor(ORBIT_C0, ORBIT_C1, end > 1 ? Math.min(i, end - 1) / (end - 1) : 0);
+      octx.beginPath();
+      octx.arc(vx, vy, vr, 0, 2 * Math.PI);
+      octx.fill();
+    }
+
+    // start marker (ring)
+    const [sx, sy] = planeToPx(orbit.start[0], orbit.start[1]);
+    octx.strokeStyle = 'rgba(255,255,255,0.9)';
+    octx.lineWidth = Math.max(1.5, 1.5 * px);
+    octx.beginPath();
+    octx.arc(sx, sy, Math.max(5, 5 * px), 0, 2 * Math.PI);
+    octx.stroke();
+
+    // moving dot with glow
+    octx.save();
+    octx.shadowColor = '#ffffff';
+    octx.shadowBlur = 12 * px;
+    octx.fillStyle = '#ffffff';
+    octx.beginPath();
+    octx.arc(dot[0], dot[1], Math.max(4, 4 * px), 0, 2 * Math.PI);
+    octx.fill();
+    octx.restore();
+
+    // arrival pulse at the limiting root
+    if (anim.t >= end && anim.pulse > 0 && orbit.targetIdx >= 0) {
+      const root = state.roots[orbit.targetIdx];
+      const [rx, ry] = planeToPx(root[0], root[1]);
+      const phase = (anim.pulse % 1.0);
+      octx.strokeStyle = `rgba(255,255,255,${(1 - phase) * 0.8})`;
+      octx.lineWidth = Math.max(2, 2 * px);
+      octx.beginPath();
+      octx.arc(rx, ry, (6 + 26 * phase) * px, 0, 2 * Math.PI);
+      octx.stroke();
+    }
+  }
+}
+
+// ---------- interaction ----------
+function clientToPlane(clientX, clientY) {
+  const rect = stage.getBoundingClientRect();
+  const s = state.span / stage.clientHeight;
+  return [
+    state.center.x + (clientX - rect.left - rect.width / 2) * s,
+    state.center.y - (clientY - rect.top - rect.height / 2) * s,
+  ];
+}
+
+// user grabbed the camera while the follow-cam was flying it: hand over control
+function breakFollow() {
+  if (state.followCam && anim.running) {
+    state.followCam = false;
+    document.getElementById('chkFollow').checked = false;
+  }
+}
+
+let drag = null;
+let dragOrigin = null;
+let dragMoved = false;
+stage.addEventListener('mousedown', e => {
+  drag = { x: e.clientX, y: e.clientY };
+  dragOrigin = { x: e.clientX, y: e.clientY };
+  dragMoved = false;
+  stage.classList.add('dragging');
+});
+window.addEventListener('mousemove', e => {
+  const s = state.span / stage.clientHeight;
+  if (drag) {
+    if (dragOrigin && Math.hypot(e.clientX - dragOrigin.x, e.clientY - dragOrigin.y) > 4) dragMoved = true;
+    if (dragMoved) breakFollow();
+    state.center.x -= (e.clientX - drag.x) * s;
+    state.center.y += (e.clientY - drag.y) * s;
+    drag = { x: e.clientX, y: e.clientY };
+    render();
+  }
+  const [zx, zy] = clientToPlane(e.clientX, e.clientY);
+  document.getElementById('coords').textContent =
+    `${zx.toFixed(5)} ${zy < 0 ? '−' : '+'} ${Math.abs(zy).toFixed(5)}i`;
+});
+window.addEventListener('mouseup', () => {
+  drag = null;
+  stage.classList.remove('dragging');
+});
+stage.addEventListener('click', e => {
+  if (dragMoved || !state.orbitMode) return;
+  const [zx, zy] = clientToPlane(e.clientX, e.clientY);
+  startOrbit([zx, zy]);
+});
+
+function zoomAt(clientX, clientY, factor) {
+  const rect = stage.getBoundingClientRect();
+  const s = state.span / stage.clientHeight;
+  const zx = state.center.x + (clientX - rect.left - rect.width / 2) * s;
+  const zy = state.center.y - (clientY - rect.top - rect.height / 2) * s;
+  state.span *= factor;
+  const s2 = state.span / stage.clientHeight;
+  state.center.x = zx - (clientX - rect.left - rect.width / 2) * s2;
+  state.center.y = zy + (clientY - rect.top - rect.height / 2) * s2;
+  render();
+}
+stage.addEventListener('wheel', e => {
+  e.preventDefault();
+  breakFollow();
+  zoomAt(e.clientX, e.clientY, Math.exp(e.deltaY * 0.0015));
+}, { passive: false });
+stage.addEventListener('dblclick', e => zoomAt(e.clientX, e.clientY, 0.5));
+
+// touch: one-finger pan (tap = orbit), two-finger pinch
+let touches = null;
+let touchStart = null;
+stage.addEventListener('touchstart', e => {
+  touches = [...e.touches].map(t => ({ x: t.clientX, y: t.clientY }));
+  if (e.touches.length === 1) touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, moved: false };
+}, { passive: true });
+stage.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const now = [...e.touches].map(t => ({ x: t.clientX, y: t.clientY }));
+  const s = state.span / stage.clientHeight;
+  if (touches && touches.length === 1 && now.length === 1) {
+    if (touchStart && Math.hypot(now[0].x - touchStart.x, now[0].y - touchStart.y) > 8) touchStart.moved = true;
+    if (touchStart && touchStart.moved) breakFollow();
+    state.center.x -= (now[0].x - touches[0].x) * s;
+    state.center.y += (now[0].y - touches[0].y) * s;
+    render();
+  } else if (touches && touches.length === 2 && now.length === 2) {
+    if (touchStart) touchStart.moved = true;
+    breakFollow();
+    const d0 = Math.hypot(touches[0].x - touches[1].x, touches[0].y - touches[1].y);
+    const d1 = Math.hypot(now[0].x - now[1].x, now[0].y - now[1].y);
+    if (d1 > 0) zoomAt((now[0].x + now[1].x) / 2, (now[0].y + now[1].y) / 2, d0 / d1);
+  }
+  touches = now;
+}, { passive: false });
+stage.addEventListener('touchend', e => {
+  if (touchStart && !touchStart.moved && e.touches.length === 0 && state.orbitMode) {
+    const rect = stage.getBoundingClientRect();
+    const s = state.span / stage.clientHeight;
+    const zx = state.center.x + (touchStart.x - rect.left - rect.width / 2) * s;
+    const zy = state.center.y - (touchStart.y - rect.top - rect.height / 2) * s;
+    startOrbit([zx, zy]);
+  }
+  touchStart = null;
+  touches = [...e.touches].map(t => ({ x: t.clientX, y: t.clientY }));
+}, { passive: true });
+
+// ---------- controls ----------
+// FLIP-style collapse: measure both end states, animate between them explicitly
+// (a bare width/height transition can't animate from the content-determined
+// height), and freeze the innards' width so nothing reflows while the box folds.
+function setPanelCollapsed(panel, collapsed) {
+  const frozen = panel.querySelectorAll('.panel-header, .panel-content');
+  const from = panel.getBoundingClientRect();
+  panel.classList.toggle('collapsed', collapsed);
+  panel.style.transition = 'none';
+  panel.style.width = '';
+  panel.style.height = '';
+  const to = panel.getBoundingClientRect();
+  const wide = Math.max(from.width, to.width) - 2;   // inside the 1px borders
+  for (const el of frozen) el.style.minWidth = wide + 'px';
+  panel.style.width = from.width + 'px';
+  panel.style.height = from.height + 'px';
+  void panel.offsetWidth;   // commit the start state before re-enabling the transition
+  panel.style.transition = '';
+  panel.style.width = to.width + 'px';
+  panel.style.height = to.height + 'px';
+  clearTimeout(panel._collapseTimer);
+  panel._collapseTimer = setTimeout(() => {
+    panel.style.width = '';
+    panel.style.height = '';
+    for (const el of frozen) el.style.minWidth = '';
+  }, 420);
+}
+document.getElementById('collapseBtn').addEventListener('click', e => {
+  const panel = document.getElementById('control-panel');
+  const collapsed = !panel.classList.contains('collapsed');
+  setPanelCollapsed(panel, collapsed);
+  e.currentTarget.title = collapsed ? 'Expand panel' : 'Collapse panel';
+});
+document.getElementById('familySeg').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  state.family = b.dataset.family;
+  for (const btn of document.querySelectorAll('#familySeg button')) btn.classList.toggle('active', btn === b);
+  const isCustom = state.family === 'custom';
+  document.getElementById('presetBlock').style.display = isCustom ? 'none' : '';
+  document.getElementById('customBlock').style.display = isCustom ? '' : 'none';
+  if (isCustom) applyCustom();
+  else {
+    populateSelect();
+    const list = state.family === 'salem' ? SALEM : PISOT;
+    setPolynomial(list[state.presetIndex[state.family]].coeffs);
+  }
+});
+polySelect.addEventListener('change', () => {
+  state.presetIndex[state.family] = +polySelect.value;
+  const list = state.family === 'salem' ? SALEM : PISOT;
+  setPolynomial(list[+polySelect.value].coeffs);
+});
+function applyCustom() {
+  const raw = document.getElementById('customCoeffs').value;
+  const coeffs = raw.split(/[,\s]+/).filter(x => x.length).map(Number);
+  if (coeffs.some(isNaN)) {
+    errBox.style.display = 'block';
+    errBox.textContent = 'Could not parse coefficients.';
+    return;
+  }
+  setPolynomial(coeffs);
+}
+document.getElementById('customCoeffs').addEventListener('keydown', e => { if (e.key === 'Enter') applyCustom(); });
+document.getElementById('customCoeffs').addEventListener('change', applyCustom);
+
+document.getElementById('orbitToggle').addEventListener('click', e => {
+  state.orbitMode = !state.orbitMode;
+  e.target.classList.toggle('active', state.orbitMode);
+  e.target.textContent = state.orbitMode ? 'Click the plane to track an orbit' : 'Orbit tracking off';
+  stage.classList.toggle('orbit-mode', state.orbitMode);
+});
+document.getElementById('speedSlider').addEventListener('input', e => {
+  state.orbitSpeed = +e.target.value;
+  document.getElementById('speedVal').textContent = e.target.value;
+});
+document.getElementById('chkFollow').addEventListener('change', e => {
+  state.followCam = e.target.checked;
+  // catch up with an in-flight orbit as soon as the box is ticked
+  if (state.followCam && orbit && anim.running) anim.last = performance.now();
+});
+document.getElementById('replayBtn').addEventListener('click', () => {
+  if (!orbit) return;
+  anim.t = 0; anim.pulse = 0; anim.playing = true; anim.last = performance.now();
+  startAnimLoop();
+});
+document.getElementById('clearBtn').addEventListener('click', () => {
+  orbit = null;
+  cancelAnimationFrame(anim.raf);
+  anim.playing = false;
+  anim.running = false;
+  updateOrbitStatus();
+  updateRootTable();
+  drawOverlay();
+});
+
+document.getElementById('colorSeg').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  state.mode = +b.dataset.mode;
+  for (const btn of document.querySelectorAll('#colorSeg button')) btn.classList.toggle('active', btn === b);
+  render();
+});
+document.getElementById('iterSlider').addEventListener('input', e => {
+  state.maxIter = +e.target.value;
+  document.getElementById('iterVal').textContent = e.target.value;
+  render();
+});
+document.getElementById('bandSlider').addEventListener('input', e => {
+  state.bands = +e.target.value;
+  document.getElementById('bandVal').textContent = e.target.value;
+  render();
+});
+for (const [id, key] of [['chkCircle', 'showCircle'], ['chkRoots', 'showRoots'], ['chkAxes', 'showAxes']]) {
+  document.getElementById(id).addEventListener('change', e => {
+    state[key] = e.target.checked;
+    drawOverlay();
+  });
+}
+document.getElementById('zoomIn').addEventListener('click', () => { breakFollow(); state.span *= 0.6; render(); });
+document.getElementById('zoomOut').addEventListener('click', () => { breakFollow(); state.span /= 0.6; render(); });
+document.getElementById('resetView').addEventListener('click', () => {
+  breakFollow();
+  state.center = { x: 0.25, y: 0 };
+  state.span = 2.8;
+  render();
+});
+
+// ---------- boot ----------
+window.addEventListener('resize', resize);
+populateSelect();
+setPolynomial(state.coeffs);
+resize();
+</script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+</html>

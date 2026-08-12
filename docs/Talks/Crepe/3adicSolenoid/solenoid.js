@@ -563,8 +563,10 @@ class SolenoidView {
             // Analytic curve — exact at any parameter value
             const curve = new SolenoidCurve(orbit, majorR, crossR);
 
-            // Generous tube segment count: 24 segments per revolution
-            const tubeSegments = N * 24;
+            // Segments per revolution: generous at low depth where the fat
+            // tube makes faceting obvious, leaner as N (revolutions) grows.
+            const segPerRev = d <= 2 ? 96 : 24;
+            const tubeSegments = N * segPerRev;
             const diskR = Math.pow(SUB_RATIO, d);
             const tubeR = Math.max(0.003, diskR * crossR * 0.65);
             const radSeg = Math.max(3, 8 - d);
@@ -603,9 +605,12 @@ class SolenoidView {
         for (var i = 0; i < this.layers.length; i++) {
             var layer = this.layers[i];
             if (layer.depth === 0) {
-                // Hide the solid torus once strands appear — it occludes them
-                layer.mesh.visible = (d === 0);
-                layer.mat.opacity = (d === 0) ? 1 : 0;
+                // Once strands appear, keep the big torus as a faint ghost
+                // for context ("winds inside the big torus") — depthWrite
+                // off so it never occludes the strands.
+                layer.mesh.visible = true;
+                layer.mat.opacity = (d === 0) ? 1 : 0.12;
+                layer.mat.depthWrite = (d === 0);
             } else if (layer.depth <= d) {
                 layer.mesh.visible = true;
                 var recency = 1 - (d - layer.depth) * 0.22;
@@ -816,11 +821,14 @@ class App {
             this.diskView.animSpeed = parseFloat(e.target.value);
         });
 
+        // In embed mode the arrows belong to the parent presentation
+        // (forwarded on load) — handling them here too would double-advance.
+        const isEmbed = new URLSearchParams(window.location.search).get('embed') === 'true';
         document.addEventListener('keydown', e => {
             if (e.key === ' ') { e.preventDefault(); this.diskView.triggerPlusOne(); }
             else if (e.key === 'a') $('btn-auto').click();
-            else if (e.key === 'ArrowRight') this.goTo(this.step + 1);
-            else if (e.key === 'ArrowLeft') this.goTo(this.step - 1);
+            else if (e.key === 'ArrowRight' && !isEmbed) this.goTo(this.step + 1);
+            else if (e.key === 'ArrowLeft' && !isEmbed) this.goTo(this.step - 1);
             else if (e.key === ']' || e.key === '+') $('btn-depth-plus').click();
             else if (e.key === '[' || e.key === '-') $('btn-depth-minus').click();
             else if (e.key === 'l') $('btn-labels').click();
@@ -866,7 +874,7 @@ window.addEventListener('load', () => {
         hide('solenoid-legend');
     }
 
-    new App();
+    window.solenoidApp = new App();
 
     // When embedded, forward navigation keys to the parent presentation
     if (params.get('embed') === 'true') {

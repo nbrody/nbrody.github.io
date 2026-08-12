@@ -1,0 +1,219 @@
+/* Blog styles for Geometry of Linear Groups — extends assets/css/main.css */
+
+/* ---- Post list (blog index) ---- */
+.post-list {
+  max-width: 760px;
+  margin: 0 auto;
+  list-style: none;
+  padding: 0;
+}
+
+.post-list li {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.post-list a {
+  display: block;
+  padding: 22px 8px;
+  text-decoration: none;
+  color: inherit;
+  border-left: 3px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.post-list a:hover {
+  background: var(--background-alt);
+  border-left-color: var(--accent-color);
+}
+
+.post-list h2 {
+  font-size: 1.35em;
+  font-weight: normal;
+  color: var(--primary-color);
+  margin-bottom: 4px;
+}
+
+.post-list .post-date {
+  font-size: 0.85em;
+  color: var(--text-light);
+  letter-spacing: 0.04em;
+}
+
+.post-list .post-blurb {
+  margin-top: 6px;
+  color: var(--text-light);
+}
+
+.post-list-empty {
+  text-align: center;
+  color: var(--text-light);
+  font-style: italic;
+  padding: 40px 0;
+}
+
+/* ---- Single post (article) ---- */
+.post {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.post-header {
+  margin-bottom: 36px;
+}
+
+.post-header h1 {
+  font-size: 2em;
+  text-align: left;
+}
+
+.post-header .post-date {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.9em;
+  color: var(--text-light);
+  letter-spacing: 0.04em;
+}
+
+.post p {
+  margin-bottom: 1.1em;
+  line-height: 1.75;
+}
+
+.post h2 {
+  font-size: 1.4em;
+  font-weight: normal;
+  color: var(--primary-color);
+  margin: 1.8em 0 0.6em;
+}
+
+.post h3 {
+  font-size: 1.15em;
+  color: var(--secondary-color);
+  margin: 1.5em 0 0.5em;
+}
+
+.post a {
+  color: var(--accent-color);
+}
+
+.post ul,
+.post ol {
+  margin: 0 0 1.1em 1.6em;
+}
+
+.post li {
+  margin-bottom: 0.4em;
+}
+
+.post blockquote {
+  margin: 1.4em 0;
+  padding: 0.6em 1.2em;
+  border-left: 3px solid var(--accent-color);
+  background: var(--background-alt);
+  color: var(--text-light);
+}
+
+.post code {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 0.88em;
+  background: var(--background-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.post pre {
+  background: var(--background-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin-bottom: 1.1em;
+}
+
+.post pre code {
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.post figure {
+  margin: 1.6em 0;
+  text-align: center;
+}
+
+.post figure img {
+  max-width: 100%;
+  border-radius: 6px;
+  box-shadow: var(--card-shadow);
+}
+
+.post figcaption {
+  margin-top: 8px;
+  font-size: 0.9em;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+/* Conjecture / theorem boxes */
+.post .conjecture-box {
+  margin: 1.8em 0;
+  padding: 18px 24px;
+  background: var(--background-alt);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent-color);
+  border-radius: 6px;
+  box-shadow: var(--card-shadow);
+}
+
+.post .conjecture-box .box-label {
+  display: block;
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-color);
+  margin-bottom: 8px;
+}
+
+.post .conjecture-box p {
+  margin-bottom: 0;
+  font-style: italic;
+}
+
+/* Definition lists */
+.post dl {
+  margin: 0 0 1.1em;
+}
+
+.post dt {
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-top: 0.9em;
+}
+
+.post dd {
+  margin: 0.2em 0 0 1.6em;
+  line-height: 1.7;
+}
+
+/* Footer nav between posts */
+.post-nav {
+  max-width: 720px;
+  margin: 48px auto 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 0.95em;
+}
+
+.post-nav a {
+  color: var(--accent-color);
+  text-decoration: none;
+}
+
+.post-nav a:hover {
+  text-decoration: underline;
+}

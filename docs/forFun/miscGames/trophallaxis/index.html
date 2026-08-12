@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TROPHALLAXIS — A Hindgut Arcade Classic</title>
+    <meta name="description"
+        content="An 8-bit arcade game about proctodeal trophallaxis: keep a termite colony alive by passing hindgut fluid rear-to-mouth and crop food face-to-face.">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <a class="back" href="../../index.html">&larr; For Fun</a>
+
+    <div class="cabinet">
+        <div class="marquee">
+            <span class="marquee-title">TROPHALLAXIS</span>
+            <span class="marquee-sub">Reticulitermes Ent. Co. &nbsp;·&nbsp; 1 PLAYER</span>
+        </div>
+
+        <div class="bezel">
+            <div class="screen-wrap">
+                <canvas id="screen" width="256" height="240" aria-label="Trophallaxis game screen"></canvas>
+                <div class="scanlines" aria-hidden="true"></div>
+                <div class="glare" aria-hidden="true"></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="dpad" aria-label="Movement pad">
+                <button id="pad-up" class="pad" aria-label="Up">▲</button>
+                <button id="pad-left" class="pad" aria-label="Left">◀</button>
+                <button id="pad-right" class="pad" aria-label="Right">▶</button>
+                <button id="pad-down" class="pad" aria-label="Down">▼</button>
+            </div>
+            <div class="buttons">
+                <button id="btn-b" class="round b" aria-label="Reverse">B<small>back up</small></button>
+                <button id="btn-a" class="round a" aria-label="Chew or feed">A<small>chew / feed</small></button>
+            </div>
+        </div>
+
+        <div class="controls-row">
+            <span class="keycap">← → ↑ ↓</span> move
+            <span class="keycap">Shift</span> walk backwards
+            <span class="keycap">Space</span> chew / feed
+            <span class="keycap">P</span> pause
+            <button id="mute" class="mute">🔊 sound on</button>
+        </div>
+    </div>
+
+    <section class="brief">
+        <h2>How to keep the colony alive</h2>
+        <div class="rules">
+            <div class="rule">
+                <span class="chip cyan">P</span>
+                <p><strong>Callows &amp; nymphs</strong> (the pale, cyan ones) need <em>proctodeal</em> fluid:
+                    hindgut liquid straight from your rear end. Turn around and <strong>back into them</strong>
+                    — hold <span class="keycap">Shift</span> to reverse without turning.</p>
+            </div>
+            <div class="rule">
+                <span class="chip yellow">S</span>
+                <p><strong>Soldiers, larvae and the queen</strong> can't feed themselves at all. They get
+                    <em>stomodeal</em> food from your crop, mouth to mouth. <strong>Face them</strong> head-on.</p>
+            </div>
+            <div class="rule">
+                <span class="chip amber">▮</span>
+                <p><strong>Gnaw wood</strong> to load your crop (amber). Each amber dose <strong>ferments into
+                        green hindgut fluid</strong> after about five seconds — so keep both on hand, because
+                    green won't feed a soldier and amber won't re-seed a callow.</p>
+            </div>
+            <div class="rule">
+                <span class="chip red">✕</span>
+                <p><strong>Ant raiders</strong> break in from the tunnel mouths. You can't fight them — but a
+                    well-fed <strong>soldier will</strong>. Keep their bars up and they'll do the killing.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="science">
+        <h2>This is a real thing, unfortunately</h2>
+        <p>
+            Lower termites can't digest wood on their own. The work is done by a zoo of flagellate protozoa
+            living in the hindgut — and at every moult a termite sheds its gut lining and loses the entire
+            culture. A freshly moulted <em>callow</em> is a termite with a stomach full of sawdust and nothing
+            to ferment it, and it will starve surrounded by food unless a nestmate re-inoculates it.
+        </p>
+        <p>
+            The re-inoculation is <strong>proctodeal trophallaxis</strong>: the donor everts its hindgut and the
+            recipient drinks a droplet directly from its anus. It is a genuine, load-bearing piece of colony
+            infrastructure. The same colonies also run <strong>stomodeal trophallaxis</strong> — regurgitated
+            crop food passed mouth to mouth — which is how soldiers, whose mandibles are too specialised to
+            eat with, and the queen, and the youngest larvae are fed. Two pipelines, two ends, and a worker
+            caste spending its life shuttling between them.
+        </p>
+        <p class="fine">
+            The scoring, the ant raids and the moult timing are invented. The two feeding routes, the caste
+            that receives each one, and the reason callows need the rear one are not.
+        </p>
+    </section>
+
+    <footer class="foot">
+        <span>Nic Brody</span>
+        <a href="../../index.html">More things that shouldn't exist &rarr;</a>
+    </footer>
+
+    <script src="js/sprites.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/maps.js"></script>
+    <script src="js/entities.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>

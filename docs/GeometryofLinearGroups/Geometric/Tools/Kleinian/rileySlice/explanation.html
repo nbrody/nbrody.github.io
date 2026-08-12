@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riley Slice: An Explanation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1030 100%);
+            color: #e0e0f0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.8;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(120deg, #648cff, #a0c4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            color: rgba(180, 180, 220, 0.7);
+            margin-bottom: 40px;
+        }
+
+        section {
+            margin-bottom: 50px;
+            background: rgba(20, 20, 40, 0.6);
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid rgba(100, 140, 255, 0.2);
+            backdrop-filter: blur(20px);
+        }
+
+        h2 {
+            font-size: 1.6em;
+            margin-bottom: 20px;
+            color: rgba(160, 196, 255, 1);
+            border-bottom: 2px solid rgba(100, 140, 255, 0.3);
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            font-size: 1.2em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            color: rgba(180, 180, 220, 1);
+        }
+
+        p {
+            margin-bottom: 15px;
+            color: rgba(220, 220, 240, 0.9);
+        }
+
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 10px;
+            color: rgba(220, 220, 240, 0.85);
+        }
+
+        code {
+            background: rgba(100, 140, 255, 0.1);
+            color: rgba(160, 196, 255, 1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.9em;
+        }
+
+        .math-box {
+            background: rgba(100, 140, 255, 0.08);
+            border-left: 4px solid rgba(100, 140, 255, 0.5);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 6px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            overflow-x: auto;
+        }
+
+        .highlight {
+            background: rgba(255, 200, 100, 0.15);
+            color: rgba(255, 220, 150, 1);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .feature-box {
+            background: rgba(100, 200, 140, 0.08);
+            border-left: 4px solid rgba(100, 200, 140, 0.5);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+        }
+
+        a {
+            color: rgba(160, 196, 255, 1);
+            text-decoration: none;
+            border-bottom: 1px solid rgba(160, 196, 255, 0.4);
+            transition: color 0.2s;
+        }
+
+        a:hover {
+            color: rgba(200, 230, 255, 1);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 30px;
+            padding: 10px 16px;
+            background: rgba(100, 140, 255, 0.15);
+            border: 1px solid rgba(100, 140, 255, 0.3);
+            border-radius: 8px;
+            color: rgba(160, 196, 255, 1);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .back-link:hover {
+            background: rgba(100, 140, 255, 0.25);
+            border-color: rgba(100, 140, 255, 0.5);
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 1.8em;
+            }
+
+            h2 {
+                font-size: 1.3em;
+            }
+
+            section {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="./index.html" class="back-link">← Back to Interactive Viewer</a>
+
+        <h1>Understanding the Riley Slice</h1>
+        <p class="subtitle">A visual and mathematical guide to parameter space of Kleinian groups</p>
+
+        <section>
+            <h2>What is the Riley Slice?</h2>
+            <p>
+                The Riley slice is a 2-dimensional cross-section of Schottky space that parametrizes a special family of <strong>Kleinian groups</strong>—
+                discrete subgroups of PSL(2,ℂ) acting on hyperbolic 3-space. The term "slice" refers to the fact that we're fixing certain parameters 
+                to get a lower-dimensional space that's easier to visualize and study.
+            </p>
+            <p>
+                Specifically, the Riley slice consists of two-generator groups where one of the generators is <strong>parabolic</strong> 
+                (i.e., has a fixed point at infinity and eigenvalue 1). This constraint reduces the dimension from 4 parameters down to 2, 
+                making the space 2-dimensional and thus drawable.
+            </p>
+        </section>
+
+        <section>
+            <h2>The Mathematical Setup</h2>
+            <p>In the Riley slice, we study groups generated by two matrices:</p>
+            
+            <div class="math-box">
+A = ⎛1  1⎞  (parabolic)
+    ⎝0  1⎠
+
+B = ⎛1  0⎞  (hyperbolic, depends on ρ)
+    ⎝ρ  1⎠
+            </div>
+
+            <p>
+                where ρ is a complex parameter. Each point in the complex plane ρ represents a different group Γ(ρ) = ⟨A, B⟩.
+                The group is <span class="highlight">discrete</span> (and thus geometrically interesting) only for certain regions of ρ.
+            </p>
+
+            <h3>What Makes it "Discrete"?</h3>
+            <p>
+                A group acting on hyperbolic space is discrete if the action has no accumulation points. Geometrically, this means 
+                the orbits of points don't cluster together. Not all values of ρ give discrete groups—we need to check certain 
+                algebraic conditions involving <strong>trace polynomials</strong>.
+            </p>
+        </section>
+
+        <section>
+            <h2>The Farey Tree and Trace Polynomials</h2>
+            <p>
+                The key tool for understanding the Riley slice is the <strong>Farey tree</strong>, a binary tree of all rational numbers 
+                in lowest terms, ordered so that adjacent fractions p/q and p'/q' satisfy |pq' - p'q| = 1.
+            </p>
+
+            <p>Associated to each edge p/q in the Farey tree is a <strong>trace polynomial</strong> Φ_{p/q}(ρ). These polynomials are 
+            computed recursively:</p>
+
+            <div class="math-box">
+Φ_{p/q}(ρ) = 8 − Φ_L(ρ)·Φ_R(ρ) − Φ_{diff}(ρ)
+            </div>
+
+            <p>
+                where L and R are the left and right parents in the Farey tree, and "diff" denotes a specific sibling relationship. 
+                The recursion bottoms out at primitive base cases.
+            </p>
+
+            <h3>Why Trace Polynomials?</h3>
+            <p>
+                The trace of a matrix encodes crucial information about its action. For our group to be <span class="highlight">discrete</span>, 
+                the traces need to avoid certain "bad" regions. Specifically:
+            </p>
+            <ul>
+                <li><strong>If |Φ_{p/q}| &lt; 2:</strong> The group has additional structure related to that fraction</li>
+                <li><strong>If |Φ_{p/q}| = 2:</strong> We're on a boundary between regions (boundary curves)</li>
+                <li><strong>If |Φ_{p/q}| &gt; 2:</strong> The group is discrete and "far from trouble"</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Interpreting the Visualization</h2>
+
+            <div class="feature-box">
+                <h3>The Gray Region (Complement of the Slice)</h3>
+                <p>
+                    The gray region is the <strong>complement</strong> of the Riley slice — parameters where Γ<sub>ρ</sub> is not
+                    discrete and free — and its boundary is the famous fractal curve of cusp groups. It is rendered following
+                    Elzenaar&ndash;Martin&ndash;Schillewaert: the Farey polynomials Q_{p/q} = 2 − Φ_{p/q} map the slice into itself,
+                    their root sets lie in (and are dense in) the complement, so a point within a small Newton distance
+                    |2 − Φ| / |Φ′| of a root is provably outside the slice. This is seeded with the disk |ρ| &lt; 1 (excluded by
+                    Shimizu's lemma) and the real segment (−4, 4). As the Farey depth grows, the union of root neighborhoods
+                    converges to the full complement and the fractal boundary sharpens. The filigree curves inside are the
+                    |Φ| = 2 level sets and the elliptic extension curves.
+                </p>
+            </div>
+
+            <div class="feature-box">
+                <h3>Colored Regions (Riley-Style Tessellation)</h3>
+                <p>
+                    The exterior is tiled into regions on which a single Farey word W_{p/q} is <strong>dominant</strong> — it has the
+                    smallest |Φ_{p/q}| among all Farey words. The dominant word controls the combinatorics of the
+                    <strong>Dirichlet domain</strong> (the fundamental domain for the group's action on hyperbolic space), so each
+                    region carries one combinatorial type. This is the modern rendering of Robert Riley's original computer plot,
+                    where each printed symbol recorded the combinatorial type of the Ford domain his Poincaré procedure found.
+                </p>
+                <p>
+                    The two coarsest slopes 0/1 and 1/1 own the deep exterior; curvy bands of higher-denominator regions accumulate
+                    on the boundary, one lens-shaped region over each cusp. The dark walls mark where dominance passes between
+                    Farey-neighbor slopes.
+                </p>
+            </div>
+
+            <div class="feature-box">
+                <h3>Pleating Rays (Yamashita-Style Lamination)</h3>
+                <p>
+                    These curves mark where the trace polynomial is real and ≤ −2: <code>Im(Φ_{p/q}) = 0 and Re(Φ_{p/q}) ≤ −2</code>.
+                    Each ray P_{p/q} runs from the p/q cusp on the boundary out to infinity, asymptotic to the direction πp/q; by
+                    Keen&ndash;Series theory the rays are pairwise disjoint and foliate the exterior.
+                    They are drawn as thin uniform ink curves, in the style of Yasushi Yamashita's celebrated pictures of the
+                    Riley slice: together the rays laminate the exterior, accumulating in a dense fringe along the boundary.
+                </p>
+                <p>
+                    Geometrically, on these rays, the group has a <strong>pleated surface</strong>—roughly speaking, a hyperbolic surface
+                    glued along certain axes. These are some of the most studied points in the slice because they have additional geometric structure.
+                </p>
+            </div>
+
+            <div class="feature-box">
+                <h3>Ray Extensions (Fainter Curves)</h3>
+                <p>
+                    These show the continuation of each pleating ray past its cusp into the <strong>non-discrete region</strong>, where
+                    Φ_{p/q} is real in (−2, 2) and the Farey word W_{p/q} becomes elliptic.
+                    While the groups here aren't discrete (so less geometrically interesting), the extensions illustrate the deeper structure underlying the combinatorics.
+                </p>
+            </div>
+
+            <div class="feature-box">
+                <h3>Boundary Curves (Dark Lines)</h3>
+                <p>
+                    These mark where |Φ_{p/q}| = 2 for various fractions p/q. They are the boundaries between different combinatorial regions, 
+                    representing transitions in the Dirichlet domain type.
+                </p>
+            </div>
+        </section>
+
+        <section>
+            <h2>What Do Different Regions Represent?</h2>
+            <p>
+                The visualization shows the Riley slice colored by combinatorial type. Here's what the structure represents:
+            </p>
+
+            <h3>Outer Layers (Low-Denominator Regions)</h3>
+            <p>
+                The outermost, "coarser" regions correspond to low-denominator Farey fractions like 1/1, 1/2, etc. These regions are 
+                "simpler" in that their Dirichlet domains have fewer faces. Groups here have relatively simple structure.
+            </p>
+
+            <h3>Inner Layers (High-Denominator Regions)</h3>
+            <p>
+                As you approach the boundary of the gray region, you encounter bands of regions with higher-denominator fractions like
+                3/7, 4/9, etc., one lens-shaped region over each cusp. These correspond to more intricate Dirichlet domains with more faces. This creates the self-similar fractal structure.
+            </p>
+
+            <h3>The Radial Pattern</h3>
+            <p>
+                The radiating pattern you see (with regions emanating from a central point) follows the Farey tree structure. Moving along 
+                different "directions" from the center corresponds to traversing different paths through the tree.
+            </p>
+        </section>
+
+        <section>
+            <h2>How to Explore the Interactive Viewer</h2>
+            <ul>
+                <li><strong>Zoom:</strong> Use your mouse wheel or trackpad to zoom in and out</li>
+                <li><strong>Pan:</strong> Click and drag to move around the parameter space</li>
+                <li><strong>Toggle Features:</strong> Use the control panel to show/hide different components (regions, rays, extensions, boundaries)</li>
+                <li><strong>Change Parametrization:</strong> The "Classical ρ" and "Symmetric z" parametrizations show different coordinates on the same space</li>
+                <li><strong>Adjust Depth:</strong> Increase the Farey tree depth to compute more fractions and see finer structure (but slower!)</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Further Reading</h2>
+            <p>
+                The Riley slice was introduced by Evan James Riley in his study of Kleinian groups. Key mathematical topics:
+            </p>
+            <ul>
+                <li>Kleinian groups and hyperbolic geometry</li>
+                <li>Schottky space and deformation theory</li>
+                <li>Farey tessellations and their role in parameter space</li>
+                <li>Pleating coordinates and earthquake theory</li>
+                <li>Dirichlet domains and fundamental domains</li>
+            </ul>
+            <p>
+                Much of the modern understanding comes from work combining computer-assisted exploration with rigorous mathematical analysis.
+            </p>
+        </section>
+
+        <section>
+            <h2>Questions to Explore</h2>
+            <ul>
+                <li>Why does the structure have this particular self-similar pattern?</li>
+                <li>What determines the boundary between the discrete and non-discrete regions?</li>
+                <li>How do the pleating rays relate to the combinatorial structure of the Dirichlet domains?</li>
+                <li>What happens at special points like cusps or where multiple regions meet?</li>
+                <li>How does the structure change if you modify the generators or consider different parametrizations?</li>
+            </ul>
+        </section>
+
+        <a href="./index.html" class="back-link">← Back to Interactive Viewer</a>
+    </div>
+</body>
+</html>

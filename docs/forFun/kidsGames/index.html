@@ -3,29 +3,33 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kids' Games Hub | Play & Learn</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Outfit:wght@400;700;900&display=swap"
-        rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fun Central! | Kids' Games</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #fdf4ff;
-            --card-bg: #ffffff;
-            --primary: #ff6b6b;
-            --secondary: #4ecdc4;
-            --accent: #ffe66d;
-            --text: #2d3436;
-            --text-dim: #636e72;
-            --shadow: 0 15px 35px rgba(255, 107, 107, 0.15);
+            --coral: #ff6b6b;
+            --teal: #4ecdc4;
+            --yellow: #ffe66d;
+            --purple: #a29bfe;
+            --mint: #55efc4;
+            --ink: #2d3436;
+            --dim: #636e72;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
             margin: 0;
             padding: 0;
             background: var(--bg);
-            color: var(--text);
-            font-family: 'Fredoka', sans-serif;
+            color: var(--ink);
+            font-family: 'Fredoka', system-ui, sans-serif;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -33,44 +37,51 @@
             overflow-x: hidden;
         }
 
-        /* Fun Background Shapes */
         .blob {
             position: fixed;
             z-index: -1;
             filter: blur(80px);
-            opacity: 0.5;
+            opacity: 0.45;
             border-radius: 50%;
         }
 
         .blob-1 {
             top: -100px;
             right: -100px;
-            width: 400px;
-            height: 400px;
-            background: #ff6b6b;
+            width: 420px;
+            height: 420px;
+            background: var(--coral);
         }
 
         .blob-2 {
-            bottom: -100px;
-            left: -100px;
-            width: 500px;
-            height: 500px;
-            background: #4ecdc4;
+            bottom: -140px;
+            left: -120px;
+            width: 520px;
+            height: 520px;
+            background: var(--teal);
         }
 
         .blob-3 {
-            top: 40%;
-            left: -200px;
-            width: 300px;
-            height: 300px;
-            background: #ffe66d;
+            top: 38%;
+            left: -180px;
+            width: 320px;
+            height: 320px;
+            background: var(--yellow);
+        }
+
+        .blob-4 {
+            top: 55%;
+            right: -160px;
+            width: 340px;
+            height: 340px;
+            background: var(--purple);
         }
 
         header {
-            padding: 4rem 2rem 2rem;
+            padding: 3.5rem 2rem 0.5rem;
             text-align: center;
-            max-width: 800px;
-            animation: bounceIn 1s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            max-width: 900px;
+            animation: bounceIn 0.9s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
 
         @keyframes bounceIn {
@@ -80,7 +91,7 @@
             }
 
             60% {
-                transform: scale(1.1);
+                transform: scale(1.08);
                 opacity: 1;
             }
 
@@ -90,131 +101,202 @@
         }
 
         h1 {
-            font-family: 'Outfit', sans-serif;
-            font-weight: 900;
-            font-size: 4.5rem;
+            font-weight: 700;
+            font-size: clamp(3rem, 9vw, 4.8rem);
             margin: 0;
-            color: #ff6b6b;
-            text-shadow: 4px 4px 0px #ffe66d;
+            color: var(--coral);
+            text-shadow: 4px 4px 0 var(--yellow);
             letter-spacing: -0.02em;
             line-height: 1;
         }
 
         .subtitle {
-            font-size: 1.5rem;
-            color: var(--text-dim);
-            margin-top: 1rem;
+            font-size: clamp(1.1rem, 3.5vw, 1.5rem);
+            color: var(--dim);
+            margin-top: 0.9rem;
             font-weight: 500;
+        }
+
+        main {
+            width: 100%;
+            max-width: 1200px;
+            padding: 1rem 2rem 2rem;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            font-size: clamp(1.5rem, 4.5vw, 2rem);
+            font-weight: 600;
+            margin: 2.2rem 0.4rem 1.1rem;
+        }
+
+        .section-title .squiggle {
+            flex: 1;
+            height: 8px;
+            border-radius: 4px;
+            opacity: 0.35;
         }
 
         .games-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 2.5rem;
-            padding: 3rem 2rem;
-            max-width: 1200px;
-            width: 100%;
-            box-sizing: border-box;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.6rem;
         }
 
         .game-card {
-            background: var(--card-bg);
-            border-radius: 40px;
-            padding: 2.5rem;
+            background: #ffffff;
+            border-radius: 32px;
+            padding: 1.8rem 1.4rem 1.5rem;
             text-align: center;
             text-decoration: none;
             color: inherit;
-            box-shadow: var(--shadow);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 12px 30px rgba(255, 107, 107, 0.12);
+            transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.4), box-shadow 0.35s ease, border-color 0.35s ease;
             position: relative;
-            overflow: hidden;
-            border: 8px solid white;
+            border: 6px solid #fff;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 1.5rem;
+            gap: 0.9rem;
         }
 
-        .game-card:hover {
-            transform: translateY(-15px) rotate(2deg);
-            box-shadow: 0 25px 50px rgba(255, 107, 107, 0.25);
-            border-color: #ffe66d;
+        .game-card:hover,
+        .game-card:focus-visible {
+            transform: translateY(-10px) rotate(1.5deg) scale(1.02);
+            box-shadow: 0 22px 44px rgba(45, 52, 54, 0.16);
+            border-color: var(--card-accent);
+            outline: none;
         }
 
         .game-card:nth-child(even):hover {
-            transform: translateY(-15px) rotate(-2deg);
+            transform: translateY(-10px) rotate(-1.5deg) scale(1.02);
+        }
+
+        .game-card:active {
+            transform: translateY(-4px) scale(0.98);
         }
 
         .icon-circle {
-            width: 120px;
-            height: 120px;
-            background: #f0f0f0;
-            border-radius: 35px;
+            width: 104px;
+            height: 104px;
+            border-radius: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 4rem;
+            font-size: 3.4rem;
+            background: color-mix(in srgb, var(--card-accent) 16%, white);
             transition: transform 0.3s ease;
         }
 
         .game-card:hover .icon-circle {
-            transform: scale(1.1);
+            transform: scale(1.12) rotate(-4deg);
+            animation: wiggle 0.5s ease;
+        }
+
+        @keyframes wiggle {
+
+            0%,
+            100% {
+                transform: scale(1.12) rotate(-4deg);
+            }
+
+            50% {
+                transform: scale(1.12) rotate(5deg);
+            }
         }
 
         .game-title {
-            font-family: 'Outfit', sans-serif;
-            font-weight: 700;
-            font-size: 2rem;
+            font-weight: 600;
+            font-size: 1.45rem;
             margin: 0;
-            color: #2d3436;
+            line-height: 1.1;
         }
 
         .game-description {
-            font-size: 1.1rem;
-            color: var(--text-dim);
-            line-height: 1.4;
+            font-size: 1rem;
+            color: var(--dim);
+            line-height: 1.35;
+            margin: 0;
+            font-weight: 400;
         }
 
-        #loading {
-            font-size: 2rem;
-            padding: 4rem;
-            color: var(--text-dim);
+        .age-badge {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: var(--card-accent);
+            color: #fff;
+            font-weight: 600;
+            font-size: 0.85rem;
+            padding: 0.25rem 0.65rem;
+            border-radius: 999px;
+            box-shadow: 0 4px 10px rgba(45, 52, 54, 0.15);
+        }
+
+        .accent-coral {
+            --card-accent: var(--coral);
+        }
+
+        .accent-teal {
+            --card-accent: var(--teal);
+        }
+
+        .accent-yellow {
+            --card-accent: #f5b70a;
+        }
+
+        .accent-purple {
+            --card-accent: var(--purple);
+        }
+
+        .accent-mint {
+            --card-accent: #21c996;
         }
 
         footer {
             margin-top: auto;
-            padding: 3rem;
-            color: var(--text-dim);
+            padding: 2.5rem;
+            color: var(--dim);
             font-weight: 500;
+            text-align: center;
         }
 
-        .card-pink {
-            --accent: #ff6b6b;
-        }
-
-        .card-blue {
-            --accent: #4ecdc4;
-        }
-
-        .card-yellow {
-            --accent: #ffe66d;
-        }
-
-        .card-purple {
-            --accent: #a29bfe;
-        }
-
-        .card-green {
-            --accent: #55efc4;
+        footer a {
+            color: var(--coral);
+            text-decoration: none;
+            font-weight: 600;
         }
 
         @media (max-width: 600px) {
-            h1 {
-                font-size: 3rem;
+            main {
+                padding: 0.5rem 1.1rem 1.5rem;
             }
 
             .games-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 1rem;
+            }
+
+            .game-card {
+                padding: 1.3rem 0.9rem 1.1rem;
+                border-radius: 26px;
+            }
+
+            .icon-circle {
+                width: 76px;
+                height: 76px;
+                font-size: 2.5rem;
+                border-radius: 24px;
+            }
+
+            .game-title {
+                font-size: 1.15rem;
+            }
+
+            .game-description {
+                font-size: 0.88rem;
             }
         }
     </style>
@@ -224,114 +306,132 @@
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
     <div class="blob blob-3"></div>
+    <div class="blob blob-4"></div>
 
     <header>
         <h1>Fun Central!</h1>
-        <p class="subtitle">Pick a game and let's play!</p>
+        <p class="subtitle">Pick a game and let's play! 🎉</p>
     </header>
 
-    <main id="games-container" class="games-grid">
-        <div id="loading">Checking the toy box...</div>
+    <main>
+        <div class="section-title">🐣 Little Kids
+            <div class="squiggle" style="background: var(--coral)"></div>
+        </div>
+        <div class="games-grid">
+            <a class="game-card accent-coral" href="numbers/index.html">
+                <span class="age-badge">2+</span>
+                <div class="icon-circle">🔢</div>
+                <h2 class="game-title">Number Fun</h2>
+                <p class="game-description">Count, tap, and pop numbers!</p>
+            </a>
+            <a class="game-card accent-teal" href="balloonPop/index.html">
+                <span class="age-badge">2+</span>
+                <div class="icon-circle">🎈</div>
+                <h2 class="game-title">Balloon Pop</h2>
+                <p class="game-description">Pop balloons full of confetti!</p>
+            </a>
+            <a class="game-card accent-yellow" href="whackAMole/index.html">
+                <span class="age-badge">3+</span>
+                <div class="icon-circle">🐹</div>
+                <h2 class="game-title">Whack-a-Mole</h2>
+                <p class="game-description">Bonk the moles before they hide!</p>
+            </a>
+            <a class="game-card accent-purple" href="coloringGame/index.html">
+                <span class="age-badge">3+</span>
+                <div class="icon-circle">🎨</div>
+                <h2 class="game-title">Coloring Book</h2>
+                <p class="game-description">Tap to color cute pictures!</p>
+            </a>
+            <a class="game-card accent-mint" href="monsterMaker/index.html">
+                <span class="age-badge">3+</span>
+                <div class="icon-circle">🤪</div>
+                <h2 class="game-title">Monster Maker</h2>
+                <p class="game-description">Build your own silly monster!</p>
+            </a>
+            <a class="game-card accent-coral" href="rockstar/index.html">
+                <span class="age-badge">3+</span>
+                <div class="icon-circle">🎸</div>
+                <h2 class="game-title">Rockstar</h2>
+                <p class="game-description">Drums, piano, guitar — rock out!</p>
+            </a>
+        </div>
+
+        <div class="section-title">🕹️ Arcade
+            <div class="squiggle" style="background: var(--teal)"></div>
+        </div>
+        <div class="games-grid">
+            <a class="game-card accent-teal" href="pong/index.html">
+                <span class="age-badge">4+</span>
+                <div class="icon-circle">🏓</div>
+                <h2 class="game-title">Paddle Party</h2>
+                <p class="game-description">Bounce battles for 1 or 2 players!</p>
+            </a>
+            <a class="game-card accent-purple" href="mazeRunner/index.html">
+                <span class="age-badge">4+</span>
+                <div class="icon-circle">🗺️</div>
+                <h2 class="game-title">Maze Explorer</h2>
+                <p class="game-description">Grab the stars, find the flag!</p>
+            </a>
+            <a class="game-card accent-mint" href="snake/index.html">
+                <span class="age-badge">5+</span>
+                <div class="icon-circle">🐍</div>
+                <h2 class="game-title">Snakey Snack Time</h2>
+                <p class="game-description">Munch fruit and grow and grow!</p>
+            </a>
+            <a class="game-card accent-coral" href="brickBreaker/index.html">
+                <span class="age-badge">5+</span>
+                <div class="icon-circle">🧱</div>
+                <h2 class="game-title">Rainbow Smash</h2>
+                <p class="game-description">Smash bricks, catch power-ups!</p>
+            </a>
+            <a class="game-card accent-yellow" href="miniGolf/index.html">
+                <span class="age-badge">5+</span>
+                <div class="icon-circle">⛳</div>
+                <h2 class="game-title">Mini Golf</h2>
+                <p class="game-description">9 silly holes. Hole in one?</p>
+            </a>
+            <a class="game-card accent-teal" href="spaceInvaders/index.html">
+                <span class="age-badge">6+</span>
+                <div class="icon-circle">👾</div>
+                <h2 class="game-title">Cosmic Critters</h2>
+                <p class="game-description">Shoo the silly space critters!</p>
+            </a>
+            <a class="game-card accent-purple" href="asteroids/index.html">
+                <span class="age-badge">6+</span>
+                <div class="icon-circle">☄️</div>
+                <h2 class="game-title">Space Rocks</h2>
+                <p class="game-description">Fly and pop sleepy space rocks!</p>
+            </a>
+        </div>
+
+        <div class="section-title">🧠 Brain Games
+            <div class="squiggle" style="background: var(--purple)"></div>
+        </div>
+        <div class="games-grid">
+            <a class="game-card accent-coral" href="matching/index.html">
+                <span class="age-badge">3+</span>
+                <div class="icon-circle">🧸</div>
+                <h2 class="game-title">Memory Match</h2>
+                <p class="game-description">Find all the matching pairs!</p>
+            </a>
+            <a class="game-card accent-mint" href="simon/index.html">
+                <span class="age-badge">4+</span>
+                <div class="icon-circle">🌈</div>
+                <h2 class="game-title">Simon</h2>
+                <p class="game-description">Watch, remember, repeat!</p>
+            </a>
+            <a class="game-card accent-yellow" href="ticTacToe/index.html">
+                <span class="age-badge">4+</span>
+                <div class="icon-circle">⭕</div>
+                <h2 class="game-title">Tic-Tac-Toe</h2>
+                <p class="game-description">Beat the silly robot!</p>
+            </a>
+        </div>
     </main>
 
     <footer>
-        <p>&copy; 2026 Fun Hub for Kids</p>
+        <p>Made with ❤️ &nbsp;·&nbsp; <a href="../index.html">← back to For Fun</a></p>
     </footer>
-
-    <script>
-        const ICONS = {
-            'matching': '🧸',
-            'brickBreaker': '🧱',
-            'pong': '🏓',
-            'coloringGame': '🎨',
-            'rockstar': '🎸',
-            'default': '🎮'
-        };
-
-        const DESCRIPTIONS = {
-            'matching': 'Find all the stuffed animal pairs!',
-            'brickBreaker': 'Smash the colorful blocks!',
-            'pong': 'Classic paddle fun for two!',
-            'coloringGame': 'Big easy coloring for little hands!',
-            'rockstar': 'Rock out and play music!',
-            'default': 'A super fun game to play!'
-        };
-
-        const CARD_CLASSES = ['card-pink', 'card-blue', 'card-yellow', 'card-purple', 'card-green'];
-
-        async function loadGames() {
-            const container = document.getElementById('games-container');
-            const gamesMap = new Map();
-
-            // Helper to add game if not already present
-            const addGame = (name) => {
-                if (!gamesMap.has(name)) {
-                    gamesMap.set(name, {
-                        name: name,
-                        url: `${name}/index.html`
-                    });
-                }
-            };
-
-            // 1. Try Sitemap.json (Reliable source for local and structured data)
-            try {
-                const response = await fetch('../../sitemap.json');
-                const data = await response.json();
-                const folder = data.forFun?.children?.kidsGames?.children;
-                if (folder) {
-                    Object.entries(folder)
-                        .filter(([name, item]) => item._type === 'folder')
-                        .forEach(([name]) => addGame(name));
-                }
-            } catch (e) {
-                console.warn("Sitemap fetch failed.");
-            }
-
-            // 2. Try GitHub API (Live discovery for pushed games)
-            try {
-                const repo = "nbrody/nbrody.github.io";
-                const path = "docs/forFun/kidsGames";
-                const apiURL = `https://api.github.com/repos/${repo}/contents/${path}`;
-
-                const response = await fetch(apiURL);
-                if (response.ok) {
-                    const data = await response.json();
-                    data.filter(item => item.type === 'dir' && item.name !== 'node_modules')
-                        .forEach(dir => addGame(dir.name));
-                }
-            } catch (e) {
-                console.warn("GitHub API failed or rate limited.");
-            }
-
-            const games = Array.from(gamesMap.values());
-
-            // Render
-            if (games.length === 0) {
-                container.innerHTML = '<div>No games found in the toy box yet!</div>';
-                return;
-            }
-
-            container.innerHTML = '';
-            games.forEach((game, index) => {
-                const card = document.createElement('a');
-                card.href = game.url;
-                card.className = `game-card ${CARD_CLASSES[index % CARD_CLASSES.length]}`;
-
-                const displayName = game.name.replace(/([A-Z])/g, ' $1').trim();
-                const icon = ICONS[game.name] || ICONS.default;
-                const desc = DESCRIPTIONS[game.name] || DESCRIPTIONS.default;
-
-                card.innerHTML = `
-                    <div class="icon-circle" style="background: var(--accent)22">${icon}</div>
-                    <h2 class="game-title">${displayName}</h2>
-                    <p class="game-description">${desc}</p>
-                `;
-                container.appendChild(card);
-            });
-        }
-
-        loadGames();
-    </script>
 </body>
 
 </html>

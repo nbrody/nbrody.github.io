@@ -44,6 +44,12 @@ export class GratefulDeadArchiveInterior extends InteriorBase {
 
     async generate() {
         this._buildMaterials();
+        this._addRoomLighting({
+            height: this.H,
+            points: [{ x: -8, z: 0 }, { x: 0, z: 0 }, { x: 8, z: 0 }],
+            pointIntensity: 30,
+            range: 24
+        });
         this._buildShell();
         this._buildReception();
         this._buildDisplayCases();
@@ -53,6 +59,13 @@ export class GratefulDeadArchiveInterior extends InteriorBase {
         this._buildDeadCentralBooth();
         this._buildCeilingBanners();
         this._buildExitPortal_();
+    }
+
+    update(delta, time) {
+        // The listening booth's reel-to-reel is always playing.
+        if (this._reels) {
+            for (const reel of this._reels) reel.rotateY(delta * 2.4);
+        }
     }
 
     _buildMaterials() {
@@ -181,12 +194,18 @@ export class GratefulDeadArchiveInterior extends InteriorBase {
     _buildDisplayCases() {
         // Six cases in two rows running east-west, centred
         const specs = [
-            { x: -9, z: -3, title: 'Original Setlists',     color: 0xF1C40F },
-            { x:  0, z: -3, title: 'Stage Costumes',        color: 0xC43D3D },
-            { x:  9, z: -3, title: '"Wolf" — Jerry\'s Guitar', color: 0x8E44AD },
-            { x: -9, z:  3, title: 'Rare Posters',          color: 0x3A7BA8 },
-            { x:  0, z:  3, title: 'Band Correspondence',   color: 0x2ECC71 },
-            { x:  9, z:  3, title: 'Master Tapes (Vault)',  color: 0xE8C440 }
+            { x: -9, z: -3, title: 'Original Setlists',     color: 0xF1C40F,
+              blurb: 'Handwritten setlists spanning three decades — no two shows the same, which is rather the point.' },
+            { x:  0, z: -3, title: 'Stage Costumes',        color: 0xC43D3D,
+              blurb: 'Stage wear from the road, tie-dye and denim mostly, donated by the band and crew.' },
+            { x:  9, z: -3, title: '"Wolf" — Jerry\'s Guitar', color: 0x8E44AD,
+              blurb: 'One of Doug Irwin\'s custom guitars for Jerry Garcia, with the cartoon wolf inlay below the tailpiece.' },
+            { x: -9, z:  3, title: 'Rare Posters',          color: 0x3A7BA8,
+              blurb: 'Fillmore and Avalon concert posters from the San Francisco psychedelic-art golden age.' },
+            { x:  0, z:  3, title: 'Band Correspondence',   color: 0x2ECC71,
+              blurb: 'Letters, contracts, and fan mail from the archive\'s paper collection — the business of being the Dead.' },
+            { x:  9, z:  3, title: 'Master Tapes (Vault)',  color: 0xE8C440,
+              blurb: 'Reel-to-reel soundboard masters. The vault tapes are why every show since 1965 can still be heard today.' }
         ];
         for (const s of specs) {
             const ped = new THREE.Mesh(
@@ -198,6 +217,10 @@ export class GratefulDeadArchiveInterior extends InteriorBase {
                 new THREE.BoxGeometry(1.8, 1.3, 1.2), this.mat.caseGlass
             );
             glass.position.set(s.x, 1.55, s.z);
+            glass.userData = {
+                isInteractable: true, name: s.title, type: 'exhibit',
+                interactionType: 'Look', description: s.blurb
+            };
             this.group.add(glass);
             const item = new THREE.Mesh(
                 new THREE.BoxGeometry(0.8, 0.55, 0.55),
@@ -374,6 +397,7 @@ export class GratefulDeadArchiveInterior extends InteriorBase {
         );
         reelBody.position.set(boothX + 1.6, 0.9, boothZ);
         this.group.add(reelBody);
+        this._reels = [];
         for (const sx of [-0.18, 0.18]) {
             const reel = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.09, 0.09, 0.04, 16),
@@ -382,6 +406,7 @@ export class GratefulDeadArchiveInterior extends InteriorBase {
             reel.rotation.x = Math.PI / 2;
             reel.position.set(boothX + 1.6 + sx, 1.02, boothZ);
             this.group.add(reel);
+            this._reels.push(reel);
         }
 
         // Headphones hanging from a hook (just a curved torus + band suggestion)

@@ -170,7 +170,7 @@
         .embedded-controls {
             display: none;
             position: fixed;
-            bottom: 32px;
+            bottom: 64px; /* clear the deck's slide dots + nav cluster */
             left: 50%;
             transform: translateX(-50%);
             z-index: 100;
@@ -297,7 +297,7 @@
 // ─── Configuration ────────────────────────────────────────
 const N = 5;
 const TAU = 2 * Math.PI;
-const ANIM_DURATION = 600; // ms
+const ANIM_DURATION = 900; // ms per flip
 
 // Colors
 const COL = {
@@ -333,11 +333,10 @@ let showR2 = true;
 // Animation state
 let animating = false;
 let animStart = 0;
-let animFromPos = [];    // [[x,y], ...] start positions
-let animToPos = [];      // [[x,y], ...] end positions
+let animAxis = 0;        // axis vertex index of the flip in progress
 let animFromIdentity = [];
 let animToIdentity = [];
-let pendingCallback = null;
+let actionQueue = [];    // queued reflection indices (0 = r₁, 1 = r₂)
 
 // ─── Image Loading ────────────────────────────────────────
 const img = new Image();
@@ -411,7 +410,9 @@ function drawBackground() {
 
 // positions: [[x,y], ...] for each slot
 // identity:  which original vertex is at each slot
-function drawPentagon(positions, identity) {
+// flip:      null, or { beta, f } — a flip about the axis at angle beta,
+//            with the perpendicular component scaled by f = cos(π·ease)
+function drawPentagon(positions, identity, flip) {
     // Fill
     ctx.beginPath();
     for (let i = 0; i < N; i++) {
@@ -429,10 +430,13 @@ function drawPentagon(positions, identity) {
     if (imgLoaded) {
         const s0 = identity.indexOf(0);
         const s1 = identity.indexOf(1);
-        const p0 = positions[s0];
-        const p1 = positions[s1];
-        const a0 = Math.atan2(p0[1] - cy, p0[0] - cx);
-        const a1 = Math.atan2(p1[1] - cy, p1[0] - cx);
+        // Orientation from the STATIC slot layout — the flip transform
+        // below carries the animation, so the image stays rigid instead
+        // of warping with the moving vertices.
+        const q0 = slotPos(s0);
+        const q1 = slotPos(s1);
+        const a0 = Math.atan2(q0[1] - cy, q0[0] - cx);
+        const a1 = Math.atan2(q1[1] - cy, q1[0] - cx);
         const rot = a0 + Math.PI / 2;
         let adiff = a1 - a0;
         while (adiff > Math.PI) adiff -= TAU;
@@ -440,7 +444,7 @@ function drawPentagon(positions, identity) {
         const flipped = adiff < 0;
 
         ctx.save();
-        // Clip to actual polygon shape
+        // Clip to the (possibly mid-flip) polygon shape
         ctx.beginPath();
         for (let i = 0; i < N; i++) {
             if (i === 0) ctx.moveTo(positions[i][0], positions[i][1]);
@@ -448,8 +452,16 @@ function drawPentagon(positions, identity) {
         }
         ctx.closePath();
         ctx.clip();
-        // Draw rotated/flipped image
         ctx.translate(cx, cy);
+        if (flip) {
+            // M = R(β)·diag(1, f)·R(−β): scale the component
+            // perpendicular to the axis by f (1 → −1 over the flip)
+            const c = Math.cos(flip.beta), s = Math.sin(flip.beta), f = flip.f;
+            const A = c * c + s * s * f;
+            const B = s * c * (1 - f);
+            const D = s * s + c * c * f;
+            ctx.transform(A, B, B, D, 0, 0);
+        }
         ctx.rotate(rot);
         if (flipped) ctx.scale(-1, 1);
         const size = R * 2.1;
@@ -497,18 +509,18 @@ function drawPentagon(positions, identity) {
     }
 }
 
-function drawReflectionAxis(vertexIndex, color, glowColor, label) {
+function drawReflectionAxis(vertexIndex, color, glowColor, label, active) {
     const angle = slotAngle(vertexIndex);
     const ext = R * 1.55;
     const x1 = cx + ext * Math.cos(angle), y1 = cy + ext * Math.sin(angle);
     const x2 = cx - ext * Math.cos(angle), y2 = cy - ext * Math.sin(angle);
-    // Glow
+    // Glow (stronger while this axis's flip is animating)
     ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
-    ctx.strokeStyle = glowColor; ctx.lineWidth = 8; ctx.stroke();
+    ctx.strokeStyle = glowColor; ctx.lineWidth = active ? 18 : 8; ctx.stroke();
     // Dashed line
     ctx.beginPath(); ctx.setLineDash([8, 6]);
     ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
-    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = active ? 3 : 2; ctx.stroke();
     ctx.setLineDash([]);
     // Label
     const ld = ext + 22;
@@ -518,7 +530,7 @@ function drawReflectionAxis(vertexIndex, color, glowColor, label) {
 }
 
 function drawAnimated(t) {
-    let positions, identity;
+    let positions, identity, flip = null;
 
     if (animating) {
         const elapsed = t - animStart;
@@ -527,27 +539,30 @@ function drawAnimated(t) {
             ? 4 * progress * progress * progress
             : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
-        // Linear Cartesian interpolation: each vertex moves
-        // in a straight line from start to destination.
-        // For reflections this is perpendicular to the axis.
-        positions = animFromPos.map((from, i) => {
-            const to = animToPos[i];
-            return [
-                from[0] + (to[0] - from[0]) * ease,
-                from[1] + (to[1] - from[1]) * ease
-            ];
+        // Rigid 3D flip about the reflection axis: each point's component
+        // perpendicular to the axis scales by cos(π·ease), running 1 → −1.
+        // Viewed face-on this is exactly a half-turn of the pentagon in
+        // space — it passes edge-on through the axis at the midpoint.
+        const f = Math.cos(Math.PI * ease);
+        const beta = slotAngle(animAxis);
+        const ux = Math.cos(beta), uy = Math.sin(beta);
+
+        positions = animFromIdentity.map((_, i) => {
+            const [sx, sy] = slotPos(i);
+            const vx = sx - cx, vy = sy - cy;
+            const dot = vx * ux + vy * uy;
+            const px = dot * ux, py = dot * uy;   // parallel to axis
+            const qx = vx - px, qy = vy - py;     // perpendicular to axis
+            return [cx + px + qx * f, cy + py + qy * f];
         });
         identity = animFromIdentity;
+        flip = { beta, f };
 
         if (progress >= 1) {
             animating = false;
             vertexIdentity = [...animToIdentity];
             updatePermDisplay();
-            if (pendingCallback) {
-                const cb = pendingCallback;
-                pendingCallback = null;
-                setTimeout(cb, 50);
-            }
+            if (actionQueue.length) setTimeout(startNextAction, 150);
         }
     } else {
         positions = vertexIdentity.map((_, i) => slotPos(i));
@@ -555,22 +570,26 @@ function drawAnimated(t) {
     }
 
     drawBackground();
-    if (showR1) drawReflectionAxis(R1_AXIS, COL.r1, COL.r1Glow, 'r₁');
-    if (showR2) drawReflectionAxis(R2_AXIS, COL.r2, COL.r2Glow, 'r₂');
-    drawPentagon(positions, identity);
+    // Always show the axis being flipped about, even if toggled off
+    const activeAxis = animating ? animAxis : -1;
+    if (showR1 || activeAxis === R1_AXIS)
+        drawReflectionAxis(R1_AXIS, COL.r1, COL.r1Glow, 'r₁', activeAxis === R1_AXIS);
+    if (showR2 || activeAxis === R2_AXIS)
+        drawReflectionAxis(R2_AXIS, COL.r2, COL.r2Glow, 'r₂', activeAxis === R2_AXIS);
+    drawPentagon(positions, identity, flip);
     requestAnimationFrame(drawAnimated);
 }
 
-function animateReflection(slotPerm, callback) {
+// Pull the next queued reflection and start its flip.
+function startNextAction() {
     if (animating) return;
+    const which = actionQueue.shift();
+    if (which === undefined) return;
+    animAxis = which === 0 ? R1_AXIS : R2_AXIS;
+    const slotPerm = which === 0 ? R1_PERM : R2_PERM;
     animFromIdentity = [...vertexIdentity];
-    animFromPos = vertexIdentity.map((_, i) => slotPos(i));
     animToIdentity = applySlotPermToIdentity(slotPerm, vertexIdentity);
-    animToPos = new Array(N);
-    for (let i = 0; i < N; i++) animToPos[i] = slotPos(slotPerm[i]);
-
     animating = true;
-    pendingCallback = callback || null;
     animStart = performance.now();
 }
 
@@ -589,20 +608,23 @@ function toggleReflection(which) {
     }
 }
 
+// Clicks are queued, never dropped: pressing a button mid-animation
+// schedules the flip to run as soon as the current one finishes.
 function applyReflection(which) {
-    if (animating) return;
-    const slotPerm = which === 0 ? R1_PERM : R2_PERM;
-    animateReflection(slotPerm);
+    actionQueue.push(which);
+    startNextAction();
 }
 
-function applyComposition(first, second) {
-    if (animating) return;
-    applyReflection(first);
-    setTimeout(() => applyReflection(second), ANIM_DURATION + 100);
+// applyComposition(a, b) applies a∘b — function composition is
+// right-to-left, so b flips FIRST, then a.
+function applyComposition(a, b) {
+    actionQueue.push(b, a);
+    startNextAction();
 }
 
 function resetPentagon() {
-    if (animating) return;
+    actionQueue.length = 0;
+    animating = false;
     vertexIdentity = [0, 1, 2, 3, 4];
     updatePermDisplay();
 }

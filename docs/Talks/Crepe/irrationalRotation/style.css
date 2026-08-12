@@ -205,6 +205,12 @@ button:hover {
 .embedded #footer { display: none !important; }
 .embedded #canvas-wrap { height: 100vh !important; }
 
+/* Raise the controls panel above the deck's floating nav cluster
+   (bottom-right, ~68px tall including margin). */
+.embedded #controls-panel {
+    bottom: 84px;
+}
+
 /* On mobile-sized iframes (where the parent shows a bottom nav bar),
    pull the in-iframe controls panel up so it doesn't disappear under it. */
 @media (max-width: 768px) {

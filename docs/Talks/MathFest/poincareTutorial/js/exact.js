@@ -135,6 +135,10 @@ export class NumberField {
         this.deg = minpoly.length - 1;
         this.roots = polyComplexRoots(minpoly.map(c => c.toNumber()));
         this.rootIndex = 0;
+        // Complex-conjugation automorphism σ (needed for orientation-reversing
+        // isometries): conjPowers[k] = σ(w)^k, or null when unavailable.
+        this.conjPowers = null;
+        this.conjIsIdentity = false;
     }
     describe() {
         return this.deg === 1 ? 'Q' : `Q(${this.gen})`;
@@ -145,6 +149,52 @@ export class NumberField {
     fromFrac(fr) { return this.elem([fr]); }
     generator() { return this.elem([F0, F1]); }
     root() { return this.roots[Math.min(this.rootIndex, this.roots.length - 1)]; }
+    hasConj() { return this.conjIsIdentity || this.conjPowers !== null; }
+    /**
+     * Configure complex conjugation as a field automorphism: σ(w) must be the
+     * element of K embedding to the complex conjugate of the chosen root.
+     * Auto-detected when the root is real (σ = id) or deg = 2 (σ(w) is the
+     * other root, −b/a − w); higher degrees need `exprString` (a polynomial
+     * in w). Verified exactly: minpoly(σ(w)) ≡ 0 in K, and numerically:
+     * embed(σ(w)) ≈ conj(embed(w)). Throws if the expression fails either.
+     */
+    setConjugation(exprString = null) {
+        this.conjPowers = null;
+        this.conjIsIdentity = false;
+        const r = this.root();
+        if (Math.abs(r.im) < 1e-10) {           // real embedding: σ = identity
+            this.conjIsIdentity = true;
+            return;
+        }
+        let sw = null;
+        if (exprString) {
+            sw = parseKElem(exprString, this);
+        } else if (this.deg === 2) {
+            // roots sum to −b/a: σ(w) = −f[1]/f[2] − w
+            const s = this.f[1].div(this.f[2]).neg();
+            sw = this.elem([s, new Frac(-1n)]);
+        } else {
+            return;                              // unavailable (hasConj() false)
+        }
+        // Exact check: σ(w) is a root of the minimal polynomial.
+        let acc = this.zero(), pw = this.one();
+        for (let k = 0; k < this.f.length; k++) {
+            acc = acc.add(pw.mul(this.fromFrac(this.f[k])));
+            pw = pw.mul(sw);
+        }
+        if (!acc.isZero()) {
+            throw new Error(`σ(${this.gen}) is not a root of the minimal polynomial`);
+        }
+        // Numeric check: it is the root matching COMPLEX CONJUGATION of the
+        // chosen embedding (not some other automorphism).
+        const e = sw.embed();
+        if (Math.hypot(e.re - r.re, e.im + r.im) > 1e-6) {
+            throw new Error(`σ(${this.gen}) does not embed to the complex conjugate of ${this.gen}`);
+        }
+        const powers = [this.one()];
+        for (let k = 1; k < this.deg; k++) powers.push(powers[k - 1].mul(sw));
+        this.conjPowers = powers;
+    }
 }
 
 export class KElem {
@@ -173,6 +223,20 @@ export class KElem {
     equals(o) {
         if (this.c.length !== o.c.length) return false;
         return this.c.every((x, i) => x.equals(o.c[i]));
+    }
+    /** Complex conjugation via the field's σ automorphism. */
+    conj() {
+        const K = this.K;
+        if (K.conjIsIdentity) return this;
+        if (!K.conjPowers) {
+            throw new Error(`complex conjugation is not configured on ${K.describe()} — ` +
+                `needed for orientation-reversing generators`);
+        }
+        let acc = K.zero();
+        for (let k = 0; k < this.c.length; k++) {
+            if (!this.c[k].isZero()) acc = acc.add(K.conjPowers[k].mul(K.fromFrac(this.c[k])));
+        }
+        return acc;
     }
     /** Complex embedding at the field's chosen root. */
     embed() {
@@ -332,19 +396,33 @@ export function parseKElem(exprString, field) {
 // ---------------- Exact 2×2 matrices ----------------
 
 export class ExactMat {
-    constructor(a, b, c, d) { this.a = a; this.b = b; this.c = c; this.d = d; }
+    /** `anti` marks an orientation-reversing isometry (conjugate first), as
+     *  on the floating-point Matrix2x2. */
+    constructor(a, b, c, d, anti = false) { this.a = a; this.b = b; this.c = c; this.d = d; this.anti = anti; }
     static identity(K) { return new ExactMat(K.one(), K.zero(), K.zero(), K.one()); }
+    /** Entrywise σ (complex conjugation), same anti flag. */
+    conjEntries() {
+        return new ExactMat(this.a.conj(), this.b.conj(), this.c.conj(), this.d.conj(), this.anti);
+    }
     mul(o) {
+        // (M,ε)(N,δ) = (M·σ^ε(N), ε⊕δ)
+        const n = this.anti ? o.conjEntries() : o;
         return new ExactMat(
-            this.a.mul(o.a).add(this.b.mul(o.c)), this.a.mul(o.b).add(this.b.mul(o.d)),
-            this.c.mul(o.a).add(this.d.mul(o.c)), this.c.mul(o.b).add(this.d.mul(o.d)));
+            this.a.mul(n.a).add(this.b.mul(n.c)), this.a.mul(n.b).add(this.b.mul(n.d)),
+            this.c.mul(n.a).add(this.d.mul(n.c)), this.c.mul(n.b).add(this.d.mul(n.d)),
+            this.anti !== o.anti);
     }
     /** Adjugate — the inverse up to the (nonzero) determinant scalar. */
-    adj() { return new ExactMat(this.d, this.b.neg(), this.c.neg(), this.a); }
+    adj() { return new ExactMat(this.d, this.b.neg(), this.c.neg(), this.a, this.anti); }
+    /** Projective inverse respecting orientation: (M,ε)^{-1} ∝ (σ^ε(adj M), ε). */
+    invProj() {
+        const A = this.adj();
+        return this.anti ? A.conjEntries() : A;
+    }
     det() { return this.a.mul(this.d).sub(this.b.mul(this.c)); }
     /** Scalar multiple of the identity — i.e. trivial in PGL2(K). */
     isProjectiveIdentity() {
-        return this.b.isZero() && this.c.isZero() && this.a.equals(this.d) && !this.a.isZero();
+        return !this.anti && this.b.isZero() && this.c.isZero() && this.a.equals(this.d) && !this.a.isZero();
     }
     pow(n) {
         let r = new ExactMat(this.a.K.one(), this.a.K.zero(), this.a.K.zero(), this.a.K.one());
@@ -365,7 +443,7 @@ export class ExactMat {
 export function exactFromWord(word, gens, K) {
     let M = ExactMat.identity(K);
     for (const wi of word) {
-        M = M.mul(wi > 0 ? gens[wi - 1] : gens[-wi - 1].adj());
+        M = M.mul(wi > 0 ? gens[wi - 1] : gens[-wi - 1].invProj());
     }
     return M;
 }

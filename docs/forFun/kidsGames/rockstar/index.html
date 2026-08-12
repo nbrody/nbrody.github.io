@@ -3,163 +3,84 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="description"
-        content="A fun music game for kids! Choose drums, piano, guitar, or xylophone and play by touching the screen.">
-    <title>🎸 Rockstar!</title>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Rockstar! A music toy for kids — drums, piano, xylophone and guitar.">
+    <title>Rockstar!</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Outfit:wght@400;700;900&display=swap"
-        rel="stylesheet">
 </head>
 
 <body>
-    <!-- Animated stage lights -->
-    <div class="stage-light stage-light-1"></div>
-    <div class="stage-light stage-light-2"></div>
-    <div class="stage-light stage-light-3"></div>
+    <!-- Pastel background blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <!-- Disco glow (pulses with note activity) -->
+    <div id="disco-glow"></div>
 
-    <!-- ===== INSTRUMENT PICKER SCREEN ===== -->
-    <div id="picker-screen" class="screen active">
-        <!-- Sound Status Toggle / Indicator -->
-        <button id="sound-status-btn" class="sound-status">
-            <span id="sound-status-icon">🔇</span>
-            <span id="sound-status-label">Sound: Off</span>
-        </button>
+    <!-- Floating chrome -->
+    <a id="home-btn" class="chrome-btn" href="../index.html" aria-label="Back to games">🏠</a>
+    <button id="sound-btn" class="chrome-btn" aria-label="Sound on or off">🔊</button>
 
-        <header>
-            <h1>🎸 Rockstar!</h1>
-            <p class="subtitle">Pick your instrument and JAM!</p>
+    <main id="app">
+        <header id="top-bar">
+            <h1 id="game-title">Rockstar<span class="title-mic">🎤</span></h1>
+            <nav id="tabs" aria-label="Instruments">
+                <button class="tab" data-inst="drums" aria-label="Drums"><span class="tab-emoji">🥁</span><span
+                        class="tab-name">Drums</span></button>
+                <button class="tab" data-inst="piano" aria-label="Piano"><span class="tab-emoji">🎹</span><span
+                        class="tab-name">Piano</span></button>
+                <button class="tab" data-inst="xylo" aria-label="Xylophone"><span class="tab-emoji">🎼</span><span
+                        class="tab-name">Xylo</span></button>
+                <button class="tab" data-inst="guitar" aria-label="Guitar"><span class="tab-emoji">🎸</span><span
+                        class="tab-name">Guitar</span></button>
+            </nav>
+            <div id="extras">
+                <button id="metro-btn" class="pill-btn" aria-label="Metronome on or off">⏱<span
+                        class="pill-label">90</span></button>
+                <button id="hints-btn" class="pill-btn" aria-label="Show keyboard hints">⌨️<span
+                        class="pill-label">abc</span></button>
+            </div>
         </header>
 
-        <div class="instrument-picker">
-            <button class="instrument-card" id="pick-drums" data-instrument="drums">
-                <span class="instrument-icon">🥁</span>
-                <span class="instrument-name">Drums</span>
-                <span class="instrument-desc">Tap the pads to make beats!</span>
-            </button>
-            <button class="instrument-card" id="pick-piano" data-instrument="piano">
-                <span class="instrument-icon">🎹</span>
-                <span class="instrument-name">Piano</span>
-                <span class="instrument-desc">Play melodies on the keys!</span>
-            </button>
-            <button class="instrument-card" id="pick-guitar" data-instrument="guitar">
-                <span class="instrument-icon">🎸</span>
-                <span class="instrument-name">Guitar</span>
-                <span class="instrument-desc">Strum chords & pick notes!</span>
-            </button>
-            <button class="instrument-card" id="pick-xylo" data-instrument="xylo">
-                <span class="instrument-icon">🎵</span>
-                <span class="instrument-name">Xylophone</span>
-                <span class="instrument-desc">Tap the rainbow bars!</span>
-            </button>
-        </div>
-    </div>
-
-    <!-- ===== DRUMS PLAY SCREEN ===== -->
-    <div id="drums-screen" class="screen">
-        <div class="play-header">
-            <button class="back-btn" aria-label="Back to picker">← Back</button>
-            <h2>🥁 Drum Kit</h2>
-        </div>
-        <div id="drum-pad-container" class="drum-pad-container">
-            <!-- Pads injected by drums.js -->
-        </div>
-    </div>
-
-    <!-- ===== PIANO PLAY SCREEN ===== -->
-    <div id="piano-screen" class="screen">
-        <div class="play-header">
-            <button class="back-btn" aria-label="Back to picker">← Back</button>
-            <h2>🎹 Piano</h2>
-        </div>
-        <div id="piano-container" class="piano-container">
-            <!-- Keys injected by piano.js -->
-        </div>
-    </div>
-
-    <!-- ===== GUITAR PLAY SCREEN ===== -->
-    <div id="guitar-screen" class="screen">
-        <div class="play-header">
-            <button class="back-btn" aria-label="Back to picker">← Back</button>
-            <h2>� Guitar</h2>
-        </div>
-        <div id="guitar-fretboard" class="guitar-fretboard">
-            <!-- Built by guitar.js -->
-        </div>
-
-        <!-- Chord macro bar -->
-        <div id="chord-bar" class="chord-bar">
-            <div class="chord-bar-label">Chords</div>
-            <div id="chord-btns" class="chord-btns">
-                <!-- Buttons injected by guitar.js -->
+        <section id="stage">
+            <!-- 🥁 Drums -->
+            <div class="panel" id="panel-drums">
+                <div id="drum-kit" class="instrument-surface"></div>
             </div>
-            <button id="add-chord-btn" class="add-chord-btn" title="Define a new chord">＋</button>
-        </div>
 
-        <!-- Chord definition modal -->
-        <div id="chord-modal" class="chord-modal hidden">
-            <div class="chord-modal-card">
-                <h3>Define a Chord</h3>
-                <div class="chord-modal-field">
-                    <label for="chord-name-input">Name</label>
-                    <input type="text" id="chord-name-input" placeholder="e.g. Bm7" maxlength="8" autocomplete="off">
-                </div>
-                <div class="chord-modal-frets">
-                    <span class="fret-input-label">Frets (x = mute):</span>
-                    <div class="fret-inputs-row">
-                        <div class="fret-input-group"><label>E</label><input type="text" id="chord-fret-0" value="0"
-                                maxlength="2"></div>
-                        <div class="fret-input-group"><label>A</label><input type="text" id="chord-fret-1" value="0"
-                                maxlength="2"></div>
-                        <div class="fret-input-group"><label>D</label><input type="text" id="chord-fret-2" value="0"
-                                maxlength="2"></div>
-                        <div class="fret-input-group"><label>G</label><input type="text" id="chord-fret-3" value="0"
-                                maxlength="2"></div>
-                        <div class="fret-input-group"><label>B</label><input type="text" id="chord-fret-4" value="0"
-                                maxlength="2"></div>
-                        <div class="fret-input-group"><label>e</label><input type="text" id="chord-fret-5" value="0"
-                                maxlength="2"></div>
-                    </div>
-                </div>
-                <div id="chord-preset-btns" class="chord-preset-btns">
-                    <!-- Preset buttons injected by guitar.js -->
-                </div>
-                <div class="chord-modal-actions">
-                    <button id="chord-save-btn" class="chord-action-btn save">Save</button>
-                    <button id="chord-cancel-btn" class="chord-action-btn cancel">Cancel</button>
+            <!-- 🎹 Piano -->
+            <div class="panel" id="panel-piano">
+                <div id="piano-wrap">
+                    <div id="piano" class="instrument-surface"></div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- ===== XYLOPHONE PLAY SCREEN ===== -->
-    <div id="xylo-screen" class="screen">
-        <div class="play-header">
-            <button class="back-btn" aria-label="Back to picker">← Back</button>
-            <h2>🎵 Xylophone</h2>
-        </div>
-        <div id="xylo-container" class="xylo-container">
-            <!-- Bars injected by xylophone.js -->
-        </div>
-    </div>
+            <!-- 🎼 Xylophone -->
+            <div class="panel" id="panel-xylo">
+                <div id="xylo" class="instrument-surface">
+                    <div class="xylo-rail xylo-rail-top"></div>
+                    <div class="xylo-rail xylo-rail-bot"></div>
+                    <div id="xylo-bars"></div>
+                </div>
+            </div>
 
-    <!-- Visual hit effect overlay -->
+            <!-- 🎸 Guitar -->
+            <div class="panel" id="panel-guitar">
+                <div id="chord-row" aria-label="Chords"></div>
+                <div id="guitar-body">
+                    <div class="sound-hole"></div>
+                    <div id="strings" class="instrument-surface"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Sparkles, floating notes -->
     <canvas id="fx-canvas"></canvas>
 
-    <footer>
-        <p>&copy; 2026 Fun Hub for Kids</p>
-    </footer>
-
-    <!-- Scripts: shared first, then instruments -->
-    <script src="shared.js"></script>
-    <script src="drums.js"></script>
-    <script src="piano.js"></script>
-    <script src="guitar.js"></script>
-    <script src="xylophone.js"></script>
+    <script src="game.js"></script>
 </body>
 
 </html>

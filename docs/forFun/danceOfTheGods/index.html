@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dance of the Gods</title>
+<link href="https://fonts.googleapis.com/css2?family=Caesar+Dressing&family=Alegreya:ital,wght@0,400;0,700;1,400&family=Julius+Sans+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div class="vase">
+    <header class="title-band">
+      <h1 id="brand-title">Dance of the Gods</h1>
+      <div class="sub" id="brand-sub">A Mythic Journey</div>
+    </header>
+    <div class="meander"></div>
+
+    <!-- TITLE -->
+    <section id="title-screen" class="screen active">
+      <canvas id="title-canvas" width="360" height="220"></canvas>
+      <p class="story">The bonds between gods and beasts have begun to <em>fray</em>, and sacred animals turn feral across the poleis. You are <b>Orpheus</b>, son of the Muse Calliope — the singer whose lyre even stones lean in to hear. Take up your amphorae, gather companions, and walk the old roads where the gods still dance.</p>
+      <div class="title-actions">
+        <button class="btn hidden" id="resume-btn">Continue the Journey</button>
+        <button class="btn" id="start-btn">Begin the Journey</button>
+      </div>
+      <button class="btn small hidden" id="dev-btn">⚒ Playtest</button>
+      <div class="title-note">▲▼◀▶ / WASD to walk · SPACE to act</div>
+    </section>
+
+    <!-- PLAYTEST (visible with ?dev) -->
+    <section id="dev-screen" class="screen">
+      <h2>Playtest</h2>
+      <p class="pick-sub">Begin the journey from any state.</p>
+      <div class="dev-grid">
+        <label style="grid-column:1/-1">Scenario
+          <select id="dev-preset">
+            <option value="custom">Custom…</option>
+            <option value="fresh">Fresh start — Pimpleia</option>
+            <option value="kassRoad">Grove Road — before Kass</option>
+            <option value="delphiMyth">Delphi — Myth I opening</option>
+            <option value="delphiDone">Delphi — Myth I complete</option>
+            <option value="athensContest">Athens — the Contest</option>
+            <option value="corinth">Corinth — post Myth II</option>
+          </select>
+        </label>
+        <label>Map <select id="dev-map"></select></label>
+        <label>Party level <input type="number" id="dev-level" min="1" max="60" value="8"></label>
+        <label>Delphi myth
+          <select id="dev-delphi">
+            <option value="0">0 — not begun</option><option value="1">1 — the chase</option>
+            <option value="2">2 — the laurel</option><option value="3">3 — complete</option>
+          </select>
+        </label>
+        <label>Athens myth
+          <select id="dev-athens">
+            <option value="0">0 — not begun</option><option value="1">1 — salt spring</option>
+            <option value="2">2 — the olive</option><option value="3">3 — complete</option>
+          </select>
+        </label>
+        <label>Beast 1 <select id="dev-b1"></select></label>
+        <label>Beast 2 <select id="dev-b2"></select></label>
+        <label>Beast 3 <select id="dev-b3"></select></label>
+        <label class="chk"><input type="checkbox" id="dev-kass"> Kass defeated</label>
+        <label class="chk"><input type="checkbox" id="dev-trainers"> All trainers defeated</label>
+        <label class="chk" style="grid-column:1/-1"><input type="checkbox" id="dev-persist"> Persist as my save</label>
+      </div>
+      <div class="pick-actions">
+        <button class="btn" id="dev-begin">Begin</button>
+        <button class="btn small" id="dev-back">◂ Title</button>
+      </div>
+    </section>
+
+    <!-- TEAM PICK -->
+    <section id="pick-screen" class="screen">
+      <h2>The Gift of Hermes</h2>
+      <p class="pick-sub">Three beasts stir in the god's satchel. Choose the one that sings back.</p>
+      <div class="grid" id="pick-grid"></div>
+      <div class="pick-actions">
+        <button class="btn" id="fight-btn" disabled>Choose a companion</button>
+      </div>
+    </section>
+
+    <!-- OVERWORLD -->
+    <section id="overworld-screen" class="screen" style="padding:0">
+      <div id="ow-stage">
+        <canvas id="ow-canvas" width="416" height="288"></canvas>
+        <div id="ow-place">Pimpleia</div>
+        <div id="dpad">
+          <button class="dbtn" data-dir="up">▲</button>
+          <button class="dbtn" data-dir="left">◀</button>
+          <button class="dbtn" data-dir="act">◉</button>
+          <button class="dbtn" data-dir="right">▶</button>
+          <button class="dbtn" data-dir="down">▼</button>
+        </div>
+      </div>
+      <div class="meander"></div>
+      <div id="ow-bar">
+        <button class="btn small" id="party-btn">Party</button>
+        <div id="ow-hint">Explore the tall grass to find sacred beasts.</div>
+      </div>
+      <!-- dialogue overlay for signs / NPCs -->
+      <div id="ow-dialogue" class="hidden">
+        <div class="owd-box"><span id="owd-text"></span><span class="owd-cue">▸</span></div>
+      </div>
+    </section>
+
+    <!-- PARTY MENU -->
+    <section id="party-screen" class="screen">
+      <h2>Your Companions</h2>
+      <p class="pick-sub" id="party-sub"></p>
+      <div id="party-list"></div>
+      <div class="pick-actions"><button class="btn" id="party-close">Back to the Road</button></div>
+    </section>
+
+    <!-- BATTLE -->
+    <section id="battle-screen" class="screen" style="padding:0">
+      <div id="battle-stage">
+        <canvas id="battle-canvas" width="520" height="300"></canvas>
+        <div class="hpcard" id="hp-foe"></div>
+        <div class="hpcard" id="hp-ally"></div>
+      </div>
+      <div class="meander"></div>
+      <div id="battle-panel">
+        <div id="dialogue"></div>
+        <div id="action-ui" class="hidden">
+          <div class="actiongrid" id="actiongrid">
+            <button class="actbtn" data-act="fight">Strike</button>
+            <button class="actbtn" data-act="catch">Amphora</button>
+            <button class="actbtn" data-act="switch">Beasts</button>
+            <button class="actbtn" data-act="flee">Flee</button>
+          </div>
+        </div>
+        <div id="move-ui" class="hidden">
+          <div class="movegrid" id="movegrid"></div>
+          <div class="panel-actions"><button class="btn small" id="move-back">◂ Back</button></div>
+        </div>
+        <div id="switch-ui" class="hidden">
+          <div class="benchrow" id="benchrow"></div>
+        </div>
+        <button class="btn small hidden" id="continue-btn">▸ Continue</button>
+      </div>
+    </section>
+
+    <!-- RESULT -->
+    <section id="result-screen" class="screen">
+      <div class="h2" id="result-title"></div>
+      <p id="result-text"></p>
+      <button class="btn" id="again-btn">Battle Again</button>
+    </section>
+
+    <div class="meander"></div>
+  </div>
+</div>
+<script src="js/data.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/art.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/core.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/maps.js"></script>
+<script src="js/overworld.js"></script>
+<script src="js/save.js"></script>
+<script src="js/screens.js"></script>
+</body>
+</html>

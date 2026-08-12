@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Laplace Eigenmodes on Cayley Graphs of Fuchsian Groups</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        :root {
+            --bg: #020617;
+            --panel: rgba(15, 23, 42, 0.72);
+            --border: rgba(99, 102, 241, 0.3);
+            --accent: #6366f1;
+            --text: #f8fafc;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', -apple-system, sans-serif;
+            overflow: hidden;
+        }
+
+        .embedded,
+        .embedded body {
+            background: transparent !important;
+            background-color: transparent !important;
+        }
+
+        .embedded #ui {
+            display: none !important;
+        }
+
+        #ui {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            z-index: 10;
+            background: var(--panel);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            padding: 1.4rem;
+            border-radius: 20px;
+            width: 330px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        #ui h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+        }
+
+        #ui-subtitle {
+            opacity: 0.6;
+            font-size: 0.85rem;
+            margin-top: 4px;
+            line-height: 1.5;
+        }
+
+        .slide-group {
+            margin-top: 1.1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        .interactive-bar {
+            position: relative;
+            height: 44px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .interactive-bar:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .bar-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: currentColor;
+            opacity: 0.15;
+            transition: width 0.15s ease-out;
+        }
+
+        .bar-content {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .bar-label {
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .bar-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            background: currentColor;
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        .bar-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            opacity: 0.75;
+            font-weight: 500;
+        }
+
+        .interactive-bar input[type="range"] {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 3;
+            margin: 0;
+        }
+
+        #spectrum {
+            margin-top: 10px;
+            width: 100%;
+            height: 46px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            cursor: crosshair;
+            display: block;
+        }
+
+        #readout {
+            margin-top: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.76rem;
+            line-height: 1.6;
+            opacity: 0.85;
+            min-height: 2.6em;
+        }
+
+        .seg-row {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .seg-group {
+            flex: 1;
+            display: flex;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .seg-group button {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            opacity: 0.55;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 0.72rem;
+            padding: 8px 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+            box-shadow: none;
+        }
+
+        .seg-group button:hover {
+            opacity: 0.9;
+            transform: none;
+            filter: none;
+        }
+
+        .seg-group button.active {
+            background: var(--accent);
+            opacity: 1;
+            box-shadow: 0 0 14px rgba(99, 102, 241, 0.5);
+        }
+
+        .main-controls {
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .main-controls button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            font-family: inherit;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .main-controls button:hover {
+            filter: brightness(1.2);
+            transform: translateY(-2px);
+        }
+
+        .hint {
+            margin-top: 10px;
+            font-size: 0.72rem;
+            opacity: 0.45;
+            line-height: 1.5;
+        }
+
+        #minimize-btn {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 100;
+        }
+
+        #minimize-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: var(--accent);
+        }
+
+        #ui.is-minimized {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border-radius: 10px;
+        }
+
+        #ui.is-minimized>*:not(#minimize-btn) {
+            display: none;
+        }
+
+        #ui.is-minimized #minimize-btn {
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            background: none;
+            border: none;
+        }
+
+        #status {
+            position: absolute;
+            left: 50%;
+            bottom: 26px;
+            transform: translateX(-50%);
+            z-index: 20;
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 8px 20px;
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.02em;
+            opacity: 0;
+            transition: opacity 0.25s;
+            pointer-events: none;
+        }
+
+        #status.show {
+            opacity: 1;
+        }
+    </style>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('embed') === 'true') {
+            document.documentElement.classList.add('embedded');
+        }
+
+        function toggleUI() {
+            const ui = document.getElementById('ui');
+            const btn = document.getElementById('minimize-btn');
+            ui.classList.toggle('is-minimized');
+            if (ui.classList.contains('is-minimized')) {
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+            } else {
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"/></svg>';
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <div id="ui">
+        <div id="minimize-btn" onclick="toggleUI()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                stroke-linecap="round">
+                <path d="M5 12h14" />
+            </svg>
+        </div>
+        <h2>Laplace Eigenmodes</h2>
+        <div id="ui-subtitle">
+            &Delta;&#8314;(2,3,7) = &#10216;x, y | x&sup2;, y&sup3;, (xy)&#8311;&#10217; &mdash; rotations of the
+            (2,3,7) triangle tiling of &#8461;&sup2;.
+        </div>
+
+        <div class="seg-row">
+            <div class="seg-group" id="seg-group">
+                <button data-val="triangle237" class="active">&Delta;(2,3,7)</button>
+                <button data-val="genus2">&Gamma;&#8322; (genus 2)</button>
+            </div>
+        </div>
+
+        <div class="slide-group">
+            <div class="interactive-bar" style="color: #a78bfa;">
+                <div id="fill-radius" class="bar-fill" style="width: 50%;"></div>
+                <div class="bar-content">
+                    <span class="bar-label">
+                        <div class="bar-dot"></div>Ball radius
+                    </span>
+                    <span id="display-radius" class="bar-value">3</span>
+                </div>
+                <input type="range" id="range-radius" min="8" max="24" step="1" value="18">
+            </div>
+
+            <div class="interactive-bar" style="color: #00ccff;">
+                <div id="fill-mode" class="bar-fill" style="width: 2%;"></div>
+                <div class="bar-content">
+                    <span class="bar-label">
+                        <div class="bar-dot"></div>Eigenmode&nbsp;<i>k</i>
+                    </span>
+                    <span id="display-mode" class="bar-value">0</span>
+                </div>
+                <input type="range" id="range-mode" min="0" max="95" step="1" value="1">
+            </div>
+
+            <div class="interactive-bar" style="color: #ff3366;">
+                <div id="fill-amp" class="bar-fill" style="width: 55%;"></div>
+                <div class="bar-content">
+                    <span class="bar-label">
+                        <div class="bar-dot"></div>Amplitude
+                    </span>
+                    <span id="display-amp" class="bar-value">55%</span>
+                </div>
+                <input type="range" id="range-amp" min="0" max="100" value="55">
+            </div>
+
+            <div class="interactive-bar" style="color: #ff9f7a;">
+                <div id="fill-speed" class="bar-fill" style="width: 40%;"></div>
+                <div class="bar-content">
+                    <span class="bar-label">
+                        <div class="bar-dot"></div>Speed
+                    </span>
+                    <span id="display-speed" class="bar-value">8</span>
+                </div>
+                <input type="range" id="range-speed" min="0" max="20" value="8">
+            </div>
+        </div>
+
+        <canvas id="spectrum"></canvas>
+        <div id="readout">&nbsp;</div>
+
+        <div class="seg-row">
+            <div class="seg-group" id="seg-anim">
+                <button data-val="mode" class="active">Standing</button>
+                <button data-val="heat">Heat</button>
+                <button data-val="wave">Wave</button>
+            </div>
+        </div>
+        <div class="seg-row">
+            <div class="seg-group" id="seg-bc">
+                <button data-val="dirichlet" class="active">Dirichlet</button>
+                <button data-val="neumann">Free</button>
+            </div>
+            <div class="seg-group" id="seg-proj">
+                <button data-val="exp" class="active">Exp. view</button>
+                <button data-val="poincare">Poincar&eacute;</button>
+            </div>
+        </div>
+
+        <div class="main-controls">
+            <button id="play-pause">Pause</button>
+            <button id="spin-btn" style="background: rgba(255,255,255,0.08); box-shadow:none;">Spin</button>
+        </div>
+
+        <div class="hint">In Heat / Wave modes, click a vertex to drop a &delta;-impulse there and watch it
+            diffuse or ripple through the group.</div>
+    </div>
+
+    <div id="status"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module" src="cayleyLaplacian.js"></script>
+</body>
+
+</html>

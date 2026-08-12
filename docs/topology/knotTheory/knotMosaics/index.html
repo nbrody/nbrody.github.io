@@ -7,7 +7,7 @@
     <title>Knot Mosaic Playground</title>
     <meta name="description"
         content="Interactive knot mosaic builder — place tiles on disk, sphere, or torus surfaces to create knot diagrams.">
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=6">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- MathJax v3 (SVG output) for the "View in ℝ³" label. -->
@@ -85,18 +85,7 @@
 
             <div class="control-group">
                 <label>Strand Color</label>
-                <div class="color-row">
-                    <button class="color-swatch active" data-color="#6c8aff" style="background: #6c8aff;"></button>
-                    <button class="color-swatch" data-color="#f472b6" style="background: #f472b6;"></button>
-                    <button class="color-swatch" data-color="#22d3ee" style="background: #22d3ee;"></button>
-                    <button class="color-swatch" data-color="#a78bfa" style="background: #a78bfa;"></button>
-                    <button class="color-swatch" data-color="#34d399" style="background: #34d399;"></button>
-                    <button class="color-swatch" data-color="#fbbf24" style="background: #fbbf24;"></button>
-                    <button class="color-swatch" data-color="#fb923c" style="background: #fb923c;"></button>
-                    <button class="color-swatch" data-color="#e8ecf4" style="background: #e8ecf4;"></button>
-                    <button class="color-swatch" data-color="#111111"
-                        style="background: #111111; border: 1px solid rgba(255,255,255,0.15);"></button>
-                </div>
+                <button id="color-current" title="Change strand color" style="background: #6c8aff;"></button>
             </div>
 
             <div class="control-group">
@@ -124,6 +113,20 @@
                 View in \(\mathbb{R}^3\)
             </button>
         </div>
+    </div>
+
+    <!-- Strand color popup (positioned next to #color-current when open) -->
+    <div id="color-popup" class="hidden">
+        <button class="color-swatch active" data-color="#6c8aff" style="background: #6c8aff;"></button>
+        <button class="color-swatch" data-color="#f472b6" style="background: #f472b6;"></button>
+        <button class="color-swatch" data-color="#22d3ee" style="background: #22d3ee;"></button>
+        <button class="color-swatch" data-color="#a78bfa" style="background: #a78bfa;"></button>
+        <button class="color-swatch" data-color="#34d399" style="background: #34d399;"></button>
+        <button class="color-swatch" data-color="#fbbf24" style="background: #fbbf24;"></button>
+        <button class="color-swatch" data-color="#fb923c" style="background: #fb923c;"></button>
+        <button class="color-swatch" data-color="#e8ecf4" style="background: #e8ecf4;"></button>
+        <button class="color-swatch" data-color="#111111"
+            style="background: #111111; border: 1px solid rgba(255,255,255,0.15);"></button>
     </div>
 
     <!-- Tile Palette -->
@@ -207,7 +210,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="cube3d.js?v=4"></script>
     <script src="torus3d.js?v=4"></script>
-    <script src="smooth3d.js?v=5"></script>
+    <script src="smooth3d.js?v=6"></script>
 </body>
 
 </html>

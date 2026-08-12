@@ -3,60 +3,91 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="description" content="Two-player Pong game optimized for iPad touch controls.">
-    <title>Pong — Two Player</title>
+    <meta name="description" content="Paddle Party — a friendly pong game for kids. Play against a cute robot or a friend!">
+    <title>🏓 Paddle Party</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600&display=swap"
-        rel="stylesheet">
 </head>
 
 <body>
-    <!-- Start / menu overlay -->
-    <div id="menu-overlay">
-        <div class="menu-card">
-            <h1 class="menu-title">PONG</h1>
-            <p class="menu-sub">Two-Player • Touch to Play</p>
+    <!-- Soft background blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
 
-            <div class="setting-group">
-                <label for="winning-score">Play to</label>
-                <div class="score-selector">
-                    <button class="score-btn" data-delta="-1">−</button>
-                    <span id="winning-score">7</span>
-                    <button class="score-btn" data-delta="1">+</button>
-                </div>
-            </div>
+    <!-- Game canvas (court) + effects canvas (confetti, above overlays) -->
+    <canvas id="game-canvas"></canvas>
+    <canvas id="fx-canvas"></canvas>
 
-            <button id="start-btn" class="glow-btn">START GAME</button>
-        </div>
-    </div>
+    <!-- Floating chrome -->
+    <a id="home-btn" class="chrome-btn" href="../index.html" aria-label="Back to games">🏠</a>
+    <button id="sound-btn" class="chrome-btn" aria-label="Toggle sound">🔊</button>
+    <button id="pause-btn" class="chrome-btn hidden" aria-label="Pause">⏸️</button>
 
-    <!-- In-game HUD -->
-    <div id="hud">
-        <div id="score-left" class="score">0</div>
-        <div id="score-right" class="score">0</div>
-    </div>
-
-    <!-- Win overlay -->
-    <div id="win-overlay" class="hidden">
-        <div class="menu-card">
-            <h1 class="win-title" id="win-text">Player 1 Wins!</h1>
-            <button id="rematch-btn" class="glow-btn">REMATCH</button>
-            <button id="menu-btn" class="glow-btn outline">MENU</button>
-        </div>
-    </div>
-
-    <!-- Countdown -->
-    <div id="countdown" class="hidden">
+    <!-- Serve countdown -->
+    <div id="countdown" class="hidden" aria-hidden="true">
         <span id="countdown-text">3</span>
     </div>
 
-    <!-- The game canvas -->
-    <canvas id="pong-canvas"></canvas>
+    <!-- Start menu -->
+    <div id="menu-overlay" class="overlay">
+        <div class="card">
+            <h1 class="title">🏓 Paddle Party</h1>
+            <p class="subtitle">Bounce the ball past the other paddle!</p>
+
+            <div class="setting">
+                <div class="setting-label">Who's playing?</div>
+                <div class="btn-row" id="mode-row">
+                    <button class="pick-btn" data-mode="1p">🤖 Me vs Robot</button>
+                    <button class="pick-btn" data-mode="2p">👫 2 Players</button>
+                </div>
+            </div>
+
+            <div class="setting" id="difficulty-setting">
+                <div class="setting-label">Robot speed</div>
+                <div class="btn-row" id="difficulty-row">
+                    <button class="pick-btn" data-diff="easy">🐢 Easy</button>
+                    <button class="pick-btn" data-diff="medium">🐰 Medium</button>
+                    <button class="pick-btn" data-diff="fast">🚀 Fast</button>
+                </div>
+            </div>
+
+            <div class="setting">
+                <div class="setting-label">First to</div>
+                <div class="btn-row" id="points-row">
+                    <button class="pick-btn" data-points="5">5</button>
+                    <button class="pick-btn" data-points="7">7</button>
+                    <button class="pick-btn" data-points="11">11</button>
+                </div>
+            </div>
+
+            <button id="play-btn" class="big-btn">▶&nbsp; Play!</button>
+            <p class="hint">Drag on your side to move your paddle<br>Keys: <b>W / S</b> and <b>↑ / ↓</b></p>
+        </div>
+    </div>
+
+    <!-- Pause -->
+    <div id="pause-overlay" class="overlay hidden">
+        <div class="card">
+            <h2 class="card-heading">Paused 😴</h2>
+            <button id="resume-btn" class="big-btn">▶&nbsp; Keep Playing</button>
+            <button id="pause-menu-btn" class="big-btn secondary">🏠 Menu</button>
+        </div>
+    </div>
+
+    <!-- Win / end of match -->
+    <div id="win-overlay" class="overlay hidden">
+        <div class="card">
+            <div id="win-emoji" class="win-emoji">🎉</div>
+            <h2 id="win-text" class="card-heading">You win!</h2>
+            <p id="win-sub" class="subtitle">What a rally!</p>
+            <button id="rematch-btn" class="big-btn">🔁 Rematch</button>
+            <button id="win-menu-btn" class="big-btn secondary">🏠 Menu</button>
+        </div>
+    </div>
 
     <script src="game.js"></script>
 </body>

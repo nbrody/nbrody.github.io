@@ -813,6 +813,9 @@ window.__smoothExtract = {
     sphere: extractSpherePolylines,
 };
 
+// Debug handle (headless verification): current chains' point arrays.
+window.__smoothChains = () => chains;
+
 window.openSmooth = function (opts) {
     opts = opts || {};
     let built;

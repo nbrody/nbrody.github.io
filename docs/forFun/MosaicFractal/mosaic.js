@@ -1,37 +1,66 @@
 /**
  * MosaicFractal - Infinite Recursive Photo Mosaic Generator
- * Creates fractal-like zoom into photo mosaics
+ *
+ * Rendering model:
+ *  - Every photo has a precomputed grid mapping (which photo best matches each cell).
+ *  - A tile drawn smaller than REVEAL_START × viewport is a plain photo.
+ *  - Between REVEAL_START and REVEAL_END it crossfades into its own mosaic.
+ *  - Past REVEAL_END it is fully a mosaic; past RECURSE_AT we stop using the
+ *    cached mosaic bitmap and recurse into live child tiles.
+ *  - When a single tile grows to cover the whole viewport, the view is
+ *    "re-based" onto it (it becomes the new root), so zoom depth is unlimited
+ *    and float precision never degrades.
  */
 
 class MosaicFractal {
     constructor() {
         // Photo storage
-        this.photos = [];
+        this.photos = [];           // {thumbnail, display, dataUrl}
         this.mainPhotoIndex = -1;
-        this.photoColors = []; // Average color for each photo
+        this.photoColors = [];      // Average color for each photo {r,g,b,css}
 
         // Canvas and rendering
         this.canvas = document.getElementById('mosaic-canvas');
         this.ctx = this.canvas.getContext('2d');
 
-        // View state
+        // View state (all in device/canvas pixels)
         this.zoom = 1;
-        this.panX = 0;  // Pan offset in screen pixels
+        this.zoomTarget = 1;
+        this.anchorX = 0;           // zoom anchor point on canvas
+        this.anchorY = 0;
+        this.panX = 0;
         this.panY = 0;
-        this.baseSize = 800;  // World size of the mosaic
+        this.baseSize = 800;        // world size of the root mosaic
         this.isDragging = false;
         this.lastMouseX = 0;
         this.lastMouseY = 0;
 
-        // Mosaic settings
-        this.gridSize = 10; // 10x10 grid
-        this.zoomThreshold = 8; // When to switch to sub-mosaic
-        this.maxDepth = 10;
-        this.currentDepth = 0;
+        // Mosaic settings / data
+        this.gridSize = 10;
+        this.tileMappings = null;   // per photo: gridSize² best-match photo indices
+        this.cellColors = null;     // per photo: gridSize² average cell colors
+        this.mosaicCache = new Map(); // photoIndex -> pre-rendered mosaic canvas (LRU)
+        this.cacheSize = 1024;
         this.tilesRendered = 0;
 
-        // Depth stack for infinite zoom
-        this.depthStack = []; // Stack of {photoIndex, zoom, offsetX, offsetY}
+        // Re-basing stack for infinite zoom: {photoIndex, row, col} per level
+        this.depthStack = [];
+        this.rootPhotoIndex = -1;
+
+        // Tunables (fractions of the viewport's smaller dimension)
+        this.REVEAL_START = 0.45;   // tile starts fading into a mosaic
+        this.REVEAL_END = 1.0;      // tile is fully a mosaic (fills the viewport)
+        this.RECURSE_AT = 1.6;      // switch from cached bitmap to live children
+        this.TINT_ALPHA = 0.32;     // color-correction tint strength on tiles
+        this.MIN_ZOOM = 0.35;
+        this.MAX_ZOOM = 1e9;
+        this.CACHE_LIMIT = 24;      // max cached mosaic bitmaps
+        this.THUMB_SIZE = 256;
+        this.DISPLAY_SIZE = 640;
+
+        // Render loop
+        this.needsRender = false;
+        this.viewerActive = false;
 
         // DOM elements
         this.uploadArea = document.getElementById('upload-area');
@@ -64,20 +93,22 @@ class MosaicFractal {
         this.setupViewerHandlers();
         this.setupButtonHandlers();
         this.setupSettingsHandlers();
+        requestAnimationFrame(() => this.tick());
     }
 
+    // ------------------------------------------------------------------
+    // Upload / photo management
+    // ------------------------------------------------------------------
+
     setupUploadHandlers() {
-        // Click to upload
         this.uploadArea.addEventListener('click', () => {
             this.fileInput.click();
         });
 
-        // File input change
         this.fileInput.addEventListener('change', (e) => {
             this.handleFiles(e.target.files);
         });
 
-        // Drag and drop
         this.uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             this.uploadArea.classList.add('drag-over');
@@ -94,169 +125,21 @@ class MosaicFractal {
         });
     }
 
-    setupViewerHandlers() {
-        const container = document.getElementById('mosaic-container');
-
-        // Mouse wheel zoom
-        container.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const rect = this.canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
-            this.zoomAt(mouseX, mouseY, zoomFactor);
-        });
-
-        // Pan with mouse drag
-        container.addEventListener('mousedown', (e) => {
-            this.isDragging = true;
-            this.lastMouseX = e.clientX;
-            this.lastMouseY = e.clientY;
-            container.style.cursor = 'grabbing';
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!this.isDragging) return;
-
-            const dx = e.clientX - this.lastMouseX;
-            const dy = e.clientY - this.lastMouseY;
-
-            // Pan in screen space (not world space)
-            this.panX += dx;
-            this.panY += dy;
-
-            this.lastMouseX = e.clientX;
-            this.lastMouseY = e.clientY;
-
-            this.render();
-        });
-
-        document.addEventListener('mouseup', () => {
-            this.isDragging = false;
-            document.getElementById('mosaic-container').style.cursor = 'grab';
-        });
-
-        // Touch support
-        let lastTouchDistance = 0;
-        let lastTouchX = 0;
-        let lastTouchY = 0;
-
-        container.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 1) {
-                lastTouchX = e.touches[0].clientX;
-                lastTouchY = e.touches[0].clientY;
-            } else if (e.touches.length === 2) {
-                lastTouchDistance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-            }
-        });
-
-        container.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-
-            if (e.touches.length === 1) {
-                const dx = e.touches[0].clientX - lastTouchX;
-                const dy = e.touches[0].clientY - lastTouchY;
-
-                // Pan in screen space
-                this.panX += dx;
-                this.panY += dy;
-
-                lastTouchX = e.touches[0].clientX;
-                lastTouchY = e.touches[0].clientY;
-
-                this.render();
-            } else if (e.touches.length === 2) {
-                const distance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-
-                const rect = this.canvas.getBoundingClientRect();
-                const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
-                const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
-
-                const zoomFactor = distance / lastTouchDistance;
-                this.zoomAt(centerX, centerY, zoomFactor);
-
-                lastTouchDistance = distance;
-            }
-        }, { passive: false });
-    }
-
-    setupButtonHandlers() {
-        this.generateBtn.addEventListener('click', () => {
-            this.generateMosaic();
-        });
-
-        document.getElementById('reset-view').addEventListener('click', () => {
-            this.resetView();
-        });
-
-        document.getElementById('back-to-upload').addEventListener('click', () => {
-            this.viewerSection.classList.add('hidden');
-            this.uploadSection.classList.remove('hidden');
-        });
-    }
-
-    setupSettingsHandlers() {
-        // Grid size slider
-        this.gridSizeInput.addEventListener('input', (e) => {
-            const value = parseInt(e.target.value);
-            this.gridSizeValue.textContent = `${value}×${value}`;
-        });
-
-        // Load example button
-        document.getElementById('load-example-btn').addEventListener('click', () => {
-            this.loadExamplePhotos();
-        });
-    }
-
     async loadExamplePhotos() {
-        // List of example images in the test_images folder
-        const exampleImages = [
-            'test_images/img01.jpg',
-            'test_images/img02.jpg',
-            'test_images/img03.jpg',
-            'test_images/img04.jpg',
-            'test_images/img05.jpg',
-            'test_images/img06.jpg',
-            'test_images/img07.jpg',
-            'test_images/img08.jpg',
-            'test_images/img09.jpg',
-            'test_images/img10.jpg',
-            'test_images/img11.jpg',
-            'test_images/img12.jpg',
-            'test_images/img13.jpg',
-            'test_images/img14.jpg',
-            'test_images/img15.jpg',
-            'test_images/img16.jpg',
-            'test_images/img17.jpg',
-            'test_images/img18.jpg',
-            'test_images/img19.jpg',
-            'test_images/img20.jpg',
-            'test_images/img21.jpg',
-            'test_images/img22.jpg',
-            'test_images/img23.jpg',
-            'test_images/img24.jpg',
-            'test_images/img25.jpg'
-        ];
+        const exampleImages = [];
+        for (let i = 1; i <= 25; i++) {
+            exampleImages.push(`test_images/img${String(i).padStart(2, '0')}.jpg`);
+        }
 
-        // Show loading state
         const btn = document.getElementById('load-example-btn');
         const originalText = btn.innerHTML;
         btn.innerHTML = '<span class="btn-icon">⏳</span> Loading...';
         btn.disabled = true;
 
-        // Clear existing photos
         this.photos = [];
         this.mainPhotoIndex = -1;
         this.photoGrid.innerHTML = '';
 
-        // Load each example image
         for (const src of exampleImages) {
             try {
                 const photo = await this.loadImageFromUrl(src);
@@ -267,12 +150,10 @@ class MosaicFractal {
             }
         }
 
-        // Auto-select first photo as main
         if (this.photos.length > 0) {
             this.selectMainPhoto(0);
         }
 
-        // Restore button
         btn.innerHTML = originalText;
         btn.disabled = false;
 
@@ -283,32 +164,54 @@ class MosaicFractal {
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = 'anonymous';
-
-            img.onload = () => {
-                // Create thumbnail canvas
-                const thumbSize = 200;
-                const canvas = document.createElement('canvas');
-                canvas.width = thumbSize;
-                canvas.height = thumbSize;
-                const ctx = canvas.getContext('2d');
-
-                // Center crop
-                const size = Math.min(img.width, img.height);
-                const sx = (img.width - size) / 2;
-                const sy = (img.height - size) / 2;
-
-                ctx.drawImage(img, sx, sy, size, size, 0, 0, thumbSize, thumbSize);
-
-                resolve({
-                    original: img,
-                    thumbnail: canvas,
-                    dataUrl: canvas.toDataURL('image/jpeg', 0.8)
-                });
-            };
-
+            img.onload = () => resolve(this.processImage(img));
             img.onerror = reject;
             img.src = url;
         });
+    }
+
+    loadImage(file) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                img.onload = () => resolve(this.processImage(img));
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    /**
+     * Center-crop an image into two square canvases: a small thumbnail
+     * (color analysis + tiny tiles) and a larger display version (big
+     * on-screen draws). The original Image is not retained.
+     */
+    processImage(img) {
+        const size = Math.min(img.width, img.height);
+        const sx = (img.width - size) / 2;
+        const sy = (img.height - size) / 2;
+
+        const makeSquare = (dim) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = dim;
+            canvas.height = dim;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, sx, sy, size, size, 0, 0, dim, dim);
+            return canvas;
+        };
+
+        const thumbnail = makeSquare(this.THUMB_SIZE);
+        const display = makeSquare(Math.min(this.DISPLAY_SIZE, size));
+
+        return {
+            thumbnail,
+            display,
+            dataUrl: thumbnail.toDataURL('image/jpeg', 0.8)
+        };
     }
 
     async handleFiles(files) {
@@ -328,41 +231,6 @@ class MosaicFractal {
         }
 
         this.updateUI();
-    }
-
-    loadImage(file) {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            const reader = new FileReader();
-
-            reader.onload = (e) => {
-                img.onload = () => {
-                    // Create thumbnail canvas
-                    const thumbSize = 200;
-                    const canvas = document.createElement('canvas');
-                    canvas.width = thumbSize;
-                    canvas.height = thumbSize;
-                    const ctx = canvas.getContext('2d');
-
-                    // Center crop
-                    const size = Math.min(img.width, img.height);
-                    const sx = (img.width - size) / 2;
-                    const sy = (img.height - size) / 2;
-
-                    ctx.drawImage(img, sx, sy, size, size, 0, 0, thumbSize, thumbSize);
-
-                    resolve({
-                        original: img,
-                        thumbnail: canvas,
-                        dataUrl: canvas.toDataURL('image/jpeg', 0.8)
-                    });
-                };
-                img.onerror = reject;
-                img.src = e.target.result;
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
     }
 
     addPhotoToGrid(photo, index) {
@@ -385,7 +253,6 @@ class MosaicFractal {
         item.appendChild(img);
         item.appendChild(removeBtn);
 
-        // Click to select as main
         item.addEventListener('click', () => {
             this.selectMainPhoto(index);
         });
@@ -420,11 +287,9 @@ class MosaicFractal {
     selectMainPhoto(index) {
         this.mainPhotoIndex = index;
 
-        // Update visual selection
         document.querySelectorAll('.photo-item').forEach((item, i) => {
             item.classList.toggle('selected-main', i === index);
 
-            // Add/remove main badge
             let badge = item.querySelector('.main-badge');
             if (i === index) {
                 if (!badge) {
@@ -438,7 +303,6 @@ class MosaicFractal {
             }
         });
 
-        // Update selected main display
         this.selectedMainDiv.innerHTML = '';
         const img = document.createElement('img');
         img.src = this.photos[index].dataUrl;
@@ -454,7 +318,6 @@ class MosaicFractal {
         const count = this.photos.length;
         this.photoCountSpan.textContent = `${count} / 100 photos`;
 
-        // Show/hide elements based on photo count
         if (count >= 2) {
             this.mainPhotoSelector.classList.remove('hidden');
             this.settingsPanel.classList.remove('hidden');
@@ -465,74 +328,218 @@ class MosaicFractal {
             this.generateBtn.classList.add('hidden');
         }
 
-        // Enable generate button only if main photo is selected
         this.generateBtn.disabled = this.mainPhotoIndex < 0 || count < 2;
     }
 
+    // ------------------------------------------------------------------
+    // Viewer input
+    // ------------------------------------------------------------------
+
+    /** Convert a client-space point to canvas (device pixel) coordinates. */
+    toCanvasPoint(clientX, clientY) {
+        const rect = this.canvas.getBoundingClientRect();
+        return {
+            x: (clientX - rect.left) * (this.canvas.width / rect.width),
+            y: (clientY - rect.top) * (this.canvas.height / rect.height)
+        };
+    }
+
+    setupViewerHandlers() {
+        const container = document.getElementById('mosaic-container');
+
+        // Wheel / trackpad zoom: adjust the target, the tick loop eases toward it
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const p = this.toCanvasPoint(e.clientX, e.clientY);
+            this.anchorX = p.x;
+            this.anchorY = p.y;
+            const k = e.ctrlKey ? 0.01 : 0.0022; // ctrl+wheel = trackpad pinch
+            this.zoomTarget = Math.min(this.zoomTarget * Math.exp(-e.deltaY * k), this.MAX_ZOOM);
+        }, { passive: false });
+
+        // Double-click to dive
+        container.addEventListener('dblclick', (e) => {
+            const p = this.toCanvasPoint(e.clientX, e.clientY);
+            this.anchorX = p.x;
+            this.anchorY = p.y;
+            this.zoomTarget = Math.min(this.zoomTarget * 6, this.MAX_ZOOM);
+        });
+
+        // Pan with mouse drag
+        container.addEventListener('mousedown', (e) => {
+            this.isDragging = true;
+            this.lastMouseX = e.clientX;
+            this.lastMouseY = e.clientY;
+            container.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!this.isDragging) return;
+
+            const scale = this.canvas.width / this.canvas.getBoundingClientRect().width;
+            this.panX += (e.clientX - this.lastMouseX) * scale;
+            this.panY += (e.clientY - this.lastMouseY) * scale;
+
+            this.lastMouseX = e.clientX;
+            this.lastMouseY = e.clientY;
+
+            this.needsRender = true;
+        });
+
+        document.addEventListener('mouseup', () => {
+            this.isDragging = false;
+            container.style.cursor = 'grab';
+        });
+
+        // Touch: one finger pans, two fingers pinch-zoom (applied immediately)
+        let lastTouchDistance = 0;
+        let lastTouchX = 0;
+        let lastTouchY = 0;
+
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                lastTouchX = e.touches[0].clientX;
+                lastTouchY = e.touches[0].clientY;
+            } else if (e.touches.length === 2) {
+                lastTouchDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            }
+        });
+
+        container.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+
+            if (e.touches.length === 1) {
+                const scale = this.canvas.width / this.canvas.getBoundingClientRect().width;
+                this.panX += (e.touches[0].clientX - lastTouchX) * scale;
+                this.panY += (e.touches[0].clientY - lastTouchY) * scale;
+
+                lastTouchX = e.touches[0].clientX;
+                lastTouchY = e.touches[0].clientY;
+
+                this.needsRender = true;
+            } else if (e.touches.length === 2) {
+                const distance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+
+                const p = this.toCanvasPoint(
+                    (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                    (e.touches[0].clientY + e.touches[1].clientY) / 2
+                );
+
+                this.applyZoom(p.x, p.y, distance / lastTouchDistance);
+                this.zoomTarget = this.zoom;
+                this.needsRender = true;
+
+                lastTouchDistance = distance;
+            }
+        }, { passive: false });
+
+        window.addEventListener('resize', () => this.handleResize());
+    }
+
+    setupButtonHandlers() {
+        this.generateBtn.addEventListener('click', () => {
+            this.generateMosaic();
+        });
+
+        document.getElementById('reset-view').addEventListener('click', () => {
+            this.resetView();
+        });
+
+        document.getElementById('back-to-upload').addEventListener('click', () => {
+            this.viewerActive = false;
+            this.viewerSection.classList.add('hidden');
+            this.uploadSection.classList.remove('hidden');
+        });
+    }
+
+    setupSettingsHandlers() {
+        this.gridSizeInput.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            this.gridSizeValue.textContent = `${value}×${value}`;
+        });
+
+        document.getElementById('load-example-btn').addEventListener('click', () => {
+            this.loadExamplePhotos();
+        });
+    }
+
+    handleResize() {
+        if (!this.viewerActive) return;
+
+        const cssSize = Math.min(800, window.innerWidth - 80);
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const newSize = Math.round(cssSize * dpr);
+        const scale = newSize / this.canvas.width;
+        if (scale === 1) return;
+
+        this.canvas.width = newSize;
+        this.canvas.height = newSize;
+        this.canvas.style.width = cssSize + 'px';
+        this.canvas.style.height = cssSize + 'px';
+
+        // Keep the same view: screen positions scale with the canvas
+        this.zoom *= scale;
+        this.zoomTarget *= scale;
+        this.panX *= scale;
+        this.panY *= scale;
+        this.needsRender = true;
+    }
+
+    // ------------------------------------------------------------------
+    // Mosaic generation (color analysis + tile mapping)
+    // ------------------------------------------------------------------
+
     async generateMosaic() {
         this.loadingOverlay.classList.remove('hidden');
-        document.getElementById('loading-status').textContent = 'Analyzing colors...';
-
-        // Allow UI to update
+        const status = document.getElementById('loading-status');
+        status.textContent = 'Analyzing colors...';
         await new Promise(r => setTimeout(r, 50));
 
-        // Calculate average colors for all photos
-        this.photoColors = await this.calculatePhotoColors();
-
-        document.getElementById('loading-status').textContent = 'Building tile map...';
-        await new Promise(r => setTimeout(r, 50));
-
-        // Setup canvas - mosaic fills exactly at zoom=1
-        const size = Math.min(800, window.innerWidth - 80);
-        this.canvas.width = size;
-        this.canvas.height = size;
-        this.baseSize = size;  // World size matches canvas size
-
-        // Use user's selected grid size
         this.gridSize = parseInt(this.gridSizeInput.value);
+        this.photoColors = this.calculatePhotoColors();
 
-        // Pre-compute tile mappings for each photo
-        document.getElementById('loading-status').textContent = 'Mapping tiles...';
+        status.textContent = 'Mapping tiles...';
         await new Promise(r => setTimeout(r, 50));
-        this.tileMappings = this.computeAllTileMappings();
+        await this.computeMappings(status);
 
-        // Reset view state
-        this.resetViewState();
+        // Setup canvas at device resolution; the mosaic fills it at zoom = 1
+        const cssSize = Math.min(800, window.innerWidth - 80);
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.canvas.width = Math.round(cssSize * dpr);
+        this.canvas.height = this.canvas.width;
+        this.canvas.style.width = cssSize + 'px';
+        this.canvas.style.height = cssSize + 'px';
+        this.baseSize = this.canvas.width;
+        this.cacheSize = Math.max(768, Math.min(2048, this.canvas.width));
+        this.mosaicCache.clear();
 
-        // Initialize depth stack with main photo
-        this.depthStack = [{
-            photoIndex: this.mainPhotoIndex,
-            zoom: 1,
-            panX: 0,
-            panY: 0
-        }];
-
-        // Update UI
+        this.resetView();
         this.gridDisplay.textContent = `${this.gridSize}×${this.gridSize}`;
 
-        // Render initial mosaic
-        this.render();
-
-        // Switch to viewer
         this.loadingOverlay.classList.add('hidden');
         this.uploadSection.classList.add('hidden');
         this.viewerSection.classList.remove('hidden');
+        this.viewerActive = true;
+        this.needsRender = true;
 
-        // Hide zoom hint after a delay
-        setTimeout(() => {
-            document.getElementById('zoom-hint').style.opacity = '0';
-        }, 3000);
+        const hint = document.getElementById('zoom-hint');
+        hint.style.opacity = '1';
+        setTimeout(() => { hint.style.opacity = '0'; }, 4000);
     }
 
-    async calculatePhotoColors() {
+    calculatePhotoColors() {
         const colors = [];
 
         for (const photo of this.photos) {
-            // Calculate average color over the whole image
             const thumb = photo.thumbnail;
             const ctx = thumb.getContext('2d');
-            const imageData = ctx.getImageData(0, 0, thumb.width, thumb.height);
-            const data = imageData.data;
+            const data = ctx.getImageData(0, 0, thumb.width, thumb.height).data;
 
             let r = 0, g = 0, b = 0;
             const pixelCount = data.length / 4;
@@ -543,233 +550,399 @@ class MosaicFractal {
                 b += data[i + 2];
             }
 
-            colors.push({
-                r: Math.round(r / pixelCount),
-                g: Math.round(g / pixelCount),
-                b: Math.round(b / pixelCount)
-            });
+            r = Math.round(r / pixelCount);
+            g = Math.round(g / pixelCount);
+            b = Math.round(b / pixelCount);
+            colors.push({ r, g, b, css: `rgb(${r},${g},${b})` });
         }
 
         return colors;
     }
 
     /**
-     * Pre-compute tile mappings for all photos.
-     * For each photo, we divide it into a grid and find the best matching photo for each cell.
+     * For every photo, compute the average color of each grid cell (read the
+     * thumbnail's pixels once per photo) and pick the best-matching photo for
+     * each cell, with a mild diversity rule so neighbors aren't all the same.
      */
-    computeAllTileMappings() {
-        const mappings = [];
+    async computeMappings(statusEl) {
+        const g = this.gridSize;
+        this.tileMappings = [];
+        this.cellColors = [];
 
         for (let photoIdx = 0; photoIdx < this.photos.length; photoIdx++) {
-            const photo = this.photos[photoIdx];
-            const thumb = photo.thumbnail;
+            const thumb = this.photos[photoIdx].thumbnail;
             const ctx = thumb.getContext('2d');
-            const tileMap = [];
+            const data = ctx.getImageData(0, 0, thumb.width, thumb.height).data;
+            const W = thumb.width;
 
-            // Get all candidate photos (excluding this one)
             const candidates = this.photos
                 .map((_, i) => i)
                 .filter(i => i !== photoIdx);
+            if (candidates.length === 0) candidates.push(photoIdx);
 
-            // If no candidates (shouldn't happen with 2+ photos), use self
-            if (candidates.length === 0) {
-                for (let row = 0; row < this.gridSize; row++) {
-                    tileMap[row] = [];
-                    for (let col = 0; col < this.gridSize; col++) {
-                        tileMap[row][col] = photoIdx;
-                    }
-                }
-                mappings.push(tileMap);
-                continue;
-            }
+            const tileMap = [];
+            const colorMap = [];
 
-            // Sample each grid cell and find best match
-            const cellWidth = thumb.width / this.gridSize;
-            const cellHeight = thumb.height / this.gridSize;
-
-            for (let row = 0; row < this.gridSize; row++) {
+            for (let row = 0; row < g; row++) {
                 tileMap[row] = [];
-                for (let col = 0; col < this.gridSize; col++) {
-                    // Get average color of this cell
-                    const sx = Math.floor(col * cellWidth);
-                    const sy = Math.floor(row * cellHeight);
-                    const sw = Math.max(1, Math.floor(cellWidth));
-                    const sh = Math.max(1, Math.floor(cellHeight));
+                colorMap[row] = [];
 
-                    const imageData = ctx.getImageData(sx, sy, sw, sh);
-                    const data = imageData.data;
+                const y0 = Math.floor(row * W / g);
+                const y1 = Math.max(y0 + 1, Math.floor((row + 1) * W / g));
 
-                    let r = 0, g = 0, b = 0;
-                    const pixelCount = data.length / 4;
+                for (let col = 0; col < g; col++) {
+                    const x0 = Math.floor(col * W / g);
+                    const x1 = Math.max(x0 + 1, Math.floor((col + 1) * W / g));
 
-                    for (let i = 0; i < data.length; i += 4) {
-                        r += data[i];
-                        g += data[i + 1];
-                        b += data[i + 2];
+                    let r = 0, gr = 0, b = 0, n = 0;
+                    for (let y = y0; y < y1; y++) {
+                        let i = (y * W + x0) * 4;
+                        for (let x = x0; x < x1; x++, i += 4) {
+                            r += data[i];
+                            gr += data[i + 1];
+                            b += data[i + 2];
+                            n++;
+                        }
                     }
 
-                    const targetColor = {
-                        r: Math.round(r / pixelCount),
-                        g: Math.round(g / pixelCount),
-                        b: Math.round(b / pixelCount)
-                    };
+                    r = Math.round(r / n);
+                    gr = Math.round(gr / n);
+                    b = Math.round(b / n);
+                    colorMap[row][col] = { r, g: gr, b, css: `rgb(${r},${gr},${b})` };
 
-                    // Find best matching photo
-                    tileMap[row][col] = this.findBestMatch(targetColor, candidates);
+                    const left = col > 0 ? tileMap[row][col - 1] : -1;
+                    const top = row > 0 ? tileMap[row - 1][col] : -1;
+                    tileMap[row][col] = this.pickTile(colorMap[row][col], candidates, left, top);
                 }
             }
 
-            mappings.push(tileMap);
+            this.tileMappings.push(tileMap);
+            this.cellColors.push(colorMap);
+
+            if (photoIdx % 8 === 7) {
+                statusEl.textContent = `Mapping tiles... ${photoIdx + 1}/${this.photos.length}`;
+                await new Promise(r => setTimeout(r, 0));
+            }
+        }
+    }
+
+    /**
+     * Find the best color match among candidates, preferring not to repeat
+     * the photo used directly above or to the left (within a distance
+     * tolerance) so flat regions don't tile with one repeated photo.
+     */
+    pickTile(target, candidates, leftIdx, topIdx) {
+        // Track the top three matches in one pass
+        let i1 = -1, d1 = Infinity, i2 = -1, d2 = Infinity, i3 = -1, d3 = Infinity;
+
+        for (const i of candidates) {
+            const c = this.photoColors[i];
+            const dr = c.r - target.r;
+            const dg = c.g - target.g;
+            const db = c.b - target.b;
+            // Weighted for human perception (green counts most)
+            const d = 2 * dr * dr + 4 * dg * dg + 3 * db * db;
+
+            if (d < d1) {
+                i3 = i2; d3 = d2;
+                i2 = i1; d2 = d1;
+                i1 = i; d1 = d;
+            } else if (d < d2) {
+                i3 = i2; d3 = d2;
+                i2 = i; d2 = d;
+            } else if (d < d3) {
+                i3 = i; d3 = d;
+            }
         }
 
-        return mappings;
+        const tolerance = d1 * 2.5 + 500;
+        for (const [idx, dist] of [[i1, d1], [i2, d2], [i3, d3]]) {
+            if (idx >= 0 && idx !== leftIdx && idx !== topIdx && dist <= tolerance) {
+                return idx;
+            }
+        }
+        return i1;
     }
 
-    resetViewState() {
-        this.zoom = 1;
-        this.panX = 0;
-        this.panY = 0;
-        this.currentDepth = 0;
-    }
+    // ------------------------------------------------------------------
+    // View state: reset, eased zoom, re-basing
+    // ------------------------------------------------------------------
 
     resetView() {
-        this.resetViewState();
-        this.depthStack = [{
-            photoIndex: this.mainPhotoIndex,
-            zoom: 1,
-            panX: 0,
-            panY: 0
-        }];
-        this.render();
+        this.zoom = 1;
+        this.zoomTarget = 1;
+        this.panX = 0;
+        this.panY = 0;
+        this.depthStack = [];
+        this.rootPhotoIndex = this.mainPhotoIndex;
+        this.anchorX = this.canvas.width / 2;
+        this.anchorY = this.canvas.height / 2;
+        this.needsRender = true;
     }
 
-    zoomAt(x, y, factor) {
-        // Get mouse position relative to canvas in CSS pixels, then scale to canvas pixels
-        const canvasX = x / this.canvas.offsetWidth * this.canvas.width;
-        const canvasY = y / this.canvas.offsetHeight * this.canvas.height;
+    /** Zoom by `factor` keeping the canvas point (x, y) fixed. */
+    applyZoom(x, y, factor) {
+        const worldX = (x - this.panX) / this.zoom;
+        const worldY = (y - this.panY) / this.zoom;
 
-        // Calculate the world position under the cursor before zoom
-        const worldX = (canvasX - this.panX) / this.zoom;
-        const worldY = (canvasY - this.panY) / this.zoom;
+        // Local zoom stays clamped; re-basing keeps it small in practice, but
+        // zooming at an exact tile corner can't re-base, so cap it hard here
+        this.zoom = Math.min(this.zoom * factor, this.MAX_ZOOM);
 
-        // Apply zoom
-        const newZoom = Math.max(0.5, Math.min(this.zoom * factor, 10000));
-
-        // Adjust pan so the world point stays under the cursor
-        this.panX = canvasX - worldX * newZoom;
-        this.panY = canvasY - worldY * newZoom;
-
-        this.zoom = newZoom;
-
-        this.render();
+        this.panX = x - worldX * this.zoom;
+        this.panY = y - worldY * this.zoom;
     }
+
+    /**
+     * Re-base the coordinate system so zoom stays in a numerically safe
+     * range no matter how deep the dive goes:
+     *  - If the root no longer covers the viewport, pop back to its parent
+     *    (so neighboring tiles reappear when panning/zooming out).
+     *  - If a single child tile covers the whole viewport, make it the root.
+     */
+    updateBase() {
+        const cw = this.canvas.width;
+        const ch = this.canvas.height;
+        const g = this.gridSize;
+        const B = this.baseSize;
+        const covers = (x, y, s) => x <= 0.5 && y <= 0.5 && x + s >= cw - 0.5 && y + s >= ch - 0.5;
+
+        // Pop while the current root doesn't cover the viewport
+        while (this.depthStack.length && !covers(this.panX, this.panY, B * this.zoom)) {
+            const frame = this.depthStack.pop();
+            const oldZoom = this.zoom;
+            this.zoom = oldZoom * g;
+            this.zoomTarget *= g;
+            this.panX -= frame.col * B * oldZoom;
+            this.panY -= frame.row * B * oldZoom;
+            this.rootPhotoIndex = frame.photoIndex;
+        }
+
+        // Push while the child tile under the viewport center covers it
+        while (this.zoom >= g * 0.999) {
+            const u = (cw / 2 - this.panX) / (B * this.zoom);
+            const v = (ch / 2 - this.panY) / (B * this.zoom);
+            const col = Math.floor(u * g);
+            const row = Math.floor(v * g);
+            if (col < 0 || col >= g || row < 0 || row >= g) break;
+
+            const cellS = B * this.zoom / g;
+            const cx = this.panX + col * cellS;
+            const cy = this.panY + row * cellS;
+            if (!covers(cx, cy, cellS)) break;
+
+            this.depthStack.push({ photoIndex: this.rootPhotoIndex, row, col });
+            this.rootPhotoIndex = this.tileMappings[this.rootPhotoIndex][row][col];
+            this.panX = cx;
+            this.panY = cy;
+            this.zoom /= g;
+            this.zoomTarget /= g;
+        }
+
+        // At the true root, don't let the mosaic shrink away entirely
+        if (this.depthStack.length === 0) {
+            this.zoomTarget = Math.max(this.zoomTarget, this.MIN_ZOOM);
+            this.zoom = Math.max(this.zoom, this.MIN_ZOOM * 0.7);
+        }
+    }
+
+    /** rAF loop: ease zoom toward its target, re-base, render when dirty. */
+    tick() {
+        if (this.viewerActive) {
+            const ratio = this.zoomTarget / this.zoom;
+            if (Math.abs(Math.log(ratio)) > 0.002) {
+                this.applyZoom(this.anchorX, this.anchorY, Math.pow(ratio, 0.22));
+                this.needsRender = true;
+            }
+
+            if (this.needsRender) {
+                this.needsRender = false;
+                this.updateBase();
+                this.render();
+            }
+        }
+
+        requestAnimationFrame(() => this.tick());
+    }
+
+    // ------------------------------------------------------------------
+    // Rendering
+    // ------------------------------------------------------------------
 
     render() {
         this.tilesRendered = 0;
-        this.ctx.fillStyle = '#1a1a2e';
+        this.ctx.fillStyle = '#12121f';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Calculate effective zoom for depth transitions
-        this.currentDepth = Math.floor(Math.log(this.zoom) / Math.log(this.zoomThreshold));
-        this.currentDepth = Math.max(0, Math.min(this.currentDepth, this.maxDepth));
+        this.drawNode(this.rootPhotoIndex, 0, 0, this.baseSize, null, 0);
 
-        // The mosaic lives in world space from (0,0) to (baseSize, baseSize)
-        // At zoom=1 and pan=(0,0), it fills the canvas exactly
-        this.renderMosaicRecursive(
-            this.mainPhotoIndex,
-            0, 0,
-            this.baseSize,
-            0
-        );
-
-        // Update displays
-        this.zoomDisplay.textContent = `${Math.round(this.zoom * 100)}%`;
-        this.depthDisplay.textContent = this.currentDepth;
+        // Cumulative magnification across all re-based levels
+        const magnification = this.zoom * Math.pow(this.gridSize, this.depthStack.length);
+        this.zoomDisplay.textContent = this.formatZoom(magnification);
+        this.depthDisplay.textContent = this.depthStack.length;
         this.tilesDisplay.textContent = this.tilesRendered;
     }
 
-    renderMosaicRecursive(photoIndex, worldX, worldY, worldSize, depth) {
-        // Transform world coordinates to screen coordinates
-        // screen = world * zoom + pan
-        const screenX = worldX * this.zoom + this.panX;
-        const screenY = worldY * this.zoom + this.panY;
-        const screenSize = worldSize * this.zoom;
-
-        // Culling: skip if tile is off screen
-        if (screenX + screenSize < 0 || screenX > this.canvas.width ||
-            screenY + screenSize < 0 || screenY > this.canvas.height) {
-            return;
-        }
-
-        // If tile is too small, skip
-        if (screenSize < 2) {
-            return;
-        }
-
-        const tileSize = worldSize / this.gridSize;
-        const tileSizeScreen = tileSize * this.zoom;
-
-        // Decide whether to draw as single image or subdivide
-        // Subdivide when tiles are big enough to see detail
-        const shouldSubdivide = tileSizeScreen > 15 && depth < this.maxDepth;
-
-        if (!shouldSubdivide) {
-            // Draw the photo as a single tile
-            this.drawPhoto(photoIndex, screenX, screenY, screenSize);
-            return;
-        }
-
-        // Get the pre-computed tile mapping for this photo
-        const tileMap = this.tileMappings[photoIndex];
-
-        // Subdivide into grid and draw mosaic
-        for (let row = 0; row < this.gridSize; row++) {
-            for (let col = 0; col < this.gridSize; col++) {
-                const tileWorldX = worldX + col * tileSize;
-                const tileWorldY = worldY + row * tileSize;
-
-                // Get the photo that should fill this tile (from pre-computed map)
-                const tilePhotoIndex = tileMap[row][col];
-
-                // Recursively render this tile
-                this.renderMosaicRecursive(
-                    tilePhotoIndex,
-                    tileWorldX, tileWorldY,
-                    tileSize,
-                    depth + 1
-                );
-            }
-        }
+    formatZoom(m) {
+        if (m < 10) return m.toFixed(2) + '×';
+        if (m < 10000) return Math.round(m).toLocaleString() + '×';
+        return m.toExponential(1).replace('e+', 'e') + '×';
     }
 
-    drawPhoto(photoIndex, x, y, size) {
-        if (photoIndex < 0 || photoIndex >= this.photos.length) return;
+    /**
+     * Draw one tile (a photo occupying a world-space square), choosing its
+     * representation by on-screen size:
+     *   tiny         -> flat average-color rect
+     *   small        -> plain photo (+ parent's color-correction tint)
+     *   reveal band  -> cached mosaic crossfaded with the photo
+     *   huge         -> recurse into visible child tiles
+     */
+    drawNode(photoIndex, worldX, worldY, worldSize, tint, depth) {
+        const sx = worldX * this.zoom + this.panX;
+        const sy = worldY * this.zoom + this.panY;
+        const ss = worldSize * this.zoom;
 
+        // Culling
+        if (sx + ss < 0 || sy + ss < 0 || sx > this.canvas.width || sy > this.canvas.height) {
+            return;
+        }
+        if (ss < 1) return;
+
+        const ctx = this.ctx;
+
+        // Sub-pixel tiles: a flat rect of the photo's average color
+        if (ss < 2.5) {
+            ctx.fillStyle = this.photoColors[photoIndex].css;
+            ctx.fillRect(sx, sy, ss, ss);
+            this.tilesRendered++;
+            return;
+        }
+
+        const V = Math.min(this.canvas.width, this.canvas.height);
+        const revealStart = this.REVEAL_START * V;
+        const revealEnd = this.REVEAL_END * V;
+
+        // Below the reveal threshold: just the photo
+        if (ss <= revealStart) {
+            this.drawPhoto(photoIndex, sx, sy, ss);
+            this.applyTint(tint, sx, sy, ss, 1);
+            return;
+        }
+
+        // t: 0 = still a photo, 1 = fully a mosaic
+        const t = Math.min(1, (ss - revealStart) / (revealEnd - revealStart));
+
+        if (ss <= this.RECURSE_AT * V || depth > 14) {
+            // One draw call from the pre-rendered mosaic bitmap
+            ctx.drawImage(this.getMosaicCache(photoIndex), sx, sy, ss, ss);
+            this.tilesRendered++;
+        } else {
+            // Live recursion into only the visible child tiles
+            const g = this.gridSize;
+            const cellW = worldSize / g;
+            const cellS = ss / g;
+            const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
+            const c0 = clamp(Math.floor(-sx / cellS), 0, g - 1);
+            const c1 = clamp(Math.ceil((this.canvas.width - sx) / cellS), 0, g);
+            const r0 = clamp(Math.floor(-sy / cellS), 0, g - 1);
+            const r1 = clamp(Math.ceil((this.canvas.height - sy) / cellS), 0, g);
+
+            const tileMap = this.tileMappings[photoIndex];
+            const colorMap = this.cellColors[photoIndex];
+
+            for (let row = r0; row < r1; row++) {
+                for (let col = c0; col < c1; col++) {
+                    this.drawNode(
+                        tileMap[row][col],
+                        worldX + col * cellW,
+                        worldY + row * cellW,
+                        cellW,
+                        colorMap[row][col],
+                        depth + 1
+                    );
+                }
+            }
+        }
+
+        // Crossfade: overlay the plain photo, fading out as the mosaic resolves
+        if (t < 1) {
+            ctx.globalAlpha = 1 - t;
+            this.drawPhoto(photoIndex, sx, sy, ss);
+            ctx.globalAlpha = 1;
+        }
+
+        // The parent's color-correction tint also fades as this tile takes over
+        this.applyTint(tint, sx, sy, ss, 1 - t);
+    }
+
+    /** Draw a photo, picking the resolution tier that fits its screen size. */
+    drawPhoto(photoIndex, x, y, size) {
         const photo = this.photos[photoIndex];
-        this.ctx.drawImage(photo.thumbnail, x, y, size, size);
+        const source = size > this.THUMB_SIZE ? photo.display : photo.thumbnail;
+        this.ctx.drawImage(source, x, y, size, size);
         this.tilesRendered++;
     }
 
-    findBestMatch(targetColor, candidateIndices) {
-        let bestIndex = candidateIndices[0];
-        let bestDist = Infinity;
+    /** Translucent overlay nudging a tile toward its target cell color. */
+    applyTint(tint, x, y, size, strength) {
+        if (!tint || strength <= 0.02) return;
+        const ctx = this.ctx;
+        ctx.globalAlpha = this.TINT_ALPHA * strength;
+        ctx.fillStyle = tint.css;
+        ctx.fillRect(x, y, size, size);
+        ctx.globalAlpha = 1;
+    }
 
-        for (const i of candidateIndices) {
-            const c = this.photoColors[i];
-            // Use weighted Euclidean distance (human perception weights)
-            const dr = c.r - targetColor.r;
-            const dg = c.g - targetColor.g;
-            const db = c.b - targetColor.b;
-            // Weight green more (human eyes are more sensitive to green)
-            const dist = 2 * dr * dr + 4 * dg * dg + 3 * db * db;
+    /**
+     * Get (or lazily build) the pre-rendered mosaic bitmap for a photo.
+     * This is the workhorse: at typical zoom levels an entire gridSize²
+     * mosaic is a single drawImage from this cache.
+     */
+    getMosaicCache(photoIndex) {
+        let cached = this.mosaicCache.get(photoIndex);
+        if (cached) {
+            // Refresh LRU order
+            this.mosaicCache.delete(photoIndex);
+            this.mosaicCache.set(photoIndex, cached);
+            return cached;
+        }
 
-            if (dist < bestDist) {
-                bestDist = dist;
-                bestIndex = i;
+        const size = this.cacheSize;
+        const g = this.gridSize;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        const tileMap = this.tileMappings[photoIndex];
+        const colorMap = this.cellColors[photoIndex];
+
+        for (let row = 0; row < g; row++) {
+            const y0 = Math.round(row * size / g);
+            const y1 = Math.round((row + 1) * size / g);
+
+            for (let col = 0; col < g; col++) {
+                const x0 = Math.round(col * size / g);
+                const x1 = Math.round((col + 1) * size / g);
+                const photo = this.photos[tileMap[row][col]];
+                const source = (x1 - x0) > this.THUMB_SIZE ? photo.display : photo.thumbnail;
+
+                ctx.drawImage(source, x0, y0, x1 - x0, y1 - y0);
+
+                // Bake in the color-correction tint so the parent image reads
+                ctx.globalAlpha = this.TINT_ALPHA;
+                ctx.fillStyle = colorMap[row][col].css;
+                ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+                ctx.globalAlpha = 1;
             }
         }
 
-        return bestIndex;
+        this.mosaicCache.set(photoIndex, canvas);
+        if (this.mosaicCache.size > this.CACHE_LIMIT) {
+            this.mosaicCache.delete(this.mosaicCache.keys().next().value);
+        }
+
+        return canvas;
     }
 }
 

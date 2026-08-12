@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ant Colony — BioSims</title>
+  <link rel="stylesheet" href="../assets/css/main.css" />
+  <style>
+    /* Keep the drawing surface at a fixed aspect so the canvas buffer and the
+       displayed size stay in sync regardless of intrinsic dimensions. */
+    .sim-stage { aspect-ratio: 3 / 2; }
+    .sim-stage canvas { width: 100%; height: 100%; cursor: crosshair; }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem 1rem;
+      margin: 0 0 1rem;
+    }
+    .stat {
+      padding: 0.55rem 0.7rem;
+      border-radius: 12px;
+      border: 1px solid var(--panel-border);
+      background: rgba(6, 10, 22, 0.55);
+    }
+    .stat .k {
+      display: block;
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .stat .v {
+      display: block;
+      margin-top: 0.15rem;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+    .brush-row { display: flex; gap: 0.4rem; margin-top: 0.15rem; }
+    .brush-row .btn { padding: 0.45rem 0.5rem; font-size: 0.82rem; }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.1rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.6rem;
+    }
+    .legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="breadcrumb">
+      <a href="../../index.html">Home</a> /
+      <a href="../index.html">BioSims</a> / Ant Colony
+    </nav>
+
+    <section class="hero">
+      <span class="hero__badge">Stigmergy</span>
+      <h1>Ant Colony</h1>
+      <p>
+        No ant knows where the food is. Each one wanders, and when it stumbles
+        onto a crumb it hauls it home — laying a scent trail as it goes. Other
+        ants follow the strongest trail, so a good route reinforces itself while
+        unused ones evaporate. The nest gives off its own scent that foragers
+        home in on. Shortest paths <em>emerge</em> from the chemistry — paint
+        food, walls, or erase directly on the world.
+      </p>
+    </section>
+
+    <section class="sim-shell">
+      <div class="sim-stage">
+        <canvas id="stage" width="900" height="600" aria-label="Ant colony simulation"></canvas>
+      </div>
+
+      <aside class="sim-panel">
+        <h2>Colony</h2>
+
+        <div class="stat-grid">
+          <div class="stat"><span class="k">Food home</span><span class="v" id="foodVal">0</span></div>
+          <div class="stat"><span class="k">In world</span><span class="v" id="storeVal">0</span></div>
+        </div>
+        <div class="stat" style="margin-bottom:1rem;">
+          <span class="k">Ants</span><span class="v" id="antsVal">0</span>
+        </div>
+
+        <div class="row">
+          <label>Brush</label>
+          <div class="brush-row">
+            <button class="btn primary" id="brushFood" data-brush="food">Food</button>
+            <button class="btn" id="brushWall" data-brush="wall">Wall</button>
+            <button class="btn" id="brushErase" data-brush="erase">Erase</button>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" id="playBtn">Pause</button>
+          <button class="btn" id="resetBtn">Reset</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="pheroBtn">Pheromones: on</button>
+          <button class="btn" id="clearWallsBtn">Clear walls</button>
+        </div>
+
+        <h2 style="margin-top:1.4rem;">Behaviour</h2>
+
+        <div class="row">
+          <label>Ants <span class="val" id="countVal">220</span></label>
+          <input type="range" id="count" min="20" max="600" step="10" value="220" />
+        </div>
+        <div class="row">
+          <label>Sensor distance <span class="val" id="sensorDistVal">9</span></label>
+          <input type="range" id="sensorDist" min="3" max="24" step="1" value="9" />
+        </div>
+        <div class="row">
+          <label>Sensor angle <span class="val" id="sensorAngleVal">0.50</span></label>
+          <input type="range" id="sensorAngle" min="0.1" max="1.2" step="0.05" value="0.5" />
+        </div>
+        <div class="row">
+          <label>Turn speed <span class="val" id="turnSpeedVal">0.45</span></label>
+          <input type="range" id="turnSpeed" min="0.05" max="1.0" step="0.05" value="0.45" />
+        </div>
+        <div class="row">
+          <label>Wander <span class="val" id="wanderVal">0.12</span></label>
+          <input type="range" id="wander" min="0" max="0.5" step="0.01" value="0.12" />
+        </div>
+        <div class="row">
+          <label>Speed <span class="val" id="speedVal">1.1</span></label>
+          <input type="range" id="speed" min="0.4" max="3" step="0.1" value="1.1" />
+        </div>
+
+        <h2 style="margin-top:1.4rem;">Pheromone</h2>
+
+        <div class="row">
+          <label>Evaporation <span class="val" id="evaporationVal">0.006</span></label>
+          <input type="range" id="evaporation" min="0.002" max="0.05" step="0.001" value="0.006" />
+        </div>
+        <div class="row">
+          <label>Deposit <span class="val" id="depositVal">40</span></label>
+          <input type="range" id="deposit" min="5" max="120" step="5" value="40" />
+        </div>
+
+        <div class="legend">
+          <span><i class="dot" style="background:#e7ecff;"></i>searching</span>
+          <span><i class="dot" style="background:#6ef3c4;"></i>carrying food</span>
+          <span><i class="dot" style="background:#f39bd2;"></i>food</span>
+          <span><i class="dot" style="background:#ffca8c;"></i>nest</span>
+        </div>
+
+        <details>
+          <summary>About</summary>
+          <p>
+            This is <em>stigmergy</em>: coordination through traces left in the
+            environment rather than direct communication. The green trail is a
+            pheromone ants lay only while carrying food, and it evaporates over
+            time — because shorter round-trips get reinforced faster than they
+            fade, the colony converges on efficient routes without any ant
+            planning one. The faint blue haze is the nest's own scent: a
+            gradient laden ants follow home, bending around any wall in the way.
+            Raise evaporation to make trails skittish; lower it to lock them in.
+          </p>
+        </details>
+      </aside>
+    </section>
+
+    <footer class="page-footer">BioSims · Ant Colony</footer>
+  </main>
+
+  <script src="js/ants.js"></script>
+</body>
+</html>

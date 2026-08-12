@@ -241,11 +241,277 @@
             pointer-events: none;
         }
 
+        .selection-panel {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(12, 12, 30, 0.8);
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(100, 140, 255, 0.35);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            font-size: 12.5px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            color: rgba(220, 220, 245, 0.95);
+            z-index: 20;
+        }
+
+        .selection-panel button {
+            font-family: inherit;
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(100, 140, 255, 0.4);
+            background: rgba(100, 140, 255, 0.18);
+            color: rgba(150, 195, 255, 1);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .selection-panel button:hover {
+            background: rgba(100, 140, 255, 0.32);
+        }
+
+        .selection-panel .clear-btn {
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(200, 200, 220, 0.8);
+            padding: 6px 9px;
+        }
+
+        .selection-marker {
+            position: fixed;
+            width: 14px;
+            height: 14px;
+            margin: -7px 0 0 -7px;
+            border: 2px solid rgba(150, 195, 255, 0.95);
+            border-radius: 50%;
+            box-shadow: 0 0 6px rgba(100, 140, 255, 0.9), inset 0 0 4px rgba(100, 140, 255, 0.6);
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(12, 12, 30, 0.75);
+            padding: 22px 24px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            width: 320px;
+            z-index: 10;
+            max-height: 75vh;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .info-panel.hidden {
+            display: none;
+        }
+
+        .info-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 12px;
+            letter-spacing: -0.3px;
+        }
+
+        .info-section {
+            margin-bottom: 16px;
+        }
+
+        .info-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: rgba(180, 180, 220, 0.5);
+            margin-bottom: 6px;
+        }
+
+        .info-content {
+            color: rgba(220, 220, 240, 0.8);
+            font-size: 12px;
+        }
+
+        .color-swatch {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            margin-right: 6px;
+            vertical-align: middle;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .region-type {
+            margin-bottom: 8px;
+            padding: 6px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 6px;
+        }
+
+        .toggle-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 0;
+            cursor: pointer;
+            font-size: 12px;
+            color: rgba(100, 140, 255, 0.8);
+            margin-top: 8px;
+        }
+
+        .toggle-info:hover {
+            color: rgba(150, 180, 255, 1);
+        }
+
+        .toggle-info::before {
+            content: '▶';
+            display: inline-block;
+            width: 8px;
+        }
+
+        .toggle-info.expanded::before {
+            content: '▼';
+        }
+
+        .info-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .info-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 3px;
+        }
+
+        .info-panel::-webkit-scrollbar-thumb {
+            background: rgba(100, 140, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .info-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 140, 255, 0.5);
+        }
+
+        .hover-info {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(12, 12, 30, 0.9);
+            padding: 16px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(20px);
+            color: #e0e0f0;
+            font-size: 13px;
+            z-index: 20;
+            pointer-events: none;
+            white-space: nowrap;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .hover-info.visible {
+            opacity: 1;
+        }
+
+        @media (max-width: 1200px) {
+            .info-panel {
+                width: calc(100vw - 32px);
+                max-height: 40vh;
+            }
+        }
+
         @media (max-width: 600px) {
             #ui {
                 width: calc(100vw - 32px);
                 padding: 16px 18px;
             }
+
+            .info-panel {
+                display: none;
+            }
+
+            .legend-panel {
+                display: none;
+            }
+        }
+
+        .legend-panel {
+            position: absolute;
+            bottom: 80px;
+            right: 16px;
+            background: rgba(12, 12, 30, 0.75);
+            padding: 16px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 9;
+            max-height: 35vh;
+            overflow-y: auto;
+            width: 200px;
+        }
+
+        .legend-panel.hidden {
+            display: none;
+        }
+
+        .legend-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 10px;
+            letter-spacing: -0.3px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 11px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            flex-shrink: 0;
+        }
+
+        .legend-label {
+            color: rgba(200, 200, 220, 0.9);
+            font-weight: 500;
+        }
+
+        .legend-panel::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .legend-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .legend-panel::-webkit-scrollbar-thumb {
+            background: rgba(100, 140, 255, 0.3);
+            border-radius: 2px;
         }
     </style>
 </head>
@@ -302,18 +568,107 @@
         <div class="control-group">
             <span class="control-label">Farey Depth</span>
             <div class="slider-row">
-                <input type="range" id="depthSlider" min="3" max="7" value="5">
-                <span class="slider-value" id="depthVal">5</span>
+                <input type="range" id="depthSlider" min="3" max="8" value="6">
+                <span class="slider-value" id="depthVal">6</span>
             </div>
         </div>
 
         <div class="footer">
-            Drag to pan &middot; Scroll to zoom<br>
+            Drag to pan &middot; Scroll to zoom &middot; Click to select a point<br>
             Based on Keen&ndash;Series theory
         </div>
     </div>
 
     <div class="coords-display" id="coordsDisplay">&rho; = 0.00 + 0.00i</div>
+
+    <div id="selectionMarker" class="selection-marker" style="display: none;"></div>
+    <div id="selectionPanel" class="selection-panel" style="display: none;">
+        <span id="selectionInfo"></span>
+        <button id="exportPoincareBtn" title="Open this group in the Poincaré fundamental domain viewer">Open in Poincar&eacute; &nearr;</button>
+        <button id="clearSelectionBtn" class="clear-btn" title="Clear selection (Esc)">&#10005;</button>
+    </div>
+
+    <div id="legendPanel" class="legend-panel">
+        <div class="legend-title">Slopes p/q</div>
+        <div id="legendContent"></div>
+    </div>
+
+    <div id="infoPanel" class="info-panel">
+        <div class="info-title">Region Information</div>
+        
+        <div class="info-section">
+            <div class="info-label">About the Riley Slice</div>
+            <div class="info-content">
+                The Riley slice is a 2-dimensional cross-section of Schottky space.
+                It parametrizes two-generator Kleinian groups where one generator is parabolic.
+                The different colored regions represent combinatorially distinct types of Dirichlet domains.
+            </div>
+            <div style="margin-top: 12px;">
+                <a href="./explanation.html" style="display: inline-block; padding: 8px 12px; background: rgba(100, 140, 255, 0.2); border: 1px solid rgba(100, 140, 255, 0.4); border-radius: 6px; color: rgba(100, 180, 255, 1); text-decoration: none; font-size: 12px;">
+                    📖 Read Full Explanation
+                </a>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-label">What the Colors Mean</div>
+            <div class="info-content">
+                The <strong>gray region</strong> is the certified complement of the Riley slice, with its fractal boundary: gray points are within a small Newton distance of a <strong>root of a Farey polynomial</strong> 2 − Φ<sub>p/q</sub> (root sets are dense in the complement — Elzenaar&ndash;Martin&ndash;Schillewaert), or in the Shimizu-excluded disk |ρ| &lt; 1, or on the real segment (−4, 4). Raising the Farey depth sharpens the fractal boundary.
+                The exterior is tiled Riley-style: each colored region is labeled by the <strong>slope p/q</strong> whose Farey word has minimal |Φ| — the dominant word of the Dirichlet/Ford domain, as in Riley's original computer plot of combinatorial types.
+                Coarse slopes own the large outer regions; bands of finer regions accumulate on the boundary.
+                The thin dark curves laminating the exterior are the <strong>pleating rays</strong>, drawn Yamashita-style from each p/q cusp out to infinity.
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-label">Key Features</div>
+            <div class="toggle-info" id="toggleFeatureInfo">
+                What do I see here?
+            </div>
+            <div id="featureDetails" style="display: none; margin-top: 8px;">
+                <div class="region-type">
+                    <strong style="color: #fff;">Colored Regions:</strong> A Riley-style tessellation of the slice: within one region a single Farey word W<sub>p/q</sub> has the smallest |Φ|, so the Dirichlet domain keeps the same dominant combinatorics throughout. Walls appear where dominance passes to a Farey-neighbor slope; the regions refine into curvy bands as they approach the boundary.
+                </div>
+                <div class="region-type">
+                    <strong style="color: #fff;">Gray Region:</strong> The complement of the Riley slice, rendered via the root sets of the Farey polynomials 2 − Φ<sub>p/q</sub>: the roots lie in, and are dense in, the complement, so the union of small neighborhoods of roots converges to the true fractal-boundary region as the depth grows. Seeded with the Shimizu disk |ρ| &lt; 1 and the real segment (−4, 4).
+                </div>
+                <div class="region-type">
+                    <strong style="color: #fff;">Pleating Rays:</strong> Curves in the exterior where the Farey trace Φ<sub>p/q</sub> is real and ≤ −2. Each ray runs from the p/q cusp on the boundary out to infinity in the asymptotic direction πp/q; distinct rays never cross.
+                </div>
+                <div class="region-type">
+                    <strong style="color: #fff;">Ray Extensions:</strong> Fainter curves continuing each ray past its cusp into the non-discrete region, where Φ<sub>p/q</sub> is real in (−2, 2) and the word W<sub>p/q</sub> becomes elliptic.
+                </div>
+                <div class="region-type">
+                    <strong style="color: #fff;">Boundary Curves:</strong> The curves separating regions, marking where a trace polynomial passes through ±2.
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-label">Under Your Cursor</div>
+            <div id="hoverInfo" class="info-content" style="color: rgba(100, 180, 255, 1);">
+                Hover over a region to see details
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-label">Mathematical Background</div>
+            <div class="toggle-info" id="toggleMathInfo">
+                Learn more
+            </div>
+            <div id="mathDetails" style="display: none; margin-top: 8px;">
+                <div class="region-type">
+                    Each point ρ in the Riley slice corresponds to a group Γ(ρ) with generators:
+                    <br/><code style="color: rgba(100, 180, 255, 0.9); font-size: 11px;">A = ((1,1),(0,1))</code>
+                    <br/><code style="color: rgba(100, 180, 255, 0.9); font-size: 11px;">B = ((1,0),(ρ,1))</code>
+                </div>
+                <div class="region-type">
+                    The combinatorial type is determined by which Farey traces satisfy |Φ_{p/q}(ρ)| &lt; 2.
+                    This encodes how many faces meet at the origin in the Dirichlet domain.
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script type="module" src="./js/app.js"></script>
 <!-- golg-nav-bootstrap -->

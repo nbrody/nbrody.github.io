@@ -234,8 +234,8 @@ class IrrationalRotation {
             this.elements.alphaDisplay.textContent = this.alpha.toFixed(5);
         }
 
-        if (window.MathJax) {
-            MathJax.typesetPromise([this.elements.description, this.elements.alphaDisplay, this.elements.iterDisplay]);
+        if (window.MathJax && MathJax.typesetPromise) {
+            MathJax.typesetPromise([this.elements.description, this.elements.alphaDisplay, this.elements.iterDisplay]).catch(() => {});
         }
     }
 
@@ -277,7 +277,7 @@ class IrrationalRotation {
         setTimeout(() => {
             this.elements.description.innerHTML = step.text;
             this.elements.description.style.opacity = 1;
-            if (window.MathJax) MathJax.typesetPromise([this.elements.description]);
+            if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([this.elements.description]).catch(() => {});
         }, 200);
 
         this.elements.prevBtn.disabled = index === 0;
@@ -359,8 +359,8 @@ class IrrationalRotation {
             this.labels.push(label);
         }
 
-        if (window.MathJax) {
-            MathJax.typesetPromise([this.overlay]);
+        if (window.MathJax && MathJax.typesetPromise) {
+            MathJax.typesetPromise([this.overlay]).catch(() => {});
         }
     }
 

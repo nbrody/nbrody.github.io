@@ -89,8 +89,10 @@ class FlashBeam:
         for n in generators:
             visited.add(self.problem.get_hash_key(n))
         
-        # Persistent Flash: Initialize with generators
-        persistent_flash = list(generators)
+        # Persistent Flash: Initialize with generators.
+        # flash_size <= 0 disables the flash entirely, so the expansion pool
+        # is just the generators — i.e. a standard beam search.
+        persistent_flash = list(generators) if self.flash_size > 0 else []
         
         found_solutions = []
         
@@ -165,20 +167,21 @@ class FlashBeam:
 
             # 4. Update Persistent Flash: Best N globally seen nodes that are NOT solutions
             # (Excluding score 0 prevents flash from being filled with trivial identities)
-            full_history = persistent_flash + current_beam
-            full_history.sort(key=lambda x: x.score)
-            
-            persistent_flash = []
-            seen_persistent = set()
-            for n in full_history:
-                if n.score < 1e-10:
-                    continue
-                uid = self.problem.get_hash_key(n)
-                if uid not in seen_persistent:
-                    persistent_flash.append(n)
-                    seen_persistent.add(uid)
-                    if len(persistent_flash) >= self.flash_size:
-                        break
+            if self.flash_size > 0:
+                full_history = persistent_flash + current_beam
+                full_history.sort(key=lambda x: x.score)
+
+                persistent_flash = []
+                seen_persistent = set()
+                for n in full_history:
+                    if n.score < 1e-10:
+                        continue
+                    uid = self.problem.get_hash_key(n)
+                    if uid not in seen_persistent:
+                        persistent_flash.append(n)
+                        seen_persistent.add(uid)
+                        if len(persistent_flash) >= self.flash_size:
+                            break
             
             best_node = current_beam[0]
             elapsed = time.monotonic() - start_time

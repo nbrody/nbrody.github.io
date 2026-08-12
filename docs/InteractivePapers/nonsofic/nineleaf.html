@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Nine-Leaf Prefix Code D</title>
+    <meta name="description"
+        content="Interactive figure: the nine-leaf complete prefix code D with blocks alpha, beta, nu; the supports of Gamma and J, and the contractions u and v.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Outfit:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #050505;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --text-main: #e0e0e0;
+            --text-dim: #a0a0a0;
+            --c-alpha: #4da6ff;
+            --c-beta: #2fd6c3;
+            --c-nu: #ffc861;
+            --c-viol: #c78bff;
+            --c-cyan: #00f2ff;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: radial-gradient(ellipse at 50% -20%, rgba(0, 242, 255, 0.06), transparent 60%), var(--bg-deep);
+            color: var(--text-main);
+            font-family: 'Inter', system-ui, sans-serif;
+            min-height: 100vh;
+        }
+
+        header { text-align: center; padding: 18px 16px 4px; }
+
+        header h1 { font-family: 'Outfit', sans-serif; font-size: 1.4em; margin: 0; letter-spacing: -0.02em; }
+
+        header p { color: var(--text-dim); font-size: 0.85em; margin: 6px 0 0; }
+
+        body.embed header { display: none; }
+
+        #wrap {
+            display: flex;
+            gap: 14px;
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 12px 14px;
+            align-items: stretch;
+        }
+
+        body.embed #wrap { height: 100vh; padding: 10px 12px; }
+
+        #figbox {
+            flex: 1;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 6px;
+            display: flex;
+        }
+
+        svg { width: 100%; height: auto; }
+
+        aside {
+            width: 318px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 13.5px;
+        }
+
+        aside h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.05em;
+            margin: 2px 0;
+            color: var(--c-cyan);
+            font-weight: 700;
+        }
+
+        .leg {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 8px;
+            border-radius: 9px;
+            border: 1px solid transparent;
+            cursor: default;
+        }
+
+        .leg:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--glass-border); }
+
+        .chip {
+            width: 13px; height: 13px;
+            border-radius: 4px;
+            background: var(--c);
+            flex: none;
+            box-shadow: 0 0 6px var(--c);
+        }
+
+        .toggles { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 2px; }
+
+        .toggles button {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 12.5px;
+            border-radius: 9px;
+            padding: 5px 11px;
+            cursor: pointer;
+        }
+
+        .toggles button:hover { border-color: rgba(0, 242, 255, 0.45); }
+
+        .toggles button.on { border-color: var(--c-cyan); color: var(--c-cyan); background: rgba(0, 242, 255, 0.08); }
+
+        #cap {
+            flex: 1;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 9px 11px;
+            color: var(--text-main);
+            font-size: 13px;
+            line-height: 1.45;
+            min-height: 74px;
+        }
+
+        #cap b { color: var(--c-cyan); font-weight: 600; }
+
+        sub { font-size: 0.68em; }
+
+        /* SVG internals */
+        .edge { stroke: rgba(255, 255, 255, 0.15); stroke-width: 1.2; }
+
+        .hull { stroke-width: 1; transition: fill-opacity 0.18s, stroke-opacity 0.18s; }
+
+        .hull.hot { fill-opacity: 0.34 !important; stroke-opacity: 0.95 !important; }
+
+        .leafdot { stroke: rgba(255, 255, 255, 0.8); stroke-width: 1.2; cursor: pointer; }
+
+        .greek {
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            pointer-events: none;
+        }
+
+        .wordlab {
+            font-size: 9.5px;
+            fill: rgba(255, 255, 255, 0.55);
+            pointer-events: none;
+        }
+
+        .nodedot { fill: #9a9a9a; }
+
+        .g0outline {
+            fill: none;
+            stroke: var(--c-cyan);
+            stroke-width: 1.6;
+            stroke-dasharray: 6 4;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+
+        .g0outline.show { opacity: 0.9; }
+
+        .uvarrow { fill: none; stroke-width: 2.1; opacity: 0.9; }
+
+        .elabel { fill: rgba(255, 255, 255, 0.35); font-size: 10px; }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>The nine-leaf prefix code D</h1>
+        <p>Blocks α, β, ν partition [0], [10], [11]. Γ acts on the blue block; J = V<sub>1000</sub> on the violet
+            leaf; u and v contract everything toward [0].</p>
+    </header>
+    <div id="wrap">
+        <div id="figbox"><svg id="fig" viewBox="0 0 760 402"></svg></div>
+        <aside>
+            <h2>D = (α₁,α₂,α₃, β₁,β₂,β₃, ν₁,ν₂,ν₃)</h2>
+            <div class="leg" data-block="alpha"><span class="chip" style="--c:#4da6ff"></span>
+                α = (000, 001, 01) — partitions [0]</div>
+            <div class="leg" data-block="beta"><span class="chip" style="--c:#2fd6c3"></span>
+                β = (1000, 1001, 101) — partitions [10]</div>
+            <div class="leg" data-block="nu"><span class="chip" style="--c:#ffc861"></span>
+                ν = (1100, 1101, 111) — partitions [11]</div>
+            <div class="toggles">
+                <button id="tGamma">Γ on [0]</button>
+                <button id="tJ">J = V₁₀₀₀</button>
+                <button id="tU">u action</button>
+                <button id="tV">v action</button>
+            </div>
+            <div id="cap"></div>
+        </aside>
+    </div>
+
+    <script>
+        'use strict';
+        (() => {
+            const params = new URLSearchParams(location.search);
+            if (params.get('embed') === '1') document.body.classList.add('embed');
+
+            // Forward navigation keys to the parent deck when embedded.
+            if (window.parent !== window) {
+                window.addEventListener('keydown', e => {
+                    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(e.key)) {
+                        parent.postMessage({ type: 'iframeNav', key: e.key }, '*');
+                        e.preventDefault();
+                    }
+                });
+            }
+
+            const NS = 'http://www.w3.org/2000/svg';
+            const svg = document.getElementById('fig');
+            const W = 760, PAD = 24, YB = 354, DY = (YB - PAD) / 4;
+            const CELL = W / 16;
+            const el = (tag, attrs, parent) => {
+                const e = document.createElementNS(NS, tag);
+                for (const k in attrs) e.setAttribute(k, attrs[k]);
+                (parent || svg).appendChild(e);
+                return e;
+            };
+            const pos = w => {
+                const l = w.length, idx = w ? parseInt(w, 2) : 0;
+                return { x: (idx + 0.5) * W / (1 << l), y: PAD + l * DY };
+            };
+
+            const COLORS = { alpha: '#4da6ff', beta: '#2fd6c3', nu: '#ffc861', viol: '#c78bff' };
+            const LEAVES = [
+                { w: '000',  g: 'α₁', block: 'alpha' },
+                { w: '001',  g: 'α₂', block: 'alpha' },
+                { w: '01',   g: 'α₃', block: 'alpha' },
+                { w: '1000', g: 'β₁', block: 'beta', viol: true },
+                { w: '1001', g: 'β₂', block: 'beta' },
+                { w: '101',  g: 'β₃', block: 'beta' },
+                { w: '1100', g: 'ν₁', block: 'nu' },
+                { w: '1101', g: 'ν₂', block: 'nu' },
+                { w: '111',  g: 'ν₃', block: 'nu' },
+            ];
+            const U_MAP = [ // [source, target] cylinder maps for u
+                ['000', '0000'], ['001', '0010'], ['01', '010'],
+                ['1000', '0001'], ['1001', '0011'], ['101', '011'],
+                ['1100', '100'], ['1101', '101'], ['111', '11'],
+            ];
+            const V_MAP = [
+                ['000', '0000'], ['001', '0010'], ['01', '010'],
+                ['1000', '100'], ['1001', '101'], ['101', '11'],
+                ['1100', '0001'], ['1101', '0011'], ['111', '011'],
+            ];
+
+            const gHull = el('g', {});
+            const gEdge = el('g', {});
+            const gArr = el('g', {});
+            const gTop = el('g', {});
+
+            // arrowheads
+            const defs = el('defs', {});
+            for (const [name, c] of Object.entries(COLORS)) {
+                const m = el('marker', { id: 'ah-' + name, viewBox: '0 0 10 10', refX: 8, refY: 5,
+                    markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' }, defs);
+                el('path', { d: 'M0,0 L10,5 L0,10 z', fill: c }, m);
+            }
+
+            // full binary tree, depth 4
+            (function walk(w) {
+                const P = pos(w);
+                if (w.length < 4) for (const b of '01') {
+                    const C = pos(w + b);
+                    el('line', { x1: P.x, y1: P.y, x2: C.x, y2: C.y, class: 'edge' }, gEdge);
+                    if (w.length < 2) {
+                        const t = el('text', { x: (P.x + C.x) / 2 + (b === '0' ? -9 : 9),
+                            y: (P.y + C.y) / 2, class: 'elabel', 'text-anchor': 'middle' }, gEdge);
+                        t.textContent = b;
+                    }
+                    walk(w + b);
+                }
+                el('circle', { cx: P.x, cy: P.y, r: 2.4, class: 'nodedot' }, gEdge);
+            })('');
+
+            // subtree hull path for a word
+            const hullPath = w => {
+                const l = w.length, idx = parseInt(w, 2), span = 1 << (4 - l);
+                const x1 = idx * span * CELL + 2, x2 = (idx + 1) * span * CELL - 2;
+                const p = pos(w);
+                return `M ${p.x} ${p.y - 3} L ${x2} ${YB + 14} L ${x1} ${YB + 14} Z`;
+            };
+
+            const cap = document.getElementById('cap');
+            let baseMsg = 'Hover a leaf to see its cylinder. Toggle <b>Γ</b>, <b>J</b>, <b>u</b>, <b>v</b> ' +
+                'to see the supports and contractions from the proof.';
+            const setCap = html => { cap.innerHTML = html; };
+            setCap(baseMsg);
+
+            const leafEls = [];
+            for (const leaf of LEAVES) {
+                const c = leaf.viol ? COLORS.viol : COLORS[leaf.block];
+                const hull = el('path', { d: hullPath(leaf.w), class: 'hull', fill: c,
+                    'fill-opacity': 0.14, stroke: c, 'stroke-opacity': 0.4,
+                    'data-block': leaf.block }, gHull);
+                const p = pos(leaf.w);
+                const dot = el('circle', { cx: p.x, cy: p.y, r: 7.5, fill: c, class: 'leafdot' }, gTop);
+                const lab = el('text', { x: p.x, y: p.y - 12, class: 'greek', fill: c,
+                    'text-anchor': 'middle' }, gTop);
+                lab.textContent = leaf.g;
+                const idx = parseInt(leaf.w, 2), span = 1 << (4 - leaf.w.length);
+                const word = el('text', { x: (idx * span + span / 2) * CELL, y: YB + 26,
+                    class: 'wordlab', 'text-anchor': 'middle' }, gTop);
+                word.textContent = leaf.w;
+                leafEls.push({ leaf, hull, dot });
+
+                const hoverMsg = () => {
+                    let m = `<b>${leaf.g}</b> = cylinder [${leaf.w}]`;
+                    if (leaf.viol) m += ' — the support of <b>J ≅ V</b> (violet leaf of the teal block)';
+                    else if (leaf.block === 'alpha') m += ' — one of the three α-leaves carrying <b>Γ</b>';
+                    return m;
+                };
+                for (const t of [hull, dot]) {
+                    t.addEventListener('mouseenter', () => { hull.classList.add('hot'); setCap(hoverMsg()); });
+                    t.addEventListener('mouseleave', () => { hull.classList.remove('hot'); setCap(baseMsg); });
+                }
+            }
+
+            // legend hover highlights a whole block
+            document.querySelectorAll('.leg').forEach(lg => {
+                const blk = lg.dataset.block;
+                lg.addEventListener('mouseenter', () =>
+                    leafEls.forEach(r => { if (r.leaf.block === blk) r.hull.classList.add('hot'); }));
+                lg.addEventListener('mouseleave', () =>
+                    leafEls.forEach(r => r.hull.classList.remove('hot')));
+            });
+
+            // dashed outline of the [0] subtree, for the Gamma toggle
+            const g0 = el('path', { d: hullPath('0'), class: 'g0outline' }, gTop);
+            const j0 = el('path', { d: hullPath('1000'), class: 'g0outline',
+                style: 'stroke:#c78bff' }, gTop);
+
+            // u / v arrows
+            const mkArrows = (map, cls) => {
+                const g = el('g', { display: 'none' }, gArr);
+                for (const [src, tgt] of map) {
+                    const leaf = LEAVES.find(L => L.w === src);
+                    const c = leaf.viol ? COLORS.viol : COLORS[leaf.block];
+                    const A = pos(src), B = pos(tgt);
+                    let dx = B.x - A.x, dy2 = B.y - A.y;
+                    const d = Math.hypot(dx, dy2) || 1; dx /= d; dy2 /= d;
+                    const a0 = { x: A.x + dx * 10, y: A.y + dy2 * 10 };
+                    const b0 = { x: B.x - dx * 10, y: B.y - dy2 * 10 };
+                    const k = Math.min(60, 16 + d * 0.22);
+                    const mx = (a0.x + b0.x) / 2 - dy2 * k, my = (a0.y + b0.y) / 2 + dx * k;
+                    el('path', { d: `M${a0.x},${a0.y} Q${mx},${my} ${b0.x},${b0.y}`,
+                        class: 'uvarrow', stroke: c,
+                        'marker-end': `url(#ah-${leaf.viol ? 'viol' : leaf.block})` }, g);
+                }
+                return g;
+            };
+            const gU = mkArrows(U_MAP, 'u');
+            const gV = mkArrows(V_MAP, 'v');
+
+            // toggles
+            const state = { gamma: false, j: false, u: false, v: false };
+            const btns = {
+                gamma: document.getElementById('tGamma'),
+                j: document.getElementById('tJ'),
+                u: document.getElementById('tU'),
+                v: document.getElementById('tV'),
+            };
+            const MSGS = {
+                gamma: '<b>Γ = EL<sub>α</sub>(R) ≅ EL₃(R)</b>: matrices over R along the three α-leaves, ' +
+                    'identity outside [0]. Infinite, finitely generated, property (T).',
+                j: '<b>J = V<sub>1000</sub> ≅ Thompson’s V</b>, supported on the violet leaf [1000]. ' +
+                    'Disjoint from [0], so [Γ, J] = 1 and Γ × J ≤ G. V is infinite, simple, finitely ' +
+                    'presented — hence <b>not LEF</b>.',
+                u: '<b>u</b>: [αᵢ] → [αᵢ0], [βᵢ] → [αᵢ1], [νᵢ] → [ζᵢ]. The α- and β-blocks land inside ' +
+                    '[0]: so uΓu⁻¹ ≤ Γ and uJu⁻¹ = V<sub>0001</sub> ≤ Γ — the nesting that powers ' +
+                    'Proposition 2.3.',
+                v: '<b>v</b>: [αᵢ] → [αᵢ0], [βᵢ] → [ζᵢ], [νᵢ] → [αᵢ1]. Same contraction of Γ; together, ' +
+                    '⟨Γ, u, v⟩ = G recovers every elementary D-root.',
+            };
+            function apply() {
+                btns.gamma.classList.toggle('on', state.gamma);
+                btns.j.classList.toggle('on', state.j);
+                btns.u.classList.toggle('on', state.u);
+                btns.v.classList.toggle('on', state.v);
+                g0.classList.toggle('show', state.gamma);
+                j0.classList.toggle('show', state.j);
+                leafEls.forEach(r => {
+                    if (state.gamma && r.leaf.block === 'alpha') r.hull.setAttribute('fill-opacity', 0.3);
+                    else if (state.j && r.leaf.viol) r.hull.setAttribute('fill-opacity', 0.34);
+                    else r.hull.setAttribute('fill-opacity', 0.14);
+                });
+                gU.setAttribute('display', state.u ? 'inline' : 'none');
+                gV.setAttribute('display', state.v ? 'inline' : 'none');
+                const active = ['u', 'v', 'j', 'gamma'].filter(k => state[k]);
+                baseMsg = active.length
+                    ? active.map(k => MSGS[k]).join('<br><br>')
+                    : 'Hover a leaf to see its cylinder. Toggle <b>Γ</b>, <b>J</b>, <b>u</b>, <b>v</b> ' +
+                      'to see the supports and contractions from the proof.';
+                setCap(baseMsg);
+            }
+            btns.gamma.addEventListener('click', () => { state.gamma = !state.gamma; apply(); });
+            btns.j.addEventListener('click', () => { state.j = !state.j; apply(); });
+            btns.u.addEventListener('click', () => { state.u = !state.u; if (state.u) state.v = false; apply(); });
+            btns.v.addEventListener('click', () => { state.v = !state.v; if (state.v) state.u = false; apply(); });
+
+            // start with the two supports visible — the figure from the paper
+            state.gamma = true; state.j = true;
+            apply();
+        })();
+    </script>
+</body>
+
+</html>

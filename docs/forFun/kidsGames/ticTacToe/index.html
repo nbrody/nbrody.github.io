@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Play Tic-Tac-Toe with a friend or a friendly robot!">
+    <title>Tic-Tac-Toe</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <a id="home-btn" class="chrome-btn" href="../index.html" aria-label="Back to all games">🏠</a>
+    <button id="sound-btn" class="chrome-btn" type="button" aria-label="Toggle sound">🔊</button>
+
+    <main id="game-screen">
+        <header id="hud">
+            <span class="player-chip p1" id="p1-chip"><span id="p1-glyph">❌</span> <span id="p1-name">P1</span></span>
+            <span id="turn-banner" class="turn-p1">Your turn!</span>
+            <span class="player-chip p2" id="p2-chip"><span id="p2-glyph">⭕</span> <span id="p2-name">P2</span></span>
+        </header>
+        <div id="board-area">
+            <div id="board-wrap">
+                <div id="board" aria-label="Tic tac toe board"></div>
+                <div id="win-line" hidden></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="menu-overlay" class="overlay show">
+        <div class="menu-card">
+            <h1 class="game-title">⭕ Tic-Tac-Toe</h1>
+            <p class="tagline">Get three in a row!</p>
+
+            <div class="picker-label">Pick your pieces</div>
+            <div class="picker" id="piece-picker">
+                <button type="button" class="pick-btn" data-pieces="❌,⭕">❌ ⭕</button>
+                <button type="button" class="pick-btn" data-pieces="🐱,🐶">🐱 🐶</button>
+                <button type="button" class="pick-btn" data-pieces="🦄,🐲">🦄 🐲</button>
+                <button type="button" class="pick-btn" data-pieces="🍕,🍩">🍕 🍩</button>
+            </div>
+
+            <div class="picker-label">Who's playing?</div>
+            <div class="picker" id="mode-picker">
+                <button type="button" class="pick-btn" data-mode="2p">👯 2 Players</button>
+                <button type="button" class="pick-btn" data-mode="silly">🤪 Silly Robot</button>
+                <button type="button" class="pick-btn" data-mode="okay">🙂 Okay Robot</button>
+                <button type="button" class="pick-btn" data-mode="smart">🧠 Smart Robot</button>
+            </div>
+
+            <button id="play-btn" class="big-btn" type="button">▶ Play!</button>
+        </div>
+    </div>
+
+    <div id="result-overlay" class="overlay">
+        <div class="menu-card">
+            <h2 id="result-title" class="game-title">🎉 You win!</h2>
+            <div id="result-stats"></div>
+            <div class="btn-row">
+                <button id="again-btn" class="big-btn" type="button">🔄 Rematch</button>
+                <button id="menu-btn" class="big-btn secondary" type="button">📋 Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="confetti-canvas" aria-hidden="true"></canvas>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

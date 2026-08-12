@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riley Slice — Pleating Rays</title>
+<meta name="description"
+      content="Interactive Riley slice: Keen-Series pleating rays, cusp groups, Heckoid points, and the square-root plane, after Elzenaar-Martin-Schillewaert.">
+<style>
+  :root {
+    --bg: #020617;
+    --surface: #1e293b;
+    --primary: #38bdf8;
+    --primary-dim: rgba(56, 189, 248, 0.2);
+    --accent: #6366f1;
+    --accent-dim: rgba(99, 102, 241, 0.2);
+    --text: #f8fafc;
+    --text-dim: #94a3b8;
+    --text-muted: #64748b;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-light: rgba(255, 255, 255, 0.15);
+    --glass-bg: rgba(15, 23, 42, 0.85);
+    --glass-hover: rgba(255, 255, 255, 0.08);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow: hidden;
+  }
+
+  /* Full-screen stage */
+  #stage { position: fixed; inset: 0; z-index: 0; cursor: grab; }
+  #stage.dragging { cursor: grabbing; }
+  #stage canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+  #status {
+    position: fixed; left: 14px; bottom: 12px; z-index: 50;
+    font-size: 11.5px; color: var(--text-dim);
+    background: var(--glass-bg); backdrop-filter: blur(10px);
+    border: 1px solid var(--border); padding: 4px 10px; border-radius: 8px;
+    font-variant-numeric: tabular-nums; pointer-events: none;
+  }
+
+  /* ============ floating glass control panel ============ */
+  #control-panel {
+    position: fixed; top: 20px; right: 20px;
+    width: 360px; max-height: calc(100vh - 40px);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-light); border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    z-index: 100;
+    display: flex; flex-direction: column; overflow: hidden;
+    transition: width 0.38s cubic-bezier(0.4,0,0.2,1),
+                height 0.38s cubic-bezier(0.4,0,0.2,1),
+                border-radius 0.38s cubic-bezier(0.4,0,0.2,1);
+  }
+  .panel-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 56px 12px 18px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+  .panel-title {
+    flex: 1; font-size: 1.02rem; font-weight: 600; margin: 0;
+    background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .panel-subtitle { font-size: 0.72rem; color: var(--text-muted); margin: 2px 0 0; white-space: nowrap; }
+  .panel-subtitle a { color: var(--primary); text-decoration: none; }
+  #collapseBtn {
+    position: absolute; top: 12px; right: 12px; z-index: 5;
+    width: 32px; height: 32px; padding: 0;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border); border-radius: 50%;
+    color: var(--text); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: top 0.38s cubic-bezier(0.4,0,0.2,1),
+                right 0.38s cubic-bezier(0.4,0,0.2,1),
+                width 0.38s cubic-bezier(0.4,0,0.2,1),
+                height 0.38s cubic-bezier(0.4,0,0.2,1),
+                background 0.25s ease, border-color 0.25s ease;
+  }
+  #collapseBtn:hover { background: var(--glass-hover); border-color: var(--border-light); }
+  .collapse-icon {
+    display: block;
+    transform: rotate(45deg);   /* the + reads as x while the panel is open */
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .panel-content, .header-text {
+    transition: opacity 0.25s ease 0.14s, visibility 0s linear 0s;
+  }
+  #control-panel.collapsed { width: 56px; height: 56px; min-height: 56px; border-radius: 28px; }
+  #control-panel.collapsed .panel-content,
+  #control-panel.collapsed .header-text {
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0s linear 0.15s;
+  }
+  #control-panel.collapsed .panel-header { background: transparent; border-bottom-color: transparent; }
+  #control-panel.collapsed #collapseBtn {
+    top: 0; right: 0; width: 54px; height: 54px;
+    background: transparent; border-color: transparent;
+  }
+  #control-panel.collapsed .collapse-icon { transform: rotate(0deg); }
+
+  .panel-content {
+    flex: 1; padding: 14px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 12px;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .panel-content::-webkit-scrollbar { width: 6px; }
+  .panel-content::-webkit-scrollbar-track { background: transparent; }
+  .panel-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .control-group {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .control-group:hover { background: rgba(255,255,255,0.05); border-color: var(--border-light); }
+  .group-title {
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-muted); margin: 0;
+  }
+  .control-row { display: flex; align-items: center; gap: 10px; }
+  .control-label { font-size: 0.82rem; font-weight: 500; color: var(--text-dim); white-space: nowrap; }
+  .label-val { color: var(--text); font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
+
+  .select-input {
+    flex: 1; width: 100%;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 7px 10px; font-size: 0.82rem;
+    transition: all 0.2s ease;
+  }
+  .select-input:focus {
+    outline: none; background: rgba(30,41,59,0.95);
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
+
+  .slider-input {
+    flex: 1; height: 6px; -webkit-appearance: none; appearance: none;
+    background: rgba(30,41,59,0.8);
+    border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
+    min-width: 0;
+  }
+  .slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; background: var(--accent); border-radius: 50%;
+    cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: all 0.2s ease;
+  }
+  .slider-input::-webkit-slider-thumb:hover { transform: scale(1.1); box-shadow: 0 2px 8px rgba(99,102,241,0.5); }
+  .slider-input::-moz-range-thumb {
+    width: 16px; height: 16px; background: var(--accent); border: none; border-radius: 50%;
+    cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  .seg { display: flex; flex: 1; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button {
+    flex: 1; padding: 7px 0; background: rgba(255,255,255,0.05);
+    border: none; border-right: 1px solid var(--border);
+    color: var(--text-dim); font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s ease; text-align: center;
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button:hover { background: var(--glass-hover); color: var(--text); }
+  .seg button.active {
+    background: var(--accent-dim); color: var(--text);
+    box-shadow: inset 0 0 12px rgba(99,102,241,0.15);
+  }
+
+  .btn {
+    flex: 1; padding: 8px 12px; border-radius: 8px;
+    font-size: 0.8rem; font-weight: 500; cursor: pointer;
+    transition: all 0.2s ease; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.05); color: var(--text-dim);
+  }
+  .btn:hover { background: var(--glass-hover); color: var(--text); transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn:disabled:hover { background: rgba(255,255,255,0.05); color: var(--text-dim); transform: none; }
+  .btn.primary {
+    background: var(--accent-dim); border-color: rgba(99,102,241,0.4);
+    color: var(--text); box-shadow: 0 0 12px rgba(99,102,241,0.15);
+  }
+
+  .chk { display: flex; align-items: center; gap: 7px; font-size: 0.82rem; color: var(--text-dim); cursor: pointer; }
+  .chk input { margin: 0; accent-color: var(--accent); }
+
+  input[type="color"] {
+    width: 34px; height: 24px; padding: 1px;
+    background: rgba(30,41,59,0.8);
+    border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+  }
+
+  .hint { color: var(--text-muted); font-size: 0.72rem; line-height: 1.45; margin: 0; }
+  .info-section {
+    background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px;
+    font-size: 0.74rem; color: var(--text-dim); line-height: 1.55;
+  }
+  .info-section b { color: var(--text); }
+
+  @media (max-width: 768px) {
+    #control-panel { width: calc(100vw - 40px); max-width: 360px; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="canvas"></canvas>
+</div>
+<div id="status">loading…</div>
+
+<div id="control-panel">
+  <button id="collapseBtn" title="Collapse panel" aria-label="Collapse panel">
+    <svg class="collapse-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    </svg>
+  </button>
+  <div class="panel-header">
+    <div class="header-text" style="flex:1; min-width:0">
+      <h1 class="panel-title">Riley Slice</h1>
+      <p class="panel-subtitle">Riley slice &middot; <a href="../../../index.html">Geometric Tools</a></p>
+    </div>
+  </div>
+  <div class="panel-content">
+
+    <div class="control-group">
+      <p class="group-title">Plane</p>
+      <div class="seg" id="planeSeg">
+        <button data-plane="rho" class="active">ρ &mdash; Riley slice</button>
+        <button data-plane="sqrt">√ρ &mdash; square root</button>
+      </div>
+      <p class="hint">The √ρ plane shows the z for which
+        ⟨(1&nbsp;z; 0&nbsp;1), (1&nbsp;0; z&nbsp;1)⟩ is discrete and free:
+        conjugating by diag(√z, 1/√z) turns this pair into the Riley
+        generators with ρ = z², so the picture is the pullback of the Riley
+        slice under z ↦ z² &mdash; a double cover, symmetric under z ↦ −z,
+        with cusps at ±2 and ±2i.</p>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Selection</p>
+      <div id="selInfo" class="hint">Click a bead, cusp, or dot &mdash; or any
+        point of the plane &mdash; to inspect it.</div>
+      <div class="control-row">
+        <button class="btn primary" id="exportBtn" disabled>Open in Dirichlet tool</button>
+        <button class="btn" id="copyBtn" disabled>Copy ρ</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Depth</p>
+      <div class="control-row">
+        <span class="control-label">Ray slopes</span>
+        <input type="range" class="slider-input" id="rayQ" min="8" max="72" step="1" value="48">
+        <span class="control-label label-val" data-out="rayQ">48</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Dot slopes</span>
+        <input type="range" class="slider-input" id="dotQ" min="0" max="32" step="1" value="26">
+        <span class="control-label label-val" data-out="dotQ">26</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Extensions</span>
+        <input type="range" class="slider-input" id="arcQ" min="0" max="20" step="1" value="14">
+        <span class="control-label label-val" data-out="arcQ">14</span>
+      </div>
+      <button class="btn primary" id="recompute">Recompute</button>
+      <p class="hint">Slopes p/q up to the chosen denominator. Depth 72 traces ~1600 rays and takes ~10 s.
+        Extensions continue each pleating ray past its cusp into the interior.</p>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Palette</p>
+      <select class="select-input" id="preset">
+        <option value="classic">Classic rainbow</option>
+        <option value="fire">Fire</option>
+        <option value="ocean">Ocean</option>
+        <option value="candy">Candy</option>
+        <option value="ink">Ink (monochrome)</option>
+        <option value="random">Surprise me</option>
+      </select>
+      <div class="control-row">
+        <span class="control-label">Hue, slope 1</span>
+        <input type="range" class="slider-input" id="hueL" min="0" max="360" value="0">
+        <span class="control-label label-val" data-out="hueL">0</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Hue, slope 0</span>
+        <input type="range" class="slider-input" id="hueR" min="0" max="360" value="299">
+        <span class="control-label label-val" data-out="hueR">299</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Hue curve γ</span>
+        <input type="range" class="slider-input" id="gamma" min="0.4" max="2.6" step="0.05" value="1.25">
+        <span class="control-label label-val" data-out="gamma">1.25</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Saturation</span>
+        <input type="range" class="slider-input" id="sat" min="0" max="100" value="90">
+        <span class="control-label label-val" data-out="sat">90</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Brightness</span>
+        <input type="range" class="slider-input" id="val" min="20" max="100" value="80">
+        <span class="control-label label-val" data-out="val">80</span>
+      </div>
+      <label class="chk"><input type="checkbox" id="wheel"> Full color wheel (unmirror halves)</label>
+      <button class="btn" id="randomize">Random palette</button>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Layers &amp; Style</p>
+      <div class="control-row" style="flex-wrap:wrap; gap:12px">
+        <label class="chk"><input type="checkbox" id="showRays" checked> Rays</label>
+        <label class="chk"><input type="checkbox" id="showDots" checked> Dots</label>
+        <label class="chk"><input type="checkbox" id="showArcs" checked> Extensions</label>
+        <label class="chk"><input type="checkbox" id="showFill" checked> Region fill</label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Ray width</span>
+        <input type="range" class="slider-input" id="lw" min="0.2" max="2" step="0.05" value="0.65">
+        <span class="control-label label-val" data-out="lw">0.65</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Ray opacity</span>
+        <input type="range" class="slider-input" id="alpha" min="5" max="100" value="60">
+        <span class="control-label label-val" data-out="alpha">60</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Dot size</span>
+        <input type="range" class="slider-input" id="dotSize" min="0.2" max="3" step="0.1" value="1">
+        <span class="control-label label-val" data-out="dotSize">1</span>
+      </div>
+      <div class="control-row" style="flex-wrap:wrap; gap:12px">
+        <label class="chk">Background <input type="color" id="bgCol" value="#e3e3e3"></label>
+        <label class="chk">Region <input type="color" id="fillCol" value="#ffffff"></label>
+        <label class="chk">Dots <input type="color" id="dotCol" value="#000000"></label>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">View</p>
+      <div class="control-row">
+        <button class="btn" id="resetView">Reset view</button>
+        <button class="btn" id="export">Export PNG</button>
+      </div>
+      <p class="hint">Drag to pan · scroll to zoom · double-click to reset.</p>
+    </div>
+
+    <div class="info-section">
+      The dark region is (approximately) where
+      <b>⟨X,Y⟩</b>, X = [[1,1],[0,1]], Y = [[1,0],[ρ,1]], fails to be free and
+      discrete; its complement is the <b>Riley slice</b>. Colored curves are the
+      Keen–Series <b>pleating rays</b>: for each slope p/q, the branch of
+      Φ<sub>p/q</sub><sup>−1</sup>((−∞,−2]) asymptotic to arg ρ = πp/q, traced
+      inward from ∞ by Newton continuation — pairwise disjoint, landing on the
+      p/q cusp. Dots are roots of the Farey polynomial Φ<sub>p/q</sub> + 2.
+      <b>Extensions</b> continue each ray past its cusp into the interior along
+      Φ<sub>p/q</sub> ∈ (−2, 2], where the p/q word is elliptic; the beads mark
+      Φ<sub>p/q</sub> = −2cos(π/n) — parameters of the <b>Heckoid groups</b> of
+      slope p/q and order n, accumulating at the cusp as n → ∞.
+      Dot placement uses double-precision Aberth iteration, so keep dot depth
+      ≲ 28: the root cluster at ±4 is badly conditioned beyond that.
+    </div>
+
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ---------------- Farey polynomials (exact BigInt coefficients) ---------- */
+
+const QCAP = 72;                       // hard cap of ray slider
+const polyZ = new Map();               // "p/q" -> BigInt[] ascending
+polyZ.set("0/1", [2n, -1n]);
+polyZ.set("1/1", [2n, 1n]);
+polyZ.set("1/0", [2n]);
+let fareyFractions = [];               // [p, q] for all 0 <= p/q <= 1, q <= QCAP
+
+function convZ(a, b) {
+  const out = new Array(a.length + b.length - 1).fill(0n);
+  for (let i = 0; i < a.length; i++)
+    for (let j = 0; j < b.length; j++) out[i + j] += a[i] * b[j];
+  return out;
+}
+function buildPolynomials() {
+  fareyFractions = [[0, 1], [1, 1]];
+  const stack = [[[0, 1], [1, 1]]];
+  while (stack.length) {
+    const [[pl, ql], [pr, qr]] = stack.pop();
+    const pm = pl + pr, qm = ql + qr;
+    if (qm > QCAP) continue;
+    const prod = convZ(polyZ.get(pl + "/" + ql), polyZ.get(pr + "/" + qr));
+    const diff = polyZ.get(Math.abs(pr - pl) + "/" + Math.abs(qr - ql));
+    const n = Math.max(prod.length, diff.length);
+    const out = new Array(n).fill(0n);
+    out[0] = 8n;
+    for (let i = 0; i < prod.length; i++) out[i] -= prod[i];
+    for (let i = 0; i < diff.length; i++) out[i] -= diff[i];
+    polyZ.set(pm + "/" + qm, out);
+    fareyFractions.push([pm, qm]);
+    stack.push([[pl, ql], [pm, qm]]);
+    stack.push([[pm, qm], [pr, qr]]);
+  }
+  fareyFractions.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+}
+function coeffsFloat(p, q, shift) {   // ascending Float64, + shift on constant
+  const z = polyZ.get(p + "/" + q);
+  const c = new Float64Array(z.length);
+  for (let i = 0; i < z.length; i++) c[i] = Number(z[i]);
+  c[0] += shift;
+  return c;
+}
+function derivative(c) {
+  const d = new Float64Array(Math.max(c.length - 1, 1));
+  for (let k = 1; k < c.length; k++) d[k - 1] = c[k] * k;
+  return d;
+}
+function polyEval(c, zr, zi) {        // Horner; returns [re, im]
+  let r = 0, i = 0;
+  for (let k = c.length - 1; k >= 0; k--) {
+    const nr = r * zr - i * zi + c[k];
+    i = r * zi + i * zr;
+    r = nr;
+  }
+  return [r, i];
+}
+
+/* ---------------- Aberth-Ehrlich root finder ------------------------------ */
+
+function polyRoots(c) {
+  let n = c.length - 1;
+  while (n > 0 && c[n] === 0) n--;
+  if (n < 1) return [];
+  const a = c.subarray ? c.subarray(0, n + 1) : c.slice(0, n + 1);
+  const d = derivative(a);
+  let R = 0;                                    // Fujiwara bound
+  for (let k = 0; k < n; k++) {
+    const t = Math.pow(Math.abs(a[k] / a[n]) * (k === 0 ? 0.5 : 1), 1 / (n - k));
+    if (t > R) R = t;
+  }
+  R = 2 * R + 0.5;
+  const zr = new Float64Array(n), zi = new Float64Array(n);
+  for (let k = 0; k < n; k++) {
+    const th = 2 * Math.PI * k / n + 0.43;
+    const rad = R * (0.6 + 0.4 * (k % 3) / 2);
+    zr[k] = rad * Math.cos(th); zi[k] = rad * Math.sin(th);
+  }
+  for (let iter = 0; iter < 120; iter++) {
+    let maxStep = 0;
+    for (let k = 0; k < n; k++) {
+      const [pr, pi] = polyEval(a, zr[k], zi[k]);
+      const [gr, gi] = polyEval(d, zr[k], zi[k]);
+      const gden = gr * gr + gi * gi || 1e-300;
+      const wr = (pr * gr + pi * gi) / gden, wi = (pi * gr - pr * gi) / gden;
+      let sr = 0, si = 0;
+      for (let j = 0; j < n; j++) if (j !== k) {
+        const xr = zr[k] - zr[j], xi = zi[k] - zi[j];
+        const m = xr * xr + xi * xi || 1e-300;
+        sr += xr / m; si -= xi / m;
+      }
+      const qr = 1 - (wr * sr - wi * si), qi = -(wr * si + wi * sr);
+      const qm = qr * qr + qi * qi || 1e-300;
+      const cr = (wr * qr + wi * qi) / qm, ci = (wi * qr - wr * qi) / qm;
+      zr[k] -= cr; zi[k] -= ci;
+      const s = Math.abs(cr) + Math.abs(ci);
+      if (s > maxStep) maxStep = s;
+    }
+    if (maxStep < 1e-13) break;
+  }
+  const roots = [];
+  for (let k = 0; k < n; k++) {                  // keep only converged roots
+    const [pr, pi] = polyEval(a, zr[k], zi[k]);
+    let scaleSum = 0, zp = 1;
+    const zm = Math.max(1, Math.hypot(zr[k], zi[k]));
+    for (let t = 0; t <= n; t++) { scaleSum += Math.abs(a[t]) * zp; zp *= zm; }
+    if (Math.hypot(pr, pi) < 1e-9 * scaleSum) roots.push([zr[k], zi[k]]);
+  }
+  return roots;
+}
+
+/* ---------------- geometry: rays, dots, extensions, envelope -------------- */
+
+const R0 = 20.0, XLIM = 5.6, YLIM = 3.67;   // R0 > 4.47^2 keeps the ray
+                                            // truncation circle off-screen
+                                            // in the sqrt plane too
+let rays = [];        // {pts: [x0,y0,...], slope, flat}
+let dots = [];        // {x, y, q}
+let exts = [];        // {pts, beads: [{x, y, n}]}
+let regionPoly = [];  // [[x,y],...]
+let geomVersion = 0;
+
+function traceRay(c, d, slope) {
+  let zr = R0 * Math.cos(Math.PI * slope), zi = R0 * Math.sin(Math.PI * slope);
+  for (let it = 0; it < 8; it++) {              // settle onto the level set
+    const [pr, pi] = polyEval(c, zr, zi);
+    const m = Math.hypot(pr, pi);
+    const [gr, gi] = polyEval(d, zr, zi);
+    const gden = gr * gr + gi * gi || 1e-300;
+    const rr = pr + m, ri = pi;                 // P(z) - (-|P|)
+    zr -= (rr * gr + ri * gi) / gden;
+    zi -= (ri * gr - rr * gi) / gden;
+  }
+  let [pr0] = polyEval(c, zr, zi);
+  let t = Math.abs(pr0) - 2;
+  const pts = [zr, zi];
+  let scale = 1;
+  for (let step = 0; step < 700 && t > 1e-9; step++) {
+    const [gr, gi] = polyEval(d, zr, zi);
+    const gm = Math.hypot(gr, gi);
+    const dt = Math.min(0.05 * scale * gm, 0.6 * t);
+    const tn = t - dt, target = -2 - tn;
+    const gden = gr * gr + gi * gi || 1e-300;
+    let nzr = zr + dt * gr / gden, nzi = zi - dt * gi / gden;
+    for (let it = 0; it < 4; it++) {
+      const [er, ei] = polyEval(c, nzr, nzi);
+      const rr = er - target, ri = ei;
+      const [hr, hi] = polyEval(d, nzr, nzi);
+      const hden = hr * hr + hi * hi || 1e-300;
+      nzr -= (rr * hr + ri * hi) / hden;
+      nzi -= (ri * hr - rr * hi) / hden;
+    }
+    const [er, ei] = polyEval(c, nzr, nzi);
+    const err = Math.hypot(er - target, ei);
+    const stepLen = Math.hypot(nzr - zr, nzi - zi);
+    if (err < 1e-6 * (1 + Math.abs(target)) && stepLen < 0.08) {
+      zr = nzr; zi = nzi; t = tn;
+      scale = Math.min(scale * 1.4, 1);
+      pts.push(zr, zi);
+    } else {
+      scale *= 0.5;
+      if (scale < 1e-6) break;
+    }
+  }
+  return { pts, landed: t <= 1e-6 };
+}
+
+/* Extension of the p/q ray past its cusp: Phi = -2 + s, s: 0 -> 4, i.e. the
+   locus where the p/q word is elliptic. Beads at Phi = -2cos(pi/n) are the
+   order-n Heckoid parameters of slope p/q. */
+const BEAD_NMAX = 24;
+const BEAD_S = [];                    // ascending s-targets; index i <-> n = NMAX - i
+for (let n = BEAD_NMAX; n >= 1; n--) BEAD_S.push(2 - 2 * Math.cos(Math.PI / n));
+
+function traceExtension(c, d, x0, y0) {
+  let zr = x0, zi = y0, s = 0, scale = 1, bi = 0;
+  const pts = [zr, zi], beads = [];
+  for (let step = 0; step < 500 && s < 4 - 1e-9; step++) {
+    const [gr, gi] = polyEval(d, zr, zi);
+    const gm = Math.hypot(gr, gi);
+    const dt = Math.min(0.035 * scale * gm, 0.3 * (4 - s) + 0.005);
+    let sn = Math.min(s + dt, 4), hit = -1;
+    if (bi < BEAD_S.length && sn >= BEAD_S[bi] - 1e-12) { sn = BEAD_S[bi]; hit = bi; }
+    const target = -2 + sn;
+    const gden = gr * gr + gi * gi || 1e-300;
+    let nzr = zr + (sn - s) * gr / gden, nzi = zi - (sn - s) * gi / gden;
+    for (let it = 0; it < 4; it++) {
+      const [er, ei] = polyEval(c, nzr, nzi);
+      const rr = er - target, ri = ei;
+      const [hr, hi] = polyEval(d, nzr, nzi);
+      const hden = hr * hr + hi * hi || 1e-300;
+      nzr -= (rr * hr + ri * hi) / hden;
+      nzi -= (ri * hr - rr * hi) / hden;
+    }
+    const [er, ei] = polyEval(c, nzr, nzi);
+    const err = Math.hypot(er - target, ei);
+    const stepLen = Math.hypot(nzr - zr, nzi - zi);
+    if (err < 1e-6 * (1 + Math.abs(target)) && stepLen < 0.08) {
+      zr = nzr; zi = nzi; s = sn;
+      scale = Math.min(scale * 1.4, 1);
+      pts.push(zr, zi);
+      if (hit >= 0) { beads.push({ x: zr, y: zi, n: BEAD_NMAX - hit }); bi++; }
+      if (Math.abs(zr) > 6 || Math.abs(zi) > 6) break;
+    } else {
+      scale *= 0.5;
+      if (scale < 1e-6) break;
+    }
+  }
+  return pts.length >= 4 ? { pts, beads } : null;
+}
+
+function buildEnvelope() {
+  const nx = 560, xs = [], h = new Float64Array(nx);
+  for (let i = 0; i < nx; i++) xs.push(-4 + 8 * i / (nx - 1));
+  const safe = dots.filter(o => o.q <= 22 && o.y >= -1e-9);
+  for (const o of safe) {
+    const i = Math.max(0, Math.min(nx - 1, Math.round((o.x + 4) / 8 * (nx - 1))));
+    if (o.y > h[i]) h[i] = o.y;
+  }
+  const gi = [], gv = [];
+  for (let i = 0; i < nx; i++) if (h[i] > 0) { gi.push(i); gv.push(h[i]); }
+  if (gi.length < 2) { regionPoly = []; return; }
+  for (let i = 0; i < nx; i++) {
+    if (h[i] > 0) continue;
+    let j = 0;
+    while (j < gi.length && gi[j] < i) j++;
+    if (j === 0) h[i] = gv[0];
+    else if (j === gi.length) h[i] = gv[gv.length - 1];
+    else {
+      const f = (i - gi[j - 1]) / (gi[j] - gi[j - 1]);
+      h[i] = gv[j - 1] * (1 - f) + gv[j] * f;
+    }
+  }
+  const w = 3, hm = new Float64Array(nx);       // running median + smooth
+  for (let i = 0; i < nx; i++) {
+    const win = [];
+    for (let j = Math.max(0, i - w); j <= Math.min(nx - 1, i + w); j++) win.push(h[j]);
+    win.sort((a, b) => a - b);
+    hm[i] = win[Math.floor(win.length / 2)];
+  }
+  for (let i = 1; i < nx - 1; i++) h[i] = 0.25 * hm[i - 1] + 0.5 * hm[i] + 0.25 * hm[i + 1];
+  h[0] = hm[0]; h[nx - 1] = hm[nx - 1];
+  regionPoly = [];
+  for (let i = 0; i < nx; i++) regionPoly.push([xs[i], h[i]]);
+  for (let i = nx - 1; i >= 0; i--) regionPoly.push([xs[i], -h[i]]);
+}
+
+/* ---------------- square-root plane (rho = z^2 pullback) ------------------ */
+
+function csqrt(x, y) {                // principal branch
+  const r = Math.hypot(x, y);
+  const wr = Math.sqrt(Math.max((r + x) / 2, 0));
+  let wi = Math.sqrt(Math.max((r - x) / 2, 0));
+  if (y < 0) wi = -wi;
+  return [wr, wi];
+}
+function sqrtPath(pts) {              // branch-continuous along the polyline
+  const out = new Float64Array(pts.length);
+  let pr = 0, pi = 0;
+  for (let k = 0; k < pts.length; k += 2) {
+    let [wr, wi] = csqrt(pts[k], pts[k + 1]);
+    if (k > 0) {
+      const d1 = (wr - pr) ** 2 + (wi - pi) ** 2;
+      const d2 = (wr + pr) ** 2 + (wi + pi) ** 2;
+      if (d2 < d1) { wr = -wr; wi = -wi; }
+    }
+    out[k] = wr; out[k + 1] = wi;
+    pr = wr; pi = wi;
+  }
+  return out;
+}
+function negPath(pts) {
+  const o = new Float64Array(pts.length);
+  for (let k = 0; k < pts.length; k++) o[k] = -pts[k];
+  return o;
+}
+function isFlatPath(pts) {
+  for (let k = 1; k < pts.length; k += 2)
+    if (Math.abs(pts[k]) > 1e-9) return false;
+  return true;
+}
+
+let sqrtCache = null;
+function ensureSqrt() {
+  if (sqrtCache && sqrtCache.version === geomVersion &&
+      sqrtCache.nRays === rays.length && sqrtCache.nExts === exts.length &&
+      sqrtCache.nDots === dots.length) return;
+  const sq = { version: geomVersion, nRays: rays.length, nExts: exts.length,
+               nDots: dots.length, rays: [], exts: [], beads: [], dots: [],
+               region: [] };
+  for (const ray of rays) {
+    const s1 = sqrtPath(ray.pts);
+    for (const pts of [s1, negPath(s1)])
+      sq.rays.push({ pts, slope: ray.slope, flat: isFlatPath(pts) });
+  }
+  for (const e of exts) {
+    const s1 = sqrtPath(e.pts);
+    sq.exts.push(s1, negPath(s1));
+    for (const b of e.beads) {
+      const [wr, wi] = csqrt(b.x, b.y);
+      sq.beads.push({ x: wr, y: wi, n: b.n }, { x: -wr, y: -wi, n: b.n });
+    }
+  }
+  for (const o of dots) {
+    const [wr, wi] = csqrt(o.x, o.y);
+    sq.dots.push({ x: wr, y: wi, q: o.q }, { x: -wr, y: -wi, q: o.q });
+  }
+  if (regionPoly.length) {            // one loop upstairs = boundary twice
+    const flat = new Float64Array(regionPoly.length * 2);
+    for (let i = 0; i < regionPoly.length; i++) {
+      flat[2 * i] = regionPoly[i][0]; flat[2 * i + 1] = regionPoly[i][1];
+    }
+    const s1 = sqrtPath(flat);
+    for (let k = 0; k < s1.length; k += 2) sq.region.push([s1[k], s1[k + 1]]);
+    for (let k = 0; k < s1.length; k += 2) sq.region.push([-s1[k], -s1[k + 1]]);
+  }
+  sqrtCache = sq;
+}
+
+function activeGeom() {
+  if (plane === "sqrt") {
+    ensureSqrt();
+    return { rayList: sqrtCache.rays, extList: sqrtCache.exts,
+             beadList: sqrtCache.beads, dotList: sqrtCache.dots,
+             regionPts: sqrtCache.region };
+  }
+  const beadList = [];
+  for (const e of exts) for (const b of e.beads) beadList.push(b);
+  return { rayList: rays, extList: exts.map(e => e.pts), beadList,
+           dotList: dots, regionPts: regionPoly };
+}
+
+/* ---------------- compute pipeline (chunked, async) ----------------------- */
+
+const statusEl = document.getElementById("status");
+let computeToken = 0;
+
+async function recomputeAll() {
+  const token = ++computeToken;
+  const rayQ = +ui.rayQ.value, dotQ = +ui.dotQ.value, arcQ = +ui.arcQ.value;
+  rays = []; dots = []; exts = []; regionPoly = [];
+  geomVersion++;
+
+  // dots
+  const dotFracs = fareyFractions.filter(([, q]) => q <= dotQ);
+  for (let i = 0; i < dotFracs.length; i++) {
+    if (token !== computeToken) return;
+    const [p, q] = dotFracs[i];
+    const roots = polyRoots(coeffsFloat(p, q, 2));
+    let ki = 0;
+    for (const [x, y] of roots)
+      if (Math.abs(x) <= 4.005 && Math.abs(y) <= 2.01)
+        dots.push({ x, y, p, q, i: ki++ });
+    if (i % 25 === 24) {
+      statusEl.textContent = `roots: ${i + 1}/${dotFracs.length}`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+  dots.push({ x: 0, y: 0, q: 1, origin: true }); // rho = 0
+  buildEnvelope();
+  draw();
+
+  // principal pleating rays + extensions past the cusp
+  const rayFracs = fareyFractions.filter(([, q]) => q <= rayQ);
+  for (let i = 0; i < rayFracs.length; i++) {
+    if (token !== computeToken) return;
+    const [p, q] = rayFracs[i];
+    const c = coeffsFloat(p, q, 0);
+    const d = derivative(c);
+    const res = traceRay(c, d, p / q);
+    rays.push({ pts: res.pts, slope: p / q, flat: isFlatPath(res.pts),
+                landed: res.landed, p, q });
+    if (q <= arcQ && res.landed) {
+      const m = res.pts.length;
+      const ext = traceExtension(c, d, res.pts[m - 2], res.pts[m - 1]);
+      if (ext) exts.push({ pts: ext.pts, beads: ext.beads, p, q });
+    }
+    if (i % 40 === 39) {
+      statusEl.textContent = `tracing rays: ${i + 1}/${rayFracs.length}`;
+      draw();
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+  // The ray landing points sit exactly on the boundary — a far cleaner
+  // envelope source than the double-precision root dots.
+  const cusps = [];
+  for (const r of rays) if (r.landed) {
+    const m = r.pts.length;
+    cusps.push([r.pts[m - 2], Math.abs(r.pts[m - 1])]);
+  }
+  if (cusps.length > 20) {
+    cusps.sort((a, b) => a[0] - b[0]);
+    regionPoly = cusps.map(c => [c[0], c[1]]);
+    for (let i = cusps.length - 1; i >= 0; i--)
+      regionPoly.push([cusps[i][0], -cusps[i][1]]);
+    geomVersion++;                    // invalidate the sqrt-plane cache
+  }
+  statusEl.textContent =
+    `${rays.length} rays · ${dots.length} dots · ${exts.length} extensions`;
+  draw();
+}
+
+/* ---------------- rendering ---------------------------------------------- */
+
+const stage = document.getElementById("stage");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+let view = { cx: 0, cy: 0, scale: 1 };
+let plane = "rho";
+
+function fitView() { view = { cx: 0, cy: 0, scale: 0 }; }
+fitView();
+
+function extents() { return plane === "sqrt" ? [3.1, 2.3] : [XLIM, YLIM]; }
+function baseScale(W, H) {
+  const [xw, yw] = extents();
+  const fit = Math.min(W / (2 * xw), H / (2 * yw));
+  return fit * (view.scale === 0 ? 1 : view.scale);
+}
+
+function hueForSlope(slope, lower) {
+  const g = +ui.gamma.value;
+  if (ui.wheel.checked) {
+    const a = Math.PI * slope * (lower ? -1 : 1);   // signed asymptotic angle
+    let u = ((a / (2 * Math.PI)) % 1 + 1) % 1;
+    return 360 * u;
+  }
+  const u = Math.pow(1 - slope, g);
+  const hl = +ui.hueL.value, hr = +ui.hueR.value;
+  return hl + (hr - hl) * u;
+}
+
+function drawScene(g, W, H, pixelRatio) {
+  const s = baseScale(W, H);
+  const toX = x => W / 2 + (x - view.cx) * s;
+  const toY = y => H / 2 - (y - view.cy) * s;
+  const { rayList, extList, beadList, dotList, regionPts } = activeGeom();
+  g.fillStyle = ui.bgCol.value;
+  g.fillRect(0, 0, W, H);
+
+  if (ui.showRays.checked) {
+    g.lineWidth = +ui.lw.value * pixelRatio;
+    g.globalAlpha = +ui.alpha.value / 100;
+    const sat = +ui.sat.value, val = +ui.val.value;
+    for (const ray of rayList) {
+      for (const lower of ray.flat ? [false] : [false, true]) {
+        const hue = hueForSlope(ray.slope, lower);
+        g.strokeStyle = `hsl(${hue.toFixed(1)} ${sat}% ${(val * 0.55).toFixed(0)}%)`;
+        g.beginPath();
+        const pts = ray.pts, m = lower ? -1 : 1;
+        g.moveTo(toX(pts[0]), toY(m * pts[1]));
+        for (let k = 2; k < pts.length; k += 2)
+          g.lineTo(toX(pts[k]), toY(m * pts[k + 1]));
+        g.stroke();
+      }
+    }
+    g.globalAlpha = 1;
+  }
+
+  if (ui.showFill.checked && regionPts.length) {
+    g.fillStyle = ui.fillCol.value;
+    g.beginPath();
+    g.moveTo(toX(regionPts[0][0]), toY(regionPts[0][1]));
+    for (let i = 1; i < regionPts.length; i++)
+      g.lineTo(toX(regionPts[i][0]), toY(regionPts[i][1]));
+    g.closePath();
+    g.fill();
+  }
+
+  if (ui.showArcs.checked) {
+    g.strokeStyle = ui.dotCol.value;
+    g.globalAlpha = 0.45;
+    g.lineWidth = 0.6 * pixelRatio;
+    for (const pts of extList) {
+      for (const m of [1, -1]) {                // conjugate mirror
+        g.beginPath();
+        g.moveTo(toX(pts[0]), toY(m * pts[1]));
+        for (let k = 2; k < pts.length; k += 2)
+          g.lineTo(toX(pts[k]), toY(m * pts[k + 1]));
+        g.stroke();
+      }
+    }
+    g.globalAlpha = 1;
+    g.fillStyle = ui.dotCol.value;              // Heckoid beads
+    const mult = +ui.dotSize.value * pixelRatio;
+    for (const b of beadList) {
+      const r = Math.min(2.4, 0.5 + 2.2 / b.n) * mult;
+      for (const m of Math.abs(b.y) > 1e-9 ? [1, -1] : [1]) {
+        g.beginPath();
+        g.arc(toX(b.x), toY(m * b.y), r, 0, 2 * Math.PI);
+        g.fill();
+      }
+    }
+  }
+
+  if (ui.showDots.checked) {
+    g.fillStyle = ui.dotCol.value;
+    const mult = +ui.dotSize.value * pixelRatio;
+    for (const o of dotList) {
+      const r = Math.min(6, Math.max(0.35, 5.5 / Math.pow(o.q, 1.1))) * mult;
+      g.beginPath();
+      g.arc(toX(o.x), toY(o.y), r, 0, 2 * Math.PI);
+      g.fill();
+    }
+  }
+
+  if (sel) {                                    // selection marker
+    const [px, py] = plane === "sqrt" ? [sel.zx, sel.zy] : [sel.x, sel.y];
+    g.strokeStyle = "#6366f1";
+    g.lineWidth = 2 * pixelRatio;
+    g.beginPath();
+    g.arc(toX(px), toY(py), 7 * pixelRatio, 0, 2 * Math.PI);
+    g.stroke();
+  }
+}
+
+function draw() {
+  const pr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth * pr, H = canvas.clientHeight * pr;
+  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+  drawScene(ctx, W, H, pr);
+}
+
+/* ---------------- UI wiring ----------------------------------------------- */
+
+const ui = {};
+for (const id of ["rayQ", "dotQ", "arcQ", "hueL", "hueR", "gamma", "sat", "val",
+                  "wheel", "lw", "alpha", "dotSize", "bgCol", "fillCol", "dotCol",
+                  "showRays", "showDots", "showArcs", "showFill", "preset"])
+  ui[id] = document.getElementById(id);
+
+for (const id of ["rayQ", "dotQ", "arcQ", "hueL", "hueR", "gamma", "sat", "val",
+                  "lw", "alpha", "dotSize"]) {
+  const out = document.querySelector(`[data-out=${id}]`);
+  ui[id].addEventListener("input", () => { if (out) out.textContent = ui[id].value; });
+}
+for (const id of ["hueL", "hueR", "gamma", "sat", "val", "wheel", "lw", "alpha",
+                  "dotSize", "bgCol", "fillCol", "dotCol",
+                  "showRays", "showDots", "showArcs", "showFill"])
+  ui[id].addEventListener("input", draw);
+
+document.getElementById("recompute").addEventListener("click", recomputeAll);
+
+document.getElementById("planeSeg").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  for (const x of e.currentTarget.querySelectorAll("button"))
+    x.classList.toggle("active", x === b);
+  plane = b.dataset.plane;
+  fitView();
+  draw();
+});
+
+/* ---------------- selection & export to the Dirichlet tool ---------------- */
+
+let sel = null;   // {kind, p?, q?, n?, i?, x, y (rho), zx, zy (chosen sqrt)}
+const selInfoEl = document.getElementById("selInfo");
+const exportBtn = document.getElementById("exportBtn");
+const copyBtn = document.getElementById("copyBtn");
+
+function fmtNum(v, digits) {
+  if (Math.abs(v) < 5e-13) return "0";
+  return String(parseFloat(v.toFixed(digits)));
+}
+function fmtC(re, im, digits = 5, compact = false) {
+  const sep = compact ? "" : " ";
+  if (Math.abs(im) < 5e-13) return fmtNum(re, digits);
+  const imAbs = fmtNum(Math.abs(im), digits) + "i";
+  if (Math.abs(re) < 5e-13) return (im < 0 ? "-" : "") + imAbs;
+  return fmtNum(re, digits) + sep + (im < 0 ? "-" : "+") + sep + imAbs;
+}
+
+function selectables() {              // everything clickable, in rho coords
+  const items = [];
+  for (const e of exts) for (const b of e.beads) {
+    items.push({ kind: "heckoid", p: e.p, q: e.q, n: b.n, x: b.x, y: b.y });
+    if (Math.abs(b.y) > 1e-9)
+      items.push({ kind: "heckoid", p: e.p, q: e.q, n: b.n, x: b.x, y: -b.y });
+  }
+  for (const r of rays) if (r.landed) {
+    const m = r.pts.length, x = r.pts[m - 2], y = r.pts[m - 1];
+    items.push({ kind: "cusp", p: r.p, q: r.q, x, y });
+    if (Math.abs(y) > 1e-9) items.push({ kind: "cusp", p: r.p, q: r.q, x, y: -y });
+  }
+  for (const o of dots)
+    items.push(o.origin ? { kind: "origin", x: 0, y: 0 }
+                        : { kind: "root", p: o.p, q: o.q, i: o.i, x: o.x, y: o.y });
+  return items;
+}
+
+function describeSelection() {
+  if (!sel) return;
+  const lines = [];
+  if (sel.kind === "heckoid")
+    lines.push(`<b>Heckoid point</b> — slope ${sel.p}/${sel.q}, order n = ${sel.n}`);
+  else if (sel.kind === "cusp")
+    lines.push(`<b>${sel.p}/${sel.q} cusp</b> — the ${sel.p}/${sel.q} pleating ray lands here`);
+  else if (sel.kind === "root")
+    lines.push(`<b>Root of Φ<sub>${sel.p}/${sel.q}</sub> + 2</b> (root #${sel.i + 1})`);
+  else if (sel.kind === "origin")
+    lines.push(`<b>ρ = 0</b> — degenerate (Y is trivial)`);
+  else
+    lines.push(`<b>Point</b>`);
+  lines.push(`ρ = ${fmtC(sel.x, sel.y)}`);
+  lines.push(`√ρ = ${fmtC(sel.zx, sel.zy)}`);
+  if (sel.p !== undefined && sel.q !== undefined && !(sel.kind === "origin")) {
+    const [tr, ti] = polyEval(coeffsFloat(sel.p, sel.q, 0), sel.x, sel.y);
+    let line = `Φ<sub>${sel.p}/${sel.q}</sub>(ρ) = ${fmtC(tr, ti, 4)}`;
+    if (sel.kind === "heckoid") line += ` &nbsp;(−2cos(π/${sel.n}))`;
+    lines.push(line);
+  }
+  selInfoEl.innerHTML = lines.join("<br>");
+  exportBtn.disabled = false;
+  copyBtn.disabled = false;
+}
+
+function handleClick(clientX, clientY) {
+  const pr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (clientX - rect.left) * pr, my = (clientY - rect.top) * pr;
+  const s = baseScale(canvas.width, canvas.height);
+  const px = view.cx + (mx - canvas.width / 2) / s;
+  const py = view.cy - (my - canvas.height / 2) / s;
+  let rx, ry, zx, zy;
+  if (plane === "sqrt") {             // clicked z; rho = z^2
+    zx = px; zy = py;
+    rx = px * px - py * py; ry = 2 * px * py;
+  } else {
+    rx = px; ry = py;
+    [zx, zy] = csqrt(rx, ry);
+  }
+  // pick the nearest selectable within ~12 screen px, measured in rho units
+  const jac = plane === "sqrt" ? 2 * Math.max(Math.hypot(zx, zy), 0.05) : 1;
+  const thr = 12 * pr / s * jac;
+  let best = null, bestD = thr;
+  for (const it of selectables()) {
+    const d = Math.hypot(it.x - rx, it.y - ry);
+    if (d < bestD) { bestD = d; best = it; }
+  }
+  sel = best ? { ...best } : { kind: "point", x: rx, y: ry };
+  const [wr, wi] = csqrt(sel.x, sel.y);   // sqrt branch nearest the click
+  if ((wr - zx) ** 2 + (wi - zy) ** 2 <= (wr + zx) ** 2 + (wi + zy) ** 2) {
+    sel.zx = wr; sel.zy = wi;
+  } else {
+    sel.zx = -wr; sel.zy = -wi;
+  }
+  describeSelection();
+  draw();
+}
+
+exportBtn.addEventListener("click", () => {
+  if (!sel) return;
+  // The sibling Dirichlet-domain tool takes ?riley=re,im (classical rho) or
+  // ?rileyz=re,im (symmetric z with rho = z^2).
+  const num = v => String(Number(v.toPrecision(12)));
+  const url = plane === "sqrt"
+    ? `../poincare2/?rileyz=${num(sel.zx)},${num(sel.zy)}`
+    : `../poincare2/?riley=${num(sel.x)},${num(sel.y)}`;
+  window.open(url, "_blank");
+});
+copyBtn.addEventListener("click", () => {
+  if (!sel) return;
+  navigator.clipboard.writeText(fmtC(sel.x, sel.y, 12, true));
+  copyBtn.textContent = "Copied!";
+  setTimeout(() => { copyBtn.textContent = "Copy ρ"; }, 1200);
+});
+
+const presets = {
+  classic: { hueL: 0, hueR: 299, gamma: 1.25, sat: 90, val: 80,
+             bgCol: "#e3e3e3", fillCol: "#ffffff", dotCol: "#000000", wheel: false },
+  fire:    { hueL: 55, hueR: 0, gamma: 1.0, sat: 95, val: 90,
+             bgCol: "#17120e", fillCol: "#0d0a08", dotCol: "#ffd9a0", wheel: false },
+  ocean:   { hueL: 150, hueR: 255, gamma: 1.1, sat: 75, val: 85,
+             bgCol: "#f2f5f7", fillCol: "#ffffff", dotCol: "#0c2a3d", wheel: false },
+  candy:   { hueL: 320, hueR: 170, gamma: 0.9, sat: 70, val: 95,
+             bgCol: "#fff7fb", fillCol: "#ffffff", dotCol: "#5a2a4a", wheel: false },
+  ink:     { hueL: 0, hueR: 0, gamma: 1, sat: 0, val: 45,
+             bgCol: "#f4f1ea", fillCol: "#faf8f4", dotCol: "#1a1a1a", wheel: false },
+};
+function applyPreset(p) {
+  for (const [k, v] of Object.entries(p)) {
+    if (typeof v === "boolean") ui[k].checked = v;
+    else ui[k].value = v;
+    const out = document.querySelector(`[data-out=${k}]`);
+    if (out) out.textContent = v;
+  }
+  draw();
+}
+ui.preset.addEventListener("change", () => {
+  if (ui.preset.value === "random") randomPalette();
+  else applyPreset(presets[ui.preset.value]);
+});
+function randomPalette() {
+  const h1 = Math.floor(Math.random() * 360);
+  const h2 = (h1 + 90 + Math.floor(Math.random() * 180)) % 360;
+  const darkBg = Math.random() < 0.35;
+  applyPreset({
+    hueL: h1, hueR: h2, gamma: +(0.7 + Math.random() * 1.2).toFixed(2),
+    sat: 60 + Math.floor(Math.random() * 40), val: 70 + Math.floor(Math.random() * 30),
+    bgCol: darkBg ? "#14151a" : "#ececec",
+    fillCol: darkBg ? "#0b0c10" : "#ffffff",
+    dotCol: darkBg ? "#e8e4d8" : "#000000", wheel: Math.random() < 0.25,
+  });
+}
+document.getElementById("randomize").addEventListener("click", randomPalette);
+document.getElementById("resetView").addEventListener("click", () => { fitView(); draw(); });
+
+document.getElementById("export").addEventListener("click", () => {
+  const off = document.createElement("canvas");
+  off.width = 2 * canvas.width; off.height = 2 * canvas.height;
+  drawScene(off.getContext("2d"), off.width, off.height,
+            2 * (window.devicePixelRatio || 1));
+  off.toBlob(b => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = plane === "sqrt" ? "riley-sqrt.png" : "riley-slice.png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }, "image/png");
+});
+
+/* FLIP-style collapse: measure both end states, animate between them
+   explicitly, and freeze the innards' width so nothing reflows. */
+function setPanelCollapsed(panel, collapsed) {
+  const frozen = panel.querySelectorAll('.panel-header, .panel-content');
+  const from = panel.getBoundingClientRect();
+  panel.classList.toggle('collapsed', collapsed);
+  panel.style.transition = 'none';
+  panel.style.width = '';
+  panel.style.height = '';
+  const to = panel.getBoundingClientRect();
+  const wide = Math.max(from.width, to.width) - 2;   // inside the 1px borders
+  for (const el of frozen) el.style.minWidth = wide + 'px';
+  panel.style.width = from.width + 'px';
+  panel.style.height = from.height + 'px';
+  void panel.offsetWidth;   // commit the start state before re-enabling the transition
+  panel.style.transition = '';
+  panel.style.width = to.width + 'px';
+  panel.style.height = to.height + 'px';
+  clearTimeout(panel._collapseTimer);
+  panel._collapseTimer = setTimeout(() => {
+    panel.style.width = '';
+    panel.style.height = '';
+    for (const el of frozen) el.style.minWidth = '';
+  }, 420);
+}
+document.getElementById('collapseBtn').addEventListener('click', e => {
+  const panel = document.getElementById('control-panel');
+  const collapsed = !panel.classList.contains('collapsed');
+  setPanelCollapsed(panel, collapsed);
+  e.currentTarget.title = collapsed ? 'Expand panel' : 'Collapse panel';
+});
+
+/* pan & zoom (a press that never moves is a selection click) */
+let dragging = null;
+canvas.addEventListener("pointerdown", e => {
+  dragging = { x: e.clientX, y: e.clientY, cx: view.cx, cy: view.cy, moved: false };
+  stage.classList.add("dragging");
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  if (Math.abs(e.clientX - dragging.x) + Math.abs(e.clientY - dragging.y) > 4)
+    dragging.moved = true;
+  if (!dragging.moved) return;
+  const pr = window.devicePixelRatio || 1;
+  const s = baseScale(canvas.width, canvas.height) / pr;
+  view.cx = dragging.cx - (e.clientX - dragging.x) / s;
+  view.cy = dragging.cy + (e.clientY - dragging.y) / s;
+  draw();
+});
+canvas.addEventListener("pointerup", e => {
+  const wasClick = dragging && !dragging.moved;
+  dragging = null;
+  stage.classList.remove("dragging");
+  canvas.releasePointerCapture(e.pointerId);
+  if (wasClick) handleClick(e.clientX, e.clientY);
+});
+canvas.addEventListener("dblclick", () => { fitView(); draw(); });
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const pr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * pr, my = (e.clientY - rect.top) * pr;
+  const sOld = baseScale(canvas.width, canvas.height);
+  const wx = view.cx + (mx - canvas.width / 2) / sOld;
+  const wy = view.cy - (my - canvas.height / 2) / sOld;
+  const f = Math.exp(-e.deltaY * 0.0015);
+  view.scale = Math.min(200, Math.max(0.2, (view.scale === 0 ? 1 : view.scale) * f));
+  const sNew = baseScale(canvas.width, canvas.height);
+  view.cx = wx - (mx - canvas.width / 2) / sNew;
+  view.cy = wy + (my - canvas.height / 2) / sNew;
+  draw();
+}, { passive: false });
+
+window.addEventListener("resize", draw);
+
+/* ---------------- boot ---------------------------------------------------- */
+
+statusEl.textContent = "building Farey polynomials…";
+setTimeout(() => {
+  buildPolynomials();
+  recomputeAll();
+}, 20);
+</script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+</html>

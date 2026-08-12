@@ -491,12 +491,21 @@ export class Player {
 
             if (interactable && interactable !== this.currentInteractable) {
                 this.currentInteractable = interactable;
-                this.showInteractionPrompt(interactable.userData.interactionType || 'Interact');
+                const ud = interactable.userData;
+                const verb = ud.interactionType || 'Interact';
+                // "Read — Number Theory" is clearer than a bare verb; skip
+                // the name when the verb already contains it.
+                const label = ud.name && !verb.toLowerCase().includes(ud.name.toLowerCase())
+                    ? `${verb} — ${ud.name}`
+                    : verb;
+                this.showInteractionPrompt(label);
             }
         } else {
             if (this.currentInteractable) {
                 this.currentInteractable = null;
                 this.hideInteractionPrompt();
+                // Looking away from the landmark closes its info card.
+                if (this.mathWorld) this.mathWorld.hideInfoCard();
             }
         }
     }
@@ -523,7 +532,10 @@ export class Player {
     }
 
     interact() {
-        if (!this.currentInteractable) return;
+        if (!this.currentInteractable) {
+            if (this.mathWorld) this.mathWorld.hideInfoCard();
+            return;
+        }
         const ud = this.currentInteractable.userData;
         console.log(`Interacting with: ${ud.name || 'Unknown'}`);
         // Interior-scene transitions are handled by MathWorld (it owns
@@ -538,7 +550,12 @@ export class Player {
                 return;
             }
         }
-        if (ud.onInteract) ud.onInteract();
+        if (ud.onInteract) {
+            ud.onInteract();
+            return;
+        }
+        // Default: every landmark can at least tell you about itself.
+        if (this.mathWorld) this.mathWorld.toggleInfoCard(ud);
     }
 
     setPositionOnGround(x, y, z, preserveOrientation = false) {

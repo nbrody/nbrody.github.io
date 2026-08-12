@@ -1,0 +1,266 @@
+  :root{
+    --terra:#c96f3b;      /* vase terracotta */
+    --terra-deep:#a8542a;
+    --black:#1e1410;      /* fired black slip */
+    --cream:#f2e3c8;      /* pale slip */
+    --gold:#e0a833;       /* olympian gold */
+    --teal:#2e7d78;       /* aegean accent */
+    --red:#b03a2e;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:var(--black);
+    color:var(--cream);
+    font-family:'Alegreya',serif;
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;
+    background-image:radial-gradient(ellipse at 50% 0%, #2b1d15 0%, #1e1410 60%);
+  }
+  #app{width:100%;max-width:520px;padding:10px}
+
+  /* ---- the vase frame ---- */
+  .vase{
+    background:var(--terra);
+    border-radius:26px 26px 42px 42px;
+    overflow:hidden;
+    box-shadow:0 18px 50px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.15);
+    position:relative;
+  }
+  .meander{
+    height:22px;
+    background:
+      repeating-linear-gradient(90deg,
+        var(--black) 0 3px, transparent 3px 8px, var(--black) 8px 11px, transparent 11px 22px),
+      repeating-linear-gradient(90deg,
+        transparent 0 11px, var(--black) 11px 14px, transparent 14px 22px);
+    background-color:var(--terra-deep);
+    border-top:3px solid var(--black);
+    border-bottom:3px solid var(--black);
+  }
+  header.title-band{
+    text-align:center;
+    padding:10px 0 4px;
+    background:var(--terra-deep);
+  }
+  header.title-band h1{
+    font-family:'Caesar Dressing',cursive;
+    font-size:clamp(28px,7vw,40px);
+    letter-spacing:.12em;
+    color:var(--black);
+    text-shadow:1px 1px 0 rgba(242,227,200,.35);
+  }
+  header.title-band .sub{
+    font-family:'Julius Sans One',sans-serif;
+    font-size:11px;letter-spacing:.35em;color:var(--cream);
+    opacity:.85;text-transform:uppercase;
+  }
+
+  /* ---- screens ---- */
+  .screen{display:none;padding:14px}
+  .screen.active{display:block}
+
+  /* title */
+  #title-screen{text-align:center;padding:30px 20px 40px}
+  #title-canvas{width:100%;max-width:340px;height:auto;display:block;margin:0 auto}
+  .story{
+    font-style:italic;font-size:16px;line-height:1.5;max-width:380px;margin:14px auto;
+    color:var(--black);
+  }
+
+  .btn{
+    font-family:'Julius Sans One',sans-serif;
+    letter-spacing:.2em;text-transform:uppercase;
+    background:var(--black);color:var(--gold);
+    border:none;border-radius:6px;
+    padding:14px 26px;font-size:14px;cursor:pointer;
+    box-shadow:0 4px 0 rgba(0,0,0,.4);
+    transition:transform .08s;
+  }
+  .btn:active{transform:translateY(3px);box-shadow:none}
+  .btn:disabled{opacity:.4;cursor:default}
+  .btn.small{padding:9px 14px;font-size:11px}
+
+  /* team select */
+  #pick-screen h2, .h2{
+    font-family:'Caesar Dressing',cursive;color:var(--black);
+    text-align:center;font-size:24px;letter-spacing:.08em;margin-bottom:2px;
+  }
+  .pick-sub{text-align:center;color:var(--black);font-style:italic;margin-bottom:12px}
+  .grid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:9px;
+  }
+  .tile{
+    background:var(--black);
+    border-radius:10px;
+    padding:6px 4px 8px;
+    text-align:center;
+    cursor:pointer;
+    border:3px solid transparent;
+    transition:border-color .12s, transform .12s;
+    position:relative;
+  }
+  .tile:hover{transform:translateY(-2px)}
+  .tile.sel{border-color:var(--gold)}
+  .tile canvas{width:100%;height:auto;display:block}
+  .tile .nm{
+    font-family:'Julius Sans One',sans-serif;font-size:11px;letter-spacing:.12em;
+    color:var(--cream);text-transform:uppercase;
+  }
+  .tile .dm{font-size:10px;font-style:italic;color:var(--gold)}
+  .tile .god{font-size:9px;color:#9c8b72;font-style:italic}
+  .pick-actions{text-align:center;margin-top:14px}
+
+  /* battle */
+  #battle-stage{position:relative;background:var(--terra);}
+  #battle-canvas{width:100%;height:auto;display:block}
+  .hpcard{
+    position:absolute;
+    background:var(--black);
+    border-radius:8px;
+    padding:7px 10px 8px;
+    min-width:152px;
+    box-shadow:0 3px 8px rgba(0,0,0,.35);
+  }
+  .hpcard .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .hpcard .nm{font-family:'Julius Sans One',sans-serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--cream)}
+  .hpcard .lv{font-size:11px;color:var(--gold);font-style:italic}
+  .hpbar{height:9px;background:#3a2c22;border-radius:5px;margin-top:5px;overflow:hidden;border:1px solid #574433}
+  .hpfill{height:100%;background:var(--gold);width:100%;transition:width .5s ease;border-radius:4px}
+  .hpfill.low{background:var(--red)}
+  .hptext{font-size:10px;color:#b8a88c;margin-top:3px;font-style:italic;display:flex;justify-content:space-between}
+  .status-tag{font-family:'Julius Sans One',sans-serif;font-size:9px;letter-spacing:.08em;color:var(--terra);text-transform:uppercase}
+  #hp-foe{top:12px;left:12px}
+  #hp-ally{bottom:12px;right:12px}
+
+  /* battle UI panel */
+  #battle-panel{
+    background:var(--black);
+    padding:12px;
+    min-height:148px;
+  }
+  #dialogue{
+    font-size:17px;line-height:1.45;color:var(--cream);
+    min-height:52px;font-style:italic;
+  }
+  #dialogue b{color:var(--gold);font-style:normal}
+  .movegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .movebtn{
+    background:#33261c;border:2px solid #574433;border-radius:8px;
+    color:var(--cream);padding:9px 10px;cursor:pointer;text-align:left;
+    font-family:'Alegreya',serif;
+    transition:border-color .1s;
+  }
+  .movebtn:hover{border-color:var(--gold)}
+  .movebtn .mn{font-size:15px;font-weight:700}
+  .movebtn .mi{font-size:11px;color:#a3906f;font-style:italic;display:flex;justify-content:space-between;margin-top:2px}
+  .movebtn .dcol{font-family:'Julius Sans One',sans-serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+  .panel-actions{display:flex;gap:8px;margin-top:10px;justify-content:flex-end}
+  #continue-btn{margin-top:10px}
+  .hidden{display:none!important}
+
+  /* switch screen */
+  .benchrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+
+  /* result */
+  #result-screen{text-align:center;padding:34px 20px 44px}
+  #result-screen .h2{font-size:32px}
+  #result-screen p{color:var(--black);font-style:italic;font-size:17px;max-width:360px;margin:12px auto 20px}
+
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+  .shake{animation:shake .38s}
+  @media (prefers-reduced-motion: reduce){ .shake{animation:none} .hpfill{transition:none} }
+
+  /* ---- title flourish ---- */
+  #title-canvas{image-rendering:auto}
+  .title-note{
+    margin-top:16px;font-family:'Julius Sans One',sans-serif;font-size:10px;
+    letter-spacing:.22em;color:var(--black);opacity:.6;text-transform:uppercase;
+  }
+
+  /* ---- overworld ---- */
+  #ow-stage{position:relative;background:var(--black);line-height:0}
+  #ow-canvas{width:100%;height:auto;display:block;image-rendering:pixelated}
+  #ow-place{
+    position:absolute;top:8px;left:8px;
+    font-family:'Julius Sans One',sans-serif;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--cream);
+    background:rgba(30,20,16,.72);padding:5px 10px;border-radius:6px;
+    border:1px solid rgba(224,168,51,.5);pointer-events:none;
+  }
+  #dpad{
+    position:absolute;right:10px;bottom:10px;
+    display:grid;grid-template-columns:repeat(3,40px);grid-template-rows:repeat(3,40px);
+    gap:3px;opacity:.82;
+  }
+  .dbtn{
+    background:rgba(30,20,16,.8);color:var(--gold);border:1px solid #574433;border-radius:8px;
+    font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    user-select:none;-webkit-user-select:none;touch-action:none;
+  }
+  .dbtn:active{background:var(--gold);color:var(--black)}
+  .dbtn[data-dir="up"]{grid-area:1/2} .dbtn[data-dir="left"]{grid-area:2/1}
+  .dbtn[data-dir="act"]{grid-area:2/2;font-size:18px} .dbtn[data-dir="right"]{grid-area:2/3}
+  .dbtn[data-dir="down"]{grid-area:3/2}
+  @media (hover:hover) and (pointer:fine){ #dpad{display:none} }
+  #ow-bar{
+    background:var(--black);padding:9px 12px;display:flex;align-items:center;gap:12px;min-height:48px;
+  }
+  #ow-hint{font-size:13px;font-style:italic;color:#b8a88c;flex:1}
+  #ow-dialogue{
+    position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;
+    padding:0 0 8px;pointer-events:none;
+  }
+  .owd-box{
+    pointer-events:auto;width:calc(100% - 16px);margin:0 8px;
+    background:var(--black);border:2px solid var(--gold);border-radius:10px;
+    padding:14px 16px;font-size:16px;color:var(--cream);font-style:italic;line-height:1.4;
+    box-shadow:0 6px 20px rgba(0,0,0,.5);display:flex;gap:8px;align-items:flex-end;cursor:pointer;
+  }
+  .owd-box b{color:var(--gold);font-style:normal}
+  #owd-text{flex:1}
+  .owd-cue{color:var(--gold);animation:cue 1s steps(1) infinite}
+  @keyframes cue{50%{opacity:0}}
+
+  /* ---- party menu ---- */
+  #party-screen{padding:16px}
+  #party-list{display:flex;flex-direction:column;gap:8px;margin:6px 0 4px}
+  .pcard{
+    display:flex;align-items:center;gap:10px;background:var(--black);border-radius:10px;padding:6px 10px;
+    border:2px solid transparent;
+  }
+  .pcard.fainted{opacity:.5}
+  .pcard canvas{width:56px;height:52px;flex:none}
+  .pcard .pinfo{flex:1}
+  .pcard .prow{display:flex;justify-content:space-between;align-items:baseline}
+  .pcard .pnm{font-family:'Julius Sans One',sans-serif;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--cream)}
+  .pcard .plv{font-size:12px;color:var(--gold);font-style:italic}
+  .pcard .pdom{font-size:11px;font-style:italic}
+  .pcard .hpbar{margin-top:5px}
+
+  /* ---- battle action menu ---- */
+  .actiongrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .actbtn{
+    background:#33261c;border:2px solid #574433;border-radius:8px;color:var(--cream);
+    padding:12px 10px;cursor:pointer;font-family:'Julius Sans One',sans-serif;
+    letter-spacing:.12em;text-transform:uppercase;font-size:12px;transition:border-color .1s;
+  }
+  .actbtn:hover{border-color:var(--gold)}
+  .actbtn:disabled{opacity:.35;cursor:default;border-color:#574433}
+
+  /* ---- title actions + playtest panel ---- */
+  .title-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  #dev-btn{margin-top:12px;opacity:.7}
+  #dev-screen{padding:16px}
+  .dev-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin:10px 0 4px}
+  .dev-grid label{
+    display:flex;flex-direction:column;gap:4px;
+    font-family:'Julius Sans One',sans-serif;font-size:10px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--black);
+  }
+  .dev-grid label.chk{flex-direction:row;align-items:center;gap:8px;font-size:11px}
+  .dev-grid select,.dev-grid input[type=number]{
+    background:var(--black);color:var(--cream);border:1px solid #574433;
+    border-radius:6px;padding:8px;font-family:'Alegreya',serif;font-size:14px;
+  }
+  .dev-grid input[type=checkbox]{accent-color:var(--gold);width:16px;height:16px}

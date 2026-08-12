@@ -4,12 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gromov–Piatetski-Shapiro Manifolds</title>
+    <title>GPS Manifolds — Interbreeding Constructor</title>
     <meta name="description"
-        content="Interactive Three.js visualization of Gromov–Piatetski-Shapiro non-arithmetic hyperbolic manifolds via interbreeding of arithmetic pieces.">
+        content="Construct Gromov–Piatetski-Shapiro non-arithmetic hybrids: Vinberg's algorithm on quadratic forms, exact quaternion-algebra commensurability verdicts, and interactive half-plane tilings glued along a shared geodesic.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link
-        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -17,86 +16,169 @@
 <body>
     <canvas id="gpsCanvas"></canvas>
 
+    <div class="piece-label right" id="labelRight"></div>
+    <div class="piece-label left" id="labelLeft"></div>
+
     <!-- ─── Control Panel ─── -->
     <div id="controls" class="controls">
-        <h1 id="title">GPS Manifolds</h1>
-        <p class="subtitle">Gromov–Piatetski-Shapiro Interbreeding</p>
+        <h1>GPS Manifolds</h1>
+        <p class="subtitle">Gromov–Piatetski-Shapiro interbreeding, constructed live</p>
+
+        <div class="tabs">
+            <button class="tab active" data-mode="qf">Quadratic forms</button>
+            <button class="tab" data-mode="tri">Triangle groups</button>
+        </div>
 
         <div class="control-group">
-            <label for="presetSelect">Example</label>
+            <label for="presetSelect">Presets</label>
             <select id="presetSelect"></select>
         </div>
 
-        <div class="control-group">
-            <label>Piece Separation <span id="separationValue" class="value-badge">0.00</span></label>
-            <input type="range" id="separationSlider" min="0" max="2" step="0.01" value="0">
+        <div id="qfInputs">
+            <p class="hint">fᵢ = s₁x² + c·y² − s₃z² share the subform g = s₁x² − s₃z² on the geodesic
+                Σ = {y = 0}. Vinberg's algorithm computes each reflection group from scratch.</p>
+            <div class="input-row">
+                <label>s₁ <input type="number" id="inS1" min="1" max="30" value="1"></label>
+                <label>s₃ <input type="number" id="inS3" min="1" max="30" value="2"></label>
+            </div>
+            <div class="input-row">
+                <label>a (piece 1) <input type="number" id="inA" min="1" max="100" value="1"></label>
+                <label>b (piece 2) <input type="number" id="inB" min="1" max="100" value="3"></label>
+            </div>
         </div>
 
-        <div class="control-group">
-            <label>Opacity <span id="opacityValue" class="value-badge">0.70</span></label>
-            <input type="range" id="opacitySlider" min="0.05" max="1" step="0.01" value="0.7">
+        <div id="triInputs" style="display:none">
+            <p class="hint">Pieces Δ(p, q, ∞) and Δ(p, q′, ∞) share the side running from the π/p corner
+                (on Σ) to the cusp, so the gluing along Σ is isometric. p even keeps the doubled corner a
+                Coxeter angle.</p>
+            <div class="input-row">
+                <label>p (shared)
+                    <select id="inP">
+                        <option>2</option>
+                        <option>4</option>
+                        <option>6</option>
+                        <option>8</option>
+                        <option>10</option>
+                        <option>12</option>
+                        <option value="inf">∞</option>
+                    </select>
+                </label>
+            </div>
+            <div class="input-row">
+                <label>q (piece 1)
+                    <select id="inQ1"></select>
+                </label>
+                <label>q′ (piece 2)
+                    <select id="inQ2"></select>
+                </label>
+            </div>
         </div>
+
+        <button id="constructBtn" class="primary-btn">Construct hybrid</button>
 
         <div class="separator"></div>
 
-        <div class="control-group toggle-row">
-            <label for="showHypersurface">Cutting Hypersurface Σ</label>
-            <input type="checkbox" id="showHypersurface" checked>
-        </div>
-
-        <div class="control-group toggle-row">
-            <label for="showWireframe">Wireframe</label>
-            <input type="checkbox" id="showWireframe">
-        </div>
-
-        <div class="control-group toggle-row">
-            <label for="autoRotate">Auto Rotate</label>
-            <input type="checkbox" id="autoRotate" checked>
-        </div>
-
-        <div class="separator"></div>
-
         <div class="control-group">
-            <label for="colorScheme">Color Scheme</label>
-            <select id="colorScheme">
-                <option value="0">Amethyst / Sapphire</option>
-                <option value="1">Ember / Ocean</option>
-                <option value="2">Jade / Rose</option>
-                <option value="3">Monochrome</option>
-            </select>
+            <label>Reflection depth <span id="depthValue" class="value-badge">6</span></label>
+            <input type="range" id="depthSlider" min="1" max="9" step="1" value="6">
+        </div>
+        <div class="control-group">
+            <label>Piece separation <span id="sepValue" class="value-badge">0.00</span></label>
+            <input type="range" id="sepSlider" min="0" max="1.2" step="0.01" value="0">
+        </div>
+        <div class="control-group">
+            <label>Opacity <span id="opacityValue" class="value-badge">0.75</span></label>
+            <input type="range" id="opacitySlider" min="0.1" max="1" step="0.01" value="0.75">
         </div>
 
-        <div class="stats" id="stats">
+        <div class="control-group toggle-row">
+            <label for="showSigma">Cutting geodesic Σ</label>
+            <input type="checkbox" id="showSigma" checked>
+        </div>
+        <div class="control-group toggle-row">
+            <label for="showWalls">Fundamental domains</label>
+            <input type="checkbox" id="showWalls" checked>
+        </div>
+
+        <div class="btn-row">
+            <button id="resetViewBtn">⟲ View</button>
+            <button id="screenshotBtn">📸 Save</button>
+        </div>
+
+        <div class="stats">
             <span id="fpsCounter">60 fps</span>
-            <span id="manifoldInfo">Tiles: 0</span>
+            <span id="tileCount">tiles: 0</span>
         </div>
+    </div>
 
-        <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
+    <!-- ─── Report Panel ─── -->
+    <div id="reportPanel" class="report-panel">
+        <div id="report"></div>
     </div>
 
     <!-- ─── Info Panel ─── -->
-    <div id="infoPanel" class="info-panel">
-        <h2 id="infoTitle">Interbreeding Construction</h2>
-        <div id="infoContent"></div>
-        <button id="toggleInfo" class="toggle-info-btn">▾</button>
+    <div id="infoPanel" class="info-panel collapsed">
+        <h2>The interbreeding construction <button id="toggleInfo" class="toggle-info-btn">▾</button></h2>
+        <div id="infoContent">
+            <p>Gromov and Piatetski-Shapiro (1988) built the first non-arithmetic lattices in
+                O(n,1) for every n by <em>interbreeding</em>: take two arithmetic hyperbolic manifolds
+                M₁, M₂ that contain isometric embedded totally geodesic hypersurfaces, cut both along
+                these hypersurfaces, and glue M₁⁺ to M₂⁻ across the cut. If Γ₁ and Γ₂ are
+                <strong>non-commensurable</strong>, the resulting hybrid is a lattice that belongs to no
+                arithmetic commensurability class.</p>
+
+            <h3>What this tool computes (nothing is hard-coded)</h3>
+            <p>Working in ℍ² with the forms f = s₁x² + c·y² − s₃z² on ℤ³:</p>
+            <ul>
+                <li><strong>Vinberg's algorithm</strong> finds a fundamental polygon for the maximal
+                    reflection subgroup of O(f, ℤ): roots e with f(e) = k &gt; 0 and k | 2s₁e₁, 2c·e₂,
+                    2s₃e₃ are accepted outward from the base point p₀ = (0,0,1) while all pairwise
+                    angles stay ≤ π/2, until the chamber has finite area. Some forms are
+                    non-reflective; then the tool says so instead of drawing something false.</li>
+                <li>Because f₁ and f₂ restrict to the same binary form g = s₁x² − s₃z² on {y = 0},
+                    both groups contain the reflection in the geodesic Σ = {y = 0}, and each tiling is
+                    cut cleanly by Σ. The picture shows the Γ₁-tiling on one side and the Γ₂-tiling
+                    on the other — the universal cover of the hybrid piece by piece.</li>
+                <li><strong>Commensurability is decided exactly.</strong> A ternary form is classified up
+                    to similarity by its even Clifford quaternion algebra C₀(f) = (−s₁c, s₁s₃ / ℚ), and
+                    Γ₁, Γ₂ are widely commensurable iff C₀(f₁) ≅ C₀(f₂). The tool computes the
+                    ramification sets from Hilbert symbols. Empty ramification ⇔ f isotropic over ℚ ⇔
+                    the piece has cusps.</li>
+            </ul>
+
+            <h3>Reading the verdicts</h3>
+            <p>If the ramification sets differ, the pieces are non-commensurable and the GPS theorem
+                makes the hybrid non-arithmetic — this is the mechanism that works in every dimension.
+                If they agree, the pieces are commensurable and GPS is silent (the hybrid can even be
+                arithmetic). A quirk of ℚ-forms in dimension 2: any two cusped pieces are commensurable
+                (both algebras are M₂(ℚ)), so a genuine GPS verdict here needs at least one cocompact
+                piece.</p>
+
+            <h3>Gluing caveat, honestly stated</h3>
+            <p>The wall patterns that Γ₁ and Γ₂ induce on Σ need not match point-for-point, and the
+                pictures don't pretend they do. Both stabilizers of Σ are commensurable arithmetic
+                subgroups of Isom(Σ) determined by g (a Pell equation, here), so after passing to
+                suitable finite covers the boundary circles become isometric and the gluing is by an
+                isometry — that is where GPS's interbreeding actually happens. The triangle-group mode
+                instead constrains both pieces to induce the <em>same</em> pattern on Σ (a π/p corner
+                and a cusp), so there the drawn orbifolds glue directly.</p>
+
+            <p class="fine">In dimension 2 non-arithmetic lattices are plentiful (polygon moduli);
+                the point of GPS — and of the quaternion-algebra criterion computed here — is that the
+                same cut-and-glue argument works rigidly in dimensions ≥ 3, where nothing else did.
+                Reference: M. Gromov, I. Piatetski-Shapiro, <em>Non-arithmetic groups in Lobachevsky
+                    spaces</em>, Publ. Math. IHÉS 66 (1988).</p>
+        </div>
     </div>
 
-    <!-- ─── Instructions ─── -->
     <div id="instructions" class="instructions">
-        <span>🖱️ Drag to orbit · Scroll to zoom · <kbd>H</kbd> toggle panel · <kbd>I</kbd> toggle info</span>
+        <span>🖱️ drag to pan · scroll to zoom · <kbd>R</kbd> reset view · <kbd>H</kbd> panel ·
+            <kbd>I</kbd> info</span>
     </div>
 
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"
-        }
-    }
-    </script>
-    <script type="module" src="app.js"></script>
-<!-- golg-nav-bootstrap -->
-<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+    <script type="module" src="js/app.js"></script>
+    <!-- golg-nav-bootstrap -->
+    <script>(function () { if (window.self !== window.top) return; var p = location.pathname, m = "/GeometryofLinearGroups/", i = p.indexOf(m), b = i >= 0 ? p.substring(0, i + m.length) : p.replace(/[^/]*$/, ""); var s = document.createElement("script"); s.src = b + "assets/js/site-nav.js"; s.defer = true; document.head.appendChild(s); })();</script>
 </body>
 
 </html>

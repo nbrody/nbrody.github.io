@@ -1,0 +1,24 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "boiseTalk",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io/docs/Talks/Boise && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8758), H).serve_forever()'"
+      ],
+      "port": 8758
+    },
+    {
+      "name": "cayleyLaplacian",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, HTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nHTTPServer((\"\", 8762), H).serve_forever()'"
+      ],
+      "port": 8762,
+      "openPath": "/docs/GeometryofLinearGroups/Geometric/Tools/cayleyLaplacian/"
+    }
+  ]
+}

@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planar Graph Lab — flow polynomials &amp; the golden identity</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #151a22;
+    --line: #232b36;
+    --ink: #dbe2ea;
+    --dim: #8b98a9;
+    --gold: #e6c15c;
+    --slate: #9fb0c3;
+    --edge: #5f7089;
+    --good: #58c47c;
+    --bad: #e15b5b;
+    --accent: #6ea8fe;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  #app { display: flex; height: 100vh; }
+  #canvasWrap { flex: 1; position: relative; min-width: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+  #status {
+    position: absolute; left: 14px; bottom: 14px;
+    background: #1c232ecc; border: 1px solid var(--line); border-radius: 999px;
+    padding: 6px 14px; font-size: 13px; color: var(--ink);
+    opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 70%;
+  }
+  #status.show { opacity: 1; }
+  #side {
+    width: 372px; flex: none; overflow-y: auto;
+    background: var(--panel); border-left: 1px solid var(--line);
+    padding: 18px 20px 28px;
+  }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  .sub { color: var(--dim); font-size: 12.5px; margin: 0 0 14px; }
+  section { border-top: 1px solid var(--line); padding: 12px 0; }
+  h2 {
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--dim); margin: 0 0 8px; font-weight: 600;
+  }
+  .help { font-size: 13px; color: var(--dim); }
+  .help b { color: var(--ink); font-weight: 600; }
+  .help div { margin: 3px 0; }
+  kbd {
+    background: #202834; border: 1px solid #2e3947; border-bottom-width: 2px;
+    border-radius: 4px; padding: 0 5px; font-size: 11.5px; font-family: inherit; color: var(--ink);
+  }
+  .statgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; }
+  .stat { display: flex; justify-content: space-between; font-size: 13px; }
+  .stat .k { color: var(--dim); }
+  .yes { color: var(--good); } .no { color: var(--dim); }
+  .polybox {
+    background: #10151c; border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; font-size: 14.5px; overflow-x: auto;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  .polybox .var { color: var(--gold); }
+  .flowcounts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .fc {
+    background: #10151c; border: 1px solid var(--line); border-radius: 6px;
+    padding: 3px 9px; font-size: 12px; color: var(--dim);
+  }
+  .fc b { color: var(--ink); font-weight: 600; }
+  .gline { font-size: 13px; margin: 4px 0; }
+  .gline .k { color: var(--dim); }
+  .gval { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 13px; }
+  .verdict {
+    margin-top: 8px; border-radius: 8px; padding: 8px 12px; font-size: 13px;
+    border: 1px solid;
+  }
+  .verdict.hold { border-color: #2b5e40; background: #14251b; color: var(--good); }
+  .verdict.fail { border-color: #6e3030; background: #291717; color: var(--bad); }
+  .verdict.na { border-color: var(--line); background: #10151c; color: var(--dim); }
+  .verdict.maybe { border-color: #6e5a1e; background: #241f10; color: var(--gold); }
+  .qbtn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 17px; height: 17px; padding: 0; margin-left: 6px; vertical-align: -3px;
+    border: 1px solid #3a4656; border-radius: 50%; background: transparent;
+    color: var(--dim); font-size: 11px; font-weight: 700; cursor: pointer;
+  }
+  .qbtn:hover, .qbtn.open { color: var(--accent); border-color: var(--accent); background: #1a2230; }
+  .explain {
+    background: #10151c; border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 10px; font-size: 12.5px; color: var(--dim);
+  }
+  .explain p { margin: 0 0 7px; }
+  .explain p:last-child { margin-bottom: 0; }
+  .explain ul { margin: 4px 0 7px; padding-left: 18px; }
+  .explain li { margin: 3px 0; }
+  .explain b, .explain code { color: var(--ink); }
+  .explain code { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 12px; }
+  .note { font-size: 12px; color: var(--dim); margin-top: 10px; }
+  .note a { color: var(--accent); text-decoration: none; }
+  .btnrow { display: flex; flex-wrap: wrap; gap: 6px; }
+  button {
+    background: #1d2530; color: var(--ink); border: 1px solid #2e3947;
+    border-radius: 6px; padding: 5px 11px; font: inherit; font-size: 12.5px; cursor: pointer;
+  }
+  button:hover { background: #26303e; }
+  button.danger { color: #f0a0a0; }
+  .warn { color: var(--gold); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="canvasWrap">
+    <canvas id="cv"></canvas>
+    <div id="status"></div>
+  </div>
+  <aside id="side">
+    <h1>Planar Graph Lab</h1>
+    <p class="sub">flow polynomials · Tutte's golden identity · Agol–Krushkal</p>
+
+    <section>
+      <h2>Controls</h2>
+      <div class="help">
+        <div><kbd>⌘</kbd>-click empty space — <b>add vertex</b></div>
+        <div><kbd>⇧</kbd>-click two vertices — <b>add edge</b> (chains along a path)</div>
+        <div><kbd>⌥</kbd>-click vertex or edge — <b>delete</b></div>
+        <div>drag a vertex to move it · <kbd>esc</kbd> clears selection</div>
+        <div style="margin-top:6px">Any graph is allowed — edges may cross freely (crossings are just a fact of the drawing, not the graph). Degree-3 vertices are gold.</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Graph</h2>
+      <div id="stats"></div>
+    </section>
+
+    <section>
+      <h2>Flow polynomial F(G, t)<button id="polyHelp" class="qbtn" title="How is this calculated?">?</button></h2>
+      <div id="polyExplain" class="explain" hidden>
+        <p><b>What it counts.</b> At an integer t = k, F(G, k) is the number of
+        <b>nowhere-zero k-flows</b>: orient the edges and assign each a value from
+        ℤ<sub>k</sub> ∖ {0} so that flow in = flow out at every vertex. The count doesn't
+        depend on the orientation you chose — or even on which abelian group of order k you
+        use — so it's a genuine invariant of the graph, and it's a polynomial in k.</p>
+        <p><b>How it's computed</b> — deletion–contraction. Pick any non-loop edge e; the flows
+        on the contraction G/e split into those extendable with a nonzero value on e and those
+        that would need zero, giving</p>
+        <p style="text-align:center"><code>F(G) = F(G/e) − F(G∖e)</code></p>
+        <ul>
+          <li><b>bridge</b> ⇒ F ≡ 0 — no flow can cross a bridge without leaking;</li>
+          <li><b>loop</b> ⇒ factor (t − 1) — a loop carries any nonzero value;</li>
+          <li><b>no edges</b> ⇒ F = 1 — the empty flow.</li>
+        </ul>
+        <p>The recursion is exponential in general, so this tool also smooths degree-2 vertices
+        (their two edges are forced to carry the same flow), splits into connected components
+        (F multiplies), contracts parallel edges first, and caches repeated subgraphs.</p>
+        <p>Relation to the Tutte polynomial:
+        <code>F(G, t) = (−1)<sup>|E|−|V|+c</sup> T(G; 0, 1−t)</code>, with c the number of
+        components. All arithmetic here is exact integer arithmetic, and the golden-ratio
+        evaluations below are done exactly in ℤ[φ].</p>
+      </div>
+      <div id="poly"></div>
+    </section>
+
+    <section>
+      <h2>Golden identity</h2>
+      <div id="golden"></div>
+      <div class="note">
+        Tutte: for a <b>planar</b> cubic graph, F(G, φ+2) = φ<sup>|E|</sup>·F(G, φ+1)².
+        Agol–Krushkal conjecture the identity <i>characterizes</i> planarity of cubic
+        graphs (<a href="https://arxiv.org/abs/1801.00502" target="_blank" rel="noopener">arXiv:1801.00502</a>).
+        A failure therefore <i>certifies</i> non-planarity (try the Petersen preset) — while a
+        bridgeless cubic graph that passes the identity yet is genuinely non-planar would be a
+        counterexample to the conjecture.
+      </div>
+    </section>
+
+    <section>
+      <h2>Presets</h2>
+      <div class="btnrow">
+        <button data-preset="k4">K₄</button>
+        <button data-preset="prism">Prism</button>
+        <button data-preset="cube">Cube</button>
+        <button data-preset="pentaprism">Pentaprism</button>
+        <button data-preset="dodecahedron">Dodecahedron</button>
+        <button data-preset="k5">K₅</button>
+        <button data-preset="k33">K₃,₃</button>
+        <button data-preset="petersen">Petersen</button>
+        <button id="diceBtn" title="Load a random cubic graph on 20–40 vertices — will the golden identity fail? (big ones compute in the background)">🎲</button>
+        <button id="clearBtn" class="danger">Clear</button>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="flowpoly.js"></script>
+<script>
+(function () {
+  'use strict';
+  const FP = window.FlowPoly;
+  const canvas = document.getElementById('cv');
+  const wrap = document.getElementById('canvasWrap');
+  const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('status');
+
+  const VR = 9;              // vertex radius (px)
+  const VERT_GAP = 2 * VR + 4;
+
+  // ---------- state ----------
+  let verts = [];  // {id, x, y}
+  let edges = [];  // {id, a, b}
+  let nextV = 1, nextE = 1;
+  let edgeStart = null;         // vertex id awaiting the second shift-click
+  let hover = null;             // {type:'vertex'|'edge', id}
+  let drag = null;              // {id}
+  let mouse = { x: 0, y: 0 };
+  let statusTimer = null;
+  let polyCache = { key: null, poly: null, tooBig: false };
+
+  // ---------- background computation (Web Worker) ----------
+  // Small graphs compute inline; larger ones go to a worker so the editor
+  // stays responsive (dice rolls up to n = 40 can take minutes).
+  const SYNC_EDGE_LIMIT = 30;
+  let worker = null, pending = null, reqCounter = 0;
+  let computeTimer = null, computeStart = 0;
+
+  function ensureWorker() {
+    if (worker) return worker;
+    try {
+      worker = new Worker('flow-worker.js');
+      worker.onmessage = onWorkerMessage;
+    } catch (err) {
+      worker = null; // e.g. opened via file:// — fall back to synchronous
+    }
+    return worker;
+  }
+
+  function requestPoly(key, pairs) {
+    if (pending && pending.key === key) return; // already computing this graph
+    if (pending) {
+      // supersede a stale long computation
+      worker.terminate();
+      worker = null;
+      pending = null;
+      if (!ensureWorker()) return;
+    }
+    const reqId = ++reqCounter;
+    pending = { reqId, key };
+    computeStart = performance.now();
+    worker.postMessage({ reqId, pairs, limit: 30e6 });
+    clearInterval(computeTimer);
+    computeTimer = setInterval(() => {
+      const el = document.getElementById('computeSecs');
+      if (el) el.textContent = Math.round((performance.now() - computeStart) / 1000) + 's';
+    }, 1000);
+  }
+
+  function onWorkerMessage(e) {
+    const { reqId, ok, poly } = e.data;
+    if (!pending || pending.reqId !== reqId) return; // stale response
+    const key = pending.key;
+    pending = null;
+    clearInterval(computeTimer);
+    polyCache = { key, poly: ok ? poly : null, tooBig: !ok };
+    const secs = ((performance.now() - computeStart) / 1000).toFixed(1);
+    recompute(); // topology unchanged → cache hit; if it changed, this re-kicks the worker
+    msg('F(G, t) computed in ' + secs + 's.');
+  }
+
+  const vById = (id) => verts.find((v) => v.id === id);
+
+  // ---------- geometry ----------
+  function orient(ax, ay, bx, by, cx, cy) {
+    const v = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    return v > 1e-9 ? 1 : v < -1e-9 ? -1 : 0;
+  }
+  function onSeg(ax, ay, bx, by, px, py) {
+    return Math.min(ax, bx) - 1e-9 <= px && px <= Math.max(ax, bx) + 1e-9 &&
+           Math.min(ay, by) - 1e-9 <= py && py <= Math.max(ay, by) + 1e-9;
+  }
+  function segsIntersect(p, q, r, s) {
+    const o1 = orient(p.x, p.y, q.x, q.y, r.x, r.y);
+    const o2 = orient(p.x, p.y, q.x, q.y, s.x, s.y);
+    const o3 = orient(r.x, r.y, s.x, s.y, p.x, p.y);
+    const o4 = orient(r.x, r.y, s.x, s.y, q.x, q.y);
+    if (o1 !== o2 && o3 !== o4) return true;
+    if (o1 === 0 && onSeg(p.x, p.y, q.x, q.y, r.x, r.y)) return true;
+    if (o2 === 0 && onSeg(p.x, p.y, q.x, q.y, s.x, s.y)) return true;
+    if (o3 === 0 && onSeg(r.x, r.y, s.x, s.y, p.x, p.y)) return true;
+    if (o4 === 0 && onSeg(r.x, r.y, s.x, s.y, q.x, q.y)) return true;
+    return false;
+  }
+  function distToSeg(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    const L2 = dx * dx + dy * dy;
+    if (L2 === 0) return Math.hypot(px - ax, py - ay);
+    let t = ((px - ax) * dx + (py - ay) * dy) / L2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+  }
+
+  // ---------- drawing checks (graphs are unrestricted; keep the picture usable) ----------
+  function canPlaceVertex(x, y) {
+    for (const v of verts) if (Math.hypot(v.x - x, v.y - y) < VERT_GAP) return false;
+    return true;
+  }
+
+  function canAddEdge(uId, vId) {
+    if (uId === vId) return { ok: false, reason: 'No self-loops in the drawing.' };
+    for (const e of edges) {
+      if ((e.a === uId && e.b === vId) || (e.a === vId && e.b === uId)) {
+        return { ok: false, reason: 'That edge already exists.' };
+      }
+    }
+    return { ok: true };
+  }
+
+  // pairwise crossings of the drawn straight-line edges (a fact of the
+  // drawing, not of the graph; zero crossings certifies planarity)
+  function crossingCount() {
+    let count = 0;
+    for (let i = 0; i < edges.length; i++) {
+      for (let j = i + 1; j < edges.length; j++) {
+        const e = edges[i], f = edges[j];
+        if (e.a === f.a || e.a === f.b || e.b === f.a || e.b === f.b) continue;
+        const a = vById(e.a), b = vById(e.b), c = vById(f.a), d = vById(f.b);
+        if (segsIntersect(a, b, c, d)) count++;
+      }
+    }
+    return count;
+  }
+
+  // ---------- mutations ----------
+  function addVertex(x, y) {
+    const v = { id: nextV++, x, y };
+    verts.push(v);
+    recompute();
+    return v;
+  }
+  function addEdge(a, b) {
+    edges.push({ id: nextE++, a, b });
+    recompute();
+  }
+  function deleteVertex(id) {
+    verts = verts.filter((v) => v.id !== id);
+    edges = edges.filter((e) => e.a !== id && e.b !== id);
+    if (edgeStart === id) edgeStart = null;
+    recompute();
+  }
+  function deleteEdge(id) {
+    edges = edges.filter((e) => e.id !== id);
+    recompute();
+  }
+  function clearAll() {
+    verts = []; edges = []; edgeStart = null;
+    recompute();
+  }
+
+  // ---------- hit testing ----------
+  function hitVertex(x, y) {
+    for (let i = verts.length - 1; i >= 0; i--) {
+      const v = verts[i];
+      if (Math.hypot(v.x - x, v.y - y) <= VR + 3) return v;
+    }
+    return null;
+  }
+  function hitEdge(x, y) {
+    for (let i = edges.length - 1; i >= 0; i--) {
+      const e = edges[i];
+      const a = vById(e.a), b = vById(e.b);
+      if (distToSeg(x, y, a.x, a.y, b.x, b.y) <= 6) return e;
+    }
+    return null;
+  }
+
+  // ---------- status ----------
+  function msg(text) {
+    statusEl.textContent = text;
+    statusEl.classList.add('show');
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => statusEl.classList.remove('show'), 3200);
+  }
+
+  // ---------- interaction ----------
+  function toCanvas(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    const { x, y } = toCanvas(e);
+    mouse = { x, y };
+    const v = hitVertex(x, y);
+    if (v) {
+      if (e.altKey) { deleteVertex(v.id); msg('Vertex deleted.'); render(); return; }
+      if (e.shiftKey) { handleShiftVertex(v); return; }
+      drag = { id: v.id };
+      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+      return;
+    }
+    const ed = hitEdge(x, y);
+    if (ed && e.altKey) { deleteEdge(ed.id); msg('Edge deleted.'); render(); return; }
+    if (e.metaKey || e.ctrlKey) {
+      if (canPlaceVertex(x, y)) { addVertex(x, y); render(); }
+      else msg('Too close to an existing vertex.');
+      return;
+    }
+    if (edgeStart !== null) { edgeStart = null; render(); }
+  });
+
+  function handleShiftVertex(v) {
+    if (edgeStart === null) {
+      edgeStart = v.id;
+      msg('Shift-click another vertex to add an edge.');
+    } else if (edgeStart === v.id) {
+      edgeStart = null;
+    } else {
+      const r = canAddEdge(edgeStart, v.id);
+      if (r.ok) {
+        addEdge(edgeStart, v.id);
+        edgeStart = v.id; // chain: keep drawing a path
+      } else {
+        msg(r.reason);
+      }
+    }
+    render();
+  }
+
+  canvas.addEventListener('pointermove', (e) => {
+    const { x, y } = toCanvas(e);
+    mouse = { x, y };
+    if (drag) {
+      const v = vById(drag.id);
+      v.x = x; v.y = y;
+      render();
+      return;
+    }
+    const v = hitVertex(x, y);
+    hover = v ? { type: 'vertex', id: v.id } : (() => {
+      const ed = hitEdge(x, y);
+      return ed ? { type: 'edge', id: ed.id } : null;
+    })();
+    render();
+  });
+
+  canvas.addEventListener('pointerup', () => {
+    if (drag) {
+      drag = null;
+      recompute(); // crossing count and planarity status depend on positions
+      render();
+    }
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && edgeStart !== null) { edgeStart = null; render(); }
+  });
+
+  // ---------- rendering ----------
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = wrap.clientWidth * dpr;
+    canvas.height = wrap.clientHeight * dpr;
+    render();
+  }
+  window.addEventListener('resize', resize);
+
+  function render() {
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.width / dpr, H = canvas.height / dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    // subtle dot grid
+    ctx.fillStyle = '#1a212b';
+    for (let gx = 20; gx < W; gx += 40)
+      for (let gy = 20; gy < H; gy += 40) ctx.fillRect(gx, gy, 1.5, 1.5);
+
+    const deg = degreeMap();
+
+    // edges
+    for (const e of edges) {
+      const a = vById(e.a), b = vById(e.b);
+      const isHover = hover && hover.type === 'edge' && hover.id === e.id;
+      ctx.strokeStyle = isHover ? '#9db4d0' : '#5f7089';
+      ctx.lineWidth = isHover ? 3 : 2;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+
+    // pending edge preview
+    if (edgeStart !== null) {
+      const s = vById(edgeStart);
+      if (s) {
+        let tx = mouse.x, ty = mouse.y, color = '#8892a866';
+        const hv = hover && hover.type === 'vertex' && hover.id !== edgeStart ? vById(hover.id) : null;
+        if (hv) {
+          tx = hv.x; ty = hv.y;
+          color = canAddEdge(edgeStart, hv.id).ok ? '#58c47c' : '#e15b5b';
+        }
+        ctx.save();
+        ctx.setLineDash([6, 5]);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // vertices
+    for (const v of verts) {
+      const d = deg.get(v.id) || 0;
+      const isSel = edgeStart === v.id;
+      const isHover = hover && hover.type === 'vertex' && hover.id === v.id;
+      if (isSel) {
+        ctx.strokeStyle = '#58c47c';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(v.x, v.y, VR + 5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = d === 3 ? '#e6c15c' : '#9fb0c3';
+      ctx.strokeStyle = d === 3 ? '#8a6d1d' : '#4d5d70';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(v.x, v.y, isHover ? VR + 2 : VR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    if (verts.length === 0) {
+      ctx.fillStyle = '#5a6675';
+      ctx.font = '15px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('⌘-click to add a vertex', W / 2, H / 2);
+    }
+  }
+
+  function degreeMap() {
+    const m = new Map();
+    for (const e of edges) {
+      m.set(e.a, (m.get(e.a) || 0) + 1);
+      m.set(e.b, (m.get(e.b) || 0) + 1);
+    }
+    return m;
+  }
+
+  // ---------- analysis / sidebar ----------
+  function componentCount() {
+    const parent = new Map();
+    const find = (x) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
+    for (const v of verts) parent.set(v.id, v.id);
+    for (const e of edges) { const a = find(e.a), b = find(e.b); if (a !== b) parent.set(a, b); }
+    const roots = new Set();
+    for (const v of verts) roots.add(find(v.id));
+    return roots.size;
+  }
+
+  function fmtInt(n) {
+    return Math.abs(n) >= 1e15 ? n.toExponential(6) : n.toLocaleString('en-US');
+  }
+
+  function polyHTML(p) {
+    if (!p.length) return '0';
+    const parts = [];
+    for (let i = p.length - 1; i >= 0; i--) {
+      const c = p[i];
+      if (c === 0) continue;
+      const abs = Math.abs(c);
+      let term;
+      if (i === 0) term = fmtInt(abs);
+      else term = (abs === 1 ? '' : fmtInt(abs)) + '<span class="var">t</span>' + (i > 1 ? '<sup>' + i + '</sup>' : '');
+      parts.push([c < 0 ? '−' : '+', term]);
+    }
+    return parts.map(([sg, t], k) => (k === 0 ? (sg === '−' ? '−' : '') : ' ' + sg + ' ') + t).join('');
+  }
+
+  function gHTML(x) {
+    return FP.gToString(x).replace(/-/g, '−') +
+      ' <span style="color:var(--dim)">≈ ' + FP.gToNumber(x).toLocaleString('en-US', { maximumFractionDigits: 3 }) + '</span>';
+  }
+
+  function recompute() {
+    const V = verts.length, E = edges.length;
+    const deg = degreeMap();
+    const cubic = V > 0 && verts.every((v) => deg.get(v.id) === 3);
+    const pairs = edges.map((e) => [e.a, e.b]);
+    const bridgeless = E === 0 || !FP.hasBridge(pairs);
+    const C = componentCount();
+    const crossings = crossingCount();
+    const faces = E - V + 1 + C; // Euler: only meaningful for a plane drawing
+
+    // the polynomial depends only on the topology, not on vertex positions,
+    // so cache it — dragging vertices then only refreshes the drawing stats
+    const topoKey = pairs.map(([a, b]) => (a < b ? a + ',' + b : b + ',' + a)).sort().join(';');
+    let poly = null, tooBig = false, computing = false;
+    if (polyCache.key === topoKey) {
+      poly = polyCache.poly;
+      tooBig = polyCache.tooBig;
+    } else if (E <= SYNC_EDGE_LIMIT || !ensureWorker()) {
+      try {
+        poly = FP.flowPoly(pairs, { limit: 2e6 });
+      } catch (err) {
+        tooBig = true;
+      }
+      polyCache = { key: topoKey, poly, tooBig };
+    } else {
+      computing = true;
+      requestPoly(topoKey, pairs);
+    }
+
+    // golden evaluations (needed for both the planarity certificate and the verdict)
+    let f1 = null, f2 = null, rhs = null, holds = null;
+    if (poly !== null && E > 0) {
+      f1 = FP.pEvalGolden(poly, [1, 1]); // t = phi + 1
+      f2 = FP.pEvalGolden(poly, [2, 1]); // t = phi + 2
+      rhs = FP.gMul(FP.gPow([0, 1], E), FP.gMul(f1, f1));
+      holds = FP.gEq(f2, rhs);
+    }
+
+    // planarity status with the strongest certificate we have
+    let planar, planarCls, planarWhy;
+    if (V === 0) {
+      planar = '–'; planarCls = 'no'; planarWhy = '';
+    } else if (crossings === 0) {
+      planar = '✓'; planarCls = 'yes'; planarWhy = 'drawn without crossings';
+    } else if (V >= 3 && E > 3 * V - 6) {
+      planar = '✗'; planarCls = 'no'; planarWhy = 'E > 3V − 6 (Euler bound)';
+    } else if (cubic && bridgeless && holds === false) {
+      planar = '✗'; planarCls = 'no'; planarWhy = 'golden identity fails (Tutte)';
+    } else {
+      planar = '?'; planarCls = 'no'; planarWhy = 'has crossings — abstract planarity unknown';
+    }
+
+    // stats
+    document.getElementById('stats').innerHTML =
+      '<div class="statgrid">' +
+      '<div class="stat"><span class="k">vertices</span><span>' + V + '</span></div>' +
+      '<div class="stat"><span class="k">edges</span><span>' + E + '</span></div>' +
+      '<div class="stat"><span class="k">components</span><span>' + C + '</span></div>' +
+      '<div class="stat"><span class="k">crossings</span><span>' + crossings + '</span></div>' +
+      '<div class="stat"><span class="k">faces</span><span>' + (V > 0 && crossings === 0 ? faces : '–') + '</span></div>' +
+      '<div class="stat" title="' + planarWhy + '"><span class="k">planar</span><span class="' + planarCls + '">' + planar + '</span></div>' +
+      '<div class="stat"><span class="k">cubic</span><span class="' + (cubic ? 'yes">✓' : 'no">✗') + '</span></div>' +
+      '<div class="stat"><span class="k">bridgeless</span><span class="' + (bridgeless ? 'yes">✓' : 'no">✗') + '</span></div>' +
+      '</div>';
+
+    // polynomial
+    const polyEl = document.getElementById('poly');
+    if (computing) {
+      polyEl.innerHTML = '<div class="polybox" style="color:var(--dim)">computing… <span id="computeSecs">0s</span> · ' +
+        E + ' edges' + (E >= 50 ? ' — this can take minutes' : '') + '</div>';
+    } else if (tooBig) {
+      polyEl.innerHTML = '<div class="warn">Graph too complex for exact computation in the browser.</div>';
+    } else if (V === 0) {
+      polyEl.innerHTML = '<div class="polybox" style="color:var(--dim)">add vertices to begin — F(∅, t) = 1</div>';
+    } else {
+      let html = '<div class="polybox">' + polyHTML(poly) + '</div>';
+      if (!poly.length && E > 0) {
+        html += '<div class="note">F ≡ 0: the graph has a bridge, so it admits no nowhere-zero flow.</div>';
+      } else if (poly.length) {
+        html += '<div class="flowcounts">' + [2, 3, 4, 5, 6].map((k) =>
+          '<span class="fc">F(' + k + ') = <b>' + fmtInt(FP.pEval(poly, k)) + '</b></span>').join('') + '</div>';
+      }
+      polyEl.innerHTML = html;
+    }
+
+    // golden identity
+    const gEl = document.getElementById('golden');
+    if (computing) {
+      gEl.innerHTML = '<div class="verdict na">Computing flow polynomial…</div>';
+    } else if (tooBig || poly === null || V === 0 || E === 0) {
+      gEl.innerHTML = '<div class="verdict na">Build a graph to evaluate at φ+1 and φ+2.</div>';
+    } else {
+      let html =
+        '<div class="gline"><span class="k">F(φ+1) = </span><span class="gval">' + gHTML(f1) + '</span></div>' +
+        '<div class="gline"><span class="k">F(φ+2) = </span><span class="gval">' + gHTML(f2) + '</span></div>' +
+        '<div class="gline"><span class="k">φ<sup>' + E + '</sup>·F(φ+1)² = </span><span class="gval">' + gHTML(rhs) + '</span></div>';
+      if (cubic && bridgeless) {
+        if (holds && crossings === 0) {
+          html += '<div class="verdict hold">✓ Golden identity holds exactly — as it must: this drawing has no crossings, so the graph is planar (Tutte).</div>';
+        } else if (holds) {
+          html += '<div class="verdict maybe">✓ Identity holds, but the drawing has crossings. Either this graph is secretly planar (try untangling it), or it is non-planar and you have a counterexample to the Agol–Krushkal conjecture — verify with an independent planarity test before celebrating.</div>';
+        } else {
+          html += '<div class="verdict fail">✗ Identity fails — by Tutte\'s theorem this <i>certifies</i> the graph is non-planar, consistent with the Agol–Krushkal conjecture.</div>';
+        }
+      } else if (cubic) {
+        html += '<div class="verdict na">This cubic graph has a bridge, so F ≡ 0 and the identity is trivial — the conjecture concerns bridgeless cubic graphs.</div>';
+      } else {
+        html += '<div class="verdict na">The identity applies to cubic graphs — make every vertex gold (degree 3).</div>';
+      }
+      gEl.innerHTML = html;
+    }
+  }
+
+  // ---------- presets ----------
+  function polarRing(n, radius, angle0) {
+    const W = wrap.clientWidth, H = wrap.clientHeight;
+    const cx = W / 2, cy = H / 2;
+    const scale = Math.min(W, H) / 2 - 44;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = (angle0 + (360 / n) * i) * Math.PI / 180;
+      pts.push({ x: cx + scale * radius * Math.cos(a), y: cy + scale * radius * Math.sin(a) });
+    }
+    return pts;
+  }
+
+  const PRESETS = {
+    k4() {
+      const o = polarRing(3, 1, -90);
+      const W = wrap.clientWidth, H = wrap.clientHeight;
+      const pts = o.concat([{ x: W / 2, y: H / 2 }]);
+      return { pts, edges: [[0, 1], [1, 2], [2, 0], [0, 3], [1, 3], [2, 3]] };
+    },
+    prism() {
+      const pts = polarRing(3, 1, -90).concat(polarRing(3, 0.45, -90));
+      const E = [];
+      for (let i = 0; i < 3; i++) E.push([i, (i + 1) % 3], [3 + i, 3 + (i + 1) % 3], [i, 3 + i]);
+      return { pts, edges: E };
+    },
+    cube() {
+      const pts = polarRing(4, 1, -45).concat(polarRing(4, 0.45, -45));
+      const E = [];
+      for (let i = 0; i < 4; i++) E.push([i, (i + 1) % 4], [4 + i, 4 + (i + 1) % 4], [i, 4 + i]);
+      return { pts, edges: E };
+    },
+    pentaprism() {
+      const pts = polarRing(5, 1, -90).concat(polarRing(5, 0.45, -90));
+      const E = [];
+      for (let i = 0; i < 5; i++) E.push([i, (i + 1) % 5], [5 + i, 5 + (i + 1) % 5], [i, 5 + i]);
+      return { pts, edges: E };
+    },
+    dodecahedron() {
+      const O = polarRing(5, 1, -90);
+      const A = polarRing(5, 0.72, -90);
+      const B = polarRing(5, 0.5, -54);
+      const I = polarRing(5, 0.24, -54);
+      const pts = O.concat(A, B, I);
+      const E = [];
+      for (let i = 0; i < 5; i++) {
+        const j = (i + 1) % 5;
+        E.push([i, j]);                    // outer pentagon
+        E.push([i, 5 + i]);                // spoke O-A
+        E.push([5 + i, 10 + i]);           // A_i - B_i
+        E.push([5 + i, 10 + (i + 4) % 5]); // A_i - B_{i-1}
+        E.push([10 + i, 15 + i]);          // B_i - I_i
+        E.push([15 + i, 15 + j]);          // inner pentagon
+      }
+      return { pts, edges: E };
+    },
+    k5() {
+      const pts = polarRing(5, 1, -90);
+      const E = [];
+      for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++) E.push([i, j]);
+      return { pts, edges: E };
+    },
+    k33() {
+      const W = wrap.clientWidth, H = wrap.clientHeight;
+      const s = Math.min(W, H) / 2 - 44;
+      const pts = [];
+      for (const side of [-1, 1])
+        for (let r = 0; r < 3; r++)
+          pts.push({ x: W / 2 + side * 0.55 * s, y: H / 2 + (r - 1) * 0.8 * s });
+      const E = [];
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) E.push([i, 3 + j]);
+      return { pts, edges: E };
+    },
+    petersen() {
+      const pts = polarRing(5, 1, -90).concat(polarRing(5, 0.52, -90));
+      const E = [];
+      for (let i = 0; i < 5; i++) {
+        E.push([i, (i + 1) % 5]);       // outer pentagon
+        E.push([i, 5 + i]);             // spokes
+        E.push([5 + i, 5 + (i + 2) % 5]); // inner pentagram
+      }
+      return { pts, edges: E };
+    },
+  };
+
+  function loadPreset(name) {
+    const p = PRESETS[name]();
+    verts = p.pts.map((pt) => ({ id: nextV++, x: pt.x, y: pt.y }));
+    edges = p.edges.map(([a, b]) => ({ id: nextE++, a: verts[a].id, b: verts[b].id }));
+    edgeStart = null;
+    recompute();
+    render();
+  }
+
+  // ---------- random large cubic graphs (🎲) ----------
+  // configuration model with rejection until simple, connected, bridgeless
+  function randomCubicEdges(n) {
+    for (;;) {
+      const stubs = [];
+      for (let v = 0; v < n; v++) stubs.push(v, v, v);
+      for (let i = stubs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [stubs[i], stubs[j]] = [stubs[j], stubs[i]];
+      }
+      const pairs = [];
+      const seen = new Set();
+      let ok = true;
+      for (let i = 0; i < stubs.length; i += 2) {
+        const a = stubs[i], b = stubs[i + 1];
+        if (a === b) { ok = false; break; }
+        const key = Math.min(a, b) + '|' + Math.max(a, b);
+        if (seen.has(key)) { ok = false; break; }
+        seen.add(key);
+        pairs.push([a, b]);
+      }
+      if (!ok) continue;
+      if (FP.componentsOf(pairs).length !== 1) continue;
+      if (FP.hasBridge(pairs)) continue;
+      return pairs;
+    }
+  }
+
+  // Fruchterman–Reingold relaxation from a circle start, so the random
+  // graph loads readably instead of as spaghetti
+  function forceLayout(n, pairs) {
+    const W = wrap.clientWidth, H = wrap.clientHeight, margin = 44;
+    const R = Math.min(W, H) / 2 - margin;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = (2 * Math.PI * i) / n - Math.PI / 2;
+      pts.push({ x: W / 2 + R * Math.cos(a), y: H / 2 + R * Math.sin(a) });
+    }
+    const k = Math.sqrt((W * H) / n) * 0.55;
+    let temp = R / 3;
+    for (let it = 0; it < 220; it++) {
+      const disp = pts.map(() => ({ x: 0, y: 0 }));
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          let dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+          const d = Math.hypot(dx, dy) || 0.01;
+          const f = (k * k) / d / d;
+          disp[i].x += dx * f; disp[i].y += dy * f;
+          disp[j].x -= dx * f; disp[j].y -= dy * f;
+        }
+      }
+      for (const [a, b] of pairs) {
+        let dx = pts[a].x - pts[b].x, dy = pts[a].y - pts[b].y;
+        const d = Math.hypot(dx, dy) || 0.01;
+        const f = d / k;
+        disp[a].x -= dx * f; disp[a].y -= dy * f;
+        disp[b].x += dx * f; disp[b].y += dy * f;
+      }
+      for (let i = 0; i < n; i++) {
+        const d = Math.hypot(disp[i].x, disp[i].y) || 0.01;
+        const step = Math.min(d, temp);
+        pts[i].x = Math.max(margin, Math.min(W - margin, pts[i].x + (disp[i].x / d) * step));
+        pts[i].y = Math.max(margin, Math.min(H - margin, pts[i].y + (disp[i].y / d) * step));
+      }
+      temp *= 0.96;
+    }
+    // separation pass: no two vertices closer than a comfortable gap
+    const gap = VERT_GAP * 1.8;
+    for (let it = 0; it < 60; it++) {
+      let moved = false;
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          let dx = pts[j].x - pts[i].x, dy = pts[j].y - pts[i].y;
+          let d = Math.hypot(dx, dy);
+          if (d >= gap) continue;
+          if (d < 0.01) { dx = 1; dy = 0; d = 1; }
+          const push = (gap - d) / 2 / d;
+          pts[i].x = Math.max(margin, Math.min(W - margin, pts[i].x - dx * push));
+          pts[i].y = Math.max(margin, Math.min(H - margin, pts[i].y - dy * push));
+          pts[j].x = Math.max(margin, Math.min(W - margin, pts[j].x + dx * push));
+          pts[j].y = Math.max(margin, Math.min(H - margin, pts[j].y + dy * push));
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+    return pts;
+  }
+
+  function loadRandomCubic() {
+    const sizes = [20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40];
+    const n = sizes[Math.floor(Math.random() * sizes.length)];
+    const pairs = randomCubicEdges(n);
+    const pts = forceLayout(n, pairs);
+    verts = pts.map((pt) => ({ id: nextV++, x: pt.x, y: pt.y }));
+    edges = pairs.map(([a, b]) => ({ id: nextE++, a: verts[a].id, b: verts[b].id }));
+    edgeStart = null;
+    msg('Random cubic graph: ' + n + ' vertices, ' + pairs.length + ' edges.');
+    recompute();
+    render();
+  }
+
+  document.querySelectorAll('button[data-preset]').forEach((b) => {
+    b.addEventListener('click', () => loadPreset(b.dataset.preset));
+  });
+  document.getElementById('clearBtn').addEventListener('click', () => { clearAll(); render(); });
+  document.getElementById('diceBtn').addEventListener('click', loadRandomCubic);
+
+  const helpBtn = document.getElementById('polyHelp');
+  const explainEl = document.getElementById('polyExplain');
+  helpBtn.addEventListener('click', () => {
+    explainEl.hidden = !explainEl.hidden;
+    helpBtn.classList.toggle('open', !explainEl.hidden);
+  });
+
+  // ---------- boot ----------
+  resize();
+  loadPreset('k4');
+
+  // small automation hooks for testing
+  window.PG = {
+    state: () => ({ verts, edges }),
+    addVertexAt: (x, y) => { if (!canPlaceVertex(x, y)) return null; const v = addVertex(x, y); render(); return v.id; },
+    tryEdge: (a, b) => { const r = canAddEdge(a, b); if (r.ok) { addEdge(a, b); render(); } return r; },
+    canAddEdge, crossingCount, loadPreset, loadRandomCubic, clearAll, recompute,
+  };
+})();
+</script>
+</body>
+</html>

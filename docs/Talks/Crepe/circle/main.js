@@ -966,12 +966,23 @@ function updateUI() {
     sliderPanel.style.display = step === 6 ? 'flex' : 'none';
 }
 
-// Keyboard nav (disabled in embed mode — parent controls navigation)
+// Keyboard nav (embedded: forward to the parent presentation instead,
+// so slides keep advancing even when this iframe has focus)
 const isEmbedded = new URLSearchParams(window.location.search).get('embed') === 'true';
 if (!isEmbedded) {
     document.addEventListener('keydown', e => {
         if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); window.next(); }
         if (e.key === 'ArrowLeft') { e.preventDefault(); window.prev(); }
+    });
+} else {
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            window.parent.postMessage({ type: 'iframeNav', direction: 'next' }, '*');
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            window.parent.postMessage({ type: 'iframeNav', direction: 'prev' }, '*');
+        }
     });
 }
 

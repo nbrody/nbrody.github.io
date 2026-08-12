@@ -1327,7 +1327,7 @@ export class DowntownSB {
             description: '1931 Spanish Colonial Revival movie palace. 2018 seats inside.',
             isInteractable: true,
             type: 'landmark',
-            interactionType: 'Enter'
+            interactionType: 'Visit'
         };
 
         const stucco = this.mat.stuccoWhite;
@@ -1498,7 +1498,7 @@ export class DowntownSB {
             description: '1924 Spanish Colonial performing arts venue — at 8 stories it was SB\'s tallest building for decades.',
             isInteractable: true,
             type: 'landmark',
-            interactionType: 'Enter'
+            interactionType: 'Visit'
         };
 
         const stucco = this.mat.stuccoCream;
@@ -2007,7 +2007,7 @@ export class DowntownSB {
             description: 'Intimate regional museum with strong California & Asian collections.',
             isInteractable: true,
             type: 'landmark',
-            interactionType: 'Enter'
+            interactionType: 'Visit'
         };
 
         const stucco = this.mat.stuccoWhite;
@@ -2078,7 +2078,7 @@ export class DowntownSB {
             description: 'Main branch — stately 1917 Spanish Colonial beside the courthouse.',
             isInteractable: true,
             type: 'landmark',
-            interactionType: 'Enter'
+            interactionType: 'Visit'
         };
         const stucco = this.mat.stuccoCream;
         const roof = this.mat.tileRed;
@@ -2132,8 +2132,10 @@ export class DowntownSB {
         const p = new THREE.Group();
         p.userData = {
             name: 'de la Guerra Plaza',
-            description: 'The original 1820s town plaza — still the civic heart.',
-            type: 'landmark'
+            description: 'The original 1820s town plaza and still the civic heart of Santa Barbara, fronting City Hall. Every August it fills with music and dancing for Old Spanish Days Fiesta.',
+            isInteractable: true,
+            type: 'landmark',
+            interactionType: 'Wander'
         };
 
         const plazaMat = new THREE.MeshStandardMaterial({
@@ -2211,8 +2213,10 @@ export class DowntownSB {
         const fz = new THREE.Group();
         fz.userData = {
             name: 'Funk Zone',
-            description: 'Former industrial district → artist lofts, tasting rooms, street art.',
-            type: 'district'
+            description: 'Once industrial blocks by the waterfront, now a lively district of wine-tasting rooms, artist studios, and street art. Anchor of Santa Barbara\'s Urban Wine Trail.',
+            isInteractable: true,
+            type: 'district',
+            interactionType: 'Wander'
         };
 
         // Concrete/brick warehouses — more angular than Spanish Colonial
@@ -2637,8 +2641,10 @@ export class DowntownSB {
         const harbor = new THREE.Group();
         harbor.userData = {
             name: 'Santa Barbara Harbor',
-            description: 'Sheltered harbor with sailboats, fishing fleet & the Maritime Museum.',
-            type: 'landmark'
+            description: 'A working harbor just below Stearns Wharf, sheltering sailboats and a commercial fishing fleet behind its breakwater. Home to the Santa Barbara Maritime Museum.',
+            isInteractable: true,
+            type: 'landmark',
+            interactionType: 'Look'
         };
 
         // Breakwater — stone berm extending into the ocean

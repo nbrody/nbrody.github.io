@@ -2,18 +2,27 @@
 // Input handling: mouse, touch, keyboard
 // ═══════════════════════════════════════════════════════
 
-export function setupInteraction(canvas, renderer) {
+export function setupInteraction(canvas, renderer, onSelect) {
     let isDragging = false;
     let lastX = 0, lastY = 0;
+    let downX = 0, downY = 0;
 
     // ─── Mouse ───
     canvas.addEventListener('mousedown', e => {
         isDragging = true;
-        lastX = e.clientX;
-        lastY = e.clientY;
+        lastX = downX = e.clientX;
+        lastY = downY = e.clientY;
     });
 
-    window.addEventListener('mouseup', () => { isDragging = false; });
+    window.addEventListener('mouseup', e => {
+        // A press that never moved more than a few pixels is a click:
+        // select that point (drags pan, clicks pick)
+        if (isDragging && onSelect
+            && Math.hypot(e.clientX - downX, e.clientY - downY) < 4) {
+            onSelect(e.clientX, e.clientY);
+        }
+        isDragging = false;
+    });
 
     window.addEventListener('mousemove', e => {
         if (isDragging) {

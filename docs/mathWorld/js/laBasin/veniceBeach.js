@@ -203,7 +203,7 @@ export class VeniceBeach {
         }
         oceanGeo.computeVertexNormals();
         const oceanMat = new THREE.MeshStandardMaterial({
-            color: 0x1F6CA0, roughness: 0.18, metalness: 0.15,
+            color: 0x1A5C82, roughness: 0.18, metalness: 0.15,
             transparent: true, opacity: 0.9
         });
         const ocean = new THREE.Mesh(oceanGeo, oceanMat);
@@ -442,6 +442,7 @@ export class VeniceBeach {
         const g = new THREE.Group();
         g.userData = {
             name: `Venice · ${shop.name}`,
+            description: `${shop.name}, one of the boardwalk's colorful storefronts — the Ocean Front Walk mix of surf gear, tattoos, tacos, and souvenirs that gives Venice its carnival flavor.`,
             isInteractable: true,
             type: 'storefront',
             interactionType: 'Browse'
@@ -564,7 +565,7 @@ export class VeniceBeach {
         const g = new THREE.Group();
         g.userData = {
             name: 'Muscle Beach Venice',
-            description: 'Outdoor gym where Arnold trained. Open since 1951.',
+            description: 'The famous open-air gym by the sand — heir to the original 1930s Muscle Beach in Santa Monica, relocated to Venice in the 1960s. Arnold Schwarzenegger and generations of bodybuilders made it the sport\'s mecca.',
             isInteractable: true,
             type: 'landmark',
             interactionType: 'Workout'
@@ -724,7 +725,7 @@ export class VeniceBeach {
         const g = new THREE.Group();
         g.userData = {
             name: 'Venice Skatepark',
-            description: '16,000 sq ft of concrete bowls — former "Dogtown" spot.',
+            description: 'Concrete bowls and a snake run set right on the sand, in the heart of old "Dogtown" where 1970s skaters invented pool riding. Locals carve here from sunrise to sunset.',
             isInteractable: true,
             type: 'landmark',
             interactionType: 'Skate'
@@ -925,7 +926,7 @@ export class VeniceBeach {
         const g = new THREE.Group();
         g.userData = {
             name: 'Venice Public Art Walls',
-            description: 'Sanctioned legal graffiti. Murals change constantly.',
+            description: 'Sanctioned graffiti walls on the sand where artists paint legally by permit — a legacy of the old Venice Pavilion. The murals change week to week, so no two visits look the same.',
             isInteractable: true,
             type: 'landmark',
             interactionType: 'Look'
@@ -964,7 +965,9 @@ export class VeniceBeach {
                 const panel = new THREE.Mesh(
                     new THREE.PlaneGeometry(panelW, 2.6),
                     new THREE.MeshBasicMaterial({
-                        color: palette[(i * 3 + w.z * 7) % palette.length]
+                        // Euclidean modulo — w.z can be negative and JS %
+                        // keeps the sign, which used to index undefined.
+                        color: palette[((i * 3 + w.z * 7) % palette.length + palette.length) % palette.length]
                     })
                 );
                 panel.position.set(panelX, 1.6, 0.21);
@@ -1273,10 +1276,10 @@ export class VeniceBeach {
         const g = new THREE.Group();
         g.userData = {
             name: 'Looff Hippodrome Carousel',
-            description: '1916 carousel building — National Historic Landmark.',
+            description: 'Charles Looff built this whimsical Hippodrome in 1916 to house his hand-carved carousel, and the horses still spin inside today. The building is a National Historic Landmark on the Santa Monica Pier.',
             isInteractable: true,
             type: 'landmark',
-            interactionType: 'Enter'
+            interactionType: 'Ride'
         };
 
         const redMat = new THREE.MeshStandardMaterial({
@@ -1378,7 +1381,7 @@ export class VeniceBeach {
         const g = new THREE.Group();
         g.userData = {
             name: 'Pacific Park Arcade',
-            description: 'Pier amusement arcade — games and rides.',
+            description: 'The amusement arcade at Pacific Park, the pier\'s family fun zone — skee-ball, claw machines, and ticket counters beneath the roller coaster and the solar-powered Ferris wheel.',
             isInteractable: true,
             type: 'building',
             interactionType: 'Play'
@@ -1652,7 +1655,6 @@ export class VeniceBeach {
                 })
             );
             car.userData.coasterCar = true;
-            car.userData.offset = c * 0.15;  // Phase offset along curve
             g.add(car);
             this._coasterCars.push({ mesh: car, curve, offset: c * 0.08 });
         }
@@ -1725,8 +1727,8 @@ export class VeniceBeach {
         // "End of Route 66" sign — classic shield on a post at the pier entrance
         const route66 = new THREE.Group();
         route66.userData = {
-            name: 'End of Route 66',
-            description: 'Santa Monica Pier — symbolic western end of US Route 66.',
+            name: 'End of the Trail (Route 66)',
+            description: 'The "End of the Trail" sign on the Santa Monica Pier marks the symbolic western terminus of Route 66, the Mother Road that carried travelers 2,448 miles from Chicago to the Pacific.',
             isInteractable: true,
             type: 'sign',
             interactionType: 'Photo Op'

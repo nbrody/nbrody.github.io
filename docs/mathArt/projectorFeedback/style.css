@@ -33,6 +33,7 @@ body {
 
 #container canvas {
     display: block;
+    touch-action: none;
 }
 
 #ui-overlay {
@@ -176,6 +177,11 @@ input[type="range"]::-webkit-slider-thumb {
     cursor: pointer;
 }
 
+/* projector sliders take on the selected projector's color */
+#proj-section input[type="range"]::-webkit-slider-thumb {
+    background: var(--pc, #ccc);
+}
+
 .val {
     font-size: 10px;
     font-family: var(--mono);
@@ -202,6 +208,100 @@ input[type="color"]::-webkit-color-swatch-wrapper {
 input[type="color"]::-webkit-color-swatch {
     border: none;
     border-radius: 3px;
+}
+
+input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.on-label {
+    margin-left: auto;
+    min-width: 0 !important;
+}
+
+.hint {
+    margin-top: 8px;
+    font-size: 9.5px;
+    font-family: var(--mono);
+    color: var(--dim);
+    line-height: 1.6;
+    text-align: center;
+}
+
+#preset-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.chip {
+    padding: 5px 11px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--font);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #999;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.chip:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.chip.active {
+    background: rgba(85, 51, 255, 0.25);
+    border-color: rgba(85, 51, 255, 0.55);
+    color: #bbf;
+}
+
+#proj-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.proj-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 0;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--font);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #888;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.proj-tab:hover {
+    color: #fff;
+}
+
+.proj-tab.active {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
+}
+
+.proj-tab.off .dot {
+    opacity: 0.25;
+}
+
+.proj-tab.off {
+    opacity: 0.6;
 }
 
 .button-row {

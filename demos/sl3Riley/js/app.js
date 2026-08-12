@@ -19,6 +19,9 @@ window.addEventListener('keydown', (e) => {
 });
 
 
+// ── Computation domain (must match scene bounds) ──
+const DOMAIN = 3.0;
+
 // ── Slider live updates ──
 document.getElementById('res').oninput = e =>
     document.getElementById('resVal').textContent = e.target.value;
@@ -26,6 +29,8 @@ document.getElementById('depth').oninput = e =>
     document.getElementById('depthVal').textContent = e.target.value;
 document.getElementById('maxExp').oninput = e =>
     document.getElementById('maxExpVal').textContent = e.target.value;
+document.getElementById('beam').oninput = e =>
+    document.getElementById('beamVal').textContent = e.target.value;
 document.getElementById('thresh').oninput = e =>
     document.getElementById('threshVal').textContent = (e.target.value / 100).toFixed(2);
 
@@ -51,12 +56,14 @@ async function compute() {
     const N = parseInt(document.getElementById('res').value);
     const maxAlt = parseInt(document.getElementById('depth').value);
     const maxExp = parseInt(document.getElementById('maxExp').value);
+    const beamK = parseInt(document.getElementById('beam').value);
     const threshold = parseInt(document.getElementById('thresh').value) / 100;
 
     // Update display values
     document.getElementById('resVal').textContent = N;
     document.getElementById('depthVal').textContent = maxAlt;
     document.getElementById('maxExpVal').textContent = maxExp;
+    document.getElementById('beamVal').textContent = beamK;
     document.getElementById('threshVal').textContent = threshold.toFixed(2);
 
     const prog = document.getElementById('progress');
@@ -102,7 +109,10 @@ async function compute() {
                 if (pending === 0) resolve();
             };
 
-            worker.postMessage({ zStart, zEnd, N, maxAlt, maxExp, threshold });
+            worker.postMessage({
+                zStart, zEnd, N, maxAlt, maxExp, threshold, beamK,
+                lo: -DOMAIN, hi: DOMAIN
+            });
         }
     });
 
@@ -112,12 +122,13 @@ async function compute() {
     ptext.textContent = 'Building mesh…';
     await new Promise(r => setTimeout(r, 20));
 
-    const result = marchingCubes(field, N, 0.5, [-2.1, -2.1, -2.1], [2.1, 2.1, 2.1]);
+    const result = marchingCubes(field, N, 0.5,
+        [-DOMAIN, -DOMAIN, -DOMAIN], [DOMAIN, DOMAIN, DOMAIN]);
     buildMesh(result.verts, result.faces);
 
     prog.style.display = 'none';
     document.getElementById('status').textContent =
-        `${result.faces.length} tris · ${N}³ · ${maxAlt} alt · ±${maxExp} · ${dt}s · ${NUM_WORKERS}w`;
+        `${result.faces.length} tris · ${N}³ · depth ${maxAlt} · ±${maxExp} · beam ${beamK} · ${dt}s · ${NUM_WORKERS}w`;
 }
 
 window.compute = compute;

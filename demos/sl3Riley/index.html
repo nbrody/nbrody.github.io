@@ -22,36 +22,44 @@
             g^T = \begin{pmatrix}1&0&0\\a&1&0\\b&c&1\end{pmatrix} \]
         </div>
         <p>
-            Discreteness boundary of \(\langle g, g^T \rangle \subset SL_3(\mathbb{R})\) via Riley words.
-            Alternating products \(g^{p_1} (g^T)^{q_1} g^{p_2} (g^T)^{q_2} \cdots\)
-            using closed-form unipotent powers.
+            Where does \(\langle g, g^T \rangle \subset SL_3(\mathbb{R})\) fail to be discrete and free?
+            Beam search over alternating words \(g^{p_1} (g^T)^{q_1} g^{p_2} (g^T)^{q_2} \cdots\):
+            at each depth the beam keeps the words closest to \(I\). The surface bounds the region
+            where some word comes within the threshold of the identity (a relation or near-relation).
+            Outside it, no witness was found — heuristic evidence of discrete &amp; free, not a proof.
+            The region is exactly invariant under the duality \((a,b,c)\mapsto(c,\,ac-b,\,a)\).
         </p>
 
 
 
         <label>
             <span>Resolution</span>
-            <input type="range" id="res" min="20" max="60" value="35">
-            <span class="val" id="resVal">35</span>
+            <input type="range" id="res" min="20" max="60" value="32">
+            <span class="val" id="resVal">32</span>
         </label>
         <label>
             <span>Word Depth</span>
-            <input type="range" id="depth" min="1" max="6" value="4">
-            <span class="val" id="depthVal">4</span>
+            <input type="range" id="depth" min="2" max="24" value="14">
+            <span class="val" id="depthVal">14</span>
         </label>
         <label>
             <span>Max Exponent</span>
-            <input type="range" id="maxExp" min="1" max="6" value="3">
+            <input type="range" id="maxExp" min="1" max="5" value="3">
             <span class="val" id="maxExpVal">3</span>
         </label>
         <label>
+            <span>Beam Width</span>
+            <input type="range" id="beam" min="50" max="1000" step="50" value="300">
+            <span class="val" id="beamVal">300</span>
+        </label>
+        <label>
             <span>Threshold</span>
-            <input type="range" id="thresh" min="1" max="50" value="8">
-            <span class="val" id="threshVal">0.08</span>
+            <input type="range" id="thresh" min="1" max="50" value="15">
+            <span class="val" id="threshVal">0.15</span>
         </label>
         <label>
             <span>Clip Y</span>
-            <input type="range" id="clipY" min="-200" max="200" value="200">
+            <input type="range" id="clipY" min="-300" max="300" value="300">
             <span class="val" id="clipYVal">off</span>
         </label>
 

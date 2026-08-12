@@ -39,7 +39,7 @@ export function setupUI(renderer) {
     document.getElementById('paramSelect').addEventListener('change', e => {
         renderer.currentParam = parseInt(e.target.value);
         renderer.centerX = 0; renderer.centerY = 0;
-        renderer.zoom = renderer.currentParam === 0 ? 0.3 : 0.5;
+        renderer.zoom = renderer.currentParam === 0 ? 0.09 : 0.22;
         renderer.needsRender = true;
     });
 

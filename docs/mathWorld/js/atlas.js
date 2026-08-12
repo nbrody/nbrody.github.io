@@ -750,13 +750,9 @@ export class Atlas {
             this.mathWorld.locationGroup.visible = true;
         }
 
-        // Restore fog, sky, and lighting
-        this.mathWorld.scene.fog.near = 5000;
-        this.mathWorld.scene.fog.far = 20000;
-        this.mathWorld.scene.background.set(0xAAD4E6);
-        if (this.mathWorld.scene.fog) {
-            this.mathWorld.scene.fog.color.set(0xAAD4E6);
-        }
+        // Restore fog + background to the current region's atmosphere
+        // (the flight loop retints/rescales fog with altitude).
+        this.mathWorld._applyRegionAtmosphere(this.mathWorld.currentRegion);
 
         // Restore ambient light
         const ambient = this.mathWorld.scene.children.find(c => c.isAmbientLight);

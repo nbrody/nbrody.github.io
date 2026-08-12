@@ -540,16 +540,19 @@ function torusVertexPos(s, t, cyl, tor) {
     var cos_phi = Math.cos(phi);
     var sin_phi = Math.sin(phi);
 
-    // Radial direction for the ring: (sin(phi), 0, -cos(phi)) when tor=1
-    // When tor=0, radial direction is just (1, 0, 0)
-    var px = ax_x + cx_local * lerp(1, cos_phi, tor);
-    var py = cy_local;
-    var pz = ax_z + cx_local * lerp(0, -sin_phi, tor);
+    // Cross-section offset direction: blends from the flat sheet's
+    // outward (1, 0, 0) to the ring's outward RADIAL (sin φ, 0, −cos φ).
+    // (Offsetting along the tangent (cos φ, −sin φ) shears the tube and
+    // produces an immersed-looking surface.) Normalize so the tube keeps
+    // its radius mid-bend.
+    var dirx = lerp(1, sin_phi, tor);
+    var dirz = lerp(0, -cos_phi, tor);
+    var dlen = Math.sqrt(dirx * dirx + dirz * dirz);
+    if (dlen > 1e-6) { dirx /= dlen; dirz /= dlen; }
 
-    // Center the torus at origin when fully formed
-    if (tor > 1e-6) {
-        pz += TORUS_R * tor;  // shift so ring center is at z=0
-    }
+    var px = ax_x + cx_local * dirx;
+    var py = cy_local;
+    var pz = ax_z + cx_local * dirz;
 
     return [px, py, pz];
 }
@@ -614,12 +617,12 @@ function buildTorusMeshes() {
 
     // Dark surface matching the 2D canvas background
     surfaceMesh = new THREE.Mesh(surfaceGeo, new THREE.MeshStandardMaterial({
-        color: 0x151d2e,
+        color: 0x2a3a5e,
         metalness: 0.1,
-        roughness: 0.7,
+        roughness: 0.6,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.75,
+        opacity: 0.85,
     }));
     tScene.add(surfaceMesh);
 
@@ -640,7 +643,7 @@ function buildTorusMeshes() {
     gridGeo.setAttribute('position', surfaceGeo.attributes.position);
     gridGeo.setIndex(gridIdx);
     gridLines = new THREE.LineSegments(gridGeo, new THREE.LineBasicMaterial({
-        color: 0x94a3b8, transparent: true, opacity: 0.18,
+        color: 0x94a3b8, transparent: true, opacity: 0.3,
     }));
     tScene.add(gridLines);
 
@@ -705,8 +708,9 @@ function renderGlueCylinder(e) {
     initTorus();
     resizeTorus();
     showGLCanvas(true);
-    canvas.style.transition = 'opacity 0.5s';
-    canvas.style.opacity = '0';
+    // Keep the 2D canvas visible: the render loop clears it each frame,
+    // so during 3D steps it holds only the caption text drawn below.
+    canvas.style.opacity = '1';
 
     // e: 0→0.1 hold flat, 0.1→0.85 roll, 0.85→1 hold cylinder
     var cylFrac = 0;
@@ -756,7 +760,7 @@ function renderGlueTorus(e) {
     initTorus();
     resizeTorus();
     showGLCanvas(true);
-    canvas.style.opacity = '0';
+    canvas.style.opacity = '1';
 
     // e: 0→0.1 hold cylinder, 0.1→0.85 bend, 0.85→1 hold torus
     var torFrac = 0;
@@ -806,7 +810,7 @@ function renderFinalTorus(e) {
     initTorus();
     resizeTorus();
     showGLCanvas(true);
-    canvas.style.opacity = '0';
+    canvas.style.opacity = '1';
 
     updateTorusGeometry(1, 1);
 
@@ -876,8 +880,20 @@ function updateUI() {
     }
 }
 
-// Keyboard nav
+// Keyboard nav (embedded: forward to the parent presentation instead,
+// so slides keep advancing even when this iframe has focus)
+var isEmbedded = new URLSearchParams(window.location.search).get('embed') === 'true';
 document.addEventListener('keydown', function(e) {
+    if (isEmbedded) {
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            window.parent.postMessage({ type: 'iframeNav', direction: 'next' }, '*');
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            window.parent.postMessage({ type: 'iframeNav', direction: 'prev' }, '*');
+        }
+        return;
+    }
     if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); window.next(); }
     if (e.key === 'ArrowLeft') { e.preventDefault(); window.prev(); }
 });

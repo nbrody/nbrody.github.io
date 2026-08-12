@@ -2,11 +2,75 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 /* ── Constants ── */
-const WALL_W = 16, WALL_H = 9, PROJ_Z = 2.5;
+const WALL_W = 16, WALL_H = 9;
 const TEX_W = 1024, TEX_H = 576;
+// Reference throw distances: at these distances the Scale sliders read true.
+// Moving closer shrinks the thrown/captured image, moving away enlarges it.
+const P_REF = 2.5, CAM_REF = 4.0;
+
+/* ── Presets ── */
+// Each projector is one map of an iterated function system; a preset is a
+// choice of maps (scale/rotation/position/color) plus decay/gain balance.
+const PRESETS = {
+    nebula: {
+        decay: 0.97, gain: 1.45, drift: true,
+        cam: { s: 1.0, r: 0, d: 4, x: 0, y: 3.5 },
+        brush: { size: 0.04, color: '#ffffff' },
+        proj: [
+            { on: true, s: 0.55, r: 8, d: 2.5, b: 1.1, c: '#ff3366', x: -3, y: 1.5 },
+            { on: true, s: 0.5, r: -12, d: 2.5, b: 1.1, c: '#33ffaa', x: 3, y: -1.5 },
+            { on: true, s: 0.6, r: 18, d: 2.5, b: 1.1, c: '#4455ff', x: 0, y: 2.8 },
+        ],
+    },
+    sierpinski: {
+        decay: 0.88, gain: 2.3, drift: false,
+        cam: { s: 1.0, r: 0, d: 4, x: 0, y: 0 },
+        brush: { size: 0.04, color: '#ffffff' },
+        proj: [
+            { on: true, s: 0.5, r: 0, d: 2.5, b: 1, c: '#ff3355', x: -4, y: -2 },
+            { on: true, s: 0.5, r: 0, d: 2.5, b: 1, c: '#33ff88', x: 4, y: -2 },
+            { on: true, s: 0.5, r: 0, d: 2.5, b: 1, c: '#5533ff', x: 0, y: 2.8 },
+        ],
+    },
+    galaxy: {
+        decay: 0.97, gain: 1.35, drift: false,
+        cam: { s: 1.0, r: 0, d: 4, x: 0, y: 0 },
+        brush: { size: 0.04, color: '#ffffff' },
+        proj: [
+            { on: true, s: 0.78, r: 12, d: 2.5, b: 1.2, c: '#4466ff', x: 0, y: 0 },
+            { on: true, s: 0.3, r: -45, d: 2.5, b: 0.9, c: '#ff44aa', x: -4.5, y: 2 },
+            { on: true, s: 0.3, r: 60, d: 2.5, b: 0.9, c: '#ffaa33', x: 4.5, y: -2 },
+        ],
+    },
+    embers: {
+        decay: 0.95, gain: 1.9, drift: true,
+        cam: { s: 1.0, r: 0, d: 4, x: 0, y: 0 },
+        brush: { size: 0.04, color: '#ffddaa' },
+        proj: [
+            { on: true, s: 0.5, r: 25, d: 2.5, b: 1.25, c: '#ff4422', x: -3, y: -1 },
+            { on: true, s: 0.45, r: -18, d: 2.5, b: 1.15, c: '#ff9922', x: 3, y: -1.5 },
+            { on: true, s: 0.38, r: 40, d: 2.5, b: 1.05, c: '#ffdd55', x: 0, y: 2 },
+        ],
+    },
+    ocean: {
+        decay: 0.985, gain: 1.35, drift: true,
+        cam: { s: 1.0, r: -2, d: 4, x: 0, y: 0 },
+        brush: { size: 0.06, color: '#ccffff' },
+        // mid scales keep the attractor a thin fractal (a filled overlap region
+        // would clamp solid); gentle rotations give it a rolling swell
+        proj: [
+            { on: true, s: 0.55, r: 9, d: 2.5, b: 1, c: '#00ccff', x: -2.5, y: 0.5 },
+            { on: true, s: 0.5, r: -13, d: 2.5, b: 1, c: '#3366ff', x: 2.5, y: 0 },
+            { on: true, s: 0.45, r: 5, d: 2.5, b: 1, c: '#00ffcc', x: 0, y: -1.5 },
+        ],
+    },
+};
+const PRESET_ORDER = ['nebula', 'sierpinski', 'galaxy', 'embers', 'ocean'];
+const DEFAULT_PRESET = 'nebula';
+let state = structuredClone(PRESETS[DEFAULT_PRESET]);
 
 /* ── Renderer ── */
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.setClearColor(0x060610);
@@ -20,10 +84,10 @@ orbit.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGH
 orbit.touches = { ONE: null, TWO: THREE.TOUCH.DOLLY_ROTATE };
 orbit.enableDamping = true;
 orbit.dampingFactor = 0.06;
-orbit.enabled = false; // only active when Cmd is held
-let cmdHeld = false;
-window.addEventListener('keydown', e => { if (e.metaKey || e.key === 'Meta') { cmdHeld = true; orbit.enabled = true; } });
-window.addEventListener('keyup', e => { if (e.key === 'Meta') { cmdHeld = false; orbit.enabled = false; } });
+orbit.enabled = false; // only active while Cmd/Ctrl is held
+window.addEventListener('keydown', e => { if (e.metaKey || e.ctrlKey) orbit.enabled = true; });
+window.addEventListener('keyup', e => { if (!e.metaKey && !e.ctrlKey) orbit.enabled = false; });
+window.addEventListener('blur', () => { orbit.enabled = false; });
 
 /* ── Scene ── */
 const scene = new THREE.Scene();
@@ -86,23 +150,37 @@ void main(){
 }`;
 
 /* ── Ping-pong render targets ── */
-const rtOpts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat };
+// Half-float keeps faint trails alive — 8-bit quantization makes slow decay band and stall.
+const rtOpts = {
+    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+    format: THREE.RGBAFormat, type: THREE.HalfFloatType,
+};
 let rtA = new THREE.WebGLRenderTarget(TEX_W, TEX_H, rtOpts);
 let rtB = new THREE.WebGLRenderTarget(TEX_W, TEX_H, rtOpts);
 let readRT = rtA, writeRT = rtB;
 
+function clearTargets() {
+    const prevColor = renderer.getClearColor(new THREE.Color());
+    const prevAlpha = renderer.getClearAlpha();
+    renderer.setClearColor(0x000000, 1); // wall clears to true black, not the room color
+    renderer.setRenderTarget(rtA); renderer.clear();
+    renderer.setRenderTarget(rtB); renderer.clear();
+    renderer.setRenderTarget(null);
+    renderer.setClearColor(prevColor, prevAlpha);
+}
+
 /* ── Feedback material & quad ── */
 const fbUniforms = {
-    uPrev: { value: null }, uDecay: { value: 0.9 }, uGain: { value: 0.6 },
+    uPrev: { value: null }, uDecay: { value: 0.97 }, uGain: { value: 1.45 },
     uAspect: { value: WALL_W / WALL_H },
     uCamPos: { value: new THREE.Vector2(0.5, 0.89) },
     uCamS: { value: 1.0 }, uCamR: { value: 0.0 },
-    uP1Pos: { value: new THREE.Vector2() }, uP1S: { value: 0.5 }, uP1R: { value: 0.035 },
-    uP1C: { value: new THREE.Vector3(1, 0.2, 0.33) }, uP1On: { value: 1 }, uP1B: { value: 1.0 },
-    uP2Pos: { value: new THREE.Vector2() }, uP2S: { value: 0.5 }, uP2R: { value: -0.026 },
-    uP2C: { value: new THREE.Vector3(0.2, 1, 0.53) }, uP2On: { value: 1 }, uP2B: { value: 1.0 },
-    uP3Pos: { value: new THREE.Vector2() }, uP3S: { value: 0.5 }, uP3R: { value: 0.052 },
-    uP3C: { value: new THREE.Vector3(0.33, 0.2, 1) }, uP3On: { value: 1 }, uP3B: { value: 1.0 },
+    uP1Pos: { value: new THREE.Vector2() }, uP1S: { value: 0.5 }, uP1R: { value: 0 },
+    uP1C: { value: new THREE.Vector3(1, 0.2, 0.4) }, uP1On: { value: 1 }, uP1B: { value: 1.0 },
+    uP2Pos: { value: new THREE.Vector2() }, uP2S: { value: 0.5 }, uP2R: { value: 0 },
+    uP2C: { value: new THREE.Vector3(0.2, 1, 0.67) }, uP2On: { value: 1 }, uP2B: { value: 1.0 },
+    uP3Pos: { value: new THREE.Vector2() }, uP3S: { value: 0.5 }, uP3R: { value: 0 },
+    uP3C: { value: new THREE.Vector3(0.27, 0.33, 1) }, uP3On: { value: 1 }, uP3B: { value: 1.0 },
     uLightPos: { value: new THREE.Vector2(0.5, 0.5) }, uLightRad: { value: 0.04 },
     uLightC: { value: new THREE.Vector3(1, 1, 1) }, uLightOn: { value: 0 },
 };
@@ -123,7 +201,6 @@ const frame = new THREE.LineSegments(
 frame.position.z = 0.01; scene.add(frame);
 
 /* ── Installation Camera (the one hooked to projectors) ── */
-const CAM_Z = 4.0;
 const instCam = new THREE.Group();
 // body
 const camBody = new THREE.Mesh(
@@ -151,15 +228,14 @@ camLight.position.z = 0.5;
 instCam.add(camLight);
 // Face the wall (lens toward -z)
 instCam.rotation.y = Math.PI;
-instCam.position.set(0, 3.5, CAM_Z);
 instCam.userData.isCamera = true;
 instCam.userData.isDraggable = true;
 scene.add(instCam);
 
-/* ── Projector helpers ── */
+/* ── Projectors ── */
 function w2uv(x, y) { return new THREE.Vector2((x + WALL_W / 2) / WALL_W, (y + WALL_H / 2) / WALL_H); }
 
-function makeProjector(hex, pos) {
+function makeProjector(hex) {
     const g = new THREE.Group();
     // body
     const body = new THREE.Mesh(
@@ -176,7 +252,6 @@ function makeProjector(hex, pos) {
     g.add(lens);
     // glow light at front (lens side)
     const pl = new THREE.PointLight(hex, 0.8, 4); pl.position.z = 0.4; g.add(pl);
-    g.position.copy(pos);
     // Rotate entire projector 180° around Y so lens faces the wall (-z direction)
     g.rotation.y = Math.PI;
     g.userData.isProjector = true;
@@ -184,47 +259,92 @@ function makeProjector(hex, pos) {
     scene.add(g);
     return g;
 }
-
-const projData = [
-    { hex: 0xff3355, pos: new THREE.Vector3(-3, 1.5, PROJ_Z), uKey: '1' },
-    { hex: 0x33ff88, pos: new THREE.Vector3(3, -1.5, PROJ_Z), uKey: '2' },
-    { hex: 0x5533ff, pos: new THREE.Vector3(0, 3, PROJ_Z), uKey: '3' },
-];
-const projMeshes = projData.map(d => makeProjector(d.hex, d.pos));
+const projMeshes = state.proj.map(p => makeProjector(p.c));
 
 /* ── Light beams (translucent cones) ── */
-const beamMats = projData.map(d => new THREE.MeshBasicMaterial({
-    color: d.hex, transparent: true, opacity: 0.025,
+const beamMats = state.proj.map(p => new THREE.MeshBasicMaterial({
+    color: p.c, transparent: true, opacity: 0.025,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false,
 }));
-const beams = projData.map((d, i) => {
-    const pz = projMeshes[i].position.z;
-    const geo = new THREE.ConeGeometry(2, pz, 32, 1, true);
-    const m = new THREE.Mesh(geo, beamMats[i]);
+const beams = beamMats.map(mat => {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(2, P_REF, 32, 1, true), mat);
     m.rotation.x = -Math.PI / 2;
     scene.add(m);
     return m;
 });
 
-function syncBeam(i) {
+function syncBeamPos(i) {
     const p = projMeshes[i].position;
-    const pz = p.z;
-    // Rebuild beam geometry for new distance
-    beams[i].geometry.dispose();
-    beams[i].geometry = new THREE.ConeGeometry(2, pz, 32, 1, true);
-    beams[i].position.set(p.x, p.y, pz / 2);
+    beams[i].position.set(p.x, p.y, p.z / 2);
 }
-projMeshes.forEach((_, i) => syncBeam(i));
+function syncBeamGeo(i) {
+    // Cone footprint tracks the projected image size
+    const r = Math.max(0.25, fbUniforms[`uP${i + 1}S`].value * WALL_H / 2);
+    beams[i].geometry.dispose();
+    beams[i].geometry = new THREE.ConeGeometry(r, projMeshes[i].position.z, 32, 1, true);
+    syncBeamPos(i);
+}
 
 function syncUniforms() {
     projMeshes.forEach((m, i) => {
-        const uv = w2uv(m.position.x, m.position.y);
-        fbUniforms[`uP${i + 1}Pos`].value.copy(uv);
+        fbUniforms[`uP${i + 1}Pos`].value.copy(w2uv(m.position.x, m.position.y));
     });
-    // Sync installation camera position
     fbUniforms.uCamPos.value.copy(w2uv(instCam.position.x, instCam.position.y));
 }
-syncUniforms();
+
+/* ── State → scene/uniforms ── */
+function applySim() {
+    fbUniforms.uDecay.value = state.decay;
+    fbUniforms.uGain.value = state.gain;
+}
+function applyOptics() {
+    fbUniforms.uCamS.value = state.cam.s * (state.cam.d / CAM_REF);
+    state.proj.forEach((p, i) => {
+        fbUniforms[`uP${i + 1}S`].value = p.s * (p.d / P_REF);
+    });
+}
+function applyCam() {
+    instCam.position.set(state.cam.x, state.cam.y, state.cam.d);
+    const r = state.cam.r * Math.PI / 180;
+    fbUniforms.uCamR.value = r;
+    instCam.rotation.z = r;
+    applyOptics();
+    syncUniforms();
+}
+function applyProj(i) {
+    const p = state.proj[i], m = projMeshes[i], n = i + 1;
+    m.position.set(p.x, p.y, p.d);
+    const r = p.r * Math.PI / 180;
+    fbUniforms[`uP${n}R`].value = r;
+    m.rotation.z = -r;
+    fbUniforms[`uP${n}B`].value = p.b;
+    const c = new THREE.Color(p.c);
+    fbUniforms[`uP${n}C`].value.set(c.r, c.g, c.b);
+    beamMats[i].color.set(p.c);
+    const lens = m.children[1];
+    lens.material.color.set(p.c);
+    lens.material.emissive.set(p.c);
+    const pl = m.children[2];
+    pl.color.set(p.c);
+    fbUniforms[`uP${n}On`].value = p.on ? 1 : 0;
+    beams[i].visible = p.on;
+    lens.material.emissiveIntensity = p.on ? 2 : 0.15;
+    pl.intensity = p.on ? 0.8 : 0;
+    applyOptics();
+    syncBeamGeo(i);
+    syncUniforms();
+}
+function applyBrush() {
+    fbUniforms.uLightRad.value = state.brush.size;
+    const c = new THREE.Color(state.brush.color);
+    fbUniforms.uLightC.value.set(c.r, c.g, c.b);
+}
+function applyAll() {
+    applySim();
+    applyCam();
+    state.proj.forEach((_, i) => applyProj(i));
+    applyBrush();
+}
 
 /* ── Interaction ── */
 const raycaster = new THREE.Raycaster();
@@ -244,8 +364,8 @@ const allDraggableChildren = allDraggable.flatMap(g => g.children);
 
 renderer.domElement.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
-    // Cmd+Click → orbit (handled by OrbitControls)
-    if (cmdHeld) return;
+    // Cmd/Ctrl+Click → orbit (handled by OrbitControls)
+    if (orbit.enabled) return;
     getHit(e);
     // check draggable objects (projectors + camera)
     const hits = raycaster.intersectObjects(allDraggableChildren, true);
@@ -258,8 +378,7 @@ renderer.domElement.addEventListener('pointerdown', e => {
     const pt = new THREE.Vector3();
     if (raycaster.ray.intersectPlane(wallPlane, pt)) {
         painting = true;
-        const uv = w2uv(pt.x, pt.y);
-        fbUniforms.uLightPos.value.copy(uv);
+        fbUniforms.uLightPos.value.copy(w2uv(pt.x, pt.y));
         fbUniforms.uLightOn.value = 1;
     }
 });
@@ -270,12 +389,19 @@ renderer.domElement.addEventListener('pointermove', e => {
         const pt = new THREE.Vector3();
         const dragZ = dragging.position.z;
         if (raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), -dragZ), pt)) {
-            dragging.position.x = THREE.MathUtils.clamp(pt.x, -WALL_W / 2 + 0.5, WALL_W / 2 - 0.5);
-            dragging.position.y = THREE.MathUtils.clamp(pt.y, -WALL_H / 2 + 0.5, WALL_H / 2 - 0.5);
+            const x = THREE.MathUtils.clamp(pt.x, -WALL_W / 2 + 0.5, WALL_W / 2 - 0.5);
+            const y = THREE.MathUtils.clamp(pt.y, -WALL_H / 2 + 0.5, WALL_H / 2 - 0.5);
+            dragging.position.x = x;
+            dragging.position.y = y;
+            // Positions live in state so drift orbits the new spot and presets stay coherent
             const idx = projMeshes.indexOf(dragging);
-            if (idx >= 0) { syncBeam(idx); syncUniforms(); }
-            // Also sync if dragging the camera
-            if (dragging === instCam) { syncUniforms(); }
+            if (idx >= 0) {
+                state.proj[idx].x = x; state.proj[idx].y = y;
+                syncBeamPos(idx);
+            } else {
+                state.cam.x = x; state.cam.y = y;
+            }
+            syncUniforms();
         }
     } else if (painting) {
         getHit(e);
@@ -289,118 +415,175 @@ renderer.domElement.addEventListener('pointermove', e => {
 window.addEventListener('pointerup', () => {
     dragging = null;
     painting = false;
-    fbUniforms.uLightOn.value = 0;
+    if (seedFrames === 0) fbUniforms.uLightOn.value = 0;
 });
 
 /* ── Seed ── */
+const RESEED_EVERY = 480; // feedback frames of darkness-risk before a fresh drop of light
+let seedFrames = 0, idleFrames = 0;
 function injectSeed() {
     // single small white dot at center
     fbUniforms.uLightPos.value.set(0.5, 0.5);
     fbUniforms.uLightC.value.set(1, 1, 1);
     fbUniforms.uLightRad.value = 0.015;
     fbUniforms.uLightOn.value = 1;
-    // turn off after a few frames
-    setTimeout(() => { fbUniforms.uLightOn.value = 0; }, 120);
+    // counted in rendered feedback frames, so throttled tabs still get seeded
+    seedFrames = 6;
+    idleFrames = 0;
 }
-
-function resetAll() {
-    renderer.setRenderTarget(rtA); renderer.clear();
-    renderer.setRenderTarget(rtB); renderer.clear();
-    renderer.setRenderTarget(null);
-    setTimeout(injectSeed, 100);
+function endSeed() {
+    seedFrames = 0;
+    fbUniforms.uLightOn.value = 0;
+    // the seed borrows the brush uniforms — hand them back
+    applyBrush();
 }
 
 /* ── UI Wiring ── */
-function wire(id, cb) {
-    const el = document.getElementById(id);
-    const vEl = document.getElementById(id + '-val');
-    el.addEventListener('input', () => { cb(parseFloat(el.value)); if (vEl) vEl.textContent = el.value; });
-}
-wire('decay', v => fbUniforms.uDecay.value = v);
-wire('gain', v => fbUniforms.uGain.value = v);
-wire('p1s', v => fbUniforms.uP1S.value = v);
-wire('p1r', v => { const r = v * Math.PI / 180; fbUniforms.uP1R.value = r; projMeshes[0].rotation.z = -r; });
-wire('p2s', v => fbUniforms.uP2S.value = v);
-wire('p2r', v => { const r = v * Math.PI / 180; fbUniforms.uP2R.value = r; projMeshes[1].rotation.z = -r; });
-wire('p3s', v => fbUniforms.uP3S.value = v);
-wire('p3r', v => { const r = v * Math.PI / 180; fbUniforms.uP3R.value = r; projMeshes[2].rotation.z = -r; });
-wire('p1d', v => { projMeshes[0].position.z = v; syncBeam(0); });
-wire('p2d', v => { projMeshes[1].position.z = v; syncBeam(1); });
-wire('p3d', v => { projMeshes[2].position.z = v; syncBeam(2); });
-wire('p1b', v => fbUniforms.uP1B.value = v);
-wire('p2b', v => fbUniforms.uP2B.value = v);
-wire('p3b', v => fbUniforms.uP3B.value = v);
-wire('cams', v => fbUniforms.uCamS.value = v);
-wire('camr', v => { const r = v * Math.PI / 180; fbUniforms.uCamR.value = r; instCam.rotation.z = r; });
-wire('camd', v => { instCam.position.z = v; });
-wire('brush', v => fbUniforms.uLightRad.value = v);
+const $ = id => document.getElementById(id);
+let activeProj = 0;
 
-// Projector color pickers
-function wireColor(pickerId, uniformKey, beamIdx) {
-    document.getElementById(pickerId).addEventListener('input', e => {
-        const c = new THREE.Color(e.target.value);
-        fbUniforms[uniformKey].value.set(c.r, c.g, c.b);
-        // Update beam & projector lens color
-        if (beamIdx >= 0) {
-            beamMats[beamIdx].color.set(e.target.value);
-            // Update lens emissive
-            const lens = projMeshes[beamIdx].children[1];
-            if (lens && lens.material) {
-                lens.material.color.set(e.target.value);
-                lens.material.emissive.set(e.target.value);
-            }
-            // Update point light
-            const pl = projMeshes[beamIdx].children[2];
-            if (pl && pl.color) pl.color.set(e.target.value);
-        }
+function markCustom() {
+    document.querySelectorAll('.chip.active').forEach(c => c.classList.remove('active'));
+}
+function setVal(id, v) {
+    const el = $(id);
+    el.value = v;
+    const vEl = $(id + '-val');
+    if (vEl) vEl.textContent = el.value;
+}
+function refreshProjUI() {
+    const p = state.proj[activeProj];
+    setVal('ps', p.s); setVal('pr', p.r); setVal('pd', p.d); setVal('pb', p.b);
+    $('pc').value = p.c;
+    $('pon').checked = p.on;
+    $('proj-section').style.setProperty('--pc', p.c);
+    document.querySelectorAll('.proj-tab').forEach((tab, i) => {
+        tab.classList.toggle('active', i === activeProj);
+        tab.classList.toggle('off', !state.proj[i].on);
+        tab.querySelector('.dot').style.background = state.proj[i].c;
     });
 }
-wireColor('p1c', 'uP1C', 0);
-wireColor('p2c', 'uP2C', 1);
-wireColor('p3c', 'uP3C', 2);
+function refreshUI() {
+    setVal('decay', state.decay); setVal('gain', state.gain);
+    setVal('cams', state.cam.s); setVal('camr', state.cam.r); setVal('camd', state.cam.d);
+    setVal('brush', state.brush.size);
+    $('brush-color').value = state.brush.color;
+    refreshProjUI();
+}
 
-document.getElementById('brush-color').addEventListener('input', e => {
-    const c = new THREE.Color(e.target.value);
-    fbUniforms.uLightC.value.set(c.r, c.g, c.b);
+function wire(id, cb) {
+    const el = $(id);
+    const vEl = $(id + '-val');
+    el.addEventListener('input', () => {
+        cb(parseFloat(el.value));
+        if (vEl) vEl.textContent = el.value;
+        markCustom();
+    });
+}
+wire('decay', v => { state.decay = v; applySim(); });
+wire('gain', v => { state.gain = v; applySim(); });
+wire('cams', v => { state.cam.s = v; applyCam(); });
+wire('camr', v => { state.cam.r = v; applyCam(); });
+wire('camd', v => { state.cam.d = v; applyCam(); });
+wire('ps', v => { state.proj[activeProj].s = v; applyProj(activeProj); });
+wire('pr', v => { state.proj[activeProj].r = v; applyProj(activeProj); });
+wire('pd', v => { state.proj[activeProj].d = v; applyProj(activeProj); });
+wire('pb', v => { state.proj[activeProj].b = v; applyProj(activeProj); });
+wire('brush', v => { state.brush.size = v; applyBrush(); });
+
+$('pc').addEventListener('input', e => {
+    state.proj[activeProj].c = e.target.value;
+    applyProj(activeProj);
+    refreshProjUI();
+    markCustom();
 });
-document.getElementById('controls-toggle').addEventListener('click', () =>
-    document.getElementById('controls-panel').classList.toggle('hidden'));
-document.getElementById('clear-btn').addEventListener('click', () => {
-    renderer.setRenderTarget(rtA); renderer.clear();
-    renderer.setRenderTarget(rtB); renderer.clear();
-    renderer.setRenderTarget(null);
+$('pon').addEventListener('change', e => {
+    state.proj[activeProj].on = e.target.checked;
+    applyProj(activeProj);
+    refreshProjUI();
+    markCustom();
 });
-document.getElementById('seed-btn').addEventListener('click', injectSeed);
-document.getElementById('reset-btn').addEventListener('click', resetAll);
-document.getElementById('pause-btn').addEventListener('click', () => {
+$('brush-color').addEventListener('input', e => {
+    state.brush.color = e.target.value;
+    applyBrush();
+    markCustom();
+});
+
+document.querySelectorAll('.proj-tab').forEach((tab, i) =>
+    tab.addEventListener('click', () => { activeProj = i; refreshProjUI(); }));
+
+document.querySelectorAll('.chip').forEach(chip =>
+    chip.addEventListener('click', () => applyPreset(chip.dataset.preset)));
+
+function applyPreset(name) {
+    if (!PRESETS[name]) return;
+    state = structuredClone(PRESETS[name]);
+    applyAll();
+    refreshUI();
+    setDrift(state.drift);
+    document.querySelectorAll('.chip').forEach(c =>
+        c.classList.toggle('active', c.dataset.preset === name));
+    clearTargets();
+    injectSeed();
+}
+
+$('controls-toggle').addEventListener('click', () =>
+    $('controls-panel').classList.toggle('hidden'));
+$('clear-btn').addEventListener('click', clearTargets);
+$('seed-btn').addEventListener('click', injectSeed);
+$('reset-btn').addEventListener('click', () => applyPreset(DEFAULT_PRESET));
+
+function togglePause() {
     paused = !paused;
-    document.getElementById('pause-btn').textContent = paused ? 'Resume' : 'Pause';
+    $('pause-btn').textContent = paused ? 'Resume' : 'Pause';
+}
+$('pause-btn').addEventListener('click', togglePause);
+
+$('save-btn').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.download = 'feedback-loop.png';
+    a.href = renderer.domElement.toDataURL('image/png');
+    a.click();
 });
 
-/* ── Installation Camera Auto-Drift ── */
+// Keep Space (etc.) from re-triggering the last clicked panel button
+$('controls-panel').addEventListener('click', e => e.target.closest('button')?.blur());
+
+/* ── Auto-Drift ── */
 let autoDrift = false;
 function driftNoise(t, seed) {
     return Math.sin(t * 0.13 + seed) * 0.5
         + Math.sin(t * 0.07 + seed * 2.3) * 0.3
         + Math.sin(t * 0.03 + seed * 5.1) * 0.2;
 }
-// Save home state for all drifting params
-const driftHome = {
-    camPos: instCam.position.clone(),
-    camS: fbUniforms.uCamS.value,
-    camR: fbUniforms.uCamR.value,
-    projPos: projMeshes.map(m => m.position.clone()),
-};
-document.getElementById('drift-btn').addEventListener('click', () => {
-    autoDrift = !autoDrift;
-    document.getElementById('drift-btn').textContent = autoDrift ? 'Stop Drift' : 'Auto Drift';
-    if (!autoDrift) {
-        // Restore home state
-        instCam.position.copy(driftHome.camPos);
-        fbUniforms.uCamS.value = driftHome.camS;
-        fbUniforms.uCamR.value = driftHome.camR;
-        projMeshes.forEach((m, i) => { m.position.copy(driftHome.projPos[i]); syncBeam(i); });
-        syncUniforms();
+function setDrift(on) {
+    autoDrift = on;
+    state.drift = on;
+    const btn = $('drift-btn');
+    btn.textContent = on ? 'Stop Drift' : 'Auto Drift';
+    btn.classList.toggle('btn-accent', on);
+    if (!on) {
+        // settle back to the state values drift was orbiting around
+        applyCam();
+        state.proj.forEach((_, i) => applyProj(i));
+    }
+}
+$('drift-btn').addEventListener('click', () => { setDrift(!autoDrift); markCustom(); });
+
+/* ── Keyboard shortcuts ── */
+window.addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target instanceof HTMLInputElement) return;
+    const k = e.key.toLowerCase();
+    const preset = PRESET_ORDER['12345'.indexOf(k)];
+    if (preset) { applyPreset(preset); return; }
+    switch (k) {
+        case ' ': e.preventDefault(); togglePause(); break;
+        case 'c': clearTargets(); break;
+        case 's': injectSeed(); break;
+        case 'r': applyPreset(DEFAULT_PRESET); break;
+        case 'd': setDrift(!autoDrift); break;
+        case 'h': $('controls-panel').classList.toggle('hidden'); break;
     }
 });
 
@@ -408,44 +591,46 @@ document.getElementById('drift-btn').addEventListener('click', () => {
 window.addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(innerWidth, innerHeight);
 });
 
 /* ── Animation Loop ── */
+function feedbackStep() {
+    fbUniforms.uPrev.value = readRT.texture;
+    renderer.setRenderTarget(writeRT);
+    renderer.render(fbScene, fbCam);
+    [readRT, writeRT] = [writeRT, readRT];
+    if (seedFrames > 0 && --seedFrames === 0 && !painting) endSeed();
+    // heartbeat: keep the wall alive with a fresh drop of light now and then
+    if (painting || seedFrames > 0) idleFrames = 0;
+    else if (++idleFrames >= RESEED_EVERY) injectSeed();
+}
+
 let fc = 0, ft = 0;
 function animate(t) {
     requestAnimationFrame(animate);
     fc++;
-    if (t - ft > 1000) { document.getElementById('fps').textContent = fc + ' fps'; fc = 0; ft = t; }
+    if (t - ft > 1000) { $('fps').textContent = fc + ' fps'; fc = 0; ft = t; }
 
-    // Auto-drift: slowly modulate camera and projector params
+    // Auto-drift: slowly modulate camera and projector params around state
     if (autoDrift) {
         const s = t * 0.001;
-        // Camera position
-        instCam.position.x = driftHome.camPos.x + driftNoise(s, 0) * 4;
-        instCam.position.y = driftHome.camPos.y + driftNoise(s, 7) * 2.5;
-        // Camera scale (oscillate gently around home)
-        fbUniforms.uCamS.value = driftHome.camS + driftNoise(s, 17) * 0.3;
-        // Camera rotation (gentle wobble)
-        fbUniforms.uCamR.value = driftHome.camR + driftNoise(s, 23) * 0.15;
-        // Projector positions (subtle wander)
+        instCam.position.x = state.cam.x + driftNoise(s, 0) * 4;
+        instCam.position.y = state.cam.y + driftNoise(s, 7) * 2.5;
+        fbUniforms.uCamS.value = Math.max(0.1, state.cam.s + driftNoise(s, 17) * 0.3) * (state.cam.d / CAM_REF);
+        fbUniforms.uCamR.value = (state.cam.r * Math.PI / 180) + driftNoise(s, 23) * 0.15;
         projMeshes.forEach((m, i) => {
-            const home = driftHome.projPos[i];
+            const home = state.proj[i];
             m.position.x = home.x + driftNoise(s, 30 + i * 11) * 1.5;
             m.position.y = home.y + driftNoise(s, 40 + i * 13) * 1.0;
-            syncBeam(i);
+            syncBeamPos(i);
         });
         syncUniforms();
     }
 
     orbit.update();
-    if (!paused) {
-        // feedback pass
-        fbUniforms.uPrev.value = readRT.texture;
-        renderer.setRenderTarget(writeRT);
-        renderer.render(fbScene, fbCam);
-        [readRT, writeRT] = [writeRT, readRT];
-    }
+    if (!paused) feedbackStep();
     // display
     wallMat.map = readRT.texture;
     wallMat.needsUpdate = true;
@@ -454,8 +639,15 @@ function animate(t) {
 }
 
 /* ── Boot ── */
-renderer.setRenderTarget(rtA); renderer.clear();
-renderer.setRenderTarget(rtB); renderer.clear();
-renderer.setRenderTarget(null);
-setTimeout(injectSeed, 300);
+applyPreset(DEFAULT_PRESET);
 requestAnimationFrame(animate);
+
+// console/debug hook: fb.steps(300) fast-forwards the feedback loop
+window.fb = {
+    steps(n = 120) {
+        for (let k = 0; k < n; k++) feedbackStep();
+        renderer.setRenderTarget(null);
+    },
+    seed: injectSeed,
+    preset: applyPreset,
+};

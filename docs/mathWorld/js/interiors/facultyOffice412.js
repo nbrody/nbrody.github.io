@@ -24,6 +24,12 @@ export class FacultyOffice412Interior extends InteriorBase {
 
     async generate() {
         this._buildMaterials();
+        this._addRoomLighting({
+            height: this.H,
+            points: [{ x: 0, z: 0 }],
+            pointIntensity: 14,
+            range: 12
+        });
         this._buildShell();
         this._buildGlassWallWithView();
         this._buildDesk();
@@ -363,6 +369,11 @@ export class FacultyOffice412Interior extends InteriorBase {
             this.mat.chalkboard
         );
         cb.position.set(this.W/2 - 0.1, 1.95, 0);
+        cb.userData = {
+            isInteractable: true, name: 'Office Chalkboard', type: 'chalkboard',
+            interactionType: 'Read',
+            description: 'A working board mid-thought: the fundamental group of SL₃(ℤ), a note about Property (T), and office hours nobody has erased in weeks.'
+        };
         this.group.add(cb);
         // Frame
         const frame = new THREE.Mesh(

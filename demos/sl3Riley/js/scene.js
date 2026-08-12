@@ -13,7 +13,7 @@ export function initScene() {
     scene.fog = new THREE.FogExp2(0x050a15, 0.04);
 
     camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 500);
-    camera.position.set(5, 4, 6);
+    camera.position.set(6, 5, 7);
 
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true });
     renderer.setSize(innerWidth, innerHeight);
@@ -34,11 +34,12 @@ export function initScene() {
     pl.position.set(0, 0, 0); scene.add(pl);
 
     // Axes
-    const axes = new THREE.AxesHelper(2.5);
+    const axes = new THREE.AxesHelper(3.2);
     axes.material.opacity = 0.5; axes.material.transparent = true;
     scene.add(axes);
 
-    // [-2,2]³ bounding box wireframe
+    // [-2,2]³ reference box (the classical Sanov bound on each axis —
+    // note the bad region genuinely pokes outside it near the corners)
     const boxGeo = new THREE.BoxGeometry(4, 4, 4);
     const boxEdges = new THREE.EdgesGeometry(boxGeo);
     boxHelper = new THREE.LineSegments(boxEdges,
@@ -46,9 +47,9 @@ export function initScene() {
     scene.add(boxHelper);
 
     // Axis labels
-    addLabel('a', 2.6, 0, 0);
-    addLabel('b', 0, 2.6, 0);
-    addLabel('c', 0, 0, 2.6);
+    addLabel('a', 3.3, 0, 0);
+    addLabel('b', 0, 3.3, 0);
+    addLabel('c', 0, 0, 3.3);
 
     animate();
 }
@@ -118,7 +119,7 @@ function animate() {
     controls.update();
     if (clipEnabled) {
         const cv = parseFloat(document.getElementById('clipY').value) / 100;
-        clipPlane.constant = cv * 2;
+        clipPlane.constant = cv;
         document.getElementById('clipYVal').textContent = cv.toFixed(1);
     }
     renderer.render(scene, camera);

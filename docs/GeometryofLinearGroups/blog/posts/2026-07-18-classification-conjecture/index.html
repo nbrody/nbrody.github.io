@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Main Conjecture - Geometry of Linear Groups</title>
+    <link rel="stylesheet" href="../../../assets/css/main.css">
+    <link rel="stylesheet" href="../../assets/blog.css">
+    <script src="../../../assets/js/mathjax-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <nav class="breadcrumb">
+                <a href="../../../index.html">Home</a> /
+                <a href="../../index.html">Blog</a> /
+                The Main Conjecture
+            </nav>
+        </header>
+
+        <main>
+            <article class="post">
+                <div class="post-header">
+                    <h1>The classification conjecture: classifying subgroups of algebraic groups</h1>
+                    <span class="post-date">July 18, 2026</span>
+                </div>
+
+                <p>
+                    This site is organized around a single question: given a simple
+                    algebraic group $\G$ over a number field $k$, what are the finitely
+                    generated subgroups of $\G(k)$? After studying a certain number of 
+                    examples, one may observe some patterns in how subgroups can be 
+                    constructed. We give rigorous definitions of these construction 
+                    schemes, and conjecture that these completely exhaust the possible
+                    ways to construct subgroups of $\G(k)$. 
+                </p>
+            
+                <h2>Three types of subgroups</h2>
+
+                <p>
+                    Let $k$ be a number field and let $\G$ be a simple $k$-algebraic group.
+                    We call a subgroup $\Gamma \leq \G(k)$:
+                </p>
+
+                <dl>
+                    <dt>Algebraic</dt>
+                    <dd>
+                        if there is a proper algebraic subgroup
+                        $\bbH \lneq \mathsf{Res}_{k/\Q}\, \G$ with
+                        $\Gamma \leq \bbH(\Q)$. These are the subgroups that are "cut out by
+                        equations": they fail to be Zariski dense after restriction of
+                        scalars.
+                    </dd>
+                    <dt>Geometric</dt>
+                    <dd>
+                        if there is a valuation $v$ on $k$ so that $\Gamma$ is discrete in
+                        $\G(k_v)$. These are the subgroups that act properly on some
+                        associated geometry — a symmetric space when $v$ is archimedean, a
+                        building when $v$ is non-archimedean.
+                    </dd>
+                    <dt>Arithmetic</dt>
+                    <dd>
+                        if there is a subring $A \leq k$ so that $\Gamma$ is commensurable
+                        with $\G(A)$. The prototype is $\SL_2(\Z) \leq \SL_2(\Q)$, and more
+                        generally the $S$-arithmetic groups like $\SL_2(\Z[1/p])$.
+                    </dd>
+                </dl>
+
+                <p>
+                    Many subgroup of $\G(k)$ may fall into more than one of these categories. 
+                    For example, $\SL_2(\Z)$ is both geometric and arithmetic, while 
+                    $\SL_2(\Z[1/p])$ is arithmetic but not geometric. But the conjecture is that
+                    no subgroup can avoid all three categories!
+                </p>
+
+                <div class="conjecture-box">
+                    <span class="box-label">Conjecture</span>
+                    <p>
+                        Every finitely generated subgroup of $\G(k)$ is either algebraic,
+                        geometric, or arithmetic.
+                    </p>
+                </div>
+
+                <p>
+                    In other words, a finitely generated subgroup of $\G(k)$ that is Zariski
+                    dense and not discrete in any completion should be forced to be a full 
+                    group of $A$-points (well, up to commensurability at least). A classification
+                    like this would be a remarkably strong local-to-global statement: the
+                    only obstructions to being arithmetic are the visible ones.
+                </p>
+            </article>
+
+            <nav class="post-nav">
+                <a href="../2026-07-18-welcome/index.html">← Welcome to the GOLG blog</a>
+                <a href="../2026-07-18-flashbeam/index.html">The FlashBeam search →</a>
+                <a href="../../index.html">All posts →</a>
+            </nav>
+        </main>
+
+        <footer>
+            <p>Created by Nic Brody, UC Santa Cruz</p>
+        </footer>
+    </div>
+    <script src="../../../assets/js/site-nav.js" defer></script>
+</body>
+</html>

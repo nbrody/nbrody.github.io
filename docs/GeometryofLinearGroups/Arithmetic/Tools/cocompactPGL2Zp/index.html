@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Explore explicit hyperbolic elements in Gamma_0(2p), their conjugating element in PGL_2(Z[1/p]), nested axes, and the Calegari-Louwsma stability estimate.">
+    <title>Cocompact PGL₂(Z[1/p]) Construction Explorer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+</head>
+
+<body>
+    <main class="app-shell">
+        <header class="hero">
+            <div>
+                <p class="eyebrow">Hyperbolic lattice laboratory</p>
+                <h1>Cocompact subgroups of PGL<sub>2</sub>(Z[1/p])</h1>
+                <p class="lede">Explore the explicit conjugate geodesics, the cyclic side-pairing strip, and the
+                    numerical virtual-bounding certificate.</p>
+            </div>
+            <div class="hero-formula" aria-label="The basic conjugacy relation">
+                <span>h<sub>p</sub>A<sub>p</sub>h<sub>p</sub><sup>−1</sup></span>
+                <span class="formula-arrow">=</span>
+                <span>B<sub>p</sub></span>
+            </div>
+        </header>
+
+        <section class="control-bar" aria-label="Construction controls">
+            <label>
+                <span>Odd prime p</span>
+                <input id="primeInput" type="number" min="3" max="997" step="2" value="7" inputmode="numeric">
+            </label>
+            <label>
+                <span>Matrix family</span>
+                <select id="familyInput">
+                    <option value="minimal">Smallest certified family</option>
+                    <option value="uniform">Uniform square-root family</option>
+                    <option value="all-prime">Uniform all-prime p² family</option>
+                </select>
+            </label>
+            <label>
+                <span>View</span>
+                <select id="viewInput">
+                    <option value="uhp">Upper half-plane</option>
+                    <option value="log">Logarithmic quotient strip</option>
+                </select>
+            </label>
+            <button id="applyButton" type="button">Update construction</button>
+            <p id="validationMessage" class="validation" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="summary-grid" aria-label="Construction status">
+            <article class="summary-item">
+                <span class="summary-label">Conjugator</span>
+                <strong id="conjugatorSummary">h₇ = diag(7, 1)</strong>
+                <span id="conjugatorContext">square root of the p² scaling</span>
+            </article>
+            <article class="summary-item">
+                <span class="summary-label">Common trace</span>
+                <strong id="traceSummary">100</strong>
+                <span id="lengthSummary">translation length 9.210</span>
+            </article>
+            <article class="summary-item">
+                <span class="summary-label">Stability margin</span>
+                <strong id="marginSummary">+7</strong>
+                <span id="certificateSummary">S-dual R-block certificate</span>
+            </article>
+        </section>
+
+        <section class="workspace">
+            <aside class="data-panel">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Exact arithmetic</p>
+                        <h2>Generators</h2>
+                    </div>
+                    <span id="gammaBadge" class="badge">Γ₀(14)</span>
+                </div>
+
+                <div class="matrix-stack">
+                    <article class="matrix-block">
+                        <div class="matrix-title"><span>A<sub>p</sub></span><code id="wordA">R L⁹⁸</code></div>
+                        <div id="matrixA" class="matrix" aria-label="Matrix A"></div>
+                    </article>
+                    <article class="matrix-block">
+                        <div class="matrix-title"><span>B<sub>p</sub></span><code id="wordB">R⁷ L¹⁴</code></div>
+                        <div id="matrixB" class="matrix" aria-label="Matrix B"></div>
+                    </article>
+                    <article class="matrix-block compact">
+                        <div class="matrix-title"><span>h<sub>p</sub></span><code id="wordH">z ↦ 7z</code></div>
+                        <div id="matrixH" class="matrix" aria-label="Matrix h"></div>
+                    </article>
+                </div>
+
+                <div class="checks" aria-label="Exact checks">
+                    <div><span class="check-mark">✓</span><span id="conjugacyCheck">hAh⁻¹ = B</span></div>
+                    <div><span class="check-mark">✓</span><span id="congruenceCheck">c(A), c(B) ≡ 0 mod 14</span></div>
+                    <div><span class="check-mark">✓</span><span id="axisCheck">Ax(B) = 7 · Ax(A)</span></div>
+                </div>
+
+                <div class="certificate-panel">
+                    <div class="section-heading tight">
+                        <div>
+                            <p class="eyebrow">Virtual bounding</p>
+                            <h2>Stability certificate</h2>
+                        </div>
+                        <span id="certificateBadge" class="badge success">certified</span>
+                    </div>
+                    <div class="inequality" id="inequalityText">98 ≥ 3(22) + 25 = 91</div>
+                    <div class="bar-track" aria-hidden="true">
+                        <div id="boundBar" class="bar-bound"></div>
+                        <div id="marginBar" class="bar-margin"></div>
+                    </div>
+                    <p id="certificateDetail" class="supporting-text">After conjugating [B] − [A] by S, the
+                        dominant block is R⁹⁸ in R⁹⁸L.</p>
+                </div>
+            </aside>
+
+            <section class="visual-panel">
+                <div class="visual-toolbar">
+                    <div>
+                        <p class="eyebrow" id="visualEyebrow">Exact upper-half-plane geometry</p>
+                        <h2 id="visualTitle">Nested axes and the paired strip</h2>
+                    </div>
+                    <div class="toolbar-actions">
+                        <label class="toggle">
+                            <input id="tilingInput" type="checkbox" checked>
+                            <span>Farey tessellation</span>
+                        </label>
+                        <label class="toggle">
+                            <input id="labelsInput" type="checkbox" checked>
+                            <span>Labels</span>
+                        </label>
+                        <button id="resetViewButton" type="button" class="secondary">Reset view</button>
+                    </div>
+                </div>
+
+                <div class="canvas-wrap">
+                    <canvas id="geometryCanvas" aria-label="Hyperbolic axes in the upper half-plane"></canvas>
+                    <div class="canvas-legend" aria-hidden="true">
+                        <span><i class="legend-line axis-a"></i>Ax(A<sub>p</sub>)</span>
+                        <span><i class="legend-line axis-b"></i>Ax(B<sub>p</sub>)</span>
+                        <span><i class="legend-line axis-mid"></i>h<sub>p</sub><sup>t</sup>Ax(A<sub>p</sub>)</span>
+                    </div>
+                </div>
+
+                <div class="motion-controls">
+                    <button id="playButton" type="button" class="play-button" aria-label="Play the side pairing">▶</button>
+                    <label for="glueInput">Apply h<sub>p</sub><sup>t</sup></label>
+                    <input id="glueInput" type="range" min="0" max="100" value="0">
+                    <output id="glueValue" for="glueInput">t = 0.00</output>
+                </div>
+
+                <p id="visualCaption" class="visual-caption">The shaded region is the exact strip between one axis
+                    and its h<sub>p</sub>-translate. It is a fundamental strip for ⟨h<sub>p</sub>⟩, not yet a
+                    Dirichlet domain for the final cocompact lattice.</p>
+            </section>
+        </section>
+
+        <section class="details-grid">
+            <article>
+                <p class="eyebrow">Boundary data</p>
+                <h2>Fixed points</h2>
+                <dl class="detail-list">
+                    <div><dt>Ax(A<sub>p</sub>)</dt><dd id="endpointsA">−0.0101, 1.0101</dd></div>
+                    <div><dt>Ax(B<sub>p</sub>)</dt><dd id="endpointsB">−0.0707, 7.0707</dd></div>
+                    <div><dt>Scaling</dt><dd id="scalingDetail">x ↦ 7x</dd></div>
+                </dl>
+            </article>
+            <article>
+                <p class="eyebrow">Construction ledger</p>
+                <h2>What is explicit?</h2>
+                <ul class="ledger">
+                    <li class="done"><span>Exact</span> matrices, conjugacy, axes, congruence membership</li>
+                    <li class="done"><span>Certified</span> compact immersed two-boundary orbifold, allowing elliptic points</li>
+                    <li class="pending"><span>Pending</span> explicit marking matrices and an actual fundamental polygon</li>
+                </ul>
+            </article>
+            <article>
+                <p class="eyebrow">Group blueprint</p>
+                <h2>Combination step</h2>
+                <div class="group-blueprint">
+                    <code>Λ<sub>p</sub> = ⟨H<sub>p</sub>, t<sub>p</sub>⟩</code>
+                    <span>t<sub>p</sub> = β<sub>p</sub>h<sub>p</sub>α<sub>p</sub><sup>−1</sup></span>
+                </div>
+                <p class="supporting-text">The stability construction gives the compact core H<sub>p</sub>.
+                    Its integral boundary markings α<sub>p</sub>, β<sub>p</sub> make
+                    t<sub>p</sub> conjugate the two boundary subgroups. The raw h<sub>p</sub> works exactly when
+                    both markings are trivial.</p>
+            </article>
+            <article>
+                <p class="eyebrow">Uniformity audit</p>
+                <h2>Every odd prime</h2>
+                <div class="group-blueprint">
+                    <code>A<sub>p</sub> = R L<sup>4p³</sup></code>
+                    <span>B<sub>p</sub> = R<sup>p²</sup>L<sup>4p</sup>, &nbsp;h<sub>p</sub> = diag(p², 1)</span>
+                </div>
+                <p id="uniformDetail" class="supporting-text">For p = 7, the uniform certificate is
+                    1372 ≥ 3(78) + 25 = 259. The same symbolic inequality holds for every odd prime.</p>
+            </article>
+        </section>
+    </main>
+
+    <script src="./app.js"></script>
+    <!-- golg-nav-bootstrap -->
+    <script>(function () { if (window.self !== window.top) return; var p = location.pathname, m = "/GeometryofLinearGroups/", i = p.indexOf(m), b = i >= 0 ? p.substring(0, i + m.length) : p.replace(/[^/]*$/, ""); var s = document.createElement("script"); s.src = b + "assets/js/site-nav.js"; s.defer = true; document.head.appendChild(s); })();</script>
+</body>
+
+</html>

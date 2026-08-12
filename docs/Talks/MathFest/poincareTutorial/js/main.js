@@ -285,10 +285,14 @@ function updateDomain(opts = {}) {
 }
 
 // --- Status banner + certificate ---
+let bannerCollapseTimer = null;
+
 function setBanner(state, text) {
     const banner = document.getElementById('status-banner');
     if (!banner) return;
+    if (bannerCollapseTimer) { clearTimeout(bannerCollapseTimer); bannerCollapseTimer = null; }
     banner.className = 'status-banner ' + state;   // 'verified' | 'warning' | 'failed' | 'pending'
+    banner.removeAttribute('title');
     banner.innerHTML = '';
     if (text) {
         const span = document.createElement('span');
@@ -299,10 +303,31 @@ function setBanner(state, text) {
         close.className = 'status-banner-close';
         close.setAttribute('aria-label', 'Dismiss');
         close.textContent = '\u00d7';
-        close.addEventListener('click', () => { banner.style.display = 'none'; });
+        close.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (bannerCollapseTimer) { clearTimeout(bannerCollapseTimer); bannerCollapseTimer = null; }
+            banner.style.display = 'none';
+        });
         banner.appendChild(close);
+        // Auto-collapse to the status dot after 5s; clicking the dot expands.
+        bannerCollapseTimer = setTimeout(() => {
+            banner.classList.add('collapsed');
+            banner.title = text;
+        }, 5000);
     }
     banner.style.display = text ? 'flex' : 'none';
+}
+
+// Expand a collapsed banner on click (a fresh setBanner restarts the cycle).
+{
+    const banner = document.getElementById('status-banner');
+    if (banner) {
+        banner.addEventListener('click', () => {
+            if (!banner.classList.contains('collapsed')) return;
+            banner.classList.remove('collapsed');
+            banner.removeAttribute('title');
+        });
+    }
 }
 
 function setCertLog(lines) {
@@ -346,6 +371,11 @@ function runCertifier() {
         updatePresentationDisplay(null);
         return;
     }
+    // Reflection groups run through the same certifier: the edge-cycle walk
+    // bounces off self-paired mirror faces, so its 2π/m condition reduces to
+    // the Coxeter π/m dihedral condition automatically. Cusp completeness for
+    // reflection groups is the one remaining gap — the certifier reports
+    // those checks as unresolved rather than skipping them silently.
     // The full Dirichlet domain at a symmetric basepoint is |H| copies of a
     // fundamental domain, so the Poincaré conditions don't apply — show an
     // informational note rather than a misleading failure.
@@ -478,8 +508,10 @@ function updateStdGeneratorsList() {
 
         const typeSpan = document.createElement('span');
         typeSpan.className = 'std-gen-type';
+        const anti = gen.matrix && gen.matrix.anti;
         typeSpan.textContent = gen.unpaired ? 'unpaired!'
-            : (gen.kind === 'cone' ? 'rotation' : (gen.isParabolic ? 'cusp' : 'face'));
+            : anti ? (gen.kind === 'cone' ? 'mirror' : 'reflection')
+                : (gen.kind === 'cone' ? 'rotation' : (gen.isParabolic ? 'cusp' : 'face'));
 
         item.appendChild(wordSpan);
         item.appendChild(typeSpan);
@@ -728,10 +760,13 @@ function buildCayleyVertices(points) {
     }
     if (uniq.length === 0) return;
     const geom = new THREE.SphereGeometry(0.015, 10, 8);
+    // Opaque + depth-written: vertices occlude correctly against the tubes and
+    // each other, and the raymarched domain (drawn later, in the transparent
+    // pass, with its own gl_FragDepth) composites over them by its opacity.
     const mat = new THREE.MeshStandardMaterial({
         color: theme().cayleyVertex.color, emissive: theme().cayleyVertex.emissive,
         emissiveIntensity: theme().cayleyVertex.intensity,
-        roughness: 0.35, metalness: 0.1, transparent: true, opacity: 0.95, depthWrite: false
+        roughness: 0.35, metalness: 0.1
     });
     const inst = new THREE.InstancedMesh(geom, mat, uniq.length);
     const dummy = new THREE.Object3D();
@@ -750,7 +785,6 @@ function buildCayleyVertices(points) {
         inst.setMatrixAt(i, dummy.matrix);
     });
     inst.instanceMatrix.needsUpdate = true;
-    inst.renderOrder = 1;
     cayleyGroup.add(inst);
 }
 
@@ -759,7 +793,7 @@ function buildCayleyVertices(points) {
 // per generator type. A rotation-minimizing frame keeps the cross-section from
 // twisting between rings.
 function buildCayleyTubes(typeEdges, points, color) {
-    const R = 5, SEG = 6, BASE_R = 0.011;
+    const R = 7, SEG = 8, BASE_R = 0.011;
     const positions = [], normals = [], indices = [];
     const perpAxis = (t) => Math.abs(t.x) > 0.9
         ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
@@ -805,13 +839,14 @@ function buildCayleyTubes(typeEdges, points, color) {
     g.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
     g.setIndex(indices);
     geomToWorld(g);
+    // Opaque + depth-written (see buildCayleyVertices): crossing tubes and
+    // strands behind other strands now occlude correctly, and a translucent
+    // domain surface blends over the graph instead of hard-clipping it.
     const mat = new THREE.MeshStandardMaterial({
         color, emissive: color, emissiveIntensity: 0.4,
-        roughness: 0.3, metalness: 0.2, transparent: true, opacity: 0.96, depthWrite: false
+        roughness: 0.3, metalness: 0.2
     });
-    const mesh = new THREE.Mesh(g, mat);
-    mesh.renderOrder = 1;
-    return mesh;
+    return new THREE.Mesh(g, mat);
 }
 
 // Cheap fallback: flat geodesic line segments (used during animation / huge graphs).
@@ -824,8 +859,21 @@ function buildCayleyLines(typeEdges, points, color) {
     }
     if (pts.length === 0) return null;
     const geom = new THREE.BufferGeometry().setFromPoints(pts);
+    // Depth cue: fade strands into the page background as they approach the
+    // ideal boundary — matches the domain shader's fog and the tubes' taper,
+    // so a dense graph reads as a ball with depth instead of a wall of noise.
+    const cBase = new THREE.Color(color), cBg = new THREE.Color(theme().bg);
+    const colors = new Float32Array(pts.length * 3);
+    const tmp = new THREE.Color();
+    pts.forEach((p, i) => {
+        const f = THREE.MathUtils.smoothstep(p.length(), 0.72, 0.995);
+        tmp.copy(cBase).lerp(cBg, f * 0.85);
+        colors[3 * i] = tmp.r; colors[3 * i + 1] = tmp.g; colors[3 * i + 2] = tmp.b;
+    });
+    geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geomToWorld(geom);
-    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false });
+    // depthWrite on: even the cheap lines self-occlude while animating.
+    const mat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8, depthWrite: true });
     const lines = new THREE.LineSegments(geom, mat);
     lines.renderOrder = 1;
     return lines;
@@ -1277,13 +1325,14 @@ function stopOrbit() {
 function startOrbit() {
     stopOrbit();
     if (!currentGenerators || currentGenerators.length === 0) return;
+    // Opaque + depth-written, like the Cayley geometry: orbit spheres occlude
+    // each other correctly and show through a translucent domain.
     const mat = new THREE.MeshStandardMaterial({
         color: theme().orbit, emissive: theme().orbit, emissiveIntensity: 0.45,
-        roughness: 0.35, metalness: 0.1, transparent: true, opacity: 0.95, depthWrite: false
+        roughness: 0.35, metalness: 0.1
     });
     const mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.018, 12, 8), mat, ORBIT_MAX);
     mesh.frustumCulled = false;      // instances are placed far from the origin
-    mesh.renderOrder = 2;
     mesh.count = 0;
     orbitGroup.add(mesh);
 
@@ -1745,7 +1794,28 @@ function showIsometryAxis(g, V0, X) {
 }
 
 // --- Isometry animation ---
+// Orientation-reversing isometries have no one-parameter flow (no log), so
+// there is no continuous path to animate along — apply them in one step.
+function applyMatrixInstant(g, wordToAppend, onDone) {
+    viewMatrix = viewMatrix.mul(g).normalized();
+    cumulativeWord = reduceWord([...cumulativeWord, ...wordToAppend]);
+    updateDomain();
+    updateStdGeneratorsList();
+    if (wallsOpacity > 0) updateWalls();
+    if (cayleyMode !== 'off') updateCayley();
+    if (dualMode !== 'off') updateDual();
+    if (showTiling) updateTiling();
+    if (showDust) repositionDust();
+    markOrbitDirty();
+    runCertifier();
+    if (onDone) onDone();
+}
+
 function animateMatrix(g, wordToAppend, onDone) {
+    if (g.anti) {
+        applyMatrixInstant(g, wordToAppend, onDone);
+        return;
+    }
     try {
         const X = g.log();
         const startView = viewMatrix;
@@ -1979,8 +2049,10 @@ function exactComplex(z) {
 }
 
 function matrixLatex(m) {
+    // Orientation-reversing elements act as z ↦ z̄ first: mark them "∘ conj".
+    const conj = m.anti ? ' \\circ \\overline{\\phantom{z}}' : '';
     return `\\(\\begin{pmatrix} ${exactComplex(m.a)} & ${exactComplex(m.b)} \\\\ ` +
-        `${exactComplex(m.c)} & ${exactComplex(m.d)} \\end{pmatrix}\\)`;
+        `${exactComplex(m.c)} & ${exactComplex(m.d)} \\end{pmatrix}${conj}\\)`;
 }
 
 function showFaceInfo(html) {
@@ -2185,7 +2257,11 @@ renderer.domElement.addEventListener('click', (e) => {
 let metaHeld = false;   // Cmd/Ctrl held → label generators as inverses (g_i^{-1})
 
 function isoLabel(idx) {
-    return `g<sub>${idx + 1}</sub>` + (metaHeld ? '<sup>−1</sup>' : '');
+    const anti = currentMatrices[idx] && currentMatrices[idx].anti;
+    const base = anti
+        ? `<span class="anti-gen">g<sub>${idx + 1}</sub></span>`   // overline: reflection
+        : `g<sub>${idx + 1}</sub>`;
+    return base + (metaHeld ? '<sup>−1</sup>' : '');
 }
 
 function updateIsometryButtons() {
@@ -2368,12 +2444,27 @@ function initUI() {
     const rootSel = document.getElementById('field-root');
     let exactOn = false;
     let currentField = null;
+    // Optional σ(w) expression for complex conjugation (needed for exact mode
+    // with orientation-reversing generators). Presets supply it via the
+    // 'poincare:set-exact' event; real roots and degree-2 fields auto-detect.
+    let pendingConjExpr = null;
 
     const fmtRoot = (gen, r) => {
         const re = r.re.toFixed(6), im = Math.abs(r.im).toFixed(6);
         if (r.im === 0) return `${gen} ≈ ${re}`;
         return `${gen} ≈ ${re} ${r.im > 0 ? '+' : '−'} ${im}i`;
     };
+
+    // Try to configure conjugation on the field for the CURRENT root; failure
+    // is silent here (only exact+z̄ parsing needs σ, and it reports clearly).
+    function applyConj(field) {
+        try {
+            field.setConjugation(pendingConjExpr);
+        } catch (e) {
+            field.conjPowers = null;
+            field.conjIsIdentity = false;
+        }
+    }
 
     function rebuildField() {
         if (!exactOn) {
@@ -2398,6 +2489,7 @@ function initUI() {
             field.rootIndex = Math.min(prev, field.roots.length - 1);
             rootSel.value = String(field.rootIndex);
             if (fieldErr) fieldErr.textContent = '';
+            applyConj(field);
             currentField = field;
             configureExact(field);
         } catch (e) {
@@ -2423,11 +2515,54 @@ function initUI() {
             rootSel.addEventListener('change', () => {
                 if (!currentField) return;
                 currentField.rootIndex = parseInt(rootSel.value, 10) || 0;
+                applyConj(currentField);
                 configureExact(currentField);
                 refreshFromUI();   // embedding changed → all floats change
             });
         }
     }
+
+    // Presets configure exact mode programmatically:
+    //   detail = { gen?, minpoly, root: {re, im}?, conj? }  → enable with field
+    //   detail = null                                       → disable
+    window.addEventListener('poincare:set-exact', (ev) => {
+        if (!exactBtn) return;
+        const spec = ev.detail;
+        if (!spec) {
+            if (exactOn) {
+                exactOn = false;
+                updateToggleBtn(exactBtn, false);
+                if (exactPanel) exactPanel.style.display = 'none';
+                pendingConjExpr = null;
+                rebuildField();
+            }
+            return;
+        }
+        const genEl = document.getElementById('field-gen-name');
+        const mpEl = document.getElementById('field-minpoly');
+        if (genEl) genEl.value = spec.gen || 'w';
+        if (mpEl) mpEl.value = spec.minpoly;
+        pendingConjExpr = spec.conj || null;
+        exactOn = true;
+        updateToggleBtn(exactBtn, true);
+        if (exactPanel) exactPanel.style.display = 'block';
+        rebuildField();
+        // Choose the embedding nearest the preset's root hint.
+        if (spec.root && currentField) {
+            let best = 0, bd = Infinity;
+            currentField.roots.forEach((r, i) => {
+                const d = Math.hypot(r.re - spec.root.re, r.im - spec.root.im);
+                if (d < bd) { bd = d; best = i; }
+            });
+            if (best !== currentField.rootIndex) {
+                currentField.rootIndex = best;
+                rootSel.value = String(best);
+                applyConj(currentField);
+                configureExact(currentField);
+                refreshFromUI();
+            }
+        }
+    });
 
     document.querySelectorAll('.theme-opt').forEach(btn => {
         btn.addEventListener('click', () => setTheme(btn.dataset.theme));

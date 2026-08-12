@@ -1,25 +1,18 @@
-/* ── Reset & Globals ─────────────────────────────── */
+/* ============================================================
+   Paddle Party — kid-friendly pong
+   Family look: #fdf4ff bg, pastel blobs, white rounded cards
+   ============================================================ */
+
 *,
 *::before,
 *::after {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
-}
-
-:root {
-    --bg: #0a0a1a;
-    --surface: rgba(255, 255, 255, 0.04);
-    --glass: rgba(255, 255, 255, 0.08);
-    --glass-b: rgba(255, 255, 255, 0.12);
-    --cyan: #00f0ff;
-    --magenta: #ff2daa;
-    --gold: #ffd700;
-    --text: #e4e4f0;
-    --text-dim: #8888aa;
-    --radius: 18px;
-    --font-display: 'Orbitron', sans-serif;
-    --font-body: 'Inter', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 html,
@@ -27,77 +20,124 @@ body {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background: var(--bg);
-    font-family: var(--font-body);
-    color: var(--text);
-    touch-action: none;
-    /* prevent browser gestures */
-    -webkit-touch-callout: none;
-    /* prevent long-press menu  */
-    user-select: none;
+    overscroll-behavior: none;
 }
 
-/* ── Canvas ──────────────────────────────────────── */
-#pong-canvas {
+body {
+    background: #fdf4ff;
+    color: #2d3436;
+    font-family: 'Fredoka', system-ui, sans-serif;
     position: fixed;
     inset: 0;
-    width: 100%;
-    height: 100%;
-    display: block;
-    z-index: 0;
 }
 
-/* ── HUD ─────────────────────────────────────────── */
-#hud {
+/* ---------- Background blobs ---------- */
+.blob {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: center;
-    gap: 80px;
-    z-index: 10;
+    z-index: -1;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.5;
     pointer-events: none;
-    padding-top: 18px;
 }
 
-.score {
-    font-family: var(--font-display);
-    font-size: 56px;
-    font-weight: 900;
-    letter-spacing: 4px;
-    color: var(--text);
-    text-shadow:
-        0 0 12px rgba(255, 255, 255, 0.25),
-        0 0 40px rgba(0, 240, 255, 0.15);
-    transition: transform .12s, color .2s;
+.blob-1 {
+    top: -120px;
+    right: -120px;
+    width: 420px;
+    height: 420px;
+    background: #ff6b6b;
 }
 
-.score.flash-left {
-    color: var(--cyan);
-    transform: scale(1.35);
+.blob-2 {
+    bottom: -140px;
+    left: -120px;
+    width: 480px;
+    height: 480px;
+    background: #4ecdc4;
 }
 
-.score.flash-right {
-    color: var(--magenta);
-    transform: scale(1.35);
+.blob-3 {
+    top: 35%;
+    left: 55%;
+    width: 320px;
+    height: 320px;
+    background: #ffe66d;
 }
 
-/* ── Overlays ────────────────────────────────────── */
-#menu-overlay,
-#win-overlay {
+/* ---------- Canvases ---------- */
+#game-canvas {
     position: fixed;
     inset: 0;
+    z-index: 0;
+    touch-action: none;
+    cursor: pointer;
+}
+
+#fx-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    /* confetti floats above overlays */
+    pointer-events: none;
+}
+
+/* ---------- Floating chrome buttons ---------- */
+.chrome-btn {
+    position: fixed;
+    top: 14px;
+    z-index: 100;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: none;
+    box-shadow: 0 8px 20px rgba(162, 155, 254, 0.35);
+    font-size: 26px;
+    text-decoration: none;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 100;
-    background: radial-gradient(ellipse at center, rgba(10, 10, 26, 0.92) 0%, rgba(10, 10, 26, 0.98) 100%);
-    animation: fadeIn .4s ease;
+    font-family: 'Fredoka', system-ui, sans-serif;
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
 }
 
-.hidden {
-    display: none !important;
+.chrome-btn:hover {
+    transform: scale(1.1) rotate(-4deg);
+    box-shadow: 0 10px 26px rgba(162, 155, 254, 0.45);
+}
+
+.chrome-btn:active {
+    transform: scale(0.88);
+}
+
+#home-btn {
+    left: 14px;
+}
+
+#sound-btn {
+    right: 14px;
+}
+
+#pause-btn {
+    left: 50%;
+    margin-left: -28px;
+}
+
+/* ---------- Overlays ---------- */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(253, 244, 255, 0.72);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    animation: fadeIn 0.25s ease;
 }
 
 @keyframes fadeIn {
@@ -110,164 +150,207 @@ body {
     }
 }
 
-.menu-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 28px;
-    background: var(--glass);
-    border: 1px solid var(--glass-b);
-    border-radius: var(--radius);
-    padding: 52px 64px;
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    box-shadow:
-        0 8px 60px rgba(0, 0, 0, 0.5),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+.hidden {
+    display: none !important;
 }
 
-.menu-title {
-    font-family: var(--font-display);
-    font-size: 72px;
-    font-weight: 900;
-    background: linear-gradient(135deg, var(--cyan), var(--magenta));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    letter-spacing: 12px;
-    text-shadow: none;
-    filter: drop-shadow(0 0 30px rgba(0, 240, 255, 0.3));
-}
-
-.menu-sub {
-    font-size: 16px;
-    color: var(--text-dim);
-    letter-spacing: 3px;
-    text-transform: uppercase;
-}
-
-/* ── Score selector ──────────────────────────────── */
-.setting-group {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
-
-.setting-group label {
-    font-family: var(--font-display);
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--text-dim);
-}
-
-.score-selector {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-.score-selector span {
-    font-family: var(--font-display);
-    font-size: 32px;
-    font-weight: 700;
-    width: 50px;
+/* ---------- Cards ---------- */
+.card {
+    background: #ffffff;
+    border-radius: 36px;
+    padding: clamp(20px, 4vmin, 44px) clamp(24px, 5vmin, 56px);
+    box-shadow: 0 24px 60px rgba(162, 155, 254, 0.35), 0 6px 18px rgba(255, 107, 107, 0.15);
     text-align: center;
-    color: var(--text);
+    max-width: min(560px, 94vw);
+    max-height: 92vh;
+    overflow-y: auto;
+    animation: cardPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.score-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    border: 1px solid var(--glass-b);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 22px;
+@keyframes cardPop {
+    from {
+        transform: scale(0.7);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.title {
+    font-size: clamp(2rem, 7vmin, 3.2rem);
+    font-weight: 700;
+    color: #ff6b6b;
+    text-shadow: 3px 3px 0 #ffe66d;
+    line-height: 1.1;
+    margin-bottom: 6px;
+}
+
+.card-heading {
+    font-size: clamp(1.6rem, 5vmin, 2.4rem);
+    font-weight: 700;
+    color: #2d3436;
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    color: #636e72;
+    font-size: clamp(0.95rem, 3vmin, 1.15rem);
+    font-weight: 500;
+    margin-bottom: clamp(10px, 2.5vmin, 22px);
+}
+
+.hint {
+    color: #636e72;
+    font-size: 0.85rem;
+    margin-top: 14px;
+    line-height: 1.5;
+    font-weight: 400;
+}
+
+.win-emoji {
+    font-size: clamp(3rem, 10vmin, 4.5rem);
+    line-height: 1.1;
+    animation: bounceEmoji 1s ease infinite alternate;
+}
+
+@keyframes bounceEmoji {
+    from {
+        transform: translateY(0) scale(1);
+    }
+
+    to {
+        transform: translateY(-8px) scale(1.08);
+    }
+}
+
+/* ---------- Settings pickers ---------- */
+.setting {
+    margin: clamp(8px, 2vmin, 16px) 0;
+}
+
+.setting-label {
+    font-weight: 600;
+    color: #636e72;
+    font-size: clamp(0.9rem, 2.6vmin, 1.05rem);
+    margin-bottom: 8px;
+}
+
+.btn-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.pick-btn {
+    font-family: 'Fredoka', system-ui, sans-serif;
+    font-size: clamp(0.95rem, 2.8vmin, 1.15rem);
+    font-weight: 600;
+    color: #636e72;
+    background: #fdf4ff;
+    border: 3px solid #eee3f7;
+    border-radius: 999px;
+    padding: 10px 20px;
+    min-height: 56px;
+    min-width: 56px;
     cursor: pointer;
-    transition: background .15s, transform .1s;
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, color 0.2s, border 0.2s, box-shadow 0.2s;
 }
 
-.score-btn:active {
-    background: var(--glass-b);
+.pick-btn:hover {
+    transform: scale(1.06);
+}
+
+.pick-btn:active {
     transform: scale(0.92);
 }
 
-/* ── Glow Buttons ─────────────────────────────────── */
-.glow-btn {
-    font-family: var(--font-display);
-    font-size: 18px;
+.pick-btn.selected {
+    background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
+}
+
+#points-row .pick-btn.selected {
+    background: linear-gradient(135deg, #4ecdc4, #55efc4);
+    box-shadow: 0 8px 20px rgba(78, 205, 196, 0.4);
+}
+
+/* ---------- Big buttons ---------- */
+.big-btn {
+    display: block;
+    width: 100%;
+    font-family: 'Fredoka', system-ui, sans-serif;
+    font-size: clamp(1.3rem, 4.5vmin, 1.7rem);
     font-weight: 700;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    padding: 18px 48px;
-    border-radius: 14px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #ff6b6b, #ffa06b);
     border: none;
+    border-radius: 999px;
+    padding: 16px 40px;
+    min-height: 64px;
+    margin-top: clamp(10px, 2.5vmin, 18px);
     cursor: pointer;
-    color: var(--bg);
-    background: linear-gradient(135deg, var(--cyan), var(--magenta));
-    box-shadow:
-        0 0 20px rgba(0, 240, 255, 0.25),
-        0 0 60px rgba(255, 45, 170, 0.15);
-    transition: transform .12s, box-shadow .2s;
+    box-shadow: 0 12px 28px rgba(255, 107, 107, 0.45);
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
 }
 
-.glow-btn:active {
-    transform: scale(0.95);
-    box-shadow:
-        0 0 10px rgba(0, 240, 255, 0.15),
-        0 0 30px rgba(255, 45, 170, 0.10);
+.big-btn:hover {
+    transform: scale(1.05) rotate(-1deg);
+    box-shadow: 0 16px 34px rgba(255, 107, 107, 0.55);
 }
 
-.glow-btn.outline {
-    background: transparent;
-    border: 2px solid var(--glass-b);
-    color: var(--text-dim);
-    box-shadow: none;
+.big-btn:active {
+    transform: scale(0.93);
 }
 
-.glow-btn.outline:active {
-    background: var(--surface);
+.big-btn.secondary {
+    background: #ffffff;
+    color: #636e72;
+    border: 3px solid #eee3f7;
+    box-shadow: 0 8px 20px rgba(162, 155, 254, 0.25);
 }
 
-/* ── Win overlay ─────────────────────────────────── */
-.win-title {
-    font-family: var(--font-display);
-    font-size: 42px;
-    font-weight: 900;
-    background: linear-gradient(135deg, var(--gold), #ff9500);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.4));
-    letter-spacing: 4px;
+.big-btn.secondary:hover {
+    box-shadow: 0 12px 26px rgba(162, 155, 254, 0.35);
 }
 
-/* ── Countdown ───────────────────────────────────── */
+/* ---------- Countdown ---------- */
 #countdown {
     position: fixed;
     inset: 0;
+    z-index: 40;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 90;
     pointer-events: none;
 }
 
 #countdown-text {
-    font-family: var(--font-display);
-    font-size: 120px;
-    font-weight: 900;
-    color: var(--text);
-    text-shadow: 0 0 40px rgba(0, 240, 255, 0.4);
-    animation: countPulse .6s ease-out;
+    font-size: clamp(6rem, 22vmin, 11rem);
+    font-weight: 700;
+    color: #ff6b6b;
+    text-shadow: 5px 5px 0 #ffe66d, 0 18px 40px rgba(255, 107, 107, 0.3);
+    animation: countPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-@keyframes countPulse {
+#countdown-text.go {
+    color: #4ecdc4;
+    text-shadow: 5px 5px 0 #ffe66d, 0 18px 40px rgba(78, 205, 196, 0.35);
+}
+
+@keyframes countPop {
     0% {
-        transform: scale(1.8);
+        transform: scale(0.2);
         opacity: 0;
     }
 
-    50% {
+    60% {
+        transform: scale(1.15);
         opacity: 1;
     }
 
@@ -277,4 +360,26 @@ body {
     }
 }
 
-/* ── Center-line (drawn on canvas, but nice to have a CSS divider fallback) ── */
+/* Small screens: tighten the card */
+@media (max-height: 560px) {
+    .card {
+        padding: 14px 22px;
+    }
+
+    .title {
+        font-size: 1.7rem;
+    }
+
+    .win-emoji {
+        font-size: 2.4rem;
+    }
+
+    .big-btn {
+        min-height: 56px;
+        padding: 10px 30px;
+    }
+
+    .hint {
+        display: none;
+    }
+}

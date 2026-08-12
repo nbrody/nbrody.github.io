@@ -1,4 +1,4 @@
-/* ───────── Reset & Base ───────── */
+/* ── Snakey Snack Time ─ family look & feel ─────────────── */
 *,
 *::before,
 *::after {
@@ -8,293 +8,217 @@
 }
 
 :root {
-    --bg-dark: #0a0e1a;
-    --bg-card: rgba(15, 20, 40, 0.85);
-    --neon-green: #39ff14;
-    --neon-cyan: #00f0ff;
-    --neon-pink: #ff2daa;
-    --neon-gold: #ffd700;
-    --glass: rgba(255, 255, 255, 0.06);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --font-display: 'Orbitron', sans-serif;
-    --font-body: 'Inter', sans-serif;
-    --hud-h: 52px;
+    --bg: #fdf4ff;
+    --coral: #ff6b6b;
+    --teal: #4ecdc4;
+    --yellow: #ffe66d;
+    --purple: #a29bfe;
+    --mint: #55efc4;
+    --ink: #2d3436;
+    --dim: #636e72;
+    --card-shadow: 0 18px 50px rgba(162, 155, 254, 0.35);
 }
 
 html,
 body {
-    height: 100%;
     width: 100%;
+    height: 100%;
     overflow: hidden;
-    background: var(--bg-dark);
-    font-family: var(--font-body);
-    color: #e0e0e0;
-    touch-action: none;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Fredoka', system-ui, sans-serif;
     -webkit-user-select: none;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
 }
 
-body {
+/* ── Pastel background blobs ────────────────────────────── */
+.blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.5;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.blob-1 {
+    width: 46vmin;
+    height: 46vmin;
+    background: var(--teal);
+    top: -8vmin;
+    left: -10vmin;
+}
+
+.blob-2 {
+    width: 52vmin;
+    height: 52vmin;
+    background: var(--coral);
+    bottom: -12vmin;
+    right: -12vmin;
+}
+
+.blob-3 {
+    width: 38vmin;
+    height: 38vmin;
+    background: var(--yellow);
+    top: 30%;
+    right: 8%;
+}
+
+/* ── Floating chrome buttons ────────────────────────────── */
+.chrome-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #fff;
+    border: none;
+    box-shadow: 0 8px 22px rgba(162, 155, 254, 0.4);
+    font-size: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    text-decoration: none;
+    line-height: 1;
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+    font-family: 'Fredoka', system-ui, sans-serif;
+}
+
+.chrome-btn:hover {
+    transform: scale(1.1) rotate(-4deg);
+}
+
+.chrome-btn:active {
+    transform: scale(0.9);
+}
+
+#home-btn {
+    position: fixed;
+    top: calc(12px + env(safe-area-inset-top));
+    left: calc(12px + env(safe-area-inset-left));
+    z-index: 60;
+}
+
+#sound-btn {
+    position: fixed;
+    top: calc(12px + env(safe-area-inset-top));
+    right: calc(12px + env(safe-area-inset-right));
+    z-index: 60;
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.game-shell {
+    position: fixed;
+    inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    background:
-        radial-gradient(ellipse at 30% 20%, rgba(57, 255, 20, .06) 0%, transparent 60%),
-        radial-gradient(ellipse at 70% 80%, rgba(0, 240, 255, .05) 0%, transparent 60%),
-        var(--bg-dark);
+    padding: calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
+    gap: 10px;
 }
 
-/* ───────── Canvas ───────── */
-#game-canvas {
-    display: block;
-    border-radius: 8px;
-    box-shadow: 0 0 30px rgba(57, 255, 20, .15), inset 0 0 60px rgba(0, 0, 0, .4);
-    border: 1px solid var(--glass-border);
-    background: #0d1117;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
-
-/* ───────── Overlays ───────── */
-#menu-overlay,
-#gameover-overlay,
-#pause-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
+.hud {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(5, 8, 18, 0.88);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    animation: fadeIn .3s ease;
+    gap: 10px;
+    margin-top: 2px;
+    max-width: calc(100vw - 148px);
+    flex-wrap: wrap;
 }
 
-.menu-card {
-    background: var(--bg-card);
-    border: 1px solid var(--glass-border);
-    border-radius: 24px;
-    padding: 40px 48px;
-    text-align: center;
-    box-shadow: 0 8px 60px rgba(0, 0, 0, .6), 0 0 80px rgba(57, 255, 20, .06);
-    max-width: 380px;
-    width: 90%;
-    animation: cardPop .4s cubic-bezier(.17, .67, .35, 1.15);
-}
-
-.menu-title {
-    font-family: var(--font-display);
-    font-size: 2.6rem;
-    font-weight: 900;
-    background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1.15;
-    margin-bottom: 10px;
-    text-shadow: 0 0 40px rgba(57, 255, 20, .3);
-    filter: drop-shadow(0 0 12px rgba(57, 255, 20, .25));
-}
-
-.menu-sub {
-    font-size: .95rem;
-    color: rgba(255, 255, 255, .55);
-    margin-bottom: 22px;
-}
-
-.lose-title {
-    font-family: var(--font-display);
-    font-size: 2.2rem;
-    font-weight: 900;
-    color: var(--neon-pink);
-    text-shadow: 0 0 30px rgba(255, 45, 170, .4);
-    margin-bottom: 8px;
-}
-
-.new-high {
-    color: var(--neon-gold) !important;
-    font-weight: 600;
-    font-size: 1rem !important;
-    animation: pulse 1s ease infinite;
-}
-
-/* ───────── Buttons ───────── */
-.glow-btn {
-    display: block;
-    width: 100%;
-    padding: 14px 0;
-    margin-top: 12px;
-    font-family: var(--font-display);
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--bg-dark);
-    background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan));
-    border: none;
-    border-radius: 14px;
-    cursor: pointer;
-    box-shadow: 0 0 20px rgba(57, 255, 20, .25);
-    transition: transform .15s, box-shadow .15s;
-    letter-spacing: .06em;
-}
-
-.glow-btn:hover {
-    transform: scale(1.04);
-    box-shadow: 0 0 30px rgba(57, 255, 20, .4);
-}
-
-.glow-btn:active {
-    transform: scale(.97);
-}
-
-.glow-btn.outline {
-    background: transparent;
-    color: var(--neon-cyan);
-    border: 2px solid var(--neon-cyan);
-    box-shadow: 0 0 12px rgba(0, 240, 255, .15);
-}
-
-.glow-btn.outline:hover {
-    box-shadow: 0 0 24px rgba(0, 240, 255, .3);
-}
-
-/* ───────── Difficulty picker ───────── */
-.difficulty-picker {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-}
-
-.diff-btn {
-    flex: 1;
-    padding: 10px 0;
-    font-family: var(--font-display);
-    font-size: .75rem;
-    font-weight: 700;
-    color: rgba(255, 255, 255, .5);
-    background: var(--glass);
-    border: 1px solid var(--glass-border);
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all .2s;
-    letter-spacing: .04em;
-}
-
-.diff-btn.active {
-    color: var(--neon-green);
-    border-color: var(--neon-green);
-    background: rgba(57, 255, 20, .1);
-    box-shadow: 0 0 14px rgba(57, 255, 20, .2);
-}
-
-.diff-btn:hover:not(.active) {
-    color: rgba(255, 255, 255, .8);
-    border-color: rgba(255, 255, 255, .3);
-}
-
-/* ───────── HUD ───────── */
-#hud {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 90;
-    height: var(--hud-h);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 20px;
-    background: rgba(10, 14, 26, .8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--glass-border);
-}
-
-.hud-label {
-    font-size: .6rem;
-    letter-spacing: .1em;
-    color: rgba(255, 255, 255, .45);
-    display: block;
-}
-
-.hud-value {
-    font-family: var(--font-display);
-    font-weight: 700;
+.hud-pill {
+    background: #fff;
+    border-radius: 999px;
+    padding: 9px 18px;
     font-size: 1.15rem;
-    background: linear-gradient(135deg, var(--neon-green), var(--neon-cyan));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-weight: 600;
+    color: var(--ink);
+    box-shadow: 0 8px 22px rgba(78, 205, 196, 0.3);
+    white-space: nowrap;
 }
 
-#hud-left,
-#hud-center,
-#hud-right {
-    text-align: center;
-    min-width: 70px;
+.hud-pause {
+    position: static;
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
 }
 
-/* ───────── Countdown ───────── */
-#countdown {
-    position: fixed;
-    inset: 0;
-    z-index: 110;
+#board-area {
+    flex: 1;
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(5, 8, 18, .7);
-    backdrop-filter: blur(8px);
+    min-height: 0;
+    touch-action: none;
 }
 
-#countdown-text {
-    font-family: var(--font-display);
-    font-size: 6rem;
-    font-weight: 900;
-    color: var(--neon-green);
-    text-shadow: 0 0 60px rgba(57, 255, 20, .5);
-    animation: countPop .55s ease;
+#board-frame {
+    background: #fff;
+    border-radius: 28px;
+    padding: 10px;
+    box-shadow: var(--card-shadow);
+    border: 4px solid transparent;
+    transition: border-color 0.3s;
 }
 
-/* ───────── D-Pad (touch controls) ───────── */
+#board-frame.walls-on {
+    border: 4px solid var(--coral);
+}
+
+#board-frame.walls-off {
+    border: 4px dashed rgba(78, 205, 196, 0.75);
+}
+
+#board {
+    display: block;
+    border-radius: 18px;
+    touch-action: none;
+}
+
+/* extra room for the D-pad on touch devices */
+body.touch .game-shell {
+    padding-bottom: calc(120px + env(safe-area-inset-bottom));
+}
+
+/* ── D-pad ──────────────────────────────────────────────── */
 #dpad {
     position: fixed;
-    z-index: 80;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 160px;
-    height: 160px;
+    right: calc(14px + env(safe-area-inset-right));
+    bottom: calc(14px + env(safe-area-inset-bottom));
     display: grid;
+    grid-template-columns: 62px 62px 62px;
+    grid-template-rows: 62px 62px;
     grid-template-areas:
-        ".    up    ."
-        "left pause right"
-        ".    down  .";
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
-    gap: 4px;
+        ". up ."
+        "left down right";
+    gap: 8px;
+    z-index: 40;
+    touch-action: none;
 }
 
 .dpad-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, .07);
-    border: 1px solid rgba(255, 255, 255, .12);
-    border-radius: 12px;
-    color: rgba(255, 255, 255, .6);
-    font-size: 1.3rem;
+    border: none;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 6px 18px rgba(162, 155, 254, 0.35);
+    font-size: 24px;
+    color: var(--teal);
+    font-family: 'Fredoka', system-ui, sans-serif;
+    font-weight: 700;
     cursor: pointer;
-    transition: background .12s, color .12s;
-    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    transition: transform 0.1s;
 }
 
 .dpad-btn:active {
-    background: rgba(57, 255, 20, .18);
-    color: var(--neon-green);
-    border-color: var(--neon-green);
+    transform: scale(0.88);
+    background: var(--mint);
+    color: #fff;
 }
 
 .dpad-up {
@@ -305,86 +229,241 @@ body {
     grid-area: left;
 }
 
-.dpad-right {
-    grid-area: right;
-}
-
 .dpad-down {
     grid-area: down;
 }
 
-.dpad-pause {
-    grid-area: pause;
-    font-size: 1rem;
+.dpad-right {
+    grid-area: right;
 }
 
-/* ───────── Utility ───────── */
-.hidden {
-    display: none !important;
+/* ── Overlays & cards ───────────────────────────────────── */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(253, 244, 255, 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    overflow-y: auto;
 }
 
-/* ───────── Animations ───────── */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
+.card {
+    background: #fff;
+    border-radius: 36px;
+    padding: 30px 34px;
+    max-width: 440px;
+    width: 100%;
+    text-align: center;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin: auto;
 }
 
-@keyframes cardPop {
-    from {
-        opacity: 0;
-        transform: scale(.88) translateY(20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: scale(1) translateY(0);
-    }
+.card-emoji {
+    font-size: clamp(48px, 10vmin, 72px);
+    line-height: 1;
+    animation: bounce 2.4s ease-in-out infinite;
 }
 
-@keyframes countPop {
-    0% {
-        transform: scale(1.8);
-        opacity: 0;
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: translateY(0) rotate(-3deg);
     }
 
     50% {
-        opacity: 1;
+        transform: translateY(-10px) rotate(3deg);
+    }
+}
+
+.card-title {
+    font-size: clamp(1.8rem, 6vmin, 2.6rem);
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--ink);
+}
+
+.card-sub {
+    font-size: 1.1rem;
+    color: var(--dim);
+    font-weight: 500;
+}
+
+.card-hint {
+    font-size: 0.95rem;
+    color: var(--dim);
+}
+
+.option-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--purple);
+    margin-top: 4px;
+}
+
+.chip-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 84px;
+    min-height: 64px;
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 3px solid #eee4f7;
+    background: #fdf9ff;
+    font-family: 'Fredoka', system-ui, sans-serif;
+    font-size: 24px;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.15s, background 0.15s;
+}
+
+.chip span {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--dim);
+}
+
+.chip:hover {
+    transform: scale(1.06);
+}
+
+.chip:active {
+    transform: scale(0.93);
+}
+
+.chip.active {
+    border-color: var(--teal);
+    background: rgba(85, 239, 196, 0.18);
+}
+
+.chip.active span {
+    color: var(--ink);
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn {
+    border: none;
+    border-radius: 999px;
+    padding: 14px 32px;
+    font-family: 'Fredoka', system-ui, sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s;
+    min-height: 56px;
+}
+
+.btn:hover {
+    transform: scale(1.06) rotate(-1deg);
+}
+
+.btn:active {
+    transform: scale(0.92);
+}
+
+.btn-coral {
+    background: var(--coral);
+    box-shadow: 0 10px 26px rgba(255, 107, 107, 0.45);
+}
+
+.btn-teal {
+    background: var(--teal);
+    box-shadow: 0 10px 26px rgba(78, 205, 196, 0.45);
+}
+
+.btn-ghost {
+    background: #f4ecfb;
+    color: var(--dim);
+    box-shadow: 0 6px 18px rgba(162, 155, 254, 0.25);
+}
+
+.btn-huge {
+    font-size: 1.55rem;
+    padding: 18px 48px;
+    margin-top: 6px;
+}
+
+.score-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.best-badge {
+    background: var(--yellow);
+    color: #7a5c00;
+    font-weight: 700;
+    font-size: 1.1rem;
+    padding: 8px 22px;
+    border-radius: 999px;
+    box-shadow: 0 8px 20px rgba(255, 230, 109, 0.6);
+    animation: pop-badge 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pop-badge {
+    0% {
+        transform: scale(0);
     }
 
     100% {
         transform: scale(1);
-        opacity: 1;
     }
 }
 
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: .5;
-    }
+/* ── FX canvas ──────────────────────────────────────────── */
+#fx {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 80;
+    pointer-events: none;
 }
 
-/* ───────── Responsive ───────── */
-@media (max-width: 500px) {
-    .menu-card {
-        padding: 28px 24px;
+.hidden {
+    display: none !important;
+}
+
+/* ── Small screens ──────────────────────────────────────── */
+@media (max-height: 560px) {
+    .card {
+        padding: 18px 22px;
+        gap: 8px;
+        border-radius: 28px;
     }
 
-    .menu-title {
-        font-size: 2rem;
+    .card-emoji {
+        font-size: 40px;
     }
 
-    .lose-title {
-        font-size: 1.6rem;
+    .btn-huge {
+        font-size: 1.3rem;
+        padding: 14px 36px;
+    }
+
+    .chip {
+        min-height: 56px;
+        min-width: 72px;
     }
 }

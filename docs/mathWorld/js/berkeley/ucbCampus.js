@@ -36,6 +36,7 @@
  */
 
 import * as THREE from 'three';
+import { chalkTexture, chalkDescription } from '../shared/chalkboards.js';
 
 export class UCBerkeleyCampus {
     constructor(campusGroup, terrainHeightFn = null) {
@@ -447,7 +448,8 @@ export class UCBerkeleyCampus {
         const camp = new THREE.Group();
         camp.userData = {
             name: 'Sather Tower', isInteractable: true,
-            type: 'landmark', interactionType: 'Admire'
+            type: 'landmark', interactionType: 'Admire',
+            description: 'Berkeley\'s beloved Campanile, completed in 1914 and the third-tallest bell-and-clock tower in the world. Its carillon of 61 bells rings out over campus, and the observation deck offers sweeping views of the Bay.'
         };
 
         // Materials — weathered grey-buff granite
@@ -705,7 +707,8 @@ export class UCBerkeleyCampus {
         const lib = new THREE.Group();
         lib.userData = {
             name: 'Doe Library', isInteractable: true,
-            type: 'building', interactionType: 'Enter'
+            type: 'building', interactionType: 'Visit',
+            description: 'The grand Beaux-Arts heart of Berkeley\'s library system, opened in 1911. Inside is the North Reading Room, a cathedral-like study hall beloved by generations of students.'
         };
 
         const stoneMat = new THREE.MeshStandardMaterial({
@@ -863,7 +866,8 @@ export class UCBerkeleyCampus {
         const sh = new THREE.Group();
         sh.userData = {
             name: 'South Hall', isInteractable: true,
-            type: 'building', interactionType: 'Enter'
+            type: 'building', interactionType: 'Visit',
+            description: 'The oldest building on campus, standing since 1873 — the only survivor of the university\'s original pair of halls. Its ornate Second Empire brickwork now houses the School of Information.'
         };
 
         const brickMat = new THREE.MeshStandardMaterial({
@@ -986,7 +990,8 @@ export class UCBerkeleyCampus {
         const wh = new THREE.Group();
         wh.userData = {
             name: 'Wheeler Hall', isInteractable: true,
-            type: 'building', interactionType: 'Enter'
+            type: 'building', interactionType: 'Visit',
+            description: 'A stately 1917 classical hall named for president Benjamin Ide Wheeler, home to the English department. Its 700-seat auditorium hosts some of the biggest lecture courses on campus.'
         };
         const stoneMat = new THREE.MeshStandardMaterial({
             color: 0xD8CFB8, emissive: 0x181510, roughness: 0.82
@@ -1059,7 +1064,8 @@ export class UCBerkeleyCampus {
             name: 'Evans Hall',
             isInteractable: true,
             type: 'building',
-            interactionType: 'Enter'
+            interactionType: 'Visit',
+            description: 'The hulking 1971 Brutalist concrete tower that houses Berkeley\'s legendary mathematics department. Loved by few and mocked by many, it is slated for demolition — but the math done inside is world-class.'
         };
 
         // Materials — raw board-formed concrete, weathered and a little grim
@@ -1384,7 +1390,8 @@ export class UCBerkeleyCampus {
         const mainWing = new THREE.Group();
         mainWing.userData = {
             name: 'SLMath — Main Wing', isInteractable: true,
-            type: 'building', interactionType: 'Enter'
+            type: 'building', interactionType: 'Visit',
+            description: 'The Simons Laufer Mathematical Sciences Institute (formerly MSRI), perched in the Berkeley hills since 1982. Mathematicians from around the world gather here for semester-long programs, with panoramic views of the Bay below.'
         };
         const mw = 28, md = 14, mh = 8.5; // Two stories ~4.25m each
         const mainX = 0, mainZ = 0;
@@ -1530,7 +1537,8 @@ export class UCBerkeleyCampus {
         const chern = new THREE.Group();
         chern.userData = {
             name: 'Chern Hall', isInteractable: true,
-            type: 'building', interactionType: 'Enter'
+            type: 'building', interactionType: 'Visit',
+            description: 'Named for Shiing-Shen Chern, the great differential geometer and co-founder of the institute. This light-filled pavilion holds offices and collaboration spaces for visiting researchers.'
         };
         const chw = 18, chd = 12, chh = 7;
         const chernX = mainX + mw / 2 + 2 + chw / 2;
@@ -1672,7 +1680,8 @@ export class UCBerkeleyCampus {
         const sim = new THREE.Group();
         sim.userData = {
             name: 'Simons Auditorium', isInteractable: true,
-            type: 'building', interactionType: 'Enter'
+            type: 'building', interactionType: 'Visit',
+            description: 'SLMath\'s main lecture hall, named for mathematician and benefactor Jim Simons. Most of the institute\'s talks and workshops happen here, chalk in hand.'
         };
         const simR = 8;      // Radius
         const simH = 9;      // Height
@@ -1785,7 +1794,8 @@ export class UCBerkeleyCampus {
         const eis = new THREE.Group();
         eis.userData = {
             name: 'Eisenbud Auditorium', isInteractable: true,
-            type: 'building', interactionType: 'Enter'
+            type: 'building', interactionType: 'Visit',
+            description: 'A cozier lecture room named for David Eisenbud, the algebraic geometer who led the institute for many years. Seminars and working groups fill its blackboards daily.'
         };
         const ew = 10, ed = 8, eh = 6;
         const eisX = mainX + mw / 2 + 4;
@@ -2420,7 +2430,8 @@ export class UCBerkeleyCampus {
             name: `Telegraph · ${name}`,
             isInteractable: true,
             type: 'storefront',
-            interactionType: 'Browse'
+            interactionType: 'Browse',
+            description: `${name} — one of the storefronts that give Telegraph Avenue its counterculture flavor: records, books, coffee, and Cal gear a block from campus.`
         };
 
         const storyHeight = 3.6;
@@ -2862,7 +2873,8 @@ export class UCBerkeleyCampus {
         const g = new THREE.Group();
         g.userData = {
             name: 'Sather Gate', isInteractable: true,
-            type: 'landmark', interactionType: 'Pass Through'
+            type: 'landmark', interactionType: 'Pass Through',
+            description: 'The ornate bronze gate from 1910 that marks the historic south entrance to campus. In the 1960s the plaza just beyond became the stage for the Free Speech Movement.'
         };
 
         const stoneMat = new THREE.MeshStandardMaterial({
@@ -3132,7 +3144,8 @@ export class UCBerkeleyCampus {
     createChalkboard(name) {
         const g = new THREE.Group();
         g.userData = {
-            name, isInteractable: true, type: 'chalkboard', interactionType: 'Read'
+            name, isInteractable: true, type: 'chalkboard', interactionType: 'Read',
+            description: chalkDescription(name)
         };
         const postMat = new THREE.MeshStandardMaterial({ color: 0x5A3C28, roughness: 0.9 });
         const frameMat = new THREE.MeshStandardMaterial({ color: 0x3B2820, roughness: 0.8 });
@@ -3154,6 +3167,14 @@ export class UCBerkeleyCampus {
         const slate = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.75, 0.05), slateMat);
         slate.position.set(0, 1.85, 0.06);
         g.add(slate);
+        // Chalk writing on the slate face
+        const face = new THREE.Mesh(
+            new THREE.PlaneGeometry(2.7, 1.66),
+            new THREE.MeshBasicMaterial({ map: chalkTexture(name) })
+        );
+        face.position.set(0, 1.85, 0.09);
+        face.userData.noCollision = true;
+        g.add(face);
         const tray = new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.08, 0.14), frameMat);
         tray.position.set(0, 0.92, 0.12);
         g.add(tray);
@@ -3175,7 +3196,8 @@ export class UCBerkeleyCampus {
         const g = new THREE.Group();
         g.userData = {
             name: 'Golden Bear', isInteractable: true,
-            type: 'statue', interactionType: 'Admire'
+            type: 'statue', interactionType: 'Admire',
+            description: 'The Golden Bear, symbol of Cal and inspiration for the mascot Oski. Rub its nose for luck before an exam — countless students swear by it. Go Bears!'
         };
 
         const stoneMat = new THREE.MeshStandardMaterial({

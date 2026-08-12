@@ -60,6 +60,24 @@ export class InteriorBase {
     // -----------------------------------------------------------
     //  Common building blocks — wall, floor, door frame, exit portal
     // -----------------------------------------------------------
+
+    // Real room lighting. Interiors previously relied on emissive
+    // materials plus whatever regional sun leaked in — flat and dark.
+    // Call this from generate() with the room dimensions.
+    _addRoomLighting(opts = {}) {
+        const warm = opts.color ?? 0xFFE0B8;
+        const ambient = new THREE.AmbientLight(warm, opts.ambientIntensity ?? 0.55);
+        this.group.add(ambient);
+
+        const H = opts.height ?? 3.2;
+        const points = opts.points ?? [{ x: 0, z: 0 }];
+        for (const p of points) {
+            const light = new THREE.PointLight(warm, opts.pointIntensity ?? 22, opts.range ?? 18, 1.8);
+            light.position.set(p.x, H - 0.4, p.z);
+            this.group.add(light);
+        }
+    }
+
     _buildFloor(W, D, mat) {
         const f = new THREE.Mesh(new THREE.BoxGeometry(W, 0.12, D), mat);
         f.position.y = -0.06;

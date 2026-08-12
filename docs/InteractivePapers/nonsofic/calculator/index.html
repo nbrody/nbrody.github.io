@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binary Leavitt Algebra Calculator</title>
+    <meta name="description"
+        content="Exact arithmetic in the binary Leavitt algebra over F2: build elements as vertex sets and arrows on the binary tree, then add and multiply them with animated reductions.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Outfit:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <main id="calcRoot" hidden>
+        <header>
+            <h1>Binary Leavitt Algebra Calculator</h1>
+            <p class="sub">Exact arithmetic in R = L<sub>𝔽₂</sub>(1,2) =
+                𝔽₂⟨s₀, s₁, t₀, t₁ | tᵢsⱼ = δᵢⱼ, s₀t₀ + s₁t₁ = 1⟩. &nbsp;
+                Syntax: <code>s01</code>, <code>t10</code>, <code>e0</code> (= s₀t₀), <code>1</code>,
+                <code>+</code>, juxtaposition or <code>*</code>, <code>^</code>, parentheses. Coefficients mod 2.</p>
+        </header>
+
+        <div class="presets" id="presets"></div>
+
+        <div class="grid">
+            <section class="panel" id="panelA">
+                <div class="phead">
+                    <h2>A</h2>
+                    <div class="modes">
+                        <button data-mode="vertex" class="on" title="click a node to toggle the vertex e_a">● vertex</button>
+                        <button data-mode="arrow" title="click source b, then target a, to toggle the arrow s_a t_b">↷ arrow</button>
+                    </div>
+                </div>
+                <div class="frow">
+                    <input class="f-input" spellcheck="false" placeholder="e.g. 1 + s0 t10">
+                    <button class="go">set</button>
+                </div>
+                <div class="f-err"></div>
+                <svg class="tree"></svg>
+                <div class="f-canon"></div>
+                <div class="pbtns">
+                    <button class="reduce" title="show the raw expression, then animate its canonical reduction">⟲ animate reduction</button>
+                    <button class="star" title="transpose: swap every s_a t_b to s_b t_a (the * involution)">A ↦ A*</button>
+                    <button class="clear">clear</button>
+                </div>
+            </section>
+
+            <section class="ops">
+                <button id="opAdd">A + B</button>
+                <button id="opMulAB">A · B</button>
+                <button id="opMulBA">B · A</button>
+                <button id="opSqA">A²</button>
+                <button id="opInv" title="compute A·B and B·A and test whether both equal 1">inverse?</button>
+                <label>speed
+                    <select id="speed">
+                        <option value="1">1×</option>
+                        <option value="2">2×</option>
+                        <option value="0">instant</option>
+                    </select>
+                </label>
+            </section>
+
+            <section class="panel" id="panelB">
+                <div class="phead">
+                    <h2>B</h2>
+                    <div class="modes">
+                        <button data-mode="vertex" class="on" title="click a node to toggle the vertex e_a">● vertex</button>
+                        <button data-mode="arrow" title="click source b, then target a, to toggle the arrow s_a t_b">↷ arrow</button>
+                    </div>
+                </div>
+                <div class="frow">
+                    <input class="f-input" spellcheck="false" placeholder="e.g. t0 s0 + e11">
+                    <button class="go">set</button>
+                </div>
+                <div class="f-err"></div>
+                <svg class="tree"></svg>
+                <div class="f-canon"></div>
+                <div class="pbtns">
+                    <button class="reduce" title="show the raw expression, then animate its canonical reduction">⟲ animate reduction</button>
+                    <button class="star" title="transpose: swap every s_a t_b to s_b t_a (the * involution)">B ↦ B*</button>
+                    <button class="clear">clear</button>
+                </div>
+            </section>
+
+            <section class="panel wide" id="panelR">
+                <div class="phead">
+                    <h2>Result</h2>
+                    <div class="pbtns">
+                        <button id="toA">→ A</button>
+                        <button id="toB">→ B</button>
+                    </div>
+                </div>
+                <svg class="tree"></svg>
+                <div class="f-canon" id="fR"></div>
+                <div class="f-err" id="verdict"></div>
+            </section>
+        </div>
+
+        <footer class="hint">
+            Vertices are the idempotents e<sub>a</sub> (projection onto cylinder [a]); an arrow b → a is the monomial
+            s<sub>a</sub>t<sub>b</sub> mapping [b] onto [a]. Part of
+            <a href="../index.html">A Non-Sofic Group</a>.
+        </footer>
+    </main>
+
+    <main id="tourRoot" hidden>
+        <div id="tourCaption"></div>
+        <svg id="tourSvg" class="tree"></svg>
+        <div id="tourFormula"></div>
+        <div id="tourCtl">
+            <button id="tourPrev">◀</button>
+            <span id="tourNum"></span>
+            <button id="tourNext">▶</button>
+            <a id="tourOpen" href="index.html" target="_blank" rel="noopener">full calculator ↗</a>
+        </div>
+    </main>
+
+    <script src="js/leavitt.js"></script>
+    <script src="js/tree.js"></script>
+    <script src="js/calculator.js"></script>
+    <script src="js/walkthrough.js"></script>
+</body>
+
+</html>
