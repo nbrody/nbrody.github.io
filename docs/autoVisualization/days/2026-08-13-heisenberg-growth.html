@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polynomial Growth of the Heisenberg Group — AutoViz 2026-08-13</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --accent2: #ffab6e;
+    --good: #7ee787;
+    --warn: #ffd479;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.55;
+    padding: 1.6rem 1.2rem 2.5rem;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; letter-spacing: 0.06em; }
+  h1 { font-weight: normal; font-size: 1.9rem; margin: 0.4rem 0 0.5rem; }
+  p.math { color: #c9c6cf; max-width: 64rem; font-size: 1.02rem; }
+  p.math i { color: var(--ink); }
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 1.0rem;
+    margin: 1rem 0 0.8rem; padding: 0.7rem 1rem;
+    border: 1px solid var(--panel-border); background: var(--panel);
+    border-radius: 10px; font-size: 0.92rem;
+  }
+  .controls label { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); }
+  .controls .val { color: var(--ink); font-family: monospace; font-size: 0.86rem; min-width: 1.9em; }
+  input[type=range] { accent-color: var(--accent); width: 150px; }
+  button {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 0.25rem 0.7rem; font-family: inherit; font-size: 0.88rem;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  .gens { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.8rem; align-items: center; }
+  .gens span.lbl { color: var(--muted); font-size: 0.9rem; margin-right: 0.2rem; }
+  .gens button { font-family: monospace; font-size: 0.84rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+  .stage {
+    border: 1px solid var(--panel-border); background: rgba(0, 0, 0, 0.32);
+    border-radius: 12px; overflow: hidden; flex: 1 1 380px; min-width: 300px;
+    position: relative;
+  }
+  canvas { display: block; touch-action: none; }
+  .stage canvas { width: 100%; height: auto; cursor: crosshair; }
+  .tag {
+    position: absolute; left: 0.7rem; top: 0.5rem; font-size: 0.86rem;
+    text-shadow: 0 0 6px #000, 0 0 12px #000; pointer-events: none;
+  }
+  .tag b { font-weight: normal; color: var(--accent); }
+  .tag.z b { color: var(--accent2); }
+  .tag small { display: block; color: var(--muted); font-size: 0.76rem; font-family: monospace; }
+  .hint {
+    position: absolute; left: 0.7rem; bottom: 0.45rem; color: var(--muted);
+    font-size: 0.76rem; pointer-events: none; text-shadow: 0 0 6px #000;
+  }
+  .side {
+    flex: 1 1 320px; min-width: 290px; border: 1px solid var(--panel-border);
+    background: var(--panel); border-radius: 12px; padding: 0.9rem 1.05rem;
+    font-size: 0.95rem;
+  }
+  .side h2 { font-size: 0.8rem; font-weight: normal; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--muted); margin: 0.9rem 0 0.3rem; }
+  .side h2:first-child { margin-top: 0; }
+  .side canvas { width: 100%; height: auto; border-radius: 6px; background: rgba(0,0,0,0.35); }
+  .stat { font-family: monospace; font-size: 0.83rem; color: #c9c6cf; }
+  .stat b { font-weight: normal; color: var(--accent); }
+  .stat b.z { color: var(--accent2); }
+  .stat .ok { color: var(--good); }
+  table.bg { font-family: monospace; font-size: 0.79rem; color: #c9c6cf; border-collapse: collapse; }
+  table.bg td { padding: 0.04rem 0.5rem 0.04rem 0; }
+  table.bg td.n { color: var(--ink); text-align: right; }
+  .word { font-family: monospace; font-size: 0.92rem; letter-spacing: 0.04em;
+          word-break: break-all; color: var(--accent); min-height: 1.3rem; }
+  .note { color: var(--muted); font-size: 0.82rem; }
+  footer { margin-top: 1.2rem; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; AutoViz</a>
+  <h1>Polynomial Growth of the Heisenberg Group</h1>
+  <p class="math">
+    The integer Heisenberg group <i>H</i> = <i>H</i><sub>3</sub>(&#8484;) of upper unitriangular
+    3&times;3 matrices is nilpotent of class 2, so like &#8484;&sup3; it has polynomial growth &mdash;
+    but not of the dimension you would guess. Bass and Guivarc'h computed the degree exactly:
+    |<i>B</i>(<i>R</i>)| &asymp; <i>c&thinsp;R</i><sup><i>d</i></sup> with
+    <i>d</i> = &Sigma;<sub><i>k</i>&ge;1</sub> <i>k</i>&thinsp;&middot;&thinsp;rank(&gamma;<sub><i>k</i></sub>/&gamma;<sub><i>k</i>+1</sub>),
+    where &gamma;<sub><i>k</i></sub> is the lower central series. For <i>H</i> the quotients are
+    &#8484;&sup2; and &#8484;, giving <i>d</i> = 1&middot;2 + 2&middot;1 = <b>4</b> even though <i>H</i> is a
+    3-dimensional group: the commutator direction <i>z</i> = [<i>x</i>,<i>y</i>] is reached only at
+    quadratic cost, because a word's <i>z</i>-coordinate is the signed area
+    &Sigma; <i>x</i>&thinsp;&Delta;<i>y</i> swept by its projected path, and area grows like length&sup2;.
+    Both balls below are computed by exact breadth-first search on the Cayley graph;
+    the log&ndash;log plot fits the exponent live, and it stays 4 no matter which finite
+    generating set you choose.
+  </p>
+  <div class="gens">
+    <span class="lbl">generating set:</span>
+    <button data-g="0" class="on">x, y &nbsp;|&nbsp; e&#8321;, e&#8322;, e&#8323;</button>
+    <button data-g="1">x, y, z=[x,y] &nbsp;|&nbsp; +&thinsp;e&#8321;+e&#8322;+e&#8323;</button>
+    <button data-g="2">x, y, xy &nbsp;|&nbsp; +&thinsp;e&#8321;+e&#8322;</button>
+  </div>
+  <div class="controls">
+    <label>radius <i>R</i> <input type="range" id="R" min="1" max="22" step="1" value="15"><span class="val" id="RV">15</span></label>
+    <button id="scaleBtn" class="on">scaling: Pansu (z/R&sup2;)</button>
+    <button id="spinBtn" class="on">spin: on</button>
+    <button id="replay">replay cascade</button>
+  </div>
+  <div class="row">
+    <div class="stage">
+      <canvas id="cvH" width="700" height="560"></canvas>
+      <div class="tag"><b>Heisenberg H&#8323;(&#8484;)</b><small id="tagH">&nbsp;</small></div>
+      <div class="hint">drag to rotate &middot; click a point for its geodesic word</div>
+    </div>
+    <div class="stage">
+      <canvas id="cvZ" width="700" height="560"></canvas>
+      <div class="tag z"><b>&#8484;&sup3;</b><small id="tagZ">&nbsp;</small></div>
+      <div class="hint">same radius, same picture-scale</div>
+    </div>
+    <div class="side">
+      <h2>Growth, log&ndash;log</h2>
+      <canvas id="plot" width="660" height="470"></canvas>
+      <div class="stat" id="fit">&nbsp;</div>
+      <h2>Bass&ndash;Guivarc'h degree</h2>
+      <table class="bg" id="bgTab"></table>
+      <h2>Ball sizes at R</h2>
+      <div class="stat" id="counts">&nbsp;</div>
+      <h2>Selected element</h2>
+      <div class="word" id="word">click a point in either ball</div>
+      <div class="stat" id="sel">&nbsp;</div>
+      <canvas id="pathCv" width="620" height="330"></canvas>
+      <div class="note" id="pathNote">&nbsp;</div>
+    </div>
+  </div>
+  <footer>AutoViz &middot; 2026-08-13 &middot; generated by Claude (Fable 5)</footer>
+</div>
+<script>
+"use strict";
+/* ---------------------------------------------------------------------------
+   Heisenberg group H_3(Z): elements (x,y,z) <-> [[1,x,z],[0,1,y],[0,0,1]].
+   Product: (x,y,z)*(a,b,c) = (x+a, y+b, z+c+x*b).
+   Inverse: (x,y,z)^-1 = (-x,-y,-z+xy).
+   Z^3: ordinary vector addition.
+--------------------------------------------------------------------------- */
+function hMul(p, g) { return [p[0] + g[0], p[1] + g[1], p[2] + g[2] + p[0] * g[1]]; }
+function hInv(g) { return [-g[0], -g[1], -g[2] + g[0] * g[1]]; }
+function vMul(p, g) { return [p[0] + g[0], p[1] + g[1], p[2] + g[2]]; }
+function vInv(g) { return [-g[0], -g[1], -g[2]]; }
+
+/* generating sets: each list is written up to inverses; inverses are inserted
+   right after each generator, so index^1 is the index of the inverse. */
+const SETS = [
+  {
+    h: [[1, 0, 0], [0, 1, 0]], hL: ["x", "y"],
+    z: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], zL: ["a", "b", "c"],
+    hName: "⟨x, y⟩", zName: "⟨e₁, e₂, e₃⟩"
+  },
+  {
+    h: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], hL: ["x", "y", "z"],
+    z: [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1]], zL: ["a", "b", "c", "d"],
+    hName: "⟨x, y, z⟩", zName: "⟨e₁, e₂, e₃, e₁+e₂+e₃⟩"
+  },
+  {
+    h: [[1, 0, 0], [0, 1, 0], [1, 1, 1]], hL: ["x", "y", "w"],
+    z: [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0]], zL: ["a", "b", "c", "d"],
+    hName: "⟨x, y, w=xy⟩", zName: "⟨e₁, e₂, e₃, e₁+e₂⟩"
+  }
+];
+function expand(gens, labels, inv) {
+  const G = [], L = [];
+  for (let i = 0; i < gens.length; i++) {
+    G.push(gens[i]); L.push(labels[i]);
+    G.push(inv(gens[i])); L.push(labels[i] + "⁻¹");
+  }
+  return { G: G, L: L };
+}
+
+/* ---------------------------------------------------------------------------
+   BFS on the Cayley graph.  Returns typed arrays of coordinates in BFS order
+   (so word length is non-decreasing), the sphere sizes, and a parent table
+   that lets us reconstruct a geodesic word for any vertex.
+--------------------------------------------------------------------------- */
+function bfs(R, gens, mul, isHeis) {
+  const S = 2 * R + 1;
+  /* |z| bound: each step adds x*b' + c' with |x| <= step index, |b'|,|c'| <= 1,
+     so |z| <= R(R-1)/2 + R.  For Z^3 the third coordinate is bounded by R. */
+  const Zm = isHeis ? (R * (R - 1) / 2 + R + 1) : R;
+  const T = 2 * Zm + 1;
+  const N = S * S * T;
+  const dist = new Uint8Array(N).fill(255);
+  const par = new Uint8Array(N);
+  const q = new Int32Array(N);
+  const enc = function (x, y, z) { return (x + R) + S * ((y + R) + S * (z + Zm)); };
+  let head = 0, tail = 0, overflow = 0;
+  const o = enc(0, 0, 0);
+  dist[o] = 0; par[o] = 255; q[tail++] = o;
+  const sph = new Int32Array(R + 1); sph[0] = 1;
+  while (head < tail) {
+    const idx = q[head++], d = dist[idx];
+    if (d >= R) continue;
+    let t = idx;
+    const x = (t % S) - R; t = (t - (t % S)) / S;
+    const y = (t % S) - R; t = (t - (t % S)) / S;
+    const z = t - Zm;
+    for (let i = 0; i < gens.length; i++) {
+      const p = mul([x, y, z], gens[i]);
+      if (p[0] < -R || p[0] > R || p[1] < -R || p[1] > R || p[2] < -Zm || p[2] > Zm) { overflow++; continue; }
+      const j = enc(p[0], p[1], p[2]);
+      if (dist[j] === 255) { dist[j] = d + 1; par[j] = i; sph[d + 1]++; q[tail++] = j; }
+    }
+  }
+  if (overflow) console.warn("BFS bounding box too small: " + overflow + " moves clipped");
+  const n = tail;
+  const xs = new Int16Array(n), ys = new Int16Array(n), zs = new Int16Array(n), ds = new Uint8Array(n);
+  for (let k = 0; k < n; k++) {
+    let t = q[k];
+    xs[k] = (t % S) - R; t = (t - (t % S)) / S;
+    ys[k] = (t % S) - R; t = (t - (t % S)) / S;
+    zs[k] = t - Zm;
+    ds[k] = dist[q[k]];
+  }
+  const ball = new Float64Array(R + 1);
+  let c = 0;
+  for (let i = 0; i <= R; i++) { c += sph[i]; ball[i] = c; }
+  return { n: n, xs: xs, ys: ys, zs: zs, ds: ds, sph: sph, ball: ball, heis: isHeis,
+           dist: dist, par: par, enc: enc, R: R, Zm: Zm, S: S };
+}
+
+/* geodesic word for the vertex with coordinates p, walking the parent table */
+function wordFor(data, p, gens, labels, inv, mul) {
+  const out = [];
+  let cur = p.slice();
+  let guard = 0;
+  while (guard++ < 400) {
+    const idx = data.enc(cur[0], cur[1], cur[2]);
+    const i = data.par[idx];
+    if (i === 255) break;
+    out.push(labels[i]);
+    cur = mul(cur, inv(gens[i]));
+  }
+  out.reverse();
+  return out;
+}
+
+/* --------------------------------------------------------------------- state */
+const el = function (id) { return document.getElementById(id); };
+const cvH = el("cvH"), cvZ = el("cvZ"), plot = el("plot"), pathCv = el("pathCv");
+const state = {
+  R: 15, set: 0, pansu: true, spin: true,
+  yaw: 0.6, pitch: 0.52, reveal: 0, dragging: null, lastT: 0,
+  sel: null   /* {which:'H'|'Z', p:[x,y,z], d:int} */
+};
+let H = null, Z = null, HG = null, ZG = null;
+
+/* palette by word length */
+function palette(R) {
+  const P = new Uint8Array(3 * (R + 1));
+  for (let d = 0; d <= R; d++) {
+    const t = R === 0 ? 0 : d / R;
+    let r, g, b;
+    if (t < 0.5) { const s = t / 0.5; r = 110 + s * 60; g = 231 - s * 80; b = 216 + s * 20; }
+    else { const s = (t - 0.5) / 0.5; r = 170 + s * 85; g = 151 - s * 20; b = 236 - s * 130; }
+    P[3 * d] = r; P[3 * d + 1] = g; P[3 * d + 2] = b;
+  }
+  return P;
+}
+let PAL = palette(state.R);
+
+function rebuild() {
+  const S = SETS[state.set];
+  HG = expand(S.h, S.hL, hInv);
+  ZG = expand(S.z, S.zL, vInv);
+  const t0 = performance.now();
+  H = bfs(state.R, HG.G, hMul, true);
+  Z = bfs(state.R, ZG.G, vMul, false);
+  PAL = palette(state.R);
+  state.sel = null;
+  el("word").textContent = "click a point in either ball";
+  el("sel").innerHTML = "&nbsp;";
+  el("pathNote").innerHTML = "&nbsp;";
+  drawPath(null);
+  refreshText(performance.now() - t0);
+}
+
+/* ------------------------------------------------------------------ analysis */
+function fitSlope(ball, R) {
+  const lo = Math.max(2, Math.ceil(R / 2));
+  if (R < 4) return NaN;
+  let n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (let i = lo; i <= R; i++) {
+    const X = Math.log(i), Y = Math.log(ball[i]);
+    n++; sx += X; sy += Y; sxx += X * X; sxy += X * Y;
+  }
+  return (n * sxy - sx * sy) / (n * sxx - sx * sx);
+}
+
+function refreshText(ms) {
+  const R = state.R, S = SETS[state.set];
+  el("tagH").textContent = S.hName + "  ·  |B(" + R + ")| = " + H.ball[R];
+  el("tagZ").textContent = S.zName + "  ·  |B(" + R + ")| = " + Z.ball[R];
+  const sh = fitSlope(H.ball, R), sz = fitSlope(Z.ball, R);
+  el("fit").innerHTML =
+    "least-squares slope on R ∈ [" + Math.max(2, Math.ceil(R / 2)) + ", " + R + "]:<br>" +
+    "&nbsp;&nbsp;<b>H₃(ℤ)</b> " + (isNaN(sh) ? "—" : sh.toFixed(3)) + " &nbsp;→ degree 4<br>" +
+    "&nbsp;&nbsp;<b class='z'>ℤ³</b> " + (isNaN(sz) ? "—" : sz.toFixed(3)) + " &nbsp;→ degree 3";
+  el("bgTab").innerHTML =
+    "<tr><td>H₃(ℤ)</td><td>γ₁/γ₂ ≅ ℤ²</td><td>k=1, rank 2</td><td class='n'>2</td></tr>" +
+    "<tr><td></td><td>γ₂/γ₃ ≅ ℤ</td><td>k=2, rank 1</td><td class='n'>+4</td></tr>" +
+    "<tr><td></td><td></td><td>degree</td><td class='n'>= 4</td></tr>" +
+    "<tr><td>ℤ³</td><td>γ₁/γ₂ ≅ ℤ³</td><td>k=1, rank 3</td><td class='n'>3</td></tr>";
+  const exact = (4 * R * R * R + 6 * R * R + 8 * R + 3) / 3;
+  let zline;
+  if (state.set === 0) {
+    zline = "|B<sub>ℤ³</sub>(R)| = " + Z.ball[R] + " &nbsp;" +
+      (Z.ball[R] === exact ? "<span class='ok'>= (4R³+6R²+8R+3)/3 ✓</span>" : "<span style='color:#ff7b72'>≠ formula!</span>");
+  } else {
+    zline = "|B<sub>ℤ³</sub>(R)| = " + Z.ball[R] + " &nbsp;<span class='note'>(octahedron formula applies to the standard set only)</span>";
+  }
+  el("counts").innerHTML =
+    "|B<sub>H</sub>(R)| = " + H.ball[R] + "<br>" +
+    "|B<sub>H</sub>(R)|/R⁴ = " + (H.ball[R] / Math.pow(R, 4)).toFixed(4) +
+    " &nbsp;&nbsp; |B<sub>H</sub>(R)|/R³ = " + (H.ball[R] / Math.pow(R, 3)).toFixed(2) + "<br>" +
+    zline + "<br>" +
+    "<span class='note'>" + H.n + "+" + Z.n + " vertices, BFS " + ms.toFixed(0) + " ms</span>";
+}
+
+/* ------------------------------------------------------------- point clouds */
+function makeBuf(cv) {
+  const ctx = cv.getContext("2d");
+  const img = ctx.createImageData(cv.width, cv.height);
+  return {
+    ctx: ctx, img: img,
+    u32: new Uint32Array(img.data.buffer),
+    dep: new Float32Array(cv.width * cv.height),
+    pick: new Int32Array(cv.width * cv.height),
+    W: cv.width, H: cv.height
+  };
+}
+const bufH = makeBuf(cvH), bufZ = makeBuf(cvZ);
+const BG = 0xff140e0b;
+
+/* Normalised coordinates.  Pansu's theorem: rescaling H by the Carnot dilation
+   (x, y, z) -> (x/R, y/R, z/R^2) makes the balls converge to the unit ball of a
+   Carnot-Caratheodory metric; the isotropic rescaling z/R has no limit (the ball
+   becomes an ever thinner needle).  Z^3 is always rescaled isotropically. */
+function zdivOf(dat, R) { return (dat.heis && state.pansu) ? R * R : R; }
+
+function cloudExtent(dat, R) {
+  const zd = zdivOf(dat, R);
+  let mh = 1e-9, mw = 1e-9;
+  for (let k = 0; k < dat.n; k++) {
+    const u = dat.xs[k] / R, v = dat.ys[k] / R, w = Math.abs(dat.zs[k] / zd);
+    const q = u * u + v * v;
+    if (q > mh) mh = q;
+    if (w > mw) mw = w;
+  }
+  return { h: Math.sqrt(mh), w: mw };
+}
+
+function drawCloud(buf, dat, R, count, ext) {
+  const W = buf.W, Hh = buf.H, u32 = buf.u32, dep = buf.dep, pick = buf.pick;
+  u32.fill(BG); dep.fill(-1e30); pick.fill(-1);
+  const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
+  const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
+  const zd = zdivOf(dat, R);
+  const vert = ext.h * Math.abs(sp) + ext.w * Math.abs(cp);
+  const scale = Math.min(0.46 * W / ext.h, 0.46 * Hh / Math.max(vert, 1e-9));
+  const rad = Math.max(ext.h, ext.w);
+  const ox = W / 2, oy = Hh / 2;
+  /* The lattice is sparse in x,y (spacing scale/R on screen) but dense in z
+     (spacing scale/R^2), so widen each splat horizontally to close the gaps
+     between columns and keep it thin vertically. */
+  const psx = Math.max(2, Math.min(10, Math.round(scale / R)));
+  const psy = count > 60000 ? 2 : 3;
+  for (let k = 0; k < count; k++) {
+    const u = dat.xs[k] / R, v = dat.ys[k] / R, w = dat.zs[k] / zd;
+    const X = u * cy - v * sy, Y = u * sy + v * cy;
+    const sx = ox + scale * X;
+    const sz = oy - scale * (w * cp - Y * sp);
+    if (sx < 0 || sx >= W - 1 || sz < 0 || sz >= Hh - 1) continue;
+    const depth = Y * cp + w * sp;
+    const shade = 0.55 + 0.45 * Math.max(0, Math.min(1, 0.5 + depth / (2 * rad)));
+    const d3 = 3 * dat.ds[k];
+    const r = (PAL[d3] * shade) | 0, g = (PAL[d3 + 1] * shade) | 0, b = (PAL[d3 + 2] * shade) | 0;
+    const col = 0xff000000 | (b << 16) | (g << 8) | r;
+    const px = (sx - psx / 2) | 0, py = sz | 0;
+    if (px < 0 || px + psx >= W) continue;
+    for (let dy = 0; dy < psy; dy++) {
+      const row = (py + dy) * W;
+      for (let dx = 0; dx < psx; dx++) {
+        const i = row + px + dx;
+        if (depth > dep[i]) { dep[i] = depth; u32[i] = col; pick[i] = k; }
+      }
+    }
+  }
+  buf.ctx.putImageData(buf.img, 0, 0);
+}
+
+/* highlight the selected vertex with a ring drawn on top */
+function markSelection(buf, dat, R, ext, sel) {
+  if (!sel) return;
+  const cy = Math.cos(state.yaw), sy = Math.sin(state.yaw);
+  const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
+  const vert = ext.h * Math.abs(sp) + ext.w * Math.abs(cp);
+  const scale = Math.min(0.46 * buf.W / ext.h, 0.46 * buf.H / Math.max(vert, 1e-9));
+  const zd = zdivOf(dat, R);
+  const u = sel.p[0] / R, v = sel.p[1] / R, w = sel.p[2] / zd;
+  const X = u * cy - v * sy, Y = u * sy + v * cy;
+  const sx = buf.W / 2 + scale * X, sz = buf.H / 2 - scale * (w * cp - Y * sp);
+  const c = buf.ctx;
+  c.save();
+  c.strokeStyle = "#ffffff"; c.lineWidth = 2;
+  c.beginPath(); c.arc(sx, sz, 7, 0, 6.283); c.stroke();
+  c.restore();
+}
+
+/* ----------------------------------------------------------------- log plot */
+function drawPlot(upto) {
+  const c = plot.getContext("2d"), W = plot.width, Hh = plot.height;
+  c.clearRect(0, 0, W, Hh);
+  const R = state.R;
+  if (R < 2) return;
+  const L = 52, Rr = 12, Tp = 14, Bt = 34;
+  const xmin = 0, xmax = Math.log(R);
+  const ymax = Math.log(Math.max(H.ball[R], Z.ball[R])) * 1.02;
+  const px = function (lr) { return L + (lr - xmin) / (xmax - xmin || 1) * (W - L - Rr); };
+  const py = function (ly) { return Hh - Bt - (ly / ymax) * (Hh - Tp - Bt); };
+  c.strokeStyle = "rgba(255,255,255,0.13)"; c.lineWidth = 1;
+  c.fillStyle = "#9a97a0"; c.font = "16px monospace"; c.textAlign = "center";
+  const xt = [1, 2, 5, 10, 20].filter(function (v) { return v <= R; });
+  for (let i = 0; i < xt.length; i++) {
+    const X = px(Math.log(xt[i]));
+    c.beginPath(); c.moveTo(X, Tp); c.lineTo(X, Hh - Bt); c.stroke();
+    c.fillText("" + xt[i], X, Hh - Bt + 20);
+  }
+  c.textAlign = "right";
+  for (let e = 0; e <= 6; e++) {
+    const ly = e * Math.log(10);
+    if (ly > ymax) break;
+    const Y = py(ly);
+    c.beginPath(); c.moveTo(L, Y); c.lineTo(W - Rr, Y); c.stroke();
+    c.fillText("10" + ["⁰", "¹", "²", "³", "⁴", "⁵", "⁶"][e], L - 6, Y + 5);
+  }
+  c.textAlign = "center";
+  c.fillText("R", (L + W - Rr) / 2, Hh - 8);
+  /* reference slopes anchored at the last plotted point of each curve */
+  const upR = Math.max(1, Math.min(R, Math.floor(upto)));
+  function guide(ball, deg, color) {
+    if (upR < 2) return;
+    const aX = Math.log(upR), aY = Math.log(ball[upR]);
+    c.save(); c.setLineDash([5, 5]); c.strokeStyle = color; c.globalAlpha = 0.5;
+    c.beginPath();
+    c.moveTo(px(Math.log(1)), py(aY - deg * (aX - 0)));
+    c.lineTo(px(aX), py(aY));
+    c.stroke(); c.restore();
+  }
+  guide(H.ball, 4, "#6ee7d8");
+  guide(Z.ball, 3, "#ffab6e");
+  function curve(ball, color) {
+    c.strokeStyle = color; c.lineWidth = 2.4; c.beginPath();
+    for (let i = 1; i <= upR; i++) {
+      const X = px(Math.log(i)), Y = py(Math.log(ball[i]));
+      if (i === 1) c.moveTo(X, Y); else c.lineTo(X, Y);
+    }
+    c.stroke();
+    const X = px(Math.log(upR)), Y = py(Math.log(ball[upR]));
+    c.fillStyle = color; c.beginPath(); c.arc(X, Y, 3.5, 0, 6.283); c.fill();
+  }
+  curve(H.ball, "#6ee7d8");
+  curve(Z.ball, "#ffab6e");
+  c.textAlign = "left"; c.font = "15px monospace";
+  c.fillStyle = "#6ee7d8"; c.fillText("H₃(ℤ)   slope 4", L + 8, Tp + 16);
+  c.fillStyle = "#ffab6e"; c.fillText("ℤ³   slope 3", L + 8, Tp + 34);
+  c.fillStyle = "#9a97a0"; c.font = "14px monospace";
+  c.fillText("|B(R)|", L + 8, Tp + 52);
+}
+
+/* ------------------------------------------- projected path of a chosen word */
+function drawPath(sel) {
+  const c = pathCv.getContext("2d"), W = pathCv.width, Hh = pathCv.height;
+  c.clearRect(0, 0, W, Hh);
+  if (!sel || sel.which !== "H") return;
+  const w = wordFor(H, sel.p, HG.G, HG.L, hInv, hMul);
+  /* replay the word, recording the projected lattice path and the running area */
+  let p = [0, 0, 0];
+  const path = [[0, 0]];
+  const steps = [];
+  const S = SETS[state.set];
+  for (let i = 0; i < w.length; i++) {
+    /* find the generator with this label */
+    let gi = HG.L.indexOf(w[i]);
+    const g = HG.G[gi];
+    const q = hMul(p, g);
+    steps.push({ x0: p[0], y0: p[1], y1: q[1], area: p[0] * g[1], cen: g[2] });
+    p = q;
+    path.push([p[0], p[1]]);
+  }
+  let mx = 1, my = 1;
+  for (let i = 0; i < path.length; i++) { mx = Math.max(mx, Math.abs(path[i][0])); my = Math.max(my, Math.abs(path[i][1])); }
+  const pad = 24;
+  const sc = Math.min((W / 2 - pad) / mx, (Hh / 2 - pad) / my);
+  const ox = W / 2, oy = Hh / 2;
+  const PX = function (x) { return ox + sc * x; }, PY = function (y) { return oy - sc * y; };
+  /* shaded rectangles: each y-step of size dy at abscissa x contributes x*dy */
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    if (s.y1 === s.y0 || s.x0 === 0) continue;
+    c.fillStyle = (s.area > 0) ? "rgba(110,231,216,0.20)" : "rgba(255,171,110,0.20)";
+    const x0 = PX(0), x1 = PX(s.x0), y0 = PY(s.y0), y1 = PY(s.y1);
+    c.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
+  }
+  c.strokeStyle = "rgba(255,255,255,0.18)"; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(PX(0), 0); c.lineTo(PX(0), Hh); c.stroke();
+  c.beginPath(); c.moveTo(0, PY(0)); c.lineTo(W, PY(0)); c.stroke();
+  c.strokeStyle = "#e8e6e1"; c.lineWidth = 2.2; c.beginPath();
+  for (let i = 0; i < path.length; i++) {
+    const X = PX(path[i][0]), Y = PY(path[i][1]);
+    if (i === 0) c.moveTo(X, Y); else c.lineTo(X, Y);
+  }
+  c.stroke();
+  c.fillStyle = "#7ee787"; c.beginPath(); c.arc(PX(0), PY(0), 4, 0, 6.283); c.fill();
+  c.fillStyle = "#ff7b72"; c.beginPath(); c.arc(PX(p[0]), PY(p[1]), 4, 0, 6.283); c.fill();
+  /* live check: sum of x*dy over the word plus central contributions equals z */
+  let area = 0, cen = 0;
+  for (let i = 0; i < steps.length; i++) { area += steps[i].area; cen += steps[i].cen; }
+  const ok = (area + cen === sel.p[2]);
+  el("pathNote").innerHTML =
+    "projection to ℤ² &middot; shaded columns are the Riemann sum Σ x Δy = <b>" + area + "</b>" +
+    (cen ? " plus central steps " + cen : "") +
+    " &nbsp;" + (ok ? "<span style='color:#7ee787'>= z ✓</span>" : "<span style='color:#ff7b72'>≠ z</span>");
+}
+
+/* ------------------------------------------------------------------ picking */
+function pickFrom(cv, buf, dat, ev, which) {
+  const r = cv.getBoundingClientRect();
+  const x = Math.round((ev.clientX - r.left) / r.width * buf.W);
+  const y = Math.round((ev.clientY - r.top) / r.height * buf.H);
+  let best = -1, bd = 1e9;
+  for (let dy = -4; dy <= 4; dy++) {
+    for (let dx = -4; dx <= 4; dx++) {
+      const px = x + dx, py = y + dy;
+      if (px < 0 || py < 0 || px >= buf.W || py >= buf.H) continue;
+      const k = buf.pick[py * buf.W + px];
+      if (k >= 0) { const q = dx * dx + dy * dy; if (q < bd) { bd = q; best = k; } }
+    }
+  }
+  if (best < 0) return;
+  const p = [dat.xs[best], dat.ys[best], dat.zs[best]];
+  state.sel = { which: which, p: p, d: dat.ds[best] };
+  const gs = which === "H" ? HG : ZG;
+  const w = wordFor(which === "H" ? H : Z, p, gs.G, gs.L, which === "H" ? hInv : vInv, which === "H" ? hMul : vMul);
+  el("word").textContent = w.length ? w.join(" ") : "(identity)";
+  if (which === "H") {
+    el("sel").innerHTML =
+      "(x, y, z) = (" + p[0] + ", " + p[1] + ", " + p[2] + ") &nbsp; word length " + state.sel.d + "<br>" +
+      "matrix [[1, " + p[0] + ", " + p[2] + "], [0, 1, " + p[1] + "], [0, 0, 1]]";
+  } else {
+    el("sel").innerHTML = "(" + p[0] + ", " + p[1] + ", " + p[2] + ") &nbsp; word length " + state.sel.d +
+      "<br><span class='note'>ℤ³ has no area term: |word| is just the ℓ¹ norm here</span>";
+  }
+  drawPath(state.sel);
+}
+
+/* -------------------------------------------------------------------- frame */
+let extH = { h: 1, w: 1 }, extZ = { h: 1, w: 1 }, radDirty = true;
+function frame(t) {
+  const dt = Math.min(0.05, (t - state.lastT) / 1000 || 0.016);
+  state.lastT = t;
+  if (state.spin && !state.dragging) state.yaw += 0.28 * dt;
+  if (state.reveal < state.R) state.reveal = Math.min(state.R, state.reveal + dt * 5.5);
+  if (radDirty) { extH = cloudExtent(H, state.R); extZ = cloudExtent(Z, state.R); radDirty = false; }
+  const lev = Math.max(0, Math.min(state.R, Math.floor(state.reveal)));
+  drawCloud(bufH, H, state.R, H.ball[lev], extH);
+  drawCloud(bufZ, Z, state.R, Z.ball[lev], extZ);
+  if (state.sel) markSelection(state.sel.which === "H" ? bufH : bufZ,
+    state.sel.which === "H" ? H : Z, state.R,
+    state.sel.which === "H" ? extH : extZ, state.sel);
+  drawPlot(state.reveal);
+  requestAnimationFrame(frame);
+}
+
+/* ------------------------------------------------------------------- events */
+el("R").addEventListener("input", function (e) {
+  state.R = +e.target.value; el("RV").textContent = state.R;
+  rebuild(); state.reveal = 0; radDirty = true;
+});
+el("scaleBtn").addEventListener("click", function () {
+  state.pansu = !state.pansu;
+  this.textContent = state.pansu ? "scaling: Pansu (z/R²)" : "scaling: isotropic (z/R)";
+  this.classList.toggle("on", state.pansu);
+  radDirty = true;
+});
+el("spinBtn").addEventListener("click", function () {
+  state.spin = !state.spin;
+  this.textContent = "spin: " + (state.spin ? "on" : "off");
+  this.classList.toggle("on", state.spin);
+});
+el("replay").addEventListener("click", function () { state.reveal = 0; });
+const gbtns = document.querySelectorAll(".gens button");
+for (let i = 0; i < gbtns.length; i++) {
+  gbtns[i].addEventListener("click", function () {
+    state.set = +this.dataset.g;
+    for (let j = 0; j < gbtns.length; j++) gbtns[j].classList.toggle("on", j === state.set);
+    rebuild(); state.reveal = 0; radDirty = true;
+  });
+}
+function dragStart(cv) {
+  cv.addEventListener("pointerdown", function (e) {
+    state.dragging = { x: e.clientX, y: e.clientY, yaw: state.yaw, pitch: state.pitch, moved: 0 };
+    cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener("pointermove", function (e) {
+    if (!state.dragging) return;
+    const dx = e.clientX - state.dragging.x, dy = e.clientY - state.dragging.y;
+    state.dragging.moved = Math.max(state.dragging.moved, Math.abs(dx) + Math.abs(dy));
+    state.yaw = state.dragging.yaw + dx * 0.008;
+    state.pitch = Math.max(-1.45, Math.min(1.45, state.dragging.pitch + dy * 0.006));
+  });
+  cv.addEventListener("pointerup", function (e) {
+    const moved = state.dragging ? state.dragging.moved : 99;
+    state.dragging = null;
+    if (moved < 4) {
+      if (cv === cvH) pickFrom(cvH, bufH, H, e, "H"); else pickFrom(cvZ, bufZ, Z, e, "Z");
+    }
+  });
+}
+dragStart(cvH); dragStart(cvZ);
+
+/* ------------------------------------------------------------- sanity checks */
+(function selfTest() {
+  /* [x,y] = z in H_3(Z) */
+  const x = [1, 0, 0], y = [0, 1, 0];
+  const comm = hMul(hMul(hMul(x, y), hInv(x)), hInv(y));
+  console.log("[x,y] =", comm.join(","), comm.join(",") === "0,0,1" ? "✓ equals z" : "✗");
+  /* Z^3 octahedral ball formula */
+  const t = bfs(8, expand(SETS[0].z, SETS[0].zL, vInv).G, vMul, false);
+  let bad = 0;
+  for (let R = 0; R <= 8; R++) if (t.ball[R] !== (4 * R * R * R + 6 * R * R + 8 * R + 3) / 3) bad++;
+  console.log("Z^3 ball sizes vs (4R³+6R²+8R+3)/3:", bad === 0 ? "✓ all match up to R=8" : "✗ " + bad + " mismatches");
+  /* Heisenberg sphere sizes for the standard set: 1, 4, 12, 36, 82, ... */
+  const h = bfs(5, expand(SETS[0].h, SETS[0].hL, hInv).G, hMul, true);
+  console.log("H₃(ℤ) ball sizes R=0..5:", Array.from(h.ball).join(","), "(expected 1,5,17,53,135,299)");
+})();
+
+rebuild();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

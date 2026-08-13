@@ -2,6 +2,13 @@
 // Fields: date (YYYY-MM-DD), file (relative to days/), title, area, blurb.
 window.AUTOVIZ = [
   {
+    date: "2026-08-13",
+    file: "2026-08-13-heisenberg-growth.html",
+    title: "Polynomial Growth of the Heisenberg Group",
+    area: "Geometric group theory",
+    blurb: "Balls in the integer Heisenberg group grow like R\u2074, not R\u00b3: Bass\u2013Guivarc'h reads the degree off the lower central series, and the commutator direction costs quadratically because a word's z-coordinate is the area its projection sweeps. Breadth-first search both Cayley graphs and watch the log\u2013log slopes separate."
+  },
+  {
     date: "2026-08-11",
     file: "2026-08-11-triangle-group-kaleidoscopes.html",
     title: "Triangle-Group Kaleidoscopes",
