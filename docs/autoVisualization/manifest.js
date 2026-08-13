@@ -3,6 +3,13 @@
 window.AUTOVIZ = [
   {
     date: "2026-08-13",
+    file: "2026-08-13-unfolding-billiards.html",
+    title: "Unfolding Billiards in Polygons",
+    area: "Dynamics \u00b7 translation surfaces",
+    blurb: "Reflect the table instead of the ball and a billiard trajectory straightens into a line. For a kaleidoscopic polygon the Katok\u2013Zemlyakov unfolding turns the flow into linear flow on the torus \u211d\u00b2/L, so an orbit closes exactly when its direction is parallel to a lattice vector \u2014 the square's slope-p/q rule, with period 2\u221a(p\u00b2+q\u00b2), checked live against the simulated orbit."
+  },
+  {
+    date: "2026-08-13",
     file: "2026-08-13-heisenberg-growth.html",
     title: "Polynomial Growth of the Heisenberg Group",
     area: "Geometric group theory",

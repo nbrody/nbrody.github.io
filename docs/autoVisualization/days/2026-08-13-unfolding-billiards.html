@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unfolding Billiards in Polygons — AutoViz 2026-08-13</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --accent2: #ffab6e;
+    --good: #7ee787;
+    --warn: #ffd479;
+    --bad: #ff8b8b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.55;
+    padding: 1.6rem 1.2rem 2.5rem;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; letter-spacing: 0.06em; }
+  h1 { font-weight: normal; font-size: 1.9rem; margin: 0.4rem 0 0.5rem; }
+  p.math { color: #c9c6cf; max-width: 64rem; font-size: 1.02rem; }
+  p.math i { color: var(--ink); }
+  p.math b { font-weight: normal; color: var(--accent); }
+  .gens { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 1rem 0 0.6rem; align-items: center; }
+  .gens span.lbl { color: var(--muted); font-size: 0.9rem; margin-right: 0.2rem; }
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.95rem;
+    margin: 0 0 0.8rem; padding: 0.7rem 1rem;
+    border: 1px solid var(--panel-border); background: var(--panel);
+    border-radius: 10px; font-size: 0.92rem;
+  }
+  .controls label { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); }
+  .controls .val { color: var(--ink); font-family: monospace; font-size: 0.86rem; min-width: 3.4em; }
+  input[type=range] { accent-color: var(--accent); width: 130px; }
+  input[type=number] {
+    width: 3.4em; background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 5px; padding: 0.15rem 0.3rem; font-family: monospace; font-size: 0.86rem;
+  }
+  button {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 0.25rem 0.7rem; font-family: inherit; font-size: 0.88rem;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  .dim { opacity: 0.35; pointer-events: none; }
+  .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+  .stage {
+    border: 1px solid var(--panel-border); background: rgba(0, 0, 0, 0.32);
+    border-radius: 12px; overflow: hidden; flex: 1 1 300px; min-width: 280px;
+    position: relative;
+  }
+  .stage.wide { flex: 1.7 1 430px; }
+  canvas { display: block; touch-action: none; }
+  .stage canvas { width: 100%; height: auto; cursor: crosshair; }
+  .tag {
+    position: absolute; left: 0.7rem; top: 0.5rem; font-size: 0.86rem;
+    text-shadow: 0 0 6px #000, 0 0 12px #000; pointer-events: none;
+  }
+  .tag b { font-weight: normal; color: var(--accent); }
+  .tag.u b { color: var(--accent2); }
+  .tag small { display: block; color: var(--muted); font-size: 0.76rem; font-family: monospace; }
+  .hint {
+    position: absolute; left: 0.7rem; bottom: 0.45rem; color: var(--muted);
+    font-size: 0.76rem; pointer-events: none; text-shadow: 0 0 6px #000;
+  }
+  .side {
+    flex: 1 1 300px; min-width: 290px; max-width: 360px; border: 1px solid var(--panel-border);
+    background: var(--panel); border-radius: 12px; padding: 0.9rem 1.05rem;
+    font-size: 0.95rem;
+  }
+  .side h2 { font-size: 0.8rem; font-weight: normal; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--muted); margin: 0.9rem 0 0.3rem; }
+  .side h2:first-child { margin-top: 0; }
+  .side canvas { width: 100%; height: auto; border-radius: 6px; background: rgba(0,0,0,0.35); }
+  .stat { font-family: monospace; font-size: 0.82rem; color: #c9c6cf; }
+  .stat b { font-weight: normal; color: var(--accent); }
+  .stat .ok { color: var(--good); }
+  .stat .no { color: var(--bad); }
+  .verdict { font-size: 1.05rem; margin: 0.15rem 0 0.35rem; }
+  .verdict.per { color: var(--good); }
+  .verdict.ape { color: var(--accent2); }
+  .bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; margin: 0.25rem 0 0.1rem; }
+  .bar i { display: block; height: 100%; background: var(--accent); width: 0%; }
+  .note { color: var(--muted); font-size: 0.82rem; }
+  footer { margin-top: 1.2rem; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; AutoViz</a>
+  <h1>Unfolding Billiards in Polygons</h1>
+  <p class="math">
+    Rather than reflect the ball at a wall, reflect the table: the Katok&ndash;Zemlyakov unfolding
+    straightens a billiard trajectory into a single <i>straight line</i> threading a chain of mirrored
+    copies of the polygon. If every angle is a rational multiple of &pi;, say
+    <i>m<sub>i</sub></i>&pi;/<i>n<sub>i</sub></i> with <i>N</i> = lcm(<i>n<sub>i</sub></i>), the direction
+    takes only 2<i>N</i> values and the copies glue into a compact translation surface of genus
+    <i>g</i> = 1 + (<i>N</i>/2)&thinsp;&Sigma;(<i>m<sub>i</sub></i>&minus;1)/<i>n<sub>i</sub></i>. For the five
+    kaleidoscopic tables here that surface is the torus &#8477;&sup2;/<i>L</i>, where <i>L</i> is the translation
+    lattice of the reflection group generated by the walls (computed below by exhausting the group), so the
+    billiard flow becomes linear flow on a torus and a trajectory is periodic <b>exactly when its direction is
+    parallel to a vector of L</b> &mdash; for the square, the classical statement that a trajectory closes iff
+    its slope <i>p</i>/<i>q</i> is rational, with period 2&radic;(<i>p</i>&sup2;+<i>q</i>&sup2;) and
+    2(<i>p</i>+<i>q</i>) bounces. Every other direction is dense and equidistributed, by unique ergodicity
+    of irrational torus flow.
+  </p>
+  <div class="gens">
+    <span class="lbl">table:</span>
+    <span id="tableBtns"></span>
+  </div>
+  <div class="controls">
+    <label>angle &theta; <input type="range" id="ang" min="0" max="6.283185" step="0.0002" value="0.6"><span class="val" id="angV">34.38&deg;</span></label>
+    <label id="aspWrap">width <i>w</i> <input type="range" id="asp" min="0.45" max="2.2" step="0.005" value="1.5"><span class="val" id="aspV">1.500</span></label>
+    <label>speed <input type="range" id="spd" min="0.1" max="6" step="0.05" value="1.4"></label>
+    <label>zoom <input type="range" id="zoom" min="0.35" max="2.6" step="0.01" value="1"></label>
+    <button id="play" class="on">pause</button>
+    <button id="clear">clear trail</button>
+  </div>
+  <div class="controls">
+    <span style="color:var(--muted)">snap to lattice direction <i>q</i>&thinsp;v&#8321; + <i>p</i>&thinsp;v&#8322;:</span>
+    <label><i>p</i> <input type="number" id="pIn" value="1" min="-24" max="24" step="1"></label>
+    <label><i>q</i> <input type="number" id="qIn" value="3" min="-24" max="24" step="1"></label>
+    <button id="snap">snap &rarr; periodic</button>
+    <button id="perturb">perturb &theta; by 0.004</button>
+    <button id="golden">irrational: &theta; = arctan(&phi;)</button>
+  </div>
+  <div class="row">
+    <div class="stage">
+      <canvas id="cvT" width="560" height="560"></canvas>
+      <div class="tag"><b id="tagT">the table</b><small id="tagTs">&nbsp;</small></div>
+      <div class="hint">drag inside to aim &middot; drag the ringed dot to move the start point</div>
+    </div>
+    <div class="stage wide">
+      <canvas id="cvU" width="950" height="560"></canvas>
+      <div class="tag u"><b>unfolded: reflect the table, not the ball</b><small id="tagUs">&nbsp;</small></div>
+      <div class="hint">the same trajectory, straightened &middot; copies tinted by orientation</div>
+    </div>
+    <div class="side">
+      <h2>Verdict</h2>
+      <div class="verdict" id="verdict">&nbsp;</div>
+      <div class="stat" id="verStat">&nbsp;</div>
+      <h2>Translation lattice <i>L</i></h2>
+      <canvas id="cvL" width="560" height="360"></canvas>
+      <div class="stat" id="latStat">&nbsp;</div>
+      <h2>Direction in <i>L</i>-coordinates</h2>
+      <div class="stat" id="dirStat">&nbsp;</div>
+      <h2>Table</h2>
+      <div class="stat" id="tabStat">&nbsp;</div>
+      <h2>Coverage of the table</h2>
+      <div class="bar"><i id="covBar"></i></div>
+      <div class="stat" id="covStat">&nbsp;</div>
+    </div>
+  </div>
+  <footer>AutoViz &middot; 2026-08-13 &middot; generated by Claude (Fable 5)</footer>
+</div>
+<script>
+(function () {
+"use strict";
+
+/* ---------- small arithmetic helpers ---------- */
+var SQ3 = Math.sqrt(3), TAN225 = Math.SQRT2 - 1, PHI = (1 + Math.sqrt(5)) / 2;
+function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { var t = a % b; a = b; b = t; } return a; }
+function lcm(a, b) { return a / gcd(a, b) * b; }
+function nrm(v) { return Math.hypot(v[0], v[1]); }
+function cross(a, b) { return a[0] * b[1] - a[1] * b[0]; }
+function fmt(x, n) { return (Math.abs(x) < 5e-13 ? 0 : x).toFixed(n === undefined ? 4 : n); }
+
+/* ---------- plane isometries: x -> A x + t ---------- */
+function isoId() { return { A: [1, 0, 0, 1], t: [0, 0] }; }
+function isoMul(g, h) {           /* g o h */
+  var a = g.A[0], b = g.A[1], c = g.A[2], d = g.A[3];
+  var e = h.A[0], f = h.A[1], G = h.A[2], H = h.A[3];
+  return { A: [a * e + b * G, a * f + b * H, c * e + d * G, c * f + d * H],
+           t: [a * h.t[0] + b * h.t[1] + g.t[0], c * h.t[0] + d * h.t[1] + g.t[1]] };
+}
+function isoApply(g, p) {
+  return [g.A[0] * p[0] + g.A[1] * p[1] + g.t[0], g.A[2] * p[0] + g.A[3] * p[1] + g.t[1]];
+}
+function isoLin(g, v) { return [g.A[0] * v[0] + g.A[1] * v[1], g.A[2] * v[0] + g.A[3] * v[1]]; }
+/* reflection in the line through P with unit normal n:  x - 2((x-P).n) n */
+function reflIso(P, n) {
+  var k = 2 * (P[0] * n[0] + P[1] * n[1]);
+  return { A: [1 - 2 * n[0] * n[0], -2 * n[0] * n[1], -2 * n[0] * n[1], 1 - 2 * n[1] * n[1]],
+           t: [k * n[0], k * n[1]] };
+}
+
+/* ---------- tables ---------- */
+var aspect = 1.5;
+var TABLE_DEFS = [
+  { id: 'square', name: 'square',        grp: '(2,2,2,2) &middot; pmm',  kal: true,
+    ang: [[1,2],[1,2],[1,2],[1,2]], verts: function () { return [[0,0],[1,0],[1,1],[0,1]]; } },
+  { id: 'rect',   name: 'rectangle w&times;1', grp: '(2,2,2,2) &middot; pmm', kal: true,
+    ang: [[1,2],[1,2],[1,2],[1,2]], verts: function () { return [[0,0],[aspect,0],[aspect,1],[0,1]]; } },
+  { id: 'rt45',   name: '45-45-90',      grp: '(2,4,4) &middot; p4m',    kal: true,
+    ang: [[1,4],[1,2],[1,4]], verts: function () { return [[0,0],[1,0],[1,1]]; } },
+  { id: 'rt30',   name: '30-60-90',      grp: '(2,3,6) &middot; p6m',    kal: true,
+    ang: [[1,6],[1,2],[1,3]], verts: function () { return [[0,0],[SQ3,0],[SQ3,1]]; } },
+  { id: 'equi',   name: 'equilateral',   grp: '(3,3,3) &middot; p3m1',   kal: true,
+    ang: [[1,3],[1,3],[1,3]], verts: function () { return [[0,0],[1,0],[0.5,SQ3/2]]; } },
+  { id: 'oct',    name: '&pi;/8 triangle', grp: 'not crystallographic', kal: false,
+    ang: [[1,8],[1,2],[3,8]], verts: function () { return [[0,0],[1,0],[1,TAN225]]; } }
+];
+
+function buildTable(def) {
+  var V = def.verts(), n = V.length, edges = [], i;
+  var area = 0;
+  for (i = 0; i < n; i++) {
+    var a = V[i], b = V[(i + 1) % n];
+    area += a[0] * b[1] - b[0] * a[1];
+    var dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+    edges.push({ P: a, n: [dy / L, -dx / L] });     /* outward normal for CCW order */
+  }
+  area = Math.abs(area) / 2;
+  var xs = V.map(function (v) { return v[0]; }), ys = V.map(function (v) { return v[1]; });
+  var bb = [Math.min.apply(null, xs), Math.min.apply(null, ys), Math.max.apply(null, xs), Math.max.apply(null, ys)];
+  var diam = 0;
+  for (i = 0; i < n; i++) for (var j = i + 1; j < n; j++) diam = Math.max(diam, Math.hypot(V[i][0]-V[j][0], V[i][1]-V[j][1]));
+  var N = 1, S = 0;
+  def.ang.forEach(function (mn) { N = lcm(N, mn[1]); S += (mn[0] - 1) / mn[1]; });
+  var genus = 1 + (N / 2) * S;
+  var cen = [0, 0];
+  V.forEach(function (v) { cen[0] += v[0] / n; cen[1] += v[1] / n; });
+  var T = { def: def, V: V, edges: edges, area: area, bb: bb, diam: diam, N: N, genus: Math.round(genus),
+            copies: 2 * N, centroid: cen, kal: def.kal, lat: null, latOK: false, latMsg: '' };
+  if (def.kal) computeLattice(T);
+  return T;
+}
+
+/* Exhaust the reflection group by BFS and read off the translation subgroup L. */
+function computeLattice(T) {
+  var gens = T.edges.map(function (e) { return reflIso(e.P, e.n); });
+  var key = function (g) {
+    return g.A.map(function (v) { return v.toFixed(5); }).join(',') + '|' +
+           g.t.map(function (v) { return v.toFixed(5); }).join(',');
+  };
+  var seen = {}, frontier = [isoId()], trans = [], R = 7 * T.diam, count = 1;
+  seen[key(isoId())] = 1;
+  for (var depth = 0; depth < 10 && frontier.length && count < 6000; depth++) {
+    var next = [];
+    for (var i = 0; i < frontier.length; i++) {
+      for (var j = 0; j < gens.length; j++) {
+        var h = isoMul(frontier[i], gens[j]);
+        if (Math.hypot(h.t[0], h.t[1]) > R) continue;
+        var k = key(h);
+        if (seen[k]) continue;
+        seen[k] = 1; count++; next.push(h);
+        if (Math.abs(h.A[0] - 1) < 1e-7 && Math.abs(h.A[3] - 1) < 1e-7 &&
+            Math.abs(h.A[1]) < 1e-7 && Math.abs(h.A[2]) < 1e-7) {
+          var L = Math.hypot(h.t[0], h.t[1]);
+          if (L > 1e-6) trans.push({ v: [h.t[0], h.t[1]], L: L });
+        }
+        if (count >= 6000) break;
+      }
+      if (count >= 6000) break;
+    }
+    frontier = next;
+  }
+  trans.sort(function (a, b) { return a.L - b.L; });
+  if (!trans.length) { T.latMsg = 'no translations found'; return; }
+  var v1 = trans[0].v, v2 = null;
+  for (var m = 1; m < trans.length; m++) {
+    if (Math.abs(cross(v1, trans[m].v)) > 1e-6 * T.diam * T.diam) { v2 = trans[m].v; break; }
+  }
+  if (!v2) { T.latMsg = 'rank 1 only'; return; }
+  var covol = Math.abs(cross(v1, v2));
+  var expect = T.copies * T.area;          /* 2N copies of the table tile one lattice cell */
+  T.lat = { v1: v1, v2: v2, covol: covol, expect: expect };
+  T.latOK = Math.abs(covol - expect) < 1e-6 * expect;
+  T.latMsg = T.latOK ? 'ok' : 'covolume mismatch';
+}
+
+/* ---------- billiard step (convex polygon) ---------- */
+function hitWall(T, p, d) {
+  var best = Infinity, bi = -1;
+  for (var i = 0; i < T.edges.length; i++) {
+    var e = T.edges[i], den = d[0] * e.n[0] + d[1] * e.n[1];
+    if (den <= 1e-12) continue;
+    var num = (e.P[0] - p[0]) * e.n[0] + (e.P[1] - p[1]) * e.n[1];
+    var t = num / den;
+    if (t > 1e-9 && t < best) { best = t; bi = i; }
+  }
+  if (bi < 0) return null;
+  return { t: best, i: bi, q: [p[0] + best * d[0], p[1] + best * d[1]] };
+}
+function reflectDir(d, n) {
+  var k = 2 * (d[0] * n[0] + d[1] * n[1]);
+  return [d[0] - k * n[0], d[1] - k * n[1]];
+}
+function inside(T, p) {
+  for (var i = 0; i < T.edges.length; i++) {
+    var e = T.edges[i];
+    if ((p[0] - e.P[0]) * e.n[0] + (p[1] - e.P[1]) * e.n[1] > -1e-9) return false;
+  }
+  return true;
+}
+
+/* ---------- continued fractions ---------- */
+function cfString(cf) {
+  if (!cf.length) return '[]';
+  var head = String(cf[0]), rest = cf.slice(1, 9).join(', ');
+  return '[' + head + (rest ? '; ' + rest : ';') + (cf.length > 9 ? ', …' : '') + ']';
+}
+function bestRat(r, Qmax) {
+  var h0 = 0, h1 = 1, k0 = 1, k1 = 0, x = r, cf = [], i;
+  for (i = 0; i < 30; i++) {
+    var a = Math.floor(x);
+    var h = a * h1 + h0, k = a * k1 + k0;
+    if (Math.abs(k) > Qmax) break;
+    cf.push(a); h0 = h1; h1 = h; k0 = k1; k1 = k;
+    if (Math.abs(r - h1 / k1) < 1e-12) return { p: h1, q: k1, err: Math.abs(r - h1 / k1), cf: cf, exact: true };
+    var fr = x - a;
+    if (Math.abs(fr) < 1e-14) break;
+    x = 1 / fr;
+  }
+  return { p: h1, q: k1, err: Math.abs(r - h1 / k1), cf: cf, exact: false };
+}
+
+/* ---------- state ---------- */
+var T = null, theta = 0.6, start = [0.34, 0.27];
+var segs = [], base = 0, sim = null, sBall = 0, ballIdx = 0, drawnIdx = 0;
+var playing = true, speed = 1.4, zoom = 1, singular = false;
+var analysis = null, cov = null, bounceCount = 0;
+
+var cvT = document.getElementById('cvT'), ctxT = cvT.getContext('2d');
+var cvU = document.getElementById('cvU'), ctxU = cvU.getContext('2d');
+var cvL = document.getElementById('cvL'), ctxL = cvL.getContext('2d');
+var trail = document.createElement('canvas');
+trail.width = cvT.width; trail.height = cvT.height;
+var ctxTr = trail.getContext('2d');
+var camT = { s: 1, ox: 0, oy: 0 };
+
+/* ---------- simulation ---------- */
+function resetSim() {
+  segs = []; base = 0; sBall = 0; ballIdx = 0; drawnIdx = 0; singular = false; bounceCount = 0;
+  sim = { p: start.slice(), d: [Math.cos(theta), Math.sin(theta)], g: isoId(), s: 0 };
+  ctxTr.setTransform(1, 0, 0, 1, 0, 0);
+  ctxTr.clearRect(0, 0, trail.width, trail.height);
+  resetCoverage();
+  extend(14 * T.diam);
+}
+function extend(target) {
+  var guard = 0;
+  while (!singular && (segs.length === 0 || segs[segs.length - 1].s1 < target) && guard++ < 4000) {
+    var h = hitWall(T, sim.p, sim.d);
+    if (!h) { singular = true; break; }
+    for (var i = 0; i < T.V.length; i++) {
+      if (Math.hypot(h.q[0] - T.V[i][0], h.q[1] - T.V[i][1]) < 1e-9) { singular = true; }
+    }
+    var q0 = isoApply(sim.g, sim.p), q1 = isoApply(sim.g, h.q);
+    segs.push({ p0: sim.p, p1: h.q, q0: q0, q1: q1, g: sim.g, s0: sim.s, s1: sim.s + h.t });
+    if (singular) break;
+    sim.s += h.t;
+    sim.p = h.q;
+    sim.d = reflectDir(sim.d, T.edges[h.i].n);
+    sim.g = isoMul(sim.g, reflIso(T.edges[h.i].P, T.edges[h.i].n));
+  }
+  if (segs.length > 3200) {
+    var drop = segs.length - 2000;
+    if (base + drop <= drawnIdx && base + drop <= ballIdx) { segs.splice(0, drop); base += drop; }
+  }
+}
+function segAt(i) { return segs[i - base]; }
+
+/* independent empirical period search: first return of the bounce state */
+function analyse() {
+  var p = start.slice(), d = [Math.cos(theta), Math.sin(theta)], s = 0;
+  var first = null, res = { periodic: false, sing: false };
+  for (var k = 0; k < 4000; k++) {
+    var h = hitWall(T, p, d);
+    if (!h) { res.sing = true; break; }
+    s += h.t; p = h.q; d = reflectDir(d, T.edges[h.i].n);
+    if (!first) { first = { p: p.slice(), d: d.slice(), s: s, i: h.i }; continue; }
+    if (h.i === first.i && Math.hypot(p[0] - first.p[0], p[1] - first.p[1]) < 1e-8 &&
+        Math.hypot(d[0] - first.d[0], d[1] - first.d[1]) < 1e-8) {
+      res.periodic = true; res.len = s - first.s; res.bounces = k;
+      res.err = Math.hypot(p[0] - first.p[0], p[1] - first.p[1]) + Math.hypot(d[0] - first.d[0], d[1] - first.d[1]);
+      break;
+    }
+  }
+  return res;
+}
+
+/* direction in lattice coordinates + rational test */
+function latticeVerdict() {
+  if (!T.lat || !T.latOK) return null;
+  var v1 = T.lat.v1, v2 = T.lat.v2, u = [Math.cos(theta), Math.sin(theta)];
+  var det = cross(v1, v2);
+  var al = cross(u, v2) / det, be = cross(v1, u) / det;   /* u = al*v1 + be*v2 */
+  var flip = Math.abs(al) < Math.abs(be);
+  var r = flip ? al / be : be / al;
+  var br = bestRat(r, 300);
+  var pp, qq;
+  if (flip) { qq = br.p; pp = br.q; } else { pp = br.p; qq = br.q; }
+  var g = gcd(pp, qq) || 1;
+  pp /= g; qq /= g;
+  if (qq < 0) { qq = -qq; pp = -pp; }
+  var v = [qq * v1[0] + pp * v2[0], qq * v1[1] + pp * v2[1]];
+  return { al: al, be: be, r: r, flip: flip, br: br, p: pp, q: qq, v: v, len: nrm(v),
+           exact: br.err < 1e-11 };
+}
+
+/* ---------- coverage of the table by the trail ---------- */
+function resetCoverage() {
+  var G = 64, bb = T.bb;
+  var cw = (bb[2] - bb[0]) / G, ch = (bb[3] - bb[1]) / G;
+  var mask = new Uint8Array(G * G), tot = 0;
+  for (var j = 0; j < G; j++) for (var i = 0; i < G; i++) {
+    var c = [bb[0] + (i + 0.5) * cw, bb[1] + (j + 0.5) * ch];
+    if (inside(T, c)) { mask[j * G + i] = 1; tot++; }
+  }
+  cov = { G: G, cw: cw, ch: ch, mask: mask, hit: new Uint8Array(G * G), tot: tot, n: 0 };
+}
+function coverSeg(a, b) {
+  var G = cov.G, bb = T.bb, L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  var steps = Math.max(2, Math.ceil(L / (0.5 * Math.min(cov.cw, cov.ch))));
+  if (steps > 2000) steps = 2000;
+  for (var k = 0; k <= steps; k++) {
+    var t = k / steps, x = a[0] + t * (b[0] - a[0]), y = a[1] + t * (b[1] - a[1]);
+    var i = Math.floor((x - bb[0]) / cov.cw), j = Math.floor((y - bb[1]) / cov.ch);
+    if (i < 0 || j < 0 || i >= G || j >= G) continue;
+    var idx = j * G + i;
+    if (cov.mask[idx] && !cov.hit[idx]) { cov.hit[idx] = 1; cov.n++; }
+  }
+}
+
+/* ---------- drawing: the table ---------- */
+function setCamT() {
+  var bb = T.bb, W = cvT.width, H = cvT.height, pad = 46;
+  var s = Math.min((W - 2 * pad) / (bb[2] - bb[0]), (H - 2 * pad) / (bb[3] - bb[1]));
+  camT.s = s;
+  camT.ox = W / 2 - s * (bb[0] + bb[2]) / 2;
+  camT.oy = H / 2 + s * (bb[1] + bb[3]) / 2;
+}
+function tx(p) { return [camT.ox + camT.s * p[0], camT.oy - camT.s * p[1]]; }
+function untx(x, y) { return [(x - camT.ox) / camT.s, (camT.oy - y) / camT.s]; }
+
+function drawTable() {
+  var W = cvT.width, H = cvT.height, i;
+  ctxT.clearRect(0, 0, W, H);
+  ctxT.drawImage(trail, 0, 0);
+  /* polygon */
+  ctxT.beginPath();
+  for (i = 0; i < T.V.length; i++) { var q = tx(T.V[i]); if (i) ctxT.lineTo(q[0], q[1]); else ctxT.moveTo(q[0], q[1]); }
+  ctxT.closePath();
+  ctxT.strokeStyle = 'rgba(232,230,225,0.75)'; ctxT.lineWidth = 2; ctxT.stroke();
+  /* current partial segment */
+  var sg = segAt(ballIdx);
+  if (sg) {
+    var f = (sBall - sg.s0) / Math.max(1e-12, sg.s1 - sg.s0);
+    var cur = [sg.p0[0] + f * (sg.p1[0] - sg.p0[0]), sg.p0[1] + f * (sg.p1[1] - sg.p0[1])];
+    var a = tx(sg.p0), b = tx(cur);
+    ctxT.beginPath(); ctxT.moveTo(a[0], a[1]); ctxT.lineTo(b[0], b[1]);
+    ctxT.strokeStyle = (analysis && analysis.periodic) ? 'rgba(126,231,135,1)' : 'rgba(110,231,216,0.95)';
+    ctxT.lineWidth = 2.2; ctxT.stroke();
+    /* ball */
+    ctxT.beginPath(); ctxT.arc(b[0], b[1], 5, 0, 6.2832);
+    ctxT.fillStyle = '#ffab6e'; ctxT.fill();
+  }
+  /* start handle */
+  var s0 = tx(start);
+  ctxT.beginPath(); ctxT.arc(s0[0], s0[1], 4, 0, 6.2832);
+  ctxT.fillStyle = '#e8e6e1'; ctxT.fill();
+  ctxT.beginPath(); ctxT.arc(s0[0], s0[1], 9, 0, 6.2832);
+  ctxT.strokeStyle = 'rgba(232,230,225,0.5)'; ctxT.lineWidth = 1.2; ctxT.stroke();
+  /* aim arrow */
+  var ax = s0[0] + 46 * Math.cos(theta), ay = s0[1] - 46 * Math.sin(theta);
+  ctxT.beginPath(); ctxT.moveTo(s0[0], s0[1]); ctxT.lineTo(ax, ay);
+  ctxT.strokeStyle = 'rgba(255,171,110,0.85)'; ctxT.lineWidth = 1.4; ctxT.stroke();
+}
+function drawNewTrail() {
+  ctxTr.lineWidth = 1.3;
+  ctxTr.strokeStyle = (analysis && analysis.periodic) ? 'rgba(126,231,135,0.75)' : 'rgba(110,231,216,0.45)';
+  while (drawnIdx < ballIdx) {
+    var sg = segAt(drawnIdx);
+    if (!sg) break;
+    var a = tx(sg.p0), b = tx(sg.p1);
+    ctxTr.beginPath(); ctxTr.moveTo(a[0], a[1]); ctxTr.lineTo(b[0], b[1]); ctxTr.stroke();
+    coverSeg(sg.p0, sg.p1);
+    drawnIdx++; bounceCount++;
+  }
+}
+
+/* ---------- drawing: the unfolding ---------- */
+function drawUnfolded() {
+  var W = cvU.width, H = cvU.height;
+  ctxU.clearRect(0, 0, W, H);
+  var sg = segAt(ballIdx);
+  if (!sg) return;
+  var f = (sBall - sg.s0) / Math.max(1e-12, sg.s1 - sg.s0);
+  var cam = [sg.q0[0] + f * (sg.q1[0] - sg.q0[0]), sg.q0[1] + f * (sg.q1[1] - sg.q0[1])];
+  var ct = Math.cos(theta), st = Math.sin(theta);
+  var scale = zoom * H / (5 * T.diam), ORX = 0.3 * W, ORY = 0.5 * H;
+  function S(q) {
+    var dx = q[0] - cam[0], dy = q[1] - cam[1];
+    return [ORX + (dx * ct + dy * st) * scale, ORY - (-dx * st + dy * ct) * scale];
+  }
+  var margin = 1.6 * T.diam * scale;
+  var i, j, k, n = T.V.length;
+  for (k = base; k < base + segs.length; k++) {
+    var s = segAt(k);
+    var c = S(isoApply(s.g, T.centroid));
+    if (c[0] < -margin || c[0] > W + margin || c[1] < -margin || c[1] > H + margin) continue;
+    ctxU.beginPath();
+    for (i = 0; i < n; i++) { var q = S(isoApply(s.g, T.V[i])); if (i) ctxU.lineTo(q[0], q[1]); else ctxU.moveTo(q[0], q[1]); }
+    ctxU.closePath();
+    var det = s.g.A[0] * s.g.A[3] - s.g.A[1] * s.g.A[2];
+    var here = (k === ballIdx);
+    ctxU.fillStyle = here ? 'rgba(255,171,110,0.26)'
+                          : (det > 0 ? 'rgba(110,231,216,0.075)' : 'rgba(255,171,110,0.075)');
+    ctxU.fill();
+    ctxU.strokeStyle = here ? 'rgba(255,171,110,0.9)' : 'rgba(232,230,225,0.20)';
+    ctxU.lineWidth = here ? 1.7 : 0.8;
+    ctxU.stroke();
+  }
+  /* the straight line */
+  var A = S(segAt(base).q0), B = S(segAt(base + segs.length - 1).q1);
+  ctxU.beginPath(); ctxU.moveTo(A[0], A[1]); ctxU.lineTo(B[0], B[1]);
+  ctxU.strokeStyle = 'rgba(110,231,216,0.35)'; ctxU.lineWidth = 1.4; ctxU.stroke();
+  var P0 = S(segs[0].q0), Pb = S(cam);
+  ctxU.beginPath(); ctxU.moveTo(P0[0], P0[1]); ctxU.lineTo(Pb[0], Pb[1]);
+  ctxU.strokeStyle = 'rgba(110,231,216,0.95)'; ctxU.lineWidth = 2; ctxU.stroke();
+  ctxU.beginPath(); ctxU.arc(Pb[0], Pb[1], 5, 0, 6.2832);
+  ctxU.fillStyle = '#ffab6e'; ctxU.fill();
+  /* mark one period ahead when the direction is L-rational */
+  var lv = latticeVerdict();
+  if (lv && lv.exact && analysis && analysis.periodic) {
+    var q0 = segs[0].q0;
+    for (var m = 1; m <= 3; m++) {
+      var Pm = S([q0[0] + m * lv.v[0], q0[1] + m * lv.v[1]]);
+      if (Pm[0] < -30 || Pm[0] > W + 30) continue;
+      ctxU.beginPath(); ctxU.moveTo(Pm[0], Pm[1] - 13); ctxU.lineTo(Pm[0], Pm[1] + 13);
+      ctxU.strokeStyle = 'rgba(126,231,135,0.95)'; ctxU.lineWidth = 2; ctxU.stroke();
+      ctxU.fillStyle = 'rgba(126,231,135,0.95)'; ctxU.font = '12px monospace';
+      ctxU.fillText('+' + m + 'v', Pm[0] + 5, Pm[1] - 16);
+    }
+  }
+}
+
+/* ---------- drawing: the lattice ---------- */
+function drawLattice() {
+  var W = cvL.width, H = cvL.height;
+  ctxL.clearRect(0, 0, W, H);
+  if (!T.lat || !T.latOK) {
+    ctxL.fillStyle = 'rgba(154,151,160,0.9)'; ctxL.font = '17px Georgia';
+    ctxL.fillText('reflection group is not crystallographic —', 22, H / 2 - 12);
+    ctxL.fillText('no translation lattice; genus ' + T.genus + ' surface', 22, H / 2 + 14);
+    return;
+  }
+  var v1 = T.lat.v1, v2 = T.lat.v2;
+  var R = 3.2 * Math.max(nrm(v1), nrm(v2));
+  var s = Math.min(W, H) / (2.15 * R), cx = W / 2, cy = H / 2;
+  function S(p) { return [cx + s * p[0], cy - s * p[1]]; }
+  var lv = latticeVerdict();
+  var i, j;
+  for (i = -6; i <= 6; i++) for (j = -6; j <= 6; j++) {
+    var p = [i * v1[0] + j * v2[0], i * v1[1] + j * v2[1]];
+    if (nrm(p) > R * 1.05) continue;
+    var q = S(p);
+    var isTarget = lv && lv.exact && (i === lv.q && j === lv.p);
+    ctxL.beginPath(); ctxL.arc(q[0], q[1], isTarget ? 5.5 : (i === 0 && j === 0 ? 4 : 2.6), 0, 6.2832);
+    ctxL.fillStyle = isTarget ? '#7ee787' : (i === 0 && j === 0 ? '#e8e6e1' : 'rgba(232,230,225,0.4)');
+    ctxL.fill();
+  }
+  /* basis vectors */
+  [[v1, 'v₁'], [v2, 'v₂']].forEach(function (pr) {
+    var q = S(pr[0]), o = S([0, 0]);
+    ctxL.beginPath(); ctxL.moveTo(o[0], o[1]); ctxL.lineTo(q[0], q[1]);
+    ctxL.strokeStyle = 'rgba(255,171,110,0.8)'; ctxL.lineWidth = 1.6; ctxL.stroke();
+    ctxL.fillStyle = 'rgba(255,171,110,0.95)'; ctxL.font = '13px monospace';
+    ctxL.fillText(pr[1], q[0] + 6, q[1] - 4);
+  });
+  /* direction ray */
+  var o = S([0, 0]), far = S([R * 1.6 * Math.cos(theta), R * 1.6 * Math.sin(theta)]);
+  ctxL.beginPath(); ctxL.moveTo(o[0], o[1]); ctxL.lineTo(far[0], far[1]);
+  ctxL.strokeStyle = lv && lv.exact ? 'rgba(126,231,135,0.95)' : 'rgba(110,231,216,0.9)';
+  ctxL.lineWidth = 1.8; ctxL.setLineDash(lv && lv.exact ? [] : [5, 4]); ctxL.stroke();
+  ctxL.setLineDash([]);
+}
+
+/* ---------- readouts ---------- */
+function refreshReadouts() {
+  var lv = latticeVerdict();
+  var vEl = document.getElementById('verdict'), vs = document.getElementById('verStat');
+  var A = analysis;
+  if (lv && lv.exact && A && A.periodic) {
+    vEl.className = 'verdict per';
+    vEl.innerHTML = 'PERIODIC &mdash; direction ' + lv.q + '&middot;v₁ + ' + lv.p + '&middot;v₂';
+    var pred = lv.len, meas = A.len;
+    var rel = Math.abs(pred - meas) / pred;
+    vs.innerHTML =
+      'lattice period |v| = <b>' + fmt(pred, 6) + '</b><br>' +
+      'measured period&nbsp; = <b>' + fmt(meas, 6) + '</b> &nbsp;<span class="' + (rel < 1e-9 ? 'ok' : 'no') + '">' +
+      (rel < 1e-9 ? '✓ agree' : 'rel err ' + rel.toExponential(1)) + '</span><br>' +
+      'bounces per period = <b>' + A.bounces + '</b>' +
+      ((T.def.id === 'square' || T.def.id === 'rect')
+        ? ' &nbsp;<span class="' + (A.bounces === 2 * (Math.abs(lv.p) + Math.abs(lv.q)) ? 'ok' : 'no') + '">2(p+q) = ' +
+          (2 * (Math.abs(lv.p) + Math.abs(lv.q))) + '</span>' : '') + '<br>' +
+      'state-return error = <b>' + A.err.toExponential(1) + '</b>';
+  } else if (A && A.periodic) {
+    vEl.className = 'verdict per';
+    vEl.innerHTML = 'PERIODIC (found empirically)';
+    vs.innerHTML = 'period = <b>' + fmt(A.len, 6) + '</b>, bounces = <b>' + A.bounces +
+      '</b><br>return error = <b>' + A.err.toExponential(1) + '</b>';
+  } else {
+    vEl.className = 'verdict ape';
+    vEl.innerHTML = 'APERIODIC &mdash; the orbit is dense';
+    var extra = '';
+    if (lv) {
+      extra = 'nearest L-rational direction: ' + lv.q + '&middot;v₁ + ' + lv.p +
+        '&middot;v₂, off by <b>' + lv.br.err.toExponential(2) + '</b><br>' +
+        'so the orbit nearly closes after &asymp; ' + (2 * (Math.abs(lv.p) + Math.abs(lv.q))) + ' bounces, then drifts';
+    }
+    vs.innerHTML = 'no first return of the bounce state within 4000 bounces (tol 10⁻⁸)<br>' + extra;
+  }
+
+  var ls = document.getElementById('latStat');
+  if (T.lat && T.latOK) {
+    ls.innerHTML =
+      'v₁ = (' + fmt(T.lat.v1[0]) + ', ' + fmt(T.lat.v1[1]) + ')&nbsp; |v₁| = ' + fmt(nrm(T.lat.v1)) + '<br>' +
+      'v₂ = (' + fmt(T.lat.v2[0]) + ', ' + fmt(T.lat.v2[1]) + ')&nbsp; |v₂| = ' + fmt(nrm(T.lat.v2)) + '<br>' +
+      'covol(L) = <b>' + fmt(T.lat.covol, 6) + '</b> = 2N&middot;area = ' + T.copies + '&middot;' + fmt(T.area, 6) +
+      ' <span class="ok">✓</span>';
+  } else {
+    ls.innerHTML = 'the walls of this table generate a non-discrete group: no translation lattice. ' +
+      'Unfolding still works, but the copies overlap and the surface has genus ' + T.genus + '.';
+  }
+
+  var ds = document.getElementById('dirStat');
+  if (lv) {
+    ds.innerHTML =
+      '&theta; = ' + fmt(theta * 180 / Math.PI, 3) + '&deg;, u = (' + fmt(Math.cos(theta)) + ', ' + fmt(Math.sin(theta)) + ')<br>' +
+      'u = &alpha;v₁ + &beta;v₂ with &alpha; = ' + fmt(lv.al, 6) + ', &beta; = ' + fmt(lv.be, 6) + '<br>' +
+      (lv.flip ? '&alpha;/&beta;' : '&beta;/&alpha;') + ' = <b>' + lv.r.toFixed(9) + '</b><br>' +
+      'continued fraction ' + cfString(lv.br.cf);
+  } else {
+    ds.innerHTML = '&theta; = ' + fmt(theta * 180 / Math.PI, 3) + '&deg; &mdash; no lattice coordinates available here.';
+  }
+
+  document.getElementById('tabStat').innerHTML =
+    'angles ' + T.def.ang.map(function (mn) { return mn[0] + '&pi;/' + mn[1]; }).join(', ') + '<br>' +
+    'N = lcm = <b>' + T.N + '</b>, copies 2N = <b>' + T.copies + '</b>, genus = <b>' + T.genus + '</b><br>' +
+    'reflection group ' + T.def.grp + ', area = ' + fmt(T.area, 6);
+
+  var pct = cov.tot ? 100 * cov.n / cov.tot : 0;
+  document.getElementById('covBar').style.width = pct.toFixed(1) + '%';
+  document.getElementById('covStat').innerHTML =
+    fmt(pct, 1) + '% of a 64&times;64 grid visited &middot; ' + bounceCount + ' bounces &middot; path ' + fmt(sBall, 2);
+
+  document.getElementById('tagTs').textContent =
+    T.def.name.replace('&times;', 'x').replace('&pi;', 'pi') + (singular ? '  — trajectory hit a corner (singular)' : '');
+  document.getElementById('tagUs').textContent = 'copies drawn: ' + segs.length + (singular ? '  (stopped at a corner)' : '');
+}
+
+/* ---------- main loop ---------- */
+var last = 0, tick = 0;
+function frame(ts) {
+  var dt = last ? Math.min(0.05, (ts - last) / 1000) : 0;
+  last = ts;
+  if (playing && !singular) sBall += dt * speed * T.diam;
+  extend(sBall + 14 * T.diam);
+  while (segAt(ballIdx) && sBall > segAt(ballIdx).s1) ballIdx++;
+  if (!segAt(ballIdx)) { ballIdx = base + segs.length - 1; sBall = segs[segs.length - 1].s1; }
+  drawNewTrail();
+  drawTable();
+  drawUnfolded();
+  if ((tick++ % 6) === 0) { drawLattice(); refreshReadouts(); }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- rebuild ---------- */
+function rebuild(keepStart) {
+  T = buildTable(TABLE_DEFS[curTable]);
+  setCamT();
+  if (!keepStart || !inside(T, start)) {
+    start = [T.centroid[0] + 0.041 * T.diam, T.centroid[1] - 0.067 * T.diam];
+    if (!inside(T, start)) start = T.centroid.slice();
+  }
+  analysis = analyse();
+  resetSim();
+  drawLattice(); refreshReadouts();
+}
+function reaim() {
+  analysis = analyse();
+  resetSim();
+  document.getElementById('angV').innerHTML = fmt(theta * 180 / Math.PI, 2) + '&deg;';
+  document.getElementById('ang').value = theta;
+}
+
+/* ---------- controls ---------- */
+var curTable = 0;
+var btnBox = document.getElementById('tableBtns');
+TABLE_DEFS.forEach(function (d, i) {
+  var b = document.createElement('button');
+  b.innerHTML = d.name;
+  b.onclick = function () {
+    curTable = i;
+    Array.prototype.forEach.call(btnBox.children, function (c, j) { c.className = j === i ? 'on' : ''; });
+    document.getElementById('aspWrap').className = (d.id === 'rect') ? '' : 'dim';
+    rebuild(false);
+  };
+  if (i === 0) b.className = 'on';
+  btnBox.appendChild(b);
+});
+document.getElementById('aspWrap').className = 'dim';
+
+document.getElementById('ang').oninput = function () { theta = parseFloat(this.value); reaim(); };
+document.getElementById('asp').oninput = function () {
+  aspect = parseFloat(this.value);
+  document.getElementById('aspV').textContent = aspect.toFixed(3);
+  if (TABLE_DEFS[curTable].id === 'rect') rebuild(false);
+};
+document.getElementById('spd').oninput = function () { speed = parseFloat(this.value); };
+document.getElementById('zoom').oninput = function () { zoom = parseFloat(this.value); };
+document.getElementById('play').onclick = function () {
+  playing = !playing; this.textContent = playing ? 'pause' : 'play'; this.className = playing ? 'on' : '';
+};
+document.getElementById('clear').onclick = function () { resetSim(); };
+document.getElementById('snap').onclick = function () {
+  if (!T.lat || !T.latOK) return;
+  var pp = parseInt(document.getElementById('pIn').value, 10) || 0;
+  var qq = parseInt(document.getElementById('qIn').value, 10) || 0;
+  if (pp === 0 && qq === 0) return;
+  var v = [qq * T.lat.v1[0] + pp * T.lat.v2[0], qq * T.lat.v1[1] + pp * T.lat.v2[1]];
+  theta = Math.atan2(v[1], v[0]);
+  if (theta < 0) theta += 2 * Math.PI;
+  reaim();
+};
+document.getElementById('perturb').onclick = function () {
+  theta = (theta + 0.004) % (2 * Math.PI); reaim();
+};
+document.getElementById('golden').onclick = function () {
+  theta = Math.atan(PHI); reaim();
+};
+
+/* pointer: aim, or drag the start point */
+var dragMode = null;
+function localPt(ev) {
+  var r = cvT.getBoundingClientRect();
+  return [(ev.clientX - r.left) * cvT.width / r.width, (ev.clientY - r.top) * cvT.height / r.height];
+}
+cvT.addEventListener('pointerdown', function (ev) {
+  ev.preventDefault();
+  cvT.setPointerCapture(ev.pointerId);
+  var q = localPt(ev), s0 = tx(start);
+  dragMode = (Math.hypot(q[0] - s0[0], q[1] - s0[1]) < 14) ? 'start' : 'aim';
+  handleDrag(q);
+});
+cvT.addEventListener('pointermove', function (ev) { if (dragMode) { ev.preventDefault(); handleDrag(localPt(ev)); } });
+cvT.addEventListener('pointerup', function () { dragMode = null; });
+cvT.addEventListener('pointercancel', function () { dragMode = null; });
+function handleDrag(q) {
+  var w = untx(q[0], q[1]);
+  if (dragMode === 'start') {
+    if (inside(T, w)) { start = w; analysis = analyse(); resetSim(); }
+  } else {
+    var dx = w[0] - start[0], dy = w[1] - start[1];
+    if (Math.hypot(dx, dy) < 1e-6) return;
+    theta = Math.atan2(dy, dx);
+    if (theta < 0) theta += 2 * Math.PI;
+    reaim();
+  }
+}
+
+/* ---------- self-checks (console) ---------- */
+function selfTest() {
+  var out = [];
+  TABLE_DEFS.forEach(function (d) {
+    var t = buildTable(d);
+    if (t.lat) {
+      out.push(d.id + ': |v1|=' + t.lat.v1.map(function(x){return x.toFixed(4);}) +
+        ' covol=' + t.lat.covol.toFixed(6) + ' expect 2N*area=' + (t.copies * t.area).toFixed(6) +
+        ' ' + (t.latOK ? 'OK' : 'MISMATCH'));
+    } else {
+      out.push(d.id + ': no lattice (genus ' + t.genus + ')');
+    }
+  });
+  /* unit square, slope 1/2: period 2*sqrt(5), 6 bounces */
+  var sq = buildTable(TABLE_DEFS[0]);
+  var savedT = T, savedTh = theta, savedS = start;
+  T = sq; start = [0.34, 0.27]; theta = Math.atan2(1, 2);
+  var A = analyse();
+  out.push('square slope 1/2: period ' + A.len.toFixed(9) + ' vs 2*sqrt5 = ' + (2 * Math.sqrt(5)).toFixed(9) +
+           ', bounces ' + A.bounces + ' vs 2(p+q) = 6');
+  theta = Math.atan2(1, 1);
+  A = analyse();
+  out.push('square slope 1/1: period ' + A.len.toFixed(9) + ' vs 2*sqrt2 = ' + (2 * Math.SQRT2).toFixed(9) +
+           ', bounces ' + A.bounces + ' vs 4');
+  theta = Math.atan(PHI);
+  A = analyse();
+  out.push('square slope phi (irrational): periodic? ' + A.periodic);
+  /* unfolding really is straight: constant velocity of the unfolded point */
+  theta = 0.6; start = [0.34, 0.27];
+  resetSim(); extend(20);
+  var bad = 0, u0 = null;
+  for (var i = 0; i < Math.min(40, segs.length); i++) {
+    var s = segs[i], L = Math.hypot(s.q1[0] - s.q0[0], s.q1[1] - s.q0[1]);
+    var u = [(s.q1[0] - s.q0[0]) / L, (s.q1[1] - s.q0[1]) / L];
+    if (!u0) u0 = u;
+    if (Math.hypot(u[0] - u0[0], u[1] - u0[1]) > 1e-9) bad++;
+    if (i && Math.hypot(s.q0[0] - segs[i-1].q1[0], s.q0[1] - segs[i-1].q1[1]) > 1e-9) bad++;
+  }
+  out.push('unfolded path straight & continuous over 40 segments: ' + (bad === 0 ? 'OK' : bad + ' failures'));
+  T = savedT; theta = savedTh; start = savedS;
+  console.log('%c[unfolding billiards self-test]\n' + out.join('\n'), 'color:#6ee7d8');
+}
+
+/* ---------- go ---------- */
+rebuild(false);
+selfTest();
+rebuild(false);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

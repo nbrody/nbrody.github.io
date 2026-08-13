@@ -17,19 +17,7 @@ Entry format: title, area, the phenomenon and the honest theorem behind it, the 
 interaction, and the connection to existing site content.
 
 ## Queue
-
-1. **Unfolding Billiards in Polygons** — dynamics.
-   Reflecting the table instead of the ball straightens a billiard trajectory into a line:
-   unfolding conjugates polygonal billiards to straight-line flow on a translation
-   surface, and for the square this proves a trajectory is periodic iff its slope is
-   rational.
-   *Interaction:* aim the ball with a drag (angle readout), watch the bounce animation and
-   the unfolded straight line side by side; polygon selector (square, equilateral,
-   right triangles); rational/irrational slope verdict with orbit closure shading.
-   *Site tie:* the dynamics register of xiaTheorem/billiard-adjacent graphics; translation
-   surfaces neighbor the Talks' flat-geometry material.
-
-2. **Jacobi's Four-Square Theorem, Quaternionically** — arithmetic.
+1. **Jacobi's Four-Square Theorem, Quaternionically** — arithmetic.
    r₄(n) = 8·(sum of divisors of n not divisible by 4): every n is a sum of four squares,
    with a count governed by a modular form — and the four-square lattice points are
    exactly the Lipschitz quaternions of norm n.
@@ -39,7 +27,7 @@ interaction, and the connection to existing site content.
    *Site tie:* quaternion algebras (quaternionBeamSearch, GPS ramification) and the
    arithmetic section.
 
-3. **The Bruhat–Tits Tree for SL₂(ℚ_p)** — p-adic groups · geometric group theory.
+2. **The Bruhat–Tits Tree for SL₂(ℚ_p)** — p-adic groups · geometric group theory.
    Homothety classes of ℤ_p-lattices in ℚ_p² are the vertices of a (p+1)-regular tree on
    which SL₂(ℚ_p) acts by isometries; Serre's classification says an element is elliptic
    (a fixed point) exactly when |tr g|_p ≤ 1 fails to force a translation, and otherwise it
@@ -50,7 +38,7 @@ interaction, and the connection to existing site content.
    *Site tie:* the arithmetic section, lattices in Lie groups (BHC), and the ping-pong /
    discreteness thread — the tree is the p-adic analogue of the hyperbolic plane.
 
-4. **Lagrange–Gauss Lattice Reduction** — lattices · linear groups over ℤ.
+3. **Lagrange–Gauss Lattice Reduction** — lattices · linear groups over ℤ.
    The two-dimensional analogue of Euclid's algorithm: repeatedly subtract the nearest
    multiple of the shorter vector from the longer one. It terminates in a basis realising
    the successive minima, and every step is an elementary matrix, so the whole run is a
@@ -62,7 +50,7 @@ interaction, and the connection to existing site content.
    *Site tie:* linear groups over ℚ/ℤ, the modular surface (cutting sequences), and the
    arithmetic-subgroup material.
 
-5. **Alexander Polynomials from Braid Closures** — knots and braids.
+4. **Alexander Polynomials from Braid Closures** — knots and braids.
    The reduced Burau representation β_n → GL_{n−1}(ℤ[t,t⁻¹]) computes the Alexander
    polynomial of the closure of a braid β by Δ(t) ≐ det(I − Burau(β))·(1−t)/(1−tⁿ);
    Markov moves change the braid but not the link, and so not the polynomial.
@@ -72,7 +60,7 @@ interaction, and the connection to existing site content.
    *Site tie:* the Burau tool (which hunts kernel words) and knotMosaics / knot energies —
    this is the representation-theoretic side of the same braid story.
 
-6. **Kesten's Criterion: Random Walks and Amenability** — probability · geometric group theory.
+5. **Kesten's Criterion: Random Walks and Amenability** — probability · geometric group theory.
    The n-step return probability of the simple random walk on a Cayley graph decays like
    ρ^n, and Kesten's theorem says the spectral radius ρ equals 1 exactly when the group is
    amenable — so ℤ² and the Heisenberg group give ρ = 1 while F₂ gives ρ = √3/2 = 0.866…,
@@ -83,7 +71,7 @@ interaction, and the connection to existing site content.
    *Site tie:* the Cayley-graph thread (cayleyLaplacian) and the ping-pong/free-group
    material — amenability is the analytic shadow of the same dichotomy.
 
-7. **The Rauzy Fractal of the Tribonacci Substitution** — tilings · dynamics.
+6. **The Rauzy Fractal of the Tribonacci Substitution** — tilings · dynamics.
    The substitution a→ab, b→ac, c→a has abelianisation matrix of Pisot type; projecting the
    broken line of its fixed point onto the contracting plane gives the Rauzy fractal, which
    tiles that plane by ℤ² translates and conjugates the substitution to a rotation of the
@@ -94,3 +82,27 @@ interaction, and the connection to existing site content.
    torus rotation.
    *Site tie:* the tilings/Penrose material in docs/graphics and the continued-fraction
    thread — Tribonacci is the cubic analogue of the golden ratio.
+
+7. **Conway–Coxeter Frieze Patterns** — combinatorics · cluster algebras.
+   A frieze pattern is an array of positive integers bordered by 1s in which every diamond
+   satisfies *ad* − *bc* = 1; Conway and Coxeter proved that friezes of width *n* − 3
+   correspond bijectively to triangulations of a convex *n*-gon, the first row being the
+   number of triangles at each vertex. The unimodular rule is exactly an SL₂ relation,
+   which is why the entries are the continuant / Markov-style solutions of a Diophantine system.
+   *Interaction:* drag diagonals to retriangulate the polygon and watch the frieze recompute
+   entry by entry, with the diamond rule verified in exact integers and a flip animation
+   showing the mutation; a glide-symmetry toggle exhibits the period 2n.
+   *Site tie:* the Markov starscape and continued-fraction threads — friezes are the
+   combinatorial shadow of the same SL₂(ℤ) unimodularity.
+
+8. **Dehn Twists and the Mapping Class Group of the Torus** — low-dimensional topology · linear groups over ℤ.
+   Mod(T²) ≅ SL₂(ℤ), with the twists about the meridian and longitude going to the
+   elementary matrices [[1,1],[0,1]] and [[1,0],[1,1]]; an essential simple closed curve is
+   determined by its slope *p*/*q* ∈ ℚ ∪ {∞}, and Nielsen–Thurston type is read off the
+   trace: |tr| < 2 periodic, |tr| = 2 reducible, |tr| > 2 Anosov with expansion factor
+   (|tr| + √(tr²−4))/2.
+   *Interaction:* click twist buttons to build a word, watch the curve on the flat torus deform
+   under each twist while its slope updates as an exact fraction; a trace readout gives the
+   live Nielsen–Thurston verdict and, for Anosov maps, draws the stable/unstable foliations.
+   *Site tie:* the modular-surface and cutting-sequence material, and the linear-groups-over-ℤ
+   thread — this is the topological face of SL₂(ℤ).
