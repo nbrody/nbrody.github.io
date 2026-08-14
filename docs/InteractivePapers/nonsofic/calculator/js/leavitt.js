@@ -107,7 +107,12 @@ const Leavitt = (() => {
         return canonicalize(el, traces && traces.canon);
     }
     const transpose = X => make([...X.values()].map(p => mono(p.b, p.a)));
+    // Cap so `s0^1000000000` / `s0^1`+400 zeros cannot freeze the tab.
+    const MAX_EXPONENT = 10000;
     function pow(X, n) {
+        if (!Number.isSafeInteger(n) || n < 0 || n > MAX_EXPONENT) {
+            throw new Error('exponent exceeds the limit of ' + MAX_EXPONENT);
+        }
         let r = make([mono('', '')]);
         for (let i = 0; i < n; i++) r = mul(r, X);
         return r;
@@ -152,7 +157,12 @@ const Leavitt = (() => {
                 i++; let n = '';
                 while (/[0-9]/.test(s[i])) n += s[i++];
                 if (!n) err('expected exponent');
-                e = pow(e, parseInt(n, 10));
+                if (n.length > 10) err('exponent exceeds the limit of ' + MAX_EXPONENT);
+                const exp = parseInt(n, 10);
+                if (!Number.isSafeInteger(exp) || exp > MAX_EXPONENT) {
+                    err('exponent exceeds the limit of ' + MAX_EXPONENT);
+                }
+                e = pow(e, exp);
             }
             return e;
         }
@@ -191,6 +201,6 @@ const Leavitt = (() => {
         (p.a === p.b ? 'e' + p.a : (p.a ? 's' + p.a : '') + (p.b ? 't' + p.b : ''))).join(' + ') : '0';
 
     return { mono, key, make, xor, children, canonicalize, mulMono, mul, add,
-             transpose, pow, isZero, equalsOne, equals, parse,
+             transpose, pow, MAX_EXPONENT, isZero, equalsOne, equals, parse,
              sortPairs, monoHTML, toHTML, toSyntax };
 })();
