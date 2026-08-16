@@ -2,7 +2,7 @@
  *  Canvas setup, palettes, and the main draw pass.
  * ------------------------------------------------------------------ */
 
-import { state, view, schedule } from './state.js';
+import { state, view, schedule, minScaleForViewport } from './state.js';
 import { generateRhombi } from './tiling.js';
 import { updateRadar, updateSumPill, updateReadout, updateRhombCount } from './ui.js';
 import {
@@ -52,6 +52,7 @@ function resize() {
     canvas.style.width = view.W + 'px';
     canvas.style.height = view.H + 'px';
     ctx.setTransform(view.DPR, 0, 0, view.DPR, 0, 0);
+    state.scale = Math.max(state.scale, minScaleForViewport());
     schedule();
 }
 
