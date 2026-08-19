@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jacobi's Four-Square Theorem, Quaternionically — AutoViz 2026-08-17</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --accent2: #ffab6e;
+    --good: #7ee787;
+    --bad: #ff8b8b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.55;
+    padding: 1.6rem 1.2rem 2.5rem;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; letter-spacing: 0.06em; }
+  h1 { font-weight: normal; font-size: 1.9rem; margin: 0.4rem 0 0.5rem; }
+  p.math { color: #c9c6cf; max-width: 66rem; font-size: 1.02rem; }
+  p.math i { color: var(--ink); }
+  p.math b { font-weight: normal; color: var(--accent); }
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.95rem;
+    margin: 1rem 0 0.8rem; padding: 0.7rem 1rem;
+    border: 1px solid var(--panel-border); background: var(--panel);
+    border-radius: 10px; font-size: 0.92rem;
+  }
+  .controls label { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); }
+  .controls .val { color: var(--ink); font-family: monospace; font-size: 0.86rem; min-width: 2.6em; }
+  .sep { width: 1px; align-self: stretch; background: var(--panel-border); }
+  input[type=range] { accent-color: var(--accent); width: 150px; }
+  input[type=number] {
+    width: 4.2em; background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 5px; padding: 0.15rem 0.35rem; font-family: monospace; font-size: 0.86rem;
+  }
+  button {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 0.25rem 0.7rem; font-family: inherit; font-size: 0.88rem;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+  .stage {
+    border: 1px solid var(--panel-border); background: rgba(0, 0, 0, 0.34);
+    border-radius: 12px; overflow: hidden; flex: 1.75 1 430px; min-width: 300px;
+    position: relative;
+  }
+  #cv { display: block; touch-action: none; cursor: grab; }
+  #cv.drag { cursor: grabbing; }
+  .tag {
+    position: absolute; left: 0.75rem; top: 0.55rem; font-size: 0.92rem;
+    text-shadow: 0 0 6px #000, 0 0 12px #000; pointer-events: none;
+  }
+  .tag b { font-weight: normal; color: var(--accent); }
+  .tag small { display: block; color: var(--muted); font-size: 0.78rem; font-family: monospace; }
+  .hint {
+    position: absolute; left: 0.75rem; bottom: 0.5rem; right: 0.75rem; color: var(--muted);
+    font-size: 0.76rem; pointer-events: none; text-shadow: 0 0 6px #000;
+  }
+  .side {
+    flex: 1 1 300px; min-width: 292px; max-width: 380px; border: 1px solid var(--panel-border);
+    background: var(--panel); border-radius: 12px; padding: 0.9rem 1.05rem; font-size: 0.95rem;
+  }
+  .side h2 { font-size: 0.78rem; font-weight: normal; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--muted); margin: 1rem 0 0.3rem; }
+  .side h2:first-child { margin-top: 0; }
+  #plot { display: block; width: 100%; border-radius: 6px; background: rgba(0,0,0,0.35); cursor: crosshair; }
+  .stat { font-family: monospace; font-size: 0.83rem; color: #c9c6cf; }
+  .stat b { font-weight: normal; color: var(--accent); }
+  .stat .ok { color: var(--good); }
+  .stat .no { color: var(--bad); }
+  .divs { font-family: monospace; font-size: 0.83rem; color: var(--accent); line-height: 1.9; }
+  .divs s { color: #5d5a63; text-decoration-color: #46434c; }
+  .orbit { max-height: 172px; overflow-y: auto; font-family: monospace; font-size: 0.79rem;
+           color: #c9c6cf; border: 1px solid var(--panel-border); border-radius: 6px;
+           padding: 0.35rem 0.5rem; background: rgba(0,0,0,0.25); }
+  .orbit div { white-space: nowrap; }
+  .orbit .u { color: var(--accent2); }
+  .note { color: var(--muted); font-size: 0.82rem; margin-top: 0.35rem; }
+  footer { margin-top: 1.2rem; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; AutoViz</a>
+  <h1>Jacobi's Four-Square Theorem, Quaternionically</h1>
+  <p class="math">
+    Lagrange proved every non-negative integer is a sum of four integer squares; Jacobi made it
+    quantitative: the number of <i>ordered</i> representations is
+    <b>r<sub>4</sub>(n) = 8&thinsp;&sum;<sub>d|n,&nbsp;4&nbsp;&#8740;&nbsp;d</sub> d</b>, the coefficient
+    identity &theta;(q)<sup>4</sup> = 1 + 8&thinsp;&sum; (that divisor sum)&thinsp;q<sup>n</sup> for a weight-2
+    modular form on &Gamma;<sub>0</sub>(4). Those representations <i>are</i> the Lipschitz quaternions
+    <i>a</i>+<i>bi</i>+<i>cj</i>+<i>dk</i> &isin; &#8484;<sup>4</sup> of norm <i>n</i>, and that set is closed
+    under left multiplication by the unit group {&plusmn;1,&plusmn;<i>i</i>,&plusmn;<i>j</i>,&plusmn;<i>k</i>};
+    since &#8461; is a division ring the eight multiples of a nonzero quaternion are always distinct, so every
+    orbit has size exactly 8 &mdash; <b>the 8 in Jacobi's formula is the order of the unit group</b>, and the
+    divisor sum counts the orbits. Enlarge &#8484;<sup>4</sup> to the Hurwitz order
+    &#8484;<sup>4</sup> &cup; (&#8484;+&frac12;)<sup>4</sup> &mdash; the D<sub>4</sub> lattice, a maximal order
+    whose unit group is the 24 vertices of the 24-cell &mdash; and the same argument turns Jacobi's theorem into
+    <b>24&thinsp;&sum;<sub>d|n, d odd</sub> d</b>. Each representation is drawn as a point of the sphere of
+    radius &radic;<i>n</i>, normalised to S<sup>3</sup> and projected to space; the motion is left multiplication
+    by <i>e</i><sup><i>i&theta;</i></sup>, an isometry of S<sup>3</sup> (the Hopf flow), which at
+    <i>&theta;</i> = &pi;/2 is multiplication by <i>i</i> and therefore permutes the points &mdash; the whole
+    configuration returns to itself four times per turn.
+  </p>
+
+  <div class="controls">
+    <label>n
+      <input type="range" id="nSlider" min="1" max="320" value="105" step="1">
+      <input type="number" id="nBox" min="1" max="320" value="105">
+    </label>
+    <button id="sweepBtn">sweep n</button>
+    <div class="sep"></div>
+    <label>order
+      <button id="lipBtn" class="on">Lipschitz &#8484;&#8308;</button>
+      <button id="hurBtn">Hurwitz</button>
+    </label>
+    <div class="sep"></div>
+    <label>projection
+      <button id="stereoBtn" class="on">stereographic</button>
+      <button id="orthoBtn">orthographic</button>
+    </label>
+    <div class="sep"></div>
+    <button id="playBtn" class="on">Hopf flow &#9208;</button>
+    <label>speed
+      <input type="range" id="spdSlider" min="0" max="100" value="34" step="1">
+      <span class="val" id="spdVal">0.34</span>
+    </label>
+    <button id="resetBtn">reset view</button>
+  </div>
+
+  <div class="row">
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <div class="tag" id="tag"></div>
+      <div class="hint">drag to rotate &middot; scroll to zoom &middot; click a point to light up its unit orbit</div>
+    </div>
+    <div class="side">
+      <h2>the count at n</h2>
+      <div class="stat" id="counts"></div>
+      <h2>divisors of n</h2>
+      <div class="divs" id="divs"></div>
+      <div class="note" id="divNote"></div>
+      <h2>orbit counts, 1 &le; m &le; 320</h2>
+      <canvas id="plot"></canvas>
+      <div class="note">Stems: the divisor sum from Jacobi's formula. Circles: the orbit count obtained by
+        brute-force enumeration of lattice points. Click the plot to jump to that <i>m</i>.</div>
+      <h2>selected quaternion</h2>
+      <div class="orbit" id="orbit"></div>
+      <div class="note" id="selNote">Click any point in the sphere.</div>
+    </div>
+  </div>
+
+  <footer>AutoViz &middot; 2026-08-17 &middot; generated by Claude (Fable 5)</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var NMAX = 320;
+
+  /* ---------- exact counts by brute-force lattice enumeration ---------- */
+  var r4 = new Int32Array(NMAX + 1);      // #{x in Z^4 : |x|^2 = n}
+  var rHur = new Int32Array(NMAX + 1);    // #{x in Hurwitz order : N(x) = n}
+  (function () {
+    var L = Math.floor(Math.sqrt(NMAX)), a, b, c, d, A, B, C, D;
+    for (a = -L; a <= L; a++) { A = a * a; if (A > NMAX) continue;
+      for (b = -L; b <= L; b++) { B = A + b * b; if (B > NMAX) continue;
+        for (c = -L; c <= L; c++) { C = B + c * c; if (C > NMAX) continue;
+          for (d = -L; d <= L; d++) { D = C + d * d; if (D <= NMAX) r4[D]++; } } } }
+    for (var n = 0; n <= NMAX; n++) rHur[n] = r4[n];
+    // half-integer points: all four coordinates in Z+1/2, i.e. odd a,b,c,d with sum of squares 4n
+    var M = Math.floor(Math.sqrt(4 * NMAX)), s = (M % 2 === 0) ? -(M - 1) : -M, Q = 4 * NMAX;
+    for (a = s; a <= M; a += 2) { A = a * a; if (A > Q) continue;
+      for (b = s; b <= M; b += 2) { B = A + b * b; if (B > Q) continue;
+        for (c = s; c <= M; c += 2) { C = B + c * c; if (C > Q) continue;
+          for (d = s; d <= M; d += 2) { D = C + d * d; if (D <= Q && D % 4 === 0) rHur[D >> 2]++; } } } }
+  })();
+
+  function divisors(n) { var o = [], d; for (d = 1; d <= n; d++) if (n % d === 0) o.push(d); return o; }
+  function sigmaStar(n) { var s = 0, ds = divisors(n), i; for (i = 0; i < ds.length; i++) if (ds[i] % 4 !== 0) s += ds[i]; return s; }
+  function sigmaOdd(n) { var s = 0, ds = divisors(n), i; for (i = 0; i < ds.length; i++) if (ds[i] % 2 === 1) s += ds[i]; return s; }
+
+  /* sanity check: enumeration vs Jacobi, for every n in range */
+  (function () {
+    var badL = [], badH = [], n;
+    for (n = 1; n <= NMAX; n++) {
+      if (r4[n] !== 8 * sigmaStar(n)) badL.push(n);
+      if (rHur[n] !== 24 * sigmaOdd(n)) badH.push(n);
+    }
+    console.log("Jacobi check 1 <= n <= " + NMAX +
+      " : r4(n) = 8*sigma*(n) mismatches = " + badL.length +
+      " ; #Hurwitz(n) = 24*sigmaOdd(n) mismatches = " + badH.length);
+    console.log("spot values  r4(1)=" + r4[1] + " r4(2)=" + r4[2] + " r4(4)=" + r4[4] +
+      " r4(210)=" + r4[210] + " (=8*576=" + (8 * 576) + ")");
+    window.__jacobiOK = (badL.length === 0 && badH.length === 0);
+  })();
+
+  /* ---------- quaternions ---------- */
+  function qmul(x, y) {
+    return [
+      x[0] * y[0] - x[1] * y[1] - x[2] * y[2] - x[3] * y[3],
+      x[0] * y[1] + x[1] * y[0] + x[2] * y[3] - x[3] * y[2],
+      x[0] * y[2] - x[1] * y[3] + x[2] * y[0] + x[3] * y[1],
+      x[0] * y[3] + x[1] * y[2] - x[2] * y[1] + x[3] * y[0]
+    ];
+  }
+  var LIP_UNITS = [], HUR_UNITS = [];
+  (function () {
+    var t, sg, e;
+    for (t = 0; t < 4; t++) for (sg = -1; sg <= 1; sg += 2) {
+      e = [0, 0, 0, 0]; e[t] = sg; LIP_UNITS.push(e);
+    }
+    HUR_UNITS = LIP_UNITS.slice();
+    for (var m = 0; m < 16; m++) {
+      HUR_UNITS.push([((m & 1) ? -0.5 : 0.5), ((m & 2) ? -0.5 : 0.5),
+                      ((m & 4) ? -0.5 : 0.5), ((m & 8) ? -0.5 : 0.5)]);
+    }
+  })();
+
+  function pointsFor(n, hur) {
+    var pts = [], L = Math.floor(Math.sqrt(n)), a, b, c, d, A, B, C, r;
+    for (a = -L; a <= L; a++) { A = a * a; if (A > n) continue;
+      for (b = -L; b <= L; b++) { B = A + b * b; if (B > n) continue;
+        for (c = -L; c <= L; c++) { C = B + c * c; if (C > n) continue;
+          r = n - C; d = Math.round(Math.sqrt(r));
+          if (d * d === r) { pts.push([a, b, c, d]); if (d !== 0) pts.push([a, b, c, -d]); } } } }
+    if (hur) {
+      var Q = 4 * n, M = Math.floor(Math.sqrt(Q)), s = (M % 2 === 0) ? -(M - 1) : -M, D;
+      for (a = s; a <= M; a += 2) { A = a * a; if (A > Q) continue;
+        for (b = s; b <= M; b += 2) { B = A + b * b; if (B > Q) continue;
+          for (c = s; c <= M; c += 2) { C = B + c * c; if (C > Q) continue;
+            r = Q - C; d = Math.round(Math.sqrt(r));
+            if (d * d === r && (d & 1) === 1) {
+              pts.push([a / 2, b / 2, c / 2, d / 2]);
+              pts.push([a / 2, b / 2, c / 2, -d / 2]);
+            } } } }
+    }
+    return pts;
+  }
+
+  function fmtHalf(v) { return Number.isInteger(v) ? String(v) : (Math.round(2 * v) + "/2"); }
+  function qstr(q) {
+    var nm = ["", "i", "j", "k"], out = "", t, v, mag;
+    for (t = 0; t < 4; t++) {
+      v = q[t]; if (v === 0) continue;
+      mag = fmtHalf(Math.abs(v));
+      if (t > 0 && Math.abs(v) === 1) mag = "";
+      out += (out ? (v < 0 ? " − " : " + ") : (v < 0 ? "−" : "")) + mag + nm[t];
+    }
+    return out || "0";
+  }
+  function factorStr(n) {
+    var m = n, out = [], p, e;
+    for (p = 2; p * p <= m; p++) { e = 0; while (m % p === 0) { m /= p; e++; } if (e) out.push(p + (e > 1 ? "^" + e : "")); }
+    if (m > 1) out.push(String(m));
+    return n === 1 ? "1" : out.join("·");
+  }
+
+  /* ---------- state ---------- */
+  var st = {
+    n: 105, hur: false, stereo: true, theta: 0, speed: 0.34, playing: true,
+    yaw: 0.6, pitch: 0.28, zoom: 1, sel: -1, sweep: false, sweepAcc: 0
+  };
+  var pts = [], unitPts = [], orbitFlag = null;
+
+  var cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  var plot = document.getElementById("plot"), pctx = plot.getContext("2d");
+  var stage = document.getElementById("stage");
+  var W = 800, H = 560, PW = 320, PH = 130;
+
+  function rebuild() {
+    pts = pointsFor(st.n, st.hur);
+    var rn = Math.sqrt(st.n), i;
+    unitPts = new Float64Array(pts.length * 4);
+    for (i = 0; i < pts.length; i++) {
+      unitPts[4 * i] = pts[i][0] / rn; unitPts[4 * i + 1] = pts[i][1] / rn;
+      unitPts[4 * i + 2] = pts[i][2] / rn; unitPts[4 * i + 3] = pts[i][3] / rn;
+    }
+    st.sel = -1; orbitFlag = null;
+    updatePanel();
+  }
+
+  function keyOf(q) { return q.map(function (v) { return Math.round(2 * v); }).join(","); }
+
+  function selectPoint(idx) {
+    st.sel = idx;
+    orbitFlag = new Uint8Array(pts.length);
+    var units = st.hur ? HUR_UNITS : LIP_UNITS, map = {}, i;
+    for (i = 0; i < pts.length; i++) map[keyOf(pts[i])] = i;
+    var q = pts[idx], rows = [], missing = 0;
+    for (i = 0; i < units.length; i++) {
+      var uq = qmul(units[i], q), k = map[keyOf(uq)];
+      if (k === undefined) { missing++; } else { orbitFlag[k] = 1; }
+      rows.push({ u: units[i], v: uq });
+    }
+    var html = rows.map(function (r) {
+      return '<div><span class="u">(' + qstr(r.u) + ')</span>·q = ' + qstr(r.v) + '</div>';
+    }).join("");
+    document.getElementById("orbit").innerHTML = html;
+    document.getElementById("selNote").innerHTML =
+      "q = <b>" + qstr(q) + "</b>, N(q) = " + st.n + ". Its " + units.length +
+      " unit multiples are distinct and all of norm " + st.n +
+      (missing ? " — " + missing + " NOT in the enumerated set (bug!)" : "; every one is highlighted.");
+    updatePanel();
+  }
+
+  function updatePanel() {
+    var n = st.n, ds = divisors(n), i;
+    var sig = st.hur ? sigmaOdd(n) : sigmaStar(n);
+    var unitOrder = st.hur ? 24 : 8;
+    var predicted = unitOrder * sig;
+    var actual = pts.length;
+    var stored = st.hur ? rHur[n] : r4[n];
+    var ok = (predicted === actual && actual === stored);
+    document.getElementById("counts").innerHTML =
+      "n = <b>" + n + "</b> = " + factorStr(n) + "<br>" +
+      (st.hur ? "&sigma;<sub>odd</sub>(n)" : "&sigma;*(n)") + " = orbits = <b>" + sig + "</b><br>" +
+      "Jacobi: " + unitOrder + "&middot;" + sig + " = <b>" + predicted + "</b><br>" +
+      "enumerated: <b>" + actual + "</b> " +
+      (ok ? '<span class="ok">&#10003; agree</span>' : '<span class="no">&#10007; MISMATCH</span>');
+    var dh = ds.map(function (d) {
+      var drop = st.hur ? (d % 2 === 0) : (d % 4 === 0);
+      return drop ? "<s>" + d + "</s>" : String(d);
+    }).join(" &nbsp;");
+    document.getElementById("divs").innerHTML = dh;
+    document.getElementById("divNote").innerHTML = st.hur
+      ? "Even divisors (struck) are dropped; the odd ones sum to " + sig + "."
+      : "Divisors divisible by 4 (struck) are dropped; the rest sum to " + sig + ".";
+    var re = st.sel >= 0 ? " · selected Re = " + fmtHalf(pts[st.sel][0]) : "";
+    document.getElementById("tag").innerHTML =
+      "<b>" + actual + "</b> quaternions of norm " + n +
+      "<small>" + (st.hur ? "Hurwitz order, 24 units" : "Lipschitz ℤ⁴, 8 units") +
+      " · " + sig + " orbits · θ = " + (st.theta % (2 * Math.PI)).toFixed(2) + re + "</small>";
+    drawPlot();
+  }
+
+  /* ---------- projection & drawing ---------- */
+  function rot3(x, y, z) {
+    var cy = Math.cos(st.yaw), sy = Math.sin(st.yaw);
+    var x1 = cy * x + sy * z, z1 = -sy * x + cy * z;
+    var cp = Math.cos(st.pitch), sp = Math.sin(st.pitch);
+    var y1 = cp * y - sp * z1, z2 = sp * y + cp * z1;
+    return [x1, y1, z2];
+  }
+
+  var screenX = null, screenY = null, screenOK = null;
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(0,0,0,0.34)";
+    ctx.fillRect(0, 0, W, H);
+    var N = pts.length;
+    if (!screenX || screenX.length < N) {
+      screenX = new Float64Array(N + 8); screenY = new Float64Array(N + 8); screenOK = new Uint8Array(N + 8);
+    }
+    var ct = Math.cos(st.theta), sIt = Math.sin(st.theta);
+    var base = (st.stereo ? 0.20 : 0.40) * H * st.zoom;
+    var cx = W / 2, cy = H / 2;
+    var order = [], depth = new Float64Array(N), i;
+
+    for (i = 0; i < N; i++) {
+      screenOK[i] = 0;
+      var p0 = unitPts[4 * i], p1 = unitPts[4 * i + 1], p2 = unitPts[4 * i + 2], p3 = unitPts[4 * i + 3];
+      // left multiply by e^{i theta} = ct + sIt*i  (isometry of S^3)
+      var q0 = ct * p0 - sIt * p1,
+          q1 = ct * p1 + sIt * p0,
+          q2 = ct * p2 - sIt * p3,
+          q3 = ct * p3 + sIt * p2;
+      var X, Y, Z;
+      if (st.stereo) {
+        var den = 1 - q0;
+        if (den < 0.03) continue;
+        X = q1 / den; Y = q2 / den; Z = q3 / den;
+        if (X * X + Y * Y + Z * Z > 100) continue;
+      } else { X = q1; Y = q2; Z = q3; }
+      var r = rot3(X, Y, Z);
+      var sc = 1 / (1 + r[2] * 0.18);
+      if (sc < 0.15) continue;
+      if (sc > 4) sc = 4;
+      screenX[i] = cx + base * sc * r[0];
+      screenY[i] = cy - base * sc * r[1];
+      screenOK[i] = 1;
+      depth[i] = r[2];
+      order.push(i);
+    }
+    order.sort(function (a, b) { return depth[b] - depth[a]; });
+
+    var rn = Math.sqrt(st.n);
+    for (var m = 0; m < order.length; m++) {
+      i = order[m];
+      var d = depth[i];
+      var sc = 1 / (1 + d * 0.18); if (sc > 4) sc = 4;
+      var t = pts[i][0] / rn;                       // real part, in [-1,1]
+      var hue = 172 - 142 * (t + 1) / 2;            // teal (Re<0) -> orange (Re>0)
+      var lig = 44 + 22 * Math.max(0, Math.min(1, sc / 1.6));
+      var alpha = 0.30 + 0.62 * Math.max(0, Math.min(1, (sc - 0.3) / 1.3));
+      var rad = Math.max(1.0, 2.7 * sc);
+      var hot = orbitFlag && orbitFlag[i];
+      if (hot) {
+        ctx.beginPath();
+        ctx.arc(screenX[i], screenY[i], rad + 4.5, 0, 6.283185307179586);
+        ctx.fillStyle = "rgba(255,255,255,0.16)";
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.arc(screenX[i], screenY[i], hot ? rad + 1.4 : rad, 0, 6.283185307179586);
+      ctx.fillStyle = hot ? "rgba(255,255,255,0.95)"
+                          : "hsla(" + hue.toFixed(0) + ",68%," + lig.toFixed(0) + "%," + alpha.toFixed(3) + ")";
+      ctx.fill();
+      if (i === st.sel) {
+        ctx.beginPath();
+        ctx.arc(screenX[i], screenY[i], rad + 8, 0, 6.283185307179586);
+        ctx.strokeStyle = "#ffab6e"; ctx.lineWidth = 1.4; ctx.stroke();
+      }
+    }
+
+    // colour key
+    ctx.font = "12px monospace";
+    ctx.fillStyle = "rgba(154,151,160,0.9)";
+    ctx.textAlign = "right";
+    ctx.fillText("colour = Re(q)/√n :  −1", W - 108, H - 14);
+    for (var g = 0; g <= 40; g++) {
+      var tt = g / 40, hh = 172 - 142 * tt;
+      ctx.fillStyle = "hsl(" + hh.toFixed(0) + ",68%,58%)";
+      ctx.fillRect(W - 100 + g * 1.8, H - 24, 2.2, 10);
+    }
+    ctx.fillStyle = "rgba(154,151,160,0.9)";
+    ctx.textAlign = "left";
+    ctx.fillText("+1", W - 24, H - 14);
+    ctx.textAlign = "left";
+  }
+
+  /* ---------- the divisor / count plot ---------- */
+  function drawPlot() {
+    var w = PW, h = PH;
+    pctx.clearRect(0, 0, w, h);
+    var padL = 4, padR = 4, padB = 14, padT = 8;
+    var maxV = 0, m;
+    for (m = 1; m <= NMAX; m++) {
+      var v = st.hur ? sigmaOdd(m) : sigmaStar(m);
+      if (v > maxV) maxV = v;
+    }
+    var sx = (w - padL - padR) / NMAX, sy = (h - padT - padB) / maxV;
+    // stems from the divisor-sum formula
+    for (m = 1; m <= NMAX; m++) {
+      var val = st.hur ? sigmaOdd(m) : sigmaStar(m);
+      var x = padL + (m - 0.5) * sx, y = h - padB - val * sy;
+      pctx.strokeStyle = (m === st.n) ? "#ffab6e" : "rgba(110,231,216,0.42)";
+      pctx.lineWidth = (m === st.n) ? 1.8 : 1;
+      pctx.beginPath(); pctx.moveTo(x, h - padB); pctx.lineTo(x, y); pctx.stroke();
+    }
+    // circles from brute-force enumeration (every 4th m, so the marks stay legible)
+    pctx.strokeStyle = "rgba(232,230,225,0.75)"; pctx.lineWidth = 0.9;
+    for (m = 1; m <= NMAX; m += 4) {
+      var cnt = (st.hur ? rHur[m] / 24 : r4[m] / 8);
+      var x2 = padL + (m - 0.5) * sx, y2 = h - padB - cnt * sy;
+      pctx.beginPath(); pctx.arc(x2, y2, 1.5, 0, 6.283185307179586); pctx.stroke();
+    }
+    pctx.strokeStyle = "rgba(255,255,255,0.16)";
+    pctx.beginPath(); pctx.moveTo(padL, h - padB); pctx.lineTo(w - padR, h - padB); pctx.stroke();
+    pctx.fillStyle = "rgba(154,151,160,0.9)"; pctx.font = "10px monospace";
+    pctx.fillText("1", padL, h - 3);
+    pctx.fillText(String(NMAX), w - 24, h - 3);
+    pctx.fillText("max " + maxV, padL + 4, 10);
+  }
+
+  /* ---------- sizing ---------- */
+  function resize() {
+    var w = stage.clientWidth || 800;
+    var h = Math.round(Math.max(340, Math.min(620, w * 0.70)));
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.style.width = w + "px"; cv.style.height = h + "px";
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    W = w; H = h;
+    var pw = plot.clientWidth || 300;
+    plot.style.height = "130px";
+    plot.width = Math.round(pw * dpr); plot.height = Math.round(130 * dpr);
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    PW = pw; PH = 130;
+    drawPlot(); draw();
+  }
+  window.addEventListener("resize", resize);
+
+  /* ---------- interaction ---------- */
+  var dragging = false, moved = 0, lastX = 0, lastY = 0;
+  cv.addEventListener("pointerdown", function (e) {
+    dragging = true; moved = 0; lastX = e.clientX; lastY = e.clientY;
+    cv.classList.add("drag"); cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener("pointermove", function (e) {
+    if (!dragging) return;
+    var dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    st.yaw += dx * 0.008; st.pitch += dy * 0.008;
+    st.pitch = Math.max(-1.5, Math.min(1.5, st.pitch));
+    draw();
+  });
+  cv.addEventListener("pointerup", function (e) {
+    dragging = false; cv.classList.remove("drag");
+    if (moved < 5) pick(e);
+  });
+  cv.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    st.zoom *= Math.exp(-e.deltaY * 0.0016);
+    st.zoom = Math.max(0.25, Math.min(8, st.zoom));
+    draw();
+  }, { passive: false });
+
+  function pick(e) {
+    var r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+    var best = -1, bd = 14 * 14;
+    for (var i = 0; i < pts.length; i++) {
+      if (!screenOK[i]) continue;
+      var dx = screenX[i] - mx, dy = screenY[i] - my, d2 = dx * dx + dy * dy;
+      if (d2 < bd) { bd = d2; best = i; }
+    }
+    if (best >= 0) { selectPoint(best); draw(); }
+  }
+
+  plot.addEventListener("click", function (e) {
+    var r = plot.getBoundingClientRect();
+    var m = Math.round(((e.clientX - r.left - 4) / Math.max(1, (PW - 8))) * NMAX);
+    setN(Math.max(1, Math.min(NMAX, m)));
+  });
+
+  function setN(n) {
+    st.n = n;
+    document.getElementById("nSlider").value = n;
+    document.getElementById("nBox").value = n;
+    rebuild(); draw();
+  }
+
+  document.getElementById("nSlider").addEventListener("input", function (e) { setN(+e.target.value); });
+  document.getElementById("nBox").addEventListener("change", function (e) {
+    var v = Math.max(1, Math.min(NMAX, Math.round(+e.target.value || 1))); setN(v);
+  });
+  function setOrder(hur) {
+    st.hur = hur;
+    document.getElementById("lipBtn").classList.toggle("on", !hur);
+    document.getElementById("hurBtn").classList.toggle("on", hur);
+    rebuild(); draw();
+  }
+  document.getElementById("lipBtn").addEventListener("click", function () { setOrder(false); });
+  document.getElementById("hurBtn").addEventListener("click", function () { setOrder(true); });
+  function setProj(stereo) {
+    st.stereo = stereo;
+    document.getElementById("stereoBtn").classList.toggle("on", stereo);
+    document.getElementById("orthoBtn").classList.toggle("on", !stereo);
+    draw();
+  }
+  document.getElementById("stereoBtn").addEventListener("click", function () { setProj(true); });
+  document.getElementById("orthoBtn").addEventListener("click", function () { setProj(false); });
+  document.getElementById("playBtn").addEventListener("click", function () {
+    st.playing = !st.playing;
+    this.classList.toggle("on", st.playing);
+  });
+  document.getElementById("spdSlider").addEventListener("input", function (e) {
+    st.speed = (+e.target.value) / 100;
+    document.getElementById("spdVal").textContent = st.speed.toFixed(2);
+  });
+  document.getElementById("sweepBtn").addEventListener("click", function () {
+    st.sweep = !st.sweep; this.classList.toggle("on", st.sweep); st.sweepAcc = 0;
+  });
+  document.getElementById("resetBtn").addEventListener("click", function () {
+    st.yaw = 0.6; st.pitch = 0.28; st.zoom = 1; st.theta = 0; draw(); updatePanel();
+  });
+
+  /* ---------- animation ---------- */
+  var lastT = 0;
+  function step(dt) {
+    if (st.playing) { st.theta += st.speed * dt; if (st.theta > 1e6) st.theta = 0; }
+    if (st.sweep) {
+      st.sweepAcc += dt;
+      if (st.sweepAcc > 0.28) { st.sweepAcc = 0; setN(st.n >= NMAX ? 1 : st.n + 1); return; }
+    }
+    draw();
+    if (st.playing) updateTheta();
+  }
+  function updateTheta() {
+    var el = document.getElementById("tag").querySelector("small");
+    if (!el) return;
+    var txt = el.textContent;
+    el.textContent = txt.replace(/θ = [0-9.]+/, "θ = " + (st.theta % (2 * Math.PI)).toFixed(2));
+  }
+  function frame(ts) {
+    var dt = lastT ? Math.min(0.05, (ts - lastT) / 1000) : 0.016;
+    lastT = ts;
+    step(dt);
+    requestAnimationFrame(frame);
+  }
+
+  /* boot */
+  rebuild();
+  resize();
+  requestAnimationFrame(frame);
+
+  // manual driver, for headless verification when rAF is throttled
+  window.__autoviz = { st: st, step: step, draw: draw, setN: setN, pts: function () { return pts; },
+                       select: selectPoint, counts: { r4: r4, rHur: rHur } };
+})();
+</script>
+</body>
+</html>

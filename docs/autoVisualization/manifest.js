@@ -2,6 +2,20 @@
 // Fields: date (YYYY-MM-DD), file (relative to days/), title, area, blurb.
 window.AUTOVIZ = [
   {
+    date: "2026-08-19",
+    file: "2026-08-19-bruhat-tits-tree.html",
+    title: "The Bruhat\u2013Tits Tree for SL\u2082(\u211a_p)",
+    area: "p-adic groups \u00b7 geometric group theory",
+    blurb: "Homothety classes of \u2124_p-lattices in \u211a_p\u00b2 are the vertices of the (p+1)-regular tree on which SL\u2082(\u211a_p) acts. Every vertex here is an exact integer matrix, shaded by its displacement d(v, gv); the minimum is the translation length \u2113(g) = |v_p(\u03bb\u2081) \u2212 v_p(\u03bb\u2082)| from the Newton polygon, so g fixes a subtree exactly when tr g \u2208 \u2124_p and otherwise marches along an axis by \u22122v_p(tr g)."
+  },
+  {
+    date: "2026-08-17",
+    file: "2026-08-17-four-square-quaternions.html",
+    title: "Jacobi's Four-Square Theorem, Quaternionically",
+    area: "Arithmetic \u00b7 quaternion algebras",
+    blurb: "The r\u2084(n) = 8\u00b7\u03a3(divisors of n not divisible by 4) representations of n as a sum of four squares are exactly the Lipschitz quaternions of norm n, and the 8 is the order of the unit group acting freely on them. Sweep n, watch the sphere of norm-n quaternions turn under the Hopf flow, and check the count against the divisor sum."
+  },
+  {
     date: "2026-08-13",
     file: "2026-08-13-unfolding-billiards.html",
     title: "Unfolding Billiards in Polygons",

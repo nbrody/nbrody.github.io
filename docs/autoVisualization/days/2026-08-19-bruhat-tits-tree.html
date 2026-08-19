@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Bruhat–Tits Tree for SL₂(ℚ_p) — AutoViz 2026-08-19</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --accent2: #ffab6e;
+    --good: #7ee787;
+    --warn: #ffd479;
+    --bad: #ff8b8b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.55;
+    padding: 1.6rem 1.2rem 2.5rem;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; letter-spacing: 0.06em; }
+  h1 { font-weight: normal; font-size: 1.9rem; margin: 0.4rem 0 0.5rem; }
+  p.math { color: #c9c6cf; max-width: 64rem; font-size: 1.02rem; }
+  p.math i { color: var(--ink); }
+  p.math b { font-weight: normal; color: var(--accent); }
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.95rem;
+    margin: 1rem 0 0.8rem; padding: 0.7rem 1rem;
+    border: 1px solid var(--panel-border); background: var(--panel);
+    border-radius: 10px; font-size: 0.92rem;
+  }
+  .controls label { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); }
+  .controls .val { color: var(--ink); font-family: monospace; font-size: 0.86rem; min-width: 2.2em; }
+  .controls .sep { width: 1px; height: 1.4em; background: var(--panel-border); }
+  input[type=range] { accent-color: var(--accent); width: 120px; }
+  select, input[type=text] {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 5px; padding: 0.18rem 0.35rem; font-family: monospace; font-size: 0.86rem;
+  }
+  select { font-family: Georgia, serif; font-size: 0.88rem; max-width: 20rem; }
+  input.ent { width: 4.2em; text-align: center; }
+  input.ent.bad { border-color: var(--bad); color: var(--bad); }
+  button {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 0.25rem 0.7rem; font-family: inherit; font-size: 0.88rem;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+  .stage {
+    border: 1px solid var(--panel-border); background: rgba(0, 0, 0, 0.32);
+    border-radius: 12px; overflow: hidden; flex: 1.7 1 430px; min-width: 300px;
+    position: relative;
+  }
+  canvas { display: block; touch-action: none; }
+  .stage canvas { width: 100%; height: auto; cursor: crosshair; }
+  .tag {
+    position: absolute; left: 0.7rem; top: 0.5rem; font-size: 0.86rem;
+    text-shadow: 0 0 6px #000, 0 0 12px #000; pointer-events: none;
+  }
+  .tag b { font-weight: normal; color: var(--accent); }
+  .tag small { display: block; color: var(--muted); font-size: 0.76rem; font-family: monospace; }
+  .hint {
+    position: absolute; left: 0.7rem; bottom: 0.45rem; color: var(--muted);
+    font-size: 0.76rem; pointer-events: none; text-shadow: 0 0 6px #000;
+  }
+  .side {
+    flex: 1 1 300px; min-width: 290px; max-width: 372px; border: 1px solid var(--panel-border);
+    background: var(--panel); border-radius: 12px; padding: 0.9rem 1.05rem;
+    font-size: 0.95rem;
+  }
+  .side h2 { font-size: 0.8rem; font-weight: normal; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--muted); margin: 0.95rem 0 0.3rem; }
+  .side h2:first-child { margin-top: 0; }
+  .mgrid { display: grid; grid-template-columns: repeat(2, 4.6em); gap: 0.3rem; margin: 0.2rem 0 0.1rem; }
+  .stat { font-family: monospace; font-size: 0.82rem; color: #c9c6cf; }
+  .stat b { font-weight: normal; color: var(--accent); }
+  .stat .ok { color: var(--good); }
+  .stat .no { color: var(--bad); }
+  .verdict { font-size: 1.05rem; margin: 0.15rem 0 0.3rem; }
+  .verdict.hyp { color: var(--accent2); }
+  .verdict.ell { color: var(--good); }
+  .verdict.inv { color: var(--warn); }
+  .legend { height: 10px; border-radius: 5px; margin: 0.35rem 0 0.15rem; }
+  .legend-lbl { display: flex; justify-content: space-between; font-family: monospace;
+                font-size: 0.76rem; color: var(--muted); }
+  .note { color: var(--muted); font-size: 0.82rem; }
+  footer { margin-top: 1.2rem; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; AutoViz</a>
+  <h1>The Bruhat&ndash;Tits Tree for SL<sub>2</sub>(&#8474;<sub><i>p</i></sub>)</h1>
+  <p class="math">
+    Serre's tree <i>X<sub>p</sub></i> has one vertex for each homothety class of
+    &#8484;<sub><i>p</i></sub>-lattices in &#8474;<sub><i>p</i></sub>&sup2;, with [<i>L</i>] and [<i>L</i>&prime;]
+    joined when representatives can be chosen with <i>L</i> &sup; <i>L</i>&prime; &sup; <i>pL</i>; since the
+    index-<i>p</i> sublattices of <i>L</i> correspond to the lines of <i>L</i>/<i>pL</i> &cong; &#120125;<sub><i>p</i></sub>&sup2;,
+    the result is the <b>(<i>p</i>+1)-regular tree</b>, and GL<sub>2</sub>(&#8474;<sub><i>p</i></sub>) acts on it by
+    isometries. Every vertex below is an honest lattice, computed as an exact integer matrix; each is shaded by its
+    displacement <i>d</i>(<i>v</i>, <i>gv</i>), a convex function on the tree whose minimum is the translation length
+    <b>&#8467;(<i>g</i>) = |<i>v<sub>p</sub></i>(&lambda;<sub>1</sub>) &minus; <i>v<sub>p</sub></i>(&lambda;<sub>2</sub>)|</b>,
+    read off the Newton polygon of the characteristic polynomial. For <i>g</i> &isin; SL<sub>2</sub>(&#8474;<sub><i>p</i></sub>)
+    this says <i>g</i> is <b>elliptic</b> &mdash; fixing a vertex, so the highlighted set is a whole subtree &mdash; exactly when
+    tr&thinsp;<i>g</i> &isin; &#8484;<sub><i>p</i></sub>, and otherwise <b>hyperbolic</b>, translating along an axis by
+    &#8467;(<i>g</i>) = &minus;2<i>v<sub>p</sub></i>(tr&thinsp;<i>g</i>).
+  </p>
+
+  <div class="controls">
+    <label>p:&nbsp;<span id="pbtns"></span></label>
+    <span class="sep"></span>
+    <label>ball radius <input type="range" id="depth" min="1" max="6" step="1"><span class="val" id="depthv"></span></label>
+    <span class="sep"></span>
+    <label>example
+      <select id="preset">
+        <option value="0">hyperbolic, &#8467;=2 &mdash; diag(p, 1/p)</option>
+        <option value="1" selected>hyperbolic, &#8467;=2 &mdash; axis off centre</option>
+        <option value="2">hyperbolic, &#8467;=4 &mdash; tr = 1/p&sup2;</option>
+        <option value="3">elliptic &mdash; order 4, fixes the base vertex</option>
+        <option value="4">elliptic &mdash; fixes a neighbouring vertex</option>
+        <option value="5">unipotent &mdash; fixed subtree is a horoball</option>
+        <option value="6">unipotent, conjugated by diag(1/p, 1)</option>
+        <option value="7">inversion &mdash; v(det) odd, no fixed vertex</option>
+      </select>
+    </label>
+    <span class="sep"></span>
+    <label><button id="play" class="on">&#10073;&#10073; pause</button></label>
+    <label>speed <input type="range" id="speed" min="0.3" max="4" step="0.1" value="1.4"><span class="val" id="speedv"></span></label>
+    <span class="sep"></span>
+    <button id="tdisp" class="on">shade by displacement</button>
+    <button id="taxis" class="on">axis / fixed set</button>
+  </div>
+
+  <div class="row">
+    <div class="stage">
+      <canvas id="cv" width="820" height="820"></canvas>
+      <div class="tag" id="tag"><b>&nbsp;</b><small>&nbsp;</small></div>
+      <div class="hint">hover a vertex to read its lattice &middot; click one to move the orbit's base point</div>
+    </div>
+    <div class="side">
+      <h2>the matrix g</h2>
+      <div class="mgrid">
+        <input class="ent" id="e00" type="text"><input class="ent" id="e01" type="text">
+        <input class="ent" id="e10" type="text"><input class="ent" id="e11" type="text">
+      </div>
+      <div class="note">entries are rationals: <code>3</code>, <code>-1/9</code>, &hellip;</div>
+      <div class="stat" id="dettr">&nbsp;</div>
+
+      <h2>Serre's verdict</h2>
+      <div class="verdict" id="verdict">&nbsp;</div>
+      <div class="stat" id="valrow">&nbsp;</div>
+      <div class="stat" id="minrow">&nbsp;</div>
+
+      <h2>displacement d(v, gv)</h2>
+      <div class="legend" id="legend"></div>
+      <div class="legend-lbl"><span id="lgmin"></span><span id="lgmax"></span></div>
+      <div class="note">Convexity forces the displacement to grow linearly with distance from the highlighted minimum set: off the axis, <i>d</i> = &#8467; + 2&middot;dist(<i>v</i>, axis).</div>
+
+      <h2>orbit of the base vertex</h2>
+      <div class="stat" id="orbit">&nbsp;</div>
+      <div class="stat" id="basev">&nbsp;</div>
+
+      <h2>self-check</h2>
+      <div class="stat" id="check">&nbsp;</div>
+    </div>
+  </div>
+
+  <footer>AutoViz &middot; 2026-08-19 &middot; generated by Claude (Fable 5)</footer>
+</div>
+
+<script>
+"use strict";
+/* ---------- exact arithmetic ---------- */
+const babs = n => n < 0n ? -n : n;
+function bgcd(a, b) { a = babs(a); b = babs(b); while (b) { const t = a % b; a = b; b = t; } return a; }
+function vpBig(n, P) { if (n === 0n) return Infinity; n = babs(n); let v = 0; while (n % P === 0n) { n /= P; v++; } return v; }
+const mul = (A, B) => [A[0]*B[0]+A[1]*B[2], A[0]*B[1]+A[1]*B[3], A[2]*B[0]+A[3]*B[2], A[2]*B[1]+A[3]*B[3]];
+const adjM = A => [A[3], -A[1], -A[2], A[0]];
+const detM = A => A[0]*A[3] - A[1]*A[2];
+function reduceM(A) { let g = 0n; for (const x of A) g = bgcd(g, x); if (g > 1n) return A.map(x => x / g); return A; }
+
+/* fractions as [num, den], den > 0, reduced */
+function frac(n, d) {
+  if (d < 0n) { n = -n; d = -d; }
+  const g = bgcd(n, d) || 1n;
+  return [n / g, d / g];
+}
+function parseFrac(s) {
+  s = String(s).trim().replace(/\s+/g, "");
+  const m = /^(-?\d+)(?:\/(-?\d+))?$/.exec(s);
+  if (!m) return null;
+  const d = m[2] === undefined ? 1n : BigInt(m[2]);
+  if (d === 0n) return null;
+  return frac(BigInt(m[1]), d);
+}
+const fracStr = f => f[1] === 1n ? String(f[0]) : f[0] + "/" + f[1];
+const fAdd = (a, b) => frac(a[0]*b[1] + b[0]*a[1], a[1]*b[1]);
+const fMul = (a, b) => frac(a[0]*b[0], a[1]*b[1]);
+const fSub = (a, b) => fAdd(a, [-b[0], b[1]]);
+const fVp = (f, P) => f[0] === 0n ? Infinity : vpBig(f[0], P) - vpBig(f[1], P);
+
+/* ---------- state ---------- */
+const PS = [2, 3, 5, 7];
+const MAXD = { 2: 6, 3: 5, 5: 4, 7: 3 };
+let p = 3, P = 3n, depth = 4;
+let F = [[0n,1n],[-1n,1n],[1n,1n],[1n,3n]];   /* user matrix, fractions, row-major */
+let G = [0n, -1n, 1n, 1n];                     /* integer representative of F */
+let verts = [], levelStart = [];
+let ell = 0, vtype = "", minSet = new Set(), maxDisp = 1;
+let baseIdx = 0, orbN = 0, curIdx = 0, path = [0], seg = 0, segT = 0, orbDist = 0;
+let playing = true, showDisp = true, showAxis = true, speed = 1.4;
+let hoverIdx = -1;
+
+const PRESETS = [
+  ["p","0","0","1/p"],
+  ["0","-1","1","1/p"],
+  ["0","-1","1","1/pp"],
+  ["0","-1","1","0"],
+  ["0","-1/p","p","0"],
+  ["1","1","0","1"],
+  ["1","1/p","0","1"],
+  ["0","1","p","0"]
+];
+function presetEntries(i) {
+  return PRESETS[i].map(s => s.replace("pp", String(p*p)).replace("p", String(p)));
+}
+
+/* ---------- tree ---------- */
+function buildTree() {
+  verts = [{ M: [1n,0n,0n,1n], depth: 0, parent: -1, lbl: null, kids: [] }];
+  levelStart = [0];
+  let frontier = [0];
+  for (let d = 0; d < depth; d++) {
+    levelStart.push(verts.length);
+    const next = [];
+    for (const vi of frontier) {
+      const v = verts[vi];
+      /* the edge back to the parent carries label 'inf' if we arrived on a numeric
+         edge, and label 0 if we arrived on the 'inf' edge  (A_k A_inf = p*A_0^-1 etc.) */
+      const back = v.parent < 0 ? null : (v.lbl === "inf" ? 0 : "inf");
+      for (let j = 0; j <= p; j++) {
+        const L = j === p ? "inf" : j;
+        if (back !== null && L === back) continue;
+        const A = L === "inf" ? [P, 0n, 0n, 1n] : [1n, 0n, BigInt(L), P];
+        const idx = verts.length;
+        verts.push({ M: reduceM(mul(v.M, A)), depth: d + 1, parent: vi, lbl: L, kids: [] });
+        v.kids.push(idx);
+        next.push(idx);
+      }
+    }
+    frontier = next;
+  }
+  levelStart.push(verts.length);
+  layout();
+}
+
+function layout() {
+  const R = 372, c = 0.55;
+  const den = 1 - Math.pow(c, depth);
+  const rad = d => d === 0 ? 0 : R * (1 - Math.pow(c, d)) / den;
+  const root = verts[0];
+  root.ang = 0; root.half = Math.PI; root.x = 0; root.y = 0;
+  for (let i = 1; i < verts.length; i++) {
+    const v = verts[i], par = verts[v.parent];
+    const m = par.kids.length, k = par.kids.indexOf(i);
+    v.half = par.half / m;
+    v.ang = par.ang - par.half + (2 * k + 1) * v.half;
+    v.x = rad(v.depth) * Math.cos(v.ang);
+    v.y = rad(v.depth) * Math.sin(v.ang);
+  }
+}
+
+function address(i) {
+  const out = [];
+  while (i > 0) { out.push(verts[i].lbl === "inf" ? "∞" : verts[i].lbl); i = verts[i].parent; }
+  return out.length ? out.reverse().join("·") : "• (base)";
+}
+
+/* ---------- p-adic geometry ---------- */
+function dispOf(v) {                       /* d([M], [gM]) for M = v.M */
+  const N = mul(mul(adjM(v.M), G), v.M);
+  let a = Infinity;
+  for (const x of N) { const t = vpBig(x, P); if (t < a) a = t; }
+  return Math.abs(2 * a - (2 * vpBig(detM(v.M), P) + vpBig(detM(G), P)));
+}
+function distTo(v, T, vdT) {               /* d([v.M], [T]) */
+  const N = mul(adjM(v.M), T);
+  let a = Infinity;
+  for (const x of N) { const t = vpBig(x, P); if (t < a) a = t; }
+  return Math.abs(2 * a - (vpBig(detM(v.M), P) + vdT));
+}
+function locate(T) {                       /* index of [T] in the drawn ball, or -1 */
+  T = reduceM(T);
+  const vdT = vpBig(detM(T), P);
+  let cur = 0, d = distTo(verts[0], T, vdT);
+  while (d > 0) {
+    let moved = false;
+    for (const ci of verts[cur].kids) {
+      if (distTo(verts[ci], T, vdT) === d - 1) { cur = ci; d--; moved = true; break; }
+    }
+    if (!moved) return -1;
+  }
+  return cur;
+}
+function pathBetween(a, b) {
+  const anc = new Map(); let x = a, k = 0;
+  const up = [];
+  while (x >= 0) { anc.set(x, k++); up.push(x); x = verts[x].parent; }
+  const down = []; let y = b;
+  while (!anc.has(y)) { down.push(y); y = verts[y].parent; }
+  return up.slice(0, anc.get(y) + 1).concat(down.reverse());
+}
+function classify() {                      /* Newton polygon of x^2 - tr x + det */
+  const vd = vpBig(detM(G), P), vt = vpBig(G[0] + G[3], P);
+  if (2 * vt < vd) return { t: "hyperbolic", l: vd - 2 * vt };
+  if (vd % 2 === 0) return { t: "elliptic", l: 0 };
+  return { t: "inversion", l: 1 };
+}
+
+/* ---------- recompute ---------- */
+function syncG() {
+  let L = 1n;
+  for (const f of F) L = L * f[1] / bgcd(L, f[1]);
+  G = reduceM(F.map(f => f[0] * (L / f[1])));
+}
+function recompute() {
+  syncG();
+  const cl = classify(); ell = cl.l; vtype = cl.t;
+  maxDisp = 1; minSet = new Set();
+  let localMin = Infinity;
+  for (const v of verts) { v.disp = dispOf(v); if (v.disp > maxDisp) maxDisp = v.disp; if (v.disp < localMin) localMin = v.disp; }
+  verts.forEach((v, i) => { if (v.disp === localMin) minSet.add(i); });
+  window.__localMin = localMin;
+  if (baseIdx >= verts.length) baseIdx = 0;
+  orbN = 0; curIdx = baseIdx; path = [baseIdx]; seg = 0; segT = 0;
+  nextOrbitStep();
+  selfCheck(localMin);
+  updatePanel(localMin);
+}
+
+function Gpow(n) { let R = [1n,0n,0n,1n]; for (let i = 0; i < n; i++) R = reduceM(mul(G, R)); return R; }
+function nextOrbitStep() {
+  const tgt = locate(mul(Gpow(orbN + 1), verts[baseIdx].M));
+  if (tgt < 0) { orbN = 0; curIdx = baseIdx; path = [baseIdx]; seg = 0; segT = 0; orbDist = 0; return; }
+  path = pathBetween(curIdx, tgt);
+  orbN += 1; seg = 0; segT = 0;
+  orbDist = pathBetween(baseIdx, tgt).length - 1;
+}
+
+/* ---------- self-check ---------- */
+function selfCheck(localMin) {
+  const msgs = [];
+  let counts = true;
+  for (let d = 1; d <= depth; d++) {
+    const n = levelStart[d + 1] - levelStart[d];
+    if (n !== (p + 1) * Math.pow(p, d - 1)) counts = false;
+  }
+  /* compare the valuation formula against honest tree distance, on vertices whose
+     image is certainly inside the drawn ball (depth(v) + d(v,gv) <= radius) */
+  const cand = [];
+  for (let i = 0; i < verts.length; i++) if (verts[i].depth + verts[i].disp <= depth) cand.push(i);
+  const step = Math.max(1, Math.floor(cand.length / 24));
+  let agree = 0, tested = 0, bad = 0;
+  for (let j = 0; j < cand.length; j += step) {
+    const i = cand[j], t = locate(mul(G, verts[i].M));
+    if (t < 0) { bad++; tested++; continue; }
+    tested++;
+    if (pathBetween(i, t).length - 1 === verts[i].disp) agree++; else bad++;
+  }
+  let parity = true;
+  for (const v of verts) if ((v.disp - ell) % 2 !== 0) parity = false;
+  msgs.push({ ok: counts, s: "level sizes = (p+1)p^(d−1)" });
+  msgs.push({ ok: bad === 0, skip: tested === 0,
+              s: tested === 0 ? "formula vs tree distance: no image lands inside this ball"
+                              : "valuation formula = tree distance (" + agree + "/" + tested + " vertices)" });
+  msgs.push({ ok: true, s: "min d(v,gv) over ball = " + localMin + (localMin === ell ? " = ℓ" : " > ℓ (axis leaves the ball)") });
+  msgs.push({ ok: parity, s: "d(v,gv) ≡ ℓ (mod 2) on all " + verts.length + " vertices" });
+  const el = document.getElementById("check");
+  el.innerHTML = msgs.map(m => (m.skip ? "<span>–</span> " : m.ok ? "<span class='ok'>✓</span> " : "<span class='no'>✗</span> ") + m.s).join("<br>");
+  console.log("[SELF-TEST] p=" + p + " depth=" + depth + " verts=" + verts.length,
+              msgs.map(m => (m.skip ? "SKIP " : m.ok ? "PASS " : "FAIL ") + m.s).join(" | "));
+}
+
+/* ---------- panel ---------- */
+function updatePanel(localMin) {
+  const det = fSub(fMul(F[0], F[3]), fMul(F[1], F[2]));
+  const tr = fAdd(F[0], F[3]);
+  document.getElementById("dettr").innerHTML =
+    "det g = <b>" + fracStr(det) + "</b> &nbsp; tr g = <b>" + fracStr(tr) + "</b>";
+  const vt = fVp(tr, P), vd = fVp(det, P);
+  document.getElementById("valrow").innerHTML =
+    "v<sub>" + p + "</sub>(tr) = <b>" + (vt === Infinity ? "∞" : vt) + "</b> &nbsp;&nbsp; v<sub>" + p +
+    "</sub>(det) = <b>" + (vd === Infinity ? "∞" : vd) + "</b>";
+  const vd_el = document.getElementById("verdict");
+  if (vtype === "hyperbolic") {
+    vd_el.className = "verdict hyp";
+    vd_el.innerHTML = "hyperbolic &mdash; translates by ℓ = " + ell + " along an axis";
+  } else if (vtype === "elliptic") {
+    vd_el.className = "verdict ell";
+    vd_el.innerHTML = "elliptic &mdash; fixes a subtree pointwise";
+  } else {
+    vd_el.className = "verdict inv";
+    vd_el.innerHTML = "inversion &mdash; swaps the two types, no fixed vertex";
+  }
+  document.getElementById("minrow").innerHTML =
+    "min set in this ball: <b>" + minSet.size + "</b> vertices at d = <b>" + localMin + "</b>";
+  document.getElementById("lgmin").textContent = "d = " + localMin;
+  document.getElementById("lgmax").textContent = "d = " + maxDisp;
+  const stops = [];
+  for (let i = 0; i <= 8; i++) stops.push(colorFor(localMin + (maxDisp - localMin) * i / 8, localMin));
+  document.getElementById("legend").style.background = "linear-gradient(90deg," + stops.join(",") + ")";
+  const M = verts[baseIdx].M;
+  document.getElementById("basev").innerHTML =
+    "base [" + address(baseIdx) + "] &nbsp; L = &#8484;<sub>" + p + "</sub>&sup2;&middot;[[" +
+    M[0] + "," + M[1] + "],[" + M[2] + "," + M[3] + "]]";
+}
+function updateOrbitLine() {
+  document.getElementById("orbit").innerHTML =
+    "n = <b>" + orbN + "</b> &nbsp; d(v, g<sup>n</sup>v) = <b>" + (orbDist < 0 ? "—" : orbDist) + "</b>" +
+    (vtype === "hyperbolic" && orbDist >= 0 ? " &nbsp;(n&middot;ℓ = " + (orbN * ell) + " on the axis)" : "");
+}
+
+/* ---------- drawing ---------- */
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+function colorFor(d, lo) {
+  const t = maxDisp > lo ? Math.min(1, Math.max(0, (d - lo) / (maxDisp - lo))) : 0;
+  const h = 172 + 96 * t, l = 66 - 30 * t, s = 62 - 12 * t;
+  return "hsl(" + h.toFixed(1) + "," + s.toFixed(0) + "%," + l.toFixed(0) + "%)";
+}
+function draw() {
+  const W = cv.width, H = cv.height, cx = W / 2, cy = H / 2;
+  ctx.clearRect(0, 0, W, H);
+  const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, W * 0.6);
+  g.addColorStop(0, "rgba(30,40,64,0.55)"); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const lo = window.__localMin;
+
+  ctx.lineCap = "round";
+  for (let i = 1; i < verts.length; i++) {
+    const v = verts[i], u = verts[v.parent];
+    ctx.strokeStyle = showDisp ? colorFor(Math.max(v.disp, u.disp), lo) : "rgba(150,160,190,0.55)";
+    ctx.globalAlpha = 0.42;
+    ctx.lineWidth = Math.max(0.7, 2.6 - 0.42 * v.depth);
+    ctx.beginPath(); ctx.moveTo(cx + u.x, cy + u.y); ctx.lineTo(cx + v.x, cy + v.y); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  if (showAxis) {
+    ctx.strokeStyle = "#ffab6e"; ctx.lineWidth = 3.2; ctx.globalAlpha = 0.9;
+    ctx.shadowColor = "#ffab6e"; ctx.shadowBlur = 10;
+    for (let i = 1; i < verts.length; i++) {
+      if (!minSet.has(i) || !minSet.has(verts[i].parent)) continue;
+      const v = verts[i], u = verts[v.parent];
+      ctx.beginPath(); ctx.moveTo(cx + u.x, cy + u.y); ctx.lineTo(cx + v.x, cy + v.y); ctx.stroke();
+    }
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  }
+
+  for (let i = 0; i < verts.length; i++) {
+    const v = verts[i];
+    const isMin = minSet.has(i);
+    const r = isMin ? 4.6 : Math.max(1.6, 4.0 - 0.45 * v.depth);
+    ctx.fillStyle = showDisp ? colorFor(v.disp, lo) : "#9aa4c0";
+    if (isMin) { ctx.shadowColor = "#ffab6e"; ctx.shadowBlur = 9; ctx.fillStyle = "#ffd0a0"; }
+    ctx.beginPath(); ctx.arc(cx + v.x, cy + v.y, r, 0, 6.2832); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  /* base vertex ring */
+  const b = verts[baseIdx];
+  ctx.strokeStyle = "#e8e6e1"; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(cx + b.x, cy + b.y, 8.5, 0, 6.2832); ctx.stroke();
+
+  /* current geodesic and token */
+  if (path.length > 1) {
+    ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    for (let i = 0; i < path.length; i++) {
+      const v = verts[path[i]];
+      i ? ctx.lineTo(cx + v.x, cy + v.y) : ctx.moveTo(cx + v.x, cy + v.y);
+    }
+    ctx.stroke();
+  }
+  const a = verts[path[Math.min(seg, path.length - 1)]];
+  const c2 = verts[path[Math.min(seg + 1, path.length - 1)]];
+  const tx = cx + a.x + (c2.x - a.x) * segT, ty = cy + a.y + (c2.y - a.y) * segT;
+  ctx.fillStyle = "#6ee7d8"; ctx.shadowColor = "#6ee7d8"; ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.arc(tx, ty, 6.2, 0, 6.2832); ctx.fill(); ctx.shadowBlur = 0;
+
+  if (hoverIdx >= 0) {
+    const v = verts[hoverIdx];
+    ctx.strokeStyle = "#6ee7d8"; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(cx + v.x, cy + v.y, 7.5, 0, 6.2832); ctx.stroke();
+  }
+}
+
+/* ---------- animation ---------- */
+let last = 0;
+function tick(dt) {
+  if (!playing) return;
+  segT += dt * speed;
+  let guard = 0;
+  while (segT >= 1 && guard++ < 64) {
+    segT -= 1;
+    if (path.length <= 1) {                 /* g fixes this vertex, or the orbit left the ball */
+      curIdx = path[0]; seg = 0; nextOrbitStep(); updateOrbitLine(); continue;
+    }
+    seg += 1;
+    if (seg >= path.length - 1) {
+      seg = 0; curIdx = path[path.length - 1]; nextOrbitStep(); updateOrbitLine();
+    }
+  }
+}
+function frame(ts) {
+  const dt = last ? Math.min(0.05, (ts - last) / 1000) : 0;
+  last = ts;
+  tick(dt); draw();
+  requestAnimationFrame(frame);
+}
+window.__step = function (dt) { tick(dt === undefined ? 0.4 : dt); draw(); return { orbN: orbN, seg: seg, path: path.length }; };
+
+/* ---------- UI ---------- */
+function setEntries(arr) {
+  ["e00","e01","e10","e11"].forEach((id, i) => { document.getElementById(id).value = arr[i]; });
+  readEntries();
+}
+function readEntries() {
+  const ids = ["e00","e01","e10","e11"], out = [];
+  let ok = true;
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    const f = parseFrac(el.value);
+    el.classList.toggle("bad", !f);
+    if (!f) ok = false; else out.push(f);
+  });
+  if (!ok) return;
+  const det = fSub(fMul(out[0], out[3]), fMul(out[1], out[2]));
+  if (det[0] === 0n) { ids.forEach(id => document.getElementById(id).classList.add("bad")); return; }
+  F = out;
+  recompute();
+}
+function setP(np) {
+  p = np; P = BigInt(np);
+  const ds = document.getElementById("depth");
+  ds.max = MAXD[p];
+  depth = Math.min(depth, MAXD[p]);
+  ds.value = depth;
+  document.getElementById("depthv").textContent = depth;
+  baseIdx = 0;
+  buildTree();
+  setEntries(presetEntries(+document.getElementById("preset").value));
+  [...document.querySelectorAll("#pbtns button")].forEach(b => b.classList.toggle("on", +b.dataset.p === p));
+}
+const pb = document.getElementById("pbtns");
+PS.forEach(q => {
+  const b = document.createElement("button");
+  b.textContent = q; b.dataset.p = q; b.style.marginRight = "0.25rem";
+  b.onclick = () => setP(q);
+  pb.appendChild(b);
+});
+document.getElementById("depth").oninput = e => {
+  depth = +e.target.value;
+  document.getElementById("depthv").textContent = depth;
+  baseIdx = 0; buildTree(); recompute();
+};
+document.getElementById("preset").onchange = e => setEntries(presetEntries(+e.target.value));
+["e00","e01","e10","e11"].forEach(id => { document.getElementById(id).oninput = readEntries; });
+document.getElementById("play").onclick = e => {
+  playing = !playing;
+  e.target.classList.toggle("on", playing);
+  e.target.innerHTML = playing ? "❙❙ pause" : "▶ play";
+};
+document.getElementById("speed").oninput = e => {
+  speed = +e.target.value;
+  document.getElementById("speedv").textContent = speed.toFixed(1);
+};
+document.getElementById("tdisp").onclick = e => { showDisp = !showDisp; e.target.classList.toggle("on", showDisp); };
+document.getElementById("taxis").onclick = e => { showAxis = !showAxis; e.target.classList.toggle("on", showAxis); };
+
+function pick(ev) {
+  const r = cv.getBoundingClientRect();
+  const x = (ev.clientX - r.left) * cv.width / r.width - cv.width / 2;
+  const y = (ev.clientY - r.top) * cv.height / r.height - cv.height / 2;
+  let best = -1, bd = 14 * 14;
+  for (let i = 0; i < verts.length; i++) {
+    const dx = verts[i].x - x, dy = verts[i].y - y, d2 = dx*dx + dy*dy;
+    if (d2 < bd) { bd = d2; best = i; }
+  }
+  return best;
+}
+cv.addEventListener("mousemove", ev => {
+  hoverIdx = pick(ev);
+  const t = document.getElementById("tag");
+  if (hoverIdx < 0) { t.innerHTML = "<b>&nbsp;</b><small>&nbsp;</small>"; return; }
+  const v = verts[hoverIdx], M = v.M;
+  t.innerHTML = "<b>[" + address(hoverIdx) + "]</b><small>L = column span of [[" + M[0] + "," + M[1] +
+    "],[" + M[2] + "," + M[3] + "]] &nbsp; d(v,gv) = " + v.disp + "</small>";
+});
+cv.addEventListener("mouseleave", () => { hoverIdx = -1; });
+cv.addEventListener("click", ev => {
+  const i = pick(ev);
+  if (i < 0) return;
+  baseIdx = i; orbN = 0; curIdx = i; path = [i]; seg = 0; segT = 0;
+  nextOrbitStep(); updatePanel(window.__localMin); updateOrbitLine();
+});
+
+document.getElementById("speedv").textContent = speed.toFixed(1);
+setP(3);
+updateOrbitLine();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
