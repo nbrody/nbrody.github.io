@@ -818,7 +818,7 @@ function getTileAt(cell) {
 }
 
 function setTileAt(cell, tileIndex) {
-    if (!cell) return;
+    if (!cellBelongsToGrid(state.grid, state.surface, cell)) return;
     if (getTileAt(cell) === tileIndex) return;
     commitGesture();
     if (state.surface === 'sphere') {
@@ -1006,13 +1006,20 @@ function commitGesture() {
     redoStack.length = 0;
 }
 
+function cancelPointerModes() {
+    state.isPainting = false;
+    state.isPanning = false;
+    state.lastMouse = null;
+    endStroke();
+}
+
 function restoreState(s) {
     state.surface = s.surface;
     state.gridSize = s.gridSize;
     state.faceSize = s.faceSize;
     state.grid = copyGrid(s.grid);
     state.selectedCells = [];
-    endStroke();
+    cancelPointerModes();
     const surfaceSelect = document.getElementById('surface-select');
     if (surfaceSelect.value !== s.surface) {
         surfaceSelect.value = s.surface;
@@ -1373,6 +1380,11 @@ const FOLDABLE_SURFACES = ['sphere', 'torus'];
 function onSurfaceChange() {
     pushUndo();
     state.surface = surfaceSelect.value;
+    // Disk cells are {row,col}; sphere cells are {face,row,col}. Keeping a
+    // selection across this rewrite either TypeErrors on Delete or silently
+    // writes a leftover sphere coordinate into the flat grid.
+    state.selectedCells = [];
+    cancelPointerModes();
     // "View in R³" is unified across all surfaces, so its visibility no
     // longer needs to be toggled here.
     syncSliderToSurface();
@@ -1417,6 +1429,10 @@ function applyGridSize(val) {
     }
     gridSlider.value = Math.min(val, parseInt(gridSlider.max));
     gridInput.value = val;
+    // Shrinking drops rows/cols; a leftover selection at the old coordinate
+    // would TypeError in setTileAt (grid[row] is undefined).
+    state.selectedCells = [];
+    cancelPointerModes();
     initGrid();
     updateHud();
     fitView();
