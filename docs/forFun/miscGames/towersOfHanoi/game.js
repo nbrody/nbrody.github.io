@@ -61,9 +61,12 @@
 
     // Drag state
     let dragging = false;
+    let dragMoved = false;
     let dragX = 0, dragY = 0;
+    let dragStartX = 0, dragStartY = 0;
     let dragFromPeg = -1;
     let dragDisk = -1;
+    const DRAG_THRESHOLD_PX = 10;
 
     // ── Layout (computed on resize) ─────────────────
     let W, H, dpr;
@@ -129,6 +132,7 @@
         liftedDisk = -1;
         liftAnim = 0;
         dragging = false;
+        dragMoved = false;
         dropAnim.active = false;
         invalidShake = { peg: -1, t: 0 };
         particles = [];
@@ -159,14 +163,16 @@
     }
 
     function tryMove(fromPeg, toPeg) {
+        const disk = liftedDisk;
+        if (disk < 1) return;
         if (fromPeg === toPeg) {
-            // put it back
+            // Cancel: return the lifted disk to the peg it came from.
+            pegs[fromPeg].push(disk);
             selectedPeg = -1;
             liftedDisk = -1;
             liftAnim = 0;
             return;
         }
-        const disk = liftedDisk;
         if (!canPlace(disk, toPeg)) {
             // invalid — shake
             invalidShake = { peg: toPeg, t: 1 };
@@ -274,6 +280,8 @@
 
         if (selectedPeg >= 0) {
             // already have a disk lifted — try to place it
+            dragging = false;
+            dragMoved = false;
             tryMove(selectedPeg, peg);
         } else if (pegs[peg].length > 0) {
             // pick up
@@ -282,8 +290,11 @@
             liftedDisk = disk;
             liftAnim = 0;
             dragging = true;
+            dragMoved = false;
             dragFromPeg = peg;
             dragDisk = disk;
+            dragStartX = x;
+            dragStartY = y;
             dragX = pegPositions[peg].x;
             dragY = liftY;
         }
@@ -293,16 +304,27 @@
         hoverPeg = getClosestPeg(x);
 
         if (dragging && liftedDisk >= 0) {
-            dragX = x;
-            dragY = y;
+            if (!dragMoved) {
+                const dx = x - dragStartX;
+                const dy = y - dragStartY;
+                if (dx * dx + dy * dy > DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) {
+                    dragMoved = true;
+                }
+            }
+            if (dragMoved) {
+                dragX = x;
+                dragY = y;
+            }
         }
     }
 
     function handlePointerUp(x, y) {
         if (dragging && liftedDisk >= 0) {
-            const toPeg = getClosestPeg(x);
             dragging = false;
-            tryMove(dragFromPeg, toPeg);
+            if (dragMoved) {
+                tryMove(dragFromPeg, getClosestPeg(x));
+            }
+            // Click (no drag): keep the disk lifted for a second tap/click.
         }
     }
 
@@ -743,4 +765,30 @@
     bestPossibleEl.textContent = getMinMoves().toString();
 
     requestAnimationFrame(frame);
+
+    if (typeof globalThis !== 'undefined' && globalThis.HANOI_TEST) {
+        globalThis.__hanoiTest = {
+            start() { computeLayout(); initGame(); },
+            pegs() { return pegs.map(p => p.slice()); },
+            lifted() { return { selectedPeg, liftedDisk, dragging, dragMoved }; },
+            pointerDown(x, y) { handlePointerDown(x, y); },
+            pointerMove(x, y) { handlePointerMove(x, y); },
+            pointerUp(x, y) { handlePointerUp(x, y); },
+            pegPoint(i) {
+                return {
+                    x: pegPositions[i].x,
+                    y: pegPositions[i].baseY - pegHeight * 0.5
+                };
+            },
+            totalDisks() {
+                return pegs.reduce((n, p) => n + p.length, 0) + (liftedDisk >= 1 ? 1 : 0);
+            },
+            flushDrop() {
+                if (dropAnim.active) {
+                    dropAnim.active = false;
+                    completeMove(dropAnim.to, dropAnim.disk);
+                }
+            }
+        };
+    }
 })();
