@@ -802,10 +802,13 @@ function parsePolynomial(str, variable = 'x', ring = 'Q') {
 
     // Replace ** with ^
     str = str.replace(/\*\*/g, '^');
+    // MathQuill/latex conversion emits x_1**(2) -> x_1^(2); normalize paren exponents.
+    str = str.replace(/\^\(([^)]+)\)/g, '^$1');
 
     // Find maximum degree
     let maxDegree = 0;
-    const powerRegex = new RegExp(variable + '\\^(\\d+)', 'g');
+    const escapedVar = variable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const powerRegex = new RegExp(escapedVar + '\\^(\\d+)', 'g');
     let match;
     while ((match = powerRegex.exec(str)) !== null) {
         maxDegree = Math.max(maxDegree, parseInt(match[1]));
@@ -834,7 +837,10 @@ function parsePolynomial(str, variable = 'x', ring = 'Q') {
             if (coeff === '' || coeff === '+') coeff = '1';
             if (coeff === '-') coeff = '-1';
             coeff = coeff.replace(/\*/g, '');
-            const power = parseInt(parts[1]);
+            const power = parseInt(parts[1], 10);
+            if (!Number.isFinite(power) || power < 0 || power >= coeffs.length) {
+                throw new Error(`Invalid exponent in term "${term}"`);
+            }
             coeffs[power] = parseFloat(coeff);
         } else {
             // Linear term

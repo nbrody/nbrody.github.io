@@ -288,7 +288,9 @@ function setZFromEvent(e) {
     const y = (e.clientY - rect.top) * (SH / rect.height);
     let z = toZ(x, y);
     z = [ Math.max(-SR, Math.min(SR, z[0])), Math.max(-SR, Math.min(SR, z[1])) ];
-    if (cabs(z) < 0.08) z = cscale(z, 0.08 / Math.max(cabs(z), 1e-6)); // keep z away from 0
+    // Keep z away from 0: scaling [0,0] is a no-op, so pick a fallback direction.
+    const az = cabs(z);
+    if (az < 0.08) z = az < 1e-12 ? [0.08, 0] : cscale(z, 0.08 / az);
     Z = z;
     onZChanged();
 }

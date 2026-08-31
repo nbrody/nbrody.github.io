@@ -1018,7 +1018,9 @@
             poly = poly.replace(/\\right/g, '');
             poly = poly.replace(/\\/g, '');
             poly = poly.replace(/frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)');
-            poly = poly.replace(/\^\{([^}]+)\}/g, '**($1)');
+            // Keep exponents unparenthesized so parsePolynomial can read x_1^2
+            // (MathQuill emits x_{1}^{2} -> x_1**(2) if braces become parentheses).
+            poly = poly.replace(/\^\{([^}]+)\}/g, '**$1');
             poly = poly.replace(/\^([A-Za-z0-9_]+)/g, '**$1');
             poly = poly.replace(/\s+/g, ' ').trim();
             return poly;
