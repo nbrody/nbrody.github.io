@@ -327,7 +327,10 @@
     };
 
     document.getElementById('cube-close-btn').addEventListener('click', window.closeCubeFold);
-    document.getElementById('cube-unfold-btn').addEventListener('click', () => animateFold(!isFolded));
+    document.getElementById('cube-unfold-btn').addEventListener('click', () => {
+        const appState = window.getAppState ? window.getAppState() : null;
+        if (!appState || appState.surface === 'sphere') animateFold(!isFolded);
+    });
     document.getElementById('cube-hide-grid').addEventListener('change', e => setStrandsOnly(e.target.checked));
 
     // Render mode toggle (tiles/tubes) — wired up in cube3d since it loads first
