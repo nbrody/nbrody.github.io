@@ -7,6 +7,10 @@ let game, renderer, aiClient;
 
 let playerSide = PLAYER.SILVER; // Human plays silver by default
 let aiThinking = false;
+/** True while a human/AI move animation (piece + laser) is in flight. */
+let moveInProgress = false;
+/** Bumped on newGame so stale async move/AI completions are ignored. */
+let playGeneration = 0;
 let gameMode = 'vs-ai';         // 'vs-ai', 'vs-human'
 let difficulty = 'medium';
 const undoStack = [];           // serialized snapshots taken before each human move
@@ -58,7 +62,7 @@ function init() {
         else if (e.key === 'e' || e.key === 'E') rotateSelected(1);
         else if (e.key === 'Escape') { renderer.clearSelection(); hideRotateControls(); }
         else if (e.key === 'n' || e.key === 'N') newGame();
-        else if ((e.key === 'z' || e.key === 'Z') && !aiThinking) undoMove();
+        else if ((e.key === 'z' || e.key === 'Z') && !aiThinking && !moveInProgress) undoMove();
     });
 
     renderer.render();
@@ -72,7 +76,7 @@ function init() {
 // ========================
 
 function isHumanTurn() {
-    if (game.winner !== null || aiThinking) return false;
+    if (game.winner !== null || aiThinking || moveInProgress) return false;
     if (gameMode === 'vs-ai' && game.currentPlayer !== playerSide) return false;
     return true;
 }
@@ -169,6 +173,10 @@ function moveSquares(move) {
 
 // ---- A full human action: animate piece, fire laser, then let the AI reply ----
 async function executeMove(move) {
+    if (moveInProgress || game.winner !== null) return;
+    const gen = playGeneration;
+    moveInProgress = true;
+
     // Snapshot so this whole round (human + AI reply) can be undone.
     undoStack.push(game.serialize());
     updateUndoButton();
@@ -179,24 +187,33 @@ async function executeMove(move) {
     renderer.clearSelection();
     hideRotateControls();
 
-    await renderer.animatePiece(move);
-    game.applyMove(move);
-    renderer.setLastMove(moveSquares(move));
+    try {
+        await renderer.animatePiece(move);
+        if (gen !== playGeneration) return;
 
-    const laserPromise = renderer.animateLaser();
-    playSound('laser');
-    await laserPromise;
+        game.applyMove(move);
+        renderer.setLastMove(moveSquares(move));
 
-    game.resolveLaserHit();
-    renderer.render();
+        const laserPromise = renderer.animateLaser();
+        playSound('laser');
+        await laserPromise;
+        if (gen !== playGeneration) return;
 
-    if (checkGameOver()) return;
+        game.resolveLaserHit();
+        renderer.render();
 
-    updateTurnIndicator();
-    await maybeStartAITurn();
+        if (checkGameOver()) return;
+
+        updateTurnIndicator();
+        await maybeStartAITurn(gen);
+    } finally {
+        if (gen === playGeneration) moveInProgress = false;
+        updateUndoButton();
+    }
 }
 
-async function maybeStartAITurn() {
+async function maybeStartAITurn(expectedGen = playGeneration) {
+    if (expectedGen !== playGeneration) return;
     if (gameMode !== 'vs-ai' || game.winner !== null) {
         if (game.winner === null) {
             const name = game.currentPlayer === PLAYER.SILVER ? 'Silver' : 'Red';
@@ -214,9 +231,12 @@ async function maybeStartAITurn() {
     showThinking(true);
 
     await aiClient.ready;
+    if (expectedGen !== playGeneration) return;
+
     const move = await aiClient.chooseMove(game, difficulty, ({ iterations, total }) => {
         setThinkingProgress(iterations / total);
     });
+    if (expectedGen !== playGeneration) return;
 
     if (move) {
         if (move.type === 'rotate') playSound('rotate'); else playSound('move');
@@ -225,10 +245,12 @@ async function maybeStartAITurn() {
         const laserPromise = renderer.animateLaser();
         playSound('laser');
         await laserPromise;
+        if (expectedGen !== playGeneration) return;
         game.resolveLaserHit();
         renderer.render();
     }
 
+    if (expectedGen !== playGeneration) return;
     aiThinking = false;
     showThinking(false);
     updateUndoButton();
@@ -249,7 +271,7 @@ function checkGameOver() {
 }
 
 function undoMove() {
-    if (aiThinking || undoStack.length === 0) return;
+    if (aiThinking || moveInProgress || undoStack.length === 0) return;
     const snapshot = undoStack.pop();
     game = KhetGame.fromSerialized(snapshot);
     renderer.game = game;
@@ -340,7 +362,7 @@ function updateTurnIndicator() {
 
 function updateUndoButton() {
     const btn = document.getElementById('undo');
-    if (btn) btn.disabled = aiThinking || undoStack.length === 0;
+    if (btn) btn.disabled = aiThinking || moveInProgress || undoStack.length === 0;
 }
 
 function showThinking(on) {
@@ -369,20 +391,25 @@ function showWinOverlay(winner) {
 function newGame() {
     document.getElementById('winOverlay')?.classList.remove('visible');
 
+    // Invalidate any in-flight human/AI animation so it cannot mutate the
+    // fresh board after applyMove / resolveLaserHit.
+    playGeneration++;
+    moveInProgress = false;
+    aiThinking = false;
+
     game = new KhetGame();
     renderer.game = game;
     renderer.clearSelection();
     renderer.setLastMove(null);
     hideRotateControls();
     renderer.render();
-    aiThinking = false;
     undoStack.length = 0;
     showThinking(false);
 
     updateTurnIndicator();
     updateUndoButton();
 
-    maybeStartAITurn();
+    maybeStartAITurn(playGeneration);
     if (isHumanTurn()) updateStatus('Your turn! Click a piece to select it.');
 }
 
