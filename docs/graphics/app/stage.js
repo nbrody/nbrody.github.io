@@ -12,7 +12,7 @@ import { createTransport } from './transport.js';
 import { CMD, EVT, makeState } from './protocol.js';
 import { introspectControls, applyControl, invokeControl, sendKey, applyState } from './introspect.js';
 import { renderControls } from './controlsView.js';
-import { qs, el, params, clock } from './util.js';
+import { qs, params, studioQuery, clock } from './util.js';
 
 const frame = qs('#viz');
 
@@ -33,10 +33,18 @@ function resolvePlaylist() {
   return null;
 }
 
-const playlist = resolvePlaylist();
-if (!playlist || !playlist.items.length) {
-  location.replace('index.html');
+function playablePlaylist(pl) {
+  if (!pl || !Array.isArray(pl.items)) return null;
+  const items = pl.items.filter((it) => it && vizById(it.vizId));
+  return items.length ? { ...pl, items } : null;
 }
+
+const playlist = playablePlaylist(resolvePlaylist());
+if (!playlist) {
+  location.replace('index.html');
+} else {
+// `location.replace()` starts navigation but does not halt this module, so keep
+// the whole player boot inside the validated branch.
 
 // ── runtime state ────────────────────────────────────────────────────────────
 const order = playlist.items.slice();
@@ -236,8 +244,12 @@ qs('#uPanel').onclick = () => handle(CMD.TOGGLE_VIZ_PANEL);
 qs('#uReload').onclick = () => handle(CMD.RELOAD);
 
 function openRemoteWindow() {
-  const q = playlist.id ? `?pl=${encodeURIComponent(playlist.id)}` : '';
-  window.open(`remote.html${q}`, 'graphics-remote', 'width=420,height=820');
+  const p = params();
+  const launch = {};
+  if (playlist.id) launch.pl = playlist.id;
+  else if (p.viz) launch.viz = p.viz;
+  else if (p.all != null) launch.all = p.all;
+  window.open(`remote.html${studioQuery(launch)}`, 'graphics-remote', 'width=420,height=820');
 }
 
 // stage keyboard shortcuts (only when the parent — not the viz iframe — is focused)
@@ -258,3 +270,4 @@ transport.start();
 load(0);
 poke();
 broadcastState();
+}

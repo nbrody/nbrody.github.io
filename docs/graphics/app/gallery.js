@@ -3,7 +3,7 @@
 
 import { VISUALIZATIONS, CATEGORIES, vizById } from './manifest.js';
 import { PlaylistStore } from './store.js';
-import { qs, el, clear, params } from './util.js';
+import { qs, el, clear, params, studioQuery } from './util.js';
 
 const catalog = qs('#catalog');
 const editor = qs('#editor');
@@ -22,14 +22,14 @@ function toast(msg) {
 // ── launching ────────────────────────────────────────────────────────────────
 function playPlaylist(id) {
   if (!id) return;
-  location.href = `stage.html?pl=${encodeURIComponent(id)}`;
+  location.href = `stage.html${studioQuery({ pl: id })}`;
 }
 function openRemote(id) {
-  const url = `remote.html${id ? `?pl=${encodeURIComponent(id)}` : ''}`;
+  const url = `remote.html${studioQuery(id ? { pl: id } : {})}`;
   window.open(url, 'graphics-remote', 'width=420,height=820');
 }
 function playSingle(vizId) {
-  location.href = `stage.html?viz=${encodeURIComponent(vizId)}`;
+  location.href = `stage.html${studioQuery({ viz: vizId })}`;
 }
 
 // ── library ──────────────────────────────────────────────────────────────────
