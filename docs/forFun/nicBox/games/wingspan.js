@@ -83,8 +83,20 @@ class WingspanGame {
         this.phase = 'idle'; // idle | awaiting_action | round_end | game_end
         this.boards = {};    // pid -> { forest:[], grassland:[], wetland:[], food:{}, hand:[] }
         this.birdDeck = [];
+        this.pendingTimeouts = [];
+        this.dead = false;
 
         this.init();
+    }
+
+    schedule(fn, ms) {
+        const id = setTimeout(() => {
+            this.pendingTimeouts = this.pendingTimeouts.filter(t => t !== id);
+            if (this.dead) return;
+            fn();
+        }, ms);
+        this.pendingTimeouts.push(id);
+        return id;
     }
 
     // ── Setup ─────────────────────────────────────────────
@@ -264,6 +276,7 @@ class WingspanGame {
 
     // ── Round / Turn Flow ─────────────────────────────────
     startRound() {
+        if (this.dead) return;
         this.round++;
         if (this.round > this.maxRounds) {
             this.endWingspan();
@@ -276,10 +289,11 @@ class WingspanGame {
         this.phase = 'awaiting_action';
         this.setStatus(`🎬 Round ${this.round} — ${actions} actions each`);
         this.renderAll();
-        setTimeout(() => this.promptCurrentPlayer(), 1200);
+        this.schedule(() => this.promptCurrentPlayer(), 1200);
     }
 
     promptCurrentPlayer() {
+        if (this.dead) return;
         // Find next player with actions
         let tried = 0;
         while (tried < this.turnOrder.length) {
@@ -313,7 +327,7 @@ class WingspanGame {
         this.actionsLeft[pid]--;
         // Next player (rotate seat)
         this.turnIndex = (this.turnIndex + 1) % this.turnOrder.length;
-        setTimeout(() => this.promptCurrentPlayer(), 900);
+        this.schedule(() => this.promptCurrentPlayer(), 900);
     }
 
     endRound() {
@@ -336,7 +350,7 @@ class WingspanGame {
             this.setStatus(`📜 End of round ${this.round}`);
         }
         this.renderAll();
-        setTimeout(() => this.startRound(), 3500);
+        this.schedule(() => this.startRound(), 3500);
     }
 
     endWingspan() {
@@ -353,7 +367,7 @@ class WingspanGame {
         renderScoreboard();
         this.setStatus('🏆 Game over!');
         this.renderAll();
-        setTimeout(() => { this.cleanup(); endGame(); }, 2500);
+        this.schedule(() => { this.cleanup(); endGame(); }, 2500);
     }
 
     // ── Action Handlers ───────────────────────────────────
@@ -506,6 +520,9 @@ class WingspanGame {
     }
 
     cleanup() {
+        this.dead = true;
+        this.pendingTimeouts.forEach(clearTimeout);
+        this.pendingTimeouts = [];
         this.listeners.forEach(l => l.ref.off(l.event));
         this.listeners = [];
     }

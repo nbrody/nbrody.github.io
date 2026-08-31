@@ -22,8 +22,21 @@ class BlackjackGame {
         this.phase = 'betting';  // betting | playerTurn | dealerTurn | payout
 
         this.currentPlayerTurnIndex = 0;
+        this.actionPending = false;
+        this.pendingTimeouts = [];
+        this.dead = false;
 
         this.init();
+    }
+
+    schedule(fn, ms) {
+        const id = setTimeout(() => {
+            this.pendingTimeouts = this.pendingTimeouts.filter(t => t !== id);
+            if (this.dead) return;
+            fn();
+        }, ms);
+        this.pendingTimeouts.push(id);
+        return id;
     }
 
     // ── Setup ──────────────────────────────────────────────
@@ -191,18 +204,22 @@ class BlackjackGame {
     // ── Game Flow ──────────────────────────────────────────
 
     startRound() {
+        if (this.dead) return;
+
         this.round++;
         if (this.round > this.maxRounds) {
             this.endBlackjack();
             return;
         }
 
-        document.getElementById('bj-round').textContent = this.round;
+        const roundEl = document.getElementById('bj-round');
+        if (roundEl) roundEl.textContent = this.round;
 
         // Reset
         this.dealerHand = [];
         this.playerHands = {};
         this.currentPlayerTurnIndex = 0;
+        this.actionPending = false;
 
         this.playerIds.forEach(pid => {
             this.playerHands[pid] = { cards: [], standing: false, busted: false };
@@ -222,6 +239,9 @@ class BlackjackGame {
     }
 
     promptCurrentPlayer() {
+        if (this.dead) return;
+        this.actionPending = false;
+
         // Skip players who are done
         while (this.currentPlayerTurnIndex < this.playerIds.length) {
             const pid = this.playerIds[this.currentPlayerTurnIndex];
@@ -259,9 +279,12 @@ class BlackjackGame {
 
     handleHit(playerId) {
         const pid = this.playerIds[this.currentPlayerTurnIndex];
-        if (playerId !== pid) return;
+        if (playerId !== pid || this.actionPending || this.phase !== 'playerTurn') return;
 
         const hand = this.playerHands[pid];
+        if (!hand || hand.busted || hand.standing) return;
+
+        this.actionPending = true;
         hand.cards.push(this.drawCard());
         const val = this.handValue(hand.cards);
 
@@ -269,8 +292,14 @@ class BlackjackGame {
             hand.busted = true;
             this.setStatus(`${this.players[pid].avatar} 💥 BUST! (${val})`);
             this.renderHands(false);
+            // Drop activePlayer so phones cannot re-enable Hit/Stand during the delay.
+            updateGameState(this.roomCode, {
+                phase: 'playerTurn',
+                activePlayer: null,
+                actions: null
+            });
 
-            setTimeout(() => {
+            this.schedule(() => {
                 this.currentPlayerTurnIndex++;
                 this.promptCurrentPlayer();
             }, 1500);
@@ -278,12 +307,18 @@ class BlackjackGame {
             hand.standing = true;
             this.setStatus(`${this.players[pid].avatar} 🎯 21!`);
             this.renderHands(false);
+            updateGameState(this.roomCode, {
+                phase: 'playerTurn',
+                activePlayer: null,
+                actions: null
+            });
 
-            setTimeout(() => {
+            this.schedule(() => {
                 this.currentPlayerTurnIndex++;
                 this.promptCurrentPlayer();
             }, 1000);
         } else {
+            this.actionPending = false;
             this.renderHands(false);
             // Notify phone again for another action
             updateGameState(this.roomCode, {
@@ -296,9 +331,12 @@ class BlackjackGame {
 
     handleStand(playerId) {
         const pid = this.playerIds[this.currentPlayerTurnIndex];
-        if (playerId !== pid) return;
+        if (playerId !== pid || this.actionPending || this.phase !== 'playerTurn') return;
 
         const hand = this.playerHands[pid];
+        if (!hand || hand.busted || hand.standing) return;
+
+        this.actionPending = true;
         hand.standing = true;
 
         this.renderHands(false);
@@ -308,7 +346,9 @@ class BlackjackGame {
     }
 
     async dealerTurn() {
+        if (this.dead) return;
         this.phase = 'dealerTurn';
+        this.actionPending = true;
         updateGameState(this.roomCode, { phase: 'dealerTurn', activePlayer: null });
 
         this.setStatus('🎩 Dealer reveals...');
@@ -317,7 +357,11 @@ class BlackjackGame {
         // Dealer draws to 17
         const step = () => {
             return new Promise(resolve => {
-                setTimeout(() => {
+                this.schedule(() => {
+                    if (this.dead) {
+                        resolve(false);
+                        return;
+                    }
                     if (this.handValue(this.dealerHand) < 17) {
                         this.dealerHand.push(this.drawCard());
                         this.renderHands(true);
@@ -340,10 +384,11 @@ class BlackjackGame {
             keepDrawing = await step();
         }
 
-        setTimeout(() => this.payout(), 1500);
+        this.schedule(() => this.payout(), 1500);
     }
 
     payout() {
+        if (this.dead) return;
         this.phase = 'payout';
         const dealerVal = this.handValue(this.dealerHand);
         const dealerBust = dealerVal > 21;
@@ -393,7 +438,7 @@ class BlackjackGame {
         this.setStatus(summaryHTML);
 
         // Next round
-        setTimeout(() => {
+        this.schedule(() => {
             this.startRound();
         }, 4000);
     }
@@ -425,6 +470,10 @@ class BlackjackGame {
     }
 
     cleanup() {
+        this.dead = true;
+        this.actionPending = true;
+        this.pendingTimeouts.forEach(clearTimeout);
+        this.pendingTimeouts = [];
         this.listeners.forEach(l => l.ref.off(l.event));
         this.listeners = [];
     }

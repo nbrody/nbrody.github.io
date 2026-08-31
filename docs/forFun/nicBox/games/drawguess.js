@@ -19,6 +19,8 @@ class DrawGuessGame {
         this.timeLeft = 60;
         this.guessedPlayers = {};
         this.strokes = [];      // full drawing data from drawer
+        this.pendingTimeouts = [];
+        this.dead = false;
 
         this.wordBank = [
             // Easy
@@ -39,6 +41,16 @@ class DrawGuessGame {
         this.wordIndex = 0;
 
         this.init();
+    }
+
+    schedule(fn, ms) {
+        const id = setTimeout(() => {
+            this.pendingTimeouts = this.pendingTimeouts.filter(t => t !== id);
+            if (this.dead) return;
+            fn();
+        }, ms);
+        this.pendingTimeouts.push(id);
+        return id;
     }
 
     init() {
@@ -94,6 +106,8 @@ class DrawGuessGame {
     // ── Round Flow ─────────────────────────────────────────
 
     startRound() {
+        if (this.dead) return;
+
         this.round++;
         if (this.round > this.totalRounds) {
             this.endDrawGuess();
@@ -109,30 +123,42 @@ class DrawGuessGame {
         this.clearCanvas();
         this.timeLeft = 60;
 
-        document.getElementById('dg-round').textContent = `Round ${this.round} / ${this.totalRounds}`;
-        document.getElementById('dg-guesses').innerHTML = '';
+        const roundEl = document.getElementById('dg-round');
+        const guessesEl = document.getElementById('dg-guesses');
+        const wordEl = document.getElementById('dg-word-display');
+        const drawerEl = document.getElementById('dg-drawer-label');
+        if (!roundEl || !wordEl || !drawerEl) return;
+
+        roundEl.textContent = `Round ${this.round} / ${this.totalRounds}`;
+        if (guessesEl) guessesEl.innerHTML = '';
 
         // Show word hint (blanks) to guessers
         const blanks = this.currentWord.split('').map(c => c === ' ' ? '  ' : '_').join(' ');
-        document.getElementById('dg-word-display').innerHTML = `
+        wordEl.innerHTML = `
             <span class="dg-blanks">${blanks}</span>
             <span class="dg-word-length">(${this.currentWord.length} letters)</span>
         `;
 
-        document.getElementById('dg-drawer-label').innerHTML = `
+        drawerEl.innerHTML = `
             ${drawer.avatar} <span style="color:${drawer.color};font-weight:700;">${drawer.name}</span> is drawing!
         `;
 
-        // Push state to Firebase
+        // Shared gameState must NOT include the secret word — every phone
+        // already listens to this path. Publish the word only on drawerSecret
+        // so guesser UIs never receive it in their gameState snapshot.
         updateGameState(this.roomCode, {
             phase: 'drawing',
             drawerId: drawerId,
-            word: this.currentWord,  // only the drawer's phone reads this
             wordLength: this.currentWord.length,
             drawing: null,
             guesses: null,
             actions: null,
-            timeLeft: this.timeLeft
+            timeLeft: this.timeLeft,
+            revealedWord: null
+        });
+        getRoomRef(this.roomCode).child('drawerSecret').set({
+            drawerId: drawerId,
+            word: this.currentWord
         });
 
         this.startTimer();
@@ -265,17 +291,22 @@ class DrawGuessGame {
     }
 
     revealWord() {
-        document.getElementById('dg-word-display').innerHTML = `
-            <span class="dg-revealed-word">The word was: <strong>${this.currentWord}</strong></span>
-        `;
+        if (this.dead) return;
+        const wordEl = document.getElementById('dg-word-display');
+        if (wordEl) {
+            wordEl.innerHTML = `
+                <span class="dg-revealed-word">The word was: <strong>${this.currentWord}</strong></span>
+            `;
+        }
 
+        getRoomRef(this.roomCode).child('drawerSecret').remove();
         updateGameState(this.roomCode, {
             phase: 'reveal',
             revealedWord: this.currentWord
         });
 
         // Next round after delay
-        setTimeout(() => {
+        this.schedule(() => {
             getRoomRef(this.roomCode).child('gameState/actions').remove();
             this.startRound();
         }, 4000);
@@ -289,9 +320,13 @@ class DrawGuessGame {
     }
 
     cleanup() {
+        this.dead = true;
         if (this.timer) clearInterval(this.timer);
+        this.pendingTimeouts.forEach(clearTimeout);
+        this.pendingTimeouts = [];
         this.listeners.forEach(l => l.ref.off(l.event));
         this.listeners = [];
+        getRoomRef(this.roomCode).child('drawerSecret').remove();
     }
 }
 
