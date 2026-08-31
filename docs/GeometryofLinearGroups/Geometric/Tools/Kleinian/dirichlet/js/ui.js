@@ -494,7 +494,7 @@ export function setupPanelUI() {
       }
       try { localStorage.setItem('psl2c_matrices', payload); } catch (e) { }
       const b64 = btoa(payload);
-      const url = `PSL2CtoSO31.html?matrices=${encodeURIComponent(b64)}#source=psl2c_matrices`;
+      const url = `../PSL2CtoSO31.html?matrices=${encodeURIComponent(b64)}#source=psl2c_matrices`;
       window.location.href = url;
     } catch (e) {
       showMessage('Failed to export standard generators.', true);
