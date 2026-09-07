@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Dirichlet Domain Visualizer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      }
+
+      body {
+        margin: 0 auto;
+        padding: 1.5rem;
+        max-width: 900px;
+        line-height: 1.5;
+        color: #1a1a1a;
+        background: #fafafa;
+      }
+
+      h1 {
+        font-size: clamp(1.8rem, 2.6vw, 2.4rem);
+        margin-top: 0;
+      }
+
+      p {
+        margin: 0.5rem 0 1rem;
+      }
+
+      label {
+        font-weight: 600;
+        display: block;
+        margin-bottom: 0.25rem;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 120px;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier,
+          monospace;
+        font-size: 0.95rem;
+        padding: 0.5rem;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        box-sizing: border-box;
+        background: #fff;
+      }
+
+      button {
+        background: #2563eb;
+        color: #fff;
+        border: none;
+        border-radius: 999px;
+        padding: 0.65rem 1.4rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+      }
+
+      #wallsList {
+        margin: 0.75rem 0;
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid rgba(37, 99, 235, 0.2);
+      }
+
+      #messages {
+        min-height: 1.2rem;
+        color: #b91c1c;
+        font-weight: 600;
+      }
+
+      canvas {
+        display: block;
+        margin-top: 1.5rem;
+        width: 100%;
+        max-width: 720px;
+        height: auto;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        background: #fff;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        align-items: flex-start;
+      }
+
+      .row > * {
+        flex: 1 1 300px;
+      }
+
+      .note {
+        font-size: 0.9rem;
+        color: #4b5563;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #0f172a;
+          color: #e2e8f0;
+        }
+        textarea,
+        canvas {
+          background: #1e293b;
+          color: #e2e8f0;
+          border-color: #334155;
+        }
+        button {
+          background: #3b82f6;
+        }
+        #wallsList {
+          background: rgba(59, 130, 246, 0.12);
+          border-color: rgba(59, 130, 246, 0.35);
+        }
+        #messages {
+          color: #f87171;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Dirichlet Domain Visualizer</h1>
+    <p>
+      Provide a finite set of lattice translation vectors in \(\mathbb{R}^2\).
+      The tool constructs the Dirichlet (Voronoi) domain around the origin by
+      intersecting the half-planes determined by the perpendicular bisectors of
+      the translation vectors. The resulting polygon, when bounded, is the
+      fundamental domain of the lattice. The vectors that actively determine the
+      walls of the Dirichlet domain are highlighted below.
+    </p>
+    <div class="row">
+      <div>
+        <label for="vectorsInput">Vectors (one per line, e.g. <code>1, 0</code>)</label>
+        <textarea id="vectorsInput">1, 0
+0, 1
+</textarea>
+        <p class="note">
+          Negative counterparts are automatically included. You can enter
+          vectors separated by commas or spaces.
+        </p>
+        <button id="computeButton" type="button">Compute Dirichlet Domain</button>
+        <div id="messages"></div>
+        <div id="wallsList"></div>
+      </div>
+      <div>
+        <canvas id="domainCanvas" width="640" height="640"></canvas>
+      </div>
+    </div>
+
+    <script>
+      const inputElement = document.getElementById("vectorsInput");
+      const computeButton = document.getElementById("computeButton");
+      const messageElement = document.getElementById("messages");
+      const wallsElement = document.getElementById("wallsList");
+      const canvas = document.getElementById("domainCanvas");
+      const ctx = canvas.getContext("2d");
+
+      const EPS = 1e-9;
+
+      function parseVectors(text) {
+        const lines = text
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0);
+        const vectors = [];
+        const seen = new Set();
+        let hasError = false;
+
+        lines.forEach((line, index) => {
+          const pieces = line
+            .split(/[\s,]+/)
+            .map((token) => token.trim())
+            .filter((token) => token.length > 0);
+
+          if (pieces.length < 2) {
+            if (!hasError) {
+              messageElement.textContent = `Line ${index + 1} is missing a coordinate.`;
+            }
+            hasError = true;
+            return;
+          }
+
+          const x = Number(pieces[0]);
+          const y = Number(pieces[1]);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) {
+            if (!hasError) {
+              messageElement.textContent = `Line ${index + 1} does not contain valid numbers.`;
+            }
+            hasError = true;
+            return;
+          }
+
+          if (Math.hypot(x, y) < EPS) {
+            if (!hasError) {
+              messageElement.textContent = `Vector on line ${index + 1} is too close to zero and has been ignored.`;
+            }
+            hasError = true;
+            return;
+          }
+
+          const key = `${x.toFixed(9)},${y.toFixed(9)}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            vectors.push([x, y]);
+          }
+        });
+
+        if (hasError) {
+          return null;
+        }
+        return vectors;
+      }
+
+      function addVectorToMap(map, vector) {
+        const key = `${vector[0].toFixed(9)},${vector[1].toFixed(9)}`;
+        if (!map.has(key)) {
+          const normSq = vector[0] * vector[0] + vector[1] * vector[1];
+          map.set(key, {
+            vector: vector,
+            threshold: 0.5 * normSq,
+          });
+        }
+      }
+
+      function buildHalfPlanes(vectors) {
+        const map = new Map();
+        vectors.forEach((vector) => {
+          addVectorToMap(map, vector);
+          addVectorToMap(map, [-vector[0], -vector[1]]);
+        });
+        return Array.from(map.values());
+      }
+
+      function dot(a, b) {
+        return a[0] * b[0] + a[1] * b[1];
+      }
+
+      function clipPolygonWithHalfPlane(polygon, halfPlane) {
+        if (polygon.length === 0) {
+          return [];
+        }
+
+        const { vector, threshold } = halfPlane;
+        const result = [];
+        const len = polygon.length;
+
+        for (let i = 0; i < len; i += 1) {
+          const current = polygon[i];
+          const previous = polygon[(i + len - 1) % len];
+
+          const currentValue = dot(current, vector) - threshold;
+          const prevValue = dot(previous, vector) - threshold;
+          const currentInside = currentValue <= EPS;
+          const prevInside = prevValue <= EPS;
+
+          if (currentInside) {
+            if (!prevInside) {
+              const intersection = computeIntersection(previous, current, vector, threshold);
+              if (intersection) {
+                result.push(intersection);
+              }
+            }
+            result.push(current);
+          } else if (prevInside) {
+            const intersection = computeIntersection(previous, current, vector, threshold);
+            if (intersection) {
+              result.push(intersection);
+            }
+          }
+        }
+
+        return result;
+      }
+
+      function computeIntersection(p1, p2, vector, threshold) {
+        const direction = [p2[0] - p1[0], p2[1] - p1[1]];
+        const denominator = dot(vector, direction);
+        if (Math.abs(denominator) < EPS) {
+          return null;
+        }
+        const t = (threshold - dot(vector, p1)) / denominator;
+        return [p1[0] + t * direction[0], p1[1] + t * direction[1]];
+      }
+
+      function computeDirichletDomain(vectors) {
+        const halfPlanes = buildHalfPlanes(vectors);
+        if (halfPlanes.length === 0) {
+          return { polygon: [], halfPlanes, unbounded: true };
+        }
+
+        const maxNorm = Math.max(
+          1,
+          ...halfPlanes.map((plane) => Math.hypot(plane.vector[0], plane.vector[1]))
+        );
+        const bound = maxNorm;
+
+        let polygon = [
+          [-bound, -bound],
+          [bound, -bound],
+          [bound, bound],
+          [-bound, bound],
+        ];
+
+        halfPlanes.forEach((plane) => {
+          polygon = clipPolygonWithHalfPlane(polygon, plane);
+        });
+
+        const touchesBoundary = polygon.some(
+          (point) =>
+            Math.abs(point[0]) >= bound - 1e-6 || Math.abs(point[1]) >= bound - 1e-6
+        );
+
+        const unbounded = polygon.length === 0 || touchesBoundary;
+
+        return { polygon, halfPlanes, unbounded };
+      }
+
+      function identifyActiveWalls(polygon, halfPlanes) {
+        if (polygon.length === 0) {
+          return [];
+        }
+
+        const tol = 1e-6;
+        const walls = [];
+
+        halfPlanes.forEach((plane) => {
+          const { vector, threshold } = plane;
+          let count = 0;
+          polygon.forEach((point) => {
+            if (Math.abs(dot(point, vector) - threshold) < tol) {
+              count += 1;
+            }
+          });
+          if (count >= 2) {
+            walls.push(vector.slice());
+          }
+        });
+
+        walls.sort((a, b) => Math.atan2(a[1], a[0]) - Math.atan2(b[1], b[0]));
+        return walls;
+      }
+
+      function drawDomain(polygon, vectors) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const maxAbsX = Math.max(1, ...polygon.map((p) => Math.abs(p[0])), ...vectors.map((v) => Math.abs(v[0])));
+        const maxAbsY = Math.max(1, ...polygon.map((p) => Math.abs(p[1])), ...vectors.map((v) => Math.abs(v[1])));
+        const extentX = maxAbsX * 1.2;
+        const extentY = maxAbsY * 1.2;
+        const scale = Math.min(
+          canvas.width / (2 * extentX),
+          canvas.height / (2 * extentY)
+        );
+        const originX = canvas.width / 2;
+        const originY = canvas.height / 2;
+
+        function toCanvas(point) {
+          return [originX + point[0] * scale, originY - point[1] * scale];
+        }
+
+        // draw axes
+        ctx.save();
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(0, originY);
+        ctx.lineTo(canvas.width, originY);
+        ctx.moveTo(originX, 0);
+        ctx.lineTo(originX, canvas.height);
+        ctx.stroke();
+        ctx.restore();
+
+        // draw polygon
+        if (polygon.length >= 2) {
+          ctx.beginPath();
+          const first = toCanvas(polygon[0]);
+          ctx.moveTo(first[0], first[1]);
+          for (let i = 1; i < polygon.length; i += 1) {
+            const [x, y] = toCanvas(polygon[i]);
+            ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.fillStyle = "rgba(37, 99, 235, 0.18)";
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#2563eb";
+          ctx.stroke();
+        }
+
+        // draw input vectors as arrows
+        ctx.fillStyle = "#ef4444";
+        ctx.strokeStyle = "#ef4444";
+        vectors.forEach((vector) => {
+          const end = toCanvas(vector);
+          drawArrow(originX, originY, end[0], end[1]);
+        });
+
+        // draw origin
+        ctx.beginPath();
+        ctx.arc(originX, originY, 4, 0, Math.PI * 2);
+        ctx.fillStyle = "#0f172a";
+        ctx.fill();
+      }
+
+      function drawArrow(x1, y1, x2, y2) {
+        const headLength = 10;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const angle = Math.atan2(dy, dx);
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(
+          x2 - headLength * Math.cos(angle - Math.PI / 6),
+          y2 - headLength * Math.sin(angle - Math.PI / 6)
+        );
+        ctx.lineTo(
+          x2 - headLength * Math.cos(angle + Math.PI / 6),
+          y2 - headLength * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      function formatVector(vector) {
+        return `(${vector[0].toFixed(4)}, ${vector[1].toFixed(4)})`;
+      }
+
+      function update() {
+        messageElement.textContent = "";
+        wallsElement.textContent = "";
+
+        const vectors = parseVectors(inputElement.value);
+        if (!vectors) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          return;
+        }
+
+        if (vectors.length === 0) {
+          messageElement.textContent = "Please enter at least one non-zero vector.";
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          return;
+        }
+
+        const { polygon, halfPlanes, unbounded } = computeDirichletDomain(vectors);
+        drawDomain(polygon, vectors);
+
+        if (polygon.length === 0) {
+          messageElement.textContent =
+            "The provided vectors do not determine a bounded Dirichlet domain. Add more vectors.";
+          wallsElement.textContent = "";
+          return;
+        }
+
+        const walls = identifyActiveWalls(polygon, halfPlanes);
+        if (walls.length === 0) {
+          wallsElement.textContent =
+            "No active walls detected. Try including additional vectors.";
+        } else {
+          const list = document.createElement("ul");
+          walls.forEach((vector) => {
+            const item = document.createElement("li");
+            item.textContent = formatVector(vector);
+            list.appendChild(item);
+          });
+          wallsElement.innerHTML = "<strong>Vectors defining the walls:</strong>";
+          wallsElement.appendChild(list);
+        }
+
+        if (unbounded) {
+          messageElement.textContent =
+            "Warning: the Dirichlet domain appears to be unbounded in some direction. The visualization is truncated.";
+        }
+      }
+
+      computeButton.addEventListener("click", update);
+      window.addEventListener("DOMContentLoaded", update);
+    </script>
+  </body>
+</html>
