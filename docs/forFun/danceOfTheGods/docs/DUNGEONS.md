@@ -67,7 +67,7 @@ dungeons* in braziers (teaser vignettes — the bronze jar, the black pool).
 hangs the first crown above the omphalos and asks what the witness saw —
 three dialogue choices, all true, differently.
 **The god.** Apollo fights radiant and brittle, exactly per `GODS.md`: he
-*narrates his own excellence* between turns. Team: Slithra, Solserp,
+*narrates his own excellence* between turns. Team: Solisk, Solserp,
 **Pythonos** capstone. Beating him is the game's first taste of a stage-3.
 **Favor of Apollo** — and the Sacred Way's laurels bloom as you pass.
 
@@ -82,7 +82,7 @@ score of which you chose.
 of salt water sit on twin plinths; Athena walks the halls asking the player
 what *they* would have given the city, and files the answer.
 **The god.** Athena fights like a proof: she opens with Strategize every
-time, and her dialogue observes your type choices aloud. Team: Owlet,
+time, and her dialogue observes your type choices aloud. Team: Glyphet,
 Glaucon, **Glaux Sophos**. If you solved all three riddles, she leads with
 her weakest beast — a handicap she calls *respect*.
 **Favor of Athena.**
@@ -120,7 +120,7 @@ the pirate captain one room before the end; his "after" line is delivered as
 a dolphin.
 **The god.** Dionysus, revealed, fights sitting down, wreathed, delighted:
 the battle field is drunk (cosmetic wobble; his status moves land
-half again as often — the loosening). Team: Cubvine, Vinther, **Pantheros**.
+half again as often — the loosening). Team: Revelcub, Vinther, **Pantheros**.
 **Favor of Dionysus** — the sea ring opens fully; the helmsman becomes your
 ferryman.
 
@@ -138,7 +138,7 @@ boasts echo from the jar when struck; Hermes's lockpick scratches are still
 on the lid; thirteen tally-marks inside, one per month.
 **The god.** Ares waits *inside the open jar*, sitting on its floor — his
 choice of arena, the site of his humiliation, because per `GODS.md` he is
-honest as a wound. Team: Piglos, Warthos, **Kalydon**. He fights at full
+honest as a wound. Team: Clashog, Warthos, **Phalanboar**. He fights at full
 joy and thanks you win or lose; it is the friendliest fight in the game and
 the hardest so far.
 **Favor of Ares.**
@@ -158,7 +158,7 @@ The mechanics of Myth VI's release test.
 the choice to lower the amphora.
 **The god.** Artemis fights **only those who passed** — refuse the release
 and there is no battle, no Favor, and the Green does not let you find its
-heart again for a long while. Team: Fawnling, Cerynhind, **Elaphos
+heart again for a long while. Team: Cresfawn, Cerynhind, **Elaphos
 Chrysos** — and the golden hind itself watches from the treeline.
 **Favor of Artemis** — and the golden antler (the Elaphos line's hidden
 evolution item).
@@ -176,8 +176,8 @@ through the hall's one window regreen as the reunion beat lands; the
 pomegranate — the game's one seen-but-unusable item — is placed in your bag
 here by a hand you don't see.
 **The god.** Demeter, at a plain altar heaped with bread. She fights slowly,
-enormously, sorrow-first — Spore Cloud opens every bout. Team: Seedviper,
-Grainwyrm, **Ophis Karpos**.
+enormously, sorrow-first — Spore Cloud opens every bout. Team: Sheafang,
+Granibble, **Thesmora**.
 **Favor of Demeter** — and the cave below Eleusis stands open.
 
 ## VIII. The House of Hades — ends before HADES (Underworld)
@@ -195,7 +195,7 @@ ascent — and the **Look Back / Don't Look** input at the last threshold,
 after everything else in this list.
 **The god.** Hades battles *before* the bargain, not after — the price of
 audience, stated exactly once, per `GODS.md`: he does not haggle twice.
-Team: Pupnos, Dihound, **Cerberos** (the one you soothed; it pulls its
+Team: Wickpup, Dihound, **Cerberos** (the one you soothed; it pulls its
 strikes, and he does not comment). Winning does not win Eurydice. Nothing
 wins Eurydice except the walk.
 **Favor of Hades** — given, with precision, whichever way the threshold goes.
@@ -211,11 +211,11 @@ backwards** (reversed controls, the game's one pure comedy beat), driving
 cattle in reverse past a bewildered search party.
 **Myth beats inside.** Myth IX staged in full — the theft, the tortoise, the
 trade — ending at the shrine where the **first lyre** hangs. Orpheus's own
-lyre hums when carried past it. Tortikin, if in the party, refuses to leave
+lyre hums when carried past it. Lyretto, if in the party, refuses to leave
 the room for a full minute (a real timer; the game just waits with you).
 **The god.** Hermes fights like a card trick: Chelys speed, guaranteed
 crits, switch-tricks, and running commentary he clearly prepared in advance.
-Team: Tortikin, Swiftshell, **Chelys Hermao**. Beating him earns the only
+Team: Lyretto, Swiftshell, **Chelys Hermao**. Beating him earns the only
 Favor delivered as a handshake.
 **Favor of Hermes.**
 
@@ -234,7 +234,7 @@ procession — which crosses the *interior*, room by room, gathering automata
 behind it like a parade.
 **The god.** Hephaestus fights from a work-stool, unhurried, repairing his
 lead beast *mid-battle* (his beasts heal a little every turn — the only god
-whose gimmick is maintenance). Team: Cindercrab, Bronzeclaw, **Automax**.
+whose gimmick is maintenance). Team: Kilnclaw, Bronzeclaw, **Automax**.
 **Favor of Hephaestus** — and the road to Sparta unjams, because the road
 was never blocked by rock, only by a quarrel.
 
@@ -254,7 +254,7 @@ final panel; the **Gold Mesh Charm** (held item: survive one KO at 1 HP) is
 pressed into your hand "from one professional to another."
 **The god.** Aphrodite fights last of the eleven and knows it: her battle is
 the game's status-effect exam — Charm everywhere, priority Dove Darts,
-Nectar stalls. Team: Dovie, Columbra, **Peristera**. Her pre-fight line asks
+Nectar stalls. Team: Dovelace, Columbra, **Peristera**. Her pre-fight line asks
 about Eurydice, kindly, before the player has told anyone.
 **Favor of Aphrodite.**
 
@@ -272,7 +272,7 @@ choice, the retelling of the Typhon war in the Council's own hall — and the
 finale that is sung, not fought, with the lyre mechanic learned in the House
 of Hades.
 **The god.** Zeus, last, alone, genial and terrifying at the same distance
-for the first time. Team: Peeplet, Aetion, **Aetos Dios** — and the fight
+for the first time. Team: Brontlet, Aetion, **Aetos Dios** — and the fight
 runs in weather: the arena cycles storm effects turn by turn.
 **Favor of Zeus** — the twelfth, which is not a key to anything, because
 there is nothing left locked. It is thanks.

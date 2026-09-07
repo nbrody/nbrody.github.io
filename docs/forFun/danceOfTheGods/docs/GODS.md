@@ -13,6 +13,29 @@ she would never leave the hearth to appear in a road game, and Hera because
 she is more interesting as an off-screen gravity that several of the others
 orbit. Both may yet appear; neither has a beast line.
 
+## Illustrated appearances
+
+All twelve patrons now have full-body transparent portraits in `assets/gen/gods/`.
+Their bearing follows the character sheets below; their colors and visual motifs
+follow their corresponding beast family. The gallery is available through
+**Meet the gods** or `#gods`. The [prompt set](../assets/gen/gods/prompts.json)
+records each design and its exact beast reference.
+
+| Portrait | Domain | Family resemblance |
+| --- | --- | --- |
+| [Zeus](../assets/gen/gods/zeus.png) | Sky | Storm-blue folds, ivory cloud curls, and lightning-gold edges echo Brontlet’s proud strut and Aetos Dios’s sheltering wings. |
+| [Poseidon](../assets/gen/gods/poseidon.png) | Sea | Turquoise, seafoam curls, and dark sea-stone accents follow Calfin’s sturdy warmth and Taurios’s sweeping breakers. |
+| [Hades](../assets/gen/gods/hades.png) | Underworld | Charcoal robes, aubergine shadows, lilac waylight, and small coin-gold details belong beside Wickpup and Cerberos. |
+| [Athena](../assets/gen/gods/athena.png) | Wisdom | Parchment folds, olive leaves, bronze edges, and teal geometry mirror Glyphet’s living pages and Glaux Sophos’s watchful gaze. |
+| [Ares](../assets/gen/gods/ares.png) | War | Crimson crests, russet cloth, and concentric bronze shields carry Clashog’s stubborn courage into Phalanboar’s protective stance. |
+| [Aphrodite](../assets/gen/gods/aphrodite.png) | Love | Ivory, rose petals, flowing love-knots, and a confident smile tie her to Dovelace and Peristera. |
+| [Apollo](../assets/gen/gods/apollo.png) | Sun | Sun-gold rays, copper curls, and ivory highlights recall Solisk’s sundial and Pythonos’s knowing smile. |
+| [Artemis](../assets/gen/gods/artemis.png) | Hunt | Moss green, moon-pale ivory, bronze feet, and a golden crescent bow follow Cresfawn and Elaphos Chrysos. |
+| [Hephaestus](../assets/gen/gods/hephaestus.png) | Forge | Terracotta, oxidized teal, hammered bronze, and warm kiln embers echo Kilnclaw’s craft and Automax’s sturdy care. |
+| [Hermes](../assets/gen/gods/hermes.png) | Herald | Olive-teal, ivory feather fans, lyre-shaped gold scrollwork, and a courier’s grin pair him with Lyretto and Chelys Hermao. |
+| [Demeter](../assets/gen/gods/demeter.png) | Harvest | Chestnut, oat cream, leafy green, wheat crowns, and tiny red poppies share Sheafang’s warmth and Thesmora’s abundance. |
+| [Dionysus](../assets/gen/gods/dionysus.png) | Wine | Plum and cream, grape clusters, curling ivy, and theatrical warmth connect him to Revelcub and Pantheros. |
+
 ## The family, briefly
 
 - **The elder generation** — children of Cronus and Rhea, who divided the

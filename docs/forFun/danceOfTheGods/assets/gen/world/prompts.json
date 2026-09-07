@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "method": "Built-in image_gen",
+  "direction": "Preserve the detailed PNG designs, reducing only fine surface texture and secondary highlights. Full color and softly shaded volume remain.",
+  "beasts": [
+    {
+      "key": "calfin",
+      "file": "assets/gen/world/calfin.png",
+      "reference": "assets/gen/beasts/calfin.png",
+      "prompt": "Use case: identity-preserve. Edit this exact creature illustration into a slightly less detailed overworld version. Keep the same beautiful character design, exact anatomy and proportions, expressive eyes, pose, silhouette, full color palette, distinctive markings and magical features. Keep about 85% of the original visual richness. Simplify only the smallest fur/paint texture strokes, tiny surface speckles and secondary highlight lines; group these into smooth colored shapes with soft cel shading. Keep the attractive rounded volumes, rich midtones, gentle highlights and colored outlines. This should look like the SAME PNG illustrated a little more cleanly for a small game sprite, not a redesign, icon, silhouette, flat vector, monochrome pottery drawing, or pixel art. Preserve the square composition, with the entire creature visible. Output a genuine transparent-background PNG cutout, with no scenery, floor, cast shadow or checkerboard."
+    },
+    {
+      "key": "fawnling",
+      "file": "assets/gen/world/fawnling.png",
+      "reference": "assets/gen/beasts/fawnling.png",
+      "prompt": "Use case: identity-preserve. Edit this exact creature illustration into a slightly less detailed overworld version. Keep the same beautiful character design, exact anatomy and proportions, expressive eyes, pose, silhouette, full color palette, distinctive markings and magical features. Keep about 85% of the original visual richness. Simplify only the smallest fur/paint texture strokes, tiny surface speckles and secondary highlight lines; group these into smooth colored shapes with soft cel shading. Keep the attractive rounded volumes, rich midtones, gentle highlights and colored outlines. This should look like the SAME PNG illustrated a little more cleanly for a small game sprite, not a redesign, icon, silhouette, flat vector, monochrome pottery drawing, or pixel art. Preserve the square composition, with the entire creature visible. Output a genuine transparent-background PNG cutout, with no scenery, floor, cast shadow or checkerboard."
+    }
+  ],
+  "keeper": [
+    {
+      "key": "orpheus-down",
+      "file": "assets/gen/world/orpheus-down.png",
+      "styleReferences": [
+        "assets/gen/beasts/fawnling.png",
+        "assets/gen/beasts/calfin.png"
+      ],
+      "prompt": "Use case: stylized-concept. Create one finished full-body character sprite for Orpheus, the human player of a Greek myth creature-collecting RPG. The two input images are references for the appealing full-color storybook creature illustration style ONLY. Orpheus must look naturally drawn by the same artist, with slightly less micro-texture and clearer softly shaded shapes for a small overworld sprite. Young adult Greek musician, warm olive-tan skin, kind expressive brown eyes, dark brown curly hair, small gold-and-olive laurel wreath. Cream knee-length chiton with restrained gold Greek border, soft teal cloak pinned at one shoulder, brown leather belt, brown strapped sandals, a small elegant gold-and-wood lyre held naturally against his left side. Friendly capable adventurer with a calm small smile, compact RPG proportions about four heads tall, human anatomy with two arms and two legs. FRONT view, facing directly toward camera, standing naturally with both feet visible, arms close to body. Clean colored outlines, rich warm colors, softly modeled volume, 2–3 shades per material, a few readable robe folds and hair curls. No black silhouette, no featureless face, no crude vector icon, no pixel art, no 3D. One character centered on a square canvas with clear margins. Genuine transparent background PNG cutout; no ground, cast shadow, halo, scenery, text or checkerboard."
+    },
+    {
+      "key": "orpheus-up",
+      "prompt": "Use case: identity-preserve. This input is the definitive design of Orpheus for our game. Render the SAME person from a different direction, preserving his exact face identity where visible, dark curly hair, olive-gold laurel, warm tan skin, cream knee-length chiton, brown belt and strapped sandals, teal cloak with restrained gold leaf edging, and gold wooden lyre held against his left side. Preserve the reference's proportions, full-color storybook drawing style, colored outlines and soft cel shading. Full body, standing, feet visible and on a common ground line. One character centered on a square canvas with room around every extremity. Genuine transparent PNG cutout with alpha, no background, no checkerboard, no ground, cast shadow, glow, text or border. Required view: directly from BEHIND, facing away from the viewer, as if walking north on the map. Show the back of his curly head and laurel and the full teal cloak. Face, eyes and front of chest are hidden. The lyre can peek beside his left hip where he carries it. Calm neutral standing pose, only the viewing angle changes.",
+      "file": "assets/gen/world/orpheus-up.png",
+      "reference": "Initial Orpheus front-view draft"
+    },
+    {
+      "key": "orpheus-left",
+      "prompt": "Use case: identity-preserve. This input is the definitive design of Orpheus for our game. Render the SAME person from a different direction, preserving his exact face identity where visible, dark curly hair, olive-gold laurel, warm tan skin, cream knee-length chiton, brown belt and strapped sandals, teal cloak with restrained gold leaf edging, and gold wooden lyre held against his left side. Preserve the reference's proportions, full-color storybook drawing style, colored outlines and soft cel shading. Full body, standing, feet visible and on a common ground line. One character centered on a square canvas with room around every extremity. Genuine transparent PNG cutout with alpha, no background, no checkerboard, no ground, cast shadow, glow, text or border. Required view: SIDE PROFILE facing LEFT, nose points toward image left, as if walking west on the map. Show a readable profile of his face, laurel and curls, side of the cream chiton and teal cloak, and lyre held close at his left side. Calm neutral standing pose, only the viewing angle changes.",
+      "file": "assets/gen/world/orpheus-left.png",
+      "reference": "Initial Orpheus front-view draft"
+    }
+  ],
+  "rightView": "The renderer mirrors orpheus-left.png for eastward movement.",
+  "corrections": [
+    {
+      "keys": ["fawnling"],
+      "prompt": "Create a transparent-background PNG of this exact deer sprite. Remove the checkered background completely. Keep the existing square composition, pose and creature artwork unchanged. Isolate just the deer, its antlers, crescent ornament and feather tail; empty space between the antlers is also transparent. Crisp opaque creature, fully transparent surrounding pixels, with no glow or shadow."
+    },
+    {
+      "keys": ["orpheus-down"],
+      "prompt": "Create a transparent-background PNG of this exact Orpheus sprite. Remove the checkered background completely. Keep the existing square composition, pose and human character artwork unchanged. Isolate just Orpheus, his clothes and lyre; the empty spaces between the lyre strings and his legs are also transparent. Crisp opaque character, fully transparent surrounding pixels, with no glow or shadow."
+    },
+    {
+      "keys": ["orpheus-up", "orpheus-left"],
+      "prompt": "Create a transparent-background PNG of this exact Orpheus sprite. Remove the checkered background completely. Keep the existing square composition, pose, viewing direction and human character artwork unchanged. Isolate just Orpheus, his clothes and lyre; empty spaces between the lyre strings and his legs are also transparent. Crisp opaque character, fully transparent surrounding pixels, with no glow or shadow."
+    }
+  ]
+}

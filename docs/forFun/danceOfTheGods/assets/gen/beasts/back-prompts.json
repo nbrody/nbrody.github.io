@@ -1,0 +1,141 @@
+{
+  "version": 2,
+  "method": "Built-in image_gen",
+  "additionalCorrectionAttempts": [
+    {
+      "keys": [
+        "tortikin"
+      ],
+      "prompt": "Edit this finished creature sprite: extract the lyre turtle from the gray and white checkerboard. Delete every background square. Output a PNG with an actual transparent alpha channel, with alpha 0 outside the creature. Preserve the turtle's exact rear three-quarter pose, silhouette, colors, golden lyre, strings, feathers, shell, tail, legs and painterly linework. No new background and no visual checkerboard. The checkerboard in the input is unwanted background, not part of the artwork. Make a clean transparent cutout of only the illustrated creature.",
+      "result": "Rejected: halo remained."
+    }
+  ],
+  "finalCutoutCorrection": {
+    "keys": [
+      "tortikin"
+    ],
+    "reference": "Original square rear-view draft",
+    "prompt": "Create a transparent-background PNG of this exact turtle sprite. Remove the checkered background completely. Keep the existing square composition, pose and creature artwork unchanged. Isolate just the turtle, its shell, feathers and lyre; the empty spaces between the lyre strings are also transparent. Crisp opaque creature, fully transparent surrounding pixels, with no glow or shadow."
+  },
+  "orientationCorrection": "Brontlet's generated rear view faces upper-right. art.js mirrors this one rear portrait before the common ally transform so every ally faces its opponent.",
+  "corrections": [
+    {
+      "keys": [
+        "peeplet",
+        "calfin",
+        "cindercrab",
+        "owlet",
+        "pupnos",
+        "piglos",
+        "slithra",
+        "fawnling",
+        "tortikin",
+        "seedviper",
+        "cubvine"
+      ],
+      "method": "Built-in image_gen edit using the generated rear sprite as the reference",
+      "prompt": "Use case: background-extraction. This is a finished game sprite with an incorrectly painted checkerboard background. Remove the ENTIRE gray-and-white checkerboard background and replace it with REAL TRANSPARENCY in the PNG alpha channel. Preserve the illustrated creature exactly: same rear view, pose, colors, anatomy, linework, lighting, and every feather or flame. Do not redraw or reorient the creature. The only change is extracting it from the checkerboard. Output a transparent PNG cutout with genuinely transparent pixels around the subject, NOT a picture of transparency, NOT a white, gray, black, or solid background. No ground, no shadow, no text."
+    },
+    {
+      "keys": [
+        "calfin"
+      ],
+      "prompt": "Edit this finished creature sprite: extract the sea calf from the gray and white checkerboard. Delete every background square. Output a PNG with an actual transparent alpha channel, with alpha 0 outside the creature. Preserve the calf's exact rear three-quarter pose, silhouette, colors, wave horns, tail, foam, bubbles and painterly linework. No new background and no visual checkerboard. The checkerboard in the input is unwanted background, not part of the artwork. Make a clean transparent cutout of only the illustrated creature."
+    },
+    {
+      "keys": [
+        "tortikin"
+      ],
+      "prompt": "Remove the entire dark golden halo and background around this turtle, leaving only the turtle creature as a clean transparent PNG cutout. All pixels outside its body, feathers and lyre must be fully transparent (alpha 0). All body surfaces should be fully opaque (alpha 255). Remove all glow around the silhouette, no vignette, no shadows, no checkerboard, no solid background. Preserve the exact rear-view turtle drawing and all its anatomy, colors, gold lyre strings and feather tips. This is a background removal edit, not a new pose. Finished isolated sprite with real PNG transparency."
+    }
+  ],
+  "view": "Rear three-quarter, facing upper-left; battle renderer mirrors allies toward the opponent.",
+  "beasts": [
+    {
+      "key": "peeplet",
+      "name": "Brontlet",
+      "file": "assets/gen/beasts/peepletBack.png",
+      "reference": "assets/gen/beasts/peeplet.png",
+      "prompt": "Use case: identity-preserve.\nAsset type: matching BACK battle sprite for this exact creature in a Greek-myth creature RPG.\nInput image 1: identity, anatomy, palette, material, and illustration-style reference. Treat it as the same individual, turned around.\nPrimary request: Draw the SAME creature seen from BEHIND in a three-quarter REAR view, looking AWAY toward the UPPER LEFT of the square. We should primarily see its back, rear of the head, tail, and backs of limbs/wings. Do NOT show its chest or a full face. Do NOT turn its head back to look at the viewer. A tiny edge of the left-facing muzzle or beak is acceptable, but the camera is firmly behind the animal, slightly above ground height.\nPreserve: its exact species, juvenile proportions, all distinctive hybrid anatomy, palette, markings, material finish, and the polished hand-drawn storybook/cel-shaded style of the reference. Naturally show the rear surfaces of those features, not face details painted onto its back.\nComposition: exactly ONE full-body creature, centered, all extremities inside the frame with at least 6% clear margins, comfortable battle-ready pose. Maintain the reference's approximate body size and silhouette. Square canvas.\nBackground: GENUINELY TRANSPARENT alpha. No floor, ground, contact shadow, backdrop, scenery, checkerboard drawing, text, labels, arrows, frame, or watermark. Preserve delicate feather tips and translucent magic. This is a complete finished sprite, not a turnaround sheet.\nCharacter: Brontlet, Stormcloud eaglet. Sky domain / Zeus.\nRear design specifics: Show slate-blue feathered back, layered zigzag gold-tipped wings, fluffy ivory cloud-ruff peeking at neck, rear of golden lightning crest, gold talons and tail fan. Wings partly lifted with the eaglet's confident stance."
+    },
+    {
+      "key": "calfin",
+      "name": "Calfin",
+      "file": "assets/gen/beasts/calfinBack.png",
+      "reference": "assets/gen/beasts/calfin.png",
+      "prompt": "Use case: identity-preserve.\nAsset type: matching BACK battle sprite for this exact creature in a Greek-myth creature RPG.\nInput image 1: identity, anatomy, palette, material, and illustration-style reference. Treat it as the same individual, turned around.\nPrimary request: Draw the SAME creature seen from BEHIND in a three-quarter REAR view, looking AWAY toward the UPPER LEFT of the square. We should primarily see its back, rear of the head, tail, and backs of limbs/wings. Do NOT show its chest or a full face. Do NOT turn its head back to look at the viewer. A tiny edge of the left-facing muzzle or beak is acceptable, but the camera is firmly behind the animal, slightly above ground height.\nPreserve: its exact species, juvenile proportions, all distinctive hybrid anatomy, palette, markings, material finish, and the polished hand-drawn storybook/cel-shaded style of the reference. Naturally show the rear surfaces of those features, not face details painted onto its back.\nComposition: exactly ONE full-body creature, centered, all extremities inside the frame with at least 6% clear margins, comfortable battle-ready pose. Maintain the reference's approximate body size and silhouette. Square canvas.\nBackground: GENUINELY TRANSPARENT alpha. No floor, ground, contact shadow, backdrop, scenery, checkerboard drawing, text, labels, arrows, frame, or watermark. Preserve delicate feather tips and translucent magic. This is a complete finished sprite, not a turnaround sheet.\nCharacter: Calfin, Breaker calf. Sea domain / Poseidon.\nRear design specifics: Show turquoise back and haunches, foamy mane and back surfaces of the two curling wave horns, cloven hooves, and raised kelp-fluke tail. Playful braced four-legged stance."
+    },
+    {
+      "key": "cindercrab",
+      "name": "Kilnclaw",
+      "file": "assets/gen/beasts/cindercrabBack.png",
+      "reference": "assets/gen/beasts/cindercrab.png",
+      "prompt": "Use case: identity-preserve.\nAsset type: matching BACK battle sprite for this exact creature in a Greek-myth creature RPG.\nInput image 1: identity, anatomy, palette, material, and illustration-style reference. Treat it as the same individual, turned around.\nPrimary request: Draw the SAME creature seen from BEHIND in a three-quarter REAR view, looking AWAY toward the UPPER LEFT of the square. We should primarily see its back, rear of the head, tail, and backs of limbs/wings. Do NOT show its chest or a full face. Do NOT turn its head back to look at the viewer. A tiny edge of the left-facing muzzle or beak is acceptable, but the camera is firmly behind the animal, slightly above ground height.\nPreserve: its exact species, juvenile proportions, all distinctive hybrid anatomy, palette, markings, material finish, and the polished hand-drawn storybook/cel-shaded style of the reference. Naturally show the rear surfaces of those features, not face details painted onto its back.\nComposition: exactly ONE full-body creature, centered, all extremities inside the frame with at least 6% clear margins, comfortable battle-ready pose. Maintain the reference's approximate body size and silhouette. Square canvas.\nBackground: GENUINELY TRANSPARENT alpha. No floor, ground, contact shadow, backdrop, scenery, checkerboard drawing, text, labels, arrows, frame, or watermark. Preserve delicate feather tips and translucent magic. This is a complete finished sprite, not a turnaround sheet.\nCharacter: Kilnclaw, Walking kiln crab. Forge domain / Hephaestus.\nRear design specifics: Show the rounded rear of the terracotta kiln carapace, oxidized bronze bands, chimney flame, rear of the hammer claw and little pincer, and small side tool holster. The furnace opening and face are on the far FRONT and should not appear on its back."
+    },
+    {
+      "key": "owlet",
+      "name": "Glyphet",
+      "file": "assets/gen/beasts/owletBack.png",
+      "reference": "assets/gen/beasts/owlet.png",
+      "prompt": "Use case: identity-preserve.\nAsset type: matching BACK battle sprite for this exact creature in a Greek-myth creature RPG.\nInput image 1: identity, anatomy, palette, material, and illustration-style reference. Treat it as the same individual, turned around.\nPrimary request: Draw the SAME creature seen from BEHIND in a three-quarter REAR view, looking AWAY toward the UPPER LEFT of the square. We should primarily see its back, rear of the head, tail, and backs of limbs/wings. Do NOT show its chest or a full face. Do NOT turn its head back to look at the viewer. A tiny edge of the left-facing muzzle or beak is acceptable, but the camera is firmly behind the animal, slightly above ground height.\nPreserve: its exact species, juvenile proportions, all distinctive hybrid anatomy, palette, markings, material finish, and the polished hand-drawn storybook/cel-shaded style of the reference. Naturally show the rear surfaces of those features, not face details painted onto its back.\nComposition: exactly ONE full-body creature, centered, all extremities inside the frame with at least 6% clear margins, comfortable battle-ready pose. Maintain the reference's approximate body size and silhouette. Square canvas.\nBackground: GENUINELY TRANSPARENT alpha. No floor, ground, contact shadow, backdrop, scenery, checkerboard drawing, text, labels, arrows, frame, or watermark. Preserve delicate feather tips and translucent magic. This is a complete finished sprite, not a turnaround sheet.\nCharacter: Glyphet, Living-script owl. Wisdom domain / Athena.\nRear design specifics: Show overlapping parchment-page wing and back feathers, teal and bronze accents, tail scroll tips and olive-leaf crest. Rear of round owl head; its huge eyes and beak belong on the hidden front."
+    },
+    {
+      "key": "pupnos",
+      "name": "Wickpup",
+      "file": "assets/gen/beasts/pupnosBack.png",
+      "reference": "assets/gen/beasts/pupnos.png",
+      "prompt": "Use case: identity-preserve.\nAsset type: matching BACK battle sprite for this exact creature in a Greek-myth creature RPG.\nInput image 1: identity, anatomy, palette, material, and illustration-style reference. Treat it as the same individual, turned around.\nPrimary request: Draw the SAME creature seen from BEHIND in a three-quarter REAR view, looking AWAY toward the UPPER LEFT of the square. We should primarily see its back, rear of the head, tail, and backs of limbs/wings. Do NOT show its chest or a full face. Do NOT turn its head back to look at the viewer. A tiny edge of the left-facing muzzle or beak is acceptable, but the camera is firmly behind the animal, slightly above ground height.\nPreserve: its exact species, juvenile proportions, all distinctive hybrid anatomy, palette, markings, material finish, and the polished hand-drawn storybook/cel-shaded style of the reference. Naturally show the rear surfaces of those features, not face details painted onto its back.\nComposition: exactly ONE full-body creature, centered, all extremities inside the frame with at least 6% clear margins, comfortable battle-ready pose. Maintain the reference's approximate body size and silhouette. Square canvas.\nBackground: GENUINELY TRANSPARENT alpha. No floor, ground, contact shadow, backdrop, scenery, checkerboard drawing, text, labels, arrows, frame, or watermark. Preserve delicate feather tips and translucent magic. This is a complete finished sprite, not a turnaround sheet.\nCharacter: Wickpup, Waylight hound. Underworld domain / Hades.\nRear design specifics: Show soft charcoal-purple furry back, floppy ears with two lilac wisps, rear haunches and raised wisp tail. Chest lantern is on the far side and should not become a hole in the back. Sitting alert but gentle."
+    },
+    {
+      "key": "piglos",
+      "name": "Clashog",
+      "file": "assets/gen/beasts/piglosBack.png",
+      "reference": "assets/gen/beasts/piglos.png",
+      "prompt": "Use case: identity-preserve.\nAsset type: matching BACK battle sprite for this exact creature in a Greek-myth creature RPG.\nInput image 1: identity, anatomy, palette, material, and illustration-style reference. Treat it as the same individual, turned around.\nPrimary request: Draw the SAME creature seen from BEHIND in a three-quarter REAR view, looking AWAY toward the UPPER LEFT of the square. We should primarily see its back, rear of the head, tail, and backs of limbs/wings. Do NOT show its chest or a full face. Do NOT turn its head back to look at the viewer. A tiny edge of the left-facing muzzle or beak is acceptable, but the camera is firmly behind the animal, slightly above ground height.\nPreserve: its exact species, juvenile proportions, all distinctive hybrid anatomy, palette, markings, material finish, and the polished hand-drawn storybook/cel-shaded style of the reference. Naturally show the rear surfaces of those features, not face details painted onto its back.\nComposition: exactly ONE full-body creature, centered, all extremities inside the frame with at least 6% clear margins, comfortable battle-ready pose. Maintain the reference's approximate body size and silhouette. Square canvas.\nBackground: GENUINELY TRANSPARENT alpha. No floor, ground, contact shadow, backdrop, scenery, checkerboard drawing, text, labels, arrows, frame, or watermark. Preserve delicate feather tips and translucent magic. This is a complete finished sprite, not a turnaround sheet.\nCharacter: Clashog, Shield-rush boar. War domain / Ares.\nRear design specifics: Show russet bristled back, sweeping scarlet crest and bronze shoulder shield-scutes seen from behind, curled red tail and braced cloven hooves. Do not add a face to the rump."
+    },
+    {
+      "key": "dovie",
+      "name": "Dovelace",
+      "file": "assets/gen/beasts/dovieBack.png",
+      "reference": "assets/gen/beasts/dovie.png",
+      "prompt": "Use case: identity-preserve.\nAsset type: matching BACK battle sprite for this exact creature in a Greek-myth creature RPG.\nInput image 1: identity, anatomy, palette, material, and illustration-style reference. Treat it as the same individual, turned around.\nPrimary request: Draw the SAME creature seen from BEHIND in a three-quarter REAR view, looking AWAY toward the UPPER LEFT of the square. We should primarily see its back, rear of the head, tail, and backs of limbs/wings. Do NOT show its chest or a full face. Do NOT turn its head back to look at the viewer. A tiny edge of the left-facing muzzle or beak is acceptable, but the camera is firmly behind the animal, slightly above ground height.\nPreserve: its exact species, juvenile proportions, all distinctive hybrid anatomy, palette, markings, material finish, and the polished hand-drawn storybook/cel-shaded style of the reference. Naturally show the rear surfaces of those features, not face details painted onto its back.\nComposition: exactly ONE full-body creature, centered, all extremities inside the frame with at least 6% clear margins, comfortable battle-ready pose. Maintain the reference's approximate body size and silhouette. Square canvas.\nBackground: GENUINELY TRANSPARENT alpha. No floor, ground, contact shadow, backdrop, scenery, checkerboard drawing, text, labels, arrows, frame, or watermark. Preserve delicate feather tips and translucent magic. This is a complete finished sprite, not a turnaround sheet.\nCharacter: Dovelace, Rose-knot dove. Love domain / Aphrodite.\nRear design specifics: Show backs of ivory-and-pink petal wings, rose-colored crest, elegant ribbon tail feathers describing a heart silhouette. The rosette chest is hidden on the far side. Graceful lifted foot."
+    },
+    {
+      "key": "slithra",
+      "name": "Solisk",
+      "file": "assets/gen/beasts/slithraBack.png",
+      "reference": "assets/gen/beasts/slithra.png",
+      "prompt": "Use case: identity-preserve.\nAsset type: matching BACK battle sprite for this exact creature in a Greek-myth creature RPG.\nInput image 1: identity, anatomy, palette, material, and illustration-style reference. Treat it as the same individual, turned around.\nPrimary request: Draw the SAME creature seen from BEHIND in a three-quarter REAR view, looking AWAY toward the UPPER LEFT of the square. We should primarily see its back, rear of the head, tail, and backs of limbs/wings. Do NOT show its chest or a full face. Do NOT turn its head back to look at the viewer. A tiny edge of the left-facing muzzle or beak is acceptable, but the camera is firmly behind the animal, slightly above ground height.\nPreserve: its exact species, juvenile proportions, all distinctive hybrid anatomy, palette, markings, material finish, and the polished hand-drawn storybook/cel-shaded style of the reference. Naturally show the rear surfaces of those features, not face details painted onto its back.\nComposition: exactly ONE full-body creature, centered, all extremities inside the frame with at least 6% clear margins, comfortable battle-ready pose. Maintain the reference's approximate body size and silhouette. Square canvas.\nBackground: GENUINELY TRANSPARENT alpha. No floor, ground, contact shadow, backdrop, scenery, checkerboard drawing, text, labels, arrows, frame, or watermark. Preserve delicate feather tips and translucent magic. This is a complete finished sprite, not a turnaround sheet.\nCharacter: Solisk, Sundial serpent. Sun domain / Apollo.\nRear design specifics: Show golden scaly back of upright snake neck, rear of sunray frill, broad flat sundial coil with bronze wedge markings, curled flame-shaped tail. Belly scutes should mostly face away. Its head is looking away toward upper-left."
+    },
+    {
+      "key": "fawnling",
+      "name": "Cresfawn",
+      "file": "assets/gen/beasts/fawnlingBack.png",
+      "reference": "assets/gen/beasts/fawnling.png",
+      "prompt": "Use case: identity-preserve.\nAsset type: matching BACK battle sprite for this exact creature in a Greek-myth creature RPG.\nInput image 1: identity, anatomy, palette, material, and illustration-style reference. Treat it as the same individual, turned around.\nPrimary request: Draw the SAME creature seen from BEHIND in a three-quarter REAR view, looking AWAY toward the UPPER LEFT of the square. We should primarily see its back, rear of the head, tail, and backs of limbs/wings. Do NOT show its chest or a full face. Do NOT turn its head back to look at the viewer. A tiny edge of the left-facing muzzle or beak is acceptable, but the camera is firmly behind the animal, slightly above ground height.\nPreserve: its exact species, juvenile proportions, all distinctive hybrid anatomy, palette, markings, material finish, and the polished hand-drawn storybook/cel-shaded style of the reference. Naturally show the rear surfaces of those features, not face details painted onto its back.\nComposition: exactly ONE full-body creature, centered, all extremities inside the frame with at least 6% clear margins, comfortable battle-ready pose. Maintain the reference's approximate body size and silhouette. Square canvas.\nBackground: GENUINELY TRANSPARENT alpha. No floor, ground, contact shadow, backdrop, scenery, checkerboard drawing, text, labels, arrows, frame, or watermark. Preserve delicate feather tips and translucent magic. This is a complete finished sprite, not a turnaround sheet.\nCharacter: Cresfawn, Moonbow hind. Hunt domain / Artemis.\nRear design specifics: Show tan/moss spotted back and haunches, fletching-shaped tail, bronze hooves, rear of golden crescent bow antlers and fine silver strand. Body facing away in a poised light-footed stance."
+    },
+    {
+      "key": "tortikin",
+      "name": "Lyretto",
+      "file": "assets/gen/beasts/tortikinBack.png",
+      "reference": "assets/gen/beasts/tortikin.png",
+      "prompt": "Use case: identity-preserve.\nAsset type: matching BACK battle sprite for this exact creature in a Greek-myth creature RPG.\nInput image 1: identity, anatomy, palette, material, and illustration-style reference. Treat it as the same individual, turned around.\nPrimary request: Draw the SAME creature seen from BEHIND in a three-quarter REAR view, looking AWAY toward the UPPER LEFT of the square. We should primarily see its back, rear of the head, tail, and backs of limbs/wings. Do NOT show its chest or a full face. Do NOT turn its head back to look at the viewer. A tiny edge of the left-facing muzzle or beak is acceptable, but the camera is firmly behind the animal, slightly above ground height.\nPreserve: its exact species, juvenile proportions, all distinctive hybrid anatomy, palette, markings, material finish, and the polished hand-drawn storybook/cel-shaded style of the reference. Naturally show the rear surfaces of those features, not face details painted onto its back.\nComposition: exactly ONE full-body creature, centered, all extremities inside the frame with at least 6% clear margins, comfortable battle-ready pose. Maintain the reference's approximate body size and silhouette. Square canvas.\nBackground: GENUINELY TRANSPARENT alpha. No floor, ground, contact shadow, backdrop, scenery, checkerboard drawing, text, labels, arrows, frame, or watermark. Preserve delicate feather tips and translucent magic. This is a complete finished sprite, not a turnaround sheet.\nCharacter: Lyretto, Lyre-shell courier. Herald domain / Hermes.\nRear design specifics: Show back of olive-green tortoise and teal lyre-shell, gold curled lyre arms and string attachment structure viewed from the back, small ivory wing fans, short tail and feet in a determined stride. Shell remains the same musical instrument."
+    },
+    {
+      "key": "seedviper",
+      "name": "Sheafang",
+      "file": "assets/gen/beasts/seedviperBack.png",
+      "reference": "assets/gen/beasts/seedviper.png",
+      "prompt": "Create a transparent-background PNG showing this exact harvest dormouse Sheafang from BEHIND for a monster battle. Keep its warm chestnut and oat-cream fur, round leaf-interior ears, three wheat forelock spikes, red poppy tuft, leafy shoulder mantle and short plump seedpod tail with two leaves. Three-quarter REAR view looking toward the upper LEFT, back and ears and tail prominent, a sliver of one cream cheek visible, no full front face. Same full-color polished painted illustration and appealing proportions. Full body, sitting upright, four tiny paws, centered square composition with clear margins. Genuine transparent background, no backdrop, ground, text or shadow. One character only.",
+      "cutoutPrompt": "Create a transparent-background PNG of this exact creature sprite. Remove the checkered background completely. Keep the existing square composition, pose and creature artwork unchanged. Isolate just the creature, including its fur, leaves, flames, shell, feathers and lyre where present; the empty spaces between limbs, tail loops and lyre strings are also transparent. Crisp opaque creature, fully transparent surrounding pixels, with no glow or shadow.",
+      "concept": "Rear view of the reimagined harvest dormouse."
+    },
+    {
+      "key": "cubvine",
+      "name": "Revelcub",
+      "file": "assets/gen/beasts/cubvineBack.png",
+      "reference": "assets/gen/beasts/cubvine.png",
+      "prompt": "Use case: identity-preserve.\nAsset type: matching BACK battle sprite for this exact creature in a Greek-myth creature RPG.\nInput image 1: identity, anatomy, palette, material, and illustration-style reference. Treat it as the same individual, turned around.\nPrimary request: Draw the SAME creature seen from BEHIND in a three-quarter REAR view, looking AWAY toward the UPPER LEFT of the square. We should primarily see its back, rear of the head, tail, and backs of limbs/wings. Do NOT show its chest or a full face. Do NOT turn its head back to look at the viewer. A tiny edge of the left-facing muzzle or beak is acceptable, but the camera is firmly behind the animal, slightly above ground height.\nPreserve: its exact species, juvenile proportions, all distinctive hybrid anatomy, palette, markings, material finish, and the polished hand-drawn storybook/cel-shaded style of the reference. Naturally show the rear surfaces of those features, not face details painted onto its back.\nComposition: exactly ONE full-body creature, centered, all extremities inside the frame with at least 6% clear margins, comfortable battle-ready pose. Maintain the reference's approximate body size and silhouette. Square canvas.\nBackground: GENUINELY TRANSPARENT alpha. No floor, ground, contact shadow, backdrop, scenery, checkerboard drawing, text, labels, arrows, frame, or watermark. Preserve delicate feather tips and translucent magic. This is a complete finished sprite, not a turnaround sheet.\nCharacter: Revelcub, Festival panther. Wine domain / Dionysus.\nRear design specifics: Show plum panther cub's spotted back and playful haunches, grape-cluster spots, ivy tufts and long curling leaf-tipped tail. Cream face-mask markings remain on hidden front, not on its back."
+    }
+  ]
+}

@@ -1,6 +1,8 @@
 # DANCE OF THE GODS — Design & Build Plan
 *A Pokémon-style RPG set in mythological Greece*
 
+> **September 2026 overhaul:** For the implemented game, see [`../README.md`](../README.md). Book I now follows the original **Broken Song** storyline: Myrrha’s well, the listening shrine, Ione’s optional Cresfawn rescue, Kass’s defection, Daphne/Eros’s remembered notes, the hollow guardian, and the Laurel Seal ending. Battles now include harmony, consumable items, move uses, shared favor, and level 16/32 awakenings. The sections below retain the earlier long-term design; they are not a list of fully implemented features.
+
 > **Update (Jul 2026):** the player character is **Orpheus** (Pimpleia is the home village), and each city stages one myth as a scripted overworld sequence — the full twelve-myth outline lives in **`myths.md`** (Myths I Delphi & II Athens implemented). Beasts start with one weak move and learn from per-species `learn` tables on level-up. Section 2 below is the *implemented* type chart, generated from `js/data.js`.
 
 ---
@@ -9,7 +11,7 @@
 
 You are a young **Keeper** traveling ancient Greece, collecting **Theriomorphs** — sacred animals bound to the twelve Olympian gods. Five great poleis each host a **Temple Gym** run by an Oracle. Defeat all five, then ascend Mount Olympus to face the Divine Council.
 
-The hook: every creature line is a real sacred animal from Greek myth (Athena's owl, Zeus's eagle, Poseidon's bull), and each god defines an elemental **Domain** (the type system).
+The hook: every creature line draws on an animal, attribute, or episode from Greek myth (Athena's owl, Zeus's eagle, Poseidon's bull), and each god defines an elemental **Domain** (the type system).
 
 ---
 
@@ -79,20 +81,20 @@ dmg = (((2·lvl/5 + 2) · power · A/D) / 50 + 2) · eff · STAB · crit · roll
 
 ## 3. Creature Roster (36 total: 12 lines × 3 stages)
 
-Each god gets one 3-stage evolution line based on their sacred animal:
+Each god gets one 3-stage evolution line grounded in their myths and imagery. See BEASTS.md for the current animal/concept hybrids:
 
-1. **Zeus / Sky** — Aetos line: *Peeplet → Aetion → Aetos Dios* (eagle; final form wields thunderbolts)
+1. **Zeus / Sky** — Aetos line: *Brontlet → Aetion → Aetos Dios* (eagle; final form wields thunderbolts)
 2. **Poseidon / Sea** — Taurios line: *Calfin → Wavebull → Taurios* (sea-bull with kelp mane)
-3. **Hades / Underworld** — Cerberling line: *Pupnos → Dihound → Cerberos* (1 → 2 → 3 heads)
-4. **Athena / Wisdom** — Glaux line: *Owlet → Glaucon → Glaux Sophos* (little owl, bronze-armored final)
-5. **Ares / War** — Boaris line: *Piglos → Warthos → Kalydon* (Calydonian boar)
-6. **Aphrodite / Love** — Peristera line: *Dovie → Columbra → Peristera* (dove; charm/status specialist)
-7. **Apollo / Sun** — Pythonos line: *Slithra → Solserp → Pythonos* (Delphic serpent, solar flame)
-8. **Artemis / Hunt** — Elaphos line: *Fawnling → Cerynhind → Elaphos Chrysos* (golden hind, bronze hooves)
-9. **Hephaestus / Forge** — Automax line: *Cindercrab → Bronzeclaw → Automax* (bronze automaton crab, ref. Talos)
-10. **Hermes / Herald** — Chelys line: *Tortikin → Swiftshell → Chelys Hermao* (winged tortoise — the lyre tortoise, fastest creature in the game as a joke that becomes true)
-11. **Demeter / Harvest** — Ophis line: *Seedviper → Grainwyrm → Ophis Karpos* (grain serpent, drawn from Demeter's chthonic serpent chariot)
-12. **Dionysus / Wine** — Pantheros line: *Cubvine → Vinther → Pantheros* (ivy-wreathed panther)
+3. **Hades / Underworld** — Cerberling line: *Wickpup → Dihound → Cerberos* (1 → 2 → 3 heads)
+4. **Athena / Wisdom** — Glaux line: *Glyphet → Glaucon → Glaux Sophos* (little owl, bronze-armored final)
+5. **Ares / War** — Boaris line: *Clashog → Warthos → Phalanboar* (shield-rush boar)
+6. **Aphrodite / Love** — Peristera line: *Dovelace → Columbra → Peristera* (dove; charm/status specialist)
+7. **Apollo / Sun** — Pythonos line: *Solisk → Solserp → Pythonos* (Delphic serpent, solar flame)
+8. **Artemis / Hunt** — Elaphos line: *Cresfawn → Cerynhind → Elaphos Chrysos* (golden hind, bronze hooves)
+9. **Hephaestus / Forge** — Automax line: *Kilnclaw → Bronzeclaw → Automax* (bronze automaton crab, ref. Talos)
+10. **Hermes / Herald** — Chelys line: *Lyretto → Swiftshell → Chelys Hermao* (winged tortoise — the lyre tortoise, fastest creature in the game as a joke that becomes true)
+11. **Demeter / Harvest** — Granary line: *Sheafang → Granibble → Thesmora* (an original dormouse/granary hybrid with Demeter's wheat, barley, and poppies)
+12. **Dionysus / Wine** — Pantheros line: *Revelcub → Vinther → Pantheros* (ivy-wreathed panther)
 
 Plus **6 Legendary Monsters** (post-gym content): Chimera, Hydra, Sphinx, Pegasus, Minotaur, Phoenix. Dual-domain, no evolutions, one each hidden in the world.
 
@@ -185,7 +187,7 @@ Single-file HTML/JS (your usual stack), Canvas rendering, no build step. Archite
 - **Save system**: in-memory + export/import save string (no localStorage in artifacts)
 - **Battle engine**: pure function core (`resolveTurn(state, actionA, actionB) → newState + event log`) with the UI replaying the event log — makes it testable and lets you add AI later
 - **Trainer AI**: v1 = highest-expected-damage move; v2 = adds switching and status logic
-- **Aesthetic**: your editorial style could actually work here — cream parchment UI, Cormorant Garamond for dialogue, black-figure-pottery-inspired creature silhouettes (terracotta/black palette). Distinctive and way easier to make look good than pixel art.
+- **Aesthetic**: cream parchment UI, Cormorant Garamond for dialogue, and expressive, colorful beast illustrations. The original pottery silhouettes remain available as procedural fallbacks.
 
 ---
 
@@ -216,6 +218,6 @@ Each phase is independently shippable. Phase 1 is the right first artifact: it f
 ## 9. Open Design Questions
 
 1. Pottery-silhouette aesthetic vs. classic pixel art?
-2. Starter choice: pick one of three (traditional) — e.g., Owlet / Calfin / Slithra as a Wisdom/Sea/Sun triangle — or begin with Hermes's tortoise as a fixed story starter?
+2. Starter choice: pick one of three (traditional) — e.g., Glyphet / Calfin / Solisk as a Wisdom/Sea/Sun triangle — or begin with Hermes's tortoise as a fixed story starter?
 3. Difficulty: healing between gym fights automatic, or Pokémon-classic item economy?
 4. How mythologically strict — real Greek names throughout, or the softened portmanteaus above?

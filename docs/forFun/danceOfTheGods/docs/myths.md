@@ -173,7 +173,7 @@ beasts, and the god of roads waits at Pimpleia's gate with three companions —
 "I never travel with fewer than three" — the starter choice as a god's gift
 (and a running joke: he claims credit for Orpheus's lyre, correctly). The tale
 itself is *told* by Rhapsode Phemios on the Sacred Way — the origin of
-Orpheus's own lyre and of Tortikin's design (the shell IS the lyre). To stage
+Orpheus's own lyre and of Lyretto's design (the shell IS the lyre). To stage
 later as a flashback on Mt. Kyllene: the player briefly controls the theft as
 baby Hermes, walking backwards (reversed controls, one screen — the game's one
 pure comedy beat). Reward: the Chelys line's hidden speed blessing.

@@ -113,7 +113,7 @@ Lemnos-by-proxy.
 **Look.** First interior map: dark basalt tiles, ember-vent glow, the trapped
 golden throne glinting. Bronze accent everywhere (#e0914d earning its keep).
 **Who.** Hephaestus (sulking), Hera's priestess, a singed hoplite; Forge-line
-wilds (Cindercrab nests).
+wilds (Kilnclaw nests).
 **What happens.** **Myth X** — the Return of Hephaestus. Completion unblocks
 the road to Sparta: the geography is literally jammed by the family quarrel.
 **Status.** Planned.
@@ -156,7 +156,7 @@ The centaur camp is the optional trainer-gauntlet; Chiron is the forest's
 sanctuary. Narcissus is a side-tale, not a numbered myth — a quiet warning
 about looking at yourself when you should be looking at the world, placed
 deliberately on the road to Eleusis and the mirror-choice of Myth VIII.
-**Encounters.** Hunt/Harvest/Wine wilds Lv 14–18 (Fawnling line's home);
+**Encounters.** Hunt/Harvest/Wine wilds Lv 14–18 (Cresfawn line's home);
 ferns only.
 **Status.** New — adopted into the plan (absorbs the old "Taygetos road").
 
@@ -240,7 +240,7 @@ un-transformed sailor hiding on the beach who begs you not to drink anything.
 **What happens.** The island is the game's darkest riff on its own core
 mechanic: Circe also collects beasts — hers used to be people. A capture-ethics
 set-piece: her "wilds" can be caught like any beast, but Chiron, the Nereids,
-and your own Dovie all react to a transformed man in your amphorae, and the
+and your own Dovelace all react to a transformed man in your amphorae, and the
 endgame offers their release. Circe herself is an optional grand trainer
 (Wine/Wisdom/Sea team, the sea ring's hardest fight) and, defeated or
 befriended, becomes a healer who brews the game's status-cure items. A

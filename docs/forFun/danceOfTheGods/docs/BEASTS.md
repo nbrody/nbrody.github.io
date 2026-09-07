@@ -1,10 +1,8 @@
 # DANCE OF THE GODS — The Bestiary
 
-The twelve sacred lines, one for each Olympian. Every beast is a real sacred
-animal of its god, drawn in the black-figure style: a solid ink silhouette on
-terracotta, slip-cream incisions, and one accent in its domain's color. Stage 1
-of every line is implemented; stages 2 and 3 (evolutions at ~Lv 16 / ~Lv 32)
-are designed and named here so the lines evolve into what they already are.
+Twelve original animal-and-concept families with 36 illustrated forms, each grounded in its existing divine domain. The illustrations use expressive faces, bold silhouettes, rich color, and transparent backgrounds. Myth supplies the starting point; lantern anatomy, sundial coils, and walking kilns are original inventions.
+
+All twelve first-stage families have front and rear battle illustrations. The homepage and overworld use full-color, lightly simplified versions of the Calfin and Cresfawn PNGs alongside an illustrated Orpheus. Their anatomy, expressions, colors, and signature markings are preserved; only fine surface texture is reduced. World artwork prompts are in [`world/prompts.json`](../assets/gen/world/prompts.json). The field guide has three stage selectors and a front/back view switch for first forms. All 24 level-16 and level-32 awakenings have distinct front portraits, silhouettes, and personalities; their front art is used on both sides of battle. The complete evolution prompts are in [`evolutions/prompts.json`](../assets/gen/beasts/evolutions/prompts.json). Stable internal species keys preserve existing saves. The built-in image generator produced these assets; exact prompts and design metadata are in [`prompts.json`](../assets/gen/beasts/prompts.json). Open **Meet the beasts** from the title or the field guide from the journal.
 
 **Reading the numbers.** Base stats are `HP / Attack / Defense / Grace (sp.
 atk) / Aegis (sp. def) / Speed`, on a scale where ~45 is poor, ~55 solid, ~65
@@ -19,16 +17,17 @@ text, and eventually the Blessing system (a bond made mechanical).
 
 ---
 
-## 1. Peeplet → Aetion → Aetos Dios — the Eagle of Zeus (Sky)
+## 1. Brontlet → Aetion → Aetos Dios — the Eagle of Zeus (Sky)
 
-**Appearance.** A fist-sized eagle chick, all body and appetite: a plump ink
-teardrop with two slip wing-strokes it cannot yet fly with, stub tail feathers,
-and enormous round eyes. From its crown juts a zigzag crest of storm-blue — a
-lightning bolt growing where other birds grow down. Its beak is storm-blue too,
-and slightly too big for its face. *Aetion* is the gangling juvenile, wings
-finally longer than its body, crest doubled; *Aetos Dios* is the imperial
-eagle of the god, wings like weather fronts, carrying an actual thunderbolt in
-its talons the way other eagles carry fish.
+**Hybrid.** Stormcloud eaglet.
+
+**Appearance.** A puff-chested eaglet whose down forms thunderclouds, with slate zigzag wing tips, copper talons, and a gold lightning crest. A lifted foot and cocked brow make its confidence hilariously larger than its wings.
+
+**Personality.** Puffs up its cloud-ruff before every challenge. Its tiny thunderclaps are mostly bravado.
+
+**Mythic root.** Zeus's eagle and thunderbolt become a chick whose storm feathers are still growing.
+
+**Awakenings.** At level 16, **Aetion**, the storm-wing eagle: Practices thunderous entrances, then checks whether anyone was startled. At level 32, **Aetos Dios**, the thunderhead sovereign: Waits out every storm beside its flock, no matter how loudly the heavens call.
 
 **In battle.** `48 / 60 / 42 / 55 / 45 / 62` — a fast mixed attacker with
 paper defenses. It hits first and hopes.
@@ -36,7 +35,7 @@ Learnset: `1 — Headbutt · 5 — Thunder Peck · 9 — Wingèd Step · 13 — 
 Zeus`. Strikes 2× at Sea and War; weak to Wisdom and Forge (the owl outthinks
 the storm; bronze does not conduct grudges).
 
-**With its master.** Peeplet imprints instantly, totally, and upward: it rides
+**With its master.** Brontlet imprints instantly, totally, and upward: it rides
 on heads. Not shoulders — heads. It regards its Keeper as a slower, wingless
 mother and treats every battle as a chance to prove it was worth hatching. It
 shrieks at anything that startles its master, including doors. An Aetos Dios
@@ -46,12 +45,15 @@ thunder is.
 
 ## 2. Calfin → Wavebull → Taurios — the Bull of Poseidon (Sea)
 
-**Appearance.** A stocky sea-calf with a barrel body and short sturdy legs,
-its horns two teal curls of breaking wave. A slip wave-line runs its flank
-like the tide-mark on a hull; its tail ends in a sprig of kelp. Its eyes are
-huge, dark, and unbotherable. *Wavebull* gains true bull mass and a mane of
-foam; *Taurios* is the sea-bull entire — where it walks, the ground darkens as
-if under an incoming tide, and its kelp mane drips real brine.
+**Hybrid.** Breaker calf.
+
+**Appearance.** A turquoise bull calf with breaking-wave horns, a foamy mane, sea-stone hooves, and a kelp-fluke tail. It leans into an affectionate nudge; even its rounded silhouette has the weight of a rolling breaker.
+
+**Personality.** Greets friends with a wave of its horns and a nudge strong enough to topple a picnic.
+
+**Mythic root.** Poseidon's sea and bull imagery meet in a calf shaped by breaking surf.
+
+**Awakenings.** At level 16, **Wavebull**, the reefbreaker bull: Escorts tiny swimmers through rough water and pretends the rescue was a race. At level 32, **Taurios**, the tide-crowned aurochs: Lowers its tremendous horns so children can tie seashells to them.
 
 **In battle.** `58 / 62 / 55 / 58 / 52 / 42` — the tank of the starter
 triangle: even everywhere, slow, and stubborn as a harbor stone.
@@ -67,14 +69,17 @@ for about a minute, until the new thing is also family. A Taurios does not
 lean; it stands at its Keeper's side like a second horizon, and harbors feel
 safer when the two of them walk the dock.
 
-## 3. Pupnos → Dihound → Cerberos — the Hound of Hades (Underworld)
+## 3. Wickpup → Dihound → Cerberos — the Hound of Hades (Underworld)
 
-**Appearance.** A sitting black pup with ears too tall for it, pricked like
-grave-stelae, and one visible fang. Its collar is violet-dark, set with three
-small spikes; its tail curls up like smoke, tipped in the same violet. The eye
-is ringed in amethyst — the only pup whose eyes reflect light that isn't
-there. *Dihound* has two heads that argue about smells; *Cerberos* has three
-that never argue at all, and a serpent for a tail that does the arguing.
+**Hybrid.** Waylight hound.
+
+**Appearance.** A soft charcoal puppy with a lantern glowing through the rib-like fur of its chest. Lilac wisps tip its floppy ears and curled tail. Those two ear-lights foreshadow the extra heads of its awakenings; its offered paw makes the Underworld feel welcoming.
+
+**Personality.** Pretends it isn't sleepy. Its tail-light stays on until every companion has found the camp.
+
+**Mythic root.** A gentle echo of Cerberus, the hound guarding Hades's realm; its lantern is an original guiding-spirit motif.
+
+**Awakenings.** At level 16, **Dihound**, the twin-lantern hound: One head keeps watch while the other insists it is still early enough for a nap. At level 32, **Cerberos**, the three-watch gatekeeper: All three heads agree on one rule: no companion crosses the dark alone.
 
 **In battle.** `55 / 62 / 50 / 45 / 45 / 50` — a physical bruiser that trades
 special bulk for bite. Shadow Fang's poison makes it a war of attrition it
@@ -84,23 +89,25 @@ Strikes 2× at Love and Sun — and Sun strikes 2× back: the Underworld and the
 day are mutually at total war, the chart's one two-way feud. Weak also to
 Harvest (Demeter reaches into the dark and takes her daughter back).
 
-**With its master.** Pupnos guards. That is the whole relationship, and it is
+**With its master.** Wickpup guards. That is the whole relationship, and it is
 bottomless. It sleeps facing the door. It walks between its Keeper and the
 edge of every cliff, bridge, and dock. It does not want to be praised so much
 as *counted on*, and it can tell the difference. The dead do not frighten it,
-so a Keeper of Pupnos stops being frightened of them too, which is the pup's
+so a Keeper of Wickpup stops being frightened of them too, which is the pup's
 real gift. Cerberos guards three things at once forever: the door, the master,
 and the master's name.
 
-## 4. Owlet → Glaucon → Glaux Sophos — the Owl of Athena (Wisdom)
+## 4. Glyphet → Glaucon → Glaux Sophos — the Owl of Athena (Wisdom)
 
-**Appearance.** An egg-shaped little owl, mostly eyes: two great slip discs
-ringed in Athena's gold, capable of independent disappointment. Ink horn-tufts,
-slip chevrons down the chest like a scribe's practice strokes, feet planted in
-scholarly disapproval. *Glaucon* wears the beginnings of a bronze brow-ridge
-like a helmet's ghost; *Glaux Sophos* is armored in actual bronze filigree,
-an owl in an aegis, and its stare has been known to end battles before they
-begin.
+**Hybrid.** Living-script owl.
+
+**Appearance.** A round owl with scroll-like parchment feathers, curled page eyebrows, olive sprigs, and bronze eye rims. One wing rests at its beak as if it has already found the flaw in your argument. Its markings suggest writing without containing readable text.
+
+**Personality.** Tilts its head whenever you make a poor decision. Usually knows a better one.
+
+**Mythic root.** Athena's owl, olive, and wisdom become scroll-like feathers and watchful bronze eye markings.
+
+**Awakenings.** At level 16, **Glaucon**, the atlas-wing owl: Reorders the camp's maps overnight and acts surprised when nobody can find them. At level 32, **Glaux Sophos**, the living-archive owl: Remembers every promise ever made beneath its wings, especially the kind ones.
 
 **In battle.** `50 / 42 / 52 / 62 / 62 / 48` — the special wall: modest speed,
 feeble arm, and the best twinned Grace/Aegis of any first stage.
@@ -108,7 +115,7 @@ Learnset: `1 — Hoot · 5 — Aegis Bash · 9 — Strategize · 13 — Bright I
 Strikes 2× at Sky and War (wisdom beats both storm and rage); weak to Love and
 Wine, the two things no philosopher has ever out-argued.
 
-**With its master.** Owlet does not obey; it *concurs*. Commands are received
+**With its master.** Glyphet does not obey; it *concurs*. Commands are received
 as proposals, considered on their merits, and — almost always — executed, with
 a small hoot that means *I was going to suggest that*. It perches on the lyre's
 crossbar while Orpheus plays, closing its eyes at the good parts, which is the
@@ -116,14 +123,17 @@ highest review it gives. A Keeper who makes a genuinely bad decision will find
 Glaux Sophos already positioned where the mistake is going to land, waiting,
 not saying anything. It is insufferable. It is also never wrong.
 
-## 5. Piglos → Warthos → Kalydon — the Boar of Ares (War)
+## 5. Clashog → Warthos → Phalanboar — the Boar of Ares (War)
 
-**Appearance.** A charging wedge of a piglet, head down, tusk already curled
-up like a challenge. A mohawk of blood-red bristles runs its spine, each spike
-leaning back like a banner in a charge; its hooves are capped in the same red.
-Slip snout-disc, tiny furious eye. *Warthos* is shoulder-high and scarred by
-choice; *Kalydon* is the Calydonian terror itself, bristles like a burning
-palisade, the boar that took a war of heroes to bring down — and remembers it.
+**Hybrid.** Shield-rush boar.
+
+**Appearance.** A red boar with bronze shield scutes growing from its shoulders and a sweeping helmet-crest mane. Its broad muzzle, lowered brow, and planted hooves say that retreat has never occurred to it. Phalanboar replaces the old final name Kalydon: this line belongs to Ares, while the Calydonian boar was sent by Artemis.
+
+**Personality.** Challenges boulders to staring contests. Leans against friends as fiercely as it charges foes.
+
+**Mythic root.** Ares's martial character inspires its shield-hide and crest. A boar-form Ares appears in one tradition about Adonis.
+
+**Awakenings.** At level 16, **Warthos**, the shieldback boar: Plants itself between danger and its friends, then refuses to admit it was worried. At level 32, **Phalanboar**, the living phalanx: Stands guard long after everyone is safe, pretending it simply enjoys the view.
 
 **In battle.** `55 / 66 / 52 / 38 / 42 / 48` — the hardest physical hitter of
 the twelve and nearly incapable of subtlety; its Grace stat is a rumor.
@@ -131,23 +141,26 @@ Learnset: `1 — Headbutt · 5 — War Cry · 9 — Vine Lash · 13 — Gore`.
 Strikes 2× at Hunt and Harvest (war tramples field and forest); weak to Sky
 and Wisdom (the general and the sky-god both outrank the charge).
 
-**With its master.** Piglos respects exactly one currency: shown courage. It
+**With its master.** Clashog respects exactly one currency: shown courage. It
 tests a new Keeper for a week — barging, shoving, stealing food — and the
 Keeper who stands ground (not hits back; *stands ground*) is adopted with
 total, blazing loyalty. After that the shoving becomes leaning (see Calfin)
 performed at higher speed. It charges anything that threatens its master
 without any assessment whatsoever of relative size, which has saved several
-Keepers and mildly embarrassed several gods. Kalydon fights beside its master
+Keepers and mildly embarrassed several gods. Phalanboar fights beside its master
 like a phalanx of one.
 
-## 6. Dovie → Columbra → Peristera — the Dove of Aphrodite (Love)
+## 6. Dovelace → Columbra → Peristera — the Dove of Aphrodite (Love)
 
-**Appearance.** A sleek pale-eyed dove with a tail like a comet, three slip
-feather-lines streaming through it, and folded wings crossed neat as a love
-letter. Above its head floats a small rose-pink heart — not attached, just…
-present, the way a mood is. *Columbra* trails a faint rose afterimage when it
-flies; *Peristera* is the temple dove entire, and the heart above her has
-become a visible halo of regard: things she looks at look better.
+**Hybrid.** Rose-knot dove.
+
+**Appearance.** An ivory-and-rose dove with layered petal wings, a rosette chest, and two long ribbon feathers that describe a heart behind it. Its lifted foot and open beak suggest a confident invitation to dance.
+
+**Personality.** Insists that everyone at camp make up before bedtime. Takes matchmaking far too seriously.
+
+**Mythic root.** Aphrodite's dove and rose imagery become petal wings and a tail that ties a living love-knot.
+
+**Awakenings.** At level 16, **Columbra**, the petal-wing dove: Settles quarrels with a sweeping bow, then waits very patiently for applause. At level 32, **Peristera**, the rosewoven sovereign: Offers its finest feather to the guest who arrived feeling least welcome.
 
 **In battle.** `50 / 45 / 45 / 58 / 55 / 60` — fast, charming, and glassy: a
 status specialist that wins by making the fight not worth having.
@@ -155,50 +168,54 @@ Learnset: `1 — Dove Dart · 5 — Heart Ray · 9 — Charm Gaze · 13 — Nect
 Strikes 2× at Wisdom and Wine; weak to Underworld and Hunt (grief and the
 arrow, the two old enemies of love).
 
-**With its master.** Dovie is the mirror of its Keeper's heart, which is
-occasionally unbearable. Master cheerful: Dovie perches high and sings.
-Master heartsick: Dovie will not leave the shoulder, murmuring, one wing
+**With its master.** Dovelace is the mirror of its Keeper's heart, which is
+occasionally unbearable. Master cheerful: Dovelace perches high and sings.
+Master heartsick: Dovelace will not leave the shoulder, murmuring, one wing
 against the neck. It cannot be lied to about feelings and does not understand
 why anyone tries. With Orpheus it is nearly overwhelmed — a heart that size,
-singing — and early-game dialogue should hint that Dovie knows about Eurydice
+singing — and early-game dialogue should hint that Dovelace knows about Eurydice
 before the player does. Peristera chooses Keepers who have lost something;
 the temple records do not say why.
 
-## 7. Slithra → Solserp → Pythonos — the Serpent of Apollo (Sun)
+## 7. Solisk → Solserp → Pythonos — the Serpent of Apollo (Sun)
 
-**Appearance.** A slender serpent coiled in a tapering tower, basking, its
-raised head wearing a corona of gold rays like a small personal noon. Gold
-forked tongue; a gold diamond on the mid-coil; slip belly-ticks like hour
-marks. It is always, somehow, in the one patch of light. *Solserp* burns
-faintly along its spine at midday; *Pythonos* is the great oracle-serpent of
-Delphi reborn in splendor, and the halo is no longer decoration — it casts
-real shadows, and speaks in them.
+**Hybrid.** Sundial serpent.
+
+**Appearance.** A golden serpent whose broad, flat coil is a sundial. Wedge-shaped scales mark the hours, its upright neck forms the gnomon, and its frill is a fan of sunbeams. The knowing smile belongs to a tiny prophet who enjoys being right.
+
+**Personality.** Always finds the warmest stone. Looks unbearably pleased when its little predictions come true.
+
+**Mythic root.** An original solar reinterpretation of the serpent at Delphi, joining the Python story to Apollo's light and prophecy.
+
+**Awakenings.** At level 16, **Solserp**, the noon-dial cobra: Predicts the afternoon weather with great ceremony, even when the sky is perfectly clear. At level 32, **Pythonos**, the solar oracle serpent: Answers urgent questions at dawn, but insists every prophecy begin with breakfast.
 
 **In battle.** `46 / 50 / 44 / 64 / 48 / 58` — a glass cannon of Grace: the
 best special attack of the twelve on the thinnest body.
 Learnset: `1 — Headbutt · 5 — Sunlance · 9 — Nectar Sip · 13 — Solar Flare`.
 Strikes 2× at Underworld and Wine — but the Underworld strikes 2× back
-(the mutual feud; see Pupnos). Otherwise weak to Sea (the ocean drowns noon).
+(the mutual feud; see Wickpup). Otherwise weak to Sea (the ocean drowns noon).
 
-**With its master.** Slithra bonds by *basking adjacency*: it likes to be
+**With its master.** Solisk bonds by *basking adjacency*: it likes to be
 within three feet of its Keeper and directly in the sun, and will rearrange
 whichever of those is easier — usually by climbing the Keeper. It drapes
 across shoulders like a golden scarf and slowly constricts when the master
-says something evasive; Keepers of Slithra become honest. It hears prophecy in
+says something evasive; Keepers of Solisk become honest. It hears prophecy in
 Orpheus's music, tasting the air after certain chords, agitated, as if the
 song had told it something about next week. Pythonos's masters historically
 stop being masters and start being priests; the game should never clarify
 which one is serving.
 
-## 8. Fawnling → Cerynhind → Elaphos Chrysos — the Hind of Artemis (Hunt)
+## 8. Cresfawn → Cerynhind → Elaphos Chrysos — the Hind of Artemis (Hunt)
 
-**Appearance.** A fawn caught mid-leap, legs flung fore and aft, slip spots
-still on its flanks — and hooves of frank gold, with two gold antler-nubs no
-true fawn should have. The tail is a flag; the ear is a sail; the whole animal
-is a sentence about speed with no verbs of stopping. *Cerynhind* stands tall
-and moon-pale, antlers now real and gilded; *Elaphos Chrysos* is the golden
-hind itself, bronze-hooved, the beast a hero chased for one entire year — and
-it remembers that fondly, as a good game.
+**Hybrid.** Moonbow hind.
+
+**Appearance.** A tan-and-moss hind with golden crescent antlers joined by a fine silver bowstring, bronze hooves, and a fletching-shaped tail. Moon and star markings follow the curve of its body. It looks back playfully while already halfway into a leap.
+
+**Personality.** Plays hide-and-seek without announcing the game. Returns the moment a friend truly needs it.
+
+**Mythic root.** Artemis's Ceryneian hind lends its golden antlers and bronze hooves; the antlers grow into a moonlit bow.
+
+**Awakenings.** At level 16, **Cerynhind**, the moonstring runner: Runs circles around impatient hunters, then quietly guides lost travelers home. At level 32, **Elaphos Chrysos**, the golden moonbow hind: Leaves a trail of silver hoofprints only for travelers who have lost their way.
 
 **In battle.** `48 / 65 / 44 / 56 / 48 / 66` — the fastest attacker in the
 game: first strike, priority arrows, and no plan for being hit back.
@@ -206,25 +223,26 @@ Learnset: `1 — Headbutt · 5 — Swift Arrow · 9 — Wingèd Step · 13 — M
 Volley`. Strikes 2× at Love and Harvest; weak to War and Forge (the spear and
 the trap, the two ways a chase ends).
 
-**With its master.** Fawnling is never quite caught — that is the bond. It
+**With its master.** Cresfawn is never quite caught — that is the bond. It
 walks ten feet ahead, or ten feet behind, or appears on the rock above; it
 sleeps just outside the firelight and is at the Keeper's cheek by dawn. It
 does not come when called; it comes when *needed*, which it judges better than
-the caller. Trust between Fawnling and Keeper is built entirely from released
+the caller. Trust between Cresfawn and Keeper is built entirely from released
 things — game let go, doors left open, the amphora never thrown twice. This
 is by design of the goddess, and Myth VI is its test: the line's final
 evolution cannot be reached by a Keeper who has never chosen release.
 
-## 9. Cindercrab → Bronzeclaw → Automax — the Automaton of Hephaestus (Forge)
+## 9. Kilnclaw → Bronzeclaw → Automax — the Automaton of Hephaestus (Forge)
 
-**Appearance.** A riveted bronze dome on six angled legs, two mismatched
-claws (the left conspicuously oversized — the god's little joke about
-handedness), and eyes on stalks that watch two things at once. Between the
-eyestalks, a vent breathes a standing petal of flame, bright bronze against
-the ink shell; the plate seams are slipped in cream, the rivets picked out in
-bronze. *Bronzeclaw* grows a second seam of armor and a claw that doubles as
-a forge-hammer; *Automax* is a Talos in miniature — a fortress that has
-opinions, ichor-veined, warm to the touch as a kiln at evening.
+**Hybrid.** Walking kiln crab.
+
+**Appearance.** A terracotta crab whose domed carapace is a working kiln. Bronze bands hold the ceramic shell; one large hammer claw contrasts with a precise little pincer. Its warm furnace and soot-smudged, proud expression make it a small, earnest craftsperson.
+
+**Personality.** Fixes buckles while you sleep and waits proudly for someone to notice. Hums when its kiln is warm.
+
+**Mythic root.** An invented crab automaton inspired by Hephaestus's living craft and metalwork; the crab is not his historical sacred animal.
+
+**Awakenings.** At level 16, **Bronzeclaw**, the bellows-shell crab: Inspects every broken pot it passes and offers repairs before introductions. At level 32, **Automax**, the walking forge citadel: Repairs the village gates, then engraves a tiny crab where nobody will notice.
 
 **In battle.** `56 / 60 / 66 / 56 / 52 / 32` — the wall of the twelve: best
 Defense in the game, best chassis, worst sprint. It is not slow so much as
@@ -233,25 +251,26 @@ Learnset: `1 — Headbutt · 5 — Bronze Clamp · 9 — Strategize · 13 — Mo
 Spit`. Strikes 2× at Sky and Hunt (lightning grounds on bronze; traps end
 chases); weak to Sea and Wine (rust and the drunken forge-fire).
 
-**With its master.** Cindercrab bonds by *maintenance*. It mends things: the
+**With its master.** Kilnclaw bonds by *maintenance*. It mends things: the
 frayed lyre-strap appears re-riveted; the loose sandal-thong is somehow
 crimped in bronze wire by morning. Affection is expressed as small repairs and
 received as being allowed to sit near the campfire's exact hottest stone. It
-runs warm; Keepers of Cindercrab winter well. It does not understand music
+runs warm; Keepers of Kilnclaw winter well. It does not understand music
 but understands *instruments*, and its relationship with Orpheus consists of
 deep mutual professional respect between a maker and a lyre it is not allowed
 to improve. (It has ideas. It keeps a small wax tablet of them.)
 
-## 10. Tortikin → Swiftshell → Chelys Hermao — the Tortoise of Hermes (Herald)
+## 10. Lyretto → Swiftshell → Chelys Hermao — the Tortoise of Hermes (Herald)
 
-**Appearance.** A low-slung tortoise at a full, furious sprint — slip motion
-lines streaming behind it — whose shell is unmistakably a lyre: five slip
-strings down the dome, a pale-gold crossbar arced above them, and two small
-gold wings swept back along the shell like a racer's fairings. Head stretched
-forward, brow-line set: determination itself, in a shell. *Swiftshell* blurs;
-*Chelys Hermao* is — per the god's standing joke that became true — the
-fastest creature in the game, a tortoise that wins footraces against the
-myth about tortoises winning footraces.
+**Hybrid.** Lyre-shell courier.
+
+**Appearance.** A determined olive-green tortoise whose shell forms a lyre soundbox, with raised strings and gold ridges. Little wing fans and a comically eager stride turn Hermes's original instrument into an impatient courier.
+
+**Personality.** Steals the shortest route, then waits smugly at the crossroads. Its shell hums along with your lyre.
+
+**Mythic root.** Hermes made the first lyre from a tortoise shell; this courier grows its own strings and little messenger wings.
+
+**Awakenings.** At level 16, **Swiftshell**, the lyre runner tortoise: Delivers messages before the sender finishes rehearsing them. At level 32, **Chelys Hermao**, the sky-song messenger: Carries the news of home farther than any road, humming every name it remembers.
 
 **In battle.** `48 / 46 / 54 / 46 / 50 / 66` — speed and mischief on a
 tough little chassis; no domain touches it and it touches no domain (Herald is
@@ -259,7 +278,7 @@ never super-effective and never resisted), but every strike carries a bonus
 crit — the trickster's thumb on the scale.
 Learnset: `1 — Headbutt · 5 — Trick Jab · 9 — Wingèd Step · 13 — Nectar Sip`.
 
-**With its master.** Tortikin does not regard its Keeper as a master at all;
+**With its master.** Lyretto does not regard its Keeper as a master at all;
 it regards the two of them as *colleagues in transit*. It is a fellow
 traveler, a road-partner, occasionally a luggage thief (it returns things,
 rearranged, improved, or traded for something it judged better — the god's own
@@ -268,15 +287,17 @@ admitting: his lyre is its grandmother. On quiet nights it settles beside the
 instrument, shell to soundbox, and if the wind is right the strings of one
 hum faintly against the strings of the other.
 
-## 11. Seedviper → Grainwyrm → Ophis Karpos — the Serpent of Demeter (Harvest)
+## 11. Sheafang → Granibble → Thesmora — the Granary of Demeter (Harvest)
 
-**Appearance.** A thick amber-eyed snake gliding in an easy S, crowned with
-three living wheat-ears that nod as it moves — gold grain heads on gold stems,
-awns catching the light. Slip diamonds run its back like a granary's tally
-marks; its tongue is pale as chaff. *Grainwyrm* is barrel-thick, its crown a
-full sheaf; *Ophis Karpos* is the chthonic harvest-serpent that drew the
-goddess's chariot — where it passes over tilled earth, the furrows quietly
-green behind it.
+**Hybrid.** Harvest dormouse.
+
+**Appearance.** A round chestnut dormouse with enormous oat-cream grain pouches, leafy inner ears, a wheat forelock, tiny poppy accents, two little incisors, and a short seedpod tail. Granibble grows taller and extends a helping paw; Thesmora becomes a broad protective granary guardian beneath a canopy of wheat and leaves. Its soft round silhouette is distinct from Solisk's golden serpent coils.
+
+**Personality.** Packs its cheeks for the whole camp, then shyly offers the biggest seed to whoever looks hungry.
+
+**Mythic root.** Demeter's wheat, barley, and poppies inspire an original dormouse/granary hybrid. The mouse is not presented as her historical sacred animal. Thesmora's name evokes Demeter's Thesmophoria festival.
+
+**Awakenings.** At level 16, **Granibble**, the seedkeeper dormouse: Counts everyone's supper twice, then quietly adds a little extra. At level 32, **Thesmora**, the granary guardian: Never lets a winter guest leave hungry, even when it means emptying its own stores.
 
 **In battle.** `52 / 54 / 50 / 54 / 52 / 46` — the most balanced statline of
 the twelve, and the best status platform: Spore Cloud is the game's most
@@ -285,23 +306,19 @@ Learnset: `1 — Headbutt · 5 — Vine Lash · 9 — Spore Cloud · 13 — Grai
 Volley`. Strikes 2× at Sea and Underworld (the shore drinks the sea; Demeter
 reaches into the dark); weak to War and Hunt (what tramples and what forages).
 
-**With its master.** Seedviper keeps its Keeper *fed*. It knows where the wild
-figs are. It herds its master toward water before thirst, toward shade before
-noon, toward shelter a half-day before weather — a farmer's almanac with
-scales. Its love is seasonal and unhurried: it grows around a Keeper the way
-a vine takes a post, imperceptibly and then completely. It sleeps coiled
-around the grain-sack, guarding not the master but the master's *stores*,
-because that, it would explain patiently, is the same thing.
+**With its master.** Sheafang keeps its Keeper fed. It knows where the wild figs are and packs its cheeks before anyone remembers to plan supper. It sleeps nestled against the grain sack, one leaf-shaped ear listening for a hungry guest. Granibble becomes the camp's patient quartermaster; Thesmora treats every traveler as someone who belongs at its table.
 
-## 12. Cubvine → Vinther → Pantheros — the Panther of Dionysus (Wine)
+## 12. Revelcub → Vinther → Pantheros — the Panther of Dionysus (Wine)
 
-**Appearance.** A round-eared panther cub in a crouch that is 60% pounce, big
-head cocked, two bright eyes of frank mischief. An ivy wreath rings its brow —
-dark leaves slip-edged so they read against the black — with pale berries at
-the temple; its long tail curls up into the air and ends, impossibly, in an
-ivy leaf. Slip grin. Always the slip grin. *Vinther* wears the wreath grown
-down its spine like a mane; *Pantheros* is the god's own cat, vine-maned and
-wine-dark, and its grin has made kings reconsider entire policies.
+**Hybrid.** Festival panther.
+
+**Appearance.** A plum panther cub with grape-cluster spots, ivy tufts, and a curling leaf-tipped tail. A cream comedy-mask marking and impish grin connect Dionysus's animal to theater and celebration. It plays host wherever the party rests.
+
+**Personality.** Turns every rest stop into a festival. Steals one fig, then offers you half with a shameless grin.
+
+**Mythic root.** Dionysus's panther, ivy, grapes, and theater meet in a cub with vine-tendrils and comedy-mask markings.
+
+**Awakenings.** At level 16, **Vinther**, the ivy-masked panther: Turns every practice hunt into a game and always lets the smallest cub win. At level 32, **Pantheros**, the festival-crowned panther: Makes the grandest entrance, then spends the evening beside the shyest guest.
 
 **In battle.** `52 / 62 / 46 / 52 / 44 / 56` — a quick, reckless physical
 attacker: Frenzy Claw hits like a festival ending badly, and its defenses
@@ -310,12 +327,12 @@ Learnset: `1 — Headbutt · 5 — Grape Shot · 9 — War Cry · 13 — Frenzy 
 Strikes 2× at Wisdom and Forge (revelry undoes reason and melts down
 discipline); weak to Love and Sun (the morning after, in both senses).
 
-**With its master.** Cubvine is a conspiracy of two. It does not obey and it
+**With its master.** Revelcub is a conspiracy of two. It does not obey and it
 does not guard; it *collaborates*, ideally on something inadvisable. It steals
 exactly one small thing from every town (the game should quietly track this),
 brings its Keeper the best finds, and expects fair division of spoils. It is
 the only beast that laughs — an actual chirping panther-laugh — and it laughs
-most at its own master, which is somehow never cruel. Keepers of Cubvine come
+most at its own master, which is somehow never cruel. Keepers of Revelcub come
 home late, grinning, with stories. Pantheros's Keepers historically found
 festivals, or religions, or both.
 
@@ -342,3 +359,13 @@ master" section; a legendary has companions, briefly, or victims).
 stories these beasts walk through in `myths.md`; implementation in
 `../js/data.js` (stats, learnsets), `../js/sprites.js` (appearance),
 `../js/engine.js` (mechanics).*
+
+
+## Mythology references and interpretation
+
+- Hermes makes a lyre from a tortoise shell in the Homeric Hymn to Hermes: [ancient passages collected by Theoi](https://www.theoi.com/Olympios/HermesMyths.html). Lyretto makes that shell an instrument while keeping its owner alive.
+- The Ceryneian hind has golden antlers and bronze feet in ancient descriptions: [Apollodorus and other passages](https://www.theoi.com/Ther/ElaphosKerynitis.html). Cresfawn adds Artemis's bow and lunar imagery.
+- Apollo kills Python at Delphi: [Python sources](https://www.theoi.com/Ther/DrakainaPython.html). Solisk is a fictional reconciliation of that serpent with Apollo's prophetic and solar identity, not a claim that Python was his sacred pet.
+- Hephaestus makes living constructs: [automaton sources](https://www.theoi.com/Ther/Automotones.html). Kilnclaw's crab body is invented; [Hephaestus's traditional sacred animal](https://www.theoi.com/Olympios/Hephaistos.html) is the donkey.
+- Demeter's wheat, barley, and poppies inform Sheafang's invented dormouse/granary anatomy: [Demeter's attributes](https://www.theoi.com/Olympios/DemeterTreasures.html).
+- Clashog uses Ares's martial imagery and the boar-form association in some Adonis traditions: [Ares traditions](https://www.theoi.com/Olympios/Ares.html?level=1). It does not recast Artemis's Calydonian boar as Ares's animal.

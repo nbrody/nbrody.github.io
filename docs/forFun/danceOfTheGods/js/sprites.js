@@ -61,7 +61,7 @@ function spShadow(ctx, cx, cy, rx){
 /* ================= the twelve first stages ================= */
 const SPRITES = {
 
-eagle(ctx,acc){ // Peeplet — Zeus's chick, lightning crest
+eagle(ctx,acc){ // Brontlet — Zeus's chick, lightning crest
   spShadow(ctx,54,96,27);
   // plump chick body+head
   spInk(ctx,[[26,50],[34,26],[58,16],[80,28],[86,52],[76,78],[52,88],[32,78]]);
@@ -124,7 +124,7 @@ bull(ctx,acc){ // Calfin — Poseidon's sea calf, wave horns
   spEye(ctx,22,44,5.5);
 },
 
-hound(ctx,acc){ // Pupnos — Hades's pup, sitting proud
+hound(ctx,acc){ // Wickpup — Hades's pup, sitting proud
   spShadow(ctx,54,96,32);
   // tail curled up behind
   spStroke(ctx,[[82,72],[96,62],[94,46]],5,INK);
@@ -163,7 +163,7 @@ hound(ctx,acc){ // Pupnos — Hades's pup, sitting proud
   spEye(ctx,28,24,5,acc);
 },
 
-owl(ctx,acc){ // Owlet — Athena's glaux, the famous stare
+owl(ctx,acc){ // Glyphet — Athena's glaux, the famous stare
   spShadow(ctx,54,96,26);
   // egg body
   spInk(ctx,[[28,68],[24,40],[40,18],[58,12],[78,20],[86,44],[80,72],[58,86],[36,82]]);
@@ -192,7 +192,7 @@ owl(ctx,acc){ // Owlet — Athena's glaux, the famous stare
   tri(ctx,[54,46],[48,58],[61,57],acc);
 },
 
-boar(ctx,acc){ // Piglos — the Calydonian bristler
+boar(ctx,acc){ // Clashog — the shield-rush bristler
   spShadow(ctx,58,96,36);
   // legs (charging)
   ctx.strokeStyle=INK; ctx.lineWidth=6; ctx.lineCap="round";
@@ -229,7 +229,7 @@ boar(ctx,acc){ // Piglos — the Calydonian bristler
   spEye(ctx,22,48,4.5);
 },
 
-dove(ctx,acc){ // Dovie — Aphrodite's dove
+dove(ctx,acc){ // Dovelace — Aphrodite's dove
   spShadow(ctx,50,96,24);
   // long tail (behind)
   tri(ctx,[70,52],[106,26],[82,66],INK);
@@ -263,7 +263,7 @@ dove(ctx,acc){ // Dovie — Aphrodite's dove
   spEye(ctx,20,32,4);
 },
 
-serpent(ctx,acc){ // Slithra — the Delphic sun-serpent, coiled
+serpent(ctx,acc){ // Solisk — the Delphic sun-serpent, coiled
   spShadow(ctx,58,96,32);
   // sun halo first (the raised head overlaps its inner edge)
   ctx.strokeStyle=acc; ctx.lineWidth=2.5; ctx.lineCap="round";
@@ -307,7 +307,7 @@ serpent(ctx,acc){ // Slithra — the Delphic sun-serpent, coiled
   spEye(ctx,28,20,4);
 },
 
-deer(ctx,acc){ // Fawnling — the golden hind's fawn, mid-leap
+deer(ctx,acc){ // Cresfawn — the golden hind's fawn, mid-leap
   spShadow(ctx,58,97,32);
   // legs first (extended in the leap)
   ctx.lineCap="round";
@@ -342,7 +342,7 @@ deer(ctx,acc){ // Fawnling — the golden hind's fawn, mid-leap
   spEye(ctx,16,18,4);
 },
 
-crab(ctx,acc){ // Cindercrab — Hephaestus's bronze automaton
+crab(ctx,acc){ // Kilnclaw — Hephaestus's bronze automaton
   spShadow(ctx,56,96,36);
   // claws behind the shell
   spInk(ctx,[[16,50],[2,38],[-4,52],[8,62],[18,60]]);
@@ -379,7 +379,7 @@ crab(ctx,acc){ // Cindercrab — Hephaestus's bronze automaton
   spEye(ctx,67,11,5);
 },
 
-tortoise(ctx,acc){ // Tortikin — Hermes's winged lyre-tortoise
+tortoise(ctx,acc){ // Lyretto — Hermes's winged lyre-tortoise
   spShadow(ctx,52,96,34);
   // motion lines — fastest joke in the game
   ctx.strokeStyle=SLIP; ctx.lineWidth=2; ctx.lineCap="round";
@@ -416,46 +416,25 @@ tortoise(ctx,acc){ // Tortikin — Hermes's winged lyre-tortoise
   spEye(ctx,2,54,3.5);
 },
 
-grainsnake(ctx,acc){ // Seedviper — Demeter's wheat-crowned serpent
+harvestmouse(ctx,acc){ // Sheafang — a seed-sharing dormouse
   spShadow(ctx,56,96,30);
-  // gliding S body
-  ctx.strokeStyle=INK; ctx.lineCap="round"; ctx.lineWidth=12;
-  spLine(ctx,[[100,80],[76,90],[50,84],[42,68],[56,56],[64,42],[52,32],[40,26]]); ctx.stroke();
-  ctx.lineWidth=6;
-  spLine(ctx,[[100,80],[108,73]]); ctx.stroke();
-  // head
-  spInk(ctx,[[20,22],[30,12],[46,10],[50,22],[40,32],[26,30]]);
-  // wheat crown
-  ctx.strokeStyle=acc; ctx.lineWidth=2.5; ctx.lineCap="round";
-  ctx.beginPath();
-  ctx.moveTo(30,12); ctx.lineTo(23,2); ctx.moveTo(37,10); ctx.lineTo(37,0);
-  ctx.moveTo(44,12); ctx.lineTo(51,3);
-  ctx.stroke();
-  ctx.fillStyle=acc;
-  ctx.beginPath(); ctx.ellipse(22,-1,2.5,5.5,-0.4,0,7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(37,-3,2.5,5.5,0,0,7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(52,0,2.5,5.5,0.4,0,7); ctx.fill();
-  ctx.strokeStyle=acc; ctx.lineWidth=1.2;
-  ctx.beginPath();
-  ctx.moveTo(21,-5); ctx.lineTo(18,-9); ctx.moveTo(37,-8); ctx.lineTo(37,-12);
-  ctx.moveTo(53,-4); ctx.lineTo(56,-8);
-  ctx.stroke();
-  // forked tongue
-  ctx.strokeStyle=SLIP; ctx.lineWidth=1.8;
-  ctx.beginPath();
-  ctx.moveTo(20,24); ctx.lineTo(12,26);
-  ctx.moveTo(12,26); ctx.lineTo(7,23); ctx.moveTo(12,26); ctx.lineTo(8,30);
-  ctx.stroke();
-  // slip diamonds down the back
-  ctx.strokeStyle=SLIP; ctx.lineWidth=1.8;
-  for(const [dx,dy] of [[84,83],[52,77],[57,54]]){
-    ctx.beginPath(); ctx.moveTo(dx,dy-5); ctx.lineTo(dx+5,dy); ctx.lineTo(dx,dy+5); ctx.lineTo(dx-5,dy);
-    ctx.closePath(); ctx.stroke();
-  }
-  spEye(ctx,29,19,3.8);
+  const oval=(x,y,rx,ry,color)=>{ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();};
+  oval(85,73,14,9,acc);
+  oval(92,62,5,10,"#657343");
+  oval(57,67,28,29,INK);
+  oval(35,29,16,19,INK); oval(74,27,16,19,INK);
+  oval(35,29,10,13,acc); oval(74,27,10,13,acc);
+  oval(54,48,27,25,INK);
+  oval(36,58,15,13,SLIP); oval(67,58,15,13,SLIP);
+  oval(50,54,4,3,"#b76b53");
+  oval(44,88,9,6,INK); oval(71,88,9,6,INK);
+  oval(46,69,5,8,INK); oval(64,69,5,8,INK);
+  spEye(ctx,43,42,4); spEye(ctx,64,40,4);
+  ctx.fillStyle=SLIP;ctx.fillRect(48,60,5,5);
+  for(const x of [46,53,60]){oval(x,15,3,10,acc);}
 },
 
-panther(ctx,acc){ // Cubvine — Dionysus's ivy cub
+panther(ctx,acc){ // Revelcub — Dionysus's ivy cub
   spShadow(ctx,56,96,34);
   // long curling tail with an ivy-leaf tip
   spStroke(ctx,[[88,64],[104,52],[108,38],[100,30]],6,INK);
@@ -503,11 +482,11 @@ panther(ctx,acc){ // Cubvine — Dionysus's ivy cub
 }
 };
 
-function drawCreature(ctx, c, x, y, scale, flip, alpha=1){
+function drawCreature(ctx, c, x, y, scale, flip, alpha=1, view="front"){
   ctx.save();
   ctx.translate(x,y);
   ctx.scale(flip?-scale:scale, scale);
   ctx.globalAlpha = alpha;
-  artDraw(ctx, c.key, c.sprite, DOMAINS[c.dom].color);   // art.js: gen image or vector fallback
+  artDraw(ctx, c.key, c.sprite, DOMAINS[c.dom].color, view, creatureStage(c.level));
   ctx.restore();
 }

@@ -1,166 +1,413 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Dance of the Gods</title>
-<link href="https://fonts.googleapis.com/css2?family=Caesar+Dressing&family=Alegreya:ital,wght@0,400;0,700;1,400&family=Julius+Sans+One&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div id="app">
-  <div class="vase">
-    <header class="title-band">
-      <h1 id="brand-title">Dance of the Gods</h1>
-      <div class="sub" id="brand-sub">A Mythic Journey</div>
-    </header>
-    <div class="meander"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="An adventure through mythic Greece. Play as Orpheus, befriend sacred beasts, and restore the song of Delphi."
+    />
+    <title>Dance of the Gods</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div class="vase">
+        <header class="title-band">
+          <h1 id="brand-title">Dance of the Gods</h1>
+          <div class="sub" id="brand-sub">An Orphic adventure</div>
+          <button
+            id="sound-btn"
+            class="icon-btn"
+            aria-label="Enable sound"
+            title="Toggle lyre sounds"
+          >
+            Sound off
+          </button>
+        </header>
+        <div class="meander"></div>
 
-    <!-- TITLE -->
-    <section id="title-screen" class="screen active">
-      <canvas id="title-canvas" width="360" height="220"></canvas>
-      <p class="story">The bonds between gods and beasts have begun to <em>fray</em>, and sacred animals turn feral across the poleis. You are <b>Orpheus</b>, son of the Muse Calliope — the singer whose lyre even stones lean in to hear. Take up your amphorae, gather companions, and walk the old roads where the gods still dance.</p>
-      <div class="title-actions">
-        <button class="btn hidden" id="resume-btn">Continue the Journey</button>
-        <button class="btn" id="start-btn">Begin the Journey</button>
-      </div>
-      <button class="btn small hidden" id="dev-btn">⚒ Playtest</button>
-      <div class="title-note">▲▼◀▶ / WASD to walk · SPACE to act</div>
-    </section>
-
-    <!-- PLAYTEST (visible with ?dev) -->
-    <section id="dev-screen" class="screen">
-      <h2>Playtest</h2>
-      <p class="pick-sub">Begin the journey from any state.</p>
-      <div class="dev-grid">
-        <label style="grid-column:1/-1">Scenario
-          <select id="dev-preset">
-            <option value="custom">Custom…</option>
-            <option value="fresh">Fresh start — Pimpleia</option>
-            <option value="kassRoad">Grove Road — before Kass</option>
-            <option value="delphiMyth">Delphi — Myth I opening</option>
-            <option value="delphiDone">Delphi — Myth I complete</option>
-            <option value="athensContest">Athens — the Contest</option>
-            <option value="corinth">Corinth — post Myth II</option>
-          </select>
-        </label>
-        <label>Map <select id="dev-map"></select></label>
-        <label>Party level <input type="number" id="dev-level" min="1" max="60" value="8"></label>
-        <label>Delphi myth
-          <select id="dev-delphi">
-            <option value="0">0 — not begun</option><option value="1">1 — the chase</option>
-            <option value="2">2 — the laurel</option><option value="3">3 — complete</option>
-          </select>
-        </label>
-        <label>Athens myth
-          <select id="dev-athens">
-            <option value="0">0 — not begun</option><option value="1">1 — salt spring</option>
-            <option value="2">2 — the olive</option><option value="3">3 — complete</option>
-          </select>
-        </label>
-        <label>Beast 1 <select id="dev-b1"></select></label>
-        <label>Beast 2 <select id="dev-b2"></select></label>
-        <label>Beast 3 <select id="dev-b3"></select></label>
-        <label class="chk"><input type="checkbox" id="dev-kass"> Kass defeated</label>
-        <label class="chk"><input type="checkbox" id="dev-trainers"> All trainers defeated</label>
-        <label class="chk" style="grid-column:1/-1"><input type="checkbox" id="dev-persist"> Persist as my save</label>
-      </div>
-      <div class="pick-actions">
-        <button class="btn" id="dev-begin">Begin</button>
-        <button class="btn small" id="dev-back">◂ Title</button>
-      </div>
-    </section>
-
-    <!-- TEAM PICK -->
-    <section id="pick-screen" class="screen">
-      <h2>The Gift of Hermes</h2>
-      <p class="pick-sub">Three beasts stir in the god's satchel. Choose the one that sings back.</p>
-      <div class="grid" id="pick-grid"></div>
-      <div class="pick-actions">
-        <button class="btn" id="fight-btn" disabled>Choose a companion</button>
-      </div>
-    </section>
-
-    <!-- OVERWORLD -->
-    <section id="overworld-screen" class="screen" style="padding:0">
-      <div id="ow-stage">
-        <canvas id="ow-canvas" width="416" height="288"></canvas>
-        <div id="ow-place">Pimpleia</div>
-        <div id="dpad">
-          <button class="dbtn" data-dir="up">▲</button>
-          <button class="dbtn" data-dir="left">◀</button>
-          <button class="dbtn" data-dir="act">◉</button>
-          <button class="dbtn" data-dir="right">▶</button>
-          <button class="dbtn" data-dir="down">▼</button>
-        </div>
-      </div>
-      <div class="meander"></div>
-      <div id="ow-bar">
-        <button class="btn small" id="party-btn">Party</button>
-        <div id="ow-hint">Explore the tall grass to find sacred beasts.</div>
-      </div>
-      <!-- dialogue overlay for signs / NPCs -->
-      <div id="ow-dialogue" class="hidden">
-        <div class="owd-box"><span id="owd-text"></span><span class="owd-cue">▸</span></div>
-      </div>
-    </section>
-
-    <!-- PARTY MENU -->
-    <section id="party-screen" class="screen">
-      <h2>Your Companions</h2>
-      <p class="pick-sub" id="party-sub"></p>
-      <div id="party-list"></div>
-      <div class="pick-actions"><button class="btn" id="party-close">Back to the Road</button></div>
-    </section>
-
-    <!-- BATTLE -->
-    <section id="battle-screen" class="screen" style="padding:0">
-      <div id="battle-stage">
-        <canvas id="battle-canvas" width="520" height="300"></canvas>
-        <div class="hpcard" id="hp-foe"></div>
-        <div class="hpcard" id="hp-ally"></div>
-      </div>
-      <div class="meander"></div>
-      <div id="battle-panel">
-        <div id="dialogue"></div>
-        <div id="action-ui" class="hidden">
-          <div class="actiongrid" id="actiongrid">
-            <button class="actbtn" data-act="fight">Strike</button>
-            <button class="actbtn" data-act="catch">Amphora</button>
-            <button class="actbtn" data-act="switch">Beasts</button>
-            <button class="actbtn" data-act="flee">Flee</button>
+        <!-- TITLE -->
+        <section id="title-screen" class="screen active">
+          <div class="chapter-kicker">Book I · The broken song</div>
+          <canvas
+            id="title-canvas"
+            width="2880"
+            height="1200"
+            aria-label="The olive groves and sanctuary of mythic Greece"
+          ></canvas>
+          <div class="title-copy">
+            <h2>Even the gods have forgotten<br />how to listen.</h2>
+            <p class="story">
+              The sacred beasts are restless. A note has vanished from the
+              world's oldest song. As <b>Orpheus</b>, take up your lyre, find
+              your companions, and follow the silence to Delphi.
+            </p>
           </div>
-        </div>
-        <div id="move-ui" class="hidden">
-          <div class="movegrid" id="movegrid"></div>
-          <div class="panel-actions"><button class="btn small" id="move-back">◂ Back</button></div>
-        </div>
-        <div id="switch-ui" class="hidden">
-          <div class="benchrow" id="benchrow"></div>
-        </div>
-        <button class="btn small hidden" id="continue-btn">▸ Continue</button>
+          <div class="title-actions">
+            <button class="btn hidden" id="resume-btn">
+              Continue the Journey
+            </button>
+            <button class="btn" id="start-btn">Begin the Journey</button>
+            <button class="btn secondary" id="bestiary-open">
+              Meet the beasts
+            </button>
+            <button class="btn secondary" id="pantheon-open">
+              Meet the gods
+            </button>
+          </div>
+          <button class="btn small hidden" id="dev-btn">⚒ Playtest</button>
+          <div class="title-note">
+            WASD / arrows · Move &nbsp; E / Space · Interact &nbsp; Shift · Run
+          </div>
+        </section>
+
+        <section id="bestiary-screen" class="screen menu-screen">
+          <div class="bestiary-heading">
+            <div>
+              <span class="chapter-kicker"
+                >Hermes's field notes · Volume I</span
+              >
+              <h2>Twelve families. Thirty-six wonders.</h2>
+              <p>
+                A spark of the divine. A mind of their own.<br />Meet the
+                companions waiting on the roads of Hellas—and the legends they
+                will grow into.
+              </p>
+            </div>
+            <button class="btn small" id="bestiary-close">
+              Back to the title
+            </button>
+          </div>
+          <div
+            class="bestiary-stages"
+            role="group"
+            aria-label="Evolution stage"
+          >
+            <button class="btn small" id="bestiary-stage-0" aria-pressed="true">
+              First forms
+            </button>
+            <button
+              class="btn small secondary"
+              id="bestiary-stage-1"
+              aria-pressed="false"
+            >
+              Awakened · Lv 16
+            </button>
+            <button
+              class="btn small secondary"
+              id="bestiary-stage-2"
+              aria-pressed="false"
+            >
+              Ascended · Lv 32
+            </button>
+          </div>
+          <button class="btn small secondary" id="bestiary-pantheon">
+            Meet their divine patrons
+          </button>
+          <div class="bestiary-views" role="group" aria-label="Creature view">
+            <button class="btn small" id="bestiary-front" aria-pressed="true">
+              Front views
+            </button>
+            <button
+              class="btn small secondary"
+              id="bestiary-back"
+              aria-pressed="false"
+            >
+              Back views
+            </button>
+          </div>
+          <p class="bestiary-count" id="bestiary-count" role="status">
+            12 first forms · 36 beasts in the field guide
+          </p>
+          <div class="bestiary-grid" id="bestiary-grid"></div>
+        </section>
+
+        <section id="pantheon-screen" class="screen menu-screen">
+          <div class="bestiary-heading">
+            <div>
+              <span class="chapter-kicker"
+                >Hermes's field notes · The divine patrons</span
+              >
+              <h2>Like god, like beast.</h2>
+              <p>
+                Twelve powers. Twelve unmistakable personalities.<br />
+                Meet the gods whose colors—and company—shape the sacred
+                families.
+              </p>
+            </div>
+            <button class="btn small" id="pantheon-close">
+              Back to the title
+            </button>
+          </div>
+          <nav
+            class="pantheon-jumps"
+            id="pantheon-jumps"
+            aria-label="Find a god"
+          ></nav>
+          <div class="pantheon-grid" id="pantheon-grid"></div>
+        </section>
+
+        <!-- PLAYTEST (visible with ?dev) -->
+        <section id="dev-screen" class="screen">
+          <h2>Playtest</h2>
+          <p class="pick-sub">Begin the journey from any state.</p>
+          <div class="dev-grid">
+            <label style="grid-column: 1/-1"
+              >Scenario
+              <select id="dev-preset">
+                <option value="custom">Custom…</option>
+                <option value="fresh">Fresh start — Pimpleia</option>
+                <option value="kassRoad">Grove Road — before Kass</option>
+                <option value="delphiMyth">Delphi — Myth I opening</option>
+                <option value="delphiDone">Delphi — Myth I complete</option>
+                <option value="athensContest">Athens — the Contest</option>
+                <option value="corinth">Corinth — post Myth II</option>
+              </select>
+            </label>
+            <label
+              >Map
+              <select id="dev-map"></select
+            ></label>
+            <label
+              >Party level
+              <input type="number" id="dev-level" min="1" max="60" value="8"
+            /></label>
+            <label
+              >Delphi myth
+              <select id="dev-delphi">
+                <option value="0">0 — not begun</option>
+                <option value="1">1 — the chase</option>
+                <option value="2">2 — the laurel</option>
+                <option value="3">3 — complete</option>
+              </select>
+            </label>
+            <label
+              >Athens myth
+              <select id="dev-athens">
+                <option value="0">0 — not begun</option>
+                <option value="1">1 — salt spring</option>
+                <option value="2">2 — the olive</option>
+                <option value="3">3 — complete</option>
+              </select>
+            </label>
+            <label
+              >Beast 1
+              <select id="dev-b1"></select
+            ></label>
+            <label
+              >Beast 2
+              <select id="dev-b2"></select
+            ></label>
+            <label
+              >Beast 3
+              <select id="dev-b3"></select
+            ></label>
+            <label class="chk"
+              ><input type="checkbox" id="dev-kass" /> Kass defeated</label
+            >
+            <label class="chk"
+              ><input type="checkbox" id="dev-trainers" /> All trainers
+              defeated</label
+            >
+            <label class="chk" style="grid-column: 1/-1"
+              ><input type="checkbox" id="dev-persist" /> Persist as my
+              save</label
+            >
+          </div>
+          <div class="pick-actions">
+            <button class="btn" id="dev-begin">Begin</button>
+            <button class="btn small" id="dev-back">◂ Title</button>
+          </div>
+        </section>
+
+        <!-- TEAM PICK -->
+        <section id="pick-screen" class="screen">
+          <h2>The Gift of Hermes</h2>
+          <p class="pick-sub">
+            Three beasts stir in the god's satchel. Choose the one that sings
+            back.
+          </p>
+          <div class="grid" id="pick-grid"></div>
+          <div class="pick-actions">
+            <button class="btn" id="fight-btn" disabled>
+              Choose a companion
+            </button>
+          </div>
+        </section>
+
+        <!-- OVERWORLD -->
+        <section id="overworld-screen" class="screen" style="padding: 0">
+          <div class="journey-strip">
+            <span id="chapter-label">BOOK I / THE BROKEN SONG</span
+            ><span id="resources"></span>
+          </div>
+          <div id="ow-stage">
+            <canvas
+              id="ow-canvas"
+              width="960"
+              height="576"
+              aria-label="Overworld. Use arrow keys or WASD to move, E or Space to interact."
+            ></canvas>
+            <div id="ow-place">Pimpleia</div>
+            <div id="ow-region">FOOTHILLS OF OLYMPUS</div>
+            <canvas
+              id="minimap"
+              width="132"
+              height="108"
+              aria-label="Local map. Gold: you. White: exits. Yellow: objective."
+            ></canvas>
+            <div id="interaction-hint" class="hidden"></div>
+            <div id="dpad">
+              <button class="dbtn" data-dir="up">▲</button>
+              <button class="dbtn" data-dir="left">◀</button>
+              <button class="dbtn" data-dir="act">◉</button>
+              <button class="dbtn" data-dir="right">▶</button>
+              <button class="dbtn" data-dir="down">▼</button>
+            </div>
+          </div>
+          <div class="meander"></div>
+          <div id="ow-bar">
+            <div class="objective">
+              <span class="eyebrow">THE NEXT VERSE</span>
+              <div id="ow-hint">Find Hermes at the north gate.</div>
+            </div>
+            <button class="btn small" id="party-btn">
+              Companions <kbd>P</kbd>
+            </button>
+            <button class="btn small" id="journal-btn">
+              Journal <kbd>J</kbd>
+            </button>
+            <button class="btn small" id="satchel-btn">
+              Satchel <kbd>B</kbd>
+            </button>
+          </div>
+          <div class="road-footer">
+            <span
+              >WASD / arrows · Walk &nbsp; Shift · Run &nbsp; E / Space ·
+              Interact</span
+            ><span id="save-status" role="status">Autosave ready</span>
+          </div>
+          <!-- dialogue overlay for signs / NPCs -->
+          <div id="ow-dialogue" class="hidden">
+            <div class="owd-box" role="dialog" aria-label="Story dialogue">
+              <span id="owd-text" aria-live="polite"></span>
+              <div id="dialogue-choices"></div>
+              <span class="owd-cue">Continue ↵</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="journal-screen" class="screen menu-screen">
+          <span class="chapter-kicker">The words we keep</span>
+          <h2>The singer's journal</h2>
+          <button class="btn small secondary" id="journal-bestiary">
+            Open the beast field guide
+          </button>
+          <button class="btn small secondary" id="journal-pantheon">
+            Meet the gods
+          </button>
+          <div id="journal-content"></div>
+          <button class="btn" id="journal-close">Back to the road</button>
+        </section>
+        <section id="satchel-screen" class="screen menu-screen">
+          <span class="chapter-kicker">Provision for the journey</span>
+          <h2>Your satchel</h2>
+          <p id="satchel-summary"></p>
+          <div id="satchel-content"></div>
+          <div class="settings-row">
+            <label
+              ><input type="checkbox" id="fast-text" /> Quick battle text</label
+            ><button class="btn small" id="save-export">Export save</button
+            ><label class="btn small"
+              >Import save<input
+                type="file"
+                id="save-import"
+                accept="application/json,.json"
+                hidden
+            /></label>
+          </div>
+          <p id="save-message" role="status"></p>
+          <button class="btn" id="satchel-close">Back to the road</button>
+        </section>
+
+        <!-- PARTY MENU -->
+        <section id="party-screen" class="screen">
+          <h2>Your Companions</h2>
+          <p class="pick-sub" id="party-sub"></p>
+          <div id="party-list"></div>
+          <div class="pick-actions">
+            <button class="btn" id="party-close">Back to the Road</button>
+          </div>
+        </section>
+
+        <!-- BATTLE -->
+        <section id="battle-screen" class="screen" style="padding: 0">
+          <div id="battle-stage">
+            <div id="battle-context"></div>
+            <div id="battle-tokens"></div>
+            <canvas id="battle-canvas" width="520" height="300"></canvas>
+            <div class="hpcard" id="hp-foe"></div>
+            <div class="hpcard" id="hp-ally"></div>
+          </div>
+          <div class="meander"></div>
+          <div id="battle-panel">
+            <div id="dialogue" aria-live="polite"></div>
+            <div id="battle-tactic"></div>
+            <div id="action-ui" class="hidden">
+              <div class="actiongrid" id="actiongrid">
+                <button class="actbtn" data-act="fight">Strike</button>
+                <button class="actbtn" data-act="catch">Amphora</button>
+                <button class="actbtn" data-act="switch">Beasts</button>
+                <button class="actbtn" data-act="flee">Flee</button>
+                <button class="actbtn" data-act="song">Lyre</button>
+                <button class="actbtn" data-act="item">Nectar</button>
+              </div>
+            </div>
+            <div id="move-ui" class="hidden">
+              <div class="movegrid" id="movegrid"></div>
+              <div class="panel-actions">
+                <button class="btn small" id="move-back">◂ Back</button>
+              </div>
+            </div>
+            <div id="switch-ui" class="hidden">
+              <div class="benchrow" id="benchrow"></div>
+            </div>
+            <button class="btn small hidden" id="continue-btn">
+              ▸ Continue
+            </button>
+          </div>
+        </section>
+
+        <!-- RESULT -->
+        <section id="result-screen" class="screen">
+          <div class="h2" id="result-title"></div>
+          <p id="result-text"></p>
+          <button class="btn" id="again-btn">Battle Again</button>
+        </section>
+
+        <div class="meander"></div>
       </div>
-    </section>
-
-    <!-- RESULT -->
-    <section id="result-screen" class="screen">
-      <div class="h2" id="result-title"></div>
-      <p id="result-text"></p>
-      <button class="btn" id="again-btn">Battle Again</button>
-    </section>
-
-    <div class="meander"></div>
-  </div>
-</div>
-<script src="js/data.js"></script>
-<script src="js/sprites.js"></script>
-<script src="js/art.js"></script>
-<script src="js/engine.js"></script>
-<script src="js/core.js"></script>
-<script src="js/battle.js"></script>
-<script src="js/maps.js"></script>
-<script src="js/overworld.js"></script>
-<script src="js/save.js"></script>
-<script src="js/screens.js"></script>
-</body>
+    </div>
+    <script src="js/data.js"></script>
+    <script src="js/sprites.js"></script>
+    <script src="js/keeper.js"></script>
+    <script src="js/art.js"></script>
+    <script src="js/engine.js"></script>
+    <script src="js/core.js"></script>
+    <script src="js/battle.js"></script>
+    <script src="js/maps.js"></script>
+    <script src="js/chapter.js"></script>
+    <script src="js/overworld.js"></script>
+    <script src="js/scenery.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/journey.js"></script>
+    <script src="js/screens.js"></script>
+    <script src="js/bestiary.js"></script>
+    <script src="js/pantheon.js"></script>
+  </body>
 </html>
