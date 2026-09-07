@@ -237,17 +237,7 @@ function _handleTwoGenerators(definingPolys, result) {
     // Minimal polynomial of γ = Res_y(f(y), g(x-c*y)) in x
 
     for (let c = 1; c <= 10; c++) {
-        // h(x) = Res_y(f(y), g(x - c*y))
-        // Substitution: g(x - c*y) as a polynomial in y
-        const gShifted = _substituteLinear(g, c, f.degree() + g.degree());
-        const h = QPolynomial.resultant(f, gShifted);
-
-        // h should be a polynomial in x ... actually resultant gives a scalar
-        // We need to compute resultant of f(y) and g(x - cy) as polynomials in y, treating x as parameter
-        // This is more complex. Use the direct approach instead.
-
-        // Direct approach: compute the minimal polynomial of α + c*β
-        // by computing Res_y(f(y), g(z - c*y)) where z is the result variable
+        // Minpoly of γ = α + cβ is Res_y(f(y), g(z - c*y)).
         const minPolyGamma = _resultantForPrimitiveElement(f, g, c);
 
         if (minPolyGamma && minPolyGamma.degree() === f.degree() * g.degree()) {
