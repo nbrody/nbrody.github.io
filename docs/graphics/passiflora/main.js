@@ -21,7 +21,7 @@ renderer.toneMappingExposure = 1.25;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#172c25');
 const camera = new THREE.PerspectiveCamera(36, 1, .1, 100);
-camera.position.set(0,-3.2,11.8);
+camera.position.set(0,0,12.37);
 const controls = new OrbitControls(camera,renderer.domElement);
 controls.enableDamping = true;
 controls.minDistance = 3.1;
