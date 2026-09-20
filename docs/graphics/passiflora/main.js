@@ -5,10 +5,10 @@ import { vertexShader, fragmentShader } from './shaders.js';
 const $ = id => document.getElementById(id);
 const viewport = $('viewport');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-$('breeze').checked = !reducedMotion;
+let breezeEnabled = !reducedMotion;
 let renderer;
 try {
-  renderer = new THREE.WebGLRenderer({canvas:$('flower'), antialias:true, preserveDrawingBuffer:true});
+  renderer = new THREE.WebGLRenderer({canvas:$('flower'), antialias:true});
 } catch (error) {
   $('status').textContent = 'This specimen needs WebGL. Please open it in a browser with hardware acceleration enabled.';
   $('status').className = 'error';
@@ -68,7 +68,7 @@ function petalGeometry(index,opening){
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.setIndex(indices);g.computeVertexNormals();return g;
 }
 function clear(group){for(const m of [...group.children]){m.geometry.dispose();group.remove(m);}}
-function buildPetals(){clear(petals);for(let i=0;i<10;i++)mesh(petalGeometry(i,+$('bloom').value),petalMat,petals);}
+function buildPetals(){clear(petals);for(let i=0;i<10;i++)mesh(petalGeometry(i,1),petalMat,petals);}
 const corona=new THREE.Group();flower.add(corona);
 // Merge the tubes into one draw call while preserving their longitudinal UVs.
 function merge(geometries){
@@ -77,7 +77,7 @@ function merge(geometries){
  const result=new THREE.BufferGeometry();result.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));result.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));result.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));return result;
 }
 function buildCorona(){
- clear(corona);const geometries=[];const length=+$('length').value,curl=+$('curl').value;
+ clear(corona);const geometries=[];const length=1,curl=.35;
  for(let ring=0;ring<3;ring++){
   const count=ring===0?100:ring===1?85:70;
   for(let i=0;i<count;i++){
@@ -123,25 +123,14 @@ for(let i=0;i<60;i++){
 }
 function resize(){const w=viewport.clientWidth,h=viewport.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(18))/Math.min(1,camera.aspect)));camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe(viewport);resize();
-let rebuildPending=false;
-for(const id of ['bloom','length','curl']) $(id).addEventListener('input',()=>{
- $(id+'Value').textContent=Math.round(+$(id).value*100)+'%';
- if(!rebuildPending){rebuildPending=true;requestAnimationFrame(()=>{buildPetals();buildCorona();rebuildPending=false;});}
-});
-function view(name){
- const positions={front:[0,-3.2,11.8],side:[0,-10,3.1],detail:[0,-1.2,4.4]};
- camera.position.set(...positions[name]);controls.target.set(0,0,name==='detail'?.60:.15);controls.update();
- for(const id of Object.keys(positions))$(id).classList.toggle('active',id===name);
+const breezeToggle = $('breezeToggle');
+function updateBreeze(){
+ materials.forEach(m=>m.uniforms.uBreeze.value=breezeEnabled?1:0);
+ breezeToggle.setAttribute('aria-pressed',String(breezeEnabled));
+ breezeToggle.title=breezeEnabled?'Turn breeze off':'Turn breeze on';
 }
-for(const id of ['front','side','detail'])$(id).onclick=()=>view(id);
-controls.addEventListener('start',()=>document.querySelectorAll('.views button').forEach(b=>b.classList.remove('active')));
-$('rotate').onchange=()=>controls.autoRotate=$('rotate').checked;
-$('breeze').onchange=()=>materials.forEach(m=>m.uniforms.uBreeze.value=$('breeze').checked?1:0);
-$('reset').onclick=()=>{
- for(const [id,value] of Object.entries({bloom:1,length:1,curl:.35})){$(id).value=value;$(id+'Value').textContent=Math.round(value*100)+'%';}
- buildPetals();buildCorona();$('rotate').checked=false;controls.autoRotate=false;$('breeze').checked=!reducedMotion;$('breeze').onchange();view('front');
-};
-$('save').onclick=()=>{renderer.render(scene,camera);const link=document.createElement('a');link.download='passiflora.png';link.href=renderer.domElement.toDataURL('image/png');link.click();};
+breezeToggle.addEventListener('click',()=>{breezeEnabled=!breezeEnabled;updateBreeze();});
+updateBreeze();
 const clock=new THREE.Clock();
 renderer.setAnimationLoop(()=>{const t=clock.getElapsedTime();materials.forEach(m=>m.uniforms.uTime.value=t);controls.update();renderer.render(scene,camera);});
 $('status').hidden=true;

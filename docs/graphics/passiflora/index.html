@@ -20,23 +20,11 @@
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/controls/OrbitControls.js":"./vendor/OrbitControls.js"}}</script>
 </head>
 <body>
-<main>
-<aside>
-<a class="back" href="../index.html">← GRAPHICS / BOTANICAL STUDIES</a>
-<div class="heading"><p class="eyebrow">PASSIONFLOWER</p><h1>Passiflora<span>.</span></h1></div>
-<!-- <p class="description">Ivory-green petals. A halo of violet threads. Five anthers beneath a three-armed crown. A procedural study inspired by your photograph.</p> -->
-<section><div class="section-title">01 <h2>Shape the flower</h2></div>
-<label for="bloom">Petal opening <output id="bloomValue">100%</output></label><input id="bloom" type="range" min="0.25" max="1" step="0.01" value="1">
-<label for="length">Corona length <output id="lengthValue">100%</output></label><input id="length" type="range" min="0.6" max="1.35" step="0.01" value="1">
-<label for="curl">Filament curl <output id="curlValue">35%</output></label><input id="curl" type="range" min="0" max="1" step="0.01" value="0.35">
-</section>
-<section><div class="section-title">02 <h2>Observe</h2></div>
-<div class="views"><button id="front" class="active">Face</button><button id="side">Profile</button><button id="detail">Center</button></div>
-<label class="toggle"><span>Slow rotation</span><input id="rotate" type="checkbox"></label>
-<label class="toggle"><span>Breeze</span><input id="breeze" type="checkbox" checked></label>
-<button id="reset" class="reset">Reset <span>↗</span></button></section>
-<!-- <details><summary>Behind the petals</summary><p>Ten curved petal and sepal surfaces surround three rings of individual filaments. GLSL paints the purple-to-ivory-to-lavender bands, delicate veins, pollen texture, and soft translucent light. Everything is generated from geometry and math; no image textures.</p></details> -->
-</aside>
-<div id="viewport"><canvas id="flower" aria-label="Interactive passionflower; drag to orbit and scroll to zoom."></canvas><div class="topline"><span>PASSIFLORA </span><span class="live"><i></i></span></div><div id="status" role="status">Growing the specimen…</div><div class="bottomline"><span>Drag to orbit &nbsp; · &nbsp; Scroll to zoom</span><button id="save" title="Save the current view as a PNG">Save image ↓</button></div></div>
-</main><script type="module" src="main.js"></script>
-</body></html>
+<main id="viewport">
+<canvas id="flower" aria-label="Interactive passionflower; drag to orbit and scroll to zoom."></canvas>
+<h1><button id="breezeToggle" type="button" aria-label="Breeze" aria-pressed="false" title="Toggle breeze">Passiflora<span>.</span></button></h1>
+<div id="status" role="status">Growing the specimen…</div>
+</main>
+<script type="module" src="main.js"></script>
+</body>
+</html>
