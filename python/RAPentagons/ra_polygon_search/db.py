@@ -60,6 +60,9 @@ def insert_solution(con: sqlite3.Connection, sol: PolygonSolution) -> bool:
         con.commit()
         return True
     except sqlite3.IntegrityError:
+        # A failed INSERT leaves the deferred transaction open; roll back so
+        # later writers on this connection are not blocked.
+        con.rollback()
         return False
 
 
