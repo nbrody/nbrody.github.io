@@ -33,13 +33,16 @@ collision searches in ../braidGroups.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import math
 import os
+from contextlib import contextmanager
 from fractions import Fraction as Fr
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data')
 DB_PATH = os.path.join(DATA_DIR, 'integer_matrix_db.json')
+_LOCK_PATH = os.path.join(DATA_DIR, 'integer_matrix_db.lock')
 
 SYMS = ('A', 'B', 'a', 'b')
 INV = {'A': 'a', 'a': 'A', 'B': 'b', 'b': 'B'}
@@ -122,7 +125,9 @@ class NumberField:
         M = [[cols[k][i] for k in range(d)] + [Fr(int(i == 0))]
              for i in range(d)]
         for col in range(d):
-            piv = next(r for r in range(col, d) if M[r][col] != 0)
+            piv = next((r for r in range(col, d) if M[r][col] != 0), None)
+            if piv is None:
+                raise ValueError('not invertible (zero divisor / singular element)')
             M[col], M[piv] = M[piv], M[col]
             pv = M[col][col]
             M[col] = [x / pv for x in M[col]]
@@ -229,6 +234,12 @@ def magnus_generators(K: NumberField):
     """Return {'A','a','B','b'} as 2x2 tuples over K."""
     t = K.t
     one, zero = K.one, K.zero
+    # det A = t and det B = (t-1)^2, so both must be invertible in K.
+    if K.is_zero(t):
+        raise ValueError('Magnus generators undefined at t = 0 (det A = 0)')
+    tm1 = K.sub(t, one)
+    if K.is_zero(tm1):
+        raise ValueError('Magnus generators undefined at t = 1 (det B = 0)')
     t2p1 = K.add(K.mul(t, t), one)                       # t^2 + 1
     two = K.from_int(2)
     A = ((t, zero), (zero, one))
@@ -236,7 +247,6 @@ def magnus_generators(K: NumberField):
     tinv = K.inv(t)
     a = ((tinv, zero), (zero, one))
     # B^{-1} = adj(B) / det(B),  det B = (t-1)^2
-    tm1 = K.sub(t, one)
     dinv = K.inv(K.mul(tm1, tm1))
     b = ((K.mul(one, dinv), K.mul(K.neg(two), dinv)),
          (K.mul(K.neg(t), dinv), K.mul(t2p1, dinv)))
@@ -414,10 +424,22 @@ def load_db():
     }
 
 
-def save_db(db, updated_note=None):
+@contextmanager
+def _db_exclusive_lock():
+    """Serialize load-modify-save against concurrent LongReid scripts."""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(_LOCK_PATH, 'a+', encoding='utf-8') as lockfh:
+        fcntl.flock(lockfh.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lockfh.fileno(), fcntl.LOCK_UN)
+
+
+def _write_db(db, updated_note=None):
     os.makedirs(DATA_DIR, exist_ok=True)
     if updated_note:
-        db['_meta']['updated'] = updated_note
+        db.setdefault('_meta', {})['updated'] = updated_note
     # stable ordering: fields by degree then key
     db['fields'] = dict(sorted(
         db['fields'].items(),
@@ -425,6 +447,24 @@ def save_db(db, updated_note=None):
     with open(DB_PATH, 'w') as fh:
         json.dump(db, fh, indent=1)
     return DB_PATH
+
+
+def save_db(db, updated_note=None):
+    """Overwrite the on-disk DB. Prefer update_db() for load-modify-save."""
+    with _db_exclusive_lock():
+        return _write_db(db, updated_note)
+
+
+def update_db(mutator, updated_note=None):
+    """Load, mutate, and save under an exclusive lock.
+
+    Reloads the latest on-disk DB before applying ``mutator``, so concurrent
+    savers merge instead of silently dropping each other's fields/matrices.
+    """
+    with _db_exclusive_lock():
+        db = load_db()
+        mutator(db)
+        return _write_db(db, updated_note)
 
 
 def field_entry(db, K: NumberField, label=None):

@@ -50,8 +50,8 @@ const F0 = new Frac(0n), F1 = new Frac(1n);
 /* Number field K = Q[t]/(m), elements = arrays of d Fracs (power basis). */
 class NF {
     constructor(coeffs) {            // integer coeffs, low -> high, monic
-        if (coeffs[coeffs.length - 1] !== 1) throw new Error('m must be monic');
-        this.c = coeffs.map(BigInt);
+        if (BigInt(coeffs[coeffs.length - 1]) !== 1n) throw new Error('m must be monic');
+        this.c = coeffs.map(c => BigInt(c));
         this.d = coeffs.length - 1;
         if (this.d < 1) throw new Error('m must be non-constant');
         // reduction table for t^k, k = 0 .. 2d-2
@@ -213,11 +213,18 @@ function hasInfiniteOrderPGL2(Z) {    // finite in PGL2 <=> Z^12 = ±I
     return !(isScalar(1n) || isScalar(-1n));
 }
 
-/* parse 't^2-3t+1' (or comma coeffs) -> [1,-3,1] low->high */
+/* parse 't^2-3t+1' (or comma coeffs) -> BigInt coeffs [1n,-3n,1n] low->high.
+ * Uses BigInt so coefficients above Number.MAX_SAFE_INTEGER are not rounded. */
 function parsePoly(s) {
     s = s.trim().replace(/\s+/g, '').replace(/\*\*/g, '^').replace(/x/g, 't').replace(/\*/g, '');
     if (!s) return null;
-    if (s.includes(',')) return s.split(',').map(Number);
+    if (s.includes(',')) {
+        try {
+            return s.split(',').map(part => BigInt(part.trim()));
+        } catch {
+            return null;
+        }
+    }
     const terms = s.match(/[+-]?[^+-]+/g);
     if (!terms) return null;
     let deg = 0;
@@ -225,13 +232,13 @@ function parsePoly(s) {
     for (const term of terms) {
         const m = term.match(/^([+-]?)(\d*)(?:t(?:\^(\d+))?)?$/);
         if (!m || (m[2] === '' && !term.includes('t'))) return null;
-        const sign = m[1] === '-' ? -1 : 1;
-        const coef = sign * (m[2] === '' ? 1 : parseInt(m[2], 10));
+        const sign = m[1] === '-' ? -1n : 1n;
+        const coef = sign * (m[2] === '' ? 1n : BigInt(m[2]));
         const k = m[3] ? parseInt(m[3], 10) : (term.includes('t') ? 1 : 0);
         parsed.push([k, coef]);
         deg = Math.max(deg, k);
     }
-    const cs = Array(deg + 1).fill(0);
+    const cs = Array(deg + 1).fill(0n);
     for (const [k, coef] of parsed) cs[k] += coef;
     return cs;
 }
@@ -390,7 +397,7 @@ function currentField() {
     const key = custom || document.getElementById('calc-field').value;
     if (calcCache.key === key) return calcCache;
     const coeffs = parsePoly(key);
-    if (!coeffs || coeffs[coeffs.length - 1] !== 1 || coeffs.length < 2)
+    if (!coeffs || coeffs.length < 2 || BigInt(coeffs[coeffs.length - 1]) !== 1n)
         return { key, K: null, gens: null, err: 'minimal polynomial must be monic with integer coefficients' };
     let K, gens;
     try {
