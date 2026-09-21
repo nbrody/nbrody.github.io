@@ -321,6 +321,13 @@ function setupCheckersController(container) {
 }
 
 function playCheckersMove(moveIndex) {
+    // Clear move buttons immediately so double-taps cannot queue duplicate actions
+    // while the TV still shows the same turn (500ms delayed turn advance).
+    const movesContainer = document.getElementById('checkers-moves');
+    if (movesContainer) movesContainer.innerHTML = '';
+    const turnMsg = document.getElementById('checkers-turn-msg');
+    if (turnMsg) turnMsg.textContent = 'Move sent...';
+
     playerAction(myRoom, myPlayerId, {
         type: 'checkers_move',
         moveIndex: moveIndex,
