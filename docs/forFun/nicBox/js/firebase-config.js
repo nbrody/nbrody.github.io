@@ -135,7 +135,11 @@ function playerAction(roomCode, playerId, action) {
 // Wipe gameState between games so stale actions don't re-fire child_added
 // listeners when the next game attaches its handlers.
 function resetGameState(roomCode) {
-    return db.ref(`rooms/${roomCode}/gameState`).set({});
+    const roomRef = db.ref(`rooms/${roomCode}`);
+    return Promise.all([
+        roomRef.child('gameState').set({}),
+        roomRef.child('drawerSecret').remove()
+    ]);
 }
 
 // If the current host disconnects, promote another connected player.
