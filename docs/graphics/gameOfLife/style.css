@@ -1,0 +1,113 @@
+:root {
+  --bg: #07080f;
+  --panel: rgba(12, 14, 24, 0.86);
+  --ink: #e9ecf5;
+  --dim: #9aa1b8;
+  --faint: #626a84;
+  --line: rgba(255, 255, 255, 0.09);
+  --accent: #ffd166;
+  --a: #ff5d73; --b: #38d9f5; --c: #ffd166;
+  --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
+button, input, select { font: inherit; color: inherit; }
+
+.app { position: fixed; inset: 0; }
+.stage { position: absolute; inset: 0; }
+#view { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+#view:focus { outline: none; }
+
+/* chapter captions */
+.caption {
+  position: absolute; z-index: 1; isolation: isolate; left: clamp(16px, 4vw, 56px); bottom: clamp(28px, 7vh, 72px);
+  max-width: min(560px, calc(100% - 32px)); pointer-events: none;
+  opacity: 0; transform: translateY(8px); transition: opacity 1.2s ease, transform 1.2s ease;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.9), 0 0 3px rgba(0, 0, 0, 0.8);
+}
+.caption::before {
+  content: ''; position: absolute; inset: -40px -60px -40px -80px; z-index: -1;
+  background: radial-gradient(closest-side, rgba(5, 6, 12, 0.72), rgba(5, 6, 12, 0));
+}
+.caption.visible { opacity: 1; transform: none; }
+.cap-kicker { display: flex; gap: 0.8em; font: 500 0.72rem/1 var(--mono); letter-spacing: 0.22em; text-transform: uppercase; color: var(--dim); }
+.cap-kicker span + span::before { content: '·'; margin-right: 0.8em; color: var(--faint); }
+.cap-title { margin: 0.35em 0 0.25em; font: italic 400 clamp(1.7rem, 3.4vw, 2.8rem)/1.05 var(--serif); letter-spacing: -0.01em; }
+.cap-text { margin: 0; font-size: clamp(0.88rem, 1.2vw, 1.02rem); line-height: 1.5; color: #cfd4e4; }
+
+.timeline { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, 0.05); }
+.timeline-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--a), var(--b), var(--c)); opacity: 0.7; }
+.timeline .tick { position: absolute; top: -3px; width: 1px; height: 9px; background: rgba(255, 255, 255, 0.35); }
+
+/* HUD */
+.hud {
+  margin: 12px 0 14px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: rgba(0, 0, 0, 0.25);
+  font: 500 0.72rem/1.2 var(--mono);
+}
+.hud-row { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.hud-row .k { color: var(--faint); letter-spacing: 0.12em; }
+.hud-row strong { font-weight: 500; margin-right: 8px; }
+.census { display: flex; height: 6px; margin-top: 8px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, 0.06); }
+.census span { display: block; height: 100%; width: 0; transition: width 0.3s; }
+.census .ca { background: var(--a); } .census .cb { background: var(--b); } .census .cc { background: var(--c); }
+.census-text { margin-top: 6px; color: var(--dim); }
+
+/* panel */
+aside {
+  position: absolute; top: 12px; right: 12px; bottom: 12px; width: 320px; overflow-y: auto;
+  padding: 16px 16px 12px; border: 1px solid var(--line); border-radius: 14px;
+  background: var(--panel); backdrop-filter: blur(14px); scrollbar-width: thin;
+}
+.panel-head { margin-bottom: 6px; }
+.eyebrow { font: 500 0.64rem/1 var(--mono); letter-spacing: 0.16em; color: var(--faint); text-decoration: none; }
+.eyebrow:hover { color: var(--dim); }
+h1 { margin: 8px 0 0; font: 400 1.5rem/1.1 var(--serif); }
+h1 em { color: var(--dim); }
+h2 { margin: 0 0 8px; font: 600 0.68rem/1 var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); }
+section { padding: 14px 0; border-top: 1px solid var(--line); }
+label { display: block; margin: 8px 0 4px; font-size: 0.78rem; color: var(--dim); }
+.label-row { display: flex; justify-content: space-between; align-items: baseline; }
+.label-row label { margin-bottom: 2px; }
+output { font: 0.72rem var(--mono); color: var(--faint); }
+select {
+  width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04); font-size: 0.84rem;
+}
+select option { background: #151827; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.paired { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.check { display: flex; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; }
+.help { margin: 6px 0 0; font-size: 0.76rem; line-height: 1.45; color: var(--dim); }
+.buttons { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 4px; }
+button {
+  padding: 6px 11px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255, 255, 255, 0.05);
+  font-size: 0.8rem; cursor: pointer;
+}
+button:hover { background: rgba(255, 255, 255, 0.11); }
+button.primary { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.shortcuts { margin: 10px 0 0; font-size: 0.7rem; color: var(--faint); line-height: 2; }
+kbd { padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; font: 0.66rem var(--mono); color: var(--dim); }
+
+.cayley { width: 100%; margin-top: 10px; border-collapse: collapse; font: 0.74rem var(--mono); text-align: center; }
+.cayley th, .cayley td { padding: 3px 0; border: 1px solid var(--line); }
+.cayley th { color: var(--dim); font-weight: 500; }
+.cayley td { color: var(--ink); }
+.sw { display: inline-block; width: 7px; height: 7px; margin-right: 4px; border-radius: 50%; vertical-align: 1px; }
+.sw.a { background: var(--a); } .sw.b { background: var(--b); } .sw.c { background: var(--c); }
+.classic .klein-only { display: none; }
+
+.restore {
+  position: absolute; right: 16px; top: 16px; background: rgba(7, 8, 15, 0.7); backdrop-filter: blur(8px);
+}
+.app.focus aside { display: none; }
+
+@media (max-width: 720px) {
+  aside { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 48vh; }
+  .caption { bottom: calc(48vh + 24px); }
+  .app.focus .caption { bottom: 32px; }
+}

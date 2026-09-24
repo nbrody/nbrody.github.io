@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="../app/entry.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Conway’s Game of Life with scripted stories, and a mode where live cells carry a charge in the Klein four-group (ℤ/2ℤ)².">
+  <meta name="graphics-description" content="Conway’s Life told as stories in chapters. Live cells split into the three nonzero elements of (ℤ/2)², and newborns inherit the sum of their parents.">
+  <title>Game of Life · (ℤ/2)² stories</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <div id="stage" class="stage">
+    <canvas id="view" tabindex="0" aria-label="Game of Life field. Drag to paint cells; Space pauses, N steps."></canvas>
+    <div id="caption" class="caption" aria-live="polite">
+      <div class="cap-kicker"><span id="capStory"></span><span id="capChapter"></span></div>
+      <div id="capTitle" class="cap-title"></div>
+      <p id="capText" class="cap-text"></p>
+    </div>
+    <div id="timeline" class="timeline" aria-hidden="true"><div id="timelineFill" class="timeline-fill"></div></div>
+  </div>
+
+  <aside id="controls" aria-label="Game of Life settings">
+    <header class="panel-head">
+      <a class="eyebrow" href="../index.html" data-studio-ignore>GRAPHICS STUDIO / LIVING SYSTEMS</a>
+      <h1>Game of Life <em>in (ℤ/2)²</em></h1>
+    </header>
+    <div id="hud" class="hud">
+      <div class="hud-row"><span class="k">GEN</span><strong id="generation">0</strong><span class="k">RULE</span><strong id="ruleReadout">B3/S23</strong><span class="k">LAW</span><strong id="lawReadout">Heredity</strong></div>
+      <div id="census" class="census" role="img" aria-label="Population of each state"><span class="ca"></span><span class="cb"></span><span class="cc"></span></div>
+      <div id="censusText" class="census-text"></div>
+    </div>
+
+    <section data-control-group="Story">
+      <h2>Story</h2>
+      <label for="story">Scenario</label>
+      <select id="story"></select>
+      <p class="help" id="storyBlurb"></p>
+      <div class="buttons">
+        <button id="playBtn" class="primary" title="Play or pause (Space)">Pause</button>
+        <button id="stepBtn" title="Advance one generation (N)">Step</button>
+        <button id="restartBtn" title="Restart this scenario (R)">Restart</button>
+      </div>
+      <div class="label-row"><label for="speed">Speed</label><output id="speedOut" for="speed">30 gen/s</output></div>
+      <input id="speed" type="range" min="1" max="120" step="1" value="30">
+      <div class="paired">
+        <div><label for="afterStory">When a story ends</label>
+          <select id="afterStory"><option value="next">Play the next story</option><option value="loop">Replay it</option><option value="continue">Keep running</option></select></div>
+        <div><label for="resolution">Cells across</label>
+          <select id="resolution"><option value="auto" selected>Auto</option><option value="160">160</option><option value="240">240</option><option value="320">320</option><option value="400">400</option><option value="480">480</option><option value="640">640</option></select></div>
+      </div>
+      <label class="check"><input id="captions" type="checkbox" checked> Show chapter captions</label>
+    </section>
+
+    <section data-control-group="Rule">
+      <h2>Rule</h2>
+      <label for="mode">Live states</label>
+      <select id="mode"><option value="klein">Three: a, b, c ∈ (ℤ/2)² ∖ 0</option><option value="classic">One: classic Life</option></select>
+      <label for="rule">Birth / survival</label>
+      <select id="rule"></select>
+      <label for="law">Colour law</label>
+      <select id="law"></select>
+      <p class="help" id="lawHelp"></p>
+      <div class="table-wrap klein-only">
+        <table class="cayley" aria-label="Addition table of the Klein four-group">
+          <thead><tr><th>+</th><th>0</th><th><i class="sw a"></i>a</th><th><i class="sw b"></i>b</th><th><i class="sw c"></i>c</th></tr></thead>
+          <tbody>
+            <tr><th>0</th><td>0</td><td>a</td><td>b</td><td>c</td></tr>
+            <tr><th><i class="sw a"></i>a</th><td>a</td><td>0</td><td>c</td><td>b</td></tr>
+            <tr><th><i class="sw b"></i>b</th><td>b</td><td>c</td><td>0</td><td>a</td></tr>
+            <tr><th><i class="sw c"></i>c</th><td>c</td><td>b</td><td>a</td><td>0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="paired klein-only">
+        <div><div class="label-row"><label for="mutation">Mutation</label><output id="mutationOut" for="mutation">0.00%</output></div>
+          <input id="mutation" type="range" min="0" max="500" step="1" value="0"></div>
+        <div><div class="label-row"><label for="bite">Bite</label><output id="biteOut" for="bite">20%</output></div>
+          <input id="bite" type="range" min="1" max="100" step="1" value="20"></div>
+      </div>
+      <label for="boundary">Edges</label>
+      <select id="boundary"><option value="open">Open: ships fly off</option><option value="wrap">Wrap: a torus</option></select>
+    </section>
+
+    <section data-control-group="Look">
+      <h2>Look</h2>
+      <div class="paired">
+        <div><label for="palette">Palette</label><select id="palette"></select></div>
+        <div class="klein-only"><label for="lens">Lens</label>
+          <select id="lens"><option value="full">All of (ℤ/2)²</option><option value="qa">Quotient by ⟨a⟩</option><option value="qb">Quotient by ⟨b⟩</option><option value="qc">Quotient by ⟨c⟩</option><option value="shadow">Shadow: alive/dead</option></select></div>
+      </div>
+      <div class="paired">
+        <div><div class="label-row"><label for="trail">Trails</label><output id="trailOut" for="trail">60</output></div><input id="trail" type="range" min="0" max="100" value="60"></div>
+        <div><div class="label-row"><label for="glow">Glow</label><output id="glowOut" for="glow">45</output></div><input id="glow" type="range" min="0" max="100" value="45"></div>
+      </div>
+    </section>
+
+    <section data-control-group="Draw">
+      <h2>Draw</h2>
+      <div class="paired">
+        <div><label for="brushColor">Ink</label><select id="brushColor"><option value="1">a</option><option value="2">b</option><option value="3">c</option><option value="-1">Random a / b / c</option><option value="0">Eraser</option></select></div>
+        <div><label for="stamp">Tool</label><select id="stamp"><option value="">Brush</option></select></div>
+      </div>
+      <div class="buttons">
+        <button id="rotateBtn" title="Rotate the stamp a quarter turn (T)">Rotate stamp</button>
+        <button id="soupBtn" title="Scatter a random soup over the field">Random soup</button>
+        <button id="clearBtn" title="Clear the field">Clear</button>
+      </div>
+      <p class="help">Drag to paint, or pick a pattern and click to stamp it. Painting pauses nothing; the story keeps going around you.</p>
+    </section>
+    <p class="shortcuts"><kbd>Space</kbd> pause <kbd>n</kbd> step <kbd>r</kbd> restart <kbd>s</kbd> next story <kbd>h</kbd> hide panel</p>
+  </aside>
+  <button id="restoreBtn" class="restore" hidden data-studio-ignore>Show controls <kbd>h</kbd></button>
+</div>
+<script type="module" src="main.js"></script>
+</body>
+</html>

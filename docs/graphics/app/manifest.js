@@ -38,6 +38,8 @@ export const VISUALIZATIONS = [
     blurb: 'A lattice of interfering sine waves over Z³.', keys: [] },
 
   // — Fluids & Fields —
+  { id: 'gameOfLife', title: 'Game of Life in (ℤ/2)²', cat: 'fields', glyph: '▚',
+    blurb: 'Conway’s Life told in chapters, with live cells split into the three nonzero elements of (ℤ/2)².', keys: [' ', 'n', 'r', 's', 'h'] },
   { id: 'fire', title: 'Combustion Engine', cat: 'fields', glyph: '🔥',
     blurb: 'Navier–Stokes flame solver. Drag to add fuel.', keys: [] },
   { id: 'smoke', title: 'Domain Warping', cat: 'fields', glyph: '🌫',
