@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../app/entry.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="graphics-description" content="A ten-minute visual history of everything: physics, chemistry, biology, psychology, sociology — from the Big Bang to a room full of people dancing." />
   <title>Origins</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <canvas id="stage"></canvas>
+
+  <div id="captions"></div>
 
   <div id="hud" hidden>
     <div id="hud-chapter">—</div>
@@ -16,9 +20,28 @@
       <div class="bar"><div id="bar-progress"></div></div>
     </div>
     <div id="hud-help">
-      space: pause · ←/→: chapter · 1–5: jump · h: hide hud · f: fullscreen
+      space pause · ←/→ chapter · shift+←/→ ±10s · ,/. ±1s · [/] speed · 1–5 jump<br />
+      c captions · t tap tempo · r restart · h hud · f fullscreen
     </div>
   </div>
+
+  <!-- Hidden controls the Graphics Studio remote discovers and drives. -->
+  <div id="controls" hidden>
+    <label for="chapterSelect">Chapter</label>
+    <select id="chapterSelect"></select>
+    <button id="playPause" type="button">Play / Pause</button>
+    <label for="captionsToggle">Captions</label>
+    <input type="checkbox" id="captionsToggle" checked />
+    <label for="bpmInput">Tempo (BPM)</label>
+    <input type="number" id="bpmInput" min="30" max="240" step="1" value="72" />
+    <button id="tapTempo" type="button">Tap tempo</button>
+  </div>
+  <div id="instructions" hidden>
+    <kbd>Space</kbd> <kbd>ArrowLeft</kbd> <kbd>ArrowRight</kbd> <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> <kbd>5</kbd>
+    <kbd>c</kbd> <kbd>t</kbd> <kbd>h</kbd> <kbd>f</kbd>
+  </div>
+
+  <div id="fallback" hidden>Origins needs a browser with WebGL2.</div>
 
   <script type="module" src="js/main.js"></script>
 </body>

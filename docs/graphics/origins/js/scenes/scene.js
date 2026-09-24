@@ -1,41 +1,48 @@
-// Base scene. All chapters subclass this and override update() and render().
+// Base scene. Every chapter subclasses this.
 //
 // Lifecycle:
-//   init({ canvas, ctx })       — once, at startup
-//   update(dt, t, progress)     — every frame; dt seconds, t seconds since load,
-//                                 progress 0..1 within this chapter
-//   render()                    — every frame, AFTER update; draws to ctx
-//   dispose()                   — on teardown (currently unused)
+//   init(E)              — once at startup. E = { R (renderer), tempo }
+//   seek(T)              — the director jumped to chapter time T; rebuild any
+//                          simulated state so the frame at T looks right
+//   update(dt, T, show)  — every frame. T is chapter time in seconds (it keeps
+//                          running past `duration` while the next chapter fades
+//                          in); show is seconds since the start of the piece
+//   render(R)            — draw into the renderer's current HDR target
 //
-// Each scene declares a `duration` (seconds). The Director uses it to
-// auto-advance.
+// Chapters are authored as functions of T: `beats` names the story beats for
+// the HUD, `cues` are the on-screen captions, and `post` carries this frame's
+// bloom / exposure / flash settings to the compositor.
+
+import { DEFAULT_POST } from '../gfx/renderer.js';
 
 export class Scene {
-  constructor(name, duration = 120) {
-    this.name = name;
+  constructor({ id, num, title, subtitle, duration = 120 }) {
+    this.id = id;
+    this.num = num;
+    this.title = title;
+    this.subtitle = subtitle;
     this.duration = duration;
+    this.post = { ...DEFAULT_POST };
+    this.beats = [];   // [{ t, name }]
+    this.cues = [];    // [{ t, d, title, sub }]
   }
 
-  init({ canvas, ctx }) {
-    this.canvas = canvas;
-    this.ctx = ctx;
+  init(E) {
+    this.E = E;
+    this.R = E.R;
+    this.tempo = E.tempo;
   }
 
-  update(_dt, _t, _progress) {}
-  render() {}
-  dispose() {}
+  seek(_T) {}
+  update(_dt, _T, _show) {}
+  render(_R) {}
 
-  get w() { return this.canvas.clientWidth; }
-  get h() { return this.canvas.clientHeight; }
-}
+  get W() { return this.R.W; }
+  get H() { return this.R.H; }
 
-// Small label drawn at bottom-left so we know which scene is on screen.
-// Remove once scenes are real.
-export function drawLabel(ctx, w, h, n, name, color) {
-  ctx.save();
-  ctx.font = '500 13px ui-monospace, "SF Mono", Menlo, monospace';
-  ctx.fillStyle = color;
-  ctx.globalAlpha = 0.55;
-  ctx.fillText(`${n} — ${name}`, 24, h - 24);
-  ctx.restore();
+  beatAt(T) {
+    let name = this.beats[0]?.name ?? '';
+    for (const b of this.beats) if (T >= b.t) name = b.name;
+    return name;
+  }
 }

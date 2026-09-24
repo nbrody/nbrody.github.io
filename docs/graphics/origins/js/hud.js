@@ -1,31 +1,32 @@
 // Debug overlay. Hidden by default; toggle with H.
-// Shows current chapter, progress through it, fps. Cursor visible while shown.
+// Shows chapter, beat, chapter time, fps, tempo. Cursor visible while shown.
 
 export class HUD {
   constructor() {
-    this.el         = document.getElementById('hud');
-    this.elChapter  = document.getElementById('hud-chapter');
-    this.elStats    = document.getElementById('hud-stats');
+    this.el = document.getElementById('hud');
+    this.elChapter = document.getElementById('hud-chapter');
+    this.elStats = document.getElementById('hud-stats');
     this.elProgress = document.getElementById('bar-progress');
-    this.fpsAvg     = 60;
-    this.visible    = false;
-    this.el.hidden  = true;
+    this.fpsAvg = 60;
+    this.visible = false;
+    this.el.hidden = true;
   }
 
-  toggle() {
-    this.visible = !this.visible;
-    this.el.hidden = !this.visible;
-    document.body.classList.toggle('show-cursor', this.visible);
+  toggle(on = !this.visible) {
+    this.visible = on;
+    this.el.hidden = !on;
+    document.body.classList.toggle('show-cursor', on);
   }
 
-  update({ director, fps }) {
+  update({ director, tempo, fps }) {
+    if (fps > 0 && fps < 1000) this.fpsAvg = this.fpsAvg * 0.95 + fps * 0.05;
     if (!this.visible) return;
-    this.fpsAvg = this.fpsAvg * 0.95 + fps * 0.05;
-    const elapsed = director.elapsed.toFixed(1);
-    const total = director.currentDuration.toFixed(0);
-    this.elChapter.textContent = `${director.current + 1}. ${director.currentName}`;
+    const s = director.currentScene;
+    const T = director.T;
+    this.elChapter.textContent = `${director.current + 1}. ${s.title} — ${s.beatAt(T)}`;
     this.elStats.textContent =
-      `${this.fpsAvg.toFixed(0)} fps · ${elapsed}s / ${total}s${director.paused ? ' · paused' : ''}`;
-    this.elProgress.style.width = `${(director.progress * 100).toFixed(1)}%`;
+      `${this.fpsAvg.toFixed(0)} fps · ${T.toFixed(1)}s / ${s.duration}s · ` +
+      `${tempo.bpm} bpm${director.speed !== 1 ? ` · ×${director.speed}` : ''}${director.paused ? ' · paused' : ''}`;
+    this.elProgress.style.width = `${Math.min(100, (T / s.duration) * 100).toFixed(1)}%`;
   }
 }

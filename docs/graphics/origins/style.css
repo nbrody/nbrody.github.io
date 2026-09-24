@@ -1,4 +1,10 @@
-:root { color-scheme: dark; }
+:root {
+  color-scheme: dark;
+  --ink: rgba(236, 240, 255, 0.92);
+  --ink-soft: rgba(210, 218, 240, 0.62);
+  --ink-faint: rgba(200, 210, 235, 0.32);
+  --sans: "Avenir Next", "Avenir", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+}
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -7,7 +13,7 @@ html, body {
   height: 100%;
   background: #000;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-family: var(--sans);
   color: #ddd;
 }
 
@@ -16,9 +22,118 @@ body.show-cursor { cursor: default; }
 
 canvas#stage {
   display: block;
+  position: fixed;
+  inset: 0;
   width: 100vw;
   height: 100vh;
 }
+
+[hidden] { display: none !important; }
+
+/* ---- captions: title cards, beat captions, cosmic timeline ---- */
+#captions {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+  text-shadow: 0 0 18px rgba(0, 0, 0, 0.85), 0 0 3px rgba(0, 0, 0, 0.6);
+}
+
+#captions .card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 69%;
+  transform: translateY(-50%);
+  text-align: center;
+  opacity: 0;
+}
+#captions .card-num {
+  font-size: clamp(12px, 1.1vw, 16px);
+  letter-spacing: 0.6em;
+  color: var(--ink-soft);
+  margin-bottom: 1.1em;
+  padding-left: 0.6em;
+}
+#captions .card-title {
+  font-size: clamp(34px, 5.2vw, 82px);
+  font-weight: 200;
+  letter-spacing: 0.42em;
+  padding-left: 0.42em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+#captions .card-sub {
+  margin-top: 1.2em;
+  font-size: clamp(13px, 1.25vw, 19px);
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+#captions .cap {
+  position: absolute;
+  left: clamp(20px, 4vw, 64px);
+  bottom: clamp(56px, 8vh, 96px);
+  max-width: min(640px, 80vw);
+  opacity: 0;
+}
+#captions .cap-title {
+  font-size: clamp(13px, 1.3vw, 20px);
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+#captions .cap-sub {
+  margin-top: 0.55em;
+  font-size: clamp(13px, 1.15vw, 18px);
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+#captions .timeline {
+  position: absolute;
+  left: clamp(20px, 4vw, 64px);
+  right: clamp(20px, 4vw, 64px);
+  bottom: clamp(18px, 3vh, 34px);
+  opacity: 0;
+}
+#captions .tl-track {
+  position: relative;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.13);
+}
+#captions .tl-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.5));
+}
+#captions .tl-dot {
+  position: absolute;
+  top: -2px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.7);
+}
+#captions .tl-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+#captions .tl-now { color: var(--ink-soft); }
 
 /* ---- HUD (development / rehearsal only; toggle with H) ---- */
 #hud {
@@ -32,10 +147,10 @@ canvas#stage {
   font-size: 12px;
   line-height: 1.6;
   pointer-events: none;
-  min-width: 240px;
+  min-width: 280px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  z-index: 10;
 }
-#hud[hidden] { display: none; }
 
 #hud-chapter { font-size: 14px; font-weight: 600; color: #fff; }
 #hud-stats   { color: #888; }
@@ -51,11 +166,19 @@ canvas#stage {
   height: 100%;
   width: 0;
   background: linear-gradient(90deg, #4af, #fa4);
-  transition: width 100ms linear;
 }
 
 #hud-help {
   color: #555;
   margin-top: 8px;
   font-size: 11px;
+}
+
+#fallback {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink-soft);
+  letter-spacing: 0.1em;
 }
