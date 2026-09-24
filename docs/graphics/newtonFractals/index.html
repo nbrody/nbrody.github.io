@@ -1,0 +1,2560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="../app/entry.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Newton Fractals</title>
+<style>
+  :root {
+    --bg: #020617;
+    --surface: #1e293b;
+    --primary: #38bdf8;
+    --primary-dim: rgba(56, 189, 248, 0.2);
+    --accent: #6366f1;
+    --accent-dim: rgba(99, 102, 241, 0.2);
+    --text: #f8fafc;
+    --text-dim: #94a3b8;
+    --text-muted: #64748b;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-light: rgba(255, 255, 255, 0.15);
+    --glass-bg: rgba(15, 23, 42, 0.85);
+    --glass-hover: rgba(255, 255, 255, 0.08);
+    --success: #22c55e;
+    --danger: #ef4444;
+    --gold: #e8c34a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow: hidden;
+  }
+
+  /* Full-screen fractal stage */
+  #stage { position: fixed; inset: 0; z-index: 0; cursor: grab; }
+  #stage.dragging { cursor: grabbing; }
+  #stage.orbit-mode { cursor: crosshair; }
+  #stage canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  #glcanvas { z-index: 0; }
+  #overlay { z-index: 1; pointer-events: none; }
+
+  #coords {
+    position: fixed; left: 14px; bottom: 12px; z-index: 50;
+    font-size: 11.5px; color: var(--text-dim);
+    background: var(--glass-bg); backdrop-filter: blur(10px);
+    border: 1px solid var(--border); padding: 4px 10px; border-radius: 8px;
+    font-variant-numeric: tabular-nums; pointer-events: none;
+  }
+
+  /* ============ floating glass control panel ============ */
+  #control-panel {
+    position: fixed; top: 20px; right: 20px;
+    width: 360px; max-height: calc(100vh - 40px);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-light); border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    z-index: 100;
+    display: flex; flex-direction: column; overflow: hidden;
+    transition: width 0.38s cubic-bezier(0.4,0,0.2,1),
+                height 0.38s cubic-bezier(0.4,0,0.2,1),
+                border-radius 0.38s cubic-bezier(0.4,0,0.2,1);
+  }
+  .panel-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 56px 12px 18px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+  .panel-title {
+    flex: 1; font-size: 1.02rem; font-weight: 600; margin: 0;
+    background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .panel-subtitle { font-size: 0.72rem; color: var(--text-muted); margin: 2px 0 0; white-space: nowrap; }
+  .panel-subtitle a { color: var(--primary); text-decoration: none; }
+  #collapseBtn {
+    position: absolute; top: 12px; right: 12px; z-index: 5;
+    width: 32px; height: 32px; padding: 0;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border); border-radius: 50%;
+    color: var(--text); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: top 0.38s cubic-bezier(0.4,0,0.2,1),
+                right 0.38s cubic-bezier(0.4,0,0.2,1),
+                width 0.38s cubic-bezier(0.4,0,0.2,1),
+                height 0.38s cubic-bezier(0.4,0,0.2,1),
+                background 0.25s ease, border-color 0.25s ease;
+  }
+  #collapseBtn:hover { background: var(--glass-hover); border-color: var(--border-light); }
+  .collapse-icon {
+    display: block;
+    transform: rotate(45deg);   /* the + reads as x while the panel is open */
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  /* fade the innards out before the box folds, in after it grows */
+  .panel-content, .header-text {
+    transition: opacity 0.25s ease 0.14s, visibility 0s linear 0s;
+  }
+  #control-panel.collapsed { width: 56px; height: 56px; min-height: 56px; border-radius: 28px; }
+  #control-panel.collapsed .panel-content,
+  #control-panel.collapsed .header-text {
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0s linear 0.15s;
+  }
+  #control-panel.collapsed .panel-header { background: transparent; border-bottom-color: transparent; }
+  #control-panel.collapsed #collapseBtn {
+    /* fill the chip's 54px padding box (inside the panel's 1px borders) */
+    top: 0; right: 0; width: 54px; height: 54px;
+    background: transparent; border-color: transparent;
+  }
+  #control-panel.collapsed .collapse-icon { transform: rotate(0deg); }
+
+  .panel-content {
+    flex: 1; padding: 14px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 12px;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .panel-content::-webkit-scrollbar { width: 6px; }
+  .panel-content::-webkit-scrollbar-track { background: transparent; }
+  .panel-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .control-group {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .control-group:hover { background: rgba(255,255,255,0.05); border-color: var(--border-light); }
+  .group-title {
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-muted); margin: 0;
+  }
+  .control-row { display: flex; align-items: center; gap: 10px; }
+  .control-label { font-size: 0.82rem; font-weight: 500; color: var(--text-dim); white-space: nowrap; }
+  .label-val { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  .select-input, .text-input {
+    flex: 1; width: 100%;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 7px 10px; font-size: 0.82rem;
+    transition: all 0.2s ease;
+  }
+  .select-input:focus, .text-input:focus {
+    outline: none; background: rgba(30,41,59,0.95);
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
+
+  .slider-input {
+    flex: 1; height: 6px; -webkit-appearance: none; appearance: none;
+    background: rgba(30,41,59,0.8);
+    border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
+  }
+  .slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; background: var(--accent); border-radius: 50%;
+    cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: all 0.2s ease;
+  }
+  .slider-input::-webkit-slider-thumb:hover { transform: scale(1.1); box-shadow: 0 2px 8px rgba(99,102,241,0.5); }
+  .slider-input::-moz-range-thumb {
+    width: 16px; height: 16px; background: var(--accent); border: none; border-radius: 50%;
+    cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  .seg { display: flex; flex: 1; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button {
+    flex: 1; padding: 7px 0; background: rgba(255,255,255,0.05);
+    border: none; border-right: 1px solid var(--border);
+    color: var(--text-dim); font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s ease; text-align: center;
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button:hover { background: var(--glass-hover); color: var(--text); }
+  .seg button.active {
+    background: var(--accent-dim); color: var(--text);
+    box-shadow: inset 0 0 12px rgba(99,102,241,0.15);
+  }
+
+  .toggle-btn {
+    width: 100%; padding: 9px 14px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text-dim); font-size: 0.82rem; font-weight: 500;
+    cursor: pointer; transition: all 0.2s ease; text-align: center;
+  }
+  .toggle-btn:hover { background: var(--glass-hover); color: var(--text); }
+  .toggle-btn.active {
+    background: var(--accent-dim); border-color: rgba(99,102,241,0.4);
+    color: var(--text); box-shadow: 0 0 12px rgba(99,102,241,0.15);
+  }
+  .btn {
+    flex: 1; padding: 8px 12px; border-radius: 8px;
+    font-size: 0.8rem; font-weight: 500; cursor: pointer;
+    transition: all 0.2s ease; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.05); color: var(--text-dim);
+  }
+  .btn:hover { background: var(--glass-hover); color: var(--text); transform: translateY(-1px); }
+
+  .chk { display: flex; align-items: center; gap: 7px; font-size: 0.82rem; color: var(--text-dim); cursor: pointer; }
+  .chk input { margin: 0; accent-color: var(--accent); }
+
+  .color-input {
+    width: 40px; height: 30px; padding: 3px; flex: none;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: rgba(30,41,59,0.8); cursor: pointer;
+  }
+  .color-input::-webkit-color-swatch-wrapper { padding: 0; }
+  .color-input::-webkit-color-swatch { border: none; border-radius: 5px; }
+  .color-input::-moz-color-swatch { border: none; border-radius: 5px; }
+
+  #polyDisplay {
+    font-family: 'Times New Roman', Georgia, serif;
+    font-size: 1.12rem; text-align: center; color: #fff; padding: 2px 0 0;
+  }
+  #classLine { text-align: center; font-size: 0.76rem; }
+  #classLine .tag { display: inline-block; padding: 2px 10px; border-radius: 10px; font-weight: 600; }
+  .tag.pisot { background: rgba(34,197,94,0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.35); }
+  .tag.salem { background: rgba(232,195,74,0.12); color: #fde68a; border: 1px solid rgba(232,195,74,0.35); }
+  .tag.other { background: rgba(239,68,68,0.12); color: #fca5a5; border: 1px solid rgba(239,68,68,0.35); }
+
+  #rootTable { width: 100%; border-collapse: collapse; font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+  #rootTable td { padding: 3px 4px; border-top: 1px solid var(--border); color: var(--text-dim); }
+  #rootTable tr:first-child td { border-top: none; color: var(--text); font-weight: 600; }
+  #rootTable td:first-child { color: var(--text); }
+  #rootTable tr.dominant td { color: var(--gold); }
+  #rootTable tr.orbit-target td { color: var(--primary); }
+  #rootTable tr.orbit-target td:first-child::after { content: ' ←'; color: var(--primary); }
+
+  .hint { color: var(--text-muted); font-size: 0.72rem; line-height: 1.45; margin: 0; }
+  .hint code { background: rgba(255,255,255,0.06); padding: 0 4px; border-radius: 4px; }
+  #err { color: #fca5a5; font-size: 0.76rem; margin: 0; display: none; }
+  #orbitStatus { font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; min-height: 1.2em; }
+  #orbitStatus b { color: var(--primary); font-weight: 600; }
+  .info-section {
+    background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px;
+    font-size: 0.74rem; color: var(--text-dim); line-height: 1.55;
+  }
+  .info-section b { color: var(--text); }
+
+  @media (max-width: 768px) {
+    #control-panel { width: calc(100vw - 40px); max-width: 360px; }
+  }
+
+  /* ---- additions for the graphics-studio edition ---- */
+  #stage.root-hover { cursor: move; }
+  #stage.param-mode { cursor: pointer; }
+  .tag.neutral { background: rgba(56,189,248,0.12); color: #bae6fd; border: 1px solid rgba(56,189,248,0.35); }
+  .scene-note { color: var(--text-dim); font-size: 0.76rem; line-height: 1.5; margin: 0; min-height: 1.2em; }
+  .scene-note b { color: var(--text); }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .mini-label { font-size: 0.72rem; color: var(--text-muted); }
+  .control-label.w { width: 64px; }
+  select.select-input option { background: #0f172a; }
+  #toast {
+    position: fixed; left: 50%; bottom: 44px; transform: translateX(-50%);
+    z-index: 200; padding: 7px 14px; border-radius: 10px; font-size: 0.8rem;
+    background: var(--glass-bg); border: 1px solid var(--border-light); color: var(--text);
+    backdrop-filter: blur(10px); opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+  }
+  #toast.show { opacity: 1; }
+  kbd {
+    font-family: inherit; font-size: 0.68rem; padding: 0 5px; border-radius: 4px;
+    border: 1px solid var(--border-light); background: rgba(255,255,255,0.06); color: var(--text);
+  }
+</style>
+</head>
+<body>
+<div id="stage" class="orbit-mode">
+  <canvas id="glcanvas"></canvas>
+  <canvas id="overlay"></canvas>
+</div>
+<div id="coords"></div>
+<div id="toast"></div>
+
+<div id="control-panel">
+  <button id="collapseBtn" title="Collapse panel (H)" aria-label="Collapse panel">
+    <svg class="collapse-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    </svg>
+  </button>
+  <div class="panel-header">
+    <div class="header-text" style="flex:1; min-width:0">
+      <h1 class="panel-title">Newton Fractals</h1>
+      <p class="panel-subtitle">Basins, Novas &amp; parameter planes · <a href="../index.html">Graphics Studio</a></p>
+    </div>
+  </div>
+  <div class="panel-content">
+
+    <div class="control-group">
+      <p class="group-title">Scenes</p>
+      <select class="select-input" id="sceneSelect" aria-label="Scene"></select>
+      <div class="control-row">
+        <button class="btn" id="scenePrev" title="Previous scene (P)">‹ Prev</button>
+        <button class="btn" id="sceneNext" title="Next scene (N)">Next ›</button>
+      </div>
+      <p class="scene-note" id="sceneNote">Curated views — pick one, then play with the controls below.</p>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Polynomial</p>
+      <select class="select-input" id="familySelect" aria-label="Family">
+        <option value="pisot">Pisot numbers</option>
+        <option value="salem">Salem numbers</option>
+        <option value="classic">Classics</option>
+        <option value="roots">Drag the roots</option>
+        <option value="custom">Custom coefficients</option>
+      </select>
+      <div id="presetBlock">
+        <select class="select-input" id="polySelect" aria-label="Polynomial"></select>
+      </div>
+      <div id="customBlock" style="display:none">
+        <input type="text" class="text-input" id="customCoeffs" value="1, -1, 0, 0, -1" spellcheck="false" aria-label="Coefficients">
+        <p class="hint" style="margin-top:6px">Coefficients, highest degree first, comma-separated. Complex entries are fine: <code>1, 0, -0.5+0.2i, -1</code>. Press Enter.</p>
+      </div>
+      <div id="rootsBlock" style="display:none">
+        <div class="control-row">
+          <button class="btn" id="addRootBtn">+ Root</button>
+          <button class="btn" id="removeRootBtn">− Root</button>
+          <button class="btn" id="unityRootBtn" title="Snap to the n-th roots of unity">Unity</button>
+        </div>
+        <p class="hint" style="margin-top:6px">Drag the gold roots on the plane — the polynomial is ∏(z − rₖ).</p>
+      </div>
+      <div id="polyDisplay"></div>
+      <div id="classLine"></div>
+      <p id="err"></p>
+      <p class="hint" id="numberLine"></p>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Iteration</p>
+      <div class="control-row">
+        <span class="control-label w">Method</span>
+        <select class="select-input" id="methodSelect" aria-label="Method">
+          <option value="0">Newton</option>
+          <option value="1">Halley</option>
+          <option value="2">Schröder</option>
+          <option value="3">Chebyshev</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <span class="control-label w">View</span>
+        <select class="select-input" id="viewSelect" aria-label="Plane">
+          <option value="0">Dynamical plane (z)</option>
+          <option value="1">Cubic family λ-plane</option>
+          <option value="2">Nova c-plane</option>
+        </select>
+      </div>
+      <p class="mini-label">Relaxation  z ↦ z − a·step + c</p>
+      <div class="control-row">
+        <span class="control-label w">Re a</span>
+        <input type="range" class="slider-input" id="relaxRe" min="0.05" max="2" step="0.01" value="1">
+        <span class="control-label label-val" id="relaxReVal">1.00</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label w">Im a</span>
+        <input type="range" class="slider-input" id="relaxIm" min="-1" max="1" step="0.01" value="0">
+        <span class="control-label label-val" id="relaxImVal">0.00</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label w">Re c</span>
+        <input type="range" class="slider-input" id="novaRe" min="-1" max="1" step="0.005" value="0">
+        <span class="control-label label-val" id="novaReVal">0.00</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label w">Im c</span>
+        <input type="range" class="slider-input" id="novaIm" min="-1" max="1" step="0.005" value="0">
+        <span class="control-label label-val" id="novaImVal">0.00</span>
+      </div>
+      <button class="btn" id="resetIterBtn">Reset a = 1, c = 0</button>
+      <p class="hint" id="viewHint"></p>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Motion</p>
+      <div class="control-row">
+        <span class="control-label w">Animate</span>
+        <select class="select-input" id="animSelect" aria-label="Animation">
+          <option value="none">Still</option>
+          <option value="dance">Dancing roots</option>
+          <option value="twist">Twist constant term</option>
+          <option value="relax">Orbit relaxation a</option>
+          <option value="nova">Orbit Nova c</option>
+          <option value="breathe">Breathing zoom</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <span class="control-label w">Speed</span>
+        <input type="range" class="slider-input" id="animSpeed" min="0.05" max="3" step="0.05" value="0.6">
+        <span class="control-label label-val" id="animSpeedVal">0.60</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label w">Amount</span>
+        <input type="range" class="slider-input" id="animAmp" min="0" max="1" step="0.01" value="0.35">
+        <span class="control-label label-val" id="animAmpVal">0.35</span>
+      </div>
+      <div class="control-row">
+        <label class="chk"><input type="checkbox" id="chkCycle"> Cycle colors</label>
+        <button class="btn" id="animPause" style="flex:0 0 auto" title="Pause / resume (Space)">Pause</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Orbit tracking</p>
+      <button class="toggle-btn active" id="orbitToggle">Click the plane to track an orbit</button>
+      <div class="control-row">
+        <span class="control-label">Speed</span>
+        <input type="range" class="slider-input" id="speedSlider" min="1" max="20" step="0.5" value="4">
+        <span class="control-label label-val" id="speedVal">4</span>
+      </div>
+      <label class="chk"><input type="checkbox" id="chkFollow"> Camera follows the orbit</label>
+      <div id="orbitStatus">No orbit yet — click anywhere on the fractal.</div>
+      <div class="control-row">
+        <button class="btn" id="replayBtn">Replay</button>
+        <button class="btn" id="clearBtn">Clear</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Point mesh</p>
+      <button class="toggle-btn" id="meshToggle">Show point mesh</button>
+      <div class="control-row">
+        <span class="control-label">Grid</span>
+        <input type="range" class="slider-input" id="meshSizeSlider" min="4" max="120" step="1" value="24">
+        <span class="control-label label-val" id="meshSizeVal">24×24</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Speed</span>
+        <input type="range" class="slider-input" id="meshSpeedSlider" min="1" max="20" step="0.5" value="3">
+        <span class="control-label label-val" id="meshSpeedVal">3</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Coloring</span>
+        <div class="seg" id="meshColorSeg">
+          <button data-mode="single">Single</button>
+          <button data-mode="gradient" class="active">Gradient</button>
+          <button data-mode="basin">Basin</button>
+        </div>
+      </div>
+      <div class="control-row" id="meshColorPickerRow" style="display:none">
+        <span class="control-label">Color</span>
+        <input type="color" class="color-input" id="meshColorPicker" value="#38bdf8">
+      </div>
+      <label class="chk"><input type="checkbox" id="chkLoopMesh"> Re-seed when every point settles</label>
+      <div id="meshStatus" class="hint">Drops a grid of points over the current view; every point iterates the same map in lock-step.</div>
+      <div class="control-row">
+        <button class="btn" id="meshRestartBtn">Restart</button>
+        <button class="btn" id="meshPauseBtn">Pause</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Rendering</p>
+      <div class="control-row">
+        <span class="control-label w">Coloring</span>
+        <select class="select-input" id="colorSelect" aria-label="Coloring">
+          <option value="0">Spectrum (iterations)</option>
+          <option value="1" selected>By root</option>
+          <option value="2">Smooth shaded</option>
+          <option value="3">Glow (boundaries)</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <span class="control-label w">Palette</span>
+        <select class="select-input" id="paletteSelect" aria-label="Palette">
+          <option value="0">Jewel</option>
+          <option value="1">Pastel</option>
+          <option value="2">Ember</option>
+          <option value="3">Ice</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Iterations</span>
+        <input type="range" class="slider-input" id="iterSlider" min="20" max="500" step="5" value="80">
+        <span class="control-label label-val" id="iterVal">80</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Bands</span>
+        <input type="range" class="slider-input" id="bandSlider" min="4" max="120" step="1" value="18">
+        <span class="control-label label-val" id="bandVal">18</span>
+      </div>
+      <div class="control-row" style="flex-wrap:wrap; gap:8px 12px">
+        <label class="chk"><input type="checkbox" id="chkCircle"> Unit circle</label>
+        <label class="chk"><input type="checkbox" id="chkRoots" checked> Roots</label>
+        <label class="chk"><input type="checkbox" id="chkAxes"> Axes</label>
+        <label class="chk"><input type="checkbox" id="chkCrit"> Critical pts</label>
+        <label class="chk"><input type="checkbox" id="chkCritOrbits"> Critical orbits</label>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">View</p>
+      <div class="control-row">
+        <button class="btn" id="zoomIn">Zoom +</button>
+        <button class="btn" id="zoomOut">Zoom −</button>
+        <button class="btn" id="resetView">Reset</button>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="savePng" title="Save PNG (S)">Save PNG</button>
+        <button class="btn" id="copyLink">Copy link</button>
+      </div>
+      <p class="hint">Drag to pan · scroll to zoom · double-click to zoom in.
+        Keys: <kbd>H</kbd> panel · <kbd>Space</kbd> pause · <kbd>N</kbd>/<kbd>P</kbd> scenes · <kbd>S</kbd> save · <kbd>R</kbd> reset.</p>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Roots</p>
+      <table id="rootTable"></table>
+    </div>
+
+    <div class="info-section">
+      A <b>Pisot number</b> is a real algebraic integer θ &gt; 1 all of whose Galois
+      conjugates lie strictly inside the unit circle. A <b>Salem number</b> is a real
+      algebraic integer τ &gt; 1 whose conjugates all lie on or inside the unit circle
+      with at least one on it. The plane is shaded by how fast Newton's method
+      z ↦ z − p(z)/p′(z) converges; the basins of the roots tile ℂ in a fractal pattern.
+      <br><br>
+      <b>Critical points.</b> Newton's map N = z − p/p′ has N′ = p·p″/p′², so its
+      <i>free</i> critical points are the zeros of p″. Each attracting cycle that is not a
+      root must capture one of them — which is why black (non-converging) regions only
+      appear when a critical orbit gets stuck. Turn on <i>Critical orbits</i> to watch.
+      <br><br>
+      <b>Cubic λ-plane.</b> Every cubic is conjugate to p<sub>λ</sub>(z) = z³ + (λ−1)z − λ
+      = (z − 1)(z² + z + λ), whose only free critical point is 0. Coloring λ by where
+      0 goes gives the Curry–Garnett–Sullivan picture: black regions are
+      <i>copies of the Mandelbrot set</i>. Click one to open its dynamical plane.
+      <br><br>
+      <b>Nova.</b> Adding a constant, z ↦ z − a·p/p′ + c, breaks the roots' fixed points
+      and produces the Nova fractals; the c-plane (seeded at z₀ = 1) is the Nova
+      analogue of the Mandelbrot set.
+    </div>
+
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ---------- polynomial catalogue (coefficients: highest degree first) ----------
+// Pisot/Salem entries verified numerically: Pisot = one real root > 1, all
+// conjugates strictly inside the unit circle; Salem = one root tau > 1, one root
+// 1/tau, remaining conjugates on the unit circle.
+const PISOT = [
+  { name: 'θ₁ ≈ 1.324718 (plastic number)',        coeffs: [1, 0, -1, -1] },
+  { name: 'θ₂ ≈ 1.380278',                          coeffs: [1, -1, 0, 0, -1] },
+  { name: 'θ₃ ≈ 1.443269',                          coeffs: [1, -1, -1, 1, 0, -1] },
+  { name: 'θ₄ ≈ 1.465571 (supergolden ratio)',      coeffs: [1, -1, 0, -1] },
+  { name: 'θ₅ ≈ 1.501595',                          coeffs: [1, -1, -1, 0, 1, 0, -1] },
+  { name: 'θ₆ ≈ 1.534158',                          coeffs: [1, 0, -1, -1, -1, -1] },
+  { name: 'θ₇ ≈ 1.545216',                          coeffs: [1, -1, -1, 0, 0, 1, 0, -1] },
+  { name: 'θ₈ ≈ 1.570147',                          coeffs: [1, -1, 0, -1, 0, -1] },
+  { name: 'φ ≈ 1.618034 (golden ratio)',            coeffs: [1, -1, -1] },
+  { name: '≈ 1.839287 (tribonacci constant)',       coeffs: [1, -1, -1, -1] },
+  { name: '≈ 1.927562 (tetranacci constant)',       coeffs: [1, -1, -1, -1, -1] },
+  { name: '1 + √2 ≈ 2.414214 (silver ratio)',       coeffs: [1, -2, -1] },
+];
+const SALEM = [
+  { name: 'λ ≈ 1.176281 (Lehmer’s number, deg 10)', coeffs: [1, 1, 0, -1, -1, -1, -1, -1, 0, 1, 1] },
+  { name: '≈ 1.188368 (2nd smallest known, deg 18)', coeffs: [1, -1, 1, -1, 0, 0, -1, 1, -1, 1, -1, 1, -1, 0, 0, -1, 1, -1, 1] },
+  { name: '≈ 1.280638 (smallest of degree 8)',       coeffs: [1, 0, 0, -1, -1, -1, 0, 0, 1] },
+  { name: '≈ 1.401268 (smallest of degree 6)',       coeffs: [1, 0, -1, -1, -1, 0, 1] },
+  { name: '≈ 1.722084 (smallest of degree 4)',       coeffs: [1, -1, -1, -1, 1] },
+];
+
+// Taylor partial sum of e^{nw} (rescaled so the roots sit near the Szegő curve
+// |w·e^{1−w}| = 1), normalised to be monic so float32 Horner stays accurate.
+function szegoCoeffs(n) {
+  const c = [];
+  let term = 1;   // n^k / k!
+  const terms = [1];
+  for (let k = 1; k <= n; k++) { term *= n / k; terms.push(term); }
+  for (let k = n; k >= 0; k--) c.push(terms[k] / terms[n]);
+  return c;
+}
+function chebyshevT(n) {
+  // T_{k+1} = 2z T_k − T_{k−1}, stored lowest-first then reversed
+  let a = [1], b = [0, 1];
+  for (let k = 1; k < n; k++) {
+    const c = new Array(b.length + 1).fill(0);
+    b.forEach((x, i) => { c[i + 1] += 2 * x; });
+    a.forEach((x, i) => { c[i] -= x; });
+    a = b; b = c;
+  }
+  return (n === 0 ? a : b).slice().reverse();
+}
+
+const CLASSIC = [
+  { name: 'z³ − 1 (cube roots of unity)',          coeffs: [1, 0, 0, -1] },
+  { name: 'z⁴ − 1',                                coeffs: [1, 0, 0, 0, -1] },
+  { name: 'z⁵ − 1',                                coeffs: [1, 0, 0, 0, 0, -1] },
+  { name: 'z⁸ − 1',                                coeffs: [1, 0, 0, 0, 0, 0, 0, 0, -1] },
+  { name: 'z³ − 2z + 2 (attracting 2-cycle)',      coeffs: [1, 0, -2, 2] },
+  { name: 'z³ − z',                                coeffs: [1, 0, -1, 0] },
+  { name: 'z⁶ + z³ − 1',                           coeffs: [1, 0, 0, 1, 0, 0, -1] },
+  { name: '(z − 1)²(z + 1) (double root)',        coeffs: [1, -1, -1, 1] },
+  { name: 'Chebyshev T₇',                          coeffs: chebyshevT(7) },
+  { name: 'Szegő: Σ (16w)ᵏ/k!, k ≤ 16',            coeffs: szegoCoeffs(16) },
+  { name: 'Littlewood (±1 coefficients, deg 15)',  coeffs: [1, 1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1, 1, -1, -1, -1] },
+];
+const FAMILY_LISTS = { pisot: PISOT, salem: SALEM, classic: CLASSIC };
+const MAXD = 20; // shader-side maximum degree
+
+// ---------- complex helpers (pairs [re, im]) ----------
+const C = (re, im = 0) => [re, im];
+const cadd = (a, b) => [a[0] + b[0], a[1] + b[1]];
+const csub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+const cdiv = (a, b) => {
+  const d = b[0] * b[0] + b[1] * b[1];
+  return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d];
+};
+const cabs = a => Math.hypot(a[0], a[1]);
+const cexpi = t => [Math.cos(t), Math.sin(t)];
+const toC = x => Array.isArray(x) ? [x[0], x[1] || 0] : [x, 0];
+
+function fromRoots(roots) {
+  let c = [[1, 0]];
+  for (const r of roots) {
+    const next = c.map(x => x.slice()).concat([[0, 0]]);
+    for (let i = 0; i < c.length; i++) {
+      const t = cmul(c[i], r);
+      next[i + 1][0] -= t[0]; next[i + 1][1] -= t[1];
+    }
+    c = next;
+  }
+  return c;
+}
+function derivCoeffs(c) {
+  const n = c.length - 1;
+  return c.slice(0, n).map((x, i) => [x[0] * (n - i), x[1] * (n - i)]);
+}
+
+// Durand–Kerner on complex coefficients (highest-first); optional seeds make
+// it continuous frame-to-frame during animations.
+function findRoots(coeffs, seeds) {
+  const n = coeffs.length - 1;
+  if (n < 1) return [];
+  const lead = coeffs[0];
+  const c = coeffs.map(x => cdiv(x, lead));
+  if (n === 1) return [[-c[1][0], -c[1][1]]];
+  let bound = 0;
+  for (let i = 1; i <= n; i++) bound = Math.max(bound, Math.pow(cabs(c[i]), 1 / i));
+  const R = Math.max(0.5, 1.1 * bound);
+  let zs = (seeds && seeds.length === n)
+    ? seeds.map(z => [z[0], z[1]])
+    : Array.from({ length: n }, (_, k) => {
+        const ang = (2 * Math.PI * k) / n + 0.35;
+        return [R * Math.cos(ang), R * Math.sin(ang)];
+      });
+  const evalp = z => {
+    let re = c[0][0], im = c[0][1];
+    for (let i = 1; i <= n; i++) {
+      const r = re * z[0] - im * z[1] + c[i][0];
+      im = re * z[1] + im * z[0] + c[i][1];
+      re = r;
+    }
+    return [re, im];
+  };
+  for (let iter = 0; iter < 1000; iter++) {
+    let maxd = 0;
+    for (let i = 0; i < n; i++) {
+      let dr = 1, di = 0;
+      for (let j = 0; j < n; j++) {
+        if (j === i) continue;
+        let ar = zs[i][0] - zs[j][0], ai = zs[i][1] - zs[j][1];
+        if (ar === 0 && ai === 0) { ar = 1e-12; }
+        const r = dr * ar - di * ai;
+        di = dr * ai + di * ar;
+        dr = r;
+      }
+      const p = evalp(zs[i]);
+      const d2 = dr * dr + di * di;
+      const qr = (p[0] * dr + p[1] * di) / d2;
+      const qi = (p[1] * dr - p[0] * di) / d2;
+      zs[i][0] -= qr; zs[i][1] -= qi;
+      maxd = Math.max(maxd, Math.hypot(qr, qi));
+    }
+    if (maxd < 1e-13) break;
+  }
+  return zs;
+}
+
+function isIntegerReal(coeffs) {
+  return coeffs.every(c => Math.abs(c[1]) < 1e-12 && Math.abs(c[0] - Math.round(c[0])) < 1e-12);
+}
+
+function classifyRoots(roots) {
+  const eps = 1e-6;
+  let big = 0, on = 0, inside = 0, largest = 0;
+  for (const z of roots) {
+    const m = Math.hypot(z[0], z[1]);
+    largest = Math.max(largest, m);
+    if (m > 1 + eps) big++;
+    else if (m < 1 - eps) inside++;
+    else on++;
+  }
+  let type = 'other';
+  if (big === 1 && inside === roots.length - 1) type = 'pisot';
+  else if (big === 1 && on === roots.length - 2 && inside === 1) type = 'salem';
+  return { type, largest };
+}
+
+function fmtNum(x, digits = 3) {
+  if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x));
+  return String(+x.toFixed(digits));
+}
+function fmtCoeffToken(c) {
+  const [re, im] = c;
+  if (Math.abs(im) < 1e-12) return fmtNum(re, 5);
+  const imS = Math.abs(im) === 1 ? '' : fmtNum(Math.abs(im), 5);
+  if (Math.abs(re) < 1e-12) return (im < 0 ? '-' : '') + imS + 'i';
+  return `${fmtNum(re, 5)}${im < 0 ? '-' : '+'}${imS}i`;
+}
+
+function formatPoly(coeffs) {
+  const sup = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+  const pow = e => e === 1 ? 'z' : 'z' + String(e).split('').map(d => sup[+d]).join('');
+  const n = coeffs.length - 1;
+  if (n > 12) return `degree ${n} polynomial`;
+  let out = '';
+  for (let i = 0; i <= n; i++) {
+    const [re, im] = coeffs[i];
+    if (Math.abs(re) < 1e-12 && Math.abs(im) < 1e-12) continue;
+    const e = n - i;
+    let sign, body;
+    if (Math.abs(im) < 1e-12) {
+      sign = re < 0 ? -1 : 1;
+      const mag = Math.abs(re);
+      const coefStr = (Math.abs(mag - 1) < 1e-12 && e > 0) ? '' : fmtNum(mag);
+      body = e === 0 ? fmtNum(mag) : coefStr + pow(e);
+    } else {
+      sign = 1;
+      body = `(${fmtNum(re).replace('-', '−')} ${im < 0 ? '−' : '+'} ${fmtNum(Math.abs(im))}i)` + (e > 0 ? pow(e) : '');
+    }
+    if (out === '') out = (sign < 0 ? '−' : '') + body;
+    else out += (sign < 0 ? ' − ' : ' + ') + body;
+  }
+  return out || '0';
+}
+
+function fmtC(z, digits = 4) {
+  if (Math.abs(z[1]) < 1e-9) return z[0].toFixed(digits);
+  return `${z[0].toFixed(digits)} ${z[1] < 0 ? '−' : '+'} ${Math.abs(z[1]).toFixed(digits)}i`;
+}
+
+function parseComplex(t) {
+  t = t.replace(/\s+/g, '').replace(/−/g, '-').replace(/[jI]/g, 'i');
+  if (!t) return null;
+  if (!/i$/.test(t)) {
+    const x = Number(t);
+    return Number.isFinite(x) ? [x, 0] : null;
+  }
+  const body = t.slice(0, -1);
+  let k = -1;
+  for (let j = body.length - 1; j > 0; j--) {
+    if ((body[j] === '+' || body[j] === '-') && body[j - 1].toLowerCase() !== 'e') { k = j; break; }
+  }
+  const reS = k < 0 ? '0' : body.slice(0, k);
+  let imS = k < 0 ? body : body.slice(k);
+  if (imS === '' || imS === '+') imS = '1';
+  if (imS === '-') imS = '-1';
+  const re = Number(reS), im = Number(imS);
+  return Number.isFinite(re) && Number.isFinite(im) ? [re, im] : null;
+}
+
+// ---------- WebGL setup ----------
+const glCanvas = document.getElementById('glcanvas');
+const gl = glCanvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: false });
+
+const VS = `#version 300 es
+in vec2 a_pos;
+void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }`;
+
+const FS = `#version 300 es
+precision highp float;
+out vec4 outColor;
+
+uniform vec2  u_center;     // complex-plane center
+uniform float u_span;       // vertical span in complex units
+uniform vec2  u_res;        // canvas resolution (pixels)
+uniform int   u_degree;
+uniform vec2  u_c[${MAXD + 1}];      // complex coefficients, highest degree first
+uniform vec2  u_roots[${MAXD}];
+uniform int   u_nroots;
+uniform int   u_maxIter;
+uniform float u_bands;      // iterations mapped onto full palette
+uniform int   u_mode;       // 0 spectrum, 1 by root, 2 smooth, 3 glow
+uniform int   u_palette;    // 0 jewel, 1 pastel, 2 ember, 3 ice
+uniform int   u_method;     // 0 Newton, 1 Halley, 2 Schröder, 3 Chebyshev
+uniform vec2  u_relax;      // a in z -> z - a*step + c
+uniform vec2  u_nova;       // c
+uniform int   u_view;       // 0 dynamical, 1 cubic lambda-plane, 2 Nova c-plane
+uniform vec2  u_seed;       // starting point for the Nova c-plane
+uniform int   u_useArg;     // colour by arg of the limit instead of nearest root
+uniform float u_shift;      // hue rotation (colour cycling)
+uniform float u_phase;      // spectrum phase (colour cycling)
+
+vec2 cmul(vec2 a, vec2 b) { return vec2(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x); }
+vec2 cdiv(vec2 a, vec2 b) {
+  float d = dot(b, b);
+  return vec2(dot(a, b), a.y*b.x - a.x*b.y) / d;
+}
+vec2 csqrt(vec2 z) {
+  float r = length(z);
+  float re = sqrt(max(0.5 * (r + z.x), 0.0));
+  float im = sqrt(max(0.5 * (r - z.x), 0.0));
+  return vec2(re, z.y < 0.0 ? -im : im);
+}
+
+// palette: green core -> blues -> purple -> dark red -> red -> orange -> yellow
+vec3 spectrum(float t) {
+  const int N = 10;
+  vec3 stops[N] = vec3[](
+    vec3(0.72, 0.90, 0.35), vec3(0.23, 0.63, 0.26), vec3(0.05, 0.45, 0.34),
+    vec3(0.15, 0.47, 0.75), vec3(0.14, 0.27, 0.62), vec3(0.30, 0.16, 0.58),
+    vec3(0.45, 0.09, 0.30), vec3(0.72, 0.13, 0.13), vec3(0.93, 0.42, 0.06),
+    vec3(1.00, 0.92, 0.35)
+  );
+  float x = clamp(t, 0.0, 1.0) * float(N - 1);
+  int i = min(int(floor(x)), N - 2);
+  return mix(stops[i], stops[i + 1], fract(x));
+}
+
+vec3 hsl2rgb(float h, float s, float l) {
+  vec3 k = mod(vec3(0.0, 8.0, 4.0) + h * 12.0, 12.0);
+  float a = s * min(l, 1.0 - l);
+  return l - a * max(min(min(k - 3.0, 9.0 - k), vec3(1.0)), vec3(-1.0));
+}
+
+vec3 palHSL(float h) {
+  if (u_palette == 1) return vec3(h, 0.50, 0.70);
+  if (u_palette == 2) return vec3(fract(0.96 + 0.17 * h), 0.85, 0.52);
+  if (u_palette == 3) return vec3(0.47 + 0.22 * h, 0.70, 0.52);
+  return vec3(h, 0.75, 0.50);
+}
+
+// p, p', p'' by simultaneous Horner (or the closed form of the cubic family)
+void evalPoly(vec2 z, vec2 lam, out vec2 p, out vec2 d1, out vec2 d2) {
+  if (u_view == 1) {
+    vec2 z2 = cmul(z, z);
+    vec2 b = lam - vec2(1.0, 0.0);
+    p = cmul(z2, z) + cmul(b, z) - lam;
+    d1 = 3.0 * z2 + b;
+    d2 = 6.0 * z;
+    return;
+  }
+  p = u_c[0]; d1 = vec2(0.0); vec2 h = vec2(0.0);
+  for (int k = 1; k <= ${MAXD}; k++) {
+    if (k > u_degree) break;
+    h = cmul(h, z) + d1;
+    d1 = cmul(d1, z) + p;
+    p = cmul(p, z) + u_c[k];
+  }
+  d2 = 2.0 * h;
+}
+
+bool methodStep(vec2 p, vec2 d1, vec2 d2, out vec2 s) {
+  s = vec2(0.0);
+  if (dot(d1, d1) < 1e-24) return false;
+  if (u_method == 0) {
+    s = cdiv(p, d1);
+  } else if (u_method == 1) {
+    vec2 den = 2.0 * cmul(d1, d1) - cmul(p, d2);
+    if (dot(den, den) < 1e-30) return false;
+    s = cdiv(2.0 * cmul(p, d1), den);
+  } else if (u_method == 2) {
+    vec2 den = cmul(d1, d1) - cmul(p, d2);
+    if (dot(den, den) < 1e-30) return false;
+    s = cdiv(cmul(p, d1), den);
+  } else {
+    vec2 n = cdiv(p, d1);
+    vec2 L = cdiv(cmul(p, d2), cmul(d1, d1));
+    s = cmul(n, vec2(1.0, 0.0) + 0.5 * L);
+  }
+  return true;
+}
+
+void main() {
+  float pxScale = u_span / u_res.y;
+  vec2 pix = u_center + (gl_FragCoord.xy - 0.5 * u_res) * pxScale;
+  vec2 z = pix;
+  vec2 lam = vec2(0.0);
+  vec2 nova = u_nova;
+  vec2 r0 = vec2(0.0), r1 = vec2(0.0), r2 = vec2(0.0);
+  if (u_view == 1) {
+    lam = pix; z = vec2(0.0);
+    vec2 sq = csqrt(vec2(1.0, 0.0) - 4.0 * lam);
+    r0 = vec2(1.0, 0.0);
+    r1 = 0.5 * (vec2(-1.0, 0.0) + sq);
+    r2 = 0.5 * (vec2(-1.0, 0.0) - sq);
+  } else if (u_view == 2) {
+    nova = pix; z = u_seed;
+  }
+
+  const float LOGTOL = -13.815511;  // log(1e-6)
+  float Lprev = 1e9;
+  float sIt = -1.0;
+  for (int i = 0; i < 600; i++) {
+    if (i >= u_maxIter) break;
+    vec2 p, d1, d2, st;
+    evalPoly(z, lam, p, d1, d2);
+    if (!methodStep(p, d1, d2, st)) break;
+    vec2 zn = z - cmul(u_relax, st) + nova;
+    float d = length(zn - z);
+    z = zn;
+    if (dot(z, z) > 1e12) break;
+    float L = log(max(d, 1e-30));
+    if (L < LOGTOL) {
+      // fractional escape count, linear in log|step| -> continuous across bands
+      float f = Lprev > 1e8 ? 1.0 : clamp((Lprev - LOGTOL) / max(Lprev - L, 1e-6), 0.0, 1.0);
+      sIt = max(float(i) - 1.0 + f, 0.0);
+      break;
+    }
+    Lprev = L;
+  }
+
+  if (sIt < 0.0) {   // no convergence
+    outColor = u_mode == 0 ? vec4(1.0, 0.95, 0.45, 1.0) : vec4(0.02, 0.02, 0.035, 1.0);
+    return;
+  }
+
+  float t = sIt / u_bands;
+  if (u_mode == 0) {
+    float x = u_phase == 0.0 ? clamp(t, 0.0, 1.0) : 1.0 - abs(1.0 - 2.0 * fract(0.5 * (t + u_phase)));
+    outColor = vec4(spectrum(x), 1.0);
+    return;
+  }
+
+  float hue;
+  if (u_view == 1) {
+    // the two roots of z² + z + λ swap around λ = 1/4 (monodromy), so label
+    // them by which half-plane they lie in rather than by the sqrt branch
+    float a = dot(z - r0, z - r0), b = min(dot(z - r1, z - r1), dot(z - r2, z - r2));
+    int k = a < b ? 0 : ((z.y > 1e-4 || (abs(z.y) <= 1e-4 && z.x > -0.5)) ? 1 : 2);
+    hue = fract(float(k) * 0.618034 + 0.15);
+  } else if (u_useArg == 1) {
+    hue = atan(z.y, z.x) / 6.2831853 + 0.5;
+  } else {
+    int best = 0;
+    float bd = 1e30;
+    for (int k = 0; k < ${MAXD}; k++) {
+      if (k >= u_nroots) break;
+      vec2 dz = z - u_roots[k];
+      float dd = dot(dz, dz);
+      if (dd < bd) { bd = dd; best = k; }
+    }
+    hue = fract(float(best) * 0.618034 + 0.15);
+  }
+  vec3 hsl = palHSL(fract(hue + u_shift));
+  vec3 col;
+  if (u_mode == 1) {
+    col = hsl2rgb(hsl.x, hsl.y, clamp(hsl.z + 0.12 - 0.5 * t, 0.08, hsl.z + 0.12));
+  } else if (u_mode == 2) {
+    vec3 base = hsl2rgb(hsl.x, hsl.y, hsl.z);
+    float v = smoothstep(0.0, 1.0, t);
+    col = mix(base * 1.15, base * 0.16, v) * (0.88 + 0.12 * cos(6.2831853 * sIt));
+  } else {
+    vec3 base = hsl2rgb(hsl.x, hsl.y, hsl.z);
+    float g = smoothstep(0.06, 1.0, t);
+    col = base * 0.09 + (base * 1.05 + vec3(0.2)) * g;
+  }
+  outColor = vec4(col, 1.0);
+}`;
+
+let program = null;
+let uni = {};
+if (!gl) {
+  const errBox0 = document.getElementById('err');
+  errBox0.style.display = 'block';
+  errBox0.textContent = 'WebGL2 is required but not available in this browser.';
+} else {
+  const compile = (type, src) => {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      throw new Error(gl.getShaderInfoLog(s));
+    }
+    return s;
+  };
+  program = gl.createProgram();
+  gl.attachShader(program, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(program, compile(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    throw new Error(gl.getProgramInfoLog(program));
+  }
+  gl.useProgram(program);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(program, 'a_pos');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  for (const name of ['u_center', 'u_span', 'u_res', 'u_degree', 'u_c', 'u_roots', 'u_nroots',
+                      'u_maxIter', 'u_bands', 'u_mode', 'u_palette', 'u_method', 'u_relax',
+                      'u_nova', 'u_view', 'u_seed', 'u_useArg', 'u_shift', 'u_phase']) {
+    uni[name] = gl.getUniformLocation(program, name);
+  }
+}
+
+// ---------- state ----------
+const DEFAULT_VIEW = { x: 0.25, y: 0, span: 2.8 };
+const state = {
+  family: 'pisot',
+  presetIndex: { pisot: 1, salem: 0, classic: 0 },   // default: z^4 - z^3 - 1
+  coeffs: PISOT[1].coeffs.map(toC),
+  roots: [],
+  crit: [],               // free critical points of Newton's map: zeros of p''
+  editRoots: null,        // roots family: user-draggable roots
+  classification: null,
+  center: { x: DEFAULT_VIEW.x, y: DEFAULT_VIEW.y },
+  span: DEFAULT_VIEW.span,
+  maxIter: 80,
+  bands: 18,
+  mode: 1,
+  palette: 0,
+  method: 0,
+  relax: [1, 0],
+  nova: [0, 0],
+  view: 0,
+  anim: 'none',
+  animSpeed: 0.6,
+  animAmp: 0.35,
+  animPaused: false,
+  cycle: false,
+  showCircle: false,
+  showRoots: true,
+  showAxes: false,
+  showCrit: false,
+  showCritOrbits: false,
+  orbitMode: true,
+  orbitSpeed: 4,       // steps per second
+  followCam: false,
+  meshOn: false,
+  meshN: 24,           // grid is meshN x meshN points
+  meshSpeed: 3,        // steps per second
+  meshColorMode: 'gradient',   // 'single' | 'gradient' | 'basin'
+  meshColor: '#38bdf8',
+  meshPaused: false,
+  meshLoop: false,
+};
+const colorClock = { shift: 0, phase: 0 };
+
+// orbit: { pts: [[re,im],...], start, targetIdx (root index or -1), status }
+let orbit = null;
+// animation: t = fractional step position; pulse = seconds since arrival
+const anim = { t: 0, playing: false, pulse: 0 };
+// motion: time parameter and the un-animated values the motion is built on
+const motion = { T: 0, base: null };
+const loop = { running: false, last: 0, raf: 0 };
+
+// point mesh: a grid of points that all iterate the map in lock-step
+let mesh = null;
+const meshAnim = { tAcc: 0 };
+const MESH_CORNERS = {
+  bl: [163, 230, 53],   // lime
+  br: [251, 191, 36],   // amber
+  tl: [56, 189, 248],   // sky
+  tr: [244, 114, 182],  // pink
+};
+function lerp3(a, b, t) {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+}
+function meshGradientColor(u, v) {
+  const bot = lerp3(MESH_CORNERS.bl, MESH_CORNERS.br, u);
+  const top = lerp3(MESH_CORNERS.tl, MESH_CORNERS.tr, u);
+  return lerp3(bot, top, v);
+}
+function hslToRgb255(h, s, l) {
+  const f = n => {
+    const k = (n + h * 12) % 12;
+    const a = s * Math.min(l, 1 - l);
+    return 255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)));
+  };
+  return [f(0), f(8), f(4)];
+}
+// the same root hue the shader uses, for basin-coloured mesh points
+function rootRgb(k) {
+  const h = ((k * 0.618034 + 0.15 + colorClock.shift) % 1 + 1) % 1;
+  const pal = [[h, 0.75, 0.6], [h, 0.5, 0.75], [(0.96 + 0.17 * h) % 1, 0.85, 0.6], [0.47 + 0.22 * h, 0.7, 0.62]][state.palette];
+  return hslToRgb255(pal[0], pal[1], pal[2]);
+}
+
+// ---------- DOM ----------
+const $ = id => document.getElementById(id);
+const overlay = $('overlay');
+const octx = overlay.getContext('2d');
+const stage = $('stage');
+const polySelect = $('polySelect');
+const errBox = $('err');
+const orbitStatus = $('orbitStatus');
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+function populateSelect() {
+  const list = FAMILY_LISTS[state.family];
+  if (!list) return;
+  polySelect.innerHTML = '';
+  list.forEach((p, i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = p.name;
+    polySelect.appendChild(o);
+  });
+  polySelect.value = state.presetIndex[state.family];
+}
+
+function showFamilyBlocks() {
+  const f = state.family;
+  $('familySelect').value = f;
+  $('presetBlock').style.display = FAMILY_LISTS[f] ? '' : 'none';
+  $('customBlock').style.display = f === 'custom' ? '' : 'none';
+  $('rootsBlock').style.display = f === 'roots' ? '' : 'none';
+}
+
+// Recompute everything derived from the coefficients. `seeds` keeps root
+// labels stable while animating.
+function updateDerived(seeds) {
+  if (state.family === 'roots' && state.editRoots) {
+    state.roots = state.editRoots.map(r => r.slice());
+  } else {
+    state.roots = findRoots(state.coeffs, seeds);
+  }
+  const d2 = derivCoeffs(derivCoeffs(state.coeffs));
+  const cands = d2.length >= 2 ? findRoots(d2, state.crit.length === d2.length - 1 ? state.crit : null) : [];
+  // a zero of p'' that is also a root is not free (it's a multiple root)
+  state.crit = cands;
+  state.freeCrit = cands.filter(c => !state.roots.some(r => cabs(csub(c, r)) < 1e-6));
+}
+
+function setPolynomial(coeffs, opts = {}) {
+  coeffs = coeffs.map(toC);
+  // strip leading zeros
+  while (coeffs.length > 1 && cabs(coeffs[0]) < 1e-14) coeffs.shift();
+  if (coeffs.length - 1 > MAXD) {
+    errBox.style.display = 'block';
+    errBox.textContent = `Degree at most ${MAXD} supported.`;
+    return false;
+  }
+  if (coeffs.length < 3) {
+    errBox.style.display = 'block';
+    errBox.textContent = 'Need degree ≥ 2 with nonzero leading coefficient.';
+    return false;
+  }
+  errBox.style.display = 'none';
+  state.coeffs = coeffs;
+  state.crit = [];
+  updateDerived();
+  state.classification = classifyRoots(state.roots);
+  if (!opts.fromMotion) motion.base = null;   // motion re-captures its base
+  // re-track the existing orbit start point under the new map
+  if (orbit && !opts.keepOrbit) startOrbit(orbit.start);
+  if (state.meshOn && !opts.keepMesh) {
+    buildMesh();
+    meshAnim.tAcc = 0;
+    updateMeshStatus();
+    wake();
+  }
+  updateInfo();
+  render();
+  return true;
+}
+
+function updateInfo() {
+  $('polyDisplay').textContent = formatPoly(state.coeffs);
+  const cl = state.classification;
+  const deg = state.coeffs.length - 1;
+  const intReal = isIntegerReal(state.coeffs);
+  const tagNames = { pisot: 'Pisot', salem: 'Salem', other: 'neither Pisot nor Salem' };
+  let tag;
+  if (intReal && (state.family === 'pisot' || state.family === 'salem' || state.family === 'custom' || cl.type !== 'other')) {
+    tag = `<span class="tag ${cl.type}">${tagNames[cl.type]}</span>`;
+  } else {
+    tag = `<span class="tag neutral">degree ${deg}${intReal ? '' : isRealPoly() ? ' · real' : ' · complex'}</span>`;
+  }
+  $('classLine').innerHTML = tag;
+  const nl = $('numberLine');
+  const nCrit = (state.freeCrit || []).length;
+  const critTxt = ` ${nCrit} free critical point${nCrit === 1 ? '' : 's'} (zeros of p″).`;
+  if (intReal && cl.type === 'pisot') {
+    nl.innerHTML = `Pisot number θ = <b>${cl.largest.toFixed(8)}</b>; all conjugates lie strictly inside the unit circle.`;
+  } else if (intReal && cl.type === 'salem') {
+    nl.innerHTML = `Salem number τ = <b>${cl.largest.toFixed(8)}</b>; conjugates: τ⁻¹ = ${(1 / cl.largest).toFixed(8)} and ${state.roots.length - 2} of modulus 1.`;
+  } else {
+    nl.textContent = `Largest root modulus ${cl.largest.toFixed(6)}.` + critTxt;
+  }
+  updateRootTable();
+}
+function isRealPoly() { return state.coeffs.every(c => Math.abs(c[1]) < 1e-12); }
+
+function updateRootTable() {
+  const rows = state.roots
+    .map((z, i) => ({ z, i, m: Math.hypot(z[0], z[1]) }))
+    .sort((a, b) => b.m - a.m);
+  const tbl = $('rootTable');
+  tbl.innerHTML = '<tr><td>root</td><td>|z|</td></tr>';
+  for (const { z, i, m } of rows) {
+    const tr = document.createElement('tr');
+    const cls = [];
+    if (m === rows[0].m && m > 1) cls.push('dominant');
+    if (orbit && orbit.targetIdx === i) cls.push('orbit-target');
+    tr.className = cls.join(' ');
+    tr.innerHTML = `<td>${fmtC(z, Math.abs(z[1]) < 1e-9 ? 6 : 4)}</td><td>${m.toFixed(6)}</td>`;
+    tbl.appendChild(tr);
+  }
+}
+
+// ---------- the iteration map (double precision mirror of the shader) ----------
+function makeStepper() {
+  const c = state.coeffs, deg = c.length - 1;
+  const method = state.method;
+  const [ar, ai] = state.relax, [nr0, ni0] = state.nova;
+  return (zr, zi) => {
+    let pr = c[0][0], pi = c[0][1], d1r = 0, d1i = 0, hr = 0, hi = 0;
+    for (let k = 1; k <= deg; k++) {
+      let t = hr * zr - hi * zi + d1r; hi = hr * zi + hi * zr + d1i; hr = t;
+      t = d1r * zr - d1i * zi + pr; d1i = d1r * zi + d1i * zr + pi; d1r = t;
+      t = pr * zr - pi * zi + c[k][0]; pi = pr * zi + pi * zr + c[k][1]; pr = t;
+    }
+    const p = [pr, pi], d1 = [d1r, d1i], d2 = [2 * hr, 2 * hi];
+    if (d1r * d1r + d1i * d1i < 1e-30) return null;
+    let s;
+    if (method === 0) s = cdiv(p, d1);
+    else if (method === 1) {
+      const den = csub(cmul([2, 0], cmul(d1, d1)), cmul(p, d2));
+      if (cabs(den) < 1e-15) return null;
+      s = cdiv(cmul([2, 0], cmul(p, d1)), den);
+    } else if (method === 2) {
+      const den = csub(cmul(d1, d1), cmul(p, d2));
+      if (cabs(den) < 1e-15) return null;
+      s = cdiv(cmul(p, d1), den);
+    } else {
+      const n = cdiv(p, d1);
+      const L = cdiv(cmul(p, d2), cmul(d1, d1));
+      s = cmul(n, [1 + 0.5 * L[0], 0.5 * L[1]]);
+    }
+    return [zr - (ar * s[0] - ai * s[1]) + nr0, zi - (ar * s[1] + ai * s[0]) + ni0];
+  };
+}
+
+function nearestRoot(z, tol = 1e-6) {
+  let idx = -1, best = Infinity;
+  state.roots.forEach((r, i) => {
+    const dx = z[0] - r[0], dy = z[1] - r[1];
+    const d = dx * dx + dy * dy;
+    if (d < best) { best = d; idx = i; }
+  });
+  return best > tol ? -1 : idx;
+}
+
+// ---------- orbit tracking ----------
+function iterateOrbit(z0, maxSteps = 400) {
+  const step = makeStepper();
+  const pts = [[z0[0], z0[1]]];
+  let zr = z0[0], zi = z0[1];
+  let status = 'maxed';
+  for (let s = 0; s < maxSteps; s++) {
+    const n = step(zr, zi);
+    if (!n) { status = 'critical'; break; }
+    const dr = n[0] - zr, di = n[1] - zi;
+    zr = n[0]; zi = n[1];
+    pts.push([zr, zi]);
+    if (dr * dr + di * di < 1e-24) { status = 'converged'; break; }
+    if (zr * zr + zi * zi > 1e12) { status = 'diverged'; break; }
+  }
+  return { pts, status, end: [zr, zi] };
+}
+
+function newtonOrbit(z0) {
+  const { pts, status, end } = iterateOrbit(z0);
+  return { pts, start: [z0[0], z0[1]], targetIdx: nearestRoot(end), status };
+}
+
+function startOrbit(z0) {
+  orbit = newtonOrbit(z0);
+  anim.t = 0;
+  anim.pulse = 0;
+  anim.playing = true;
+  updateOrbitStatus();
+  updateRootTable();
+  wake();
+}
+
+function updateOrbitStatus() {
+  if (!orbit) {
+    orbitStatus.textContent = state.view === 0
+      ? 'No orbit yet — click anywhere on the fractal.'
+      : 'Parameter plane: click a point to open its dynamical plane.';
+    return;
+  }
+  const n = orbit.pts.length - 1;
+  const stepShown = Math.min(Math.floor(anim.t), n);
+  let tail;
+  if (orbit.targetIdx >= 0) {
+    const r = state.roots[orbit.targetIdx];
+    const m = Math.hypot(r[0], r[1]);
+    tail = `→ <b>${fmtC(r)}</b> (|z| = ${m.toFixed(4)}) in <b>${n}</b> steps`;
+  } else if (orbit.status === 'diverged') {
+    tail = '→ escapes to ∞';
+  } else if (orbit.status === 'converged') {
+    tail = `→ fixed point <b>${fmtC(orbit.pts[n])}</b> in <b>${n}</b> steps`;
+  } else {
+    tail = `→ no root reached after ${n} steps`;
+  }
+  orbitStatus.innerHTML = `z₀ = ${fmtC(orbit.start)} ${tail}` +
+    (anim.playing ? ` · step ${stepShown}/${n}` : '');
+}
+
+// current animated dot position (plane coords) and the active hop length
+function orbitDotPlane() {
+  const end = orbit.pts.length - 1;
+  const t = Math.min(anim.t, end);
+  const full = Math.floor(t);
+  if (full >= end) {
+    const a = orbit.pts[Math.max(end - 1, 0)], b = orbit.pts[end];
+    return { pos: [b[0], b[1]], segLen: Math.hypot(b[0] - a[0], b[1] - a[1]) };
+  }
+  const a = orbit.pts[full], b = orbit.pts[full + 1];
+  const frac = t - full;
+  const e = frac * frac * (3 - 2 * frac);
+  return {
+    pos: [a[0] + (b[0] - a[0]) * e, a[1] + (b[1] - a[1]) * e],
+    segLen: Math.hypot(b[0] - a[0], b[1] - a[1]),
+  };
+}
+
+// the fractal is rendered in float32, so don't chase convergence below this span
+const FOLLOW_MIN_SPAN = 1e-3;
+const FOLLOW_MAX_SPAN = 3.5;
+
+// ---------- motion ----------
+function captureMotionBase() {
+  motion.base = {
+    coeffs: state.coeffs.map(c => c.slice()),
+    roots: state.roots.map(r => r.slice()),
+    editRoots: state.editRoots ? state.editRoots.map(r => r.slice()) : null,
+    relax: state.relax.slice(),
+    nova: state.nova.slice(),
+    span: state.span,
+  };
+}
+function restoreMotionBase() {
+  const b = motion.base;
+  if (!b) return;
+  state.relax = b.relax.slice();
+  state.nova = b.nova.slice();
+  if (state.anim === 'breathe') state.span = b.span;
+  if (b.editRoots) state.editRoots = b.editRoots.map(r => r.slice());
+  syncIterSliders();
+  setPolynomial(b.coeffs, { keepMesh: true });
+  motion.base = null;
+}
+
+function stepMotion(dt) {
+  if (state.anim === 'none' || state.animPaused) return false;
+  if (!motion.base) captureMotionBase();
+  const b = motion.base;
+  motion.T += dt * state.animSpeed;
+  const T = motion.T, A = state.animAmp;
+  switch (state.anim) {
+    case 'dance': {
+      const scale = Math.max(0.15, b.roots.reduce((m, r) => Math.max(m, cabs(r)), 0));
+      const rs = b.roots.map((r, k) => {
+        const w = 1 + 0.37 * k;
+        const e = cexpi(T * w * (k % 2 ? -1 : 1) + 2.1 * k);
+        return [r[0] + 0.35 * A * scale * e[0], r[1] + 0.35 * A * scale * e[1]];
+      });
+      state.coeffs = fromRoots(rs);
+      if (state.family === 'roots') state.editRoots = rs.map(r => r.slice());
+      state.roots = rs;
+      refreshAfterMotion(true);
+      return true;
+    }
+    case 'twist': {
+      const cs = b.coeffs.map(c => c.slice());
+      const n = cs.length - 1;
+      const f = cmul(cexpi(T), [1 + 0.6 * A * Math.sin(0.43 * T), 0]);
+      cs[n] = cmul(cs[n], f);
+      if (cabs(cs[n]) < 1e-9) cs[n] = [A * f[0], A * f[1]];
+      state.coeffs = cs;
+      refreshAfterMotion(false);
+      return true;
+    }
+    case 'relax': {
+      const e = cexpi(T);
+      state.relax = [b.relax[0] + 0.6 * A * e[0], b.relax[1] + 0.6 * A * e[1]];
+      syncIterSliders();
+      return true;
+    }
+    case 'nova': {
+      const e = cexpi(T);
+      state.nova = [b.nova[0] + 0.6 * A * e[0], b.nova[1] + 0.6 * A * e[1]];
+      syncIterSliders();
+      return true;
+    }
+    case 'breathe': {
+      state.span = b.span * Math.exp(-4 * A * (0.5 - 0.5 * Math.cos(0.4 * T)));
+      return true;
+    }
+  }
+  return false;
+}
+
+function refreshAfterMotion(rootsKnown) {
+  const prevRoots = state.roots;
+  if (state.family === 'roots' && state.editRoots) {
+    state.roots = state.editRoots.map(r => r.slice());
+  } else if (!rootsKnown) {
+    state.roots = findRoots(state.coeffs, prevRoots);
+  }
+  const d2 = derivCoeffs(derivCoeffs(state.coeffs));
+  state.crit = d2.length >= 2 ? findRoots(d2, state.crit.length === d2.length - 1 ? state.crit : null) : [];
+  state.freeCrit = state.crit.filter(c => !state.roots.some(r => cabs(csub(c, r)) < 1e-6));
+  if (orbit) { const a = orbit; orbit = newtonOrbit(a.start); anim.t = Math.min(anim.t, orbit.pts.length - 1); }
+  $('polyDisplay').textContent = formatPoly(state.coeffs);
+}
+
+// ---------- main loop ----------
+function wake() {
+  if (loop.running) return;
+  loop.running = true;
+  loop.last = performance.now();
+  loop.raf = requestAnimationFrame(tick);
+}
+
+let rootTableTimer = 0;
+function tick(now) {
+  const dt = Math.min((now - loop.last) / 1000, 0.1);
+  loop.last = now;
+  let more = false, needRender = false;
+
+  if (stepMotion(dt)) { more = true; needRender = true; }
+  if (state.cycle && !state.animPaused) {
+    colorClock.shift = (colorClock.shift + dt * 0.04) % 1;
+    colorClock.phase = (colorClock.phase + dt * 0.08) % 2 || 1e-6;
+    more = true; needRender = true;
+  }
+
+  if (orbit) {
+    const end = orbit.pts.length - 1;
+    if (anim.t < end) {
+      const before = Math.floor(anim.t);
+      anim.t = Math.min(anim.t + dt * state.orbitSpeed, end);
+      anim.playing = anim.t < end;
+      more = true;
+      if (Math.floor(anim.t) !== before) updateOrbitStatus();
+    } else if (anim.pulse < 2.0) {
+      if (anim.playing) { anim.playing = false; updateOrbitStatus(); }
+      anim.pulse += dt;
+      more = true;
+    }
+  }
+  if (state.meshOn && mesh && !state.meshPaused) {
+    meshAnim.tAcc += dt;
+    const interval = 1 / state.meshSpeed;
+    let guard = 0;
+    while (meshAnim.tAcc >= interval && guard < 60) {
+      meshAnim.tAcc -= interval;
+      if (mesh.aliveCount > 0) advanceMesh();
+      guard++;
+    }
+    if (mesh.aliveCount > 0) {
+      mesh.deadSince = 0;
+      more = true;
+    } else {
+      mesh.deadSince += dt;
+      if (state.meshLoop && mesh.deadSince > 1.2) { buildMesh(); meshAnim.tAcc = 0; }
+      more = more || state.meshLoop || mesh.deadSince < 0.4;   // let the final hop finish
+    }
+  }
+  if (state.followCam && orbit && state.view === 0) {
+    const { pos, segLen } = orbitDotPlane();
+    const targetSpan = Math.min(FOLLOW_MAX_SPAN, Math.max(FOLLOW_MIN_SPAN, segLen * 6));
+    const kc = Math.min(1, dt * 5);
+    const ks = Math.min(1, dt * 2.5);
+    state.center.x += (pos[0] - state.center.x) * kc;
+    state.center.y += (pos[1] - state.center.y) * kc;
+    state.span += (targetSpan - state.span) * ks;
+    needRender = true;
+  }
+  if (needRender) render(); else drawOverlay();
+  if (needRender && now - rootTableTimer > 250 && state.anim !== 'none') {
+    rootTableTimer = now;
+    updateRootTable();
+  }
+  if (more) {
+    loop.raf = requestAnimationFrame(tick);
+  } else {
+    loop.running = false;
+    updateOrbitStatus();
+  }
+}
+
+// ---------- point mesh ----------
+function buildMesh() {
+  const n = Math.max(1, state.meshN | 0);
+  const count = n * n;
+  const h = overlay.height, w = overlay.width;
+  const halfH = state.span / 2;
+  const halfW = halfH * (w / (h || 1));
+  const curr = new Float64Array(count * 2);
+  const colors = new Uint8ClampedArray(count * 3);
+  let idx = 0;
+  for (let j = 0; j < n; j++) {
+    const v = n === 1 ? 0.5 : j / (n - 1);
+    const y = state.center.y - halfH + (2 * halfH) * (j + 0.5) / n;
+    for (let i = 0; i < n; i++) {
+      const u = n === 1 ? 0.5 : i / (n - 1);
+      const x = state.center.x - halfW + (2 * halfW) * (i + 0.5) / n;
+      curr[idx * 2] = x;
+      curr[idx * 2 + 1] = y;
+      const [r, g, b] = meshGradientColor(u, v);
+      colors[idx * 3] = r; colors[idx * 3 + 1] = g; colors[idx * 3 + 2] = b;
+      idx++;
+    }
+  }
+  // basin colouring: where each seed ends up (computed once, up front)
+  const basin = new Int16Array(count);
+  const step = makeStepper();
+  for (let k = 0; k < count; k++) {
+    let zr = curr[k * 2], zi = curr[k * 2 + 1];
+    for (let s = 0; s < 200; s++) {
+      const nz = step(zr, zi);
+      if (!nz) break;
+      const dr = nz[0] - zr, di = nz[1] - zi;
+      zr = nz[0]; zi = nz[1];
+      if (dr * dr + di * di < 1e-20) break;
+    }
+    basin[k] = nearestRoot([zr, zi], 1e-4);
+  }
+  mesh = {
+    n, count,
+    prev: curr.slice(),
+    curr,
+    colors,
+    basin,
+    alive: new Uint8Array(count).fill(1),
+    aliveCount: count,
+    steps: 0,
+    deadSince: 0,
+  };
+}
+
+// advance every live point by one step; frozen points (converged, diverged, or
+// a critical derivative) keep their last position untouched
+function advanceMesh() {
+  const step = makeStepper();
+  const { curr, prev, alive, count } = mesh;
+  prev.set(curr);
+  for (let k = 0; k < count; k++) {
+    if (!alive[k]) continue;
+    const zr = curr[k * 2], zi = curr[k * 2 + 1];
+    const n = step(zr, zi);
+    if (!n) { alive[k] = 0; mesh.aliveCount--; continue; }
+    const [nr, ni] = n;
+    if (nr * nr + ni * ni > 1e12) { alive[k] = 0; mesh.aliveCount--; continue; }
+    curr[k * 2] = nr; curr[k * 2 + 1] = ni;
+    const dr = nr - zr, di = ni - zi;
+    if (dr * dr + di * di < 1e-24) { alive[k] = 0; mesh.aliveCount--; }
+  }
+  mesh.steps++;
+  updateMeshStatus();
+}
+
+function updateMeshStatus() {
+  const el = $('meshStatus');
+  if (!state.meshOn || !mesh) {
+    el.textContent = 'Drops a grid of points over the current view; every point iterates the same map in lock-step.';
+    return;
+  }
+  el.innerHTML = `${mesh.count.toLocaleString()} points · <b>${mesh.aliveCount}</b> still moving · step ${mesh.steps}`;
+}
+
+function drawMeshPoints() {
+  if (!mesh || state.view !== 0) return;
+  const w = overlay.width, h = overlay.height;
+  const s = h / state.span;
+  const cx = state.center.x, cy = state.center.y;
+  const interval = 1 / state.meshSpeed;
+  const t = interval > 0 ? Math.max(0, Math.min(1, meshAnim.tAcc / interval)) : 1;
+  const e = t * t * (3 - 2 * t);
+  const { prev, curr, colors, count, basin } = mesh;
+  const px = Math.max(1, h / 800);
+  const r = Math.max(1, 1.6 * px);
+  const mode = state.meshColorMode;
+  if (mode === 'single') {
+    const hex = state.meshColor.replace('#', '');
+    const cr = parseInt(hex.substring(0, 2), 16) || 0;
+    const cg = parseInt(hex.substring(2, 4), 16) || 0;
+    const cb = parseInt(hex.substring(4, 6), 16) || 0;
+    octx.fillStyle = `rgb(${cr},${cg},${cb})`;
+  }
+  const basinStyles = mode === 'basin'
+    ? state.roots.map((_, k) => { const [a, b2, c] = rootRgb(k); return `rgb(${a | 0},${b2 | 0},${c | 0})`; })
+    : null;
+  for (let k = 0; k < count; k++) {
+    const x = prev[k * 2] + (curr[k * 2] - prev[k * 2]) * e;
+    const y = prev[k * 2 + 1] + (curr[k * 2 + 1] - prev[k * 2 + 1]) * e;
+    if (!isFinite(x) || !isFinite(y)) continue;
+    const sx = w / 2 + (x - cx) * s;
+    const sy = h / 2 - (y - cy) * s;
+    if (sx < -r || sx > w + r || sy < -r || sy > h + r) continue;
+    if (mode === 'gradient') octx.fillStyle = `rgb(${colors[k * 3]},${colors[k * 3 + 1]},${colors[k * 3 + 2]})`;
+    else if (basinStyles) octx.fillStyle = basin[k] >= 0 ? basinStyles[basin[k]] || '#fff' : '#f8fafc';
+    octx.fillRect(sx - r, sy - r, r * 2, r * 2);
+  }
+}
+
+// ---------- rendering ----------
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = stage.clientWidth, h = stage.clientHeight;
+  for (const c of [glCanvas, overlay]) {
+    c.width = Math.round(w * dpr);
+    c.height = Math.round(h * dpr);
+  }
+  render();
+}
+
+function render() {
+  if (!gl || !state.coeffs.length) return;
+  const w = glCanvas.width, h = glCanvas.height;
+  gl.viewport(0, 0, w, h);
+  const deg = state.coeffs.length - 1;
+  const cf = new Float32Array((MAXD + 1) * 2);
+  state.coeffs.forEach((c, i) => { cf[2 * i] = c[0]; cf[2 * i + 1] = c[1]; });
+  const rootsFlat = new Float32Array(MAXD * 2);
+  state.roots.forEach((z, i) => { rootsFlat[2 * i] = z[0]; rootsFlat[2 * i + 1] = z[1]; });
+
+  gl.uniform2f(uni.u_center, state.center.x, state.center.y);
+  gl.uniform1f(uni.u_span, state.span);
+  gl.uniform2f(uni.u_res, w, h);
+  gl.uniform1i(uni.u_degree, deg);
+  gl.uniform2fv(uni.u_c, cf);
+  gl.uniform2fv(uni.u_roots, rootsFlat);
+  gl.uniform1i(uni.u_nroots, state.roots.length);
+  gl.uniform1i(uni.u_maxIter, state.maxIter);
+  gl.uniform1f(uni.u_bands, state.bands);
+  gl.uniform1i(uni.u_mode, state.mode);
+  gl.uniform1i(uni.u_palette, state.palette);
+  gl.uniform1i(uni.u_method, state.method);
+  gl.uniform2f(uni.u_relax, state.relax[0], state.relax[1]);
+  gl.uniform2f(uni.u_nova, state.nova[0], state.nova[1]);
+  gl.uniform1i(uni.u_view, state.view);
+  gl.uniform2f(uni.u_seed, 1, 0);
+  const useArg = state.view === 2 || cabs(state.nova) > 1e-9;
+  gl.uniform1i(uni.u_useArg, useArg ? 1 : 0);
+  gl.uniform1f(uni.u_shift, state.cycle ? colorClock.shift : 0);
+  gl.uniform1f(uni.u_phase, state.cycle ? colorClock.phase : 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  drawOverlay();
+}
+
+function planeToPx(x, y) {
+  const w = overlay.width, h = overlay.height;
+  const s = h / state.span;   // px per complex unit
+  return [w / 2 + (x - state.center.x) * s, h / 2 - (y - state.center.y) * s];
+}
+
+function lerpColor(a, b, t) {
+  return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
+}
+const ORBIT_C0 = [125, 211, 252];   // sky
+const ORBIT_C1 = [255, 235, 120];   // gold
+
+function drawCriticalOrbits(px) {
+  const pts = state.freeCrit || [];
+  octx.save();
+  octx.lineWidth = Math.max(1, 1.1 * px);
+  for (const c of pts) {
+    const { pts: path, status } = iterateOrbit(c, 160);
+    // the tail of a non-converging critical orbit sits on its attracting cycle
+    const stuck = status !== 'converged' || nearestRoot(path[path.length - 1], 1e-6) < 0;
+    octx.strokeStyle = stuck ? 'rgba(248,113,113,0.85)' : 'rgba(255,255,255,0.55)';
+    octx.beginPath();
+    path.forEach((p, i) => {
+      const [x, y] = planeToPx(p[0], p[1]);
+      if (i === 0) octx.moveTo(x, y); else octx.lineTo(x, y);
+    });
+    octx.stroke();
+    octx.fillStyle = stuck ? 'rgba(248,113,113,0.95)' : 'rgba(255,255,255,0.8)';
+    for (const p of path.slice(1)) {
+      const [x, y] = planeToPx(p[0], p[1]);
+      octx.beginPath();
+      octx.arc(x, y, Math.max(1.5, 1.6 * px), 0, 2 * Math.PI);
+      octx.fill();
+    }
+  }
+  octx.restore();
+}
+
+function drawOverlay() {
+  const w = overlay.width, h = overlay.height;
+  octx.clearRect(0, 0, w, h);
+  const s = h / state.span;
+  const px = Math.max(1, h / 800);
+  const gold = '#d4c22a';
+
+  if (state.showAxes) {
+    octx.save();
+    octx.strokeStyle = 'rgba(255,255,255,0.35)';
+    octx.lineWidth = px;
+    const [ox, oy] = planeToPx(0, 0);
+    octx.beginPath();
+    octx.moveTo(0, oy); octx.lineTo(w, oy);
+    octx.moveTo(ox, 0); octx.lineTo(ox, h);
+    octx.stroke();
+    octx.restore();
+  }
+  if (state.showCircle) {
+    const [cx, cy] = planeToPx(0, 0);
+    octx.strokeStyle = gold;
+    octx.lineWidth = px;
+    octx.beginPath();
+    octx.arc(cx, cy, s, 0, 2 * Math.PI);
+    octx.stroke();
+  }
+  if (state.view !== 0) {
+    // parameter planes: mark the parameter currently loaded
+    const mark = state.view === 2 ? state.nova : null;
+    if (mark) {
+      const [mx, my] = planeToPx(mark[0], mark[1]);
+      octx.strokeStyle = 'rgba(255,255,255,0.9)';
+      octx.lineWidth = 1.5 * px;
+      octx.beginPath();
+      octx.arc(mx, my, 6 * px, 0, 2 * Math.PI);
+      octx.stroke();
+    }
+    return;
+  }
+  if (state.showCritOrbits) drawCriticalOrbits(px);
+  drawMeshPoints();
+
+  if (state.showCrit) {
+    const r = Math.max(3, h / 200);
+    octx.save();
+    octx.fillStyle = '#ffffff';
+    octx.strokeStyle = 'rgba(0,0,0,0.6)';
+    octx.lineWidth = px;
+    for (const z of state.freeCrit || []) {
+      const [cx, cy] = planeToPx(z[0], z[1]);
+      octx.beginPath();
+      octx.moveTo(cx, cy - r); octx.lineTo(cx + r, cy); octx.lineTo(cx, cy + r); octx.lineTo(cx - r, cy);
+      octx.closePath();
+      octx.fill(); octx.stroke();
+    }
+    octx.restore();
+  }
+
+  if (state.showRoots || state.family === 'roots') {
+    const big = state.family === 'roots';
+    const r = big ? Math.max(5, h / 130) : Math.max(2.5, h / 240);
+    for (const z of state.roots) {
+      const [rx, ry] = planeToPx(z[0], z[1]);
+      octx.fillStyle = gold;
+      octx.beginPath();
+      octx.arc(rx, ry, r, 0, 2 * Math.PI);
+      octx.fill();
+      if (big) {
+        octx.strokeStyle = 'rgba(0,0,0,0.55)';
+        octx.lineWidth = 1.5 * px;
+        octx.stroke();
+      }
+    }
+  }
+
+  // ----- orbit trail -----
+  if (orbit && orbit.pts.length > 1) {
+    const end = orbit.pts.length - 1;
+    const t = Math.min(anim.t, end);
+    const full = Math.floor(t);
+    const frac = t - full;
+
+    octx.lineWidth = Math.max(1.5, 1.5 * px);
+    octx.lineCap = 'round';
+    for (let i = 0; i < full; i++) {
+      const [x0, y0] = planeToPx(orbit.pts[i][0], orbit.pts[i][1]);
+      const [x1, y1] = planeToPx(orbit.pts[i + 1][0], orbit.pts[i + 1][1]);
+      octx.strokeStyle = lerpColor(ORBIT_C0, ORBIT_C1, end > 1 ? i / (end - 1) : 0);
+      octx.globalAlpha = 0.9;
+      octx.beginPath();
+      octx.moveTo(x0, y0); octx.lineTo(x1, y1);
+      octx.stroke();
+    }
+    let dot = planeToPx(orbit.pts[full][0], orbit.pts[full][1]);
+    if (full < end && frac > 0) {
+      const a = orbit.pts[full], b = orbit.pts[full + 1];
+      const e = frac * frac * (3 - 2 * frac);
+      const mx = a[0] + (b[0] - a[0]) * e, my = a[1] + (b[1] - a[1]) * e;
+      const [x0, y0] = planeToPx(a[0], a[1]);
+      const m = planeToPx(mx, my);
+      octx.strokeStyle = lerpColor(ORBIT_C0, ORBIT_C1, end > 1 ? full / (end - 1) : 0);
+      octx.beginPath();
+      octx.moveTo(x0, y0); octx.lineTo(m[0], m[1]);
+      octx.stroke();
+      dot = m;
+    } else if (t >= end) {
+      dot = planeToPx(orbit.pts[end][0], orbit.pts[end][1]);
+    }
+    octx.globalAlpha = 1;
+
+    const vr = Math.max(2, 2 * px);
+    for (let i = 0; i <= full; i++) {
+      const [vx, vy] = planeToPx(orbit.pts[i][0], orbit.pts[i][1]);
+      octx.fillStyle = lerpColor(ORBIT_C0, ORBIT_C1, end > 1 ? Math.min(i, end - 1) / (end - 1) : 0);
+      octx.beginPath();
+      octx.arc(vx, vy, vr, 0, 2 * Math.PI);
+      octx.fill();
+    }
+
+    const [sx, sy] = planeToPx(orbit.start[0], orbit.start[1]);
+    octx.strokeStyle = 'rgba(255,255,255,0.9)';
+    octx.lineWidth = Math.max(1.5, 1.5 * px);
+    octx.beginPath();
+    octx.arc(sx, sy, Math.max(5, 5 * px), 0, 2 * Math.PI);
+    octx.stroke();
+
+    octx.save();
+    octx.shadowColor = '#ffffff';
+    octx.shadowBlur = 12 * px;
+    octx.fillStyle = '#ffffff';
+    octx.beginPath();
+    octx.arc(dot[0], dot[1], Math.max(4, 4 * px), 0, 2 * Math.PI);
+    octx.fill();
+    octx.restore();
+
+    if (anim.t >= end && anim.pulse > 0 && orbit.targetIdx >= 0 && state.roots[orbit.targetIdx]) {
+      const root = state.roots[orbit.targetIdx];
+      const [rx, ry] = planeToPx(root[0], root[1]);
+      const phase = (anim.pulse % 1.0);
+      octx.strokeStyle = `rgba(255,255,255,${(1 - phase) * 0.8})`;
+      octx.lineWidth = Math.max(2, 2 * px);
+      octx.beginPath();
+      octx.arc(rx, ry, (6 + 26 * phase) * px, 0, 2 * Math.PI);
+      octx.stroke();
+    }
+  }
+}
+
+// ---------- interaction ----------
+function clientToPlane(clientX, clientY) {
+  const rect = stage.getBoundingClientRect();
+  const s = state.span / stage.clientHeight;
+  return [
+    state.center.x + (clientX - rect.left - rect.width / 2) * s,
+    state.center.y - (clientY - rect.top - rect.height / 2) * s,
+  ];
+}
+
+// user grabbed the camera while the follow-cam was flying it: hand over control
+function breakFollow() {
+  if (state.followCam && loop.running) {
+    state.followCam = false;
+    $('chkFollow').checked = false;
+  }
+}
+
+// roots family: index of the root under a client point, or -1
+function rootAt(clientX, clientY) {
+  if (state.family !== 'roots' || state.view !== 0 || !state.editRoots) return -1;
+  const rect = stage.getBoundingClientRect();
+  const lx = clientX - rect.left, ly = clientY - rect.top;
+  const s = stage.clientHeight / state.span;
+  let best = -1, bd = 14;
+  state.editRoots.forEach((r, i) => {
+    const x = rect.width / 2 + (r[0] - state.center.x) * s;
+    const y = rect.height / 2 - (r[1] - state.center.y) * s;
+    const d = Math.hypot(x - lx, y - ly);
+    if (d < bd) { bd = d; best = i; }
+  });
+  return best;
+}
+function moveRoot(i, clientX, clientY) {
+  state.editRoots[i] = clientToPlane(clientX, clientY);
+  if (motion.base && motion.base.editRoots) motion.base = null;
+  setPolynomial(fromRoots(state.editRoots));
+}
+
+// clicking a parameter plane opens that parameter's dynamical plane
+function openParameter(z) {
+  if (state.view === 1) {
+    const lam = z;
+    const coeffs = [[1, 0], [0, 0], [lam[0] - 1, lam[1]], [-lam[0], -lam[1]]];
+    state.family = 'custom';
+    $('customCoeffs').value = coeffs.map(fmtCoeffToken).join(', ');
+    showFamilyBlocks();
+    setView(0, { keepCamera: true });
+    state.center = { x: -0.1, y: 0 }; state.span = 3.6;
+    setPolynomial(coeffs);
+    toast(`λ = ${fmtC(lam, 4)} — critical point 0 is tracked`);
+    startOrbit([0, 0]);
+  } else if (state.view === 2) {
+    state.nova = z.slice();
+    syncIterSliders();
+    setView(0, { keepCamera: true });
+    state.center = { x: 0, y: 0 }; state.span = 3.2;
+    render();
+    toast(`Nova c = ${fmtC(z, 4)}`);
+  }
+}
+
+let drag = null;
+let dragOrigin = null;
+let dragMoved = false;
+let dragRoot = -1;
+stage.addEventListener('mousedown', e => {
+  dragRoot = rootAt(e.clientX, e.clientY);
+  drag = { x: e.clientX, y: e.clientY };
+  dragOrigin = { x: e.clientX, y: e.clientY };
+  dragMoved = false;
+  if (dragRoot < 0) stage.classList.add('dragging');
+});
+window.addEventListener('mousemove', e => {
+  const s = state.span / stage.clientHeight;
+  if (drag) {
+    if (dragOrigin && Math.hypot(e.clientX - dragOrigin.x, e.clientY - dragOrigin.y) > 4) dragMoved = true;
+    if (dragRoot >= 0) {
+      moveRoot(dragRoot, e.clientX, e.clientY);
+    } else {
+      if (dragMoved) breakFollow();
+      state.center.x -= (e.clientX - drag.x) * s;
+      state.center.y += (e.clientY - drag.y) * s;
+      render();
+    }
+    drag = { x: e.clientX, y: e.clientY };
+  } else {
+    stage.classList.toggle('root-hover', rootAt(e.clientX, e.clientY) >= 0);
+  }
+  const [zx, zy] = clientToPlane(e.clientX, e.clientY);
+  const label = state.view === 1 ? 'λ = ' : state.view === 2 ? 'c = ' : '';
+  $('coords').textContent = `${label}${zx.toFixed(5)} ${zy < 0 ? '−' : '+'} ${Math.abs(zy).toFixed(5)}i`;
+});
+window.addEventListener('mouseup', () => {
+  drag = null;
+  stage.classList.remove('dragging');
+});
+stage.addEventListener('click', e => {
+  if (dragMoved || dragRoot >= 0) return;
+  const z = clientToPlane(e.clientX, e.clientY);
+  if (state.view !== 0) { openParameter(z); return; }
+  if (!state.orbitMode) return;
+  startOrbit(z);
+});
+
+function zoomAt(clientX, clientY, factor) {
+  const rect = stage.getBoundingClientRect();
+  const s = state.span / stage.clientHeight;
+  const zx = state.center.x + (clientX - rect.left - rect.width / 2) * s;
+  const zy = state.center.y - (clientY - rect.top - rect.height / 2) * s;
+  state.span *= factor;
+  if (motion.base && state.anim === 'breathe') motion.base.span *= factor;
+  const s2 = state.span / stage.clientHeight;
+  state.center.x = zx - (clientX - rect.left - rect.width / 2) * s2;
+  state.center.y = zy + (clientY - rect.top - rect.height / 2) * s2;
+  render();
+}
+stage.addEventListener('wheel', e => {
+  e.preventDefault();
+  breakFollow();
+  zoomAt(e.clientX, e.clientY, Math.exp(e.deltaY * 0.0015));
+}, { passive: false });
+stage.addEventListener('dblclick', e => {
+  if (state.view !== 0) return;
+  zoomAt(e.clientX, e.clientY, 0.5);
+});
+
+// touch: one-finger pan (tap = orbit / open parameter, drag a root), two-finger pinch
+let touches = null;
+let touchStart = null;
+stage.addEventListener('touchstart', e => {
+  touches = [...e.touches].map(t => ({ x: t.clientX, y: t.clientY }));
+  if (e.touches.length === 1) {
+    touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, moved: false,
+                   root: rootAt(e.touches[0].clientX, e.touches[0].clientY) };
+  }
+}, { passive: true });
+stage.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const now = [...e.touches].map(t => ({ x: t.clientX, y: t.clientY }));
+  const s = state.span / stage.clientHeight;
+  if (touches && touches.length === 1 && now.length === 1) {
+    if (touchStart && Math.hypot(now[0].x - touchStart.x, now[0].y - touchStart.y) > 8) touchStart.moved = true;
+    if (touchStart && touchStart.root >= 0) {
+      moveRoot(touchStart.root, now[0].x, now[0].y);
+    } else {
+      if (touchStart && touchStart.moved) breakFollow();
+      state.center.x -= (now[0].x - touches[0].x) * s;
+      state.center.y += (now[0].y - touches[0].y) * s;
+      render();
+    }
+  } else if (touches && touches.length === 2 && now.length === 2) {
+    if (touchStart) touchStart.moved = true;
+    breakFollow();
+    const d0 = Math.hypot(touches[0].x - touches[1].x, touches[0].y - touches[1].y);
+    const d1 = Math.hypot(now[0].x - now[1].x, now[0].y - now[1].y);
+    if (d1 > 0) zoomAt((now[0].x + now[1].x) / 2, (now[0].y + now[1].y) / 2, d0 / d1);
+  }
+  touches = now;
+}, { passive: false });
+stage.addEventListener('touchend', e => {
+  if (touchStart && !touchStart.moved && touchStart.root < 0 && e.touches.length === 0) {
+    const z = clientToPlane(touchStart.x, touchStart.y);
+    if (state.view !== 0) openParameter(z);
+    else if (state.orbitMode) startOrbit(z);
+  }
+  touchStart = null;
+  touches = [...e.touches].map(t => ({ x: t.clientX, y: t.clientY }));
+}, { passive: true });
+
+// ---------- controls ----------
+// FLIP-style collapse: measure both end states, animate between them explicitly
+// (a bare width/height transition can't animate from the content-determined
+// height), and freeze the innards' width so nothing reflows while the box folds.
+function setPanelCollapsed(panel, collapsed) {
+  const frozen = panel.querySelectorAll('.panel-header, .panel-content');
+  const from = panel.getBoundingClientRect();
+  panel.classList.toggle('collapsed', collapsed);
+  panel.style.transition = 'none';
+  panel.style.width = '';
+  panel.style.height = '';
+  const to = panel.getBoundingClientRect();
+  const wide = Math.max(from.width, to.width) - 2;   // inside the 1px borders
+  for (const el of frozen) el.style.minWidth = wide + 'px';
+  panel.style.width = from.width + 'px';
+  panel.style.height = from.height + 'px';
+  void panel.offsetWidth;   // commit the start state before re-enabling the transition
+  panel.style.transition = '';
+  panel.style.width = to.width + 'px';
+  panel.style.height = to.height + 'px';
+  clearTimeout(panel._collapseTimer);
+  panel._collapseTimer = setTimeout(() => {
+    panel.style.width = '';
+    panel.style.height = '';
+    for (const el of frozen) el.style.minWidth = '';
+  }, 420);
+}
+function togglePanel() {
+  const panel = $('control-panel');
+  const collapsed = !panel.classList.contains('collapsed');
+  setPanelCollapsed(panel, collapsed);
+  $('collapseBtn').title = collapsed ? 'Expand panel (H)' : 'Collapse panel (H)';
+}
+$('collapseBtn').addEventListener('click', togglePanel);
+
+function stopMotionForEdit() {
+  // an explicit polynomial change replaces whatever the motion was built on
+  motion.base = null;
+}
+
+function selectFamily(f) {
+  stopMotionForEdit();
+  const prevRoots = state.roots;
+  state.family = f;
+  showFamilyBlocks();
+  if (f === 'custom') applyCustom();
+  else if (f === 'roots') {
+    if (!state.editRoots || state.editRoots.length !== prevRoots.length || prevRoots.length > 0) {
+      state.editRoots = prevRoots.length && prevRoots.length <= 12
+        ? prevRoots.map(r => r.slice())
+        : unityRoots(5, 0.1);
+    }
+    setPolynomial(fromRoots(state.editRoots));
+  } else {
+    populateSelect();
+    const list = FAMILY_LISTS[f];
+    setPolynomial(list[state.presetIndex[f]].coeffs);
+  }
+}
+function unityRoots(n, twist = 0) {
+  return Array.from({ length: n }, (_, k) => cexpi(2 * Math.PI * k / n + twist));
+}
+
+$('familySelect').addEventListener('change', e => selectFamily(e.target.value));
+polySelect.addEventListener('change', () => {
+  stopMotionForEdit();
+  state.presetIndex[state.family] = +polySelect.value;
+  setPolynomial(FAMILY_LISTS[state.family][+polySelect.value].coeffs);
+});
+function applyCustom() {
+  const raw = $('customCoeffs').value;
+  const tokens = (raw.includes(',') ? raw.split(',') : raw.split(/\s+/)).map(s => s.trim()).filter(Boolean);
+  const coeffs = tokens.map(parseComplex);
+  if (!coeffs.length || coeffs.some(c => c === null)) {
+    errBox.style.display = 'block';
+    errBox.textContent = 'Could not parse coefficients.';
+    return;
+  }
+  stopMotionForEdit();
+  setPolynomial(coeffs);
+}
+$('customCoeffs').addEventListener('keydown', e => { if (e.key === 'Enter') applyCustom(); });
+$('customCoeffs').addEventListener('change', applyCustom);
+
+$('addRootBtn').addEventListener('click', () => {
+  if (!state.editRoots || state.editRoots.length >= MAXD) return;
+  stopMotionForEdit();
+  const a = Math.random() * 2 * Math.PI, r = 0.3 + 0.9 * Math.random();
+  state.editRoots.push([r * Math.cos(a), r * Math.sin(a)]);
+  setPolynomial(fromRoots(state.editRoots));
+});
+$('removeRootBtn').addEventListener('click', () => {
+  if (!state.editRoots || state.editRoots.length <= 2) return;
+  stopMotionForEdit();
+  state.editRoots.pop();
+  setPolynomial(fromRoots(state.editRoots));
+});
+$('unityRootBtn').addEventListener('click', () => {
+  if (!state.editRoots) return;
+  stopMotionForEdit();
+  state.editRoots = unityRoots(state.editRoots.length);
+  setPolynomial(fromRoots(state.editRoots));
+});
+
+// iteration controls
+function syncIterSliders() {
+  const pairs = [['relaxRe', state.relax[0]], ['relaxIm', state.relax[1]], ['novaRe', state.nova[0]], ['novaIm', state.nova[1]]];
+  for (const [id, v] of pairs) {
+    const el = $(id);
+    if (document.activeElement !== el) el.value = v;
+    $(id + 'Val').textContent = v.toFixed(2);
+  }
+}
+for (const [id, key, i] of [['relaxRe', 'relax', 0], ['relaxIm', 'relax', 1], ['novaRe', 'nova', 0], ['novaIm', 'nova', 1]]) {
+  $(id).addEventListener('input', e => {
+    if (motion.base) motion.base[key][i] = +e.target.value;
+    state[key][i] = +e.target.value;
+    $(id + 'Val').textContent = (+e.target.value).toFixed(2);
+    refreshIterationDependents();
+  });
+}
+function refreshIterationDependents() {
+  if (orbit) { orbit = newtonOrbit(orbit.start); anim.t = Math.min(anim.t, orbit.pts.length - 1); updateOrbitStatus(); }
+  if (state.meshOn) { buildMesh(); meshAnim.tAcc = 0; wake(); }
+  render();
+}
+$('resetIterBtn').addEventListener('click', () => {
+  state.relax = [1, 0]; state.nova = [0, 0];
+  if (motion.base) { motion.base.relax = [1, 0]; motion.base.nova = [0, 0]; }
+  syncIterSliders();
+  refreshIterationDependents();
+});
+$('methodSelect').addEventListener('change', e => {
+  state.method = +e.target.value;
+  refreshIterationDependents();
+});
+
+const VIEW_HINTS = [
+  'Each pixel z₀ is iterated; colour = which root it reaches and how fast.',
+  'Each pixel is a parameter λ for p(z) = z³ + (λ−1)z − λ, iterated from the free critical point 0. Black = Mandelbrot copies. Click to open.',
+  'Each pixel is a Nova constant c, iterated from z₀ = 1 using the current polynomial, method and a. Click to open.',
+];
+const VIEW_CAMERAS = [null, { x: 0.25, y: 0, span: 4.4 }, { x: -0.25, y: 0, span: 1.15 }];
+function setView(v, opts = {}) {
+  const prev = state.view;
+  state.view = v;
+  $('viewSelect').value = String(v);
+  $('viewHint').textContent = VIEW_HINTS[v];
+  stage.classList.toggle('param-mode', v !== 0);
+  stage.classList.toggle('orbit-mode', v === 0 && state.orbitMode);
+  if (!opts.keepCamera && v !== prev) {
+    const cam = VIEW_CAMERAS[v] || DEFAULT_VIEW;
+    state.center = { x: cam.x, y: cam.y };
+    state.span = cam.span;
+  }
+  if (v !== 0) { orbit = null; }
+  updateOrbitStatus();
+  render();
+}
+$('viewSelect').addEventListener('change', e => setView(+e.target.value));
+
+// motion controls
+function setAnim(a) {
+  if (state.anim !== 'none' && motion.base) restoreMotionBase();
+  state.anim = a;
+  $('animSelect').value = a;
+  motion.base = null;
+  if (a !== 'none') { state.animPaused = false; $('animPause').textContent = 'Pause'; wake(); }
+}
+$('animSelect').addEventListener('change', e => setAnim(e.target.value));
+$('animSpeed').addEventListener('input', e => {
+  state.animSpeed = +e.target.value;
+  $('animSpeedVal').textContent = state.animSpeed.toFixed(2);
+});
+$('animAmp').addEventListener('input', e => {
+  state.animAmp = +e.target.value;
+  $('animAmpVal').textContent = state.animAmp.toFixed(2);
+});
+$('chkCycle').addEventListener('change', e => {
+  state.cycle = e.target.checked;
+  if (state.cycle) wake(); else render();
+});
+function togglePause() {
+  state.animPaused = !state.animPaused;
+  $('animPause').textContent = state.animPaused ? 'Resume' : 'Pause';
+  if (!state.animPaused) wake();
+}
+$('animPause').addEventListener('click', togglePause);
+
+$('orbitToggle').addEventListener('click', e => {
+  state.orbitMode = !state.orbitMode;
+  e.target.classList.toggle('active', state.orbitMode);
+  e.target.textContent = state.orbitMode ? 'Click the plane to track an orbit' : 'Orbit tracking off';
+  stage.classList.toggle('orbit-mode', state.orbitMode && state.view === 0);
+});
+$('speedSlider').addEventListener('input', e => {
+  state.orbitSpeed = +e.target.value;
+  $('speedVal').textContent = e.target.value;
+});
+$('chkFollow').addEventListener('change', e => {
+  state.followCam = e.target.checked;
+  if (state.followCam && orbit) wake();
+});
+$('replayBtn').addEventListener('click', () => {
+  if (!orbit) return;
+  anim.t = 0; anim.pulse = 0; anim.playing = true;
+  wake();
+});
+function clearOrbit() {
+  orbit = null;
+  anim.playing = false;
+  updateOrbitStatus();
+  updateRootTable();
+  drawOverlay();
+}
+$('clearBtn').addEventListener('click', clearOrbit);
+
+function setMesh(on) {
+  state.meshOn = on;
+  const b = $('meshToggle');
+  b.classList.toggle('active', on);
+  b.textContent = on ? 'Hide point mesh' : 'Show point mesh';
+  if (on) {
+    buildMesh();
+    meshAnim.tAcc = 0;
+    state.meshPaused = false;
+    $('meshPauseBtn').textContent = 'Pause';
+    updateMeshStatus();
+    wake();
+  } else {
+    mesh = null;
+    updateMeshStatus();
+    drawOverlay();
+  }
+}
+$('meshToggle').addEventListener('click', () => setMesh(!state.meshOn));
+$('meshSizeSlider').addEventListener('input', e => {
+  state.meshN = +e.target.value;
+  $('meshSizeVal').textContent = `${state.meshN}×${state.meshN}`;
+  if (state.meshOn) {
+    buildMesh();
+    meshAnim.tAcc = 0;
+    updateMeshStatus();
+    wake();
+  }
+});
+$('meshSpeedSlider').addEventListener('input', e => {
+  state.meshSpeed = +e.target.value;
+  $('meshSpeedVal').textContent = e.target.value;
+});
+function setMeshColorMode(mode) {
+  state.meshColorMode = mode;
+  for (const btn of document.querySelectorAll('#meshColorSeg button')) btn.classList.toggle('active', btn.dataset.mode === mode);
+  $('meshColorPickerRow').style.display = mode === 'single' ? '' : 'none';
+  drawOverlay();
+}
+$('meshColorSeg').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) setMeshColorMode(b.dataset.mode);
+});
+$('meshColorPicker').addEventListener('input', e => {
+  state.meshColor = e.target.value;
+  if (state.meshColorMode === 'single') drawOverlay();
+});
+$('chkLoopMesh').addEventListener('change', e => { state.meshLoop = e.target.checked; if (state.meshLoop) wake(); });
+$('meshRestartBtn').addEventListener('click', () => {
+  if (!state.meshOn) return;
+  buildMesh();
+  meshAnim.tAcc = 0;
+  state.meshPaused = false;
+  $('meshPauseBtn').textContent = 'Pause';
+  updateMeshStatus();
+  wake();
+});
+$('meshPauseBtn').addEventListener('click', e => {
+  if (!mesh) return;
+  state.meshPaused = !state.meshPaused;
+  e.target.textContent = state.meshPaused ? 'Resume' : 'Pause';
+  if (!state.meshPaused) wake();
+});
+
+$('colorSelect').addEventListener('change', e => { state.mode = +e.target.value; render(); });
+$('paletteSelect').addEventListener('change', e => { state.palette = +e.target.value; render(); });
+$('iterSlider').addEventListener('input', e => {
+  state.maxIter = +e.target.value;
+  $('iterVal').textContent = e.target.value;
+  render();
+});
+$('bandSlider').addEventListener('input', e => {
+  state.bands = +e.target.value;
+  $('bandVal').textContent = e.target.value;
+  render();
+});
+const CHECKS = [['chkCircle', 'showCircle'], ['chkRoots', 'showRoots'], ['chkAxes', 'showAxes'],
+                ['chkCrit', 'showCrit'], ['chkCritOrbits', 'showCritOrbits']];
+for (const [id, key] of CHECKS) {
+  $(id).addEventListener('change', e => {
+    state[key] = e.target.checked;
+    drawOverlay();
+  });
+}
+function resetView() {
+  breakFollow();
+  const cam = currentSceneCamera() || VIEW_CAMERAS[state.view] || DEFAULT_VIEW;
+  state.center = { x: cam.x, y: cam.y };
+  state.span = cam.span;
+  if (motion.base) motion.base.span = state.span;
+  render();
+}
+$('zoomIn').addEventListener('click', () => { breakFollow(); state.span *= 0.6; render(); });
+$('zoomOut').addEventListener('click', () => { breakFollow(); state.span /= 0.6; render(); });
+$('resetView').addEventListener('click', resetView);
+
+// ---------- export & sharing ----------
+function savePng() {
+  render();   // draw and read back in the same task (no preserveDrawingBuffer)
+  const out = document.createElement('canvas');
+  out.width = glCanvas.width; out.height = glCanvas.height;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(glCanvas, 0, 0);
+  ctx.drawImage(overlay, 0, 0);
+  out.toBlob(blob => {
+    if (!blob) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `newton-${state.view === 1 ? 'lambda-plane' : state.view === 2 ? 'nova-plane' : state.family}.png`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }, 'image/png');
+}
+$('savePng').addEventListener('click', savePng);
+
+function snapshot() {
+  const base = motion.base;
+  return {
+    f: state.family,
+    k: base ? base.coeffs : state.coeffs,
+    er: state.family === 'roots' ? (base && base.editRoots ? base.editRoots : state.editRoots) : undefined,
+    m: state.method,
+    a: base ? base.relax : state.relax,
+    c: base ? base.nova : state.nova,
+    v: state.view,
+    x: +state.center.x.toPrecision(8), y: +state.center.y.toPrecision(8), s: +state.span.toPrecision(6),
+    it: state.maxIter, b: state.bands, cm: state.mode, p: state.palette,
+    an: state.anim, as: state.animSpeed, aa: state.animAmp, cy: state.cycle ? 1 : 0,
+    o: [state.showCircle, state.showRoots, state.showAxes, state.showCrit, state.showCritOrbits].map(Number).join(''),
+  };
+}
+$('copyLink').addEventListener('click', async () => {
+  const url = new URL(location.href);
+  url.hash = 's=' + encodeURIComponent(JSON.stringify(snapshot()));
+  history.replaceState(null, '', url);
+  try { await navigator.clipboard.writeText(url.href); toast('Link copied'); }
+  catch { toast('Link is in the address bar'); }
+});
+
+// ---------- scenes ----------
+// Each scene is a partial state: anything omitted falls back to defaults.
+const SCENES = [
+  { name: 'Pisot θ₂ — the original', note: 'z⁴ − z³ − 1: four basins, one per Galois conjugate of the Pisot number θ₂.',
+    family: 'pisot', preset: 1, cam: [0.25, 0, 2.8] },
+  { name: 'Lehmer’s number', note: 'The smallest known Salem number. Eight conjugates on the unit circle, so eight basins crowd its boundary.',
+    family: 'salem', preset: 0, mode: 2, bands: 26, iters: 160, circle: true, cam: [0, 0, 3] },
+  { name: 'Cube roots of unity, smooth', note: 'The textbook Newton fractal for z³ − 1, with continuous (log-interpolated) iteration shading.',
+    family: 'classic', preset: 0, mode: 2, bands: 14, cam: [0, 0, 3.2] },
+  { name: 'Attracting 2-cycle: z³ − 2z + 2', note: 'The free critical point 0 falls into the cycle 0 → 1 → 0. Black regions never converge; red is the critical orbit.',
+    family: 'classic', preset: 4, mode: 3, bands: 16, iters: 200, critOrbits: true, crit: true, cam: [0, 0, 3.6] },
+  { name: 'Cubic λ-plane (Curry–Garnett–Sullivan)', note: 'Every cubic at once. Pixel = λ; colour = the root that the free critical point 0 finds. Black = Mandelbrot copies — click one.',
+    view: 1, mode: 2, bands: 24, iters: 250, cam: [0.25, 0, 4.4] },
+  { name: 'A baby Mandelbrot in the λ-plane', note: 'Centre λ ≈ 0.3196 + 1.6332i, where 0 is superattracting of period 2: (λ−1)³ + 2λ² = 0.',
+    view: 1, mode: 3, bands: 30, iters: 300, cam: [0.3196, 1.6332, 0.24] },
+  { name: 'Douady’s rabbit inside Newton’s method', note: 'λ ≈ 0.3212 + 1.6723i sits in a period-3 bulb of that baby Mandelbrot, so the cubic’s Newton map hides tiny filled rabbits (black) where 0 has a period-6 cycle.',
+    family: 'custom', custom: '1, 0, -0.6788+1.6723i, -0.3212-1.6723i', mode: 3, palette: 1, bands: 26, iters: 400, crit: true, cam: [0, 0, 0.42] },
+  { name: 'Spiral arms (complex relaxation)', note: 'z ↦ z − a·p/p′ with a = 0.75 + 0.55i: the roots become attracting spirals and the basins twist.',
+    family: 'classic', preset: 2, relax: [0.75, 0.55], mode: 2, bands: 70, iters: 300, cam: [0, 0, 3.2] },
+  { name: 'Nova Mandelbrot', note: 'z ↦ z − p/p′ + c for p = z³ − 1, seeded at z₀ = 1. The Nova analogue of the Mandelbrot set.',
+    family: 'classic', preset: 0, view: 2, mode: 0, bands: 34, iters: 250, cam: [-0.25, 0, 1.15] },
+  { name: 'Nova Julia set', note: 'A single Nova map, z ↦ z − p/p′ + c with c = −0.3 + 0.25i: the roots are no longer fixed points, and the basin boundary turns into lace.',
+    family: 'classic', preset: 0, nova: [-0.3, 0.25], mode: 0, bands: 60, iters: 300, cam: [0.3, 0, 3] },
+  { name: 'Halley on z⁸ − 1', note: 'Halley’s cubically-convergent method: the basins shrink their filigree into thin petals.',
+    family: 'classic', preset: 3, method: 1, mode: 2, bands: 10, cam: [0, 0, 3] },
+  { name: 'Szegő curve', note: 'Partial sum of e^{16w}: its zeros hug the Szegő curve |w·e^{1−w}| = 1, and the basins fan out from it.',
+    family: 'classic', preset: 9, mode: 3, bands: 20, iters: 200, palette: 2, cam: [0.3, 0, 1.9] },
+  { name: 'Littlewood polynomial', note: '±1 coefficients push the roots toward the unit circle; the basins form a ring of feathers.',
+    family: 'classic', preset: 10, mode: 3, bands: 24, iters: 200, circle: true, cam: [0, 0, 2.8] },
+  { name: 'Chebyshev T₇', note: 'Seven real roots in [−1, 1]; the basins stack up as bubbles along the real axis.',
+    family: 'classic', preset: 8, mode: 2, bands: 18, iters: 160, palette: 1, cam: [0, 0, 2.4] },
+  { name: 'Dancing roots', note: 'Five roots on small epicycles; the polynomial is rebuilt every frame. Try dragging them.',
+    family: 'roots', roots: 'unity5', anim: 'dance', animSpeed: 0.5, animAmp: 0.45, mode: 3, bands: 20, cycle: true, cam: [0, 0, 3.2] },
+  { name: 'Twisting the constant term', note: 'Salem λ₆ with its constant coefficient rotated by e^{it}: conjugates split off the circle and rejoin.',
+    family: 'salem', preset: 3, anim: 'twist', animSpeed: 0.35, animAmp: 0.3, mode: 2, bands: 22, circle: true, cam: [0, 0, 3.2] },
+  { name: 'Breathing relaxation', note: 'The relaxation parameter a circles 1 in ℂ; basins smear into spirals and back.',
+    family: 'classic', preset: 2, anim: 'relax', animSpeed: 0.5, animAmp: 0.6, mode: 3, bands: 20, iters: 200, cam: [0, 0, 3.2] },
+  { name: 'Nova drift', note: 'The Nova constant c orbits a small circle, the Julia set boiling as it goes.',
+    family: 'classic', preset: 0, nova: [-0.3, 0.22], anim: 'nova', animSpeed: 0.4, animAmp: 0.2, mode: 0, bands: 60, iters: 300, cam: [0.3, 0, 3] },
+  { name: 'Point-mesh flow into Pisot conjugates', note: 'A 70×70 grid of seeds, each coloured by the basin it will reach, all stepping in lock-step.',
+    family: 'pisot', preset: 1, mesh: true, meshN: 70, meshColor: 'basin', meshLoop: true, mode: 3, bands: 14, cam: [0.25, 0, 2.8] },
+];
+let sceneIndex = -1;
+function currentSceneCamera() {
+  const sc = SCENES[sceneIndex];
+  return sc && sc.cam ? { x: sc.cam[0], y: sc.cam[1], span: sc.cam[2] } : null;
+}
+
+function populateScenes() {
+  const sel = $('sceneSelect');
+  sel.innerHTML = '<option value="-1">— choose a scene —</option>';
+  SCENES.forEach((s, i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = `${i + 1}. ${s.name}`;
+    sel.appendChild(o);
+  });
+}
+
+function setCheck(id, key, v) { state[key] = !!v; $(id).checked = !!v; }
+const VAL_IDS = { iterSlider: 'iterVal', bandSlider: 'bandVal', meshSizeSlider: 'meshSizeVal' };
+function setSlider(id, v, label = String(v)) { $(id).value = v; $(VAL_IDS[id] || id + 'Val').textContent = label; }
+
+function applyScene(i) {
+  const sc = SCENES[i];
+  if (!sc) return;
+  sceneIndex = i;
+  $('sceneSelect').value = String(i);
+  $('sceneNote').innerHTML = `<b>${sc.name}.</b> ${sc.note}`;
+  setAnim('none');
+  clearOrbit();
+  if (state.meshOn) setMesh(false);
+
+  state.method = sc.method || 0; $('methodSelect').value = String(state.method);
+  state.relax = (sc.relax || [1, 0]).slice();
+  state.nova = (sc.nova || [0, 0]).slice();
+  syncIterSliders();
+  state.mode = sc.mode ?? 1; $('colorSelect').value = String(state.mode);
+  state.palette = sc.palette || 0; $('paletteSelect').value = String(state.palette);
+  state.maxIter = sc.iters || 80; setSlider('iterSlider', state.maxIter);
+  state.bands = sc.bands || 18; setSlider('bandSlider', state.bands);
+  setCheck('chkCircle', 'showCircle', sc.circle);
+  setCheck('chkCrit', 'showCrit', sc.crit);
+  setCheck('chkCritOrbits', 'showCritOrbits', sc.critOrbits);
+  setCheck('chkRoots', 'showRoots', sc.showRoots ?? true);
+  state.cycle = !!sc.cycle; $('chkCycle').checked = state.cycle;
+  colorClock.shift = 0; colorClock.phase = 0;
+  state.animSpeed = sc.animSpeed || 0.6; setSlider('animSpeed', state.animSpeed, state.animSpeed.toFixed(2));
+  state.animAmp = sc.animAmp ?? 0.35; setSlider('animAmp', state.animAmp, state.animAmp.toFixed(2));
+
+  if (sc.cam) { state.center = { x: sc.cam[0], y: sc.cam[1] }; state.span = sc.cam[2]; }
+  setView(sc.view || 0, { keepCamera: true });
+
+  if (sc.family) {
+    state.family = sc.family;
+    showFamilyBlocks();
+    if (FAMILY_LISTS[sc.family]) {
+      state.presetIndex[sc.family] = sc.preset || 0;
+      populateSelect();
+      setPolynomial(FAMILY_LISTS[sc.family][sc.preset || 0].coeffs);
+    } else if (sc.family === 'roots') {
+      state.editRoots = sc.roots === 'unity5' ? unityRoots(5, 0.3) : sc.roots.map(r => r.slice());
+      setPolynomial(fromRoots(state.editRoots));
+    } else if (sc.family === 'custom') {
+      $('customCoeffs').value = sc.custom;
+      applyCustom();
+    }
+  } else {
+    render();
+  }
+  if (sc.mesh) {
+    state.meshN = sc.meshN || 24; setSlider('meshSizeSlider', state.meshN, `${state.meshN}×${state.meshN}`);
+    state.meshLoop = !!sc.meshLoop; $('chkLoopMesh').checked = state.meshLoop;
+    setMeshColorMode(sc.meshColor || 'gradient');
+    setMesh(true);
+  }
+  if (sc.anim) setAnim(sc.anim);
+  if (state.cycle) wake();
+  drawOverlay();
+}
+$('sceneSelect').addEventListener('change', e => { const i = +e.target.value; if (i >= 0) applyScene(i); });
+function nextScene(d) { applyScene(((sceneIndex + d) % SCENES.length + SCENES.length) % SCENES.length); }
+$('sceneNext').addEventListener('click', () => nextScene(1));
+$('scenePrev').addEventListener('click', () => nextScene(-1));
+
+// restore a shared link (#s=...)
+function restoreFromHash() {
+  const m = location.hash.match(/^#s=(.+)$/);
+  if (!m) return false;
+  let s;
+  try { s = JSON.parse(decodeURIComponent(m[1])); } catch { return false; }
+  state.family = s.f || 'custom';
+  if (s.er) state.editRoots = s.er;
+  state.method = s.m || 0; $('methodSelect').value = String(state.method);
+  state.relax = s.a || [1, 0]; state.nova = s.c || [0, 0]; syncIterSliders();
+  state.mode = s.cm ?? 1; $('colorSelect').value = String(state.mode);
+  state.palette = s.p || 0; $('paletteSelect').value = String(state.palette);
+  state.maxIter = s.it || 80; setSlider('iterSlider', state.maxIter);
+  state.bands = s.b || 18; setSlider('bandSlider', state.bands);
+  const o = (s.o || '01000').split('').map(x => x === '1');
+  CHECKS.forEach(([id, key], i) => setCheck(id, key, o[i]));
+  state.center = { x: s.x ?? 0, y: s.y ?? 0 }; state.span = s.s || 3;
+  setView(s.v || 0, { keepCamera: true });
+  showFamilyBlocks();
+  if (FAMILY_LISTS[state.family]) populateSelect();
+  if (state.family === 'custom') $('customCoeffs').value = s.k.map(fmtCoeffToken).join(', ');
+  setPolynomial(state.family === 'roots' && s.er ? fromRoots(s.er) : s.k);
+  state.animSpeed = s.as || 0.6; setSlider('animSpeed', state.animSpeed, state.animSpeed.toFixed(2));
+  state.animAmp = s.aa ?? 0.35; setSlider('animAmp', state.animAmp, state.animAmp.toFixed(2));
+  state.cycle = !!s.cy; $('chkCycle').checked = state.cycle;
+  if (s.an && s.an !== 'none') setAnim(s.an);
+  if (state.cycle) wake();
+  return true;
+}
+
+// ---------- keyboard ----------
+window.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' && e.target.type === 'text' || tag === 'TEXTAREA') return;
+  if (tag === 'SELECT') return;
+  switch (e.key.toLowerCase()) {
+    case 'h': togglePanel(); break;
+    case ' ': e.preventDefault(); togglePause(); break;
+    case 'n': nextScene(1); break;
+    case 'p': nextScene(-1); break;
+    case 's': savePng(); break;
+    case 'r': resetView(); break;
+    default: return;
+  }
+});
+
+// ---------- boot ----------
+window.addEventListener('resize', resize);
+populateScenes();
+populateSelect();
+syncIterSliders();
+setView(0, { keepCamera: true });
+resize();
+if (!restoreFromHash()) applyScene(0);
+</script>
+</body>
+</html>

@@ -24,6 +24,8 @@ export const VISUALIZATIONS = [
     blurb: 'GPU fractal explorer with live Julia preview and auto-zoom.', keys: ['h', 'j', ' '] },
   { id: 'xiaTheorem', title: "Xia's Theorem", cat: 'fractals', glyph: '☄',
     blurb: 'The 5-body finite-time singularity, simulated.', keys: [' ', 'r', 'h'] },
+  { id: 'newtonFractals', title: 'Newton Fractals', cat: 'fractals', glyph: '∂',
+    blurb: 'Newton, Halley & Nova basins — Pisot/Salem conjugates, draggable roots, and the cubic λ-plane.', keys: ['h', ' ', 'n', 'p', 's', 'r'] },
 
   // — Tilings & Lattices —
   { id: 'hatTiling', title: 'Hat Monotile', cat: 'tilings', glyph: '⬡',
