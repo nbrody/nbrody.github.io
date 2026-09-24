@@ -26,79 +26,60 @@
     <div id="ui-overlay">
         <div id="title-bar">
             <h1>Feedback Loop</h1>
-            <p class="subtitle">Drag projectors · Click wall to inject light · ⌘+Click to orbit</p>
+            <p class="subtitle">Drag projectors · Click wall to inject light · ⌘/Ctrl+Click to orbit</p>
         </div>
         <div id="controls-toggle" title="Toggle Controls">⚙</div>
         <div id="controls-panel" class="hidden">
             <div class="control-section">
+                <h3>Presets</h3>
+                <div id="preset-row">
+                    <button class="chip" data-preset="nebula">Nebula</button>
+                    <button class="chip" data-preset="sierpinski">Sierpinski</button>
+                    <button class="chip" data-preset="galaxy">Galaxy</button>
+                    <button class="chip" data-preset="embers">Embers</button>
+                    <button class="chip" data-preset="ocean">Ocean</button>
+                </div>
+            </div>
+            <div class="control-section">
                 <h3>Simulation</h3>
                 <div class="control-row"><label>Decay</label><input type="range" id="decay" min="0.85" max="0.995"
-                        value="0.9" step="0.005"><span class="val" id="decay-val">0.9</span></div>
+                        step="0.005"><span class="val" id="decay-val"></span></div>
                 <div class="control-row"><label>Gain</label><input type="range" id="gain" min="0.3" max="2.5"
-                        value="0.6" step="0.05"><span class="val" id="gain-val">0.6</span></div>
+                        step="0.05"><span class="val" id="gain-val"></span></div>
             </div>
             <div class="control-section">
                 <h3>Camera</h3>
                 <div class="control-row"><label>Scale</label><input type="range" id="cams" min="0.1" max="3.0"
-                        value="1.0" step="0.01"><span class="val" id="cams-val">1.0</span></div>
-                <div class="control-row"><label>Rot°</label><input type="range" id="camr" min="-90" max="90" value="0"
-                        step="0.5"><span class="val" id="camr-val">0</span></div>
-                <div class="control-row"><label>Dist</label><input type="range" id="camd" min="0.5" max="8" value="4"
-                        step="0.1"><span class="val" id="camd-val">4</span></div>
+                        step="0.01"><span class="val" id="cams-val"></span></div>
+                <div class="control-row"><label>Rot°</label><input type="range" id="camr" min="-90" max="90"
+                        step="0.5"><span class="val" id="camr-val"></span></div>
+                <div class="control-row"><label>Dist</label><input type="range" id="camd" min="0.5" max="8"
+                        step="0.1"><span class="val" id="camd-val"></span></div>
             </div>
-            <div class="control-section">
+            <div class="control-section" id="proj-section">
                 <h3>Projectors</h3>
-                <div class="proj-row"><span class="dot" style="background:#ff3355"></span><label>P1 Scale</label><input
-                        type="range" id="p1s" min="0.1" max="1.0" value="0.5" step="0.01"><span class="val"
-                        id="p1s-val">0.5</span></div>
-                <div class="proj-row"><span class="dot" style="background:#ff3355"></span><label>P1 Rot°</label><input
-                        type="range" id="p1r" min="-90" max="90" value="2" step="0.5"><span class="val"
-                        id="p1r-val">2</span></div>
-                <div class="proj-row"><span class="dot" style="background:#ff3355"></span><label>P1 Dist</label><input
-                        type="range" id="p1d" min="0.5" max="6" value="2.5" step="0.1"><span class="val"
-                        id="p1d-val">2.5</span></div>
-                <div class="proj-row"><span class="dot" style="background:#ff3355"></span><label>P1 Bright</label><input
-                        type="range" id="p1b" min="0" max="3" value="1" step="0.05"><span class="val"
-                        id="p1b-val">1</span></div>
-                <div class="proj-row"><span class="dot" style="background:#ff3355"></span><label>P1 Color</label>
-                    <input type="color" id="p1c" value="#ff3355">
+                <div id="proj-tabs">
+                    <button class="proj-tab" data-i="0"><span class="dot"></span>P1</button>
+                    <button class="proj-tab" data-i="1"><span class="dot"></span>P2</button>
+                    <button class="proj-tab" data-i="2"><span class="dot"></span>P3</button>
                 </div>
-                <div class="proj-row"><span class="dot" style="background:#33ff88"></span><label>P2 Scale</label><input
-                        type="range" id="p2s" min="0.1" max="1.0" value="0.5" step="0.01"><span class="val"
-                        id="p2s-val">0.5</span></div>
-                <div class="proj-row"><span class="dot" style="background:#33ff88"></span><label>P2 Rot°</label><input
-                        type="range" id="p2r" min="-90" max="90" value="-1.5" step="0.5"><span class="val"
-                        id="p2r-val">-1.5</span></div>
-                <div class="proj-row"><span class="dot" style="background:#33ff88"></span><label>P2 Dist</label><input
-                        type="range" id="p2d" min="0.5" max="6" value="2.5" step="0.1"><span class="val"
-                        id="p2d-val">2.5</span></div>
-                <div class="proj-row"><span class="dot" style="background:#33ff88"></span><label>P2 Bright</label><input
-                        type="range" id="p2b" min="0" max="3" value="1" step="0.05"><span class="val"
-                        id="p2b-val">1</span></div>
-                <div class="proj-row"><span class="dot" style="background:#33ff88"></span><label>P2 Color</label>
-                    <input type="color" id="p2c" value="#33ff88">
+                <div class="control-row"><label>Color</label><input type="color" id="pc">
+                    <label class="on-label" for="pon">On</label><input type="checkbox" id="pon">
                 </div>
-                <div class="proj-row"><span class="dot" style="background:#5533ff"></span><label>P3 Scale</label><input
-                        type="range" id="p3s" min="0.1" max="1.0" value="0.5" step="0.01"><span class="val"
-                        id="p3s-val">0.5</span></div>
-                <div class="proj-row"><span class="dot" style="background:#5533ff"></span><label>P3 Rot°</label><input
-                        type="range" id="p3r" min="-90" max="90" value="3" step="0.5"><span class="val"
-                        id="p3r-val">3</span></div>
-                <div class="proj-row"><span class="dot" style="background:#5533ff"></span><label>P3 Dist</label><input
-                        type="range" id="p3d" min="0.5" max="6" value="2.5" step="0.1"><span class="val"
-                        id="p3d-val">2.5</span></div>
-                <div class="proj-row"><span class="dot" style="background:#5533ff"></span><label>P3 Bright</label><input
-                        type="range" id="p3b" min="0" max="3" value="1" step="0.05"><span class="val"
-                        id="p3b-val">1</span></div>
-                <div class="proj-row"><span class="dot" style="background:#5533ff"></span><label>P3 Color</label>
-                    <input type="color" id="p3c" value="#5533ff">
-                </div>
+                <div class="control-row"><label>Scale</label><input type="range" id="ps" min="0.1" max="1.0"
+                        step="0.01"><span class="val" id="ps-val"></span></div>
+                <div class="control-row"><label>Rot°</label><input type="range" id="pr" min="-90" max="90"
+                        step="0.5"><span class="val" id="pr-val"></span></div>
+                <div class="control-row"><label>Dist</label><input type="range" id="pd" min="0.5" max="6"
+                        step="0.1"><span class="val" id="pd-val"></span></div>
+                <div class="control-row"><label>Bright</label><input type="range" id="pb" min="0" max="3"
+                        step="0.05"><span class="val" id="pb-val"></span></div>
             </div>
             <div class="control-section">
                 <h3>Brush</h3>
                 <div class="control-row"><label>Size</label><input type="range" id="brush" min="0.01" max="0.12"
-                        value="0.04" step="0.005"><span class="val" id="brush-val">0.04</span></div>
-                <input type="color" id="brush-color" value="#ffffff">
+                        step="0.005"><span class="val" id="brush-val"></span></div>
+                <div class="control-row"><label>Color</label><input type="color" id="brush-color"></div>
             </div>
             <div class="control-section">
                 <div class="button-row">
@@ -109,7 +90,9 @@
                 <div class="button-row" style="margin-top:6px">
                     <button id="pause-btn" class="btn">Pause</button>
                     <button id="drift-btn" class="btn">Auto Drift</button>
+                    <button id="save-btn" class="btn">Save PNG</button>
                 </div>
+                <p class="hint">1–5 presets · Space pause · C clear · S seed<br>R reset · D drift · H panel</p>
             </div>
         </div>
         <div id="fps">0 fps</div>
