@@ -178,13 +178,17 @@ class DrawGuessGame {
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
             if (data.strokes) {
-                const strokes = Object.values(data.strokes);
+                // Firebase maps keyed s0/s1/…/s10 arrive in lexicographic JSON
+                // order (s0,s1,s10,s2,…). Sort by numeric suffix so strokes and
+                // points redraw in draw order.
+                const strokes = orderedFirebaseValues(data.strokes);
                 for (const stroke of strokes) {
-                    if (!stroke.points || stroke.points.length < 2) continue;
+                    if (!stroke.points) continue;
+                    const pts = orderedFirebaseValues(stroke.points);
+                    if (pts.length < 2) continue;
                     this.ctx.beginPath();
                     this.ctx.strokeStyle = stroke.color || '#000000';
                     this.ctx.lineWidth = stroke.width || 4;
-                    const pts = Object.values(stroke.points);
                     this.ctx.moveTo(pts[0].x * this.canvas.width, pts[0].y * this.canvas.height);
                     for (let i = 1; i < pts.length; i++) {
                         this.ctx.lineTo(pts[i].x * this.canvas.width, pts[i].y * this.canvas.height);
@@ -225,6 +229,10 @@ class DrawGuessGame {
         if (this.guessedPlayers[playerId]) return; // already guessed correctly
 
         const player = this.players[playerId];
+        // Mid-game joiners (or stale actions) are not in the construction-time
+        // players snapshot — ignore rather than crash on player.color/name.
+        if (!player) return;
+
         const guessClean = guess.trim().toLowerCase();
         const correct = guessClean === this.currentWord.toLowerCase();
 
@@ -249,6 +257,7 @@ class DrawGuessGame {
 
             // Drawer also gets points
             const drawer = this.players[drawerId];
+            if (!drawer) return;
             drawer.score = (drawer.score || 0) + 5;
             updateScoreDisplay(drawerId, drawer.score);
 
@@ -293,6 +302,22 @@ class DrawGuessGame {
         this.listeners.forEach(l => l.ref.off(l.event));
         this.listeners = [];
     }
+}
+
+// Ordered values for Firebase maps keyed with a letter prefix + index
+// (p0, p1, …, p10). JSON/Firebase lexicographic order would otherwise yield
+// p0,p1,p10,p2,… and scramble polylines / stroke sequences.
+function orderedFirebaseValues(map) {
+    if (!map) return [];
+    if (Array.isArray(map)) return map;
+    return Object.keys(map)
+        .sort((a, b) => {
+            const na = parseInt(String(a).replace(/^\D+/, ''), 10);
+            const nb = parseInt(String(b).replace(/^\D+/, ''), 10);
+            if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+            return a < b ? -1 : a > b ? 1 : 0;
+        })
+        .map((k) => map[k]);
 }
 
 // ── Inject Draw & Guess styles ─────────────────────────────
