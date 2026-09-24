@@ -19,6 +19,8 @@ class DrawGuessGame {
         this.timeLeft = 60;
         this.guessedPlayers = {};
         this.strokes = [];      // full drawing data from drawer
+        this.revealed = false;
+        this.advanceTimeout = null;
 
         this.wordBank = [
             // Easy
@@ -106,6 +108,11 @@ class DrawGuessGame {
 
         this.currentWord = this.nextWord();
         this.guessedPlayers = {};
+        this.revealed = false;
+        if (this.advanceTimeout) {
+            clearTimeout(this.advanceTimeout);
+            this.advanceTimeout = null;
+        }
         this.clearCanvas();
         this.timeLeft = 60;
 
@@ -149,6 +156,7 @@ class DrawGuessGame {
 
             if (this.timeLeft <= 0) {
                 clearInterval(this.timer);
+                this.timer = null;
                 this.revealWord();
             }
         }, 1000);
@@ -220,6 +228,7 @@ class DrawGuessGame {
     }
 
     handleGuess(playerId, guess) {
+        if (this.revealed) return; // ignore guesses after the word is revealed
         const drawerId = this.playerIds[this.currentDrawerIndex];
         if (playerId === drawerId) return; // drawer can't guess
         if (this.guessedPlayers[playerId]) return; // already guessed correctly
@@ -258,16 +267,29 @@ class DrawGuessGame {
             const nonDrawerIds = this.playerIds.filter(id => id !== drawerId);
             const allGuessed = nonDrawerIds.every(id => this.guessedPlayers[id]);
             if (allGuessed) {
-                clearInterval(this.timer);
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.timer = null;
+                }
                 this.revealWord();
             }
         }
     }
 
     revealWord() {
-        document.getElementById('dg-word-display').innerHTML = `
-            <span class="dg-revealed-word">The word was: <strong>${this.currentWord}</strong></span>
-        `;
+        if (this.revealed) return;
+        this.revealed = true;
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+
+        const wordEl = document.getElementById('dg-word-display');
+        if (wordEl) {
+            wordEl.innerHTML = `
+                <span class="dg-revealed-word">The word was: <strong>${this.currentWord}</strong></span>
+            `;
+        }
 
         updateGameState(this.roomCode, {
             phase: 'reveal',
@@ -275,7 +297,9 @@ class DrawGuessGame {
         });
 
         // Next round after delay
-        setTimeout(() => {
+        if (this.advanceTimeout) clearTimeout(this.advanceTimeout);
+        this.advanceTimeout = setTimeout(() => {
+            this.advanceTimeout = null;
             getRoomRef(this.roomCode).child('gameState/actions').remove();
             this.startRound();
         }, 4000);
@@ -289,7 +313,14 @@ class DrawGuessGame {
     }
 
     cleanup() {
-        if (this.timer) clearInterval(this.timer);
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+        if (this.advanceTimeout) {
+            clearTimeout(this.advanceTimeout);
+            this.advanceTimeout = null;
+        }
         this.listeners.forEach(l => l.ref.off(l.event));
         this.listeners = [];
     }
