@@ -41,15 +41,22 @@ export function playCard(state, playerId) {
 
   player.played = player.deck.pop();
 
-  // Check if all have played
-  const allPlayed = s.playerOrder.every(pid => s.players[pid].played !== null);
+  // Eliminated players (empty deck, nothing played this round) must not block the round.
+  const allPlayed = s.playerOrder.every(pid => {
+    const p = s.players[pid];
+    return p.played !== null || p.deck.length === 0;
+  });
   if (allPlayed) resolveRound(s);
   return s;
 }
 
 function resolveRound(s) {
   s.round++;
-  const plays = s.playerOrder.map(pid => ({ pid, card: s.players[pid].played }));
+  const plays = s.playerOrder
+    .map(pid => ({ pid, card: s.players[pid].played }))
+    .filter(p => p.card != null);
+  if (!plays.length) return;
+
   const maxVal = Math.max(...plays.map(p => warValue(p.card.rank)));
   const winners = plays.filter(p => warValue(p.card.rank) === maxVal);
 
