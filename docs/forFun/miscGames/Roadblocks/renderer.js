@@ -162,6 +162,12 @@
             this.playerVisible = true;
             this.trail = [];
             this.subQueue = []; this.activeSub = null;
+            // Level changes / resets interrupt an in-flight tweenPath. Resolve
+            // the pending promise so engine.isProcessingQueue (and solver
+            // isAnimating) cannot stick true forever.
+            const pending = this.tweenResolve;
+            this.tweenResolve = null;
+            if (pending) pending('stop');
         }
 
         // ── Tween a full path; resolves with final status string ──
