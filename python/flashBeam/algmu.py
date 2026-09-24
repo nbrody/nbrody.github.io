@@ -19,9 +19,17 @@ has |sigma(mu)| >= 2, the group there is free (Sanov) and no relation can
 exist -- such specs are negative controls (`sanov_blocked`).
 """
 import math
+import re
 from fractions import Fraction
 
 from flint import fmpz, fmpz_mat
+
+# Characters / tokens allowed before sympy parse_expr. Without this, the
+# flashBeam web UI's t_param is an RCE vector (parse_expr evaluates Python).
+_SAFE_ALG_SPEC = re.compile(
+    r'^(?:sqrt|[0-9x]|[+\-*/^().\s])+$',
+    re.IGNORECASE,
+)
 
 
 class Mu:
@@ -52,6 +60,11 @@ class Mu:
         return True
 
     def _parse_algebraic(self, spec):
+        if not _SAFE_ALG_SPEC.fullmatch(spec):
+            raise ValueError(
+                f"unsupported algebraic mu spec (allowed: rationals, "
+                f"sqrt(...), + - * / ^, and polynomials in x): {spec!r}"
+            )
         import sympy
         from sympy.parsing.sympy_parser import (
             parse_expr, standard_transformations,
@@ -59,8 +72,14 @@ class Mu:
         transforms = standard_transformations + (
             implicit_multiplication_application, convert_xor)
         x = sympy.symbols("x")
-        parsed = parse_expr(spec, transformations=transforms,
-                            local_dict={"x": x})
+        # Empty builtins + local whitelist: defense in depth with the
+        # character allowlist above.
+        parsed = parse_expr(
+            spec,
+            transformations=transforms,
+            local_dict={"x": x, "sqrt": sympy.sqrt},
+            global_dict={"__builtins__": {}},
+        )
         if parsed.has(x):
             poly = sympy.Poly(parsed, x)
             self.pretty = f"root({sympy.sstr(poly.as_expr())})"

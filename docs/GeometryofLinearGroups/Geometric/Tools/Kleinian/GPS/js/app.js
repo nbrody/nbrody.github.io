@@ -270,12 +270,28 @@ function updateURL() {
 function readURL() {
     const u = new URLSearchParams(location.search);
     if (u.get('mode') === 'tri') state.mode = 'tri';
-    const num = (k, d) => (u.has(k) ? +u.get(k) || d : d);
-    const inf = (k, d) => (u.has(k) ? (u.get(k) === 'inf' ? Infinity : +u.get(k) || d) : d);
-    state.qf.s1 = num('s1', 1); state.qf.s3 = num('s3', 2);
-    state.qf.a = num('a', 1); state.qf.b = num('b', 3);
+    // Match readQFInputs bounds so deep-linked ?a=Infinity / overflow
+    // values cannot reach pieceInvariants → factorize and hang the tab.
+    const clampInt = (k, d, lo, hi) => {
+        if (!u.has(k)) return d;
+        const v = Number(u.get(k));
+        if (!Number.isFinite(v)) return d;
+        return Math.max(lo, Math.min(hi, Math.round(v)));
+    };
+    const inf = (k, d) => {
+        if (!u.has(k)) return d;
+        if (u.get(k) === 'inf') return Infinity;
+        const v = Number(u.get(k));
+        if (!Number.isFinite(v)) return d;
+        const r = Math.round(v);
+        return r === 0 ? d : r;
+    };
+    state.qf.s1 = clampInt('s1', 1, 1, 30);
+    state.qf.s3 = clampInt('s3', 2, 1, 30);
+    state.qf.a = clampInt('a', 1, 1, 100);
+    state.qf.b = clampInt('b', 3, 1, 100);
     state.tri.p = inf('p', 2); state.tri.q1 = inf('q1', 4); state.tri.q2 = inf('q2', 6);
-    state.depth = Math.max(1, Math.min(9, num('depth', 6)));
+    state.depth = clampInt('depth', 6, 1, 9);
 }
 
 function fillQSelects() {
