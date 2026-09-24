@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alexander Polynomials from Braid Closures — AutoViz 2026-08-23</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --accent2: #ffab6e;
+    --good: #7ee787;
+    --warn: #ffd479;
+    --bad: #ff8b8b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.55;
+    padding: 1.6rem 1.2rem 2.5rem;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; letter-spacing: 0.06em; }
+  a.back:hover { text-decoration: underline; }
+  h1 { font-weight: normal; font-size: 1.9rem; margin: 0.4rem 0 0.5rem; }
+  p.math { color: #c9c6cf; max-width: 64rem; font-size: 1.02rem; }
+  p.math i { color: var(--ink); }
+  p.math b { font-weight: normal; color: var(--accent); }
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;
+    margin: 1rem 0 0.7rem; padding: 0.7rem 1rem;
+    border: 1px solid var(--panel-border); background: var(--panel);
+    border-radius: 10px; font-size: 0.92rem;
+  }
+  .controls label { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); }
+  .controls .val { color: var(--ink); font-family: monospace; font-size: 0.86rem; min-width: 1.4em; }
+  .controls .sep { width: 1px; height: 1.4em; background: var(--panel-border); }
+  input[type=range] { accent-color: var(--accent); width: 92px; }
+  input[type=checkbox] { accent-color: var(--accent); }
+  select {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 5px; padding: 0.2rem 0.35rem;
+    font-family: Georgia, serif; font-size: 0.88rem; max-width: 22rem;
+  }
+  button {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 0.22rem 0.6rem; font-family: inherit; font-size: 0.88rem;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: 0.35; cursor: default; }
+  button.gen { font-family: monospace; font-size: 0.84rem; padding: 0.18rem 0.42rem; }
+  button.gen.inv { color: var(--accent2); }
+  .genrow { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
+  .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: stretch; }
+  .stage {
+    border: 1px solid var(--panel-border); background: rgba(0, 0, 0, 0.32);
+    border-radius: 12px; overflow: hidden; position: relative;
+  }
+  .stage.a { flex: 2.1 1 520px; min-width: 320px; }
+  .stage.b { flex: 1 1 300px; min-width: 280px; }
+  canvas { display: block; touch-action: none; width: 100%; height: auto; }
+  .stage.a canvas { cursor: pointer; }
+  .tag {
+    position: absolute; left: 0.7rem; top: 0.5rem; font-size: 0.9rem;
+    text-shadow: 0 0 6px #000, 0 0 12px #000; pointer-events: none;
+  }
+  .tag b { font-weight: normal; color: var(--accent); }
+  .tag small { display: block; color: var(--muted); font-size: 0.78rem; font-family: monospace; }
+  .hint {
+    position: absolute; left: 0.7rem; bottom: 0.45rem; right: 0.7rem; color: var(--muted);
+    font-size: 0.76rem; pointer-events: none; text-shadow: 0 0 6px #000, 0 0 10px #000;
+  }
+  .panels { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
+  .card {
+    flex: 1 1 300px; min-width: 285px; border: 1px solid var(--panel-border);
+    background: var(--panel); border-radius: 12px; padding: 0.85rem 1.05rem;
+  }
+  .card.wide { flex: 1.6 1 420px; }
+  .card h2 { font-size: 0.76rem; font-weight: normal; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; }
+  .card h3 { font-size: 0.8rem; font-weight: normal; letter-spacing: 0.06em;
+             color: var(--muted); margin: 0.75rem 0 0.2rem; }
+  .stat { font-family: monospace; font-size: 0.83rem; color: #c9c6cf; }
+  .stat b { font-weight: normal; color: var(--accent); }
+  .ok { color: var(--good); }
+  .no { color: var(--bad); }
+  .dim { color: var(--muted); }
+  .big { font-family: monospace; font-size: 1.05rem; color: var(--accent); line-height: 1.5;
+         word-break: break-word; }
+  .mono { font-family: monospace; font-size: 0.82rem; }
+  .scrollx { overflow-x: auto; padding-bottom: 0.25rem; }
+  table.mat { border-collapse: collapse; font-family: monospace; font-size: 0.76rem; }
+  table.mat td { padding: 0.14rem 0.5rem; color: #c9c6cf; white-space: nowrap;
+                 border-left: 1px solid rgba(255,255,255,0.06); }
+  table.mat td:first-child { border-left: none; }
+  .brk { color: var(--accent); font-size: 1.4rem; vertical-align: middle; }
+  .swatch { display: inline-block; width: 0.62em; height: 0.62em; border-radius: 50%;
+            margin-right: 0.3em; vertical-align: baseline; }
+  footer { margin-top: 1.8rem; color: var(--muted); font-size: 0.8rem;
+           border-top: 1px solid var(--panel-border); padding-top: 0.7rem; }
+  sup { font-size: 0.72em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">← AutoViz gallery</a>
+  <h1>Alexander Polynomials from Braid Closures</h1>
+  <p class="math">
+    The reduced Burau representation <i>β̄</i> : <i>B<sub>n</sub></i> → GL<sub><i>n</i>−1</sub>(ℤ[<i>t</i>,<i>t</i><sup>−1</sup>])
+    turns a braid into an integral matrix, and the <b>Burau–Alexander theorem</b> reads the Alexander polynomial of the
+    closure <i>β̂</i> straight off it:
+    <i>Δ<sub>β̂</sub></i>(<i>t</i>) ≐ det(<i>I</i> − <i>β̄</i>(<i>β</i>)) · (1 − <i>t</i>) / (1 − <i>t<sup>n</sup></i>),
+    an equality up to units ±<i>t<sup>k</sup></i>. That the quotient is a genuine Laurent polynomial is part of the theorem,
+    and it is checked here by exact division over ℤ. <b>Markov's theorem</b> says two braids close to the same link exactly
+    when they differ by conjugations and stabilisations <i>β</i> ↦ <i>βσ<sub>n</sub></i><sup>±1</sup> — so those moves must
+    leave <i>Δ</i> alone, which you can watch them do.
+  </p>
+
+  <div class="controls">
+    <label>strands <i>n</i>
+      <input type="range" id="nSlider" min="2" max="6" step="1" value="3">
+      <span class="val" id="nVal">3</span>
+    </label>
+    <span class="sep"></span>
+    <label>preset
+      <select id="preset"></select>
+    </label>
+    <span class="sep"></span>
+    <label><input type="checkbox" id="anim" checked> flow</label>
+  </div>
+
+  <div class="controls">
+    <span class="dim" style="font-size:0.84rem">append</span>
+    <span class="genrow" id="genRow"></span>
+    <span class="sep"></span>
+    <button id="undo">undo</button>
+    <button id="clear">clear</button>
+    <button id="rand">random</button>
+    <span class="sep"></span>
+    <span class="dim" style="font-size:0.84rem">Markov</span>
+    <button id="conj" title="cyclic permutation of the word — a conjugation">conjugate</button>
+    <button id="stab" title="β ↦ βσₙ in B_{n+1}">stabilise</button>
+    <button id="destab" title="remove a lone trailing σ_{n−1}">destabilise</button>
+    <span class="sep"></span>
+    <button id="mirror" title="reverse the word and flip every sign">mirror</button>
+  </div>
+
+  <div class="row">
+    <div class="stage a">
+      <canvas id="braidCv" width="1000" height="470"></canvas>
+      <div class="tag"><b id="tagWord">β</b><small id="tagSub"></small></div>
+      <div class="hint">click a crossing to switch which strand goes over · shift-click to delete it · beads trace the link components</div>
+    </div>
+    <div class="stage b">
+      <canvas id="rootCv" width="440" height="470"></canvas>
+      <div class="tag"><b>roots of Δ</b><small id="tagRoots"></small></div>
+      <div class="hint" id="rootHint"></div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <div class="card">
+      <h2>The braid</h2>
+      <div class="stat">word β = <b id="sWord">—</b></div>
+      <div class="stat">exponent sum <i>e</i>(β) = <b id="sExp">0</b> &nbsp; length <b id="sLen">0</b></div>
+      <div class="stat">permutation <b id="sPerm">—</b></div>
+      <div class="stat">components of β̂ = <b id="sComp">—</b> <span id="sCompDots"></span></div>
+      <h3>identity checked live</h3>
+      <div class="stat">det β̄(β) = (−<i>t</i>)<sup><i>e</i></sup> &nbsp; <span id="cDet"></span></div>
+      <div class="stat dim" id="cDetVal"></div>
+    </div>
+
+    <div class="card wide">
+      <h2>Reduced Burau matrix β̄(β) over ℤ[<i>t</i>,<i>t</i><sup>−1</sup>]</h2>
+      <div class="scrollx"><div id="matBox"></div></div>
+      <div class="stat dim" style="margin-top:0.5rem">σ<sub>i</sub> acts on ℤ<sup>n</sup>/⟨(1,…,1)⟩ by
+        <i>f<sub>i</sub></i> ↦ (1−<i>t</i>)<i>f<sub>i</sub></i> + <i>f<sub>i+1</sub></i>,
+        <i>f<sub>i+1</sub></i> ↦ <i>t f<sub>i</sub></i>.</div>
+    </div>
+
+    <div class="card wide">
+      <h2>Alexander polynomial</h2>
+      <div class="stat">det(<i>I</i> − β̄) = <span class="mono" id="sDet">—</span></div>
+      <div class="stat">divide by 1+<i>t</i>+⋯+<i>t</i><sup><i>n</i>−1</sup> = <span class="mono" id="sDiv">—</span>
+        <span id="cExact"></span></div>
+      <h3>Δ(t), normalised to lowest degree 0</h3>
+      <div class="big" id="sDelta">—</div>
+      <div class="stat" style="margin-top:0.45rem">Δ(1) = <b id="sD1">—</b> <span id="cD1"></span></div>
+      <div class="stat">|Δ(−1)| = <b id="sDm1">—</b> <span class="dim">= det of the link</span></div>
+      <div class="stat">Δ(<i>t</i>) ≐ Δ(1/<i>t</i>) <span id="cPal"></span></div>
+      <div class="stat">Markov: <span id="cMarkov" class="dim">make a move to test</span></div>
+    </div>
+  </div>
+
+  <footer>AutoViz · 2026-08-23 · generated by Claude (Fable 5)</footer>
+</div>
+
+<script>
+"use strict";
+/* ------------------------------------------------------------------ *
+ *  Laurent polynomials over Z, coefficients as BigInt.
+ *  p = { lo: <int>, c: [BigInt] }  represents  sum c[i] t^(lo+i).
+ * ------------------------------------------------------------------ */
+const ZERO = { lo: 0, c: [] };
+function trim(p) {
+  let i = 0, j = p.c.length - 1;
+  while (i <= j && p.c[i] === 0n) i++;
+  while (j >= i && p.c[j] === 0n) j--;
+  if (i > j) return ZERO;
+  return { lo: p.lo + i, c: p.c.slice(i, j + 1) };
+}
+const mono = (k, d) => trim({ lo: d, c: [BigInt(k)] });
+const isZero = p => p.c.length === 0;
+function add(a, b) {
+  if (isZero(a)) return b;
+  if (isZero(b)) return a;
+  const lo = Math.min(a.lo, b.lo);
+  const hi = Math.max(a.lo + a.c.length, b.lo + b.c.length);
+  const c = new Array(hi - lo).fill(0n);
+  for (let i = 0; i < a.c.length; i++) c[a.lo + i - lo] += a.c[i];
+  for (let i = 0; i < b.c.length; i++) c[b.lo + i - lo] += b.c[i];
+  return trim({ lo, c });
+}
+const neg = a => ({ lo: a.lo, c: a.c.map(x => -x) });
+const sub = (a, b) => add(a, neg(b));
+function mul(a, b) {
+  if (isZero(a) || isZero(b)) return ZERO;
+  const c = new Array(a.c.length + b.c.length - 1).fill(0n);
+  for (let i = 0; i < a.c.length; i++) {
+    if (a.c[i] === 0n) continue;
+    for (let j = 0; j < b.c.length; j++) c[i + j] += a.c[i] * b.c[j];
+  }
+  return trim({ lo: a.lo + b.lo, c });
+}
+const samePoly = (a, b) => a.lo === b.lo && a.c.length === b.c.length &&
+                           a.c.every((v, i) => v === b.c[i]);
+/* exact division of Laurent polynomials; null if it does not divide */
+function divide(a, b) {
+  if (isZero(b)) return null;
+  if (isZero(a)) return ZERO;
+  const num = a.c.slice(), bl = b.c, lead = bl[bl.length - 1];
+  const q = new Array(Math.max(0, num.length - bl.length + 1)).fill(0n);
+  for (let i = num.length - 1; i >= bl.length - 1; i--) {
+    if (num[i] === 0n) continue;
+    if (num[i] % lead !== 0n) return null;
+    const f = num[i] / lead, sh = i - (bl.length - 1);
+    q[sh] = f;
+    for (let j = 0; j < bl.length; j++) num[sh + j] -= f * bl[j];
+  }
+  for (const v of num) if (v !== 0n) return null;
+  return trim({ lo: a.lo - b.lo, c: q });
+}
+/* value at an integer (only used at t = ±1, where lo may be negative) */
+function evalAt(p, x) {
+  let s = 0n;
+  for (let i = 0; i < p.c.length; i++) {
+    const d = p.lo + i;
+    let v;
+    if (x === 1n) v = 1n;
+    else v = (Math.abs(d) % 2 === 0) ? 1n : -1n;   // x = -1
+    s += p.c[i] * v;
+  }
+  return s;
+}
+function polyHTML(p) {
+  if (isZero(p)) return "0";
+  let out = "";
+  for (let i = p.c.length - 1; i >= 0; i--) {
+    const co = p.c[i];
+    if (co === 0n) continue;
+    const d = p.lo + i, negv = co < 0n, a = negv ? -co : co;
+    out += out ? (negv ? " − " : " + ") : (negv ? "−" : "");
+    let term = (a === 1n && d !== 0) ? "" : a.toString();
+    if (d !== 0) term += "t" + (d === 1 ? "" : "<sup>" + d + "</sup>");
+    out += term;
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Reduced Burau representation, size m = n-1, columns = images of f_j
+ * ------------------------------------------------------------------ */
+function ident(m) {
+  const M = [];
+  for (let r = 0; r < m; r++) { M.push(new Array(m).fill(ZERO)); M[r][r] = mono(1, 0); }
+  return M;
+}
+function matmul(A, B) {
+  const m = A.length, C = [];
+  for (let i = 0; i < m; i++) {
+    C.push(new Array(m).fill(ZERO));
+    for (let k = 0; k < m; k++) {
+      if (isZero(A[i][k])) continue;
+      for (let j = 0; j < m; j++) if (!isZero(B[k][j])) C[i][j] = add(C[i][j], mul(A[i][k], B[k][j]));
+    }
+  }
+  return C;
+}
+function burauGen(n, i, eps) {
+  const m = n - 1, M = ident(m);
+  if (m === 0) return M;
+  if (eps > 0) {
+    if (i <= n - 2) {
+      M[i - 1][i - 1] = add(mono(1, 0), mono(-1, 1));   // 1 - t
+      M[i][i - 1]     = mono(1, 0);
+      M[i - 1][i]     = mono(1, 1);                     // t
+      M[i][i]         = ZERO;
+    } else {                                            // i = n-1: f_n = -(f_1+...+f_{n-1})
+      for (let r = 0; r < m - 1; r++) M[r][m - 1] = mono(-1, 0);
+      M[m - 1][m - 1] = mono(-1, 1);                    // -t
+    }
+  } else {
+    if (i <= n - 2) {
+      M[i - 1][i - 1] = ZERO;
+      M[i][i - 1]     = mono(1, -1);                    // 1/t
+      M[i - 1][i]     = mono(1, 0);
+      M[i][i]         = add(mono(1, 0), mono(-1, -1));  // 1 - 1/t
+    } else {
+      for (let r = 0; r < m - 1; r++) M[r][m - 1] = mono(-1, -1);
+      M[m - 1][m - 1] = mono(-1, -1);                   // -1/t
+    }
+  }
+  return M;
+}
+function burauWord(n, word) {
+  let M = ident(n - 1);
+  for (const w of word) M = matmul(M, burauGen(n, Math.abs(w), Math.sign(w)));
+  return M;
+}
+/* Laplace expansion, memoised on the used-column bitmask (m ≤ 5 here) */
+function det(M) {
+  const m = M.length;
+  if (m === 0) return mono(1, 0);
+  const memo = new Map();
+  function go(row, mask) {
+    if (row === m) return mono(1, 0);
+    if (memo.has(mask)) return memo.get(mask);
+    let s = ZERO, idx = 0;
+    for (let c = 0; c < m; c++) {
+      if (mask & (1 << c)) continue;
+      const e = M[row][c];
+      if (!isZero(e)) {
+        const t = mul(e, go(row + 1, mask | (1 << c)));
+        s = (idx % 2 === 0) ? add(s, t) : sub(s, t);
+      }
+      idx++;
+    }
+    memo.set(mask, s);
+    return s;
+  }
+  return go(0, 0);
+}
+
+/* ------------------------------------------------------------------ *
+ *  Complex roots via Durand–Kerner
+ * ------------------------------------------------------------------ */
+function polyRoots(coeffs) {
+  const d = coeffs.length - 1;
+  if (d < 1) return [];
+  const an = coeffs[d], a = coeffs.map(c => c / an);
+  const z = [];
+  for (let k = 0; k < d; k++) {
+    const ang = 2 * Math.PI * k / d + 0.37;
+    z.push([0.9 * Math.cos(ang), 0.9 * Math.sin(ang)]);
+  }
+  const ev = zz => {
+    let re = 0, im = 0;
+    for (let i = d; i >= 0; i--) {
+      const nr = re * zz[0] - im * zz[1] + a[i];
+      im = re * zz[1] + im * zz[0];
+      re = nr;
+    }
+    return [re, im];
+  };
+  for (let it = 0; it < 500; it++) {
+    let mx = 0;
+    for (let k = 0; k < d; k++) {
+      const [nr, ni] = ev(z[k]);
+      let dr = 1, di = 0;
+      for (let j = 0; j < d; j++) {
+        if (j === k) continue;
+        const ar = z[k][0] - z[j][0], ai = z[k][1] - z[j][1];
+        const t1 = dr * ar - di * ai; di = dr * ai + di * ar; dr = t1;
+      }
+      const den = dr * dr + di * di;
+      if (den < 1e-300) continue;
+      const qr = (nr * dr + ni * di) / den, qi = (ni * dr - nr * di) / den;
+      z[k][0] -= qr; z[k][1] -= qi;
+      mx = Math.max(mx, Math.hypot(qr, qi));
+    }
+    if (mx < 1e-14) break;
+  }
+  return z;
+}
+
+/* ------------------------------------------------------------------ *
+ *  State
+ * ------------------------------------------------------------------ */
+const MAXLEN = 26;
+const PRESETS = [
+  { name: "figure-eight 4₁ — (σ₁σ₂⁻¹)²",        n: 3, w: [1, -2, 1, -2] },
+  { name: "unknot — σ₁",                         n: 2, w: [1] },
+  { name: "Hopf link 2²₁ — σ₁²",                 n: 2, w: [1, 1] },
+  { name: "trefoil 3₁ — σ₁³",                    n: 2, w: [1, 1, 1] },
+  { name: "Solomon's link 4²₁ — σ₁⁴",            n: 2, w: [1, 1, 1, 1] },
+  { name: "cinquefoil 5₁ — σ₁⁵",                 n: 2, w: [1, 1, 1, 1, 1] },
+  { name: "septafoil 7₁ — σ₁⁷",                  n: 2, w: [1, 1, 1, 1, 1, 1, 1] },
+  { name: "square knot 3₁#3₁* — σ₁³σ₂⁻³",        n: 3, w: [1, 1, 1, -2, -2, -2] },
+  { name: "granny knot 3₁#3₁ — σ₁³σ₂³",          n: 3, w: [1, 1, 1, 2, 2, 2] },
+  { name: "T(3,4) = 8₁₉ — (σ₁σ₂)⁴",              n: 3, w: [1, 2, 1, 2, 1, 2, 1, 2] },
+  { name: "T(3,5) = 10₁₂₄ — (σ₁σ₂)⁵",            n: 3, w: [1, 2, 1, 2, 1, 2, 1, 2, 1, 2] },
+  { name: "Borromean rings 6³₂ — (σ₁σ₂⁻¹)³",     n: 3, w: [1, -2, 1, -2, 1, -2] },
+  { name: "T(4,5) — (σ₁σ₂σ₃)⁵",                  n: 4, w: [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3] },
+  { name: "trefoil, stabilised — σ₁³σ₂",         n: 3, w: [1, 1, 1, 2] },
+  { name: "3-component unlink — (empty in B₃)",  n: 3, w: [] }
+];
+const COLORS = ["#6ee7d8", "#ffab6e", "#a78bfa", "#7ee787", "#ff8b8b", "#7dd3fc"];
+
+const state = { n: 3, word: [1, -2, 1, -2], animate: true, hover: -1, pending: null };
+let calc = null, geom = null;
+
+/* ------------------------------------------------------------------ *
+ *  Computation
+ * ------------------------------------------------------------------ */
+function compute() {
+  const n = state.n, word = state.word, m = n - 1;
+
+  // underlying permutation: perm[j] = row where the strand starting in row j ends
+  const rowsOf = [];                       // rowsOf[j][k] = row of strand j after k columns
+  for (let j = 0; j < n; j++) rowsOf.push([j]);
+  for (let k = 0; k < word.length; k++) {
+    const i = Math.abs(word[k]);
+    for (let j = 0; j < n; j++) {
+      const r = rowsOf[j][k];
+      rowsOf[j].push(r === i - 1 ? i : (r === i ? i - 1 : r));
+    }
+  }
+  const perm = rowsOf.map(a => a[a.length - 1]);
+
+  // cycles of perm = components of the closure
+  const compOf = new Array(n).fill(-1);
+  const cycles = [];
+  for (let j = 0; j < n; j++) {
+    if (compOf[j] >= 0) continue;
+    const cyc = [];
+    let x = j;
+    do { compOf[x] = cycles.length; cyc.push(x); x = perm[x]; } while (x !== j);
+    cycles.push(cyc);
+  }
+
+  const B = burauWord(n, word);
+  const expSum = word.reduce((s, w) => s + Math.sign(w), 0);
+  const detB = det(B);
+  const wantDet = mono(expSum % 2 === 0 ? 1 : -1, expSum);   // (-t)^e
+  const detOK = samePoly(detB, wantDet);
+
+  // det(I - Burau)
+  const A = [];
+  for (let r = 0; r < m; r++) {
+    A.push([]);
+    for (let c = 0; c < m; c++) A[r].push(r === c ? sub(mono(1, 0), B[r][c]) : neg(B[r][c]));
+  }
+  const D = det(A);
+  let S = ZERO;
+  for (let k = 0; k < n; k++) S = add(S, mono(1, k));
+  const q = divide(D, S);
+
+  // normalise: shift to lowest degree 0, make the bottom coefficient positive
+  let delta = ZERO, exact = (q !== null);
+  if (q !== null && !isZero(q)) {
+    delta = { lo: 0, c: q.c.slice() };
+    if (delta.c[0] < 0n) delta = neg(delta);
+  }
+  const d1 = isZero(delta) ? 0n : evalAt(delta, 1n);
+  const dm1 = isZero(delta) ? 0n : evalAt(delta, -1n);
+  const deg = isZero(delta) ? 0 : delta.c.length - 1;
+
+  // palindromic (Δ(t) ≐ Δ(1/t)) test on the coefficient string
+  let pal = 0;                                          // +1 palindromic, -1 anti, 0 neither
+  if (!isZero(delta)) {
+    let p = true, ap = true;
+    for (let i = 0; i <= deg; i++) {
+      if (delta.c[i] !== delta.c[deg - i]) p = false;
+      if (delta.c[i] !== -delta.c[deg - i]) ap = false;
+    }
+    pal = p ? 1 : (ap ? -1 : 0);
+  }
+
+  const rts = isZero(delta) ? [] : polyRoots(delta.c.map(Number));
+
+  calc = { n, word, m, rowsOf, perm, compOf, cycles, B, detB, wantDet, detOK,
+           expSum, D, S, q, delta, d1, dm1, deg, pal, exact, rts };
+}
+
+/* ------------------------------------------------------------------ *
+ *  Geometry of the closed braid diagram
+ * ------------------------------------------------------------------ */
+function roundedPath(pts, r) {
+  const out = [pts[0].slice()];
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p = pts[i - 1], c = pts[i], q = pts[i + 1];
+    const v1 = [p[0] - c[0], p[1] - c[1]], v2 = [q[0] - c[0], q[1] - c[1]];
+    const l1 = Math.hypot(v1[0], v1[1]) || 1, l2 = Math.hypot(v2[0], v2[1]) || 1;
+    const rr = Math.min(r, l1 / 2, l2 / 2);
+    const a = [c[0] + v1[0] / l1 * rr, c[1] + v1[1] / l1 * rr];
+    const b = [c[0] + v2[0] / l2 * rr, c[1] + v2[1] / l2 * rr];
+    out.push(a);
+    for (let s = 1; s < 8; s++) {
+      const t = s / 8, u = 1 - t;
+      out.push([u * u * a[0] + 2 * u * t * c[0] + t * t * b[0],
+                u * u * a[1] + 2 * u * t * c[1] + t * t * b[1]]);
+    }
+    out.push(b);
+  }
+  out.push(pts[pts.length - 1].slice());
+  return out;
+}
+function layout() {
+  const n = calc.n, L = calc.word.length;
+  const CW = 1000, CH = 470;
+  const rowH = n <= 4 ? 50 : 42;
+  const yMid = 232, y0 = yMid - (n - 1) * rowH / 2;
+  const ys = []; for (let r = 0; r < n; r++) ys.push(y0 + r * rowH);
+  const avail = 640;
+  const colW = L === 0 ? 0 : Math.min(76, avail / L);
+  const braidLen = colW * L;
+  const lead = 34;
+  const startX = (CW - braidLen) / 2;
+  const xL = startX - lead, xR = startX + braidLen + lead;
+  const yTop = ys[0], yBot = ys[n - 1];
+
+  // closure arcs: nested rounded rectangles, one per row
+  const arcs = [];
+  for (let r = 0; r < n; r++) {
+    const d = 16 + r * ((n <= 4) ? 13 : 10);
+    arcs.push(roundedPath([[xR, ys[r]], [xR + d, ys[r]], [xR + d, yTop - d],
+                           [xL - d, yTop - d], [xL - d, ys[r]], [xL, ys[r]]], 13));
+  }
+  // strand paths, left end row j → right end row perm[j]
+  const strands = [];
+  for (let j = 0; j < n; j++) {
+    const pts = [[xL, ys[calc.rowsOf[j][0]]], [startX, ys[calc.rowsOf[j][0]]]];
+    for (let k = 0; k < L; k++) {
+      const ra = calc.rowsOf[j][k], rb = calc.rowsOf[j][k + 1];
+      const xa = startX + k * colW, xb = xa + colW;
+      if (ra === rb) { pts.push([xb, ys[rb]]); continue; }
+      const ya = ys[ra], yb = ys[rb];
+      for (let s = 1; s <= 16; s++) {
+        const t = s / 16, u = 1 - t;
+        const c1x = xa + colW * 0.42, c2x = xb - colW * 0.42;
+        pts.push([u * u * u * xa + 3 * u * u * t * c1x + 3 * u * t * t * c2x + t * t * t * xb,
+                  u * u * u * ya + 3 * u * u * t * ya + 3 * u * t * t * yb + t * t * t * yb]);
+      }
+    }
+    pts.push([xR, ys[calc.rowsOf[j][L]]]);
+    strands.push(pts);
+  }
+  // index into strands[j] where each column begins (1 point if straight, 16 if crossing)
+  const idx = [];
+  for (let j = 0; j < n; j++) {
+    const a = [1];
+    for (let k = 0; k < L; k++) {
+      const ra = calc.rowsOf[j][k], rb = calc.rowsOf[j][k + 1];
+      a.push(a[k] + (ra === rb ? 1 : 16));
+    }
+    idx.push(a);
+  }
+  // closed loops per component, for the flowing beads
+  const loops = calc.cycles.map(cyc => {
+    let pts = [];
+    for (const j of cyc) {
+      pts = pts.concat(strands[j]);
+      pts = pts.concat(arcs[calc.perm[j]]);
+    }
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++)
+      cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    return { pts, cum, len: cum[cum.length - 1] };
+  });
+  // crossing hit boxes
+  const cross = [];
+  for (let k = 0; k < L; k++) {
+    const i = Math.abs(calc.word[k]);
+    cross.push({ x: startX + (k + 0.5) * colW, y: (ys[i - 1] + ys[i]) / 2,
+                 rx: colW / 2, ry: rowH / 2 + 4 });
+  }
+  geom = { CW, CH, ys, rowH, colW, startX, xL, xR, arcs, strands, idx, loops, cross, L };
+}
+function ptOnLoop(loop, s) {
+  const t = ((s % loop.len) + loop.len) % loop.len;
+  let lo = 0, hi = loop.cum.length - 1;
+  while (lo < hi - 1) { const mid = (lo + hi) >> 1; (loop.cum[mid] <= t) ? lo = mid : hi = mid; }
+  const seg = loop.cum[hi] - loop.cum[lo] || 1, f = (t - loop.cum[lo]) / seg;
+  return [loop.pts[lo][0] + (loop.pts[hi][0] - loop.pts[lo][0]) * f,
+          loop.pts[lo][1] + (loop.pts[hi][1] - loop.pts[lo][1]) * f];
+}
+
+/* ------------------------------------------------------------------ *
+ *  Drawing
+ * ------------------------------------------------------------------ */
+const braidCv = document.getElementById("braidCv"), bx = braidCv.getContext("2d");
+const rootCv  = document.getElementById("rootCv"),  rx = rootCv.getContext("2d");
+function stroke(ctx, pts, a, b) {
+  ctx.beginPath();
+  ctx.moveTo(pts[a][0], pts[a][1]);
+  for (let i = a + 1; i <= b; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.stroke();
+}
+function drawBraid(time) {
+  const g = geom, c = calc;
+  bx.clearRect(0, 0, g.CW, g.CH);
+  bx.lineCap = "round"; bx.lineJoin = "round";
+
+  // closure arcs
+  for (let r = 0; r < c.n; r++) {
+    bx.strokeStyle = COLORS[c.compOf[r] % COLORS.length];
+    bx.globalAlpha = 0.5; bx.lineWidth = 3.4;
+    stroke(bx, g.arcs[r], 0, g.arcs[r].length - 1);
+  }
+  bx.globalAlpha = 1;
+
+  // the braid itself, column by column so over/under is honest
+  const colorOf = j => COLORS[c.compOf[j] % COLORS.length];
+  // lead-in / lead-out
+  for (let j = 0; j < c.n; j++) {
+    bx.strokeStyle = colorOf(j); bx.lineWidth = 4;
+    stroke(bx, g.strands[j], 0, 1);
+    stroke(bx, g.strands[j], g.idx[j][g.L], g.strands[j].length - 1);
+  }
+  for (let k = 0; k < g.L; k++) {
+    const i = Math.abs(c.word[k]), eps = Math.sign(c.word[k]);
+    let overJ = -1, underJ = -1;
+    for (let j = 0; j < c.n; j++) {
+      const r = c.rowsOf[j][k];
+      if (r !== i - 1 && r !== i) {                    // passes straight through
+        bx.strokeStyle = colorOf(j); bx.lineWidth = 4;
+        stroke(bx, g.strands[j], g.idx[j][k], g.idx[j][k + 1]);
+      } else if ((eps > 0) === (r === i - 1)) overJ = j;
+      else underJ = j;
+    }
+    const hov = (k === state.hover);
+    // under strand, drawn with a gap at the crossing
+    if (underJ >= 0) {
+      const a = g.idx[underJ][k], b = g.idx[underJ][k + 1], span = b - a;
+      bx.strokeStyle = colorOf(underJ); bx.lineWidth = 4;
+      stroke(bx, g.strands[underJ], a, a + Math.floor(span * 0.36));
+      stroke(bx, g.strands[underJ], a + Math.ceil(span * 0.64), b);
+    }
+    // over strand
+    if (overJ >= 0) {
+      const a = g.idx[overJ][k], b = g.idx[overJ][k + 1];
+      if (hov) {
+        bx.strokeStyle = "#ffffff"; bx.lineWidth = 8; bx.globalAlpha = 0.28;
+        stroke(bx, g.strands[overJ], a, b); bx.globalAlpha = 1;
+      }
+      bx.strokeStyle = colorOf(overJ); bx.lineWidth = 4.6;
+      stroke(bx, g.strands[overJ], a, b);
+    }
+    // label
+    bx.fillStyle = hov ? "#e8e6e1" : "rgba(154,151,160,0.75)";
+    bx.font = "12px ui-monospace, monospace";
+    bx.textAlign = "center";
+    bx.fillText("σ" + i + (eps < 0 ? "⁻¹" : ""), g.cross[k].x, g.ys[c.n - 1] + 34);
+  }
+
+  // flowing beads: one per component, speed set by arclength
+  if (state.animate) {
+    for (let ci = 0; ci < g.loops.length; ci++) {
+      const loop = g.loops[ci];
+      if (loop.len < 1) continue;
+      const p = ptOnLoop(loop, time * 150 + ci * 97);
+      bx.fillStyle = COLORS[ci % COLORS.length];
+      bx.globalAlpha = 0.28; bx.beginPath(); bx.arc(p[0], p[1], 11, 0, 6.284); bx.fill();
+      bx.globalAlpha = 1;    bx.beginPath(); bx.arc(p[0], p[1], 5, 0, 6.284); bx.fill();
+    }
+  }
+
+  // row labels
+  bx.fillStyle = "rgba(154,151,160,0.55)";
+  bx.font = "12px ui-monospace, monospace"; bx.textAlign = "right";
+  for (let r = 0; r < c.n; r++) bx.fillText(String(r + 1), g.xL - 8 - (16 + r * (c.n <= 4 ? 13 : 10)) - 6, g.ys[r] + 4);
+}
+function drawRoots(time) {
+  const W = 440, H = 470;
+  rx.clearRect(0, 0, W, H);
+  const cx = W / 2, cy = H / 2 + 6;
+  const rts = calc.rts;
+  let mx = 1.15;
+  for (const z of rts) mx = Math.max(mx, Math.hypot(z[0], z[1]) * 1.12);
+  const R = Math.min(W, H) * 0.40 / mx;
+  const X = u => cx + u * R, Y = v => cy - v * R;
+
+  // axes + unit circle
+  rx.strokeStyle = "rgba(255,255,255,0.10)"; rx.lineWidth = 1;
+  rx.beginPath(); rx.moveTo(24, cy); rx.lineTo(W - 24, cy);
+  rx.moveTo(cx, 40); rx.lineTo(cx, H - 40); rx.stroke();
+  rx.setLineDash([4, 4]); rx.strokeStyle = "rgba(110,231,216,0.42)";
+  rx.beginPath(); rx.arc(cx, cy, R, 0, 6.284); rx.stroke(); rx.setLineDash([]);
+
+  // reciprocal partners z ↔ 1/z joined by a faint chord
+  rx.strokeStyle = "rgba(255,171,110,0.30)"; rx.lineWidth = 1;
+  for (let i = 0; i < rts.length; i++) {
+    const n2 = rts[i][0] * rts[i][0] + rts[i][1] * rts[i][1];
+    if (n2 < 1e-12) continue;
+    const inv = [rts[i][0] / n2, -rts[i][1] / n2];
+    let best = -1, bd = 1e9;
+    for (let j = 0; j < rts.length; j++) {
+      const d = Math.hypot(rts[j][0] - inv[0], rts[j][1] - inv[1]);
+      if (d < bd) { bd = d; best = j; }
+    }
+    if (best > i && bd < 1e-6) {
+      rx.beginPath(); rx.moveTo(X(rts[i][0]), Y(rts[i][1]));
+      rx.lineTo(X(rts[best][0]), Y(rts[best][1])); rx.stroke();
+    }
+  }
+  // the roots
+  for (const z of rts) {
+    const onCircle = Math.abs(Math.hypot(z[0], z[1]) - 1) < 1e-7;
+    rx.fillStyle = onCircle ? "#6ee7d8" : "#ffab6e";
+    rx.globalAlpha = 0.25; rx.beginPath(); rx.arc(X(z[0]), Y(z[1]), 9, 0, 6.284); rx.fill();
+    rx.globalAlpha = 1;    rx.beginPath(); rx.arc(X(z[0]), Y(z[1]), 4, 0, 6.284); rx.fill();
+  }
+  // sweeping point on the unit circle, with |Δ(e^{iθ})|
+  const th = state.animate ? (time * 0.55) % 6.283185307 : 0.9;
+  const ux = Math.cos(th), uy = Math.sin(th);
+  let vr = 0, vi = 0;
+  const cf = calc.delta.c.map(Number);
+  for (let i = cf.length - 1; i >= 0; i--) {
+    const nr = vr * ux - vi * uy + cf[i];
+    vi = vr * uy + vi * ux; vr = nr;
+  }
+  const val = Math.hypot(vr, vi);
+  rx.strokeStyle = "rgba(255,255,255,0.28)"; rx.lineWidth = 1;
+  rx.beginPath(); rx.moveTo(cx, cy); rx.lineTo(X(ux), Y(uy)); rx.stroke();
+  rx.fillStyle = "#e8e6e1";
+  rx.beginPath(); rx.arc(X(ux), Y(uy), 4.5, 0, 6.284); rx.fill();
+  rx.fillStyle = "rgba(232,230,225,0.85)";
+  rx.font = "13px ui-monospace, monospace"; rx.textAlign = "center";
+  rx.fillText("|Δ(e^{iθ})| = " + val.toFixed(3), cx, H - 46);
+  rx.fillStyle = "rgba(154,151,160,0.8)"; rx.font = "12px ui-monospace, monospace";
+  rx.fillText("θ = " + (th / Math.PI).toFixed(3) + "π", cx, H - 28);
+  rx.textAlign = "left";
+  rx.fillText("1", X(1) + 6, cy + 15);
+}
+
+/* ------------------------------------------------------------------ *
+ *  Panels
+ * ------------------------------------------------------------------ */
+function wordHTML(word) {
+  if (word.length === 0) return "<span class='dim'>1 (empty)</span>";
+  return word.map(w => "σ<sub>" + Math.abs(w) + "</sub>" + (w < 0 ? "<sup>−1</sup>" : "")).join("");
+}
+function updatePanels() {
+  const c = calc;
+  document.getElementById("sWord").innerHTML = wordHTML(c.word);
+  document.getElementById("tagWord").innerHTML = "β̂ &nbsp; " + wordHTML(c.word);
+  document.getElementById("tagSub").textContent =
+    "B" + c.n + "  ·  " + c.word.length + " crossings  ·  " + c.cycles.length +
+    (c.cycles.length === 1 ? " component" : " components");
+  document.getElementById("sExp").textContent = c.expSum;
+  document.getElementById("sLen").textContent = c.word.length;
+  document.getElementById("sPerm").textContent =
+    "(" + c.perm.map(p => p + 1).join(" ") + ")  as images of (" +
+    c.perm.map((_, i) => i + 1).join(" ") + ")";
+  document.getElementById("sComp").textContent = c.cycles.length;
+  document.getElementById("sCompDots").innerHTML = c.cycles.map((cy, i) =>
+    "<span class='swatch' style='background:" + COLORS[i % COLORS.length] + "'></span>" +
+    "<span class='dim'>{" + cy.map(x => x + 1).join(",") + "}</span>").join(" ");
+
+  document.getElementById("cDet").innerHTML = c.detOK
+    ? "<span class='ok'>✓</span>" : "<span class='no'>✗</span>";
+  document.getElementById("cDetVal").innerHTML =
+    "det β̄ = " + polyHTML(c.detB) + " &nbsp;·&nbsp; (−t)<sup>" + c.expSum + "</sup> = " + polyHTML(c.wantDet);
+
+  // Burau matrix
+  let html = "<table class='mat'>";
+  if (c.m === 0) html += "<tr><td class='dim'>the 0×0 matrix (n = 1)</td></tr>";
+  for (let r = 0; r < c.m; r++) {
+    html += "<tr>";
+    for (let k = 0; k < c.m; k++) html += "<td>" + polyHTML(c.B[r][k]) + "</td>";
+    html += "</tr>";
+  }
+  html += "</table>";
+  document.getElementById("matBox").innerHTML = html;
+
+  document.getElementById("sDet").innerHTML = polyHTML(c.D);
+  document.getElementById("sDiv").innerHTML = polyHTML(c.S);
+  document.getElementById("cExact").innerHTML = c.exact
+    ? "<span class='ok'>✓ divides exactly</span>" : "<span class='no'>✗</span>";
+  document.getElementById("sDelta").innerHTML = isZero(c.delta)
+    ? "0 <span class='dim' style='font-size:0.8rem'>(split link)</span>" : polyHTML(c.delta);
+  document.getElementById("sD1").textContent = c.d1.toString();
+  const knot = c.cycles.length === 1;
+  const d1ok = knot ? (c.d1 === 1n || c.d1 === -1n) : (c.d1 === 0n);
+  document.getElementById("cD1").innerHTML = d1ok
+    ? "<span class='ok'>✓ " + (knot ? "|Δ(1)| = 1 for a knot" : "Δ(1) = 0 for a link") + "</span>"
+    : "<span class='no'>✗</span>";
+  const am = c.dm1 < 0n ? -c.dm1 : c.dm1;
+  document.getElementById("sDm1").textContent = am.toString();
+  document.getElementById("cPal").innerHTML =
+    c.pal === 1 ? "<span class='ok'>✓ palindromic coefficients</span>"
+    : c.pal === -1 ? "<span class='ok'>✓ anti-palindromic coefficients</span>"
+    : (isZero(c.delta) ? "<span class='dim'>— (Δ = 0)</span>" : "<span class='no'>✗</span>");
+
+  document.getElementById("tagRoots").textContent =
+    "deg Δ = " + c.deg + "  ·  " + c.rts.length + (c.rts.length === 1 ? " root" : " roots");
+  const onC = c.rts.filter(z => Math.abs(Math.hypot(z[0], z[1]) - 1) < 1e-7).length;
+  document.getElementById("rootHint").innerHTML =
+    c.rts.length === 0 ? "Δ is constant — no roots" :
+    onC + " of " + c.rts.length + " on the unit circle · chords join reciprocal pairs z ↔ 1/z";
+
+  // Markov verdict
+  const el = document.getElementById("cMarkov");
+  if (state.pending) {
+    const same = state.pending.before === polyHTML(c.delta);
+    el.className = same ? "ok" : "no";
+    el.innerHTML = (same ? "✓ " : "✗ ") + state.pending.label + " — Δ " +
+                   (same ? "unchanged" : "CHANGED");
+    state.pending = null;
+  }
+  document.getElementById("destab").disabled = !canDestabilise();
+}
+
+/* ------------------------------------------------------------------ *
+ *  Interaction
+ * ------------------------------------------------------------------ */
+function refresh() { compute(); layout(); updatePanels(); }
+function canDestabilise() {
+  const w = state.word, n = state.n;
+  if (n < 3 || w.length === 0) return false;
+  if (Math.abs(w[w.length - 1]) !== n - 1) return false;
+  return w.slice(0, -1).every(x => Math.abs(x) !== n - 1);
+}
+function setWord(n, w, markovLabel) {
+  if (markovLabel) state.pending = { before: polyHTML(calc.delta), label: markovLabel };
+  state.n = n; state.word = w.slice(0, MAXLEN);
+  document.getElementById("nSlider").value = n;
+  document.getElementById("nVal").textContent = n;
+  buildGenRow();
+  refresh();
+}
+function buildGenRow() {
+  const row = document.getElementById("genRow");
+  row.innerHTML = "";
+  for (let i = 1; i <= state.n - 1; i++) {
+    for (const eps of [1, -1]) {
+      const b = document.createElement("button");
+      b.className = "gen" + (eps < 0 ? " inv" : "");
+      b.innerHTML = "σ<sub>" + i + "</sub>" + (eps < 0 ? "<sup>−1</sup>" : "");
+      b.onclick = () => {
+        if (state.word.length >= MAXLEN) return;
+        state.word.push(i * eps); refresh();
+      };
+      row.appendChild(b);
+    }
+  }
+}
+const presetSel = document.getElementById("preset");
+PRESETS.forEach((p, i) => {
+  const o = document.createElement("option");
+  o.value = i; o.textContent = p.name; presetSel.appendChild(o);
+});
+presetSel.value = 0;
+presetSel.onchange = () => {
+  const p = PRESETS[+presetSel.value];
+  setWord(p.n, p.w.slice());
+};
+document.getElementById("nSlider").oninput = e => {
+  const n = +e.target.value;
+  const w = state.word.filter(x => Math.abs(x) <= n - 1);
+  presetSel.selectedIndex = -1;
+  setWord(n, w);
+};
+document.getElementById("anim").onchange = e => { state.animate = e.target.checked; };
+document.getElementById("undo").onclick = () => { state.word.pop(); refresh(); };
+document.getElementById("clear").onclick = () => { state.word = []; refresh(); };
+document.getElementById("rand").onclick = () => {
+  const n = state.n, len = 3 + Math.floor(Math.random() * 6), w = [];
+  for (let k = 0; k < len; k++)
+    w.push((1 + Math.floor(Math.random() * (n - 1))) * (Math.random() < 0.5 ? -1 : 1));
+  presetSel.selectedIndex = -1;
+  setWord(n, w);
+};
+document.getElementById("conj").onclick = () => {
+  if (state.word.length < 2) return;
+  const w = state.word.slice();
+  w.push(w.shift());
+  presetSel.selectedIndex = -1;
+  setWord(state.n, w, "conjugation (cyclic shift)");
+};
+document.getElementById("stab").onclick = () => {
+  if (state.n >= 6 || state.word.length >= MAXLEN) return;
+  presetSel.selectedIndex = -1;
+  setWord(state.n + 1, state.word.concat([state.n]), "stabilisation β ↦ βσ" + state.n);
+};
+document.getElementById("destab").onclick = () => {
+  if (!canDestabilise()) return;
+  presetSel.selectedIndex = -1;
+  setWord(state.n - 1, state.word.slice(0, -1), "destabilisation");
+};
+document.getElementById("mirror").onclick = () => {
+  presetSel.selectedIndex = -1;
+  setWord(state.n, state.word.slice().reverse().map(x => -x), "mirror image");
+};
+
+function canvasPt(ev) {
+  const r = braidCv.getBoundingClientRect();
+  return [(ev.clientX - r.left) * (geom.CW / r.width),
+          (ev.clientY - r.top) * (geom.CH / r.height)];
+}
+function crossingAt(p) {
+  for (let k = 0; k < geom.cross.length; k++) {
+    const c = geom.cross[k];
+    if (Math.abs(p[0] - c.x) <= c.rx && Math.abs(p[1] - c.y) <= c.ry) return k;
+  }
+  return -1;
+}
+braidCv.addEventListener("mousemove", ev => { state.hover = crossingAt(canvasPt(ev)); });
+braidCv.addEventListener("mouseleave", () => { state.hover = -1; });
+braidCv.addEventListener("click", ev => {
+  const k = crossingAt(canvasPt(ev));
+  if (k < 0) return;
+  presetSel.selectedIndex = -1;
+  if (ev.shiftKey) state.word.splice(k, 1);
+  else state.word[k] = -state.word[k];
+  refresh();
+});
+
+/* ------------------------------------------------------------------ *
+ *  Boot + animation loop
+ * ------------------------------------------------------------------ */
+buildGenRow();
+compute();
+layout();
+updatePanels();
+let t0 = null;
+function frame(ts) {
+  if (t0 === null) t0 = ts;
+  const time = (ts - t0) / 1000;
+  drawBraid(time);
+  drawRoots(time);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__autoviz = { state, get calc() { return calc; }, refresh, setWord, drawBraid, drawRoots, polyHTML };
+
+/* ---- self-check in the console: three known Alexander polynomials ---- */
+(function selfTest() {
+  const cases = [
+    { n: 2, w: [1, 1, 1],                 want: "t<sup>2</sup> − t + 1",                       name: "trefoil σ₁³" },
+    { n: 3, w: [1, -2, 1, -2],            want: "t<sup>2</sup> − 3t + 1",                      name: "figure-eight (σ₁σ₂⁻¹)²" },
+    { n: 3, w: [1, 2, 1, 2, 1, 2, 1, 2],  want: "t<sup>6</sup> − t<sup>5</sup> + t<sup>3</sup> − t + 1", name: "T(3,4) = 8₁₉" }
+  ];
+  const save = { n: state.n, w: state.word.slice() };
+  let ok = true;
+  for (const cs of cases) {
+    state.n = cs.n; state.word = cs.w.slice();
+    compute();
+    const got = polyHTML(calc.delta);
+    if (got !== cs.want) { ok = false; console.error("Alexander self-test FAILED", cs.name, got, "≠", cs.want); }
+    else console.log("Alexander self-test ✓", cs.name, "Δ =", got.replace(/<sup>/g, "^").replace(/<\/sup>/g, ""));
+  }
+  state.n = save.n; state.word = save.w;
+  compute(); layout(); updatePanels();
+  console.log(ok ? "Alexander self-test: all 3 passed." : "Alexander self-test: FAILURES ABOVE.");
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conway–Coxeter Frieze Patterns — AutoViz 2026-09-24</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --accent2: #ffab6e;
+    --good: #7ee787;
+    --bad: #ff8b8b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.55;
+    padding: 1.6rem 1.2rem 2.5rem;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; letter-spacing: 0.06em; }
+  h1 { font-weight: normal; font-size: 1.9rem; margin: 0.4rem 0 0.5rem; }
+  p.math { color: #c9c6cf; max-width: 66rem; font-size: 1.02rem; }
+  p.math i { color: var(--ink); }
+  p.math b { font-weight: normal; color: var(--accent); }
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.9rem;
+    margin: 1rem 0 0.8rem; padding: 0.7rem 1rem;
+    border: 1px solid var(--panel-border); background: var(--panel);
+    border-radius: 10px; font-size: 0.92rem;
+  }
+  .controls label { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); }
+  .controls .val { color: var(--ink); font-family: monospace; font-size: 0.86rem; min-width: 1.6em; }
+  .controls .sep { width: 1px; height: 1.4em; background: var(--panel-border); }
+  input[type=range] { accent-color: var(--accent); width: 120px; }
+  input[type=checkbox] { accent-color: var(--accent); }
+  button {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 0.25rem 0.7rem; font-family: inherit; font-size: 0.88rem;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: stretch; }
+  .stage {
+    border: 1px solid var(--panel-border); background: rgba(0, 0, 0, 0.32);
+    border-radius: 12px; overflow: hidden; position: relative;
+  }
+  .stage.poly { flex: 0 1 420px; min-width: 300px; }
+  .stage.frieze { flex: 1 1 100%; margin-top: 1rem; }
+  canvas { display: block; touch-action: none; width: 100%; }
+  .stage.poly canvas { cursor: pointer; aspect-ratio: 1 / 1.1; }
+  .stage.frieze canvas { cursor: crosshair; }
+  .tag {
+    position: absolute; left: 0.7rem; top: 0.5rem; font-size: 0.9rem;
+    text-shadow: 0 0 6px #000, 0 0 12px #000; pointer-events: none;
+  }
+  .tag b { font-weight: normal; color: var(--accent); }
+  .tag small { display: block; color: var(--muted); font-size: 0.78rem; font-family: monospace; }
+  .hint {
+    position: absolute; left: 0.7rem; bottom: 0.45rem; right: 0.7rem; color: var(--muted);
+    font-size: 0.76rem; pointer-events: none; text-shadow: 0 0 6px #000;
+  }
+  .cards { flex: 1 1 360px; display: flex; flex-direction: column; gap: 1rem; min-width: 280px; }
+  .card {
+    border: 1px solid var(--panel-border);
+    background: var(--panel); border-radius: 12px; padding: 0.85rem 1.05rem;
+  }
+  .card h2 { font-size: 0.76rem; font-weight: normal; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; }
+  .stat { font-family: monospace; font-size: 0.83rem; color: #c9c6cf; line-height: 1.7; }
+  .stat b { font-weight: normal; color: var(--accent); }
+  .stat .o { color: var(--accent2); }
+  .ok { color: var(--good); }
+  .no { color: var(--bad); }
+  .note { color: var(--muted); font-size: 0.82rem; margin-top: 0.4rem; }
+  footer { margin-top: 1.3rem; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; AutoViz</a>
+  <h1>Conway&ndash;Coxeter Frieze Patterns</h1>
+  <p class="math">
+    A <b>frieze pattern</b> of width <i>n</i>&minus;3 is a staggered array of positive integers between a row of 1s and a
+    row of 1s in which every diamond <i>b</i> over <i>a d</i> over <i>c</i> satisfies the SL&#8322; rule
+    <i>ad</i> &minus; <i>bc</i> = 1. Conway and Coxeter (1973) proved that such friezes are in bijection with
+    triangulations of a convex <i>n</i>-gon: the first nontrivial row is the <i>quiddity</i> (<i>a</i><sub>0</sub>, &hellip;, <i>a</i><sub><i>n</i>&minus;1</sub>),
+    where <i>a<sub>v</sub></i> is the number of triangles at vertex <i>v</i>, and the rest is forced by
+    <i>m</i><sub><i>i</i>,<i>j</i>+1</sub> = <i>a<sub>j</sub></i>&thinsp;<i>m</i><sub><i>i</i>,<i>j</i></sub> &minus; <i>m</i><sub><i>i</i>,<i>j</i>&minus;1</sub>.
+    The entry <i>m</i><sub><i>i</i>,<i>j</i></sub> is the Ptolemy (&lambda;-)length of the chord <i>ij</i> when every triangulation edge has length 1,
+    so the interior 1s are exactly the diagonals, the whole pattern is invariant under a glide reflection
+    <i>m</i><sub><i>i</i>,<i>j</i></sub> = <i>m</i><sub><i>j</i>,<i>i</i>+<i>n</i></sub> of period <i>n</i>, and a diagonal flip is a cluster mutation.
+  </p>
+
+  <div class="controls">
+    <label>polygon <i>n</i> <input type="range" id="nSlider" min="4" max="14" value="8"><span class="val" id="nVal">8</span></label>
+    <span class="sep"></span>
+    <button id="bFan">fan</button>
+    <button id="bZig">zigzag</button>
+    <button id="bRand">uniform random</button>
+    <span class="sep"></span>
+    <button id="bFlip">random flip</button>
+    <button id="bWalk">&#9654; walk the flip graph</button>
+    <span class="sep"></span>
+    <label><input type="checkbox" id="cGlide"> colour entries by chord (glide)</label>
+  </div>
+
+  <div class="row">
+    <div class="stage poly">
+      <canvas id="cp" width="420" height="420"></canvas>
+      <div class="tag"><b>triangulation</b><small id="polyTag"></small></div>
+      <div class="hint">click a diagonal to flip it &middot; hover any chord to find its entries</div>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h2>Frieze data (exact integers)</h2>
+        <div class="stat" id="stats"></div>
+      </div>
+      <div class="card">
+        <h2>Inspect</h2>
+        <div class="stat" id="inspect">Hover an entry of the frieze or a chord of the polygon.</div>
+      </div>
+      <div class="card">
+        <h2>The bijection, by brute force</h2>
+        <div class="stat" id="bij">Counting every positive-integer quiddity cycle whose frieze closes&hellip;</div>
+        <div class="note">A frieze of width <i>n</i>&minus;3 has <i>a<sub>v</sub></i> &le; <i>n</i>&minus;2, so the search over
+          {1,&hellip;,<i>n</i>&minus;2}<sup><i>n</i></sup> is exhaustive; Conway&ndash;Coxeter predicts the Catalan number <i>C</i><sub><i>n</i>&minus;2</sub>.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage frieze">
+    <canvas id="cf" height="400"></canvas>
+    <div class="tag"><b>frieze pattern</b><small id="friezeTag"></small></div>
+    <div class="hint">rows of 0s and 1s bound the pattern &middot; hover an entry: its diamond, its glide twin, its chord &middot; dashed line = glide axis</div>
+  </div>
+
+  <footer>AutoViz · 2026-09-24 · generated by Claude (Fable 5)</footer>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const mod = (a, n) => ((a % n) + n) % n;
+  const catalan = k => { let c = 1; for (let i = 0; i < k; i++) c = c * 2 * (2 * i + 1) / (i + 2); return Math.round(c); };
+
+  // ---------- triangulation state ----------
+  let n = 8;
+  let diags = [];          // array of [a,b], a<b
+  let flips = 0;
+  const key = (a, b) => a < b ? a + ',' + b : b + ',' + a;
+  function diagSet() { const s = new Set(); for (const [a, b] of diags) s.add(key(a, b)); return s; }
+  function isSide(u, v) { return mod(u - v, n) === 1 || mod(v - u, n) === 1; }
+  function isEdge(u, v, S) { return isSide(u, v) || S.has(key(u, v)); }
+
+  function fan() { diags = []; for (let k = 2; k <= n - 2; k++) diags.push([0, k]); }
+  // strip (1,n-1), (1,n-2), (2,n-2), (2,n-3), ... : nested chords, so non-crossing
+  function zigzag() {
+    diags = []; let lo = 1, hi = n - 1, turn = 0;
+    while (diags.length < n - 3) {
+      diags.push([lo, hi]);
+      if (turn === 0) hi--; else lo++;
+      turn ^= 1;
+    }
+  }
+  // Uniform random triangulation: the apex k of the triangle on side (lo,hi) has weight C(k-lo-1)·C(hi-k-1).
+  function randomTri() {
+    diags = [];
+    const rec = (lo, hi) => {
+      if (hi - lo < 2) return;
+      const w = []; let tot = 0;
+      for (let k = lo + 1; k < hi; k++) { const x = catalan(k - lo - 1) * catalan(hi - k - 1); w.push(x); tot += x; }
+      let r = Math.random() * tot, k = lo + 1;
+      for (let t = 0; t < w.length; t++) { r -= w[t]; if (r <= 0) { k = lo + 1 + t; break; } }
+      if (k - lo >= 2) diags.push([lo, k]);
+      if (hi - k >= 2) diags.push([k, hi]);
+      rec(lo, k); rec(k, hi);
+    };
+    rec(0, n - 1);
+  }
+  function quiddity() {
+    const a = new Array(n).fill(1);
+    for (const [u, v] of diags) { a[u]++; a[v]++; }
+    return a;
+  }
+  // m(i,j) for 0 <= j-i <= n, via the continuant recurrence
+  function frieze(a) {
+    const M = [];
+    for (let i = 0; i < n; i++) {
+      const row = [0, 1];
+      for (let r = 2; r <= n; r++) row.push(a[mod(i + r - 1, n)] * row[r - 1] - row[r - 2]);
+      M.push(row);
+    }
+    return M;
+  }
+  // m for arbitrary integers i <= j (uses periodicity in i)
+  let M = null, A = null;
+  const m = (i, j) => M[mod(i, n)][j - i];
+
+  // the two apexes of the triangles on either side of diagonal (a,c)
+  function flipTarget(a, c, S) {
+    const apex = [];
+    for (let b = 0; b < n; b++) if (b !== a && b !== c && isEdge(a, b, S) && isEdge(b, c, S)) apex.push(b);
+    return apex.length === 2 ? apex : null;
+  }
+
+  function checks() {
+    const S = diagSet();
+    let diamondOK = true, closeOK = true, posOK = true, onesOK = true;
+    for (let i = 0; i < n; i++) {
+      for (let r = 1; r <= n - 1; r++) {
+        const j = i + r;
+        if (m(i, j) * m(i + 1, j + 1) - m(i, j + 1) * m(i + 1, j) !== 1) diamondOK = false;
+      }
+      if (m(i, i + n - 1) !== 1 || m(i, i + n) !== 0) closeOK = false;
+      for (let r = 1; r <= n - 1; r++) {
+        const v = m(i, i + r);
+        if (!(v > 0)) posOK = false;
+        if (r >= 2 && r <= n - 2 && ((v === 1) !== S.has(key(i, mod(i + r, n))))) onesOK = false;
+      }
+    }
+    let glideOK = true;
+    for (let i = 0; i < n; i++) for (let r = 0; r <= n; r++) if (m(i, i + r) !== m(i + r, i + n)) glideOK = false;
+    return { diamondOK, closeOK, posOK, onesOK, glideOK };
+  }
+
+  // ---------- animation state ----------
+  let anim = null;         // {old:[a,c], neu:[b,d], t:0}
+  let prevVals = null;     // previous frieze values, for flashing changed entries
+  let flash = 0;
+  let walking = false, walkClock = 0;
+  let hover = null;        // {i, j} chord (integers, i<j within window) or null
+  let hoverSrc = null;     // 'frieze' | 'poly'
+
+  function recompute() {
+    A = quiddity(); M = frieze(A);
+  }
+  function reset(kind) {
+    if (kind === 'fan') fan(); else if (kind === 'zig') zigzag(); else randomTri();
+    flips = 0; anim = null; prevVals = null; flash = 0; hover = null;
+    recompute(); layoutFrieze(); updateStats(); draw();
+  }
+  function doFlip(idx) {
+    const S = diagSet();
+    const [a, c] = diags[idx];
+    const ap = flipTarget(a, c, S);
+    if (!ap) return;
+    prevVals = M.map(r => r.slice());
+    const nb = [Math.min(ap[0], ap[1]), Math.max(ap[0], ap[1])];
+    diags[idx] = nb;
+    anim = { old: [a, c], neu: nb, t: 0 };
+    flash = 1; flips++;
+    recompute(); updateStats(); draw();
+  }
+  function randomFlip() { if (diags.length) doFlip(Math.floor(Math.random() * diags.length)); }
+
+  // ---------- polygon canvas ----------
+  const cp = $('cp'), gp = cp.getContext('2d');
+  let PW = 420, dpr = 1;
+  function vpos(v) {
+    const R = PW * 0.33, cx = PW / 2, cy = PW * 0.54;
+    const th = -Math.PI / 2 + 2 * Math.PI * v / n;
+    return [cx + R * Math.cos(th), cy + R * Math.sin(th)];
+  }
+  function hueFor(i, j) {
+    // a colour per unordered chord {i mod n, j mod n}
+    let a = mod(i, n), b = mod(j, n); if (a > b) [a, b] = [b, a];
+    const idx = a * n + b;
+    return (idx * 137.508) % 360;
+  }
+  function drawPoly() {
+    const w = PW;
+    gp.setTransform(dpr, 0, 0, dpr, 0, 0);
+    gp.clearRect(0, 0, w, w * 1.1);
+    const S = diagSet();
+    // triangles
+    const tris = [];
+    for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) if (isEdge(a, b, S))
+      for (let c = b + 1; c < n; c++) if (isEdge(b, c, S) && isEdge(a, c, S)) tris.push([a, b, c]);
+    tris.forEach((t, k) => {
+      gp.beginPath();
+      t.forEach((v, q) => { const p = vpos(v); q ? gp.lineTo(p[0], p[1]) : gp.moveTo(p[0], p[1]); });
+      gp.closePath();
+      gp.fillStyle = k % 2 ? 'rgba(110,231,216,0.06)' : 'rgba(110,231,216,0.11)';
+      gp.fill();
+    });
+    // hovered chord
+    if (hover) {
+      const a = mod(hover.i, n), b = mod(hover.j, n);
+      if (a !== b) {
+        const p = vpos(a), q = vpos(b);
+        gp.strokeStyle = '#ffab6e'; gp.lineWidth = 4; gp.globalAlpha = 0.85;
+        gp.beginPath(); gp.moveTo(p[0], p[1]); gp.lineTo(q[0], q[1]); gp.stroke();
+        gp.globalAlpha = 1;
+      }
+    }
+    // sides
+    gp.strokeStyle = 'rgba(232,230,225,0.75)'; gp.lineWidth = 1.6;
+    gp.beginPath();
+    for (let v = 0; v <= n; v++) { const p = vpos(v % n); v ? gp.lineTo(p[0], p[1]) : gp.moveTo(p[0], p[1]); }
+    gp.stroke();
+    // diagonals
+    const s = anim ? Math.min(1, anim.t) : 1;
+    for (const [a, b] of diags) {
+      const p = vpos(a), q = vpos(b);
+      const isNew = anim && a === anim.neu[0] && b === anim.neu[1];
+      gp.strokeStyle = '#6ee7d8'; gp.lineWidth = 1.8;
+      if (isNew) {
+        const e = s * s * (3 - 2 * s);
+        const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+        gp.beginPath();
+        gp.moveTo(mx + (p[0] - mx) * e, my + (p[1] - my) * e);
+        gp.lineTo(mx + (q[0] - mx) * e, my + (q[1] - my) * e);
+        gp.lineWidth = 2.6; gp.stroke();
+      } else {
+        gp.beginPath(); gp.moveTo(p[0], p[1]); gp.lineTo(q[0], q[1]); gp.stroke();
+      }
+    }
+    if (anim && s < 1) {
+      const p = vpos(anim.old[0]), q = vpos(anim.old[1]);
+      gp.strokeStyle = 'rgba(255,139,139,' + (1 - s).toFixed(3) + ')'; gp.lineWidth = 2.2;
+      gp.setLineDash([5, 4]);
+      gp.beginPath(); gp.moveTo(p[0], p[1]); gp.lineTo(q[0], q[1]); gp.stroke();
+      gp.setLineDash([]);
+    }
+    // vertices + quiddity labels
+    const changed = anim && s < 1 ? [anim.old[0], anim.old[1], anim.neu[0], anim.neu[1]] : [];
+    for (let v = 0; v < n; v++) {
+      const p = vpos(v);
+      gp.fillStyle = '#e8e6e1';
+      gp.beginPath(); gp.arc(p[0], p[1], 3.2, 0, 7); gp.fill();
+      const th = -Math.PI / 2 + 2 * Math.PI * v / n;
+      const lx = PW / 2 + PW * 0.42 * Math.cos(th), ly = PW * 0.54 + PW * 0.42 * Math.sin(th);
+      gp.textAlign = 'center'; gp.textBaseline = 'middle';
+      gp.font = '15px Georgia';
+      gp.fillStyle = changed.includes(v) ? '#ffab6e' : '#6ee7d8';
+      gp.fillText(String(A[v]), lx, ly);
+      gp.font = '10px monospace'; gp.fillStyle = '#9a97a0';
+      const sx = PW / 2 + PW * 0.37 * Math.cos(th), sy = PW * 0.54 + PW * 0.37 * Math.sin(th);
+      gp.fillText(String(v), sx, sy);
+    }
+  }
+  function segDist(px, py, a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    let t = ((px - a[0]) * dx + (py - a[1]) * dy) / (dx * dx + dy * dy);
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - a[0] - t * dx, py - a[1] - t * dy);
+  }
+  function chordAt(ev) {
+    const r = cp.getBoundingClientRect();
+    const x = (ev.clientX - r.left) * PW / r.width, y = (ev.clientY - r.top) * PW * 1.1 / r.height;
+    let best = null, bd = 9;
+    for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) {
+      const d = segDist(x, y, vpos(a), vpos(b));
+      // prefer triangulation diagonals slightly
+      const bonus = diagSet().has(key(a, b)) ? 2.5 : 0;
+      if (d - bonus < bd) { bd = d - bonus; best = [a, b]; }
+    }
+    return best;
+  }
+  cp.addEventListener('mousemove', ev => {
+    const c = chordAt(ev);
+    if (c) { hover = { i: c[0], j: c[1] }; hoverSrc = 'poly'; }
+    else if (hoverSrc === 'poly') hover = null;
+    updateInspect(); draw();
+  });
+  cp.addEventListener('mouseleave', () => { if (hoverSrc === 'poly') { hover = null; updateInspect(); draw(); } });
+  cp.addEventListener('click', ev => {
+    const c = chordAt(ev); if (!c) return;
+    const idx = diags.findIndex(([a, b]) => a === c[0] && b === c[1]);
+    if (idx >= 0) doFlip(idx);
+  });
+
+  // ---------- frieze canvas ----------
+  const cf = $('cf'), gf = cf.getContext('2d');
+  let FW = 1100, FH = 400, hs = 18, rowH = 28, x0 = 0, y0 = 40;
+  function layoutFrieze() {
+    FW = cf.parentElement.clientWidth || 1100;
+    rowH = Math.max(22, Math.min(34, 380 / (n + 1)));
+    FH = Math.round(rowH * (n + 1) + 70);
+    hs = Math.max(11, Math.min(24, FW / (2 * n * 2.35)));
+    x0 = 18; y0 = 46;
+    dpr = window.devicePixelRatio || 1;
+    cf.width = Math.round(FW * dpr); cf.height = Math.round(FH * dpr);
+    cf.style.height = FH + 'px';
+    PW = cp.parentElement.clientWidth || 420;
+    cp.width = Math.round(PW * dpr); cp.height = Math.round(PW * 1.1 * dpr);
+  }
+  // entry (i,j) sits at x = x0 + (i+j)·hs, y = y0 + (j−i)·rowH
+  const ex = (i, j) => x0 + (i + j) * hs;
+  const ey = (i, j) => y0 + (j - i) * rowH;
+  function visibleEntries() {
+    const out = [];
+    const smax = Math.floor((FW - x0 - 10) / hs);
+    for (let r = 0; r <= n; r++) {
+      for (let s = r; s <= smax; s++) {       // s = i + j, same parity as r
+        if ((s - r) % 2) continue;
+        const i = (s - r) / 2, j = i + r;
+        out.push([i, j]);
+      }
+    }
+    return out;
+  }
+  function drawFrieze() {
+    gf.setTransform(dpr, 0, 0, dpr, 0, 0);
+    gf.clearRect(0, 0, FW, FH);
+    const glide = $('cGlide').checked;
+    // glide axis and period brackets
+    gf.strokeStyle = 'rgba(255,171,110,0.35)'; gf.setLineDash([6, 6]); gf.lineWidth = 1;
+    const ymid = y0 + n * rowH / 2;
+    gf.beginPath(); gf.moveTo(0, ymid); gf.lineTo(FW, ymid); gf.stroke();
+    gf.setLineDash([]);
+    // period marks: translation by n in i shifts x by 2n·hs
+    gf.fillStyle = 'rgba(154,151,160,0.8)'; gf.font = '11px monospace'; gf.textAlign = 'center';
+    for (let k = 0; x0 + 2 * n * k * hs < FW; k++) {
+      const x = x0 + 2 * n * k * hs;
+      gf.strokeStyle = 'rgba(255,255,255,0.08)';
+      gf.beginPath(); gf.moveTo(x, y0 - 22); gf.lineTo(x, y0 + n * rowH + 12); gf.stroke();
+      gf.fillText(k === 0 ? 'i = 0' : 'i = ' + (n * k), x, y0 - 28);
+    }
+    const E = visibleEntries();
+    const fs = Math.max(10, Math.min(16, hs * 0.72));
+    // hovered: diamond + twin
+    let hl = new Map();
+    if (hover) {
+      const { i, j } = hover;
+      // all visible copies of this chord: (i+kn, j+kn) and glide twins (j+kn, i+(k+1)n)
+      for (const [p, q] of E) {
+        const same = mod(p - i, n) === 0 && q - p === j - i && true;
+        const twin = mod(p - j, n) === 0 && q - p === n - (j - i);
+        if (same && mod(q - j, n) === 0) hl.set(p + ',' + q, 'main');
+        else if (twin) hl.set(p + ',' + q, 'twin');
+      }
+    }
+    // diamond around the frieze-hovered entry
+    if (hover && hoverSrc === 'frieze') {
+      const { i, j } = hover, r = j - i;
+      if (r >= 1 && r <= n - 1) {
+        gf.strokeStyle = 'rgba(110,231,216,0.55)'; gf.lineWidth = 1.2;
+        const L = [ex(i, j), ey(i, j)], R = [ex(i + 1, j + 1), ey(i + 1, j + 1)];
+        const T = [ex(i + 1, j), ey(i + 1, j)], B = [ex(i, j + 1), ey(i, j + 1)];
+        gf.beginPath(); gf.moveTo(...T); gf.lineTo(...R); gf.lineTo(...B); gf.lineTo(...L); gf.closePath();
+        gf.fillStyle = 'rgba(110,231,216,0.07)'; gf.fill(); gf.stroke();
+      }
+    }
+    gf.textBaseline = 'middle';
+    for (const [i, j] of E) {
+      const r = j - i, v = m(i, j), x = ex(i, j), y = ey(i, j);
+      const border = r === 0 || r === n || r === 1 || r === n - 1;
+      const h = hl.get(i + ',' + j);
+      if (h) {
+        gf.beginPath(); gf.arc(x, y, fs * 0.95, 0, 7);
+        gf.fillStyle = h === 'main' ? 'rgba(255,171,110,0.28)' : 'rgba(255,171,110,0.12)';
+        gf.fill();
+        gf.strokeStyle = '#ffab6e'; gf.lineWidth = h === 'main' ? 1.6 : 1;
+        if (h === 'twin') gf.setLineDash([3, 3]);
+        gf.stroke(); gf.setLineDash([]);
+      }
+      if (flash > 0 && prevVals && prevVals[mod(i, n)][r] !== v) {
+        gf.beginPath(); gf.arc(x, y, fs * (0.9 + 0.6 * (1 - flash)), 0, 7);
+        gf.strokeStyle = 'rgba(255,171,110,' + (0.8 * flash).toFixed(3) + ')'; gf.lineWidth = 1.5; gf.stroke();
+      }
+      let col;
+      if (r === 0 || r === n) col = 'rgba(154,151,160,0.35)';
+      else if (r === 1 || r === n - 1) col = 'rgba(154,151,160,0.8)';
+      else if (glide) col = 'hsl(' + hueFor(i, j).toFixed(0) + ',70%,72%)';
+      else if (v === 1) col = '#6ee7d8';
+      else if (r === 2) col = '#e8e6e1';
+      else col = '#c9c6cf';
+      gf.fillStyle = col;
+      const txt = String(v);
+      gf.font = (r === 2 && !border ? 'bold ' : '') + (txt.length > 3 ? fs * 0.8 : fs).toFixed(1) + 'px Georgia';
+      gf.fillText(txt, x, y);
+    }
+  }
+
+  function draw() { drawPoly(); drawFrieze(); }
+
+  function friezeHit(ev) {
+    const r = cf.getBoundingClientRect();
+    const x = (ev.clientX - r.left) * FW / r.width, y = (ev.clientY - r.top) * FH / r.height;
+    let best = null, bd = 1e9;
+    for (const [i, j] of visibleEntries()) {
+      const d = Math.hypot(ex(i, j) - x, ey(i, j) - y);
+      if (d < bd) { bd = d; best = { i, j }; }
+    }
+    return bd < Math.max(hs, rowH) ? best : null;
+  }
+  cf.addEventListener('mousemove', ev => {
+    const h = friezeHit(ev);
+    if (h) { hover = h; hoverSrc = 'frieze'; }
+    else if (hoverSrc === 'frieze') hover = null;
+    updateInspect(); draw();
+  });
+  cf.addEventListener('mouseleave', () => { if (hoverSrc === 'frieze') { hover = null; updateInspect(); draw(); } });
+
+  // ---------- text panels ----------
+  function updateStats() {
+    const c = checks();
+    const sum = A.reduce((s, x) => s + x, 0);
+    const big = Math.max(...M.flat());
+    const mk = b => b ? '<span class="ok">✓</span>' : '<span class="no">✗</span>';
+    $('stats').innerHTML =
+      'quiddity&nbsp; (' + A.map((x, v) => '<b>' + x + '</b>').join(', ') + ')<br>' +
+      'Σ a<sub>v</sub> = ' + sum + ' = 3(n−2) ' + mk(sum === 3 * (n - 2)) + '<br>' +
+      'every diamond ad − bc = 1 ' + mk(c.diamondOK) + '&nbsp; all entries &gt; 0 ' + mk(c.posOK) + '<br>' +
+      'row n−1 is all 1s, row n all 0s ' + mk(c.closeOK) + '<br>' +
+      'interior 1s ⇔ the ' + (n - 3) + ' diagonals ' + mk(c.onesOK) + '<br>' +
+      'glide m<sub>i,j</sub> = m<sub>j,i+n</sub> ' + mk(c.glideOK) + '<br>' +
+      'largest entry <span class="o">' + big + '</span> &middot; flips so far ' + flips + '<br>' +
+      'triangulations of the ' + n + '-gon: C<sub>' + (n - 2) + '</sub> = ' + catalan(n - 2);
+    $('polyTag').textContent = n + '-gon · ' + (n - 3) + ' diagonals · ' + (n - 2) + ' triangles';
+    $('friezeTag').textContent = 'width ' + (n - 3) + ' · period ' + n + ' · glide by n/2 = ' + (n / 2);
+  }
+  function updateInspect() {
+    const el = $('inspect');
+    if (!hover) { el.innerHTML = 'Hover an entry of the frieze or a chord of the polygon.'; return; }
+    const { i, j } = hover, r = j - i;
+    const a = mod(i, n), b = mod(j, n);
+    let s = 'entry m<sub>' + i + ',' + j + '</sub> = <b>' + m(i, j) + '</b>&nbsp; (row ' + r + ')<br>';
+    if (r === 0 || r === n) s += 'a bounding row of zeros: the chord degenerates to a point.<br>';
+    else if (r === 1 || r === n - 1) s += 'chord ' + a + '–' + b + ' is a <b>side</b> of the polygon: λ = 1.<br>';
+    else {
+      const S = diagSet();
+      s += 'chord ' + a + '–' + b + (S.has(key(a, b)) ? ' is a <b>diagonal of the triangulation</b>, so λ = 1' : ' crosses the triangulation; its Ptolemy length is λ = ' + m(i, j)) + '<br>';
+    }
+    if (r >= 1 && r <= n - 1) {
+      const L = m(i, j), R = m(i + 1, j + 1), T = m(i + 1, j), B = m(i, j + 1);
+      s += 'diamond: ' + L + '·' + R + ' − ' + T + '·' + B + ' = <span class="' + (L * R - T * B === 1 ? 'ok' : 'no') + '">' + (L * R - T * B) + '</span><br>';
+    }
+    s += 'glide twin m<sub>' + j + ',' + (i + n) + '</sub> = ' + m(j, i + n) + ' (dashed ring, row ' + (n - r) + ')';
+    el.innerHTML = s;
+  }
+
+  // ---------- brute-force bijection check ----------
+  function countFriezes(N) {
+    // DFS on quiddity a_0..a_{N-1} in {1..N-2}; prune on positivity of the row m_{0,j}
+    let count = 0;
+    const a = new Array(N);
+    const closes = () => {
+      for (let i = 0; i < N; i++) {
+        let p = 0, q = 1;
+        for (let r = 2; r <= N; r++) {
+          const t = a[(i + r - 1) % N] * q - p; p = q; q = t;
+          if (r <= N - 2 && q <= 0) return false;
+          if (r === N - 1 && q !== 1) return false;
+          if (r === N && q !== 0) return false;
+        }
+      }
+      return true;
+    };
+    const rec = (k, p, q) => {       // p = m_{0,k-1}, q = m_{0,k} computed from a_1..a_{k-1}
+      if (k === N) { if (closes()) count++; return; }
+      for (let x = 1; x <= N - 2; x++) {
+        a[k] = x;
+        if (k === 0) { rec(1, 0, 1); continue; }
+        const t = x * q - p;         // m_{0,k+1}
+        if (k + 1 <= N - 2 && t <= 0) continue;
+        if (k + 1 === N - 1 && t !== 1) continue;
+        rec(k + 1, q, t);
+      }
+    };
+    rec(0, 0, 1);
+    return count;
+  }
+  function runBijection() {
+    const lines = [];
+    let all = true;
+    for (let N = 4; N <= 9; N++) {
+      const t0 = performance.now();
+      const c = countFriezes(N), C = catalan(N - 2);
+      if (c !== C) all = false;
+      lines.push('n = ' + N + ': ' + c + ' friezes, C<sub>' + (N - 2) + '</sub> = ' + C + ' ' +
+        (c === C ? '<span class="ok">✓</span>' : '<span class="no">✗</span>') +
+        ' <span style="color:#9a97a0">(' + (performance.now() - t0).toFixed(0) + ' ms)</span>');
+    }
+    $('bij').innerHTML = lines.join('<br>');
+    console.log('[frieze] brute-force frieze counts match Catalan numbers for n = 4..9:', all);
+  }
+
+  // ---------- loop ----------
+  let last = performance.now();
+  function step(dt) {
+    let dirty = false;
+    if (anim) { anim.t += dt / 550; if (anim.t >= 1) { anim.t = 1; anim = null; } dirty = true; }
+    if (flash > 0) { flash = Math.max(0, flash - dt / 900); dirty = true; }
+    if (walking) {
+      walkClock += dt;
+      if (walkClock > 1300) { walkClock = 0; randomFlip(); }
+    }
+    if (dirty) draw();
+  }
+  function loop(now) {
+    const dt = Math.min(100, now - last); last = now;
+    step(dt);
+    requestAnimationFrame(loop);
+  }
+  window.__frieze = { step, get n() { return n; }, get quiddity() { return A.slice(); }, m, doFlip, checks };
+
+  // ---------- controls ----------
+  $('nSlider').addEventListener('input', e => { n = +e.target.value; $('nVal').textContent = n; reset('rand'); });
+  $('bFan').onclick = () => reset('fan');
+  $('bZig').onclick = () => reset('zig');
+  $('bRand').onclick = () => reset('rand');
+  $('bFlip').onclick = randomFlip;
+  $('bWalk').onclick = () => {
+    walking = !walking; walkClock = 1300;
+    $('bWalk').classList.toggle('on', walking);
+    $('bWalk').innerHTML = walking ? '&#10074;&#10074; stop walking' : '&#9654; walk the flip graph';
+  };
+  $('cGlide').onchange = draw;
+  window.addEventListener('resize', () => { layoutFrieze(); draw(); });
+
+  // ---------- start ----------
+  layoutFrieze();
+  reset('zig');
+  // sanity: the n=6 fan from vertex 0 must have quiddity (4,1,2,2,2,1)
+  {
+    const save = [n, diags];
+    n = 6; fan(); recompute();
+    console.log('[frieze] n=6 fan quiddity', A.join(','), 'checks', JSON.stringify(checks()));
+    n = save[0]; diags = save[1]; recompute();
+  }
+  setTimeout(runBijection, 30);
+  walking = true; walkClock = 0; $('bWalk').classList.add('on'); $('bWalk').innerHTML = '&#10074;&#10074; stop walking';
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Rauzy Fractal — AutoViz 2026-09-03</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --accent2: #ffab6e;
+    --accent3: #b58cff;
+    --good: #7ee787;
+    --bad: #ff8b8b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.55;
+    padding: 1.6rem 1.2rem 2.5rem;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; letter-spacing: 0.06em; }
+  h1 { font-weight: normal; font-size: 1.9rem; margin: 0.4rem 0 0.5rem; }
+  p.math { color: #c9c6cf; max-width: 64rem; font-size: 1.02rem; }
+  p.math i { color: var(--ink); }
+  p.math b { font-weight: normal; color: var(--accent); }
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.9rem;
+    margin: 1rem 0 0.8rem; padding: 0.7rem 1rem;
+    border: 1px solid var(--panel-border); background: var(--panel);
+    border-radius: 10px; font-size: 0.92rem;
+  }
+  .controls label { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); }
+  .controls .val { color: var(--ink); font-family: monospace; font-size: 0.86rem; min-width: 2.4em; }
+  .controls .sep { width: 1px; height: 1.4em; background: var(--panel-border); }
+  input[type=range] { accent-color: var(--accent); width: 128px; }
+  button {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 0.25rem 0.7rem; font-family: inherit; font-size: 0.88rem;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  button.ta.on { border-color: var(--accent);  color: var(--accent); }
+  button.tb.on { border-color: var(--accent2); color: var(--accent2); }
+  button.tc.on { border-color: var(--accent3); color: var(--accent3); }
+  .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: stretch; }
+  .stage {
+    border: 1px solid var(--panel-border); background: rgba(0, 0, 0, 0.32);
+    border-radius: 12px; overflow: hidden; position: relative;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .stage.a { flex: 1.6 1 470px; min-width: 300px; }
+  .stage.b { flex: 1 1 320px; min-width: 300px; }
+  canvas { display: block; width: 100%; height: auto; }
+  #fractal { cursor: crosshair; }
+  .tag {
+    position: absolute; left: 0.7rem; top: 0.5rem; font-size: 0.9rem;
+    text-shadow: 0 0 6px #000, 0 0 12px #000; pointer-events: none;
+  }
+  .tag b { font-weight: normal; color: var(--accent); }
+  .tag small { display: block; color: var(--muted); font-size: 0.78rem; font-family: monospace; }
+  .hint {
+    position: absolute; left: 0.7rem; bottom: 0.45rem; right: 0.7rem; color: var(--muted);
+    font-size: 0.76rem; pointer-events: none; text-shadow: 0 0 6px #000;
+  }
+  .panels { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
+  .card {
+    flex: 1 1 300px; min-width: 285px; border: 1px solid var(--panel-border);
+    background: var(--panel); border-radius: 12px; padding: 0.85rem 1.05rem;
+  }
+  .card h2 { font-size: 0.76rem; font-weight: normal; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; }
+  .stat { font-family: monospace; font-size: 0.83rem; color: #c9c6cf; }
+  .stat b { font-weight: normal; color: var(--accent); }
+  .ok { color: var(--good); }
+  .no { color: var(--bad); }
+  .A { color: var(--accent); } .B { color: var(--accent2); } .C { color: var(--accent3); }
+  table.t { border-collapse: collapse; font-family: monospace; font-size: 0.78rem; width: 100%; }
+  table.t th { color: var(--muted); font-weight: normal; text-align: right; padding: 0.12rem 0.3rem;
+               border-bottom: 1px solid var(--panel-border); }
+  table.t td { text-align: right; padding: 0.1rem 0.3rem; color: #c9c6cf; white-space: nowrap; }
+  table.t td.k { text-align: left; color: var(--ink); }
+  .word { font-family: monospace; font-size: 0.82rem; letter-spacing: 0.08em;
+          word-break: break-all; color: #6a6772; }
+  .word span.on { color: var(--ink); }
+  .word span.cur { background: rgba(110,231,216,0.22); color: #fff; border-radius: 2px; }
+  .note { color: var(--muted); font-size: 0.82rem; margin-top: 0.45rem; }
+  footer { margin-top: 1.3rem; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; AutoViz</a>
+  <h1>The Rauzy Fractal of the Tribonacci Substitution</h1>
+  <p class="math">
+    The substitution &sigma;: <i>a</i>&rarr;<i>ab</i>, <i>b</i>&rarr;<i>ac</i>, <i>c</i>&rarr;<i>a</i> has incidence
+    matrix <i>M</i> with characteristic polynomial <i>x</i>&sup3; &minus; <i>x</i>&sup2; &minus; <i>x</i> &minus; 1, whose
+    Perron root is the Tribonacci constant <b>&beta; = 1.8392867552&hellip;</b>; the other two roots are complex
+    conjugates of modulus &beta;<sup>&minus;1/2</sup>, so &beta; is a <b>Pisot</b> number and <i>M</i> contracts the plane
+    they span. Write the fixed point <i>u</i> = <i>abacabaabacababacaba</i>&hellip; as a staircase in &#8484;&sup3;
+    &mdash; step by <i>e</i><sub><i>a</i></sub>, <i>e</i><sub><i>b</i></sub> or <i>e</i><sub><i>c</i></sub> per letter
+    &mdash; and project each vertex along the expanding eigendirection into that contracting plane by
+    &phi;(<i>x</i>) = &#10216;<i>x</i>, <i>w</i><sub>&alpha;</sub>&#10217; &isin; &#8450;, where <i>w</i><sub>&alpha;</sub><i>M</i>
+    = &alpha;<i>w</i><sub>&alpha;</sub>: the closure of the resulting bounded point set is <b>Rauzy's fractal</b> <i>R</i>,
+    cut into three subtiles <i>R</i><sub><i>a</i></sub>, <i>R</i><sub><i>b</i></sub>, <i>R</i><sub><i>c</i></sub> by the
+    letter that follows the prefix. Rauzy (1982) proved that <i>R</i> tiles the plane by the lattice
+    &Gamma; = &phi;({<i>x</i> &isin; &#8484;&sup3; : &Sigma;<i>x<sub>i</sub></i> = 0}) and that the <b>exchange of the three
+    subtiles</b>, <i>x</i> &#8614; <i>x</i> + &phi;(<i>e<sub>i</sub></i>) on <i>R<sub>i</sub></i>, is conjugate to a
+    rotation of the torus &#8450;/&Gamma; &mdash; so the symbolic dynamics of &sigma; is measurably a two-dimensional
+    irrational rotation, and following one prefix point forward is exactly reading off <i>u</i>.
+  </p>
+
+  <div class="controls">
+    <label>iterations &sigma;<sup>k</sup>
+      <input type="range" id="kSlider" min="3" max="20" step="1" value="19">
+      <span class="val" id="kVal">19</span>
+    </label>
+    <span class="stat" id="lenVal"></span>
+    <span class="sep"></span>
+    <span style="color:var(--muted)">subtiles</span>
+    <button class="ta on" id="tA">R&#8336;</button>
+    <button class="tb on" id="tB">R_b</button>
+    <button class="tc on" id="tC">R_c</button>
+    <span class="sep"></span>
+    <button id="tileBtn">tile by &Gamma;</button>
+    <span class="sep"></span>
+    <label>exchange rate
+      <input type="range" id="spdSlider" min="1" max="40" step="1" value="9">
+      <span class="val" id="spdVal">9/s</span>
+    </label>
+    <button id="playBtn" class="on">pause</button>
+    <button id="resetBtn">orbit &rarr; 0</button>
+  </div>
+
+  <div class="row">
+    <div class="stage a">
+      <canvas id="fractal" width="820" height="640"></canvas>
+      <div class="tag"><b>R = R&#8336; &cup; R_b &cup; R_c</b>
+        <small id="tag1">projected prefixes of u</small></div>
+      <div class="hint">click anywhere to start the domain exchange from the nearest prefix point &mdash; the orbit hops between subtiles</div>
+    </div>
+    <div class="stage b">
+      <canvas id="torus" width="440" height="440"></canvas>
+      <div class="tag"><b>&#8450;/&Gamma;</b><small id="tag2">the same orbit, one constant step</small></div>
+      <div class="hint">fundamental parallelogram spanned by &phi;(e&#8336;&minus;e_b), &phi;(e_b&minus;e_c)</div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <div class="card">
+      <h2>Substitution and its matrix</h2>
+      <div class="stat">
+        &sigma;(a) = <span class="A">a</span><span class="B">b</span> &nbsp;
+        &sigma;(b) = <span class="A">a</span><span class="C">c</span> &nbsp;
+        &sigma;(c) = <span class="A">a</span><br><br>
+        M = [[1,1,1],[1,0,0],[0,1,0]]&nbsp;&nbsp;(M<sub>ij</sub> = #i in &sigma;(j))<br>
+        &chi;<sub>M</sub>(x) = x&sup3; &minus; x&sup2; &minus; x &minus; 1<br>
+        &beta;&nbsp;= <b id="betaV"></b><br>
+        &alpha;&nbsp;= <b id="alphaV"></b><br><br>
+        &phi;(e&#8336;) = <span class="A" id="pa"></span><br>
+        &phi;(e_b) = <span class="B" id="pb"></span><br>
+        &phi;(e_c) = <span class="C" id="pc"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Numeric checks</h2>
+      <div class="stat" id="checks"></div>
+      <div class="note">Letter counts are the exact integer entries of M<sup>k</sup>e&#8336;; the area is a
+        260&times;260 occupancy estimate, so a percent of boundary overshoot is expected.</div>
+    </div>
+
+    <div class="card">
+      <h2>Orbit itinerary</h2>
+      <div class="stat" id="orbStat"></div>
+      <div class="word" id="itin" style="margin-top:0.5rem"></div>
+      <div class="note">Adding &phi;(e<sub>u<sub>n</sub></sub>) to the <i>n</i>-th prefix point gives the
+        (<i>n</i>+1)-st: the exchange <i>is</i> the shift on <i>u</i>.</div>
+    </div>
+  </div>
+
+  <footer>AutoViz &middot; 2026-09-03 &middot; generated by Claude (Fable 5)</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- exact-ish algebra: roots of x^3 - x^2 - x - 1 ---------- */
+  var beta = 1.9;
+  for (var i = 0; i < 60; i++) beta -= (beta*beta*beta - beta*beta - beta - 1) / (3*beta*beta - 2*beta - 1);
+  // sum of roots = 1, product of roots = 1  =>  Re(alpha) = (1-beta)/2, |alpha|^2 = 1/beta
+  var aRe = (1 - beta) / 2, aIm = Math.sqrt(1/beta - aRe*aRe);
+
+  function cmul(x, y) { return [x[0]*y[0] - x[1]*y[1], x[0]*y[1] + x[1]*y[0]]; }
+  function cdiv(x, y) { var d = y[0]*y[0] + y[1]*y[1];
+                        return [(x[0]*y[0] + x[1]*y[1])/d, (x[1]*y[0] - x[0]*y[1])/d]; }
+
+  var AL = [aRe, aIm], AL2 = cmul(AL, AL);
+  // left eigenvector of M for alpha:  w = (1, (alpha+1)/alpha^2, 1/alpha)
+  var PHI = [ [1, 0], cdiv([AL[0] + 1, AL[1]], AL2), cdiv([1, 0], AL) ];
+
+  /* ---------- the fixed point u = lim sigma^k(a) ---------- */
+  var KMAX = 20;
+  var LEN = [], CNT = [];             // CNT[k] = M^k e_a  (exact integers)
+  (function () {
+    var na = 1, nb = 0, nc = 0;
+    for (var k = 0; k <= KMAX; k++) {
+      LEN.push(na + nb + nc); CNT.push([na, nb, nc]);
+      var t = na; na = na + nb + nc; nc = nb; nb = t;
+    }
+  })();
+  var NMAX = LEN[KMAX];
+
+  var U = new Uint8Array([0]);
+  for (var k = 0; k < KMAX; k++) {
+    var len = 0, j;
+    for (j = 0; j < U.length; j++) len += (U[j] === 2 ? 1 : 2);
+    var out = new Uint8Array(len), p = 0;
+    for (j = 0; j < U.length; j++) {
+      var c = U[j];
+      if (c === 0) { out[p++] = 0; out[p++] = 1; }
+      else if (c === 1) { out[p++] = 0; out[p++] = 2; }
+      else { out[p++] = 0; }
+    }
+    U = out;
+  }
+
+  /* ---------- projected prefix points ---------- */
+  var PX = new Float64Array(NMAX + 1), PY = new Float64Array(NMAX + 1);
+  (function () {
+    var na = 0, nb = 0, nc = 0;
+    for (var n = 0; n <= NMAX; n++) {
+      PX[n] = na*PHI[0][0] + nb*PHI[1][0] + nc*PHI[2][0];
+      PY[n] = na*PHI[0][1] + nb*PHI[1][1] + nc*PHI[2][1];
+      if (n < NMAX) { var c = U[n]; if (c === 0) na++; else if (c === 1) nb++; else nc++; }
+    }
+  })();
+
+  var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (var n = 0; n < NMAX; n++) {
+    if (PX[n] < minX) minX = PX[n]; if (PX[n] > maxX) maxX = PX[n];
+    if (PY[n] < minY) minY = PY[n]; if (PY[n] > maxY) maxY = PY[n];
+  }
+
+  /* ---------- the lattice Gamma ---------- */
+  var G1 = [PHI[0][0] - PHI[1][0], PHI[0][1] - PHI[1][1]];   // phi(e_a - e_b)
+  var G2 = [PHI[1][0] - PHI[2][0], PHI[1][1] - PHI[2][1]];   // phi(e_b - e_c)
+  var DET = G1[0]*G2[1] - G2[0]*G1[1];
+  var COVOL = Math.abs(DET);
+  function toTorus(x, y) {                                   // coordinates in the (G1,G2) basis
+    var s = (x*G2[1] - G2[0]*y) / DET, t = (G1[0]*y - x*G1[1]) / DET;
+    return [s - Math.floor(s), t - Math.floor(t)];
+  }
+  var SHIFT = (function () { var s = (PHI[0][0]*G2[1] - G2[0]*PHI[0][1]) / DET,
+                                 t = (G1[0]*PHI[0][1] - PHI[0][0]*G1[1]) / DET;
+                             return [s - Math.floor(s), t - Math.floor(t)]; })();
+
+  /* ---------- area estimate (occupancy grid) ---------- */
+  var AREA_EST = (function () {
+    var G = 260, occ = new Uint8Array(G*G);
+    var span = Math.max(maxX - minX, maxY - minY);
+    for (var n = 0; n < NMAX; n++) {
+      var ix = Math.min(G-1, Math.floor((PX[n] - minX)/span*G));
+      var iy = Math.min(G-1, Math.floor((PY[n] - minY)/span*G));
+      occ[iy*G + ix] = 1;
+    }
+    var cnt = 0; for (var q = 0; q < G*G; q++) cnt += occ[q];
+    return cnt * (span/G) * (span/G);
+  })();
+
+  /* ---------- view ---------- */
+  var cv = document.getElementById('fractal'), cx = cv.getContext('2d');
+  var W = cv.width, H = cv.height, PAD = 1.5;
+  var SC = Math.min(W / ((maxX - minX)*PAD), H / ((maxY - minY)*PAD));
+  var CX = (minX + maxX)/2, CY = (minY + maxY)/2;
+  function sx(x) { return W/2 + (x - CX)*SC; }
+  function sy(y) { return H/2 - (y - CY)*SC; }
+  function wx(px) { return CX + (px - W/2)/SC; }
+  function wy(py) { return CY - (py - H/2)/SC; }
+
+  var off = document.createElement('canvas'); off.width = W; off.height = H;
+  var offCx = off.getContext('2d');
+  var img = offCx.createImageData(W, H);
+  var buf = new Uint32Array(img.data.buffer);
+  var COL = [0xff000000 | (216<<16) | (231<<8) | 110,     // a  teal   #6ee7d8
+             0xff000000 | (110<<16) | (171<<8) | 255,     // b  amber  #ffab6e
+             0xff000000 | (255<<16) | (140<<8) | 181];    // c  violet #b58cff
+  var CSS = ['#6ee7d8', '#ffab6e', '#b58cff'];
+  var LETTER = ['a', 'b', 'c'];
+
+  /* ---------- state ---------- */
+  var K = 19, N = LEN[K];
+  var show = [true, true, true];
+  var tiling = false, playing = true, rate = 9;
+  var drawn = 0, orbit = 0, trail = [], acc = 0, last = 0;
+
+  function restartRender() {
+    drawn = 0; buf.fill(0); offCx.putImageData(img, 0, 0);
+  }
+
+  function renderChunk() {
+    if (drawn >= N) return false;
+    var chunk = Math.max(600, Math.ceil(N / 140));
+    var end = Math.min(N, drawn + chunk);
+    for (var n = drawn; n < end; n++) {
+      var c = U[n]; if (!show[c]) continue;
+      var px = (W/2 + (PX[n] - CX)*SC) | 0, py = (H/2 - (PY[n] - CY)*SC) | 0;
+      if (px >= 0 && px < W && py >= 0 && py < H) buf[py*W + px] = COL[c];
+    }
+    drawn = end;
+    offCx.putImageData(img, 0, 0);
+    return true;
+  }
+
+  function draw() {
+    cx.clearRect(0, 0, W, H);
+    if (tiling) {
+      cx.globalAlpha = 0.30;
+      for (var m = -1; m <= 1; m++) for (var q = -1; q <= 1; q++) {
+        if (m === 0 && q === 0) continue;
+        cx.drawImage(off, (m*G1[0] + q*G2[0])*SC, -(m*G1[1] + q*G2[1])*SC);
+      }
+      cx.globalAlpha = 1;
+    }
+    cx.drawImage(off, 0, 0);
+
+    // domain-exchange orbit
+    for (var i = 0; i < trail.length; i++) {
+      var n = trail[i], a = (i + 1) / trail.length;
+      cx.fillStyle = CSS[U[n]];
+      cx.globalAlpha = 0.12 + 0.55*a*a;
+      cx.beginPath(); cx.arc(sx(PX[n]), sy(PY[n]), 1.6 + 2.4*a, 0, 6.2832); cx.fill();
+    }
+    cx.globalAlpha = 1;
+    if (trail.length > 1) {
+      var pv = trail[trail.length - 2], cu = trail[trail.length - 1];
+      cx.strokeStyle = CSS[U[pv]]; cx.lineWidth = 1.4; cx.globalAlpha = 0.8;
+      cx.beginPath(); cx.moveTo(sx(PX[pv]), sy(PY[pv])); cx.lineTo(sx(PX[cu]), sy(PY[cu])); cx.stroke();
+      cx.globalAlpha = 1;
+    }
+    cx.strokeStyle = '#fff'; cx.lineWidth = 1.6;
+    cx.beginPath(); cx.arc(sx(PX[orbit]), sy(PY[orbit]), 6.5, 0, 6.2832); cx.stroke();
+
+    drawTorus();
+  }
+
+  /* ---------- torus panel ---------- */
+  var tv = document.getElementById('torus'), tx = tv.getContext('2d');
+  var TW = tv.width, TH = tv.height;
+  var TSC = Math.min(TW / (Math.abs(G1[0]) + Math.abs(G2[0])), TH / (Math.abs(G1[1]) + Math.abs(G2[1]))) * 0.86;
+  var ORG = [TW/2 - (G1[0] + G2[0])*TSC/2, TH/2 + (G1[1] + G2[1])*TSC/2];
+  function tpt(s, t) { return [ORG[0] + (s*G1[0] + t*G2[0])*TSC, ORG[1] - (s*G1[1] + t*G2[1])*TSC]; }
+
+  function drawTorus() {
+    tx.clearRect(0, 0, TW, TH);
+    var c00 = tpt(0,0), c10 = tpt(1,0), c11 = tpt(1,1), c01 = tpt(0,1);
+    tx.fillStyle = 'rgba(255,255,255,0.028)';
+    tx.beginPath(); tx.moveTo(c00[0], c00[1]); tx.lineTo(c10[0], c10[1]);
+    tx.lineTo(c11[0], c11[1]); tx.lineTo(c01[0], c01[1]); tx.closePath(); tx.fill();
+    tx.strokeStyle = 'rgba(255,255,255,0.16)'; tx.lineWidth = 1; tx.stroke();
+
+    for (var i = 0; i < trail.length; i++) {
+      var n = trail[i], a = (i + 1) / trail.length;
+      var u = toTorus(PX[n], PY[n]), pt = tpt(u[0], u[1]);
+      tx.fillStyle = CSS[U[n]]; tx.globalAlpha = 0.10 + 0.6*a*a;
+      tx.beginPath(); tx.arc(pt[0], pt[1], 1.6 + 2.6*a, 0, 6.2832); tx.fill();
+    }
+    tx.globalAlpha = 1;
+    var uc = toTorus(PX[orbit], PY[orbit]), pc = tpt(uc[0], uc[1]);
+    var pn = tpt(uc[0] + SHIFT[0], uc[1] + SHIFT[1]);
+    tx.strokeStyle = 'rgba(255,255,255,0.55)'; tx.lineWidth = 1.2;
+    tx.setLineDash([4, 3]);
+    tx.beginPath(); tx.moveTo(pc[0], pc[1]); tx.lineTo(pn[0], pn[1]); tx.stroke();
+    tx.setLineDash([]);
+    tx.strokeStyle = '#fff'; tx.lineWidth = 1.6;
+    tx.beginPath(); tx.arc(pc[0], pc[1], 6.5, 0, 6.2832); tx.stroke();
+  }
+
+  /* ---------- readouts ---------- */
+  function f(x, d) { return (x < 0 ? '' : ' ') + x.toFixed(d === undefined ? 6 : d); }
+
+  function setStatic() {
+    document.getElementById('betaV').textContent = beta.toFixed(12);
+    document.getElementById('alphaV').textContent = aRe.toFixed(9) + ' + ' + aIm.toFixed(9) + 'i';
+    document.getElementById('pa').textContent = f(PHI[0][0]) + ' ' + (PHI[0][1] < 0 ? '-' : '+') + ' ' + Math.abs(PHI[0][1]).toFixed(6) + 'i';
+    document.getElementById('pb').textContent = f(PHI[1][0]) + ' ' + (PHI[1][1] < 0 ? '-' : '+') + ' ' + Math.abs(PHI[1][1]).toFixed(6) + 'i';
+    document.getElementById('pc').textContent = f(PHI[2][0]) + ' ' + (PHI[2][1] < 0 ? '-' : '+') + ' ' + Math.abs(PHI[2][1]).toFixed(6) + 'i';
+  }
+
+  function updateChecks() {
+    var c = CNT[K], tot = LEN[K];
+    var tgt = [1/beta, 1/(beta*beta), 1/(beta*beta*beta)];
+    var rows = '';
+    for (var i = 0; i < 3; i++) {
+      var got = c[i]/tot, err = Math.abs(got - tgt[i]);
+      rows += '<tr><td class="k"><span class="' + 'ABC'[i] + '">|' + LETTER[i] + '|</span></td>' +
+              '<td>' + c[i] + '</td><td>' + got.toFixed(9) + '</td><td>' + tgt[i].toFixed(9) + '</td>' +
+              '<td class="' + (err < 3e-5 ? 'ok' : 'no') + '">' + err.toExponential(1) + '</td></tr>';
+    }
+    var cubic = beta*beta*beta - beta*beta - beta - 1;
+    var pisot = (aRe*aRe + aIm*aIm)*beta;
+    var areaErr = Math.abs(AREA_EST - COVOL)/COVOL;
+    document.getElementById('checks').innerHTML =
+      '&beta;&sup3;&minus;&beta;&sup2;&minus;&beta;&minus;1 = <span class="ok">' + cubic.toExponential(1) + '</span><br>' +
+      '|&alpha;|&sup2;&middot;&beta; = <span class="' + (Math.abs(pisot-1) < 1e-12 ? 'ok' : 'no') + '">' + pisot.toFixed(14) + '</span> &nbsp;(&rArr; |&alpha;| &lt; 1: Pisot)<br>' +
+      'covol &Gamma; = <b>' + COVOL.toFixed(6) + '</b> &nbsp; area(R) &asymp; ' + AREA_EST.toFixed(4) +
+        ' <span class="' + (areaErr < 0.03 ? 'ok' : 'no') + '">(' + (100*areaErr).toFixed(2) + '%)</span><br>' +
+      'exchange vector on &#8450;/&Gamma; = (' + SHIFT[0].toFixed(9) + ', ' + SHIFT[1].toFixed(9) + ')<br>' +
+      '&nbsp;&nbsp;= (1&minus;1/&beta;, 1/&beta;&sup3;) = (' + (1 - 1/beta).toFixed(9) + ', ' + (1/(beta*beta*beta)).toFixed(9) + ')' +
+        ' <span class="' + (Math.abs(SHIFT[0] - (1 - 1/beta)) < 1e-12 && Math.abs(SHIFT[1] - 1/(beta*beta*beta)) < 1e-12 ? 'ok' : 'no') + '">&#10003;</span><br><br>' +
+      '<table class="t"><tr><th></th><th>M<sup>k</sup>e&#8336;</th><th>frequency</th><th>1/&beta;<sup>i</sup></th><th>err</th></tr>' + rows + '</table>';
+  }
+
+  function updateOrbit() {
+    var uc = toTorus(PX[orbit], PY[orbit]);
+    document.getElementById('orbStat').innerHTML =
+      'n = <b>' + orbit + '</b> &nbsp; u<sub>n</sub> = <span class="' + 'ABC'[U[orbit]] + '">' + LETTER[U[orbit]] + '</span>' +
+      ' &rArr; point &isin; R_' + LETTER[U[orbit]] + '<br>' +
+      'x = ' + f(PX[orbit]) + ' ' + (PY[orbit] < 0 ? '-' : '+') + ' ' + Math.abs(PY[orbit]).toFixed(6) + 'i<br>' +
+      '(s,t) = (' + uc[0].toFixed(6) + ', ' + uc[1].toFixed(6) + ')';
+    var s = '', lo = Math.max(0, orbit - 40);
+    for (var n = lo; n < Math.min(N, orbit + 32); n++)
+      s += '<span class="' + (n === orbit ? 'cur' : (n < orbit ? 'on' : '')) + '">' + LETTER[U[n]] + '</span>';
+    document.getElementById('itin').innerHTML = s;
+  }
+
+  /* ---------- controls ---------- */
+  var kS = document.getElementById('kSlider'), spdS = document.getElementById('spdSlider');
+  function setK(v) {
+    K = v; N = LEN[K];
+    document.getElementById('kVal').textContent = K;
+    document.getElementById('lenVal').textContent = '|σ^k(a)| = ' + N + ' letters';
+    document.getElementById('tag1').textContent = N + ' projected prefixes of u';
+    if (orbit >= N) orbit = 0;
+    trail = trail.filter(function (n) { return n < N; });
+    restartRender(); updateChecks(); updateOrbit();
+  }
+  kS.addEventListener('input', function () { setK(+kS.value); });
+  spdS.addEventListener('input', function () {
+    rate = +spdS.value; document.getElementById('spdVal').textContent = rate + '/s';
+  });
+  ['A', 'B', 'C'].forEach(function (L, i) {
+    var b = document.getElementById('t' + L);
+    b.addEventListener('click', function () {
+      show[i] = !show[i]; b.classList.toggle('on', show[i]); restartRender();
+    });
+  });
+  var tb = document.getElementById('tileBtn');
+  tb.addEventListener('click', function () { tiling = !tiling; tb.classList.toggle('on', tiling); draw(); });
+  var pb = document.getElementById('playBtn');
+  pb.addEventListener('click', function () {
+    playing = !playing; pb.classList.toggle('on', playing); pb.textContent = playing ? 'pause' : 'play';
+  });
+  document.getElementById('resetBtn').addEventListener('click', function () {
+    orbit = 0; trail = [0]; updateOrbit(); draw();
+  });
+  cv.addEventListener('click', function (ev) {
+    var r = cv.getBoundingClientRect();
+    var x = wx((ev.clientX - r.left) * W / r.width), y = wy((ev.clientY - r.top) * H / r.height);
+    var best = 0, bd = Infinity;
+    for (var n = 0; n < N; n++) {
+      var dx = PX[n] - x, dy = PY[n] - y, d = dx*dx + dy*dy;
+      if (d < bd) { bd = d; best = n; }
+    }
+    orbit = best; trail = [best]; updateOrbit(); draw();
+  });
+
+  /* ---------- loop ---------- */
+  function step(ts) {
+    if (!last) last = ts;
+    var dt = Math.min(0.1, (ts - last)/1000); last = ts;
+    renderChunk();
+    if (playing) {
+      acc += dt*rate;
+      while (acc >= 1) {
+        acc -= 1;
+        orbit = (orbit + 1) % (N - 1);
+        trail.push(orbit); if (trail.length > 70) trail.shift();
+      }
+      updateOrbit();
+    }
+    draw();
+    requestAnimationFrame(step);
+  }
+
+  setStatic(); setK(19); trail = [0]; draw();
+  requestAnimationFrame(step);
+
+  // expose for headless verification
+  window.__rauzy = {
+    beta: beta, alpha: AL, phi: PHI, covol: COVOL, area: AREA_EST, shift: SHIFT,
+    counts: CNT, lens: LEN, bbox: [minX, maxX, minY, maxY],
+    frame: function () { renderChunk(); draw(); },
+    finish: function () { while (renderChunk()) {} draw(); },
+    advance: function (m) { for (var i = 0; i < m; i++) { orbit = (orbit + 1) % (N - 1);
+                              trail.push(orbit); if (trail.length > 70) trail.shift(); }
+                            updateOrbit(); draw(); return orbit; },
+    setK: setK, state: function () { return { K: K, N: N, orbit: orbit, drawn: drawn, tiling: tiling }; }
+  };
+
+  console.log('[Rauzy] beta =', beta, ' residual =', beta*beta*beta - beta*beta - beta - 1);
+  console.log('[Rauzy] |alpha|^2 * beta =', (aRe*aRe + aIm*aIm)*beta, '(should be 1)');
+  console.log('[Rauzy] letter frequencies at k=20:', CNT[20].map(function (v) { return v/LEN[20]; }),
+              ' vs 1/beta^i:', [1/beta, 1/(beta*beta), 1/(beta*beta*beta)]);
+  console.log('[Rauzy] covol(Gamma) =', COVOL, ' grid area(R) =', AREA_EST);
+  console.log('[Rauzy] torus exchange vector =', SHIFT, ' vs (1-1/beta, 1/beta^3) =',
+              [1 - 1/beta, 1/(beta*beta*beta)]);
+})();
+</script>
+</body>
+</html>

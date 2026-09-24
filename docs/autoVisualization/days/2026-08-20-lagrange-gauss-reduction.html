@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lagrange–Gauss Lattice Reduction — AutoViz 2026-08-20</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --accent2: #ffab6e;
+    --good: #7ee787;
+    --warn: #ffd479;
+    --bad: #ff8b8b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.55;
+    padding: 1.6rem 1.2rem 2.5rem;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; letter-spacing: 0.06em; }
+  h1 { font-weight: normal; font-size: 1.9rem; margin: 0.4rem 0 0.5rem; }
+  p.math { color: #c9c6cf; max-width: 64rem; font-size: 1.02rem; }
+  p.math i { color: var(--ink); }
+  p.math b { font-weight: normal; color: var(--accent); }
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.9rem;
+    margin: 1rem 0 0.8rem; padding: 0.7rem 1rem;
+    border: 1px solid var(--panel-border); background: var(--panel);
+    border-radius: 10px; font-size: 0.92rem;
+  }
+  .controls label { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); }
+  .controls .val { color: var(--ink); font-family: monospace; font-size: 0.86rem; min-width: 2.4em; }
+  .controls .sep { width: 1px; height: 1.4em; background: var(--panel-border); }
+  input[type=range] { accent-color: var(--accent); width: 110px; }
+  input[type=checkbox] { accent-color: var(--accent); }
+  select {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 5px; padding: 0.2rem 0.35rem;
+    font-family: Georgia, serif; font-size: 0.88rem; max-width: 21rem;
+  }
+  button {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 0.25rem 0.7rem; font-family: inherit; font-size: 0.88rem;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: stretch; }
+  .stage {
+    border: 1px solid var(--panel-border); background: rgba(0, 0, 0, 0.32);
+    border-radius: 12px; overflow: hidden; position: relative;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .stage.a { flex: 1.35 1 420px; min-width: 300px; }
+  .stage.b { flex: 1 1 320px; min-width: 280px; }
+  canvas { display: block; touch-action: none; width: 100%; height: auto; }
+  .stage.a canvas { cursor: grab; }
+  .stage.b canvas { cursor: crosshair; }
+  .tag {
+    position: absolute; left: 0.7rem; top: 0.5rem; font-size: 0.9rem;
+    text-shadow: 0 0 6px #000, 0 0 12px #000; pointer-events: none;
+  }
+  .tag b { font-weight: normal; color: var(--accent); }
+  .tag small { display: block; color: var(--muted); font-size: 0.78rem; font-family: monospace; }
+  .hint {
+    position: absolute; left: 0.7rem; bottom: 0.45rem; right: 0.7rem; color: var(--muted);
+    font-size: 0.76rem; pointer-events: none; text-shadow: 0 0 6px #000;
+  }
+  .panels { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
+  .card {
+    flex: 1 1 300px; min-width: 280px; border: 1px solid var(--panel-border);
+    background: var(--panel); border-radius: 12px; padding: 0.85rem 1.05rem;
+  }
+  .card h2 { font-size: 0.76rem; font-weight: normal; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; }
+  .card h3 { font-size: 0.8rem; font-weight: normal; letter-spacing: 0.06em;
+             color: var(--muted); margin: 0.8rem 0 0.25rem; }
+  .stat { font-family: monospace; font-size: 0.83rem; color: #c9c6cf; }
+  .stat b { font-weight: normal; color: var(--accent); }
+  .ok { color: var(--good); }
+  .no { color: var(--bad); }
+  .amber { color: var(--accent2); }
+  .mat { display: inline-grid; grid-template-columns: repeat(2, 4.4em); gap: 0.1rem 0.3rem;
+         font-family: monospace; font-size: 0.83rem; color: var(--ink);
+         border-left: 2px solid var(--panel-border); border-right: 2px solid var(--panel-border);
+         padding: 0.18rem 0.4rem; margin: 0.15rem 0; text-align: right; }
+  .word { font-family: monospace; font-size: 0.9rem; color: var(--accent2);
+          word-break: break-word; line-height: 1.75; }
+  .word .cur { background: rgba(255,171,110,0.18); border-radius: 3px; padding: 0 2px; color: var(--warn); }
+  .word .done { color: var(--muted); }
+  .bar { height: 9px; border-radius: 5px; background: rgba(255,255,255,0.07);
+         position: relative; overflow: hidden; margin: 0.3rem 0 0.1rem; }
+  .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 5px; }
+  .bar u { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--accent2); }
+  .bar-lbl { display: flex; justify-content: space-between; font-family: monospace;
+             font-size: 0.75rem; color: var(--muted); }
+  .note { color: var(--muted); font-size: 0.82rem; margin-top: 0.4rem; }
+  footer { margin-top: 1.3rem; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; AutoViz</a>
+  <h1>Lagrange&ndash;Gauss Lattice Reduction</h1>
+  <p class="math">
+    Given a basis (<i>b</i><sub>1</sub>, <i>b</i><sub>2</sub>) of a lattice &Lambda; &sub; &#8477;&sup2;, swap so that
+    &#8214;<i>b</i><sub>1</sub>&#8214; &le; &#8214;<i>b</i><sub>2</sub>&#8214; and then subtract the nearest integer multiple,
+    <i>b</i><sub>2</sub> &larr; <i>b</i><sub>2</sub> &minus; &lceil;&#10216;<i>b</i><sub>1</sub>,<i>b</i><sub>2</sub>&#10217;/&#10216;<i>b</i><sub>1</sub>,<i>b</i><sub>1</sub>&#10217;&rfloor; <i>b</i><sub>1</sub>,
+    and repeat: this two-dimensional Euclidean algorithm terminates, and Lagrange's theorem says the output is
+    <b>reduced</b> &mdash; &#8214;<i>b</i><sub>1</sub>&#8214; &le; &#8214;<i>b</i><sub>2</sub>&#8214; and
+    2|&#10216;<i>b</i><sub>1</sub>,<i>b</i><sub>2</sub>&#10217;| &le; &#8214;<i>b</i><sub>1</sub>&#8214;&sup2; &mdash; which forces
+    &#8214;<i>b</i><sub>1</sub>&#8214; = &lambda;<sub>1</sub> and &#8214;<i>b</i><sub>2</sub>&#8214; = &lambda;<sub>2</sub>,
+    the successive minima of &Lambda;. Each step is an elementary matrix, so the whole run factors the change of basis
+    into the generators <b>S = [[0,&minus;1],[1,0]]</b> and <b>T = [[1,1],[0,1]]</b> of SL<sub>2</sub>(&#8484;).
+    Writing <b>&tau; = <i>b</i><sub>2</sub>/<i>b</i><sub>1</sub></b> in &#8450;, the two reduction conditions read exactly
+    |&tau;| &ge; 1 and |Re &tau;| &le; &frac12;: the algorithm <i>is</i> the descent of &tau; into the standard fundamental
+    domain of SL<sub>2</sub>(&#8484;) acting on &#8461;, drawn at right. Since
+    covol(&Lambda;) = &#8214;<i>b</i><sub>1</sub>&#8214;&sup2;&thinsp;Im&thinsp;&tau;, the reduced basis satisfies
+    &lambda;<sub>1</sub>&sup2;/covol(&Lambda;) = 1/Im&thinsp;&tau; &le; <b>2/&radic;3 = &gamma;<sub>2</sub></b>,
+    Hermite's constant, with equality only at the corner &tau; = e<sup>i&pi;/3</sup> &mdash; the hexagonal lattice.
+  </p>
+
+  <div class="controls">
+    <label>lattice
+      <select id="preset">
+        <option value="0" selected>skew basis &mdash; descends to &#8484;&sup2;</option>
+        <option value="1">Fibonacci sliver &mdash; long descent</option>
+        <option value="2">hexagonal &mdash; Hermite extremal, &gamma; = 2/&radic;3</option>
+        <option value="3">rectangle &mdash; already reduced</option>
+        <option value="4">wide skew &mdash; one swap</option>
+        <option value="5">tall shear &mdash; &tau; starts far left</option>
+      </select>
+    </label>
+    <button id="rand">randomize</button>
+    <span class="sep"></span>
+    <button id="play" class="on">&#10073;&#10073; pause</button>
+    <button id="step">step &#9654;</button>
+    <button id="reset">&#8635; restart</button>
+    <label>speed <input type="range" id="speed" min="0.3" max="3" step="0.1" value="1"><span class="val" id="speedv"></span></label>
+    <span class="sep"></span>
+    <label><input type="checkbox" id="snap" checked> snap to &#8484;&sup2; (exact Gram)</label>
+  </div>
+
+  <div class="row">
+    <div class="stage a">
+      <canvas id="cvA" width="1400" height="1050"></canvas>
+      <div class="tag" id="tagA">&nbsp;<small>&nbsp;</small></div>
+      <div class="hint">drag either arrowhead to change the lattice &middot; grey dots are &Lambda; &middot; dashed circle has radius &#8214;b<sub>1</sub>&#8214;</div>
+    </div>
+    <div class="stage b">
+      <canvas id="cvB" width="1040" height="760"></canvas>
+      <div class="tag" id="tagB">&nbsp;<small>&nbsp;</small></div>
+      <div class="hint">tiles are SL<sub>2</sub>(&#8484;)-translates of <i>F</i> &middot; a swap slides &tau; along the geodesic through <i>i</i> &middot; click anywhere to build &#8484; + &#8484;&tau;</div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <div class="card">
+      <h2>basis &amp; Gram matrix</h2>
+      <div class="stat" id="basis"></div>
+      <h3>G = B<sup>T</sup>B</h3>
+      <div class="mat" id="gram"></div>
+      <div class="stat" id="geom"></div>
+    </div>
+    <div class="card">
+      <h2>the word in SL<sub>2</sub>(&#8484;)</h2>
+      <div class="word" id="word"></div>
+      <h3>U so far &nbsp; (B<sub>0</sub>&thinsp;U = B)</h3>
+      <div class="mat" id="umat"></div>
+      <div class="stat" id="udet"></div>
+    </div>
+    <div class="card">
+      <h2>certificates</h2>
+      <div class="stat" id="cert"></div>
+      <h3>Hermite ratio &gamma;(&Lambda;) = &lambda;<sub>1</sub>&sup2;/covol</h3>
+      <div class="bar"><i id="hbar"></i><u id="hmark"></u></div>
+      <div class="bar-lbl"><span>0</span><span id="hval"></span><span>&gamma;<sub>2</sub> = 1.1547</span></div>
+      <div class="note" id="hnote"></div>
+    </div>
+  </div>
+
+  <footer>AutoViz &middot; 2026-08-20 &middot; generated by Claude (Fable 5)</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var cvA = document.getElementById('cvA'), ctxA = cvA.getContext('2d');
+  var cvB = document.getElementById('cvB'), ctxB = cvB.getContext('2d');
+  var SQ3 = Math.sqrt(3), GAMMA2 = 2 / SQ3;
+
+  // ---------- small helpers ----------
+  function dot(p, q) { return p[0] * q[0] + p[1] * q[1]; }
+  function det2(p, q) { return p[0] * q[1] - p[1] * q[0]; }
+  function nf(v) {
+    if (!isFinite(v)) return '—';
+    if (Math.abs(v - Math.round(v)) < 1e-9) return String(Math.round(v) + 0);
+    return v.toFixed(3);
+  }
+  function mmul(P, Q) {
+    return [[P[0][0] * Q[0][0] + P[0][1] * Q[1][0], P[0][0] * Q[0][1] + P[0][1] * Q[1][1]],
+            [P[1][0] * Q[0][0] + P[1][1] * Q[1][0], P[1][0] * Q[0][1] + P[1][1] * Q[1][1]]];
+  }
+  var MAT_S = [[0, -1], [1, 0]];
+  function MAT_T(k) { return [[1, k], [0, 1]]; }
+
+  // ---------- the algorithm ----------
+  // Ops on the basis (b1,b2) written as columns of B:
+  //   'S'  :  B <- B * [[0,-1],[1,0]]   i.e. (b1,b2) -> (b2, -b1)     (sign-corrected swap, det +1)
+  //   'T'  :  B <- B * [[1,-mu],[0,1]]  i.e. b2 -> b2 - mu*b1         (det +1)
+  function reduce(a, b) {
+    var x = a.slice(), y = b.slice();
+    var ops = [], frames = [{ x: x.slice(), y: y.slice() }], U = [[1, 0], [0, 1]];
+    var guard = 0, overflow = false;
+    while (true) {
+      if (guard++ > 60) { overflow = true; break; }
+      if (dot(x, x) <= 1e-14 || dot(y, y) <= 1e-14) break;
+      if (dot(x, x) > dot(y, y)) {
+        ops.push({ type: 'S' });
+        var nx = y.slice(), ny = [-x[0], -x[1]];
+        x = nx; y = ny;
+        U = mmul(U, MAT_S);
+        frames.push({ x: x.slice(), y: y.slice() });
+        continue;
+      }
+      var mu = Math.round(dot(x, y) / dot(x, x));
+      if (mu === 0 || !isFinite(mu)) break;
+      ops.push({ type: 'T', mu: mu });
+      y = [y[0] - mu * x[0], y[1] - mu * x[1]];
+      U = mmul(U, MAT_T(-mu));
+      frames.push({ x: x.slice(), y: y.slice() });
+    }
+    return { ops: ops, frames: frames, U: U, overflow: overflow };
+  }
+
+  function cmul(a, b) { return [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]]; }
+
+  // hyperbolic geodesic in H from p to q, at parameter t in [0,1]
+  function geo(p, q, t) {
+    if (Math.abs(p.re - q.re) < 1e-9) {
+      var l0 = Math.log(p.im), l1 = Math.log(q.im);
+      return { re: p.re, im: Math.exp(l0 + t * (l1 - l0)) };
+    }
+    var c = ((q.re * q.re + q.im * q.im) - (p.re * p.re + p.im * p.im)) / (2 * (q.re - p.re));
+    var r = Math.hypot(p.re - c, p.im);
+    var a0 = Math.atan2(p.im, p.re - c), a1 = Math.atan2(q.im, q.re - c);
+    var a = a0 + t * (a1 - a0);
+    return { re: c + r * Math.cos(a), im: r * Math.sin(a) };
+  }
+
+  // Continuous transition realising op i, at parameter t in [0,1].
+  //   T-step: a genuine shear of the plane — area preserved, tau translates horizontally.
+  //   S-step: a relabelling; b1 spirals onto b2 (multiplication by sigma = b2/b1 to the power t)
+  //           while tau slides along the hyperbolic geodesic from sigma to -1/sigma, which is
+  //           the arc through i, since S is the rotation of H by pi about i.
+  function interp(fr, op, t) {
+    if (!op) return { x: fr.x.slice(), y: fr.y.slice(), sw: 0 };
+    if (op.type === 'T') {
+      var k = t * op.mu;
+      return { x: fr.x.slice(), y: [fr.y[0] - k * fr.x[0], fr.y[1] - k * fr.x[1]], sw: 0 };
+    }
+    var x0 = fr.x, y0 = fr.y, n = dot(x0, x0);
+    var sre = (y0[0] * x0[0] + y0[1] * x0[1]) / n;      // sigma = b2/b1 as a complex number
+    var sim = det2(x0, y0) / n;
+    var up = sim > 0;
+    var p = { re: sre, im: Math.abs(sim) };
+    var m = p.re * p.re + p.im * p.im;
+    var q = { re: -p.re / m, im: p.im / m };            // the reflection of -1/sigma into H
+    var g = geo(p, q, t);
+    var tg = [g.re, up ? g.im : -g.im];
+    var r = Math.sqrt(m), th = Math.atan2(sim, sre), rt = Math.pow(r, t), tht = th * t;
+    var xt = cmul(x0, [rt * Math.cos(tht), rt * Math.sin(tht)]);
+    return { x: xt, y: cmul(xt, tg), sw: 1 };
+  }
+
+  // tau = b2/b1 as a complex number, reflected into the upper half plane when the
+  // basis is negatively oriented (the sign of Im tau is an invariant of the run).
+  function tauOf(x, y) {
+    var n = dot(x, x);
+    if (n < 1e-14) return { re: 0, im: 1e-6 };
+    var re = (y[0] * x[0] + y[1] * x[1]) / n;
+    var im = det2(x, y) / n;
+    return { re: re, im: Math.abs(im) < 1e-9 ? 1e-9 : Math.abs(im) };
+  }
+
+  // ---------- state ----------
+  var presets = [
+    { n: 'skew', b1: [7, 3], b2: [5, 2], snap: true },
+    { n: 'fib', b1: [8, 5], b2: [5, 3], snap: true },
+    { n: 'hex', b1: [5.4, 1.8 * SQ3], b2: [7.2, 3.6 * SQ3], snap: false },
+    { n: 'rect', b1: [3, 0], b2: [0, 7], snap: true },
+    { n: 'wide', b1: [9, -1], b2: [-2, 6], snap: true },
+    { n: 'tall', b1: [1, 3], b2: [-8, -5], snap: true }
+  ];
+
+  var S = {
+    b1: presets[0].b1.slice(), b2: presets[0].b2.slice(),
+    run: null, idx: 0, t: 0, playing: true, speed: 1, snap: true,
+    lattice: [], degenerate: false
+  };
+
+  // ---------- panel A geometry ----------
+  var WA = 9, WAbuilt = 9;                     // world half-width, in lattice units (auto-zooms)
+  function targetWA(st) {
+    var m = Math.max(Math.abs(st.x[0]), Math.abs(st.x[1]), Math.abs(st.y[0]), Math.abs(st.y[1]),
+                     Math.abs(st.x[0] + st.y[0]) * 0.75, Math.abs(st.x[1] + st.y[1]) * 0.75);
+    return Math.max(2.7, Math.min(13, m * 1.45 + 0.8));
+  }
+  function sclA() { return cvA.width / (2 * WA); }
+  function toA(p) { return [cvA.width / 2 + p[0] * sclA(), cvA.height / 2 - p[1] * sclA()]; }
+  function fromA(px, py) { return [(px - cvA.width / 2) / sclA(), (cvA.height / 2 - py) / sclA()]; }
+
+  function buildLattice() {
+    S.lattice = []; WAbuilt = WA;
+    var d = det2(S.b1, S.b2);
+    S.degenerate = Math.abs(d) < 1e-6;
+    if (S.degenerate) return;
+    var hy = WA * cvA.height / cvA.width;
+    var corners = [[-WA, -hy], [WA, -hy], [WA, hy], [-WA, hy]];
+    var lo = [1e9, 1e9], hi = [-1e9, -1e9];
+    for (var i = 0; i < 4; i++) {
+      var c = corners[i];
+      var m = (c[0] * S.b2[1] - c[1] * S.b2[0]) / d;
+      var n = (S.b1[0] * c[1] - S.b1[1] * c[0]) / d;
+      lo[0] = Math.min(lo[0], m); hi[0] = Math.max(hi[0], m);
+      lo[1] = Math.min(lo[1], n); hi[1] = Math.max(hi[1], n);
+    }
+    var m0 = Math.max(-300, Math.floor(lo[0]) - 1), m1 = Math.min(300, Math.ceil(hi[0]) + 1);
+    var n0 = Math.max(-300, Math.floor(lo[1]) - 1), n1 = Math.min(300, Math.ceil(hi[1]) + 1);
+    if ((m1 - m0 + 1) * (n1 - n0 + 1) > 20000) return;   // too dense to be informative
+    for (var m = m0; m <= m1; m++) {
+      for (var n = n0; n <= n1; n++) {
+        S.lattice.push([m * S.b1[0] + n * S.b2[0], m * S.b1[1] + n * S.b2[1]]);
+        if (S.lattice.length > 6000) return;
+      }
+    }
+  }
+
+  // ---------- panel B: the modular tessellation ----------
+  var HTOP = 6;
+  var FPTS = (function () {
+    var p = [], i, s, im;
+    for (i = 0; i <= 44; i++) { var a = Math.PI / 3 + (i / 44) * (Math.PI / 3); p.push([Math.cos(a), Math.sin(a)]); }
+    for (i = 1; i <= 22; i++) { s = i / 22; im = SQ3 / 2 + s * (HTOP - SQ3 / 2); p.push([-0.5, im]); }
+    for (i = 1; i <= 8; i++) { p.push([-0.5 + i / 8, HTOP]); }
+    for (i = 1; i < 22; i++) { s = i / 22; im = HTOP - s * (HTOP - SQ3 / 2); p.push([0.5, im]); }
+    return p;
+  })();
+
+  function mob(g, re, im) {                     // g = [a,b,c,d]
+    var dr = g[2] * re + g[3], di = g[2] * im;
+    var nr = g[0] * re + g[1], ni = g[0] * im;
+    var den = dr * dr + di * di;
+    if (den < 1e-18) return [0, 1e6];
+    return [(nr * dr + ni * di) / den, (ni * dr - nr * di) / den];
+  }
+  function gmul(P, Q) {
+    return [P[0] * Q[0] + P[1] * Q[2], P[0] * Q[1] + P[1] * Q[3],
+            P[2] * Q[0] + P[3] * Q[2], P[2] * Q[1] + P[3] * Q[3]];
+  }
+  var GEN = [[0, -1, 1, 0], [1, 1, 0, 1], [1, -1, 0, 1]];
+  function gkey(g) {
+    var a = g[0], b = g[1], c = g[2], d = g[3];
+    if (a < 0 || (a === 0 && b < 0)) { a = -a; b = -b; c = -c; d = -d; }
+    return a + ',' + b + ',' + c + ',' + d;
+  }
+
+  var viewB = { reC: 0, reHW: 1.4, imTop: 2.5 };
+  var tiles = null, tilesKey = '';
+  function sclB() { return Math.min(cvB.width / (2 * viewB.reHW), cvB.height / viewB.imTop); }
+  function toB(re, im) {
+    var s = sclB();
+    return [cvB.width / 2 + (re - viewB.reC) * s, cvB.height - im * s];
+  }
+  function fromB(px, py) {
+    var s = sclB();
+    return { re: (px - cvB.width / 2) / s + viewB.reC, im: (cvB.height - py) / s };
+  }
+
+  function buildTiles() {
+    var key = viewB.reC.toFixed(3) + '|' + viewB.reHW.toFixed(3) + '|' + viewB.imTop.toFixed(3);
+    if (tilesKey === key && tiles) return;
+    tilesKey = key; tiles = [];
+    var s = sclB();
+    var vx0 = -40, vx1 = cvB.width + 40, vy0 = -40, vy1 = cvB.height + 40;
+    var mx0 = -0.35 * cvB.width, mx1 = 1.35 * cvB.width, my0 = -0.5 * cvB.height, my1 = cvB.height + 60;
+    var seen = {}, queue = [[1, 0, 0, 1]], depth = { '1,0,0,1': 0 };
+    seen[gkey([1, 0, 0, 1])] = 1;
+    var head = 0;
+    while (head < queue.length && tiles.length < 1500 && head < 9000) {
+      var g = queue[head++];
+      var path = new Path2D(), x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      for (var i = 0; i < FPTS.length; i++) {
+        var w = mob(g, FPTS[i][0], FPTS[i][1]);
+        var p = toB(w[0], Math.min(w[1], 1e5));
+        var px = Math.max(-1e5, Math.min(1e5, p[0])), py = Math.max(-1e5, Math.min(1e5, p[1]));
+        if (i === 0) path.moveTo(px, py); else path.lineTo(px, py);
+        if (px < x0) x0 = px; if (px > x1) x1 = px;
+        if (py < y0) y0 = py; if (py > y1) y1 = py;
+      }
+      path.closePath();
+      var diam = Math.max(x1 - x0, y1 - y0);
+      var nearView = !(x1 < mx0 || x0 > mx1 || y1 < my0 || y0 > my1);
+      if (!nearView || diam < 1.0 * (s / 200 + 1)) continue;
+      var onView = !(x1 < vx0 || x0 > vx1 || y1 < vy0 || y0 > vy1);
+      if (onView) tiles.push({ path: path, d: depth[gkey(g)] || 0 });
+      for (var k = 0; k < 3; k++) {
+        var h = gmul(g, GEN[k]), hk = gkey(h);
+        if (!seen[hk]) { seen[hk] = 1; depth[hk] = (depth[gkey(g)] || 0) + 1; queue.push(h); }
+      }
+    }
+  }
+
+  // ---------- the run ----------
+  var traj = [];       // dense samples of tau along the whole animation
+  var nodes = [];      // tau at each frame boundary
+  function startRun(keepPlaying) {
+    S.run = reduce(S.b1, S.b2);
+    S.idx = 0; S.t = 0;
+    if (keepPlaying !== false) S.playing = true;
+    if (!dragging) WA = targetWA(S.run.frames[0]);
+    buildLattice();
+    traj = []; nodes = [];
+    var f, i, j;
+    for (i = 0; i < S.run.frames.length; i++) {
+      f = S.run.frames[i];
+      nodes.push(tauOf(f.x, f.y));
+    }
+    for (i = 0; i < S.run.ops.length; i++) {
+      f = S.run.frames[i];
+      for (j = 0; j < 24; j++) {
+        var st = interp(f, S.run.ops[i], j / 24);
+        traj.push(tauOf(st.x, st.y));
+      }
+    }
+    traj.push(nodes[nodes.length - 1]);
+    // fit the half-plane view around the nodes (arcs may overshoot and simply clip)
+    var reMin = -0.65, reMax = 0.65, imMax = 1.25;
+    for (i = 0; i < nodes.length; i++) {
+      reMin = Math.min(reMin, nodes[i].re); reMax = Math.max(reMax, nodes[i].re);
+      imMax = Math.max(imMax, nodes[i].im);
+    }
+    var c = Math.max(-1.1, Math.min(1.1, (reMin + reMax) / 2));
+    var hw = Math.max(1.4, Math.min(2.8, (reMax - reMin) / 2 + 0.4));
+    var top = Math.max(2.2, Math.min(3.4, imMax + 0.4));
+    viewB = { reC: c, reHW: hw, imTop: top };
+    buildTiles();
+    updatePanels();
+  }
+
+  function curState() {
+    var fr = S.run.frames[Math.min(S.idx, S.run.frames.length - 1)];
+    var op = S.run.ops[S.idx];
+    return interp(fr, op, S.t);
+  }
+
+  // ---------- drawing: panel A ----------
+  function arrow(ctx, from, to, col, w) {
+    var a = toA(from), b = toA(to);
+    var dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+    if (L < 1e-6) return;
+    var ux = dx / L, uy = dy / L, h = Math.min(20 * (cvA.width / 1400), L * 0.35);
+    ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0] - ux * h * 0.8, b[1] - uy * h * 0.8); ctx.stroke();
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(b[0], b[1]);
+    ctx.lineTo(b[0] - ux * h - uy * h * 0.42, b[1] - uy * h + ux * h * 0.42);
+    ctx.lineTo(b[0] - ux * h + uy * h * 0.42, b[1] - uy * h - ux * h * 0.42);
+    ctx.closePath(); ctx.fill();
+  }
+
+  function drawA(st) {
+    var W = cvA.width, H = cvA.height, s = sclA(), k = W / 1400;
+    ctxA.clearRect(0, 0, W, H);
+    ctxA.fillStyle = 'rgba(6,9,15,0.55)'; ctxA.fillRect(0, 0, W, H);
+
+    if (S.snap) {                                   // integer grid
+      ctxA.strokeStyle = 'rgba(255,255,255,0.045)'; ctxA.lineWidth = 1 * k;
+      ctxA.beginPath();
+      var gm = Math.ceil(WA);
+      for (var g = -gm; g <= gm; g++) {
+        var p = toA([g, 0]); ctxA.moveTo(p[0], 0); ctxA.lineTo(p[0], H);
+        var q = toA([0, g]); ctxA.moveTo(0, q[1]); ctxA.lineTo(W, q[1]);
+      }
+      ctxA.stroke();
+    }
+    ctxA.strokeStyle = 'rgba(255,255,255,0.13)'; ctxA.lineWidth = 1.2 * k;
+    ctxA.beginPath();
+    ctxA.moveTo(0, H / 2); ctxA.lineTo(W, H / 2); ctxA.moveTo(W / 2, 0); ctxA.lineTo(W / 2, H); ctxA.stroke();
+
+    // fundamental parallelogram of the current basis — area is exactly covol(Λ) during a
+    // shear, so it stays solid there and fades out through the (area-changing) relabelling
+    var fade = st.sw ? 1 - 0.9 * Math.sin(Math.PI * S.t) : 1;
+    if (!S.degenerate && fade > 0.03) {
+      var o = toA([0, 0]), p1 = toA(st.x), p2 = toA(st.y), p12 = toA([st.x[0] + st.y[0], st.x[1] + st.y[1]]);
+      ctxA.fillStyle = 'rgba(110,231,216,' + (0.075 * fade).toFixed(4) + ')';
+      ctxA.beginPath(); ctxA.moveTo(o[0], o[1]); ctxA.lineTo(p1[0], p1[1]);
+      ctxA.lineTo(p12[0], p12[1]); ctxA.lineTo(p2[0], p2[1]); ctxA.closePath(); ctxA.fill();
+      ctxA.strokeStyle = 'rgba(110,231,216,' + (0.22 * fade).toFixed(4) + ')'; ctxA.lineWidth = 1.2 * k; ctxA.stroke();
+    }
+
+    // the lattice itself (invariant under every step)
+    ctxA.fillStyle = 'rgba(206,206,222,0.72)';
+    for (var i = 0; i < S.lattice.length; i++) {
+      var q2 = toA(S.lattice[i]);
+      if (q2[0] < -6 || q2[0] > W + 6 || q2[1] < -6 || q2[1] > H + 6) continue;
+      ctxA.beginPath(); ctxA.arc(q2[0], q2[1], 3.6 * k, 0, 6.2832); ctxA.fill();
+    }
+    ctxA.fillStyle = '#fff';
+    var oo = toA([0, 0]); ctxA.beginPath(); ctxA.arc(oo[0], oo[1], 4 * k, 0, 6.2832); ctxA.fill();
+
+    // circle of radius ||b1||: at the end it is empty of nonzero lattice points
+    var r1 = Math.hypot(st.x[0], st.x[1]);
+    ctxA.setLineDash([6 * k, 6 * k]);
+    ctxA.strokeStyle = S.idx >= S.run.ops.length ? 'rgba(126,231,135,0.75)' : 'rgba(110,231,216,0.4)';
+    ctxA.lineWidth = 1.6 * k;
+    ctxA.beginPath(); ctxA.arc(oo[0], oo[1], r1 * s, 0, 6.2832); ctxA.stroke();
+    ctxA.setLineDash([]);
+
+    arrow(ctxA, [0, 0], st.y, '#ffab6e', 3.2 * k);
+    arrow(ctxA, [0, 0], st.x, '#6ee7d8', 3.6 * k);
+
+    // draggable handles
+    var hx = toA(st.x), hy = toA(st.y);
+    ctxA.lineWidth = 1.6 * k;
+    ctxA.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctxA.beginPath(); ctxA.arc(hx[0], hx[1], 10 * k, 0, 6.2832); ctxA.stroke();
+    ctxA.beginPath(); ctxA.arc(hy[0], hy[1], 10 * k, 0, 6.2832); ctxA.stroke();
+
+    ctxA.font = (20 * k) + 'px Georgia, serif';
+    ctxA.fillStyle = '#6ee7d8'; ctxA.fillText('b₁', hx[0] + 13 * k, hx[1] - 11 * k);
+    ctxA.fillStyle = '#ffab6e'; ctxA.fillText('b₂', hy[0] + 13 * k, hy[1] - 11 * k);
+  }
+
+  // ---------- drawing: panel B ----------
+  function drawB(st) {
+    var W = cvB.width, H = cvB.height, s = sclB(), k = W / 1040;
+    ctxB.clearRect(0, 0, W, H);
+    ctxB.fillStyle = 'rgba(6,9,15,0.55)'; ctxB.fillRect(0, 0, W, H);
+
+    buildTiles();
+    for (var i = 0; i < tiles.length; i++) {
+      var d = tiles[i].d;
+      ctxB.fillStyle = 'rgba(150,170,220,' + (0.045 - Math.min(0.03, d * 0.0022)).toFixed(4) + ')';
+      ctxB.fill(tiles[i].path);
+      ctxB.strokeStyle = 'rgba(160,180,230,0.16)'; ctxB.lineWidth = 1 * k;
+      ctxB.stroke(tiles[i].path);
+    }
+    // the standard fundamental domain F
+    var fp = new Path2D();
+    for (i = 0; i < FPTS.length; i++) {
+      var p = toB(FPTS[i][0], FPTS[i][1]);
+      if (i === 0) fp.moveTo(p[0], p[1]); else fp.lineTo(p[0], p[1]);
+    }
+    fp.closePath();
+    ctxB.fillStyle = 'rgba(110,231,216,0.11)'; ctxB.fill(fp);
+    ctxB.strokeStyle = 'rgba(110,231,216,0.65)'; ctxB.lineWidth = 2 * k; ctxB.stroke(fp);
+
+    // real axis
+    ctxB.strokeStyle = 'rgba(255,255,255,0.22)'; ctxB.lineWidth = 1.4 * k;
+    ctxB.beginPath(); ctxB.moveTo(0, H - 0.5); ctxB.lineTo(W, H - 0.5); ctxB.stroke();
+
+    // trajectory
+    if (traj.length > 1) {
+      ctxB.strokeStyle = 'rgba(255,171,110,0.55)'; ctxB.lineWidth = 2.2 * k;
+      ctxB.beginPath();
+      for (i = 0; i < traj.length; i++) {
+        var t = toB(traj[i].re, traj[i].im);
+        if (i === 0) ctxB.moveTo(t[0], t[1]); else ctxB.lineTo(t[0], t[1]);
+      }
+      ctxB.stroke();
+    }
+    ctxB.fillStyle = 'rgba(255,171,110,0.75)';
+    for (i = 0; i < nodes.length; i++) {
+      var nn = toB(nodes[i].re, nodes[i].im);
+      ctxB.beginPath(); ctxB.arc(nn[0], nn[1], 3.4 * k, 0, 6.2832); ctxB.fill();
+    }
+
+    // live tau
+    var tau = tauOf(st.x, st.y);
+    var c = toB(tau.re, tau.im);
+    var inF = tau.im > 0 && (tau.re * tau.re + tau.im * tau.im) >= 1 - 1e-9 && Math.abs(tau.re) <= 0.5 + 1e-9;
+    ctxB.fillStyle = inF ? '#7ee787' : '#ffd479';
+    ctxB.beginPath(); ctxB.arc(c[0], c[1], 6.5 * k, 0, 6.2832); ctxB.fill();
+    ctxB.strokeStyle = 'rgba(0,0,0,0.8)'; ctxB.lineWidth = 1.6 * k; ctxB.stroke();
+
+    ctxB.font = (19 * k) + 'px Georgia, serif';
+    ctxB.fillStyle = 'rgba(232,230,225,0.8)';
+    ctxB.fillText('τ', c[0] + 11 * k, c[1] - 9 * k);
+    var rho = toB(0.5, SQ3 / 2);
+    if (rho[1] > 24 * k && rho[1] < H) {
+      ctxB.fillStyle = 'rgba(110,231,216,0.7)';
+      ctxB.beginPath(); ctxB.arc(rho[0], rho[1], 3.4 * k, 0, 6.2832); ctxB.fill();
+      ctxB.fillText('ρ', rho[0] + 9 * k, rho[1] - 8 * k);
+    }
+    return tau;
+  }
+
+  // ---------- panels ----------
+  function wordHTML() {
+    var ops = S.run.ops, out = [];
+    if (!ops.length) return '<span class="done">(empty word &mdash; the input basis is already reduced)</span>';
+    for (var i = 0; i < ops.length; i++) {
+      var o = ops[i], sym;
+      if (o.type === 'S') sym = 'S';
+      else {
+        var e = -o.mu;
+        sym = 'T' + (e === 1 ? '' : sup(e));
+      }
+      var cls = i < S.idx ? 'done' : (i === S.idx ? 'cur' : '');
+      out.push('<span class="' + cls + '">' + sym + '</span>');
+    }
+    return out.join('<span class="done">·</span>');
+  }
+  function sup(n) {
+    var m = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+              '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+    return String(n).split('').map(function (c) { return m[c] || c; }).join('');
+  }
+  function matHTML(M) {
+    return '<span>' + M[0][0] + '</span><span>' + M[0][1] + '</span>' +
+           '<span>' + M[1][0] + '</span><span>' + M[1][1] + '</span>';
+  }
+  function gramHTML(x, y) {
+    var a = dot(x, x), b = dot(x, y), c = dot(y, y);
+    return '<span>' + nf(a) + '</span><span>' + nf(b) + '</span>' +
+           '<span>' + nf(b) + '</span><span>' + nf(c) + '</span>';
+  }
+
+  // accumulated U through step S.idx (integer, exact)
+  function partialU() {
+    var U = [[1, 0], [0, 1]];
+    for (var i = 0; i < S.idx && i < S.run.ops.length; i++) {
+      var o = S.run.ops[i];
+      U = mmul(U, o.type === 'S' ? MAT_S : MAT_T(-o.mu));
+    }
+    return U;
+  }
+
+  function shortestBySearch(x, y, R) {
+    var best = Infinity, cnt = 0;
+    for (var m = -R; m <= R; m++) for (var n = -R; n <= R; n++) {
+      if (m === 0 && n === 0) continue;
+      cnt++;
+      var v = [m * x[0] + n * y[0], m * x[1] + n * y[1]];
+      var q = dot(v, v);
+      if (q < best) best = q;
+    }
+    return { min: Math.sqrt(best), count: cnt };
+  }
+
+  function updatePanels() {
+    var st = curState();
+    var fin = S.run.frames[S.run.frames.length - 1];
+    var U = partialU(), Ufull = S.run.U;
+    var tau = tauOf(st.x, st.y);
+    var d = Math.abs(det2(S.b1, S.b2));            // covol(Λ) — an invariant of the lattice
+    var n1 = Math.hypot(st.x[0], st.x[1]), n2 = Math.hypot(st.y[0], st.y[1]);
+
+    document.getElementById('basis').innerHTML =
+      '<b>b₁</b> = (' + nf(st.x[0]) + ', ' + nf(st.x[1]) + ')&nbsp;&nbsp;‖b₁‖ = ' + n1.toFixed(4) + '<br>' +
+      '<b>b₂</b> = (' + nf(st.y[0]) + ', ' + nf(st.y[1]) + ')&nbsp;&nbsp;‖b₂‖ = ' + n2.toFixed(4);
+    document.getElementById('gram').innerHTML = gramHTML(st.x, st.y);
+
+    var okA = dot(st.x, st.x) <= dot(st.y, st.y) + 1e-9;
+    var okB = 2 * Math.abs(dot(st.x, st.y)) <= dot(st.x, st.x) + 1e-9;
+    document.getElementById('geom').innerHTML =
+      'covol Λ = ' + d.toFixed(4) + ' (invariant)<br>' +
+      'τ = ' + tau.re.toFixed(4) + ' + ' + tau.im.toFixed(4) + ' i&nbsp;&nbsp;|τ| = ' + Math.hypot(tau.re, tau.im).toFixed(4) + '<br>' +
+      '<span class="' + (okA ? 'ok' : 'no') + '">' + (okA ? '✓' : '✗') + ' ‖b₁‖ ≤ ‖b₂‖ (|τ| ≥ 1)</span><br>' +
+      '<span class="' + (okB ? 'ok' : 'no') + '">' + (okB ? '✓' : '✗') + ' 2|⟨b₁,b₂⟩| ≤ ‖b₁‖² (|Re τ| ≤ ½)</span>';
+
+    document.getElementById('word').innerHTML = wordHTML();
+    document.getElementById('umat').innerHTML = matHTML(U);
+    var dU = U[0][0] * U[1][1] - U[0][1] * U[1][0];
+    document.getElementById('udet').innerHTML =
+      '<span class="' + (dU === 1 ? 'ok' : 'no') + '">det U = ' + dU + (dU === 1 ? ' ✓ (exact integers)' : '') + '</span>' +
+      '<br>letters applied: ' + Math.min(S.idx, S.run.ops.length) + ' of ' + S.run.ops.length;
+
+    // certificates, evaluated on the final reduced basis
+    var lam1 = Math.hypot(fin.x[0], fin.x[1]), lam2 = Math.hypot(fin.y[0], fin.y[1]);
+    var covol = Math.abs(det2(fin.x, fin.y));
+    var srch = shortestBySearch(fin.x, fin.y, 6);
+    var lamOK = Math.abs(srch.min - lam1) < 1e-7 * (1 + lam1);
+    // B0 * Ufull == Bfinal ?
+    var B0 = [S.b1, S.b2];
+    var c1 = [B0[0][0] * Ufull[0][0] + B0[1][0] * Ufull[1][0], B0[0][1] * Ufull[0][0] + B0[1][1] * Ufull[1][0]];
+    var c2 = [B0[0][0] * Ufull[0][1] + B0[1][0] * Ufull[1][1], B0[0][1] * Ufull[0][1] + B0[1][1] * Ufull[1][1]];
+    var err = Math.max(Math.abs(c1[0] - fin.x[0]), Math.abs(c1[1] - fin.x[1]),
+                       Math.abs(c2[0] - fin.y[0]), Math.abs(c2[1] - fin.y[1]));
+    var gam = covol > 1e-12 ? lam1 * lam1 / covol : 0;
+
+    document.getElementById('cert').innerHTML =
+      'λ₁ = ' + lam1.toFixed(5) + '&nbsp;&nbsp;λ₂ = ' + lam2.toFixed(5) + '<br>' +
+      '<span class="' + (lamOK ? 'ok' : 'no') + '">' + (lamOK ? '✓' : '✗') +
+        ' λ₁ = min over ' + srch.count + ' nonzero<br>&nbsp;&nbsp;&nbsp;combinations m b₁ + n b₂, |m|,|n| ≤ 6</span><br>' +
+      '<span class="' + (err < 1e-9 ? 'ok' : 'amber') + '">✓ B₀ U = B, max entry error ' + err.toExponential(1) + '</span><br>' +
+      '<span class="' + (srch.min * lam2 >= covol - 1e-7 ? 'ok' : 'no') + '">✓ λ₁λ₂ = ' +
+        (lam1 * lam2).toFixed(4) + ' ≥ covol = ' + covol.toFixed(4) + '</span>' +
+      (S.run.overflow ? '<br><span class="no">✗ iteration cap hit (near-degenerate basis)</span>' : '');
+
+    document.getElementById('hbar').style.width = Math.max(0, Math.min(100, 100 * gam / 1.25)) + '%';
+    document.getElementById('hmark').style.left = (100 * GAMMA2 / 1.25) + '%';
+    document.getElementById('hval').textContent = 'γ = ' + gam.toFixed(5);
+    var extremal = Math.abs(gam - GAMMA2) < 2e-4;
+    document.getElementById('hnote').innerHTML = extremal
+      ? '<span class="ok">at the bound: this lattice is hexagonal — τ sits on the corner ρ = ½ + i√3/2 of F.</span>'
+      : 'the bound γ ≤ 2/√3 = ' + GAMMA2.toFixed(5) + ' is attained only when τ is a corner of F.';
+
+    // stage captions
+    var op = S.run.ops[S.idx], cap, sub;
+    if (!op) {
+      cap = '<b>reduced</b> — ‖b₁‖ = λ₁, ‖b₂‖ = λ₂';
+      sub = 'τ has landed in F';
+    } else if (op.type === 'S') {
+      cap = 'step ' + (S.idx + 1) + ' of ' + S.run.ops.length + ': <b>swap</b> — ‖b₁‖ &gt; ‖b₂‖';
+      sub = '(b₁,b₂) → (b₂,−b₁)&nbsp;&nbsp;τ ↦ −1/τ along the geodesic through i';
+    } else {
+      var sg = op.mu < 0 ? '+ ' + (-op.mu) : '− ' + op.mu;
+      cap = 'step ' + (S.idx + 1) + ' of ' + S.run.ops.length + ': <b>b₂ ← b₂ ' + sg + ' b₁</b>';
+      sub = 'μ = round⟨b₁,b₂⟩/‖b₁‖² = ' + op.mu + '&nbsp;&nbsp;τ ↦ τ ' + sg + ' (a shear)';
+    }
+    document.getElementById('tagA').innerHTML = cap + '<small>' + sub + '</small>';
+    document.getElementById('tagB').innerHTML =
+      '<b>&#8461; / SL₂(ℤ)</b><small>|τ| = ' + Math.hypot(tau.re, tau.im).toFixed(3) +
+      '&nbsp; Re τ = ' + tau.re.toFixed(3) + '</small>';
+    return st;
+  }
+
+  // ---------- animation ----------
+  var last = 0;
+  function frame(now) {
+    var dt = last ? Math.min(0.05, (now - last) / 1000) : 0;
+    last = now;
+    if (S.playing && S.idx < S.run.ops.length) {
+      S.t += dt * S.speed / 0.95;
+      while (S.t >= 1 && S.idx < S.run.ops.length) { S.t -= 1; S.idx++; }
+      if (S.idx >= S.run.ops.length) { S.idx = S.run.ops.length; S.t = 0; S.playing = false; syncPlay(); }
+    }
+    var st = updatePanels();
+    zoomTo(st, dt);
+    drawA(st); drawB(st);
+    requestAnimationFrame(frame);
+  }
+  function zoomTo(st, dt) {
+    var tgt = targetWA(st);
+    WA += (tgt - WA) * Math.min(1, (dt || 0.016) * 3.2);
+    if (Math.abs(WA - WAbuilt) > 0.045 * WAbuilt) buildLattice();
+  }
+  window.__avStep = function (dtSec) {          // manual driver for headless checks
+    S.t += dtSec * S.speed / 0.95;
+    while (S.t >= 1 && S.idx < S.run.ops.length) { S.t -= 1; S.idx++; }
+    if (S.idx >= S.run.ops.length) { S.idx = S.run.ops.length; S.t = 0; }
+    var st = updatePanels(); zoomTo(st, dtSec); drawA(st); drawB(st);
+    return { idx: S.idx, t: S.t, ops: S.run.ops.length, WA: +WA.toFixed(2), lat: S.lattice.length };
+  };
+
+  // ---------- interaction ----------
+  function evPos(cv, e) {
+    var r = cv.getBoundingClientRect();
+    return [(e.clientX - r.left) * (cv.width / r.width), (e.clientY - r.top) * (cv.height / r.height)];
+  }
+  var dragging = null;
+  cvA.addEventListener('pointerdown', function (e) {
+    var p = evPos(cvA, e), st = curState();
+    var h1 = toA(st.x), h2 = toA(st.y), rad = 24 * (cvA.width / 1400);
+    var d1 = Math.hypot(p[0] - h1[0], p[1] - h1[1]), d2 = Math.hypot(p[0] - h2[0], p[1] - h2[1]);
+    if (d1 < rad && d1 <= d2) dragging = 1;
+    else if (d2 < rad) dragging = 2;
+    else return;
+    cvA.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  cvA.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    var p = evPos(cvA, e), w = fromA(p[0], p[1]);
+    if (S.snap) { w = [Math.round(w[0]), Math.round(w[1])]; }
+    else { w = [Math.round(w[0] * 1000) / 1000, Math.round(w[1] * 1000) / 1000]; }
+    var a = dragging === 1 ? w : S.b1, b = dragging === 1 ? S.b2 : w;
+    if (dot(w, w) < (S.snap ? 0.5 : 0.02)) return;
+    if (Math.abs(det2(a, b)) < (S.snap ? 0.5 : 0.03)) return;
+    S.b1 = a.slice(); S.b2 = b.slice();
+    startRun(true);
+    e.preventDefault();
+  });
+  function endDrag(e) { if (dragging) { dragging = null; try { cvA.releasePointerCapture(e.pointerId); } catch (x) {} } }
+  cvA.addEventListener('pointerup', endDrag);
+  cvA.addEventListener('pointercancel', endDrag);
+
+  cvB.addEventListener('pointerdown', function (e) {
+    var p = evPos(cvB, e), z = fromB(p[0], p[1]);
+    if (z.im < 0.06 || z.im > 30) return;
+    var r = 4;
+    S.snap = false; document.getElementById('snap').checked = false;
+    S.b1 = [r, 0];
+    S.b2 = [Math.round(r * z.re * 1000) / 1000, Math.round(r * z.im * 1000) / 1000];
+    startRun(true);
+    e.preventDefault();
+  });
+
+  document.getElementById('preset').addEventListener('change', function () {
+    var q = presets[+this.value];
+    S.b1 = q.b1.slice(); S.b2 = q.b2.slice();
+    S.snap = q.snap; document.getElementById('snap').checked = q.snap;
+    startRun(true); syncPlay();
+  });
+  document.getElementById('rand').addEventListener('click', function () {
+    var a, b, tries = 0;
+    do {
+      a = [Math.round((Math.random() * 2 - 1) * 9), Math.round((Math.random() * 2 - 1) * 6)];
+      b = [Math.round((Math.random() * 2 - 1) * 9), Math.round((Math.random() * 2 - 1) * 6)];
+      tries++;
+    } while ((Math.abs(det2(a, b)) < 1 || dot(a, a) < 2 || dot(b, b) < 2) && tries < 200);
+    S.b1 = a; S.b2 = b;
+    S.snap = true; document.getElementById('snap').checked = true;
+    document.getElementById('preset').selectedIndex = -1;
+    startRun(true); syncPlay();
+  });
+  function syncPlay() {
+    var btn = document.getElementById('play');
+    btn.innerHTML = S.playing ? '▍▍ pause' : '▶ play';
+    btn.className = S.playing ? 'on' : '';
+  }
+  document.getElementById('play').addEventListener('click', function () {
+    if (!S.playing && S.idx >= S.run.ops.length) { S.idx = 0; S.t = 0; }
+    S.playing = !S.playing; syncPlay();
+  });
+  document.getElementById('step').addEventListener('click', function () {
+    S.playing = false;
+    if (S.idx < S.run.ops.length) { S.idx++; S.t = 0; }
+    syncPlay();
+  });
+  document.getElementById('reset').addEventListener('click', function () {
+    S.idx = 0; S.t = 0; S.playing = true; syncPlay();
+  });
+  var sp = document.getElementById('speed'), spv = document.getElementById('speedv');
+  sp.addEventListener('input', function () { S.speed = +this.value; spv.textContent = S.speed.toFixed(1) + '×'; });
+  spv.textContent = '1.0×';
+  document.getElementById('snap').addEventListener('change', function () {
+    S.snap = this.checked;
+    if (S.snap) { S.b1 = [Math.round(S.b1[0]), Math.round(S.b1[1])]; S.b2 = [Math.round(S.b2[0]), Math.round(S.b2[1])];
+      if (Math.abs(det2(S.b1, S.b2)) < 0.5) { S.b1 = [7, 3]; S.b2 = [5, 2]; } }
+    startRun(true);
+  });
+
+  startRun(true); syncPlay();
+  requestAnimationFrame(frame);
+
+  // ---------- sanity checks (surface as warnings only) ----------
+  (function selfTest() {
+    var r = reduce([7, 3], [5, 2]);
+    var f = r.frames[r.frames.length - 1];
+    var msgs = [];
+    if (r.ops.length !== 6) msgs.push('expected 6 ops for (7,3),(5,2), got ' + r.ops.length);
+    if (Math.abs(Math.abs(f.x[0]) - 1) > 1e-12 || Math.abs(f.x[1]) > 1e-12) msgs.push('expected reduced b1 = (-1,0)');
+    if (r.U[0][0] * r.U[1][1] - r.U[0][1] * r.U[1][0] !== 1) msgs.push('det U != 1');
+    var h = reduce([5.4, 1.8 * SQ3], [7.2, 3.6 * SQ3]);
+    var hf = h.frames[h.frames.length - 1];
+    var g = (hf.x[0] * hf.x[0] + hf.x[1] * hf.x[1]) / Math.abs(det2(hf.x, hf.y));
+    if (Math.abs(g - GAMMA2) > 1e-9) msgs.push('hexagonal gamma = ' + g + ', expected ' + GAMMA2);
+    if (msgs.length) console.warn('AutoViz self-test:', msgs.join(' | '));
+    else console.log('AutoViz self-test OK: 6 ops -> Z^2, det U = 1, hexagonal gamma = 2/sqrt(3) = ' + GAMMA2.toFixed(9));
+  })();
+})();
+</script>
+</body>
+</html>

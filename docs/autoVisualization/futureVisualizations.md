@@ -17,64 +17,7 @@ Entry format: title, area, the phenomenon and the honest theorem behind it, the 
 interaction, and the connection to existing site content.
 
 ## Queue
-1. **Lagrange–Gauss Lattice Reduction** — lattices · linear groups over ℤ.
-   The two-dimensional analogue of Euclid's algorithm: repeatedly subtract the nearest
-   multiple of the shorter vector from the longer one. It terminates in a basis realising
-   the successive minima, and every step is an elementary matrix, so the whole run is a
-   factorisation of the change of basis in SL₂(ℤ); the worst possible shortest vector is
-   the hexagonal lattice's, giving Hermite's constant γ₂ = 2/√3.
-   *Interaction:* drag the two basis vectors; the algorithm animates step by step with the
-   SL₂(ℤ) word accumulating, the Gram matrix shown exactly, and the reduced fundamental
-   domain drawn against the modular-surface picture of the same lattice.
-   *Site tie:* linear groups over ℚ/ℤ, the modular surface (cutting sequences), and the
-   arithmetic-subgroup material.
-
-2. **Alexander Polynomials from Braid Closures** — knots and braids.
-   The reduced Burau representation β_n → GL_{n−1}(ℤ[t,t⁻¹]) computes the Alexander
-   polynomial of the closure of a braid β by Δ(t) ≐ det(I − Burau(β))·(1−t)/(1−tⁿ);
-   Markov moves change the braid but not the link, and so not the polynomial.
-   *Interaction:* build a braid word by clicking crossings on strands, see the closure
-   drawn live and the Burau matrix and Δ(t) recomputed exactly over ℤ[t,t⁻¹]; a "Markov
-   move" button demonstrates the invariance.
-   *Site tie:* the Burau tool (which hunts kernel words) and knotMosaics / knot energies —
-   this is the representation-theoretic side of the same braid story.
-
-3. **Kesten's Criterion: Random Walks and Amenability** — probability · geometric group theory.
-   The n-step return probability of the simple random walk on a Cayley graph decays like
-   ρ^n, and Kesten's theorem says the spectral radius ρ equals 1 exactly when the group is
-   amenable — so ℤ² and the Heisenberg group give ρ = 1 while F₂ gives ρ = √3/2 = 0.866…,
-   the value forced by the 4-regular tree.
-   *Interaction:* group selector (ℤ², H₃(ℤ), F₂, lamplighter ℤ₂≀ℤ) with a live cloud of
-   walkers animating on the graph, a plot of p₂ₙ(e)^{1/2n} converging to ρ, and an exact
-   transfer-matrix computation of p₂ₙ for the tree to check the limit.
-   *Site tie:* the Cayley-graph thread (cayleyLaplacian) and the ping-pong/free-group
-   material — amenability is the analytic shadow of the same dichotomy.
-
-4. **The Rauzy Fractal of the Tribonacci Substitution** — tilings · dynamics.
-   The substitution a→ab, b→ac, c→a has abelianisation matrix of Pisot type; projecting the
-   broken line of its fixed point onto the contracting plane gives the Rauzy fractal, which
-   tiles that plane by ℤ² translates and conjugates the substitution to a rotation of the
-   two-torus by the Tribonacci constant.
-   *Interaction:* iterate the substitution step by step and watch the fractal assemble from
-   the projected letters; a slider for the number of iterations, a toggle for the three
-   subtiles, and a click that follows a point through the domain exchange to expose the
-   torus rotation.
-   *Site tie:* the tilings/Penrose material in docs/graphics and the continued-fraction
-   thread — Tribonacci is the cubic analogue of the golden ratio.
-
-5. **Conway–Coxeter Frieze Patterns** — combinatorics · cluster algebras.
-   A frieze pattern is an array of positive integers bordered by 1s in which every diamond
-   satisfies *ad* − *bc* = 1; Conway and Coxeter proved that friezes of width *n* − 3
-   correspond bijectively to triangulations of a convex *n*-gon, the first row being the
-   number of triangles at each vertex. The unimodular rule is exactly an SL₂ relation,
-   which is why the entries are the continuant / Markov-style solutions of a Diophantine system.
-   *Interaction:* drag diagonals to retriangulate the polygon and watch the frieze recompute
-   entry by entry, with the diamond rule verified in exact integers and a flip animation
-   showing the mutation; a glide-symmetry toggle exhibits the period 2n.
-   *Site tie:* the Markov starscape and continued-fraction threads — friezes are the
-   combinatorial shadow of the same SL₂(ℤ) unimodularity.
-
-6. **Dehn Twists and the Mapping Class Group of the Torus** — low-dimensional topology · linear groups over ℤ.
+1. **Dehn Twists and the Mapping Class Group of the Torus** — low-dimensional topology · linear groups over ℤ.
    Mod(T²) ≅ SL₂(ℤ), with the twists about the meridian and longitude going to the
    elementary matrices [[1,1],[0,1]] and [[1,0],[1,1]]; an essential simple closed curve is
    determined by its slope *p*/*q* ∈ ℚ ∪ {∞}, and Nielsen–Thurston type is read off the
@@ -86,7 +29,7 @@ interaction, and the connection to existing site content.
    *Site tie:* the modular-surface and cutting-sequence material, and the linear-groups-over-ℤ
    thread — this is the topological face of SL₂(ℤ).
 
-7. **Hyperbolic Dehn Surgery on the Figure-Eight Knot** — 3-manifolds · Kleinian groups.
+2. **Hyperbolic Dehn Surgery on the Figure-Eight Knot** — 3-manifolds · Kleinian groups.
    Thurston's hyperbolic Dehn surgery theorem: all but finitely many fillings of the
    figure-eight knot complement are hyperbolic, and the gluing/completeness equations of its
    two ideal tetrahedra deform in a one-complex-dimensional family, the shape z of a
@@ -97,13 +40,83 @@ interaction, and the connection to existing site content.
    half-plane, the volume 2Λ(π/3)-decreasing readout, and a flag when a shape degenerates.
    *Site tie:* the Kleinian-groups section, GPS manifolds, and the knot-theory pages.
 
-8. **Continued Fractions and the Modular Flow** — number theory · dynamics.
-   The Gauss map x ↦ {1/x} is the cross-section of the geodesic flow on the modular surface:
-   the continued-fraction digits of a real number are the cutting sequence of the
-   corresponding geodesic, and x is badly approximable (bounded digits) exactly when its
-   geodesic stays in a compact part of ℍ/SL₂(ℤ) — Hurwitz's constant 1/√5 being realised by
-   the golden ratio's all-ones expansion.
-   *Interaction:* drag a real number on a line, watch its continued fraction unfold digit by
-   digit while the geodesic is traced on the modular surface and the Stern–Brocot path is
-   highlighted; a "badly approximable" gauge tracks max digit and the Markov value.
-   *Site tie:* the Markov starscape and cutting-sequences pages — this is their shared engine.
+3. **Growth Series of Coxeter Groups and Salem Numbers** — Coxeter groups · exact arithmetic.
+   Steinberg's formula computes the growth series W(t) = Σ t^{ℓ(w)} of a Coxeter group as a
+   rational function assembled from the finite parabolic subgroups, 1/W(1/t) = Σ_{W_S finite}
+   (−1)^{|S|}/W_S(t); it is a rational function with integer coefficients, and for a cocompact
+   hyperbolic Coxeter group in rank 4 the reciprocal of its smallest positive root is a Salem
+   number — Cannon–Wagreich's growth of the (2,3,7)-triangle group being the classic example.
+   *Interaction:* edit the Coxeter diagram (drag edge labels m_ij) and watch the growth series
+   recomputed exactly over ℤ as the ball sizes in the Cayley graph enumerate alongside; the
+   roots animate in the complex plane, crossing onto the unit circle as the group leaves the
+   spherical/affine range.
+   *Site tie:* the triangle-group kaleidoscopes page and the space-groups tool — this is the
+   arithmetic invariant hiding inside those tilings.
+
+4. **Thompson's Group F: Tree Pairs and Dyadic Rearrangements** — geometric group theory.
+   F is the group of piecewise-linear homeomorphisms of [0,1] with dyadic breakpoints and
+   slopes powers of 2; it is presented by ⟨x₀, x₁, … | x_k^{-1} x_n x_k = x_{n+1}, k < n⟩, is
+   torsion-free of infinite geometric dimension, and every element is a reduced tree pair
+   (T₋, T₊) with the same number of leaves — composition being the "common refinement" of the
+   two trees.
+   *Interaction:* build two binary trees by clicking to split leaves, see the resulting PL
+   graph of the homeomorphism and its action animated on a row of dyadic points; compose two
+   elements and watch the refinement/reduction cancel carets in real time.
+   *Site tie:* the Cayley-graph and amenability threads — F is the standing open question
+   those tools circle around.
+
+5. **Lorenz Knots from the Geometric Model** — dynamics · knot theory.
+   Birman–Williams: periodic orbits of the Lorenz flow, collapsed along the stable foliation
+   onto the branched-surface template, are exactly the closures of *Lorenz braids* — positive
+   braids whose underlying permutation moves an initial block of strands rightwards past the
+   rest, order-preserving on each block. Every Lorenz knot is therefore fibered and prime, and
+   its genus is given by Bennequin's formula 2g = c − n + 1 for the positive braid; the trefoil
+   is the simplest one.
+   *Interaction:* integrate the Lorenz equations live, capture a near-periodic orbit, and watch
+   it project onto the template while the Lorenz permutation and its positive braid word are
+   read off; a slider on ρ moves through the parameter family and changes which knots appear.
+   *Site tie:* the knot-theory pages (mosaics, energies) and the dynamics thread — a bridge
+   between the two that no existing tool covers.
+
+6. **Bianchi Groups: Cusps and Class Numbers** — arithmetic Kleinian groups · algebraic number theory.
+   PSL₂(O_d) acts on hyperbolic 3-space with finite covolume, and its cusps are in bijection
+   with the ideal class group of O_d = the ring of integers of ℚ(√−d) — so PSL₂(ℤ[i]) has one
+   cusp while PSL₂(O₅) has h(−20) = 2. The isometric spheres |cz + d| = 1 over the lattice O_d
+   cut out the Bianchi fundamental polyhedron, whose floor is exactly where no sphere covers.
+   *Interaction:* select d from the squarefree list, watch the isometric hemispheres accumulate
+   over the ℂ-plane as the (c,d) pairs enumerate in order of |c|, with the exposed floor shaded
+   live; cusp representatives (non-principal ideals) appear as marked points, and the counter
+   checks the count against the class number computed by exact ideal reduction.
+   *Site tie:* the Kleinian section, GPS manifolds, and the quaternion-algebra pages — this is
+   the arithmetic lattice those tools take for granted.
+
+7. **The Coxeter Plane and the Coxeter Number** — Coxeter groups · root systems.
+   Every finite Coxeter group W has a Coxeter element c (a product of all simple reflections)
+   of order the Coxeter number h, and it acts on a distinguished 2-plane — the Coxeter plane —
+   as rotation by exactly 2π/h; projecting the root system onto that plane gives the familiar
+   h-fold rosettes (h = 30 for E₈, its 240 roots landing in 8 concentric 30-gons). The exponents
+   m₁ ≤ ⋯ ≤ mₙ are the eigenvalue data, with Σmᵢ = number of positive roots.
+   *Interaction:* pick a root system (A_n, B_n, D_n, E₆, E₇, E₈, H₃, H₄) and watch c act, roots
+   stepping 2π/h per click or animating continuously; a slider reorders the simple reflections to
+   show every Coxeter element is conjugate, and a readout checks h, the exponents, and |Φ⁺| = Σmᵢ.
+   *Site tie:* the triangle-group kaleidoscopes and space-groups tool — the linear-algebraic
+   skeleton behind those reflection tilings.
+8. **Jørgensen's Inequality and the Shape of Discreteness** — Kleinian groups · discreteness.
+   If ⟨A, B⟩ ⊂ SL₂(ℂ) is discrete and non-elementary then |tr²A − 4| + |tr[A,B] − 2| ≥ 1, with
+   equality attained e.g. by the modular group and the figure-eight knot group; for A
+   parabolic this is Shimizu–Leutbecher's bound |c| ≥ 1 on the lower-left entry of B.
+   *Interaction:* drag (tr A, tr B, tr AB) in a slice of the character variety; the Jørgensen
+   quantity is shaded live, and a small orbit plot of the group acting on ℂ̂ turns chaotic as the
+   point crosses into the forbidden region; presets land on the extremal groups.
+   *Site tie:* the discreteness-certificate and Riley-slice tools — this is the universal
+   necessary condition those tools test against.
+9. **Hecke Groups and Discreteness at λ = 2cos(π/q)** — Fuchsian groups · number theory.
+   Hecke's theorem: the group generated by z ↦ −1/z and z ↦ z + λ (λ > 0) is discrete if and only
+   if λ ≥ 2 or λ = 2cos(π/q) for an integer q ≥ 3; at those values it is the (2, q, ∞) triangle
+   group, and its cusp set is the field of λ-continued fractions (Rosen), all of ℚ(λ) ∪ {∞} exactly
+   when q ∈ {3, 4, 6} (Leutbecher).
+   *Interaction:* a λ slider sweeps continuously; the orbit of a fundamental strip is drawn in the
+   upper half-plane and visibly tiles for the Hecke values while overlapping elsewhere; a readout
+   runs the Rosen continued-fraction algorithm on a chosen point with exact arithmetic in ℤ[λ].
+   *Site tie:* the Fuchsian discreteness calculator and cutting-sequence pages — the one-parameter
+   family where discreteness is decided by a single trigonometric number.

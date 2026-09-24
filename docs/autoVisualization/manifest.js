@@ -2,6 +2,41 @@
 // Fields: date (YYYY-MM-DD), file (relative to days/), title, area, blurb.
 window.AUTOVIZ = [
   {
+    date: "2026-09-24",
+    file: "2026-09-24-frieze-patterns.html",
+    title: "Conway–Coxeter Frieze Patterns",
+    area: "Combinatorics · cluster algebras",
+    blurb: "Positive-integer friezes bounded by rows of 1s in which every diamond satisfies ad − bc = 1 are in bijection with triangulations of a convex n-gon (Conway–Coxeter): the quiddity row counts triangles at each vertex, each entry is the Ptolemy length of a chord, the interior 1s are exactly the diagonals, and the pattern has a glide symmetry of period n. Click diagonals to flip them — a cluster mutation — or let a random walk on the flip graph run, and watch the frieze recompute in exact integers; a brute-force search over quiddity cycles recovers the Catalan counts Cₙ₋₂ up to n = 9."
+  },
+  {
+    date: "2026-09-03",
+    file: "2026-09-03-rauzy-fractal.html",
+    title: "The Rauzy Fractal of the Tribonacci Substitution",
+    area: "Tilings · symbolic dynamics",
+    blurb: "The substitution a→ab, b→ac, c→a has Perron root the Tribonacci constant β = 1.8392867552…, a Pisot number whose conjugates have modulus β^(−1/2). Draw the fixed point as a staircase in ℤ³ and project along the expanding eigendirection: the vertices stay bounded and fill Rauzy's fractal, split into three subtiles by the following letter. Watch it assemble iteration by iteration, tile the plane by the lattice Γ = φ(ker Σ), and follow a point under the exchange of the three subtiles — which is exactly the shift on the Tribonacci word, and on ℂ/Γ exactly translation by (1−1/β, 1/β³)."
+  },
+  {
+    date: "2026-08-31",
+    file: "2026-08-31-kesten-amenability.html",
+    title: "Kesten's Criterion: Random Walks and Amenability",
+    area: "Probability · geometric group theory",
+    blurb: "The even return probabilities of the simple random walk are supermultiplicative, so p₂ₙ(e)^{1/2n} increases to the ℓ²-norm ρ of the Markov operator — and Kesten's theorem says ρ = 1 exactly when the group is amenable. Five Cayley graphs side by side with live walker clouds: ℤ, ℤ², and the Heisenberg group creep toward 1 while F₂ stalls at √3/2 and ℤ₂∗ℤ₂∗ℤ₂ at 2√2/3, the tree value 2√(d−1)/d. Loop counts are exact (BigInt binomials, a transfer recursion on the tree, a pruned integer DP on H₃(ℤ)) and checked against brute-force enumeration of all dᵐ words."
+  },
+  {
+    date: "2026-08-23",
+    file: "2026-08-23-alexander-from-braids.html",
+    title: "Alexander Polynomials from Braid Closures",
+    area: "Knots and braids · linear groups over ℤ[t,t⁻¹]",
+    blurb: "The reduced Burau representation sends a braid to a matrix over ℤ[t,t⁻¹], and the Burau–Alexander theorem reads the Alexander polynomial of its closure off it: Δ(t) ≐ det(I − β̄(β))·(1−t)/(1−tⁿ). Build braid words by hand, watch the closure and its components flow, and check the theorem live — the exact division by 1+t+⋯+tⁿ⁻¹, det β̄ = (−t)^{e(β)}, the palindromic symmetry Δ(t) ≐ Δ(1/t), and Markov's conjugation and stabilisation moves leaving Δ untouched."
+  },
+  {
+    date: "2026-08-20",
+    file: "2026-08-20-lagrange-gauss-reduction.html",
+    title: "Lagrange–Gauss Lattice Reduction",
+    area: "Lattices · linear groups over ℤ",
+    blurb: "Euclid's algorithm in two dimensions: swap so ‖b₁‖ ≤ ‖b₂‖, subtract the nearest multiple, repeat. The output realises the successive minima λ₁, λ₂, every step is an elementary matrix so the run factors the change of basis into S and T in SL₂(ℤ), and for τ = b₂/b₁ the two reduction inequalities are exactly |τ| ≥ 1 and |Re τ| ≤ ½ — the descent into the fundamental domain on ℍ, with λ₁²/covol = 1/Im τ ≤ 2/√3, Hermite's constant."
+  },
+  {
     date: "2026-08-19",
     file: "2026-08-19-bruhat-tits-tree.html",
     title: "The Bruhat\u2013Tits Tree for SL\u2082(\u211a_p)",
