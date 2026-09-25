@@ -61,7 +61,13 @@ function buildModel(schema) {
 
   const seen = new Set();
   const picks = (cur?.simple
-    ? cur.simple.map((p) => { const c = find(p.sel); return c && { ...c, label: p.label || c.label }; })
+    ? cur.simple.map((p) => {
+      const c = find(p.sel);
+      if (!c) return null;
+      const pick = { ...c, label: p.label || c.label };
+      if (p.options && c.options) pick.options = c.options.filter((o) => p.options.includes(String(o.value)));
+      return pick;
+    })
     : fallbackPicks(controls)
   ).filter((c) => c && !seen.has(c.selector) && seen.add(c.selector));
 

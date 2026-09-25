@@ -4,8 +4,10 @@
 // controls chosen here. The ADVANCED page lists everything introspection finds.
 // Each entry may define:
 //
-//   simple  [{ sel, label? }]           Simple-page controls in display order: fields
+//   simple  [{ sel, label?, options? }] Simple-page controls in display order: fields
 //                                       (sliders, toggles, pickers, colors) then buttons.
+//                                       `options` (a picker's values) limits which choices
+//                                       the Simple page offers; Advanced keeps them all.
 //   keys    [{ key, label, simple? }]   Keyboard shortcuts worth offering, with meanings.
 //                                       `simple: true` also puts one on the Simple page.
 //                                       When present, this list replaces the <kbd> hints.
@@ -729,6 +731,38 @@ export const CURATION = {
     simple: [
       { sel: "#reset" },
     ],
+  },
+  ballMachine: {
+    simple: [
+      { sel: 'input[type=radio][name="camera"]', label: "Watch", options: ["follow", "features"] },
+      { sel: 'input[type=radio][name="route"]', label: "Route" },
+      { sel: "#tod", label: "Time of day" },
+      { sel: "#speed", label: "Time scale" },
+      { sel: "#soundOn", label: "Sound" },
+      { sel: "#vol", label: "Volume" },
+      { sel: "#running", label: "Running" },
+      { sel: "#nextLift" },
+      { sel: "#prevBall" },
+      { sel: "#nextBall" },
+    ],
+    keys: [
+      { key: "n", label: "Next ball off the lift" },
+      { key: " ", label: "Pause / run" },
+      { key: "1", label: "Whole machine" },
+      { key: "2", label: "Chase a ball" },
+      { key: "3", label: "Ride on a ball" },
+      { key: "4", label: "Guided tour" },
+      { key: "5", label: "Follow a ball" },
+      { key: "6", label: "Feature to feature" },
+      { key: "[", label: "Previous ball" },
+      { key: "]", label: "Next ball" },
+    ],
+    labels: {
+      "#nextLift": "Follow the next ball off the lift",
+      "#prevBall": "Previous ball",
+      "#nextBall": "Next ball",
+      "#labels": "Device labels",
+    },
   },
 };
 

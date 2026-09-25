@@ -119,13 +119,16 @@ export function introspectControls(iframe) {
       if (!node.name || seenRadioGroups.has(node.name)) continue;
       seenRadioGroups.add(node.name);
       const group = Array.from(doc.querySelectorAll(`input[type=radio][name="${CSS.escape(node.name)}"]`));
-      controls.push({
+      const c = {
         kind: 'radio',
         selector: `input[type=radio][name="${CSS.escape(node.name)}"]`,
         label: prettify(node.name),
         value: group.find((r) => r.checked)?.value ?? null,
         options: group.map((r) => ({ value: r.value, label: labelFor(r, doc) || r.value })),
-      });
+      };
+      const card = node.closest('[data-control-group]')?.dataset.controlGroup;
+      if (card) c.group = card;
+      controls.push(c);
       continue;
     }
 
