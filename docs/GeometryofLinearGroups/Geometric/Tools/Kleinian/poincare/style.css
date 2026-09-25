@@ -1,0 +1,2227 @@
+/* ============================================================
+   poincare4 — UI stylesheet
+   A small design system over the full-screen 3D scene:
+   tokens → primitives (buttons, fields, cards) → components.
+   ============================================================ */
+
+@import url('../vendor/fonts/tutorial.css');
+
+/* ---------------- Design tokens ---------------- */
+:root {
+    /* palette */
+    --bg: #05070f;
+    --ink: #eef1f8;
+    --ink-dim: #9aa5bd;
+    --ink-faint: #5e6880;
+
+    --accent: #818cf8;          /* indigo */
+    --accent-2: #22d3ee;        /* cyan   */
+    --success: #4ade80;
+    --warning: #fbbf24;
+    --danger: #fb7185;
+
+    /* translucent ladders (over the dark scene) */
+    --w03: rgba(255, 255, 255, 0.03);
+    --w05: rgba(255, 255, 255, 0.05);
+    --w08: rgba(255, 255, 255, 0.08);
+    --w12: rgba(255, 255, 255, 0.12);
+    --hairline: rgba(255, 255, 255, 0.07);
+    --hairline-strong: rgba(255, 255, 255, 0.14);
+
+    --field-bg: rgba(8, 12, 24, 0.55);
+    --glass: rgba(10, 14, 26, 0.72);
+
+    --accent-soft: rgba(129, 140, 248, 0.16);
+    --accent-line: rgba(129, 140, 248, 0.45);
+    --accent-glow: rgba(129, 140, 248, 0.28);
+
+    /* shape & rhythm */
+    --r-sm: 8px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --r-xl: 18px;
+    --space: 8px;
+
+    /* type */
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+
+    /* motion */
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+}
+
+/* ---------------- 3D scene ---------------- */
+#viz-container {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+#viz-container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* ---------------- Shared primitives ---------------- */
+
+/* every interactive element gets a visible keyboard focus */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 2px solid var(--accent-line);
+    outline-offset: 2px;
+}
+
+button {
+    font-family: inherit;
+}
+
+/* thin scrollbars everywhere inside the panel */
+.panel-content,
+.std-gen-list,
+.cert-log {
+    scrollbar-width: thin;
+    scrollbar-color: var(--w12) transparent;
+}
+
+.panel-content::-webkit-scrollbar,
+.std-gen-list::-webkit-scrollbar,
+.cert-log::-webkit-scrollbar {
+    width: 5px;
+}
+
+.panel-content::-webkit-scrollbar-thumb,
+.std-gen-list::-webkit-scrollbar-thumb,
+.cert-log::-webkit-scrollbar-thumb {
+    background: var(--w12);
+    border-radius: 999px;
+}
+
+/* ============================================================
+   CONTROL PANEL — floating glass card
+   ============================================================ */
+#control-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 384px;
+    max-height: calc(100vh - 40px);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    border-radius: var(--r-xl);
+    border: 1px solid transparent;
+    /* glass body + gradient hairline border in one paint */
+    background:
+        linear-gradient(var(--glass), var(--glass)) padding-box,
+        linear-gradient(165deg,
+            rgba(255, 255, 255, 0.22),
+            rgba(255, 255, 255, 0.05) 30%,
+            rgba(129, 140, 248, 0.30) 90%) border-box;
+    backdrop-filter: blur(24px) saturate(1.25);
+    -webkit-backdrop-filter: blur(24px) saturate(1.25);
+    box-shadow:
+        0 24px 60px -16px rgba(0, 0, 0, 0.65),
+        0 4px 16px rgba(0, 0, 0, 0.35);
+
+    transition:
+        width 0.45s var(--ease-out),
+        max-height 0.45s var(--ease-out),
+        border-radius 0.45s var(--ease-out),
+        opacity 0.3s ease;
+}
+
+/* ---------------- Header: segmented tabs + icon buttons ---------------- */
+.tab-navigation {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.25);
+    border-bottom: 1px solid var(--hairline);
+    flex-shrink: 0;
+    transition: padding 0.45s var(--ease-out), background 0.3s ease;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 7px 0;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    color: var(--ink-dim);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.2s ease, box-shadow 0.25s ease;
+}
+
+.tab-btn:hover {
+    color: var(--ink);
+    background: var(--w05);
+}
+
+.tab-btn.active {
+    color: var(--ink);
+    background: linear-gradient(180deg, var(--accent-soft), rgba(129, 140, 248, 0.08));
+    border-color: var(--accent-line);
+    box-shadow:
+        0 0 14px var(--accent-glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+/* round icon buttons (refresh ⟳ and collapse ×) */
+.collapse-btn {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--w05);
+    border: 1px solid var(--hairline);
+    border-radius: 50%;
+    color: var(--ink-dim);
+    font-size: 17px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background 0.2s ease, border-color 0.2s ease,
+        transform 0.2s var(--ease-spring);
+}
+
+.collapse-btn:hover {
+    color: var(--ink);
+    background: var(--w08);
+    border-color: var(--hairline-strong);
+}
+
+.collapse-btn:active {
+    transform: scale(0.92);
+}
+
+#refresh-btn:hover .collapse-icon {
+    transform: rotate(180deg);
+}
+
+.collapse-icon {
+    line-height: 1;
+    display: inline-block;
+    transition: transform 0.45s var(--ease-spring);
+}
+
+/* ---------------- Collapsed state ----------------
+   The panel folds into a round button; content fades out and the
+   "×" rotates a half-turn into a "+". */
+#control-panel.collapsed {
+    width: 52px;
+    max-height: 52px;
+    min-height: 52px;
+    border-radius: 26px;
+}
+
+.tab-btn,
+#refresh-btn,
+.panel-content {
+    transition: opacity 0.22s ease, display 0.22s allow-discrete;
+}
+
+#control-panel.collapsed .tab-btn,
+#control-panel.collapsed #refresh-btn,
+#control-panel.collapsed .panel-content {
+    opacity: 0;
+    display: none;
+}
+
+#control-panel.collapsed .tab-navigation {
+    padding: 10px;
+    background: transparent;
+    border-bottom: none;
+    justify-content: center;
+}
+
+#control-panel.collapsed .collapse-icon {
+    transform: rotate(225deg);
+}
+
+@starting-style {
+    #control-panel:not(.collapsed) .tab-btn,
+    #control-panel:not(.collapsed) #refresh-btn,
+    #control-panel:not(.collapsed) .panel-content {
+        opacity: 0;
+    }
+}
+
+/* ---------------- Panel body ---------------- */
+.panel-content {
+    flex: 1;
+    padding: 16px 14px 18px;
+    overflow-y: auto;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* headline of each tab */
+.panel-title {
+    margin: 0 2px 2px;
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    background: linear-gradient(120deg, var(--ink) 30%, var(--accent) 85%, var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.panel-subtitle {
+    margin: 2px 2px 0;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ink-dim);
+}
+
+/* ---------------- Cards (control groups) ---------------- */
+.control-group {
+    background: var(--w03);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-lg);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* micro-label section headers */
+.control-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-dim);
+    white-space: nowrap;
+}
+
+.label-hint {
+    font-weight: 450;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    color: var(--ink-faint);
+}
+
+/* ---------------- Fields ---------------- */
+.number-input,
+.select-input {
+    background: var(--field-bg);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-sm);
+    color: var(--ink);
+    padding: 7px 10px;
+    font-size: 13px;
+    font-family: var(--font);
+    font-variant-numeric: tabular-nums;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.number-input {
+    width: 72px;
+}
+
+.select-input {
+    flex: 1;
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 30px;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239aa5bd' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    cursor: pointer;
+}
+
+.select-input option {
+    background: #0c1120;
+    color: var(--ink);
+}
+
+.number-input:focus,
+.select-input:focus {
+    outline: none;
+    border-color: var(--accent-line);
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.12);
+    background: rgba(8, 12, 24, 0.85);
+}
+
+/* ---------------- Buttons ---------------- */
+
+/* tinted ghost buttons: + Add Matrix / + Add Constant */
+.btn {
+    padding: 8px 14px;
+    border-radius: var(--r-md);
+    font-size: 13px;
+    font-weight: 550;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.15s ease, border-color 0.15s ease,
+        color 0.15s ease, transform 0.15s var(--ease-spring), box-shadow 0.2s ease;
+}
+
+.btn:active {
+    transform: scale(0.985);
+}
+
+.btn-add {
+    background: rgba(74, 222, 128, 0.10);
+    border-color: rgba(74, 222, 128, 0.30);
+    color: var(--success);
+}
+
+.btn-add:hover {
+    background: rgba(74, 222, 128, 0.18);
+    border-color: rgba(74, 222, 128, 0.50);
+    box-shadow: 0 0 16px rgba(74, 222, 128, 0.12);
+}
+
+.btn-add-alt {
+    background: rgba(34, 211, 238, 0.08);
+    border-color: rgba(34, 211, 238, 0.28);
+    color: var(--accent-2);
+}
+
+.btn-add-alt:hover {
+    background: rgba(34, 211, 238, 0.16);
+    border-color: rgba(34, 211, 238, 0.48);
+    box-shadow: 0 0 16px rgba(34, 211, 238, 0.10);
+}
+
+/* toggle buttons (Tie-Dye / Mirror / Auto-rotate / Reset View) */
+.toggle-btn {
+    width: 100%;
+    padding: 9px 14px;
+    background: var(--w05);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    color: var(--ink-dim);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease,
+        color 0.15s ease, box-shadow 0.2s ease;
+}
+
+.toggle-btn:hover {
+    background: var(--w08);
+    color: var(--ink);
+}
+
+.toggle-btn:disabled,
+.btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.toggle-btn:disabled:hover {
+    background: var(--w05);
+    color: var(--ink-dim);
+}
+
+.toggle-btn.active {
+    background: linear-gradient(180deg, var(--accent-soft), rgba(129, 140, 248, 0.07));
+    border-color: var(--accent-line);
+    color: var(--ink);
+    box-shadow: 0 0 14px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ---------------- Segmented control (Cayley Off/S/T) ---------------- */
+.cayley-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.cayley-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-dim);
+    white-space: nowrap;
+}
+
+.cayley-options {
+    display: flex;
+    flex: 1;
+    gap: 3px;
+    padding: 3px;
+    background: var(--field-bg);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+}
+
+.cayley-opt,
+.dual-opt {
+    flex: 1;
+    padding: 6px 0;
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    color: var(--ink-dim);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.2s ease;
+}
+
+.cayley-opt:hover,
+.dual-opt:hover {
+    color: var(--ink);
+    background: var(--w05);
+}
+
+.cayley-opt.active,
+.dual-opt.active {
+    background: var(--accent-soft);
+    color: var(--ink);
+    box-shadow: 0 0 10px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Dual opacity slider */
+.dual-opacity-row,
+.limit-depth-row {
+    margin-top: 6px;
+    transition: opacity 0.2s ease;
+}
+
+.dual-opacity-row.disabled,
+.limit-depth-row.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.opacity-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--field-bg);
+    border: 1px solid var(--hairline);
+    cursor: pointer;
+    outline: none;
+}
+
+.opacity-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 0 10px var(--accent-glow);
+    cursor: pointer;
+}
+
+.opacity-slider::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 0 10px var(--accent-glow);
+    cursor: pointer;
+}
+
+.opacity-slider:focus-visible {
+    border-color: var(--accent-line);
+}
+
+/* ---------------- Drag-slider buttons (Polyhedron / Walls) ---------------- */
+.slider-btn {
+    position: relative;
+    width: 100%;
+    padding: 9px 14px;
+    background: var(--field-bg);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    color: var(--ink-dim);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    overflow: hidden;
+    cursor: ew-resize;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, color 0.15s ease;
+}
+
+.slider-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--fill, 100%);
+    background: linear-gradient(90deg,
+            rgba(129, 140, 248, 0.22),
+            rgba(34, 211, 238, 0.16));
+    transition: width 0.05s linear;
+}
+
+/* fill level tick */
+.slider-btn::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--fill, 100%);
+    width: 2px;
+    margin-left: -2px;
+    background: rgba(165, 180, 252, 0.85);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.slider-btn:hover::after,
+.slider-btn.dragging::after {
+    opacity: 1;
+}
+
+.slider-btn span {
+    position: relative;
+    z-index: 1;
+}
+
+.slider-btn:hover {
+    border-color: var(--accent-line);
+}
+
+.slider-btn.active {
+    color: var(--ink);
+    border-color: var(--accent-line);
+}
+
+.slider-btn.dragging {
+    border-color: var(--accent-2);
+    box-shadow: 0 0 16px rgba(34, 211, 238, 0.22);
+}
+
+/* ---------------- Error message ---------------- */
+.error-message {
+    display: none;
+    margin: 0;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--danger);
+    background: rgba(251, 113, 133, 0.08);
+    border: 1px solid rgba(251, 113, 133, 0.25);
+    border-radius: var(--r-md);
+}
+
+.error-message:not(:empty) {
+    display: block;
+}
+
+/* ---------------- Info footnote ---------------- */
+.info-section {
+    padding: 13px 14px;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-lg);
+}
+
+.info-title {
+    margin: 0 0 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+}
+
+.info-section p {
+    margin: 0 0 7px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ink-dim);
+}
+
+.info-section p:last-child {
+    margin-bottom: 0;
+}
+
+/* ============================================================
+   MATRIX & CONSTANT INPUTS (MathQuill)
+   ============================================================ */
+.matrix-block {
+    margin-bottom: 10px;
+}
+
+.matrix-label {
+    color: var(--ink-dim);
+    font-size: 13px;
+}
+
+.matrix-bracket {
+    display: inline-block;
+    margin: 0 2px;
+    font-size: 38px;
+    font-weight: 100;
+    line-height: 42px;
+    vertical-align: middle;
+    color: var(--ink-faint);
+}
+
+/* ---- Example picker modal ---- */
+.example-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.example-modal[hidden] {
+    display: none;
+}
+
+.example-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(4, 6, 14, 0.62);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.example-modal-panel {
+    position: relative;
+    width: min(720px, calc(100vw - 32px));
+    max-height: min(82vh, 900px);
+    display: flex;
+    flex-direction: column;
+    background:
+        linear-gradient(rgba(13, 17, 30, 0.92), rgba(10, 14, 26, 0.94)) padding-box,
+        linear-gradient(165deg, rgba(120, 140, 255, 0.35), rgba(120, 140, 255, 0.08)) border-box;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    box-shadow: 0 24px 64px -16px rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    animation: banner-in 0.25s var(--ease-out);
+}
+
+.example-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid rgba(140, 160, 255, 0.12);
+}
+
+.example-modal-head h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+}
+
+.example-modal-close {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink-dim);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.example-modal-close:hover {
+    background: rgba(140, 160, 255, 0.12);
+    color: var(--ink);
+}
+
+.example-modal-body {
+    overflow-y: auto;
+    padding: 6px 20px 20px;
+}
+
+.example-cat-title {
+    margin: 16px 0 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+}
+
+.example-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 8px;
+}
+
+.example-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    text-align: left;
+    background: rgba(140, 160, 255, 0.05);
+    border: 1px solid rgba(140, 160, 255, 0.1);
+    border-radius: 10px;
+    color: var(--ink);
+    font: inherit;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.example-card:hover {
+    background: rgba(140, 160, 255, 0.12);
+    border-color: rgba(140, 160, 255, 0.32);
+    transform: translateY(-1px);
+}
+
+.example-card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.example-name {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.example-badges {
+    display: inline-flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.ex-badge {
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.ex-badge.exact {
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.12);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.ex-badge.mirrors {
+    color: #f472b6;
+    background: rgba(244, 114, 182, 0.12);
+    border: 1px solid rgba(244, 114, 182, 0.3);
+}
+
+.example-desc {
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--ink-dim);
+}
+
+/* Orientation-reversing toggle on each generator: a quiet italic “z” after
+   the bracket that flips to a pink overlined “z̄” — the matrix acting on z
+   versus z̄ — instead of a checkbox. The hidden checkbox holds the state. */
+.anti-toggle {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.anti-toggle input.anti-checkbox {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.anti-glyph {
+    font-style: italic;
+    font-size: 15px;
+    line-height: 1;
+    padding: 3px 6px;
+    border-radius: 6px;
+    color: var(--ink-faint);
+    opacity: 0.55;
+    transition: color 0.15s, opacity 0.15s, background 0.15s;
+}
+
+.anti-toggle:hover .anti-glyph {
+    opacity: 1;
+    color: var(--ink-dim);
+    background: rgba(244, 114, 182, 0.1);
+}
+
+.anti-toggle input:checked + .anti-glyph {
+    opacity: 1;
+    color: #f472b6;
+    text-decoration: overline;
+    text-decoration-thickness: 1.5px;
+}
+
+.anti-toggle input:focus-visible + .anti-glyph {
+    outline: 1px solid rgba(244, 114, 182, 0.6);
+    outline-offset: 1px;
+}
+
+/* Reflection generators on the isometry buttons: overline the label */
+.anti-gen {
+    text-decoration: overline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+
+.matrix-grid-inline {
+    display: inline-grid;
+    grid-template-columns: repeat(2, minmax(48px, max-content));
+    grid-auto-rows: minmax(28px, max-content);
+    gap: 4px;
+    vertical-align: middle;
+    margin: 0 4px;
+    align-items: center;
+}
+
+.mq-matrix-input,
+.constant-label-input,
+.constant-expr-input {
+    display: inline-block;
+    min-width: 48px;
+    padding: 4px 8px;
+    background: var(--field-bg);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-sm);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mq-matrix-input:focus-within,
+.constant-label-input:focus-within,
+.constant-expr-input:focus-within {
+    border-color: var(--accent-line);
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.12);
+}
+
+.mq-matrix-input .mq-root-block {
+    display: inline-block;
+    overflow: visible;
+}
+
+.constant-block {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.constant-expr-input {
+    flex: 1;
+}
+
+.constant-equals {
+    color: var(--ink-faint);
+    font-size: 14px;
+}
+
+/* quiet little delete buttons; turn red on hover */
+.delete-matrix-btn,
+.delete-constant-btn {
+    padding: 4px 8px;
+    background: var(--w05);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-sm);
+    color: var(--ink-faint);
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.delete-matrix-btn:hover,
+.delete-constant-btn:hover {
+    background: rgba(251, 113, 133, 0.14);
+    border-color: rgba(251, 113, 133, 0.40);
+    color: var(--danger);
+}
+
+/* ============================================================
+   DOMAIN TAB — current element, generators, certificate
+   ============================================================ */
+.current-element-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 10px 14px;
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--field-bg);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+}
+
+/* generators list: chips with a type-coloured edge */
+.std-gen-list {
+    max-height: 300px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-right: 2px;
+}
+
+.std-gen-item {
+    --chip: var(--accent-2);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px 8px 14px;
+    background: var(--w03);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    box-shadow: inset 3px 0 0 -1px var(--chip);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease,
+        transform 0.15s var(--ease-spring);
+}
+
+.std-gen-item:hover {
+    background: var(--w05);
+    border-color: color-mix(in srgb, var(--chip) 45%, transparent);
+    transform: translateX(2px);
+}
+
+.std-gen-item:active {
+    transform: translateX(2px) scale(0.99);
+}
+
+.std-gen-word {
+    flex: 1;
+    font-size: 14px;
+    color: var(--ink);
+}
+
+.std-gen-type {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    color: var(--chip);
+    background: color-mix(in srgb, var(--chip) 12%, transparent);
+}
+
+/* type colours via the --chip custom property */
+.std-gen-item.stabilizer {
+    --chip: var(--accent);
+}
+
+.std-gen-item.parabolic {
+    --chip: var(--success);
+}
+
+.std-gen-item.unpaired {
+    --chip: var(--danger);
+}
+
+.empty-message {
+    padding: 12px;
+    text-align: center;
+    font-size: 12.5px;
+    font-style: italic;
+    color: var(--ink-faint);
+}
+
+/* stabilizer subgroup note */
+.stabilizer-info {
+    padding: 10px 12px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ink-dim);
+    background: var(--w03);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+}
+
+.stabilizer-info strong {
+    color: var(--ink);
+}
+
+.stabilizer-info .stab-trivial {
+    color: var(--ink-faint);
+}
+
+.stabilizer-info .stab-warning,
+.stabilizer-info .stab-warning strong {
+    color: var(--danger);
+}
+
+.stabilizer-info .stab-note {
+    color: var(--ink-faint);
+    font-size: 11.5px;
+}
+
+/* certificate disclosure + log */
+.cert-details summary {
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 550;
+    color: var(--ink-dim);
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: color 0.15s ease;
+}
+
+.cert-details summary::-webkit-details-marker {
+    display: none;
+}
+
+.cert-details summary::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform 0.25s var(--ease-out);
+    flex-shrink: 0;
+}
+
+.cert-details[open] summary::before {
+    transform: rotate(45deg);
+}
+
+.cert-details summary:hover {
+    color: var(--ink);
+}
+
+.cert-log {
+    margin-top: 9px;
+    max-height: 260px;
+    overflow: auto;
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    line-height: 1.55;
+    color: var(--ink-dim);
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* ============================================================
+   STATUS BANNER (top-left, dismissible)
+   ============================================================ */
+.status-banner {
+    --tone: var(--ink-dim);
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 200;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    max-width: min(520px, calc(100vw - 460px));
+    padding: 10px 12px 10px 14px;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--tone);
+    background:
+        linear-gradient(rgba(10, 14, 26, 0.78), rgba(10, 14, 26, 0.78)) padding-box,
+        linear-gradient(165deg,
+            color-mix(in srgb, var(--tone) 55%, transparent),
+            color-mix(in srgb, var(--tone) 18%, transparent)) border-box;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.55);
+    animation: banner-in 0.35s var(--ease-out);
+}
+
+@keyframes banner-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+}
+
+/* Collapsed: just the glowing status dot in a compact pill; click to expand */
+.status-banner.collapsed {
+    cursor: pointer;
+    padding: 11px;
+    border-radius: 999px;
+    animation: none;
+}
+
+.status-banner.collapsed .status-banner-text,
+.status-banner.collapsed .status-banner-close {
+    display: none;
+}
+
+.status-banner.collapsed::before {
+    width: 10px;
+    height: 10px;
+    margin-top: 0;
+}
+
+.status-banner.collapsed:hover::before {
+    box-shadow: 0 0 12px var(--tone);
+}
+
+/* status dot before the text */
+.status-banner::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    margin-top: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--tone);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--tone) 70%, transparent);
+}
+
+.status-banner-text {
+    flex: 1;
+}
+
+.status-banner-close {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--tone) 12%, transparent);
+    color: inherit;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.75;
+    transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s var(--ease-spring);
+}
+
+.status-banner-close:hover {
+    opacity: 1;
+    background: color-mix(in srgb, var(--tone) 22%, transparent);
+}
+
+.status-banner-close:active {
+    transform: scale(0.9);
+}
+
+.status-banner.verified {
+    --tone: var(--success);
+}
+
+.status-banner.warning {
+    --tone: var(--warning);
+}
+
+.status-banner.failed {
+    --tone: var(--danger);
+}
+
+.status-banner.pending {
+    --tone: var(--accent-2);
+}
+
+.status-banner.pending::before {
+    animation: pending-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pending-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.35;
+    }
+}
+
+/* ============================================================
+   ISOMETRY BUTTONS (bottom centre)
+   ============================================================ */
+#isometry-controls {
+    position: fixed;
+    bottom: 28px;
+    /* centred in the part of the window the panel leaves free, like the picture */
+    left: calc((100vw - var(--panel-space, 0px)) / 2);
+    transform: translateX(-50%);
+    width: max-content;                 /* wrap at max-width, not at the viewport edge */
+    max-width: calc(100vw - var(--panel-space, 0px) - 40px);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    z-index: 50;
+}
+
+#isometry-controls .isometry-btn {
+    min-width: 56px;
+    padding: 10px 20px;
+    background:
+        linear-gradient(var(--glass), var(--glass)) padding-box,
+        linear-gradient(165deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.05)) border-box;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+    font-style: italic;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 10px 26px -10px rgba(0, 0, 0, 0.6);
+    transition: transform 0.18s var(--ease-spring), box-shadow 0.2s ease,
+        border-color 0.2s ease, color 0.15s ease;
+}
+
+#isometry-controls .isometry-btn:hover {
+    transform: translateY(-2px);
+    color: #fff;
+    border-color: var(--accent-line);
+    box-shadow:
+        0 14px 30px -10px rgba(0, 0, 0, 0.6),
+        0 0 18px var(--accent-glow);
+}
+
+#isometry-controls .isometry-btn:active {
+    transform: translateY(0) scale(0.97);
+}
+
+/* ---------------- Face inspector panel ---------------- */
+.face-info {
+    position: fixed;
+    left: 20px;
+    bottom: 24px;
+    z-index: 60;
+    max-width: 320px;
+    padding: 12px 16px;
+    background: var(--glass);
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-lg);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.45;
+    box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.7);
+}
+
+.face-info .fi-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.face-info .fi-key {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-dim);
+}
+
+.face-info .fi-type {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--accent-2);
+}
+
+.face-info .fi-angle {
+    margin-top: 6px;
+    font-size: 19px;
+    font-weight: 600;
+}
+
+.face-info .fi-angle .fi-sub {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--ink-dim);
+}
+
+.face-info .fi-matrix {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--ink);
+}
+
+.face-info .fi-hint {
+    margin-top: 8px;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+}
+
+/* ============================================================
+   MathQuill dark-theme overrides
+   ============================================================ */
+.mq-editable-field {
+    background: transparent !important;
+    color: var(--ink) !important;
+    border: none !important;
+}
+
+.mq-math-mode {
+    color: var(--ink) !important;
+}
+
+.mq-cursor {
+    border-left-color: var(--accent-2) !important;
+}
+
+.mq-selection {
+    background: rgba(129, 140, 248, 0.3) !important;
+}
+
+/* ============================================================
+   Responsive & motion preferences
+   ============================================================ */
+@media (max-width: 768px) {
+    #control-panel {
+        width: calc(100vw - 32px);
+        max-width: 384px;
+        top: 16px;
+        right: 16px;
+    }
+
+    .status-banner {
+        max-width: calc(100vw - 32px);
+        top: auto;
+        bottom: 84px;
+        left: 16px;
+    }
+
+    #isometry-controls {
+        bottom: 18px;
+    }
+
+    #isometry-controls .isometry-btn {
+        padding: 9px 16px;
+        font-size: 13px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
+
+/* ================================================================
+   Talk modes (MathFest) — ?embed=true hides the workbench UI,
+   ?tutorial=true adds the step-through caption overlay (tutorial.js).
+   ================================================================ */
+
+html.embed-mode #control-panel,
+html.embed-mode #isometry-controls,
+html.embed-mode #face-info,
+html.embed-mode #status-banner {
+    display: none !important;
+}
+
+/* The step caption takes the bottom centre (the tutorial has its own isometry card). */
+html.tutorial-mode #isometry-controls {
+    display: none !important;
+}
+
+#tutorial-caption {
+    position: fixed;
+    /* centred in the area the control panel leaves free, like the picture */
+    left: calc((100vw - var(--panel-space, 0px)) / 2);
+    bottom: 30px;
+    transform: translateX(-50%);
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: max-content;
+    max-width: min(880px, calc(100vw - var(--panel-space, 0px) - 48px));
+    padding: 14px 22px;
+    background: rgba(5, 7, 15, 0.82);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 1.05rem;
+    line-height: 1.45;
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45);
+}
+
+#tutorial-caption strong { color: var(--accent); }
+#tutorial-caption em { color: var(--accent-2); font-style: italic; }
+
+#tutorial-counter {
+    flex: none;
+    color: var(--ink-faint);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+    padding-left: 14px;
+    border-left: 1px solid var(--hairline);
+}
+
+#tutorial-matrices {
+    position: fixed;
+    top: 24px;
+    left: 24px;
+    z-index: 60;
+    display: none;
+    padding: 14px 18px;
+    background: rgba(5, 7, 15, 0.82);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    color: var(--ink);
+    font-family: var(--font);
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45);
+}
+
+#tutorial-matrices .tut-mat {
+    margin: 6px 0;
+    font-size: 1.02rem;
+}
+
+/* ================================================================
+   Presentation card (Domain tab) — typeset group presentation
+   ================================================================ */
+
+.presentation-display {
+    background: var(--w03);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 12px 14px;
+    overflow-x: auto;
+}
+
+.pres-group-line {
+    color: var(--ink);
+    text-align: center;
+    padding: 2px 0 8px;
+    border-bottom: 1px solid var(--hairline);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+.pres-group-line mjx-container {
+    margin: 0 !important;
+    font-size: 104% !important;
+}
+
+.pres-dict { margin-top: 10px; }
+
+.pres-dict-title {
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 6px;
+}
+
+.pres-gen {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 3px 0;
+    color: var(--ink);
+}
+
+.pres-gen-tex { white-space: nowrap; }
+
+.pres-note {
+    flex: none;
+    font-size: 0.68rem;
+    color: var(--ink-faint);
+    white-space: nowrap;
+}
+
+.pres-caveat {
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: var(--warning);
+    border-top: 1px solid var(--hairline);
+    padding-top: 8px;
+}
+
+/* ================================================================
+   Light mode — a soft, pastel counterpart to the dark workbench.
+   Tokens are re-declared on <html class="light">, so every
+   component that speaks in tokens follows automatically. The 3D
+   scene's own colours are set from js/main.js (setTheme).
+   ================================================================ */
+
+html.light {
+    --bg: #eef1f8;
+    --ink: #171c2b;
+    --ink-dim: #545d75;
+    --ink-faint: #8b93a8;
+
+    --accent: #6366f1;
+    --accent-2: #0891b2;
+    --success: #15a34a;
+    --warning: #c2740a;
+    --danger: #e11d48;
+
+    /* the translucent ladder inverts: dark films over a light scene */
+    --w03: rgba(23, 28, 43, 0.03);
+    --w05: rgba(23, 28, 43, 0.05);
+    --w08: rgba(23, 28, 43, 0.07);
+    --w12: rgba(23, 28, 43, 0.11);
+    --hairline: rgba(23, 28, 43, 0.10);
+    --hairline-strong: rgba(23, 28, 43, 0.18);
+
+    --field-bg: rgba(255, 255, 255, 0.72);
+    --glass: rgba(255, 255, 255, 0.78);
+
+    --accent-soft: rgba(99, 102, 241, 0.14);
+    --accent-line: rgba(99, 102, 241, 0.45);
+    --accent-glow: rgba(99, 102, 241, 0.22);
+}
+
+/* A soft wash behind the scene, so the ball sits on paper rather than a slab. */
+html.light body {
+    background:
+        radial-gradient(ellipse at 28% 18%, #ffffff 0%, rgba(255, 255, 255, 0) 55%),
+        linear-gradient(160deg, #f3f5fc 0%, var(--bg) 55%, #e6eaf4 100%);
+}
+
+/* Panels lift off the light background instead of glowing on dark. */
+html.light #control-panel,
+html.light .status-banner,
+html.light .face-info {
+    box-shadow: 0 10px 34px rgba(23, 28, 43, 0.13);
+}
+
+/* The MathQuill fields ship with dark-scene assumptions. */
+html.light .mq-matrix-input,
+html.light .constant-label-input,
+html.light .constant-expr-input {
+    color: var(--ink);
+}
+
+/* ---------------- Dark / light segmented control ---------------- */
+
+.theme-options {
+    display: flex;
+    flex: none;
+    gap: 3px;
+    padding: 3px;
+    background: var(--field-bg);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-md);
+}
+
+.theme-opt {
+    padding: 6px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    color: var(--ink-dim);
+    font-family: var(--font);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.theme-opt:hover {
+    color: var(--ink);
+    background: var(--w05);
+}
+
+.theme-opt.active {
+    background: var(--accent-soft);
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+/* A few components bake in dark-scene assumptions (white sheen borders,
+   black scrims); restate them for light. */
+html.light #control-panel {
+    background:
+        linear-gradient(var(--glass), var(--glass)) padding-box,
+        linear-gradient(165deg,
+            rgba(255, 255, 255, 0.9),
+            rgba(23, 28, 43, 0.06) 30%,
+            rgba(99, 102, 241, 0.28) 90%) border-box;
+    box-shadow:
+        0 24px 60px -20px rgba(23, 28, 43, 0.28),
+        0 4px 16px rgba(23, 28, 43, 0.10);
+}
+
+html.light .tab-navigation {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+html.light .tab-btn.active {
+    background: linear-gradient(180deg, var(--accent-soft), rgba(99, 102, 241, 0.06));
+    box-shadow:
+        0 0 14px var(--accent-glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Banners and the face inspector are glass over a dark sky; on paper they
+   become white cards with a coloured hairline. */
+html.light .status-banner {
+    background:
+        linear-gradient(rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.86)) padding-box,
+        linear-gradient(165deg,
+            color-mix(in srgb, var(--tone) 60%, transparent),
+            color-mix(in srgb, var(--tone) 22%, transparent)) border-box;
+    box-shadow: 0 12px 32px -14px rgba(23, 28, 43, 0.35);
+}
+
+html.light .face-info {
+    background: rgba(255, 255, 255, 0.88);
+}
+
+/* ---------------- Element matrices & stored words ---------------- */
+
+/* The 2×2 matrix shown under "Current Element" and under each stored word.
+   Long complex entries scroll rather than widen the panel. */
+.element-matrix {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--hairline);
+    color: var(--ink-dim);
+    font-size: 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+
+.element-matrix mjx-container {
+    margin: 0 !important;
+}
+
+.elem-error {
+    color: var(--danger);
+    font-size: 11.5px;
+}
+
+/* A stored element: word on top, its matrix beneath, click to apply. */
+.user-elem {
+    display: block;
+    cursor: pointer;
+}
+
+.user-elem-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.user-elem-del {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: var(--ink-faint);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.65;
+    transition: color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+.user-elem-del:hover {
+    opacity: 1;
+    color: var(--danger);
+    background: var(--w08);
+}
+
+/* ---------------- tutorial: caption arrows + overlay cards ---------------- */
+
+.tut-arrow {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0 3px;
+    background: var(--w05);
+    border: 1px solid var(--hairline);
+    border-radius: 50%;
+    color: var(--ink-dim);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+
+.tut-arrow:hover {
+    color: var(--ink);
+    background: var(--accent-soft);
+}
+
+.tut-arrow:active {
+    transform: scale(0.92);
+}
+
+/* Theorem statement — a centered reading card over the scene. */
+#tutorial-theorem {
+    position: fixed;
+    left: calc((100vw - var(--panel-space, 0px)) / 2);
+    top: 16%;
+    transform: translateX(-50%);
+    z-index: 60;
+    max-width: min(620px, calc(100vw - var(--panel-space, 0px) - 48px));
+    padding: 20px 26px;
+    background: rgba(5, 7, 15, 0.86);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 1rem;
+    line-height: 1.55;
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45);
+}
+
+#tutorial-theorem p { margin: 0.55em 0 0; }
+
+.tut-thm-title {
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--warning);
+}
+
+/* Presentation + certificate — reuses the panel's presentation styling. */
+#tutorial-pres {
+    position: fixed;
+    left: calc((100vw - var(--panel-space, 0px)) / 2);
+    top: 12%;
+    transform: translateX(-50%);
+    z-index: 60;
+    width: min(640px, calc(100vw - var(--panel-space, 0px) - 48px));
+    padding: 16px 20px;
+    background: rgba(5, 7, 15, 0.88);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    color: var(--ink);
+    font-family: var(--font);
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45);
+}
+
+.tut-cert {
+    font-size: 0.82rem;
+    line-height: 1.45;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    border-radius: 9px;
+}
+
+.tut-cert-ok   { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+.tut-cert-warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+.tut-cert-bad  { color: var(--danger);  background: color-mix(in srgb, var(--danger) 10%, transparent); }
+
+html.light #tutorial-theorem,
+html.light #tutorial-pres,
+html.light #tutorial-matrices,
+html.light #tutorial-iso,
+html.light #tutorial-caption {
+    background: rgba(255, 255, 255, 0.88);
+}
+
+/* Step-3 interactive isometry chips */
+#tutorial-iso {
+    position: fixed;
+    top: 24px;
+    left: 24px;
+    z-index: 60;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    background: rgba(5, 7, 15, 0.82);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    color: var(--ink);
+    font-family: var(--font);
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.45);
+}
+
+.tut-iso-chip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 8px 12px;
+    background: rgba(124, 138, 255, 0.08);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.12s;
+}
+
+.tut-iso-chip:hover {
+    background: rgba(124, 138, 255, 0.18);
+    border-color: var(--hairline-strong);
+    transform: translateY(-1px);
+}
+
+.tut-iso-chip:active { transform: none; }
+
+.tut-iso-type {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    opacity: 0.7;
+}
+
+.tut-iso-hint {
+    font-size: 0.7rem;
+    opacity: 0.6;
+    letter-spacing: 0.03em;
+    text-align: center;
+}
+
+html.light .tut-iso-chip { background: rgba(90, 105, 240, 0.08); }
+
+/* ================================================================
+   INSIDE VIEW
+   The eye stands at the centre of the ball; the HUD is the only
+   chrome, and it must not compete with the geometry behind it.
+   Everything here is gated on .inside-mode, set on <html> by main.js.
+   ================================================================ */
+
+.inside-hud {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    pointer-events: none;          /* the canvas owns the pointer while locked */
+}
+
+html.inside-mode .inside-hud { display: block; }
+
+/* Hide the isometry row: it wants clicks, and the mouse is captured. */
+html.inside-mode #isometry-controls,
+html.inside-mode #face-info {
+    display: none !important;
+}
+
+.inside-hud-reticle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 3px;
+    height: 3px;
+    margin: -1.5px 0 0 -1.5px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.inside-hud-keys {
+    position: absolute;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 6px 14px;
+    max-width: min(760px, calc(100vw - 40px));
+    padding: 9px 16px;
+    background: var(--glass);
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-lg);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.7);
+    color: var(--ink-dim);
+    font-size: 12px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.inside-hud-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink);
+}
+
+.inside-hud-keys kbd {
+    display: inline-block;
+    min-width: 1.25em;
+    margin-right: 2px;
+    padding: 2px 4px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 4px;
+    background: var(--w05);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-align: center;
+}
+
+/* Distance from the eye to the domain's centre — the one live number. */
+.inside-hud-dist {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink);
+}
+
+.inside-hud-dist b {
+    font-weight: 600;
+    color: var(--accent-2);
+}
+
+.inside-hud-hint {
+    flex-basis: 100%;
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-faint);
+    white-space: normal;
+}
+
+html.light .inside-hud-keys {
+    box-shadow: 0 10px 34px rgba(23, 28, 43, 0.13);
+}
+
+html.light .inside-hud-reticle {
+    background: rgba(20, 26, 44, 0.55);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+html.embed-mode .inside-hud-keys { display: none; }
+
+/* Keyboard and touch controls share the same compact workbench. */
+.panel-tabs { display: flex; flex: 1; min-width: 0; gap: 4px; }
+.slider-btn { touch-action: none; display: flex; justify-content: space-between; align-items: center; }
+.slider-value { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+#control-panel.collapsed .panel-tabs { display: none; }
+#control-panel.collapsed .collapse-icon { transform: none; }
+.palette-control-row { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+.palette-control-row .select-input { min-width: 0; }
+.palette-control-row .theme-options { grid-column: 1 / -1; justify-self: end; }
+
+/* ============================================================
+   CERTIFICATE — one line per check; lines with a reference light up
+   the corresponding faces / edges / points in the picture
+   ============================================================ */
+.cert-log .cert-line {
+    padding: 1px 4px;
+    margin: 0 -4px;
+    border-radius: 5px;
+}
+.cert-log .cert-head { color: var(--ink); margin-top: 6px; }
+.cert-log .cert-head:first-child { margin-top: 0; }
+.cert-log .cert-ok { color: color-mix(in srgb, var(--success) 70%, var(--ink-dim)); }
+.cert-log .cert-fail { color: var(--danger); }
+.cert-log .cert-warn { color: var(--warning); }
+.cert-log .cert-line.has-ref { cursor: pointer; }
+.cert-log .cert-line.has-ref:hover { background: var(--w05); }
+.cert-log .cert-line.active {
+    background: var(--accent-soft);
+    box-shadow: inset 2px 0 0 var(--accent);
+}
+.cert-log.stale { opacity: 0.45; }
+
+.status-banner.stale { --tone: var(--danger); }
+.status-banner.stale .status-banner-text { font-style: italic; }
+
+/* entries that failed to parse */
+.mq-matrix-input.mq-error,
+.mq-matrix-input.mq-error .mq-root-block {
+    box-shadow: 0 0 0 1.5px var(--danger);
+    border-radius: 4px;
+}
+
+/* ============================================================
+   FACE LABELS (s_k / s_k⁻¹ over the faces)
+   ============================================================ */
+#face-labels {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+.face-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    padding: 1px 6px;
+    font: 600 12px/1.3 var(--font);
+    color: var(--ink);
+    background: rgba(5, 7, 15, 0.72);
+    border: 1.5px solid var(--accent);
+    border-radius: 999px;
+    white-space: nowrap;
+    will-change: transform;
+}
+html.light .face-label {
+    color: #1e2436;
+    background: rgba(255, 255, 255, 0.85);
+}
+
+/* ============================================================
+   BASEPOINT sliders
+   ============================================================ */
+.bp-grid {
+    display: grid;
+    grid-template-columns: 14px 1fr;
+    align-items: center;
+    gap: 6px 10px;
+    margin-top: 6px;
+    font: 500 12px var(--mono);
+    color: var(--ink-dim);
+}
+
+/* ============================================================
+   INVARIANTS tab
+   ============================================================ */
+.inv-section .control-label { margin-bottom: 6px; }
+.inv-row {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 8px;
+    padding: 5px 0;
+    border-top: 1px solid var(--hairline);
+    font-size: 12.5px;
+    color: var(--ink);
+}
+.inv-row:first-of-type { border-top: none; }
+.inv-key { color: var(--ink-dim); font-weight: 500; }
+.inv-val { font-variant-numeric: tabular-nums; word-break: break-word; }
+.inv-hint { font-size: 11px; color: var(--ink-faint); margin: -1px 0 4px 100px; line-height: 1.4; }
+.inv-section > .inv-hint { margin-left: 0; }
+.inv-sub { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-dim); margin-top: 10px; }
+.inv-tex { overflow-x: auto; font-size: 13px; }
+.inv-dict { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-dim); margin-bottom: 8px; }
+/* a long generator word scrolls inside its own line instead of spilling out of the panel */
+.inv-dict > span { min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: var(--w12) transparent; }
+.inv-caveat { font-size: 11.5px; color: var(--warning); margin: 4px 0 8px; }
+.inv-yes { color: var(--success); }
+.inv-no { color: var(--ink-dim); }
+.inv-copy { margin-top: 4px; }
+.inv-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.inv-table th { text-align: left; font-weight: 500; color: var(--ink-faint); padding: 2px 4px; }
+.inv-table td { padding: 3px 4px; border-top: 1px solid var(--hairline); color: var(--ink); }
+.inv-table tr.inv-geo { cursor: pointer; }
+.inv-table tr.inv-geo:hover td { background: var(--w05); }
+.inv-table tr.inv-geo.active td { background: var(--accent-soft); }
+.inv-apply {
+    border: 1px solid var(--hairline-strong);
+    background: transparent;
+    color: var(--ink-dim);
+    border-radius: 6px;
+    font-size: 10px;
+    padding: 1px 6px;
+    cursor: pointer;
+}
+.inv-apply:hover { color: var(--ink); border-color: var(--accent-line); }
+
+/* four tabs share the header: tighten them a little */
+.tab-navigation .tab-btn { font-size: 12.5px; padding: 7px 2px; }
+
+/* disabled rows (cut-away needs the half-space model, etc.) */
+.cayley-selector.disabled { opacity: 0.45; pointer-events: none; }
+.toggle-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Long exact entries (e.g. the dodecahedron over Q(w)): keep each matrix on
+   one line and let it scroll sideways instead of wrapping its brackets. */
+.matrix-block > div > label {
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--w12) transparent;
+    padding-bottom: 2px;
+}
+.matrix-block > div > label::-webkit-scrollbar { height: 4px; }
+.matrix-block > div > label::-webkit-scrollbar-thumb { background: var(--w12); border-radius: 999px; }

@@ -1,131 +1,33 @@
 /**
- * Matrix input module: Complex number parsing, matrix input UI, and generator management
+ * Matrix input: parsing entries (LaTeX → complex or exact field elements),
+ * the generator and constant editors, the example library, and the page's
+ * input state for permalinks.
  */
 
-// Complex number class
-export class Complex {
-    constructor(re = 0, im = 0) {
-        this.re = re;
-        this.im = im;
-    }
+import { Complex, Matrix2x2 } from './math.js';
+import { exampleLibrary } from './groupLibrary.js';
+import { parseKElem, ExactMat } from './exact.js';
 
-    add(z) {
-        return new Complex(this.re + z.re, this.im + z.im);
-    }
+// Re-export for use in other modules
+export { exampleLibrary };
 
-    sub(z) {
-        return new Complex(this.re - z.re, this.im - z.im);
-    }
+// --- Exact-arithmetic mode ---
+// When a NumberField is configured, entries are parsed EXACTLY as elements
+// of K and the floating-point matrices are derived from the embedding, so
+// the floats and the exact values agree by construction.
+let exactField = null;          // NumberField | null
+let lastExactGens = null;       // ExactMat[] from the most recent parse
 
-    mul(z) {
-        return new Complex(
-            this.re * z.re - this.im * z.im,
-            this.re * z.im + this.im * z.re
-        );
-    }
-
-    div(z) {
-        const denom = z.re * z.re + z.im * z.im;
-        if (denom === 0) return new Complex(Infinity, Infinity);
-        return new Complex(
-            (this.re * z.re + this.im * z.im) / denom,
-            (this.im * z.re - this.re * z.im) / denom
-        );
-    }
-
-    conjugate() {
-        return new Complex(this.re, -this.im);
-    }
-
-    normSq() {
-        return this.re * this.re + this.im * this.im;
-    }
-
-    abs() {
-        return Math.sqrt(this.normSq());
-    }
-
-    toString() {
-        const formatNum = (x) => {
-            if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x));
-            return String(parseFloat(x.toFixed(6)));
-        };
-        const reZero = Math.abs(this.re) < 1e-9;
-        const imZero = Math.abs(this.im) < 1e-9;
-
-        if (imZero) return formatNum(this.re);
-        if (reZero) {
-            const coeff = this.im === 1 ? '' : this.im === -1 ? '-' : formatNum(this.im);
-            return `${coeff}i`;
-        }
-
-        const rePart = formatNum(this.re);
-        const imAbs = Math.abs(this.im);
-        const imPart = imAbs === 1 ? 'i' : `${formatNum(imAbs)}i`;
-        const sign = this.im < 0 ? '-' : '+';
-        return `${rePart} ${sign} ${imPart}`;
-    }
+/** Enable (field) / disable (null) exact entry parsing. */
+export function configureExact(field) {
+    exactField = field;
+    lastExactGens = null;
 }
 
-// Matrix2 class for 2x2 matrices
-export class Matrix2 {
-    constructor(a, b, c, d) {
-        this.a = a;
-        this.b = b;
-        this.c = c;
-        this.d = d;
-    }
-
-    multiply(m) {
-        return new Matrix2(
-            this.a.mul(m.a).add(this.b.mul(m.c)),
-            this.a.mul(m.b).add(this.b.mul(m.d)),
-            this.c.mul(m.a).add(this.d.mul(m.c)),
-            this.c.mul(m.b).add(this.d.mul(m.d))
-        );
-    }
-
-    determinant() {
-        return this.a.mul(this.d).sub(this.b.mul(this.c));
-    }
-
-    inverse() {
-        const det = this.determinant();
-        if (det.normSq() === 0) return null;
-        const invDet = new Complex(1, 0).div(det);
-        return new Matrix2(
-            this.d.mul(invDet),
-            this.b.mul(new Complex(-1, 0)).mul(invDet),
-            this.c.mul(new Complex(-1, 0)).mul(invDet),
-            this.a.mul(invDet)
-        );
-    }
-
-    isIdentity() {
-        const eps = 1e-9;
-        return Math.abs(this.a.re - 1) < eps && Math.abs(this.a.im) < eps &&
-               Math.abs(this.b.re) < eps && Math.abs(this.b.im) < eps &&
-               Math.abs(this.c.re) < eps && Math.abs(this.c.im) < eps &&
-               Math.abs(this.d.re - 1) < eps && Math.abs(this.d.im) < eps;
-    }
-
-    neg() {
-        const minus = new Complex(-1, 0);
-        return new Matrix2(
-            this.a.mul(minus),
-            this.b.mul(minus),
-            this.c.mul(minus),
-            this.d.mul(minus)
-        );
-    }
-
-    trace() {
-        return this.a.add(this.d);
-    }
-
-    toString() {
-        return `[[${this.a}, ${this.b}], [${this.c}, ${this.d}]]`;
-    }
+/** { field, gens } from the last successful exact parse, or null. */
+export function getExactContext() {
+    if (!exactField || !lastExactGens) return null;
+    return { field: exactField, gens: lastExactGens };
 }
 
 // Convert LaTeX to expression string for math.js
@@ -139,38 +41,30 @@ export function latexToExpr(latex) {
     parserString = parserString.replace(/\\mathrm\{?i\}?/g, 'i');
     parserString = parserString.replace(/\\operatorname\{?i\}?/g, 'i');
 
-    // Replace Greek letters with their names (for use as variable names)
-    parserString = parserString.replace(/\\alpha/g, 'alpha');
-    parserString = parserString.replace(/\\beta/g, 'beta');
-    parserString = parserString.replace(/\\gamma/g, 'gamma');
-    parserString = parserString.replace(/\\delta/g, 'delta');
-    parserString = parserString.replace(/\\epsilon/g, 'epsilon');
-    parserString = parserString.replace(/\\zeta/g, 'zeta');
-    parserString = parserString.replace(/\\eta/g, 'eta');
-    parserString = parserString.replace(/\\theta/g, 'theta');
-    parserString = parserString.replace(/\\iota/g, 'iota');
-    parserString = parserString.replace(/\\kappa/g, 'kappa');
-    parserString = parserString.replace(/\\lambda/g, 'lambda');
-    parserString = parserString.replace(/\\mu/g, 'mu');
-    parserString = parserString.replace(/\\nu/g, 'nu');
-    parserString = parserString.replace(/\\xi/g, 'xi');
-    parserString = parserString.replace(/\\omicron/g, 'omicron');
-    parserString = parserString.replace(/\\rho/g, 'rho');
-    parserString = parserString.replace(/\\sigma/g, 'sigma');
-    parserString = parserString.replace(/\\tau/g, 'tau');
-    parserString = parserString.replace(/\\upsilon/g, 'upsilon');
-    parserString = parserString.replace(/\\phi/g, 'phi');
-    parserString = parserString.replace(/\\chi/g, 'chi');
-    parserString = parserString.replace(/\\psi/g, 'psi');
-    parserString = parserString.replace(/\\omega/g, 'omega');
+    // Replace Greek letters
+    const greek = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'iota', 'kappa', 'lambda', 'mu', 'nu', 'xi', 'omicron', 'rho', 'sigma', 'tau', 'upsilon', 'phi', 'chi', 'psi', 'omega'];
+    greek.forEach(g => {
+        const re = new RegExp('\\\\' + g, 'g');
+        parserString = parserString.replace(re, g);
+    });
 
-    // Replace LaTeX constructs
-    parserString = parserString.replace(/\\frac\{(.+?)\}\{(.+?)\}/g, '($1)/($2)');
-    parserString = parserString.replace(/\\sqrt\[(.+?)\]\{(.+?)\}/g, 'nthRoot($2, $1)');
-    parserString = parserString.replace(/\\sqrt\{(.+?)\}/g, 'sqrt($1)');
+    // Handle LaTeX constructs iteratively to support nesting
+    let prev;
+    do {
+        prev = parserString;
+        // frac{a}{b} -> (a)/(b)
+        // We use a regex that handles one level of nesting safely, then repeat
+        parserString = parserString.replace(/\\frac\s*\{((?:[^{}]|\{[^{}]*\})*)\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g, '($1)/($2)');
+        // sqrt[n]{a} -> nthRoot(a, n)
+        parserString = parserString.replace(/\\sqrt\s*\[((?:[^{}]|\{[^{}]*\})*)\]\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g, 'nthRoot($2, $1)');
+        // sqrt{a} -> sqrt(a)
+        parserString = parserString.replace(/\\sqrt\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g, 'sqrt($1)');
+    } while (parserString !== prev);
+
+    // Other replacements
     parserString = parserString.replace(/x_\{(.+?)\}/g, 'x$1');
     parserString = parserString.replace(/x_(\d+)/g, 'x$1');
-    parserString = parserString.replace(/\\(sin|cos|tan|csc|sec|cot|sinh|cosh|tanh)h?\((.*?)\)/g, '$1($2)');
+    parserString = parserString.replace(/\\(sin|cos|tan|csc|sec|cot|sinh|cosh|tanh)h?\((.*)?\)/g, '$1($2)');
     parserString = parserString.replace(/\\log_\{(.+?)\}\((.+?)\)/g, 'log($2, $1)');
     parserString = parserString.replace(/\\ln\((.+?)\)/g, 'log($1)');
     parserString = parserString.replace(/\\pi/g, 'pi');
@@ -178,13 +72,10 @@ export function latexToExpr(latex) {
     parserString = parserString.replace(/\\div/g, '/');
     parserString = parserString.replace(/e\^\{(.+?)\}/g, 'exp($1)');
 
-    // Handle cases like sqrt(5)i -> sqrt(5)*i (implicit multiplication with i)
+    // Handle implicit multiplication
     parserString = parserString.replace(/\)i(?![a-z])/g, ')*i');
     parserString = parserString.replace(/(\d)i(?![a-z])/g, '$1*i');
-
-    // Handle implicit multiplication between numbers and variables (e.g., 2omega -> 2*omega)
     parserString = parserString.replace(/(\d)([a-z])/gi, '$1*$2');
-    // Handle implicit multiplication between ) and variables (e.g., )omega -> )*omega)
     parserString = parserString.replace(/\)([a-z])/gi, ')*$1');
 
     return parserString;
@@ -216,15 +107,24 @@ export function evalComplexExpression(expr, constants = {}) {
 
         return toComplex(val);
     } catch (e) {
-        return new Complex(NaN, NaN);
+        const c = new Complex(NaN, NaN);
+        c.error = e.message;
+        return c;
     }
 }
 
-// Group library
-import { exampleLibrary } from '../../assets/grouplibrary.js';
+const ENTRY_NAMES = ['(1,1)', '(1,2)', '(2,1)', '(2,2)'];
 
-// Re-export for use in other modules
-export { exampleLibrary };
+/** Throw a readable error for an entry that did not parse to a finite number. */
+function checkEntry(z, latex, gen, k, span) {
+    if (Number.isFinite(z.re) && Number.isFinite(z.im)) {
+        span?.classList.remove('mq-error');
+        return z;
+    }
+    span?.classList.add('mq-error');
+    const why = z.error ? ` (${z.error})` : '';
+    throw new Error(`g${gen}, entry ${ENTRY_NAMES[k]}: could not read “${latex || '(empty)'}”${why}.`);
+}
 
 // Add a constant input UI element
 export function addConstantInput(labelValue = '', exprValue = '') {
@@ -301,8 +201,9 @@ export function getConstantsFromUI() {
     return constants;
 }
 
-// Add a matrix input UI element
-export function addMatrixInput(values = ['1', '0', '0', '1']) {
+// Add a matrix input UI element. `anti` marks the generator as
+// orientation-reversing: the map z ↦ (a·z̄+b)/(c·z̄+d).
+export function addMatrixInput(values = ['1', '0', '0', '1'], anti = false) {
     const container = document.getElementById('matrixInputs');
     if (!container) return;
 
@@ -321,6 +222,10 @@ export function addMatrixInput(values = ['1', '0', '0', '1']) {
                     <span class="mq-matrix-input" data-initial="${values[3]}"></span>
                 </span>
                 <span class="matrix-bracket">)</span>
+                <label class="anti-toggle" title="Click to conjugate first: z ↦ (a·z̄+b)/(c·z̄+d) — an orientation-reversing generator (reflection / glide reflection).">
+                    <input type="checkbox" class="anti-checkbox"${anti ? ' checked' : ''}>
+                    <span class="anti-glyph">z</span>
+                </label>
             </label>
             <button class="delete-matrix-btn" style="position:absolute;right:0;top:50%;transform:translateY(-50%);width:26px;height:30px;">✖</button>
         </div>`;
@@ -355,7 +260,7 @@ export function addMatrixInput(values = ['1', '0', '0', '1']) {
 function updateMatrixLabels() {
     const labels = document.querySelectorAll('#matrixInputs .matrix-label');
     labels.forEach((lbl, i) => {
-        lbl.innerHTML = `$g_${i + 1} = $`;
+        lbl.innerHTML = `$g_{${i + 1}} = $`;
     });
 
     // Render LaTeX with MathJax if available
@@ -374,36 +279,91 @@ function getLatex(el) {
     }
 }
 
-// Extract matrices from UI
+// Extract matrices from UI as Matrix2x2 objects
 export function getMatricesFromUI() {
     // First, extract all constants
     const constants = getConstantsFromUI();
 
     const matrices = [];
     const blocks = document.querySelectorAll('#matrixInputs .matrix-block');
+    const exactGens = exactField ? [] : null;
+    if (exactField && Object.keys(constants).length > 0) {
+        throw new Error('Exact mode does not support the Constants section — write entries in the field generator.');
+    }
 
     for (const block of blocks) {
         const spans = block.querySelectorAll('.mq-matrix-input');
-        const toC = (latex) => evalComplexExpression(latexToExpr(String(latex || '0')), constants);
-
-        const a = toC(getLatex(spans[0]));
-        const b = toC(getLatex(spans[1]));
-        const c = toC(getLatex(spans[2]));
-        const d = toC(getLatex(spans[3]));
-
-        const det = a.mul(d).sub(b.mul(c));
-        if (det.normSq() < 1e-12) {
-            throw new Error('Matrix has determinant 0 (not invertible)');
+        const antiBox = block.querySelector('.anti-checkbox');
+        const anti = !!(antiBox && antiBox.checked);
+        if (exactField && anti && !exactField.hasConj()) {
+            throw new Error('Orientation-reversing (z̄) generators in exact mode need complex ' +
+                'conjugation as a field automorphism, which is not configured for this field/root — ' +
+                'use a field closed under conjugation (real embedding or degree 2), a preset that ' +
+                'supplies σ(w), or turn off exact mode.');
         }
 
-        matrices.push(new Matrix2(a, b, c, d));
+        let a, b, c, d;
+        if (exactField) {
+            // Exact path: parse each entry as an element of K, embed for floats.
+            const genNo = matrices.length + 1;
+            const toK = (k) => {
+                const latex = getLatex(spans[k]);
+                try {
+                    const v = parseKElem(latexToExpr(String(latex || '0')), exactField);
+                    spans[k]?.classList.remove('mq-error');
+                    return v;
+                } catch (e) {
+                    spans[k]?.classList.add('mq-error');
+                    throw new Error(`g${genNo}, entry ${ENTRY_NAMES[k]}: ${e.message}`);
+                }
+            };
+            const ea = toK(0), eb = toK(1), ec = toK(2), ed = toK(3);
+            const em = new ExactMat(ea, eb, ec, ed, anti);
+            if (em.det().isZero()) {
+                throw new Error('Matrix has determinant 0 exactly (not invertible)');
+            }
+            exactGens.push(em);
+            const z = (e) => { const v = e.embed(); return new Complex(v.re, v.im); };
+            a = z(ea); b = z(eb); c = z(ec); d = z(ed);
+        } else {
+            const genNo = matrices.length + 1;
+            const vals = [0, 1, 2, 3].map(k => {
+                const latex = getLatex(spans[k]);
+                const z = evalComplexExpression(latexToExpr(String(latex || '0')), constants);
+                return checkEntry(z, latex, genNo, k, spans[k]);
+            });
+            [a, b, c, d] = vals;
+        }
+
+        const det = a.mul(d).sub(b.mul(c));
+        // Written so that NaN fails too (NaN < x is false for every x).
+        if (!(det.normSq() >= 1e-12)) {
+            throw new Error(`g${matrices.length + 1} has determinant 0 (not invertible)`);
+        }
+
+        // Normalize to determinant 1 so all downstream formulas (orbit maps,
+        // log/exp animation) can assume SL(2,C).
+        matrices.push(new Matrix2x2(a, b, c, d, anti).normalized());
     }
 
+    if (exactField) lastExactGens = exactGens;
     return matrices;
 }
 
-// Load an example
-function setExample(example, exampleName = '') {
+// Get generators (matrices and their inverses) from UI
+export function getGeneratorsFromUI() {
+    const matrices = getMatricesFromUI();
+    const generators = [];
+    for (const m of matrices) {
+        generators.push(m);
+        generators.push(m.inv());
+    }
+    return generators;
+}
+
+// Load an example. `anti` is an optional per-matrix array of booleans marking
+// orientation-reversing generators.
+function setExample(example, exampleName = '', consts = null, anti = null) {
     const matrixContainer = document.getElementById('matrixInputs');
     const constantsContainer = document.getElementById('constantsInputs');
     if (!matrixContainer) return;
@@ -420,37 +380,198 @@ function setExample(example, exampleName = '') {
         addConstantInput('n', String(randomN));
     }
 
-    example.forEach(vals => addMatrixInput(vals.map(v => String(v).replace(/\*\*/g, '^'))));
+    // Library-provided constants ([name, latex] pairs, defined in order)
+    if (consts) {
+        consts.forEach(([name, expr]) => addConstantInput(name, expr));
+    }
+
+    example.forEach((vals, i) => addMatrixInput(
+        vals.map(v => String(v).replace(/\*\*/g, '^')),
+        !!(anti && anti[i])));
 }
 
-// Populate example dropdown
-function populateExampleDropdown() {
-    const sel = document.getElementById('matrix-example-select');
-    if (!sel) return;
+/**
+ * Configure exact mode for a library example: examples with an `exact` spec
+ * ({gen?, minpoly, root, conj?}) enable exact mode with that field; examples
+ * without one disable it (their entries are plain float expressions).
+ * main.js owns the exact-panel state and listens for this event.
+ */
+function setExampleExact(spec) {
+    window.dispatchEvent(new CustomEvent('poincare:set-exact', { detail: spec || null }));
+}
 
+// Store the onRefresh callback for use by the example picker
+let refreshCallback = null;
+
+/** Load library example `idx` into the inputs and refresh. */
+export function loadExample(idx) {
+    if (!(idx >= 0 && idx < exampleLibrary.length)) return;
+    const example = exampleLibrary[idx];
+    setExample(example.mats, example.name, example.consts, example.anti);
+    // Some presets need a deeper search (a long accidental parabolic).
+    const wl = document.getElementById('wordLength');
+    if (wl) wl.value = String(example.depth || 8);
+    window.dispatchEvent(new CustomEvent('poincare:example', { detail: { name: example.name } }));
+    setExampleExact(example.exact);
+    // Trigger refresh after a short delay for MathQuill to initialize
+    if (refreshCallback) {
+        setTimeout(refreshCallback, 50);
+    }
+}
+
+// ---- Input state (permalinks) ----
+
+/** The current inputs as plain data: matrices (LaTeX), mirror flags, constants. */
+export function getInputState() {
+    const mats = [], anti = [];
+    document.querySelectorAll('#matrixInputs .matrix-block').forEach(block => {
+        mats.push([...block.querySelectorAll('.mq-matrix-input')].map(sp => getLatex(sp)));
+        anti.push(!!block.querySelector('.anti-checkbox')?.checked);
+    });
+    const consts = [];
+    document.querySelectorAll('#constantsInputs .constant-block').forEach(block => {
+        consts.push([getLatex(block.querySelector('.constant-label-input')), getLatex(block.querySelector('.constant-expr-input'))]);
+    });
+    return { mats, anti, consts };
+}
+
+/** Replace the inputs (no refresh). */
+export function applyInputState(st) {
+    if (!st || !Array.isArray(st.mats) || !st.mats.length) return false;
+    setExample(st.mats.map(m => m.map(String)), '', st.consts && st.consts.length ? st.consts : null, st.anti || null);
+    return true;
+}
+
+// ---- Example picker modal ----
+// Categories are shown in this order; presets keep library order inside each.
+const CATEGORY_ORDER = [
+    'Knots, links & bundles',
+    'Kaleidoscopes — reflection groups',
+    'Arithmetic & Bianchi groups',
+    'Surfaces & Fuchsian groups',
+    'Closed 3-manifolds',
+    'Fractal limit sets'
+];
+
+function buildExampleModal() {
+    const modal = document.createElement('div');
+    modal.id = 'example-modal';
+    modal.className = 'example-modal';
+    modal.hidden = true;
+
+    const cats = new Map();
     exampleLibrary.forEach((ex, idx) => {
-        const opt = document.createElement('option');
-        opt.value = String(idx);
-        opt.textContent = ex.name;
-        sel.appendChild(opt);
+        const cat = ex.cat || 'Other';
+        if (!cats.has(cat)) cats.set(cat, []);
+        cats.get(cat).push({ ex, idx });
+    });
+    const ordered = [
+        ...CATEGORY_ORDER.filter(c => cats.has(c)),
+        ...[...cats.keys()].filter(c => !CATEGORY_ORDER.includes(c))
+    ];
+
+    let html = `
+        <div class="example-modal-backdrop"></div>
+        <div class="example-modal-panel" role="dialog" aria-label="Example library">
+            <div class="example-modal-head">
+                <h3>Example Library</h3>
+                <button class="example-modal-close" aria-label="Close">×</button>
+            </div>
+            <div class="example-modal-body">`;
+    for (const cat of ordered) {
+        html += `<section class="example-cat">
+                <h4 class="example-cat-title">${cat}</h4>
+                <div class="example-grid">`;
+        for (const { ex, idx } of cats.get(cat)) {
+            const badges =
+                (ex.exact ? '<span class="ex-badge exact" title="Certifies with exact arithmetic">exact</span>' : '') +
+                (ex.anti ? '<span class="ex-badge mirrors" title="Orientation-reversing generators">mirrors</span>' : '');
+            html += `<button class="example-card" data-idx="${idx}">
+                    <span class="example-card-head">
+                        <span class="example-name">${ex.name}</span>
+                        <span class="example-badges">${badges}</span>
+                    </span>
+                    ${ex.desc ? `<span class="example-desc">${ex.desc}</span>` : ''}
+                </button>`;
+        }
+        html += `</div></section>`;
+    }
+    html += `</div></div>`;
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
+
+    const close = () => { modal.hidden = true; };
+    modal.querySelector('.example-modal-backdrop').addEventListener('click', close);
+    modal.querySelector('.example-modal-close').addEventListener('click', close);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.hidden) { e.stopPropagation(); close(); }
+    }, true);
+    modal.querySelectorAll('.example-card').forEach(card => {
+        card.addEventListener('click', () => {
+            close();
+            loadExample(parseInt(card.dataset.idx, 10));
+        });
     });
 
-    sel.addEventListener('change', () => {
-        const idx = parseInt(sel.value, 10);
-        if (idx >= 0 && idx < exampleLibrary.length) {
-            const example = exampleLibrary[idx];
-            setExample(example.mats, example.name);
-        }
-    });
+    const openBtn = document.getElementById('load-example-btn');
+    if (openBtn) openBtn.addEventListener('click', () => { modal.hidden = false; });
+    return modal;
+}
+
+// Format a complex number as a MathQuill-friendly string like "1.25-0.5i"
+function formatComplexEntry(re, im) {
+    const fmt = x => String(Number(x.toPrecision(12)));
+    if (Math.abs(im) < 1e-12) return fmt(re);
+    const imPart = (Math.abs(Math.abs(im) - 1) < 1e-12 ? '' : fmt(Math.abs(im))) + 'i';
+    if (Math.abs(re) < 1e-12) return (im < 0 ? '-' : '') + imPart;
+    return fmt(re) + (im < 0 ? '-' : '+') + imPart;
+}
+
+// A group passed in the URL, e.g. exported from the Riley slice tool:
+//   ?riley=<re>,<im>   →  ⟨(1 ρ; 0 1), (1 0; 1 1)⟩      (classical Riley ρ)
+//   ?rileyz=<re>,<im>  →  ⟨(1 z; 0 1), (0 −1; 1 0)⟩     (symmetric z, ρ = z²)
+function loadGroupFromURL() {
+    const qs = new URLSearchParams(location.search);
+    const parseComplex = s => {
+        if (!s) return null;
+        const parts = s.split(',').map(Number);
+        return parts.length === 2 && parts.every(Number.isFinite)
+            ? formatComplexEntry(parts[0], parts[1]) : null;
+    };
+    const rho = parseComplex(qs.get('riley'));
+    if (rho) {
+        setExample([['1', rho, '0', '1'], ['1', '0', '1', '1']], 'Riley');
+        return true;
+    }
+    const z = parseComplex(qs.get('rileyz'));
+    if (z) {
+        setExample([['1', z, '0', '1'], ['0', '-1', '1', '0']], 'Riley symmetric');
+        return true;
+    }
+    return false;
 }
 
 // Setup matrix input UI
-export function setupMatrixInput() {
-    // Add initial matrix
-    addMatrixInput();
+export function setupMatrixInput(onRefresh, initialState = null) {
+    refreshCallback = onRefresh;
 
-    // Populate examples
-    populateExampleDropdown();
+    // A permalink wins, then a group in the query string, then the default.
+    const figEightIndex = exampleLibrary.findIndex(e => e.name === 'Figure eight knot group');
+    if (initialState && applyInputState(initialState)) {
+        // loaded from #s=…
+    } else if (loadGroupFromURL()) {
+        // loaded from ?riley=...
+    } else if (figEightIndex >= 0) {
+        const example = exampleLibrary[figEightIndex];
+        setExample(example.mats, example.name, example.consts, example.anti);
+    } else {
+        // Fallback to basic matrices
+        addMatrixInput(['1', '0', '0', '1']);
+        addMatrixInput(['0', '-1', '1', '0']);
+    }
+
+    // Example picker modal (opened by the Load Example button)
+    buildExampleModal();
 
     // Add matrix button
     const addMatrixBtn = document.getElementById('addMatrixBtn');
@@ -463,4 +584,11 @@ export function setupMatrixInput() {
     if (addConstantBtn) {
         addConstantBtn.addEventListener('click', () => addConstantInput());
     }
+
+    // Refresh button
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn && onRefresh) {
+        refreshBtn.addEventListener('click', onRefresh);
+    }
 }
+

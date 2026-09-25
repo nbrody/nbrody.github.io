@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "poincare",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd /Users/nicbrody/Dropbox/Code/nbrody.github.io && exec python3 -c 'from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer\nclass H(SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header(\"Cache-Control\", \"no-store, max-age=0\")\n        super().end_headers()\nThreadingHTTPServer((\"\", 8777), H).serve_forever()'"
+      ],
+      "port": 8777,
+      "openPath": "/docs/GeometryofLinearGroups/Geometric/Tools/Kleinian/poincare/"
+    }
+  ]
+}

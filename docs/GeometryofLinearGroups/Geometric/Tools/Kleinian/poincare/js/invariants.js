@@ -1,2 +1,2 @@
 // Compatibility entry point for the shared hyperbolic domain foundation.
-export * from '../../../../../assets/js/hyperbolic/export3mf.js';
+export * from '../../../../../assets/js/hyperbolic/invariants.js';
