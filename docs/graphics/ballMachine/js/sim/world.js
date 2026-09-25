@@ -1,12 +1,14 @@
 // The simulation world. Balls live in one of four modes:
-//   track    — rolling along a Track (1D along the curve, with slip/spin)
-//   free     — ballistic flight with drag, bouncing off colliders
-//   surface  — rolling on a surface of revolution (vortex funnel)
+//   track    — rolling along a Track (1D along the curve, with slip/spin); on a
+//              water-slide flume the ball also swings around the channel
+//   free     — ballistic flight with drag, bouncing off colliders (and
+//              buoyancy + water drag inside pools)
+//   surface  — rolling on a surface of revolution (vortex funnel, pool floor)
 //   carried  — riding a mechanism (lift shelf, wheel pocket, tipping bucket)
 // Everything is deterministic for a given seed.
 
 import { G, v3, mulberry32, quatIntegrate, smoothstep } from './math.js';
-import { BALL, SUBSTEP } from './constants.js';
+import { BALL, WATER, SUBSTEP } from './constants.js';
 
 const R = BALL.R;
 const MU_K = 0.22;          // sliding friction ball/rail
@@ -29,6 +31,10 @@ export class Ball {
     this.noCapture = null; this.noCaptureUntil = 0;
     this.sound = 'rail'; this.orbitHz = 0;
     this.trips = 0;
+    this.phi = 0; this.phiV = 0;     // angle up the flume wall (rad, + = toward the track's side S) and its rate
+    this.wet = 0;                    // how deep the ball sits in water (0..1)
+    this.inWater = null;             // the pool the ball is in, if any
+    this.basin = null;               // the pool basin whose wall contains it
   }
   get speed() { return Math.hypot(this.vel.x, this.vel.y, this.vel.z); }
 }
@@ -41,6 +47,7 @@ export class World {
     this.devices = [];
     this.colliders = [];
     this.surfaces = [];
+    this.waters = [];              // pools: {name, cx, cz, r, ySurf, floorAt(r)}
     this.events = [];
     this.rand = mulberry32(seed);
     this.cell = 0.25;
@@ -59,6 +66,7 @@ export class World {
   addDevice(d) { this.devices.push(d); return d; }
   addCollider(c) { this.colliders.push(c); return c; }
   addSurface(s) { this.surfaces.push(s); return s; }
+  addWater(w) { this.waters.push(w); return w; }
 
   finalize() {
     this.colliderGrid.clear();
@@ -99,6 +107,7 @@ export class World {
   // ---------------------------------------------------------------- ball placement
   placeOnTrack(b, track, s, v = 0) {
     b.mode = 'track'; b.track = track; b.s = s; b.v = v; b.w = v;
+    b.phi = 0; b.phiV = 0;
     b.carrier = null; b.surf = null;
     this._syncTrack(b);
   }
@@ -120,7 +129,8 @@ export class World {
     const r = Math.hypot(b.p.x - surf.cx, b.p.z - surf.cz);
     b.p.y = surf.hy(r);
     this._projectSurfaceVel(b, surf);
-    b.e = 0.5 * surf.k * (b.vel.x ** 2 + b.vel.y ** 2 + b.vel.z ** 2) + G * b.p.y;
+    // keep whatever spin the ball had about the new surface normal
+    b.wn = b.omega.x * b.up.x + b.omega.y * b.up.y + b.omega.z * b.up.z;
     b.sound = surf.sound || 'funnel';
   }
 
@@ -131,7 +141,7 @@ export class World {
     for (let i = 0; i < balls.length; i++) {
       const b = balls[i];
       switch (b.mode) {
-        case 'track': this._stepTrack(b, h); break;
+        case 'track': if (b.track.flume) this._stepFlume(b, h); else this._stepTrack(b, h); break;
         case 'free': this._stepFree(b, h); break;
         case 'surface': this._stepSurface(b, h); break;
         case 'carried': this._stepCarried(b, h); break;
@@ -167,9 +177,10 @@ export class World {
     }
     const dr = BALL.drag * v * Math.abs(v);
     const k = tr.k;
+    const brk = tr.brake && b.s > tr.brake.s0 && b.s < tr.brake.s1 ? tr.brake.rate : 0;
     if (Math.abs(b.v - b.w) < 0.003) {
       // rolling without slipping
-      let vn = v + ((gt - dr) / k) * h;
+      let vn = v + ((gt - dr) / k - brk * v) * h;
       const fr = (tr.mu * fm / k) * h;
       if (Math.abs(vn) <= fr) vn = 0; else vn -= Math.sign(vn) * fr;
       b.v = vn; b.w = vn;
@@ -190,10 +201,12 @@ export class World {
     if (b.s > tr.L) { this._trackEnd(b, tr); if (b.mode !== 'track') return; }
     else if (b.s < 0) { this._trackStart(b, tr); if (b.mode !== 'track') return; }
     this._syncTrack(b);
+    if (brk) b.sound = 'brush';
     b.idle = Math.abs(b.v) < 0.01 ? b.idle + h : 0;
   }
 
   _syncTrack(b) {
+    if (b.track.flume) { this._syncFlume(b); return; }
     const tr = b.track, f = this.fr2;
     tr.sample(Math.min(Math.max(b.s, 0), tr.L), f);
     b.p.x = f.px; b.p.y = f.py; b.p.z = f.pz;
@@ -220,6 +233,7 @@ export class World {
     if (tr.onEnd && tr.onEnd(b, this, over)) return;
     if (tr.next) {
       b.track = tr.next.track; b.s = tr.next.s + over;
+      if (b.track.flume && !tr.flume) { b.phi = 0; b.phiV = 0; }
       if (b.track.sensors.length) this._sensors(b, b.track, tr.next.s, b.s);
       return;
     }
@@ -253,23 +267,111 @@ export class World {
   }
 
   _leaveTrack(b, tr, f, why) {
+    if (tr.flume) this._syncFlume(b);      // leaves from where it is on the wall, swinging
+    else {
+      b.p.x = f.px; b.p.y = f.py; b.p.z = f.pz;
+      b.vel.x = b.v * f.tx; b.vel.y = b.v * f.ty; b.vel.z = b.v * f.tz;
+      const wd = b.w / tr.d;
+      b.omega.x = -wd * f.sx; b.omega.y = -wd * f.sy; b.omega.z = -wd * f.sz;
+    }
     b.mode = 'free';
-    b.p.x = f.px; b.p.y = f.py; b.p.z = f.pz;
-    b.vel.x = b.v * f.tx; b.vel.y = b.v * f.ty; b.vel.z = b.v * f.tz;
-    const wd = b.w / tr.d;
-    b.omega.x = -wd * f.sx; b.omega.y = -wd * f.sy; b.omega.z = -wd * f.sz;
     b.airTime = 0; b.noCapture = tr; b.noCaptureUntil = this.t + 0.05;
     b.track = null; b.sound = 'air';
     if (why !== 'end') this.info('warn', { ball: b.id, why, track: tr.name, s: +b.s.toFixed(3), v: +b.v.toFixed(2) });
+  }
+
+  // ---- water-slide flume ---------------------------------------------------
+  // The flume is a round-bottomed channel of radius Rc; the ball's centre rides
+  // on a circle of radius rho = Rc - R around the channel's axis, at angle phi
+  // from the bottom. Along the flume it rolls like on any track, but the water
+  // film drags it toward the water's own speed. Around the flume it is a
+  // pendulum in the "gravity" g - v^2 K felt by something following the curve:
+  // in a bend it swings up the outside wall, then the wall and the water
+  // damp the swing. A ball that swings over the rim of an open flume is out.
+  _stepFlume(b, h) {
+    const tr = b.track, f = this.fr, fl = tr.flume;
+    tr.sample(b.s, f);
+    const v = b.v, v2 = v * v, rho = fl.rho;
+    // the stream here: how deep the ball sits in it (it banks at beta; the
+    // ball swings at phi), how much of the ball it wets, and its buoyancy
+    const fi = Math.min(tr.n - 1, Math.max(0, Math.round(b.s / tr.ds)));
+    const hw = fl.h[fi], d = Math.min(2 * R, hw - fl.Rc * (1 - Math.cos(b.phi - fl.beta[fi])));
+    let cw = 0, fv = 0, wet = 0;
+    if (d > 0) {
+      wet = Math.min(1, d / hw);
+      cw = fl.cwk * (R * R * Math.acos((R - d) / R) - (R - d) * Math.sqrt(Math.max(0, 2 * R * d - d * d)));
+      fv = d * d * (3 * R - d) / (4 * R * R * R);
+    }
+    b.wet = wet;
+    const g = G * (1 - WATER.ratio * fv);
+    const ex = -v2 * f.kx, ey = -g - v2 * f.ky, ez = -v2 * f.kz;
+    const gU = ex * f.ux + ey * f.uy + ez * f.uz;
+    const gS = ex * f.sx + ey * f.sy + ez * f.sz;
+    const c = Math.cos(b.phi), sn = Math.sin(b.phi);
+    const lat = rho * b.phiV;
+    // wall reaction per unit mass, toward the axis (a wall can only push)
+    const N = Math.max(0, rho * b.phiV * b.phiV - (gU * c - gS * sn));
+    const mu = tr.mu + fl.muWet * wet;
+    // along the flume: gravity, rolling loss, air drag, and the stream pulling the ball toward its own speed
+    const rel = fl.u[fi] - v;
+    let vn = v + ((-g * f.ty - BALL.drag * v * Math.abs(v) + cw * rel * Math.abs(rel)) / tr.k) * h;
+    const fr = (mu * N / tr.k) * h;
+    if (Math.abs(vn) <= fr) vn = 0; else vn -= Math.sign(vn) * fr;
+    b.v = vn; b.w = vn;
+    // around the flume
+    const aLat = (gS * c + gU * sn - mu * N * Math.tanh(lat / 0.01) - cw * lat * Math.abs(lat)) / 1.4 - fl.damp * lat;
+    b.phiV += (aLat / rho) * h;
+    b.phi += b.phiV * h;
+    if (!fl.tube && Math.abs(b.phi) > fl.rim) {
+      this.stats.derails++;
+      b.phi = Math.sign(b.phi) * fl.rim;
+      this._leaveTrack(b, tr, f, 'over the rim');
+      return;
+    }
+    const s0 = b.s;
+    b.s += b.v * h;
+    if (tr.sensors.length) this._sensors(b, tr, s0, b.s);
+    if (b.s > tr.L) { this._trackEnd(b, tr); if (b.mode !== 'track') return; }
+    else if (b.s < 0) { this._trackStart(b, tr); if (b.mode !== 'track') return; }
+    this._syncTrack(b);
+    b.idle = Math.abs(b.v) < 0.01 ? b.idle + h : 0;
+  }
+
+  _syncFlume(b) {
+    const tr = b.track, f = this.fr2, fl = tr.flume;
+    tr.sample(Math.min(Math.max(b.s, 0), tr.L), f);
+    const c = Math.cos(b.phi), sn = Math.sin(b.phi), rho = fl.rho;
+    const ou = rho * (1 - c), os = rho * sn, lat = rho * b.phiV;
+    b.p.x = f.px + ou * f.ux + os * f.sx; b.p.y = f.py + ou * f.uy + os * f.sy; b.p.z = f.pz + ou * f.uz + os * f.sz;
+    b.vel.x = b.v * f.tx + lat * (sn * f.ux + c * f.sx);
+    b.vel.y = b.v * f.ty + lat * (sn * f.uy + c * f.sy);
+    b.vel.z = b.v * f.tz + lat * (sn * f.uz + c * f.sz);
+    b.fwd.x = f.tx; b.fwd.y = f.ty; b.fwd.z = f.tz;
+    // wall normal (toward the axis); rolling: omega = (n x v) / R
+    const nx = c * f.ux - sn * f.sx, ny = c * f.uy - sn * f.sy, nz = c * f.uz - sn * f.sz;
+    b.up.x = nx; b.up.y = ny; b.up.z = nz;
+    b.omega.x = (ny * b.vel.z - nz * b.vel.y) / R;
+    b.omega.y = (nz * b.vel.x - nx * b.vel.z) / R;
+    b.omega.z = (nx * b.vel.y - ny * b.vel.x) / R;
+    b.sound = tr.surface;
   }
 
   // ---- free flight -------------------------------------------------------
   _stepFree(b, h) {
     const vel = b.vel, p = b.p;
     const sp = Math.hypot(vel.x, vel.y, vel.z);
-    const dk = 1 - BALL.drag * sp * h;
-    vel.x *= dk; vel.y = (vel.y - G * h) * dk; vel.z *= dk;
+    const wf = this.waters.length ? this._inWater(b) : 0;
+    if (wf > 0) {
+      // in a pool: buoyancy, added mass, water drag on the submerged part
+      const kf = 1 + WATER.addedMass * WATER.ratio * wf;
+      const dk = 1 - (BALL.drag + WATER.dragFull * Math.min(1, wf * 1.4)) * sp / kf * h;
+      vel.x *= dk; vel.y = (vel.y - G * (1 - WATER.ratio * wf) / kf * h) * dk; vel.z *= dk;
+    } else {
+      const dk = 1 - BALL.drag * sp * h;
+      vel.x *= dk; vel.y = (vel.y - G * h) * dk; vel.z *= dk;
+    }
     p.x += vel.x * h; p.y += vel.y * h; p.z += vel.z * h;
+    if (this.waters.length) this._basinWall(b);
     b.airTime += h;
     // static colliders
     const key = `${Math.floor(p.x / this.cell)},${Math.floor(p.y / this.cell)},${Math.floor(p.z / this.cell)}`;
@@ -292,7 +394,7 @@ export class World {
       const nx = -sl * dx / r * inv, ny = inv, nz = -sl * dz / r * inv;
       const vn = vel.x * nx + vel.y * ny + vel.z * nz;
       p.y = y;
-      if (vn < -0.5) {
+      if (vn < -(s.captureVn ?? 0.5)) {
         const e = s.e ?? 0.35;
         vel.x -= (1 + e) * vn * nx; vel.y -= (1 + e) * vn * ny; vel.z -= (1 + e) * vn * nz;
         this.sound(s.hitSound || 'clunk', -vn * 0.25, p);
@@ -306,6 +408,55 @@ export class World {
     if (b.mode !== 'free') return;
     // spin decays slowly in air
     if (b.airTime > 6 || p.y < -0.5) this._lost(b, 'airborne too long');
+  }
+
+  // A pool's basin is a bowl: once a ball is inside (below the top of its
+  // wall) the wall turns it back.
+  _basinWall(b) {
+    const p = b.p, vel = b.vel;
+    for (let i = 0; i < this.waters.length; i++) {
+      const w = this.waters[i];
+      const dx = p.x - w.cx, dz = p.z - w.cz, r = Math.hypot(dx, dz);
+      if (b.basin !== w) {
+        if (r <= w.r && p.y < w.wallTop && p.y > w.floorAt(r) - 0.01) b.basin = w;
+        continue;
+      }
+      if (p.y >= w.wallTop || p.y < w.floorAt(Math.min(r, w.r)) - 0.01) { b.basin = null; continue; }
+      if (r > w.r) {
+        const ux = dx / r, uz = dz / r, vr = vel.x * ux + vel.z * uz;
+        if (vr > 0) {
+          vel.x -= (1 + w.wallE) * vr * ux; vel.z -= (1 + w.wallE) * vr * uz;
+          if (vr > 0.3 && p.y > w.ySurf) this.sound('thud', velCurve(vr, 3) * 0.5, p);
+        }
+        p.x = w.cx + ux * (w.r - 0.001); p.z = w.cz + uz * (w.r - 0.001);
+      }
+    }
+  }
+
+  // Submerged volume fraction of a ball in any pool (0 = dry). Crossing the
+  // surface on the way in makes a splash.
+  _inWater(b) {
+    const p = b.p;
+    for (let i = 0; i < this.waters.length; i++) {
+      const w = this.waters[i];
+      const dx = p.x - w.cx, dz = p.z - w.cz, r2 = dx * dx + dz * dz;
+      if (r2 > (w.r + 0.002) ** 2) continue;
+      const d = w.ySurf - (p.y - R);                  // depth of the ball's lowest point
+      if (d <= 0 || p.y < w.floorAt(Math.sqrt(r2)) - 0.01) { if (b.inWater === w) b.inWater = null; return 0; }
+      if (b.inWater !== w) {
+        b.inWater = w;
+        const vin = -b.vel.y;
+        if (vin > 0.05) {
+          const at = { x: p.x, y: w.ySurf, z: p.z };
+          this.sound('splash', velCurve(Math.hypot(vin, 0.5 * Math.hypot(b.vel.x, b.vel.z)), 2.5), at);
+          this.info('splash', { ball: b.id, x: +p.x.toFixed(3), y: +w.ySurf.toFixed(3), z: +p.z.toFixed(3), v: +vin.toFixed(2), pool: w.name });
+        }
+      }
+      const dd = Math.min(2 * R, d);
+      return dd * dd * (3 * R - dd) / (4 * R * R * R);
+    }
+    if (b.inWater) b.inWater = null;
+    return 0;
   }
 
   _resolveContact(b, c, ct) {
@@ -407,50 +558,80 @@ export class World {
     b.up.x = nx; b.up.y = ny; b.up.z = nz;
   }
 
+  // A sphere rolling without slipping on a surface of revolution y = Y(r)
+  // (Routh's problem). With meridian m, parallel t and normal n, the centre's
+  // tangential acceleration is
+  //   a_t = (F_t/m - mu_r N v^) / K + (k_r / K) R w_n (n x dn/dt),  K = k_t + k_r,
+  // where k_r = 2/5 is the ball's rotational inertia factor and k_t is 1 (plus
+  // the water's added mass in the pool). Rolling round a doubly curved surface
+  // makes the ball spin about the normal, dw_n/dt = v_m v_t (k_t - k_m) / R,
+  // and that drilling spin steers it. The motion is integrated in Lagrange's
+  // form on (r, theta), so the ball stays exactly on the surface and energy is
+  // lost only to rolling resistance, drag and the wall.
   _stepSurface(b, h) {
-    const S = b.surf, p = b.p, vel = b.vel;
+    const S = b.surf, p = b.p, vel = b.vel, g = S.g ?? G;
     let dx = p.x - S.cx, dz = p.z - S.cz;
-    let r = Math.hypot(dx, dz) || 1e-6;
-    const rx = dx / r, rz = dz / r;
-    const sl = S.dhy(r), inv = 1 / Math.sqrt(1 + sl * sl);
-    const nx = -sl * rx * inv, ny = inv, nz = -sl * rz * inv;
-    const gNn = -G * ny;
-    const gtx = -gNn * nx, gty = -G - gNn * ny, gtz = -gNn * nz;
-    const sp = Math.hypot(vel.x, vel.y, vel.z);
-    const vth = -vel.x * rz + vel.z * rx;
-    const N = G * ny + (vth * vth / r) * sl * inv;
-    vel.x += (gtx / S.k) * h; vel.y += (gty / S.k) * h; vel.z += (gtz / S.k) * h;
-    p.x += vel.x * h; p.z += vel.z * h;
-    dx = p.x - S.cx; dz = p.z - S.cz;
-    r = Math.hypot(dx, dz) || 1e-6;
-    // rim wall
+    let r = Math.hypot(dx, dz) || 1e-6, th = Math.atan2(dz, dx);
+    let c = dx / r, s = dz / r;
+    let Y1 = S.dhy(r);
+    const Y2 = S.d2hy(r);
+    let lam = Math.sqrt(1 + Y1 * Y1);
+    // velocity in the surface frame: m = (c, Y1, s)/lam, t = (-s, 0, c)
+    const vm = (vel.x * c + vel.y * Y1 + vel.z * s) / lam;
+    const vt = -vel.x * s + vel.z * c;
+    let rd = vm / lam, thd = vt / r;
+    const kt = S.kTrans ?? 1, kr = 0.4, K = kt + kr;
+    const km = Y2 / (lam * lam * lam), kp = Y1 / (r * lam);          // principal curvatures
+    const v = Math.hypot(vm, vt) || 1e-9;
+    const N = kt * (km * vm * vm + kp * vt * vt) + g / lam;           // wall reaction per unit mass
+    // applied tangential forces per unit mass: gravity, rolling resistance, drag
+    let fm = -g * Y1 / lam, ft = 0;
+    const loss = (S.mu * Math.max(0, N)) / v + BALL.drag * v;
+    fm -= loss * vm; ft -= loss * vt;
+    if (S.cw) {
+      // under water: drag toward the pool's flow, a vortex round the drain
+      // (clockwise from above for swirl > 0) drifting in toward the drain
+      const ut = S.swirl * (1 - Math.exp(-(r * r) / (S.core * S.core))) / r, ui = S.inflowAt(r);
+      const qm = -ui / lam - vm, qt = ut - vt, qn = ui * Y1 / lam, q = Math.hypot(qm, qt, qn);
+      fm += S.cw * q * qm; ft += S.cw * q * qt;
+    }
+    const wn = b.wn || 0;
+    fm = fm / K - (kr / K) * R * wn * kp * vt;
+    ft = ft / K + (kr / K) * R * wn * km * vm;
+    // drilling spin: driven by the curvature, worn down by pivoting friction
+    b.wn = (wn + (vm * vt * (kp - km) / R) * h) * (1 - (S.pivot ?? 0.4) * h);
+    // Lagrange's equations on (r, theta), semi-implicit Euler
+    rd += ((lam * fm - Y1 * Y2 * rd * rd + r * thd * thd) / (lam * lam)) * h;
+    thd += (ft / r - 2 * rd * thd / r) * h;
+    r += rd * h; th += thd * h;
+    // the rim: a wall the ball rolls along (the "wall of death")
     let onRim = false;
     if (r > S.rMax) {
-      const ux = dx / r, uz = dz / r;
-      const vr = vel.x * ux + vel.z * uz;
-      if (vr > 0) {
-        vel.x -= (1 + S.rimE) * vr * ux; vel.z -= (1 + S.rimE) * vr * uz;
-        if (vr > 0.35 && this.t - b.lastClick > 0.08) { b.lastClick = this.t; this.sound('clunk', vr * 0.25, p); }
+      r = S.rMax;
+      if (rd > 0) {
+        if (rd > 0.35 && this.t - b.lastClick > 0.08) { b.lastClick = this.t; this.sound('clunk', rd * 0.25, p); }
+        rd = -rd * S.rimE;
       }
-      p.x = S.cx + ux * S.rMax; p.z = S.cz + uz * S.rMax; r = S.rMax;
       onRim = true;
+      const nw = Math.max(0, r * thd * thd - g * S.dhy(r) / (1 + S.dhy(r) ** 2));
+      const dv = (S.muWall * nw / K) * h;
+      thd = Math.sign(thd) * Math.max(0, Math.abs(thd) - dv / r);
     }
-    p.y = S.hy(r);
-    this._projectSurfaceVel(b, S);
-    b.e -= (S.mu * Math.abs(N) + BALL.drag * sp * sp + (onRim ? S.muWall * vth * vth / r : 0)) * sp * h;
-    const ke = b.e - G * p.y;
-    const ns = Math.sqrt(Math.max(0, 2 * ke / S.k));
-    const cs = Math.hypot(vel.x, vel.y, vel.z);
-    if (cs > 1e-6) { const f = ns / cs; vel.x *= f; vel.y *= f; vel.z *= f; }
-    else if (ns > 0) { vel.x = -rz * ns; vel.z = rx * ns; }
-    // rolling spin: omega = (n x v)/R
-    const ux = b.up.x, uy = b.up.y, uz = b.up.z;
-    b.omega.x = (uy * vel.z - uz * vel.y) / R;
-    b.omega.y = (uz * vel.x - ux * vel.z) / R;
-    b.omega.z = (ux * vel.y - uy * vel.x) / R;
-    const vth2 = -vel.x * (dz / r) + vel.z * (dx / r);
-    b.orbitHz = Math.abs(vth2) / (2 * Math.PI * r);
+    // back to world coordinates
+    c = Math.cos(th); s = Math.sin(th);
+    Y1 = S.dhy(r); lam = Math.sqrt(1 + Y1 * Y1);
+    p.x = S.cx + r * c; p.z = S.cz + r * s; p.y = S.hy(r);
+    vel.x = rd * c - r * thd * s; vel.y = rd * Y1; vel.z = rd * s + r * thd * c;
+    const nx = -Y1 * c / lam, ny = 1 / lam, nz = -Y1 * s / lam;
+    b.up.x = nx; b.up.y = ny; b.up.z = nz;
+    // spin: rolling (n x v)/R plus the drilling spin about n
+    const w = b.wn;
+    b.omega.x = (ny * vel.z - nz * vel.y) / R + w * nx;
+    b.omega.y = (nz * vel.x - nx * vel.z) / R + w * ny;
+    b.omega.z = (nx * vel.y - ny * vel.x) / R + w * nz;
+    b.orbitHz = Math.abs(thd) / (2 * Math.PI);
     b.fwd.x = vel.x; b.fwd.y = vel.y; b.fwd.z = vel.z;
+    b.onRim = onRim;
     if (r < S.rHole + 0.002) S.onExit(b, this);
   }
 

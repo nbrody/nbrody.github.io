@@ -1,5 +1,5 @@
 // The machine: a chain lift in the middle of a round plinth, a tree of
-// flip-flops at the crown, five routes down, and a return trough ringing the
+// flip-flops at the crown, six routes down, and a return trough ringing the
 // pedestal that feeds the lift.
 //
 // Plan convention (see path.js): x east, z south, headings in degrees
@@ -8,10 +8,10 @@
 import { PathBuilder } from './path.js';
 import { Track } from './track.js';
 import { World, Ball } from './world.js';
-import { ChainLift, FlipFlop, Funnel, Wheel, TipBucket, Bell, Drum, Gong, Plinko, BarRun } from './devices.js';
+import { ChainLift, FlipFlop, Funnel, Pool, Wheel, TipBucket, Bell, Drum, Gong, Plinko, BarRun } from './devices.js';
 import { BoxCollider } from './colliders.js';
 import { BALL } from './constants.js';
-import { pent, ODE_I, ODE_II, placeMelody } from './music.js';
+import { pent, ODE_I, ODE_II, ROW, placeMelody } from './music.js';
 import { deg } from './math.js';
 
 const R = BALL.R;
@@ -21,6 +21,7 @@ export const BRANCHES = {
   marimba:   { name: 'Marimba Run',      color: '#e2711d', short: 'Marimba', blurb: 'A hopper tames the ball; a flip-flop sends it down one of two marimba lanes — lane I plays the call of “Ode to Joy”, lane II the answer — then a ball-driven wheel and a glockenspiel spiral.' },
   bells:     { name: 'Bell Tower',       color: '#e3b505', short: 'Bells', blurb: 'Nine switchback ramps. At every turn the ball strikes a bronze bell and drops to the level below — a descending pentatonic peal.' },
   daredevil: { name: 'Daredevil',        color: '#d1263b', short: 'Daredevil', blurb: 'A banked plunge into a loop-the-loop, a ski jump across open air, the gravity-well funnel, then two tom-toms on the way out.' },
+  water:     { name: 'Water Slide',      color: '#15a9c6', short: 'Water', blurb: 'Tuned water glasses play “Row, Row, Row Your Boat”, then down the stream: a flume spiralling round the pump’s riser, a glass tunnel, and a splash into a whirlpool.' },
   plinko:    { name: 'Glockenspiel Plinko', color: '#2b62c9', short: 'Plinko', blurb: 'A spiral, a hopper, then a glass case of tuned steel pegs: every bounce is a note, every run a new tune.' },
   gong:      { name: 'Gong Bucket',      color: '#1f9a6a', short: 'Gong', blurb: 'A counterweighted trough waits for three balls, tips, and fires them down a spiral chute at a big bronze gong.' },
   collector: { name: 'Return trough',    color: '#9a6a3a', short: 'Return' },
@@ -39,8 +40,8 @@ export function buildMachine(opts = {}) {
   const make = (name, pb, o = {}) => {
     warnings.push(...pb.warnings.map((w) => `${name}: ${w}`));
     const t = new Track(pb.points(), { name, ...o });
-    if (!t.caged && t.minFn < 2.5) warnings.push(`${name}: crest — normal force ${t.minFn.toFixed(1)} m/s² at s=${t.minFnS.toFixed(2)} (v=${t.vnom[Math.round(t.minFnS / t.ds)].toFixed(2)})`);
-    if (!t.caged && t.maxLat > 1.2) warnings.push(`${name}: lateral/normal ${t.maxLat.toFixed(2)} at s=${t.maxLatS.toFixed(2)}`);
+    if (!t.caged && !t.flume?.tube && t.minFn < 2.5) warnings.push(`${name}: crest — normal force ${t.minFn.toFixed(1)} m/s² at s=${t.minFnS.toFixed(2)} (v=${t.vnom[Math.round(t.minFnS / t.ds)].toFixed(2)})`);
+    if (!t.caged && !t.flume && t.maxLat > 1.2) warnings.push(`${name}: lateral/normal ${t.maxLat.toFixed(2)} at s=${t.maxLatS.toFixed(2)}`);
     world.addTrack(t);
     tracks[name] = t;
     return t;
@@ -70,10 +71,10 @@ export function buildMachine(opts = {}) {
   const marArm0 = make('marArm0', from(f1a).straight(0.15), { branch: 'marimba', v0: f1a.vEnd });
   const F2 = world.addDevice(new FlipFlop(world, { name: 'F2', input: f1a, outs: [marArm0, bellArm0], labels: ['marimba', 'bells'] }));
 
-  // F3 (north): daredevil (east) / F4 (west)
-  const darArm0 = make('darArm0', from(f1b).turn(0.4, -90), { branch: 'daredevil', v0: f1b.vEnd });
+  // F3 (north): F6 (east: daredevil / water slide) / F4 (west)
+  const darArm0 = make('darArm0', from(f1b).turn(0.4, -90), { branch: 'top', v0: f1b.vEnd });
   const f3b = make('f3b', from(f1b).turn(0.4, 90).straight(0.25), { branch: 'top', v0: f1b.vEnd });
-  const F3 = world.addDevice(new FlipFlop(world, { name: 'F3', input: f1b, outs: [darArm0, f3b], labels: ['daredevil', 'west'] }));
+  const F3 = world.addDevice(new FlipFlop(world, { name: 'F3', input: f1b, outs: [darArm0, f3b], labels: ['east', 'west'] }));
 
   // F4 (north-west): plinko (west) / gong (north)
   const plkArm0 = make('plkArm0', from(f3b).turn(0.5, 25).turn(0.5, -25), { branch: 'plinko', v0: f3b.vEnd });
@@ -106,7 +107,7 @@ export function buildMachine(opts = {}) {
   };
 
   // ================================================================ MARIMBA (south)
-  const hopper = new Funnel(world, { name: 'hopper-m', cx: 0.95, cz: 1.42, yRim: 4.73, rOut: 0.3, rHole: 0.045, depth: 0.22, mu: 0.01 });
+  const hopper = new Funnel(world, { name: 'hopper-m', cx: 0.95, cz: 1.42, yRim: 4.73, rOut: 0.3, rHole: 0.045, depth: 0.22, mu: 0.05 });
   world.addSurface(hopper); world.addDevice(hopper); devices.hopperM = hopper;
   const hopEntry = { x: hopper.cx + 0.285, y: hopper.hy(0.285), z: hopper.cz };
   const marArm = make('marArm', from(marArm0).connectTo(hopEntry.x, hopEntry.y, hopEntry.z, 270, { r: 0.3, gEnd: 0.02 }), { branch: 'marimba', v0: marArm0.vEnd });
@@ -144,7 +145,7 @@ export function buildMachine(opts = {}) {
   columns.push({ x: GX, z: GZ, y0: 0.25, y1: wDump.y + 0.1, r: 0.05, branch: 'marimba' });
   // second hopper right above the return trough: the ball drops straight in
   const m2p = { x: 2.05 * Math.cos(236 * deg), z: -2.05 * Math.sin(236 * deg) };
-  const hopper2 = new Funnel(world, { name: 'hopper-m2', cx: m2p.x, cz: m2p.z, yRim: 1.74, rOut: 0.27, rHole: 0.045, depth: 0.2, mu: 0.012 });
+  const hopper2 = new Funnel(world, { name: 'hopper-m2', cx: m2p.x, cz: m2p.z, yRim: 1.74, rOut: 0.27, rHole: 0.045, depth: 0.2, mu: 0.05 });
   world.addSurface(hopper2); world.addDevice(hopper2); devices.hopperM2 = hopper2;
   const h2Entry = { x: hopper2.cx - 0.255, y: hopper2.hy(0.255), z: hopper2.cz };
   const marOut = make('marOut', from(glock).connectTo(h2Entry.x, h2Entry.y, h2Entry.z, 90, { r: 0.45, gEnd: 0.03 }), { branch: 'marimba', v0: glock.vEnd });
@@ -206,14 +207,24 @@ export function buildMachine(opts = {}) {
   const landGrade = Math.min(0.75, -flight.vel.y / Math.hypot(flight.vel.x, flight.vel.z) * 0.85);
   const landStart = { x: flight.p.x - landDir.x * 0.6, y: flight.p.y - 0.01 + landGrade * 0.6, z: flight.p.z - landDir.z * 0.6 };
   devices.jumpInfo = { flight, landHeading, landGrade };
-  const funnel = new Funnel(world, { name: 'vortex', cx: 3.35, cz: 3.05, yRim: 3.2, rOut: 0.6, rHole: 0.05, depth: 0.42, mu: 0.0045 });
+  // The gravity well: a hyperbolic funnel whose rim turns up in a lip. A ball
+  // rolled in near the rim's orbital speed circles for a long time, speeding
+  // up as it spirals in, and whirs down the throat.
+  const funnel = new Funnel(world, { name: 'vortex', cx: 3.35, cz: 3.05, yRim: 3.2, rOut: 0.6, rHole: 0.05, depth: 0.42, mu: 0.012, lip: { r0: 0.48, height: 0.1 } });
   world.addSurface(funnel); world.addDevice(funnel); devices.funnel = funnel;
   const fEntry = { x: funnel.cx + 0.585, y: funnel.hy(0.585), z: funnel.cz };
-  const landRamp = make('landing', PB(landStart, landHeading, landGrade).straight(1.0).grade(0.06, 0.6).connectTo(fEntry.x, fEntry.y, fEntry.z, 90, { r: 0.45, gEnd: 0.03 }), {
+  // after the landing the ball runs through a brush brake (a sleeve of
+  // bristles, like the brake run before a roller coaster's station), so it
+  // reaches the funnel at a speed the funnel can hold
+  const landPB = PB(landStart, landHeading, landGrade).straight(1.0).grade(0.06, 0.6).connectTo(fEntry.x, fEntry.y, fEntry.z, 90, { r: 0.45, gEnd: 0.03 });
+  const landL = landPB.d * 1.0;
+  const landRamp = make('landing', landPB, {
     branch: 'daredevil', v0: Math.hypot(flight.vel.x, flight.vel.y, flight.vel.z) * 0.92,
     capture: { s0: 0, s1: 1.3, lat: 0.1, e: 0.18, bounceAbove: 1.3 },
     render: { guard: [0, 1.0] },
   });
+  landRamp.brake = { s0: landRamp.L - 1.15, s1: landRamp.L - 0.25, rate: opts.brakeRate ?? 3.4 };
+  void landL;
   funnel.attachEntry(landRamp);
   // drums below the funnel, found by probing the real physics
   const holeP = { x: funnel.cx, y: funnel.hy(funnel.rHole), z: funnel.cz };
@@ -238,6 +249,41 @@ export function buildMachine(opts = {}) {
   });
   columns.push({ x: funnel.cx, z: funnel.cz, y0: 0.25, y1: drum2C.y - 0.2, r: 0.05, branch: 'daredevil', skip: true });
 
+  // ================================================================ WATER SLIDE (north-east)
+  // F6 splits the daredevil arm: straight on to the plunge, or left past a run
+  // of tuned water glasses to the head of a flume that spirals down round the
+  // pump's riser pipe, through a glass tunnel, into a whirlpool splash pool.
+  const wsArm0 = make('wsArm0', from(darArm0).turn(0.4, 90), { branch: 'water', v0: darArm0.vEnd });
+  const F6 = world.addDevice(new FlipFlop(world, { name: 'F6', input: darArm0, outs: [darArm, wsArm0], labels: ['daredevil', 'water slide'] }));
+  const WS = { x: 3.6, z: -2.25, r: 1.0 };
+  const wsGlass = make('wsGlass', from(wsArm0).grade(0.012, 0.2).straight(1.34).turn(0.45, -90).straight(1.395), { branch: 'water', v0: wsArm0.vEnd });
+  wsArm0.connect(wsGlass);
+  // open flume: two and a quarter turns down round the riser
+  const column = { x: WS.x, z: WS.z, r: WS.r, step: 0.9 };
+  const wsHelix = make('wsHelix', from(wsGlass).grade(0.12, 0.5).helix(WS.r, 2.25, -1), {
+    branch: 'water', kind: 'flume', v0: wsGlass.vEnd, flume: { u0: 0.5 }, meta: { column },
+  });
+  wsGlass.connect(wsHelix);
+  const pool = new Pool(world, { name: 'pool', cx: 2.1, cz: -1.45, yRim: 1.77, rOut: 0.45, rHole: 0.045, depth: 0.08, cone: 0.12 });
+  world.addSurface(pool); world.addDevice(pool); devices.pool = pool;
+  // glass tunnel: the last turn and a quarter, then a drop that shoots the
+  // ball in along the pool's south side, so it goes round the whirlpool
+  const tubeEnd = { x: pool.cx + 0.12, y: pool.ySurf + 0.075, z: pool.cz + 0.38 };
+  const wsTube = make('wsTube', from(wsHelix).helix(WS.r, 1.25, -1).connectTo(tubeEnd.x, tubeEnd.y, tubeEnd.z, 165, { r: 0.5, gEnd: 0.08 }), {
+    branch: 'water', kind: 'flume', v0: wsHelix.vEnd, meta: { column: { ...column, s1: 1.25 * 2 * Math.PI * WS.r * Math.hypot(1, 0.12) } },
+    flume: { tube: true, u0: wsHelix.flume.uEnd, beta0: wsHelix.flume.betaEnd, tau0: wsHelix.flume.tauEnd },
+  });
+  wsHelix.connect(wsTube);
+  devices.waterSlide = { riser: WS, head: wsHelix.start, glass: wsGlass, flumes: [wsHelix, wsTube], pool };
+  // down the drain, then home to the return trough
+  const outDir = { x: Math.cos(205 * deg), z: -Math.sin(205 * deg) };
+  const drainY = pool.hy(pool.rHole) - 0.1;
+  const wsOut = toRing('wsOut', PB({ x: pool.cx - 0.07 * outDir.x, y: drainY, z: pool.cz - 0.07 * outDir.z }, 205, 0.06).straight(0.25), 52, 'water', {
+    v0: 0.2, r: 0.45, startStop: { e: 0.2 },
+    capture: { s0: 0, s1: 0.3, lat: 0.045, e: 0.25 },
+  });
+  devices.waterSlide.out = wsOut;
+
   // ================================================================ PLINKO (north-west)
   const PHX = -1.45, PHZ = -2.0, PHR = 0.5;
   const plkArm = make('plkArm', from(plkArm0).straight(0.3).connectTo(PHX, 4.72, PHZ + PHR, 180, { r: 0.5, gEnd: 0.1 }), { branch: 'plinko', v0: plkArm0.vEnd });
@@ -246,7 +292,7 @@ export function buildMachine(opts = {}) {
   plkArm.connect(plkHelix);
   columns.push({ x: PHX, z: PHZ, y0: 0.25, y1: 4.9, r: 0.05, branch: 'plinko' });
   const PBX = -2.45, PBZ = -3.15, PBW = 0.92, PBH = 1.62;
-  const hopP = new Funnel(world, { name: 'hopper-p', cx: PBX, cz: PBZ, yRim: 3.74, rOut: 0.28, rHole: 0.045, depth: 0.22, mu: 0.01, jitter: 0.012 });
+  const hopP = new Funnel(world, { name: 'hopper-p', cx: PBX, cz: PBZ, yRim: 3.74, rOut: 0.28, rHole: 0.045, depth: 0.22, mu: 0.05, jitter: 0.012 });
   world.addSurface(hopP); world.addDevice(hopP); devices.hopperP = hopP;
   const hpEntry = { x: hopP.cx + 0.265, y: hopP.hy(0.265), z: hopP.cz };
   const plkIn = make('plkIn', from(plkHelix).connectTo(hpEntry.x, hpEntry.y, hpEntry.z, 90, { r: 0.4, gEnd: 0.03 }), { branch: 'plinko', v0: plkHelix.vEnd });
@@ -314,6 +360,14 @@ export function buildMachine(opts = {}) {
   }
   devices.marimbaI = world.addDevice(new BarRun(world, laneI, barsI, { name: 'Marimba lane I — the call', kind: 'marimba' }));
   devices.marimbaII = world.addDevice(new BarRun(world, laneII, barsII, { name: 'Marimba lane II — the answer', kind: 'marimba' }));
+  // the water glasses: a probe ball from the top of the lift, switched onto
+  // the water slide, finds where the ball will be on each eighth note
+  const tGlass = probeFrom(world, exit, 0.001, 0.06, wsGlass,
+    () => { F1.lock = 1; F3.lock = 0; F6.lock = 1; },
+    () => { for (const ff of [F1, F3, F6]) { ff.lock = null; ff.state = 0; ff.angle = ff.targetAngle(); ff.angVel = 0; } });
+  const glassNotes = placeMelodyTimed(tGlass, ROW, opts.glassEighth ?? 0.19, 0.3);
+  if (glassNotes.short) warnings.push(`water glasses: ${glassNotes.short} notes missing (L=${wsGlass.L.toFixed(2)})`);
+  devices.glasses = world.addDevice(new BarRun(world, wsGlass, glassNotes, { name: 'Water glasses', kind: 'glasses', instrument: 'glass', gain: 0.85 }));
   const tines = [];
   const nT = 15;
   for (let i = 0; i < nT; i++) tines.push({ s: 0.4 + i * (glock.L - 0.8) / (nT - 1), midi: pent(i, 74) });
@@ -332,15 +386,16 @@ export function buildMachine(opts = {}) {
   world.lostHandler = (b, w) => { rescue(w, collector, b); };
   world.finalize();
 
-  const flipflops = { F1, F2, F3, F4, F5 };
+  const flipflops = { F1, F2, F3, F4, F5, F6 };
   const routes = {
     marimba: [[F1, 0], [F2, 0]],
     bells: [[F1, 0], [F2, 1]],
-    daredevil: [[F1, 1], [F3, 0]],
+    daredevil: [[F1, 1], [F3, 0], [F6, 0]],
+    water: [[F1, 1], [F3, 0], [F6, 1]],
     plinko: [[F1, 1], [F3, 1], [F4, 0]],
     gong: [[F1, 1], [F3, 1], [F4, 1]],
   };
-  const tag = { F2: ['marimba', 'bells'], F3: ['daredevil', null], F4: ['plinko', 'gong'] };
+  const tag = { F2: ['marimba', 'bells'], F4: ['plinko', 'gong'], F6: ['daredevil', 'water'] };
   for (const [name, arr] of Object.entries(tag)) {
     flipflops[name].onRoute = (b, k, w) => { if (arr[k]) { b.branch = arr[k]; w.info('branch', { ball: b.id, branch: arr[k] }); } };
   }
@@ -401,6 +456,27 @@ function probeTrack(world, p, v, track, setup, restore) {
   const samples = [];
   let t = 0;
   for (; t < 30; t += 0.001) {
+    world.step(0.001);
+    if (b.mode === 'track' && b.track === track) samples.push({ t, s: b.s });
+    else if (samples.length) break;
+  }
+  restore();
+  world.balls = saveBalls; world.t = saveT; world.events.length = saveEv;
+  if (lift) lift.phase = savePhase;
+  return samples;
+}
+
+// Same, but the probe starts rolling on a track (e.g. just off the lift).
+function probeFrom(world, start, s0, v0, track, setup, restore) {
+  const saveBalls = world.balls, saveT = world.t, saveEv = world.events.length;
+  const lift = world.devices.find((d) => d.kind === 'lift');
+  const savePhase = lift?.phase;
+  const b = new Ball(-1, 0, 0);
+  world.balls = [b];
+  setup();
+  world.placeOnTrack(b, start, s0, v0);
+  const samples = [];
+  for (let t = 0; t < 30; t += 0.001) {
     world.step(0.001);
     if (b.mode === 'track' && b.track === track) samples.push({ t, s: b.s });
     else if (samples.length) break;

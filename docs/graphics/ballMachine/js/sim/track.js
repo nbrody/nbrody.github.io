@@ -13,16 +13,18 @@ export class Track {
     this.id = nextTrackId++;
     this.name = opts.name || `track${this.id}`;
     this.branch = opts.branch || 'common';
-    this.kind = opts.kind || 'rail';          // 'rail' | 'trough' | 'tube'
-    this.k = opts.k ?? (this.kind === 'trough' ? 1.4 : railK);
-    this.d = opts.d ?? (this.kind === 'trough' ? BALL.R : BALL.R * Math.cos(BALL.contactAngle));
-    this.mu = opts.mu ?? (this.kind === 'trough' ? 0.018 : 0.011);
+    this.kind = opts.kind || 'rail';          // 'rail' | 'trough' | 'flume'
+    const round = this.kind === 'trough' || this.kind === 'flume';   // one contact point, not two rails
+    this.k = opts.k ?? (round ? 1.4 : railK);
+    this.d = opts.d ?? (round ? BALL.R : BALL.R * Math.cos(BALL.contactAngle));
+    this.mu = opts.mu ?? (this.kind === 'trough' ? 0.018 : this.kind === 'flume' ? 0.012 : 0.011);
     this.caged = !!opts.caged;
-    this.surface = opts.surface || (this.kind === 'trough' ? 'wood' : 'rail');
+    this.surface = opts.surface || (this.kind === 'trough' ? 'wood' : this.kind === 'flume' ? 'water' : 'rail');
     this.capture = opts.capture || null;      // {s0, s1, lat, e}
     this.next = null; this.prev = null;       // {track, s}
     this.onEnd = null; this.onStart = null;   // (ball, world) => bool handled
     this.endStop = opts.endStop ?? null;      // {e}
+    this.brake = opts.brake ?? null;          // {s0, s1, rate}: bristles drag the ball, dv/dt = -rate v
     this.startStop = opts.startStop ?? null;
     this.sensors = [];
     this.render = opts.render || {};
@@ -75,7 +77,48 @@ export class Track {
     this.vnom = new Float32Array(n);
     this.tnom = new Float32Array(n);
     this.bankMax = opts.bankMax ?? (this.caged ? Math.PI : 50 * Math.PI / 180);
-    this.bank(opts.bank ?? 'auto', opts.v0 ?? 0.4);
+    this.bank(this.kind === 'flume' ? 'none' : opts.bank ?? 'auto', opts.v0 ?? 0.4);
+    this.flume = this.kind === 'flume' ? this._flume(opts.flume || {}) : null;
+  }
+
+  // Water-slide channel: a round-bottomed flume of radius Rc with a pumped
+  // stream running down it. The stream flows at its normal depth for the
+  // local slope (Manning's formula for turbulent open-channel flow), easing
+  // between depths over ~half a metre; in bends its surface banks until it is
+  // level to g - u²K, just as the ball does.
+  _flume(o) {
+    const { n, ds, T, K, U } = this;
+    const Rc = o.Rc ?? 0.08, q = o.q ?? 0.004, manning = o.manning ?? 0.009;
+    const fl = {
+      Rc, rho: Rc - BALL.R, q,
+      rim: o.rim ?? 1.75,            // open channel: walls reach ±100° from the bottom
+      tube: !!o.tube,                // closed glass tube: no rim to fly over
+      cwk: 0.5 * 1000 * (o.cd ?? 0.6) / BALL.m, // water drag per unit mass per m² of ball under water
+      muWet: o.muWet ?? 0.01,        // extra rolling loss while ploughing through the stream
+      damp: o.damp ?? 0.6,           // wall hysteresis on the swing (1/s)
+      u: new Float32Array(n), h: new Float32Array(n), beta: new Float32Array(n), tau: new Float32Array(n),
+    };
+    // shallow circular segment: area A ≈ (4/3)√(2Rc) h^1.5, hydraulic radius ≈ 2h/3
+    const cA = (4 / 3) * Math.sqrt(2 * Rc), cR = Math.pow(2 / 3, 2 / 3);
+    let u = o.u0 ?? 0.8, beta = o.beta0 ?? 0, tau = o.tau0 ?? 0;
+    for (let i = 0; i < n; i++) {
+      const a = 3 * i, tx = T[a], ty = T[a + 1], tz = T[a + 2];
+      const slope = Math.max(0.015, Math.min(1.2, -ty / Math.max(Math.hypot(tx, tz), 0.05)));
+      const hN = Math.pow(q * manning / (Math.sqrt(slope) * cR * cA), 6 / 13);
+      u += (q / (cA * Math.pow(hN, 1.5)) - u) * Math.min(1, ds / (o.relax ?? 0.5));
+      fl.u[i] = u;
+      fl.h[i] = Math.min(0.035, Math.pow(q / u / cA, 2 / 3));
+      const ux = U[a], uy = U[a + 1], uz = U[a + 2];
+      const sx = ty * uz - tz * uy, sy = tz * ux - tx * uz, sz = tx * uy - ty * ux;
+      const kU = K[a] * ux + K[a + 1] * uy + K[a + 2] * uz, kS = K[a] * sx + K[a + 1] * sy + K[a + 2] * sz;
+      const gU = -G * uy - u * u * kU, gS = -G * sy - u * u * kS;
+      beta += (Math.atan2(gS, -gU) - beta) * Math.min(1, ds / 0.15);
+      fl.beta[i] = beta;
+      fl.tau[i] = tau;
+      tau += ds / u;
+    }
+    fl.uEnd = u; fl.betaEnd = beta; fl.tauEnd = tau;
+    return fl;
   }
 
   // Nominal speed profile (rolling-only model) and banking of the frame so the

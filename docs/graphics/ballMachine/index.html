@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Glasshouse Excogitation</title>
-<meta name="graphics-description" content="A George Rhoads–style ball machine in a Victorian palm house: thirty balls, five musical routes and real rolling physics. Chase a ball, ride on one, or take the tour.">
+<title>Glass House Ball Machine</title>
+<meta name="graphics-description" content="A George Rhoads–style ball machine in a Victorian palm house: thirty balls, six musical routes including a water slide, and real rolling physics. Chase a ball, ride on one, or take the tour.">
 <script src="../app/entry.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -156,9 +156,9 @@
 <div id="labelLayer" aria-hidden="true" data-studio-ignore></div>
 
 <section id="placard" class="panel" aria-label="About the machine">
-  <h1>Glasshouse <em>Excogitation</em></h1>
+  <h1>Glass House <em>Ball Machine</em></h1>
   <p>An audiokinetic ball machine after George Rhoads, running in a Victorian palm house.</p>
-  <div class="meta"><span><b id="mBalls">30</b> balls</span><span><b>5</b> routes</span><span><b id="mLifted">0</b> lifted</span><span><b id="mNotes">0</b> notes</span></div>
+  <div class="meta"><span><b id="mBalls">30</b> balls</span><span><b>6</b> routes</span><span><b id="mLifted">0</b> lifted</span><span><b id="mNotes">0</b> notes</span></div>
 </section>
 
 <button id="panelToggle" class="panel" aria-expanded="false" aria-controls="machinePanel" data-studio-ignore>
@@ -170,7 +170,7 @@
   <section data-control-group="Routes">
     <h2>Routes</h2>
     <div class="routes" id="routes" role="radiogroup" aria-label="Route"></div>
-    <p class="hint">The flip-flops share balls among all five routes. Pick one route to send every ball down it.</p>
+    <p class="hint">The flip-flops share balls among all six routes. Pick one route to send every ball down it.</p>
   </section>
 
   <section data-control-group="Glasshouse">
@@ -196,7 +196,7 @@
     <div class="row"><label for="vol">Volume</label><input id="vol" type="range" min="0" max="1" step="0.01" value="0.8"><output id="volOut">80</output></div>
     <div class="row"><label for="reverb">Hall reverb</label><input id="reverb" type="range" min="0" max="1" step="0.01" value="0.4"><output id="revOut">40</output></div>
     <div class="row"><label for="amb">Birds &amp; crickets</label><input id="amb" type="range" min="0" max="1" step="0.01" value="0.5"><output id="ambOut">50</output></div>
-    <p class="hint"><kbd class="kbd">1</kbd>–<kbd class="kbd">4</kbd> views · <kbd class="kbd">[</kbd> <kbd class="kbd">]</kbd> change ball · <kbd class="kbd">N</kbd> next ball off the lift · <kbd class="kbd">Space</kbd> pause · <kbd class="kbd">H</kbd> hide interface · click any ball to chase it · click a label to fly to that device</p>
+    <p class="hint"><kbd class="kbd">1</kbd>–<kbd class="kbd">6</kbd> views · <kbd class="kbd">[</kbd> <kbd class="kbd">]</kbd> change ball · <kbd class="kbd">N</kbd> next ball off the lift · <kbd class="kbd">Space</kbd> pause · <kbd class="kbd">H</kbd> hide interface · click any ball to chase it · click a label to fly to that device</p>
   </section>
 </aside>
 
@@ -218,6 +218,8 @@
     <label class="v" title="Chase a ball (2)"><input type="radio" name="camera" value="chase" aria-label="Chase a ball"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="8" r="3"/><path d="M1.5 5.5h4M1.5 8h3M1.5 10.5h4"/></svg><span>Chase</span></label>
     <label class="v" title="Ride on a ball (3)"><input type="radio" name="camera" value="ride" aria-label="Ride on a ball"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M1.5 12.5 8 3.5l6.5 9"/><path d="M4.5 8.5h7"/></svg><span>Ride</span></label>
     <label class="v" title="Guided tour (4)"><input type="radio" name="camera" value="tour" aria-label="Guided tour"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="4" width="9" height="8" rx="1.5"/><path d="m10.5 7 4-2.5v7l-4-2.5"/></svg><span>Tour</span></label>
+    <label class="v" title="Follow a ball, one after another, all the way down (5)"><input type="radio" name="camera" value="follow" aria-label="Follow a ball"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="11.5" r="2.4"/><path d="M1.5 3c3 0 3.5 3 6 3s2.5 3 4 3" stroke-dasharray="1.6 1.6"/></svg><span>Follow</span></label>
+    <label class="v" title="Cut from feature to feature (6)"><input type="radio" name="camera" value="features" aria-label="Feature to feature"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="2" width="5" height="5" rx="1"/><rect x="9.5" y="9" width="5" height="5" rx="1"/><path d="M6.5 4.5h4.5v3M9 5.5l2 2 2-2"/></svg><span>Features</span></label>
   </div>
   <div class="sep"></div>
   <div class="ballpick">
@@ -231,8 +233,8 @@
 <div id="start" data-studio-ignore>
   <div class="card panel">
     <div class="kicker">Audiokinetic sculpture</div>
-    <h2>Glasshouse <em>Excogitation</em></h2>
-    <p>Thirty resin balls ride a chain lift to the crown of the machine. A tree of flip-flop switches sends each one down one of five routes: a marimba that plays “Ode to Joy”, a tower of bells, a loop-the-loop and ski jump, a glockenspiel plinko case, and a gong that waits for three balls at once.</p>
+    <h2>Glass House <em>Ball Machine</em></h2>
+    <p>Thirty resin balls ride a chain lift to the crown of the machine. A tree of flip-flop switches sends each one down one of six routes: a marimba that plays “Ode to Joy”, a tower of bells, a loop-the-loop and ski jump, a water slide into a whirlpool, a glockenspiel plinko case, and a gong that waits for three balls at once.</p>
     <p>The balls roll on real physics — rolling friction, banked rails, spin and skid, collisions — so no two minutes sound quite the same.</p>
     <div class="go">
       <button class="primary" id="startSound">Start the machine</button>

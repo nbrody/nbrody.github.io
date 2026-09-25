@@ -81,7 +81,7 @@ export function buildTracks(machine, M, opts = {}) {
   const q = new THREE.Quaternion(), m4 = new THREE.Matrix4(), bx = new THREE.Vector3(), by = new THREE.Vector3(), bz = new THREE.Vector3();
   const rr = BALL.railRadius;
   for (const t of machine.world.tracks) {
-    if (t.render.hidden) continue;
+    if (t.render.hidden || t.kind === 'flume') continue;   // flumes are built with the water slide
     const fr = frames(t, 0.02);
     if (t.kind === 'trough') {
       const w = (t.render.wide ?? 0) + R + 0.006;
@@ -122,7 +122,30 @@ export function buildTracks(machine, M, opts = {}) {
       }
     }
   }
+  // brush brakes: two strips of dark bristles either side of the ball, at its
+  // waist, held on brass clips above the rails
+  const brushG = new GeoBuilder(), clipG = new GeoBuilder();
+  for (const t of machine.world.tracks) {
+    if (!t.brake || t.render.hidden) continue;
+    const g = frames(t, 0.02, t.brake.s0, t.brake.s1);
+    for (const side of [-1, 1]) {
+      const c = g.P.map((p, i) => add(p, g.S[i], side * (R + 0.007)));
+      brushG.tube(c, g.S, g.U, 0.0085, 7);
+      for (let i = 0; i < g.P.length; i += 7) {
+        const top = add(c[i], g.S[i], side * 0.006), rail = add(add(g.P[i], g.U[i], -RAIL.drop), g.S[i], side * RAIL.lateral);
+        const d = new THREE.Vector3(top.x - rail.x, top.y - rail.y, top.z - rail.z).normalize();
+        const fa = new THREE.Vector3(g.T[i].x, g.T[i].y, g.T[i].z), fb = new THREE.Vector3().crossVectors(fa, d).normalize();
+        clipG.tube([rail, top], [fa, fa], [fb, fb], 0.0022, 5);
+      }
+    }
+  }
   const group = new THREE.Group();
+  if (brushG.count) {
+    const bristle = new THREE.MeshStandardMaterial({ color: 0x33261c, roughness: 1, metalness: 0 });
+    const brush = new THREE.Mesh(brushG.geometry(), bristle);
+    brush.castShadow = true;
+    group.add(brush, new THREE.Mesh(clipG.geometry(), M.brass));
+  }
   const rails = new THREE.Mesh(railG.geometry(), M.steel);
   rails.castShadow = true; rails.receiveShadow = true;
   group.add(rails);
@@ -208,25 +231,29 @@ export function buildSupports(machine, M, keepOut, floorAt, colorOf) {
   const arms = [];
   const brackets = [];
   const f = {};
+  // how far below the ball centre the track's underside is
+  const dropOf = (t) => (t.kind === 'trough' ? R + 0.01 : t.kind === 'flume' ? R + 0.012 : RAIL.drop + 0.012);
   const tracks = [...world.tracks].sort((a, b) => b.start.y - a.start.y); // high tracks first: they plant the tall masts
   for (const t of tracks) {
     if (t.supports === false || t.render.hidden || t.meta.ladder !== undefined) continue;
     const color = colorOf(t);
     const col = t.meta.column;
+    const colEnd = col ? Math.min(t.L, col.s1 ?? t.L) : 0;   // a helix hangs off its column; the rest stands on masts
     if (col) {
-      for (let s = 0.2; s < t.L; s += 0.42) {
+      const bdrop = dropOf(t) - 0.002;
+      for (let s = 0.2; s < colEnd; s += col.step ?? 0.42) {
         t.sample(s, f);
         const dx = f.px - col.x, dz = f.pz - col.z, d = Math.hypot(dx, dz);
         if (d < col.r * 0.6 || d > col.r * 1.5) continue;
-        brackets.push({ color, a: { x: col.x + dx / d * 0.05, y: f.py - 0.05, z: col.z + dz / d * 0.05 }, b: { x: f.px - f.ux * (RAIL.drop + 0.01), y: f.py - f.uy * (RAIL.drop + 0.01) - 0.004, z: f.pz - f.uz * (RAIL.drop + 0.01) } });
+        brackets.push({ color, a: { x: col.x + dx / d * 0.05, y: f.py - 0.05, z: col.z + dz / d * 0.05 }, b: { x: f.px - f.ux * bdrop, y: f.py - f.uy * bdrop - 0.004, z: f.pz - f.uz * bdrop } });
       }
-      continue;
+      if (colEnd >= t.L - 0.05) continue;
     }
     const step = t.render.supportStep ?? 0.95;
-    for (let s = Math.min(0.3, t.L / 2); s < t.L - 0.05; s += step) {
+    for (let s = Math.max(colEnd + 0.3, Math.min(0.3, t.L / 2)); s < t.L - 0.05; s += step) {
       t.sample(s, f);
       if (f.uy < 0.55) continue;
-      const drop = t.kind === 'trough' ? R + 0.01 : RAIL.drop + 0.012;
+      const drop = dropOf(t);
       const A = { x: f.px - f.ux * drop, y: f.py - f.uy * drop, z: f.pz - f.uz * drop };
       // outward (away from the machine's axis) perpendicular in plan
       let ox = f.sx, oz = f.sz;

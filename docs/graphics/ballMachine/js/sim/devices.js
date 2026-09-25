@@ -1,7 +1,7 @@
 // Mechanisms of the machine (simulation side). The renderer reads their state.
 
 import { G } from './math.js';
-import { BALL } from './constants.js';
+import { BALL, WATER } from './constants.js';
 import { velCurve } from './world.js';
 import { CapsuleCollider, DiskCollider, BoxCollider, frameFromNormal } from './colliders.js';
 
@@ -145,7 +145,8 @@ export class FlipFlop {
 }
 
 // --------------------------------------------------------------------------
-// Hyperbolic "gravity well" funnel (surface of revolution y = yRim - A(1/r - 1/rOut)).
+// Hyperbolic "gravity well" funnel (surface of revolution y = yRim - A(1/r - 1/rOut)),
+// optionally with an upturned lip at the rim that a fast ball rides up.
 export class Funnel {
   constructor(world, o) {
     this.kind = 'funnel';
@@ -153,7 +154,11 @@ export class Funnel {
     Object.assign(this, { cx: o.cx, cz: o.cz, yRim: o.yRim, rOut: o.rOut, rHole: o.rHole, depth: o.depth });
     this.A = this.depth / (1 / this.rHole - 1 / this.rOut);
     this.rMax = this.rOut;
-    this.k = 1.4;
+    this.lip = o.lip ?? null;              // { r0, height }: y rises by height·((r - r0)/(rOut - r0))³
+    this.kTrans = 1;                       // translational inertia factor (the rolling spin adds 2/5)
+    // spin about the normal decays by pivoting friction in the contact patch
+    // (and by slip, which a hard ball does before gyroscopic forces grow large)
+    this.pivot = o.pivot ?? 5;
     this.mu = o.mu ?? 0.006;
     this.rimE = 0.45;
     this.muWall = o.muWall ?? 0.06;   // friction against the rim wall ("wall of death")
@@ -164,8 +169,21 @@ export class Funnel {
     this.onExitCb = o.onExit || null;
     this.jitter = o.jitter ?? 0;       // outlet-tube rattle (m), breaks perfect symmetry below
   }
-  hy(r) { return this.yRim - this.A * (1 / r - 1 / this.rOut); }
-  dhy(r) { return this.A / (r * r); }
+  hy(r) {
+    let y = this.yRim - this.A * (1 / r - 1 / this.rOut);
+    if (this.lip && r > this.lip.r0) y += this.lip.height * ((r - this.lip.r0) / (this.rOut - this.lip.r0)) ** 3;
+    return y;
+  }
+  dhy(r) {
+    let d = this.A / (r * r);
+    if (this.lip && r > this.lip.r0) { const w = this.rOut - this.lip.r0, u = (r - this.lip.r0) / w; d += 3 * this.lip.height * u * u / w; }
+    return d;
+  }
+  d2hy(r) {
+    let d = -2 * this.A / (r * r * r);
+    if (this.lip && r > this.lip.r0) { const w = this.rOut - this.lip.r0, u = (r - this.lip.r0) / w; d += 6 * this.lip.height * u / (w * w); }
+    return d;
+  }
   onExit(b, w) {
     // the ball rattles down the outlet tube: it leaves straight down, spin damped out
     const j = this.jitter, jx = j ? (w.rand() - 0.5) * 2 * j : 0, jz = j ? (w.rand() - 0.5) * 2 * j : 0;
@@ -177,6 +195,47 @@ export class Funnel {
   }
   attachEntry(track) {
     track.onEnd = (b, w) => { w.toSurface(b, this); w.info('funnelEnter', { ball: b.id, name: this.name }); return true; };
+  }
+}
+
+// --------------------------------------------------------------------------
+// Splash pool with a whirlpool drain: a round bowl whose floor is a shallow
+// cone steepening into a hyperbolic throat at the drain, under a few
+// centimetres of water that swirls round the drain. Under water the ball
+// weighs a third as much, carries an added mass of water with it, and is
+// dragged round and in by the vortex.
+export class Pool extends Funnel {
+  constructor(world, o) {
+    super(world, o);
+    this.kind = 'pool';
+    this.cone = o.cone ?? 0.12;            // floor slope at the rim
+    this.g = WATER.g;
+    this.kTrans = 1 + WATER.addedMass * WATER.ratio;   // the water it drags along
+    this.cw = o.cw ?? WATER.dragFull;
+    // The vortex is kept slower than a ball could orbit on the floor's slope,
+    // so it carries the ball round but lets it spiral in.
+    this.swirl = o.swirl ?? 0.025;          // circulation Γ/2π (m²/s); > 0 = clockwise from above
+    this.core = o.core ?? 0.07;            // vortex core radius
+    this.inflow = o.inflow ?? 0.003;       // flow toward the drain, as u_r = inflow / r (m²/s)
+    this.mu = o.mu ?? 0.02;
+    this.rimE = 0.15; this.e = 0.1; this.captureVn = 1.5; this.muWall = 0.08;
+    this.sound = 'pool'; this.hitSound = 'thud';
+    this.ySurf = this.yRim + (o.waterAbove ?? 0.05);
+    this.wallTop = this.ySurf + (o.wallAbove ?? 0.12);
+    world.addWater({ name: this.name, cx: this.cx, cz: this.cz, r: this.rOut, ySurf: this.ySurf, wallTop: this.wallTop, wallE: 0.25, floorAt: (r) => this.hy(Math.max(r, this.rHole)) });
+    this.drained = 0;
+  }
+  hy(r) { return this.yRim - this.cone * (this.rOut - r) - this.A * (1 / r - 1 / this.rOut); }
+  dhy(r) { return this.cone + this.A / (r * r); }
+  d2hy(r) { return -2 * this.A / (r * r * r); }
+  inflowAt(r) { return this.inflow / Math.max(r, 0.05); }
+  onExit(b, w) {
+    // down the drain pipe and out onto the rails below
+    w.launch(b, { x: this.cx, y: this.hy(this.rHole) - 0.015, z: this.cz }, { x: 0, y: -0.35, z: 0 });
+    b.omega.x = 0; b.omega.y = 0; b.omega.z = 0;
+    w.sound('gurgle', 0.55, { x: this.cx, y: this.ySurf, z: this.cz });
+    w.info('drain', { ball: b.id, name: this.name });
+    this.drained++;
   }
 }
 

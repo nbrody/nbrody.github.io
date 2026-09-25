@@ -1,4 +1,4 @@
-// Glasshouse Excogitation — the setting: a Victorian cast-iron-and-glass palm-house rotunda.
+// Glass House Ball Machine — the setting: a Victorian cast-iron-and-glass palm-house rotunda.
 //
 //   import { buildEnvironment } from './environment.js';
 //   const env = buildEnvironment(scene, renderer, { timeOfDay: 17.5 });

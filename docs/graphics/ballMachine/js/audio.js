@@ -1,4 +1,4 @@
-// js/audio.js — Glasshouse Excogitation: audio engine.
+// js/audio.js — Glass House Ball Machine: audio engine.
 //
 // Everything is synthesized with the Web Audio API (no samples, no assets, no imports):
 //   • tuned instruments = additive modal synthesis (oscillator partials with per-partial exponential
@@ -229,6 +229,12 @@ const GEN = {
     const o = biquad(biquad(noiseBurst(sr, R, 0.1, 0.003, 0.014), 'lp', 420, 0.7, sr), 'lp', 420, 0.7, sr);
     return finish(o, sr);
   },
+  tink(sr, R) {          // brass striker on a glass rim: a bright glassy tick
+    const o = new Float32Array(Math.round(0.02 * sr));
+    mixInto(o, biquad(noiseBurst(sr, R, 0.006, 0.00003, 0.0004), 'bp', 7200, 0.9, sr), 1);
+    addMode(o, sr, 5300, 0.4, 0.006); addMode(o, sr, 8100, 0.3, 0.004);
+    return finish(o, sr, 1, 1);
+  },
 
   // --- mechanical noises ------------------------------------------------------------------
   clack(sr, R, h) {      // hardwood flip-flop slapping its stop: bright woody knock 1.5–2.5 kHz, 20–40 ms
@@ -286,6 +292,28 @@ const GEN = {
     mixInto(o, biquad(noiseBurst(sr, R, 0.004, 0.0001, 0.0006), 'hp', 1500, 0.7, sr), 0.9);
     return finish(o, sr, 0.55 + 0.45 * R(), 2);
   },
+  splash(sr, R, h) {     // ball into water: slap + spray, then the cavity's air bubble rings and rises ("plop")
+    const o = new Float32Array(Math.round(0.34 * sr)), s = jit(R, 0.08);
+    mixInto(o, biquad(biquad(noiseBurst(sr, R, 0.09, 0.0006, 0.018 + 0.012 * h), 'bp', 1400 + 900 * h, 0.6, sr), 'hp', 250, 0.7, sr), 1.1 + 0.5 * h);
+    // spray: a patter of tiny droplets landing
+    for (let k = 0, n = 10 + 16 * h; k < n; k++) {
+      const t0 = Math.round((0.02 + R() * (0.12 + 0.12 * h)) * sr);
+      const d = biquad(noiseBurst(sr, R, 0.004, 0.00003, 0.0006), 'bp', 3500 + R() * 4500, 1.2, sr);
+      mixInto(o, d, (0.12 + 0.2 * R()) * (1 - t0 / o.length), t0);
+    }
+    bubble(o, sr, Math.round((0.012 + 0.01 * R()) * sr), (420 - 120 * h) * s, 1.9, 0.045, 0.9);
+    return finish(o, sr);
+  },
+  gurgle(sr, R, h) {     // down the drain: a run of bubbles glugging through the pipe
+    const o = new Float32Array(Math.round(0.5 * sr));
+    mixInto(o, biquad(noiseBurst(sr, R, 0.3, 0.02, 0.09), 'lp', 700, 0.8, sr), 0.35);
+    let t = 0.005;
+    for (let k = 0, n = 4 + ((R() * 4) | 0); k < n; k++) {
+      bubble(o, sr, Math.round(t * sr), (230 + R() * 330) * (1 + 0.3 * h), 1.2 + R(), 0.03 + R() * 0.03, 0.5 + R() * 0.5);
+      t += 0.035 + R() * 0.07;
+    }
+    return finish(o, sr);
+  },
   chainB(sr, R, h) {     // lift chain: link seating into a sprocket tooth / bucket hanger (duller)
     const o = new Float32Array(Math.round(0.045 * sr)), s = jit(R, 0.05);
     addMode(o, sr, 1450 * s, 1.0, 0.022); addMode(o, sr, 920 * s, 0.6, 0.025);
@@ -295,14 +323,25 @@ const GEN = {
   },
 };
 
-const MECH_KINDS = ['clack', 'click', 'clunk', 'cup', 'thud', 'tick'];
+/** A resonating air bubble (Minnaert): a sine whose pitch rises as it shrinks toward the surface. */
+function bubble(out, sr, s0, f0, rise, tau, amp) {
+  const n = Math.min(out.length - s0, Math.round(tau * 7 * sr));
+  let ph = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / sr, f = f0 * (1 + (rise - 1) * (1 - Math.exp(-t / (tau * 1.5))));
+    ph += TAU * f / sr;
+    out[s0 + i] += amp * Math.sin(ph) * Math.exp(-t / tau) * Math.min(1, i / (0.0008 * sr));
+  }
+}
+
+const MECH_KINDS = ['clack', 'click', 'clunk', 'cup', 'thud', 'tick', 'splash', 'gurgle'];
 const MECH_VARIANTS = 4;
 
 /** Build every precomputed buffer. Returns { mallet, metal, ..., clack: [[soft…],[hard…]], chainA: […], white, … } */
 function buildBanks(ctx) {
   const sr = ctx.sampleRate, B = {};
   let seed = 1;
-  for (const k of ['mallet', 'metal', 'tine', 'stick', 'beater']) B[k] = toBuffer(ctx, GEN[k](sr, mulberry(seed++ * 101)));
+  for (const k of ['mallet', 'metal', 'tine', 'stick', 'beater', 'tink']) B[k] = toBuffer(ctx, GEN[k](sr, mulberry(seed++ * 101)));
   for (const k of MECH_KINDS) {
     // Equal energy for every variant & hardness of a kind: loudness is set by LEVEL × velocity curve only
     // (peak-normalized variants differ by up to 4 dB in energy when a sharp contact spike sets the peak).
@@ -342,11 +381,11 @@ function buildWaves(ctx) {
  * noises sit ≈ −14…−18 dB under a marimba note at equal distance & velocity.
  * =========================================================================================== */
 const LEVEL = {
-  marimba: 0.30, bell: 0.16, glock: 0.15, chime: 0.14, gong: 0.34, drum: 0.40, whistle: 0.05,
-  clack: 0.18, click: 0.30, clunk: 0.16, cup: 0.20, thud: 0.325, tick: 0.17,
+  marimba: 0.30, bell: 0.16, glock: 0.15, chime: 0.14, glass: 0.13, gong: 0.34, drum: 0.40, whistle: 0.05,
+  clack: 0.18, click: 0.30, clunk: 0.16, cup: 0.20, thud: 0.325, tick: 0.17, splash: 0.34, gurgle: 0.15,
 };
 // velocity → amplitude exponent (clicks are strongly velocity dependent: soft queue taps vs. hard hits)
-const VEL_EXP = { clack: 1.5, click: 2.2, clunk: 1.6, cup: 1.5, thud: 1.4, tick: 1.4 };
+const VEL_EXP = { clack: 1.5, click: 2.2, clunk: 1.6, cup: 1.5, thud: 1.4, tick: 1.4, splash: 1.3, gurgle: 1.1 };
 
 // Church-bell partials relative to the strike pitch (= prime; nominal = 2×): [ratio, amp, T60 factor, doublet split Hz]
 const BELL = [
@@ -366,6 +405,9 @@ const CHIME = [
   [0.617, 0.07, 1.0, 0], [1.21, 0.30, 1.0, 0], [2.0, 0.85, 0.9, 1.2], [2.99, 0.75, 0.72, 1.5],
   [4.17, 0.50, 0.55, 0], [5.55, 0.28, 0.42, 0], [7.13, 0.14, 0.3, 0],
 ];
+// Goblet with water: shell modes n = 2, 3, 4, 5 (≈ n² spacing); the lowest is a doublet from the
+// glass's slight asymmetry, so it beats slowly as it rings.
+const GLASS = [[1.0, 1.0, 1.0, 1.4], [2.34, 0.26, 0.42, 0], [4.3, 0.11, 0.2, 0], [6.7, 0.045, 0.11, 0]];
 // Tam-tam low modes: [ratio, amp, T60 factor]
 const GONG = [[1, 1.0, 1.0], [1.46, 0.55, 0.85], [1.97, 0.45, 0.8], [2.43, 0.35, 0.7], [2.94, 0.28, 0.6],
   [3.51, 0.22, 0.55], [4.18, 0.16, 0.45], [4.96, 0.12, 0.4]];
@@ -400,6 +442,10 @@ const TONE_SPEC = {
     const k = clamp((69 + 12 * Math.log2(f / 440) - 74) / 31, 0, 1), T = lerp(2.0, 1.3, k);
     return { P: [[f, 1, T, 0], [f * 2.76, 0.28, T * 0.28, 1], [f * 5.4, 0.1, T * 0.09, 1], [f * 8.93, 0.04, T * 0.04, 1]], att: 0.0006, T };
   },
+  glass(f) {
+    const T = clamp(2.6 * Math.pow(1000 / f, 0.3), 1.6, 3.2);
+    return { P: splitModes([], f, GLASS, T, 1.5), att: 0.0008, T };
+  },
 };
 
 /** Render a TONE_SPEC into [body, bright] AudioBuffers (body at half rate when its partials allow). */
@@ -422,7 +468,7 @@ function renderTone(ctx, spec) {
   return out;
 }
 
-const TONE_RANGE = { bell: [62, 93], chime: [62, 86], glock: [74, 105] };
+const TONE_RANGE = { bell: [62, 93], chime: [62, 86], glock: [74, 105], glass: [81, 100] };
 const PENTA = new Set([2, 4, 6, 9, 11]);               // D E F# A B (pitch classes)
 
 /** Same partials rendered natively in OfflineAudioContexts (off the main thread). Resolves [body, bright]. */
@@ -503,6 +549,12 @@ const INSTRUMENTS = {
     const m = clamp(fin(p.midi, 88), 60, 110), b = 0.35 + 0.65 * vel;
     const v = modal(e, 'glock', p, t, m, LEVEL.glock * Math.pow(vel, 1.4), b);
     if (v) e._play(v, e._b.tine, t, clamp(midiHz(m) / 1500, 0.7, 1.6), 0.22 * b * b);
+  },
+
+  glass(e, p, t, vel) {                             // a tuned water glass, struck on the rim
+    const m = clamp(fin(p.midi, 88), 70, 105), b = 0.35 + 0.65 * vel;
+    const v = modal(e, 'glass', p, t, m, LEVEL.glass * Math.pow(vel, 1.4), b);
+    if (v) e._play(v, e._b.tink, t, clamp(midiHz(m) / 1200, 0.8, 1.5), 0.2 * b * b);
   },
 
   chime(e, p, t, vel) {                             // perceived (virtual) pitch = MIDI note
@@ -649,6 +701,13 @@ class RollVoice {
       lfoHz = o; lfoD = 0.35;
     } else if (b.surface === 'wood') {
       rumble = 0.0095 * Math.pow(sn, 0.9); fc = 110 + 650 * sn; sing = 0; lfoHz = rot; lfoD = 0.25;
+    } else if (b.surface === 'water') {                  // ploughing down the flume's stream: a babbling hiss
+      rumble = 0.0075 * Math.pow(sn, 0.8); fc = 900 + 2600 * sn; sing = 0;
+      lfoHz = (7 + 16 * sn) * (0.6 + 0.8 * Math.random()); lfoD = 0.6;
+    } else if (b.surface === 'brush') {                  // pushing through the brush brake: a dry bristly hiss
+      rumble = 0.011 * Math.pow(sn, 0.7); fc = 2600 + 3200 * sn; sing = 0; lfoHz = 25 + 40 * sn; lfoD = 0.45;
+    } else if (b.surface === 'pool') {                   // rolling under water: dull and muffled
+      rumble = 0.004 * Math.pow(sn, 0.8); fc = 140 + 380 * sn; sing = 0; lfoHz = rot * 0.5; lfoD = 0.3;
     } else {                                             // 'rail' (default)
       rumble = 0.0082 * Math.pow(sn, 0.9); fc = 160 + 1400 * Math.pow(sn, 1.1); sing = 0.0016 * Math.pow(sn, 1.2);
       lfoHz = rot; lfoD = 0.18;
@@ -774,6 +833,52 @@ class LiftVoice {
       s.onended = () => s.disconnect();
       this.alt ^= 1;
       this.next += iv * rr(0.88, 1.12);
+    }
+  }
+}
+
+/** Running water at a fixed place: the spout's jet, the flume's stream, the whirlpool. Filtered noise
+ *  with a slowly wandering level, and (for the pool) the odd bubble glugging up. */
+const WATER_KIND = {
+  jet: { f: 2600, q: 0.7, lp: 650, lpMix: 0.5, level: 0.02, wander: 0.25 },
+  stream: { f: 1500, q: 0.45, lp: 380, lpMix: 0.6, level: 0.016, wander: 0.35 },
+  pool: { f: 950, q: 1.1, lp: 300, lpMix: 0.3, level: 0.011, wander: 0.5, bubbles: true },
+};
+class WaterVoice {
+  constructor(e, kind) {
+    const c = e._ctx, now = c.currentTime, K = (this.K = WATER_KIND[kind] || WATER_KIND.stream);
+    this.e = e; this.kind = kind; this.px = NaN; this.py = NaN; this.pz = NaN; this.nextWander = 0; this.nextBubble = now + 0.5;
+    this.out = c.createGain(); this.out.gain.value = 0;
+    this.pn = e._panner(e._hrtf, 0, -1000, 0);
+    this.out.connect(this.pn); this.pn.connect(e._bus.water); this.out.connect(e._send.inst[2]);
+    this.src = c.createBufferSource(); this.src.buffer = e._b.white; this.src.loop = true;
+    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = K.f; bp.Q.value = K.q;
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = K.lp; lp.Q.value = 0.6;
+    const lg = c.createGain(); lg.gain.value = K.lpMix;
+    this.wg = c.createGain(); this.wg.gain.value = 1;
+    this.src.connect(bp); bp.connect(this.wg); this.src.connect(lp); lp.connect(lg); lg.connect(this.wg);
+    this.wg.connect(this.out);
+    this.src.start(now, Math.random() * 1.8);
+  }
+  update(p, now) {
+    const x = fin(p.x, 0), y = fin(p.y, 0), z = fin(p.z, 0);
+    if (Math.abs(x - this.px) + Math.abs(y - this.py) + Math.abs(z - this.pz) > 0.002 || this.px !== this.px) {
+      const jump = this.px !== this.px;
+      this.px = x; this.py = y; this.pz = z; movePanner(this.pn, x, y, z, now, jump);
+    }
+    const on = p.running !== false;
+    setP(this.out.gain, on ? this.K.level * clamp(fin(p.level, 1), 0, 2) : 0, now, on ? 0.4 : 0.8);
+    if (now >= this.nextWander) {
+      this.nextWander = now + rr(0.15, 0.6);
+      setP(this.wg.gain, 1 + this.K.wander * (Math.random() * 2 - 1), now, rr(0.08, 0.3));
+    }
+    if (this.K.bubbles && on && now >= this.nextBubble) {
+      this.nextBubble = now + rr(0.25, 1.4);
+      const set = this.e._b.gurgle[0], s = this.e._ctx.createBufferSource(), g = this.e._ctx.createGain();
+      s.buffer = set[(Math.random() * set.length) | 0]; s.playbackRate.value = rr(0.8, 1.5);
+      g.gain.value = rr(0.08, 0.25);
+      s.connect(g); g.connect(this.out); s.start(now + 0.02);
+      s.onended = () => { s.disconnect(); g.disconnect(); };
     }
   }
 }
@@ -1012,7 +1117,7 @@ export class AudioEngine {
     clip.connect(this._volG); this._volG.connect(this._muteG); this._muteG.connect(c.destination);
     this._comp = comp;
     this._bus = {};
-    for (const k of ['inst', 'mech', 'roll', 'lift', 'amb']) { this._bus[k] = G(k === 'amb' ? 0 : 1); this._bus[k].connect(this._mix); }
+    for (const k of ['inst', 'mech', 'roll', 'lift', 'amb', 'water']) { this._bus[k] = G(k === 'amb' ? 0 : 1); this._bus[k].connect(this._mix); }
     // one global reverb: sends (distance buckets) → HPF → convolver → wet gain → mix
     const rin = G(1), rhp = c.createBiquadFilter(), conv = c.createConvolver();
     rhp.type = 'highpass'; rhp.frequency.value = 170; rhp.Q.value = 0.6;
@@ -1276,6 +1381,18 @@ export class AudioEngine {
     if (!p || !this._live()) return;
     if (!this._lift) { if (!p.running) return; this._lift = new LiftVoice(this); }
     this._lift.update(p, this._ctx.currentTime);
+  }
+
+  /** Running water: [{ id, kind: 'jet' | 'stream' | 'pool', x, y, z, level?, running? }] (a voice per id). */
+  updateWater(sources) {
+    if (!Array.isArray(sources) || !this._live()) return;
+    const now = this._ctx.currentTime;
+    this._water = this._water || new Map();
+    for (const p of sources) {
+      let v = this._water.get(p.id);
+      if (!v) { v = new WaterVoice(this, p.kind); this._water.set(p.id, v); }
+      v.update(p, now);
+    }
   }
 
   /** Debug/telemetry (not part of the app contract). */

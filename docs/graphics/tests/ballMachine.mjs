@@ -19,23 +19,29 @@ const waitMachine = (fn, arg) => page.waitForFunction(([src, a]) => {
   return M && (0, eval)(`(${src})`)(M, a);
 }, [fn.toString(), arg], LOAD);
 try {
-  // The folder link enters the stage, which starts the tour without the welcome card.
+  // The folder link enters the stage, which starts feature to feature without the welcome card.
   await page.goto(`${base}ballMachine/`);
   await page.waitForURL('**/stage.html?viz=ballMachine**');
-  await waitMachine((M) => M.state.view === 'tour');
+  await waitMachine((M) => M.state.view === 'features');
   const viz = page.frameLocator('#viz');
   for (const sel of ['#start', '#machinePanel', '#dock', '#placard', '#panelToggle']) {
     assert.equal(await viz.locator(sel).isVisible(), false, `${sel} is hidden in the stage`);
   }
 
-  // Simple page: camera chips and the route picker drive the machine.
-  const cameras = page.locator('#simpleControls').getByRole('radiogroup', { name: 'Camera', exact: true });
-  await cameras.getByRole('radio', { name: 'Chase a ball', exact: true }).click();
-  await waitMachine((M) => M.state.view === 'chase' && M.rig.mode === 'chase' && !!M.state.following);
+  // Simple page: two ways to watch (only those two), and the route picker.
+  const watch = page.locator('#simpleControls').getByRole('radiogroup', { name: 'Watch', exact: true });
+  assert.deepEqual(await watch.getByRole('radio').allTextContents(), ['Follow a ball', 'Feature to feature']);
+  await watch.getByRole('radio', { name: 'Feature to feature', exact: true }).click();
+  await waitMachine((M) => M.state.view === 'features' && M.tour.style === 'features' && M.rig.mode === 'orbit');
+  await watch.getByRole('radio', { name: 'Follow a ball', exact: true }).click();
+  await waitMachine((M) => M.state.view === 'follow' && M.tour.style === 'follow' && (M.rig.mode === 'chase' || !!M.tour.waitTop));
   const route = page.locator('#simpleControls').getByRole('combobox', { name: 'Route', exact: true });
   await route.selectOption('bells');
   await waitMachine((M) => M.state.route === 'bells');
   assert(await inMachine((M) => M.machine.routes.bells.every(([ff, out]) => ff.lock === out)), 'Bell Tower locks its flip-flops');
+  await route.selectOption('water');
+  await waitMachine((M) => M.state.route === 'water');
+  assert(await inMachine((M) => M.machine.routes.water.every(([ff, out]) => ff.lock === out) && M.machine.flipflops.F6.lock === 1), 'the water slide locks F1, F3 and F6');
   await route.selectOption('random');
   assert(await inMachine((M) => Object.values(M.machine.flipflops).every((ff) => ff.lock === null && ff.random === (ff.name !== 'F5'))),
     'coin-toss switches everywhere but the marimba lane switch');
@@ -86,7 +92,7 @@ try {
   assert.equal(await solo.locator('input[name="route"][value="gong"]').isChecked(), true);
 
   assert.deepEqual(errors, []);
-  console.log('PASS: stage entry without the welcome card, hidden machine UI, camera chips, route picker (locks, coin toss, auto), pause/run, grouped radio cards, forwarded keys, standalone panel and dock.');
+  console.log('PASS: stage entry without the welcome card, hidden machine UI, Simple "Watch" picker (follow a ball / feature to feature only), route picker (locks incl. the water slide, coin toss, auto), pause/run, grouped radio cards, forwarded keys, standalone panel and dock.');
 } catch (err) {
   console.error('errors so far:', errors);
   throw err;

@@ -1,5 +1,7 @@
 // Camera modes: orbit the whole machine, chase a ball, ride on a ball, or let
-// the tour director cut between whatever is about to happen.
+// the director drive: follow one ball after another down their routes, cut
+// from feature to feature as things are about to happen, or (the tour) mix
+// the two.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -17,6 +19,8 @@ export const PRESETS = {
   gong:      { pos: [1.9, 2.7, -2.2], target: [0.3, 2.9, -4.3], label: 'Gong bucket' },
   wheel:     { pos: [0.9, 3.5, 6.5], target: [-0.6, 3.6, 4.85], label: 'Ball wheel' },
   lift:      { pos: [1.6, 1.6, 1.8], target: [0.17, 1.4, 0.0], label: 'Lift & return' },
+  waterslide: { pos: [5.9, 3.6, 0.2], target: [3.3, 3.2, -2.1], label: 'Water slide' },
+  whirlpool: { pos: [3.1, 2.55, 0.1], target: [2.1, 1.85, -1.45], label: 'Whirlpool' },
 };
 
 export class CameraRig {
@@ -186,15 +190,66 @@ export class TourDirector {
     this.shot = '';
     this.rand = Math.random;
   }
-  start() {
-    this.active = true; this.timer = 0;
+  // style: 'mix' (the tour), 'follow' (one ball after another, all the way
+  // down) or 'features' (feature to feature, never riding a ball)
+  start(style = 'mix') {
+    this.style = style;
+    this.active = true; this.timer = 0; this.clock = 0;
+    this.pending = null; this.waitTop = null; this.due = []; this.recent = [];
+    if (style === 'follow') { this.queue = null; this._follow(this._freshBall()); return; }
+    if (style === 'features') { this.queue = [{ kind: 'preset', name: 'overview', len: 8 }]; this._next(); return; }
     // opening: establishing orbit, then ride the next ball off the lift
     this.queue = [{ kind: 'preset', name: 'overview', len: 11 }, { kind: 'top', mode: 'ride', len: 22 }, { kind: 'preset', name: 'marimba', len: 9 }];
     this._next();
   }
   stop() { this.active = false; this.waitTop = null; }
+
+  // ---- follow a ball: chase it all the way home, then take the next one off the lift
+  _home(b) { return !b || (b.mode === 'track' && b.track === this.machine.collector) || (b.mode === 'carried' && b.carrier.kind === 'lift'); }
+  _freshBall() {
+    // the ball that most recently left the top of the lift and is still on its way down
+    const balls = this.machine.world.balls;
+    const b = this.lastTop != null && balls.find((x) => x.id === this.lastTop);
+    if (b && !this._home(b)) return b;
+    return balls.find((x) => x.branch && !this._home(x)) || null;
+  }
+  _follow(b) {
+    this.waitTop = null;
+    if (!b) { this.waitTop = { kind: 'follow' }; this.timer = 0; this.shot = 'waiting at the top of the lift'; this.rig.flyTo('crown'); return; }
+    this.followBall = b; this.idleT = 0;
+    this.rig.controls.autoRotate = false;
+    this.rig.setMode('chase', b);
+    this.shot = `following ball ${b.id}`;
+  }
+
+  // ---- feature to feature: cut to where something is about to happen
+  _expect(name, delay, len, pri = 1) { this.due.push({ name, at: this.clock + delay, len, pri }); }
+  _anticipate(e) {
+    switch (e.type) {
+      case 'switch':
+        if (e.name === 'F2') this._expect(e.out ? 'bells' : 'marimba', e.out ? 1.2 : 5.5, 10);
+        else if (e.name === 'F6') this._expect(e.out ? 'waterslide' : 'loop', e.out ? 3.5 : 1.0, e.out ? 11 : 6);
+        else if (e.name === 'F4' && !e.out) this._expect('plinko', 6.5, 9);
+        break;
+      case 'funnelEnter': if (e.name === 'vortex') this._expect('funnel', 0, 12, 2); break;
+      case 'splash': this._expect('whirlpool', 0, 7, 2); break;
+      case 'bucket': if (e.count === 2) this._expect('gong', 0, 12, 3); break;
+      case 'wheel': this._expect('wheel', 0, 7); break;
+    }
+  }
+  _featureCut(d) {
+    this.recent.unshift(d.name); this.recent.length = Math.min(this.recent.length, 6);
+    this._cut({ kind: 'preset', name: d.name, len: d.len });
+  }
+
   onEvent(e) {
+    if (e.type === 'top') this.lastTop = e.ball;
     if (!this.active) return;
+    if (this.style === 'follow') {
+      if (e.type === 'top' && this.waitTop) this._follow(this.machine.world.balls.find((x) => x.id === e.ball));
+      return;
+    }
+    if (this.style === 'features') { this._anticipate(e); return; }
     if (e.type === 'top' && this.waitTop) {
       const b = this.machine.world.balls.find((x) => x.id === e.ball);
       if (b) { const w = this.waitTop; this.waitTop = null; this._cut({ kind: w.mode, ball: b, len: w.len }); }
@@ -203,6 +258,11 @@ export class TourDirector {
     // interesting moments get priority
     if (e.type === 'bucket' && e.count === 2) this.pending = { kind: 'preset', name: 'gong', len: 12 };
     else if (e.type === 'lane' && this.rand() < 0.6) this.pending = { kind: 'preset', name: 'marimba', len: 9 };
+    else if (e.type === 'switch' && e.name === 'F6' && e.out === 1 && this.rand() < 0.55) {
+      // a ball is heading for the water slide: go down it with the ball
+      const b = this.machine.world.balls.find((x) => x.id === e.ball);
+      if (b) this.pending = { kind: this.rand() < 0.6 ? 'ride' : 'chase', ball: b, len: 17 };
+    }
     else if (e.type === 'top' && this.rand() < 0.25) {
       const b = this.machine.world.balls.find((x) => x.id === e.ball);
       if (b) this.pending = { kind: this.rand() < 0.5 ? 'ride' : 'chase', ball: b, len: 16 };
@@ -211,6 +271,33 @@ export class TourDirector {
   update(dt) {
     if (!this.active) return;
     this.timer += dt;
+    this.clock += dt;
+    if (this.style === 'follow') {
+      // home again (or back on the lift): pick up the next ball to leave the top
+      if (!this.waitTop && this._home(this.followBall)) { this.waitTop = { kind: 'follow' }; this.timer = 0; }
+      if (this.waitTop && this.timer > 4) this._follow(this._freshBall());
+      // waiting a long time (say, in the gong bucket for two more balls)? find livelier company
+      const fb = this.followBall;
+      this.idleT = fb && fb.speed < 0.05 ? this.idleT + dt : 0;
+      if (!this.waitTop && this.idleT > 6) this._follow(this._freshBall() !== fb ? this._freshBall() : null);
+      return;
+    }
+    if (this.style === 'features') {
+      // a shot runs at least 6 s (3.5 s if the gong is about to tip), and a
+      // feature seen in the last three shots waits its turn unless it's the gong
+      this.due = this.due.filter((d) => this.clock - d.at < 4);
+      const ready = this.due.filter((d) => d.at <= this.clock && (d.pri >= 3 ? d.name !== this.recent[0] : !this.recent.slice(0, 3).includes(d.name)))
+        .sort((a, b) => b.pri - a.pri || a.at - b.at);
+      if (ready.length && this.timer > (ready[0].pri >= 3 ? 3.5 : 6)) {
+        this.due.splice(this.due.indexOf(ready[0]), 1);
+        this._featureCut(ready[0]);
+      } else if (this.timer > this.shotLen) {
+        const order = ['crown', 'marimba', 'bells', 'waterslide', 'loop', 'funnel', 'wheel', 'plinko', 'gong', 'whirlpool', 'lift', 'overview'];
+        const next = order.find((n) => !this.recent.includes(n)) ?? order[Math.floor(this.rand() * order.length)];
+        this._featureCut({ name: next, len: 10 });
+      }
+      return;
+    }
     if (this.waitTop) { if (this.timer > 8) { this.waitTop = null; this._next(); } return; }
     if (this.pending && this.timer > 4) { this._cut(this.pending); this.pending = null; return; }
     if (this.timer > this.shotLen) this._next();
@@ -227,7 +314,7 @@ export class TourDirector {
       const moving = balls.filter((b) => b.mode === 'track' && b.speed > 0.4 && b.branch);
       if (moving.length) return this._cut({ kind: this.rand() < 0.55 ? 'chase' : 'ride', ball: moving[Math.floor(this.rand() * moving.length)], len: 11 });
     }
-    const names = ['overview', 'crown', 'marimba', 'bells', 'loop', 'funnel', 'plinko', 'gong', 'wheel', 'lift'];
+    const names = ['overview', 'crown', 'marimba', 'bells', 'loop', 'funnel', 'waterslide', 'whirlpool', 'plinko', 'gong', 'wheel', 'lift'];
     const name = names[Math.floor(this.rand() * names.length)];
     this._cut({ kind: 'preset', name, len: 8 });
   }

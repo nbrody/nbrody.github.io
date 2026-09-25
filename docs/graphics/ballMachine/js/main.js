@@ -1,4 +1,4 @@
-// Glasshouse Excogitation — bootstrap: renderer, simulation loop, sound, cameras, UI.
+// Glass House Ball Machine — bootstrap: renderer, simulation loop, sound, cameras, UI.
 import * as THREE from 'three';
 import { buildMachine, BRANCHES, BALL_COLORS, rescue } from './sim/layout.js';
 import { Ball } from './sim/world.js';
@@ -75,6 +75,10 @@ const labels = [];
     ['Ski jump', 'daredevil', up(tr.jump.end, 0.2)],
     ['Vortex funnel', 'daredevil', up({ x: d.funnel.cx, y: d.funnel.yRim, z: d.funnel.cz }, 0.18)],
     ['Tom-toms', 'daredevil', up(d.drum2.center, 0.25)],
+    ['Water glasses', 'water', up(mid(tr.wsGlass, 0.45), 0.22)],
+    ['Water slide', 'water', up(tr.wsHelix.start, 0.62)],
+    ['Glass tunnel', 'water', up(mid(tr.wsTube, 0.55), 0.22)],
+    ['Whirlpool', 'water', up({ x: d.pool.cx, y: d.pool.wallTop, z: d.pool.cz }, 0.3)],
     ['Plinko case', 'plinko', up({ x: d.plinko.center.x, y: d.plinko.center.y + d.plinko.height / 2, z: d.plinko.center.z }, 0.72)],
     ['Gong bucket', 'gong', up(d.bucket.pivot, 0.3)],
     ['Gong', 'gong', up(d.gong.center, d.gong.r + 0.35)],
@@ -142,13 +146,13 @@ const audio = new AudioEngine();
 let soundOn = false;
 
 // ---------------------------------------------------------------- UI wiring
-const branchKeys = ['marimba', 'bells', 'daredevil', 'plinko', 'gong'];
+const branchKeys = ['marimba', 'bells', 'daredevil', 'water', 'plinko', 'gong'];
 const counts = Object.fromEntries(branchKeys.map((k) => [k, 0]));
 // Route is one radio group (the Graphics Studio remote shows it as a picker):
 // the flip-flops decide, the switches toss coins, or every ball takes one route.
 const routesEl = $('#routes');
 const ROUTE_OPTIONS = [
-  { value: 'auto', name: 'Flip-flops decide', color: BRANCHES.top.color, blurb: 'Each switch alternates, sharing the balls among all five routes.' },
+  { value: 'auto', name: 'Flip-flops decide', color: BRANCHES.top.color, blurb: 'Each switch alternates, sharing the balls among all six routes.' },
   { value: 'random', name: 'Coin-toss switches', color: '#8f8878', blurb: 'Each switch picks a side at random.' },
   ...branchKeys.map((k) => ({ value: k, name: BRANCHES[k].name, color: BRANCHES[k].color, blurb: BRANCHES[k].blurb, count: true })),
 ];
@@ -261,10 +265,11 @@ soundEl.addEventListener('change', () => setSound(soundEl.checked));
 
 // view dock (a radio group: the studio remote shows it as a picker)
 const camRadios = document.querySelectorAll('input[name="camera"]');
+const AUTO_VIEWS = { tour: 'mix', follow: 'follow', features: 'features' };
 function setView(v) {
   state.view = v;
   for (const r of camRadios) r.checked = r.value === v;
-  if (v === 'tour') { tour.start(); }
+  if (AUTO_VIEWS[v]) { tour.start(AUTO_VIEWS[v]); }
   else {
     tour.stop();
     rig.controls.autoRotate = false;
@@ -320,7 +325,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
     const tol = Math.max(0.05, dist * 0.012);
     if (d < tol && d < bd + dist * 0.01) { bd = d; best = m; }
   }
-  if (best) { if (state.view === 'tour') setView('chase'); follow(best.userData.ball); if (state.view === 'orbit') setView('chase'); }
+  if (best) { if (AUTO_VIEWS[state.view]) setView('chase'); follow(best.userData.ball); if (state.view === 'orbit') setView('chase'); }
 });
 
 // keyboard
@@ -331,6 +336,8 @@ addEventListener('keydown', (e) => {
   else if (e.key === '2') setView('chase');
   else if (e.key === '3') setView('ride');
   else if (e.key === '4') setView('tour');
+  else if (e.key === '5') setView('follow');
+  else if (e.key === '6') setView('features');
   else if (e.key === '[') stepBall(-1);
   else if (e.key === ']') stepBall(1);
   else if (e.key === 'n' || e.key === 'N') $('#nextLift').click();
@@ -359,9 +366,13 @@ function describe(b) {
     const k = b.carrier.kind;
     return k === 'lift' ? 'riding the chain lift' : k === 'wheel' ? 'turning the ball wheel' : k === 'bucket' ? 'waiting in the gong bucket' : 'being carried';
   }
-  if (b.mode === 'surface') return b.surf.name === 'vortex' ? `circling the vortex funnel · ${b.orbitHz.toFixed(1)} rev/s` : 'spiralling down a hopper';
+  if (b.mode === 'surface') {
+    if (b.surf.kind === 'pool') return `swirling round the whirlpool · ${b.orbitHz.toFixed(1)} rev/s`;
+    return b.surf.name === 'vortex' ? `circling the vortex funnel · ${b.orbitHz.toFixed(1)} rev/s` : 'spiralling down a hopper';
+  }
   if (b.mode === 'free') {
     const d = machine.devices, p = b.p;
+    if (b.inWater || b.basin) return 'splashdown!';
     const pl = d.plinko;
     if (Math.abs(p.x - pl.center.x) < pl.width / 2 + 0.05 && Math.abs(p.z - pl.center.z) < 0.12 && Math.abs(p.y - pl.center.y) < pl.height / 2 + 0.1) return 'bouncing down through the plinko pegs';
     if (Math.hypot(p.x - d.funnel.cx, p.z - d.funnel.cz) < 0.9 && p.y < d.funnel.yRim) return 'dropping onto the tom-toms';
@@ -382,13 +393,18 @@ function describe(b) {
   if (n === 'jump') return 'lining up the ski jump';
   if (n === 'landing') return 'landing the jump';
   if (n === 'chute') return 'racing down the gong chute';
-  if (['exit', 'f1a', 'f1b', 'f3b'].includes(n)) return 'choosing a route at the crown';
+  if (b.sound === 'brush') return 'pushing through the brush brake';
+  if (n === 'wsGlass') return 'playing the water glasses';
+  if (n === 'wsHelix') return `riding the water slide · ${Math.round(Math.abs(b.phi) * 180 / Math.PI)}° up the wall`;
+  if (n === 'wsTube') return `shooting through the glass tunnel · ${Math.round(Math.abs(b.phi) * 180 / Math.PI)}° up the wall`;
+  if (n === 'wsOut') return 'dripping its way home';
+  if (['exit', 'f1a', 'f1b', 'f3b', 'darArm0'].includes(n)) return 'choosing a route at the crown';
   const br = BRANCHES[t.branch];
   return br ? `on the ${br.name}` : 'rolling';
 }
 function updateFollowCard(force) {
   const b = state.following;
-  const show = b && (state.view !== 'tour' || rig.mode !== 'orbit');
+  const show = b && (!AUTO_VIEWS[state.view] || rig.mode !== 'orbit');
   fEls.card.hidden = !show;
   if (!show) return;
   const col = '#' + b.color.toString(16).padStart(6, '0');
@@ -412,7 +428,7 @@ function onInfo(e) {
       break;
     }
     case 'top':
-      if (wantNextLift) { wantNextLift = false; const b = ballById(e.ball); if (b) { follow(b); if (state.view === 'orbit' || state.view === 'tour') setView('chase'); } }
+      if (wantNextLift) { wantNextLift = false; const b = ballById(e.ball); if (b) { follow(b); if (state.view === 'orbit' || AUTO_VIEWS[state.view]) setView('chase'); } }
       break;
     case 'tip': {
       pushTicker(`The gong bucket tipped — ${e.count} balls away!`, BRANCHES.gong.color);
@@ -428,7 +444,14 @@ function onInfo(e) {
       }
       break;
     }
-    case 'melody': if (e.name.startsWith('Marimba') && Math.random() < 0.6) pushTicker(`${e.name} (ball ${e.ball})`, BRANCHES.marimba.color); break;
+    case 'melody':
+      if (e.name.startsWith('Marimba') && Math.random() < 0.6) pushTicker(`${e.name} (ball ${e.ball})`, BRANCHES.marimba.color);
+      else if (e.name === 'Water glasses' && Math.random() < 0.5) pushTicker(`Ball ${e.ball} plays the water glasses: “Row, row, row your boat…”`, BRANCHES.water.color);
+      break;
+    case 'splash':
+      view.water?.splash(e, elapsed);
+      if (Math.random() < 0.3) pushTicker(`Splash! Ball ${e.ball} hits the whirlpool at ${e.v.toFixed(1)} m/s`, BRANCHES.water.color);
+      break;
     case 'bucket': if (e.count === 2) pushTicker('Two balls in the gong bucket… one more tips it', BRANCHES.gong.color); break;
     case 'warn': if (e.why === 'airborne too long') pushTicker(`Ball ${e.ball} flew off! (A stray; it’s back in the return trough)`, '#999'); break;
   }
@@ -438,7 +461,8 @@ function onInfo(e) {
 async function start(withSound) {
   $('#start').hidden = true;
   if (withSound) await setSound(true);
-  setView('tour');
+  // the studio's Simple page offers "follow a ball" and "feature to feature": open on the second
+  setView(IN_STUDIO ? 'features' : 'tour');
   if (!IN_STUDIO) setTimeout(() => pushTicker('Tip: press 2 to chase a ball, 3 to ride on one', BRANCHES.top.color), 2500);
 }
 $('#startSound').addEventListener('click', () => start(true));
@@ -506,6 +530,10 @@ function frame(now) {
     audio.updateRolling(rolling);
     const L = machine.lift;
     audio.updateLift({ x: L.cx, y: L.yB + 0.2, z: L.cz, speed: L.speed * state.timeScale, running: !state.paused && L.running });
+    const wa = view.water?.anchors;
+    if (wa) audio.updateWater?.([
+      { id: 'jet', kind: 'jet', ...wa.jet }, { id: 'stream', kind: 'stream', ...wa.stream }, { id: 'pool', kind: 'pool', ...wa.pool },
+    ]);
   }
   // halo marks the chosen ball when viewing the whole machine
   const fb = state.following;

@@ -235,8 +235,8 @@ export function buildFunnel(fn, M, mat, legs = 3, floorAt, keepOut) {
   const skin = new THREE.Mesh(new THREE.LatheGeometry(pts, 72), mat);
   skin.position.set(fn.cx, 0, fn.cz);
   g.add(skin);
-  // rim wall
-  const rimTop = fn.yRim + 0.02;
+  // rim wall (above the lip, if the funnel has one)
+  const rimTop = fn.hy(fn.rOut) + 0.02;
   const wall = new THREE.Mesh(new THREE.CylinderGeometry(fn.rOut + R + 0.004, fn.rOut + R + 0.004, rimTop - pts[n].y + 0.01, 72, 1, true), mat);
   wall.position.set(fn.cx, (rimTop + pts[n].y) / 2 - 0.005, fn.cz);
   g.add(wall);
@@ -661,7 +661,7 @@ export function buildClock(M, getHour, faces) {
     x.lineWidth = i % 5 ? 1 : 3;
     x.beginPath(); x.moveTo(128 + Math.cos(a) * 112, 128 + Math.sin(a) * 112); x.lineTo(128 + Math.cos(a) * (i % 5 ? 106 : 102), 128 + Math.sin(a) * (i % 5 ? 106 : 102)); x.stroke();
   }
-  x.fillStyle = '#b8872d'; x.font = 'italic 600 15px Georgia, serif'; x.fillText('Excogitation', 128, 168);
+  x.fillStyle = '#b8872d'; x.font = 'italic 600 15px Georgia, serif'; x.fillText('Glass House', 128, 168);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   const faceMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6, emissive: 0xfff2d0, emissiveMap: tex, emissiveIntensity: 0 });

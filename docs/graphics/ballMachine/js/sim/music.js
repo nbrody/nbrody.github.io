@@ -24,6 +24,14 @@ export const ODE_II = [
   [D5, 1], [D5, 1], [E5, 1], [FS, 1], [E5, 1.5], [D5, 0.5], [D5, 2],
 ];
 
+// "Row, Row, Row Your Boat" (traditional), first line — "…gently down the
+// stream" — in D major, an octave up for water glasses. [midi, eighths] in 6/8.
+const D6 = 86, E6 = 88, FS6 = 90, G6 = 91, A6 = 93;
+export const ROW = [
+  [D6, 3], [D6, 3], [D6, 2], [E6, 1], [FS6, 3],
+  [FS6, 2], [E6, 1], [FS6, 2], [G6, 1], [A6, 6],
+];
+
 // Place bars so that a ball following the track's nominal time profile
 // strikes them in rhythm. Returns [{s, midi}] or throws if the lane is short.
 export function placeMelody(track, melody, beat, sStart) {

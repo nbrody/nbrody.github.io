@@ -5,6 +5,7 @@ import { BALL, RAIL } from '../sim/constants.js';
 import { PEDESTAL } from '../sim/layout.js';
 import { makeMaterials, ballTexture } from './materials.js';
 import { buildTracks, buildSupports } from './trackMeshes.js';
+import { buildWaterSlide } from './waterMeshes.js';
 import {
   KeepOut, buildPedestal, buildLift, buildFlipFlops, buildFunnel, buildWheel, buildBucket,
   buildBells, buildDrum, buildGong, buildPlinko, buildBars, buildColumns, buildClock, buildPennants,
@@ -93,6 +94,8 @@ export class MachineView {
     const pl = d.plinko;
     keep.box(pl.center.x - pl.width / 2 - 0.06, pl.center.x + pl.width / 2 + 0.06, pl.center.z - 0.08, pl.center.z + 0.08, pl.center.y - pl.height / 2 - 0.1, pl.center.y + pl.height / 2 + 0.2);
     add(buildPlinko(pl, M, B.plinko.color, floorAt));
+    // water slide: flume, tunnel, riser and tank, whirlpool, water glasses
+    this.water = add(buildWaterSlide(machine, M, B.water.color, floorAt, keep));
     // bar runs
     add(buildBars(d.marimbaI, M, 'marimba'));
     add(buildBars(d.marimbaII, M, 'marimba'));
