@@ -1,0 +1,21 @@
+{
+  "seminars": {
+    "geometry-linear-groups-fall-2026": {
+      "responses": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['name', 'flexible', 'updatedAt']) && (newData.child('flexible').val() === true || newData.child('slots').exists())",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80" },
+          "flexible": { ".validate": "newData.isBoolean()" },
+          "updatedAt": { ".validate": "newData.isNumber() && newData.val() <= now" },
+          "slots": {
+            ".validate": "newData.hasChildren()",
+            "$index": { ".validate": "$index.matches(/^(0|[1-9][0-9]?|1[01][0-9])$/) && newData.isString() && newData.val().matches(/^[0-4]-([0-9]|1[0-9]|2[0-3])$/)" }
+          },
+          "$other": { ".validate": false }
+        }
+      }
+    }
+  }
+}
