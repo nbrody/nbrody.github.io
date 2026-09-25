@@ -21,6 +21,7 @@ export function prepareVisualization(frame, id) {
   if (id === 'newtonFractals') style.textContent += '#control-panel, #coords { display:none !important; }';
   if (id === '4dKleinian') style.textContent += '.topbar, .drawer, #stats, .hint-bar { display:none !important; }';
   if (id === 'gameOfLife') style.textContent += '#restoreBtn { display:none !important; }';
+  if (id === 'ballMachine') style.textContent += '#placard, #panelToggle, #machinePanel, #dock, #start { display:none !important; } #ticker { bottom:16px !important; }';
   doc.head.append(style);
   frame.contentWindow.dispatchEvent(new frame.contentWindow.Event('resize'));
 }

@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Glasshouse Excogitation</title>
+<meta name="graphics-description" content="A George Rhoads–style ball machine in a Victorian palm house: thirty balls, five musical routes and real rolling physics. Chase a ball, ride on one, or take the tour.">
+<script src="../app/entry.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Archivo:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #f4ecdb;
+    --ink-dim: #bdb49f;
+    --ink-faint: #8f8878;
+    --panel: rgba(14, 24, 20, 0.8);
+    --panel-solid: #0e1814;
+    --edge: rgba(212, 169, 79, 0.34);
+    --brass: #d4a94f;
+    --brass-hi: #f0cf7e;
+    --focus: #f0cf7e;
+    --c-marimba: #e2711d; --c-bells: #e3b505; --c-daredevil: #d1263b; --c-plinko: #2b62c9; --c-gong: #1f9a6a; --c-top: #7b4bb3;
+    --display: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    --ui: 'Archivo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --gutter: 16px;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; background: #0b1210; color: var(--ink); font: 14px/1.4 var(--ui); overflow: hidden; }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .panel { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; backdrop-filter: blur(10px) saturate(1.2); -webkit-backdrop-filter: blur(10px) saturate(1.2); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+
+  /* museum placard */
+  #placard { position: fixed; top: calc(var(--gutter) + env(safe-area-inset-top, 0px)); left: var(--gutter); padding: 12px 16px 12px; max-width: min(380px, calc(100vw - 2 * var(--gutter) - 60px)); }
+  #placard h1 { margin: 0; font: 800 24px/1.05 var(--display); font-variation-settings: 'opsz' 96; letter-spacing: 0.005em; text-wrap: balance; }
+  #placard h1 em { font-style: italic; font-weight: 400; color: var(--brass-hi); }
+  #placard p { margin: 5px 0 0; color: var(--ink-dim); font-size: 12.5px; }
+  #placard .meta { margin-top: 8px; font: 500 11px/1 var(--mono); color: var(--ink-faint); letter-spacing: 0.04em; text-transform: uppercase; display: flex; gap: 12px; flex-wrap: wrap; }
+  #placard .meta b { color: var(--ink); font-weight: 600; }
+
+  /* machine panel */
+  #panelToggle { position: fixed; top: calc(var(--gutter) + env(safe-area-inset-top, 0px)); right: var(--gutter); padding: 9px 13px; display: flex; gap: 8px; align-items: center; font-weight: 600; }
+  #panelToggle svg { width: 16px; height: 16px; }
+  #machinePanel { position: fixed; top: calc(62px + env(safe-area-inset-top, 0px)); right: var(--gutter); width: 318px; max-height: calc(100% - 150px - env(safe-area-inset-top, 0px)); overflow: auto; padding: 14px 16px 16px; }
+  #machinePanel h2 { font: 600 15px/1.2 var(--display); margin: 14px 0 8px; letter-spacing: 0.01em; }
+  #machinePanel h2:first-child { margin-top: 0; }
+  .routes { display: grid; gap: 6px; }
+  .route { position: relative; display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: center; padding: 7px 9px; border-radius: 7px; border: 1px solid transparent; background: rgba(255,255,255,0.03); text-align: left; cursor: pointer; }
+  .route:hover { background: rgba(255,255,255,0.07); }
+  .route:has(input:checked) { border-color: var(--brass); background: rgba(212,169,79,0.14); }
+  /* radio inputs stay in the DOM (the Graphics Studio remote reads them) but the label is the visible control */
+  .route input, #dock .v input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+  .route:has(input:focus-visible), #dock .v:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .route .sw { width: 10px; height: 10px; border-radius: 50%; }
+  .route .nm { font-weight: 600; }
+  .route .ct { font: 600 12px var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .route .blurb { grid-column: 2 / 4; color: var(--ink-faint); font-size: 11.5px; line-height: 1.35; margin-top: 1px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 4px; }
+  .seg button { flex: 1 1 auto; padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); font-size: 12.5px; }
+  .seg button[aria-pressed="true"] { border-color: var(--brass); background: rgba(212,169,79,0.18); color: var(--brass-hi); }
+  .row { display: grid; grid-template-columns: 96px 1fr 52px; align-items: center; gap: 8px; margin: 8px 0; font-size: 12.5px; color: var(--ink-dim); }
+  .row output { font: 600 12px var(--mono); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--brass); }
+  .hint { color: var(--ink-faint); font-size: 11.5px; margin: 6px 0 0; }
+  .kbd { font: 600 10.5px var(--mono); border: 1px solid rgba(255,255,255,.2); border-radius: 4px; padding: 1px 4px; color: var(--ink-dim); }
+
+  /* dock */
+  #dock { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--gutter) + env(safe-area-inset-bottom, 0px)); padding: 6px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 2 * var(--gutter)); }
+  #dock .views { display: flex; gap: 4px; }
+  #dock .v { position: relative; padding: 8px 12px; border-radius: 7px; border: 1px solid transparent; background: transparent; font-weight: 600; display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  #dock .v:hover { background: rgba(255,255,255,0.07); }
+  #dock .v:has(input:checked) { background: rgba(212,169,79,0.18); border-color: var(--brass); color: var(--brass-hi); }
+  #dock svg { width: 16px; height: 16px; flex: none; }
+  #dock .sep { width: 1px; align-self: stretch; background: var(--edge); margin: 2px 2px; }
+  .ballpick { display: flex; align-items: center; gap: 2px; }
+  .ballpick button { width: 30px; height: 34px; border-radius: 7px; border: none; background: transparent; }
+  .ballpick button:hover { background: rgba(255,255,255,0.07); }
+  #ballChip { display: flex; align-items: center; gap: 7px; padding: 0 8px; font: 600 13px var(--mono); min-width: 64px; justify-content: center; }
+  #ballChip i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; box-shadow: inset -2px -2px 3px rgba(0,0,0,.35); }
+  #nextLift { padding: 8px 11px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04); font-weight: 600; }
+
+  /* follow card + ticker */
+  #follow { position: fixed; left: var(--gutter); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); padding: 11px 14px; min-width: 220px; }
+  #follow .hd { display: flex; align-items: center; gap: 9px; font: 600 15px var(--display); }
+  #follow .hd i { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset -2px -2px 3px rgba(0,0,0,.35); }
+  #follow .doing { color: var(--ink-dim); margin: 3px 0 7px; font-size: 12.5px; }
+  #follow dl { margin: 0; display: grid; grid-template-columns: repeat(3, auto); gap: 2px 16px; }
+  #follow dt { font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.06em; }
+  #follow dd { margin: 0; font: 600 14px var(--mono); font-variant-numeric: tabular-nums; }
+  #ticker { position: fixed; right: var(--gutter); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 5px; justify-items: end; pointer-events: none; max-width: min(380px, 45vw); }
+  #ticker div { padding: 6px 10px; font-size: 12.5px; border-radius: 7px; background: var(--panel); border: 1px solid var(--edge); transition: opacity 1.2s; display: flex; gap: 8px; align-items: center; }
+  #ticker div i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+  /* start */
+  #start { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 40%, rgba(10,18,15,0.35), rgba(6,10,9,0.8)); padding: var(--gutter); }
+  #start .card { max-width: 520px; padding: 26px 28px 24px; }
+  #start .kicker { font: 600 11px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass); }
+  #start h2 { margin: 8px 0 10px; font: 800 38px/1.02 var(--display); font-variation-settings: 'opsz' 120; text-wrap: balance; }
+  #start h2 em { font-weight: 400; color: var(--brass-hi); }
+  #start p { color: var(--ink-dim); margin: 0 0 10px; font-size: 14px; }
+  #start .go { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  #start .go button { padding: 11px 18px; border-radius: 8px; font-weight: 600; border: 1px solid var(--brass); }
+  #start .go .primary { background: var(--brass); color: #1a1405; }
+  #start .go .secondary { background: transparent; color: var(--ink); border-color: rgba(255,255,255,0.25); }
+  #start .loading { font: 500 12px var(--mono); color: var(--ink-faint); margin-top: 14px; }
+
+  .check { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--ink-dim); margin: 6px 0; cursor: pointer; }
+  .check input { accent-color: var(--brass); width: 15px; height: 15px; }
+  #labelLayer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .tag { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); display: flex; align-items: center; gap: 6px; padding: 3px 8px 3px 7px; border-radius: 999px; background: rgba(14,24,20,0.72); border: 1px solid rgba(212,169,79,0.45); font: 600 11.5px var(--ui); white-space: nowrap; color: var(--ink); transition: opacity .25s, background .15s; pointer-events: auto; cursor: pointer; }
+  .tag:hover { background: rgba(60,45,15,0.9); border-color: var(--brass-hi); }
+  .tag[style*="opacity: 0"] { pointer-events: none; }
+  .tag i { width: 7px; height: 7px; border-radius: 50%; }
+  .tag::after { content: ''; position: absolute; left: 50%; top: 100%; width: 1px; height: 10px; background: rgba(212,169,79,0.6); }
+  .hidden-ui #labelLayer,
+  .hidden-ui #placard, .hidden-ui #machinePanel, .hidden-ui #panelToggle, .hidden-ui #follow, .hidden-ui #ticker, .hidden-ui #dock { display: none !important; }
+
+  #nextLift .short { display: none; }
+  @media (max-width: 760px) {
+    #placard { max-width: calc(100vw - 2 * var(--gutter) - 128px); padding: 9px 12px; }
+    #placard h1 { font-size: 17px; }
+    #placard p { display: none; }
+    #placard .meta { gap: 8px; font-size: 10px; }
+    #machinePanel { left: var(--gutter); right: var(--gutter); width: auto; top: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-height: 58%; }
+    #follow { left: var(--gutter); right: var(--gutter); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); min-width: 0; padding: 9px 12px; }
+    #ticker { display: none; }
+    #dock { flex-wrap: nowrap; gap: 2px; padding: 4px; }
+    #dock .views { gap: 2px; }
+    #dock .v { padding: 8px 9px; }
+    #dock .v span { display: none; }
+    .ballpick button { width: 26px; }
+    #ballChip { min-width: 48px; padding: 0 4px; }
+    #nextLift { padding: 8px 9px; }
+    #nextLift .long { display: none; }
+    #nextLift .short { display: inline; }
+    .panel-open #follow { display: none !important; }
+    #start h2 { font-size: 30px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #ticker div { transition: none; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="labelLayer" aria-hidden="true" data-studio-ignore></div>
+
+<section id="placard" class="panel" aria-label="About the machine">
+  <h1>Glasshouse <em>Excogitation</em></h1>
+  <p>An audiokinetic ball machine after George Rhoads, running in a Victorian palm house.</p>
+  <div class="meta"><span><b id="mBalls">30</b> balls</span><span><b>5</b> routes</span><span><b id="mLifted">0</b> lifted</span><span><b id="mNotes">0</b> notes</span></div>
+</section>
+
+<button id="panelToggle" class="panel" aria-expanded="false" aria-controls="machinePanel" data-studio-ignore>
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/><circle cx="5" cy="4" r="1.6" fill="currentColor"/><circle cx="11" cy="8" r="1.6" fill="currentColor"/><circle cx="7" cy="12" r="1.6" fill="currentColor"/></svg>
+  Machine
+</button>
+
+<aside id="machinePanel" class="panel" hidden aria-label="Machine controls">
+  <section data-control-group="Routes">
+    <h2>Routes</h2>
+    <div class="routes" id="routes" role="radiogroup" aria-label="Route"></div>
+    <p class="hint">The flip-flops share balls among all five routes. Pick one route to send every ball down it.</p>
+  </section>
+
+  <section data-control-group="Glasshouse">
+    <h2>Glasshouse</h2>
+    <div class="seg" id="todPresets" role="group" aria-label="Time of day">
+      <button id="todMorning" data-h="8">Morning</button><button id="todNoon" data-h="12.5">Noon</button><button id="todGolden" data-h="17.5" aria-pressed="true">Golden</button><button id="todDusk" data-h="19.4">Dusk</button><button id="todNight" data-h="22">Night</button>
+    </div>
+    <div class="row"><label for="tod">Time of day</label><input id="tod" type="range" min="5" max="24" step="0.05" value="17.5"><output id="todOut">17:30</output></div>
+  </section>
+
+  <section data-control-group="Mechanism">
+    <h2>Mechanism</h2>
+    <label class="check"><input type="checkbox" id="running" checked> Machine running</label>
+    <div class="row"><label for="speed">Time scale</label><input id="speed" type="range" min="0.05" max="2" step="0.05" value="1"><output id="speedOut">1.00×</output></div>
+    <div class="row"><label for="liftSpeed">Lift speed</label><input id="liftSpeed" type="range" min="0.15" max="0.6" step="0.01" value="0.35"><output id="liftOut">0.35</output></div>
+    <div class="row"><label for="balls">Balls</label><input id="balls" type="range" min="8" max="44" step="1" value="30"><output id="ballsOut">30</output></div>
+    <label class="check"><input type="checkbox" id="labels" checked> Label the devices in the overview</label>
+  </section>
+
+  <section data-control-group="Sound">
+    <h2>Sound</h2>
+    <label class="check"><input type="checkbox" id="soundOn"> Sound on</label>
+    <div class="row"><label for="vol">Volume</label><input id="vol" type="range" min="0" max="1" step="0.01" value="0.8"><output id="volOut">80</output></div>
+    <div class="row"><label for="reverb">Hall reverb</label><input id="reverb" type="range" min="0" max="1" step="0.01" value="0.4"><output id="revOut">40</output></div>
+    <div class="row"><label for="amb">Birds &amp; crickets</label><input id="amb" type="range" min="0" max="1" step="0.01" value="0.5"><output id="ambOut">50</output></div>
+    <p class="hint"><kbd class="kbd">1</kbd>–<kbd class="kbd">4</kbd> views · <kbd class="kbd">[</kbd> <kbd class="kbd">]</kbd> change ball · <kbd class="kbd">N</kbd> next ball off the lift · <kbd class="kbd">Space</kbd> pause · <kbd class="kbd">H</kbd> hide interface · click any ball to chase it · click a label to fly to that device</p>
+  </section>
+</aside>
+
+<div id="follow" class="panel" hidden aria-live="polite">
+  <div class="hd"><i id="fSw"></i><span id="fName">Ball 7</span></div>
+  <div class="doing" id="fDoing">riding the lift</div>
+  <dl>
+    <div><dt>Speed</dt><dd id="fSpeed">0.00</dd></div>
+    <div><dt>Height</dt><dd id="fHeight">0.00</dd></div>
+    <div><dt>Trips</dt><dd id="fTrips">0</dd></div>
+  </dl>
+</div>
+
+<div id="ticker" aria-live="polite"></div>
+
+<nav id="dock" class="panel" aria-label="Views" data-control-group="Camera">
+  <div class="views" role="radiogroup" aria-label="Camera">
+    <label class="v" title="Whole machine (1)"><input type="radio" name="camera" value="orbit" aria-label="Whole machine" checked><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><ellipse cx="8" cy="8" rx="6.5" ry="3"/><circle cx="8" cy="8" r="1.8" fill="currentColor"/></svg><span>Whole machine</span></label>
+    <label class="v" title="Chase a ball (2)"><input type="radio" name="camera" value="chase" aria-label="Chase a ball"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="8" r="3"/><path d="M1.5 5.5h4M1.5 8h3M1.5 10.5h4"/></svg><span>Chase</span></label>
+    <label class="v" title="Ride on a ball (3)"><input type="radio" name="camera" value="ride" aria-label="Ride on a ball"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M1.5 12.5 8 3.5l6.5 9"/><path d="M4.5 8.5h7"/></svg><span>Ride</span></label>
+    <label class="v" title="Guided tour (4)"><input type="radio" name="camera" value="tour" aria-label="Guided tour"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="4" width="9" height="8" rx="1.5"/><path d="m10.5 7 4-2.5v7l-4-2.5"/></svg><span>Tour</span></label>
+  </div>
+  <div class="sep"></div>
+  <div class="ballpick">
+    <button id="prevBall" aria-label="Previous ball">‹</button>
+    <div id="ballChip"><i></i><span>#1</span></div>
+    <button id="nextBall" aria-label="Next ball">›</button>
+  </div>
+  <button id="nextLift" title="Follow the next ball to leave the lift (N)"><span class="long">Next off the lift</span><span class="short">Next</span></button>
+</nav>
+
+<div id="start" data-studio-ignore>
+  <div class="card panel">
+    <div class="kicker">Audiokinetic sculpture</div>
+    <h2>Glasshouse <em>Excogitation</em></h2>
+    <p>Thirty resin balls ride a chain lift to the crown of the machine. A tree of flip-flop switches sends each one down one of five routes: a marimba that plays “Ode to Joy”, a tower of bells, a loop-the-loop and ski jump, a glockenspiel plinko case, and a gong that waits for three balls at once.</p>
+    <p>The balls roll on real physics — rolling friction, banked rails, spin and skid, collisions — so no two minutes sound quite the same.</p>
+    <div class="go">
+      <button class="primary" id="startSound">Start the machine</button>
+      <button class="secondary" id="startSilent">Watch without sound</button>
+    </div>
+    <div class="loading" id="loading">Building the glasshouse…</div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

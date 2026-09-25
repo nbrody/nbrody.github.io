@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio Soundboard</title>
+<style>
+  :root { --bg:#f4f1ea; --card:#fffdf8; --ink:#1f2320; --mut:#6b6f68; --line:#ddd6c8; --acc:#2f6f5e; --acc2:#b3743a; --key:#fff; --keyb:#2a2d2b; --pent:#d9ecd9; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#171a18; --card:#212522; --ink:#e8e6df; --mut:#9aa097; --line:#353a36; --acc:#6fc2a8; --acc2:#e0a46a; --key:#e9e7e0; --keyb:#0d0f0e; --pent:#bfe3c6; } }
+  :root[data-theme="dark"] { --bg:#171a18; --card:#212522; --ink:#e8e6df; --mut:#9aa097; --line:#353a36; --acc:#6fc2a8; --acc2:#e0a46a; --key:#e9e7e0; --keyb:#0d0f0e; --pent:#bfe3c6; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:10px 16px; background:var(--card); border-bottom:1px solid var(--line); }
+  h1 { font-size:16px; margin:0 12px 0 0; font-weight:650; letter-spacing:.2px; }
+  main { display:grid; grid-template-columns:repeat(auto-fit, minmax(330px, 1fr)); gap:14px; padding:14px 16px 40px; max-width:1400px; margin:0 auto; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; min-width:0; }
+  section.wide { grid-column:1 / -1; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:0 0 10px; font-weight:600; }
+  button { font:inherit; padding:6px 11px; border-radius:7px; border:1px solid var(--line); background:var(--bg); color:var(--ink); cursor:pointer; }
+  button:hover { border-color:var(--acc); }
+  button.primary { background:var(--acc); color:var(--card); border-color:var(--acc); font-weight:600; }
+  button:disabled { opacity:.45; cursor:default; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:6px 0; }
+  label.s { display:grid; grid-template-columns:92px 1fr 64px; gap:8px; align-items:center; margin:4px 0; }
+  label.s span:last-child { text-align:right; font-variant-numeric:tabular-nums; color:var(--mut); }
+  input[type=range] { width:100%; accent-color:var(--acc); }
+  select, input[type=number] { font:inherit; padding:4px 6px; border-radius:6px; border:1px solid var(--line); background:var(--bg); color:var(--ink); }
+  .stat { font:12px ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--mut); }
+  .kbd { position:relative; height:92px; margin-top:8px; user-select:none; touch-action:none; overflow-x:auto; }
+  .kbd .w, .kbd .b { position:absolute; top:0; border:1px solid var(--line); border-radius:0 0 5px 5px; cursor:pointer; }
+  .kbd .w { background:var(--key); height:90px; }
+  .kbd .w.p { background:var(--pent); }
+  .kbd .b { background:var(--keyb); height:56px; z-index:2; }
+  .kbd .on { outline:2px solid var(--acc2); outline-offset:-2px; }
+  .kbd small { position:absolute; bottom:3px; left:0; right:0; text-align:center; font-size:10px; color:#666; pointer-events:none; }
+  .ball { border-top:1px dashed var(--line); padding-top:6px; margin-top:6px; }
+  table { border-collapse:collapse; width:100%; font:12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  th, td { text-align:left; padding:4px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--mut); font-weight:600; position:sticky; top:0; background:var(--card); }
+  .tablewrap { max-height:520px; overflow:auto; }
+  .note { color:var(--mut); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Glasshouse Excogitation · audio</h1>
+  <button id="start" class="primary">Start audio</button>
+  <label class="row">Master <input id="vol" type="range" min="0" max="1" step="0.01" value="0.8" style="width:110px"></label>
+  <label class="row">Reverb <input id="rev" type="range" min="0" max="1" step="0.01" value="0.35" style="width:110px"></label>
+  <label class="row"><input id="mute" type="checkbox"> mute</label>
+  <label class="row"><input id="orbit" type="checkbox"> orbit listener</label>
+  <span id="stat" class="stat">not started</span>
+</header>
+<main>
+  <section>
+    <h2>One-shots</h2>
+    <label class="s"><span>MIDI</span><input id="midi" type="range" min="36" max="105" step="0.01" value="74"><span id="midiV"></span></label>
+    <label class="s"><span>Velocity</span><input id="vel" type="range" min="0" max="1" step="0.01" value="0.8"><span id="velV"></span></label>
+    <label class="s"><span>Position x</span><input id="px" type="range" min="-12" max="12" step="0.1" value="0"><span id="pxV"></span></label>
+    <label class="s"><span>Position z</span><input id="pz" type="range" min="-30" max="12" step="0.1" value="-2"><span id="pzV"></span></label>
+    <label class="s"><span>Variant</span><input id="variant" type="range" min="-1" max="7" step="1" value="-1"><span id="variantV"></span></label>
+    <div class="row" id="instButtons"></div>
+    <div class="row">Keyboard plays <select id="kbInst"></select> <span class="note">green = D-major pentatonic</span></div>
+    <div class="kbd" id="kbd"></div>
+  </section>
+
+  <section>
+    <h2>Demo &amp; stress</h2>
+    <div class="row"><button id="demo">Demo: D-pentatonic phrase per instrument</button></div>
+    <div class="row"><button id="machine">Machine groove (10 s)</button></div>
+    <div class="row"><button id="stress">Stress test: 40 hits/s × 10 s</button></div>
+    <div id="stressOut" class="stat"></div>
+    <h2 style="margin-top:14px">Lift</h2>
+    <div class="row"><label><input id="liftRun" type="checkbox"> running</label></div>
+    <label class="s"><span>Chain m/s</span><input id="liftSpeed" type="range" min="0.02" max="1" step="0.01" value="0.3"><span id="liftSpeedV"></span></label>
+    <label class="s"><span>x</span><input id="liftX" type="range" min="-12" max="12" step="0.1" value="-3"><span id="liftXV"></span></label>
+    <label class="s"><span>z</span><input id="liftZ" type="range" min="-20" max="10" step="0.1" value="-2"><span id="liftZV"></span></label>
+    <h2 style="margin-top:14px">Ambience</h2>
+    <label class="s"><span>Level</span><input id="ambL" type="range" min="0" max="1" step="0.01" value="0"><span id="ambLV"></span></label>
+    <label class="s"><span>Hour</span><input id="ambH" type="range" min="0" max="24" step="0.05" value="12"><span id="ambHV"></span></label>
+  </section>
+
+  <section>
+    <h2>Rolling balls</h2>
+    <div id="balls"></div>
+    <div class="row"><button id="sweep">Funnel sweep (orbit 0.5 → 12 Hz, 6 s)</button></div>
+  </section>
+
+  <section class="wide">
+    <h2>Measurements (OfflineAudioContext renders)</h2>
+    <div class="row"><button id="measure">Run measurements</button> <span id="mStat" class="stat"></span></div>
+    <div class="tablewrap"><table id="mt"><thead><tr><th>test</th><th>target</th><th>measured</th><th>cents</th><th>peak</th><th>m50 dB</th><th>LAImax dB</th><th>decay −40 dB (s)</th><th>NaN</th><th>notes</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</main>
+
+<script type="module">
+import { AudioEngine } from '../js/audio.js';
+
+const $ = (id) => document.getElementById(id);
+const engine = new AudioEngine();
+window.engine = engine;
+const TUNED = { marimba: [50, 86], bell: [62, 93], glock: [74, 105], chime: [62, 86], gong: [36, 45], drum: [38, 57] };
+const ALL = ['marimba', 'bell', 'glock', 'chime', 'gong', 'drum', 'whistle', 'clack', 'click', 'clunk', 'cup', 'thud', 'tick'];
+const NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+const PENT = new Set([2, 4, 6, 9, 11]);                   // D E F# A B
+const noteName = (m) => NAMES[Math.round(m) % 12] + (Math.floor(Math.round(m) / 12) - 1);
+
+// ---------- slider readouts
+function bindVal(id, fmt = (v) => v) { const el = $(id), out = $(id + 'V'); const f = () => { if (out) out.textContent = fmt(+el.value); }; el.addEventListener('input', f); f(); return el; }
+bindVal('midi', (v) => `${v.toFixed(2)} ${noteName(v)}`); bindVal('vel', (v) => v.toFixed(2));
+bindVal('px', (v) => v.toFixed(1)); bindVal('pz', (v) => v.toFixed(1)); bindVal('variant', (v) => (v < 0 ? 'random' : v));
+bindVal('liftSpeed', (v) => v.toFixed(2)); bindVal('liftX', (v) => v.toFixed(1)); bindVal('liftZ', (v) => v.toFixed(1));
+bindVal('ambL', (v) => v.toFixed(2)); bindVal('ambH', (v) => `${String(Math.floor(v)).padStart(2, '0')}:${String(Math.floor((v % 1) * 60)).padStart(2, '0')}`);
+
+// ---------- start + master
+$('start').onclick = async () => {
+  await engine.start();
+  engine.setMasterVolume(+$('vol').value); engine.setReverb(+$('rev').value);
+  $('start').textContent = engine.ready ? 'Audio running' : 'Start (retry)';
+};
+$('vol').oninput = (e) => engine.setMasterVolume(+e.target.value);
+$('rev').oninput = (e) => engine.setReverb(+e.target.value);
+$('mute').onchange = (e) => engine.setMuted(e.target.checked);
+$('ambL').addEventListener('input', () => engine.setAmbience(+$('ambL').value, +$('ambH').value));
+$('ambH').addEventListener('input', () => engine.setAmbience(+$('ambL').value, +$('ambH').value));
+
+// ---------- one-shots
+const pos = () => ({ x: +$('px').value, y: 0, z: +$('pz').value });
+function play(inst, midi, extra = {}) {
+  const v = +$('variant').value;
+  engine.hit(inst, { midi, velocity: +$('vel').value, ...pos(), ...(v >= 0 ? { variant: v } : {}), ...extra });
+}
+for (const inst of ALL) {
+  const b = document.createElement('button'); b.textContent = inst;
+  b.onclick = () => {
+    let m = +$('midi').value; const r = TUNED[inst];
+    if (r && (m < r[0] || m > r[1])) m = Math.min(r[1], Math.max(r[0], m));   // clamp into the instrument range
+    play(inst, inst === 'whistle' ? undefined : m);
+  };
+  $('instButtons').appendChild(b);
+  if (TUNED[inst]) { const o = document.createElement('option'); o.textContent = inst; $('kbInst').appendChild(o); }
+}
+// mini keyboard: MIDI 48..84 (C3..C6), transposed per instrument into its range
+(function buildKeyboard() {
+  const kbd = $('kbd'), lo = 48, hi = 84, W = 22; let x = 0;
+  const whites = [];
+  for (let m = lo; m <= hi; m++) {
+    const pc = m % 12, black = [1, 3, 6, 8, 10].includes(pc), el = document.createElement('div');
+    el.dataset.m = m;
+    if (black) { el.className = 'b'; el.style.left = `${x - 7}px`; el.style.width = '14px'; }
+    else { el.className = 'w' + (PENT.has(pc) ? ' p' : ''); el.style.left = `${x}px`; el.style.width = `${W}px`; x += W; whites.push(el); if (pc === 0) el.innerHTML = `<small>C${m / 12 - 1}</small>`; }
+    kbd.appendChild(el);
+  }
+  kbd.style.minWidth = `${x}px`;
+  kbd.addEventListener('pointerdown', (e) => {
+    const k = e.target.closest('[data-m]'); if (!k) return;
+    const inst = $('kbInst').value, [a, b] = TUNED[inst]; let m = +k.dataset.m;
+    while (m < a) m += 12; while (m > b) m -= 12;
+    play(inst, m); k.classList.add('on'); setTimeout(() => k.classList.remove('on'), 160);
+  });
+})();
+
+// ---------- demo: the same D-major-pentatonic phrase on every tuned instrument (uses `delay` for timing)
+const PHRASE = [0, 2, 4, 7, 9, 12, 9, 7, 4, 7, 2, 0];     // semitone offsets from D (D E F# A B D' …)
+const BEAT = 0.2;
+$('demo').onclick = () => {
+  let t = 0;
+  for (const [inst, root] of [['marimba', 62], ['glock', 86], ['bell', 74], ['chime', 62], ['drum', 38]]) {
+    PHRASE.forEach((st, i) => engine.hit(inst, { midi: root + st, velocity: 0.55 + 0.35 * ((i % 4) === 0), ...pos(), delay: t + i * BEAT }));
+    t += PHRASE.length * BEAT + 0.8;
+  }
+  engine.hit('gong', { midi: 38, velocity: 0.9, ...pos(), delay: t });
+  engine.hit('whistle', { velocity: 0.8, ...pos(), x: pos().x + 2, delay: t + 2 });
+};
+
+// ---------- machine groove: marimba melody + plinko glock + clacks/clicks/clunks around the listener
+$('machine').onclick = () => {
+  const mel = [74, 76, 78, 81, 83, 81, 78, 76, 74, 71, 69, 71];
+  for (let bar = 0; bar < 4; bar++) mel.forEach((m, i) => engine.hit('marimba', { midi: m - 12 * (bar % 2), velocity: 0.6 + 0.2 * (i % 3 === 0), x: -2, y: 1, z: -3, delay: bar * 2.4 + i * 0.2 }));
+  for (let k = 0; k < 60; k++) engine.hit('glock', { midi: [86, 88, 90, 93, 95][k % 5], velocity: 0.3 + 0.4 * Math.random(), x: 3, y: 2, z: -4, delay: 0.1 * k + Math.random() * 0.05 });
+  for (let k = 0; k < 80; k++) engine.hit(['click', 'clack', 'clunk', 'tick', 'cup'][k % 5], { velocity: 0.2 + 0.7 * Math.random(), x: 8 * Math.random() - 4, y: 1, z: -6 * Math.random(), delay: 10 * Math.random() });
+  for (let k = 0; k < 4; k++) engine.hit('bell', { midi: [74, 78, 81, 86][k], velocity: 0.7, x: 5, y: 3, z: -6, delay: 2.4 * k + 1.2 });
+  engine.hit('gong', { midi: 40, velocity: 0.8, x: 0, y: 1, z: -10, delay: 9.4 });
+};
+
+// ---------- stress: 40 random hits per second for 10 s (timed)
+$('stress').onclick = () => {
+  const inst = ALL.filter((i) => i !== 'gong'), t0 = performance.now(); let n = 0, tot = 0, worst = 0;
+  const id = setInterval(() => {
+    for (let k = 0; k < 2; k++) {
+      const a = performance.now();
+      engine.hit(inst[(Math.random() * inst.length) | 0], { midi: 62 + Math.floor(Math.random() * 24), velocity: 0.2 + 0.8 * Math.random(), x: 16 * Math.random() - 8, y: 3 * Math.random(), z: -14 * Math.random() + 2, delay: Math.random() * 0.05 });
+      const d = performance.now() - a; tot += d; worst = Math.max(worst, d); n++;
+    }
+    if (performance.now() - t0 > 10000) clearInterval(id);
+    const s = engine.stats();
+    $('stressOut').textContent = `${n} hits · avg ${(1000 * tot / n).toFixed(0)} µs · worst ${(1000 * worst).toFixed(0)} µs · groups ${s.voices} · stolen ${s.stolen} · culled ${s.culled}`;
+  }, 50);
+};
+
+// ---------- rolling balls
+const BALLS = [
+  { id: 'A', on: true, surface: 'rail', speed: 1.2, orbitHz: 2, x: -1.5, z: -2 },
+  { id: 'B', on: false, surface: 'funnel', speed: 1.0, orbitHz: 1, x: 0, z: -1.5 },
+  { id: 'C', on: false, surface: 'wood', speed: 0.8, orbitHz: 1, x: 2, z: -3 },
+];
+BALLS.forEach((b) => {
+  const d = document.createElement('div'); d.className = 'ball';
+  d.innerHTML = `<div class="row"><label><input type="checkbox" ${b.on ? 'checked' : ''} data-k="on"> ball ${b.id}</label>
+    <select data-k="surface">${['rail', 'funnel', 'wood', 'air'].map((s) => `<option ${s === b.surface ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+    ${[['speed', 0, 5, 0.01], ['orbitHz', 0.5, 12, 0.01], ['x', -10, 10, 0.1], ['z', -20, 10, 0.1]].map(([k, a, z, s]) =>
+      `<label class="s"><span>${k}</span><input type="range" data-k="${k}" min="${a}" max="${z}" step="${s}" value="${b[k]}"><span>${b[k]}</span></label>`).join('')}`;
+  d.addEventListener('input', (e) => {
+    const k = e.target.dataset.k; if (!k) return;
+    b[k] = e.target.type === 'checkbox' ? e.target.checked : e.target.tagName === 'SELECT' ? e.target.value : +e.target.value;
+    if (e.target.type === 'range') e.target.nextElementSibling.textContent = e.target.value;
+  });
+  $('balls').appendChild(d); b.el = d;
+});
+let sweepT0 = -1;
+$('sweep').onclick = () => { const b = BALLS[1]; b.on = true; b.surface = 'funnel'; b.el.querySelector('[data-k=on]').checked = true; b.el.querySelector('[data-k=surface]').value = 'funnel'; sweepT0 = performance.now(); };
+
+// ---------- frame loop: listener, rolling, lift
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (!engine.ready) return;
+  const t = now / 1000, orb = $('orbit').checked;
+  const fwd = orb ? { x: Math.sin(t * 0.5), y: 0, z: -Math.cos(t * 0.5) } : { x: 0, y: 0, z: -1 };
+  engine.setListener({ x: 0, y: 0, z: 0 }, fwd, { x: 0, y: 1, z: 0 });
+  if (sweepT0 >= 0) {
+    const u = (now - sweepT0) / 6000, b = BALLS[1];
+    if (u >= 1) { sweepT0 = -1; b.on = false; b.el.querySelector('[data-k=on]').checked = false; }
+    else { b.orbitHz = 0.5 * Math.pow(24, u); b.speed = 0.6 + 1.2 * u; b.x = 0.6 * (1 - u) * Math.cos(t * 6); b.z = -1.5 + 0.6 * (1 - u) * Math.sin(t * 6); }
+  }
+  engine.updateRolling(BALLS.filter((b) => b.on).map((b) => ({ id: b.id, x: b.x, y: 0, z: b.z, speed: b.speed, surface: b.surface, orbitHz: b.orbitHz })));
+  engine.updateLift({ x: +$('liftX').value, y: 1, z: +$('liftZ').value, speed: +$('liftSpeed').value, running: $('liftRun').checked });
+  if ((now | 0) % 10 < 1) { const s = engine.stats(); $('stat').textContent = `${s.state} · groups ${s.voices} · rolling ${s.rolling} · hits ${s.hits} · stolen ${s.stolen}`; }
+}
+requestAnimationFrame(frame);
+
+// ---------- measurements
+$('measure').onclick = async () => {
+  const tb = $('mt').querySelector('tbody'); tb.innerHTML = ''; $('mStat').textContent = 'rendering…';
+  const A = await import('./audio-analysis.js'); const t0 = performance.now();
+  const rows = await A.runAll((r) => {
+    const tr = document.createElement('tr');
+    for (const k of ['test', 'target', 'measured', 'cents', 'peak', 'm50dB', 'lai', 'decay40', 'bad', 'note']) { const td = document.createElement('td'); td.textContent = r[k] ?? ''; tr.appendChild(td); }
+    tb.appendChild(tr);
+  });
+  window.lastMeasurements = rows;
+  $('mStat').textContent = `${rows.length} rows in ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+};
+</script>
+</body>
+</html>

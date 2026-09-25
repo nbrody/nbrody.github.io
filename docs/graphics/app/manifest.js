@@ -83,6 +83,8 @@ export const VISUALIZATIONS = [
     blurb: 'A generative cosmological scene.', keys: [] },
   { id: 'lightDesigner', title: 'CK5 Virtual Rig', cat: 'generative', glyph: '💡',
     blurb: 'Kinetic truss pods, 72 moving heads and haze: a lighting console, hour-long shows, and a MIDI mode where every key fires lights.', keys: [' ', 't', 'x', 's', 'b', 'g'] },
+  { id: 'ballMachine', title: 'Glasshouse Excogitation', cat: 'generative', glyph: '⚙',
+    blurb: 'A George Rhoads–style ball machine in a Victorian palm house: thirty balls, five musical routes and real rolling physics. Chase a ball or ride one.', keys: ['1', '2', '3', '4', 'n', ' ', '[', ']'] },
 
   // — Botanical Studies —
   { id: 'bunya', title: 'Bunya Pine', cat: 'botanical', glyph: '🌲',

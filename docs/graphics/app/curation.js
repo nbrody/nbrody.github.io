@@ -730,6 +730,36 @@ export const CURATION = {
       { sel: "#reset" },
     ],
   },
+  ballMachine: {
+    simple: [
+      { sel: 'input[type=radio][name="camera"]', label: "Camera" },
+      { sel: 'input[type=radio][name="route"]', label: "Route" },
+      { sel: "#tod", label: "Time of day" },
+      { sel: "#speed", label: "Time scale" },
+      { sel: "#soundOn", label: "Sound" },
+      { sel: "#vol", label: "Volume" },
+      { sel: "#running", label: "Running" },
+      { sel: "#nextLift" },
+      { sel: "#prevBall" },
+      { sel: "#nextBall" },
+    ],
+    keys: [
+      { key: "n", label: "Next ball off the lift" },
+      { key: " ", label: "Pause / run" },
+      { key: "1", label: "Whole machine" },
+      { key: "2", label: "Chase a ball" },
+      { key: "3", label: "Ride on a ball" },
+      { key: "4", label: "Guided tour" },
+      { key: "[", label: "Previous ball" },
+      { key: "]", label: "Next ball" },
+    ],
+    labels: {
+      "#nextLift": "Follow the next ball off the lift",
+      "#prevBall": "Previous ball",
+      "#nextBall": "Next ball",
+      "#labels": "Device labels",
+    },
+  },
 };
 
 export function curationFor(vizId) {

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glasshouse — environment preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0d0f12; overflow: hidden; font: 12px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #e8e4da; }
+  canvas { display: block; }
+  #panel { position: fixed; left: 10px; top: 10px; width: 300px; padding: 10px 12px; background: rgba(18, 20, 24, 0.78); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; backdrop-filter: blur(6px); }
+  #panel h1 { font-size: 13px; margin: 0 0 6px; font-weight: 600; letter-spacing: 0.02em; }
+  .row { display: flex; gap: 4px; flex-wrap: wrap; margin: 6px 0; align-items: center; }
+  button { background: #2b3038; color: #efe9dc; border: 1px solid #454c57; border-radius: 4px; padding: 3px 7px; cursor: pointer; font-size: 11px; }
+  button:hover { background: #3a414c; }
+  button.on { background: #6b5a2c; border-color: #a58a43; }
+  input[type=range] { width: 100%; }
+  #stats { font-family: ui-monospace, Menlo, monospace; font-size: 11px; white-space: pre; color: #cfd6c4; margin-top: 6px; }
+  #time { font-variant-numeric: tabular-nums; font-weight: 600; }
+  #err { color: #ff8a80; white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="panel">
+  <h1>Glasshouse · environment preview</h1>
+  <div class="row"><span>Time</span> <span id="time">17:30</span> <label style="margin-left:auto"><input type="checkbox" id="animate"> run day</label></div>
+  <input type="range" id="tod" min="0" max="24" step="0.01" value="17.5">
+  <div class="row" id="presets"></div>
+  <div class="row" id="views"></div>
+  <div class="row">
+    <label><input type="checkbox" id="machine" checked> placeholder machine</label>
+    <label><input type="checkbox" id="rotate"> orbit</label>
+  </div>
+  <div id="stats">…</div>
+  <div id="err"></div>
+</div>
+<script type="module" src="./env-preview.js"></script>
+</body>
+</html>
