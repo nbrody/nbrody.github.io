@@ -66,6 +66,8 @@ export const VISUALIZATIONS = [
     blurb: 'A hypnotic radial annulus animation.', keys: [] },
   { id: 'origins', title: 'Origins', cat: 'generative', glyph: '✺',
     blurb: 'A generative cosmological scene.', keys: [] },
+  { id: 'lightDesigner', title: 'CK5 Virtual Rig', cat: 'generative', glyph: '💡',
+    blurb: 'Kinetic truss pods, 72 moving heads and haze: a lighting console, hour-long shows, and a MIDI mode where every key fires lights.', keys: [' ', 't', 'x', 's', 'b', 'g'] },
 ];
 
 const _byId = new Map(VISUALIZATIONS.map((v) => [v.id, v]));

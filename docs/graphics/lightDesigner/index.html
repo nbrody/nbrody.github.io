@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A virtual light rig over a stage: seven kinetic rig designs, 72 moving heads and a lighting console.">
+  <meta name="graphics-description" content="A virtual arena rig in the spirit of CK5: six kinetic truss pods, 60 hanging moving heads and 12 floor units, over a stage in a hazy black void, in seven rig designs from Kuroda’s eras (pods, circles, ovals, squares, moving sticks, the 2016 video wall, the 2024 virtual Sphere rig). Run a long show, take over with the programmer, effects engine, kinetics and cue list, or play the rig from a MIDI keyboard: every key fires lights. Drag to orbit · scroll to zoom.">
+  <script src="../app/entry.js"></script>
+  <title>CK5 Virtual Rig</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+  <div id="canvasHost" aria-label="A kinetic lighting rig of moving lights shining beams through haze onto a stage"></div>
+  <div id="status" role="status">Rigging the pods…</div>
+
+  <div id="hud" aria-live="polite">
+    <div class="hud-show"><span id="hudShow">—</span><span id="hudSection"></span></div>
+    <div class="hud-time"><span id="hudTime">0:00</span> / <span id="hudTotal">0:00</span> · <span id="hudBpm">120</span> BPM <i id="beatDot"></i></div>
+    <div class="hud-bar"><i id="hudProgress"></i></div>
+  </div>
+
+  <aside id="controls">
+    <header>
+      <p class="eyebrow">VIRTUAL LIGHT RIG · CK5</p>
+      <h1>CK5 <span>Rig</span></h1>
+      <p>7 rigs · 72 moving heads · haze</p>
+    </header>
+
+    <nav class="tabs" role="tablist" data-studio-ignore>
+      <button role="tab" data-tab="show" aria-selected="true">Show</button>
+      <button role="tab" data-tab="prog">Program</button>
+      <button role="tab" data-tab="fx">FX</button>
+      <button role="tab" data-tab="kin">Kinetic</button>
+      <button role="tab" data-tab="cues">Cues</button>
+      <button role="tab" data-tab="laser">Extras</button>
+      <button role="tab" data-tab="midi">MIDI</button>
+      <button role="tab" data-tab="setup">Setup</button>
+    </nav>
+
+    <!-- ——— SHOW ——— -->
+    <section class="tab" data-tab="show">
+      <fieldset data-control-group="Scenes">
+        <legend>Scenes <span id="sceneStatus" class="count"></span></legend>
+        <div id="sceneGrid" class="scenegrid" data-studio-ignore role="list" aria-label="Scene launcher"></div>
+        <label for="sceneSelect">Launch scene</label>
+        <select id="sceneSelect"></select>
+        <label for="sceneFade">Move time (s) <output></output></label>
+        <input id="sceneFade" type="range" min="0" max="12" step="0.1" value="3">
+        <div class="row2">
+          <div><label for="sceneAuto">Auto-trigger</label><select id="sceneAuto">
+            <option value="off">Off</option><option value="next">In order</option><option value="random">Random</option><option value="smooth">Random, smooth moves only</option>
+          </select></div>
+          <div><label for="sceneEvery">Every</label><select id="sceneEvery">
+            <option value="4">4 bars</option><option value="8" selected>8 bars</option><option value="16">16 bars</option><option value="32">32 bars</option><option value="64">64 bars</option>
+          </select></div>
+        </div>
+        <p class="hint">Scenes with the same rig and devices <b>morph</b>: colours crossfade, heads and pods travel there. A scene marked <span class="cutmark">cut</span> adds or removes assets, so it dips to black, swaps and fades up. Keys <kbd>1</kbd>–<kbd>0</kbd> launch the first ten; MIDI notes on channel 16 from C2 launch them in order.</p>
+      </fieldset>
+      <fieldset data-control-group="Rig">
+        <legend>Rig</legend>
+        <label for="rigSelect">Rig</label>
+        <select id="rigSelect"></select>
+        <p id="rigBlurb" class="hint"></p>
+      </fieldset>
+      <fieldset data-control-group="Show">
+        <legend>Playback</legend>
+        <label for="showSelect">Show</label>
+        <select id="showSelect"></select>
+        <p id="showBlurb" class="hint"></p>
+        <label for="playMode">When a show ends</label>
+        <select id="playMode">
+          <option value="set">Play the whole set</option>
+          <option value="loop">Loop this show</option>
+          <option value="hold">Hold the last look</option>
+        </select>
+        <div class="transport">
+          <button id="prevSection" type="button" title="Previous section (←)">◀ Prev</button>
+          <button id="playBtn" type="button" title="Play / pause (Space)">Pause</button>
+          <button id="nextSection" type="button" title="Next section (→)">Next ▶</button>
+          <button id="restartShow" type="button" title="Restart show">Restart</button>
+        </div>
+        <label for="showPos">Position <output id="showPosOut">0:00</output></label>
+        <input id="showPos" type="range" min="0" max="1" step="0.0005" value="0">
+        <ol id="sectionList" class="sections" data-studio-ignore></ol>
+        <label for="fadeScale">Crossfade time <output></output></label>
+        <input id="fadeScale" type="range" min="0" max="3" step="0.05" value="1">
+      </fieldset>
+
+      <fieldset data-control-group="Masters">
+        <legend>Masters</legend>
+        <div class="faders">
+          <label class="fader" for="grandMaster"><input id="grandMaster" type="range" min="0" max="1" step="0.01" value="1" aria-label="Grand master"><span>Grand</span><output></output></label>
+          <label class="fader" for="podMaster"><input id="podMaster" type="range" min="0" max="1" step="0.01" value="1" aria-label="Pods master"><span>Pods</span><output></output></label>
+          <label class="fader" for="floorMaster"><input id="floorMaster" type="range" min="0" max="1" step="0.01" value="1" aria-label="Floor master"><span>Floor</span><output></output></label>
+          <label class="fader" for="hazeLevel"><input id="hazeLevel" type="range" min="0.05" max="1.5" step="0.01" value="0.75" aria-label="Haze"><span>Haze</span><output></output></label>
+        </div>
+        <div class="row3">
+          <button id="flashBtn" type="button" class="hold" title="Hold X">Flash</button>
+          <button id="strobeBtn" type="button" class="hold" title="Hold S">Strobe</button>
+          <label class="toggle pill" for="blackoutToggle">Blackout <input id="blackoutToggle" type="checkbox"></label>
+        </div>
+        <label for="strobeRate">Strobe rate <output></output></label>
+        <input id="strobeRate" type="range" min="0.05" max="1" step="0.01" value="0.6">
+        <label for="bpm">Tempo (BPM)</label>
+        <div class="row2">
+          <input id="bpm" type="number" min="40" max="220" step="0.1" value="118">
+          <button id="tapBtn" type="button" title="Tap tempo (T)">Tap</button>
+        </div>
+        <label for="speedMaster">FX speed <output></output></label>
+        <input id="speedMaster" type="range" min="0.25" max="2" step="0.05" value="1">
+      </fieldset>
+
+      <fieldset data-control-group="View">
+        <legend>View</legend>
+        <label for="cameraSelect">Camera</label>
+        <select id="cameraSelect"></select>
+        <label class="toggle" for="autoCam">Auto-cut cameras <input id="autoCam" type="checkbox"></label>
+        <label class="toggle" for="driftToggle">Slow camera drift <input id="driftToggle" type="checkbox" checked></label>
+        <label for="bloomLevel">Bloom <output></output></label>
+        <input id="bloomLevel" type="range" min="0" max="2" step="0.01" value="0.85">
+      </fieldset>
+    </section>
+
+    <!-- ——— PROGRAMMER ——— -->
+    <section class="tab" data-tab="prog" hidden>
+      <fieldset data-control-group="Selection">
+        <legend>Select fixtures</legend>
+        <label for="progGroup">Group</label>
+        <select id="progGroup"></select>
+        <div id="groupChips" class="chips" data-studio-ignore></div>
+        <div id="fixtureMap" class="fixmap" data-studio-ignore aria-label="Fixture map: click to select, shift-click for a range"></div>
+        <p class="hint">Click fixtures (shift = range, ⌘/ctrl = toggle). Programmer values override the show until released.</p>
+        <label class="toggle" for="highlightToggle">Highlight selection <input id="highlightToggle" type="checkbox"></label>
+      </fieldset>
+      <fieldset data-control-group="Programmer">
+        <legend>Attributes <span id="selCount" class="count">0 selected</span></legend>
+        <div class="attr" data-attr="dim"><label for="pDim">Intensity <output></output></label><input id="pDim" type="range" min="0" max="1" step="0.01" value="1"></div>
+        <div class="attr" data-attr="hue"><label for="pHue">Hue <output></output></label><input id="pHue" class="hue" type="range" min="0" max="360" step="1" value="210"></div>
+        <div class="attr" data-attr="sat"><label for="pSat">Saturation <output></output></label><input id="pSat" type="range" min="0" max="1" step="0.01" value="1"></div>
+        <div id="swatches" class="swatches" data-studio-ignore></div>
+        <div class="attr" data-attr="pan"><label for="pPan">Pan <output></output></label><input id="pPan" type="range" min="-180" max="180" step="0.5" value="0"></div>
+        <div class="attr" data-attr="tilt"><label for="pTilt">Tilt <output></output></label><input id="pTilt" type="range" min="-120" max="120" step="0.5" value="30"></div>
+        <label for="pAim">Position palette</label>
+        <select id="pAim">
+          <option value="">—</option>
+          <option value="down">Straight down / up</option>
+          <option value="fan">Fan out</option>
+          <option value="band">Low, centre</option>
+          <option value="deck">The floor, centre</option>
+          <option value="air">Crossing point in the air</option>
+          <option value="crowd">Out front, low</option>
+          <option value="deep">Far out front</option>
+          <option value="foh">Straight at the camera (blinding)</option>
+          <option value="cyc">Upstage</option>
+          <option value="sky">The sky</option>
+        </select>
+        <div class="attr" data-attr="zoom"><label for="pZoom">Zoom (beam °) <output></output></label><input id="pZoom" type="range" min="1" max="50" step="0.1" value="6"></div>
+        <div class="attr" data-attr="frost"><label for="pFrost">Frost <output></output></label><input id="pFrost" type="range" min="0" max="1" step="0.01" value="0.1"></div>
+        <div class="attr" data-attr="strobe"><label for="pStrobe">Shutter strobe <output></output></label><input id="pStrobe" type="range" min="0" max="1" step="0.01" value="0"></div>
+        <div class="row2">
+          <button id="pRelease" type="button" title="Release selected fixtures back to the show">Release selected</button>
+          <button id="pClear" type="button" title="Release everything">Clear programmer</button>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- ——— FX ——— -->
+    <section class="tab" data-tab="fx" hidden>
+      <fieldset data-control-group="Effects">
+        <legend>Live effects</legend>
+        <div class="row2">
+          <div><label for="fxPreset">Preset</label><select id="fxPreset"></select></div>
+          <button id="fxAdd" type="button">Add effect</button>
+        </div>
+        <ul id="fxList" class="fxlist" data-studio-ignore></ul>
+        <p class="hint" id="fxHint">Add an effect, then shape it below. Rates are in beats per cycle.</p>
+        <div id="fxEditor">
+          <div class="row2">
+            <div><label for="fxGroup">Group</label><select id="fxGroup"></select></div>
+            <div><label for="fxAttr">Attribute</label><select id="fxAttr">
+              <option value="dim">Intensity</option><option value="pan">Pan</option><option value="tilt">Tilt</option>
+              <option value="circle">Circle (pan+tilt)</option><option value="ballyhoo">Ballyhoo</option>
+              <option value="hue">Hue</option><option value="zoom">Zoom</option><option value="frost">Frost</option><option value="strobe">Strobe</option>
+            </select></div>
+          </div>
+          <div class="row2">
+            <div><label for="fxWave">Waveform</label><select id="fxWave">
+              <option value="sin">Sine</option><option value="saw">Saw</option><option value="ramp">Ramp down</option><option value="tri">Triangle</option>
+              <option value="square">Square</option><option value="pulse">Pulse</option><option value="rand">Random step</option><option value="noise">Smooth noise</option>
+            </select></div>
+            <div><label for="fxBy">Phase order</label><select id="fxBy">
+              <option value="i">Group order</option><option value="x">Left → right</option><option value="pod">Front → back</option>
+              <option value="diag">Diagonal</option><option value="center">Centre → out</option><option value="slot">Along each pod</option><option value="rand">Random</option>
+            </select></div>
+          </div>
+          <label for="fxRate">Rate (beats/cycle) <output></output></label>
+          <input id="fxRate" type="range" min="0.25" max="64" step="0.25" value="4">
+          <label for="fxSize">Size <output></output></label>
+          <input id="fxSize" type="range" min="0" max="1" step="0.01" value="1">
+          <label for="fxSpread">Phase spread (°) <output></output></label>
+          <input id="fxSpread" type="range" min="0" max="1080" step="15" value="360">
+          <label for="fxDuty">Duty / width <output></output></label>
+          <input id="fxDuty" type="range" min="0.05" max="0.95" step="0.01" value="0.5">
+          <div class="row2">
+            <label class="toggle" for="fxWings">Wings (mirror) <input id="fxWings" type="checkbox"></label>
+            <label class="toggle" for="fxReverse">Reverse <input id="fxReverse" type="checkbox"></label>
+          </div>
+        </div>
+        <button id="fxClear" type="button">Remove all live effects</button>
+      </fieldset>
+    </section>
+
+    <!-- ——— KINETIC ——— -->
+    <section class="tab" data-tab="kin" hidden>
+      <fieldset data-control-group="Kinetics">
+        <legend>Pods</legend>
+        <label class="toggle" for="kinOverride">Take over the pods <input id="kinOverride" type="checkbox"></label>
+        <label for="kinShape">Shape</label>
+        <select id="kinShape"></select>
+        <label for="kinHeight">Trim height (m) <output></output></label>
+        <input id="kinHeight" type="range" min="4.5" max="13" step="0.1" value="9.5">
+        <label for="kinAmp">Amplitude (m) <output></output></label>
+        <input id="kinAmp" type="range" min="-3" max="3" step="0.05" value="1.2">
+        <label for="kinRoll">Roll (rad) <output></output></label>
+        <input id="kinRoll" type="range" min="-0.4" max="0.4" step="0.01" value="0.15">
+        <label for="kinPeriod">Period (beats) <output></output></label>
+        <input id="kinPeriod" type="range" min="4" max="128" step="1" value="32">
+        <label for="hoistSpeed">Hoist speed (m/s) <output></output></label>
+        <input id="hoistSpeed" type="range" min="0.2" max="4" step="0.05" value="1.4">
+        <label for="motorSpeed">Moving-head response (s) <output></output></label>
+        <input id="motorSpeed" type="range" min="0" max="1.5" step="0.01" value="0.35">
+        <div id="podMeter" class="podmeter" data-studio-ignore></div>
+      </fieldset>
+    </section>
+
+    <!-- ——— CUES ——— -->
+    <section class="tab" data-tab="cues" hidden>
+      <fieldset data-control-group="Cue list">
+        <legend>Your cue list</legend>
+        <p class="hint">Record the programmer, live effects and pod override as a cue. GO fades to it; Run plays the list as your own long scene, holding each cue for its time.</p>
+        <label for="cueName">Cue name</label>
+        <input id="cueName" type="text" placeholder="e.g. Blue fan" autocomplete="off">
+        <div class="row2">
+          <div><label for="cueFade">Fade (s) <output></output></label><input id="cueFade" type="range" min="0" max="20" step="0.1" value="3"></div>
+          <div><label for="cueHold">Hold (s) <output></output></label><input id="cueHold" type="range" min="2" max="300" step="1" value="30"></div>
+        </div>
+        <div class="row3">
+          <button id="cueRecord" type="button">● Record</button>
+          <button id="cueGo" type="button" class="go" title="G">GO</button>
+          <button id="cueBack" type="button">Back</button>
+        </div>
+        <label class="toggle" for="cueRun">Run cue list as a scene <input id="cueRun" type="checkbox"></label>
+        <label class="toggle" for="cueOverShow">Stop the show while cues run <input id="cueOverShow" type="checkbox" checked></label>
+        <ol id="cueList" class="cuelist" data-studio-ignore></ol>
+        <div class="row2" data-studio-ignore>
+          <button id="cueExport" type="button">Export JSON</button>
+          <button id="cueImportBtn" type="button">Import JSON</button>
+          <input id="cueImport" type="file" accept="application/json" hidden>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- ——— LASER ——— -->
+    <section class="tab" data-tab="laser" hidden>
+      <fieldset data-control-group="Extras kit">
+        <legend>Quick kit</legend>
+        <label for="extrasKit">Load a kit</label>
+        <select id="extrasKit">
+          <option value="">— choose —</option>
+          <option value="none">Nothing extra</option>
+          <option value="phish">Arena (LED bars on the truss, one mirror ball, blinders on the drops)</option>
+          <option value="biscuits">Trance-fusion (lasers, strobes, CO₂ on the drops, tube wall)</option>
+          <option value="dead">Psychedelic ’60s (liquid light show, mirror ball, warm blinders)</option>
+          <option value="all">Everything</option>
+        </select>
+        <p class="hint">Each device below can also be turned on and shaped on its own. They all work with every rig and follow the grand master, blackout and flash.</p>
+      </fieldset>
+      <fieldset data-control-group="Lasers">
+        <legend>Lasers</legend>
+        <label class="toggle" for="laserOn">Add lasers to the rig <input id="laserOn" type="checkbox"></label>
+        <p class="hint">Full-colour, audience-scanning lasers alongside the moving heads, in the spirit of the Disco Biscuits' shows: two upstage corners, upstage centre, two wings and one at front of house. They work with every rig.</p>
+        <label for="laserPattern">Look</label>
+        <select id="laserPattern"></select>
+        <label for="laserColor">Colour</label>
+        <select id="laserColor"></select>
+        <label for="laserFixed">One colour <input id="laserFixed" type="color" value="#00ff40"></label>
+        <label for="laserLevel">Laser level <output></output></label>
+        <input id="laserLevel" type="range" min="0" max="1.5" step="0.01" value="0.8">
+        <label for="laserCount">Beams per fan <output></output></label>
+        <input id="laserCount" type="range" min="2" max="40" step="1" value="16">
+        <label for="laserSpread">Spread (°) <output></output></label>
+        <input id="laserSpread" type="range" min="10" max="120" step="1" value="60">
+        <label for="laserSpeed">Scan period (beats) <output></output></label>
+        <input id="laserSpeed" type="range" min="0.5" max="32" step="0.5" value="8">
+        <label for="laserHeight">Height (°, − = lower over the crowd) <output></output></label>
+        <input id="laserHeight" type="range" min="-6" max="20" step="0.5" value="0">
+        <label class="toggle" for="laserChop">Chop on the beat <input id="laserChop" type="checkbox"></label>
+        <label class="toggle" for="laserNotes">Fire with MIDI notes (in MIDI play mode) <input id="laserNotes" type="checkbox" checked></label>
+        <p id="laserNow" class="hint" role="status"></p>
+      </fieldset>
+      <fieldset data-control-group="LED tubes">
+        <legend>LED pixel tubes</legend>
+        <label class="toggle" for="tubesOn">LED tubes <input id="tubesOn" type="checkbox"></label>
+        <label for="tubeLayout">Where</label>
+        <select id="tubeLayout"></select>
+        <label for="tubeLook">Look</label>
+        <select id="tubeLook"></select>
+        <label for="tubeColor">Colour</label>
+        <select id="tubeColor"></select>
+        <label for="tubeFixed">One colour <input id="tubeFixed" type="color" value="#ff3cc8"></label>
+        <label for="tubeLevel">Level <output></output></label>
+        <input id="tubeLevel" type="range" min="0" max="1.5" step="0.01" value="0.9">
+        <label for="tubeSpeed">Speed <output></output></label>
+        <input id="tubeSpeed" type="range" min="0.1" max="3" step="0.05" value="1">
+      </fieldset>
+      <fieldset data-control-group="Mirror balls">
+        <legend>Mirror balls</legend>
+        <label for="ballCount">Mirror balls</label>
+        <select id="ballCount"><option value="0">None</option><option value="1">One, over the stage</option><option value="2">Two</option><option value="3">Three (stage + over the crowd)</option></select>
+        <label for="ballColor">Pin-spot colour</label>
+        <select id="ballColor"></select>
+        <label for="ballFixed">One colour <input id="ballFixed" type="color" value="#ffffff"></label>
+        <label for="ballLevel">Level <output></output></label>
+        <input id="ballLevel" type="range" min="0" max="1.5" step="0.01" value="0.8">
+        <label for="ballSpin">Spin (rpm) <output></output></label>
+        <input id="ballSpin" type="range" min="0" max="8" step="0.1" value="2">
+        <label for="ballRays">Reflections <output></output></label>
+        <input id="ballRays" type="range" min="10" max="150" step="1" value="90">
+        <div class="row2">
+          <button id="ballRaise" type="button">Fly out</button>
+          <button id="ballDrop" type="button">Drop the ball</button>
+        </div>
+      </fieldset>
+      <fieldset data-control-group="Blinders and strobes">
+        <legend>Blinders &amp; strobes</legend>
+        <label class="toggle" for="blindersOn">Audience blinders <input id="blindersOn" type="checkbox"></label>
+        <label for="blinderMode">Blinders hit</label>
+        <select id="blinderMode"></select>
+        <label for="blinderLevel">Blinder level <output></output></label>
+        <input id="blinderLevel" type="range" min="0" max="1.5" step="0.01" value="1">
+        <label class="toggle" for="strobesOn">Strobe bars <input id="strobesOn" type="checkbox"></label>
+        <label for="strobeMode">Strobes fire</label>
+        <select id="strobeMode"></select>
+        <label for="strobeRateX">Strobe rate (Hz) <output></output></label>
+        <input id="strobeRateX" type="range" min="2" max="25" step="0.5" value="10">
+        <label for="strobeLevelX">Strobe level <output></output></label>
+        <input id="strobeLevelX" type="range" min="0" max="1.5" step="0.01" value="1">
+        <div class="row2">
+          <button id="blinderHit" type="button">Blinder hit</button>
+          <button id="strobeBurst" type="button">Strobe burst</button>
+        </div>
+      </fieldset>
+      <fieldset data-control-group="Liquid light show">
+        <legend>Liquid light show</legend>
+        <label class="toggle" for="liquidOn">Oil-and-water projection upstage <input id="liquidOn" type="checkbox"></label>
+        <label for="liquidPalette">Dyes</label>
+        <select id="liquidPalette"></select>
+        <label for="liquidLevel">Level <output></output></label>
+        <input id="liquidLevel" type="range" min="0" max="1.5" step="0.01" value="0.7">
+        <label for="liquidSpeed">Flow <output></output></label>
+        <input id="liquidSpeed" type="range" min="0.1" max="4" step="0.05" value="1">
+        <label class="toggle" for="liquidPulse">Pulse on the beat <input id="liquidPulse" type="checkbox" checked></label>
+      </fieldset>
+      <fieldset data-control-group="CO2 jets">
+        <legend>CO₂ jets</legend>
+        <label class="toggle" for="co2On">CO₂ jets downstage <input id="co2On" type="checkbox"></label>
+        <label for="co2Mode">Blast</label>
+        <select id="co2Mode"></select>
+        <button id="co2Blast" type="button">Blast now</button>
+        <label class="toggle" for="crashFires">A MIDI crash cymbal fires blinders, strobes &amp; CO₂ <input id="crashFires" type="checkbox" checked></label>
+      </fieldset>
+    </section>
+
+
+    <!-- ——— MIDI ——— -->
+    <section class="tab" data-tab="midi" hidden>
+      <fieldset data-control-group="MIDI play">
+        <legend>MIDI play mode <i id="midiLed" class="led" title="MIDI activity"></i></legend>
+        <label class="toggle" for="midiMode">Notes fire lights <input id="midiMode" type="checkbox"></label>
+        <div class="row2">
+          <button id="midiConnect" type="button">Connect MIDI</button>
+          <div><select id="midiInput" aria-label="MIDI input"><option value="all">All connected inputs</option></select></div>
+        </div>
+        <p id="midiStatus" class="hint" role="status">Connect a keyboard, or try the test tools below.</p>
+        <label for="midiChannel">Listen on</label>
+        <select id="midiChannel"></select>
+        <label for="midiMapping">Keys map to</label>
+        <select id="midiMapping"></select>
+        <label for="midiColor">Colour</label>
+        <select id="midiColor"></select>
+        <label for="midiFixed">One colour <input id="midiFixed" type="color" value="#ffffff"></label>
+        <label for="midiBase">Under the notes</label>
+        <select id="midiBase">
+          <option value="0">Blackout: only notes light</option>
+          <option value="0.12" selected>Show at 12%</option>
+          <option value="0.35">Show at 35%</option>
+          <option value="1">Full show</option>
+        </select>
+        <label class="toggle" for="midiDrums">Channel 10 plays the drum map <input id="midiDrums" type="checkbox" checked></label>
+        <div class="row2">
+          <div><label for="midiLow">Lowest key</label><input id="midiLow" type="number" min="0" max="126" value="36"></div>
+          <div><label for="midiHigh">Highest key</label><input id="midiHigh" type="number" min="1" max="127" value="96"></div>
+        </div>
+      </fieldset>
+      <fieldset data-control-group="MIDI response">
+        <legend>Response</legend>
+        <label for="midiSustain">Held level <output></output></label>
+        <input id="midiSustain" type="range" min="0" max="1" step="0.01" value="0.6">
+        <label for="midiRelease">Release (s) <output></output></label>
+        <input id="midiRelease" type="range" min="0.03" max="4" step="0.01" value="0.6">
+        <label for="midiWidth">Column width (keys map) <output></output></label>
+        <input id="midiWidth" type="range" min="0.02" max="0.3" step="0.005" value="0.07">
+        <label for="midiKick">Tilt kick (°) <output></output></label>
+        <input id="midiKick" type="range" min="0" max="40" step="0.5" value="10">
+        <label for="midiLift">Pods dip on notes (m) <output></output></label>
+        <input id="midiLift" type="range" min="0" max="2.5" step="0.05" value="0.6">
+        <p class="hint">Velocity → brightness · sustain pedal holds · mod wheel → bigger kicks · pitch bend → hue.</p>
+      </fieldset>
+      <fieldset data-control-group="MIDI test">
+        <legend>MIDI test <i id="midiPedal" class="led pedal" title="Sustain pedal"></i></legend>
+        <div class="row3">
+          <button id="midiDemo" type="button">Play test groove</button>
+          <button id="midiSweep" type="button">Sweep all notes</button>
+          <button id="midiPanic" type="button">All notes off</button>
+        </div>
+        <div class="pianobar" data-studio-ignore>
+          <button id="pianoDown" type="button" aria-label="Octave down">−</button>
+          <span id="pianoOct">C4</span>
+          <button id="pianoUp" type="button" aria-label="Octave up">+</button>
+        </div>
+        <div id="pianoKeys" class="piano" data-studio-ignore aria-label="On-screen keyboard: click lower on a key for more velocity"></div>
+        <label class="toggle" for="qwertyNotes">Computer keys play notes <input id="qwertyNotes" type="checkbox"></label>
+        <p class="hint"><kbd>A</kbd> <kbd>W</kbd> <kbd>S</kbd> … <kbd>K</kbd> play C to C (Shift = hard), <kbd>Z</kbd>/<kbd>X</kbd> change octave. While on, these keys play notes instead of console shortcuts.</p>
+        <label class="toggle" for="midiSound">Monitor sound for test notes <input id="midiSound" type="checkbox" checked></label>
+        <label class="toggle" for="midiSoundHw">Also sound hardware notes <input id="midiSoundHw" type="checkbox"></label>
+        <label for="midiVolume">Monitor volume <output></output></label>
+        <input id="midiVolume" type="range" min="0" max="1" step="0.01" value="0.3">
+        <label for="midiNow">Now playing</label>
+        <input id="midiNow" type="text" readonly value="No notes">
+        <label for="midiReach">Coverage</label>
+        <input id="midiReach" type="text" readonly value="0 / 72 fixtures reached">
+        <ol id="midiLog" class="midilog" data-studio-ignore aria-label="Recent MIDI messages"></ol>
+      </fieldset>
+      <fieldset data-studio-ignore>
+        <legend>MIDI learn · faders &amp; pads</legend>
+        <button id="midiLearn" type="button">Learn</button>
+        <p id="learnStatus" class="hint">Press Learn, touch any fader, button or toggle in this panel, then move a knob or hit a pad. Learned notes and CCs control the console instead of firing lights.</p>
+        <ul id="midiMap" class="midimap"></ul>
+        <button id="midiClear" type="button">Clear mappings</button>
+      </fieldset>
+    </section>
+
+    <!-- ——— SETUP ——— -->
+    <section class="tab" data-tab="setup" hidden>
+      <fieldset data-control-group="Sound to light">
+        <legend>Sound to light</legend>
+        <label class="toggle" for="micToggle">Listen with microphone <input id="micToggle" type="checkbox"></label>
+        <label class="toggle" for="micTempo">Follow detected tempo <input id="micTempo" type="checkbox" checked></label>
+        <label for="micPulse">Pulse intensity with the music <output></output></label>
+        <input id="micPulse" type="range" min="0" max="1" step="0.01" value="0.35">
+        <div class="meter" data-studio-ignore><i id="micLevel"></i></div>
+        <p id="micStatus" class="hint">Off.</p>
+      </fieldset>
+      <fieldset data-control-group="Render">
+        <legend>Render</legend>
+        <label class="toggle" for="stageToggle">Stage &amp; floor <input id="stageToggle" type="checkbox" checked></label>
+        <label for="hazeTexture">Haze texture <output></output></label>
+        <input id="hazeTexture" type="range" min="0" max="1" step="0.01" value="0.75">
+        <label class="toggle" for="strobeRandom">Random strobe phase <input id="strobeRandom" type="checkbox"></label>
+        <label for="quality">Render quality</label>
+        <select id="quality"><option value="0.6">Fast</option><option value="0.85">Balanced</option><option value="1" selected>Full</option></select>
+      </fieldset>
+    </section>
+
+    <footer>
+      <p><kbd>Space</kbd> play · <kbd>←</kbd><kbd>→</kbd> section · <kbd>T</kbd> tap · <kbd>X</kbd> flash · <kbd>S</kbd> strobe · <kbd>B</kbd> blackout · <kbd>G</kbd> GO · <kbd>H</kbd> hide panel · MIDI tab: play the rig from a keyboard</p>
+      <p class="fine">An homage to Chris Kuroda’s CK5 kinetic lighting for Phish — an impression, not a model of any real plot.</p>
+    </footer>
+  </aside>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
