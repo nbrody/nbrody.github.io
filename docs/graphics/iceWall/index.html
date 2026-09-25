@@ -2,128 +2,260 @@
 <html lang="en">
 
 <head>
-    <script src="../app/entry.js"></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ice Wall — Voronoi + Domain-Warped FBM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="graphics-description"
+        content="A living wall of frost and meltwater, after the LED entrance of the LINQ in Las Vegas. A relief of pillowy drifts, ice-block cracks and cauliflower frost, lit with soft cast shadows and twinkling glints, with a glassy cascade running down it. Click the wall to move the water.">
+    <script src="../app/entry.js"></script>
+    <title>Ice Wall</title>
     <meta name="description"
-        content="Procedural shader inspired by the LINQ Las Vegas LED entrance: domain-warped fbm meltwater layered with a Voronoi ice-block tessellation and a vertical waterfall band.">
+        content="A procedural, relief-lit wall of frost and meltwater inspired by the LINQ Las Vegas LED entrance: pillowy drifts, Voronoi ice-block cracks, cauliflower frost, cast shadows, glints and a glassy cascade.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
-        rel="stylesheet">
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" media="print" onload="this.media='all'">
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <canvas id="glCanvas"></canvas>
+    <canvas id="glCanvas" aria-label="Animated relief of frost, ice blocks and meltwater"></canvas>
+    <div id="status" class="status" role="status">Freezing…</div>
 
-    <!-- Control Panel -->
-    <div id="controls" class="controls">
-        <h1 id="title">Ice Wall</h1>
-        <div class="subtitle">
-            Voronoi ice-blocks over domain-warped fbm.<br>
-            Inspired by the LINQ Las Vegas LED entrance.
+    <aside id="controls" class="panel" aria-label="Ice Wall controls">
+        <header class="panel-head">
+            <div class="mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                    <path d="M12 2.5v19M3.8 7.25l16.4 9.5M3.8 16.75l16.4-9.5" />
+                    <path d="M9.6 4.2 12 6l2.4-1.8M9.6 19.8 12 18l2.4 1.8M4.9 10.4l2.8-.6-.8-2.8M19.1 13.6l-2.8.6.8 2.8M4.9 13.6l2.8.6-.8 2.8M19.1 10.4l-2.8-.6.8-2.8" />
+                </svg>
+            </div>
+            <div>
+                <h1>Ice Wall</h1>
+                <p class="subtitle">A living frost relief, after the LED entrance of the LINQ, Las Vegas.</p>
+            </div>
+            <button id="hidePanel" class="icon-btn" type="button" title="Hide panel (H)" aria-label="Hide panel"
+                data-studio-ignore>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <path d="M15 6l-6 6 6 6" />
+                </svg>
+            </button>
+        </header>
+
+        <fieldset class="group scene-group" data-control-group="Scene">
+            <legend class="sr-only">Scene</legend>
+            <div class="field">
+                <label for="sceneSelect">Scene</label>
+                <select id="sceneSelect"></select>
+            </div>
+            <div class="swatches" id="swatches" data-studio-ignore aria-label="Palettes"></div>
+            <div class="field toggle-row">
+                <label for="tourToggle">Scene tour <span class="hint">every 30 s</span></label>
+                <input type="checkbox" id="tourToggle" role="switch">
+            </div>
+        </fieldset>
+
+        <details class="group" data-control-group="Surface" open>
+            <summary>Surface</summary>
+            <div class="field">
+                <label for="frostSlider">Frost <output></output></label>
+                <input type="range" id="frostSlider" data-key="frost" data-fmt="pct" min="0" max="1" step="0.01" value="0.86">
+            </div>
+            <div class="field">
+                <label for="clumpSlider">Clump size <output></output></label>
+                <input type="range" id="clumpSlider" data-key="clump" data-fmt="x" min="0.5" max="2" step="0.01" value="1">
+            </div>
+            <div class="field">
+                <label for="macroSlider">Drifts <output></output></label>
+                <input type="range" id="macroSlider" data-key="macro" data-fmt="x" min="0" max="2" step="0.01" value="1">
+            </div>
+            <div class="field">
+                <label for="reliefSlider">Relief depth <output></output></label>
+                <input type="range" id="reliefSlider" data-key="relief" data-fmt="x" min="0.2" max="2.5" step="0.01" value="1">
+            </div>
+            <div class="field">
+                <label for="patternSlider">Zoom <output></output></label>
+                <input type="range" id="patternSlider" data-key="scale" data-fmt="x" min="0.5" max="2.5" step="0.01" value="1">
+            </div>
+        </details>
+
+        <details class="group" data-control-group="Ice blocks" open>
+            <summary>Ice blocks</summary>
+            <div class="field">
+                <label for="patternSelect">Pattern</label>
+                <select id="patternSelect" data-key="pattern">
+                    <option value="floes">Floes · cracked sheet</option>
+                    <option value="bricks">Bricks · cut blocks</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="fractureSlider">Fracture <output></output></label>
+                <input type="range" id="fractureSlider" data-key="fracture" data-fmt="pct" min="0" max="1" step="0.01" value="0.14">
+            </div>
+            <div class="field">
+                <label for="brickScaleSlider">Block density <output></output></label>
+                <input type="range" id="brickScaleSlider" data-key="blockDensity" data-fmt="f1" min="2" max="14" step="0.1" value="5.5">
+            </div>
+            <div class="field">
+                <label for="crackSlider">Crack width <output></output></label>
+                <input type="range" id="crackSlider" data-key="crack" data-fmt="f3" min="0.02" max="0.16" step="0.001" value="0.05">
+            </div>
+            <div class="field">
+                <label for="brickJitterSlider">Irregularity <output></output></label>
+                <input type="range" id="brickJitterSlider" data-key="jitter" data-fmt="pct" min="0" max="1" step="0.01" value="0.9">
+            </div>
+            <div class="field">
+                <label for="jointSlider">Joints <span class="hint">cracks → snow</span> <output></output></label>
+                <input type="range" id="jointSlider" data-key="joint" data-fmt="pct" min="0" max="1" step="0.01" value="0">
+            </div>
+            <div class="field">
+                <label for="cellTintSlider">Block tint <output></output></label>
+                <input type="range" id="cellTintSlider" data-key="cellTint" data-fmt="pct" min="0" max="1" step="0.01" value="0.25">
+            </div>
+        </details>
+
+        <details class="group" data-control-group="Motion">
+            <summary>Motion</summary>
+            <div class="field">
+                <label for="speedSlider">Flow speed <output></output></label>
+                <input type="range" id="speedSlider" data-key="speed" data-fmt="f2" min="0" max="2" step="0.01" value="0.45">
+            </div>
+            <div class="field">
+                <label for="warpSlider">Warp <output></output></label>
+                <input type="range" id="warpSlider" data-key="warp" data-fmt="f2" min="0" max="2.5" step="0.01" value="1.1">
+            </div>
+            <div class="field">
+                <label for="driftSlider">Drift <output></output></label>
+                <input type="range" id="driftSlider" data-key="drift" data-fmt="f2" min="0" max="2" step="0.01" value="0.35">
+            </div>
+        </details>
+
+        <details class="group" data-control-group="Light">
+            <summary>Light</summary>
+            <div class="field">
+                <label for="lightAngleSlider">Direction <output></output></label>
+                <input type="range" id="lightAngleSlider" data-key="lightAngle" data-fmt="deg" min="0" max="360" step="1" value="135">
+            </div>
+            <div class="field">
+                <label for="lightHeightSlider">Sun height <output></output></label>
+                <input type="range" id="lightHeightSlider" data-key="lightHeight" data-fmt="deg" min="8" max="75" step="1" value="34">
+            </div>
+            <div class="field toggle-row">
+                <label for="lightSweepToggle">Slow light sweep</label>
+                <input type="checkbox" id="lightSweepToggle" data-key="lightSweep" role="switch" checked>
+            </div>
+            <div class="field">
+                <label for="shadowSlider">Shadows <output></output></label>
+                <input type="range" id="shadowSlider" data-key="shadow" data-fmt="pct" min="0" max="1" step="0.01" value="0.85">
+            </div>
+            <div class="field">
+                <label for="sparkleSlider">Sparkle <output></output></label>
+                <input type="range" id="sparkleSlider" data-key="sparkle" data-fmt="f2" min="0" max="2" step="0.01" value="0.55">
+            </div>
+            <div class="field toggle-row">
+                <label for="starToggle">Star glints</label>
+                <input type="checkbox" id="starToggle" data-key="stars" role="switch" checked>
+            </div>
+            <div class="field">
+                <label for="bloomSlider">Glow <output></output></label>
+                <input type="range" id="bloomSlider" data-key="bloom" data-fmt="f2" min="0" max="1.5" step="0.01" value="0.45">
+            </div>
+        </details>
+
+        <details class="group" data-control-group="Meltwater">
+            <summary>Meltwater</summary>
+            <div class="field toggle-row">
+                <label for="waterfallToggle">Meltwater cascade</label>
+                <input type="checkbox" id="waterfallToggle" data-key="water" role="switch" checked>
+            </div>
+            <div class="field">
+                <label for="waterfallXSlider">Position <output></output></label>
+                <input type="range" id="waterfallXSlider" data-key="waterX" data-fmt="pct" min="0" max="1" step="0.005" value="0.5">
+            </div>
+            <div class="field">
+                <label for="waterfallWidthSlider">Width <output></output></label>
+                <input type="range" id="waterfallWidthSlider" data-key="waterWidth" data-fmt="pct" min="0.02" max="0.25" step="0.005" value="0.07">
+            </div>
+            <div class="field">
+                <label for="waterfallSpeedSlider">Fall speed <output></output></label>
+                <input type="range" id="waterfallSpeedSlider" data-key="waterSpeed" data-fmt="f1" min="0" max="10" step="0.05" value="3">
+            </div>
+            <div class="field">
+                <label for="meanderSlider">Meander <output></output></label>
+                <input type="range" id="meanderSlider" data-key="meander" data-fmt="pct" min="0" max="1.5" step="0.01" value="0.8">
+            </div>
+        </details>
+
+        <details class="group" data-control-group="Colour">
+            <summary>Colour</summary>
+            <div class="field">
+                <label for="paletteSelect">Palette</label>
+                <select id="paletteSelect" data-key="palette"></select>
+            </div>
+            <div class="field">
+                <label for="hueSlider">Hue shift <output></output></label>
+                <input type="range" id="hueSlider" data-key="hue" data-fmt="sdeg" min="-60" max="60" step="1" value="0">
+            </div>
+            <div class="field">
+                <label for="exposureSlider">Brightness <output></output></label>
+                <input type="range" id="exposureSlider" data-key="exposure" data-fmt="f2" min="0.6" max="1.5" step="0.01" value="1">
+            </div>
+        </details>
+
+        <details class="group" data-control-group="Display">
+            <summary>Display</summary>
+            <div class="field toggle-row">
+                <label for="ledGridToggle">LED panel</label>
+                <input type="checkbox" id="ledGridToggle" data-key="led" role="switch">
+            </div>
+            <div class="field" id="ledDensityGroup">
+                <label for="ledDensitySlider">LED rows <output></output></label>
+                <input type="range" id="ledDensitySlider" data-key="ledDensity" data-fmt="int" min="30" max="240" step="1" value="100">
+            </div>
+            <div class="field">
+                <label for="grainSlider">Film grain <output></output></label>
+                <input type="range" id="grainSlider" data-key="grain" data-fmt="pct" min="0" max="1" step="0.01" value="0.35">
+            </div>
+            <div class="field">
+                <label for="qualitySelect">Quality</label>
+                <select id="qualitySelect" data-key="quality">
+                    <option value="auto">Auto (adapts to speed)</option>
+                    <option value="high">High · full resolution</option>
+                    <option value="balanced">Balanced · 70%</option>
+                    <option value="fast">Fast · 50%</option>
+                </select>
+            </div>
+        </details>
+
+        <div class="actions">
+            <button id="pauseBtn" type="button" class="chip">Pause</button>
+            <button id="randomBtn" type="button" class="chip">Surprise me</button>
+            <button id="screenshotBtn" type="button" class="chip">Save PNG</button>
         </div>
+        <footer class="stats" aria-live="off">
+            <span id="fpsCounter">— fps</span>
+            <span id="resolution">—</span>
+        </footer>
+    </aside>
 
-        <div class="section-label">Flow</div>
+    <button id="showPanel" class="fab" type="button" title="Show controls (H)" aria-label="Show controls"
+        data-studio-ignore>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
+            <circle cx="16" cy="7" r="2" />
+            <circle cx="10" cy="17" r="2" />
+        </svg>
+    </button>
 
-        <div class="control-group">
-            <label for="speedSlider">Flow Speed <span id="speedValue" class="value-badge">0.40</span></label>
-            <input type="range" id="speedSlider" min="0.0" max="2.0" step="0.01" value="0.40">
-        </div>
-
-        <div class="control-group">
-            <label for="warpSlider">Warp Strength <span id="warpValue" class="value-badge">3.50</span></label>
-            <input type="range" id="warpSlider" min="0.0" max="8.0" step="0.05" value="3.50">
-        </div>
-
-        <div class="control-group">
-            <label for="patternSlider">Pattern Scale <span id="patternValue" class="value-badge">2.20</span></label>
-            <input type="range" id="patternSlider" min="0.5" max="6.0" step="0.05" value="2.20">
-        </div>
-
-        <div class="section-label">Bricks</div>
-
-        <div class="control-group">
-            <label for="brickScaleSlider">Brick Density <span id="brickScaleValue" class="value-badge">9.0</span></label>
-            <input type="range" id="brickScaleSlider" min="2.0" max="24.0" step="0.1" value="9.0">
-        </div>
-
-        <div class="control-group">
-            <label for="rimSlider">Rim Sharpness <span id="rimValue" class="value-badge">1.00</span></label>
-            <input type="range" id="rimSlider" min="0.1" max="3.0" step="0.01" value="1.00">
-        </div>
-
-        <div class="control-group">
-            <label for="cellTintSlider">Cell Tint Variation <span id="cellTintValue" class="value-badge">0.30</span></label>
-            <input type="range" id="cellTintSlider" min="0.0" max="0.8" step="0.01" value="0.30">
-        </div>
-
-        <div class="control-group">
-            <label for="brickJitterSlider">Brick Jitter <span id="brickJitterValue" class="value-badge">0.30</span></label>
-            <input type="range" id="brickJitterSlider" min="0.0" max="1.0" step="0.01" value="0.30">
-        </div>
-
-        <div class="section-label">Waterfall</div>
-
-        <div class="control-group toggle-row">
-            <label for="waterfallToggle">Enable Waterfall</label>
-            <input type="checkbox" id="waterfallToggle" checked>
-        </div>
-
-        <div class="control-group">
-            <label for="waterfallXSlider">Position X <span id="waterfallXValue" class="value-badge">0.50</span></label>
-            <input type="range" id="waterfallXSlider" min="0.0" max="1.0" step="0.005" value="0.50">
-        </div>
-
-        <div class="control-group">
-            <label for="waterfallWidthSlider">Width <span id="waterfallWidthValue" class="value-badge">0.10</span></label>
-            <input type="range" id="waterfallWidthSlider" min="0.02" max="0.40" step="0.005" value="0.10">
-        </div>
-
-        <div class="control-group">
-            <label for="waterfallSpeedSlider">Fall Speed <span id="waterfallSpeedValue" class="value-badge">3.00</span></label>
-            <input type="range" id="waterfallSpeedSlider" min="0.0" max="10.0" step="0.05" value="3.00">
-        </div>
-
-        <div class="section-label">Look</div>
-
-        <div class="control-group">
-            <label for="sparkleSlider">Sparkle <span id="sparkleValue" class="value-badge">0.40</span></label>
-            <input type="range" id="sparkleSlider" min="0.0" max="1.5" step="0.01" value="0.40">
-        </div>
-
-        <div class="control-group">
-            <label for="hueSlider">Hue Shift <span id="hueValue" class="value-badge">0°</span></label>
-            <input type="range" id="hueSlider" min="-60" max="60" step="1" value="0">
-        </div>
-
-        <div class="control-group toggle-row">
-            <label for="ledGridToggle">LED Tile Grid</label>
-            <input type="checkbox" id="ledGridToggle">
-        </div>
-
-        <div class="control-group" id="ledDensityGroup">
-            <label for="ledDensitySlider">LED Density <span id="ledDensityValue" class="value-badge">100</span></label>
-            <input type="range" id="ledDensitySlider" min="20" max="240" step="1" value="100">
-        </div>
-
-        <div class="stats" id="stats">
-            <span id="fpsCounter">60 fps</span>
-            <span id="resolution">1920×1080</span>
-        </div>
-
-        <button id="screenshotBtn" class="screenshot-btn">📸 Screenshot</button>
-        <button id="pauseBtn" class="pause-btn">⏸ Pause</button>
-    </div>
-
-    <!-- Instructions overlay -->
     <div id="instructions" class="instructions">
-        <span>🖱️ Click to set waterfall · <kbd>H</kbd> toggle panel · <kbd>Space</kbd> pause</span>
+        Click the wall to move the meltwater · <kbd>H</kbd> panel · <kbd>Space</kbd> pause ·
+        <kbd>N</kbd> next scene · <kbd>W</kbd> water · <kbd>L</kbd> LED · <kbd>R</kbd> surprise
     </div>
 
-    <script src="renderer.js"></script>
+    <script src="js/shaders.js"></script>
+    <script src="js/look.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/app.js"></script>
 </body>
 
 </html>

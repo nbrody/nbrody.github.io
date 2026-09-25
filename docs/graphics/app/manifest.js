@@ -60,7 +60,7 @@ export const VISUALIZATIONS = [
   { id: '3dGyroidSmoke', title: '3D Gyroid Smoke', cat: 'fields', glyph: '◈',
     blurb: 'MIDI notes fill an architectural room with persistent, colored 3D smoke.', keys: [' ', 'r', 's', 'b', 'h'] },
   { id: 'iceWall', title: 'Ice Wall', cat: 'fields', glyph: '❄',
-    blurb: 'Voronoi + domain-warped FBM ice surface.', keys: ['h', ' '] },
+    blurb: 'A living relief of frost, ice-block cracks and meltwater, after the LINQ’s LED entrance.', keys: ['h', ' ', 'n', 'w', 'l', 'r'] },
   { id: 'turingPatterns', title: 'Gray–Scott', cat: 'fields', glyph: '🦓',
     blurb: 'Reaction–diffusion (Turing) patterns you can paint.', keys: [] },
   { id: 'tidalMarsh', title: 'Tidal Marsh', cat: 'fields', glyph: '🪸',
