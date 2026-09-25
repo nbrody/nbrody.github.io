@@ -24,7 +24,7 @@ export const VISUALIZATIONS = [
   { id: 'mandelbrot', title: 'Mandelbrot Explorer', cat: 'fractals', glyph: '𝓜',
     blurb: 'GPU fractal explorer with live Julia preview and auto-zoom.', keys: ['h', 'j', ' '] },
   { id: 'xiaTheorem', title: "Xia's Theorem", cat: 'fractals', glyph: '☄',
-    blurb: 'The 5-body finite-time singularity, simulated.', keys: [' ', 'r', 's', 'b', 'h'] },
+    blurb: "Five bodies off to infinity in finite time — Xia's cascade in exact gravity, plus Sitnikov, choreographies, Pythagorean and Lagrange.", keys: [' ', 'r', 's', 't', 'b', 'h'] },
   { id: 'indrasPearls', title: "Indra's Pearls", cat: 'fractals', glyph: '◎',
     blurb: 'Limit sets of Kleinian groups, after the figures in Indra’s Pearls.', keys: ['h', ' '] },
   { id: '4dKleinian', title: 'Kleinian Limit Sets in 4D', cat: 'fractals', glyph: '⊛',

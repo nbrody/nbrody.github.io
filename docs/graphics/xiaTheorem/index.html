@@ -2,114 +2,138 @@
 <html lang="en">
 
 <head>
-    <script src="../app/entry.js"></script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xia's Theorem — 5-Body Singularity</title>
-    <meta name="description"
-        content="Three.js simulation of Xia's 5-body configuration: two counter-rotating binaries with a central oscillator, illustrating non-collision singularities in the Newtonian n-body problem.">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link
-        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+  <script src="../app/entry.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xia's Theorem — Off to Infinity in Finite Time</title>
+  <meta name="description"
+    content="Exact, regularized N-body simulations: Xia's five-body cascade that reaches infinity in finite time, Sitnikov oscillations, periodic three-body choreographies, the Pythagorean problem, Lagrange's triangle, and a small star cluster.">
+  <meta name="graphics-description"
+    content="Xia's five-body cascade: a light body shuttles between two hardening binaries, is flung back faster by a near triple collision each time, and all five bodies reach infinity at a finite time. Exact Newtonian gravity with a regularized integrator, plus Sitnikov oscillations, three-body choreographies, the Pythagorean problem, Lagrange's triangle and a small cluster.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <!-- Control Panel -->
-    <div id="controls" class="controls">
-        <h1 id="title">Xia's Theorem</h1>
-        <p class="subtitle">Two counter-rotating binaries · one bouncing oscillator</p>
+  <canvas id="scene" aria-label="N-body simulation"></canvas>
 
-        <div class="control-group toggle-row">
+  <aside id="controls" class="panel controls">
+    <header class="brand">
+      <div class="eyebrow">Newtonian N-body · exact gravity</div>
+      <h1>Xia's Theorem</h1>
+      <p class="tagline">Off to infinity in finite time</p>
+      <button id="collapseBtn" class="icon-btn" aria-label="Collapse panel" title="Collapse panel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </header>
+
+    <div class="scroll">
+      <section class="card" data-control-group="Scenario">
+        <div class="control-group">
+          <label for="scenario">Scenario</label>
+          <select id="scenario"></select>
+        </div>
+        <div id="about" class="about"></div>
+        <div id="paramBox" class="params"></div>
+        <div id="scenarioNote" class="note" hidden></div>
+      </section>
+
+      <section class="card" data-control-group="Playback">
+        <div class="row-2">
+          <div class="control-group toggle-row">
             <label for="playPause">Running</label>
             <input type="checkbox" id="playPause" checked>
+          </div>
+          <button id="resetBtn" class="btn">↺ Restart</button>
         </div>
-
         <div class="control-group">
-            <label for="speedSlider">Time Speed <span id="speedValue" class="value-badge">1.0×</span></label>
-            <input type="range" id="speedSlider" min="0.1" max="3.0" step="0.05" value="1.0">
+          <label for="speedSlider">Time speed <span id="speedValue" class="value-badge">1×</span></label>
+          <input type="range" id="speedSlider" min="-4" max="4" step="0.05" value="0">
         </div>
-
         <div class="control-group">
-            <label for="softSlider">Softening ε <span id="softValue" class="value-badge">0.005</span></label>
-            <input type="range" id="softSlider" min="0.0005" max="0.100" step="0.0005" value="0.005">
+          <label for="tempo">Clock</label>
+          <select id="tempo">
+            <option value="auto">Scenario default</option>
+            <option value="singular">Singularity clock (log of t* − t)</option>
+            <option value="adaptive">Adaptive (crossing time)</option>
+            <option value="fixed">Uniform</option>
+          </select>
         </div>
-
-        <div class="control-group">
-            <label for="centralMass">Central Mass m₅ <span id="centralValue" class="value-badge">0.50</span></label>
-            <input type="range" id="centralMass" min="0.05" max="2.00" step="0.05" value="0.50">
-        </div>
-
-        <div class="control-group">
-            <label for="kickSlider">Initial Kick v<sub>z</sub> <span id="kickValue" class="value-badge">1.80</span></label>
-            <input type="range" id="kickSlider" min="0.0" max="4.0" step="0.05" value="1.80">
-        </div>
-
-        <div class="control-group">
-            <label for="trailLen">Trail Length <span id="trailValue" class="value-badge">600</span></label>
-            <input type="range" id="trailLen" min="50" max="1500" step="25" value="600">
-        </div>
-
         <div class="control-group toggle-row">
-            <label for="autoOrbit">Auto-Orbit Camera</label>
-            <input type="checkbox" id="autoOrbit">
+          <label for="autoLoop">Loop when the story ends</label>
+          <input type="checkbox" id="autoLoop" checked>
         </div>
+      </section>
 
+      <section class="card" data-control-group="View">
+        <div class="control-group">
+          <label for="trailLen">Trail length <span id="trailValue" class="value-badge">900</span></label>
+          <input type="range" id="trailLen" min="50" max="4000" step="25" value="900">
+        </div>
+        <div class="control-group">
+          <label for="trailWidth">Trail width <span id="trailWidthValue" class="value-badge">2.2</span></label>
+          <input type="range" id="trailWidth" min="0.6" max="6" step="0.1" value="2.2">
+        </div>
+        <div class="toggles">
+          <div class="control-group toggle-row"><label for="autoOrbit">Orbit camera</label><input type="checkbox" id="autoOrbit"></div>
+          <div class="control-group toggle-row"><label for="followCom">Follow centre of mass</label><input type="checkbox" id="followCom" checked></div>
+          <div class="control-group toggle-row"><label for="autoZoom">Auto-frame</label><input type="checkbox" id="autoZoom" checked></div>
+          <div class="control-group toggle-row"><label for="unroll">Unroll time into space</label><input type="checkbox" id="unroll"></div>
+          <div class="control-group toggle-row"><label for="showGuides">Guides and orbits</label><input type="checkbox" id="showGuides" checked></div>
+          <div class="control-group toggle-row"><label for="showBloom">Bloom glow</label><input type="checkbox" id="showBloom" checked></div>
+          <div class="control-group toggle-row"><label for="showChart">World-line chart</label><input type="checkbox" id="showChart" checked></div>
+        </div>
+        <div class="control-group">
+          <label for="chartMode">Chart axes</label>
+          <select id="chartMode">
+            <option value="auto">Scenario default</option>
+            <option value="world">World lines (coordinate vs time)</option>
+            <option value="blowup">Blow-up (z / separation vs −log(t* − t))</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="card" data-control-group="Physics">
         <div class="control-group toggle-row">
-            <label for="followCom">Follow Center of Mass</label>
-            <input type="checkbox" id="followCom" checked>
+          <label for="twin">Shadow twin (perturbed copy)</label>
+          <input type="checkbox" id="twin">
         </div>
-
-        <div class="control-group toggle-row">
-            <label for="autoZoom">Auto-Zoom (track extent)</label>
-            <input type="checkbox" id="autoZoom" checked>
+        <div class="control-group">
+          <label for="twinDelta">Twin offset δ <span id="twinDeltaValue" class="value-badge">10⁻⁹</span></label>
+          <input type="range" id="twinDelta" min="-14" max="-2" step="1" value="-9">
         </div>
-
-        <div class="control-group toggle-row">
-            <label for="showBloom">Bloom Glow</label>
-            <input type="checkbox" id="showBloom" checked>
+        <div class="control-group">
+          <label for="softSlider">Plummer softening ε <span id="softValue" class="value-badge">0 (exact)</span></label>
+          <input type="range" id="softSlider" min="-6" max="-0.5" step="0.1" value="-6">
         </div>
-
-        <div class="stats" id="stats">
-            <span id="simTime">t = 0.00</span>
-            <span id="energyBadge">E = —</span>
-        </div>
-        <div class="stats" id="stats2">
-            <span id="speedBadge">v<sub>max</sub> = —</span>
-            <span id="extentBadge">R = —</span>
-        </div>
-        <div class="stats" id="stats3">
-            <span id="peakBadge">v<sub>peak</sub> = —</span>
-            <span id="dtBadge">dt = —</span>
-        </div>
-
-        <button id="resetBtn" class="reset-btn">↻ Reset</button>
+        <p class="fine">Softening blunts every close encounter, and with it Xia's mechanism. The tuned cascade always runs exact.</p>
+      </section>
     </div>
+  </aside>
 
-    <!-- Legend overlay -->
-    <div id="legend" class="legend">
-        <div class="legend-row"><span class="dot" style="background:#ff5577"></span> Body 1 · upper binary</div>
-        <div class="legend-row"><span class="dot" style="background:#55aaff"></span> Body 2 · upper binary</div>
-        <div class="legend-row"><span class="dot" style="background:#ff9944"></span> Body 3 · lower binary</div>
-        <div class="legend-row"><span class="dot" style="background:#44ddaa"></span> Body 4 · lower binary</div>
-        <div class="legend-row"><span class="dot" style="background:#ffee66"></span> Body 5 · oscillator</div>
-    </div>
+  <div id="hud" class="panel hud">
+    <div id="stats" class="stats"></div>
+    <div id="chartWrap" class="chart-wrap"><canvas id="chart"></canvas></div>
+    <div id="ticker" class="ticker" role="status" aria-live="polite"></div>
+  </div>
 
-    <!-- Instructions overlay -->
-    <div id="instructions" class="instructions">
-        <span>🖱️ Drag to orbit · Scroll to zoom · <kbd>Space</kbd> pause · <kbd>R</kbd> reset · <kbd>H</kbd> hide panel</span>
-    </div>
+  <div id="legend" class="panel legend">
+    <div id="legendBody"></div>
+  </div>
 
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
-    <script type="module" src="sim.js"></script>
+  <div id="instructions" class="instructions">
+    Drag to orbit · scroll to zoom · <kbd>Space</kbd> pause · <kbd>R</kbd> restart · <kbd>S</kbd> next scenario · <kbd>T</kbd> twin · <kbd>U</kbd> unroll time · <kbd>B</kbd> bloom · <kbd>H</kbd> hide
+  </div>
+
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    } }
+  </script>
+  <script type="module" src="js/main.js"></script>
 </body>
 
 </html>
