@@ -2,6 +2,13 @@
 // Fields: date (YYYY-MM-DD), file (relative to days/), title, area, blurb.
 window.AUTOVIZ = [
   {
+    date: "2026-09-25",
+    file: "2026-09-25-torus-dehn-twists.html",
+    title: "Dehn Twists and the Mapping Class Group of the Torus",
+    area: "Low-dimensional topology · linear groups over ℤ",
+    blurb: "Mod(T²) ≅ SL₂(ℤ): the twists about the meridian and longitude act on homology by the Picard–Lefschetz formula x ↦ x + ⟨c,x⟩c, giving [[1,1],[0,1]] and [[1,0],[−1,1]], which satisfy the braid relation and (T_aT_b)⁶ = 1. Twist the flat torus by hand — cut, shear an annulus a full turn, isotope to the linear map — and watch curves, a pushed-forward picture and exact slopes update, with the Nielsen–Thurston verdict read off the trace: periodic, reducible with its fixed curve, or Anosov with its irrational foliations and stretch factor λ, confirmed by curve-length ratios converging to λ."
+  },
+  {
     date: "2026-09-24",
     file: "2026-09-24-frieze-patterns.html",
     title: "Conway–Coxeter Frieze Patterns",

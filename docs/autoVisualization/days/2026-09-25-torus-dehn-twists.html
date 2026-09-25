@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dehn Twists and the Mapping Class Group of the Torus — AutoViz 2026-09-25</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: rgba(255, 255, 255, 0.045);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --ink: #e8e6e1;
+    --muted: #9a97a0;
+    --accent: #6ee7d8;
+    --accent2: #ffab6e;
+    --rose: #ff8b9b;
+    --blue: #8fb4ff;
+    --good: #7ee787;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #141a2b 0%, var(--bg) 60%);
+    min-height: 100vh; color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif; line-height: 1.55;
+    padding: 1.6rem 1.2rem 2.5rem;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  a.back { color: var(--accent); text-decoration: none; font-size: 0.9rem; letter-spacing: 0.06em; }
+  h1 { font-weight: normal; font-size: 1.9rem; margin: 0.4rem 0 0.5rem; }
+  p.math { color: #c9c6cf; max-width: 66rem; font-size: 1.02rem; }
+  p.math i { color: var(--ink); }
+  p.math b { font-weight: normal; color: var(--accent); }
+  .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; margin-top: 1.1rem; }
+  .stage {
+    flex: 0 1 560px; min-width: 300px; position: relative;
+    border: 1px solid var(--panel-border); background: rgba(0,0,0,0.32);
+    border-radius: 12px; overflow: hidden;
+  }
+  canvas { display: block; width: 100%; aspect-ratio: 1 / 1; }
+  .tag { position: absolute; left: 0.7rem; top: 0.45rem; font-size: 0.9rem;
+         text-shadow: 0 0 6px #000, 0 0 12px #000; pointer-events: none; }
+  .tag b { font-weight: normal; color: var(--accent); }
+  .tag small { display: block; color: var(--muted); font-size: 0.78rem; font-family: monospace; }
+  .hint { padding: 0 0.8rem 0.6rem; color: var(--muted); font-size: 0.76rem; }
+  .cards { flex: 1 1 380px; display: flex; flex-direction: column; gap: 1rem; min-width: 290px; }
+  .card { border: 1px solid var(--panel-border); background: var(--panel);
+          border-radius: 12px; padding: 0.85rem 1.05rem; }
+  .card h2 { font-size: 0.76rem; font-weight: normal; letter-spacing: 0.14em;
+             text-transform: uppercase; color: var(--muted); margin: 0 0 0.55rem; }
+  .btns { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; margin-bottom: 0.55rem; }
+  button, select, input[type=number] {
+    background: #10141d; color: var(--ink); border: 1px solid var(--panel-border);
+    border-radius: 6px; padding: 0.25rem 0.7rem; font-family: inherit; font-size: 0.9rem;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.tw { min-width: 3.6em; font-size: 1rem; }
+  button.tw.a { color: var(--rose); } button.tw.b { color: var(--blue); }
+  input[type=number] { width: 4.6em; font-family: monospace; }
+  input[type=range] { accent-color: var(--accent); width: 110px; }
+  input[type=checkbox] { accent-color: var(--accent); }
+  label { color: var(--muted); font-size: 0.88rem; display: inline-flex; gap: 0.35rem; align-items: center; }
+  .stat { font-family: monospace; font-size: 0.84rem; color: #c9c6cf; line-height: 1.7; word-break: break-word; }
+  .stat b { font-weight: normal; color: var(--accent); }
+  .stat .a { color: var(--rose); } .stat .b { color: var(--blue); } .stat .o { color: var(--accent2); }
+  .matrix { display: inline-grid; grid-template-columns: auto auto; gap: 0 1.1em; padding: 0.1em 0.6em;
+            border-left: 1px solid var(--muted); border-right: 1px solid var(--muted);
+            font-family: monospace; font-size: 1.05rem; text-align: right; vertical-align: middle; }
+  .verdict { font-size: 1.15rem; margin: 0.15rem 0 0.35rem; }
+  .verdict.per { color: var(--good); } .verdict.red { color: var(--accent2); } .verdict.ano { color: var(--accent); }
+  .hist { max-height: 9.5em; overflow-y: auto; }
+  footer { margin-top: 1.3rem; color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; AutoViz</a>
+  <h1>Dehn Twists and the Mapping Class Group of the Torus</h1>
+  <p class="math">
+    Acting on H<sub>1</sub>(T²;ℤ) = ℤ² gives an isomorphism <b>Mod(T²) ≅ SL<sub>2</sub>(ℤ)</b>, and a Dehn twist
+    about a curve <i>c</i> acts by the Picard–Lefschetz formula <i>x</i> ↦ <i>x</i> + ⟨<i>c</i>,<i>x</i>⟩<i>c</i>: the twists about the
+    meridian <i>a</i> = (1,0) and longitude <i>b</i> = (0,1) become [[1,1],[0,1]] and [[1,0],[−1,1]], which generate SL<sub>2</sub>(ℤ)
+    subject to the braid relation <i>T<sub>a</sub>T<sub>b</sub>T<sub>a</sub></i> = <i>T<sub>b</sub>T<sub>a</sub>T<sub>b</sub></i> and (<i>T<sub>a</sub>T<sub>b</sub></i>)<sup>6</sup> = 1.
+    Essential simple closed curves up to isotopy are the primitive classes ±(<i>p</i>,<i>q</i>), i.e. slopes <i>q</i>/<i>p</i> ∈ ℚ ∪ {∞},
+    with geometric intersection number |<i>ps</i> − <i>qr</i>|; and the Nielsen–Thurston type of a mapping class is read off its trace —
+    |tr| &lt; 2 periodic, |tr| = 2 reducible (or ±I), |tr| &gt; 2 Anosov, stretching its unstable foliation by λ = (|tr| + √(tr² − 4))/2.
+  </p>
+
+  <div class="row">
+    <div class="stage">
+      <canvas id="torus"></canvas>
+      <div class="tag"><b>flat torus ℝ²/ℤ²</b><small id="tagline">opposite edges identified</small></div>
+      <div class="hint">Each twist cuts along the torus edge and shears the shaded annulus by one full turn, then the straight-line isotopy
+        x + (1−u)·r(y) + u·y (through homeomorphisms) pulls every curve tight to the linear map. Keys: a / A / b / B, backspace = undo.</div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h2>Twist</h2>
+        <div class="btns">
+          <button class="tw a" data-g="a" data-e="1">T<sub>a</sub></button>
+          <button class="tw a" data-g="a" data-e="-1">T<sub>a</sub><sup>−1</sup></button>
+          <button class="tw b" data-g="b" data-e="1">T<sub>b</sub></button>
+          <button class="tw b" data-g="b" data-e="-1">T<sub>b</sub><sup>−1</sup></button>
+          <button id="undo">undo</button>
+          <button id="reset">reset</button>
+        </div>
+        <div class="btns">
+          <select id="preset">
+            <option value="">preset word…</option>
+            <option value="-ba">cat map  T_a T_b⁻¹  (Anosov, tr 3)</option>
+            <option value="-baa">T_a² T_b⁻¹  (Anosov, tr 4)</option>
+            <option value="ba">T_a T_b  (periodic, order 6)</option>
+            <option value="aba">T_a T_b T_a  (order 4, rotation)</option>
+            <option value="baba">(T_a T_b)²  (periodic, order 3)</option>
+            <option value="aaa">T_a³  (reducible, tr 2)</option>
+            <option value="bababa">(T_a T_b)³ = −I  (hyperelliptic)</option>
+          </select>
+          <button id="iterate" title="apply the whole current word once more">apply word again</button>
+        </div>
+        <div class="btns">
+          <label>test curve γ = (<input type="number" id="pin" value="1" step="1">,<input type="number" id="qin" value="2" step="1">)</label>
+        </div>
+        <div class="btns">
+          <label><input type="checkbox" id="tex" checked> image of a picture</label>
+          <label><input type="checkbox" id="fol" checked> invariant foliations</label>
+          <label>speed <input type="range" id="speed" min="0.3" max="3" step="0.1" value="1"></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Mapping class</h2>
+        <div class="stat" id="word"></div>
+        <div style="margin:0.45rem 0 0.35rem"><span class="matrix" id="mat"></span>
+          <span class="stat" id="trline" style="margin-left:0.8em"></span></div>
+        <div class="stat" id="curves"></div>
+      </div>
+
+      <div class="card">
+        <h2>Nielsen–Thurston type</h2>
+        <div class="verdict" id="verdict"></div>
+        <div class="stat" id="ntinfo"></div>
+      </div>
+
+      <div class="card">
+        <h2>Orbit of γ — slope and length</h2>
+        <div class="stat hist" id="hist"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>AutoViz · 2026-09-25 · generated by Claude (Fable 5)</footer>
+</div>
+
+<script>
+"use strict";
+// ---------- exact integer linear algebra (BigInt) ----------
+const B = (x) => BigInt(x);
+const babs = (x) => (x < 0n ? -x : x);
+function bgcd(a, b) { a = babs(a); b = babs(b); while (b) { [a, b] = [b, a % b]; } return a; }
+function mul(X, Y) {
+  return [X[0]*Y[0] + X[1]*Y[2], X[0]*Y[1] + X[1]*Y[3], X[2]*Y[0] + X[3]*Y[2], X[2]*Y[1] + X[3]*Y[3]];
+}
+function apply(M, v) { return [M[0]*v[0] + M[1]*v[1], M[2]*v[0] + M[3]*v[1]]; }
+const I2 = [1n, 0n, 0n, 1n];
+// Picard–Lefschetz: T_c(x) = x + <c,x> c with <(p,q),(r,s)> = ps - qr
+const GEN = {
+  a: { "1": [1n, 1n, 0n, 1n], "-1": [1n, -1n, 0n, 1n] },
+  b: { "1": [1n, 0n, -1n, 1n], "-1": [1n, 0n, 1n, 1n] },
+};
+function fracStr(num, den) {
+  if (den === 0n) return "∞";
+  if (den < 0n) { num = -num; den = -den; }
+  const g = bgcd(num, den) || 1n;
+  num /= g; den /= g;
+  return den === 1n ? String(num) : num + "/" + den;
+}
+function slopeOf(v) { return fracStr(v[1], v[0]); }
+function shortStr(x) { const s = String(x); return s.length > 14 ? s.slice(0, 5) + "…" + s.slice(-4) + " (" + s.length + "d)" : s; }
+
+// ---------- state ----------
+let M = I2.slice();
+let hist = [];          // letters in application order: {g, e}
+let queue = [];         // pending animated letters
+let anim = null;        // {g, e, t, u}
+let testV = [1n, 2n];
+let orbit = [];         // history of test-class images
+let speed = 1;
+
+// ---------- sanity checks (logged) ----------
+(function sanity() {
+  const A = GEN.a["1"], Bm = GEN.b["1"];
+  const aba = mul(mul(A, Bm), A), bab = mul(mul(Bm, A), Bm);
+  let ab6 = I2; for (let i = 0; i < 6; i++) ab6 = mul(ab6, mul(A, Bm));
+  const cat = mul(A, GEN.b["-1"]);
+  const t = Number(cat[0] + cat[3]);
+  const lam = (t + Math.sqrt(t*t - 4)) / 2, phi = (1 + Math.sqrt(5)) / 2;
+  console.log("[AutoViz] braid relation T_aT_bT_a = T_bT_aT_b:", aba.join() === bab.join(),
+              "| (T_aT_b)^6 = I:", ab6.join() === I2.join(),
+              "| cat map T_aT_b^-1 =", cat.join(), "λ =", lam, "= φ² ?", Math.abs(lam - phi*phi) < 1e-12);
+})();
+
+// ---------- canvas ----------
+const cv = document.getElementById("torus");
+const ctx = cv.getContext("2d");
+let S = 560, pad = 26, W = 560;
+function resize() {
+  const r = cv.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(300, Math.round(r.width));
+  cv.width = W * dpr; cv.height = W * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  pad = 38; S = W - 2 * pad;
+  draw();
+}
+const X = (x) => pad + S * x;
+const Y = (y) => pad + S * (1 - y);
+const fr = (x) => x - Math.floor(x);
+
+// twist-profile r on [0,1): 0 below the annulus, 1 above, smooth in between
+const A0 = 0.35, A1 = 0.65;
+function ramp(f) {
+  if (f <= A0) return 0; if (f >= A1) return 1;
+  const s = (f - A0) / (A1 - A0); return s * s * (3 - 2 * s);
+}
+// displacement profile of the animated step (lift of a torus map; seam at the square's edge)
+function prof(f) {
+  if (!anim) return 0;
+  return anim.u === 0 ? anim.t * ramp(f) : (1 - anim.u) * ramp(f) + anim.u * f;
+}
+// animated map F on torus points (applied after the committed linear map M)
+function Fwd(x, y) {
+  if (!anim) return [x, y];
+  if (anim.g === "a") return [fr(x + anim.e * prof(y)), y];
+  return [x, fr(y - anim.e * prof(x))];
+}
+function Inv(x, y) {
+  if (!anim) return [x, y];
+  if (anim.g === "a") return [fr(x - anim.e * prof(y)), y];
+  return [x, fr(y + anim.e * prof(x))];
+}
+
+// ---------- the picture being pushed forward ----------
+function torDist2(u, v, cu, cv_) {
+  let du = Math.abs(u - cu); du = Math.min(du, 1 - du);
+  let dv = Math.abs(v - cv_); dv = Math.min(dv, 1 - dv);
+  return du * du + dv * dv;
+}
+function pattern(u, v) {
+  let r = 22 + 26 * u, g = 26 + 22 * v, b = 44 + 12 * (1 - u);
+  if (((Math.floor(u * 6) + Math.floor(v * 6)) & 1) === 0) { r += 9; g += 9; b += 12; }
+  if (v > 0.74 && v < 0.8) { r = 150; g = 140; b = 120; }
+  const d1 = torDist2(u, v, 0.3, 0.3);
+  if (d1 < 0.15 * 0.15) { const k = 1 - Math.sqrt(d1) / 0.15; r = 60 + 50 * k; g = 170 + 60 * k; b = 160 + 55 * k; }
+  if (torDist2(u, v, 0.72, 0.3) < 0.07 * 0.07) { r = 235; g = 150; b = 90; }
+  if (torDist2(u, v, 0.6, 0.56) < 0.035 * 0.035) { r = 240; g = 220; b = 190; }
+  return [r, g, b];
+}
+const R = 240;
+const off = document.createElement("canvas"); off.width = R; off.height = R;
+const octx = off.getContext("2d");
+const img = octx.createImageData(R, R);
+function textureOK() { return M.every((x) => babs(x) < 1000000n); }
+function renderTexture() {
+  const m0 = Number(M[0]), m1 = Number(M[1]), m2 = Number(M[2]), m3 = Number(M[3]);
+  // inverse of M in SL2(Z): [[d,-b],[-c,a]]
+  const d = img.data;
+  let k = 0;
+  for (let j = 0; j < R; j++) {
+    const y = 1 - (j + 0.5) / R;
+    for (let i = 0; i < R; i++) {
+      const x = (i + 0.5) / R;
+      const q = Inv(x, y);
+      const u = fr(m3 * q[0] - m1 * q[1]), v = fr(-m2 * q[0] + m0 * q[1]);
+      const c = pattern(u, v);
+      d[k++] = c[0]; d[k++] = c[1]; d[k++] = c[2]; d[k++] = 255;
+    }
+  }
+  octx.putImageData(img, 0, 0);
+  ctx.save(); ctx.imageSmoothingEnabled = true;
+  ctx.globalAlpha = 0.55; ctx.drawImage(off, X(0), Y(1), S, S); ctx.restore();
+}
+
+// draw a straight curve base + s*dir (s in [0,1]) on the torus, then push through F
+function drawLine(bx, by, dx, dy, color, width, dash) {
+  const len = Math.abs(dx) + Math.abs(dy);
+  const N = Math.min(24000, Math.ceil(260 * len) + 60);
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []);
+  ctx.beginPath();
+  let px = null, py = null;
+  for (let i = 0; i <= N; i++) {
+    const s = i / N;
+    const p = Fwd(fr(bx + s * dx), fr(by + s * dy));
+    if (px === null || Math.abs(p[0] - px) > 0.3 || Math.abs(p[1] - py) > 0.3) ctx.moveTo(X(p[0]), Y(p[1]));
+    else ctx.lineTo(X(p[0]), Y(p[1]));
+    px = p[0]; py = p[1];
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+// image under M of the straight curve through c0 in direction v (integer class)
+function drawImage(c0, v, color, width) {
+  const w = apply(M, v.map(B));
+  const wx = Number(w[0]), wy = Number(w[1]);
+  if (Math.abs(wx) + Math.abs(wy) > 600) return false;
+  const bx = Number(M[0]) * c0[0] + Number(M[1]) * c0[1], by = Number(M[2]) * c0[0] + Number(M[3]) * c0[1];
+  drawLine(fr(bx), fr(by), wx, wy, color, width);
+  return true;
+}
+
+function ntInfo() {
+  const [a, b, c, d] = M, t = a + d;
+  if (t === 2n || t === -2n) {
+    const e = t / 2n;
+    if (a === e && d === e && b === 0n && c === 0n) return { type: "per", order: t === 2n ? 1 : 2 };
+    let v = [b, e - a]; if (v[0] === 0n && v[1] === 0n) v = [e - d, c];
+    const g = bgcd(v[0], v[1]); v = [v[0] / g, v[1] / g];
+    return { type: "red", v, e };
+  }
+  if (babs(t) < 2n) return { type: "per", order: t === 0n ? 4 : t === 1n ? 6 : 3 };
+  return { type: "ano", t };
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, W);
+  ctx.fillStyle = "#06080d"; ctx.fillRect(X(0), Y(1), S, S);
+  if (document.getElementById("tex").checked && textureOK()) renderTexture();
+
+  // annuli and cores
+  const act = anim ? anim.g : null;
+  ctx.fillStyle = act === "a" ? "rgba(255,139,155,0.13)" : "rgba(255,139,155,0.045)";
+  ctx.fillRect(X(0), Y(A1), S, S * (A1 - A0));
+  ctx.fillStyle = act === "b" ? "rgba(143,180,255,0.13)" : "rgba(143,180,255,0.045)";
+  ctx.fillRect(X(A0), Y(1), S * (A1 - A0), S);
+  drawLineRaw(0, 0.5, 1, 0.5, act === "a" ? "rgba(255,139,155,0.9)" : "rgba(255,139,155,0.35)");
+  drawLineRaw(0.5, 0, 0.5, 1, act === "b" ? "rgba(143,180,255,0.9)" : "rgba(143,180,255,0.35)");
+  ctx.font = "italic 15px Georgia"; ctx.fillStyle = "#ff8b9b"; ctx.fillText("a", X(0.015), Y(0.515));
+  ctx.fillStyle = "#8fb4ff"; ctx.fillText("b", X(0.51), Y(0.975));
+
+  // invariant foliations / curve (idle only)
+  const nt = ntInfo();
+  const folOn = document.getElementById("fol").checked && !anim;
+  if (folOn && nt.type === "ano") {
+    const [a, b, c, d] = M.map(Number), t = a + d, D = Math.sqrt(t * t - 4);
+    const mus = [(t + D) / 2, (t - D) / 2];
+    const cols = ["rgba(236,232,255,0.5)", "rgba(255,171,110,0.6)"];
+    mus.forEach((mu, k) => {
+      const ex = b, ey = mu - a, n = Math.hypot(ex, ey);
+      const L = 3.2;
+      for (let j = 0; j < 7; j++) drawLine(j / 7, 0.5 * j / 7, L * ex / n, L * ey / n, cols[Math.abs(mu) > 1 ? 0 : 1], 1, [5, 4]);
+    });
+  }
+  if (folOn && nt.type === "red") drawLine(0.02, 0.02, Number(nt.v[0]), Number(nt.v[1]), "rgba(255,171,110,0.85)", 4.5, [8, 5]);
+
+  // the three curves
+  const okA = drawImage([0, 0.14], [1, 0], "#ff8b9b", 2);
+  const okB = drawImage([0.14, 0], [0, 1], "#8fb4ff", 2);
+  const okG = drawImage([0.21, 0.07], testV.map(Number), "#6ee7d8", 3);
+
+  // gluing indicator during the cut-and-shear phase
+  if (anim && anim.u === 0) {
+    ctx.strokeStyle = anim.g === "a" ? "#ff8b9b" : "#8fb4ff"; ctx.lineWidth = 2;
+    for (let k = 0; k < 4; k++) {
+      const s0 = k / 4, s1 = fr(k / 4 + anim.e * anim.t * (anim.g === "a" ? 1 : -1));
+      ctx.beginPath();
+      if (anim.g === "a") { ctx.moveTo(X(s0), Y(0) + 3); ctx.lineTo(X(s0), Y(0) + 11); ctx.moveTo(X(s1), Y(1) - 3); ctx.lineTo(X(s1), Y(1) - 11); }
+      else { ctx.moveTo(X(0) - 3, Y(s0)); ctx.lineTo(X(0) - 11, Y(s0)); ctx.moveTo(X(1) + 3, Y(s1)); ctx.lineTo(X(1) + 11, Y(s1)); }
+      ctx.stroke();
+    }
+  }
+  ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1; ctx.strokeRect(X(0), Y(1), S, S);
+  const tl = document.getElementById("tagline");
+  tl.textContent = anim ? (anim.u === 0 ? "cut along the edge · twisting annulus of " + anim.g + "  t = " + anim.t.toFixed(2)
+                                        : "isotopy to the linear map  u = " + anim.u.toFixed(2))
+                        : (!(okA && okB && okG) ? "some image curves too long to draw" : "opposite edges identified");
+}
+function drawLineRaw(x0, y0, x1, y1, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.setLineDash([4, 5]);
+  ctx.beginPath(); ctx.moveTo(X(x0), Y(y0)); ctx.lineTo(X(x1), Y(y1)); ctx.stroke(); ctx.setLineDash([]);
+}
+
+// ---------- readouts ----------
+function letterHTML(h) {
+  return '<span class="' + h.g + '">T<sub>' + h.g + "</sub>" + (h.e < 0 ? "<sup>−1</sup>" : "") + "</span>";
+}
+function updateInfo() {
+  const w = hist.length ? hist.slice().reverse().map(letterHTML).join(" ") : "id";
+  document.getElementById("word").innerHTML = "φ = " + w + "   <span style='color:var(--muted)'>(length " + hist.length + "; rightmost acts first)</span>";
+  document.getElementById("mat").innerHTML = M.map((x) => "<span>" + shortStr(x) + "</span>").join("");
+  const t = M[0] + M[3];
+  document.getElementById("trline").innerHTML = "tr = <b>" + shortStr(t) + "</b><br>det = " + (M[0]*M[3] - M[1]*M[2]);
+  const ga = apply(M, [1n, 0n]), gb = apply(M, [0n, 1n]), gg = apply(M, testV);
+  document.getElementById("curves").innerHTML =
+    '<span class="a">φ(a)</span> = (' + shortStr(ga[0]) + ", " + shortStr(ga[1]) + ")  slope " + shortStr(slopeOf(ga)) + "<br>" +
+    '<span class="b">φ(b)</span> = (' + shortStr(gb[0]) + ", " + shortStr(gb[1]) + ")  slope " + shortStr(slopeOf(gb)) + "<br>" +
+    "<b>φ(γ)</b> = (" + shortStr(gg[0]) + ", " + shortStr(gg[1]) + ")  slope " + shortStr(slopeOf(gg)) + "<br>" +
+    "i(γ, φγ) = |det(γ, φγ)| = " + shortStr(babs(testV[0]*gg[1] - testV[1]*gg[0])) +
+    "  ·  i(φa, φb) = " + (ga[0]*gb[1] - ga[1]*gb[0]);
+  const nt = ntInfo(), V = document.getElementById("verdict"), info = document.getElementById("ntinfo");
+  if (nt.type === "per") {
+    V.className = "verdict per";
+    V.textContent = nt.order === 1 ? "identity" : nt.order === 2 ? "periodic — the hyperelliptic involution −I" : "periodic, order " + nt.order;
+    info.innerHTML = nt.order === 1 ? "tr = 2 and φ = I." :
+      nt.order === 2 ? "φ = −I reverses every curve, fixing all isotopy classes of unoriented curves." :
+      "|tr| &lt; 2, so the characteristic polynomial x² − (" + t + ")x + 1 has roots primitive " +
+      ({ 3: "cube", 4: "fourth", 6: "sixth" })[nt.order] + " roots of unity: φ<sup>" + nt.order + "</sup> = I (check: " + powIsId(nt.order) + "). φ is isotopic to an isometry of a flat torus " +
+      (nt.order === 4 ? "(the square one)." : "(the hexagonal one).");
+  } else if (nt.type === "red") {
+    V.className = "verdict red"; V.textContent = "reducible";
+    info.innerHTML = "|tr| = 2, φ ≠ ±I: the eigenvalue " + nt.e + " has the rational eigenvector (" + nt.v[0] + ", " + nt.v[1] +
+      "), so φ " + (nt.e > 0n ? "fixes" : "reverses") + " the curve of slope <span class='o'>" + slopeOf(nt.v) +
+      "</span> (dashed orange) and is a power of the twist about it" + (nt.e < 0n ? ", composed with −I" : "") + ".";
+  } else {
+    V.className = "verdict ano"; V.textContent = "Anosov (pseudo-Anosov)";
+    const tn = Number(nt.t), D = tn * tn - 4, lam = (Math.abs(tn) + Math.sqrt(D)) / 2;
+    const [a, b, c, d] = M;
+    const Dex = nt.t * nt.t - 4n;
+    const sg = nt.t > 0n ? "+" : "−";
+    info.innerHTML = "λ = (|tr| + √" + shortStr(Dex) + ")/2 = <b>" + lam.toPrecision(10) + "</b>  (entropy log λ = " + Math.log(lam).toFixed(6) + ")<br>" +
+      "unstable slope (d − a " + sg + " √" + shortStr(Dex) + ")/(2b) = " + ((Number(d - a) + (nt.t > 0n ? 1 : -1) * Math.sqrt(D)) / (2 * Number(b))).toPrecision(9) +
+      " — irrational, so no curve is fixed; the pale (unstable) and orange (stable) dashed leaves are stretched by λ and 1/λ.";
+  }
+  // orbit history
+  const hh = orbit.slice(-14).map((o) => {
+    const len = Math.hypot(Number(o.v[0]), Number(o.v[1]));
+    return o.label + ": (" + shortStr(o.v[0]) + ", " + shortStr(o.v[1]) + ")  slope " + shortStr(slopeOf(o.v)) + "  ℓ = " + len.toPrecision(6);
+  });
+  let growth = "";
+  if (nt.type === "ano" && orbit.length) {
+    const it = orbit.filter((o) => o.iter);
+    if (it.length >= 2) {
+      const l1 = Math.hypot(...it[it.length - 1].v.map(Number)), l0 = Math.hypot(...it[it.length - 2].v.map(Number));
+      growth = "<br><b>ℓ(φⁿγ)/ℓ(φⁿ⁻¹γ) = " + (l1 / l0).toPrecision(10) + "</b>  → λ";
+    }
+  }
+  document.getElementById("hist").innerHTML = hh.join("<br>") + growth;
+  const el = document.getElementById("hist"); el.scrollTop = el.scrollHeight;
+}
+function powIsId(n) { let P = I2; for (let i = 0; i < n; i++) P = mul(P, M); return P.join() === I2.join() ? "✓" : "✗"; }
+
+// ---------- animation ----------
+let unit = null;        // the word that "apply word again" repeats
+function enqueue(g, e, iterEnd) { if (hist.length + queue.length < 80) queue.push({ g, e, iterEnd }); }
+function commit(step) {
+  M = mul(GEN[step.g][String(step.e)], M);
+  hist.push({ g: step.g, e: step.e });
+  const v = apply(M, testV);
+  orbit.push({ v, label: "after T_" + step.g + (step.e > 0 ? "" : "⁻¹"), iter: !!step.iterEnd });
+  if (step.iterEnd) orbit[orbit.length - 1].label = "φ-iterate";
+  updateInfo();
+}
+let last = performance.now();
+function step(dt) {
+  if (!anim && queue.length) { const q = queue.shift(); anim = { g: q.g, e: q.e, t: 0, u: 0, iterEnd: q.iterEnd }; }
+  if (!anim) return false;
+  const k = dt * speed;
+  if (anim.t < 1) anim.t = Math.min(1, anim.t + k / 0.9);
+  else anim.u = Math.min(1, anim.u + k / 0.7);
+  if (anim.u >= 1) { const a = anim; anim = null; commit(a); }
+  draw();
+  return true;
+}
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  step(dt);
+  requestAnimationFrame(loop);
+}
+window.__autoviz = { step, state: () => ({ M: M.map(String), hist: hist.length, anim, queue: queue.length }) };
+
+// ---------- controls ----------
+document.querySelectorAll("button.tw").forEach((bt) =>
+  bt.addEventListener("click", () => { unit = null; enqueue(bt.dataset.g, +bt.dataset.e); }));
+function undo() {
+  if (anim || queue.length || !hist.length) return;
+  unit = null;
+  const h = hist.pop();
+  M = mul(GEN[h.g][String(-h.e)], M);
+  orbit.pop();
+  updateInfo(); draw();
+}
+function reset() {
+  queue = []; anim = null; M = I2.slice(); hist = []; unit = null;
+  orbit = [{ v: testV.slice(), label: "γ", iter: true }];
+  updateInfo(); draw();
+}
+document.getElementById("undo").addEventListener("click", undo);
+document.getElementById("reset").addEventListener("click", reset);
+document.getElementById("preset").addEventListener("change", (ev) => {
+  const s = ev.target.value; ev.target.value = "";
+  if (!s) return;
+  reset();
+  // string is in application order; '-' marks the next letter as inverse
+  let neg = false; const letters = [];
+  for (const ch of s) { if (ch === "-") { neg = true; continue; } letters.push({ g: ch, e: neg ? -1 : 1 }); neg = false; }
+  unit = letters;
+  letters.forEach((l, i) => enqueue(l.g, l.e, i === letters.length - 1));
+});
+document.getElementById("iterate").addEventListener("click", () => {
+  if (!hist.length || anim || queue.length) return;
+  if (!unit) unit = hist.slice();
+  const w = unit;
+  w.forEach((l, i) => enqueue(l.g, l.e, i === w.length - 1));
+});
+function readTest() {
+  let p = B(Math.trunc(+document.getElementById("pin").value || 0)), q = B(Math.trunc(+document.getElementById("qin").value || 0));
+  if (p === 0n && q === 0n) p = 1n;
+  const g = bgcd(p, q); p /= g; q /= g;       // essential simple closed curves are primitive classes
+  document.getElementById("pin").value = String(p); document.getElementById("qin").value = String(q);
+  testV = [p, q];
+  orbit = [{ v: testV.slice(), label: "γ", iter: true }];
+  orbit.push({ v: apply(M, testV), label: "φ(γ)", iter: true });
+  updateInfo(); draw();
+}
+["pin", "qin"].forEach((id) => document.getElementById(id).addEventListener("change", readTest));
+["tex", "fol"].forEach((id) => document.getElementById(id).addEventListener("change", draw));
+document.getElementById("speed").addEventListener("input", (e) => { speed = +e.target.value; });
+window.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if ("aAbB".includes(e.key) && e.key.length === 1) unit = null;
+  if (e.key === "a") enqueue("a", 1); else if (e.key === "A") enqueue("a", -1);
+  else if (e.key === "b") enqueue("b", 1); else if (e.key === "B") enqueue("b", -1);
+  else if (e.key === "Backspace") { e.preventDefault(); undo(); }
+});
+window.addEventListener("resize", resize);
+
+orbit = [{ v: testV.slice(), label: "γ", iter: true }];
+resize(); updateInfo();
+// open on the cat map so the page moves on arrival
+unit = [{ g: "b", e: -1 }, { g: "a", e: 1 }];
+["-b", "a"].forEach((s, i) => enqueue(s.slice(-1), s[0] === "-" ? -1 : 1, i === 1));
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

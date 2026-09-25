@@ -17,19 +17,7 @@ Entry format: title, area, the phenomenon and the honest theorem behind it, the 
 interaction, and the connection to existing site content.
 
 ## Queue
-1. **Dehn Twists and the Mapping Class Group of the Torus** — low-dimensional topology · linear groups over ℤ.
-   Mod(T²) ≅ SL₂(ℤ), with the twists about the meridian and longitude going to the
-   elementary matrices [[1,1],[0,1]] and [[1,0],[1,1]]; an essential simple closed curve is
-   determined by its slope *p*/*q* ∈ ℚ ∪ {∞}, and Nielsen–Thurston type is read off the
-   trace: |tr| < 2 periodic, |tr| = 2 reducible, |tr| > 2 Anosov with expansion factor
-   (|tr| + √(tr²−4))/2.
-   *Interaction:* click twist buttons to build a word, watch the curve on the flat torus deform
-   under each twist while its slope updates as an exact fraction; a trace readout gives the
-   live Nielsen–Thurston verdict and, for Anosov maps, draws the stable/unstable foliations.
-   *Site tie:* the modular-surface and cutting-sequence material, and the linear-groups-over-ℤ
-   thread — this is the topological face of SL₂(ℤ).
-
-2. **Hyperbolic Dehn Surgery on the Figure-Eight Knot** — 3-manifolds · Kleinian groups.
+1. **Hyperbolic Dehn Surgery on the Figure-Eight Knot** — 3-manifolds · Kleinian groups.
    Thurston's hyperbolic Dehn surgery theorem: all but finitely many fillings of the
    figure-eight knot complement are hyperbolic, and the gluing/completeness equations of its
    two ideal tetrahedra deform in a one-complex-dimensional family, the shape z of a
@@ -40,7 +28,7 @@ interaction, and the connection to existing site content.
    half-plane, the volume 2Λ(π/3)-decreasing readout, and a flag when a shape degenerates.
    *Site tie:* the Kleinian-groups section, GPS manifolds, and the knot-theory pages.
 
-3. **Growth Series of Coxeter Groups and Salem Numbers** — Coxeter groups · exact arithmetic.
+2. **Growth Series of Coxeter Groups and Salem Numbers** — Coxeter groups · exact arithmetic.
    Steinberg's formula computes the growth series W(t) = Σ t^{ℓ(w)} of a Coxeter group as a
    rational function assembled from the finite parabolic subgroups, 1/W(1/t) = Σ_{W_S finite}
    (−1)^{|S|}/W_S(t); it is a rational function with integer coefficients, and for a cocompact
@@ -53,7 +41,7 @@ interaction, and the connection to existing site content.
    *Site tie:* the triangle-group kaleidoscopes page and the space-groups tool — this is the
    arithmetic invariant hiding inside those tilings.
 
-4. **Thompson's Group F: Tree Pairs and Dyadic Rearrangements** — geometric group theory.
+3. **Thompson's Group F: Tree Pairs and Dyadic Rearrangements** — geometric group theory.
    F is the group of piecewise-linear homeomorphisms of [0,1] with dyadic breakpoints and
    slopes powers of 2; it is presented by ⟨x₀, x₁, … | x_k^{-1} x_n x_k = x_{n+1}, k < n⟩, is
    torsion-free of infinite geometric dimension, and every element is a reduced tree pair
@@ -65,7 +53,7 @@ interaction, and the connection to existing site content.
    *Site tie:* the Cayley-graph and amenability threads — F is the standing open question
    those tools circle around.
 
-5. **Lorenz Knots from the Geometric Model** — dynamics · knot theory.
+4. **Lorenz Knots from the Geometric Model** — dynamics · knot theory.
    Birman–Williams: periodic orbits of the Lorenz flow, collapsed along the stable foliation
    onto the branched-surface template, are exactly the closures of *Lorenz braids* — positive
    braids whose underlying permutation moves an initial block of strands rightwards past the
@@ -78,7 +66,7 @@ interaction, and the connection to existing site content.
    *Site tie:* the knot-theory pages (mosaics, energies) and the dynamics thread — a bridge
    between the two that no existing tool covers.
 
-6. **Bianchi Groups: Cusps and Class Numbers** — arithmetic Kleinian groups · algebraic number theory.
+5. **Bianchi Groups: Cusps and Class Numbers** — arithmetic Kleinian groups · algebraic number theory.
    PSL₂(O_d) acts on hyperbolic 3-space with finite covolume, and its cusps are in bijection
    with the ideal class group of O_d = the ring of integers of ℚ(√−d) — so PSL₂(ℤ[i]) has one
    cusp while PSL₂(O₅) has h(−20) = 2. The isometric spheres |cz + d| = 1 over the lattice O_d
@@ -90,7 +78,7 @@ interaction, and the connection to existing site content.
    *Site tie:* the Kleinian section, GPS manifolds, and the quaternion-algebra pages — this is
    the arithmetic lattice those tools take for granted.
 
-7. **The Coxeter Plane and the Coxeter Number** — Coxeter groups · root systems.
+6. **The Coxeter Plane and the Coxeter Number** — Coxeter groups · root systems.
    Every finite Coxeter group W has a Coxeter element c (a product of all simple reflections)
    of order the Coxeter number h, and it acts on a distinguished 2-plane — the Coxeter plane —
    as rotation by exactly 2π/h; projecting the root system onto that plane gives the familiar
@@ -101,7 +89,7 @@ interaction, and the connection to existing site content.
    show every Coxeter element is conjugate, and a readout checks h, the exponents, and |Φ⁺| = Σmᵢ.
    *Site tie:* the triangle-group kaleidoscopes and space-groups tool — the linear-algebraic
    skeleton behind those reflection tilings.
-8. **Jørgensen's Inequality and the Shape of Discreteness** — Kleinian groups · discreteness.
+7. **Jørgensen's Inequality and the Shape of Discreteness** — Kleinian groups · discreteness.
    If ⟨A, B⟩ ⊂ SL₂(ℂ) is discrete and non-elementary then |tr²A − 4| + |tr[A,B] − 2| ≥ 1, with
    equality attained e.g. by the modular group and the figure-eight knot group; for A
    parabolic this is Shimizu–Leutbecher's bound |c| ≥ 1 on the lower-left entry of B.
@@ -110,7 +98,7 @@ interaction, and the connection to existing site content.
    point crosses into the forbidden region; presets land on the extremal groups.
    *Site tie:* the discreteness-certificate and Riley-slice tools — this is the universal
    necessary condition those tools test against.
-9. **Hecke Groups and Discreteness at λ = 2cos(π/q)** — Fuchsian groups · number theory.
+8. **Hecke Groups and Discreteness at λ = 2cos(π/q)** — Fuchsian groups · number theory.
    Hecke's theorem: the group generated by z ↦ −1/z and z ↦ z + λ (λ > 0) is discrete if and only
    if λ ≥ 2 or λ = 2cos(π/q) for an integer q ≥ 3; at those values it is the (2, q, ∞) triangle
    group, and its cusp set is the field of λ-continued fractions (Rosen), all of ℚ(λ) ∪ {∞} exactly
@@ -120,3 +108,15 @@ interaction, and the connection to existing site content.
    runs the Rosen continued-fraction algorithm on a chosen point with exact arithmetic in ℤ[λ].
    *Site tie:* the Fuchsian discreteness calculator and cutting-sequence pages — the one-parameter
    family where discreteness is decided by a single trigonometric number.
+9. **Measured Laminations on the Punctured Torus and Thurston's Circle at Infinity** — Teichmüller theory · piecewise-linear dynamics.
+   Measured laminations on the once-punctured torus are parametrised by ML ≅ (ℝ² ∖ 0)/±1 (Dehn–Thurston
+   / train-track coordinates), with the simple closed curves as the primitive integer points and
+   PML = S¹ compactifying Teichmüller space ℍ; Mod = SL₂(ℤ) acts *linearly* on these coordinates
+   (the punctured torus is special), so projective classes of Anosov invariant laminations are
+   quadratic irrationals, and intersection number i(λ, μ) = |det| extends continuously to ML.
+   *Interaction:* drag a point in the ML plane and see the lamination drawn as a fat train track
+   of weighted parallel strands on the punctured torus (integer points = curves, irrational rays =
+   minimal laminations filling densely); apply twists to watch the point move and a Farey-disc
+   inset show the same class on ∂ℍ, with a slider sampling rational approximants p/q → the ray.
+   *Site tie:* the natural continuation of the 2026-09-25 Dehn-twist page and the Farey / Riley-slice
+   pictures — the boundary that the Riley slice's cusp rays are indexed by.
