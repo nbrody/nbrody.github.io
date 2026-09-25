@@ -7,14 +7,13 @@
 
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const BASE = (process.env.GRAPHICS_TEST_URL || 'http://localhost:8124/docs/graphics/').replace(/\/?$/, '/');
 const GL = process.env.CHROME_GL || (process.platform === 'darwin' ? 'metal' : 'swiftshader');
-const PORT = 9800 + Math.floor(Math.random() * 400);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Installed before any page script: a fake MIDI keyboard the test can play.
@@ -30,14 +29,19 @@ const MOCK_MIDI = `(() => {
 
 const profile = mkdtempSync(join(tmpdir(), 'lightDesigner-midi-'));
 const chrome = spawn(CHROME, [
-  '--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`, '--window-size=1100,760',
+  '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--window-size=1100,760',
   '--no-first-run', '--mute-audio', '--autoplay-policy=no-user-gesture-required', `--use-angle=${GL}`,
   ...(GL === 'swiftshader' ? ['--enable-unsafe-swiftshader'] : ['--ignore-gpu-blocklist']), 'about:blank',
 ], { stdio: 'ignore' });
 
 let ws;
-for (let i = 0; i < 60 && !ws; i++) {
-  try { ws = (await (await fetch(`http://127.0.0.1:${PORT}/json`)).json()).find((t) => t.type === 'page')?.webSocketDebuggerUrl; } catch { /* starting */ }
+// Chrome picks a free port itself (--remote-debugging-port=0) and writes it to its own
+// profile, so this only ever talks to the Chrome it launched — never another one on the machine.
+for (let i = 0; i < 75 && !ws; i++) {
+  try {
+    const port = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0].trim();
+    ws = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((t) => t.type === 'page')?.webSocketDebuggerUrl;
+  } catch { /* starting */ }
   if (!ws) await sleep(200);
 }
 assert(ws, 'Chrome DevTools endpoint did not come up');
@@ -126,12 +130,16 @@ try {
   pass('pitch bend rotates the note colour');
 
   // channel 10 drum map: a crash lights the whole rig
+  // a crash decays in ~0.3 s, so record its peak in the page rather than polling for it
+  await js("window.__lit = 0; window.__litT = performance.now(); (function watch() { __lit = Math.max(__lit, ck5.engine.render.filter((r) => r.I > 0.3).length); if (performance.now() - __litT < 1200) requestAnimationFrame(watch); })()");
   await midi(0x99, 49, 127);
-  await waitFor('ck5.engine.render.filter(r => r.I > 0.3).length >= 70', 'the crash to light the rig');
-  const lit = await js('ck5.engine.render.filter(r => r.I > 0.3).length');
+  await waitFor('__lit >= 70 || performance.now() - __litT > 1200', 'the crash to light the rig');
+  const lit = await js('__lit');
   assert(lit >= 70, `crash lights the rig (${lit}/72)`);
+  await js("window.__kick = 0; window.__kickT = performance.now(); (function watch() { __kick = Math.max(__kick, Math.min(ck5.engine.render[60].I, ck5.engine.render[71].I)); if (performance.now() - __kickT < 1200) requestAnimationFrame(watch); })()");
   await midi(0x99, 36, 127); // kick → floor units
-  await waitFor(`${I(60)} > 0.5 && ${I(71)} > 0.5`, 'the kick to fire the floor');
+  await waitFor('__kick > 0.5 || performance.now() - __kickT > 1200', 'the kick to fire the floor');
+  assert(await js('__kick') > 0.5, 'the kick fires the floor');
   pass(`drum map: crash lit ${lit}/72, kick fires the floor`);
 
   // channel filter
@@ -203,21 +211,23 @@ try {
   await waitFor('ck5.engine.render.some(r => r.I > 0.2)', 'the show to come back');
   pass('play mode off restores the show');
 
-  // notes follow the heads onto any rig
-  for (const id of ['circles', 'sphere', 'wall2016']) {
-    await set('rigSelect', id);
-    assert.equal(await js('ck5.rig.canvas.dataset.rig'), id);
-    await set('midiMode', true);
-    await set('midiBase', '0');
-    await set('midiMapping', 'octaves');
-    await midi(0x90, 60, 127);
-    await waitFor(`${I(30)} > 0.5`, `C4 to fire on the ${id} rig`);
-    await midi(0x80, 60, 0);
-  }
-  pass('switching rigs (circles, sphere, video wall) keeps notes on the same heads');
+  // stick formations: flips stand sticks up, and they travel there rather than jump
+  await set('midiMode', false);
+  await js("ck5.launchScene('portal', { instant: true })");
+  await waitFor("ck5.engine.show.name === 'Portal Tunnel'", 'the portal scene');
+  await sleep(200);
+  const legs = await js("(() => { const o = {}; ck5.engine.rig.pose(0, 0, ck5.engine.pods[0], 0, o); const l = o.m[0]; ck5.engine.rig.pose(0, 2, ck5.engine.pods[0], 0, o); return { outer: l, middle: o.m[0], f: ck5.engine.pods[0].f } })()");
+  assert(Math.abs(legs.outer) < 0.05 && legs.middle > 0.95, `portal: outer sticks vertical, middle ones level (${JSON.stringify(legs)})`);
+  await js("window.__f = []; ck5.launchScene('curtain', { fade: 2 }); (function watch() { __f.push(ck5.engine.pods[0].f[0]); if (__f.length < 400 && ck5.engine.pods[0].f[0] > 0.001) requestAnimationFrame(watch); })()");
+  await waitFor('ck5.engine.pods[0].f[0] < 0.01', 'the legs to swing back down', 8000);
+  assert(await js('__f.filter((v) => v > 0.1 && v < 0.9).length >= 5'), 'the flip travels through in-between angles');
+  pass('stick formations: portal legs stand vertical, and flips travel smoothly back');
 
   // lasers: optional, every look produces sane beams, and notes fire them in MIDI play mode
   await set('laserOn', true);
+  await js("window.__lp = []; (function watch() { __lp.push(ck5.lasers.presence); if (ck5.lasers.presence < 1) requestAnimationFrame(watch); })()");
+  await waitFor('ck5.lasers.presence === 1', 'the laser projectors to rise');
+  assert(await js('__lp.some((v) => v > 0.1 && v < 0.9)'), 'the projectors rise rather than pop in');
   for (const look of ['fan', 'sweep', 'sky', 'tunnel', 'burst', 'chase', 'cross', 'auto']) {
     await set('laserPattern', look);
     await sleep(120);
@@ -248,7 +258,9 @@ try {
     assert(await js('ck5.rig.canvas.dataset.frames > 0'), `kit ${kit} renders`);
   }
   assert(await js('ck5.devices.o.tubes && ck5.devices.o.balls === 3 && ck5.devices.o.liquid && ck5.devices.o.co2'), 'the "everything" kit turns every device on');
-  assert(await js('ck5.devices.rays.mesh.geometry.instanceCount > 50'), 'mirror balls throw rays');
+  await waitFor('!ck5.sceneMoving() || ck5.devices.ballDefs.every((b) => b.pres === 1)', 'the devices to arrive');
+  await waitFor('ck5.devices.rays.mesh.geometry.instanceCount > 50', 'mirror balls to throw rays');
+  await waitFor('ck5.devices.pres.blinders === 1 && ck5.devices.pres.co2 === 1', 'blinders and CO₂ to rise');
   assert(await js('(() => { const d = ck5.devices.tubeData; for (let i = 0; i < d.length; i++) if (!Number.isFinite(d[i])) return false; return true; })()'), 'tube pixels are finite');
   await set('midiMode', true);
   await midi(0x99, 49, 127);
@@ -259,37 +271,99 @@ try {
   await waitFor('!ck5.devices.tubeMesh.visible && !ck5.devices.liquid.visible && ck5.devices.rays.mesh.geometry.instanceCount === 0', 'devices to switch off');
   pass('extras: kits load, a MIDI crash fires blinders/strobes/CO₂, and everything switches off');
 
-  // scenes: morph vs cut, keys, pads, auto-trigger
+  // scenes: every launch moves; devices a scene adds or drops travel in and out
   await set('midiMode', false);
   await js("ck5.launchScene('curtain', { instant: true })");
-  await waitFor("ck5.engine.show.name === 'Teal Curtain' && ck5.engine.rig.id === 'sticks'", 'the curtain scene');
-  assert.equal(await js("ck5.needsCut('magentaX')"), false, 'same rig and devices: a morph');
-  assert.equal(await js("ck5.needsCut('dome')"), true, 'another rig: a cut');
-  assert.equal(await js("ck5.needsCut('smiles')"), true, 'adding LED tubes: a cut');
-  await js("window.__minDip = 1; document.querySelector('#sceneGrid [data-id=magentaX]').click(); (function watch() { __minDip = Math.min(__minDip, ck5.engine.m.dip ?? 1); if (ck5.engine.snapT > 0) requestAnimationFrame(watch); })()");
-  await waitFor("ck5.engine.show.name === 'Magenta X' && ck5.engine.snapT === 0", 'the morph to finish');
-  assert.equal(await js('__minDip'), 1, 'a morph never dips to black');
-  await js("window.__minDip = 1; document.querySelector('#sceneGrid [data-id=dome]').click(); (function watch() { __minDip = Math.min(__minDip, ck5.engine.m.dip ?? 1); if (ck5.engine.rig.id !== 'circles' || ck5.engine.m.dip < 1) requestAnimationFrame(watch); })()");
-  await waitFor("ck5.engine.rig.id === 'circles' && ck5.engine.m.dip === 1", 'the cut to the circles rig');
-  assert(await js('__minDip') < 0.05, 'a cut dips to black');
-  assert(await js('Math.max(...ck5.engine.pods.map((p, i) => Math.abs(p.h - ck5.engine.kinPre[i].h))) < 0.05'), 'after a cut the pods land on their marks');
+  await waitFor("ck5.engine.show.name === 'Teal Curtain' && !ck5.devices.o.tubes", 'the curtain scene');
+  // adding truss bars: they grow out of the sticks
+  await js(`window.__t = { pres: [], len: [] }; document.querySelector('#sceneGrid [data-id=smiles]').click();
+    (function watch() { const d = ck5.devices, a = d.tA.array, b = d.tB.array; __t.pres.push(d.pres.tubes);
+      if (d.tubeMesh.geometry.instanceCount) __t.len.push(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]));
+      if (d.pres.tubes < 1) requestAnimationFrame(watch); })()`);
+  assert.equal(await js('ck5.sceneMoving()'), true, 'a launch starts a move');
+  await waitFor('ck5.devices.pres.tubes === 1', 'the truss bars to arrive');
+  const grow = await js('({ mid: __t.pres.filter((v) => v > 0.1 && v < 0.9).length, short: Math.min(...__t.len), full: Math.max(...__t.len) })');
+  assert(grow.mid >= 5 && grow.short < 0.5 && grow.full > 1.4, `truss bars grow out of the sticks (${JSON.stringify(grow)})`);
+  // truss bars → a tube wall: the bars go first, then the wall rises out of the deck
+  await js(`window.__w = { minPres: 1, belowDeck: false, switchedAt: -1 }; document.querySelector('#sceneGrid [data-id=laserSky]').click();
+    (function watch() { const d = ck5.devices; __w.minPres = Math.min(__w.minPres, d.pres.tubes);
+      if (d.tubeShown === 'curtain') { if (__w.switchedAt < 0) __w.switchedAt = __w.minPres; if (d.tA.array[1] < 1.2) __w.belowDeck = true; }
+      if (!(d.tubeShown === 'curtain' && d.pres.tubes === 1)) requestAnimationFrame(watch); })()`);
+  await waitFor("ck5.devices.tubeShown === 'curtain' && ck5.devices.pres.tubes === 1", 'the tube wall to rise', 10000);
+  const wall = await js('__w');
+  assert(wall.switchedAt === 0 && wall.belowDeck, `the bars leave before the wall rises from inside the deck (${JSON.stringify(wall)})`);
+  assert(await js('Math.abs(ck5.devices.tA.array[1] - (1.2 + 0.15)) < 0.01'), 'the wall ends standing on the deck');
+  // mirror ball flies in from the grid
+  await js("window.__by = []; ck5.launchScene('starfield'); (function watch() { const g = ck5.devices.ballGroups[0]; if (g.visible) __by.push(g.position.y); if (ck5.devices.ballDefs[0].pres < 1) requestAnimationFrame(watch); })()");
+  await waitFor('ck5.devices.ballDefs[0].pres === 1', 'the ball to fly in', 8000);
+  assert(await js('__by.length > 5 && __by[0] > 18 && Math.abs(__by[__by.length - 1] - 11.2) < 0.05'), 'the ball descends from the grid to its trim');
+  await waitFor('!ck5.sceneMoving()', 'the move to finish', 8000);
+  // keys, pads, auto-trigger
   await js("document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true }))");
   await waitFor("ck5.engine.show.name === 'Teal Curtain'", 'key 2 to launch scene 2');
   await midi(0x9f, 36, 100); // channel 16, C2 → scene 1
   await waitFor("ck5.engine.show.name === 'Blue Hush'", 'a channel-16 pad to launch scene 1');
-  await js("ck5.launchScene('curtain', { instant: true }); ck5.engine.bpm = 480");
+  await js('ck5.engine.bpm = 480');
   await set('sceneEvery', '4');
-  await set('sceneAuto', 'smooth');
-  // from the curtain the only smooth neighbour is Magenta X, so smooth auto-play alternates the two
-  await js("window.__cuts = 0; window.__launches = 0; window.__last = ck5.engine.show.name; (function watch() { if ((ck5.engine.m.dip ?? 1) < 1) __cuts++; if (ck5.engine.show.name !== __last) { __launches++; __last = ck5.engine.show.name; } if (__launches < 3) requestAnimationFrame(watch); })()");
+  await set('sceneAuto', 'random');
+  // scenes set their own tempo when they launch, so hold the test tempo high every frame
+  await js("window.__launches = 0; window.__last = ck5.engine.show.name; (function watch() { ck5.engine.bpm = 480; if (ck5.engine.show.name !== __last) { __launches++; __last = ck5.engine.show.name; } if (__launches < 3) requestAnimationFrame(watch); })()");
   await waitFor('__launches >= 3', 'auto-trigger to launch three scenes', 20000);
-  assert.equal(await js('__cuts'), 0, 'smooth auto-trigger never cuts');
   await set('sceneAuto', 'off');
   await js('ck5.engine.bpm = 120');
-  pass('scenes: morph without a dip, cut with one (pods on their marks), keys, channel-16 pads, smooth auto-trigger');
+  assert.equal(await js("document.getElementById('rigSelect')"), null, 'there is one rig: no rig selector');
+  pass('scenes: launches move, truss bars grow in, the tube wall rises from the deck after they leave, the ball flies in, keys/pads/auto-trigger');
+
+  // venues, house lights, fairy lights
+  assert.equal(await js('ck5.venue.id'), 'void', 'the default venue is the empty one');
+  // (the slow camera drift orbits the view, so check the preset and the eye height)
+  const cam = await js("(async () => { const { CAMERAS } = await import('./rig.js'); return [ck5.rig.camId, ...CAMERAS.audience.pos, +ck5.rig.camera.position.y.toFixed(2)]; })()");
+  assert(cam[0] === 'audience' && cam[1] === 0 && cam[2] === 1.7 && Math.abs(cam[3] - 7.8) < 0.01 && cam[4] === 1.7, `default camera at eye height, 15 ft back (${cam})`);
+  await js("ck5.launchScene('columns', { instant: true })");
+  await set('venueSelect', 'club');
+  await waitFor("ck5.rig.canvas.dataset.venue === 'club'", 'the club');
+  await sleep(300);
+  assert(await js('ck5.engine.render.filter((R) => R.hit && R.y + R.dy * R.len > 15.3).length >= 20'), 'in the club, beams stop on the ceiling');
+  await set('venueSelect', 'theater');
+  await set('curtainClosed', true);
+  await waitFor('ck5.engine.curtain && ck5.engine.curtain.cover > 0.99', 'the house curtain to close', 8000);
+  await js("ck5.launchScene('goldSweep', { instant: true })");
+  await sleep(300);
+  assert(await js('ck5.engine.render.filter((R) => R.hit && Math.abs(R.z + R.dz * R.len - 3.7) < 0.05).length >= 10'), 'a closed curtain catches the beams');
+  await set('curtainClosed', false);
+  await set('venueSelect', 'stadium');
+  await waitFor("ck5.rig.canvas.dataset.venue === 'stadium' && ck5.engine.venueBox === null", 'the stadium');
+  // house lights: fade up, fill the room, then Showtime takes them out slowly
+  await js("document.getElementById('houseUp').click()");
+  await waitFor('ck5.ambience.house.level === 1', 'the house lights to come up', 8000);
+  assert(await js('ck5.ambience.housePts.g.drawRange.count >= 90 && ck5.rig.shared.uFill.value.r > 0.05'), 'the floodlights are lit and fill the bowl');
+  await js("document.getElementById('houseOut').click()");
+  await sleep(1500);
+  const mid = await js('ck5.ambience.house.level');
+  assert(mid > 0.6 && mid < 0.95, `Showtime fades the house out slowly (${mid.toFixed(2)} after 1.5 s)`);
+  await waitFor('ck5.ambience.house.level === 0', 'the house to go dark', 12000);
+  // fairy lights: switch on running along the strings, sway, and ride the truss
+  await set('fairyOn', true);
+  await waitFor('ck5.ambience.fairy.pres === 1', 'the fairy lights to switch on', 6000);
+  const bulbs = await js('(() => { const P = ck5.ambience.fairyPts, n = P.g.drawRange.count; for (let i = 0; i < n * 3; i++) if (!Number.isFinite(P.pos[i]) || !Number.isFinite(P.col[i])) return -1; return n; })()');
+  assert(bulbs > 300, `fairy lights hang hundreds of finite bulbs (${bulbs})`);
+  await set('fairyLayout', 'rig');
+  await set('kinOverride', true);
+  await set('kinShape', 'breathe');
+  await set('kinAmp', 2);
+  await set('kinPeriod', 4);
+  const y0 = await js('ck5.ambience.fairyPts.pos[1]');
+  await sleep(1500);
+  const y1 = await js('ck5.ambience.fairyPts.pos[1]');
+  assert(Math.abs(y1 - y0) > 0.2, `swags on the truss ride the sticks (${y0.toFixed(2)} → ${y1.toFixed(2)})`);
+  await set('kinOverride', false);
+  await set('fairyOn', false);
+  await set('venueSelect', 'void');
+  await waitFor('ck5.ambience.fairy.pres === 0', 'the fairy lights to switch off', 6000);
+  pass('venues: empty by default with the audience camera, club ceiling and theater curtain stop beams, stadium floodlights, Showtime fade, fairy lights on the truss');
 
   assert.deepEqual(errors, [], `page errors:\n${errors.join('\n')}`);
-  console.log(`PASS: CK5 MIDI (${passed.length} checks). Screenshot: ${join(tmpdir(), 'ck5-midi-groove.png')}`);
+  console.log(`PASS: light designer (${passed.length} checks). Screenshot: ${join(tmpdir(), 'ck5-midi-groove.png')}`);
 } catch (err) {
   console.error(`FAIL: ${err.message}`);
   if (errors.length) console.error(errors.join('\n'));

@@ -10,7 +10,7 @@
 // look may be a function of the section context `c = { p, t, T, beat }`.
 
 import {
-  buildFixtures, buildGroups, layoutFixtures, rigById, fixtureFrame, beamDir, aimAt, hash,
+  buildFixtures, buildGroups, RIG, fixtureFrame, beamDir, aimAt, landing, hash,
   POD_COUNT, CYC_Z, DECK_Y, DECK_FRONT, DECK_BACK, DECK_HALF,
 } from './layout.js';
 
@@ -114,16 +114,31 @@ const val = (v, c) => (typeof v === 'function' ? v(c) : v);
 
 export const KIN_SHAPES = ['flat', 'rake', 'arch', 'vee', 'wave', 'twist', 'breathe', 'tilt', 'chaos'];
 
+/** How a row's flip amount spreads over its five sticks (±1 = a quarter turn). */
+export const FLIP_MODES = {
+  all: 'All sticks (columns)',
+  alt: 'Alternate (zigzags, diamonds)',
+  lattice: 'Alternate, rows opposed (lattice)',
+  outer: 'Outer legs (portal frames)',
+  inner: 'Inner three',
+  fan: 'Fan out from centre',
+};
+const FLIP_PATTERN = {
+  all: [1, 1, 1, 1, 1], alt: [1, -1, 1, -1, 1], lattice: [1, -1, 1, -1, 1],
+  outer: [1, 0, 0, 0, -1], inner: [0, 1, 1, 1, 0], fan: [-1, -0.5, 0, 0.5, 1],
+};
+const STICKS = 5;
+
 export class Engine {
   constructor() {
-    this.rig = rigById('pods');
+    this.rig = RIG;
     this.fixtures = buildFixtures(this.rig);
     this.groups = buildGroups(this.fixtures);
     const N = (this.N = this.fixtures.length);
     const mk = () => Array.from({ length: N }, newState);
     this.A = mk(); this.B = mk(); this.pre = mk(); this.snap = mk(); this.out = mk(); this.cur = mk();
     this.fixtures.forEach((f, i) => { this.cur[i].tilt = f.hang ? 20 : 0; });
-    const mkPods = () => Array.from({ length: POD_COUNT }, () => ({ h: 9.5, r: 0 }));
+    const mkPods = () => Array.from({ length: POD_COUNT }, () => ({ h: 9.5, r: 0, f: new Array(STICKS).fill(0) }));
     this.kinA = mkPods(); this.kinB = mkPods(); this.kinPre = mkPods(); this.kinSnap = mkPods();
     this.pods = mkPods(); // physical
     this.cycA = { top: [0, 0, 0], bot: [0, 0, 0] }; this.cycB = { top: [0, 0, 0], bot: [0, 0, 0] };
@@ -153,14 +168,6 @@ export class Engine {
     this.section = null; this.sectionIndex = -1;
   }
 
-  /** Swap the physical rig. Fixtures, groups and cues keep their meaning. */
-  setRig(id) {
-    this.rig = rigById(id);
-    layoutFixtures(this.fixtures, this.rig);
-    this.groups = buildGroups(this.fixtures);
-    this.jump(1.5);
-  }
-
   group(g) {
     if (Array.isArray(g)) return g;
     return this.groups[g] || this.groups.all;
@@ -177,8 +184,8 @@ export class Engine {
 
   /**
    * Hold one look until the next launch: a scene. Moving to it is the usual
-   * snapshot fade for colour and intensity, while pan/tilt and the pods travel at
-   * motor and hoist speed. Call settle() after a cut to snap the hardware instead.
+   * snapshot fade for colour and intensity, while pan/tilt and the sticks travel at
+   * motor and hoist speed. Call settle() to land everything instantly instead.
    */
   playScene(scene, fade = 3) {
     this.jump(fade);
@@ -191,7 +198,7 @@ export class Engine {
     if (scene.bpm) this.bpm = scene.bpm;
   }
 
-  /** Snap pods and moving heads to their targets on the next frame (after a cut). */
+  /** Snap the sticks and moving heads onto their targets over the next frames (thumbnails, links). */
   settle() {
     this.settleNext = 2; // two frames: one to evaluate the new look, one to land on it
     this.snapT = 0;
@@ -225,7 +232,7 @@ export class Engine {
   jump(dur) {
     if (dur <= 0) { this.snapT = 0; return; }
     for (let i = 0; i < this.N; i++) copyState(this.snap[i], this.pre[i]);
-    for (let p = 0; p < POD_COUNT; p++) { this.kinSnap[p].h = this.kinPre[p].h; this.kinSnap[p].r = this.kinPre[p].r; }
+    for (let p = 0; p < POD_COUNT; p++) { const S = this.kinSnap[p], P = this.kinPre[p]; S.h = P.h; S.r = P.r; for (let b = 0; b < STICKS; b++) S.f[b] = P.f[b]; }
     this.cycSnap.top = this.cycPre.top.slice(); this.cycSnap.bot = this.cycPre.bot.slice();
     this.snapT = this.snapDur = dur;
   }
@@ -330,6 +337,7 @@ export class Engine {
 
   evalKin(k, c, out) {
     const h = val(k.h, c) ?? 9.5, amp = val(k.amp, c) ?? 0, per = Math.max(1, val(k.period, c) ?? 32), roll = val(k.roll, c) ?? 0;
+    const flip = val(k.flip, c) ?? 0, flipWave = val(k.flipWave, c) ?? 0;
     if (k._last !== c.frame) { k._ph = (k._ph || 0) + (c.dbeat || 0) / per; k._last = c.frame; }
     const ph = k._ph || 0;
     for (let p = 0; p < POD_COUNT; p++) {
@@ -348,6 +356,11 @@ export class Engine {
       }
       out[p].h = Math.max(4.2, Math.min(13.5, hh));
       out[p].r = Math.max(-0.4, Math.min(0.4, rr));
+      // flips: a base amount, optionally rolling through the rows as a wave
+      const pat = FLIP_PATTERN[k.flipMode] || FLIP_PATTERN.all;
+      const fr = flip + flipWave * Math.sin(TAU * ph - u * 3.2);
+      const rowSign = k.flipMode === 'lattice' && p % 2 ? -1 : 1;
+      for (let b = 0; b < STICKS; b++) out[p].f[b] = Math.max(-1, Math.min(1, pat[b] * rowSign * fr));
     }
   }
 
@@ -397,7 +410,9 @@ export class Engine {
     }
     for (let p = 0; p < POD_COUNT; p++) {
       const a = prev && x < 1 ? this.kinA[p] : this.kinB[p], b = this.kinB[p];
-      this.kinPre[p].h = lerp(a.h, b.h, xs); this.kinPre[p].r = lerp(a.r, b.r, xs);
+      const K = this.kinPre[p];
+      K.h = lerp(a.h, b.h, xs); K.r = lerp(a.r, b.r, xs);
+      for (let s = 0; s < STICKS; s++) K.f[s] = lerp(a.f[s], b.f[s], xs);
     }
     const ca = prev && x < 1 ? this.cycA : this.cycB;
     this.cycPre.top = ca.top.map((v, k) => lerp(v, this.cycB.top[k], xs));
@@ -430,8 +445,9 @@ export class Engine {
       const t = smooth(1 - this.snapT / this.snapDur);
       for (let i = 0; i < N; i++) mixState(this.pre[i], this.snap[i], this.pre[i], t);
       for (let p = 0; p < POD_COUNT; p++) {
-        this.kinPre[p].h = lerp(this.kinSnap[p].h, this.kinPre[p].h, t);
-        this.kinPre[p].r = lerp(this.kinSnap[p].r, this.kinPre[p].r, t);
+        const K = this.kinPre[p], S = this.kinSnap[p];
+        K.h = lerp(S.h, K.h, t); K.r = lerp(S.r, K.r, t);
+        for (let b = 0; b < STICKS; b++) K.f[b] = lerp(S.f[b], K.f[b], t);
       }
       this.cycPre.top = this.cycSnap.top.map((v, k) => lerp(v, this.cycPre.top[k], t));
       this.cycPre.bot = this.cycSnap.bot.map((v, k) => lerp(v, this.cycPre.bot[k], t));
@@ -466,9 +482,9 @@ export class Engine {
       let d = s.dim * (f.hang ? m.pods : m.floor) * pulse;
       if (m.flash > 0) d = Math.max(d, m.flash);
       if (m.strobeHold) s.strobe = m.strobeRate;
-      s.dim = m.blackout ? 0 : d * m.grand * (m.dip ?? 1);
+      s.dim = m.blackout ? 0 : d * m.grand;
     }
-    const cm = m.blackout ? 0 : m.cyc * m.grand * (m.dip ?? 1);
+    const cm = m.blackout ? 0 : m.cyc * m.grand;
     this.cyc.top = this.cycPre.top.map((v) => v * cm);
     this.cyc.bot = this.cycPre.bot.map((v) => v * cm);
 
@@ -479,7 +495,10 @@ export class Engine {
       const ease = Math.min(1, dt * 2.2);
       P.h += Math.max(-hk, Math.min(hk, (T.h - P.h) * ease));
       P.r += Math.max(-hk * 0.08, Math.min(hk * 0.08, (T.r - P.r) * ease));
-      if (this.settleNext) { P.h = T.h; P.r = T.r; }
+      // sticks flip at about 60°/s, like a hoist lifting one end
+      const fk = dt * 0.7;
+      for (let b = 0; b < STICKS; b++) P.f[b] += Math.max(-fk, Math.min(fk, (T.f[b] - P.f[b]) * ease));
+      if (this.settleNext) { P.h = T.h; P.r = T.r; for (let b = 0; b < STICKS; b++) P.f[b] = T.f[b]; }
     }
     const km = this.motor > 0.01 ? 1 - Math.exp(-dt / this.motor) : 1;
     const kz = this.motor > 0.01 ? 1 - Math.exp(-dt / (this.motor * 0.6)) : 1;
@@ -502,20 +521,16 @@ export class Engine {
       R.I = I; R.r = s.r * I; R.g = s.g * I; R.b = s.b * I;
       R.tan = Math.tan((Math.max(1, Math.min(60, c.zoom)) * Math.PI) / 360);
       R.soft = clamp01(s.frost);
-      R.len = this.floorOn === false ? 38 : this.beamLength(R);
+      R.len = this.beamLength(R);
     }
     if (this.settleNext) this.settleNext--;
   }
 
-  /** Distance to where a beam lands on the deck or the house floor (or fades out). */
+  /** Distance to where a beam lands (deck, floor, venue walls, curtain), or 45 m of haze. */
   beamLength(R) {
-    let L = 45;
-    if (R.dy < -1e-4) {
-      const t1 = (DECK_Y - R.y) / R.dy, hx = R.x + R.dx * t1, hz = R.z + R.dz * t1;
-      if (t1 > 0 && hz < DECK_FRONT && hz > DECK_BACK && Math.abs(hx) < DECK_HALF) L = Math.min(L, t1);
-      else { const t0 = -R.y / R.dy; if (t0 > 0) L = Math.min(L, t0); }
-    }
-    return Math.max(0.2, L);
+    const o = landing(this, R.x, R.y, R.z, R.dx, R.dy, R.dz, 45, this.tmpLand || (this.tmpLand = {}));
+    R.hit = o.hit;
+    return o.L;
   }
 
   // ——— programmer helpers ———

@@ -10,7 +10,7 @@
 // Override CHROME_PATH, GRAPHICS_TEST_URL, CHROME_GL or THUMB_WAIT_MS if needed.
 
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,20 +22,24 @@ const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Conte
 const GL = process.env.CHROME_GL || (process.platform === 'darwin' ? 'metal' : 'swiftshader');
 const WAIT = Number(process.env.THUMB_WAIT_MS || 2600);
 const W = 960, H = 600, SCALE = 0.5;
-const PORT = 9300 + Math.floor(Math.random() * 500);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 mkdirSync(OUT, { recursive: true });
 const profile = mkdtempSync(join(tmpdir(), 'lightDesigner-scene-thumbs-'));
 const chrome = spawn(CHROME, [
-  '--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`, `--window-size=${W},${H}`,
+  '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, `--window-size=${W},${H}`,
   '--hide-scrollbars', '--mute-audio', '--no-first-run', `--use-angle=${GL}`,
   ...(GL === 'swiftshader' ? ['--enable-unsafe-swiftshader'] : ['--ignore-gpu-blocklist']), 'about:blank',
 ], { stdio: 'ignore' });
 
 let ws;
-for (let i = 0; i < 60 && !ws; i++) {
-  try { ws = (await (await fetch(`http://127.0.0.1:${PORT}/json`)).json()).find((t) => t.type === 'page')?.webSocketDebuggerUrl; } catch { /* starting */ }
+// Chrome picks a free port itself (--remote-debugging-port=0) and writes it to its own
+// profile, so this only ever talks to the Chrome it launched — never another one on the machine.
+for (let i = 0; i < 75 && !ws; i++) {
+  try {
+    const port = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0].trim();
+    ws = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((t) => t.type === 'page')?.webSocketDebuggerUrl;
+  } catch { /* starting */ }
   if (!ws) await sleep(200);
 }
 if (!ws) throw new Error('Chrome DevTools endpoint did not come up');

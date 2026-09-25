@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="A virtual light rig over a stage: seven kinetic rig designs, 72 moving heads and a lighting console.">
-  <meta name="graphics-description" content="A virtual arena rig in the spirit of CK5: six kinetic truss pods, 60 hanging moving heads and 12 floor units, over a stage in a hazy black void, in seven rig designs from Kuroda’s eras (pods, circles, ovals, squares, moving sticks, the 2016 video wall, the 2024 virtual Sphere rig). Run a long show, take over with the programmer, effects engine, kinetics and cue list, or play the rig from a MIDI keyboard: every key fires lights. Drag to orbit · scroll to zoom.">
+  <meta name="description" content="A virtual light rig over a stage: 30 kinetic truss sticks, 72 moving heads and a lighting console.">
+  <meta name="graphics-description" content="A virtual arena rig in the spirit of CK5: six kinetic truss pods, 60 hanging moving heads and 12 floor units, over a stage in a hazy black void: 30 moving truss sticks that trim, bend and flip into formations, 72 moving heads, and optional lasers, LED tubes, mirror balls, blinders, strobes, a liquid light show and CO₂. Run a long show, take over with the programmer, effects engine, kinetics and cue list, or play the rig from a MIDI keyboard: every key fires lights. Drag to orbit · scroll to zoom.">
   <script src="../app/entry.js"></script>
   <title>CK5 Virtual Rig</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,7 +26,7 @@
     <header>
       <p class="eyebrow">VIRTUAL LIGHT RIG · CK5</p>
       <h1>CK5 <span>Rig</span></h1>
-      <p>7 rigs · 72 moving heads · haze</p>
+      <p>30 moving sticks · 72 heads · haze</p>
     </header>
 
     <nav class="tabs" role="tablist" data-studio-ignore>
@@ -36,6 +36,7 @@
       <button role="tab" data-tab="kin">Kinetic</button>
       <button role="tab" data-tab="cues">Cues</button>
       <button role="tab" data-tab="laser">Extras</button>
+      <button role="tab" data-tab="venue">Venue</button>
       <button role="tab" data-tab="midi">MIDI</button>
       <button role="tab" data-tab="setup">Setup</button>
     </nav>
@@ -51,19 +52,13 @@
         <input id="sceneFade" type="range" min="0" max="12" step="0.1" value="3">
         <div class="row2">
           <div><label for="sceneAuto">Auto-trigger</label><select id="sceneAuto">
-            <option value="off">Off</option><option value="next">In order</option><option value="random">Random</option><option value="smooth">Random, smooth moves only</option>
+            <option value="off">Off</option><option value="next">In order</option><option value="random">Random</option>
           </select></div>
           <div><label for="sceneEvery">Every</label><select id="sceneEvery">
             <option value="4">4 bars</option><option value="8" selected>8 bars</option><option value="16">16 bars</option><option value="32">32 bars</option><option value="64">64 bars</option>
           </select></div>
         </div>
-        <p class="hint">Scenes with the same rig and devices <b>morph</b>: colours crossfade, heads and pods travel there. A scene marked <span class="cutmark">cut</span> adds or removes assets, so it dips to black, swaps and fades up. Keys <kbd>1</kbd>–<kbd>0</kbd> launch the first ten; MIDI notes on channel 16 from C2 launch them in order.</p>
-      </fieldset>
-      <fieldset data-control-group="Rig">
-        <legend>Rig</legend>
-        <label for="rigSelect">Rig</label>
-        <select id="rigSelect"></select>
-        <p id="rigBlurb" class="hint"></p>
+        <p class="hint">Every launch moves smoothly: colours crossfade, heads swing and the truss sticks fly and flip into the new formation. Devices a scene adds or drops travel too: tubes rise out of the deck or grow out of the truss, balls and the projection screen fly in. Keys <kbd>1</kbd>–<kbd>0</kbd> launch the first ten; MIDI notes on channel 16 from C2 launch them in order.</p>
       </fieldset>
       <fieldset data-control-group="Show">
         <legend>Playback</legend>
@@ -228,6 +223,13 @@
         <input id="kinRoll" type="range" min="-0.4" max="0.4" step="0.01" value="0.15">
         <label for="kinPeriod">Period (beats) <output></output></label>
         <input id="kinPeriod" type="range" min="4" max="128" step="1" value="32">
+        <label for="kinFlip">Flip toward vertical <output></output></label>
+        <input id="kinFlip" type="range" min="0" max="1" step="0.01" value="0">
+        <label for="kinFlipMode">Flip pattern</label>
+        <select id="kinFlipMode"></select>
+        <label for="kinFlipWave">Flip wave through the rows <output></output></label>
+        <input id="kinFlipWave" type="range" min="0" max="0.6" step="0.01" value="0">
+        <p class="hint">Flips stand sticks up: all of them for columns, alternate at half-way for diamonds, just the outer legs for portal frames.</p>
         <label for="hoistSpeed">Hoist speed (m/s) <output></output></label>
         <input id="hoistSpeed" type="range" min="0.2" max="4" step="0.05" value="1.4">
         <label for="motorSpeed">Moving-head response (s) <output></output></label>
@@ -374,6 +376,62 @@
       </fieldset>
     </section>
 
+
+    <!-- ——— VENUE ——— -->
+    <section class="tab" data-tab="venue" hidden>
+      <fieldset data-control-group="Venue">
+        <legend>Venue</legend>
+        <label for="venueSelect">Room</label>
+        <select id="venueSelect"></select>
+        <p id="venueBlurb" class="hint"></p>
+        <label class="toggle" for="curtainClosed">House curtain closed (theater) <input id="curtainClosed" type="checkbox"></label>
+      </fieldset>
+      <fieldset data-control-group="House lights">
+        <legend>House lights</legend>
+        <div class="row3">
+          <button id="houseOut" type="button" title="Fade the house out over 8 s">Showtime</button>
+          <button id="houseHalf" type="button" title="Half up, for walk-in">Walk-in</button>
+          <button id="houseUp" type="button" title="Full up, for the end of the night">House up</button>
+        </div>
+        <label for="houseLevel">Level <output></output></label>
+        <input id="houseLevel" type="range" min="0" max="1" step="0.01" value="0">
+        <label for="houseFade">Fade time (s) <output></output></label>
+        <input id="houseFade" type="range" min="0" max="20" step="0.5" value="3">
+        <label for="houseColor">Colour</label>
+        <select id="houseColor"></select>
+        <label for="houseWarmth">Warmth: candle … daylight <output></output></label>
+        <input id="houseWarmth" type="range" min="0" max="1" step="0.01" value="0.25">
+        <label for="houseFixed">One colour <input id="houseFixed" type="color" value="#ffcf8a"></label>
+        <label for="houseEffect">Effect</label>
+        <select id="houseEffect"></select>
+        <label for="houseSpeed">Effect speed <output></output></label>
+        <input id="houseSpeed" type="range" min="0.1" max="3" step="0.05" value="1">
+        <p class="hint">The room's own lights: cans in the empty void, Edison pendants in the club, chandeliers and sconces in the theater, floodlight towers at the stadium. Blackout takes them out; the grand master doesn't. While they're up the beams wash out a little, as in a real room.</p>
+      </fieldset>
+      <fieldset data-control-group="Fairy lights">
+        <legend>Fairy lights</legend>
+        <label class="toggle" for="fairyOn">Fairy lights <input id="fairyOn" type="checkbox"></label>
+        <label for="fairyLayout">Hang them</label>
+        <select id="fairyLayout"></select>
+        <label for="fairyColor">Bulbs</label>
+        <select id="fairyColor"></select>
+        <label for="fairyFixed">One colour <input id="fairyFixed" type="color" value="#ff7ad9"></label>
+        <label for="fairyEffect">Effect</label>
+        <select id="fairyEffect"></select>
+        <label for="fairyLevel">Level <output></output></label>
+        <input id="fairyLevel" type="range" min="0" max="1.5" step="0.01" value="0.8">
+        <label for="fairySpeed">Speed <output></output></label>
+        <input id="fairySpeed" type="range" min="0.1" max="3" step="0.05" value="1">
+        <label for="fairyDensity">Bulbs per metre <output></output></label>
+        <input id="fairyDensity" type="range" min="1" max="8" step="0.5" value="3">
+        <label for="fairySag">Sag <output></output></label>
+        <input id="fairySag" type="range" min="0" max="3" step="0.05" value="1">
+        <label for="fairySway">Breeze <output></output></label>
+        <input id="fairySway" type="range" min="0" max="2" step="0.05" value="0.4">
+        <label for="fairySize">Bulb size <output></output></label>
+        <input id="fairySize" type="range" min="0.4" max="3" step="0.05" value="1">
+      </fieldset>
+    </section>
 
     <!-- ——— MIDI ——— -->
     <section class="tab" data-tab="midi" hidden>

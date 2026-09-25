@@ -4,8 +4,8 @@
 // the angle between the surface and the view ray, which reads as a lit column of
 // haze. Every lit surface (deck, floor, truss, fixture bodies) samples one
 // per-fixture data texture, so each head throws a pool of light where its beam
-// lands and sweeping beams catch the metal. The rig itself is rebuilt from the
-// layout's body description whenever a different rig is selected.
+// lands and sweeping beams catch the metal. The truss is built from the layout's
+// body description (30 sticks) and posed from the kinetics every frame.
 
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -19,11 +19,16 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MAX_BEAMS, PROJECTORS } from './lasers.js';
 
+// The default is where a person would stand: eye height (1.7 m) on the floor, 15 ft
+// (4.6 m) back from the front edge of the stage, centred. Up that close the rig fills
+// the sky, so this view uses a wider lens. Venues can move presets (a real balcony).
 export const CAMERAS = {
+  audience: { label: 'In the audience (15 ft back)', pos: [0, 1.7, DECK_FRONT + 4.6], target: [0, 5.8, -4], fov: 62 },
   foh: { label: 'Front', pos: [0, 5.2, 25], target: [0, 6.5, -3.5] },
   low: { label: 'Low, looking up', pos: [3.5, 1.5, 11], target: [0, 8.5, -3.5] },
   angle: { label: 'Three-quarter', pos: [-14, 7, 16], target: [0, 7, -3.5] },
   high: { label: 'High', pos: [0, 17, 30], target: [0, 5.5, -3.5] },
+  balcony: { label: 'Balcony', pos: [0, 12, 34], target: [0, 5.5, -3.5] },
   side: { label: 'Side on', pos: [-24, 7, -3.5], target: [0, 7, -3.5] },
   under: { label: 'Under the pods', pos: [0.5, 2.5, -4], target: [0, 10, -3.2] },
   above: { label: 'Rigging plot (above)', pos: [0, 30, 8], target: [0, 1, -3.2] },
@@ -91,12 +96,13 @@ const LIT_FRAG = /* glsl */ `
 `;
 
 const BEAM_VERT = /* glsl */ `
-  attribute vec4 aBeam; // length, tan(half angle), lens radius, frost
+  attribute vec4 aBeam; // length, tan(half angle), lens radius (negative: runs out into the haze), frost
   attribute vec3 aColor;
-  varying vec3 vW; varying vec3 vN; varying float vAlong; varying float vR; varying vec3 vC; varying float vSoft; varying float vLen;
+  varying vec3 vW; varying vec3 vN; varying float vAlong; varying float vR; varying vec3 vC; varying float vSoft; varying float vLen; varying float vHit;
   void main() {
     float along = position.y * aBeam.x;
-    float r = aBeam.z + along * aBeam.y;
+    float r = abs(aBeam.z) + along * aBeam.y;
+    vHit = aBeam.z > 0.0 ? 1.0 : 0.0;
     vec3 lp = vec3(position.x * r, along, position.z * r);
     vec3 ln = normalize(vec3(position.x, -aBeam.y, position.z));
     mat4 m = modelMatrix * instanceMatrix;
@@ -109,7 +115,7 @@ const BEAM_VERT = /* glsl */ `
 
 const BEAM_FRAG = /* glsl */ `
   uniform float uTime; uniform float uHaze; uniform float uGain; uniform float uTexture;
-  varying vec3 vW; varying vec3 vN; varying float vAlong; varying float vR; varying vec3 vC; varying float vSoft; varying float vLen;
+  varying vec3 vW; varying vec3 vN; varying float vAlong; varying float vR; varying vec3 vC; varying float vSoft; varying float vLen; varying float vHit;
   float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
   float vn(vec3 x) {
     vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
@@ -123,7 +129,8 @@ const BEAM_FRAG = /* glsl */ `
     float fall = exp(-vAlong * (0.018 + 0.03 * (1.0 - uHaze)));
     float width = 1.0 / (1.0 + vR * 1.6);
     float start = smoothstep(0.0, 0.25, vAlong);
-    float end = 1.0 - smoothstep(vLen * 0.45, vLen, vAlong);
+    // a beam that lands on something reaches it; one that doesn't thins out into the haze
+    float end = 1.0 - smoothstep(mix(vLen * 0.45, vLen - 0.6, vHit), vLen, vAlong);
     vec3 q = vW * 0.45 + vec3(0.0, -uTime * 0.18, uTime * 0.07);
     float tex = mix(1.0, 0.35 + 1.3 * vn(q) * (0.6 + 0.4 * vn(q * 2.3 + 4.0)), uTexture);
     float a = edge * fall * width * start * end * tex * uHaze * uGain;
@@ -209,24 +216,6 @@ function applyPose(pose, l) {
   return [pose.x + m[0] * x + m[1] * y + m[2] * z, pose.y + m[3] * x + m[4] * y + m[5] * z, pose.z + m[6] * x + m[7] * y + m[8] * z];
 }
 
-// 2016 video wall: an LED grid showing the unit's colours as drifting pop-art bands
-const PANEL_VERT = /* glsl */ `
-  varying vec2 vUv;
-  void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-`;
-const PANEL_FRAG = /* glsl */ `
-  uniform vec3 uA; uniform vec3 uB; uniform float uTime; uniform float uSeed; uniform vec2 uGrid;
-  varying vec2 vUv;
-  void main() {
-    vec2 cell = floor(vUv * uGrid), f = fract(vUv * uGrid) - 0.5;
-    float band = 0.5 + 0.5 * sin(cell.x * 0.35 + cell.y * 0.6 - uTime * 2.2 + uSeed);
-    float blocks = step(0.5, fract(sin(dot(floor(cell / 6.0) + floor(uTime * 1.5 + uSeed), vec2(12.9898, 78.233))) * 43758.5453));
-    vec3 c = mix(uA, uB, mix(band, blocks, 0.35));
-    float dot_ = 1.0 - smoothstep(0.3, 0.5, length(f));
-    gl_FragColor = vec4(c * (0.25 + 1.4 * dot_) * 1.6 + vec3(0.004), 1.0);
-  }
-`;
-
 function trussTexture() {
   const c = document.createElement('canvas');
   c.width = 128; c.height = 64;
@@ -258,7 +247,7 @@ export class Rig {
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x000000);
-    this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 400);
+    this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 1500);
     this.controls = new OrbitControls(this.camera, r.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.06;
@@ -267,7 +256,7 @@ export class Rig {
     this.lastInteract = -1e9;
     this.controls.addEventListener('start', () => { this.lastInteract = performance.now(); this.tween = null; });
     this.controls.addEventListener('end', () => { this.lastInteract = performance.now(); });
-    this.setCamera('foh', 0);
+    this.setCamera('audience', 0);
 
     // per-fixture light data: 3 texels per fixture
     this.lightData = new Float32Array(3 * 4 * this.N);
@@ -282,7 +271,7 @@ export class Rig {
     this.buildFixtures();
     this.buildBeams();
     this.buildLasers();
-    this.setRig(engine.rig);
+    this.buildRig(engine.rig);
 
     this.composer = new EffectComposer(r);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
@@ -316,7 +305,7 @@ export class Rig {
 
   buildStage() {
     const g = (this.stage = new THREE.Group());
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), this.lit({ albedo: [0.11, 0.11, 0.12], spec: 0.25, ambient: [0.02, 0.022, 0.03] }));
+    const floor = (this.floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), this.lit({ albedo: [0.11, 0.11, 0.12], spec: 0.25, ambient: [0.02, 0.022, 0.03] })));
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(0, 0, 10);
     const depth = DECK_FRONT - DECK_BACK;
@@ -326,6 +315,15 @@ export class Rig {
     lip.position.set(0, DECK_Y, DECK_FRONT);
     g.add(floor, deck, lip);
     this.scene.add(g);
+  }
+
+  /** Restyle the house floor for a venue: albedo, gloss, size (m) and centre z. */
+  setFloor({ albedo = [0.11, 0.11, 0.12], spec = 0.25, size = 90, z = 10 } = {}) {
+    const u = this.floorMesh.material.uniforms;
+    u.uAlbedo.value.setRGB(...albedo);
+    u.uSpec.value = spec;
+    this.floorMesh.scale.set(size / 90, size / 90, 1);
+    this.floorMesh.position.z = z;
   }
 
   buildFixtures() {
@@ -341,29 +339,19 @@ export class Rig {
     this.scene.add(this.bases);
   }
 
-  /** Build truss, panels and hoist chains for a rig from its body description. */
-  setRig(rig) {
-    if (this.rigGroup) {
-      this.scene.remove(this.rigGroup);
-      this.rigGroup.traverse((o) => { o.geometry?.dispose(); if (o.material && o.material !== this.trussMat) o.material.dispose?.(); });
-    }
+  /** Build the truss sticks and hoist chains from the rig's body description. */
+  buildRig(rig) {
     this.rig = rig;
     const group = (this.rigGroup = new THREE.Group());
-    this.trussMat ??= this.lit({ albedo: [0.55, 0.56, 0.6], map: this.trussTex, side: THREE.DoubleSide, spec: 0.8, gain: 0.5 });
-    const size = { pods: 0.52, sticks: 0.42, squares: 0.5, wall2016: 0.3 }[rig.id] ?? 0.4;
+    this.trussMat = this.lit({ albedo: [0.55, 0.56, 0.6], map: this.trussTex, side: THREE.DoubleSide, spec: 0.8, gain: 0.5 });
+    const size = 0.42;
     this.bodies = [];
     const hoists = [];
     for (let p = 0; p < POD_COUNT; p++) {
       for (let b = 0; b < rig.bodies; b++) {
         const node = new THREE.Group();
         const segs = rig.segs(p, b);
-        if (rig.scaled) {
-          // virtual rings: light-lines rather than steel
-          const pts = segs.flatMap(([a, c]) => [...a, ...c]);
-          const geo = new THREE.BufferGeometry();
-          geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-          node.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x5a6a88, transparent: true, opacity: 0.55 })));
-        } else if (segs.length) {
+        if (segs.length) {
           const parts = segs.map(([a, c]) => {
             const va = new THREE.Vector3(...a), vc = new THREE.Vector3(...c), len = va.distanceTo(vc);
             const box = new THREE.BoxGeometry(len + size * 0.6, size, size);
@@ -375,19 +363,6 @@ export class Rig {
             return box;
           });
           node.add(new THREE.Mesh(mergeGeometries(parts), this.trussMat));
-        }
-        if (rig.panel) {
-          const { w, h } = rig.panel(p, b);
-          const mat = new THREE.ShaderMaterial({
-            vertexShader: PANEL_VERT, fragmentShader: PANEL_FRAG,
-            uniforms: { uA: { value: new THREE.Color() }, uB: { value: new THREE.Color() }, uTime: { value: 0 }, uSeed: { value: p * 1.7 }, uGrid: { value: new THREE.Vector2(w * 18, h * 18) } },
-          });
-          const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
-          panel.position.z = 0.02;
-          const back = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.12), this.lit({ albedo: [0.05, 0.05, 0.055] }));
-          back.position.z = -0.05;
-          node.add(back, panel);
-          node.userData.panel = mat;
         }
         for (const l of rig.hoists(p, b)) hoists.push({ p, b, l });
         group.add(node);
@@ -504,9 +479,20 @@ export class Rig {
   }
 
   updateLasers(L) {
-    const on = !!(L && L.on);
-    this.projectors.visible = on;
-    const n = on ? L.count : 0;
+    // projector housings rise out of the deck (and sink back) with the lasers' presence
+    const pres = L ? L.presence : 0;
+    this.projectors.visible = pres > 0.001;
+    if (this.projectors.visible) {
+      const e = pres * pres * (3 - 2 * pres), m = new THREE.Matrix4();
+      PROJECTORS.forEach((P, i) => {
+        m.makeRotationY((P.yaw * Math.PI) / 180);
+        const sink = P.pos[1] < DECK_Y + 1 ? (1 - e) * 0.55 : 0; // the FOH unit stays on its riser
+        m.setPosition(P.pos[0], P.pos[1] - 0.1 - sink, P.pos[2]);
+        this.projectors.setMatrixAt(i, m);
+      });
+      this.projectors.instanceMatrix.needsUpdate = true;
+    }
+    const n = L ? L.count : 0;
     this.laserMesh.geometry.instanceCount = n;
     this.laserMesh.visible = this.laserDots.visible = n > 0;
     if (!n) return;
@@ -529,18 +515,20 @@ export class Rig {
   }
 
   setCamera(id, dur = 3) {
-    const c = CAMERAS[id];
-    if (!c) return;
+    if (!CAMERAS[id]) return;
+    const c = { ...CAMERAS[id], ...(this.camOverrides?.[id] || {}) };
     this.camId = id;
-    const toPos = new THREE.Vector3(...c.pos), toT = new THREE.Vector3(...c.target);
+    const toPos = new THREE.Vector3(...c.pos), toT = new THREE.Vector3(...c.target), toFov = c.fov || 50;
     if (!dur) {
       this.camera.position.copy(toPos);
       this.controls.target.copy(toT);
+      this.camera.fov = toFov;
+      this.camera.updateProjectionMatrix();
       this.controls.update();
       this.tween = null;
       return;
     }
-    this.tween = { t: 0, dur, fromPos: this.camera.position.clone(), fromT: this.controls.target.clone(), toPos, toT };
+    this.tween = { t: 0, dur, fromPos: this.camera.position.clone(), fromT: this.controls.target.clone(), toPos, toT, fromFov: this.camera.fov, toFov };
   }
 
   setQuality(q) {
@@ -573,6 +561,8 @@ export class Rig {
       const k = Math.min(1, tw.t / tw.dur), e = k * k * (3 - 2 * k);
       this.camera.position.lerpVectors(tw.fromPos, tw.toPos, e);
       this.controls.target.lerpVectors(tw.fromT, tw.toT, e);
+      this.camera.fov = tw.fromFov + (tw.toFov - tw.fromFov) * e;
+      this.camera.updateProjectionMatrix();
       if (k >= 1) this.tween = null;
     } else if (opts.drift && performance.now() - this.lastInteract > 6000) {
       const off = this.camera.position.clone().sub(this.controls.target);
@@ -582,7 +572,7 @@ export class Rig {
     }
     this.controls.update();
 
-    // rig bodies, panels + chains
+    // truss sticks + chains
     const rig = this.rig, pose = {}, mat = new THREE.Matrix4();
     for (const { p, b, node } of this.bodies) {
       pose.scale = 1;
@@ -591,25 +581,12 @@ export class Rig {
       mat.set(M[0], M[1], M[2], 0, M[3], M[4], M[5], 0, M[6], M[7], M[8], 0, 0, 0, 0, 1);
       node.quaternion.setFromRotationMatrix(mat);
       node.position.set(pose.x, pose.y, pose.z);
-      node.scale.set(pose.scale, 1, pose.scale);
-      const pm = node.userData.panel;
-      if (pm) {
-        // the wall shows the colours its unit is playing, as pixel content
-        let r = 0, g = 0, bl = 0, r2 = 0, g2 = 0, b2 = 0;
-        for (let s = 0; s < 10; s++) {
-          const R = E.render[p * 10 + s];
-          if (s < 5) { r += R.r; g += R.g; bl += R.b; } else { r2 += R.r; g2 += R.g; b2 += R.b; }
-        }
-        pm.uniforms.uA.value.setRGB(r / 5, g / 5, bl / 5);
-        pm.uniforms.uB.value.setRGB(r2 / 5, g2 / 5, b2 / 5);
-        pm.uniforms.uTime.value = E.time;
-      }
     }
     this.hoists.forEach(({ p, b, l }, k) => {
       pose.scale = 1;
       rig.pose(p, b, E.pods[p], E.time, pose);
       const w = applyPose(pose, l);
-      this.chainPos.set([w[0], w[1], w[2], w[0], GRID_Y, w[2]], k * 6);
+      this.chainPos.set([w[0], w[1], w[2], w[0], this.gridY ?? GRID_Y, w[2]], k * 6);
     });
     this.chains.geometry.attributes.position.needsUpdate = true;
     this.chains.visible = this.hoists.length > 0;
@@ -619,7 +596,7 @@ export class Rig {
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0), d = new THREE.Vector3();
     const pos = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1), qb = new THREE.Quaternion();
     const cam = this.camera.position;
-    const beamGain = opts.beamGain ?? 1;
+    const beamGain = (opts.beamGain ?? 1) * (1 - (this.beamWash || 0)); // house lights wash the beams out
     const ld = this.lightData, ab = this.aBeam.array, ac = this.aColor.array;
     for (let i = 0; i < N; i++) {
       const R = E.render[i], f = E.fixtures[i];
@@ -640,7 +617,7 @@ export class Rig {
       m.compose(pos.clone().addScaledVector(up, f.hang ? 0.3 : -0.3), qb, one);
       this.bases.setMatrixAt(i, m);
 
-      ab[i * 4] = R.len; ab[i * 4 + 1] = R.tan; ab[i * 4 + 2] = 0.1; ab[i * 4 + 3] = R.soft;
+      ab[i * 4] = R.len; ab[i * 4 + 1] = R.tan; ab[i * 4 + 2] = R.hit ? 0.1 : -0.1; ab[i * 4 + 3] = R.soft;
       ac[i * 3] = R.r * beamGain; ac[i * 3 + 1] = R.g * beamGain; ac[i * 3 + 2] = R.b * beamGain;
 
       const o = i * 12;

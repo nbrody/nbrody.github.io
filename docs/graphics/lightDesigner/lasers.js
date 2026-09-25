@@ -6,7 +6,7 @@
 // (origin, direction, colour × intensity). Beams are razor-thin, don't spread, stop
 // on the deck or the floor, and otherwise run out into the haze. Pure: no DOM or three.js.
 
-import { DECK_Y, DECK_FRONT, DECK_BACK, DECK_HALF, hash } from './layout.js';
+import { DECK_Y, landing, hash } from './layout.js';
 import { hs2rgb, hexHS } from './engine.js';
 
 export const MAX_BEAMS = 360;
@@ -52,6 +52,7 @@ export class Lasers {
     this.hit = new Uint8Array(MAX_BEAMS);
     this.count = 0;
     this.phase = 0;
+    this.presence = 0; // 0 = projectors sunk in the deck, 1 = up and firing
     this.pattern = 'fan';
     this.tmp = { r: 0, g: 0, b: 0 };
   }
@@ -72,10 +73,15 @@ export class Lasers {
     return Math.min(1, s / 30);
   }
 
+  /** Skip the rise/sink animation (thumbnails, links). */
+  settle() { this.presence = this.on ? 1 : 0; }
+
   update(dt) {
     this.count = 0;
     const E = this.e, o = this.opts;
-    if (!this.on) return;
+    // projectors rise out of the deck before they fire, and stop firing before they sink
+    this.presence += Math.max(-dt * 1.25, Math.min(dt * 1.25, (this.on ? 1 : 0) - this.presence));
+    if (this.presence <= 0.001) return;
     this.phase += (dt * E.bpm * E.speed) / 60 / Math.max(0.5, o.speed);
     const beat = E.beat, t = this.phase;
 
@@ -88,10 +94,11 @@ export class Lasers {
 
     // master: laser level × grand × blackout × (show energy when following) × chop × note pulse
     const m = E.m;
-    let level = o.level * (m.blackout ? 0 : m.grand * (m.dip ?? 1)) * (0.35 + 0.65 * Math.min(1, m.haze));
+    const up = Math.max(0, Math.min(1, (this.presence - 0.8) / 0.2));
+    let level = o.level * (m.blackout ? 0 : m.grand) * (0.35 + 0.65 * Math.min(1, m.haze)) * up * up * (3 - 2 * up);
     if (o.pattern === 'auto') level *= 0.25 + 0.75 * this.showEnergy();
     if (o.chop) level *= beat - Math.floor(beat) < 0.5 ? 1 : 0;
-    if (m.flash) level = Math.max(level, o.level);
+    if (m.flash) level = Math.max(level, o.level * up);
     const NL = E.noteLayer;
     if (o.notes && NL?.on) {
       let n = 0;
@@ -183,14 +190,9 @@ export class Lasers {
 
   push(p, dx, dy, dz, c, I) {
     const i = this.count++, k = i * 3;
-    // stop on the deck or the floor, otherwise run out into the haze
-    let L = 80, hit = 0;
-    if (dy < -1e-4) {
-      const t1 = (DECK_Y - p[1]) / dy, hx = p[0] + dx * t1, hz = p[2] + dz * t1;
-      if (t1 > 0 && hz < DECK_FRONT && hz > DECK_BACK && Math.abs(hx) < DECK_HALF) { L = t1; hit = 1; }
-      else { const t0 = -p[1] / dy; if (t0 > 0 && t0 < L) { L = t0; hit = 1; } }
-    }
-    if (this.e.floorOn === false) { L = 80; hit = 0; }
+    // stop on the deck, the floor or the venue, otherwise run out into the haze
+    const land = landing(this.e, p[0], p[1], p[2], dx, dy, dz, 80, this.tmpLand || (this.tmpLand = {}));
+    const L = land.L, hit = land.hit ? 1 : 0;
     this.origin[k] = p[0]; this.origin[k + 1] = p[1]; this.origin[k + 2] = p[2];
     this.end[k] = p[0] + dx * L; this.end[k + 1] = p[1] + dy * L; this.end[k + 2] = p[2] + dz * L;
     this.color[k] = c.r * I; this.color[k + 1] = c.g * I; this.color[k + 2] = c.b * I;

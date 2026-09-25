@@ -1,12 +1,14 @@
 // main.js — wires the console panel, keyboard, MIDI and microphone to the engine and renderer.
 
-import { Engine, TARGETS, KIN_SHAPES, hexHS } from './engine.js';
+import { Engine, TARGETS, KIN_SHAPES, FLIP_MODES, hexHS } from './engine.js';
 import { SHOWS, K } from './shows.js';
-import { SCENES, ASSET_CONTROLS, DEVICE_BASE } from './scenes.js';
-import { groupLabels, RIGS, rigById, POD_COUNT, PER_POD, FLOOR_COUNT } from './layout.js';
+import { SCENES, DEVICE_BASE } from './scenes.js';
+import { groupLabels, POD_COUNT, PER_POD, FLOOR_COUNT } from './layout.js';
 import { setupMidi } from './midi.js';
 import { Lasers, PATTERNS, LASER_COLORS } from './lasers.js';
 import { Devices, TUBE_LAYOUTS, TUBE_LOOKS, DEVICE_COLORS, HIT_MODES, LIQUID_PALETTES } from './devices.js';
+import { Venue, VENUES } from './venue.js';
+import { Ambience, HOUSE_EFFECTS, HOUSE_COLORS, FAIRY_LAYOUTS, FAIRY_COLORS, FAIRY_EFFECTS } from './ambient.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -49,6 +51,7 @@ const FORMAT = {
   kinPeriod: (v) => `${v} b`, hoistSpeed: (v) => `${(+v).toFixed(2)}`, motorSpeed: (v) => `${(+v).toFixed(2)}`,
   cueFade: (v) => `${(+v).toFixed(1)}`, cueHold: (v) => `${v}`,
   ballSpin: (v) => `${(+v).toFixed(1)}`, ballRays: (v) => `${v}`, strobeRateX: (v) => `${v} Hz`, tubeSpeed: (v) => `×${(+v).toFixed(2)}`, liquidSpeed: (v) => `×${(+v).toFixed(2)}`,
+  houseLevel: (v) => `${Math.round(v * 100)}%`, houseFade: (v) => `${v} s`, houseSpeed: (v) => `×${(+v).toFixed(2)}`, fairySpeed: (v) => `×${(+v).toFixed(2)}`, fairyDensity: (v) => `${v}/m`,
   laserCount: (v) => `${v}`, laserSpread: (v) => `${v}°`, laserSpeed: (v) => `${v} b`, laserHeight: (v) => `${v}°`,
   sceneFade: (v) => `${(+v).toFixed(1)} s`,
   midiRelease: (v) => `${(+v).toFixed(2)} s`, midiKick: (v) => `${v}°`, midiLift: (v) => `${(+v).toFixed(2)} m`,
@@ -404,12 +407,14 @@ renderFx();
 $('#kinShape').innerHTML = KIN_SHAPES.map((s) => `<option value="${s}">${s[0].toUpperCase() + s.slice(1)}</option>`).join('');
 $('#kinShape').value = 'wave';
 const kin = { shape: 'wave', h: 9.5, amp: 1.2, roll: 0.15, period: 32 };
+$('#kinFlipMode').innerHTML = Object.entries(FLIP_MODES).map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
 function readKin() {
   kin.shape = $('#kinShape').value; kin.h = +$('#kinHeight').value; kin.amp = +$('#kinAmp').value;
   kin.roll = +$('#kinRoll').value; kin.period = +$('#kinPeriod').value;
+  kin.flip = +$('#kinFlip').value; kin.flipMode = $('#kinFlipMode').value; kin.flipWave = +$('#kinFlipWave').value;
   engine.kinOverride = $('#kinOverride').checked ? kin : null;
 }
-for (const id of ['kinShape', 'kinHeight', 'kinAmp', 'kinRoll', 'kinPeriod', 'kinOverride']) on(`#${id}`, id === 'kinShape' || id === 'kinOverride' ? 'change' : 'input', readKin);
+for (const id of ['kinShape', 'kinHeight', 'kinAmp', 'kinRoll', 'kinPeriod', 'kinFlip', 'kinFlipMode', 'kinFlipWave', 'kinOverride']) on(`#${id}`, ['kinShape', 'kinFlipMode', 'kinOverride'].includes(id) ? 'change' : 'input', readKin);
 bindRange('hoistSpeed', (v) => { engine.hoist = v; });
 bindRange('motorSpeed', (v) => { engine.motor = v; });
 const podMeter = $('#podMeter');
@@ -453,11 +458,12 @@ function goCue(i) {
   engine.jump(c.fade);
   engine.loadProg(c.prog);
   engine.liveFx = cloneFx(c.fx || []);
-  if (c.kin) { Object.assign(kin, c.kin); engine.kinOverride = kin; } else engine.kinOverride = null;
+  if (c.kin) { Object.assign(kin, { flip: 0, flipMode: 'all', flipWave: 0 }, c.kin); engine.kinOverride = kin; } else engine.kinOverride = null;
   $('#kinOverride').checked = !!c.kin;
   if (c.kin) {
     $('#kinShape').value = kin.shape; $('#kinHeight').value = kin.h; $('#kinAmp').value = kin.amp; $('#kinRoll').value = kin.roll; $('#kinPeriod').value = kin.period;
-    ['#kinHeight', '#kinAmp', '#kinRoll', '#kinPeriod'].forEach((s) => refreshOutput($(s)));
+    $('#kinFlip').value = kin.flip; $('#kinFlipMode').value = kin.flipMode; $('#kinFlipWave').value = kin.flipWave;
+    ['#kinHeight', '#kinAmp', '#kinRoll', '#kinPeriod', '#kinFlip', '#kinFlipWave'].forEach((s) => refreshOutput($(s)));
   }
   fxSel = -1; renderFx(); markActive();
   cueRunT = 0;
@@ -672,7 +678,9 @@ if (store.get('lasers', false) || new URL(location.href).searchParams.get('laser
 
 // ——— devices: LED tubes, mirror balls, blinders & strobes, liquid light show, CO₂ ———
 const devices = new Devices(rig, engine);
-rig.preRender = (dt) => devices.update(dt);
+const venue = new Venue(rig, engine);
+const ambience = new Ambience(rig, engine, venue);
+rig.preRender = (dt) => { devices.update(dt); ambience.update(dt); };
 const fill = (id, obj) => { $(`#${id}`).innerHTML = Object.entries(obj).map(([k, l]) => `<option value="${k}">${l}</option>`).join(''); };
 fill('tubeLayout', TUBE_LAYOUTS); fill('tubeLook', TUBE_LOOKS); fill('tubeColor', DEVICE_COLORS); fill('ballColor', DEVICE_COLORS);
 fill('blinderMode', HIT_MODES); fill('strobeMode', HIT_MODES); fill('co2Mode', HIT_MODES); fill('liquidPalette', LIQUID_PALETTES);
@@ -698,8 +706,8 @@ devices.setTubeLayout($('#tubeLayout').value);
 on('#co2Blast', 'click', () => { if (!devices.o.co2) { $('#co2On').checked = true; devices.o.co2 = true; } devices.blast(); });
 on('#blinderHit', 'click', () => { if (!devices.o.blinders) { $('#blindersOn').checked = true; devices.o.blinders = true; } devices.hitBlinders(); });
 on('#strobeBurst', 'click', () => { if (!devices.o.strobes) { $('#strobesOn').checked = true; devices.o.strobes = true; } devices.burst(1.5); });
-on('#ballDrop', 'click', () => { if (!devices.o.balls) { $('#ballCount').value = '1'; devices.o.balls = 1; } devices.ballDefs.forEach((b) => { b.drop = 1; }); devices.dropBalls(true); });
-on('#ballRaise', 'click', () => devices.dropBalls(false));
+on('#ballDrop', 'click', () => { if (devices.o.balls) devices.redropBalls(); else setCtrl('ballCount', '1'); });
+on('#ballRaise', 'click', () => setCtrl('ballCount', '0'));
 
 // quick kits: set the Extras controls as a person would, so the remote and storage follow
 const KITS = {
@@ -737,9 +745,54 @@ function saveExtras() { store.set('extras', Object.fromEntries(extrasInputs().ma
   for (const el of extrasInputs()) on(el, 'change', saveExtras);
 }
 
-// ——— rig selector ———
-const rigSel = $('#rigSelect');
-rigSel.innerHTML = RIGS.map((r) => `<option value="${r.id}">${r.label}</option>`).join('');
+// ——— venue, house lights, fairy lights ———
+fill('venueSelect', Object.fromEntries(Object.entries(VENUES).map(([k, v]) => [k, v.label])));
+fill('houseColor', HOUSE_COLORS); fill('houseEffect', HOUSE_EFFECTS);
+fill('fairyLayout', FAIRY_LAYOUTS); fill('fairyColor', FAIRY_COLORS); fill('fairyEffect', FAIRY_EFFECTS);
+$('#fairyEffect').value = 'twinkle';
+function setVenue(id) {
+  venue.set(id);
+  $('#venueSelect').value = venue.id;
+  $('#venueBlurb').textContent = VENUES[venue.id].blurb;
+  $('#curtainClosed').disabled = !VENUES[venue.id].curtain;
+  canvas.dataset.venue = venue.id;
+}
+on('#venueSelect', 'change', (e) => setVenue(e.target.value));
+setVenue(new URL(location.href).searchParams.get('venue') || 'void');
+on('#curtainClosed', 'change', (e) => venue.closeCurtain(e.target.checked));
+const houseLevel = $('#houseLevel');
+on(houseLevel, 'input', () => ambience.houseTo(+houseLevel.value, +$('#houseFade').value));
+const houseCue = (level, secs) => { ambience.houseTo(level, secs); houseLevel.value = level; refreshOutput(houseLevel); store.set('venueTab', { ...store.get('venueTab', {}), houseLevel: level }); };
+on('#houseOut', 'click', () => houseCue(0, 8));
+on('#houseHalf', 'click', () => houseCue(0.5, 4));
+on('#houseUp', 'click', () => houseCue(1, 3));
+for (const [id, key] of [['houseColor', 'color'], ['houseWarmth', 'warmth'], ['houseFixed', 'fixed'], ['houseEffect', 'effect'], ['houseSpeed', 'speed']]) {
+  const el = $(`#${id}`);
+  const read = () => { ambience.house.o[key] = el.type === 'range' ? +el.value : el.value; };
+  on(el, el.type === 'range' || el.type === 'color' ? 'input' : 'change', read); read();
+}
+for (const [id, key] of [['fairyOn', 'on'], ['fairyLayout', 'layout'], ['fairyColor', 'color'], ['fairyFixed', 'fixed'], ['fairyEffect', 'effect'],
+  ['fairyLevel', 'level'], ['fairySpeed', 'speed'], ['fairyDensity', 'density'], ['fairySag', 'sag'], ['fairySway', 'sway'], ['fairySize', 'size']]) {
+  const el = $(`#${id}`);
+  const read = () => { ambience.fairy.o[key] = el.type === 'checkbox' ? el.checked : el.type === 'range' ? +el.value : el.value; };
+  on(el, el.type === 'range' || el.type === 'color' ? 'input' : 'change', read); read();
+}
+// remember the Venue tab too; the room comes back as it was (house lights without a fade)
+{
+  const inputs = () => $$('section[data-tab=venue] input, section[data-tab=venue] select').filter((el) => el.id);
+  const save = () => store.set('venueTab', Object.fromEntries(inputs().map((el) => [el.id, el.type === 'checkbox' ? el.checked : el.value])));
+  const saved = new URL(location.href).searchParams.get('venue') ? null : store.get('venueTab', null);
+  if (saved) for (const el of inputs()) {
+    if (!(el.id in saved)) continue;
+    if (el.type === 'checkbox') el.checked = saved[el.id]; else el.value = saved[el.id];
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  ambience.house.level = ambience.house.target;
+  for (const el of inputs()) on(el, 'change', save);
+}
+
+// ——— the rig: moving sticks ———
 function relabel() {
   GROUP_LABELS = groupLabels(engine.rig.unit);
   const opts = (sel) => $$('option', sel).forEach((o) => { if (GROUP_LABELS[o.value]) o.textContent = GROUP_LABELS[o.value]; });
@@ -748,23 +801,14 @@ function relabel() {
   $$('#fixtureMap [data-unit]').forEach((sp) => { sp.textContent = `${engine.rig.unit.toUpperCase()} ${+sp.dataset.unit + 1}`; });
   renderFx();
 }
-function setRig(id, save = true) {
-  engine.setRig(id);
-  rig.setRig(engine.rig);
-  rigSel.value = engine.rig.id;
-  $('#rigBlurb').textContent = engine.rig.blurb;
-  canvas.dataset.rig = engine.rig.id;
-  relabel();
-  if (save) store.set('rig', engine.rig.id);
-}
-on(rigSel, 'change', () => setRig(rigSel.value));
-setRig(new URL(location.href).searchParams.get('rig') || store.get('rig', 'sticks'), false);
+relabel();
+canvas.dataset.rig = engine.rig.id;
 on('#stageToggle', 'change', (e) => { view.stage = e.target.checked; engine.floorOn = e.target.checked; });
 
 // ——— scenes ———
-// A launch morphs when the physical assets match; otherwise it dips to black,
-// swaps rig/devices, settles the hardware on its new marks and fades back up.
-const ctrlValue = (id) => { const el = $(`#${id}`); return el.type === 'checkbox' ? el.checked : el.value; };
+// Every launch is a move, never a cut: colour crossfades, heads and sticks travel,
+// and devices a scene adds or drops rise out of / sink into the deck (tubes, blinders,
+// strobes, CO₂, lasers), grow out of the truss, or fly in from the grid (balls, screen).
 function setCtrl(id, v) {
   const el = $(`#${id}`);
   if (!el) return;
@@ -773,24 +817,11 @@ function setCtrl(id, v) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 const sceneById = (id) => SCENES.find((x) => x.id === id);
-function sceneTargets(sc) {
-  return { ...DEVICE_BASE, ...sc.devices, rigSelect: sc.rig || engine.rig.id };
-}
-function needsCut(sc) {
-  const t = sceneTargets(sc);
-  return ASSET_CONTROLS.some((id) => {
-    if (id === 'tubeLayout' && !t.tubesOn) return false;
-    return id in t && String(ctrlValue(id)) !== String(t[id]);
-  });
-}
 function applyScene(sc) {
-  const t = sceneTargets(sc);
-  if (t.rigSelect !== engine.rig.id) setCtrl('rigSelect', t.rigSelect);
-  for (const [id, v] of Object.entries(t)) if (id !== 'rigSelect') setCtrl(id, v);
+  for (const [id, v] of Object.entries({ ...DEVICE_BASE, ...sc.devices })) setCtrl(id, v);
   if (sc.bpm) $('#bpm').value = sc.bpm;
 }
-let liveScene = null, dipTween = null, sceneMsg = '', autoNext = null;
-function tweenDip(to, dur, done) { dipTween = { from: engine.m.dip ?? 1, to, t: 0, dur, done }; }
+let liveScene = null, sceneMsg = '', autoNext = null;
 function markLaunched(sc, how) {
   liveScene = sc.id;
   showSelect.querySelector('option[value=scene]').textContent = `Scene: ${sc.name}`;
@@ -802,52 +833,42 @@ function markLaunched(sc, how) {
   sceneMsg = how;
   canvas.dataset.scene = sc.id;
 }
-/** Launch a scene. opts.instant: cut with no dip (thumbnails, links). */
+/** Launch a scene. opts.instant lands everything at once (thumbnails, links). */
 function launchScene(id, opts = {}) {
   const sc = sceneById(id);
   if (!sc) return;
-  const fade = opts.fade ?? +$('#sceneFade').value;
+  applyScene(sc);
   if (opts.instant) {
-    dipTween = null; engine.m.dip = 1;
-    applyScene(sc); engine.playScene(sc, 0); engine.settle();
-    markLaunched(sc, `Cut to ${sc.name}`);
+    engine.playScene(sc, 0); engine.settle(); devices.settle(); lasers.settle();
+    markLaunched(sc, sc.name);
     return;
   }
-  if (needsCut(sc)) {
-    markLaunched(sc, `Cut to ${sc.name} (new assets)`);
-    tweenDip(0, 0.35, () => {
-      applyScene(sc);
-      engine.playScene(sc, 0);
-      engine.settle();
-      tweenDip(1, 0.8);
-    });
-  } else {
-    if (dipTween) tweenDip(1, 0.3);
-    applyScene(sc);
-    engine.playScene(sc, fade);
-    markLaunched(sc, `Morphing to ${sc.name}`);
+  engine.playScene(sc, opts.fade ?? +$('#sceneFade').value);
+  markLaunched(sc, `Moving to ${sc.name}`);
+}
+/** Is anything still travelling: the crossfade, the sticks, or a device coming or going? */
+function sceneMoving() {
+  if (engine.snapT > 0) return true;
+  for (let p = 0; p < POD_COUNT; p++) {
+    const P = engine.pods[p], T = engine.kinPre[p];
+    if (Math.abs(P.h - T.h) > 0.05 || Math.abs(P.r - T.r) > 0.01 || P.f.some((f, b) => Math.abs(f - T.f[b]) > 0.02)) return true;
   }
+  const o = devices.o, pr = devices.pres, at = (v, on) => Math.abs(v - (on ? 1 : 0)) < 1e-3;
+  if (!at(pr.tubes, o.tubes && devices.tubeShown === o.tubeLayout) || !at(pr.blinders, o.blinders) || !at(pr.strobes, o.strobes) || !at(pr.liquid, o.liquid) || !at(pr.co2, o.co2)) return true;
+  if (devices.ballDefs.some((b, i) => !at(b.pres, i < o.balls))) return true;
+  return !at(lasers.presence, lasers.on);
 }
 function pickAuto() {
-  const pool = SCENES.filter((x) => x.id !== 'blackout' && x.id !== liveScene);
   const mode = $('#sceneAuto').value;
+  const list = SCENES.filter((x) => x.id !== 'blackout');
   if (mode === 'next') {
-    const list = SCENES.filter((x) => x.id !== 'blackout');
     const i = list.findIndex((x) => x.id === liveScene);
     return list[(i + 1) % list.length];
   }
-  const from = mode === 'smooth' ? pool.filter((x) => !needsCut(x)) : pool;
-  if (!from.length) { sceneMsg = 'No smooth move from here: holding'; return null; } // never cut in smooth mode
-  return from[Math.floor(Math.random() * from.length)];
+  const pool = list.filter((x) => x.id !== liveScene);
+  return pool[Math.floor(Math.random() * pool.length)];
 }
-function sceneTick(dt) {
-  if (dipTween) {
-    const tw = dipTween;
-    tw.t += dt;
-    const k = Math.min(1, tw.t / tw.dur);
-    engine.m.dip = tw.from + (tw.to - tw.from) * k * k * (3 - 2 * k);
-    if (k >= 1) { dipTween = null; tw.done?.(); }
-  }
+function sceneTick() {
   const mode = $('#sceneAuto').value;
   if (mode === 'off') { autoNext = null; return; }
   const span = +$('#sceneEvery').value * 4;
@@ -864,7 +885,7 @@ SCENES.forEach((sc, i) => {
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'scene'; b.dataset.id = sc.id; b.setAttribute('role', 'listitem');
   b.title = `${sc.name}${i < 10 ? ` (key ${(i + 1) % 10})` : ''}`;
-  b.innerHTML = `<img alt="" src="scenes/${sc.id}.webp"><small>${i < 10 ? (i + 1) % 10 : ''}</small><em>cut</em><span>${sc.name}</span><i></i>`;
+  b.innerHTML = `<img alt="" src="scenes/${sc.id}.webp"><small>${i < 10 ? (i + 1) % 10 : ''}</small><span>${sc.name}</span><i></i>`;
   b.querySelector('img').onerror = (e) => { e.target.remove(); b.style.background = 'linear-gradient(135deg, #1a1d24, #0a0c10)'; };
   on(b, 'click', () => launchScene(sc.id));
   grid.append(b);
@@ -876,16 +897,15 @@ on('#sceneEvery', 'change', () => { autoNext = null; });
 on(showSelect, 'change', () => { if (showSelect.value !== 'scene') { liveScene = null; sceneMsg = ''; } });
 function scenesUI() {
   const live = engine.show?.scene ? liveScene : null;
-  let prog = 1;
-  if (dipTween) prog = dipTween.to === 0 ? dipTween.t / dipTween.dur * 0.5 : 0.5 + (dipTween.t / dipTween.dur) * 0.5;
-  else if (engine.snapT > 0) prog = 1 - engine.snapT / engine.snapDur;
+  const moving = live && sceneMoving();
+  const prog = engine.snapT > 0 ? 1 - engine.snapT / engine.snapDur : 1;
   for (const b of grid.children) {
-    const sc = sceneById(b.dataset.id), isLive = b.dataset.id === live;
+    const isLive = b.dataset.id === live;
     b.classList.toggle('live', isLive);
-    b.classList.toggle('cut', !isLive && needsCut(sc));
+    b.classList.toggle('moving', isLive && moving);
     b.querySelector('i').style.width = isLive ? `${Math.round(Math.min(1, prog) * 100)}%` : '0';
   }
-  let msg = live ? (prog < 1 || sceneMsg.startsWith('No smooth') ? sceneMsg : `Live: ${sceneById(live).name}`) : '';
+  let msg = live ? (moving ? sceneMsg : `Live: ${sceneById(live).name}`) : '';
   if ($('#sceneAuto').value !== 'off' && autoNext !== null) msg += `${msg ? ' · ' : ''}next in ${Math.max(0, Math.ceil((autoNext - engine.beat) / 4))} bars`;
   $('#sceneStatus').textContent = msg;
 }
@@ -900,7 +920,7 @@ function frame(now) {
   last = now;
   micFrame(dt);
   midi.tick(dt);
-  sceneTick(dt);
+  sceneTick();
   // cue list runner
   if ($('#cueRun').checked && cueIdx >= 0 && cues[cueIdx]) {
     cueRunT += dt;
@@ -968,4 +988,4 @@ function updateUI() {
 requestAnimationFrame(frame);
 
 // expose for debugging and tests
-window.ck5 = { engine, rig, loadShow, goCue, midi, lasers, devices, launchScene, needsCut: (id) => needsCut(sceneById(id)) };
+window.ck5 = { engine, rig, loadShow, goCue, midi, lasers, devices, venue, ambience, setVenue, launchScene, sceneMoving };

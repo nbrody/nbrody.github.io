@@ -28,7 +28,7 @@ h1 { margin: 6px 0 2px; font-size: 24px; font-weight: 600; letter-spacing: -.5px
 h1 span { color: var(--dim); font-weight: 400; }
 header p:last-child { margin: 0; color: var(--faint); font-size: 12px; }
 
-.tabs { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
 .tabs button { background: none; border: 0; border-radius: 6px; padding: 7px 0; color: var(--dim); font: 500 10px Inter, sans-serif; cursor: pointer; letter-spacing: -.1px; }
 .tabs button[aria-selected='true'] { background: var(--amber-d); color: var(--amber); }
 .tabs button:hover { color: var(--ink); }
@@ -148,10 +148,8 @@ input[type=color] { width: 44px; height: 26px; padding: 0 2px; border: 1px solid
 .scene:hover img { opacity: 1; transform: scale(1.04); }
 .scene span { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 5px 3px; font: 500 9.5px Inter, sans-serif; color: #fff; text-align: left; background: linear-gradient(transparent, #000c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .scene small { position: absolute; top: 3px; left: 4px; font: 9px 'JetBrains Mono', monospace; color: #fffb; text-shadow: 0 1px 2px #000; }
-.scene em { position: absolute; top: 3px; right: 3px; font: normal 8.5px 'JetBrains Mono', monospace; padding: 0 4px; border-radius: 3px; background: #000a; color: var(--amber); display: none; }
-.scene.cut em { display: block; }
 .scene i { position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--amber); }
 .scene.live { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber) inset; }
 .scene.live img { opacity: 1; }
-.scene.next { border-color: #ffffff55; }
-.cutmark { font: 9px 'JetBrains Mono', monospace; color: var(--amber); padding: 0 3px; border: 1px solid var(--amber-d); border-radius: 3px; }
+.scene.moving { animation: scene-moving 1s ease-in-out infinite alternate; }
+@keyframes scene-moving { from { box-shadow: 0 0 0 1px var(--amber) inset; } to { box-shadow: 0 0 0 2px var(--amber) inset, 0 0 10px var(--amber-d); } }

@@ -11,7 +11,7 @@
 // Override CHROME_PATH, GRAPHICS_TEST_URL, or THUMB_WAIT_MS if needed.
 
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +23,6 @@ const BASE = (process.env.GRAPHICS_TEST_URL || 'http://localhost:8124/docs/graph
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const WAIT = Number(process.env.THUMB_WAIT_MS || 4500);
 const W = 960, H = 600, SCALE = 1 / 3, QUALITY = 72;
-const PORT = 9300 + Math.floor(Math.random() * 500);
 
 // Per-visualization tweaks: extra settle time, a script run inside the
 // visualization's frame after load, and/or mouse drags across the canvas.
@@ -47,7 +46,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 mkdirSync(OUT, { recursive: true });
 const profile = mkdtempSync(join(tmpdir(), 'graphics-thumbs-'));
 const chrome = spawn(CHROME, [
-  '--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`,
+  '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`,
   `--window-size=${W},${H}`, '--hide-scrollbars', '--mute-audio', '--no-first-run',
   '--use-angle=swiftshader', '--enable-unsafe-swiftshader', 'about:blank',
 ], { stdio: 'ignore' });
@@ -55,7 +54,9 @@ const chrome = spawn(CHROME, [
 async function devtoolsTarget() {
   for (let i = 0; i < 50; i++) {
     try {
-      const list = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json();
+      // Chrome chose a free port and wrote it to its own profile: only ever talk to our Chrome
+      const port = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0].trim();
+      const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
       const page = list.find((t) => t.type === 'page');
       if (page) return page.webSocketDebuggerUrl;
     } catch { /* not up yet */ }
@@ -139,5 +140,5 @@ try {
 } finally {
   chrome.kill();
   await sleep(300);
-  rmSync(profile, { recursive: true, force: true });
+  try { rmSync(profile, { recursive: true, force: true }); } catch { /* Chrome still closing */ }
 }
