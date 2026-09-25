@@ -1,0 +1,47 @@
+name: Deploy website
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Generate seminar browser configuration
+        env:
+          FIREBASE_CONFIG: ${{ secrets.GOLGF26_FIREBASE_CONFIG }}
+        run: |
+          node <<'JS'
+          const fs = require('node:fs');
+          if (!process.env.FIREBASE_CONFIG) throw new Error('GOLGF26_FIREBASE_CONFIG is required');
+          const config = JSON.parse(process.env.FIREBASE_CONFIG);
+          if (config.projectId !== 'golgf26' || typeof config.apiKey !== 'string' || !config.apiKey) {
+            throw new Error('Invalid seminar Firebase configuration');
+          }
+          fs.writeFileSync('docs/GeometryofLinearGroups/Fall26/firebase-config.js',
+            '// Generated at deployment. Firebase browser configuration is public.\n' +
+            'export const firebaseConfig = ' + JSON.stringify(config, null, 2) + ';\n');
+          JS
+      - name: Build website
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./docs
+          destination: ./_site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

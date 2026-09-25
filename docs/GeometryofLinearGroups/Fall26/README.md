@@ -15,8 +15,13 @@ The web app is named **Geometry of Linear Groups — Fall 2026 survey**.
   participants can keep editing their responses throughout the semester.
 - Billing remains on the no-cost Spark plan.
 
-`firebase-config.js` contains the public web-app configuration; it contains no
-administrator credentials. `database.rules.json` is the complete rules document
+`firebase-config.js` is an ignored local file containing the public web-app
+configuration. Copy `firebase-config.example.js` and fill it from Firebase Console
+for a fresh local checkout. GitHub Actions generates the deployed file from the
+`GOLGF26_FIREBASE_CONFIG` repository secret using `.github/workflows/deploy-pages.yml`.
+The generated file is still public on the website: Firebase client configuration
+is not an administrator credential. Ignoring it does not remove prior Git history
+or rotate the key. Database rules and API restrictions provide access control. `database.rules.json` is the complete rules document
 published to this dedicated project. Root access is denied; authenticated
 participants can read survey responses and write only the response matching their
 own UID. Names, time slots, and response fields are validated by the database.
