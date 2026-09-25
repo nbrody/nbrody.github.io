@@ -234,9 +234,12 @@ function constructMetatiles(patch) {
 // ── Build a tiling to specified level ──────────────────────────
 function buildTiling(level) {
     let tiles = [H_init, T_init, P_init, F_init];
+    const tag = ts => ts.forEach((t, i) => { t.kind = 'HTPF'[i]; });
+    tag(tiles);
     for (let i = 1; i < level; i++) {
         const patch = constructPatch(...tiles);
         tiles = constructMetatiles(patch);
+        tag(tiles);
     }
     return tiles;
 }

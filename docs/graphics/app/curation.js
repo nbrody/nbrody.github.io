@@ -201,21 +201,27 @@ export const CURATION = {
   },
   hatTiling: {
     simple: [
-      { sel: "#drawOutlinesToggle" },
-      { sel: "#animateToggle", label: "Animate" },
-      { sel: "#rotSpeedSlider" },
-      { sel: "#levelDown" },
-      { sel: "#levelUp" },
-      { sel: "#resetBtn" },
+      { sel: "#chapterSelect", label: "Chapter" },
+      { sel: "#tourToggle", label: "Play tour" },
+      { sel: "#speedSlider", label: "Tour speed" },
+      { sel: "#captionsToggle", label: "Captions" },
+      { sel: "#drawOutlinesToggle", label: "Supertile outlines" },
+      { sel: "#prevBtn", label: "Previous chapter" },
+      { sel: "#nextBtn", label: "Next chapter" },
+      { sel: "#resetBtn", label: "Reset view" },
     ],
     keys: [
-      { key: "+", label: "Level up" },
-      { key: "-", label: "Level down" },
+      { key: " ", label: "Pause / play", simple: true },
+      { key: "n", label: "Next chapter" },
+      { key: "p", label: "Previous chapter" },
+      { key: "t", label: "Captions on/off" },
+      { key: "o", label: "Supertile outlines" },
     ],
     labels: {
-      "#levelUp": "Level +",
-      "#levelDown": "Level −",
+      "#bgPicker": "Background",
+      "#strokeSlider": "Stroke width",
     },
+    hide: ["#panelToggle", "#panelClose", "#capPrev", "#capNext", "#playBtn", "#screenshotBtn"],
   },
   penrose: {
     simple: [

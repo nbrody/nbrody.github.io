@@ -35,6 +35,7 @@ const PREP = {
   indrasPearls: { wait: 12000 },
   '4dKleinian': { wait: 15000, run: "kleinian.applyPreset('icosahedral-packing')" },
   newtonFractals: { run: 'applyScene(7)' },
+  hatTiling: { wait: 6000, run: "(function go() { const H = window.hatTour; if (!H || !H.ready) return setTimeout(go, 200); H.captions(false); H.play(false); H.seek('grow', 9.5); })()" },
   gameOfLife: { run: "document.getElementById('captions').checked = false; gameOfLife.loadStory('kingdoms'); gameOfLife.life.setBite(0.05); gameOfLife.advance(1300); document.getElementById('playBtn').click()" },
   lightDesigner: { wait: 7000, run: "ck5.loadShow('typeII', 0); ck5.engine.seek(ck5.engine.show.sections[5].start + 30, 0)" },
   ballMachine: { wait: 12000, run: "(function go() { const M = window.__machine; if (!M) return setTimeout(go, 250); const box = document.getElementById('labels'); if (box.checked) box.click(); M.setView('orbit'); M.rig.fly = null; M.camera.position.set(6.4, 3.1, 2.2); M.rig.controls.target.set(1.9, 3.3, -1.1); M.camera.fov = M.rig.baseFov; M.camera.updateProjectionMatrix(); M.rig.controls.update(); })()" },

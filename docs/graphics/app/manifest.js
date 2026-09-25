@@ -34,7 +34,7 @@ export const VISUALIZATIONS = [
 
   // — Tilings & Lattices —
   { id: 'hatTiling', title: 'Hat Monotile', cat: 'tilings', glyph: '⬡',
-    blurb: "Generator for the aperiodic 'Hat' monotile tiling.", keys: ['h', '+', '-'] },
+    blurb: 'A looping tour of the aperiodic hat: growth, legal neighbours, mirror images, supertiles, Fibonacci squares and the Tile(a,b) family.', keys: [' ', 'n', 'p', 't', 'o', 'h'] },
   { id: 'penrose', title: 'Penrose Tiling', cat: 'tilings', glyph: '✶',
     blurb: 'Penrose tiling via cut-and-project from ℝ⁵ → ℝ².', keys: [] },
   { id: 'picardOrbit', title: 'Picard Orbit', cat: 'tilings', glyph: '◉',
