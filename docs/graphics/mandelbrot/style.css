@@ -516,3 +516,40 @@ input[type="checkbox"]:checked::after {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
 }
+
+/* ──────────────────── Deep Dives ──────────────────── */
+.dive-blurb {
+    margin-top: 8px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 300;
+}
+
+.dive-progress {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.dive-progress-bar {
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #c084fc, #60a5fa, #34d399);
+    box-shadow: 0 0 8px rgba(96, 165, 250, 0.5);
+}
+
+.dive-status {
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.minimap-viewport.dot {
+    border-radius: 50%;
+    background: rgba(192, 132, 252, 0.9);
+    border-color: rgba(255, 255, 255, 0.8);
+    transition: none;
+}

@@ -5,7 +5,8 @@
 // controls the tool already exposes (sliders, toggles, selects, buttons), and
 // replay user intent by setting values + dispatching the same DOM events the
 // tool's own listeners expect. The remote renders widgets from this schema and
-// rounds-trips changes back through the stage. Zero changes to the 18 tools.
+// rounds-trips changes back through the stage. Hidden controls remain available
+// because presentation mode hides their native panels.
 //
 // Requires same-origin access, which means serving over http(s) (a dev server
 // or GitHub Pages) — file:// blocks cross-folder iframe document access.
@@ -21,15 +22,6 @@ export function canIntrospect(iframe) {
 
 const CONTROL_SELECTOR = 'input, select, button, textarea';
 const SKIP_INPUT_TYPES = new Set(['hidden', 'file', 'password', 'submit', 'image']);
-
-/** True if the element is rendered (skip display:none / detached controls). */
-function isVisible(node) {
-  if (node.type === 'hidden') return false;
-  if (node.hidden) return false;
-  // offsetParent is null for display:none (and fixed-position, but tool panels
-  // aren't fixed children); also accept anything with layout boxes.
-  return node.offsetParent !== null || node.getClientRects().length > 0;
-}
 
 /** Build a selector that uniquely resolves `node` within `doc`. */
 function uniqueSelector(node, doc) {
@@ -120,7 +112,7 @@ export function introspectControls(iframe) {
 
   for (const node of doc.querySelectorAll(CONTROL_SELECTOR)) {
     const kind = kindOf(node);
-    if (!kind || !isVisible(node)) continue;
+    if (!kind || node.closest('[data-studio-ignore]')) continue;
 
     // Collapse radio groups to a single select-like control.
     if (kind === 'radio') {
@@ -138,10 +130,14 @@ export function introspectControls(iframe) {
     }
 
     const c = { kind, selector: uniqueSelector(node, doc), label: labelFor(node, doc) };
+    const group = node.closest('[data-control-group]')?.dataset.controlGroup;
+    if (group) c.group = group;
     if (kind === 'range' || kind === 'number') {
       c.min = node.min !== '' ? Number(node.min) : null;
       c.max = node.max !== '' ? Number(node.max) : null;
-      c.step = node.step !== '' && node.step !== 'any' ? Number(node.step) : null;
+      // Only step="any" is continuous (null); a missing or invalid step is the HTML default of 1.
+      const step = node.step.trim().toLowerCase();
+      c.step = step === 'any' ? null : Number(step) > 0 ? Number(step) : 1;
       c.value = Number(node.value);
     } else if (kind === 'checkbox') {
       c.value = node.checked;
@@ -152,6 +148,7 @@ export function introspectControls(iframe) {
       c.label = (node.textContent || node.value || labelFor(node, doc)).replace(/\s+/g, ' ').trim();
     } else {
       c.value = node.value;
+      if (node.readOnly) c.readOnly = true;
     }
     controls.push(c);
   }
@@ -163,7 +160,7 @@ export function introspectControls(iframe) {
     if (t && !keys.includes(t)) keys.push(t);
   }
 
-  return { controls, keys, ok: true };
+  return { controls, keys, ok: true, description: doc.querySelector('meta[name=graphics-description]')?.content || '' };
 }
 
 /** Resolve a control's live element inside the iframe. */
@@ -186,7 +183,8 @@ function fireInputChange(iframe, node) {
 /** Apply a value to a control and notify the tool. Returns true on success. */
 export function applyControl(iframe, { selector, kind, value }) {
   const node = resolve(iframe, selector);
-  if (!node) return false;
+  if (!node || node.readOnly || !kindOf(node) || kindOf(node) === 'button') return false;
+  kind = kindOf(node);
   if (kind === 'checkbox') {
     node.checked = !!value;
   } else if (kind === 'radio') {
@@ -238,7 +236,7 @@ export function captureState(iframe) {
   const { controls } = introspectControls(iframe);
   const state = {};
   for (const c of controls) {
-    if (c.kind === 'button') continue;
+    if (c.kind === 'button' || c.readOnly) continue;
     state[c.selector] = { kind: c.kind, value: c.value };
   }
   return state;
@@ -250,4 +248,15 @@ export function applyState(iframe, state) {
   for (const [selector, { kind, value }] of Object.entries(state)) {
     applyControl(iframe, { selector, kind, value });
   }
+}
+
+export function applyPayload(iframe, payload) {
+  const schema = introspectControls(iframe);
+  const missing = [];
+  for (const [selector, entry] of Object.entries(payload)) {
+    const c = schema.controls.find(c => c.selector === selector || c.selector === `#${CSS.escape(selector)}`);
+    if (!c || c.kind === 'button' || c.readOnly) { missing.push(selector); continue; }
+    applyControl(iframe, { ...c, value: entry && typeof entry === 'object' ? entry.value : entry });
+  }
+  return missing;
 }

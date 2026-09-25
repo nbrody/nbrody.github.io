@@ -2,11 +2,12 @@
 <html lang="en">
 
 <head>
+    <script src="../app/entry.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mandelbrot Explorer</title>
     <meta name="description"
-        content="GPU-accelerated Mandelbrot set explorer with live Julia set preview, smooth coloring, orbit tracing, and infinite zoom.">
+        content="GPU-accelerated Mandelbrot set explorer with perturbation-theory deep zoom, curated deep-dive tours, live Julia set preview, smooth coloring, and orbit tracing.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap"
@@ -41,6 +42,29 @@
         <h1 id="title">Mandelbrot Explorer</h1>
         <p class="subtitle">GPU-accelerated fractal explorer</p>
 
+        <div class="control-section-title">Deep Dives</div>
+
+        <div class="control-group">
+            <label for="zoomTarget">Destination</label>
+            <select id="zoomTarget"></select>
+            <p id="diveBlurb" class="dive-blurb"></p>
+        </div>
+
+        <div class="control-group">
+            <label for="diveSpeed">Dive Speed <span id="diveSpeedValue" class="value-badge">1.0×</span></label>
+            <input type="range" id="diveSpeed" min="-2" max="2" step="0.25" value="0">
+        </div>
+
+        <div class="dive-progress"><div id="diveProgressBar" class="dive-progress-bar"></div></div>
+        <div id="diveStatus" class="dive-status"></div>
+
+        <div class="button-row">
+            <button id="autoZoomBtn" class="action-btn">▶ Dive</button>
+            <button id="resetBtn" class="action-btn secondary">↺ Reset</button>
+        </div>
+
+        <div class="control-section-title">Appearance</div>
+
         <div class="control-group">
             <label for="colorScheme">Color Palette</label>
             <select id="colorScheme">
@@ -56,8 +80,22 @@
         </div>
 
         <div class="control-group">
+            <label for="colorMode">Color Mapping</label>
+            <select id="colorMode">
+                <option value="0">Linear</option>
+                <option value="1">Square Root</option>
+                <option value="2">Logarithmic</option>
+            </select>
+        </div>
+
+        <div class="control-group">
             <label for="iterSlider">Max Iterations <span id="iterValue" class="value-badge">256</span></label>
-            <input type="range" id="iterSlider" min="64" max="4096" step="64" value="256">
+            <input type="range" id="iterSlider" min="6" max="20" step="0.05" value="8">
+        </div>
+
+        <div class="control-group toggle-row">
+            <label for="autoIterToggle">Auto Iterations</label>
+            <input type="checkbox" id="autoIterToggle" checked>
         </div>
 
         <div class="control-group">
@@ -67,8 +105,8 @@
         </div>
 
         <div class="control-group">
-            <label for="smoothSlider">Color Smoothness <span id="smoothValue" class="value-badge">1.0</span></label>
-            <input type="range" id="smoothSlider" min="0.1" max="5" step="0.1" value="1.0">
+            <label for="smoothSlider">Color Density <span id="smoothValue" class="value-badge">1.0</span></label>
+            <input type="range" id="smoothSlider" min="-3" max="1" step="0.01" value="0">
         </div>
 
         <div class="control-group">
@@ -108,25 +146,6 @@
             <input type="checkbox" id="interiorToggle">
         </div>
 
-        <div class="control-section-title">Auto-Zoom</div>
-
-        <div class="control-group">
-            <label for="zoomTarget">Zoom Target</label>
-            <select id="zoomTarget">
-                <option value="seahorse">Seahorse Valley</option>
-                <option value="elephant">Elephant Valley</option>
-                <option value="spiral">Spiral Galaxy</option>
-                <option value="lightning">Lightning Bolt</option>
-                <option value="minibrot">Deep Minibrot</option>
-                <option value="custom">Current View</option>
-            </select>
-        </div>
-
-        <div class="button-row">
-            <button id="autoZoomBtn" class="action-btn">▶ Auto-Zoom</button>
-            <button id="resetBtn" class="action-btn secondary">↺ Reset</button>
-        </div>
-
         <div class="stats" id="stats">
             <span id="fpsCounter">60 fps</span>
             <span id="zoomLevel">1×</span>
@@ -142,9 +161,10 @@
     <!-- Instructions overlay -->
     <div id="instructions" class="instructions">
         <span>🖱️ Scroll to zoom · Drag to pan · <kbd>H</kbd> toggle panel · <kbd>J</kbd> Julia · <kbd>Space</kbd>
-            auto-zoom</span>
+            dive / pause</span>
     </div>
 
+    <script src="presets.js"></script>
     <script src="renderer.js"></script>
 </body>
 

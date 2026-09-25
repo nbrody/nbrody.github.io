@@ -1,0 +1,43 @@
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: #fff; color: #d8deea;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+#view { position: fixed; inset: 0; cursor: grab; }
+#view.dragging { cursor: grabbing; }
+#view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: none; }
+#view canvas.active { display: block; }
+#canvas1013 { image-rendering: auto; }
+
+#info {
+  position: absolute; top: 12px; left: 12px; z-index: 10;
+  width: 300px; max-height: calc(100% - 24px); overflow-y: auto;
+  background: rgba(16, 20, 30, 0.78);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px;
+  padding: 10px 14px; font-size: 12.5px; line-height: 1.45;
+  box-sizing: border-box;
+}
+#info.hidden { display: none; }
+#info .title { display: flex; flex-direction: column; gap: 6px; }
+#info .title b { color: #fff; font-size: 14px; }
+#info select { font: inherit; background: #222a3a; color: #e6ebf5; border: 1px solid #3a4560; border-radius: 5px; padding: 2px 4px; }
+#caption { margin: 8px 0; color: #aeb7c9; }
+fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 5px; }
+[hidden] { display: none !important; }
+label { display: grid; grid-template-columns: 1fr 120px 38px; align-items: center; gap: 6px; }
+label:has(input[type=checkbox]) { display: flex; }
+label:has(select) { grid-template-columns: 1fr auto; }
+input[type=range] { width: 120px; margin: 0; }
+em.k { font-style: normal; }
+output { color: #ffd36a; font-variant-numeric: tabular-nums; text-align: right; font-size: 11.5px; }
+.row { display: flex; gap: 6px; margin-top: 4px; }
+button { font: inherit; background: #2b3550; color: #e6ebf5; border: 1px solid #45527a; border-radius: 5px; padding: 3px 10px; cursor: pointer; }
+button:hover { background: #36426a; }
+#status { margin-top: 8px; color: #8fd0ff; font-variant-numeric: tabular-nums; min-height: 1.4em; }
+.hint { margin-top: 4px; color: #7c869b; font-size: 11px; }
+kbd { background: #2a3040; border-radius: 3px; padding: 0 4px; font-size: 10.5px; }
+
+@media (max-width: 520px) {
+  #info { width: calc(100% - 24px); max-height: 45%; }
+}

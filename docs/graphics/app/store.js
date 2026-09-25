@@ -5,6 +5,7 @@
 // playlist id, so opening a playlist on the display and on a remote stays in
 // sync through localStorage + the live transport.
 
+import { normalizeItem } from './payload.js';
 import { uid } from './util.js';
 import { vizById } from './manifest.js';
 
@@ -20,8 +21,7 @@ function defaults() {
   };
 }
 
-/** Shape of a single playlist item. `state` is a captured control snapshot
- *  (selector → value) applied on load — reserved for the preset feature. */
+/** Legacy item defaults; normalization migrates state snapshots to payloads. */
 function makeItem(vizId, extra = {}) {
   return { vizId, duration: null, state: null, ...extra };
 }
@@ -55,14 +55,14 @@ export const PlaylistStore = {
 
   /** Create and persist a new playlist. `items` may be ids or item objects. */
   create(name, items = []) {
-    const now = Math.floor(performance.now());
+    const now = Date.now();
     const pl = {
       id: uid('pl'),
       name: name || 'Untitled playlist',
       createdAt: now,
       updatedAt: now,
       ...defaults(),
-      items: items.map((it) => (typeof it === 'string' ? makeItem(it) : it)),
+      items: items.map((it) => normalizeItem(typeof it === 'string' ? makeItem(it) : it)),
     };
     const list = readAll();
     list.push(pl);
@@ -75,7 +75,7 @@ export const PlaylistStore = {
     const list = readAll();
     const i = list.findIndex((p) => p.id === id);
     if (i < 0) return null;
-    list[i] = { ...list[i], ...patch, id, updatedAt: Math.floor(performance.now()) };
+    list[i] = { ...list[i], ...patch, id, updatedAt: Date.now() };
     writeAll(list);
     return list[i];
   },
@@ -87,7 +87,8 @@ export const PlaylistStore = {
   duplicate(id) {
     const src = this.get(id);
     if (!src) return null;
-    return this.create(`${src.name} (copy)`, src.items.map((it) => ({ ...it })));
+    const copy = this.create(`${src.name} (copy)`, src.items);
+    return this.update(copy.id, { advance: src.advance, defaultDuration: src.defaultDuration, loop: src.loop, shuffle: src.shuffle });
   },
 
   // — item helpers —
@@ -145,10 +146,10 @@ export const PlaylistStore = {
     let count = 0;
     for (const raw of incoming) {
       if (!raw || !Array.isArray(raw.items)) continue;
-      const now = Math.floor(performance.now());
+      const now = Date.now();
       const items = raw.items
         .map((it) => (typeof it === 'string' ? makeItem(it) : it))
-        .filter((it) => it && vizById(it.vizId));
+        .filter((it) => it && vizById(it.vizId)).map(normalizeItem);
       list.push({
         id: uid('pl'),
         name: String(raw.name || 'Imported playlist'),
@@ -156,7 +157,7 @@ export const PlaylistStore = {
         updatedAt: now,
         ...defaults(),
         advance: raw.advance === 'auto' ? 'auto' : 'manual',
-        defaultDuration: Number(raw.defaultDuration) || 30,
+        defaultDuration: Number(raw.defaultDuration) > 0 ? Number(raw.defaultDuration) : 30,
         loop: raw.loop !== false,
         shuffle: !!raw.shuffle,
         items,

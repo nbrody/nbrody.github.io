@@ -1,13 +1,16 @@
 // gallery.js — the studio home: browse the library, build & manage playlists,
 // and launch the stage / remote.
 
-import { VISUALIZATIONS, CATEGORIES, vizById } from './manifest.js';
+import { VISUALIZATIONS, CATEGORIES, vizById, vizPath, vizThumb } from './manifest.js';
 import { PlaylistStore } from './store.js';
 import { qs, el, clear, params } from './util.js';
 
 const catalog = qs('#catalog');
 const editor = qs('#editor');
 let activeId = null; // playlist currently being edited
+const VIEW_KEY = 'graphics.galleryView';
+const view = { mode: 'grid', query: '', cat: null };
+try { if (localStorage.getItem(VIEW_KEY) === 'list') view.mode = 'list'; } catch { /* storage unavailable */ }
 
 // ── toast ──────────────────────────────────────────────────────────────────
 let toastTimer;
@@ -33,29 +36,116 @@ function playSingle(vizId) {
 }
 
 // ── library ──────────────────────────────────────────────────────────────────
+function matches(v) {
+  if (view.cat && v.cat !== view.cat) return false;
+  const q = view.query.trim().toLowerCase();
+  if (!q) return true;
+  return [v.title, v.blurb, v.id, CATEGORIES[v.cat]?.label].some((s) => s && s.toLowerCase().includes(q));
+}
+
+/** How many times each visualization appears in the active playlist. */
+function activeCounts() {
+  const counts = new Map();
+  const pl = activeId && PlaylistStore.get(activeId);
+  for (const it of pl?.items || []) counts.set(it.vizId, (counts.get(it.vizId) || 0) + 1);
+  return counts;
+}
+
 function renderCatalog() {
   clear(catalog);
+  const counts = activeCounts();
+  let shown = 0;
   for (const [catKey, cat] of Object.entries(CATEGORIES)) {
-    const items = VISUALIZATIONS.filter((v) => v.cat === catKey);
+    const items = VISUALIZATIONS.filter((v) => v.cat === catKey && matches(v));
     if (!items.length) continue;
-    catalog.append(el('div', { class: 'cat-title', style: { '--cat': cat.accent } }, cat.label));
-    const grid = el('div', { class: 'cards' });
-    for (const v of items) grid.append(card(v, cat.accent));
-    catalog.append(grid);
+    shown += items.length;
+    catalog.append(el('div', { class: 'cat-title', style: { '--cat': cat.accent } }, [cat.label, el('span', { class: 'n' }, `· ${items.length}`)]));
+    const wrap = el('div', { class: view.mode === 'list' ? 'rows' : 'cards' });
+    for (const v of items) wrap.append((view.mode === 'list' ? row : card)(v, cat.accent, counts.get(v.id) || 0));
+    catalog.append(wrap);
+  }
+  if (!shown) catalog.append(el('div', { class: 'no-results' }, 'No visualizations match.'));
+}
+
+function thumb(v, inPlaylist) {
+  const img = el('img', { src: vizThumb(v.id), alt: '', loading: 'lazy', decoding: 'async', width: '320', height: '200' });
+  img.addEventListener('error', () => img.remove(), { once: true });
+  return el('a', { class: 'thumb', href: vizPath(v.id), 'aria-label': `Open ${v.title}`, tabindex: '-1' }, [
+    img,
+    el('span', { class: 'glyph', 'aria-hidden': 'true' }, v.glyph),
+    inPlaylist ? el('span', { class: 'in-pl', title: 'In the current playlist' }, inPlaylist > 1 ? `✓ ×${inPlaylist}` : '✓') : null,
+  ]);
+}
+
+/** Direct links + add-to-playlist, shared by grid and list layouts. */
+function links(v) {
+  return el('div', { class: 'links' }, [
+    el('button', { class: 'mini add', title: 'Add to current playlist', onclick: () => addToActive(v.id) }, '+ Add'),
+    el('span', { class: 'spacer' }),
+    el('a', { class: 'mini', href: `${vizPath(v.id)}?standalone=1`, target: '_blank', rel: 'noopener', title: 'Open the original page on its own, without the studio shell (new tab)' }, '↗'),
+    el('button', { class: 'mini', title: `Copy link to ${vizPath(v.id)}`, onclick: () => copyLink(v) }, '⧉'),
+  ]);
+}
+
+function card(v, accent, inPlaylist) {
+  return el('article', { class: 'card', style: { '--cat': accent } }, [
+    thumb(v, inPlaylist),
+    el('div', { class: 'meta' }, [
+      el('a', { class: 'name', href: vizPath(v.id) }, v.title),
+      el('div', { class: 'blurb' }, v.blurb),
+    ]),
+    links(v),
+  ]);
+}
+
+function row(v, accent, inPlaylist) {
+  return el('article', { class: 'vrow', style: { '--cat': accent } }, [
+    thumb(v, inPlaylist),
+    el('div', { style: { minWidth: '0' } }, [
+      el('div', { class: 'row', style: { gap: '0.5rem' } }, [
+        el('a', { class: 'name', href: vizPath(v.id) }, v.title),
+        el('span', { class: 'path' }, `${v.id}/`),
+      ]),
+      el('div', { class: 'blurb', title: v.blurb }, v.blurb),
+    ]),
+    links(v),
+  ]);
+}
+
+async function copyLink(v) {
+  const url = new URL(vizPath(v.id), location.href).href;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast(`Copied ${url}`);
+  } catch {
+    prompt('Copy this link:', url);
   }
 }
 
-function card(v, accent) {
-  const open = el('button', { class: 'btn icon', title: `Open ${v.title} on the stage`, onclick: () => playSingle(v.id) }, '▶');
-  const add = el('button', { class: 'btn icon', title: 'Add to current playlist', onclick: () => addToActive(v.id) }, '+');
-  return el('div', { class: 'card', style: { '--cat': accent }, tabindex: '0' }, [
-    el('div', { class: 'actions' }, [open, add]),
-    el('div', { class: 'thumb' }, v.glyph),
-    el('div', { class: 'meta' }, [
-      el('div', { class: 'name' }, v.title),
-      el('div', { class: 'blurb' }, v.blurb),
-    ]),
-  ]);
+function renderFilters() {
+  const box = qs('#filters');
+  clear(box);
+  const chip = (key, label, accent) => el('button', {
+    type: 'button', class: 'filter', 'aria-pressed': String(view.cat === key),
+    style: accent ? { '--cat': accent } : {},
+    onclick: () => { view.cat = key; renderFilters(); renderCatalog(); },
+  }, label);
+  box.append(chip(null, `All · ${VISUALIZATIONS.length}`));
+  for (const [key, cat] of Object.entries(CATEGORIES)) box.append(chip(key, cat.label, cat.accent));
+}
+
+function wireLibraryTools() {
+  qs('#search').addEventListener('input', (e) => { view.query = e.target.value; renderCatalog(); });
+  const buttons = document.querySelectorAll('.view-toggle button');
+  const sync = () => buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view.mode)));
+  buttons.forEach((b) => b.addEventListener('click', () => {
+    view.mode = b.dataset.view;
+    try { localStorage.setItem(VIEW_KEY, view.mode); } catch { /* storage unavailable */ }
+    sync();
+    renderCatalog();
+  }));
+  sync();
+  renderFilters();
 }
 
 function addToActive(vizId) {
@@ -67,7 +157,7 @@ function addToActive(vizId) {
     PlaylistStore.addItem(activeId, vizId);
     toast(`Added ${vizById(vizId).title}`);
   }
-  renderEditor();
+  refresh();
 }
 
 // ── editor ───────────────────────────────────────────────────────────────────
@@ -79,12 +169,12 @@ function renderEditor() {
 
   // playlist picker + new
   const picker = el('select', {
-    onchange: (e) => { activeId = e.target.value; renderEditor(); },
+    onchange: (e) => { activeId = e.target.value; refresh(); },
   }, all.map((p) => el('option', { value: p.id, selected: p.id === activeId }, `${p.name} · ${p.items.length}`)));
   editor.append(el('div', { class: 'row', style: { 'justify-content': 'space-between' } }, [el('h2', {}, 'Playlist'), el('span', { class: 'chip' }, `${all.length} saved`)]));
 
   if (!all.length) {
-    editor.append(el('div', { class: 'empty-hint' }, 'No playlists yet. Add a visualization with “+”, or click “New playlist”.'));
+    editor.append(el('div', { class: 'empty-hint' }, 'No playlists yet. Add a visualization with “+ Add”, or click “New playlist”.'));
     editor.append(el('button', { class: 'btn primary', style: { width: '100%' }, onclick: newPlaylist }, '+ New playlist'));
     return;
   }
@@ -123,7 +213,7 @@ function renderEditor() {
   // items
   const list = el('div', { class: 'items scroll' });
   if (!pl.items.length) {
-    list.append(el('div', { class: 'empty-hint' }, 'Empty — add visualizations from the library with “+”.'));
+    list.append(el('div', { class: 'empty-hint' }, 'Empty — add visualizations from the library with “+ Add”.'));
   } else {
     pl.items.forEach((it, i) => list.append(itemRow(pl, it, i)));
   }
@@ -149,8 +239,8 @@ function itemRow(pl, it, i) {
   const v = vizById(it.vizId);
   const row = el('div', { class: 'pl-item', draggable: 'true', dataset: { index: String(i) } }, [
     el('span', { class: 'idx' }, String(i + 1)),
-    el('span', { class: 'g' }, v?.glyph || '▦'),
-    el('span', { class: 't', title: v?.title || it.vizId }, v?.title || it.vizId),
+    el('span', { class: 'g' }, v ? plThumb(v) : '▦'),
+    v ? el('a', { class: 't', href: vizPath(v.id), title: `Open ${v.title}` }, v.title) : el('span', { class: 't' }, it.vizId),
     el('span', { class: 'ord' }, [
       el('button', { title: 'Move up', onclick: () => { PlaylistStore.moveItem(pl.id, i, i - 1); refresh(); } }, '▲'),
       el('button', { title: 'Move down', onclick: () => { PlaylistStore.moveItem(pl.id, i, i + 1); refresh(); } }, '▼'),
@@ -168,6 +258,12 @@ function itemRow(pl, it, i) {
     if (!Number.isNaN(from) && from !== i) { PlaylistStore.moveItem(pl.id, from, i); refresh(); }
   });
   return row;
+}
+
+function plThumb(v) {
+  const img = el('img', { src: vizThumb(v.id), alt: '', loading: 'lazy', width: '40', height: '25' });
+  img.addEventListener('error', () => img.replaceWith(v.glyph), { once: true });
+  return img;
 }
 
 function newPlaylist() {
@@ -208,6 +304,7 @@ function wireImport() {
 // ── glue ─────────────────────────────────────────────────────────────────────
 function refresh() {
   renderEditor();
+  renderCatalog(); // playlist membership badges
 }
 
 function init() {
@@ -215,14 +312,15 @@ function init() {
   const p = params();
   if (p.pl && PlaylistStore.get(p.pl)) activeId = p.pl;
 
-  renderCatalog();
+  wireLibraryTools();
   renderEditor();
+  renderCatalog();
   wireImport();
   qs('#newPlBtn').addEventListener('click', newPlaylist);
 
   // keep editor fresh if another tab edits the same store
-  window.addEventListener('playlists:changed', renderEditor);
-  window.addEventListener('storage', (e) => { if (e.key && e.key.startsWith('graphics.playlists')) renderEditor(); });
+  window.addEventListener('playlists:changed', refresh);
+  window.addEventListener('storage', (e) => { if (e.key && e.key.startsWith('graphics.playlists')) refresh(); });
 }
 
 init();

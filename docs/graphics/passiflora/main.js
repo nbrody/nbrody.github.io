@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { vertexShader, fragmentShader } from './shaders.js';
+import { createMonarch } from './monarch.js';
 
 const $ = id => document.getElementById(id);
 const viewport = $('viewport');
@@ -132,7 +133,43 @@ function updateBreeze(){
 breezeToggle.addEventListener('click',()=>{breezeEnabled=!breezeEnabled;updateBreeze();});
 updateBreeze();
 const clock=new THREE.Clock();
-renderer.setAnimationLoop(()=>{const t=clock.getElapsedTime();materials.forEach(m=>m.uniforms.uTime.value=t);controls.update();renderer.render(scene,camera);});
+const monarch=createMonarch(scene,{reducedMotion});
+const raycaster=new THREE.Raycaster();
+const pointer=new THREE.Vector2();
+let firstPetal=null;
+let firstTapTime=0;
+let gesture=null;
+const activePointers=new Set();
+const canvas=renderer.domElement;
+canvas.addEventListener('pointerdown',event=>{
+ activePointers.add(event.pointerId);
+ if(activePointers.size!==1){gesture=null;return;}
+ if(event.button!==0)return;
+ gesture={id:event.pointerId,x:event.clientX,y:event.clientY,time:performance.now(),moved:false};
+});
+canvas.addEventListener('pointermove',event=>{
+ if(gesture?.id===event.pointerId&&Math.hypot(event.clientX-gesture.x,event.clientY-gesture.y)>8)gesture.moved=true;
+});
+canvas.addEventListener('pointercancel',event=>{activePointers.delete(event.pointerId);gesture=null;});
+canvas.addEventListener('pointerup',event=>{
+ activePointers.delete(event.pointerId);
+ const tap=gesture;gesture=null;
+ if(!tap||tap.id!==event.pointerId||tap.moved||performance.now()-tap.time>600||monarch.state==='flying')return;
+ const rect=canvas.getBoundingClientRect();
+ pointer.set((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2);
+ scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);
+ raycaster.setFromCamera(pointer,camera);
+ const hit=raycaster.intersectObjects(petals.children,false)[0];
+ if(!hit){firstPetal=null;return;}
+ const time=clock.getElapsedTime();
+ if(firstPetal===null||time-firstTapTime>6){firstPetal=hit.object;firstTapTime=time;return;}
+ if(firstPetal===hit.object)return;
+ const index=petals.children.indexOf(hit.object);
+ const angle=index*Math.PI/5+.12;
+ monarch.flyTo(polar(1.85,angle,.72),time,camera);
+ firstPetal=null;
+});
+renderer.setAnimationLoop(()=>{const t=clock.getElapsedTime();materials.forEach(m=>m.uniforms.uTime.value=t);controls.update();monarch.update(t);renderer.render(scene,camera);});
 $('status').hidden=true;
 // Useful for inspecting draw-call count and geometry from the browser console.
-window.passiflora={scene,camera,renderer,controls};
+window.passiflora={scene,camera,renderer,controls,monarch};

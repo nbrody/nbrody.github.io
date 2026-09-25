@@ -18,7 +18,13 @@ export function el(tag, attrs = {}, children = []) {
     else if (k === 'text') node.textContent = val;
     else if (k === 'html') node.innerHTML = val;
     else if (k === 'dataset') Object.assign(node.dataset, val);
-    else if (k === 'style' && typeof val === 'object') Object.assign(node.style, val);
+    else if (k === 'style' && typeof val === 'object') {
+      // setProperty handles custom properties (`--cat`), which assignment ignores.
+      for (const [prop, v] of Object.entries(val)) {
+        if (prop.startsWith('--')) node.style.setProperty(prop, v);
+        else node.style[prop] = v;
+      }
+    }
     else if (k.startsWith('on') && typeof val === 'function') node.addEventListener(k.slice(2), val);
     else node.setAttribute(k, val === true ? '' : val);
   }
@@ -63,4 +69,11 @@ export function clock(seconds) {
   const s = Math.max(0, Math.round(seconds));
   const m = Math.floor(s / 60);
   return `${m}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/** Works on HTTPS and on LAN HTTP preview URLs (where randomUUID is absent). */
+export function sessionId() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 }

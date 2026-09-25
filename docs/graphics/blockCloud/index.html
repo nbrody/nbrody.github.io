@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="graphics-description" content="An endless, large-period cloud field sampled on a 3D grid. Interior samples become orange-framed blocks. Cube sizes switch instantly every ten seconds as the camera soars at a steady height with gentle turns.">
+  <script src="../app/entry.js"></script>
+  <title>Block Cloud — Ember Atmospheres</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="cloudCanvas" aria-label="Orange-framed cloud formations viewed from a flying camera"></canvas>
+  <div id="renderStatus" role="status">Gathering clouds…</div>
+  <aside id="controls">
+    <header><span>ATMOSPHERIC STUDIES</span><h1>Block Cloud</h1><p>Soft skies. Molten edges.</p></header>
+    <fieldset data-control-group="Scenes"><legend>Scenes</legend>
+      <label for="scenePreset">Atmosphere</label><select id="scenePreset"><option value="cumulus">Rolling cloudscape</option><option value="citadel">Coarse sampling</option><option value="drift">Fine sampling</option><option value="custom">Custom</option></select>
+      <label for="morphToggle">Cycle cube sizes (1× → ¼× → 4×) <input id="morphToggle" type="checkbox" checked></label>
+      <label for="cycleSeconds">Seconds between size changes <output></output></label><input id="cycleSeconds" type="range" min="1" max="60" step="1" value="10">
+    </fieldset>
+    <fieldset data-control-group="Motion"><legend>Flight</legend>
+      <label for="flightToggle">Camera flight <input id="flightToggle" type="checkbox" checked></label>
+      <label for="flightSpeed">Flight speed <output></output></label><input id="flightSpeed" type="range" min="0" max="1.5" step="0.01" value="0.35">
+      <label for="altitude">Height above cloud layer <output></output></label><input id="altitude" type="range" min="2" max="20" step="0.25" value="6">
+    </fieldset>
+    <fieldset data-control-group="Cloud formation"><legend>Cloud formation</legend>
+      <label for="cellSize">Base grid spacing <output></output></label><input id="cellSize" type="range" min="0.8" max="3" step="0.05" value="1.5">
+      <label for="fullness">Cloud fullness <output></output></label><input id="fullness" type="range" min="-1" max="1.5" step="0.05" value="0.35">
+      <label for="detail">Billow detail <output></output></label><input id="detail" type="range" min="0" max="1" step="0.01" value="0.65">
+      <label for="seed">Cloud seed</label><input id="seed" type="number" min="1" max="99999" step="1" value="2718">
+      <button id="newCloud">Generate another sky</button>
+    </fieldset>
+    <fieldset data-control-group="Light & quality"><legend>Light & quality</legend>
+      <label for="frameGlow">Orange frame glow <output></output></label><input id="frameGlow" type="range" min="0.2" max="3" step="0.05" value="1.5">
+      <label for="lineWidth">Frame thickness <output></output></label><input id="lineWidth" type="range" min="0.01" max="0.12" step="0.005" value="0.035">
+      <label for="haze">Atmospheric haze <output></output></label><input id="haze" type="range" min="0" max="1" step="0.01" value="0.3">
+      <label for="quality">Render quality</label><select id="quality"><option value="0.55">Economy</option><option value="0.8" selected>Balanced</option><option value="1">High</option></select>
+    </fieldset>
+    <fieldset data-control-group="View"><legend>View</legend><button id="resetFlight">Restart flight</button></fieldset>
+    <footer>Grid: <span id="samplingReadout">—</span><br>Camera clearance: <span id="clearance">—</span><br><kbd>Space</kbd> pause flight · <kbd>R</kbd> restart</footer>
+  </aside>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

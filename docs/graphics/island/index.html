@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Island — A procedural field guide</title>
+<meta name="description" content="Build a procedural island one signed distance field at a time. Begin with an interactive, raymarched tree and watch simple shapes become organic.">
+<script src="../app/entry.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="scene" aria-label="Interactive 3D procedural tree. Drag to orbit and scroll to zoom."></canvas>
+<div id="renderStatus" role="status">Preparing the tree shader…</div>
+<aside id="controls">
+<a class="back" href="../index.html">← GRAPHICS STUDIO</a>
+<div class="eyebrow">A PROCEDURAL FIELD GUIDE</div>
+<h1>Island<span>.</span></h1>
+<p class="intro">A world built from simple functions.<br>One layer at a time.</p>
+<div class="chapters"><strong>01 Tree</strong><span>02 Ocean · later</span><span>03 Island · later</span></div>
+<section class="species-section">
+<label for="species">Tree species</label>
+<select id="species"><option value="study">Simple tree · original study</option><option value="redwood" selected>Coast redwood</option><option value="juniper">Hollywood juniper</option><option value="cypress">Monterey cypress</option></select>
+<p id="latin" class="latin"></p><p id="speciesDescription" class="explanation"></p>
+<details><summary>Growth habits &amp; sources</summary><p id="drivers" class="note"></p><ul id="sources" class="sources"></ul><p class="note">Source-informed shapes, not a validated growth simulator. Numeric presets and development curves are artistic choices. Scene units are normalized, not metres; trees are not compared at their real-world sizes.</p></details>
+</section>
+<section>
+<div class="section-heading"><h2>The tree study</h2><span id="stageNumber">01 / 04</span></div>
+<label for="stage">Construction stage</label>
+<select id="stage"><option value="0">01 · A trunk + a crown</option><option value="1">02 · Branches + crown clusters</option><option value="2">03 · Broad sine waves</option><option value="3">04 · Leaves & needles</option></select>
+<p id="explanation" class="explanation"></p>
+<div class="actions"><button id="previous" aria-label="Previous construction stage">←</button><button id="next">Next layer →</button></div>
+</section>
+<section>
+<label for="animate">Watch a parameter change</label>
+<select id="animate"><option value="height">Trunk height</option><option value="radius">Crown radius</option><option value="spread">Branch spread</option><option value="amplitude">Wave amplitude</option><option value="frequency">Wave frequency</option><option value="detail">Leaf size</option><option value="leafDensity">Foliage density</option></select>
+<div class="actions playback"><button id="play" aria-pressed="false">▶ Play variation</button><label class="check"><input id="orbit" type="checkbox"> Auto orbit</label></div>
+<label class="check" style="margin-top:12px"><input id="closeup" type="checkbox"> Foliage close-up</label>
+</section>
+<section id="growthSection"><div class="section-heading"><h2>Growth architecture</h2></div><div id="growthParameters"></div><label class="check"><input id="skeleton" type="checkbox"> Show branch skeleton</label></section>
+<section><div class="section-heading"><h2>Shape parameters</h2><button id="reset" class="text-button">Reset</button></div><div id="parameters"></div></section>
+
+<details open><summary>Inside the distance field</summary><pre id="formula"></pre><p class="note">A signed field is negative inside and zero on the surface. We raymarch to that surface; adding sine waves deforms it. Displaced fields are distance estimates, so the marcher takes smaller steps. In the leaf stage, the crown volumes are replaced with oriented twig planes whose outlines are cut by 2D distance functions. Leaves are enlarged for visibility.</p><a class="reference" href="https://iquilezles.org/articles/distfunctions/" target="_blank" rel="noopener">Inspired by Inigo Quilez’s SDF techniques ↗</a></details>
+</aside>
+<div id="fieldLesson"><h2 id="lessonTitle"></h2><p id="lessonText"></p></div>
+<div id="hud"><div class="specimen"><span id="specimenName">COAST REDWOOD</span></div><div class="caption"><span id="stageCaption">Simple primitives</span><span>DRAG TO ORBIT · SCROLL TO ZOOM</span></div></div>
+<script type="module" src="main.js"></script>
+</body></html>

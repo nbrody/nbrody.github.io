@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An empty architectural room gradually fills with persistent, colored 3D smoke as you play MIDI notes.">
+  <meta name="graphics-description" content="Play MIDI demo or connect a keyboard to fill an empty 3D room with colored smoke. Each note leaves smoke behind, even after the music stops. Drag to orbit, scroll to zoom, and use Clear room or R to empty the room.">
+  <script src="../app/entry.js"></script>
+  <title>3D Gyroid Smoke</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="roomCanvas" aria-label="A dark architectural room gradually filled with colored three-dimensional smoke"></canvas>
+  <div id="renderStatus" role="status">Opening the room…</div>
+  <aside id="controls">
+    <header>
+      <p class="eyebrow">VOLUME STUDY / 03</p>
+      <h1>3D Gyroid Smoke</h1>
+      <p>A room that remembers the music.</p>
+    </header>
+    <fieldset data-control-group="Room">
+      <legend>The room</legend>
+      <label for="roomFill">Accumulated smoke</label>
+      <input id="roomFill" data-room type="text" readonly value="Clear room · waiting for a note">
+      <div class="actions"><button id="clearRoom" type="button">Clear room</button><button id="resetCamera" type="button">Reset camera</button></div>
+      <p class="hint room-hint">Play a note to leave color in the room. Smoke stays after the notes and demo stop.</p>
+    </fieldset>
+    <fieldset data-control-group="MIDI">
+      <legend>MIDI · fill the room</legend>
+      <div class="actions"><button id="midiConnect" type="button">Connect MIDI</button><button id="midiDisconnect" type="button">Disconnect MIDI</button></div>
+      <label for="midiInput">Keyboard input</label>
+      <select id="midiInput" data-midi><option value="all">All connected inputs</option></select>
+      <label for="midiStatus">MIDI status</label>
+      <input id="midiStatus" data-midi type="text" readonly value="Connect a keyboard or play the demo.">
+      <label for="midiActivity">Now playing</label>
+      <input id="midiActivity" data-midi type="text" readonly value="No notes">
+      <label class="toggle" for="midiEnabled">React to MIDI <input id="midiEnabled" data-midi type="checkbox" checked></label>
+      <label for="midiStrength">MIDI response <output>1.00</output></label>
+      <input id="midiStrength" data-midi type="range" min="0" max="2.5" step="0.05" value="1">
+      <label class="toggle" for="midiSound">Synth sound <input id="midiSound" data-midi type="checkbox" checked></label>
+      <label for="midiVolume">Synth volume <output>0.35</output></label>
+      <input id="midiVolume" data-midi type="range" min="0" max="1" step="0.01" value="0.35">
+      <div class="actions"><button id="midiPlay" type="button" class="primary">Play MIDI demo</button><button id="midiStop" type="button">Stop MIDI demo</button></div>
+      <label class="toggle" for="midiLoop">Loop demo <input id="midiLoop" data-midi type="checkbox" checked></label>
+      <div class="actions"><button id="midiDownload" type="button">Download MIDI</button><button id="midiPanic" type="button">All notes off</button></div>
+      <p class="hint midi-hint">Pitch → color and position · velocity → emission<br>Sustain → hold · mod wheel → curl · bend → light<br>Turn Synth sound off if your keyboard already makes sound.</p>
+    </fieldset>
+    <fieldset data-control-group="Smoke motion">
+      <legend>Smoke motion</legend>
+      <label for="flowSpeed">Flow speed <output>1.00</output></label>
+      <input id="flowSpeed" type="range" min="0" max="2" step="0.05" value="1">
+      <label for="curl">Curl strength <output>0.70</output></label>
+      <input id="curl" type="range" min="0" max="2" step="0.05" value="0.7">
+      <label for="pulse">Pulse <output>0.35</output></label>
+      <input id="pulse" type="range" min="0" max="2" step="0.05" value="0.35">
+      <label for="diffusion">Diffusion <output>0.70</output></label>
+      <input id="diffusion" type="range" min="0" max="2" step="0.05" value="0.7">
+    </fieldset>
+    <fieldset data-control-group="Smoke appearance">
+      <legend>Smoke appearance</legend>
+      <label for="injection">Smoke per note <output>1.00</output></label>
+      <input id="injection" type="range" min="0.2" max="3" step="0.05" value="1">
+      <label for="opacity">Opacity <output>1.00</output></label>
+      <input id="opacity" type="range" min="0.3" max="3" step="0.05" value="1">
+      <p class="hint">Opacity changes how the room looks; Clear room removes the accumulated smoke.</p>
+    </fieldset>
+    <fieldset data-control-group="View">
+      <legend>View</legend>
+      <label for="quality">Render quality</label>
+      <select id="quality"><option value="low">Economy</option><option value="balanced" selected>Balanced</option><option value="high">High</option></select>
+      <label class="toggle" for="animate">Animate <input id="animate" type="checkbox" checked></label>
+      <button id="capture" type="button" class="wide">Save image</button>
+    </fieldset>
+    <footer><span class="live-dot"></span><span id="readout">Persistent volume · MIDI emission</span></footer>
+  </aside>
+  <div id="instructions">
+    <span class="camera-hint">Drag to orbit <span>·</span> Scroll to zoom</span>
+    <span class="key-hints"><kbd>Space</kbd> pause <span>·</span> <kbd>R</kbd> clear room <span>·</span> <kbd>H</kbd> controls</span>
+  </div>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

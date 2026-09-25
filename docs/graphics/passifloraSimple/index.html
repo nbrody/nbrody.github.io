@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="../app/entry.js"></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Passiflora · Simple</title>
+<link rel="icon" href="data:,">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#192b25;color:#e0e6d5;font:13px system-ui,sans-serif}canvas{display:block;width:100vw;height:100svh;touch-action:none}header{position:absolute;top:28px;left:28px;pointer-events:none}h1{font:normal 32px Georgia,serif;margin:0 0 8px}p{margin:0;opacity:.6;font-size:12px}footer{position:absolute;bottom:24px;left:28px;right:28px;display:flex;align-items:center;justify-content:space-between;gap:12px}button{background:transparent;border:1px solid #71816b;border-radius:4px;padding:8px 13px;color:inherit;cursor:pointer}#status{position:absolute;top:50%;width:100%;text-align:center}
+</style>
+<script type="importmap">{"imports":{"three":"../passiflora/vendor/three.module.js","three/addons/controls/OrbitControls.js":"../passiflora/vendor/OrbitControls.js"}}</script>
+</head>
+<body>
+<canvas id="flower" aria-label="Simple three-dimensional passionflower. Drag to orbit; scroll to zoom."></canvas>
+<header><h1>Passiflora, simplified.</h1><p>Ten petals. One violet halo. A little green crown.</p></header>
+<div id="status" role="status">Loading flower…</div>
+<footer><p>Drag to orbit · Scroll to zoom</p><button id="reset">Reset view</button></footer>
+<script type="module" src="main.js"></script>
+</body>
+</html>

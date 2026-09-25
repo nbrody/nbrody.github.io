@@ -3,14 +3,16 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#05070f">
   <title>Stage — Graphics Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="app/style.css">
   <style>
+    :root { --panel-w: min(384px, calc(100vw - 24px)); --panel-gap: 12px; }
     html, body { height: 100%; overflow: hidden; background: #000; }
 
     #viz {
@@ -22,7 +24,7 @@
     #transition {
       position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 0.8rem;
-      background: radial-gradient(800px 500px at 50% 40%, #11141d, #05060a);
+      background: radial-gradient(800px 500px at 50% 40%, #0e1224, #04050a);
       opacity: 0; pointer-events: none; transition: opacity 0.35s ease;
     }
     #transition.show { opacity: 1; pointer-events: all; }
@@ -35,7 +37,7 @@
     #dock {
       position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
       z-index: 40; display: flex; align-items: center; gap: 0.7rem;
-      padding: 0.55rem 0.8rem; max-width: min(960px, 94vw);
+      padding: 0.55rem 0.8rem; max-width: min(960px, 94vw); border-radius: var(--r-xl);
       transition: opacity 0.3s, transform 0.3s;
     }
     #dock.hide { opacity: 0; transform: translateX(-50%) translateY(20px); pointer-events: none; }
@@ -43,46 +45,82 @@
     #dock .now .name { font-size: 0.92rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #dock .now .sub { font-size: 0.72rem; color: var(--ink-faint); font-family: var(--mono); }
     #dock .transport { display: flex; align-items: center; gap: 0.35rem; }
-    #dock .progress { width: 160px; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.14); overflow: hidden; }
+    #dock .progress { width: 160px; height: 5px; border-radius: 999px; background: var(--w12); overflow: hidden; }
     #dock .progress > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.2s linear; }
     #dock .count { font-size: 0.74rem; color: var(--ink-dim); font-family: var(--mono); white-space: nowrap; }
     .divider { width: 1px; height: 26px; background: var(--stroke); }
 
-    /* on-stage overlay remote */
+    /* ── on-stage control panel: a floating Poincaré-style glass card ── */
     #panel {
-      position: fixed; top: 0; right: 0; z-index: 45; height: 100%;
-      width: min(360px, 92vw); display: flex; flex-direction: column;
-      border-radius: 0; border-top: none; border-bottom: none; border-right: none;
-      transform: translateX(100%); transition: transform 0.28s ease;
+      position: fixed; top: var(--panel-gap); right: var(--panel-gap); bottom: var(--panel-gap); z-index: 45;
+      width: var(--panel-w); display: flex; flex-direction: column; overflow: hidden;
+      border-radius: var(--r-xl);
+      transform: translateX(calc(100% + var(--panel-gap) * 2)); opacity: 0;
+      transition: transform 0.4s var(--ease-out), opacity 0.25s ease;
     }
-    #panel.open { transform: translateX(0); }
-    #panel header { padding: 0.9rem 1rem; border-bottom: 1px solid var(--stroke); display: flex; align-items: center; gap: 0.6rem; }
-    #panel header .g { font-size: 1.5rem; }
-    #panel header .meta { min-width: 0; }
-    #panel header .meta .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #panel header .meta .sub { font-size: 0.72rem; color: var(--ink-faint); }
-    #panel .body { flex: 1; overflow-y: auto; padding: 0.9rem 1rem 2rem; display: flex; flex-direction: column; gap: 0.8rem; }
-    #panel .util { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
-
-    /* shared controlsView styling */
-    .cv-fields { display: flex; flex-direction: column; gap: 0.7rem; }
-    .cv-field { display: flex; flex-direction: column; gap: 0.3rem; }
-    .cv-field.toggle { flex-direction: row; align-items: center; justify-content: space-between; }
-    .cv-field label { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-    .cv-label { font-size: 0.82rem; color: var(--ink-dim); }
-    .cv-badge { font-size: 0.72rem; font-family: var(--mono); color: var(--ink); background: rgba(255,255,255,0.07); padding: 0.05rem 0.4rem; border-radius: 6px; }
-    .cv-section { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); margin-top: 0.4rem; }
-    .cv-buttons, .cv-keys { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-    .cv-keys .key { font-family: var(--mono); min-width: 2.2rem; }
-    .cv-empty { color: var(--ink-faint); font-size: 0.85rem; padding: 0.6rem 0; }
+    #panel.open { transform: none; opacity: 1; }
+    .panel-head { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 12px 10px 14px; }
+    .panel-head .g {
+      width: 40px; height: 40px; flex: none; display: grid; place-items: center; font-size: 21px; border-radius: 12px;
+      background: linear-gradient(160deg, rgba(129, 140, 248, 0.22), rgba(34, 211, 238, 0.08));
+      border: 1px solid var(--accent-line); box-shadow: 0 0 16px var(--accent-glow);
+    }
+    .panel-head .meta { flex: 1; min-width: 0; }
+    .panel-head .name { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel-head .sub { font-size: 11.5px; color: var(--ink-dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel-transport { display: flex; align-items: center; gap: 4px; flex: none; }
+    .panel-transport .icon-btn svg { width: 16px; height: 16px; }
+    .panel-transport .play { color: #fff; border-color: rgba(255, 255, 255, 0.2); background: linear-gradient(180deg, #8b93fa, #5d63e6); box-shadow: 0 0 14px var(--accent-glow); }
+    .panel-transport .play:hover { color: #fff; filter: brightness(1.08); background: linear-gradient(180deg, #8b93fa, #5d63e6); }
+    #panel .seg-tabs { border-top: 1px solid var(--stroke); }
+    #panel .pager > .page { padding: 14px 14px 22px; }
+    .studio-note { margin: 0; font-size: 12px; line-height: 1.7; color: var(--ink-dim); }
+    .studio-note kbd { height: 20px; min-width: 22px; font-size: 10.5px; margin: 0 1px; }
 
     #hint { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 40; font-size: 0.78rem; color: var(--ink-dim); padding: 0.4rem 0.8rem; transition: opacity 0.4s; }
     #hint.hide { opacity: 0; }
+    body.sidebar-open #viz { width: calc(100% - var(--panel-w) - var(--panel-gap) * 2); }
+    /* beside the open panel the dock and hint centre in the remaining space and shrink to fit it */
+    body.sidebar-open #dock, body.sidebar-open #hint { left: calc((100% - var(--panel-w) - var(--panel-gap) * 2) / 2); }
+    body.sidebar-open #dock { max-width: calc(100% - var(--panel-w) - var(--panel-gap) * 4); }
+    body.sidebar-open #hint { max-width: calc(100% - var(--panel-w) - var(--panel-gap) * 4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #dock .now { flex: 1 1 auto; }
+    #dock .progress { flex: 0 1 160px; min-width: 48px; }
+    @media (max-width: 1180px) { body.sidebar-open #dock .count, body.sidebar-open #dock .progress { display: none; } }
+    /* too narrow for both: the panel header carries prev / play / next */
+    @media (max-width: 1000px) { body.sidebar-open #dock, body.sidebar-open #hint { display: none; } }
+    body.presentation #dock, body.presentation #hint { display: none; }
+
+    /* presentation mode: a round button (the collapsed panel) recovers controls */
+    #displayMenu {
+      position: fixed; top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); z-index: 50;
+      width: 48px; height: 48px; padding: 0; display: none; place-items: center;
+      border-radius: 50%; color: var(--ink-dim); cursor: pointer; opacity: 0; transition: opacity 0.25s ease, color 0.15s ease;
+    }
+    body.presentation #displayMenu { display: grid; }
+    #displayMenu svg { width: 22px; height: 22px; }
+    #displayMenu:hover, #displayMenu:focus-visible { opacity: 1; color: var(--ink); }
+    @media (hover: none) { #displayMenu { opacity: 0.45; } }
+
+    /* phone-sized display: the panel becomes a bottom sheet under the visualization */
+    @media (max-width: 640px) {
+      :root { --panel-w: 100vw; }
+      #panel {
+        top: auto; left: 0; right: 0; bottom: 0; width: 100%; height: 56%;
+        border-radius: var(--r-xl) var(--r-xl) 0 0; transform: translateY(100%);
+      }
+      #panel .pager > .page { padding-bottom: calc(22px + env(safe-area-inset-bottom)); }
+      body.sidebar-open #viz { width: 100%; height: 44%; }
+      body.sidebar-open #dock, body.sidebar-open #hint { display: none; }
+    }
   </style>
 </head>
 
 <body>
-  <iframe id="viz" title="visualization" allow="fullscreen; autoplay; xr-spatial-tracking; accelerometer; gyroscope"></iframe>
+  <button id="displayMenu" class="pc-glass" type="button" title="Show controls (C)" aria-label="Show controls">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg>
+  </button>
+  <iframe id="viz" title="visualization" allow="fullscreen; autoplay; midi; xr-spatial-tracking; accelerometer; gyroscope"></iframe>
 
   <div id="transition">
     <div class="g" id="trGlyph">✦</div>
@@ -92,7 +130,7 @@
 
   <div id="hint" class="glass">← → switch · Space play/pause · <b>C</b> controls · <b>F</b> fullscreen</div>
 
-  <div id="dock" class="glass">
+  <div id="dock" class="pc-glass">
     <button class="btn ghost icon" id="exitBtn" title="Back to library">↩</button>
     <div class="divider"></div>
     <div class="now">
@@ -113,27 +151,49 @@
     <button class="btn icon" id="fsBtn" title="Fullscreen (F)">⛶</button>
   </div>
 
-  <aside id="panel" class="glass">
-    <header>
-      <span class="g" id="panelGlyph">✦</span>
+  <aside id="panel" class="pc-glass" aria-label="Controls">
+    <header class="panel-head">
+      <span class="g" id="panelGlyph" aria-hidden="true">✦</span>
       <div class="meta">
         <div class="name" id="panelTitle">—</div>
         <div class="sub" id="panelSub">on-stage remote</div>
       </div>
-      <div class="spacer"></div>
-      <button class="btn ghost icon" id="panelClose" title="Close">✕</button>
-    </header>
-    <div class="body scroll">
-      <div class="util">
-        <button class="btn" id="uPanel" title="Toggle the visualization's own panel">▤ Panel</button>
-        <button class="btn" id="uReload" title="Reload this visualization">↻ Reload</button>
-        <button class="btn" id="uRemote" title="Open the full remote in a new window">🕹 Pop out</button>
+      <div class="panel-transport" role="group" aria-label="Playback">
+        <button class="icon-btn" id="panelPrev" type="button" title="Previous (←)" aria-label="Previous visualization"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="2.4" height="14" rx="1"/><path d="M19 5.8v12.4a.9.9 0 0 1-1.4.75L9.2 12.75a.9.9 0 0 1 0-1.5l8.4-6.2a.9.9 0 0 1 1.4.75z"/></svg></button>
+        <button class="icon-btn play" id="panelPlay" type="button" title="Play / pause (Space)" aria-label="Play (auto-advance)"></button>
+        <button class="icon-btn" id="panelNext" type="button" title="Next (→)" aria-label="Next visualization"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="16.6" y="5" width="2.4" height="14" rx="1"/><path d="M5 5.8v12.4a.9.9 0 0 0 1.4.75l8.4-6.2a.9.9 0 0 0 0-1.5L6.4 5.05A.9.9 0 0 0 5 5.8z"/></svg></button>
       </div>
-      <div id="controls"><!-- auto-generated controls injected here --></div>
+      <button class="icon-btn" id="panelClose" type="button" title="Hide controls (C)" aria-label="Hide controls">×</button>
+    </header>
+    <nav class="seg-tabs" role="tablist" aria-label="Control pages" id="panelTabs">
+      <button class="seg-tab" role="tab" type="button">Simple</button>
+      <button class="seg-tab" role="tab" type="button">Advanced <span class="count" id="advCount" hidden></span></button>
+      <button class="seg-tab" role="tab" type="button">Studio</button>
+    </nav>
+    <div class="pager" id="panelPager">
+      <section class="page" id="panel-simple"><div id="simpleControls"></div></section>
+      <section class="page" id="panel-advanced"><div id="controls"><!-- auto-generated controls injected here --></div></section>
+      <section class="page" id="panel-studio">
+        <div class="pc-card">
+          <div class="pc-label">Display</div>
+          <div class="tiles">
+            <button class="tile key" id="uPanel" type="button" title="Hide controls and fill the display">Present</button>
+            <button class="tile key" id="uFullscreen" type="button">Fullscreen</button>
+            <button class="tile key" id="uReload" type="button" title="Reload this visualization">↻ Reload</button>
+            <button class="tile key" id="uLibrary" type="button">Library &amp; playlists</button>
+          </div>
+        </div>
+        <div class="pc-card">
+          <div class="pc-label">Remote control</div>
+          <button class="btn alt" id="uRemote" type="button" style="min-height:44px" title="Open the full remote in a new window">🕹 Pop out the remote</button>
+          <details class="phone-pairing" open><summary class="pc-sub">Pair a phone</summary><div id="phonePairing" class="pairing-fields"></div></details>
+        </div>
+        <p class="studio-note"><kbd>←</kbd><kbd>→</kbd> switch · <kbd>Space</kbd> play/pause · <kbd>C</kbd> controls · <kbd>F</kbd> fullscreen</p>
+      </section>
     </div>
   </aside>
 
-  <div id="toast"></div>
+  <div id="toast" aria-live="polite"></div>
 
   <script type="module" src="app/stage.js"></script>
 </body>

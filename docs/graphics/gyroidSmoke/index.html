@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Iridescent smoke drawn through an evolving gyroid curl field, with grainy relief lighting.">
+  <meta name="graphics-description" content="MIDI mode starts with an empty rectangle. Play MIDI demo or Connect MIDI: notes add colored plumes that keep curling and gradually fill the room. Restart flow clears the room. Turn MIDI mode off for the original full-color flow. Pitch places plumes, velocity drives bursts, sustain holds them, mod wheel adds curl, and pitch bend turns the light.">
+  <script src="../app/entry.js"></script>
+  <title>Gyroid Smoke</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="smokeCanvas" aria-label="Animated iridescent smoke flowing through a gyroid field"></canvas>
+  <div id="renderStatus" role="status">Gathering smoke…</div>
+  <aside id="controls">
+    <header><p class="eyebrow">FLOW STUDY / 02</p><h1>Gyroid Smoke</h1><p>Color caught in a curling field.</p></header>
+    <fieldset data-control-group="MIDI">
+      <legend>MIDI · play the smoke</legend>
+      <div class="actions"><button id="midiConnect" type="button">Connect MIDI</button><button id="midiDisconnect" type="button">Disconnect MIDI</button></div>
+      <label for="midiInput">Keyboard input</label>
+      <select id="midiInput" data-midi><option value="all">All connected inputs</option></select>
+      <label for="midiStatus">MIDI status</label>
+      <input id="midiStatus" data-midi type="text" readonly value="Connect a keyboard or play the demo.">
+      <label for="midiActivity">Now playing</label>
+      <input id="midiActivity" data-midi type="text" readonly value="No notes">
+      <label class="toggle" for="midiEnabled">MIDI mode <input id="midiEnabled" data-midi type="checkbox" checked></label>
+      <p class="hint">Start empty. Notes add smoke that stays and fills the rectangle. Restart flow clears it; turn MIDI mode off for the original color field.</p>
+      <label for="midiStrength">MIDI response <output>1.00</output></label>
+      <input id="midiStrength" data-midi type="range" min="0" max="2.5" step="0.05" value="1">
+      <label class="toggle" for="midiSound">Synth sound <input id="midiSound" data-midi type="checkbox" checked></label>
+      <label for="midiVolume">Synth volume <output>0.35</output></label>
+      <input id="midiVolume" data-midi type="range" min="0" max="1" step="0.01" value="0.35">
+      <div class="actions"><button id="midiPlay" type="button">Play MIDI demo</button><button id="midiStop" type="button">Stop MIDI demo</button></div>
+      <label class="toggle" for="midiLoop">Loop demo <input id="midiLoop" data-midi type="checkbox" checked></label>
+      <div class="actions"><button id="midiDownload" type="button">Download MIDI</button><button id="midiPanic" type="button">All notes off</button></div>
+      <p class="hint midi-hint">Pitch → color and position · velocity → bursts<br>Sustain → hold · mod wheel → curl · bend → light<br>Turn Synth sound off if your keyboard already makes sound.</p>
+    </fieldset>
+    <fieldset data-control-group="Flow">
+      <legend>Flow</legend>
+      <label for="startState">Start state</label>
+      <select id="startState">
+        <option value="auto" selected>Mode default</option>
+        <option value="wash">Color wash</option>
+        <option value="rings">Rings</option>
+        <option value="stripes">Stripes</option>
+        <option value="checker">Checker</option>
+        <option value="spiral">Spiral</option>
+        <option value="wheel">Color wheel</option>
+        <option value="gyroid">Gyroid slice</option>
+        <option value="yinyang">Yin-yang</option>
+      </select>
+      <label for="startHold">Start hold <output>4.0 s</output></label>
+      <input id="startHold" type="range" min="0" max="12" step="0.5" value="4">
+      <p class="hint">Choosing a state restarts the flow (<kbd>S</kbd> cycles). Start hold eases the flow in so the shape dissolves gradually. Gaps stay empty, so MIDI notes can fill them.</p>
+      <label for="direction">Direction</label>
+      <select id="direction">
+        <option value="forward" selected>Forward · dissolve</option>
+        <option value="backward">Backward · assemble</option>
+        <option value="pingpong">Back and forth</option>
+      </select>
+      <label for="reverseTime">Assembly time <output>6.0 s</output></label>
+      <input id="reverseTime" type="range" min="2" max="15" step="0.5" value="6">
+      <p class="hint">Backward runs the flow in reverse: smoke gathers out of chaos into the start state, then flows on live (<kbd>B</kbd> cycles). Back and forth keeps assembling and dissolving. MIDI notes light but do not stir these modes.</p>
+      <label for="speed">Speed <output>1.00</output></label>
+      <input id="speed" type="range" min="0" max="2" step="0.05" value="1">
+      <label for="curl">Curl strength <output>1.00</output></label>
+      <input id="curl" type="range" min="0" max="3" step="0.05" value="1">
+      <label for="pulse">Radial pulse <output>1.00</output></label>
+      <input id="pulse" type="range" min="0" max="3" step="0.05" value="1">
+      <label for="scale">Pattern scale <output>1.00</output></label>
+      <input id="scale" type="range" min="0.3" max="2.5" step="0.05" value="1">
+    </fieldset>
+    <fieldset data-control-group="Light & color">
+      <legend>Light & color</legend>
+      <label for="relief">Relief lighting <output>1.00</output></label>
+      <input id="relief" type="range" min="0" max="1" step="0.05" value="1">
+      <label for="lightAngle">Light direction <output>0°</output></label>
+      <input id="lightAngle" type="range" min="0" max="360" step="1" value="0">
+      <label for="palette">Color phase <output>0.00</output></label>
+      <input id="palette" type="range" min="0" max="6.28" step="0.01" value="0" aria-describedby="colorHint">
+      <p id="colorHint" class="hint">Color phase changes new smoke. In MIDI mode it enters with notes; otherwise it enters at the edges.</p>
+      <label for="saturation">Saturation <output>1.00</output></label>
+      <input id="saturation" type="range" min="0" max="1.5" step="0.05" value="1">
+      <label for="exposure">Brightness <output>1.00</output></label>
+      <input id="exposure" type="range" min="0.5" max="2" step="0.05" value="1">
+    </fieldset>
+    <fieldset data-control-group="Playback">
+      <legend>Playback</legend>
+      <label for="quality">Render quality</label>
+      <select id="quality"><option value="low">Economy</option><option value="balanced" selected>Balanced</option><option value="high">High</option></select>
+      <label class="toggle" for="animate">Animate <input type="checkbox" id="animate" checked></label>
+      <div class="actions"><button id="restart" type="button">Restart flow</button><button id="capture" type="button">Save image</button></div>
+      <button id="reset" type="button" class="quiet">Restore defaults</button>
+    </fieldset>
+    <footer><span class="live-dot"></span><span id="readout">Starting…</span></footer>
+  </aside>
+  <div id="instructions"><kbd>Space</kbd> pause <span>·</span> <kbd>R</kbd> restart <span>·</span> <kbd>S</kbd> start state <span>·</span> <kbd>B</kbd> direction <span>·</span> <kbd>H</kbd> controls</div>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

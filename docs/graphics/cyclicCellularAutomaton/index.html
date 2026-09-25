@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="../app/entry.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore Griffeath’s cyclic cellular automaton: waves, color, and local rules. Experiment with finite groups, neighborhoods, and palettes.">
+  <meta name="graphics-description" content="A lattice of colors chasing their successors. Paint the field, tune the rule, or replace the color cycle with a finite group.">
+  <title>Cyclic Cellular Automaton · Griffeath’s automaton</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="page-header">
+    <div>
+      <a class="eyebrow" href="../index.html" data-studio-ignore>GRAPHICS STUDIO <span>/</span> LIVING SYSTEMS</a>
+      <h1>Cyclic <em>cellular automaton</em><span class="title-dot">.</span></h1>
+      <p class="subtitle">A simple local rule. An endless conversation of color.</p>
+    </div>
+    <div class="header-note"><span class="mini-grid" aria-hidden="true">▦</span><span>AFTER DAVID GRIFFEATH<br><b>Discrete time · emergent order</b></span></div>
+  </header>
+
+  <main>
+    <div class="experiment">
+      <div class="viewport-tools" data-control-group="Playback">
+        <div class="live-label"><span id="liveDot" class="live-dot"></span><span id="runStatus">RUNNING</span><span class="divider">/</span><span id="gridReadout">240 × 180</span></div>
+        <div class="transport">
+          <button id="playBtn" class="primary small" title="Play or pause (Space)">Ⅱ <span>Pause</span></button>
+          <button id="stepBtn" class="small" title="Pause and advance one generation (N)">↦ <span>Step</span></button>
+          <button id="reseedBtn" class="small" title="Start with a new random seed (R)">⟳ <span>New seed</span></button>
+          <button id="saveBtn" class="icon-button" title="Save image as PNG" aria-label="Save image as PNG" data-studio-ignore>↓</button>
+          <button id="focusBtn" class="icon-button" title="Hide controls (H)" aria-label="Hide controls" data-studio-ignore>⛶</button>
+        </div>
+      </div>
+      <div class="stage" id="stage">
+        <canvas id="sim" tabindex="0" aria-label="Interactive cellular automaton. Drag to paint cells; use Space to pause and N to advance one generation."></canvas>
+        <div id="readout" class="canvas-caption"><span id="fieldLabel">ℤ/12ℤ</span><span>DRAG TO DISTURB THE FIELD</span></div>
+      </div>
+      <div class="statistics" id="hud">
+        <div class="stat"><span class="eyebrow">GENERATION</span><strong id="generation">0</strong></div>
+        <div class="stat"><span class="eyebrow">ACTIVITY</span><strong id="activity">0<span>%</span></strong></div>
+        <div class="population"><div class="population-heading"><span class="eyebrow">STATE POPULATION</span><span id="stateCount">12 colors</span></div><div id="populationBar" class="population-bar" role="img" aria-label="Population of each state"></div></div>
+      </div>
+      <div id="instructions" class="study-note">
+        <div><span class="note-index">01 / THE RULE</span><p id="ruleSummary">Each cell watches its neighbors. If one has the next color in the cycle, the cell takes that color. All cells update together.</p></div>
+        <div class="shortcuts"><span><kbd>Space</kbd> pause</span><span><kbd>r</kbd> reseed</span><span><kbd>h</kbd> focus</span><span><kbd>n</kbd> step</span></div>
+      </div>
+    </div>
+
+    <aside id="controls" aria-label="Automaton settings">
+      <section data-control-group="Experiments">
+        <div class="section-heading"><h2>Experiment</h2><span>01</span></div>
+        <label for="preset">Starting point</label>
+        <select id="preset"><option value="classic">Griffeath’s original</option><option value="spirals">Spiral garden</option><option value="waves">Wide ripples</option><option value="eisenstein">Eisenstein waves</option><option value="quaternion">Quaternion competition</option><option value="custom" disabled>Custom experiment</option></select>
+        <p class="help" id="presetHelp">Twelve colors chase one another across a random field.</p>
+        <div class="label-row"><label for="states">Number of states</label><output id="statesOut" for="states">12</output></div>
+        <input id="states" type="range" min="2" max="32" step="1" value="12">
+        <div class="label-row"><label for="speed">Speed</label><output id="speedOut" for="speed">30 / sec</output></div>
+        <input id="speed" type="range" min="1" max="60" step="1" value="30">
+      </section>
+
+      <section data-control-group="Local rule">
+        <div class="section-heading"><h2>Local rule</h2><span>02</span></div>
+        <label for="neighborhood">Lattice &amp; neighborhood</label>
+        <select id="neighborhood"><option value="vonNeumann">Square · von Neumann</option><option value="moore">Square · Moore</option><option value="eisenstein">Eisenstein · triangular</option></select>
+        <p class="help" id="latticeHelp">Square cells with four nearest neighbors. Radius counts lattice steps.</p>
+        <div class="paired">
+          <div><div class="label-row"><label for="radius">Radius</label><output id="radiusOut" for="radius">1</output></div><input id="radius" type="range" min="1" max="4" value="1"></div>
+          <div><div class="label-row"><label for="threshold">Threshold</label><output id="thresholdOut" for="threshold">1</output></div><input id="threshold" type="range" min="1" max="4" value="1"></div>
+        </div>
+        <p class="help" id="neighborsHelp">At least 1 of 4 neighbors must have the successor state.</p>
+      </section>
+
+      <section data-control-group="Color">
+        <div class="section-heading"><h2>Color palette</h2><span>03</span></div>
+        <label class="sr-only" for="palette">Color palette</label>
+        <select id="palette"><option value="mineral">Mineral · teal, rust &amp; sand</option><option value="spectrum">Spectrum · full color wheel</option><option value="tide">Tide · deep blue &amp; seafoam</option><option value="ember">Ember · plum, coral &amp; gold</option><option value="botanical">Botanical · forest &amp; citron</option><option value="mono">Monochrome · ink &amp; paper</option></select>
+        <div id="palettePreview" class="palette-preview" aria-hidden="true"></div>
+        <div class="palette-options"><label class="check-label" for="reverse"><input id="reverse" type="checkbox"> Reverse</label><button id="shiftPalette" class="text-button">Rotate colors ↻</button></div>
+      </section>
+
+      <section data-control-group="Field & brush">
+        <div class="section-heading"><h2>Field &amp; brush</h2><span>04</span></div>
+        <div class="paired">
+          <div><label for="resolution">Grid size</label><select id="resolution"><option value="120">120 × 90</option><option value="240" selected>240 × 180</option><option value="360">360 × 270</option><option value="480">480 × 360</option></select></div>
+          <div><label for="boundary">Boundary</label><select id="boundary"><option value="wrap">Wrap around</option><option value="fixed">Closed edges</option></select></div>
+        </div>
+        <label for="initial">Initial pattern</label><select id="initial"><option value="random">Random field</option><option value="spirals">Spiral seeds</option><option value="bands">Color bands</option><option value="droplets">Droplets</option></select>
+        <div class="seed-row"><div><label for="seed">Random seed</label><input id="seed" type="number" min="0" max="4294967295" step="1" value="42017"></div><button id="restartBtn" title="Restart from this seed and initial pattern">Restart</button></div>
+        <label for="brushState">Paint with</label><select id="brushState"><option value="-1">Random colors</option></select>
+        <div class="label-row"><label for="brushSize">Brush radius</label><output id="brushSizeOut" for="brushSize">6 cells</output></div><input id="brushSize" type="range" min="1" max="24" value="6">
+        <p class="help">Drag to paint. Shift-drag scatters random colors.</p>
+      </section>
+
+      <details id="advanced" data-control-group="Finite groups">
+        <summary><span><span class="advanced-glyph">G</span> Advanced settings<small>Beyond the color cycle</small></span><span class="chevron">+</span></summary>
+        <div class="advanced-body">
+          <p class="help">Replace ℤ/nℤ with a finite group. Each color represents a group element; selected generators define which states can invade it.</p>
+          <label for="groupFamily">State group</label>
+          <select id="groupFamily"><option value="cyclic">Cyclic · ℤ/nℤ</option><option value="product">Product · ℤ/mℤ × ℤ/nℤ</option><option value="dihedral">Dihedral · Dₙ (order 2n)</option><option value="symmetric">Symmetric · Sₙ</option><option value="quaternion">Quaternion · Q₈</option></select>
+          <div class="paired group-parameters"><div id="groupMWrap" hidden><label for="groupM">First factor m</label><input id="groupM" type="number" min="2" max="8" value="3"></div><div id="groupNWrap" hidden><label for="groupN" id="groupNLabel">Parameter n</label><input id="groupN" type="number" min="2" max="8" value="4"></div></div>
+          <div class="group-info"><strong id="groupName">ℤ/12ℤ</strong><span id="groupOrder">12 elements</span></div>
+          <div class="label-row"><span class="control-label">Generators</span><button id="defaultGenerators" class="text-button">Reset</button></div>
+          <div id="generators" class="generators" role="group" aria-label="Select generators"></div>
+          <p class="help" id="generatorHint">Select one or more nonidentity elements.</p>
+          <label for="multiplication">Multiplication side</label><select id="multiplication"><option value="right">Right · g → g · s</option><option value="left">Left · g → s · g</option></select>
+          <div class="formula" id="groupFormula">g → g · s, &nbsp; s ∈ S</div>
+          <p class="help">A candidate needs the threshold number of neighbors <em>in that same state</em>. The most common eligible candidate wins; ties follow the generator order shown above. No eligible candidate? The cell stays put.</p>
+          <label for="inspectState">Inspect transitions from</label><select id="inspectState"></select><div id="transitionPreview" class="transition-preview"></div>
+          <p class="help">This is a generator-based extension of the cyclic rule. The state group is independent of the spatial lattice: all groups work on square and Eisenstein lattices.</p>
+        </div>
+      </details>
+      <p class="reference">Based on the cyclic cellular automata of Fisch, Gravner &amp; Griffeath. <a href="https://arxiv.org/abs/patt-sol/9304001" target="_blank" rel="noopener noreferrer">Read the paper ↗</a></p>
+    </aside>
+  </main>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <button id="restoreBtn" hidden data-studio-ignore>Show controls <kbd>h</kbd></button>
+</div>
+<script type="module" src="main.js"></script>
+</body>
+</html>

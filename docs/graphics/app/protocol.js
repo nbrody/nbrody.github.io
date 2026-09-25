@@ -1,5 +1,5 @@
 // protocol.js — the message vocabulary spoken between a remote (controller)
-// and the stage (display). Both BroadcastChannel and (future) WebRTC transports
+// and the stage (display). Both BroadcastChannel and Firebase transports
 // carry these same envelopes, so controllers are transport-agnostic.
 //
 // Envelope shape: { v: 1, role: 'remote'|'stage', type: <CMD|EVT>, payload, t }
@@ -8,6 +8,13 @@ export const PROTOCOL_VERSION = 1;
 
 // Commands: remote → stage
 export const CMD = {
+  ENABLE_CLOUD: 'enableCloud',
+  LOAD_PLAYLIST: 'loadPlaylist',
+  RANDOM: 'random',
+  SHUFFLE: 'shuffle',
+  SAVE_VIEW: 'saveView',
+  APPLY_PAYLOAD: 'applyPayload',
+  PRESENTATION: 'presentation',
   HELLO: 'hello', // controller announces itself; stage replies with STATE+CONTROLS
   NEXT: 'next',
   PREV: 'prev',
@@ -27,6 +34,7 @@ export const CMD = {
 
 // Events: stage → remote(s)
 export const EVT = {
+  NOTICE: 'notice',
   STATE: 'state', // see makeState() shape below
   CONTROLS: 'controls', // { controls: [...], keys: [...] }  (introspected schema)
   GOODBYE: 'goodbye', // stage is closing

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="../app/entry.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Indra's Pearls</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="view">
+  <canvas id="canvas1013"></canvas>
+  <canvas id="canvas121"></canvas>
+  <canvas id="overlay121"></canvas>
+</div>
+
+<div id="info">
+  <div class="title">
+    <b>Indra's Pearls</b>
+    <select id="figure" aria-label="Figure">
+      <option value="10.10">Fig 10.10 · A big double cusp</option>
+      <option value="10.13">Fig 10.13 · Partition of the world</option>
+      <option value="12.1">Fig 12.1 · Fonction kleinéenne</option>
+    </select>
+  </div>
+  <p id="caption"></p>
+
+  <div id="controls">
+    <label class="common">palette <select id="palette"></select></label>
+    <fieldset id="controls1013">
+      <label>colour by <select id="scheme"></select></label>
+      <label>finest pass (px) <input id="finest" type="range" min="1" max="4" step="1" value="1"><output></output></label>
+      <label>max depth <input id="maxLevel" type="range" min="30" max="160" step="10" value="80"><output></output></label>
+      <label>tentacle norm ‖w‖² <input id="minNorm" type="range" min="0" max="4" step="0.25" value="4"><output></output></label>
+      <label>cusp fringes (px) <input id="spikes" type="range" min="0" max="80" step="4" value="32"><output></output></label>
+      <label>gap fill <input id="fill" type="range" min="0" max="6" step="0.25" value="1.5"><output></output></label>
+      <label id="chainsRow"><input id="showChains" type="checkbox" checked> <em class="k">cusp circle chains</em></label>
+      <label><input id="mirror" type="checkbox"> <em class="k">mirror group (other root of t<sub>ab</sub>)</em></label>
+      <div class="row"><button id="reset1013" type="button">Reset view</button></div>
+    </fieldset>
+
+    <fieldset id="controls121">
+      <label><input id="drift" type="checkbox" checked> drift traces</label>
+      <label>drift speed <input id="driftSpeed" type="range" min="0" max="2" step="0.01" value="0.35"><output></output></label>
+      <label>drift size <input id="driftAmp" type="range" min="0" max="0.6" step="0.005" value="0.14"><output></output></label>
+      <label><em class="k">Re t<sub>a</sub></em> <input id="taRe" type="range" min="1.6" max="3.2" step="0.005" value="2.2"><output></output></label>
+      <label><em class="k">Im t<sub>a</sub></em> <input id="taIm" type="range" min="-1" max="1" step="0.005" value="0"><output></output></label>
+      <label><em class="k">Re t<sub>b</sub></em> <input id="tbRe" type="range" min="1.6" max="3.2" step="0.005" value="2.2"><output></output></label>
+      <label><em class="k">Im t<sub>b</sub></em> <input id="tbIm" type="range" min="-1" max="1" step="0.005" value="0"><output></output></label>
+      <label><input id="lockAB" type="checkbox"> <em class="k">lock t<sub>b</sub> = t<sub>a</sub></em></label>
+      <label>series terms <input id="terms" type="range" min="500" max="16000" step="250" value="2000"><output></output></label>
+      <label>live resolution <input id="quality" type="range" min="0.2" max="1" step="0.05" value="0.75"><output></output></label>
+      <label>numerator
+        <select id="pow">
+          <option value="5" selected>(az+b)/(cz+d)⁵ — invariant</option>
+          <option value="3">(az+b)/(cz+d)³ — as printed</option>
+        </select>
+      </label>
+      <label>colour cycles <input id="cycles" type="range" min="1" max="6" step="1" value="1"><output></output></label>
+      <label>hue spin <input id="hueSpin" type="range" min="0" max="0.5" step="0.01" value="0"><output></output></label>
+      <label>|f| contours <input id="bands" type="range" min="0" max="1" step="0.05" value="0"><output></output></label>
+      <label><input id="showLimit" type="checkbox" checked> limit set</label>
+      <div class="row"><button id="reset121" type="button">Reset to book</button></div>
+    </fieldset>
+  </div>
+  <div id="status"></div>
+  <div class="hint">drag to pan · scroll to zoom · <kbd>space</kbd> drift · <kbd>h</kbd> hide panel</div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

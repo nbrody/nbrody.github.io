@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="../app/entry.js"></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hollywood Juniper · Botanical study</title>
+<meta name="description" content="A procedural Hollywood juniper: twisted wood, ascending foliage, and a coastal breeze. An interactive Three.js and GLSL study.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ctext y='32' font-size='32'%3E🌲%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/controls/OrbitControls.js":"./vendor/OrbitControls.js"}}</script>
+</head>
+<body>
+<canvas id="scene" aria-label="Three-dimensional Hollywood juniper. Drag to orbit; scroll or pinch to zoom."></canvas>
+<header><a href="../">FIELD STUDIES <span> / </span> 02</a><span>PROCEDURAL BOTANY</span></header>
+<main><p class="eyebrow">THE COASTAL COLLECTION</p><h1>Hollywood<br>Juniper<span>.</span></h1><p class="latin">Juniperus chinensis ‘Torulosa’</p><p class="description">A twisting silhouette.<br>A thousand small gestures toward the sun.</p><div class="rule"></div><p class="caption">A three-dimensional study<br>after your Santa Cruz photograph.</p></main>
+<aside aria-label="Model controls"><div class="panel-heading"><span>Observe the specimen</span><button id="collapse" aria-expanded="true" aria-controls="controls" title="Toggle controls">−</button></div><div id="controls"><div class="views"><button class="active" id="portrait">Portrait</button><button id="profile">Profile</button><button id="wood">Structure</button></div><label for="wind">Coastal breeze <output id="windValue">30%</output></label><input id="wind" type="range" min="0" max="1" step=".01" value=".3"><label for="foliage">Foliage <output id="foliageValue">100%</output></label><input id="foliage" type="range" min="0" max="1" step=".01" value="1"><label class="toggle" for="rotate">Slow rotation <input type="checkbox" id="rotate"></label><button id="reset" class="reset">Reset view <span>↗</span></button></div></aside>
+<footer><span><i></i> LIVING GEOMETRY <b> / </b> THREE.JS + GLSL</span><span>Drag to orbit <b>·</b> Scroll to explore</span><button id="save">Save image ↓</button></footer><div id="status" role="status">Growing the specimen…</div>
+<script type="module" src="main.js"></script>
+</body></html>

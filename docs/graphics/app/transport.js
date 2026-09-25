@@ -1,16 +1,18 @@
 // transport.js — the pluggable sync channel between remote(s) and the stage.
 //
 // A Transport carries protocol envelopes between controllers and the display.
-// Controllers never know which transport is in use, so new ones (e.g. WebRTC
-// for true cross-device control) drop in without touching stage.js / remote.js.
+// Controllers never know which transport is in use, so new ones (e.g. Firebase
+// for cross-device control) drop in without touching stage.js / remote.js.
 //
 //   const t = createTransport({ role: 'remote', room: 'default' });
 //   t.on(EVT.STATE, (payload) => …);
 //   t.send(CMD.NEXT);
 //   t.start();
 //
-// Pick the implementation with ?transport=bc | rtc and ?room=<id> in the URL.
+// Pick the implementation with ?transport=bc | firebase and ?room=<id> in the URL.
 
+import { loadFirebase } from './firebase.js';
+import { sessionId } from './util.js';
 import { PROTOCOL_VERSION } from './protocol.js';
 
 /** Common base: event registry + envelope wrapping. Subclasses implement
@@ -20,6 +22,7 @@ class Transport {
     this.role = role; // 'stage' | 'remote'
     this.room = room;
     this.kind = 'base';
+    this._seen = new Set();
     this._handlers = new Map(); // type → Set<fn>
     this._any = new Set(); // fns called for every message
     this._status = 'idle'; // 'idle' | 'connecting' | 'open' | 'closed'
@@ -54,13 +57,18 @@ class Transport {
   }
 
   send(type, payload = {}) {
-    this._post({ v: PROTOCOL_VERSION, role: this.role, type, payload, t: Math.floor(performance.now()) });
+    this._post({ v: PROTOCOL_VERSION, id: sessionId(), role: this.role, type, payload, t: Date.now() });
   }
 
   _receive(msg) {
     if (!msg || msg.v !== PROTOCOL_VERSION) return;
     // Ignore our own echoes (some transports loop back).
-    if (msg.role === this.role) return;
+    if (msg.role === this.role || !['stage', 'remote'].includes(msg.role)) return;
+    if (msg.id) {
+      if (this._seen.has(msg.id)) return;
+      this._seen.add(msg.id);
+      if (this._seen.size > 4096) this._seen.delete(this._seen.values().next().value);
+    }
     this._any.forEach((fn) => fn(msg));
     this._handlers.get(msg.type)?.forEach((fn) => fn(msg.payload, msg));
   }
@@ -84,7 +92,7 @@ class Transport {
 /**
  * Same-browser transport: works across tabs/windows of one browser profile.
  * Perfect for a control window on a second monitor or a projector mirror.
- * Does NOT cross devices (use the WebRTC transport for that).
+ * Does NOT cross devices (enable Firebase pairing for that).
  */
 class BroadcastTransport extends Transport {
   constructor(opts) {
@@ -117,49 +125,129 @@ class BroadcastTransport extends Transport {
   }
 }
 
-/**
- * SCAFFOLD — true cross-device transport (phone → projector).
- *
- * Plan (Phase 2): pair via WebRTC using a free signaling broker (e.g. PeerJS's
- * public cloud) and a short room code shown as a QR on the stage. The stage
- * becomes the peer host; remotes connect with the code. Because GitHub Pages is
- * static (no backend), signaling must be external or manual.
- *
- * This stub implements the Transport interface so the UI can already render the
- * pairing affordance; it reports 'closed' until wired up. To implement:
- *   1. Load PeerJS (or roll WebRTC + a tiny signaling shim).
- *   2. Stage: peer = new Peer(roomCode); on 'connection' → conn; route _post via conn.send; conn.on('data') → _receive.
- *   3. Remote: peer = new Peer(); conn = peer.connect(roomCode); same routing.
- *   4. Surface connection state through _setStatus().
- */
-class WebRTCTransport extends Transport {
+/** Local BroadcastChannel plus opt-in Firebase, using the Talks backend. */
+class PairedTransport extends BroadcastTransport {
   constructor(opts) {
     super(opts);
-    this.kind = 'webrtc';
-    this.implemented = false;
+    this.kind = 'local';
+    this.cloudStatus = 'disabled';
+    this.cloudError = '';
+    this._cloudCbs = new Set();
+    this._latest = new Map();
+    this._cloudReady = false;
+    this._stopped = false;
+    this._subscriptions = [];
+    this._autoCloud = opts.cloud;
   }
 
+  onCloudStatus(fn) {
+    this._cloudCbs.add(fn);
+    fn(this.cloudStatus, this.cloudError);
+    return () => this._cloudCbs.delete(fn);
+  }
+  _cloudStatus(status, error = '') {
+    this.cloudStatus = status;
+    this.cloudError = error;
+    this._cloudCbs.forEach(fn => fn(status, error));
+  }
   _open() {
-    console.info('[transport] WebRTC transport is scaffolded but not yet implemented; falling back to no-sync.');
-    this._setStatus('closed');
+    this._stopped = false;
+    super._open();
+    if (this._autoCloud) this.enableCloud();
   }
-
-  _post() {
-    /* no-op until implemented */
+  async enableCloud() {
+    if (this._opening) return this._opening;
+    if (this._ref && this.cloudStatus !== 'error') return;
+    if (this._ref) {
+      this._subscriptions.splice(0).forEach(off => off());
+      this._ref = null;
+    }
+    if (!/^[a-zA-Z0-9_-]{8,100}$/.test(this.room)) {
+      this._cloudStatus('error', 'Invalid pairing room. Open a new display to generate a pairing link.');
+      return;
+    }
+    this.kind = 'firebase + local';
+    this._cloudStatus('connecting');
+    this._opening = this._connectCloud().catch(error => {
+      this._cloudReady = false;
+      this._cloudStatus('error', error.message);
+    }).finally(() => { this._opening = null; });
+    return this._opening;
+  }
+  async _connectCloud() {
+    this._db = await loadFirebase();
+    if (this._stopped) return;
+    this._ref = this._db.ref(`sessions/graphics-${this.room}`);
+    const fail = error => { this._cloudReady = false; this._cloudStatus('error', error.message); };
+    const listen = (ref, event, fn) => {
+      ref.on(event, fn, fail);
+      this._subscriptions.push(() => ref.off(event, fn));
+    };
+    this._offset = 0;
+    listen(this._db.ref('.info/serverTimeOffset'), 'value', snap => { this._offset = snap.val() || 0; });
+    const receive = snap => {
+      const record = snap.val();
+      if (!record || typeof record.data !== 'string' || typeof record.sentAt !== 'number') return;
+      // Never replay commands or stale state after reconnecting to an old room.
+      const age = Date.now() + this._offset - record.sentAt;
+      if (age > 15000 || age < -15000) return;
+      try { this._receive(JSON.parse(record.data)); } catch (error) { console.warn('Invalid graphics message', error); }
+    };
+    if (this.role === 'stage') {
+      listen(this._ref.child('commands'), 'child_added', snap => {
+        receive(snap);
+        snap.ref.remove().catch(fail);
+      });
+    } else {
+      for (const type of ['state', 'controls', 'notice', 'goodbye']) {
+        listen(this._ref.child(`events/${type}`), 'value', receive);
+      }
+    }
+    listen(this._db.ref('.info/connected'), 'value', async snap => {
+      this._cloudReady = false;
+      if (!snap.val()) { this._cloudStatus('offline'); return; }
+      try {
+        // Cleanup is registered on the server before advertising a display.
+        if (this.role === 'stage') await this._ref.onDisconnect().remove();
+        await this._ref.child(`presence/${this.role}`).set({ at: window.firebase.database.ServerValue.TIMESTAMP });
+        if (this._stopped) return;
+        this._cloudReady = true;
+        this._cloudStatus('online');
+        this._setStatus('open');
+        if (this.role === 'stage') {
+          for (const msg of this._latest.values()) this._postCloud(msg);
+        } else this.send('hello');
+      } catch (error) { fail(error); }
+    });
+  }
+  _post(msg) {
+    super._post(msg);
+    if (this.role === 'stage' && ['state', 'controls'].includes(msg.type)) this._latest.set(msg.type, msg);
+    // Do not queue offline commands for unexpected playback on reconnect.
+    if (this._cloudReady) this._postCloud(msg);
+  }
+  _postCloud(msg) {
+    const record = { data: JSON.stringify(msg), sentAt: window.firebase.database.ServerValue.TIMESTAMP };
+    // JSON preserves selector keys (Firebase forbids dots, #, brackets in keys)
+    // and empty arrays, so local and cloud messages have exactly the same shape.
+    const ref = this.role === 'stage' ? this._ref.child(`events/${msg.type}`) : this._ref.child('commands').push();
+    ref.set(record).catch(error => this._cloudStatus('error', error.message));
+  }
+  _close() {
+    this._stopped = true;
+    this._cloudReady = false;
+    this._subscriptions.splice(0).forEach(off => off());
+    if (this.role === 'stage' && this._ref) this._ref.remove().catch(() => {});
+    this._ref = null;
+    this._cloudStatus('disabled');
+    super._close();
   }
 }
 
-const IMPLS = { bc: BroadcastTransport, broadcast: BroadcastTransport, rtc: WebRTCTransport, webrtc: WebRTCTransport };
-
-/**
- * Build a transport. Reads ?transport / ?room from the URL unless overridden.
- * Defaults to BroadcastChannel.
- */
 export function createTransport({ role, transport, room } = {}) {
   const sp = new URLSearchParams(location.search);
   const kind = transport || sp.get('transport') || 'bc';
-  const Impl = IMPLS[kind] || BroadcastTransport;
-  return new Impl({ role, room: room || sp.get('room') || 'default' });
+  return new PairedTransport({ role, room: room || sp.get('room') || 'default', cloud: ['firebase', 'rtc', 'webrtc'].includes(kind) });
 }
 
-export { Transport, BroadcastTransport, WebRTCTransport };
+export { Transport, BroadcastTransport, PairedTransport };

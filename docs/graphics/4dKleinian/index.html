@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script src="../app/entry.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kleinian Limit Sets in Four Dimensions</title>
+    <meta name="description"
+        content="A GPU explorer for the limit sets and boundary tilings of discrete reflection groups acting on hyperbolic 4-space.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="4dKleinian.css">
+    <!-- no site navigation button to make room for in the studio -->
+    <style>.topbar { padding-left: 16px; }</style>
+</head>
+
+<body>
+    <div id="stage"></div>
+
+    <header class="topbar">
+        <div class="brand">
+            <span class="eyebrow">Hyperbolic 4-space</span>
+            <h1>Kleinian Limit Sets</h1>
+        </div>
+        <div class="topbar-actions">
+            <button id="toggleLibrary" class="pill" type="button" aria-pressed="true" data-studio-ignore>Library</button>
+            <button id="togglePanel" class="pill" type="button" aria-pressed="true" data-studio-ignore>Controls</button>
+            <button id="saveImage" class="pill" type="button" title="Save the current view (S)">Save PNG</button>
+            <button id="toggleChrome" class="pill ghost" type="button" title="Hide all interface (H)" data-studio-ignore>Hide UI</button>
+        </div>
+    </header>
+
+    <!-- ------------------------------------------------------------ -->
+    <aside class="drawer drawer-left" id="library" data-studio-ignore>
+        <div class="drawer-head">
+            <h2>Example library</h2>
+            <p id="libraryCount" class="muted"></p>
+        </div>
+        <div class="search-row">
+            <input id="librarySearch" type="search" placeholder="Search groups, symbols, families…"
+                autocomplete="off" spellcheck="false">
+        </div>
+        <div class="filter-row" id="familyFilter"></div>
+        <div class="preset-list" id="presetList"></div>
+    </aside>
+
+    <!-- ------------------------------------------------------------ -->
+    <aside class="drawer drawer-right" id="panel">
+        <div class="drawer-head">
+            <h2 id="groupName">—</h2>
+            <p id="groupSubtitle" class="muted"></p>
+        </div>
+
+        <p id="groupDescription" class="description"></p>
+
+        <div class="badges" id="groupBadges"></div>
+
+        <nav class="tabs" id="tabs" data-studio-ignore>
+            <button class="tab is-active" data-tab="group" type="button">Group</button>
+            <button class="tab" data-tab="shape" type="button">Shape</button>
+            <button class="tab" data-tab="motion" type="button">Motion</button>
+            <button class="tab" data-tab="color" type="button">Colour</button>
+            <button class="tab" data-tab="render" type="button">Render</button>
+        </nav>
+
+        <!-- Group ------------------------------------------------- -->
+        <section class="tab-page is-active" data-page="group" data-control-group="Group">
+            <label class="control">
+                <span class="control-label">Example<em><kbd>[</kbd> <kbd>]</kbd></em></span>
+                <select id="preset"></select>
+            </label>
+
+            <div class="readout" id="groupReadout"></div>
+
+            <label class="control">
+                <span class="control-label">Mirror radius<em id="radiusScaleValue">1.000</em></span>
+                <input type="range" id="radiusScale" min="0.55" max="1.25" step="0.002" value="1">
+                <span class="hint">Scales every mirror sphere about its centre. Below 1 the mirrors pull
+                    apart and the limit set falls to a Cantor set; above 1 they overlap.</span>
+            </label>
+
+            <div class="diagram-block" data-studio-ignore>
+                <div class="block-head">
+                    <h3>Coxeter data</h3>
+                    <button id="resetRelations" class="mini" type="button">Reset</button>
+                </div>
+                <div id="coxeterDiagram" class="coxeter-diagram"></div>
+                <div id="gramMatrix" class="gram"></div>
+                <p id="geometryError" class="hint" role="alert" hidden></p>
+                <p class="hint">Each entry is the relation between two mirrors: an integer <em>m</em> means they
+                    meet at angle π/<em>m</em>, ∞ means tangent, and <em>d</em> means disjoint at hyperbolic
+                    distance <em>d</em>. Any such choice with signature (4,1) is a discrete group.</p>
+            </div>
+
+            <div class="mirror-list" id="mirrorList"></div>
+        </section>
+
+        <!-- Shape ------------------------------------------------- -->
+        <section class="tab-page" data-page="shape" data-control-group="Shape">
+            <label class="control">
+                <span class="control-label">Rendered object</span>
+                <select id="trapMode">
+                    <option value="0">Solid mirror balls</option>
+                    <option value="1">Mirror shells (see-through)</option>
+                    <option value="2">Inscribed ball</option>
+                    <option value="3">Balls and inscribed ball</option>
+                </select>
+                <span class="hint">The limit set itself has measure zero, so we draw the orbit of a set inside
+                    the fundamental chamber. It accumulates exactly on the limit set.</span>
+            </label>
+
+            <label class="control">
+                <span class="control-label">Shell thickness<em id="thicknessValue">0.020</em></span>
+                <input type="range" id="thickness" min="0.002" max="0.12" step="0.002" value="0.02">
+            </label>
+
+            <label class="control">
+                <span class="control-label">Ball radius<em id="trapRadiusValue">0.350</em></span>
+                <input type="range" id="trapRadius" min="0.02" max="1.0" step="0.005" value="0.35">
+            </label>
+
+            <label class="control">
+                <span class="control-label">Hide outer layers<em id="skipLevelsValue">0</em></span>
+                <input type="range" id="skipLevels" min="0" max="6" step="1" value="0">
+                <span class="hint">Drops the first few levels of the orbit so you can see into the
+                    packing instead of only its outermost shell.</span>
+            </label>
+
+            <label class="checkbox">
+                <input type="checkbox" id="hideOuter" checked>
+                <span>Hide the enclosing mirror (the one whose chamber is its interior)</span>
+            </label>
+
+            <label class="checkbox">
+                <input type="checkbox" id="cutaway">
+                <span>Cutaway: slice the scene with a half space</span>
+            </label>
+
+            <label class="control">
+                <span class="control-label">Cut position<em id="cutOffsetValue">0.00</em></span>
+                <input type="range" id="cutOffset" min="-1.2" max="1.2" step="0.01" value="0">
+            </label>
+
+            <label class="control">
+                <span class="control-label">Cut direction</span>
+                <select id="cutAxis">
+                    <option value="0">x</option>
+                    <option value="1">y</option>
+                    <option value="2" selected>z</option>
+                </select>
+            </label>
+
+            <label class="control">
+                <span class="control-label">Inversion depth<em id="foldsValue">32</em></span>
+                <input type="range" id="folds" min="4" max="120" step="1" value="32">
+                <span class="hint">Word length cutoff. Deeper words reveal finer structure and cost more.</span>
+            </label>
+
+            <label class="control">
+                <span class="control-label">Field of view<em id="fovValue">55°</em></span>
+                <input type="range" id="fov" min="20" max="100" step="1" value="55">
+            </label>
+
+            <div class="button-row">
+                <button id="resetView" class="mini" type="button">Reset view</button>
+                <button id="presetDefaults" class="mini" type="button">Restore defaults</button>
+            </div>
+        </section>
+
+        <!-- Motion ------------------------------------------------ -->
+        <section class="tab-page" data-page="motion" data-control-group="Motion">
+            <label class="checkbox">
+                <input type="checkbox" id="autoOrbit">
+                <span data-short="Auto-orbit">Auto-orbit the camera (<kbd>O</kbd>)</span>
+            </label>
+
+            <label class="control">
+                <span class="control-label">Orbit speed<em id="orbitSpeedValue">1.00 rpm</em></span>
+                <input type="range" id="orbitSpeed" min="-4" max="4" step="0.05" value="1">
+                <span class="hint">Revolutions per minute; negative turns the other way. Dragging still
+                    works while it spins.</span>
+            </label>
+
+            <label class="checkbox">
+                <input type="checkbox" id="breathe">
+                <span data-short="Breathe mirrors">Breathe the mirrors (<kbd>B</kbd>)</span>
+            </label>
+
+            <label class="control">
+                <span class="control-label">Breath depth<em id="breatheAmountValue">±8%</em></span>
+                <input type="range" id="breatheAmount" min="0.01" max="0.3" step="0.005" value="0.08">
+                <span class="hint">Oscillates the mirror radius about its set value. Shrinking tears the
+                    limit set into Cantor dust; growing makes neighbouring mirrors overlap, so the group
+                    stops being discrete and the picture turns to foam.</span>
+            </label>
+
+            <label class="control">
+                <span class="control-label">Breath period<em id="breathePeriodValue">12.0 s</em></span>
+                <input type="range" id="breathePeriod" min="2" max="40" step="0.5" value="12">
+            </label>
+
+            <p class="hint">While anything moves the frame is drawn at motion resolution; it refines as
+                soon as everything is still.</p>
+        </section>
+
+        <!-- Colour ------------------------------------------------ -->
+        <section class="tab-page" data-page="color" data-control-group="Colour">
+            <label class="control">
+                <span class="control-label">Palette</span>
+                <select id="palette"></select>
+            </label>
+
+            <label class="control">
+                <span class="control-label">Colour by</span>
+                <select id="scheme"></select>
+                <span class="hint" id="schemeHint"></span>
+            </label>
+
+            <label class="control" id="modulusControl" hidden>
+                <span class="control-label">Band period<em id="modulusValue">6</em></span>
+                <input type="range" id="modulus" min="2" max="20" step="1" value="6">
+            </label>
+
+            <label class="control">
+                <span class="control-label">Hue offset<em id="colorShiftValue">0.00</em></span>
+                <input type="range" id="colorShift" min="0" max="1" step="0.005" value="0">
+            </label>
+
+            <label class="control">
+                <span class="control-label">Hue span<em id="colorSpanValue">1.00</em></span>
+                <input type="range" id="colorSpan" min="0.1" max="4" step="0.01" value="1">
+            </label>
+
+            <label class="control">
+                <span class="control-label">Exposure<em id="exposureValue">1.15</em></span>
+                <input type="range" id="exposure" min="0.3" max="3" step="0.01" value="1.15">
+            </label>
+
+            <label class="control">
+                <span class="control-label">Saturation<em id="saturationValue">1.04</em></span>
+                <input type="range" id="saturation" min="0" max="1.8" step="0.01" value="1.04">
+            </label>
+
+            <label class="control">
+                <span class="control-label">Vignette<em id="vignetteValue">0.55</em></span>
+                <input type="range" id="vignette" min="0" max="1" step="0.01" value="0.55">
+            </label>
+
+            <label class="control">
+                <span class="control-label">Depth haze<em id="fogValue">0.020</em></span>
+                <input type="range" id="fog" min="0" max="0.2" step="0.002" value="0.02">
+            </label>
+
+            <div class="control">
+                <span class="control-label">Background</span>
+                <div class="swatch-row">
+                    <label>Top <input type="color" id="bgTop" value="#0d1220"></label>
+                    <label>Base <input type="color" id="bgBottom" value="#030407"></label>
+                </div>
+            </div>
+        </section>
+
+        <!-- Render ------------------------------------------------ -->
+        <section class="tab-page" data-page="render" data-control-group="Render">
+            <label class="control">
+                <span class="control-label">Quality preset</span>
+                <select id="qualityPreset">
+                    <option value="draft">Draft — fast orbiting</option>
+                    <option value="balanced" selected>Balanced</option>
+                    <option value="high">High</option>
+                    <option value="print">Print — slow, very clean</option>
+                    <option value="custom">Custom</option>
+                </select>
+            </label>
+
+            <label class="control">
+                <span class="control-label">Still resolution<em id="stillScaleValue">100%</em></span>
+                <input type="range" id="stillScale" min="0.4" max="1.5" step="0.05" value="1">
+            </label>
+
+            <label class="control">
+                <span class="control-label">Motion resolution<em id="motionScaleValue">55%</em></span>
+                <input type="range" id="motionScale" min="0.2" max="1" step="0.05" value="0.55">
+                <span class="hint">While you orbit, the frame is drawn small and upscaled; when you stop, it
+                    refines by averaging jittered samples.</span>
+            </label>
+
+            <label class="checkbox">
+                <input type="checkbox" id="autoScale" checked>
+                <span>Adapt motion resolution to keep the frame rate up</span>
+            </label>
+
+            <label class="control">
+                <span class="control-label">Refinement samples<em id="maxSamplesValue">96</em></span>
+                <input type="range" id="maxSamples" min="1" max="512" step="1" value="96">
+            </label>
+
+            <label class="control">
+                <span class="control-label">March steps<em id="stepsValue">220</em></span>
+                <input type="range" id="steps" min="40" max="512" step="4" value="220">
+            </label>
+
+            <label class="control">
+                <span class="control-label">Step safety<em id="stepScaleValue">0.55</em></span>
+                <input type="range" id="stepScale" min="0.1" max="1" step="0.01" value="0.55">
+                <span class="hint">Fraction of the distance estimate taken per step. Lower is slower but
+                    removes overshoot artefacts.</span>
+            </label>
+
+            <label class="control">
+                <span class="control-label">Surface tolerance<em id="epsScaleValue">0.80</em></span>
+                <input type="range" id="epsScale" min="0.1" max="3" step="0.05" value="0.8">
+                <span class="hint">Hit threshold as a multiple of the pixel footprint, so detail stays
+                    resolution-independent.</span>
+            </label>
+
+            <label class="control">
+                <span class="control-label">Ambient occlusion<em id="aoValue">1.00</em></span>
+                <input type="range" id="ao" min="0" max="2" step="0.05" value="1">
+            </label>
+
+            <label class="control">
+                <span class="control-label">Shadow steps<em id="shadowValue">24</em></span>
+                <input type="range" id="shadowSteps" min="0" max="48" step="1" value="24">
+                <span class="hint">Zero disables soft shadows and is noticeably faster.</span>
+            </label>
+
+            <div class="diagram-block">
+                <div class="block-head">
+                    <h3>High-resolution export</h3>
+                </div>
+                <label class="control">
+                    <span class="control-label">Export size</span>
+                    <select id="exportScale">
+                        <option value="1">1× window</option>
+                        <option value="2" selected>2× window</option>
+                        <option value="3">3× window</option>
+                        <option value="4">4× window</option>
+                    </select>
+                </label>
+                <label class="control">
+                    <span class="control-label">Export samples<em id="exportSamplesValue">128</em></span>
+                    <input type="range" id="exportSamples" min="8" max="1024" step="8" value="128">
+                    <span class="hint">Rendered off-screen one sample per frame, independent of the
+                        window, so the result is sharper than a screenshot. The detail threshold follows
+                        the pixel size, so larger exports also resolve finer structure.</span>
+                </label>
+                <div class="button-row">
+                    <button id="exportImage" class="mini" type="button">Render &amp; save PNG</button>
+                </div>
+                <p id="exportStatus" class="hint" role="status" hidden></p>
+            </div>
+        </section>
+    </aside>
+
+    <div class="stats" id="stats"></div>
+    <p class="hint-bar">drag to orbit · wheel to zoom · right-drag to pan · <kbd>[</kbd> <kbd>]</kbd> examples · <kbd>O</kbd> orbit ·
+        <kbd>H</kbd> hides the interface</p>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="./js/main.js?v=20260924"></script>
+</body>
+
+</html>
