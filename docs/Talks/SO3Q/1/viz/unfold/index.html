@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unfolding the Circle</title>
+    <meta name="description" content="The rational points of the circle unfold into an infinite-dimensional lattice. SO₃(ℚ) talk, part 1.">
+    <link rel="stylesheet" href="../common/viz.css">
+    <link rel="stylesheet" href="unfold.css">
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+            startup: { typeset: false },
+            options: { enableMenu: false }
+        };
+    </script>
+    <script defer src="../../vendor/mathjax/tex-mml-chtml.js"></script>
+</head>
+
+<body data-viz="unfold">
+    <div id="stage"></div>
+    <div id="tip" class="card"></div>
+    <div id="captions"></div>
+    <div id="nav" class="card">
+        <button class="nav-prev" aria-label="Previous step">&lsaquo;</button>
+        <span class="nav-count"></span>
+        <button class="nav-next" aria-label="Next step">&rsaquo;</button>
+    </div>
+
+    <script src="../common/gauss.js"></script>
+    <script src="../common/viz.js"></script>
+    <script src="unfold.js"></script>
+</body>
+
+</html>

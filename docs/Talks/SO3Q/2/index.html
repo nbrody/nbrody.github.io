@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SO₃(ℚ) · Part 2: One Dimension Up</title>
+    <meta name="description"
+        content="SO₃(ℚ), part 2 of 3: integer quaternions and rational rotations of space, Jacobi's four-square theorem, Hurwitz's unique factorization, and how metacommutation of Hurwitz primes builds an infinite-dimensional product of trees.">
+
+    <!-- Reveal.js (vendored — the talk must work with no network) -->
+    <link rel="stylesheet" href="vendor/reveal/dist/reveal.css">
+    <!-- The Firebase SDK for the phone remote is fetched by remote.js without
+         blocking the page, so the deck paints at once even offline. -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- ═══════════════════════════════════════════════
+                 TITLE
+                 ═══════════════════════════════════════════════ -->
+            <section id="title">
+                <p class="series-label">Part 2 of 3</p>
+                <h1 class="deck-title">\(\mathrm{SO}_3(\mathbb{Q})\)</h1>
+                <p class="deck-subtitle">One dimension up</p>
+                <p class="deck-byline">Nic Brody &middot; UC Santa Cruz</p>
+                <button class="present-btn" onclick="startPresentation()">Present</button>
+                <aside class="notes">
+                    Second of three talks on SO₃(ℚ). Behind the title: rational points of the sphere,
+                    (a/d, b/d, c/d) with a² + b² + c² = d², bigger dots for smaller d.
+                    Keys: S = speaker view, Esc = overview, F = fullscreen. Present = phone remote (QR code).
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 LAST TIME
+                 ═══════════════════════════════════════════════ -->
+            <section>
+                <section id="recap">
+                    <h2>Last time: \(\mathrm{SO}_2(\mathbb Q)\)</h2>
+                    <ul class="recap">
+                        <li class="fragment">A rational rotation of the plane is a <strong>Pythagorean triple</strong>
+                            \(a^2 + b^2 = c^2\), i.e. \(\frac{a+bi}{c} = \frac{\pi}{\bar\pi}\) for a Gaussian integer
+                            \(\pi\).</li>
+                        <li class="fragment">Only primes \(p \equiv 1 \pmod 4\) appear in denominators, and each
+                            contributes <strong>one</strong> generating rotation \(r_p\).</li>
+                        <li class="fragment">Unique factorization in \(\mathbb Z[i]\):
+                            \(\ \mathrm{SO}_2(\mathbb Q) \cong \mathbb Z/4 \times \bigoplus_{p \equiv 1\,(4)} \mathbb Z\):
+                            an <strong>infinite-dimensional lattice</strong>, a product of lines.</li>
+                    </ul>
+                    <aside class="notes">
+                        Quick recap of part 1. Denominators of rational rotations of the plane are products of primes
+                        ≡ 1 mod 4; for each such p the rotations with denominator pⁿ are the powers of one r_p (up to
+                        quarter turns); so SO₂(ℚ)/SO₂(ℤ) ≅ ⊕ ℤ, a product of lines.
+                    </aside>
+                </section>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 ONE DIMENSION UP
+                 ═══════════════════════════════════════════════ -->
+            <section>
+                <section id="cube" data-stage="space" data-step="lattice" data-title="The 24 rotations of the cube">
+                    <span class="fragment stage-step" data-step="cube"></span>
+                    <span class="fragment stage-step" data-step="count"></span>
+                    <aside class="notes">
+                        "Now let's go up to three dimensions. Again, SO3Z is finite."
+                        Visualization (3 states): ℤ³ and a die → the die and a moving copy of ℤ³ run through all 24
+                        rotations (a Hamiltonian cycle of quarter turns) and ℤ³ lands on itself every time → e₁ has 6
+                        places to go (±i, ±j, ±k), then e₂ has 4 (pink rings, perpendicular to e₁), and e₃ = e₁ × e₂:
+                        24 = |S₄| (the rotations permute the 4 body diagonals).
+                        Drag to orbit; remote Play/Pause freezes the cycle.
+                    </aside>
+                </section>
+
+                <section id="so3z">
+                    <h2>Finite, then infinite</h2>
+                    <div class="math-card">
+                        \[ \mathrm{SO}_3(\mathbb Z) = \{ \text{signed permutation matrices of det } 1 \} \;\cong\; S_4 \]
+                    </div>
+                    <p class="fragment">But \(\mathrm{SO}_3(\mathbb Q)\) is infinite, e.g.
+                        \(\ \frac13\left(\begin{smallmatrix} 1&2&2\\ 2&1&-2\\ -2&2&-1 \end{smallmatrix}\right)\) has infinite order.
+                        Each column is a rational point of the sphere: \(a^2+b^2+c^2 = d^2\).</p>
+                    <p class="fragment">How do we find them all? In the plane we used Gaussian integers. In space:
+                        <strong>quaternions</strong>.</p>
+                    <aside class="notes">
+                        The 24 = S₄ via the action on the four body diagonals of the cube.
+                        (1/3)(1,2,2; 2,1,−2; −2,2,−1) has trace 1/3 = 1 + 2cos θ, so cos θ = −1/3 — not 0, ±½, ±1 — and
+                        it has infinite order. It is R_{1+i+j} (coming up).
+                    </aside>
+                </section>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 QUATERNIONS
+                 ═══════════════════════════════════════════════ -->
+            <section>
+                <section id="quaternions">
+                    <h2>Quaternions</h2>
+                    <div class="math-card">
+                        \[ \mathbb H = \{\, a + bi + cj + dk \,\}, \qquad i^2 = j^2 = k^2 = ijk = -1 \]
+                    </div>
+                    <ul class="bullets">
+                        <li class="fragment">Conjugate \(\bar q = a - bi - cj - dk\) and norm \(N(q) = q\bar q = a^2 + b^2 + c^2 + d^2\),
+                            so \(q^{-1} = \bar q / N(q)\).</li>
+                        <li class="fragment">\(N(qr) = N(q)\,N(r)\): it is somewhat miraculous that we can take two solutions
+                            of \(a^2+b^2+c^2+d^2 = 1\) and produce another! (In the plane:
+                            \((ax-by)^2 + (ay+bx)^2 = 1\).)</li>
+                        <li class="fragment">Not commutative: \(ij = k = -ji\).</li>
+                    </ul>
+                    <aside class="notes">
+                        Hamilton, 1843 (carved into Broom Bridge). N(qr) = N(q)N(r) is Euler's four-square identity.
+                    </aside>
+                </section>
+
+                <section id="conjugation">
+                    <h2>Conjugation fixes the real part</h2>
+                    <p class="tight">For \(q \ne 0\), consider \(\ v \mapsto q\,v\,q^{-1}\ \) on all of \(\mathbb H\).</p>
+                    <ul class="bullets">
+                        <li class="fragment">It respects the algebra, \(q(vw)q^{-1} = (qvq^{-1})(qwq^{-1})\),
+                            and preserves norms: \(N(qvq^{-1}) = N(v)\).</li>
+                        <li class="fragment">It <strong>fixes the real part</strong>:
+                            \(\ \mathrm{Re}(q v q^{-1}) = \mathrm{Re}(v)\), since \(\mathrm{Re}(xy) = x_0 y_0 - \vec x \cdot \vec y = \mathrm{Re}(yx)\).</li>
+                        <li class="fragment">So it preserves the <strong>pure quaternions</strong>
+                            \(\{bi + cj + dk\} = \mathbb R^3\) &mdash; and \(\mathbb Q^3\) when \(q\) is rational &mdash;
+                            acting by a rotation \(R_q\).</li>
+                    </ul>
+                    <aside class="notes">
+                        "Describe how we can use integer quaternions to determine rational rotations: first describing how
+                        quaternion conjugation acts on quaternions, and noting that it fixes the real part; hence we get an
+                        action on ℚ³."
+                        Orthogonal because it preserves N; determinant +1 because q ↦ det R_q is continuous on the connected
+                        unit quaternions and R_1 = I.
+                    </aside>
+                </section>
+
+                <section id="conj-scene" data-stage="space" data-step="pure" data-title="Quaternion conjugation">
+                    <span class="fragment stage-step" data-step="conj"></span>
+                    <span class="fragment stage-step" data-step="axis"></span>
+                    <aside class="notes">
+                        Visualization (3 states): ℍ = ℝ·1 ⊕ ℝ³ — the gauge on the left is the real line, the sphere is the
+                        pure part; the sample quaternion v = t + w → conjugation by q = 1 + i + j: the real part stays put
+                        (FIXED), the pure part w and the whole sphere (and the die) turn → the axis (1, 1, 0) and the angle
+                        2 arccos(1/√3) ≈ 109.47°.
+                        Dictionary: a + bi + cj + dk ↔ rotation about (b, c, d) by 2 arccos(a/√N).
+                    </aside>
+                </section>
+
+                <section id="integers">
+                    <h2>Integer quaternions, rational rotations</h2>
+                    <div class="math-card er">
+                        \[ R_q = \frac{1}{N(q)} \begin{pmatrix} a^2+b^2-c^2-d^2 & 2(bc-ad) & 2(bd+ac) \\ 2(bc+ad) & a^2-b^2+c^2-d^2 & 2(cd-ab) \\ 2(bd-ac) & 2(cd+ab) & a^2-b^2-c^2+d^2 \end{pmatrix} \]
+                    </div>
+                    <ul class="bullets">
+                        <li class="fragment">\(q = 1+i+j\) gives \(\frac13\left(\begin{smallmatrix} 1&2&2\\ 2&1&-2\\ -2&2&-1 \end{smallmatrix}\right)\);
+                            \(\ q = 3+i+j+k\) gives last time’s \(\frac13\left(\begin{smallmatrix} 2&-1&2\\ 2&2&-1\\ -1&2&2 \end{smallmatrix}\right)\).</li>
+                        <li class="fragment">\(q = a + bi\) is a Gaussian integer, and \(R_q\) is last time’s rotation
+                            \(\frac{a+bi}{a-bi}\), now about the \(i\)-axis.</li>
+                        <li class="fragment">Every rational rotation arises, from a primitive integer quaternion unique up to sign:
+                            our first little <strong>dictionary</strong>. The denominator of \(R_q\) is the odd part of \(N(q)\).</li>
+                    </ul>
+                    <aside class="notes">
+                        The Euler–Rodrigues formula. Since R_{λq} = R_q, any rational quaternion can be scaled to a primitive
+                        integer one. Denominators are always odd (a² + b² + c² ≡ 0 mod 4 forces all even), and every odd number
+                        occurs. Fun fact: R_{1+i+j} sends exactly one-third of ℤ³ to ℤ³ — impossible in the plane (last time),
+                        and the Σ3 twin boundary of cubic crystals.
+                    </aside>
+                </section>
+
+                <section id="explore" data-stage="space" data-step="integer" data-title="Rational rotations">
+                    <span class="fragment stage-step" data-step="explore"></span>
+                    <aside class="notes">
+                        Visualization: R_{1+i+j} with the images of i, j, k and their exact coordinates → explorer: step a, b, c, d
+                        or click a preset (1 + i and 1 + i + j + k land in SO₃(ℤ); 2 + i is last time's r₅; 1 + 2i + 2j + 2k has
+                        denominator 13). Drag to orbit.
+                    </aside>
+                </section>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 JACOBI AND HURWITZ
+                 ═══════════════════════════════════════════════ -->
+            <section>
+                <section id="jacobi">
+                    <h2>Counting: Jacobi</h2>
+                    <div class="compare">
+                        <div class="col">
+                            <h3>The plane</h3>
+                            <p>\(r_2(n) = \#\{\, n = x^2 + y^2 \,\}\)</p>
+                            <p>\(r_2(n) = 4 \sum_{d \mid n} \chi_{-4}(d)\)</p>
+                            <p class="fragment" data-fragment-index="1">\(r_2(p) = 8\) if \(p \equiv 1\), \(\ 0\) if \(p \equiv 3 \pmod 4\)</p>
+                            <p class="fragment dim" data-fragment-index="2">4 units \(\pm 1, \pm i\): <strong>2</strong> primes of norm \(p\), namely \(\pi, \bar\pi\)</p>
+                        </div>
+                        <div class="col space">
+                            <h3>Space</h3>
+                            <p>\(r_4(n) = \#\{\, n = a^2 + b^2 + c^2 + d^2 \,\}\)</p>
+                            <p>\(r_4(n) = 8 \sum_{d \mid n,\ 4 \nmid d} d\)</p>
+                            <p class="fragment" data-fragment-index="1">\(r_4(p) = 8(p+1)\) for <em>every</em> odd prime \(p\)</p>
+                            <p class="fragment dim" data-fragment-index="2">8 units \(\pm 1, \pm i, \pm j, \pm k\): <strong>\(p+1\)</strong> primes of norm \(p\)</p>
+                        </div>
+                    </div>
+                    <aside class="notes">
+                        "Discuss Jacobi's theorem" — Thm (Jacobi): the number of representations of an odd prime p as a sum of
+                        four squares is 8(p+1). General formula r₄(n) = 8 Σ_{d | n, 4 ∤ d} d.
+                        Plane analogue (Fermat/Jacobi two-square theorem): r₂(n) = 4 Σ_{d|n} χ₋₄(d).
+                        So in the plane each p ≡ 1 mod 4 gives 2 primes up to units (a line: r_p and r_p⁻¹); in space every odd
+                        p gives p + 1 primes up to units.
+                    </aside>
+                </section>
+
+                <section id="primes">
+                    <h2>The \(p + 1\) primes of norm \(p\)</h2>
+                    <p class="tight">Up to \(\pm1, \pm i, \pm j, \pm k\), take \(\mathrm{Re}(q) > 0\) and
+                        \(q \equiv 1\) (mod 2) if \(p \equiv 1\), \(\ q \equiv 1 + i + j\) (mod 2) if \(p \equiv 3 \pmod 4\). Call this set \(A_p\).</p>
+                    <div class="primes" id="primes-widget">
+                        <div>
+                            <div class="pr-buttons"></div>
+                            <div class="pr-count"></div>
+                            <div class="pr-chips"></div>
+                        </div>
+                        <svg class="pr-sphere" viewBox="-110 -110 220 220" aria-label="rotation axes of the primes"></svg>
+                    </div>
+                    <p class="pr-note fragment">\(A_5 = \{1 \pm 2i,\ 1 \pm 2j,\ 1 \pm 2k\}\): \(R_{1 \pm 2i}\) turn about the
+                        \(i\)-axis &mdash; they live in last time’s \(\mathrm{SO}_2(\mathbb Q)\) &mdash; but the other four
+                        turn about \(j\) and \(k\).</p>
+                    <aside class="notes">
+                        Interactive: pick p. The chips are A_p (counted by brute force: 8(p+1) quaternions of norm p, divided by
+                        the 8 units); the little sphere shows the rotation axes of the R_π (a pair π, π̄ gives an axis ±u).
+                        A₃ = {1 ± i ± j}, A₁₃ = {3 ± 2i, 3 ± 2j, 3 ± 2k, 1 ± 2i ± 2j ± 2k}.
+                        Each A_p is closed under π ↦ π̄ = π⁻¹ (up to scalars).
+                    </aside>
+                </section>
+
+                <section id="hurwitz">
+                    <h2>Factoring: Hurwitz</h2>
+                    <div class="theorem">
+                        <span class="th-label">Fundamental theorem of quaternion arithmetic</span>
+                        <p>Let \(q\) be a primitive integer quaternion. If \(p\) is an odd prime dividing \(N(q)\), there is a
+                            <strong>unique</strong> quaternion of norm \(p\) (up to associates) which left-divides \(q\).</p>
+                    </div>
+                    <ul class="bullets">
+                        <li class="fragment">Hurwitz: allow \(a, b, c, d\) all in \(\mathbb Z + \tfrac12\) too. That ring has 24 units
+                            and a Euclidean algorithm.</li>
+                        <li class="fragment">So \(q = \pi_1 \pi_2 \cdots \pi_n\) with \(N(\pi_i) = p_i\), for <em>any</em> ordering of
+                            the primes of \(N(q)\), uniquely up to units.</li>
+                        <li class="fragment">In the plane this was unique factorization in \(\mathbb Z[i]\), which gave
+                            \(\mathrm{SO}_2(\mathbb Q) \cong \mathbb Z/4 \times \bigoplus \mathbb Z\).</li>
+                    </ul>
+                    <aside class="notes">
+                        "…and then Hurwitz's theorem. Contextualize these as higher-dimensional analogues of the SO_2(Q) stuff."
+                        The Hurwitz order: 24 units (±1, ±i, ±j, ±k, (±1 ± i ± j ± k)/2) — the vertices of the 24-cell; as
+                        rotations they give the 12 rotations of a tetrahedron. Euclidean ⇒ PID ⇒ left divisors of norm p are
+                        unique up to units. For odd primes the statement descends to integer quaternions.
+                    </aside>
+                </section>
+
+                <section id="trees" data-stage="tree" data-step="orbit" data-orbit data-title="Trees of rotations">
+                    <span class="fragment stage-step" data-step="tree"></span>
+                    <span class="fragment stage-step" data-step="line"></span>
+                    <span class="fragment stage-step" data-step="p3"></span>
+                    <span class="fragment stage-step" data-step="p13"></span>
+                    <aside class="notes">
+                        "Consequence: for an odd prime p, we can label the vertices of an infinite tree with quaternions of norm pⁿ."
+                        Visualization (5 states): rotations with denominator 5ⁿ applied to one point of the sphere — a dense tangle
+                        → the 6-regular tree; each edge points along the rotation axis of its prime (1 ± 2i along i, …), labels are
+                        the products, e.g. (1 + 2i)² = −3 + 4i → the powers of 1 + 2i are the i-axis of the tree: last time's line ℤ
+                        is one geodesic → p = 3: a planar H-tree, labels 1 ± i ± j, … → p = 13: 14 directions.
+                        ⟨A_p⟩ is free of rank (p+1)/2; SO₃(ℤ[1/p]) acts on T_{p+1} with vertex stabilizer SO₃(ℤ).
+                        Hover any vertex for its word, quaternion and denominator.
+                    </aside>
+                </section>
+
+                <section id="rosetta">
+                    <h2>The plane and space so far</h2>
+                    <table class="rosetta">
+                        <thead>
+                            <tr><th></th><th>\(\mathrm{SO}_2(\mathbb Q)\)</th><th class="space">\(\mathrm{SO}_3(\mathbb Q)\)</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td class="rl">integers</td><td>\(\mathbb Z[i]\)</td><td>Hurwitz quaternions</td></tr>
+                            <tr class="fragment"><td class="rl">primes of norm \(p\), up to units</td><td>2, if \(p \equiv 1 \pmod 4\)</td><td>\(p + 1\), for every odd \(p\)</td></tr>
+                            <tr class="fragment"><td class="rl">denominators \(p^n\)</td><td>a line</td><td>a tree \(T_{p+1}\)</td></tr>
+                            <tr class="fragment"><td class="rl">all primes at once</td><td>a lattice \(\bigoplus \mathbb Z\) &mdash; a product of lines</td><td class="q">?</td></tr>
+                        </tbody>
+                    </table>
+                    <aside class="notes">
+                        The line is the 2-regular tree. The question: how do the trees for different primes fit together?
+                        In the plane, generators for different primes commuted. In space they don't — but they metacommute.
+                    </aside>
+                </section>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 METACOMMUTATION → PRODUCT OF TREES
+                 ═══════════════════════════════════════════════ -->
+            <section>
+                <section id="metacommutation">
+                    <h2>Metacommutation</h2>
+                    <p class="tight">Primes of different norms don’t commute: \((1+i+j)(1+2i) \ne (1+2i)(1+i+j)\). But:</p>
+                    <div class="theorem">
+                        <span class="th-label">Hurwitz, again</span>
+                        <p>For \(\pi \in A_p\) and \(\sigma \in A_q\) (\(p \ne q\)), \(\pi\sigma\) has a unique left divisor in \(A_q\):
+                            \(\ \pi\sigma = \pm\,\sigma'\pi'\ \) for unique \(\sigma' \in A_q\), \(\pi' \in A_p\).</p>
+                    </div>
+                    <div class="math-card fragment">
+                        \[ \begin{aligned} (1+i+j)(1+2i) &= -1+3i+j-2k \\ &= -\,(1+2k)(1-i+j) \end{aligned} \]
+                    </div>
+                    <p class="fragment tight">Fixing \(\sigma\), \(\pi \mapsto \pi'\) permutes the \(p+1\) primes of norm \(p\) &mdash;
+                        like a Möbius transformation of \(\mathbb P^1(\mathbb F_p)\) &mdash; and its sign is the Legendre symbol
+                        \(\big(\tfrac qp\big)\) (Cohn&ndash;Kumar).</p>
+                    <aside class="notes">
+                        "Describe metacommutation of Hurwitz primes."
+                        Apply Hurwitz to πσ (norm pq): its unique left divisor of norm q, normalized into A_q, is σ'; the cofactor is
+                        automatically ±π' with π' ∈ A_p (the congruence conditions mod 2 are preserved).
+                        Cohn & Kumar, "Metacommutation of Hurwitz primes" (Proc. AMS 2015): the permutation's sign is (q/p); its
+                        number of fixed points is 1 + ((t² − 4q)/p) with t = 2 Re(σ) — like σ acting on ℙ¹(𝔽_p). Checked here by
+                        computer for many (p, q).
+                    </aside>
+                </section>
+
+                <section id="squares" data-stage="product" data-step="square" data-title="Metacommutation squares">
+                    <span class="fragment stage-step" data-step="sort"></span>
+                    <aside class="notes">
+                        Visualization (2 states): the square (1+i+j)(1+2i) = −(1+2k)(1−i+j) → a staircase word
+                        (1+i+j)(1+2i)(1+i+j)(1+2j)(1+i−j)(1+2k) sorted by six metacommutations into
+                        −(1+2k)(1+2i)(1+2k)·(1−i+j)(1−i+j)(1+i+j). Every rotation with denominator 3ᵃ5ᵇ is uniquely a reduced 5-word
+                        times a reduced 3-word (times an element of SO₃(ℤ)): "a square-like calculator". Remote Reset replays it.
+                    </aside>
+                </section>
+
+                <section id="gallery">
+                    <h2>\(\mathrm{SO}_3\big(\mathbb Z[\tfrac1{65}]\big)\)</h2>
+                    <div class="gallery-wrap">
+                        <div class="gallery" id="gallery-grid"></div>
+                        <div class="gal-text">
+                            <p>Primes of norm 5 and 13: one vertex, \(3 + 7\) edges (a prime and its inverse), and one
+                                <strong>square</strong> for each metacommutation: \(\frac{6 \cdot 14}{4} = 21\) squares.
+                                Its universal cover is \(T_6 \times T_{14}\).</p>
+                            <p class="gal-rel" id="gallery-rel"></p>
+                            <p class="gal-legend" id="gallery-legend"></p>
+                        </div>
+                    </div>
+                    <aside class="notes">
+                        Interactive: click a square to see its relation. The three gold squares commute:
+                        (1+2i)(3+2i) = (3+2i)(1+2i) = −1 + 8i, and likewise about j and k — rotations about one axis. They tile
+                        periodic flats: last time's lattice ⟨r₅, r₁₃⟩ ≅ ℤ² sits inside T₆ × T₁₄. Most flats are aperiodic.
+                        (21 squares = 84 metacommutation relations, 4 corners per square.)
+                    </aside>
+                </section>
+
+                <section id="product" data-stage="product" data-step="product" data-orbit data-title="Products of trees">
+                    <span class="fragment stage-step" data-step="cube"></span>
+                    <span class="fragment stage-step" data-step="infinite"></span>
+                    <aside class="notes">
+                        "…and how this builds an infinite-dimensional product of trees."
+                        Visualization (3 states): T₄ × T₆ (balls, projected from 4D; copies of each tree through every vertex of the
+                        other, squares in between) with the sorted grid as a gold flat → three primes 3, 5, 7: a cube whose six faces
+                        are metacommutation squares (all six orders of π σ τ agree) → one more tree direction T_{p+1} for every odd
+                        prime. Drag or remote joystick to orbit.
+                    </aside>
+                </section>
+
+                <section id="punchline">
+                    <p class="statement">So \(\mathrm{SO}_3(\mathbb Q)\) acts on an</p>
+                    <h1 class="punch">infinite-dimensional product of trees</h1>
+                    <div class="math-card">
+                        \[ X \;=\; \prod\nolimits'_{p\ \text{odd}} T_{p+1} \]
+                    </div>
+                    <ul class="bullets">
+                        <li class="fragment">Vertex stabilizers are copies of \(\mathrm{SO}_3(\mathbb Z)\): finite.</li>
+                        <li class="fragment">\(\Gamma = \big\langle \bigcup_p A_p \big\rangle\) has index 24 and acts
+                            <strong>simply transitively</strong> on the vertices, with presentation
+                            \(\ \big\langle \bigcup_p A_p \;\big|\; \pi\sigma = \pm\sigma'\pi' \big\rangle\).</li>
+                        <li class="fragment">Last time’s infinite-dimensional lattice is a <strong>flat</strong> inside \(X\).</li>
+                    </ul>
+                    <aside class="notes">
+                        ∏′ = restricted product: all but finitely many coordinates at the base vertex. SO₃(ℚ)/SO₃(ℤ) ↔ vertices of X.
+                        Checked by computer: exactly 576 = 24·4·6 rotations have denominator 15, and they are exactly
+                        (w₅·w₃)·SO₃(ℤ) with |w₅| = |w₃| = 1.
+                        SO₂(ℚ) (rotations about the i-axis) moves along an axis of T_{p+1} for p ≡ 1 mod 4 and fixes a vertex for
+                        p ≡ 3 mod 4: so ⊕ℤ is a flat in X.
+                    </aside>
+                </section>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 CLOSING
+                 ═══════════════════════════════════════════════ -->
+            <section>
+                <section id="next">
+                    <p class="part-label">Next time</p>
+                    <h2>Subgroups of \(\mathrm{SO}_3(\mathbb Q)\)</h2>
+                    <ul class="next-list">
+                        <li><strong>Algebra:</strong> choose an axis, and look at the subgroup that fixes that axis.</li>
+                        <li><strong>Geometry:</strong> hidden tree geometry &mdash; ping pong in a particular tree.</li>
+                        <li><strong>Arithmetic:</strong> take a subring \(A\) of \(\mathbb Q\), and look at \(\mathrm{SO}_3(A)\).</li>
+                    </ul>
+                    <p class="fragment" style="margin-top: 0.6em;"><em>Conjecture:</em> that’s all!</p>
+                    <div class="separator"></div>
+                    <h2 class="thanks">Thank you!</h2>
+                    <p class="subtle" style="font-size: 0.6em;">Nic Brody &middot; UC Santa Cruz</p>
+                    <aside class="notes">From the outline's Section 3 — the subject of part 3.</aside>
+                </section>
+
+                <section id="appendix">
+                    <p class="part-label">Appendix</p>
+                    <h2>Where the trees come from</h2>
+                    <ul class="bullets">
+                        <li>For odd \(p\), \(\mathbb H \otimes \mathbb Q_p \cong M_2(\mathbb Q_p)\), so
+                            \(\mathrm{SO}_3(\mathbb Q_p) \cong \mathrm{PGL}_2(\mathbb Q_p)\), which acts on its Bruhat&ndash;Tits tree
+                            \(T_{p+1}\), whose vertices neighbouring the base are \(\mathbb P^1(\mathbb F_p)\).</li>
+                        <li>At \(p = 2\) and \(\infty\) the quaternions stay a division algebra, so \(\mathrm{SO}_3(\mathbb Q_2)\) and
+                            \(\mathrm{SO}_3(\mathbb R)\) are compact: no tree there (Hilbert reciprocity).</li>
+                        <li>\(\mathrm{SO}_3(\mathbb Q)\) is a lattice in \(\mathrm{SO}_3(\mathbb A)\), and
+                            \(\mathrm{SO}_3(\mathbb Z[\tfrac1n])\) is a lattice in \(\prod_{p \mid n,\ p\ \text{odd}} T_{p+1}\).</li>
+                        <li>The 24 Hurwitz units are the vertices of the 24-cell; as rotations they are the 12 rotations of a
+                            tetrahedron.</li>
+                    </ul>
+                    <aside class="notes">Backup slide for questions.</aside>
+                </section>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- The rational sphere behind the title. -->
+    <canvas id="title-crown" aria-hidden="true"></canvas>
+
+    <!-- Full-bleed visualization stages (persistent iframes outside .reveal). -->
+    <div class="stage" id="stage-space">
+        <iframe data-src="viz/space/index.html?embed=1" title="Rotations of space" allow="fullscreen"></iframe>
+    </div>
+    <div class="stage" id="stage-tree">
+        <iframe data-src="viz/tree/index.html?embed=1" title="Trees of rotations" allow="fullscreen"></iframe>
+    </div>
+    <div class="stage" id="stage-product">
+        <iframe data-src="viz/product/index.html?embed=1" title="Products of trees" allow="fullscreen"></iframe>
+    </div>
+
+    <!-- Remote UI (shown only on the phone, ?mode=remote) -->
+    <div id="remote-ui">
+        <div class="remote-header">
+            <div class="remote-title">SO₃(ℚ) · Part 2</div>
+            <div class="remote-session-id" id="sess-display"></div>
+            <div class="remote-slide-title" id="remote-slide-title"></div>
+        </div>
+
+        <div class="clickpad-container">
+            <div class="clickpad-item clickpad-up" onclick="sendRemoteCommand('prev')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+            </div>
+            <div class="clickpad-item clickpad-down" onclick="sendRemoteCommand('next')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="clickpad-item clickpad-left" onclick="sendRemoteCommand('prev')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </div>
+            <div class="clickpad-item clickpad-right" onclick="sendRemoteCommand('next')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </div>
+            <div class="clickpad-center" onclick="sendRemoteCommand('next')"><span>Next</span></div>
+        </div>
+
+        <div class="remote-controls">
+            <div class="control-btn" onclick="sendRemoteCommand('prev')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg>
+                <span>Back</span>
+            </div>
+            <div class="control-btn" onclick="sendRemoteCommand('overview')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                <span>Overview</span>
+            </div>
+
+            <div id="viz-controls">
+                <div class="control-btn" onclick="sendRemoteCommand('viz-toggle')" style="height: 60px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    <span>Play / Pause</span>
+                </div>
+                <div class="control-btn" onclick="sendRemoteCommand('viz-reset')" style="height: 60px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+                    <span>Reset</span>
+                </div>
+            </div>
+
+            <div id="orbit-joystick">
+                <div class="joy-base" id="joy-base">
+                    <div class="joy-knob" id="joy-knob"></div>
+                </div>
+                <span class="joy-label">orbit</span>
+            </div>
+        </div>
+
+        <div class="remote-status-bar" id="remote-status-bar">Connecting&hellip;</div>
+    </div>
+
+    <!-- Presentation setup modal -->
+    <div id="present-modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closePresentModal()">&times;</button>
+            <h3>Remote Control</h3>
+            <p class="subtle" style="margin-bottom: 2rem;">Scan the code or open the link on your phone to
+                control this presentation.</p>
+            <div id="qr-container">
+                <img id="qr-img" src="" alt="Session QR code" width="250" height="250">
+            </div>
+            <div class="remote-url" id="remote-link-text">URL loading&hellip;</div>
+        </div>
+    </div>
+
+    <!-- Reveal.js core + plugins -->
+    <script src="vendor/reveal/dist/reveal.js"></script>
+    <script src="vendor/reveal/plugin/math/math.js"></script>
+    <script src="vendor/reveal/plugin/notes/notes.js"></script>
+
+    <!-- Exact quaternion arithmetic (shared with the visualizations) -->
+    <script src="viz/common/quat.js"></script>
+
+    <!-- Phone remote, then the deck itself -->
+    <script src="remote.js"></script>
+    <script src="deck.js"></script>
+
+</body>
+
+</html>

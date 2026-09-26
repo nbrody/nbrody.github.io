@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SO₃(ℚ)</title>
+    <link rel="stylesheet" href="vendor/fullpage/fullpage.min.css">
+    <link rel="stylesheet" href="style.css?v=2">
+    <script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]}};</script>
+    <script defer src="vendor/mathjax/tex-mml-chtml.js"></script>
+    <script defer src="vendor/fullpage/fullpage.min.js"></script>
+    <script defer src="app.js"></script>
+</head>
+<body>
+    <main id="fullpage">
+
+        <div class="section" data-anchor="title">
+            <div class="slide" data-anchor="title-slide">
+                <div class="content-box title-box">
+                    <h1>\(\mathrm{SO}_3(\mathbb Q)\)</h1>
+                    <button class="present-btn" id="present">Present</button>
+                </div>
+            </div>
+        </div>
+        <div class="section" data-anchor="section1">
+            <div class="slide" data-anchor="introduction">
+                <div class="content-box">
+                    <span class="tag">Section 1</span>
+                    <p>\(\mathrm{SO}_3(\mathbb Q)\) is one of my favorite groups</p>
+                    <p>I&#x27;d like to describe how geometric, arithmetic, and topological properties make this a beautiful object to study.</p>
+                    <p>We&#x27;ll begin by studying the group 1 dimension down.</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="grid">
+                <div class="content-box">
+                    <span class="tag">Section 1</span>
+                    <p>We can consider rotations of the plane that send the standard square grid back to itself.</p>
+                    <p>This is a very constrained set of symmetries. Notice that the length-1 vectors need to have only 4 options for where they can go, and once the first two are determined, the whole thing is decided.</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="subgrids">
+                <div class="content-box">
+                    <span class="tag">Section 1</span>
+                    <p>So, \(\mathrm{SO}_2(\mathbb Z)\) is a finite group. However, now we can ask the question: what if we only require that, say, one-third of the points mapped to other points, or one-fifth of the points mapped to grid points?</p>
+                    <p>Note, this turns into a question about sending some sub grid to another sub grid</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="rotation">
+                <div class="content-box">
+                    <span class="tag">Section 1</span>
+                    <p>Suddenly, there are way more possibilities! consider the rotation by arccosine of 3/5. This maps a finite index subgroup back to another finite index subgroup, and iterating it does the same.</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="pythagorean">
+                <div class="content-box">
+                    <span class="tag">Section 1</span>
+                    <p>Now we can ask: what are the possible 2x2 rotation matrices with rational entries? Turns out this is equivalent to having a Pythagorean triple: \(a^2+b^2=c^2\). It turns out that we can only do this when the denominator&#x27;s prime factorization only has primes which are 1 modulo 4.</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="generators">
+                <div class="content-box">
+                    <span class="tag">Section 1</span>
+                    <p>And, moreover, for a fixed prime, every rotation is a power of a generating one.</p>
+                    <p>We can unravel the structure of \(\mathrm{SO}_2(\mathbb Q)\) as consisting of \(\mathrm{SO}_2(\mathbb Z)\), and then for each prime which is 1 modulo 4, we have a generating rotation.</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="intrinsic-geometry">
+                <div class="content-box">
+                    <span class="tag">Section 1</span>
+                    <p>This leads us to a pretty striking observation. Although the obvious geometry of \(\mathrm{SO}_2(\mathbb Q)\) consists of rational points on a circle, there&#x27;s a more intrinsic geometry that reflects the algebraic structure of this group.</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="lattice">
+                <div class="content-box emphasis">
+                    <span class="tag">Section 1</span>
+                    <p>And this geometry is that of an infinite-dimensional lattice!!</p>
+                </div>
+            </div>
+        </div>
+        <div class="section" data-anchor="section2">
+            <div class="slide" data-anchor="three-dimensions">
+                <div class="content-box">
+                    <span class="tag">Section 2</span>
+                    <p>Now let&#x27;s go up to three dimensions. Again, \(\mathrm{SO}_3(\mathbb Z)\) is finite. But now let&#x27;s consider what an arbitrary 3x3 rotation matrix looks like.</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="denominators">
+                <div class="content-box">
+                    <span class="tag">Section 2</span>
+                    <p>We can factor out the denominators and write it as \(1/d\), with some a&#x27;s, b&#x27;s, and c&#x27;s in the matrix itself. For this to have determinant 1 is equivalent to \(a^2+b^2+c^2=d^2\).</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="quaternions">
+                <div class="content-box">
+                    <span class="tag">Section 2</span>
+                    <p>Miraculously, there is a sort of operation on two of these rotations, and we can represent a rotation as an integer quaternion.</p>
+                    <p>This is our first little dictionary to go between primitive integer quaternions and rational rotations.</p>
+                </div>
+            </div>
+        </div>
+        <div class="section" data-anchor="section3">
+            <div class="slide" data-anchor="subgroups">
+                <div class="content-box">
+                    <span class="tag">Section 3</span>
+                    <h2>Subgroups of \(\mathrm{SO}_3(\mathbb Q)\)</h2>
+                    <p>Three methods for constructing subgroups:</p>
+                    <ul><li>Algebra</li><li>Geometry</li><li>Arithmetic.</li></ul>
+                </div>
+            </div>
+            <div class="slide" data-anchor="algebra">
+                <div class="content-box">
+                    <span class="tag">Section 3</span>
+                    <h2>Algebra</h2>
+                    <p>Choose an axis, and look at the subgroup that fixes that axis</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="geometry">
+                <div class="content-box">
+                    <span class="tag">Section 3</span>
+                    <h2>Geometry</h2>
+                    <p>Hidden tree geometry! Ping pong in a particular tree.</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="arithmetic">
+                <div class="content-box">
+                    <span class="tag">Section 3</span>
+                    <h2>Arithmetic</h2>
+                    <p>Take a subring \(A\) of \(\mathbb Q\), and look at \(\mathrm{SO}_3(A)\).</p>
+                </div>
+            </div>
+            <div class="slide" data-anchor="conjecture">
+                <div class="content-box">
+                    <span class="tag">Section 3</span>
+                    <h2>Conjecture: That&#x27;s all!</h2>
+                </div>
+            </div>
+        </div>
+        <div class="section" data-anchor="classification">
+            <div class="slide" data-anchor="classification-heading">
+                <div class="content-box">
+                    <span class="tag">Section 4</span>
+                    <h2>Towards a classification</h2>
+                </div>
+            </div>
+        </div>
+    </main>
+    <nav class="deck-controls" aria-label="Slide navigation">
+        <button id="previous" aria-label="Previous slide">←</button>
+        <button id="next" aria-label="Next slide">→</button>
+    </nav>
+</body>
+</html>

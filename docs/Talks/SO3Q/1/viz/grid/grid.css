@@ -1,0 +1,71 @@
+/* Rotating the grid — readout card and the spectrum panel. */
+
+#readout {
+    position: fixed;
+    left: 24px;
+    top: 22px;
+    z-index: 11;
+    padding: 14px 20px 15px;
+    min-width: 240px;
+    font-size: 1.02rem;
+    line-height: 1.5;
+    color: var(--ink);
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.45s ease, transform 0.45s ease, top 0.6s ease;
+    pointer-events: none;
+}
+#readout.on { opacity: 1; transform: none; }
+body.explore #readout { top: 204px; }
+
+.ro .ro-mat { font-size: 1.12rem; margin-bottom: 8px; white-space: nowrap; }
+.ro .ro-mat i { font-family: 'Times New Roman', Times, serif; font-size: 1.15em; }
+.ro .ro-row { color: var(--ink-dim); font-size: 0.92rem; }
+.ro .ro-row i { font-family: 'Times New Roman', Times, serif; font-size: 1.1em; }
+.ro .ro-land {
+    margin-top: 7px;
+    padding-top: 8px;
+    border-top: 1px solid var(--hairline);
+    font-size: 0.95rem;
+    color: var(--ink);
+}
+.ro .ro-land b { color: var(--teal); font-size: 1.22rem; font-weight: 700; }
+.ro .ro-word { color: var(--ink-dim); font-size: 0.92rem; margin-top: 3px; }
+.ro .ro-word span { color: var(--ink); }
+
+#spectrum {
+    position: fixed;
+    left: 50%;
+    top: 18px;
+    z-index: 11;
+    width: min(1100px, calc(100vw - 48px));
+    height: 172px;
+    padding: 10px 16px 6px;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    transform: translate(-50%, -10px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+}
+body.explore #spectrum { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+
+.sp-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0 4px 2px 40px;
+}
+.sp-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+}
+.sp-hint { font-size: 0.74rem; color: var(--ink-mute); }
+.sp-plot { position: relative; flex: 1; cursor: ew-resize; touch-action: none; }
+.sp-plot canvas { position: absolute; inset: 0; }
+
+body.explore #stage { cursor: grab; }
+body.explore.dragging #stage { cursor: grabbing; }

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trees of Rotations</title>
+    <meta name="description" content="The rotations with denominator a power of p form a (p+1)-regular tree. SO₃(ℚ) talk, part 2.">
+    <link rel="stylesheet" href="../common/viz.css">
+    <style>
+        body.orbitable #stage { cursor: grab; }
+        body.orbitable.dragging #stage { cursor: grabbing; }
+        #legend {
+            position: fixed;
+            right: 24px;
+            top: 22px;
+            z-index: 11;
+            padding: 12px 16px;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+        }
+        #legend.on { opacity: 1; }
+        #legend .lg-title { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 4px; }
+        #legend .lg-row { display: flex; align-items: center; gap: 9px; font-family: 'Times New Roman', Times, serif; font-size: 1.02rem; }
+        #legend .lg-sw { width: 22px; height: 3px; border-radius: 2px; }
+        #legend .lg-count { margin-top: 6px; font-family: 'Inter', sans-serif; font-size: 0.82rem; color: var(--ink-dim); }
+    </style>
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+            startup: { typeset: false },
+            options: { enableMenu: false }
+        };
+    </script>
+    <script defer src="../../vendor/mathjax/tex-mml-chtml.js"></script>
+</head>
+
+<body data-viz="tree">
+    <div id="stage"></div>
+    <div id="legend" class="card"></div>
+    <div id="tip" class="card"></div>
+    <div id="captions"></div>
+    <div id="nav" class="card">
+        <button class="nav-prev" aria-label="Previous step">&lsaquo;</button>
+        <span class="nav-count"></span>
+        <button class="nav-next" aria-label="Next step">&rsaquo;</button>
+    </div>
+
+    <script src="../common/quat.js"></script>
+    <script src="../common/viz.js"></script>
+    <script src="../common/view3d.js"></script>
+    <script src="tree.js"></script>
+</body>
+
+</html>

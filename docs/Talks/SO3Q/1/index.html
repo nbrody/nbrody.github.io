@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SO₃(ℚ) · Part 1: One Dimension Down</title>
+    <meta name="description"
+        content="SO₃(ℚ), part 1 of 3: rotations of the plane with rational entries, Pythagorean triples, primes ≡ 1 mod 4, and the infinite-dimensional lattice hiding inside SO₂(ℚ).">
+
+    <!-- Reveal.js (vendored — the talk must work with no network) -->
+    <link rel="stylesheet" href="vendor/reveal/dist/reveal.css">
+
+    <!-- The Firebase SDK for the phone remote is fetched by remote.js without
+         blocking the page, so the deck paints at once even offline. -->
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- ═══════════════════════════════════════════════
+                 TITLE
+                 ═══════════════════════════════════════════════ -->
+            <section id="title">
+                <p class="series-label">Part 1 of 3</p>
+                <h1 class="deck-title">\(\mathrm{SO}_3(\mathbb{Q})\)</h1>
+                <p class="deck-subtitle">One dimension down</p>
+                <p class="deck-byline">Nic Brody &middot; UC Santa Cruz</p>
+                <button class="present-btn" onclick="startPresentation()">Present</button>
+                <aside class="notes">
+                    First of three talks on SO₃(ℚ). Behind the title: the rational points of the
+                    unit circle, each with a spike of height 1/denominator — we will meet this picture again.
+                    Keys: S = speaker view, Esc = overview, F = fullscreen. Present = phone remote (QR code).
+                </aside>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 WHY SO₃(ℚ)
+                 ═══════════════════════════════════════════════ -->
+            <section>
+                <section id="favorite">
+                    <h2>One of my favorite groups</h2>
+                    <div class="math-card">
+                        \[ \mathrm{SO}_3(\mathbb Q) \;=\; \big\{\, A \in \mathrm{M}_3(\mathbb Q) \;:\; A^{\mathsf T}\!A = I,\ \ \det A = 1 \,\big\} \]
+                    </div>
+                    <p>the rotations of space whose matrices have rational entries &mdash; for instance</p>
+                    <div class="math-card small">
+                        \[ \frac13\begin{pmatrix} 2 & -1 & 2 \\ 2 & 2 & -1 \\ -1 & 2 & 2 \end{pmatrix} \]
+                    </div>
+                    <aside class="notes">
+                        "SO_3(Q) is one of my favorite groups."
+                        The example is the rotation by 60° about the axis (1, 1, 1): trace 2 = 1 + 2cos θ,
+                        and A − Aᵀ points along (1, 1, 1).
+                    </aside>
+                </section>
+
+                <section id="facets" data-title="Geometric, arithmetic, topological">
+                    <p class="facets">I'd like to describe how
+                        <span class="fragment facet geo">geometric</span>,
+                        <span class="fragment facet ari">arithmetic</span>, and
+                        <span class="fragment facet top">topological</span>
+                        properties make this a beautiful object to study.</p>
+                    <aside class="notes">
+                        "I'd like to describe how geometric, arithmetic, and topological properties make
+                        this a beautiful object to study." Each word lights up on a click.
+                    </aside>
+                </section>
+
+                <section id="one-down">
+                    <h2>One dimension down</h2>
+                    <div class="math-card">
+                        \[ \mathrm{SO}_2(\mathbb Q) \;=\; \left\{ \begin{pmatrix} x & -y \\ y & x \end{pmatrix} \;:\; x, y \in \mathbb Q,\ \ x^2 + y^2 = 1 \right\} \]
+                    </div>
+                    <p>the rotations of the plane with rational entries.</p>
+                    <aside class="notes">"We'll begin by studying the group one dimension down."</aside>
+                </section>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 THE GRID
+                 ═══════════════════════════════════════════════ -->
+            <section>
+                <section id="grid" data-stage="grid" data-step="grid" data-title="The square grid">
+                    <span class="fragment stage-step" data-step="quarter"></span>
+                    <span class="fragment stage-step" data-step="unit"></span>
+                    <aside class="notes">
+                        Visualization (3 clicks): the grid → a rotated copy that only lands back on the grid at
+                        quarter turns → the unit circle.
+                        "We can consider rotations of the plane that send the standard square grid back to itself.
+                        This is a very constrained set of symmetries. Notice that the length-1 vectors need to have
+                        only 4 options for where they can go, and once the first two are determined, the whole
+                        thing is decided."
+                        Remote: Play/Pause freezes the quarter-turn loop.
+                    </aside>
+                </section>
+
+                <section id="so2z">
+                    <h2>A finite group</h2>
+                    <div class="math-card">
+                        \[ \mathrm{SO}_2(\mathbb Z) \;=\; \{\, I,\ J,\ J^2,\ J^3 \,\} \;\cong\; \mathbb Z/4, \qquad J = \begin{pmatrix} 0 & -1 \\ 1 & 0 \end{pmatrix} \]
+                    </div>
+                    <p class="fragment">But what if we only asked that <em>one-third</em> of the grid points land on
+                        grid points? Or <em>one-fifth</em>?</p>
+                    <aside class="notes">
+                        "So SO2Z is a finite group. However, now we can ask the question: what if we only require
+                        that, say, one-third of the points mapped to other points, or one-fifth of the points
+                        mapped to grid points?"
+                    </aside>
+                </section>
+
+                <section id="subgrids" data-stage="grid" data-step="question" data-title="Sub-grids and arccos(3/5)">
+                    <span class="fragment stage-step" data-step="subgrid"></span>
+                    <span class="fragment stage-step" data-step="r5"></span>
+                    <span class="fragment stage-step" data-step="r5sq"></span>
+                    <span class="fragment stage-step" data-step="r5cube"></span>
+                    <aside class="notes">
+                        Visualization (5 states): a generic rotation (24°): only the origin lands → the two
+                        index-5 sub-grids → R = rotation by arccos(3/5) carries indigo onto pink → R² (index 25)
+                        → R³ (index 125).
+                        "Note, this turns into a question about sending some sub grid to another sub grid.
+                        Suddenly, there are way more possibilities! Consider the rotation by arccosine of 3/5.
+                        This maps a finite index subgroup back to another finite index subgroup, and iterating it
+                        does the same."
+                        Facts: indigo = (2 − i)ℤ[i], spanned by (2, −1), (1, 2); pink = (2 + i)ℤ[i]. Rⁿ carries
+                        (2 − i)ⁿℤ[i] onto (2 + i)ⁿℤ[i], index 5ⁿ. R has infinite order (Niven: the only rational
+                        cosines of rational multiples of π are 0, ±1/2, ±1). Crystallographers call these
+                        coincidence site lattices — the Σ5 grain boundary is exactly this rotation.
+                    </aside>
+                </section>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 RATIONAL ROTATIONS
+                 ═══════════════════════════════════════════════ -->
+            <section>
+                <section id="triples">
+                    <h2>Rotations with rational entries</h2>
+                    <div class="math-card">
+                        \[ \begin{pmatrix} x & -y \\ y & x \end{pmatrix} = \frac1c \begin{pmatrix} a & -b \\ b & a \end{pmatrix} \in \mathrm{SO}_2(\mathbb Q) \quad\Longleftrightarrow\quad a^2 + b^2 = c^2 \]
+                    </div>
+                    <p>Rational rotations are <strong>Pythagorean triples</strong>:</p>
+                    <div class="triples fragment">
+                        <div class="triple">\(3^2+4^2=5^2\)<span class="ang">53.13°</span></div>
+                        <div class="triple">\(5^2+12^2=13^2\)<span class="ang">67.38°</span></div>
+                        <div class="triple">\(8^2+15^2=17^2\)<span class="ang">61.93°</span></div>
+                        <div class="triple">\(7^2+24^2=25^2\)<span class="ang">73.74°</span></div>
+                        <div class="triple">\(20^2+21^2=29^2\)<span class="ang">46.40°</span></div>
+                        <div class="triple">\(12^2+35^2=37^2\)<span class="ang">71.08°</span></div>
+                        <div class="triple">\(9^2+40^2=41^2\)<span class="ang">77.32°</span></div>
+                        <div class="triple">\(33^2+56^2=65^2\)<span class="ang">59.49°</span></div>
+                    </div>
+                    <p class="fragment tight">In lowest terms, the rotation sends exactly \(\tfrac1c\) of the grid to the grid.</p>
+                    <aside class="notes">
+                        "Now we can ask: what are the possible 2x2 rotation matrices with rational entries? Turns
+                        out this is equivalent to having a Pythagorean triple: a² + b² = c²."
+                        The angle under each triple is arccos(a/c). The 1/c fact: the rotation (a + bi)/c = β/β̄
+                        carries exactly the sub-grid β̄ℤ[i] (index N(β) = c) onto βℤ[i].
+                    </aside>
+                </section>
+
+                <section id="denominators">
+                    <h2>Which denominators occur?</h2>
+                    <div class="sieve-wrap">
+                        <div class="sieve" id="sieve" data-phase="0"></div>
+                        <div class="sieve-text">
+                            <p class="fragment" data-sieve="1"><span class="key occ"></span>The denominators
+                                \(c \le 100\): <span class="dens">1, 5, 13, 17, 25, 29, 37, 41, 53, 61, 65, 73, 85,
+                                89, 97</span>.</p>
+                            <p class="fragment" data-sieve="2"><span class="key p1"></span>primes \(\equiv 1\),
+                                <span class="key p3"></span>primes \(\equiv 3 \pmod 4\).
+                                A denominator \(c\) occurs \(\iff\) every prime factor of \(c\) is \(\equiv 1 \pmod 4\).</p>
+                            <p class="fragment" data-sieve="3">So <strong>one-third is impossible</strong>. Apart from
+                                the quarter turns, the most any rotation can do is <strong>one-fifth</strong>.</p>
+                        </div>
+                    </div>
+                    <aside class="notes">
+                        "It turns out that we can only do this when the denominator's prime factorization only has
+                        primes which are 1 modulo 4."
+                        Why: if a prime q divides c then a² ≡ −b² (mod q) with q ∤ b (primitive), so −1 is a
+                        square mod q, i.e. q ≡ 1 (mod 4); and c is odd since a² + b² ≡ 2 (mod 4) when a, b are
+                        both odd. Conversely every such c occurs (products of the generators coming up).
+                    </aside>
+                </section>
+
+                <section id="spectrum" data-stage="grid" data-step="explore" data-title="Every rational rotation">
+                    <aside class="notes">
+                        Interactive: drag along the spectrum, or grab the grid and turn it; it snaps to rational
+                        rotations. The readout shows the matrix, the denominator, the factorization into
+                        generators (next slides), and the fraction 1/c. Nothing reaches 1/3; 1/5 is the max
+                        apart from quarter turns. Remote Reset jumps back to arccos(3/5).
+                    </aside>
+                </section>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 STRUCTURE
+                 ═══════════════════════════════════════════════ -->
+            <section>
+                <section id="one-prime" data-stage="unfold" data-step="powers5" data-title="Powers of one rotation">
+                    <aside class="notes">
+                        "And, moreover, for a fixed prime, every rotation is a power of a generating one."
+                        The powers of r₅ = (3 + 4i)/5 appear one at a time, 53.13° apart, never repeating; the
+                        faint dots are the copies ±r₅ⁿ, ±i·r₅ⁿ. Numbers are the exponents n. Denominators:
+                        r₅ⁿ has denominator exactly 5^|n| — e.g. r₅³ = (−117 + 44i)/125.
+                        Hover any dot for its exact value.
+                    </aside>
+                </section>
+
+                <section id="structure">
+                    <h2>Unravelling \(\mathrm{SO}_2(\mathbb Q)\)</h2>
+                    <p class="tight">Write the rotation \(\tfrac1c\left(\begin{smallmatrix} a & -b \\ b & a \end{smallmatrix}\right)\)
+                        as \(\tfrac{a+bi}{c} \in \mathbb C\), so composing rotations is multiplying. For each prime
+                        \(p \equiv 1 \pmod 4\), write \(p = x^2 + y^2\) and let \(r_p = \tfrac{(x+iy)^2}{p}\):</p>
+                    <table class="gens">
+                        <thead>
+                            <tr><th>prime \(p\)</th><th>\(x^2 + y^2\)</th><th>generator \(r_p\)</th><th>angle</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>5</td><td>\(2^2+1^2\)</td><td>\(\tfrac{3+4i}{5}\)</td><td>53.13°</td></tr>
+                            <tr><td>13</td><td>\(3^2+2^2\)</td><td>\(\tfrac{5+12i}{13}\)</td><td>67.38°</td></tr>
+                            <tr><td>17</td><td>\(4^2+1^2\)</td><td>\(\tfrac{15+8i}{17}\)</td><td>28.07°</td></tr>
+                            <tr><td>29</td><td>\(5^2+2^2\)</td><td>\(\tfrac{21+20i}{29}\)</td><td>43.60°</td></tr>
+                            <tr><td class="dim">\(\vdots\)</td><td class="dim">\(\vdots\)</td><td class="dim">\(\vdots\)</td><td class="dim">\(\vdots\)</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="math-card fragment">
+                        \[ \begin{aligned} \mathrm{SO}_2(\mathbb Q) \;&=\; \mathrm{SO}_2(\mathbb Z) \times \langle r_5\rangle \times \langle r_{13}\rangle \times \langle r_{17}\rangle \times \langle r_{29}\rangle \times \cdots \\ &\cong\; \mathbb Z/4 \,\times\, \textstyle\bigoplus_{p \,\equiv\, 1\ (4)} \mathbb Z \end{aligned} \]
+                    </div>
+                    <aside class="notes">
+                        "We can unravel the structure of SO2Q as consisting of SO2Z, and then for each prime which
+                        is 1 modulo 4, we have a generating rotation."
+                        Fermat: p ≡ 1 (mod 4) is a sum of two squares, uniquely (x > y > 0). The generator r_p
+                        is the rotation whose Pythagorean triple is Euclid's (x² − y², 2xy, x² + y²). Every
+                        rotation is uniquely ±iᵏ ∏ r_p^(n_p), with denominator ∏ p^|n_p|.
+                    </aside>
+                </section>
+
+                <section id="factor">
+                    <h2>Every rotation factors uniquely</h2>
+                    <div class="factorizer" id="factorizer">
+                        <div class="fz-chips"></div>
+                        <div class="fz-inputs">
+                            <label><i>a</i><input id="fz-a" inputmode="numeric" autocomplete="off" spellcheck="false"></label>
+                            <label><i>b</i><input id="fz-b" inputmode="numeric" autocomplete="off" spellcheck="false"></label>
+                            <label><i>c</i><input id="fz-c" inputmode="numeric" autocomplete="off" spellcheck="false"></label>
+                        </div>
+                        <div class="fz-out" id="fz-out"></div>
+                    </div>
+                    <aside class="notes">
+                        Interactive: click a chip or type any a, b, c with a² + b² = c² (audience suggestions!).
+                        1105 = 5·13·17 is the smallest hypotenuse of four primitive triples — 47·1104, 264·1073,
+                        576·943, 744·817 — one for each choice of signs (n₅, n₁₃, n₁₇) up to inversion.
+                        Click on the slide background before using the remote/keyboard again.
+                    </aside>
+                </section>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 THE INTRINSIC GEOMETRY
+                 ═══════════════════════════════════════════════ -->
+            <section>
+                <section id="obvious" data-title="A striking observation">
+                    <p class="lead">This leads to a pretty striking observation.</p>
+                    <p class="fragment">The <em>obvious</em> geometry of \(\mathrm{SO}_2(\mathbb Q)\) is the set of
+                        rational points on a circle &hellip;</p>
+                    <p class="fragment">&hellip; but there is a more <strong>intrinsic</strong> geometry, one that
+                        reflects the algebraic structure of the group.</p>
+                    <aside class="notes">
+                        "This leads us to a pretty striking observation. Although the obvious geometry of SO2(Q)
+                        consists of rational points on a circle, there's a more intrinsic geometry that reflects
+                        the algebraic structure of this group."
+                    </aside>
+                </section>
+
+                <section id="unfold" data-stage="unfold" data-step="circle" data-orbit data-title="Unfolding the circle">
+                    <span class="fragment stage-step" data-step="powers5"></span>
+                    <span class="fragment stage-step" data-step="line"></span>
+                    <span class="fragment stage-step" data-step="tangle"></span>
+                    <span class="fragment stage-step" data-step="plane"></span>
+                    <span class="fragment stage-step" data-step="height"></span>
+                    <span class="fragment stage-step" data-step="space"></span>
+                    <span class="fragment stage-step" data-step="infinite"></span>
+                    <aside class="notes">
+                        Visualization (8 states): the circle (spike height 1/c) → powers of r₅ → unwrap to ℤ →
+                        ⟨r₅, r₁₃⟩ on the circle (a tangle of multiplication chords) → it flies into ℤ² →
+                        denominators: log c = |a| log 5 + |b| log 13, a taxicab distance (diamonds) → r₁₇ adds a
+                        third dimension (auto-rotates; remote joystick orbits, Play/Pause stops the spin) → one
+                        direction per prime ≡ 1 mod 4.
+                        Hover any dot for its exact value, denominator and factorization.
+                    </aside>
+                </section>
+
+                <section id="lattice" data-title="An infinite-dimensional lattice">
+                    <p class="statement">And this geometry is that of an</p>
+                    <h1 class="punch">infinite-dimensional lattice!</h1>
+                    <div class="math-card fragment">
+                        \[ \mathrm{SO}_2(\mathbb Q)\,/\,\mathrm{SO}_2(\mathbb Z) \;\cong\; \bigoplus_{p \,\equiv\, 1\ (4)} \mathbb Z \]
+                        \[ \pm\, i^k \prod_p r_p^{\,n_p} \;\longmapsto\; (n_5,\, n_{13},\, n_{17},\, n_{29},\, \dots) \]
+                    </div>
+                    <aside class="notes">
+                        "And this geometry is that of an infinite-dimensional lattice!!"
+                        The coordinate n_p is the π_p-adic valuation of the rotation, viewed in ℚ(i). The
+                        denominator is ∏ p^|n_p|, so log(denominator) is a weighted ℓ¹ norm on the lattice.
+                    </aside>
+                </section>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════
+                 CLOSING
+                 ═══════════════════════════════════════════════ -->
+            <section>
+                <section id="next">
+                    <p class="part-label">Next time</p>
+                    <h2>One dimension up</h2>
+                    <p class="next-text">\(\mathrm{SO}_3(\mathbb Z)\) is finite again &mdash; but the rotations of
+                        space with rational entries are far richer, and the integer quaternions enter the story.</p>
+                    <div class="separator"></div>
+                    <h2 class="thanks">Thank you!</h2>
+                    <p class="subtle" style="font-size: 0.6em;">Nic Brody &middot; UC Santa Cruz</p>
+                    <aside class="notes">Next talk: SO₃(ℚ) proper — 3×3 rotations, a² + b² + c² = d², integer quaternions.</aside>
+                </section>
+
+                <section id="appendix" class="appendix">
+                    <p class="part-label">Appendix</p>
+                    <h2>Why primes \(\equiv 1 \pmod 4\)?</h2>
+                    <ul>
+                        <li>A Gaussian integer \(\pi = x+iy\) gives the rotation
+                            \(\pi/\bar\pi = \frac{(x^2-y^2) + 2xy\,i}{x^2+y^2}\) &mdash; Euclid's formula for
+                            Pythagorean triples &mdash; and every rational rotation arises this way.</li>
+                        <li>If a prime \(q\) divides the denominator \(c\) of \(\frac{a+bi}{c}\) in lowest terms, then
+                            \(a^2 \equiv -b^2 \pmod q\) with \(q \nmid b\), so \(-1\) is a square mod \(q\):
+                            \(q \equiv 1 \pmod 4\).</li>
+                        <li>For \(p \equiv 1 \pmod 4\), \(p = \pi_p \bar\pi_p\) in \(\mathbb Z[i]\), and
+                            \(r_p = \pi_p/\bar\pi_p\). Unique factorization in \(\mathbb Z[i]\) makes every rotation
+                            \(\pm i^k \prod r_p^{\,n_p}\) uniquely, with denominator \(\prod p^{|n_p|}\).</li>
+                        <li>\(\frac{a+bi}{c} = \beta/\bar\beta\) sends the sub-grid \(\bar\beta\,\mathbb Z[i]\) of index
+                            \(c\) onto \(\beta\,\mathbb Z[i]\) &mdash; exactly the points that land on the grid.</li>
+                    </ul>
+                    <aside class="notes">Backup slide for questions.</aside>
+                </section>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- The crown of rational points behind the title slide. -->
+    <canvas id="title-crown" aria-hidden="true"></canvas>
+
+    <!-- Full-bleed visualization stages. They sit outside .reveal so they can
+         cover the viewport and persist across slides (the grid keeps turning
+         between slides instead of reloading). Slides with data-stage show one;
+         their fragments carry data-step. -->
+    <div class="stage" id="stage-grid">
+        <iframe data-src="viz/grid/index.html?embed=1" title="Rotating the grid" allow="fullscreen"></iframe>
+    </div>
+    <div class="stage" id="stage-unfold">
+        <iframe data-src="viz/unfold/index.html?embed=1" title="Unfolding the circle" allow="fullscreen"></iframe>
+    </div>
+
+    <!-- Remote UI (shown only on the phone, ?mode=remote) -->
+    <div id="remote-ui">
+        <div class="remote-header">
+            <div class="remote-title">SO₃(ℚ) · Part 1</div>
+            <div class="remote-session-id" id="sess-display"></div>
+            <div class="remote-slide-title" id="remote-slide-title"></div>
+        </div>
+
+        <div class="clickpad-container">
+            <div class="clickpad-item clickpad-up" onclick="sendRemoteCommand('prev')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+            </div>
+            <div class="clickpad-item clickpad-down" onclick="sendRemoteCommand('next')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="clickpad-item clickpad-left" onclick="sendRemoteCommand('prev')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </div>
+            <div class="clickpad-item clickpad-right" onclick="sendRemoteCommand('next')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            </div>
+            <div class="clickpad-center" onclick="sendRemoteCommand('next')"><span>Next</span></div>
+        </div>
+
+        <div class="remote-controls">
+            <div class="control-btn" onclick="sendRemoteCommand('prev')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg>
+                <span>Back</span>
+            </div>
+            <div class="control-btn" onclick="sendRemoteCommand('overview')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                <span>Overview</span>
+            </div>
+
+            <!-- Visualization controls (shown on stage slides; managed by remote.js) -->
+            <div id="viz-controls">
+                <div class="control-btn" onclick="sendRemoteCommand('viz-toggle')" style="height: 60px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    <span>Play / Pause</span>
+                </div>
+                <div class="control-btn" onclick="sendRemoteCommand('viz-reset')" style="height: 60px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+                    <span>Reset</span>
+                </div>
+            </div>
+
+            <!-- Orbit joystick (shown on data-orbit slides; managed by remote.js) -->
+            <div id="orbit-joystick">
+                <div class="joy-base" id="joy-base">
+                    <div class="joy-knob" id="joy-knob"></div>
+                </div>
+                <span class="joy-label">orbit</span>
+            </div>
+        </div>
+
+        <div class="remote-status-bar" id="remote-status-bar">Connecting&hellip;</div>
+    </div>
+
+    <!-- Presentation setup modal -->
+    <div id="present-modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closePresentModal()">&times;</button>
+            <h3>Remote Control</h3>
+            <p class="subtle" style="margin-bottom: 2rem;">Scan the code or open the link on your phone to
+                control this presentation.</p>
+            <div id="qr-container">
+                <img id="qr-img" src="" alt="Session QR code" width="250" height="250">
+            </div>
+            <div class="remote-url" id="remote-link-text">URL loading&hellip;</div>
+        </div>
+    </div>
+
+    <!-- Reveal.js core + plugins -->
+    <script src="vendor/reveal/dist/reveal.js"></script>
+    <script src="vendor/reveal/plugin/math/math.js"></script>
+    <script src="vendor/reveal/plugin/notes/notes.js"></script>
+
+    <!-- Exact arithmetic for rational rotations (shared with the visualizations) -->
+    <script src="viz/common/gauss.js"></script>
+
+    <!-- Phone remote, then the deck itself -->
+    <script src="remote.js"></script>
+    <script src="deck.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,568 @@
+/* ================================================================
+   SO₃(ℚ) · Part 3 — Subgroups
+   reveal.js theme + phone remote UI (the MathFest 2026 design system)
+   ================================================================ */
+
+@import url('vendor/fonts/deck.css');
+
+/* ── Design tokens (shared with the previous talks) ─── */
+:root {
+    --bg-deep:    #060a14;
+    --bg-surface: #0d1321;
+    --bg-card:    rgba(13, 19, 33, 0.88);
+    --text-primary:   #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted:     #64748b;
+    --accent:       #7c8aff;
+    --accent-warm:  #f59e0b;
+    --accent-rose:  #f472b6;
+    --accent-teal:  #2dd4bf;
+    --gold:         #fbbf24;
+    --border:       rgba(124, 138, 255, 0.15);
+    --glow:         rgba(124, 138, 255, 0.35);
+    --radius-sm:    8px;
+    --radius-md:    16px;
+    --radius-lg:    24px;
+    --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-display: 'Playfair Display', Georgia, serif;
+}
+
+/* ── Reveal theme ───────────────────────────────────── */
+.reveal-viewport {
+    background: radial-gradient(ellipse at 30% 20%, #0a1128 0%, var(--bg-deep) 60%);
+}
+
+.reveal {
+    font-family: var(--font-body);
+    font-size: 36px;
+    color: var(--text-primary);
+}
+
+.reveal h1, .reveal h2, .reveal h3 {
+    font-family: var(--font-display);
+    color: #ffffff;
+    text-transform: none;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+}
+.reveal h1 { font-size: 2.6em; }
+.reveal h2 { font-size: 1.55em; margin-bottom: 0.65em; }
+
+.reveal p, .reveal li { color: var(--text-secondary); line-height: 1.55; }
+.reveal li { margin: 0.45em 0; }
+.reveal strong { color: var(--text-primary); }
+.reveal em { color: var(--accent); font-style: italic; }
+.reveal .progress { color: var(--accent); }
+.reveal .controls { color: var(--accent); }
+
+/* ── Title ──────────────────────────────────────────── */
+.series-label, .part-label {
+    font-size: 0.5em;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    margin-bottom: 0.2em;
+}
+.reveal .deck-title {
+    font-size: 3.4em;
+    margin: 0.1em 0 0.15em;
+    text-shadow: 0 0 60px rgba(124, 138, 255, 0.45);
+}
+.deck-subtitle {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.05em;
+    color: var(--text-secondary) !important;
+    margin-top: 0.1em;
+}
+.deck-byline { font-size: 0.55em; color: var(--text-muted) !important; margin-top: 2.2em; letter-spacing: 0.04em; }
+
+.subtle { color: var(--text-muted) !important; }
+.lead { font-size: 1.12em; color: var(--text-primary) !important; line-height: 1.6 !important; }
+.tight { font-size: 0.7em; }
+
+/* ── Cards ──────────────────────────────────────────── */
+.math-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.3em 0.9em;
+    margin: 0.5em auto;
+    box-shadow: 0 0 40px rgba(124, 138, 255, 0.07);
+    color: var(--text-primary);
+}
+.math-card.small { font-size: 0.8em; display: inline-block; }
+.math-card p { margin: 0.4em 0; }
+.reveal .math-card mjx-container[display="true"] { margin: 0.45em 0; }
+
+.separator {
+    width: 80px; height: 2px;
+    background: var(--accent);
+    margin: 1em auto;
+    opacity: 0.6;
+}
+
+/* ── Punchline ──────────────────────────────────────── */
+.statement { font-size: 1.1em; color: var(--text-secondary) !important; margin-bottom: 0.2em; }
+.reveal .punch {
+    font-size: 2.1em;
+    line-height: 1.1;
+    background: linear-gradient(120deg, #fff 20%, var(--accent) 60%, var(--accent-teal) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.5em;
+}
+.reveal .thanks { margin-top: 0.3em; margin-bottom: 0.2em; }
+.next-text { font-size: 0.8em; max-width: 24em; margin: 0 auto; }
+.reveal .appendix li { font-size: 0.68em; text-align: left; }
+.reveal .appendix ul { max-width: 26em; }
+
+/* ── Present button ─────────────────────────────────── */
+.present-btn {
+    margin-top: 2rem;
+    padding: 0.6rem 2rem;
+    font-size: 0.4em;
+    font-family: var(--font-body);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+    background: rgba(124, 138, 255, 0.12);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+.present-btn:hover { background: rgba(124, 138, 255, 0.25); box-shadow: 0 0 24px var(--glow); }
+.presentation-mode .present-btn { display: none; }
+
+/* ── The crown behind the title (a fixed canvas below the slides) ─ */
+#title-crown {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 1s ease, visibility 0s linear 1s;
+}
+#title-crown.on { opacity: 0.55; visibility: visible; transition: opacity 1s ease, visibility 0s; }
+body.remote-mode #title-crown { display: none; }
+
+/* ── Full-bleed visualization stages ────────────────── */
+/* They live outside .reveal, between the slides (z 1) and reveal's
+   controls (z 11) and progress bar (z 10), so the arrows stay usable. */
+.stage {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    /* hide (and drop out of hit-testing) only once the fade-out has finished */
+    transition: opacity 0.6s ease, visibility 0s linear 0.6s;
+}
+.stage.active { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 0.6s ease, visibility 0s; }
+.stage iframe { width: 100%; height: 100%; border: none; display: block; background: transparent; }
+body.remote-mode .stage { display: none; }
+
+/* An invisible fragment whose only job is to advance a stage. */
+.stage-step { display: block; height: 0; overflow: hidden; }
+
+/* ── Live indicator ─────────────────────────────────── */
+#live-indicator {
+    position: fixed;
+    bottom: 14px;
+    left: 14px;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid;
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+}
+#live-indicator .live-detail { display: none; }
+#live-indicator.expanded .live-detail { display: inline; }
+
+/* ── Presentation setup modal ───────────────────────── */
+#present-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(4, 6, 12, 0.8);
+    backdrop-filter: blur(10px);
+    font-family: var(--font-body);
+}
+#present-modal.active { display: flex; }
+.modal-content {
+    position: relative;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem 3rem;
+    max-width: 420px;
+    text-align: center;
+    color: var(--text-primary);
+}
+.modal-content h3 { font-family: var(--font-display); font-size: 1.5rem; margin-bottom: 0.8rem; }
+.modal-content p { font-size: 0.9rem; line-height: 1.5; }
+.close-modal {
+    position: absolute;
+    top: 12px; right: 18px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.6rem;
+    cursor: pointer;
+}
+#qr-container {
+    background: #fff;
+    border-radius: var(--radius-md);
+    padding: 12px;
+    display: inline-block;
+    margin-bottom: 1.2rem;
+    line-height: 0;
+}
+.remote-url {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    background: rgba(124, 138, 255, 0.08);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 1rem;
+    word-break: break-all;
+    user-select: all;
+}
+
+/* ── Remote UI (phone) ──────────────────────────────── */
+#remote-ui { display: none; }
+body.remote-mode { background: var(--bg-deep); overflow: hidden; }
+body.remote-mode .reveal { display: none; }
+body.remote-mode #remote-ui {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    padding: max(env(safe-area-inset-top), 18px) 18px max(env(safe-area-inset-bottom), 18px);
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    background: radial-gradient(ellipse at 30% 0%, #0a1128 0%, var(--bg-deep) 65%);
+}
+.remote-header { text-align: center; }
+.remote-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.remote-session-id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin-top: 4px;
+}
+.remote-slide-title {
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    min-height: 1.2em;
+}
+.clickpad-container {
+    position: relative;
+    flex: 1;
+    min-height: 260px;
+    display: grid;
+    grid-template-areas: ". up ." "left center right" ". down .";
+    grid-template-columns: 1fr 1.4fr 1fr;
+    grid-template-rows: 1fr 1.4fr 1fr;
+    gap: 10px;
+}
+.clickpad-item, .clickpad-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s ease, transform 0.08s ease;
+}
+.clickpad-item:active, .clickpad-center:active, .control-btn:active {
+    background: rgba(124, 138, 255, 0.22);
+    transform: scale(0.97);
+}
+.clickpad-up { grid-area: up; }
+.clickpad-down { grid-area: down; }
+.clickpad-left { grid-area: left; }
+.clickpad-right { grid-area: right; }
+.clickpad-center {
+    grid-area: center;
+    background: rgba(124, 138, 255, 0.14);
+    border-color: rgba(124, 138, 255, 0.4);
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    box-shadow: 0 0 30px rgba(124, 138, 255, 0.15);
+}
+.remote-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.control-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 54px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s ease, transform 0.08s ease;
+}
+#viz-controls {
+    display: none; /* shown via remote.js on visualization slides */
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    width: 100%;
+    grid-column: 1 / -1;
+}
+.remote-status-bar {
+    text-align: center;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+}
+
+/* ── Orbit joystick (remote) ────────────────────────── */
+#orbit-joystick {
+    display: none; /* shown via remote.js on data-orbit slides */
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    grid-column: 1 / -1;
+    padding: 6px 0 2px;
+}
+.joy-base {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.joy-knob {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(124, 138, 255, 0.35);
+    border: 1px solid rgba(124, 138, 255, 0.6);
+    box-shadow: 0 0 16px rgba(124, 138, 255, 0.25);
+    pointer-events: none;
+}
+.joy-label {
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+/* ================================================================
+   Part 2 widgets
+   ================================================================ */
+
+/* ── Recap ──────────────────────────────────────────── */
+.recap { max-width: 24em; margin: 0 auto; text-align: left; }
+.recap li { font-size: 0.74em; margin: 0.55em 0; }
+.recap li strong { color: var(--text-primary); }
+
+/* ── Plane ↔ space comparisons ──────────────────────── */
+.compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6em;
+    max-width: 25em;
+    margin: 0.3em auto 0;
+    text-align: left;
+}
+.compare .col {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.55em 0.8em 0.6em;
+}
+.compare .col.space { border-color: rgba(45, 212, 191, 0.35); box-shadow: 0 0 30px rgba(45, 212, 191, 0.06); }
+.compare h3 {
+    font-family: var(--font-body);
+    font-size: 0.5em !important;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted) !important;
+    margin: 0 0 0.5em;
+}
+.compare .col.space h3 { color: var(--accent-teal) !important; }
+.compare p { font-size: 0.64em; margin: 0.35em 0; color: var(--text-primary); }
+.compare p.dim { color: var(--text-secondary); }
+
+/* the Euler–Rodrigues matrix */
+.math-card.er { font-size: 0.66em; }
+.bullets { max-width: 25em; margin: 0.4em auto 0; text-align: left; }
+.bullets li { font-size: 0.7em; margin: 0.5em 0; }
+.theorem {
+    background: var(--bg-card);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: var(--radius-md);
+    padding: 0.7em 1em 0.8em;
+    margin: 0.4em auto 0.5em;
+    max-width: 24em;
+    text-align: left;
+    box-shadow: 0 0 40px rgba(245, 158, 11, 0.07);
+}
+.theorem .th-label {
+    display: block;
+    font-size: 0.46em;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--accent-warm);
+    margin-bottom: 0.5em;
+}
+.theorem p { font-size: 0.7em; color: var(--text-primary) !important; margin: 0; line-height: 1.55; }
+
+/* ── Theorem lists and proofs ───────────────────────── */
+.theorem ol { margin: 0.3em 0 0 1.2em; padding: 0; }
+.theorem ol li { font-size: 0.7em; color: var(--text-primary); margin: 0.25em 0; }
+.proof { max-width: 25em; margin: 0.35em auto 0; text-align: left; padding-left: 1.2em; }
+.proof li { font-size: 0.62em; margin: 0.4em 0; }
+.reveal .note-line { font-size: 0.62em; max-width: 26em; margin: 0.6em auto 0; }
+.nowrap { white-space: nowrap; }
+
+/* ── Three ways ─────────────────────────────────────── */
+.three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6em; max-width: 27em; margin: 0.5em auto 0; }
+.three .c3 {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.7em 0.8em 0.8em;
+    text-align: left;
+    box-shadow: 0 0 40px rgba(124, 138, 255, 0.06);
+}
+.three .c3-label { display: block; font-size: 0.46em; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 0.55em; }
+.three .c3 p { font-size: 0.6em; margin: 0; color: var(--text-primary); line-height: 1.5; }
+.three .alg { border-color: rgba(251, 191, 36, 0.35); } .three .alg .c3-label { color: var(--gold); }
+.three .geo { border-color: rgba(244, 114, 182, 0.35); } .three .geo .c3-label { color: var(--accent-rose); }
+.three .ari { border-color: rgba(45, 212, 191, 0.35); } .three .ari .c3-label { color: var(--accent-teal); }
+.reveal .big-claim { font-size: 1.05em; margin-top: 0.9em; color: var(--text-primary); }
+
+/* ── Motivation ─────────────────────────────────────── */
+.reveal .rep { font-size: 0.62em; }
+
+/* ── The local portrait of a rotation ───────────────── */
+.portrait { max-width: 26em; margin: 0.5em auto 0; text-align: left; }
+.pt-row { display: flex; align-items: center; gap: 0.35em; flex-wrap: wrap; }
+.pt-step { display: inline-flex; align-items: center; gap: 0.12em; font-size: 0.56em; color: var(--text-secondary); }
+.pt-step b { font-family: 'Times New Roman', Times, serif; font-style: italic; font-weight: 400; font-size: 1.1em; color: var(--text-muted); margin-right: 0.1em; }
+.pt-step button, .pt-presets button {
+    font: inherit;
+    font-size: 0.95em;
+    min-width: 1.5em;
+    height: 1.5em;
+    padding: 0 0.3em;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: rgba(13, 19, 33, 0.9);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.pt-step button:hover, .pt-presets button:hover { color: #fff; border-color: var(--accent); }
+.pt-step .pt-val { min-width: 1.6em; text-align: center; font-variant-numeric: tabular-nums; color: #fff; font-weight: 600; }
+.pt-presets { display: flex; gap: 0.3em; flex-wrap: wrap; margin: 0.45em 0 0.35em; }
+.pt-presets button { font-family: 'Times New Roman', Times, serif; font-size: 0.6em; height: auto; padding: 0.12em 0.5em; }
+.pt-presets button i { font-style: italic; }
+.pt-presets button.on { color: #fff; background: rgba(124, 138, 255, 0.28); border-color: var(--accent); }
+.pt-summary { font-size: 0.58em; color: var(--text-secondary); margin: 0.35em 0 0.45em; }
+.pt-summary b { color: #fff; }
+.pt-summary .q { font-family: 'Times New Roman', Times, serif; font-size: 1.2em; color: #fff; }
+.pt-chips { display: grid; grid-template-columns: repeat(14, 1fr); gap: 0.2em; }
+.pt-chip {
+    border-radius: 7px;
+    border: 1px solid rgba(124, 138, 255, 0.18);
+    background: rgba(13, 19, 33, 0.85);
+    text-align: center;
+    padding: 0.18em 0 0.22em;
+    line-height: 1.15;
+}
+.pt-chip .p { display: block; font-size: 0.5em; font-weight: 700; color: var(--text-primary); }
+.pt-chip .t { display: block; font-size: 0.4em; color: var(--text-muted); }
+.pt-chip.hyp { border-color: rgba(244, 114, 182, 0.7); background: rgba(244, 114, 182, 0.14); }
+.pt-chip.hyp .t { color: var(--accent-rose); }
+.pt-chip.line { border-color: rgba(251, 191, 36, 0.55); }
+.pt-chip.line .t { color: var(--gold); }
+.pt-chip.bounded .t { color: #a5b4fc; }
+.pt-legend { font-size: 0.46em; color: var(--text-muted); margin-top: 0.5em; }
+.pt-legend span { margin-right: 1.1em; }
+.pt-legend .h { color: var(--accent-rose); } .pt-legend .l { color: var(--gold); } .pt-legend .b { color: #a5b4fc; }
+
+/* ── Evidence table ─────────────────────────────────── */
+.reveal table.evidence { margin: 0.2em auto 0; font-size: 0.64em; border-collapse: collapse; }
+.reveal table.evidence th, .reveal table.evidence td { padding: 0.28em 0.8em; border-bottom: 1px solid rgba(124, 138, 255, 0.12); text-align: left; }
+.reveal table.evidence th { font-size: 0.78em; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); }
+.reveal table.evidence td { color: var(--text-primary); }
+.reveal table.evidence td.n { text-align: right; font-variant-numeric: tabular-nums; color: var(--accent-teal); font-weight: 700; }
+.reveal table.evidence td.s { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.reveal table.evidence tr.open td { color: var(--text-secondary); }
+.reveal table.evidence tr.open td.n { color: var(--gold); }
+
+/* ── A route ────────────────────────────────────────── */
+.route { max-width: 27em; margin: 0.2em auto 0; padding: 0; list-style: none; text-align: left; }
+.route li { font-size: 0.56em; margin: 0.42em 0; padding-left: 5.2em; position: relative; line-height: 1.45; }
+.route li b { color: var(--text-primary); }
+.route .st {
+    position: absolute;
+    left: 0;
+    top: 0.12em;
+    width: 4.3em;
+    text-align: center;
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    padding: 0.14em 0;
+}
+.route .st.ok { color: var(--accent-teal); border: 1px solid rgba(45, 212, 191, 0.5); }
+.route .st.new { color: var(--gold); border: 1px solid rgba(251, 191, 36, 0.55); }
+.route .st.open { color: var(--accent-rose); border: 1px solid rgba(244, 114, 182, 0.55); }
+
+/* ── Section divider ────────────────────────────────── */
+.reveal .divider h2 { font-size: 2.2em; }
+
+/* ── Next time ──────────────────────────────────────── */
+.next-list { max-width: 22em; margin: 0.4em auto 0; text-align: left; }
+.next-list li { font-size: 0.66em; }

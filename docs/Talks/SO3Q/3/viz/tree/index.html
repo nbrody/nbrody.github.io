@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Hidden Tree</title>
+    <meta name="description" content="How single rational rotations act on the 6-regular tree T₆ at the prime 5: hyperbolic, elliptic about a line, elliptic about a point; ping pong; and a group that is not discrete. SO₃(ℚ) talk, part 3.">
+    <link rel="stylesheet" href="../common/viz.css">
+    <style>
+        #readout {
+            position: fixed;
+            left: 22px;
+            top: 20px;
+            z-index: 11;
+            padding: 12px 16px 13px;
+            min-width: 250px;
+            max-width: 360px;
+            font-size: 0.92rem;
+            line-height: 1.45;
+            opacity: 0;
+            transform: translateY(-6px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        #readout.on { opacity: 1; transform: none; }
+        #readout .r-title { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 6px; }
+        #readout .r-row { display: flex; align-items: baseline; gap: 10px; margin: 3px 0; }
+        #readout .r-q { font-family: 'Times New Roman', Times, serif; font-size: 1.12rem; color: #fff; min-width: 5.2em; }
+        #readout .r-q i { font-style: italic; }
+        #readout .r-kind { font-size: 0.84rem; }
+        #readout .r-dim { color: var(--ink-dim); font-size: 0.8rem; margin-top: 6px; }
+        #readout .sw { display: inline-block; width: 18px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+        .kind-hyp { color: var(--rose); }
+        .kind-line { color: var(--gold); }
+        .kind-bounded { color: var(--indigo); }
+        #key {
+            position: fixed;
+            right: 22px;
+            top: 20px;
+            z-index: 11;
+            padding: 10px 14px;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: var(--ink-dim);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        #key.on { opacity: 1; }
+        #key .sw { display: inline-block; width: 16px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 7px; }
+        #key i { font-family: 'Times New Roman', Times, serif; font-size: 1.02rem; }
+    </style>
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+            startup: { typeset: false },
+            options: { enableMenu: false }
+        };
+    </script>
+    <script defer src="../../vendor/mathjax/tex-mml-chtml.js"></script>
+</head>
+
+<body data-viz="tree">
+    <div id="stage"></div>
+    <div id="readout" class="card"></div>
+    <div id="key" class="card"></div>
+    <div id="tip" class="card"></div>
+    <div id="captions"></div>
+    <div id="nav" class="card">
+        <button class="nav-prev" aria-label="Previous step">&lsaquo;</button>
+        <span class="nav-count"></span>
+        <button class="nav-next" aria-label="Next step">&rsaquo;</button>
+    </div>
+
+    <script src="../common/quat.js"></script>
+    <script src="../common/viz.js"></script>
+    <script src="../common/view3d.js"></script>
+    <script src="tree.js"></script>
+</body>
+
+</html>

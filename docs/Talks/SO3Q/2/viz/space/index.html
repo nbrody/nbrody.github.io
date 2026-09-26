@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rotations of Space</title>
+    <meta name="description" content="The 24 symmetries of the cube, and how quaternion conjugation turns integer quaternions into rational rotations. SO₃(ℚ) talk, part 2.">
+    <link rel="stylesheet" href="../common/viz.css">
+    <link rel="stylesheet" href="space.css">
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+            startup: { typeset: false },
+            options: { enableMenu: false }
+        };
+    </script>
+    <script defer src="../../vendor/mathjax/tex-mml-chtml.js"></script>
+</head>
+
+<body data-viz="space">
+    <div id="stage"></div>
+
+    <div id="gauge" aria-hidden="true">
+        <div class="g-title">\(\mathbb R \cdot 1\)</div>
+        <div class="g-track">
+            <span class="g-tick" style="top: 0%"><em>1</em></span>
+            <span class="g-tick" style="top: 50%"><em>0</em></span>
+            <span class="g-tick" style="top: 100%"><em>−1</em></span>
+            <div class="g-marker"><span class="g-val">real part</span></div>
+        </div>
+        <div class="g-fixed">fixed</div>
+    </div>
+
+    <div id="readout" class="card ro"></div>
+
+    <div id="controls" class="card">
+        <div class="ctl-title">choose an integer quaternion</div>
+        <div class="ctl-row" id="steppers"></div>
+        <div class="ctl-chips" id="presets"></div>
+    </div>
+
+    <div id="tip" class="card"></div>
+    <div id="captions"></div>
+    <div id="nav" class="card">
+        <button class="nav-prev" aria-label="Previous step">&lsaquo;</button>
+        <span class="nav-count"></span>
+        <button class="nav-next" aria-label="Next step">&rsaquo;</button>
+    </div>
+
+    <script src="../common/quat.js"></script>
+    <script src="../common/viz.js"></script>
+    <script src="../common/view3d.js"></script>
+    <script src="space.js"></script>
+</body>
+
+</html>

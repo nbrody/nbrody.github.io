@@ -1,0 +1,961 @@
+/* ==========================================================================
+   SO₃(ℚ) Talk - Modern Presentation Theme
+   Preserves the deep dark/indigo aesthetic while elevating typography,
+   glassmorphism, ambient lighting, layout balance, and micro-interactions.
+   ========================================================================== */
+
+@font-face {
+    font-family: Inter;
+    src: url('vendor/fonts/inter.woff2') format('woff2');
+    font-display: swap;
+}
+
+:root {
+    color-scheme: dark;
+    --bg: #030712;
+    --bg-surface: #0a0f1d;
+    --panel: rgba(15, 23, 42, 0.72);
+    --panel-hover: rgba(22, 33, 62, 0.78);
+    --border: rgba(99, 102, 241, 0.22);
+    --border-hover: rgba(129, 140, 248, 0.45);
+    --border-glow: rgba(129, 140, 248, 0.3);
+    --accent: #818cf8;
+    --accent-light: #c7d2fe;
+    --accent-bright: #a5b4fc;
+    --accent-glow: rgba(129, 140, 248, 0.4);
+    --text: #f8fafc;
+    --text-dim: #cbd5e1;
+    --text-muted: #94a3b8;
+    --glow-1: rgba(99, 102, 241, 0.15);
+    --glow-2: rgba(139, 92, 246, 0.10);
+    --glow-3: rgba(56, 189, 248, 0.08);
+    accent-color: var(--accent);
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+/* --------------------------------------------------------------------------
+   Document & Ambient Background
+   -------------------------------------------------------------------------- */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+}
+
+body {
+    background-image:
+        radial-gradient(ellipse 90% 65% at 50% -15%, var(--glow-1), transparent 70%),
+        radial-gradient(circle 700px at 90% 90%, var(--glow-2), transparent 70%),
+        radial-gradient(circle 600px at 10% 85%, var(--glow-3), transparent 60%);
+    background-attachment: fixed;
+}
+
+/* Subtle background grain / grid enhancement */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: 36px 36px;
+    opacity: 0.6;
+    z-index: 1;
+}
+
+/* Screen reader text - hide properly from visual layout */
+.fp-sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    border: 0 !important;
+    background: transparent !important;
+}
+
+/* --------------------------------------------------------------------------
+   FullPage Slide Layout & Vertical Centering
+   -------------------------------------------------------------------------- */
+.section {
+    position: relative;
+    background: transparent;
+    z-index: 2;
+}
+
+.slide {
+    text-align: center;
+    height: 100%;
+}
+
+/* Flex layout inside fullpage table/overflow wrappers for true vertical centering */
+.slide .fp-table,
+.slide .fp-overflow,
+.section:not(.fp-section-has-slides) .fp-table,
+.section:not(.fp-section-has-slides) .fp-overflow {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: stretch !important;
+    min-height: 100% !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+    padding: 40px 0 !important;
+}
+
+/* --------------------------------------------------------------------------
+   The Slide Card (.content-box)
+   -------------------------------------------------------------------------- */
+.content-box {
+    position: relative;
+    width: calc(100% - 160px);
+    max-width: 1080px;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    margin-top: auto !important;
+    margin-bottom: auto !important;
+    padding: clamp(3.25rem, 6vh, 4.75rem) clamp(2.5rem, 5vw, 5rem);
+    background: linear-gradient(
+        145deg,
+        rgba(17, 24, 48, 0.75) 0%,
+        rgba(15, 23, 42, 0.62) 100%
+    );
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid var(--border);
+    border-radius: 32px;
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+        0 24px 60px -15px rgba(0, 0, 0, 0.65),
+        0 0 45px -10px rgba(99, 102, 241, 0.12);
+    transform: translateY(0);
+    transition:
+        transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+        border-color 0.4s ease;
+    z-index: 2;
+}
+
+.content-box:hover {
+    border-color: var(--border-hover);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.18),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 30px 75px -15px rgba(0, 0, 0, 0.75),
+        0 0 50px -5px rgba(129, 140, 248, 0.2);
+}
+
+/* Slide active entrance micro-animation */
+.slide .content-box {
+    opacity: 0.94;
+    transition: opacity 0.45s ease-out, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.slide.active .content-box,
+.section.active:not(.fp-section-has-slides) .content-box {
+    opacity: 1;
+}
+
+/* Title Slide Specifics */
+.title-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(5rem, 10vh, 7.5rem) clamp(2rem, 4vw, 4rem);
+}
+
+.title-box h1 {
+    margin-bottom: 2.5rem;
+}
+
+/* --------------------------------------------------------------------------
+   Typography & MathJax
+   -------------------------------------------------------------------------- */
+h1, h2 {
+    margin: 0 0 1.8rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+}
+
+h1 {
+    font-size: clamp(3.8rem, 8.5vw, 6.5rem);
+    font-weight: 800;
+    color: #ffffff;
+    text-shadow:
+        0 2px 20px rgba(0, 0, 0, 0.4),
+        0 0 40px rgba(129, 140, 248, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+h2 {
+    font-size: clamp(2.1rem, 4.2vw, 3.4rem);
+    color: var(--accent-light);
+    letter-spacing: -0.025em;
+    text-shadow: 0 2px 24px rgba(99, 102, 241, 0.25);
+}
+
+p {
+    margin: 0 0 1.6rem;
+    font-size: clamp(1.25rem, 1.9vw, 1.68rem);
+    font-weight: 400;
+    line-height: 1.68;
+    color: var(--text-dim);
+    text-wrap: pretty;
+}
+
+p:last-child,
+h2:last-child {
+    margin-bottom: 0;
+}
+
+/* Section Tag Pill Badge */
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0.38rem 1.15rem;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(129, 140, 248, 0.25);
+    border-radius: 9999px;
+    color: var(--accent-bright);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 2.2rem;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 2px 10px rgba(99, 102, 241, 0.12);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: all 0.25s ease;
+}
+
+.tag::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+}
+
+.tag:hover {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(129, 140, 248, 0.45);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        0 0 16px rgba(129, 140, 248, 0.28);
+}
+
+/* Subgroups List Modernization */
+.content-box ul {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    text-align: left;
+    list-style: none;
+    padding: 0.5rem 0;
+    margin: 1.5rem auto 0;
+    font-size: clamp(1.2rem, 1.9vw, 1.6rem);
+    color: var(--text-dim);
+    min-width: min(340px, 100%);
+}
+
+.content-box li {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(8px);
+}
+
+.content-box li:hover {
+    background: rgba(99, 102, 241, 0.14);
+    border-color: rgba(129, 140, 248, 0.35);
+    transform: translateX(4px);
+    color: #ffffff;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+}
+
+.content-box li::before {
+    content: '';
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.content-box li:hover::before {
+    transform: scale(1.35);
+    box-shadow: 0 0 14px #a5b4fc;
+}
+
+/* Emphasis Slide */
+.emphasis {
+    border-color: rgba(129, 140, 248, 0.35);
+    background: linear-gradient(
+        145deg,
+        rgba(26, 32, 66, 0.85) 0%,
+        rgba(15, 23, 42, 0.75) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+        0 28px 75px -12px rgba(0, 0, 0, 0.75),
+        0 0 55px -8px rgba(99, 102, 241, 0.22);
+}
+
+.emphasis p {
+    font-size: clamp(2rem, 3.8vw, 3.2rem);
+    color: #ffffff;
+    font-weight: 600;
+    line-height: 1.38;
+    letter-spacing: -0.02em;
+    text-shadow:
+        0 2px 20px rgba(0, 0, 0, 0.3),
+        0 0 35px rgba(129, 140, 248, 0.35);
+}
+
+/* MathJax Elements */
+mjx-container {
+    max-width: 100%;
+    outline: none !important;
+}
+
+mjx-container[jax="CHTML"] {
+    vertical-align: -0.06em;
+}
+
+/* --------------------------------------------------------------------------
+   Buttons & Interactive Elements
+   -------------------------------------------------------------------------- */
+button {
+    font: inherit;
+    cursor: pointer;
+    color: var(--text);
+    border: 1px solid var(--border);
+    background: rgba(15, 23, 42, 0.85);
+    border-radius: 12px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button:hover {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: var(--accent);
+}
+
+button:focus-visible,
+a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+}
+
+button:disabled {
+    opacity: 0.25;
+    cursor: default;
+    pointer-events: none;
+}
+
+/* "Present" Button (Title Slide CTA) */
+.present-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.88rem 2.6rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #ffffff;
+    background: linear-gradient(
+        135deg,
+        rgba(99, 102, 241, 0.85) 0%,
+        rgba(79, 70, 229, 0.92) 100%
+    );
+    border: 1px solid rgba(165, 180, 252, 0.45);
+    border-radius: 9999px;
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+        0 4px 20px rgba(79, 70, 229, 0.38),
+        0 0 0 1px rgba(99, 102, 241, 0.25);
+    overflow: hidden;
+}
+
+.present-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.25),
+        transparent
+    );
+    transition: left 0.6s ease;
+}
+
+.present-btn:hover {
+    background: linear-gradient(
+        135deg,
+        rgba(129, 140, 248, 0.95) 0%,
+        rgba(99, 102, 241, 0.98) 100%
+    );
+    border-color: rgba(224, 231, 255, 0.7);
+    box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.35),
+        0 6px 28px rgba(99, 102, 241, 0.55),
+        0 0 35px rgba(129, 140, 248, 0.45);
+    transform: translateY(-2px);
+}
+
+.present-btn:hover::before {
+    left: 100%;
+}
+
+.present-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* Floating Deck Controls (Bottom Left Dock) */
+.deck-controls {
+    position: fixed;
+    bottom: 24px;
+    left: 28px;
+    display: flex;
+    gap: 8px;
+    z-index: 25;
+    background: rgba(15, 23, 42, 0.65);
+    padding: 5px;
+    border-radius: 16px;
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.deck-controls button {
+    width: 40px;
+    height: 38px;
+    font-size: 18px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--text-dim);
+}
+
+.deck-controls button:hover:not(:disabled) {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: rgba(129, 140, 248, 0.45);
+    color: #ffffff;
+    box-shadow: 0 0 16px rgba(99, 102, 241, 0.35);
+    transform: translateY(-1px);
+}
+
+.deck-controls button:active:not(:disabled) {
+    transform: translateY(0) scale(0.95);
+}
+
+.deck-controls button:disabled {
+    opacity: 0.18;
+    background: transparent;
+    border-color: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   FullPage Slide Arrows (.fp-arrow)
+   Replace harsh borders with sleek frosted circular buttons with chevrons
+   -------------------------------------------------------------------------- */
+.fp-arrow {
+    width: 46px !important;
+    height: 46px !important;
+    border-style: none !important;
+    border-radius: 50% !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(99, 102, 241, 0.28) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 6px 24px rgba(0, 0, 0, 0.45) !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    z-index: 20;
+    margin-top: -23px !important;
+}
+
+.fp-arrow::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-top: 2.5px solid var(--accent);
+    border-right: 2.5px solid var(--accent);
+    border-radius: 1.5px;
+    transition: border-color 0.2s, transform 0.2s;
+}
+
+.fp-arrow.fp-prev {
+    left: 36px !important;
+}
+
+.fp-arrow.fp-prev::after {
+    transform: rotate(-135deg);
+    margin-left: 3px;
+}
+
+.fp-arrow.fp-next {
+    right: 56px !important;
+}
+
+.fp-arrow.fp-next::after {
+    transform: rotate(45deg);
+    margin-right: 3px;
+}
+
+.fp-arrow:hover {
+    background: rgba(99, 102, 241, 0.28) !important;
+    border-color: rgba(165, 180, 252, 0.6) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        0 0 25px rgba(99, 102, 241, 0.45) !important;
+    transform: scale(1.1);
+}
+
+.fp-arrow:hover::after {
+    border-color: #ffffff;
+}
+
+.fp-arrow:active {
+    transform: scale(0.96);
+}
+
+/* --------------------------------------------------------------------------
+   FullPage Navigation Indicators (#fp-nav & .fp-slidesNav)
+   -------------------------------------------------------------------------- */
+
+/* Right-side Section Navigation Dots */
+#fp-nav {
+    right: 20px !important;
+    z-index: 30;
+}
+
+#fp-nav ul {
+    background: rgba(15, 23, 42, 0.55);
+    padding: 10px 5px;
+    border-radius: 9999px;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+#fp-nav ul li {
+    width: 14px;
+    height: 14px;
+    margin: 8px 4px;
+}
+
+#fp-nav ul li a span:not(.fp-sr-only) {
+    display: block !important;
+    width: 6px !important;
+    height: 6px !important;
+    margin: -3px 0 0 -3px !important;
+    background: rgba(148, 163, 184, 0.45) !important;
+    border-radius: 50% !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+#fp-nav ul li:hover a span:not(.fp-sr-only) {
+    width: 8px !important;
+    height: 8px !important;
+    margin: -4px 0 0 -4px !important;
+    background: #e0e7ff !important;
+}
+
+#fp-nav ul li a.active span:not(.fp-sr-only) {
+    width: 8px !important;
+    height: 8px !important;
+    margin: -4px 0 0 -4px !important;
+    background: var(--accent) !important;
+    box-shadow: 0 0 12px 2px rgba(129, 140, 248, 0.7) !important;
+}
+
+#fp-nav ul li .fp-tooltip {
+    font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif !important;
+    font-size: 0.76rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.04em !important;
+    color: #e2e8f0 !important;
+    background: rgba(15, 23, 42, 0.88) !important;
+    border: 1px solid rgba(99, 102, 241, 0.28) !important;
+    padding: 5px 12px !important;
+    border-radius: 8px !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 4px 16px rgba(0, 0, 0, 0.45) !important;
+    top: -5px !important;
+    right: 28px !important;
+}
+
+/* Bottom Slide Navigation Dots */
+.fp-slidesNav {
+    bottom: 26px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: max-content !important;
+    margin-left: 0 !important;
+    white-space: nowrap !important;
+    z-index: 20 !important;
+}
+
+.fp-slidesNav ul {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background: rgba(15, 23, 42, 0.65);
+    padding: 7px 16px !important;
+    border-radius: 9999px;
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 8px 28px rgba(0, 0, 0, 0.4);
+    margin: 0 !important;
+    list-style: none !important;
+}
+
+.fp-slidesNav ul li {
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.fp-slidesNav ul li a {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 2px !important;
+}
+
+.fp-slidesNav ul li a span:not(.fp-sr-only) {
+    display: block !important;
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    margin: 0 !important;
+    width: 6px !important;
+    height: 6px !important;
+    background: rgba(148, 163, 184, 0.45) !important;
+    border-radius: 50% !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.fp-slidesNav ul li:hover a span:not(.fp-sr-only) {
+    background: #e0e7ff !important;
+    transform: scale(1.3);
+}
+
+.fp-slidesNav ul li a.active span:not(.fp-sr-only) {
+    width: 20px !important;
+    border-radius: 9999px !important;
+    background: var(--accent) !important;
+    box-shadow: 0 0 14px 2px rgba(129, 140, 248, 0.65) !important;
+}
+
+/* Watermark */
+.fp-watermark {
+    color: var(--text-muted) !important;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.fp-watermark:hover {
+    opacity: 1;
+}
+
+/* Non-fullpage fallback */
+html:not(.fp-enabled) .section {
+    min-height: 100vh;
+    padding: 30px 0;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Layout & Media Queries
+   -------------------------------------------------------------------------- */
+
+/* Compact heights (laptops / landscape tablets) */
+@media (max-height: 760px) and (min-width: 761px) {
+    .content-box {
+        padding: 2.5rem 3.5rem;
+    }
+    .tag {
+        margin-bottom: 1.2rem;
+        padding: 0.3rem 0.95rem;
+    }
+    p {
+        font-size: 1.45rem;
+        line-height: 1.55;
+        margin-bottom: 1.2rem;
+    }
+    h2 {
+        font-size: 2.5rem;
+        margin-bottom: 1.2rem;
+    }
+    .title-box {
+        padding: 3.5rem 2.5rem;
+    }
+    .fp-arrow {
+        width: 40px !important;
+        height: 40px !important;
+    }
+    .fp-arrow.fp-prev {
+        left: 24px !important;
+    }
+    .fp-arrow.fp-next {
+        right: 48px !important;
+    }
+}
+
+/* Mobile & Small Tablets */
+@media (max-width: 760px) {
+    body {
+        background-attachment: scroll;
+    }
+
+    .slide .fp-table,
+    .slide .fp-overflow,
+    .section:not(.fp-section-has-slides) .fp-table,
+    .section:not(.fp-section-has-slides) .fp-overflow {
+        padding: 20px 0 80px !important;
+    }
+
+    .content-box {
+        width: calc(100% - 32px) !important;
+        padding: 2.2rem 1.4rem;
+        border-radius: 24px;
+        margin: auto !important;
+    }
+
+    p {
+        font-size: 1.15rem;
+        line-height: 1.65;
+        margin-bottom: 1.2rem;
+    }
+
+    .tag {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.9rem;
+        margin-bottom: 1.4rem;
+    }
+
+    h1 {
+        font-size: 3.2rem;
+        letter-spacing: -0.02em;
+    }
+
+    h2 {
+        font-size: 1.95rem;
+        margin-bottom: 1.4rem;
+    }
+
+    .content-box ul {
+        font-size: 1.2rem;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .content-box li {
+        padding: 0.6rem 1rem;
+    }
+
+    .emphasis p {
+        font-size: 1.75rem;
+        line-height: 1.45;
+    }
+
+    .title-box {
+        padding: 3.5rem 1.4rem;
+    }
+
+    .present-btn {
+        padding: 0.75rem 2rem;
+        font-size: 0.85rem;
+    }
+
+    /* On mobile, slide chevrons hide to give full clean screen real estate to the card; navigation is via swipe, bottom dock buttons, and bottom dots */
+    .fp-arrow {
+        display: none !important;
+    }
+
+    #fp-nav {
+        right: 6px !important;
+    }
+
+    #fp-nav ul {
+        padding: 6px 3px;
+    }
+
+    .deck-controls {
+        bottom: 14px;
+        left: 14px;
+        gap: 6px;
+        padding: 4px;
+    }
+
+    .deck-controls button {
+        width: 36px;
+        height: 34px;
+        font-size: 16px;
+    }
+
+    .fp-slidesNav {
+        bottom: 48px !important;
+    }
+
+    .fp-slidesNav ul {
+        padding: 5px 12px !important;
+        gap: 6px !important;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Accessibility & Preferences
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation: none !important;
+        transition: none !important;
+    }
+    .content-box {
+        opacity: 1 !important;
+        transform: none !important;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Print Stylesheet
+   -------------------------------------------------------------------------- */
+@media print {
+    html, body {
+        overflow: visible !important;
+        height: auto !important;
+        background: white !important;
+        color: black !important;
+    }
+
+    body::before {
+        display: none !important;
+    }
+
+    .fp-watermark,
+    #fp-nav,
+    .fp-slidesNav,
+    .fp-arrow,
+    .deck-controls,
+    .present-btn {
+        display: none !important;
+    }
+
+    #fullpage,
+    .fp-slidesContainer {
+        transform: none !important;
+        width: 100% !important;
+    }
+
+    .section,
+    .slide,
+    .fp-table,
+    .fp-overflow,
+    .fp-slides,
+    .fp-slidesContainer {
+        display: block !important;
+        height: auto !important;
+        width: 100% !important;
+        overflow: visible !important;
+        position: static !important;
+        float: none !important;
+        padding: 0 !important;
+    }
+
+    .slide {
+        page-break-after: always;
+    }
+
+    .content-box {
+        width: 100% !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 40px !important;
+        border: none !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+    }
+
+    p, h1, h2, .tag, ul, li {
+        color: black !important;
+        text-shadow: none !important;
+    }
+
+    .tag {
+        background: none !important;
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+    }
+
+    .content-box li {
+        background: none !important;
+        border: none !important;
+    }
+}

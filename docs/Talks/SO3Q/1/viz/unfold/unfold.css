@@ -1,0 +1,3 @@
+/* Unfolding the circle — only a cursor tweak on top of the shared look. */
+body.orbitable #stage { cursor: grab; }
+body.orbitable.dragging #stage { cursor: grabbing; }

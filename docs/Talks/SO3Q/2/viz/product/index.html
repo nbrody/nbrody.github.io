@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products of Trees</title>
+    <meta name="description" content="Metacommutation of Hurwitz primes assembles the rotations of space into a product of trees. SO₃(ℚ) talk, part 2.">
+    <link rel="stylesheet" href="../common/viz.css">
+    <style>
+        body.orbitable #stage { cursor: grab; }
+        body.orbitable.dragging #stage { cursor: grabbing; }
+        #word {
+            position: fixed;
+            left: 50%;
+            top: 20px;
+            z-index: 11;
+            transform: translate(-50%, -6px);
+            max-width: calc(100vw - 48px);
+            padding: 12px 22px;
+            text-align: center;
+            font-size: 1.12rem;
+            line-height: 1.55;
+            opacity: 0;
+            transition: opacity 0.45s ease, transform 0.45s ease;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        #word.on { opacity: 1; transform: translate(-50%, 0); }
+        #word .w-lab { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); }
+        #word .w-q { font-family: 'Times New Roman', Times, serif; font-size: 1.28rem; }
+        #word .w-q i { font-style: italic; }
+        #word .w-count { font-size: 0.85rem; color: var(--ink-dim); margin-top: 2px; }
+    </style>
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+            startup: { typeset: false },
+            options: { enableMenu: false }
+        };
+    </script>
+    <script defer src="../../vendor/mathjax/tex-mml-chtml.js"></script>
+</head>
+
+<body data-viz="product">
+    <div id="stage"></div>
+    <div id="word" class="card"></div>
+    <div id="captions"></div>
+    <div id="nav" class="card">
+        <button class="nav-prev" aria-label="Previous step">&lsaquo;</button>
+        <span class="nav-count"></span>
+        <button class="nav-next" aria-label="Next step">&rsaquo;</button>
+    </div>
+
+    <script src="../common/quat.js"></script>
+    <script src="../common/viz.js"></script>
+    <script src="../common/view3d.js"></script>
+    <script src="product.js"></script>
+</body>
+
+</html>
