@@ -71,17 +71,20 @@ is not intended to establish real-world identity or prevent duplicate signups.
   right multiplication. The base point (1,√2,√3)/√6 has trivial stabilizer under
   rational matrices, so distinct group elements give distinct plotted vertices.
   The sphere hides the rear edges until the viewer rotates it. Arc intersections
-  are not additional vertices. Word radius is limited to 1–4 for readability.
+  are not additional vertices. The displayed word radius is 6 (1,322 vertices and 2,460 edges). Vertex radii
+  decrease as 0.03 × 0.72^word_length; outer edge shells also fade.
 - A Farey tessellation constructed from mediants on the positive and negative real
   axes. Every edge satisfies |ps−qr|=1. Rational boundary points use the Cayley map
   (x−i)/(x+i); dragging applies the disk automorphism (z+a)/(1+conj(a)z), with
-  |a| bounded away from 1. Depth controls the finite truncation.
+  |a| bounded away from 1. The +/− keys control the finite truncation depth (initially 6).
 - A figure-eight knot using ((2+cos 2t)cos 3t, (2+cos 2t)sin 3t, sin 4t).
 
 The sphere and knot use transparent Three.js WebGL canvases with no enclosing
-border or panel background. Both support pointer rotation, keyboard arrows,
-Home/reset, and optional automatic rotation (off initially). Rendering is paused
-when offscreen or the document is hidden. Three.js 0.171.0 and OrbitControls are
+border or panel background. Both support pointer trackball rotation, keyboard arrows,
+and double-click/Home to reset. One model quaternion handles all rotations, with
+a fixed camera and lighting; there is no camera-up pole or residual momentum.
+Rendering occurs only on interaction or resize. The three figures share one
+row, including on small screens, without visible captions or controls. Three.js 0.171.0 and the original OrbitControls dependency are
 vendored locally under `vendor/`, along with the MIT license. The Farey view is
 SVG and remains usable if WebGL fails. Visualization errors do not block the
 Firebase survey.

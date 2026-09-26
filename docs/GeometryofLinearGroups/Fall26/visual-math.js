@@ -1,4 +1,4 @@
-// Integer numerators over powers of 3: exact at the displayed word lengths (<= 4).
+// Integer numerators over powers of 3: exact at the displayed word lengths (<= 6).
 export const identity = { n: [1,0,0,0,1,0,0,0,1], d: 1 };
 export const generators = [
   { n: [1,0,0,0,0,-1,0,1,0], d: 1, name: 'A' },
@@ -57,3 +57,5 @@ export function fareyEdges(depth) {
   return edges;
 }
 export function figureEight(t) { return [(2+Math.cos(2*t))*Math.cos(3*t),(2+Math.cos(2*t))*Math.sin(3*t),Math.sin(4*t)]; }
+
+export const vertexRadius = depth => .03 * .72 ** depth;
