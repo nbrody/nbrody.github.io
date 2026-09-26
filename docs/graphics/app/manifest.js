@@ -85,6 +85,8 @@ export const VISUALIZATIONS = [
     blurb: 'Kinetic truss pods, 72 moving heads and haze: a lighting console, hour-long shows, and a MIDI mode where every key fires lights.', keys: [' ', 't', 'x', 's', 'b', 'g'] },
   { id: 'ballMachine', title: 'Glass House Ball Machine', cat: 'generative', glyph: '⚙',
     blurb: 'A George Rhoads–style ball machine in a Victorian palm house: thirty balls, six musical routes including a water slide, and real rolling physics. Chase a ball or ride one.', keys: ['1', '2', '3', '4', '5', '6', 'n', ' ', '[', ']'] },
+  { id: 'deadSphere', title: 'Dead & Company · Sphere', cat: 'generative', glyph: '⚡',
+    blurb: 'A seat inside the Las Vegas Sphere: Haight Street liftoff, the Wall of Sound, Dark Star and seven more dome scenes over the band and a dancing crowd. Steer it from your phone.', keys: [' ', 'n', 'p', 'l', 'a', 's', 'r'] },
 
   // — Botanical Studies —
   { id: 'bunya', title: 'Bunya Pine', cat: 'botanical', glyph: '🌲',

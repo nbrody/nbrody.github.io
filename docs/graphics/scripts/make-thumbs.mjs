@@ -39,6 +39,7 @@ const PREP = {
   xiaTheorem: { wait: 5000, run: "(function go() { const X = window.__xia; if (!X) return setTimeout(go, 200); X.fastForward(12.45); X.S.running = false; })()" },
   gameOfLife: { run: "document.getElementById('captions').checked = false; gameOfLife.loadStory('kingdoms'); gameOfLife.life.setBite(0.05); gameOfLife.advance(1300); document.getElementById('playBtn').click()" },
   lightDesigner: { wait: 7000, run: "ck5.loadShow('typeII', 0); ck5.engine.seek(ck5.engine.show.sections[5].start + 30, 0)" },
+  deadSphere: { wait: 8000, run: "(function go() { const S = window.__sphere; if (!S || !S.compileAll().every(Boolean)) return setTimeout(go, 200); document.getElementById('autoLook').checked = false; document.getElementById('autopilot').checked = false; S.goTo('bolt', { instant: true }); })()" },
   ballMachine: { wait: 12000, run: "(function go() { const M = window.__machine; if (!M) return setTimeout(go, 250); const box = document.getElementById('labels'); if (box.checked) box.click(); M.setView('orbit'); M.rig.fly = null; M.camera.position.set(6.4, 3.1, 2.2); M.rig.controls.target.set(1.9, 3.3, -1.1); M.camera.fov = M.rig.baseFov; M.camera.updateProjectionMatrix(); M.rig.controls.update(); })()" },
 };
 

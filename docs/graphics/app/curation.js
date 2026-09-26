@@ -794,6 +794,37 @@ export const CURATION = {
       "#labels": "Device labels",
     },
   },
+  deadSphere: {
+    simple: [
+      { sel: "#scene", label: "Scene" },
+      { sel: "#seat", label: "Seat" },
+      { sel: "#yaw", label: "Look left / right" },
+      { sel: "#pitch", label: "Look up / down" },
+      { sel: "#fov", label: "Zoom (field of view)" },
+      { sel: "#bpm", label: "Tempo (BPM)" },
+      { sel: "#trip", label: "Trip" },
+      { sel: "#autopilot", label: "Setlist autopilot" },
+      { sel: "#lightningBtn", label: "⚡ Lightning" },
+      { sel: "#nextScene", label: "Next scene" },
+      { sel: "#randomScene", label: "Surprise me" },
+      { sel: "#recenter", label: "Recenter view" },
+    ],
+    keys: [
+      { key: " ", label: "Pause / play", simple: true },
+      { key: "n", label: "Next scene" },
+      { key: "p", label: "Previous scene" },
+      { key: "l", label: "Lightning" },
+      { key: "a", label: "Autopilot on/off" },
+      { key: "s", label: "Next seat" },
+      { key: "r", label: "Recenter view" },
+    ],
+    labels: {
+      "#listen": "React to music (mic on the display)",
+      "#playPause": "Pause / play",
+    },
+    // tilt reads the display's own motion sensor, which a phone remote can't reach
+    hide: ["#tilt"],
+  },
 };
 
 export function curationFor(vizId) {
