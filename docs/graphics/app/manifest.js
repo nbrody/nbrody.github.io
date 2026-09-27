@@ -85,6 +85,8 @@ export const VISUALIZATIONS = [
     blurb: 'Kinetic truss pods, 72 moving heads and haze: a lighting console, hour-long shows, and a MIDI mode where every key fires lights.', keys: [' ', 't', 'x', 's', 'b', 'g'] },
   { id: 'ballMachine', title: 'Glass House Ball Machine', cat: 'generative', glyph: '⚙',
     blurb: 'A George Rhoads–style ball machine in a Victorian palm house: thirty balls, six musical routes including a water slide, and real rolling physics. Chase a ball or ride one.', keys: ['1', '2', '3', '4', '5', '6', 'n', ' ', '[', ']'] },
+  { id: 'beachMachine', title: 'Beach Ball Machine', cat: 'generative', glyph: '🏖',
+    blurb: 'A George Rhoads–style ball machine on a beach: beach balls spiral up inside a carved palm tree, then ride water slides, tunnel through the sand and a sandcastle, and play steel pans, a boardwalk marimba and a ship’s bell. Chase a ball or ride one.', keys: ['1', '2', '3', '4', '5', '6', 'n', ' ', '[', ']'] },
 
   // — Botanical Studies —
   { id: 'bunya', title: 'Bunya Pine', cat: 'botanical', glyph: '🌲',

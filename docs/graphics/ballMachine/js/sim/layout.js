@@ -426,7 +426,7 @@ export function rescue(world, collector, b) {
   world.stats.recovered++;
 }
 
-function predictFlight(track, below = 0.12) {
+export function predictFlight(track, below = 0.12) {
   const f = {};
   track.sample(track.L, f);
   const v = track.vEnd;
@@ -445,7 +445,7 @@ function predictFlight(track, below = 0.12) {
 
 // Run a single probe ball through the whole world from a free launch and
 // record (t, s) while it is on `track`.
-function probeTrack(world, p, v, track, setup, restore) {
+export function probeTrack(world, p, v, track, setup, restore) {
   const saveBalls = world.balls, saveT = world.t, saveEv = world.events.length;
   const lift = world.devices.find((d) => d.kind === 'lift');
   const savePhase = lift?.phase;
@@ -467,7 +467,7 @@ function probeTrack(world, p, v, track, setup, restore) {
 }
 
 // Same, but the probe starts rolling on a track (e.g. just off the lift).
-function probeFrom(world, start, s0, v0, track, setup, restore) {
+export function probeFrom(world, start, s0, v0, track, setup, restore) {
   const saveBalls = world.balls, saveT = world.t, saveEv = world.events.length;
   const lift = world.devices.find((d) => d.kind === 'lift');
   const savePhase = lift?.phase;
@@ -487,7 +487,7 @@ function probeFrom(world, start, s0, v0, track, setup, restore) {
   return samples;
 }
 
-function placeMelodyTimed(samples, melody, beat, sStart) {
+export function placeMelodyTimed(samples, melody, beat, sStart) {
   const out = [];
   if (!samples.length) { out.short = melody.length; return out; }
   let i = 0;
