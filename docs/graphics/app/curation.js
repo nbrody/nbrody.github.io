@@ -794,37 +794,6 @@ export const CURATION = {
       "#labels": "Device labels",
     },
   },
-  deadSphere: {
-    simple: [
-      { sel: "#scene", label: "Scene" },
-      { sel: "#seat", label: "Seat" },
-      { sel: "#yaw", label: "Look left / right" },
-      { sel: "#pitch", label: "Look up / down" },
-      { sel: "#fov", label: "Zoom (field of view)" },
-      { sel: "#bpm", label: "Tempo (BPM)" },
-      { sel: "#trip", label: "Trip" },
-      { sel: "#autopilot", label: "Setlist autopilot" },
-      { sel: "#lightningBtn", label: "⚡ Lightning" },
-      { sel: "#nextScene", label: "Next scene" },
-      { sel: "#randomScene", label: "Surprise me" },
-      { sel: "#recenter", label: "Recenter view" },
-    ],
-    keys: [
-      { key: " ", label: "Pause / play", simple: true },
-      { key: "n", label: "Next scene" },
-      { key: "p", label: "Previous scene" },
-      { key: "l", label: "Lightning" },
-      { key: "a", label: "Autopilot on/off" },
-      { key: "s", label: "Next seat" },
-      { key: "r", label: "Recenter view" },
-    ],
-    labels: {
-      "#listen": "React to music (mic on the display)",
-      "#playPause": "Pause / play",
-    },
-    // tilt reads the display's own motion sensor, which a phone remote can't reach
-    hide: ["#tilt"],
-  },
 };
 
 // The beach machine shares the Glass House machine's controls.
@@ -833,6 +802,54 @@ CURATION.beachMachine = {
   keys: CURATION.ballMachine.keys.map((k) => (k.key === 'n' ? { ...k, label: 'Next ball out of the palm' } : k)),
   labels: { ...CURATION.ballMachine.labels, '#nextLift': 'Follow the next ball out of the palm', '#amb': 'Surf & gulls' },
 };
+
+// The Dead & Co sphere scenes share their View / Groove / Show controls (sphereKit/kit.js).
+// Each entry lists its own scene controls; the phone gets those first, then look, zoom,
+// tempo and trip, then the scene's buttons, lightning and recenter.
+function sphereScene(fields, buttons = [], keys = []) {
+  return {
+    simple: [
+      ...fields,
+      { sel: "#yaw", label: "Look left / right" },
+      { sel: "#pitch", label: "Look up / down" },
+      { sel: "#fov", label: "Zoom (field of view)" },
+      { sel: "#bpm", label: "Tempo (BPM)" },
+      { sel: "#trip", label: "Trip" },
+      ...buttons,
+      { sel: "#lightningBtn", label: "⚡ Lightning" },
+      { sel: "#recenter", label: "Recenter view" },
+    ],
+    keys: [
+      { key: " ", label: "Pause / play", simple: true },
+      ...keys,
+      { key: "l", label: "Lightning" },
+      { key: "r", label: "Recenter view" },
+    ],
+    labels: {
+      "#listen": "React to music (mic on the display)",
+      "#playPause": "Pause / play",
+    },
+    // tilt reads the display's own motion sensor, which a phone remote can't reach
+    hide: ["#tilt"],
+  };
+}
+Object.assign(CURATION, {
+  deadLiftoff: sphereScene(
+    [{ sel: "#journey", label: "Street → orbit" }, { sel: "#ascend", label: "Keep rising" }],
+    [{ sel: "#restart", label: "Back to the street" }]),
+  deadWallOfSound: sphereScene([{ sel: "#cols" }, { sel: "#spin" }, { sel: "#wash" }]),
+  deadDarkStar: sphereScene([{ sel: "#mass" }, { sel: "#diskTilt" }, { sel: "#nebula" }]),
+  deadTieDye: sphereScene([{ sel: "#arms" }, { sel: "#twist" }, { sel: "#bleed" }]),
+  deadLiquidLight: sphereScene([{ sel: "#blobs" }, { sel: "#blobSize" }, { sel: "#film" }]),
+  deadFireMountain: sphereScene(
+    [{ sel: "#flame" }, { sel: "#embers" }, { sel: "#lava" }],
+    [{ sel: "#erupt", label: "🌋 Erupt!" }],
+    [{ key: "e", label: "Erupt" }]),
+  deadBears: sphereScene([{ sel: "#rings" }, { sel: "#march" }, { sel: "#bearSize" }]),
+  deadEyes: sphereScene([{ sel: "#bigEye" }, { sel: "#eyeCols" }, { sel: "#blinkRate" }]),
+  deadBolt: sphereScene([{ sel: "#emblemSize" }, { sel: "#arcs" }, { sel: "#flipEvery" }]),
+  deadRoses: sphereScene([{ sel: "#bloom" }, { sel: "#roseCols" }, { sel: "#petals" }]),
+});
 
 export function curationFor(vizId) {
   return (vizId && CURATION[vizId]) || null;

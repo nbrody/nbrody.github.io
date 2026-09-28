@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07040d">
+  <meta name="graphics-description" content="A sixties liquid light show all around you: drifting oil blobs with thin-film edges over domain-warped dye.">
+  <script src="../app/entry.js"></script>
+  <title>Liquid Light Show · Dead &amp; Company</title>
+  <link rel="stylesheet" href="../sphereKit/style.css">
+</head>
+<body>
+  <aside id="controls" aria-label="Scene controls">
+    <header>
+      <span>DEAD &amp; COMPANY · SPHERE</span>
+      <h1>Liquid Light Show</h1>
+      <p>Oil, water and dye on an overhead projector.</p>
+    </header>
+
+    <fieldset data-control-group="Liquid Light Show">
+      <legend>Liquid Light Show</legend>
+      <label for="blobs">Oil blobs <output></output></label><input id="blobs" type="range" min="2" max="12" step="1" value="10">
+      <label for="blobSize">Blob size <output></output></label><input id="blobSize" type="range" min="0.5" max="2" step="0.01" value="1">
+      <label for="film">Iridescence <output></output></label><input id="film" type="range" min="0" max="1.5" step="0.01" value="0.55">
+      <label for="dish">Dish rotation <output></output></label><input id="dish" type="range" min="-0.2" max="0.2" step="0.005" value="0.02">
+    </fieldset>
+
+    <footer>
+      <kbd>Space</kbd> pause · <kbd>L</kbd> lightning · <kbd>R</kbd> recenter · <kbd>H</kbd> hide panel · arrow keys look around
+      <br>Drag to look, pinch or scroll to zoom, double-tap for lightning. To steer it from a phone, open it in the Graphics Studio and pair one.
+      <br>A fan-made tribute; not affiliated with Dead &amp; Company or Sphere Entertainment.
+    </footer>
+  </aside>
+  <script type="module" src="scene.js"></script>
+</body>
+</html>

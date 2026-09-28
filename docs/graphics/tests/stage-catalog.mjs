@@ -10,7 +10,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webp': 'image/webp', '.png': 'image/png', '.svg': 'image/svg+xml' };
-let stale = false;   // true: manifest.js is the one from before deadSphere was published
+let stale = false;   // true: manifest.js is the one from before deadDarkStar was published
 let manifestFetches = 0;
 const server = http.createServer(async (req, res) => {
   const path = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -20,7 +20,7 @@ const server = http.createServer(async (req, res) => {
     let body = await readFile(file);
     if (path.endsWith('/graphics/app/manifest.js')) {
       manifestFetches++;
-      if (stale) body = Buffer.from(String(body).replaceAll("'deadSphere'", "'notPublishedYet'"));
+      if (stale) body = Buffer.from(String(body).replaceAll("'deadDarkStar'", "'notPublishedYet'"));
     }
     res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream', 'Cache-Control': 'max-age=600' });
     res.end(body);
@@ -45,9 +45,9 @@ try {
   stale = false;
   const before = manifestFetches;
   // …then follows a link to the newly published visualization.
-  await page.goto(`${base}deadSphere/index.html`);
-  await page.waitForFunction(() => document.querySelector('#viz')?.getAttribute('src')?.includes('deadSphere/index.html'));
-  assert.equal(await dockTitle(), 'Dead & Company · Sphere', 'the stale catalog was refreshed and the new visualization plays');
+  await page.goto(`${base}deadDarkStar/index.html`);
+  await page.waitForFunction(() => document.querySelector('#viz')?.getAttribute('src')?.includes('deadDarkStar/index.html'));
+  assert.equal(await dockTitle(), 'Dark Star', 'the stale catalog was refreshed and the new visualization plays');
   assert.equal(manifestFetches - before, 1, 'one network refetch of the catalog');
   assert(!new URL(page.url()).searchParams.has('fresh'), 'the retry marker is dropped from the address');
   assert.equal(await page.locator('#missing').count(), 0);

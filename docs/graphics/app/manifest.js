@@ -14,6 +14,7 @@ export const CATEGORIES = {
   fields: { label: 'Fluids & Fields', accent: '#ffa94d' },
   maps: { label: 'Maps & Scales', accent: '#b197fc' },
   generative: { label: 'Generative', accent: '#63e6be' },
+  sphere: { label: 'Dead & Co · Sphere', accent: '#e0343c' },
   botanical: { label: 'Botanical Studies', accent: '#a9e34b' },
 };
 
@@ -87,8 +88,28 @@ export const VISUALIZATIONS = [
     blurb: 'A George Rhoads–style ball machine in a Victorian palm house: thirty balls, six musical routes including a water slide, and real rolling physics. Chase a ball or ride one.', keys: ['1', '2', '3', '4', '5', '6', 'n', ' ', '[', ']'] },
   { id: 'beachMachine', title: 'Beach Ball Machine', cat: 'generative', glyph: '🏖',
     blurb: 'A George Rhoads–style ball machine on a beach: beach balls spiral up inside a carved palm tree, then ride water slides, tunnel through the sand and a sandcastle, and play steel pans, a boardwalk marimba and a ship’s bell. Chase a ball or ride one.', keys: ['1', '2', '3', '4', '5', '6', 'n', ' ', '[', ']'] },
-  { id: 'deadSphere', title: 'Dead & Company · Sphere', cat: 'generative', glyph: '⚡',
-    blurb: 'A seat inside the Las Vegas Sphere: Haight Street liftoff, the Wall of Sound, Dark Star and seven more dome scenes over the band and a dancing crowd. Steer it from your phone.', keys: [' ', 'n', 'p', 'l', 'a', 's', 'r'] },
+
+  // — Dead & Co · Sphere: full-sphere scenes around the viewer (shared runtime in sphereKit/) —
+  { id: 'deadLiftoff', title: 'Haight Street Liftoff', cat: 'sphere', glyph: '🌇',
+    blurb: 'Haight & Ashbury at golden hour, then straight up over the Panhandle, the fog and the Bay to orbit.', keys: [' ', 'l', 'r'] },
+  { id: 'deadWallOfSound', title: 'Wall of Sound', cat: 'sphere', glyph: '🔊',
+    blurb: 'The 1974 sound system wrapped all the way around you, cones pumping on the kick.', keys: [' ', 'l', 'r'] },
+  { id: 'deadDarkStar', title: 'Dark Star', cat: 'sphere', glyph: '🌌',
+    blurb: 'A black hole in a surrounding nebula: lensed sky, photon ring and a Doppler-bright disk.', keys: [' ', 'l', 'r'] },
+  { id: 'deadTieDye', title: 'Tie-Dye Sky', cat: 'sphere', glyph: '🌀',
+    blurb: 'One tie-dye spiral running from the point ahead of you to the point behind.', keys: [' ', 'l', 'r'] },
+  { id: 'deadLiquidLight', title: 'Liquid Light Show', cat: 'sphere', glyph: '💧',
+    blurb: 'Oil blobs with thin-film edges drifting over dye, a sixties light show all around.', keys: [' ', 'l', 'r'] },
+  { id: 'deadFireMountain', title: 'Fire on the Mountain', cat: 'sphere', glyph: '🌋',
+    blurb: 'A caldera: a burning ridge all around, an erupting peak ahead, a lava lake below.', keys: [' ', 'e', 'l', 'r'] },
+  { id: 'deadBears', title: 'Marching Bears', cat: 'sphere', glyph: '🐻',
+    blurb: 'Rings of dancing bears circling above and below you around a sunburst.', keys: [' ', 'l', 'r'] },
+  { id: 'deadEyes', title: 'Eyes of the World', cat: 'sphere', glyph: '👁',
+    blurb: 'One great eye where you look and a sky full of smaller ones, blinking and wandering.', keys: [' ', 'l', 'r'] },
+  { id: 'deadBolt', title: 'Lightning Bolt', cat: 'sphere', glyph: '⚡',
+    blurb: 'A red and blue disc split by a white bolt, with arcs crackling round the sky on the beat.', keys: [' ', 'l', 'r'] },
+  { id: 'deadRoses', title: 'Scarlet Roses', cat: 'sphere', glyph: '🌹',
+    blurb: 'A garden of scarlet roses over the whole sky around one great bloom, petals falling past.', keys: [' ', 'l', 'r'] },
 
   // — Botanical Studies —
   { id: 'bunya', title: 'Bunya Pine', cat: 'botanical', glyph: '🌲',
