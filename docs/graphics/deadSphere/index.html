@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07040d">
+  <meta name="graphics-description" content="A seat inside the Las Vegas Sphere for Dead &amp; Company: ten psychedelic dome scenes, the band on stage, a dancing crowd and stage beams. Pick a seat, steer the gaze and fire lightning from your phone.">
+  <script src="../app/entry.js"></script>
+  <title>Dead &amp; Company · Sphere</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="dome" aria-label="The inside of the Sphere during a Dead &amp; Company show: the dome screen, the band on stage and the crowd"></canvas>
+  <div id="caption" aria-live="polite"><b></b><span></span></div>
+  <div id="status" role="status">Tuning up…</div>
+  <div id="hintOverlay">Drag to look around · pinch or scroll to zoom · double-tap for lightning</div>
+  <button id="panelToggle" type="button" data-studio-ignore aria-controls="controls" aria-expanded="true" title="Controls (H)">☰</button>
+
+  <aside id="controls" aria-label="Show controls">
+    <header>
+      <span>DEAD FOREVER · LIVE AT SPHERE</span>
+      <h1>Dead &amp; Company</h1>
+      <p>A 16K dome, a seat in the house, and the band far below.</p>
+    </header>
+
+    <fieldset data-control-group="Show">
+      <legend>Show</legend>
+      <label for="scene">Scene</label><select id="scene"></select>
+      <label for="autopilot"><input id="autopilot" type="checkbox" checked> Setlist autopilot</label>
+      <label for="sceneSeconds">Seconds per scene <output></output></label><input id="sceneSeconds" type="range" min="15" max="180" step="5" value="50">
+      <div class="row">
+        <button id="prevScene" type="button">◀ Previous</button>
+        <button id="nextScene" type="button">Next ▶</button>
+      </div>
+      <div class="row">
+        <button id="randomScene" type="button">Surprise me</button>
+        <button id="lightningBtn" type="button">⚡ Lightning</button>
+      </div>
+      <button id="playPause" type="button">❚❚ Pause</button>
+    </fieldset>
+
+    <fieldset data-control-group="Groove">
+      <legend>Groove</legend>
+      <label for="bpm">Tempo (BPM) <output></output></label><input id="bpm" type="range" min="60" max="180" step="1" value="112">
+      <label for="pulse">Beat pulse <output></output></label><input id="pulse" type="range" min="0" max="1" step="0.01" value="0.7">
+      <label for="speed">Motion speed <output></output></label><input id="speed" type="range" min="0" max="2" step="0.01" value="1">
+      <label for="trip">Trip (warp) <output></output></label><input id="trip" type="range" min="0" max="1" step="0.01" value="0.15">
+      <label for="hue">Color shift (°) <output></output></label><input id="hue" type="range" min="-180" max="180" step="1" value="0">
+      <label for="listen"><input id="listen" type="checkbox"> React to music in the room (microphone)</label>
+    </fieldset>
+
+    <fieldset data-control-group="Seat &amp; view">
+      <legend>Seat &amp; view</legend>
+      <label for="seat">Seat</label>
+      <select id="seat">
+        <option value="floor">Floor (GA)</option>
+        <option value="lower">Section 100</option>
+        <option value="mid" selected>Section 200</option>
+        <option value="upper">Section 300</option>
+        <option value="center">Floating at the center</option>
+      </select>
+      <label for="lens">Lens</label>
+      <select id="lens">
+        <option value="rect">Natural</option>
+        <option value="fisheye">Fisheye (immersive)</option>
+      </select>
+      <label for="yaw">Look left / right (°) <output></output></label><input id="yaw" type="range" min="-180" max="180" step="1" value="0">
+      <label for="pitch">Look up / down (°) <output></output></label><input id="pitch" type="range" min="-40" max="85" step="1" value="10">
+      <label for="fov">Field of view (°) <output></output></label><input id="fov" type="range" min="30" max="170" step="1" value="100">
+      <label for="autoLook"><input id="autoLook" type="checkbox" checked> Let the gaze drift</label>
+      <label for="tilt"><input id="tilt" type="checkbox"> Tilt this device to look</label>
+      <button id="recenter" type="button">Recenter view</button>
+    </fieldset>
+
+    <fieldset data-control-group="Venue">
+      <legend>Venue</legend>
+      <label for="band"><input id="band" type="checkbox" checked> Band on stage</label>
+      <label for="crowd"><input id="crowd" type="checkbox" checked> Crowd around you</label>
+      <label for="phones">Phone lights <output></output></label><input id="phones" type="range" min="0" max="1" step="0.01" value="0.5">
+      <label for="beams">Stage beams <output></output></label><input id="beams" type="range" min="0" max="1" step="0.01" value="0.6">
+      <label for="brightness">Screen brightness <output></output></label><input id="brightness" type="range" min="0.3" max="1.6" step="0.01" value="1">
+      <label for="bloom">Glow <output></output></label><input id="bloom" type="range" min="0" max="1" step="0.01" value="0.35">
+      <label for="captions"><input id="captions" type="checkbox" checked> Scene captions</label>
+      <label for="quality">Render quality</label>
+      <select id="quality">
+        <option value="auto" selected>Auto</option>
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+    </fieldset>
+
+    <footer>
+      <kbd>Space</kbd> pause · <kbd>N</kbd>/<kbd>P</kbd> next/previous scene · <kbd>L</kbd> lightning · <kbd>A</kbd> autopilot · <kbd>S</kbd> next seat · <kbd>R</kbd> recenter · <kbd>H</kbd> hide panel
+      <br>Phone: open this in the Graphics Studio and pair a phone, or drag, pinch, double-tap and tilt right here.
+      <br>A fan-made tribute; not affiliated with Dead &amp; Company or Sphere Entertainment.
+    </footer>
+  </aside>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
