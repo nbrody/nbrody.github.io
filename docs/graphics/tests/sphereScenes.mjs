@@ -37,7 +37,7 @@ try {
   }
 
   // A phone remote drives a scene from its curated Simple page.
-  await stage.goto(`${base}stage.html?viz=deadLiftoff`);
+  await stage.goto(`${base}stage.html?viz=deadSphere/liftoff`);
   await stage.frameLocator('#viz').locator('#dome[data-ready=true]').waitFor({ timeout: 120000 });
   const room = new URL(stage.url()).searchParams.get('room');
   await remote.goto(`${base}remote.html?room=${room}`);

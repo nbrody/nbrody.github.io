@@ -347,7 +347,7 @@ function hideTransition() { qs('#transition').classList.remove('show'); }
 
 // Shown instead of playing anything when the link names a visualization the catalog lacks.
 function showMissing(id) {
-  const folder = /^[\w-]+$/.test(id);
+  const folder = /^[\w-]+(\/[\w-]+)*$/.test(id);   // e.g. mandelbrot, deadSphere/liftoff
   document.body.append(el('div', { id: 'missing', role: 'alert' }, el('div', { class: 'missing-card pc-glass' }, [
     el('div', { class: 'g', 'aria-hidden': 'true' }, '✦'),
     el('h1', {}, `Can't find “${id}”`),
