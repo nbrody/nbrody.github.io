@@ -1052,7 +1052,12 @@ const volCurve = (v) => v * v * v;                     // perceptual (cubic) vol
 const SEND_BUCKETS = [0.85, 0.6, 0.4, 0.25];           // reverb send by distance: <3 m, <8 m, <20 m, beyond
 
 export class AudioEngine {
-  /** @param {{context?: BaseAudioContext, hrtf?: boolean}} opts */
+  /**
+   * @param {{context?: BaseAudioContext, hrtf?: boolean, rt60?: number, preDelay?: number,
+   *          instruments?: Object<string, Function>, Ambience?: Function}} opts
+   *   rt60/preDelay shape the synthesized room; `instruments` adds voices ((engine, params, time,
+   *   velocity) → schedules a group, like the built-in ones); `Ambience` replaces the birds & crickets.
+   */
   constructor(opts = {}) {
     this._opts = opts || {};
     this._ctx = this._opts.context || null;
@@ -1122,7 +1127,7 @@ export class AudioEngine {
     const rin = G(1), rhp = c.createBiquadFilter(), conv = c.createConvolver();
     rhp.type = 'highpass'; rhp.frequency.value = 170; rhp.Q.value = 0.6;
     conv.normalize = false;
-    const ir = () => { conv.buffer = makeConservatoryIR(c, 2.4, 0.025); };
+    const ir = () => { conv.buffer = makeConservatoryIR(c, this._opts.rt60 ?? 2.4, this._opts.preDelay ?? 0.025); };
     if (this._offline) ir(); else setTimeout(ir, 0);     // ~40 ms of JS: keep it out of the user gesture
     this._revG = G(this._rev * REV_K);
     rin.connect(rhp); rhp.connect(conv); conv.connect(this._revG); this._revG.connect(this._mix);
@@ -1174,7 +1179,7 @@ export class AudioEngine {
     const changed = lv !== this._ambLevel || hr !== this._ambHour;
     this._ambLevel = lv; this._ambHour = hr;
     if (!this._built) return;
-    if (!this._amb && lv > 0) this._amb = new Ambience(this);
+    if (!this._amb && lv > 0) this._amb = new (this._opts.Ambience || Ambience)(this);
     if (this._amb && (changed || this._amb.level !== lv)) this._amb.set(lv, hr);
   }
 
@@ -1217,7 +1222,7 @@ export class AudioEngine {
   /** Schedule a one-shot at ctx.currentTime + 0.012 + delay. Cheap; unknown instruments are ignored. */
   hit(instrument, p) {
     if (!this._built || this._muted || !this._live()) return;
-    const fn = INSTRUMENTS[instrument];
+    const fn = INSTRUMENTS[instrument] || this._opts.instruments?.[instrument];
     if (!fn) return;
     p = p || {};
     const vel = clamp(fin(p.velocity, 0.7), 0, 1);

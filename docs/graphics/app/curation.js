@@ -827,6 +827,13 @@ export const CURATION = {
   },
 };
 
+// The beach machine shares the Glass House machine's controls.
+CURATION.beachMachine = {
+  ...CURATION.ballMachine,
+  keys: CURATION.ballMachine.keys.map((k) => (k.key === 'n' ? { ...k, label: 'Next ball out of the palm' } : k)),
+  labels: { ...CURATION.ballMachine.labels, '#nextLift': 'Follow the next ball out of the palm', '#amb': 'Surf & gulls' },
+};
+
 export function curationFor(vizId) {
   return (vizId && CURATION[vizId]) || null;
 }

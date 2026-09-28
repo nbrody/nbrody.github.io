@@ -24,9 +24,13 @@ export const PRESETS = {
 };
 
 export class CameraRig {
-  constructor(camera, dom, env) {
+  // opts.presets replaces the named views; opts.adjust(ball, want, look, dt)
+  // may move the chase camera's wanted position or aim (return true to snap).
+  constructor(camera, dom, env, opts = {}) {
     this.camera = camera;
     this.env = env;
+    this.presets = opts.presets ?? PRESETS;
+    this.adjust = opts.adjust ?? null;
     this.mode = 'orbit';
     this.ball = null;
     this.controls = new OrbitControls(camera, dom);
@@ -36,8 +40,8 @@ export class CameraRig {
     this.controls.maxDistance = 13;
     this.controls.maxPolarAngle = Math.PI * 0.53;
     this.controls.autoRotateSpeed = 0.35;
-    this.controls.target.set(...PRESETS.overview.target);
-    camera.position.set(...PRESETS.overview.pos);
+    this.controls.target.set(...this.presets.overview.target);
+    camera.position.set(...this.presets.overview.pos);
     this.fly = null;               // preset fly-to animation
     this.dir = new THREE.Vector3(1, 0, 0);
     this.hdir = new THREE.Vector3(1, 0, 0);
@@ -70,7 +74,7 @@ export class CameraRig {
   }
 
   flyTo(name) {
-    const p = PRESETS[name];
+    const p = this.presets[name];
     if (!p) return;
     if (this.mode !== 'orbit') this.setMode('orbit');
     this.fly = {
@@ -135,13 +139,17 @@ export class CameraRig {
       want.y += 0.15 + Math.min(0.15, sp * 0.03) + Math.max(0, -b.vel.y) * 0.08;
       if (b.mode === 'carried') {
         // riding a mechanism: hold a steady three-quarter view close to the ball
-        const k = b.carrier.kind === 'lift' ? 0.42 : 0.55;
-        want.set(p.x + k * 0.8, p.y + 0.06, p.z + k * 0.6);
+        if (b.carrier.chaseView) b.carrier.chaseView(b, want);
+        else {
+          const k = b.carrier.kind === 'lift' ? 0.42 : 0.55;
+          want.set(p.x + k * 0.8, p.y + 0.06, p.z + k * 0.6);
+        }
       }
-      const k = 1 - Math.exp(-dt * 5);
-      this.smoothPos.lerp(want, k);
       const look = tmp2.copy(p).addScaledVector(this.dir, 0.25);
-      this.smoothLook.lerp(look, 1 - Math.exp(-dt * 9));
+      const snap = this.adjust ? this.adjust(b, want, look, dt) : false;
+      const k = snap ? 1 : 1 - Math.exp(-dt * 5);
+      this.smoothPos.lerp(want, k);
+      this.smoothLook.lerp(look, snap ? 1 : 1 - Math.exp(-dt * 9));
       cam.position.copy(this.smoothPos);
       this._clamp(cam.position);
       cam.up.set(0, 1, 0);
