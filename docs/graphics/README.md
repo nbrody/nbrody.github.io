@@ -11,6 +11,13 @@ Each catalog visualization opens in a shared stage with a floating controls
 panel and a dock. Direct links such as `donutSpiral/index.html` enter the same
 shell. Use `?standalone=1` to open the original tool without the shell.
 
+If a link names a visualization the catalog doesn't list, the stage refetches
+`manifest.js` and `curation.js` from the network and reloads once. That is
+usually a browser still holding the pre-deploy catalog, which GitHub Pages
+caches for ten minutes. If the id is still unknown, the stage says so and
+offers the standalone page, the library, or playing everything. It never
+quietly plays a different visualization.
+
 ## Simple and Advanced controls
 
 Every control surface (the stage panel and the remote) opens on a **Simple**
@@ -180,6 +187,10 @@ Install Playwright in your development environment, serve the repository on
 port 8124, and run `node docs/graphics/tests/studio.mjs`. The test uses installed
 Google Chrome on macOS. Override `CHROME_PATH`, `GRAPHICS_TEST_URL`, or
 `PLAYWRIGHT_MODULE` for another environment.
+
+`tests/stage-catalog.mjs` runs its own server with Pages-style caching and
+checks that a stale cached catalog recovers after a deploy, and that an
+unknown id shows the message instead of playing something else.
 
 `tests/phone-pairing.mjs` exercises the real Firebase backend with isolated browser
 profiles: phone queue/payload control, local/cloud deduplication, reconnect, QR
