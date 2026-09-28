@@ -803,7 +803,7 @@ CURATION.beachMachine = {
   labels: { ...CURATION.ballMachine.labels, '#nextLift': 'Follow the next ball out of the palm', '#amb': 'Surf & gulls' },
 };
 
-// The Dead & Co sphere scenes share their View / Groove / Show controls (sphereKit/kit.js).
+// The Dead & Co sphere scenes share their View / Groove / Show controls (deadSphere/kit/kit.js).
 // Each entry lists its own scene controls; the phone gets those first, then look, zoom,
 // tempo and trip, then the scene's buttons, lightning and recenter.
 function sphereScene(fields, buttons = [], keys = []) {
@@ -834,21 +834,21 @@ function sphereScene(fields, buttons = [], keys = []) {
   };
 }
 Object.assign(CURATION, {
-  deadLiftoff: sphereScene(
+  'deadSphere/liftoff': sphereScene(
     [{ sel: "#journey", label: "Street → orbit" }, { sel: "#ascend", label: "Keep rising" }],
     [{ sel: "#restart", label: "Back to the street" }]),
-  deadWallOfSound: sphereScene([{ sel: "#cols" }, { sel: "#spin" }, { sel: "#wash" }]),
-  deadDarkStar: sphereScene([{ sel: "#mass" }, { sel: "#diskTilt" }, { sel: "#nebula" }]),
-  deadTieDye: sphereScene([{ sel: "#arms" }, { sel: "#twist" }, { sel: "#bleed" }]),
-  deadLiquidLight: sphereScene([{ sel: "#blobs" }, { sel: "#blobSize" }, { sel: "#film" }]),
-  deadFireMountain: sphereScene(
+  'deadSphere/wallOfSound': sphereScene([{ sel: "#cols" }, { sel: "#spin" }, { sel: "#wash" }]),
+  'deadSphere/darkStar': sphereScene([{ sel: "#mass" }, { sel: "#diskTilt" }, { sel: "#nebula" }]),
+  'deadSphere/tieDye': sphereScene([{ sel: "#arms" }, { sel: "#twist" }, { sel: "#bleed" }]),
+  'deadSphere/liquidLight': sphereScene([{ sel: "#blobs" }, { sel: "#blobSize" }, { sel: "#film" }]),
+  'deadSphere/fireMountain': sphereScene(
     [{ sel: "#flame" }, { sel: "#embers" }, { sel: "#lava" }],
     [{ sel: "#erupt", label: "🌋 Erupt!" }],
     [{ key: "e", label: "Erupt" }]),
-  deadBears: sphereScene([{ sel: "#rings" }, { sel: "#march" }, { sel: "#bearSize" }]),
-  deadEyes: sphereScene([{ sel: "#bigEye" }, { sel: "#eyeCols" }, { sel: "#blinkRate" }]),
-  deadBolt: sphereScene([{ sel: "#emblemSize" }, { sel: "#arcs" }, { sel: "#flipEvery" }]),
-  deadRoses: sphereScene([{ sel: "#bloom" }, { sel: "#roseCols" }, { sel: "#petals" }]),
+  'deadSphere/bears': sphereScene([{ sel: "#paradeCount" }, { sel: "#march" }, { sel: "#bearSize" }, { sel: "#lanterns" }, { sel: "#starBears" }]),
+  'deadSphere/eyes': sphereScene([{ sel: "#bigEye" }, { sel: "#eyeCols" }, { sel: "#blinkRate" }]),
+  'deadSphere/bolt': sphereScene([{ sel: "#emblemSize" }, { sel: "#arcs" }, { sel: "#flipEvery" }]),
+  'deadSphere/roses': sphereScene([{ sel: "#bloom" }, { sel: "#roseCols" }, { sel: "#petals" }]),
 });
 
 export function curationFor(vizId) {
