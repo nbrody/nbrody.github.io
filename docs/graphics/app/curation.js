@@ -796,6 +796,61 @@ export const CURATION = {
   },
 };
 
+// The beach machine shares the Glass House machine's controls.
+CURATION.beachMachine = {
+  ...CURATION.ballMachine,
+  keys: CURATION.ballMachine.keys.map((k) => (k.key === 'n' ? { ...k, label: 'Next ball out of the palm' } : k)),
+  labels: { ...CURATION.ballMachine.labels, '#nextLift': 'Follow the next ball out of the palm', '#amb': 'Surf & gulls' },
+};
+
+// The Dead & Co sphere scenes share their View / Groove / Show controls (deadSphere/kit/kit.js).
+// Each entry lists its own scene controls; the phone gets those first, then look, zoom,
+// tempo and trip, then the scene's buttons, lightning and recenter.
+function sphereScene(fields, buttons = [], keys = []) {
+  return {
+    simple: [
+      ...fields,
+      { sel: "#yaw", label: "Look left / right" },
+      { sel: "#pitch", label: "Look up / down" },
+      { sel: "#fov", label: "Zoom (field of view)" },
+      { sel: "#bpm", label: "Tempo (BPM)" },
+      { sel: "#trip", label: "Trip" },
+      ...buttons,
+      { sel: "#lightningBtn", label: "⚡ Lightning" },
+      { sel: "#recenter", label: "Recenter view" },
+    ],
+    keys: [
+      { key: " ", label: "Pause / play", simple: true },
+      ...keys,
+      { key: "l", label: "Lightning" },
+      { key: "r", label: "Recenter view" },
+    ],
+    labels: {
+      "#listen": "React to music (mic on the display)",
+      "#playPause": "Pause / play",
+    },
+    // tilt reads the display's own motion sensor, which a phone remote can't reach
+    hide: ["#tilt"],
+  };
+}
+Object.assign(CURATION, {
+  'deadSphere/liftoff': sphereScene(
+    [{ sel: "#journey", label: "Street → orbit" }, { sel: "#ascend", label: "Keep rising" }],
+    [{ sel: "#restart", label: "Back to the street" }]),
+  'deadSphere/wallOfSound': sphereScene([{ sel: "#cols" }, { sel: "#spin" }, { sel: "#wash" }]),
+  'deadSphere/darkStar': sphereScene([{ sel: "#mass" }, { sel: "#diskTilt" }, { sel: "#nebula" }]),
+  'deadSphere/tieDye': sphereScene([{ sel: "#arms" }, { sel: "#twist" }, { sel: "#bleed" }]),
+  'deadSphere/liquidLight': sphereScene([{ sel: "#blobs" }, { sel: "#blobSize" }, { sel: "#film" }]),
+  'deadSphere/fireMountain': sphereScene(
+    [{ sel: "#flame" }, { sel: "#embers" }, { sel: "#lava" }],
+    [{ sel: "#erupt", label: "🌋 Erupt!" }],
+    [{ key: "e", label: "Erupt" }]),
+  'deadSphere/bears': sphereScene([{ sel: "#paradeCount" }, { sel: "#march" }, { sel: "#bearSize" }, { sel: "#lanterns" }, { sel: "#starBears" }]),
+  'deadSphere/eyes': sphereScene([{ sel: "#bigEye" }, { sel: "#eyeCols" }, { sel: "#blinkRate" }]),
+  'deadSphere/bolt': sphereScene([{ sel: "#emblemSize" }, { sel: "#arcs" }, { sel: "#flipEvery" }]),
+  'deadSphere/roses': sphereScene([{ sel: "#bloom" }, { sel: "#roseCols" }, { sel: "#petals" }]),
+});
+
 export function curationFor(vizId) {
   return (vizId && CURATION[vizId]) || null;
 }

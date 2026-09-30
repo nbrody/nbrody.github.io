@@ -14,6 +14,7 @@ export const CATEGORIES = {
   fields: { label: 'Fluids & Fields', accent: '#ffa94d' },
   maps: { label: 'Maps & Scales', accent: '#b197fc' },
   generative: { label: 'Generative', accent: '#63e6be' },
+  sphere: { label: 'Dead & Co · Sphere', accent: '#e0343c' },
   botanical: { label: 'Botanical Studies', accent: '#a9e34b' },
 };
 
@@ -85,6 +86,30 @@ export const VISUALIZATIONS = [
     blurb: 'Kinetic truss pods, 72 moving heads and haze: a lighting console, hour-long shows, and a MIDI mode where every key fires lights.', keys: [' ', 't', 'x', 's', 'b', 'g'] },
   { id: 'ballMachine', title: 'Glass House Ball Machine', cat: 'generative', glyph: '⚙',
     blurb: 'A George Rhoads–style ball machine in a Victorian palm house: thirty balls, six musical routes including a water slide, and real rolling physics. Chase a ball or ride one.', keys: ['1', '2', '3', '4', '5', '6', 'n', ' ', '[', ']'] },
+  { id: 'beachMachine', title: 'Beach Ball Machine', cat: 'generative', glyph: '🏖',
+    blurb: 'A George Rhoads–style ball machine on a beach: beach balls spiral up inside a carved palm tree, then ride water slides, tunnel through the sand and a sandcastle, and play steel pans, a boardwalk marimba and a ship’s bell. Chase a ball or ride one.', keys: ['1', '2', '3', '4', '5', '6', 'n', ' ', '[', ']'] },
+
+  // — Dead & Co · Sphere: full-sphere scenes around the viewer, all under deadSphere/ (shared runtime in deadSphere/kit/) —
+  { id: 'deadSphere/liftoff', title: 'Haight Street Liftoff', cat: 'sphere', glyph: '🌇',
+    blurb: 'Sunset straight down Haight Street at Ashbury, then straight up over the Panhandle, the fog and the Bay to orbit.', keys: [' ', 'l', 'r'] },
+  { id: 'deadSphere/wallOfSound', title: 'Wall of Sound', cat: 'sphere', glyph: '🔊',
+    blurb: 'The 1974 sound system wrapped all the way around you, cones pumping on the kick.', keys: [' ', 'l', 'r'] },
+  { id: 'deadSphere/darkStar', title: 'Dark Star', cat: 'sphere', glyph: '🌌',
+    blurb: 'A black hole in a surrounding nebula: lensed sky, photon ring and a Doppler-bright disk.', keys: [' ', 'l', 'r'] },
+  { id: 'deadSphere/tieDye', title: 'Tie-Dye Sky', cat: 'sphere', glyph: '🌀',
+    blurb: 'One tie-dye spiral running from the point ahead of you to the point behind.', keys: [' ', 'l', 'r'] },
+  { id: 'deadSphere/liquidLight', title: 'Liquid Light Show', cat: 'sphere', glyph: '💧',
+    blurb: 'Oil blobs with thin-film edges drifting over dye, a sixties light show all around.', keys: [' ', 'l', 'r'] },
+  { id: 'deadSphere/fireMountain', title: 'Fire on the Mountain', cat: 'sphere', glyph: '🌋',
+    blurb: 'A caldera: a burning ridge all around, an erupting peak ahead, a lava lake below.', keys: [' ', 'e', 'l', 'r'] },
+  { id: 'deadSphere/bears', title: 'Marching Bears', cat: 'sphere', glyph: '🐻',
+    blurb: 'A parade of dancing bears on a rainbow path round a twilight lake, lanterns on the water, bear constellations overhead.', keys: [' ', 'l', 'r'] },
+  { id: 'deadSphere/eyes', title: 'Eyes of the World', cat: 'sphere', glyph: '👁',
+    blurb: 'One great eye where you look and a sky full of smaller ones, blinking and wandering.', keys: [' ', 'l', 'r'] },
+  { id: 'deadSphere/bolt', title: 'Lightning Bolt', cat: 'sphere', glyph: '⚡',
+    blurb: 'A red and blue disc split by a white bolt, with arcs crackling round the sky on the beat.', keys: [' ', 'l', 'r'] },
+  { id: 'deadSphere/roses', title: 'Scarlet Roses', cat: 'sphere', glyph: '🌹',
+    blurb: 'A garden of scarlet roses over the whole sky around one great bloom, petals falling past.', keys: [' ', 'l', 'r'] },
 
   // — Botanical Studies —
   { id: 'bunya', title: 'Bunya Pine', cat: 'botanical', glyph: '🌲',
@@ -106,14 +131,19 @@ export function vizById(id) {
   return _byId.get(id) || null;
 }
 
-/** Relative path (from the graphics root) to a visualization's entry page. */
+/** Relative path (from the graphics root) to a visualization's entry page. Ids may be nested ("deadSphere/liftoff"). */
 export function vizPath(id) {
   return `${id}/index.html`;
 }
 
+/** File name of a visualization's preview image in thumbs/ (nested ids flatten: deadSphere-liftoff.webp). */
+export function thumbName(id) {
+  return `${id.replaceAll('/', '-')}.webp`;
+}
+
 /** Relative path (from the graphics root) to a visualization's preview image. */
 export function vizThumb(id) {
-  return `thumbs/${id}.webp`;
+  return `thumbs/${thumbName(id)}`;
 }
 
 /** Accent color for a visualization (falls back to a neutral). */

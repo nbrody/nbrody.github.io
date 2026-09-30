@@ -41,6 +41,27 @@ function readURLPayload(raw) {
   try { return normalizePayload(raw ? JSON.parse(raw) : {}); }
   catch (e) { alert(e.message); return {}; }
 }
+
+// A ?viz= the catalog doesn't list usually means this browser still holds an older
+// manifest.js: GitHub Pages lets browsers keep it for ten minutes after a deploy. Refetch
+// the catalog from the network and reload once; if the id is still unknown, say so
+// instead of quietly playing something else.
+let missing = null;
+{
+  const p = params();
+  if (p.viz && !vizById(p.viz) && !(p.pl && PlaylistStore.get(p.pl))) {
+    const url = new URL(location.href);
+    if (!url.searchParams.has('fresh')) {
+      try {
+        await Promise.all(['manifest.js', 'curation.js'].map((f) => fetch(new URL(f, import.meta.url), { cache: 'reload' })));
+        url.searchParams.set('fresh', '1');
+        location.replace(url.href);
+        await new Promise(() => {});   // the reload replaces this page
+      } catch { /* offline: fall through to the message */ }
+    }
+    missing = p.viz;
+  }
+}
 let playlist = resolvePlaylist();
 if (!playlist || !playlist.items.length) {
   playlist = { name: 'All visualizations', advance: 'manual', loop: true, defaultDuration: 30, items: VISUALIZATIONS.map(v => ({ vizId: v.id })) };
@@ -71,13 +92,14 @@ function shuffleOrder() {
 }
 
 function currentItem() { return order[rt.index]; }
-function currentViz() { return vizById(currentItem()?.vizId); }
+function currentViz() { return missing ? null : vizById(currentItem()?.vizId); }
 function durationFor(i) { return (order[i]?.duration ?? playlist.defaultDuration ?? 30); }
 
 // ── transport (stage role) ───────────────────────────────────────────────────
 const sessionURL = new URL(location.href);
-if (!sessionURL.searchParams.has('room')) {
-  sessionURL.searchParams.set('room', sessionId());
+if (!sessionURL.searchParams.has('room') || sessionURL.searchParams.has('fresh')) {
+  if (!sessionURL.searchParams.has('room')) sessionURL.searchParams.set('room', sessionId());
+  sessionURL.searchParams.delete('fresh');
   history.replaceState(null, '', sessionURL);
 }
 localStorage.setItem('graphics.lastRoom', sessionURL.searchParams.get('room'));
@@ -186,6 +208,8 @@ transport.onAny((msg) => handle(msg.type, msg.payload));
 
 // ── playback ─────────────────────────────────────────────────────────────────
 function load(index) {
+  missing = null;
+  qs('#missing')?.remove();
   loadGeneration++;
   lastSchema = "";
   clearTimeout(scanTimer);
@@ -321,6 +345,22 @@ function showTransition(v) {
 }
 function hideTransition() { qs('#transition').classList.remove('show'); }
 
+// Shown instead of playing anything when the link names a visualization the catalog lacks.
+function showMissing(id) {
+  const folder = /^[\w-]+(\/[\w-]+)*$/.test(id);   // e.g. mandelbrot, deadSphere/liftoff
+  document.body.append(el('div', { id: 'missing', role: 'alert' }, el('div', { class: 'missing-card pc-glass' }, [
+    el('div', { class: 'g', 'aria-hidden': 'true' }, '✦'),
+    el('h1', {}, `Can't find “${id}”`),
+    el('p', {}, 'This link names a visualization that isn\'t in the catalog, even after reloading it. Check the link, or if it was published in the last few minutes, try again shortly.'),
+    el('div', { class: 'missing-actions' }, [
+      folder ? el('a', { class: 'btn primary', href: `${id}/index.html?standalone=1` }, 'Try opening it on its own') : null,
+      el('a', { class: 'btn', href: 'index.html' }, 'Browse the library'),
+      el('button', { class: 'btn ghost', type: 'button', onclick: () => load(0) }, 'Play all visualizations'),
+    ]),
+  ])));
+  notice(`Can't find the visualization “${id}”.`);
+}
+
 // Simple / Advanced / Studio pages in the panel; Simple is the default.
 const panelPager = mountPager({ tabs: qs('#panelTabs'), pager: qs('#panelPager'), initial: 0 });
 const controlsView = createControlsView({
@@ -394,6 +434,6 @@ window.addEventListener('beforeunload', () => transport.send(EVT.GOODBYE));
 mountPairing(qs('#phonePairing'), transport);
 setPresentation(presentation);
 transport.start();
-load(0);
+if (missing) { showMissing(missing); syncUI(); } else load(0);
 poke();
 broadcastState();

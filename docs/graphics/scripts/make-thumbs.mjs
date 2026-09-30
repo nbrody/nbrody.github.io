@@ -15,7 +15,7 @@ import { mkdtempSync, writeFileSync, rmSync, mkdirSync, readFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { VISUALIZATIONS } from '../app/manifest.js';
+import { VISUALIZATIONS, thumbName } from '../app/manifest.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, '..', 'thumbs');
@@ -39,7 +39,11 @@ const PREP = {
   xiaTheorem: { wait: 5000, run: "(function go() { const X = window.__xia; if (!X) return setTimeout(go, 200); X.fastForward(12.45); X.S.running = false; })()" },
   gameOfLife: { run: "document.getElementById('captions').checked = false; gameOfLife.loadStory('kingdoms'); gameOfLife.life.setBite(0.05); gameOfLife.advance(1300); document.getElementById('playBtn').click()" },
   lightDesigner: { wait: 7000, run: "ck5.loadShow('typeII', 0); ck5.engine.seek(ck5.engine.show.sections[5].start + 30, 0)" },
+  // the Dead & Co sphere scenes: hold the gaze still; the liftoff waits on the corner at golden hour
+  ...Object.fromEntries(['liftoff', 'wallOfSound', 'darkStar', 'tieDye', 'liquidLight', 'fireMountain', 'bears', 'eyes', 'bolt', 'roses'].map((s) => `deadSphere/${s}`)
+    .map((id) => [id, { wait: 6000, run: "document.getElementById('autoLook').checked = false; const a = document.getElementById('ascend'); if (a) a.checked = false" }])),
   ballMachine: { wait: 12000, run: "(function go() { const M = window.__machine; if (!M) return setTimeout(go, 250); const box = document.getElementById('labels'); if (box.checked) box.click(); M.setView('orbit'); M.rig.fly = null; M.camera.position.set(6.4, 3.1, 2.2); M.rig.controls.target.set(1.9, 3.3, -1.1); M.camera.fov = M.rig.baseFov; M.camera.updateProjectionMatrix(); M.rig.controls.update(); })()" },
+  beachMachine: { wait: 12000, run: "(function go() { const M = window.__machine; if (!M) return setTimeout(go, 250); const box = document.getElementById('labels'); if (box.checked) box.click(); M.setView('orbit'); M.rig.fly = null; M.setHour(16.5, false); M.camera.position.set(0.9, 4.6, 7.4); M.rig.controls.target.set(-0.4, 2.7, -1.3); M.camera.fov = M.rig.baseFov; M.camera.updateProjectionMatrix(); M.rig.controls.update(); })()" },
 };
 
 const ids = process.argv.slice(2).length ? process.argv.slice(2) : VISUALIZATIONS.map((v) => v.id);
@@ -132,7 +136,7 @@ try {
         clip: { x: 0, y: 0, width: W, height: H, scale: SCALE },
       });
       const buf = Buffer.from(data, 'base64');
-      writeFileSync(join(OUT, `${id}.webp`), buf);
+      writeFileSync(join(OUT, thumbName(id)), buf);
       console.log(`${(buf.length / 1024).toFixed(1)} KB`);
     } catch (err) {
       console.log(`failed: ${err.message}`);

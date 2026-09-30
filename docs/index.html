@@ -67,6 +67,28 @@
       text-decoration: none;
     }
 
+    /* other parts of the site, beside the name */
+    .nav-subs {
+      display: flex;
+      gap: 1.5rem;
+      margin-left: 1.5rem;
+    }
+
+    .nav-sub {
+      font-family: 'Josefin Sans', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 300;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .nav-sub:hover {
+      color: var(--ink);
+    }
+
     .nav-links {
       display: flex;
       gap: 2.5rem;
@@ -497,10 +519,13 @@
 
       nav {
         padding: 1rem 1.5rem;
+        flex-wrap: wrap;
+        row-gap: 0.5rem;
       }
 
       .nav-links {
-        gap: 1.5rem;
+        flex-wrap: wrap;
+        gap: 0.4rem 1.5rem;
       }
 
       .talk-grid {
@@ -525,7 +550,10 @@
 
   <nav>
     <a class="nav-name" href="#home">Nic Brody</a>
-    <a class="nav-name" href="GeometryofLinearGroups/index.html" style="margin-left: 1.5rem; font-size: 0.7rem; font-family: 'Josefin Sans', sans-serif; font-weight: 300; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); text-decoration: none;">GOLG</a>
+    <span class="nav-subs">
+      <a class="nav-sub" href="GeometryofLinearGroups/index.html">GOLG</a>
+      <a class="nav-sub" href="graphics/index.html">Graphics</a>
+    </span>
     <ul class="nav-links">
       <li><a href="#research">Research</a></li>
       <li><a href="#expository">Expository</a></li>

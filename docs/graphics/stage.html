@@ -30,6 +30,17 @@
     #transition.show { opacity: 1; pointer-events: all; }
     #transition .g { font-size: 4rem; filter: drop-shadow(0 6px 24px rgba(0,0,0,0.6)); }
     #transition .t { font-size: 1.2rem; color: var(--ink-dim); letter-spacing: 0.02em; }
+    /* the link named a visualization the catalog doesn't have */
+    #missing {
+      position: fixed; inset: 0; z-index: 35; display: grid; place-items: center; padding: 16px;
+      background: radial-gradient(800px 500px at 50% 40%, #0e1224, #04050a);
+    }
+    .missing-card { width: min(440px, 100%); padding: 28px 24px; border-radius: var(--r-xl); text-align: center; }
+    .missing-card .g { font-size: 2.6rem; color: var(--accent); }
+    .missing-card h1 { font-size: 1.25rem; margin: 0.4rem 0 0.6rem; overflow-wrap: anywhere; }
+    .missing-card p { margin: 0 0 1.2rem; color: var(--ink-dim); font-size: 0.9rem; line-height: 1.55; }
+    .missing-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+    .missing-actions .btn { justify-content: center; min-height: 42px; text-decoration: none; }
     .spin { width: 26px; height: 26px; border: 2px solid var(--stroke-strong); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
