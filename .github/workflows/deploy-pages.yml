@@ -30,7 +30,7 @@ jobs:
           if (config.projectId !== 'golgf26' || typeof config.apiKey !== 'string' || !config.apiKey) {
             throw new Error('Invalid seminar Firebase configuration');
           }
-          fs.writeFileSync('docs/GeometryofLinearGroups/Fall26/firebase-config.js',
+          fs.writeFileSync('docs/GOLGFall26/firebase-config.js',
             '// Generated at deployment. Firebase browser configuration is public.\n' +
             'export const firebaseConfig = ' + JSON.stringify(config, null, 2) + ';\n');
           JS

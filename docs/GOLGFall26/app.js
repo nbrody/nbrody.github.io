@@ -1,5 +1,5 @@
 import { firebaseConfig } from './firebase-config.js';
-import { days, slots, slotLabel, normalizeResponses, bestWindows } from './survey.js';
+import { days, rows, blockAt, slots, slotLabel, normalizeResponses, bestWindows } from './survey.js';
 
 const $ = id => document.getElementById(id);
 const DRAFT_KEY = 'golg-fall-2026-draft-v1';
@@ -31,11 +31,19 @@ function makeGrid(container, group = false, responses = []) {
   container.replaceChildren();
   const cell = (className, text) => { const node = document.createElement('div'); node.className = className; node.textContent = text; container.append(node); };
   cell('time-heading', 'TIME'); days.forEach(d => cell('day', d.slice(0, 3)));
-  for (let row = 0; row < 24; row++) {
+  for (const row of rows) {
     const hour = 8 + Math.floor(row / 2);
     cell('time', row % 2 === 0 ? `${hour % 12 || 12} ${hour < 12 ? 'am' : 'pm'}` : '');
     for (let day = 0; day < 5; day++) {
-      const id = `${day}-${row}`;
+      const id = `${day}-${row}`, block = blockAt(day, row);
+      if (block) {
+        // One cell spans the whole block; grid auto-placement skips the rows it covers.
+        if (row === block.row) {
+          const node = document.createElement('div'); node.className = 'blocked'; node.textContent = 'Unavailable';
+          node.style.gridRow = `span ${block.span}`; node.title = `${slotLabel(id, block.span)}: unavailable`; container.append(node);
+        }
+        continue;
+      }
       const button = document.createElement('button'); button.type = 'button';
       button.className = `slot${row % 2 === 0 ? ' hour' : ''}${group ? ' group-slot' : ''}`;
       button.dataset.slot = id;
@@ -44,7 +52,7 @@ function makeGrid(container, group = false, responses = []) {
       else {
         const people = responses.filter(r => r.slots.includes(id)).map(r => r.name);
         button.textContent = people.length || '';
-        button.style.backgroundColor = `rgba(94, 132, 69, ${people.length ? .12 + .65 * people.length / responses.length : .06})`;
+        button.style.backgroundColor = `rgba(65, 124, 169, ${people.length ? .12 + .65 * people.length / responses.length : .06})`;
         button.setAttribute('aria-label', `${label}: ${people.length} of ${responses.length} participants available`);
         button.addEventListener('click', () => { $('slot-detail').textContent = `${label}: ${people.length ? people.join(', ') : 'No one available'}.`; });
       }

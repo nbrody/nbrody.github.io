@@ -1,7 +1,7 @@
 # Geometry of Linear Groups · Fall 2026
 
 Static seminar homepage and an interest/availability survey. Serve the repository's
-`docs` directory and open `/GeometryofLinearGroups/Fall26/`. No build is required.
+`docs` directory and open `/GOLGFall26/`. No build is required.
 
 ## Firebase connection
 
@@ -46,7 +46,10 @@ is not intended to establish real-world identity or prevent duplicate signups.
 
 ## Behavior
 
-- Monday–Friday, 8 am–8 pm, in 30-minute blocks, Pacific time (America/Los_Angeles).
+- Monday–Friday, 9 am–5 pm, in 30-minute blocks, Pacific time (America/Los_Angeles),
+  with Wednesday 2–3 pm blocked out (`blocks` in `survey.js`). Slot ids keep their
+  original rows counted from 8 am, so stored responses stay valid; stored slots
+  outside the window or inside a block are ignored.
 - Click/drag with a mouse or pen; tap on touch devices; Tab/Space for keyboard use.
 - Participants with an undecided schedule can still express interest.
 - Shared heatmap and top three one-hour windows; both consecutive half-hours must
@@ -71,7 +74,17 @@ is not intended to establish real-world identity or prevent duplicate signups.
   right multiplication. The base point (1,√2,√3)/√6 has trivial stabilizer under
   rational matrices, so distinct group elements give distinct plotted vertices.
   The sphere hides the rear edges until the viewer rotates it. Arc intersections
-  are not additional vertices. The displayed word radius is 6 (1,322 vertices and 2,460 edges). Vertex radii
+  are not additional vertices.
+  The view opens on the breadth-first spanning tree of the ball (each vertex's parent
+  is the vertex that first reached it), laid out radially in the plane tangent to the
+  sphere at the identity's orbit point, which is turned to face the viewer. A click or
+  Enter wraps it: the plane bends onto the sphere without stretching (the azimuthal
+  equidistant map at the end), each vertex slides along a great circle to g·x₀ with
+  shorter words first, and then the 1,139 edges outside the tree fade in to close the
+  relations. Clicking again reverses this and turns the tree back to face the viewer.
+  Siblings in the tree are ordered by the direction of their sphere images, so branches
+  start out pointing roughly where they land. `treeLayout`, `wrapPoint`, and `slerp`
+  live in `visual-math.js`. The displayed word radius is 6 (1,322 vertices and 2,460 edges). Vertex radii
   decrease as 0.03 × 0.72^word_length; outer edge shells also fade.
 - A Farey tessellation constructed from mediants on the positive and negative real
   axes. Every edge satisfies |ps−qr|=1. Rational boundary points use the Cayley map
