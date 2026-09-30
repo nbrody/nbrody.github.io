@@ -445,7 +445,6 @@ cancelButton.addEventListener("click", () => {
     currentController.abort();
     currentController = null;
   }
-  }
 });
 
 copyButton?.addEventListener("click", async () => {
