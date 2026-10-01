@@ -281,17 +281,20 @@ class NFElement {
             }
         }
 
-        // Reduce mod f(x): replace x^n with -(a_0 + a_1*x + ... + a_{n-1}*x^{n-1})
-        const result = prodCoeffs.slice(0, n);
+        // Reduce mod f(x): for monic f, xⁿ ≡ −(a₀ + a₁x + … + a_{n-1}x^{n-1}).
+        // Cascade high powers down IN PLACE so degree-≥3 fields reduce correctly
+        // (x^i may produce terms x^{i-n+j} that themselves still need reducing).
+        // Slicing to length n first writes past the array for n≥3 (α²·α² = α⁴).
         for (let i = 2 * n - 2; i >= n; i--) {
             const c = prodCoeffs[i];
             if (c.isZero()) continue;
+            prodCoeffs[i] = BigRational.ZERO;
             for (let j = 0; j < n; j++) {
-                result[i - n + j] = result[i - n + j].sub(c.mul(f.coeff(j)));
+                prodCoeffs[i - n + j] = prodCoeffs[i - n + j].sub(c.mul(f.coeff(j)));
             }
         }
 
-        return new NFElement(this.field, result);
+        return new NFElement(this.field, prodCoeffs.slice(0, n));
     }
 
     // Inverse via extended Euclidean algorithm on polynomials
