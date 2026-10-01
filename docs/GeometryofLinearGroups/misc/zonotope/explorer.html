@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hexa-Grid Explorer</title>
+    <meta name="description"
+        content="Rhombus tilings of the regular 2n-gon: flip hexagons, read off reduced words for the longest permutation, apply 2- and 3-moves, and watch the strands.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="explorer">
+    <div class="ex">
+        <div class="ex-stage">
+            <svg id="ex-svg"></svg>
+            <div class="ex-help">click a white dot to flip its hexagon · hover a tile to find its letter</div>
+        </div>
+        <aside class="ex-panel">
+            <h1>Hexa-Grid explorer</h1>
+            <div class="sub">Rhombus tilings of P<sub>2n</sub> · <a href="index.html">read the notes</a></div>
+
+            <h3>The polygon</h3>
+            <div class="controls">
+                <label>n <input type="range" id="ex-n" min="3" max="12" value="6"><span class="val" id="ex-n-val">6</span></label>
+                <span class="readout" id="ex-size" style="margin:0"></span>
+            </div>
+
+            <h3>Tiling</h3>
+            <div class="controls">
+                <button class="btn" id="ex-a" type="button" title="the tiling of s1 · s2s1 · s3s2s1 ⋯">s₁·s₂s₁·⋯</button>
+                <button class="btn" id="ex-b" type="button" title="the tiling of s(n−1) · s(n−2)s(n−1) ⋯">the other end</button>
+                <button class="btn" id="ex-rand" type="button">random</button>
+                <button class="btn" id="ex-undo" type="button">undo</button>
+            </div>
+            <div class="controls">
+                <button class="btn primary" id="ex-sweep" type="button">▶ sweep p₀ → p₁</button>
+                <button class="btn" id="ex-walk" type="button">▶ flip to the other end</button>
+            </div>
+            <div class="controls">
+                <label>speed <input type="range" id="ex-speed" min="0.3" max="3" step="0.1" value="1"><span class="val" id="ex-speed-val">1.0×</span></label>
+            </div>
+
+            <h3>Display</h3>
+            <div class="controls">
+                <label>colour <select id="ex-color"><option value="shape" selected>by shape</option><option value="pair">by pair ij</option><option value="plain">plain</option></select></label>
+                <label>labels <select id="ex-label"><option value="none">none</option><option value="pair" selected>ij</option><option value="step">order</option></select></label>
+            </div>
+            <div class="controls">
+                <label>strand <select id="ex-strand"></select></label>
+                <label><input type="checkbox" id="ex-dots" checked> degree-3 vertices</label>
+                <label><input type="checkbox" id="ex-edges" checked> edge labels</label>
+            </div>
+
+            <h3>Reduced word for w₀</h3>
+            <div id="ex-word"></div>
+            <div class="legend"><span class="r"><i></i>2-move</span><span class="b"><i></i>3-move = flip</span></div>
+            <div class="readout" id="ex-info"></div>
+
+            <h3>Wiring diagram</h3>
+            <svg id="ex-wiring" class="wiring"></svg>
+            <div class="readout" style="font-size:.72rem">Wire k is the strand of direction k: the tiling’s pseudoline arrangement.</div>
+        </aside>
+    </div>
+
+    <script src="js/hexagrid.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/explorer.js"></script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+
+</html>

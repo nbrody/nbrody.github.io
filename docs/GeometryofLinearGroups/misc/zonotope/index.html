@@ -4,94 +4,370 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zonotopal Tilings — Interactive Explorer</title>
+    <title>The Hexa-Grid</title>
     <meta name="description"
-        content="Explore rhombus tilings of regular 2n-gons interactively. Flip cubes at 3-valent vertices and animate paths between the top and bottom tilings of the n-cube.">
+        content="Interactive notes on the hexa-grid: rhombus tilings of the regular 2n-gon, commutation classes of reduced words for the longest permutation, braid moves, and line arrangements.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.querySelector('.doc'), {delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}], macros:{'\\Sym':'\\mathsf{Sym}','\\w':'\\mathsf{w}'}})"></script>
     <link rel="stylesheet" href="style.css">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap"
-        rel="stylesheet">
 </head>
 
 <body>
-    <canvas id="zonotope-canvas"></canvas>
+    <main class="doc">
+        <header>
+            <h1>The Hexa-Grid</h1>
+            <div class="byline">Nic Brody · Math 270</div>
+            <nav class="toplinks">
+                <a href="#cube">The cube</a>
+                <a href="#paths">Paths</a>
+                <a href="#prop1">Tilings</a>
+                <a href="#prop2">Braid moves</a>
+                <a href="#count">Counting</a>
+                <a href="#prop3">Lines</a>
+                <a href="explorer.html">Explorer ↗</a>
+            </nav>
+        </header>
 
-    <div id="ui-overlay">
-        <div id="title-bar">
-            <h1>Zonotopal Tilings</h1>
-            <p class="subtitle">Rhombus tilings of the regular 2n-gon</p>
+        <p class="lead">The hexa-grid toy was created by the Netherlands Mathematical Research Institute. The
+            instruction manual includes a few claims, and this document provides proofs or partial proofs of these.</p>
+
+        <p>Much of this theory generalizes to higher dimension base polytopes $B$, and to other-type total polytopes
+            $E$, for fiberings $\pi\colon E\to B$. The wealth of different perspectives one can view this object
+            allows one to understand its properties via algebraic, topological, and combinatorial methods. Many of its
+            properties are obscured from one perspective but obvious from another.</p>
+
+        <!-- ============================================================ 1 -->
+        <h2 id="cube"><span class="num">1</span>The cube over the $2n$-gon</h2>
+
+        <p>Let $C_n=[0,1]^n$ denote the unit cube, and $e_j$ the standard basis vectors. There is a map
+            $\pi\colon C_n\to P_{2n}$, the regular $2n$-gon, given by
+            $$e_j\mapsto v_j=\left(\cos\left(\frac{\pi (j-1)}{n}\right),\ \sin \left(\frac{\pi (j-1)}{n}\right)\right).$$
+        </p>
+
+        <figure class="fig" id="fig-cube">
+            <div class="fig-grid">
+                <div class="stage"><span class="stage-tag">$C_3$</span><svg id="cube-svg" class="cube"></svg></div>
+                <div class="stage"><span class="stage-tag">$P_{2n}$</span><svg id="poly-svg"></svg></div>
+            </div>
+            <div class="controls fig-ui">
+                <label>view <input type="range" id="cube-tilt" min="0" max="1" step="0.001" value="0.5"></label>
+                <button class="btn" id="cube-snap" type="button">look along $\ker\pi$</button>
+                <div class="seg" id="cube-half"><button type="button" class="on" data-v="front">front half</button><button type="button" data-v="back">back half</button></div>
+                <span class="spacer"></span>
+                <label>path <select id="cube-path"></select></label>
+                <label>$n$ <input type="range" id="poly-n" min="2" max="9" value="3"><span class="val" id="poly-n-val">3</span></label>
+            </div>
+            <figcaption><b>Figure 1.</b> For $n=3$ the map $\pi$ is an honest orthographic projection: the vectors
+                $(v_1,\tfrac1{\sqrt2}),\ (v_2,-\tfrac1{\sqrt2}),\ (v_3,\tfrac1{\sqrt2})$ in $\mathbb R^3$ are
+                orthogonal of equal length, so they span a cube, and looking straight down on it shows $\pi(C_3)=P_6$.
+                Its front half and its back half project to the two tilings of the hexagon. A monotone edge path in the
+                cube from $\mathbf 0$ to $\mathbf 1$ is a permutation; it projects to a path from $\mathbf 0$ to
+                $\mathbf 1$ along the boundary of the tiles.
+                <span class="try">Drag the cube to turn it. The right panel shows $P_{2n}$ for any $n$, with the
+                    lower path $p_0$ and the upper path $p_1$.</span>
+            </figcaption>
+        </figure>
+
+        <p>Starting from the origin $\mathbf{0}$ and traversing the vertices in the boundary of $P_{2n}$
+            counter-clockwise, we follow edges $v_1,v_2,\dots,v_n,-v_1,-v_2,\dots,-v_n$. We call
+            $\sum_{i=1}^n v_i=\mathbf{1}$, and observe that this is the image of $(1,1,\dots,1)$ under $\pi$.</p>
+
+        <!-- ============================================================ 2 -->
+        <h2 id="paths"><span class="num">2</span>Paths and reduced words</h2>
+
+        <p>The “lower path” $p_0$ from $\mathbf{0}$ to $\mathbf{1}$ is labeled $12\dots n$, and the “upper path” $p_1$
+            is labeled $n\dots 21$. We can interpret these paths as elements of the symmetric group $\Sym_n$, where the
+            reading word obtained by traversing edges of a shortest path from $\mathbf{0}$ to $\mathbf{1}$ is the
+            one-line notation of the permutation.</p>
+
+        <p>Let $s_i$ be the transposition $(i,i+1)\in\Sym_n$ for $1\leq i&lt;n$. An <em>$S$-factorization</em> of
+            $w\in \Sym_n$ is a minimal-length way of writing $w$ as a product of $s_i$s. Two factorizations
+            $\w_1,\w_2$ are in the same <em>commutation class</em> if one can be obtained from the other by exchanging
+            commuting generators in the factorization. With respect to the generators $s_i$, we have the presentation
+            $\Sym_n=\langle s_1,\dots,s_{n-1}\mid (s_is_j)^{m_{ij}}\rangle$, where
+            $$m_{ij}=\begin{cases}1 &\text{if }i=j, \\ 2&\text{if }|i-j|\geq2, \\ 3&\text{if }|i-j|=1.\end{cases}$$
+            Thus, we have for example, $s_1s_3s_4 \sim s_3s_1s_4 \sim s_3s_4s_1$.</p>
+
+        <p>A tiling determines a class of path-of-paths from $p_0$ to $p_1$, which we can interpret as a
+            commutation-equivalence class of factorizations of $w_0=(n,n-1,\dots,2,1)$.</p>
+
+        <p>Note that when we apply $s_1$ to the path $p_0$, we obtain the path $(2,1,3,\dots,n)$, which travels in
+            directions $v_2,v_1,v_3,\dots$ in that order. Write $p_w$ for the path whose reading word is
+            $w(1)w(2)\cdots w(n)$. Letting $\Sym_n$ act on $\mathbb R^n$ by permuting coordinates,
+            $(w\cdot x)_k=x_{w(k)}$, we have the
+            relation $wp_0=p_{w^{-1}}$, and more generally, $u^{-1}p_v=p_{uv}$.</p>
+
+        <p>An <em>ascent</em> in a path $p_w$ at position $j$, that is $w(j)&lt;w(j+1)$, corresponds to two adjacent
+            edges which form a parallelogram on the side of $p_w$ facing $p_1$. Thus, we can increase the number of
+            inversions by pushing the path across this parallelogram by applying $s_j$, replacing $p_w$ with
+            $p_{ws_j}$. So long as there is some ascent in the word, there is an adjacent ascent, and thus we can
+            apply some $s_j$ and get a path closer to $p_1$. This can be seen as moving up in the weak order by a
+            covering relation.</p>
+
+        <figure class="fig" id="fig-push">
+            <div class="fig-grid wide-left">
+                <div class="stage"><span class="stage-tag">path-of-paths</span><svg id="push-svg"></svg></div>
+                <div>
+                    <div class="readout fig-ui">the current path $p_w$, with $w$ in one-line notation:</div>
+                    <div class="oneline fig-ui" id="push-oneline"></div>
+                    <div class="readout fig-ui" id="push-stats"></div>
+                    <div class="readout fig-ui">the factorization so far:</div>
+                    <div id="push-word" class="fig-ui"></div>
+                    <div class="controls fig-ui">
+                        <label>$n$ <input type="range" id="push-n" min="3" max="7" value="4"><span class="val" id="push-n-val">4</span></label>
+                        <button class="btn" id="push-undo" type="button">undo</button>
+                        <button class="btn" id="push-rand" type="button">random push</button>
+                        <button class="btn" id="push-reset" type="button">reset</button>
+                    </div>
+                    <div class="readout fig-ui" id="push-done"></div>
+                </div>
+            </div>
+            <figcaption><b>Figure 2.</b> Pushing $p_0$ to $p_1$ one parallelogram at a time. Each dashed
+                parallelogram sits on an ascent of the current path; pushing across it applies $s_j$ on the right and
+                lays a tile. When no ascent is left the path is $p_1$, the letters spell an $S$-factorization of
+                $w_0$, and the tiles cover $P_{2n}$.
+                <span class="try">Click a dashed parallelogram, or a circled $s_j$ between two entries of the
+                    one-line notation.</span>
+            </figcaption>
+        </figure>
+
+        <!-- ============================================================ 3 -->
+        <h2 id="prop1"><span class="num">3</span>Tilings are commutation classes</h2>
+
+        <div class="env prop">
+            <span class="head">Proposition 1.</span>
+            <span class="body">Commutation classes of $S$-factorizations of $w_0=(n,n-1,\dots,1)$ are in bijection
+                with tilings of $P_{2n}$.</span>
+        </div>
+        <div class="proof">
+            <span class="head">Proof.</span>
+            Let $\w=i_1\dots i_r$ be a factorization of $w_0$, where we identify $i_j$ with $s_{i_j}$; let
+            $w_j=i_1\dots i_j$. Consider the sequence of paths $(p_{w_j})_{j=0}^r$. This determines a tiling, since
+            successive paths differ across a single parallelogram, namely we replace the subpath
+            $v_{w_{j-1}(i_j)}v_{w_{j}(i_j)}$ with $v_{w_{j}(i_j)}v_{w_{j-1}(i_j)}$.
+            <p>Two factorizations give the same tiling if and only if $\w$ and $\w'$ are commutation-equivalent. Given
+                a tiling, we can read off a word $\w$ in the following way. Begin with the path $p_0$. It can have at
+                most $n-1$ tiles left-adjacent to it, hence there is at least one tile it follows two consecutive
+                edges of. This determines some simple reflection $s_{i_1}$ we can apply to get a path $p_{i_1}$ that
+                follows the tiling. If there were two tiles it followed, then this corresponds to two distinct simple
+                reflections that can be applied, which would have to have indices at least two apart, thus they
+                commute in the symmetric group. So a tiling determines a reduced word with the only ambiguity being
+                commutation class.</p>
+            <p>Conversely, if $\w$ and $\w'$ are commutation-equivalent, we can think of each word as building a
+                tiling as described above. These only differ in the ordering that the tiles are placed, but they place
+                the same tiles. <span class="qed">∎</span></p>
         </div>
 
-        <div id="controls-toggle" title="Toggle Controls">⚙</div>
-
-        <div id="controls-panel">
-            <div class="control-section">
-                <h3>Parameters</h3>
-                <div class="control-row">
-                    <label>n</label>
-                    <input type="range" id="n-param" min="3" max="8" value="6" step="1">
-                    <span class="val" id="n-val">6</span>
-                </div>
-                <div class="control-row info-text" id="polygon-info">12-gon · 15 rhombi</div>
-            </div>
-
-            <div class="control-section">
-                <h3>Navigation</h3>
-                <div class="button-row">
-                    <button id="top-btn" class="btn">⬆ Top Tiling</button>
-                    <button id="bottom-btn" class="btn">⬇ Bottom Tiling</button>
-                </div>
-                <div class="button-row" style="margin-top:8px">
-                    <button id="animate-path-btn" class="btn btn-accent">▶ Animate Top → Bottom</button>
-                </div>
-                <div class="button-row" style="margin-top:8px">
-                    <button id="random-btn" class="btn btn-secondary">⟳ Random Tiling</button>
+        <figure class="fig" id="fig-word">
+            <div class="fig-grid">
+                <div class="stage"><span class="stage-tag">tiling</span><svg id="word-svg"></svg></div>
+                <div>
+                    <div class="controls fig-ui">
+                        <input type="text" id="word-input" spellcheck="false" aria-label="reduced word">
+                        <button class="btn" id="word-fig1" type="button">the notes’ example</button>
+                        <button class="btn" id="word-rand" type="button">random</button>
+                    </div>
+                    <div class="readout fig-ui" id="word-status"></div>
+                    <div id="word-chips" class="fig-ui" style="margin-top:10px"></div>
+                    <div class="legend fig-ui"><span class="r"><i></i>2-move (commutation)</span><span class="b"><i></i>3-move (braid)</span></div>
+                    <div class="controls fig-ui">
+                        <label>step <input type="range" id="word-step" min="0" max="15" value="15"><span class="val" id="word-step-val"></span></label>
+                        <button class="btn" id="word-play" type="button">▶ build</button>
+                        <div class="seg" id="word-label"><button type="button" class="on" data-v="step">order</button><button type="button" data-v="pair">$ij$</button><button type="button" data-v="none">none</button></div>
+                    </div>
+                    <div class="stage" style="margin-top:8px"><svg id="word-wiring" class="wiring"></svg></div>
+                    <div class="readout fig-ui" id="word-class"></div>
                 </div>
             </div>
+            <figcaption><b>Figure 3.</b> An example tiling of the 12-gon, which corresponds to the reduced word
+                $\w=123454321234323$. Beginning with the lower path $p_0$, applying transpositions according to $\w$
+                gives the tiling. No commutations can be applied to $\w$, so this is the unique word in its
+                commutation class. The numbers record the order in which the tiles are laid; the white dots are the
+                vertices of degree 3.
+                <span class="try">Edit the word, scrub through it, or click a red bracket: a 2-move reorders the tiles
+                    but lays the same ones. A blue bracket, or a white dot, is a 3-move, and changes the tiling. The
+                    wiring diagram below draws the same word as $n$ strands.</span>
+            </figcaption>
+        </figure>
 
-            <div class="control-section">
-                <h3>Display</h3>
-                <div class="control-row">
-                    <label>Color Mode</label>
-                    <select id="color-mode">
-                        <option value="angle">By Angle Pair</option>
-                        <option value="depth" selected>By 3D Depth</option>
-                        <option value="monochrome">Monochrome</option>
-                    </select>
-                </div>
-                <div class="control-row">
-                    <label>Animation Speed</label>
-                    <input type="range" id="anim-speed" min="0.2" max="3" value="1" step="0.1">
-                    <span class="val" id="speed-val">1.0×</span>
-                </div>
-                <div class="control-row">
-                    <label>Show Flippable</label>
-                    <input type="checkbox" id="show-flippable" checked>
-                </div>
-                <div class="control-row">
-                    <label>Show Walls (Strands)</label>
-                    <input type="checkbox" id="show-walls">
-                </div>
-                <div class="control-row">
-                    <label>Show Skeleton</label>
-                    <input type="checkbox" id="show-zones">
-                </div>
-                <div class="button-row" style="margin-top:10px">
-                    <button id="arc-btn" class="btn btn-secondary">⌒ Arc Diagram</button>
-                </div>
-            </div>
+        <!-- ============================================================ 4 -->
+        <h2 id="prop2"><span class="num">4</span>Braid moves and the word problem</h2>
 
-            <div class="control-section info-section">
-                <h3>Info</h3>
-                <p id="flip-count" class="info-text">Flips: 0</p>
-                <p id="tiling-info" class="info-text">Click a ● vertex to flip</p>
-            </div>
+        <div class="env prop">
+            <span class="head">Proposition 2.</span>
+            <span class="body">Any two reduced words $\w=s_1s_2\dots s_r$, $\w'=s_1'\dots s_r'$ for $w\in \Sym_n$ are
+                related by 3- and 2-moves.</span>
         </div>
-    </div>
+        <div class="proof">
+            <span class="head">Proof.</span>
+            The result is clear for $r=1$. Now let $r>1$, and assume that the result is true for words with length
+            less than $r$. If $s_1=s_1'$, then induction on $r$ implies the result for $s_1\w$ and $s_1\w'$.
+            Otherwise, since $s_1$ and $s_1'$ are both prefixes for $w$, the fact that weak order for finite Coxeter
+            groups is a join lattice (proved in Björner–Brenti) implies that $s_1\vee s_1'=\alpha_{1,1'}$ is a prefix
+            for $w$, and hence there is some reduced word $\beta$ with $\alpha_{1,1'}\beta=w$. Here
+            $\alpha_{1,1'}=s_1s_1'$ or $s_1s_1's_1$, according as $s_1,s_1'$ commute or not, and $\alpha_{1',1}$ is
+            the same word begun with $s_1'$. By induction, applied after cancelling the common first letter, we have
+            $\w\sim \alpha_{1,1'}\beta$ and $\alpha_{1',1}\beta\sim \w'$, while $\alpha_{1,1'}\beta$ and
+            $\alpha_{1',1}\beta$ differ by a single 2- or 3-move. This proves the claim. <span class="qed">∎</span>
+        </div>
 
-    <div id="tooltip">Click flippable vertices to flip · Scroll to zoom · Drag to pan</div>
+        <figure class="fig" id="fig-tits">
+            <div class="controls fig-ui">
+                <label>$n$ <select id="tits-n"><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label>
+                <label>$\w$ <input type="text" id="tits-u" spellcheck="false"></label>
+                <button class="btn" id="tits-u-rand" type="button">random</button>
+                <label>$\w'$ <input type="text" id="tits-v" spellcheck="false"></label>
+                <button class="btn" id="tits-v-rand" type="button">random</button>
+            </div>
+            <div class="readout fig-ui" id="tits-status"></div>
+            <div class="fig-grid" style="margin-top:10px">
+                <div class="stage"><span class="stage-tag">the proof, top level</span><svg id="tits-diagram" class="proof-svg"></svg></div>
+                <div class="stage"><span class="stage-tag">tiling at the selected word</span><svg id="tits-svg"></svg></div>
+            </div>
+            <div class="controls fig-ui">
+                <label>step <input type="range" id="tits-step" min="0" max="1" value="0" style="width:220px"><span class="val" id="tits-step-val"></span></label>
+                <button class="btn" id="tits-play" type="button">▶ play</button>
+            </div>
+            <div class="chain fig-ui" id="tits-chain"></div>
+            <figcaption><b>Figure 4.</b> An illustration of the proof that the word problem is solvable. Sweep from
+                left to right in the diagram, using the induction hypothesis, followed by a braid-move, and once again
+                using the induction hypothesis to relate two reduced expressions using only braid-moves. Run
+                recursively, the proof is an algorithm: below the diagram is the chain of words it produces, each
+                differing from the last by one <span style="color:var(--red)">2-move</span> or
+                <span style="color:var(--blue)">3-move</span>. Only the 3-moves change the tiling.
+                <span class="try">Any two reduced words of the same permutation will do; they need not be words for
+                    $w_0$, in which case the tiling is partial.</span>
+            </figcaption>
+        </figure>
 
-    <script src="zonotope.js"></script>
+        <!-- ============================================================ 5 -->
+        <h2 id="count"><span class="num">5</span>Counting tilings</h2>
+
+        <p>The enumeration of commutation classes of $S$-factorizations of $w_0$ can be done on a computer. A rough
+            algorithm goes as follows. We can begin with some fixed reduced factorization $\w$, and build a graph
+            $\Gamma_w$ recursively in the following way. The first word $\w$ is a vertex, and for each 3-move we can
+            apply to $\w$, we add a new vertex and a <span style="color:var(--blue)">blue</span> edge connecting them.
+            For each 2-move we can apply, we add a new vertex and a <span style="color:var(--red)">red</span> edge
+            connecting them. Now repeat this process for each of the new vertices, but if the word obtained from a
+            move has already been seen, we do not add a new vertex but connect it to the corresponding present vertex
+            with the appropriate color.</p>
+
+        <p>The preceding proposition amounts to the fact that this graph will eventually include every reduced word
+            for $w$, and all of the 2- and 3-adjacent words will be represented with edges. Now we list the
+            lexicographically first vertex in each red-equivalence class, and count them.</p>
+
+        <figure class="fig" id="fig-graph">
+            <div class="fig-grid wide-left">
+                <div class="stage"><span class="stage-tag">$\Gamma_{w_0}$</span><canvas id="graph-canvas" width="900" height="760"></canvas><div class="graph-tip" id="graph-tip"></div></div>
+                <div>
+                    <div class="controls fig-ui">
+                        <label>$n$ <select id="graph-n"><option>3</option><option selected>4</option><option>5</option></select></label>
+                        <div class="seg" id="graph-mode"><button type="button" class="on" data-v="words">words</button><button type="button" data-v="classes">collapse red</button></div>
+                    </div>
+                    <div class="readout fig-ui" id="graph-stats"></div>
+                    <table class="counts fig-ui" id="count-table">
+                        <thead><tr><th>$n$</th><th>reduced words</th><th>red classes = tilings</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                    <div class="readout fig-ui" style="font-size:.72rem">Words are counted by running the algorithm
+                        above; past $n=6$ there are too many words (over a billion for $n=7$), so the tilings are
+                        counted instead by flipping hexagons. Checks are against OEIS A005118 and A006245.</div>
+                </div>
+            </div>
+            <figcaption><b>Figure 5.</b> The graph $\Gamma_{w_0}$ built by the algorithm, with every reduced word a
+                vertex, red edges for 2-moves and blue edges for 3-moves. Collapsing the red edges leaves one vertex
+                per commutation class, labelled by its lexicographically first word, and by Proposition 1 one vertex
+                per tiling; the blue edges that survive are hexagon flips.
+                <span class="try">Hover a vertex to see its word and its tiling.</span>
+            </figcaption>
+        </figure>
+
+        <!-- ============================================================ 6 -->
+        <h2 id="prop3"><span class="num">6</span>Lines in general position</h2>
+
+        <div class="env prop">
+            <span class="head">Proposition 3.</span>
+            <span class="body">There is a bijection between the combinatorial structure of $n$ lines in general
+                position in the plane and tilings of the $2n$-gon which are (realizable) oriented matroids.</span>
+        </div>
+        <div class="proof">
+            <span class="head">Proof.</span>
+            Consider a collection of $n$ lines in general position in the plane. There are $\binom{n}{2}$ distinct
+            intersection points, and we may draw a large circle which contains all of the intersection points in its
+            interior. The lines intersect this circle in $2n$ points, and we may choose an arbitrary arc between these
+            to be the $\mathbf{0}$-component. We now traverse the circle counter-clockwise, labeling each line with
+            numbers $1$ through $n$ as we pass them. For each line, record the order in which it crosses the other
+            lines. This determines the structure of the hyperplane starting from edge $i$ of the regular $2n$-gon, for
+            the line labeled $i$. <span class="qed">∎</span>
+        </div>
+
+        <p>In the example below, since line 3 crosses lines 1, 2, 4, 5, then 6, we obtain the tiling where the
+            <span style="color:var(--green)">green</span> hyperplane in the cube complex passes through squares whose
+            edges are parallel to $13, 23, 34, 35,$ and $36$. This perspective gives a labelling of each
+            parallelogram by a pair $ij$ of the parallelism class of its edges.</p>
+
+        <figure class="fig" id="fig-lines">
+            <div class="fig-grid">
+                <div class="stage"><span class="stage-tag">lines</span><svg id="lines-svg" class="arr"></svg><div class="stage-note fig-ui" id="lines-warn"></div></div>
+                <div class="stage"><span class="stage-tag">tiling</span><svg id="lines-tiling"></svg></div>
+            </div>
+            <div class="controls fig-ui">
+                <button class="btn" id="lines-reset" type="button">the notes’ example</button>
+                <label>$n$ <input type="range" id="lines-n" min="3" max="8" value="6"><span class="val" id="lines-n-val">6</span></label>
+                <button class="btn" id="lines-rand" type="button">random lines</button>
+                <label><input type="checkbox" id="lines-dual"> draw the dual tiling on the lines</label>
+                <label><input type="checkbox" id="lines-tri" checked> triangles</label>
+            </div>
+            <div class="seqs fig-ui" id="lines-seqs"></div>
+            <figcaption><b>Figure 6.</b> Each face of the arrangement is a vertex $\sigma\in\{0,1\}^n$ of the cube:
+                $\sigma_k=1$ when line $k$ separates the face from the $\mathbf 0$-component. Its image $\pi(\sigma)$
+                is a vertex of the tiling, and the crossing of lines $i$ and $j$ is the tile $ij$. Line $k$ becomes the
+                hyperplane of direction $k$, and the order in which it meets the other lines is the order of the tiles
+                along it.
+                <span class="try">Drag a line to slide it, or its end-handles to turn it. Click an arc of the circle to
+                    move the $\mathbf 0$-component. Hover a line, a crossing or a face to find its partner in the
+                    tiling.</span>
+            </figcaption>
+        </figure>
+
+        <!-- ============================================================ 7 -->
+        <h2 id="braid"><span class="num">7</span>Passing a line through a crossing</h2>
+
+        <p>The following diagram shows how passing a line through an intersection replaces the front half of a cube
+            with the back half. This in turn corresponds to applying a 3-move to a reduced word representing the
+            tiling. A vertex of degree 3 in the tiling is dual to a triangle in the complement of the line
+            configuration, and these are precisely the places where 3-moves can be applied.</p>
+
+        <figure class="fig" id="fig-braid">
+            <div class="fig-grid">
+                <div class="stage"><span class="stage-tag">three lines and their dual</span><svg id="braid-svg" class="arr"></svg></div>
+                <div class="stage"><span class="stage-tag">the hexagon</span><svg id="braid-tiling"></svg></div>
+            </div>
+            <div class="controls fig-ui">
+                <label>slide line 2 <input type="range" id="braid-t" min="-1" max="1" step="0.002" value="-0.55" style="width:220px"></label>
+                <button class="btn" id="braid-play" type="button">▶ pass through</button>
+                <span class="readout" id="braid-word" style="margin:0"></span>
+            </div>
+            <figcaption><b>Figure 7.</b> The braid move. The <span style="color:var(--blue)">blue</span> tree is the
+                tiling drawn on top of the lines, one vertex in each face; the triangle in the middle is its vertex of
+                degree 3. As the middle line crosses the intersection of the other two, the triangle shrinks to a point
+                and reopens on the other side, the three tiles around it are replaced by the other three faces of the
+                cube, and the word changes by $s_1s_2s_1\leftrightarrow s_2s_1s_2$.</figcaption>
+        </figure>
+
+        <p style="margin-top:3rem; font-family:var(--sans); font-size:.85rem; color:var(--ink-2)">For a larger
+            sandbox — any $n$ up to 12, flips, the reading word, strands and the wiring diagram side by side — open the
+            <a href="explorer.html">explorer</a>.</p>
+    </main>
+
+    <script src="js/hexagrid.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/figures.js"></script>
 <!-- golg-nav-bootstrap -->
 <script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
 </body>
