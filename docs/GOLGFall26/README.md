@@ -1,7 +1,9 @@
 # Geometry of Linear Groups · Fall 2026
 
 Static seminar homepage and an interest/availability survey. Serve the repository's
-`docs` directory and open `/GOLGFall26/`. No build is required.
+`docs` directory and open `/GOLGFall26/`. No build is required. On the live site,
+`/GoLGFall26/` redirects here. The deploy workflow generates that page, because a
+folder differing only in case can't coexist with this one on a case-insensitive disk.
 
 ## Firebase connection
 

@@ -34,6 +34,19 @@ jobs:
             '// Generated at deployment. Firebase browser configuration is public.\n' +
             'export const firebaseConfig = ' + JSON.stringify(config, null, 2) + ';\n');
           JS
+      # Pages paths are case-sensitive. A GoLGFall26 folder can't sit beside GOLGFall26 in a
+      # checkout on a case-insensitive disk, so the redirect page is generated here instead.
+      - name: Redirect /GoLGFall26/ to the seminar page
+        run: |
+          mkdir -p docs/GoLGFall26
+          cat > docs/GoLGFall26/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en"><head><meta charset="utf-8"><title>Geometry of Linear Groups · Fall 2026</title>
+          <link rel="canonical" href="https://nbrody.github.io/GOLGFall26/">
+          <meta http-equiv="refresh" content="0; url=/GOLGFall26/">
+          <script>location.replace('/GOLGFall26/' + location.search + location.hash);</script>
+          </head><body><p>The seminar page is at <a href="/GOLGFall26/">/GOLGFall26/</a>.</p></body></html>
+          HTML
       - name: Build website
         uses: actions/jekyll-build-pages@v1
         with:
