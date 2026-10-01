@@ -3,1264 +3,405 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Number Rings & Ideals Workspace</title>
-    
-    <!-- Google Fonts: Outfit & Space Grotesk -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    
-    <!-- MathQuill CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
-    
-    <!-- MathJax Configuration -->
-    <script>
-        window.MathJax = {
-            tex: {
-                inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$', '$$'], ['\\[', '\\]']],
-                processEscapes: true
-            },
-            svg: {
-                fontCache: 'global'
-            }
-        };
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
-    
+    <title>Number Rings</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
     <style>
         :root {
-            --bg-color: hsl(230, 40%, 6%);
-            --panel-bg: hsla(230, 35%, 12%, 0.65);
-            --card-bg: hsla(230, 35%, 15%, 0.45);
-            --accent-purple: hsl(263, 90%, 66%);
-            --accent-purple-glow: rgba(147, 51, 234, 0.4);
-            --accent-emerald: hsl(142, 70%, 50%);
-            --accent-emerald-glow: rgba(16, 185, 129, 0.3);
-            --accent-coral: hsl(20, 85%, 55%);
-            --accent-coral-glow: rgba(249, 115, 22, 0.3);
-            --text-primary: hsl(210, 40%, 98%);
-            --text-secondary: hsl(215, 20%, 75%);
-            --text-muted: hsl(215, 15%, 55%);
-            --border-glass: rgba(255, 255, 255, 0.08);
-            --border-glass-focus: rgba(147, 51, 234, 0.5);
-            --font-display: 'Outfit', -apple-system, sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
+            --bg: #f7f6f2;
+            --card: #ffffff;
+            --ink: #1f2a37;
+            --muted: #5f6b7a;
+            --faint: #8a94a1;
+            --line: #e3e0d8;
+            --accent: #2f5d8a;
+            --accent-soft: #e8eff6;
+            --good: #2e7d4f;
+            --good-soft: #e6f3eb;
+            --warn: #a2551a;
+            --warn-soft: #fbefe4;
+            --bad: #b3261e;
+            --input-bg: #fcfcfa;
+            --serif: Georgia, 'Times New Roman', serif;
+            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: var(--font-display);
-            background: radial-gradient(circle at top right, hsl(260, 50%, 12%) 0%, var(--bg-color) 100%);
-            background-attachment: fixed;
-            min-height: 100vh;
-            color: var(--text-primary);
-            overflow-x: hidden;
-            line-height: 1.5;
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.2);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.25);
-        }
-
-        header {
-            padding: 24px 40px;
-            border-bottom: 1px solid var(--border-glass);
-            background: rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(10px);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .logo-icon {
-            width: 38px;
-            height: 38px;
-            background: linear-gradient(135deg, var(--accent-purple), var(--accent-coral));
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1.3rem;
-            color: white;
-            box-shadow: 0 0 15px var(--accent-purple-glow);
-        }
-
-        h1 {
-            font-size: 1.6rem;
-            font-weight: 700;
-            background: linear-gradient(to right, #ffffff, var(--text-secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .subtitle {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin-top: 2px;
-        }
-
-        /* Dashboard Layout */
-        .dashboard {
-            display: grid;
-            grid-template-columns: 420px 1fr;
-            gap: 30px;
-            max-width: 1550px;
-            margin: 0 auto;
-            padding: 30px;
-            min-height: calc(100vh - 90px);
-        }
-
-        @media (max-width: 1024px) {
-            .dashboard {
-                grid-template-columns: 1fr;
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #15181d; --card: #1d2128; --ink: #e6e9ee; --muted: #a3acb8; --faint: #7d8794;
+                --line: #2e343d; --accent: #8fb8e0; --accent-soft: #233041; --good: #7fcf9d; --good-soft: #1f3328;
+                --warn: #e9a46c; --warn-soft: #3a2a1d; --bad: #f28b82; --input-bg: #171a20;
             }
         }
-
-        /* Glassmorphism Panel */
-        .glass-panel {
-            background: var(--panel-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border-glass);
-            border-radius: 20px;
-            padding: 24px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .section-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .section-title::before {
-            content: '';
-            width: 3px;
-            height: 18px;
-            background: var(--accent-purple);
-            border-radius: 2px;
-            box-shadow: 0 0 8px var(--accent-purple-glow);
-        }
-
-        /* MathQuill Input Container */
-        .math-input-container {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        #math-input {
-            width: 100%;
-            font-size: 1.25rem;
-            padding: 12px;
-            border: 1px solid var(--border-glass) !important;
-            border-radius: 12px !important;
-            background: rgba(0, 0, 0, 0.3) !important;
-            min-height: 54px;
-            color: var(--text-primary) !important;
-            transition: all 0.3s ease;
-        }
-
-        #math-input.mq-focused {
-            border-color: var(--accent-purple) !important;
-            box-shadow: 0 0 12px var(--accent-purple-glow) !important;
-        }
-
-        /* Interactive Keypad */
-        .keypad {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 10px;
-            border-radius: 12px;
-            border: 1px solid var(--border-glass);
-        }
-
-        .keypad-btn {
-            background: var(--card-bg);
-            border: 1px solid var(--border-glass);
-            color: var(--text-secondary);
-            border-radius: 8px;
-            padding: 8px;
-            font-size: 0.95rem;
-            font-family: var(--font-mono);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-align: center;
-        }
-
-        .keypad-btn:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.15);
-            color: var(--text-primary);
-            transform: translateY(-1px);
-        }
-
-        .keypad-btn.action {
-            background: rgba(147, 51, 234, 0.15);
-            color: var(--accent-purple);
-            border-color: rgba(147, 51, 234, 0.25);
-        }
-
-        .keypad-btn.action:hover {
-            background: rgba(147, 51, 234, 0.25);
-            color: white;
-        }
-
-        /* Control Buttons */
-        .btn {
-            padding: 12px 20px;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            border: 1px solid transparent;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent-purple) 0%, hsl(280, 85%, 55%) 100%);
-            color: white;
-            box-shadow: 0 4px 15px var(--accent-purple-glow);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(147, 51, 234, 0.6);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: var(--border-glass);
-            color: var(--text-secondary);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: var(--text-primary);
-            border-color: rgba(255, 255, 255, 0.15);
-        }
-
-        /* Presets Cards Grid */
-        .presets-section {
-            margin-top: 10px;
-        }
-
-        .presets-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            max-height: 240px;
-            overflow-y: auto;
-            padding-right: 4px;
-        }
-
-        .preset-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-glass);
-            border-radius: 10px;
-            padding: 10px;
-            cursor: pointer;
-            transition: all 0.25s ease;
-            text-align: left;
-        }
-
-        .preset-card:hover {
-            border-color: var(--accent-purple);
-            background: rgba(147, 51, 234, 0.05);
-            transform: scale(1.02);
-        }
-
-        .preset-title {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 2px;
-        }
-
-        .preset-desc {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* Active List Container */
-        .poly-list-container {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 12px;
-            border: 1px solid var(--border-glass);
-            padding: 12px;
-            max-height: 180px;
-            overflow-y: auto;
-        }
-
-        .poly-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px;
-            border-radius: 6px;
-            background: var(--card-bg);
-            border: 1px solid var(--border-glass);
-            margin-bottom: 8px;
-        }
-
-        .poly-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .poly-math {
-            font-size: 1rem;
-            flex: 1;
-            overflow-x: auto;
-        }
-
-        .btn-remove {
-            background: rgba(239, 68, 68, 0.15);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            color: rgb(239, 68, 68);
-            width: 24px;
-            height: 24px;
-            border-radius: 5px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.8rem;
-            transition: all 0.2s ease;
-        }
-
-        .btn-remove:hover {
-            background: rgb(239, 68, 68);
-            color: white;
-        }
-
-        /* Active Ideal Banner */
-        .active-ideal-card {
-            background: linear-gradient(135deg, rgba(147, 51, 234, 0.1) 0%, rgba(249, 115, 22, 0.05) 100%);
-            border: 1px solid var(--border-glass);
-            border-radius: 16px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .ideal-title {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--accent-coral);
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-        }
-
-        .ideal-formula {
-            font-size: 1.35rem;
-            overflow-x: auto;
-            color: white;
-            font-weight: 500;
-        }
-
-        /* Right Workspace Tabs */
-        .tabs-header {
-            display: flex;
-            gap: 8px;
-            border-bottom: 1px solid var(--border-glass);
-            padding-bottom: 2px;
-            margin-bottom: 10px;
-            overflow-x: auto;
-        }
-
-        .tab-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            font-weight: 500;
-            font-family: var(--font-display);
-            padding: 10px 18px;
-            cursor: pointer;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            white-space: nowrap;
-        }
-
-        .tab-btn:hover {
-            color: var(--text-primary);
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .tab-btn.active {
-            color: white;
-            background: rgba(147, 51, 234, 0.15);
-            box-shadow: 0 0 10px rgba(147, 51, 234, 0.1) inset;
-            border: 1px solid rgba(147, 51, 234, 0.2);
-        }
-
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.4s ease;
-        }
-
-        .tab-content.active {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Workspace Cards */
-        .result-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-        }
-
-        @media (max-width: 768px) {
-            .result-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .result-box {
-            background: var(--card-bg);
-            border: 1px solid var(--border-glass);
-            border-radius: 14px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            transition: all 0.3s ease;
-        }
-
-        .result-box:hover {
-            border-color: rgba(255, 255, 255, 0.12);
-            background: hsla(230, 35%, 16%, 0.55);
-        }
-
-        .result-box-title {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .result-box-title .dot {
-            width: 8px;
-            height: 8px;
-            background: var(--accent-purple);
-            border-radius: 50%;
-            box-shadow: 0 0 8px var(--accent-purple-glow);
-        }
-
-        .result-box-title .dot.emerald {
-            background: var(--accent-emerald);
-            box-shadow: 0 0 8px var(--accent-emerald-glow);
-        }
-
-        .result-box-title .dot.coral {
-            background: var(--accent-coral);
-            box-shadow: 0 0 8px var(--accent-coral-glow);
-        }
-
-        .result-data {
-            font-size: 1.05rem;
-            line-height: 1.7;
-        }
-
-        .result-data ul {
-            list-style: none;
-            padding-left: 0;
-        }
-
-        .result-data li {
-            position: relative;
-            padding-left: 20px;
-            margin-bottom: 8px;
-        }
-
-        .result-data li::before {
-            content: "•";
-            color: var(--accent-purple);
-            position: absolute;
-            left: 5px;
-            font-weight: bold;
-        }
-
-        .result-data li.emerald::before {
-            color: var(--accent-emerald);
-        }
-
-        /* Loading Overlay */
-        .loading-container {
-            display: none;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 20px;
-            padding: 80px 0;
-        }
-
-        .loading-container.active {
-            display: flex;
-        }
-
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 4px solid rgba(255, 255, 255, 0.05);
-            border-top: 4px solid var(--accent-purple);
-            border-radius: 50%;
-            animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-            box-shadow: 0 0 20px rgba(147, 51, 234, 0.1);
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Mock Terminal Interface */
-        .terminal {
-            background: #090d16;
-            border: 1px solid var(--border-glass);
-            border-radius: 12px;
-            overflow: hidden;
-            font-family: var(--font-mono);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-
-        .terminal-header {
-            background: #111827;
-            padding: 10px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-glass);
-        }
-
-        .terminal-dots {
-            display: flex;
-            gap: 6px;
-        }
-
-        .dot-btn {
-            width: 11px;
-            height: 11px;
-            border-radius: 50%;
-        }
-
-        .dot-btn.close { background: #ef4444; }
-        .dot-btn.minimize { background: #f59e0b; }
-        .dot-btn.expand { background: #10b981; }
-
-        .terminal-title {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .terminal-body {
-            padding: 20px;
-            font-size: 0.9rem;
-            color: #d1d5db;
-            line-height: 1.6;
-            overflow-x: auto;
-            position: relative;
-        }
-
-        .copy-btn {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-glass);
-            padding: 6px 12px;
-            border-radius: 6px;
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .copy-btn:hover {
-            background: var(--accent-purple);
-            color: white;
-            border-color: transparent;
-        }
-
-        /* Error Notification */
-        .error-toast {
-            background: rgba(239, 68, 68, 0.15);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 10px;
-            padding: 14px 20px;
-            color: rgb(239, 68, 68);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            display: none;
-            animation: slideIn 0.3s ease;
-        }
-
-        .error-toast.active {
-            display: flex;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .help-label {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-top: 4px;
-            font-style: italic;
+        :root[data-theme="dark"] {
+            --bg: #15181d; --card: #1d2128; --ink: #e6e9ee; --muted: #a3acb8; --faint: #7d8794;
+            --line: #2e343d; --accent: #8fb8e0; --accent-soft: #233041; --good: #7fcf9d; --good-soft: #1f3328;
+            --warn: #e9a46c; --warn-soft: #3a2a1d; --bad: #f28b82; --input-bg: #171a20;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--ink); font-family: var(--serif); line-height: 1.55; }
+        .page { max-width: 780px; margin: 0 auto; padding: 40px 16px 64px; }
+        header h1 { font-weight: normal; font-size: 2.1rem; letter-spacing: 0.01em; }
+        header p { color: var(--muted); margin-top: 6px; font-size: 1.05rem; }
+
+        .examples { display: flex; flex-wrap: wrap; gap: 6px; margin: 22px 0 18px; align-items: center; }
+        .examples .label { font-family: var(--sans); font-size: 0.78rem; color: var(--faint); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px; }
+        .chip { font: inherit; font-size: 0.92rem; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; cursor: pointer; }
+        .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-bottom: 14px; }
+        .card h2 { font-family: var(--sans); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); margin-bottom: 12px; }
+
+        .field-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: 1.05rem; }
+        input.math { font-family: var(--mono); font-size: 1rem; color: var(--ink); background: var(--input-bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-width: 0; outline: none; }
+        input.math:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        input.math.invalid { border-color: var(--bad); }
+        #poly { flex: 1 1 220px; }
+        .info { margin-top: 12px; color: var(--muted); font-size: 0.95rem; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+        .info .err, .el-meta .err { color: var(--bad); font-family: var(--sans); font-size: 0.88rem; }
+
+        .el-row { display: grid; grid-template-columns: 2.2em 1fr auto; gap: 4px 8px; align-items: center; padding: 6px 0; }
+        .el-row + .el-row { border-top: 1px dashed var(--line); }
+        .el-label { color: var(--muted); text-align: right; }
+        .el-row input { width: 100%; }
+        .el-remove { font: inherit; font-size: 1.15rem; line-height: 1; width: 30px; height: 30px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--faint); cursor: pointer; }
+        .el-remove:hover { color: var(--bad); border-color: var(--line); }
+        .el-meta { grid-column: 2 / 4; font-size: 0.9rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 14px; min-height: 1.4em; }
+        .tag { font-family: var(--sans); font-size: 0.74rem; border-radius: 999px; padding: 1px 8px; align-self: center; }
+        .tag.int { background: var(--good-soft); color: var(--good); }
+        .tag.pole { background: var(--warn-soft); color: var(--warn); }
+        .add-row { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+        .btn { font-family: var(--sans); font-size: 0.88rem; color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+        .btn:hover { border-color: var(--accent); }
+        .hint { font-size: 0.86rem; color: var(--faint); }
+        .hint code { font-family: var(--mono); font-size: 0.85em; color: var(--muted); }
+
+        .result { border-color: var(--accent); }
+        .result .name { color: var(--muted); font-size: 1rem; overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+        .result .head { font-size: 1.45rem; margin: 6px 0 10px; overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+        .result .head .katex-display { text-align: left; margin: 0; }
+        .result .head .katex-display > .katex { text-align: left; }
+        .result .summary { font-size: 1.02rem; }
+        .result .status { color: var(--faint); font-family: var(--sans); font-size: 0.9rem; }
+        dl.facts { margin-top: 16px; border-top: 1px solid var(--line); display: grid; grid-template-columns: max-content 1fr; }
+        dl.facts dt, dl.facts dd { padding: 9px 0; border-bottom: 1px solid var(--line); }
+        dl.facts dt { font-family: var(--sans); font-size: 0.82rem; color: var(--faint); padding-right: 18px; padding-top: 11px; }
+        dl.facts dd { overflow-x: auto; overflow-y: hidden; }
+        dl.facts dd:last-of-type, dl.facts dt:last-of-type { border-bottom: none; }
+        .primes { list-style: none; display: grid; gap: 6px; }
+        .primes .over { color: var(--muted); margin-right: 6px; }
+        .pchip { display: inline-block; border-radius: 6px; padding: 0 6px; margin: 1px 4px 1px 0; border: 1px solid var(--line); }
+        .pchip.inS { background: var(--warn-soft); border-color: transparent; }
+        .pchip small { font-family: var(--sans); color: var(--faint); font-size: 0.72rem; margin-left: 4px; }
+        .note { font-size: 0.9rem; color: var(--muted); }
+        .legend { font-family: var(--sans); font-size: 0.78rem; color: var(--faint); margin-top: 4px; }
+        .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--warn-soft); vertical-align: -1px; margin-right: 4px; }
+        .warn-box { margin-top: 12px; font-size: 0.88rem; color: var(--warn); }
+
+        details.syntax { margin-top: 26px; color: var(--muted); font-size: 0.92rem; }
+        details.syntax summary { cursor: pointer; font-family: var(--sans); font-size: 0.85rem; color: var(--faint); }
+        details.syntax div { margin-top: 8px; display: grid; gap: 6px; }
+
+        @media (max-width: 560px) {
+            .page { padding-top: 24px; }
+            header h1 { font-size: 1.7rem; }
+            .card { padding: 16px; }
+            dl.facts { grid-template-columns: 1fr; }
+            dl.facts dt { border-bottom: none; padding-bottom: 0; }
+            .result .head { font-size: 1.3rem; }
         }
     </style>
 </head>
 <body>
+<div class="page">
     <header>
-        <div class="logo-section">
-            <div class="logo-icon">𝔑</div>
-            <div>
-                <h1>Algebraic Number Rings</h1>
-                <p class="subtitle">ℤ-Algebras, Field Signatures & Gröbner Bases Workspace</p>
-            </div>
-        </div>
-        <div>
-            <!-- Custom Site Nav script generates header links recursively -->
-        </div>
+        <h1>Number Rings</h1>
+        <p>Choose a number field <span class="m">K</span>, list some of its elements, and see the ring <span class="m">R = \mathbb{Z}[\beta_1, \dots, \beta_k]</span> they generate.</p>
     </header>
 
-    <div class="dashboard">
-        <!-- Sidebar Panel -->
-        <div class="glass-panel">
-            <div class="section-title">Configure Ideal</div>
+    <div class="examples" id="examples"><span class="label">Examples</span></div>
 
-            <div class="math-input-container">
-                <label style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary);">Input Algebraic Generator:</label>
-                <span id="math-input"></span>
-                <p class="help-label">Use variables x_1, x_2, etc. (e.g. x_1^2 - 2, or x_2 - x_1^2)</p>
-            </div>
+    <section class="card">
+        <h2>Number field</h2>
+        <label class="field-line" for="poly">
+            <span class="m">K = \mathbb{Q}(a)</span>, where <span class="m">a</span> is a root of
+            <input id="poly" class="math" spellcheck="false" autocomplete="off" value="x^2 + 1">
+        </label>
+        <div class="info" id="field-info"></div>
+    </section>
 
-            <!-- Visual Keypad -->
-            <div class="keypad">
-                <button class="keypad-btn" onclick="keypadPress('x_1')">x₁</button>
-                <button class="keypad-btn" onclick="keypadPress('x_2')">x₂</button>
-                <button class="keypad-btn" onclick="keypadPress('x_3')">x₃</button>
-                <button class="keypad-btn action" onclick="keypadPress('backspace')">⌫</button>
-                <button class="keypad-btn" onclick="keypadPress('^2')">^2</button>
-                <button class="keypad-btn" onclick="keypadPress('^3')">^3</button>
-                <button class="keypad-btn" onclick="keypadPress('^')">^n</button>
-                <button class="keypad-btn action" onclick="keypadPress('clear')">C</button>
-                <button class="keypad-btn" onclick="keypadPress('+')">+</button>
-                <button class="keypad-btn" onclick="keypadPress('-')">-</button>
-                <button class="keypad-btn" onclick="keypadPress('*')">*</button>
-                <button class="keypad-btn" onclick="keypadPress('(')">(</button>
-            </div>
-
-            <div style="display: flex; gap: 10px;">
-                <button class="btn btn-primary" style="flex: 1;" onclick="addPolynomial()">+ Add Ideal Generator</button>
-            </div>
-
-            <div class="section-title">Active Generators</div>
-            <div class="poly-list-container" id="polynomial-list">
-                <!-- Dynamically generated list -->
-                <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 20px;">No generators added. Load a preset below to start.</p>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
-                <label style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary);">Monomial Reduction Ordering:</label>
-                <select id="ordering-select" style="padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-glass); background: #111827; color: var(--text-secondary); font-size: 0.95rem; cursor: pointer; transition: border-color 0.3s;">
-                    <option value="grevlex" selected>Graded Reverse Lexicographic (grevlex)</option>
-                    <option value="grlex">Graded Lexicographic (grlex)</option>
-                    <option value="lex">Lexicographic (lex)</option>
-                </select>
-            </div>
-
-            <div class="section-title presets-section">Ideal Preset Library</div>
-            <div class="presets-grid" id="presets-grid">
-                <!-- Dynamically generated presets -->
-            </div>
-
-            <div style="display: flex; gap: 10px; margin-top: 10px; border-top: 1px solid var(--border-glass); padding-top: 15px;">
-                <button class="btn btn-primary" style="flex: 1;" onclick="computeResults()">Compute Workspace</button>
-                <button class="btn btn-secondary" onclick="clearAll()">Reset</button>
-            </div>
+    <section class="card">
+        <h2>Elements of K</h2>
+        <div id="elements"></div>
+        <div class="add-row">
+            <button class="btn" id="add">+ Add element</button>
+            <span class="hint">Write elements in terms of <code>a</code>, e.g. <code>(1 + a)/2</code>, <code>1/(2 + a)</code>, <code>3a^2 - 1</code>.</span>
         </div>
+    </section>
 
-        <!-- Main Workspace Panel -->
-        <div class="glass-panel" style="gap: 25px;">
-            <!-- Ideal Banner -->
-            <div class="active-ideal-card">
-                <div class="ideal-title">Active Ideal Workspace</div>
-                <div class="ideal-formula" id="ideal-banner-formula">$I = \langle \emptyset \rangle \subset \mathbb{Z}[x_1]$</div>
-            </div>
+    <section class="card result" id="result">
+        <div class="name" id="ring-name"></div>
+        <div class="head" id="ring-head"></div>
+        <p class="summary" id="ring-summary"></p>
+        <dl class="facts" id="ring-facts"></dl>
+        <div class="warn-box" id="ring-warn"></div>
+    </section>
 
-            <!-- Tabs Section -->
-            <div class="tabs-container">
-                <div class="tabs-header">
-                    <button class="tab-btn active" id="tab-btn-structure" onclick="switchTab('structure')">Algebraic Structure</button>
-                    <button class="tab-btn" id="tab-btn-valuations" onclick="switchTab('valuations')">Valuations & Places</button>
-                    <button class="tab-btn" id="tab-btn-grobner" onclick="switchTab('grobner')">Gröbner Basis</button>
-                </div>
-
-                <div class="error-toast" id="error-message">
-                    <span style="font-weight: bold; font-size: 1.25rem;">⚠</span>
-                    <span id="error-text">An error occurred during calculations.</span>
-                </div>
-
-                <div class="loading-container" id="loading">
-                    <div class="spinner"></div>
-                    <p style="color: var(--text-secondary); font-size: 0.95rem;">Performing exact algebraic reductions and place computations...</p>
-                </div>
-
-                <div id="workspace-results" style="margin-top: 15px;">
-                    <!-- Tab 1: Structure -->
-                    <div class="tab-content active" id="tab-structure">
-                        <div class="result-grid">
-                            <div class="result-box">
-                                <div class="result-box-title"><span class="dot"></span>Algebraic Extension</div>
-                                <div class="result-data" id="ring-info">
-                                    <p style="color: var(--text-muted);">Please enter generators and click "Compute Workspace" to analyze.</p>
-                                </div>
-                            </div>
-                            <div class="result-box">
-                                <div class="result-box-title"><span class="dot emerald"></span>Ring Attributes</div>
-                                <div class="result-data" id="properties-info">
-                                    <p style="color: var(--text-muted);">Awaiting calculations...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Tab 2: Valuations -->
-                    <div class="tab-content" id="tab-valuations">
-                        <div class="result-box" style="width: 100%;">
-                            <div class="result-box-title"><span class="dot coral"></span>Valuation Space & Infinite Places</div>
-                            <div class="result-data" id="valuations-info">
-                                <p style="color: var(--text-muted);">Awaiting calculations...</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Tab 3: Grobner -->
-                    <div class="tab-content" id="tab-grobner">
-                        <div class="result-grid">
-                            <div class="result-box" style="grid-column: span 2;">
-                                <div class="result-box-title"><span class="dot"></span>Calculated Gröbner Basis ($G$-Basis)</div>
-                                <div class="result-data" id="grobner-basis-result">
-                                    <p style="color: var(--text-muted);">Awaiting calculations...</p>
-                                </div>
-                            </div>
-                            <div class="result-box">
-                                <div class="result-box-title"><span class="dot emerald"></span>Ideal Membership Testing</div>
-                                <div class="result-data" id="grobner-reduction-info">
-                                    <p style="color: var(--text-muted);">Awaiting calculations...</p>
-                                </div>
-                            </div>
-                            <div class="result-box">
-                                <div class="result-box-title"><span class="dot coral"></span>Algorithm Saturation Statistics</div>
-                                <div class="result-data" id="analysis-info">
-                                    <p style="color: var(--text-muted);">Awaiting calculations...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-
-                </div>
-            </div>
+    <details class="syntax">
+        <summary>Input syntax and what is computed</summary>
+        <div>
+            <p>The field is <span class="m">\mathbb{Q}[x]/(f)</span> for an irreducible <span class="m">f \in \mathbb{Q}[x]</span>; any single letter may name the root in the element boxes. Use <code>+ - * / ^</code> and parentheses; juxtaposition multiplies (<code>3a</code>), and negative powers invert (<code>a^-1</code>).</p>
+            <p>Everything is exact. The ring of integers comes from the Round 2 algorithm. <span class="m">S</span> is the set of primes of the generated field at which some generator has a pole. The page reports the integral closure <span class="m">\mathcal{O}_{S}</span> of <span class="m">R</span>, the index <span class="m">[\mathcal{O}_{S} : R]</span>, and the order <span class="m">R \cap \mathcal{O}</span>. From these, <span class="m">R = (R \cap \mathcal{O})[1/s]</span> for any <span class="m">s</span> whose prime divisors are exactly <span class="m">S</span>.</p>
         </div>
-    </div>
+    </details>
+</div>
 
-    <!-- jQuery -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    
-    <!-- MathQuill JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
+<script src="ringEngine.js"></script>
+<script>
+(function () {
+    'use strict';
+    const EXAMPLES = [
+        { label: '\\mathbb{Z}[i]', f: 'x^2 + 1', e: ['a'] },
+        { label: '\\mathbb{Z}[2i]', f: 'x^2 + 1', e: ['2a'] },
+        { label: '\\mathbb{Z}[\\tfrac{1+\\sqrt5}{2}]', f: 'x^2 - 5', e: ['(1 + a)/2'] },
+        { label: '\\mathbb{Z}[\\tfrac16]', f: 'x', e: ['1/6'] },
+        { label: '\\mathbb{Z}[i, \\tfrac12]', f: 'x^2 + 1', e: ['a', '1/2'] },
+        { label: '\\mathbb{Z}[\\tfrac{1}{2+i}]', f: 'x^2 + 1', e: ['1/(2 + a)'] },
+        { label: '\\mathbb{Z}[3i, \\tfrac12]', f: 'x^2 + 1', e: ['3a', '1/2'] },
+        { label: '\\mathbb{Z}[\\sqrt{-5}, \\tfrac{1+\\sqrt{-5}}{3}]', f: 'x^2 + 5', e: ['a', '(1 + a)/3'] },
+        { label: '\\mathbb{Z}[\\sqrt2] \\subset \\mathbb{Q}(\\sqrt[4]2)', f: 'x^4 - 2', e: ['a^2'] },
+        { label: '\\mathbb{Z}[\\zeta_7 + \\zeta_7^{-1}]', f: 'x^6 + x^5 + x^4 + x^3 + x^2 + x + 1', e: ['a + 1/a'] },
+        { label: '\\text{Dedekind’s cubic}', f: 'x^3 + x^2 - 2x + 8', e: ['a'] },
+    ];
+    const DEFAULT = { f: 'x^2 + 1', e: ['(1 + a)/2'] };
 
-    <!-- Number Ring Library -->
-    <script src="numberRing.js"></script>
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const tex = (t, display) => (window.katex ? katex.renderToString(t, { throwOnError: false, displayMode: !!display }) : esc(t));
+    /** Text with $…$ math segments → HTML. */
+    const mix = (s) => s.split('$').map((part, i) => (i % 2 ? tex(part) : esc(part))).join('');
+    const sub = (k) => String(k).split('').map((ch) => '₀₁₂₃₄₅₆₇₈₉'[+ch]).join('');
 
-    <!-- Grobner Bases Library -->
-    <script src="grobnerBases.js"></script>
-
-    <script>
-        const MQ = MathQuill.getInterface(2);
-        let mathField;
-        let polynomials = [];
-        let activeTab = 'structure';
-
-        // Library of algebraic presets
-        const sampleIdealLibrary = [
-            { label: 'ℚ(√2)', polys: ['x_1^2 - 2'], desc: 'Real quadratic number field' },
-            { label: 'ℚ(√-1)', polys: ['x_1^2 + 1'], desc: 'Gaussian imaginary quadratic field' },
-            { label: 'Golden Ratio field', polys: ['x_1^2 - x_1 - 1'], desc: 'Real quadratic field extension' },
-            { label: 'ℤ[1/6]', polys: ['6*x_1 - 1'], desc: 'Localization of integers by 2 & 3' },
-            { label: 'ℤ[1/65]', polys: ['65*x_1 - 1'], desc: 'Localization of integers by 5 & 13' },
-            { label: 'Cubic Field (x³-2)', polys: ['x_1^3 - 2'], desc: 'Cubic number field extension' },
-            { label: 'Quartic Field (x⁴-2)', polys: ['x_1^4 - 2'], desc: 'Quartic number field extension' },
-            { label: 'Circle Line ∩', polys: ['x_1^2 + x_2^2 - 1', 'x_1 - x_2'], desc: 'Intersection ideal in 2 variables' },
-            { label: 'Twisted Cubic', polys: ['x_2 - x_1^2', 'x_3 - x_1^3'], desc: '3D algebraic space curve' }
-        ];
-
-        $(document).ready(function() {
-            // Initialize MathQuill
-            const mathFieldSpan = document.getElementById('math-input');
-            mathField = MQ.MathField(mathFieldSpan, {
-                spaceBehavesLikeTab: true,
-                handlers: {
-                    enter: function() {
-                        addPolynomial();
-                    }
-                }
-            });
-
-            // Populate presets
-            const presetsGrid = document.getElementById('presets-grid');
-            presetsGrid.innerHTML = '';
-            sampleIdealLibrary.forEach((preset, idx) => {
-                const card = document.createElement('button');
-                card.className = 'preset-card';
-                card.onclick = () => loadPreset(idx);
-                card.innerHTML = `
-                    <div class="preset-title">${preset.label}</div>
-                    <div class="preset-desc">${preset.desc}</div>
-                `;
-                presetsGrid.appendChild(card);
-            });
-
-            mathField.focus();
+    // ── element rows ──
+    const list = $('elements');
+    function addRow(value = '', focus = false) {
+        const row = document.createElement('div');
+        row.className = 'el-row';
+        row.innerHTML = `<span class="el-label"></span><input class="math" spellcheck="false" autocomplete="off" placeholder="e.g. (1 + a)/2"><button class="el-remove" title="Remove" aria-label="Remove element">×</button><div class="el-meta"></div>`;
+        const input = row.querySelector('input');
+        input.value = value;
+        input.addEventListener('input', schedule);
+        input.addEventListener('keydown', (ev) => {
+            if (ev.key !== 'Enter') return;
+            ev.preventDefault();
+            const next = row.nextElementSibling;
+            if (next) next.querySelector('input').focus(); else addRow('', true);
         });
+        row.querySelector('.el-remove').addEventListener('click', () => {
+            row.remove();
+            if (!list.children.length) addRow('');
+            relabel(); schedule();
+        });
+        list.appendChild(row);
+        relabel();
+        if (focus) input.focus();
+        return row;
+    }
+    function relabel() {
+        [...list.children].forEach((row, i) => { row.querySelector('.el-label').innerHTML = tex(`\\beta_{${i + 1}}`); });
+    }
+    const rows = () => [...list.children];
+    const elementValues = () => rows().map((r) => r.querySelector('input').value);
 
-        // Keypad Press Handler
-        function keypadPress(key) {
-            if (!mathField) return;
-            if (key === 'clear') {
-                mathField.latex('');
-            } else if (key === 'backspace') {
-                mathField.keystroke('Backspace');
-            } else if (key === '^') {
-                mathField.cmd('^');
-            } else if (key === '^2') {
-                mathField.cmd('^');
-                mathField.write('2');
-            } else if (key === '^3') {
-                mathField.cmd('^');
-                mathField.write('3');
+    function setState(f, els) {
+        $('poly').value = f;
+        list.innerHTML = '';
+        (els.length ? els : ['']).forEach((v) => addRow(v));
+        schedule(0);
+    }
+
+    // ── examples ──
+    const ex = $('examples');
+    EXAMPLES.forEach((x) => {
+        const b = document.createElement('button');
+        b.className = 'chip';
+        b.innerHTML = tex(x.label);
+        b.addEventListener('click', () => setState(x.f, x.e));
+        ex.appendChild(b);
+    });
+    document.querySelectorAll('.m').forEach((el) => { el.innerHTML = tex(el.textContent); });
+
+    // ── computation (Web Worker when available) ──
+    let worker = null, seq = 0, busySince = 0, timer = null;
+    try {
+        worker = new Worker('ringWorker.js');
+        worker.onmessage = (e) => { busySince = 0; if (e.data.id === seq) render(e.data.result); };
+        worker.onerror = () => { worker = null; };
+    } catch (e) { worker = null; }
+
+    function schedule(delay = 220) {
+        clearTimeout(timer);
+        timer = setTimeout(run, delay);
+    }
+    function run() {
+        const f = $('poly').value, els = elementValues();
+        saveHash(f, els);
+        const id = ++seq;
+        if (worker) {
+            if (busySince && Date.now() - busySince > 1500) { // a long computation is stale: restart
+                worker.terminate();
+                worker = new Worker('ringWorker.js');
+                worker.onmessage = (e) => { busySince = 0; if (e.data.id === seq) render(e.data.result); };
+            }
+            busySince = Date.now();
+            worker.postMessage({ id, f, elements: els });
+            setTimeout(() => { if (id === seq && busySince) $('ring-summary').innerHTML = '<span class="status">Computing…</span>'; }, 300);
+        } else {
+            let result;
+            try { result = NumberRingEngine.compute(f, els); } catch (err) { result = { ok: false, error: err.message }; }
+            render(result);
+        }
+    }
+
+    // ── rendering ──
+    function render(res) {
+        const poly = $('poly');
+        const info = $('field-info');
+        if (!res.ok) {
+            poly.classList.add('invalid');
+            info.innerHTML = `<span class="err">${esc(res.error)}</span>`;
+            rows().forEach((r) => { r.querySelector('.el-meta').innerHTML = ''; r.querySelector('input').classList.remove('invalid'); });
+            clearResult('Fix the field polynomial to continue.');
+            return;
+        }
+        poly.classList.remove('invalid');
+        renderField(res.field);
+        res.elements.forEach((e, i) => renderElement(rows()[i], e));
+        if (!res.ring) { clearResult('Fix the highlighted element to continue.'); return; }
+        renderRing(res.ring, res.field, res.elements);
+    }
+
+    function renderField(F) {
+        const bits = [];
+        if (F.isQ) bits.push(mix('$K = \\mathbb{Q}$'));
+        else {
+            bits.push(`degree ${F.n}`);
+            bits.push(mix(`signature $(${F.r1}, ${F.r2})$`));
+            bits.push(mix(`$\\operatorname{disc} K = ${F.discTex}$`));
+            if (F.zA) bits.push(mix('$\\mathcal{O}_K = \\mathbb{Z}[a]$'));
+            else bits.push(mix(`$\\mathcal{O}_K$ has basis $${F.integralBasis.join(',\\ ')}$`));
+            if (!F.aIntegral) bits.push(mix('$a$ is not an algebraic integer'));
+        }
+        if (!F.certified) bits.push('<span class="err">discriminant only partly factored: 𝒪_K may be non-maximal at a large prime</span>');
+        $('field-info').innerHTML = bits.map((b) => `<span>${b}</span>`).join('');
+    }
+
+    function renderElement(row, e) {
+        if (!row) return;
+        const meta = row.querySelector('.el-meta'), input = row.querySelector('input');
+        input.classList.toggle('invalid', !!e.error);
+        if (e.empty) { meta.innerHTML = ''; return; }
+        if (e.error) { meta.innerHTML = `<span class="err">${esc(e.error)}</span>`; return; }
+        const tag = e.integral ? '<span class="tag int">integral</span>'
+            : `<span class="tag pole">poles above ${e.poles.join(', ')}</span>`;
+        meta.innerHTML = `<span>${tex('= ' + e.tex)}</span><span>${mix(`minimal polynomial $${e.minpolyTex}$`)}</span>${tag}`;
+    }
+
+    function clearResult(msg) {
+        $('ring-name').innerHTML = '';
+        $('ring-head').innerHTML = '';
+        $('ring-summary').innerHTML = `<span class="status">${esc(msg)}</span>`;
+        $('ring-facts').innerHTML = '';
+        $('ring-warn').innerHTML = '';
+    }
+
+    function renderRing(R, F, elements) {
+        const O = R.Oname, Fn = R.Fname;
+        const Os = R.d === 1 ? '\\mathbb{Z}_S' : `\\mathcal{O}_{${Fn},S}`;
+        $('ring-name').innerHTML = tex(R.nameTex);
+        $('ring-head').innerHTML = tex(R.headTex, true);
+
+        // one or two sentences
+        let s = '';
+        const where = R.d === 1 ? '$\\mathbb{Q}$' : Fn === 'K' ? '$K$' : 'the subfield $L$';
+        const idx = R.index;
+        if (R.kind === 'maximal') {
+            s = R.d === 1 ? 'Every generator is a rational integer, so $R = \\mathbb{Z}$.'
+                : `$R$ is the full ring of integers of ${where}.`;
+        } else if (R.kind === 'order') {
+            const bad = R.badPrimes.primes.length ? ` It fails to be integrally closed at $p = ${R.badPrimes.primes.join(', ')}$${R.badPrimes.complete ? '' : ' (and possibly at larger primes)'}.` : '';
+            s = `$R$ is an order of index $${idx}$ in $${O}$: a free $\\mathbb{Z}$-module of rank $${R.d}$, but not integrally closed.${bad}`;
+        } else {
+            const S = R.d === 1 ? 'the set of primes listed below' : 'the set of primes marked below';
+            const sat = R.allSaturated
+                ? (R.d === 1 ? '' : ` Since every prime above ${listWords(R.inverted)} is inverted, this is the same as inverting ${R.inverted.length > 1 ? 'those rational primes' : `$${R.inverted[0]}$`}.`)
+                : ` Only some of the primes above ${listWords(R.local.filter((l) => !l.saturated).map((l) => l.p))} are inverted, so ${R.local.filter((l) => !l.saturated).map((l) => `$\\tfrac1{${l.p}}$`).join(', ')} ${R.local.filter((l) => !l.saturated).length > 1 ? 'are' : 'is'} not in $R$.`;
+            if (R.d === 1) {
+                s = `$R$ is the localization of $\\mathbb{Z}$ away from ${listWords(R.inverted)}: integrally closed, but not finitely generated as a $\\mathbb{Z}$-module.`;
+            } else if (R.kind === 'S-integers') {
+                s = `$R$ is the ring of $S$-integers $${Os}$, where $S$ is ${S}: it is integrally closed but not finitely generated as a $\\mathbb{Z}$-module.${sat}`;
             } else {
-                mathField.write(key);
-            }
-            mathField.focus();
-        }
-
-        // Switch workspace tabs
-        function switchTab(tabId) {
-            activeTab = tabId;
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
-            document.getElementById(`tab-btn-${tabId}`).classList.add('active');
-            document.getElementById(`tab-${tabId}`).classList.add('active');
-        }
-
-        // Load Preset ideal
-        function loadPreset(index) {
-            polynomials = [];
-            const preset = sampleIdealLibrary[index];
-            preset.polys.forEach((polyStr, idx) => {
-                polynomials.push({
-                    latex: polyStr,
-                    readable: convertLatexToPolynomial(polyStr),
-                    id: Date.now() + idx
-                });
-            });
-            updatePolynomialList();
-            updateIdealBanner();
-        }
-
-        function addPolynomial() {
-            const latex = mathField.latex();
-            if (!latex.trim()) return;
-
-            const polynomial = convertLatexToPolynomial(latex);
-            if (!polynomial) {
-                showError('Invalid polynomial structure. Please use x_1, x_2, etc.');
-                return;
-            }
-
-            polynomials.push({
-                latex: latex,
-                readable: polynomial,
-                id: Date.now()
-            });
-
-            updatePolynomialList();
-            updateIdealBanner();
-            mathField.latex('');
-            mathField.focus();
-        }
-
-        function removePolynomial(id) {
-            polynomials = polynomials.filter(p => p.id !== id);
-            updatePolynomialList();
-            updateIdealBanner();
-        }
-
-        function clearAll() {
-            polynomials = [];
-            updatePolynomialList();
-            updateIdealBanner();
-            mathField.latex('');
-            mathField.focus();
-            hideError();
-        }
-
-        function updatePolynomialList() {
-            const listEl = document.getElementById('polynomial-list');
-            if (polynomials.length === 0) {
-                listEl.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 20px;">No generators added. Load a preset below to start.</p>';
-                return;
-            }
-
-            listEl.innerHTML = '';
-            polynomials.forEach((poly, index) => {
-                const item = document.createElement('div');
-                item.className = 'poly-item';
-                item.innerHTML = `
-                    <div class="poly-math">
-                        $p_{${index + 1}} = ${poly.latex}$
-                    </div>
-                    <button class="btn-remove" onclick="removePolynomial(${poly.id})">×</button>
-                `;
-                listEl.appendChild(item);
-            });
-
-            if (window.MathJax) {
-                MathJax.typesetPromise();
+                s = `$R$ has index $${idx}$ in its integral closure $${Os}$. Its integral part $R \\cap ${O}$ is an order of index $${idx}$ in $${O}$, and $R$ is that order with the primes of $S$ inverted.${sat}`;
             }
         }
+        $('ring-summary').innerHTML = mix(s);
 
-        function updateIdealBanner() {
-            const banner = document.getElementById('ideal-banner-formula');
-            if (polynomials.length === 0) {
-                banner.innerHTML = '$I = \\langle \\emptyset \\rangle \\subset \\mathbb{Z}[x_1]$';
-                return;
-            }
-
-            const variables = extractVariables();
-            const generators = polynomials.map((p, idx) => `p_{${idx + 1}}`).join(', ');
-            banner.innerHTML = `$I = \\langle ${generators} \\rangle \\subseteq \\mathbb{Z}[${variables.join(', ')}]$`;
-            if (window.MathJax) {
-                MathJax.typesetPromise();
-            }
+        // facts
+        const facts = [];
+        if (R.d === 1) facts.push(['Fraction field', mix('$\\mathbb{Q}$')]);
+        else if (Fn === 'K') facts.push(['Fraction field', mix(`$K$ itself (degree $${R.d}$)`)]);
+        else {
+            const gen = R.subfield.genIndex !== null ? `${R.subfield.scale !== '1' ? R.subfield.scale : ''}\\beta_{${R.subfield.genIndex + 1}}` : '\\theta';
+            facts.push(['Fraction field', mix(`$L = \\mathbb{Q}(${gen})$, a subfield of degree $${R.d}$ in $K$; ${gen === '\\theta' ? `$\\theta = ${R.subfield.thetaTex}$, ` : ''}its generator has minimal polynomial $${R.subfield.minpolyTex}$`)]);
+            facts.push([mix('$\\mathcal{O}_L$'), mix(`basis $${R.OLbasis.join(',\\ ')}$; $\\operatorname{disc} L = ${R.OLdiscTex}$`)]);
         }
-
-        function convertLatexToPolynomial(latex) {
-            let poly = latex;
-            poly = poly.replace(/x_\{(\d+)\}/g, 'x_$1');
-            poly = poly.replace(/x_(\d+)/g, 'x_$1');
-            poly = poly.replace(/\\cdot/g, '*');
-            poly = poly.replace(/\\times/g, '*');
-            poly = poly.replace(/\\left/g, '');
-            poly = poly.replace(/\\right/g, '');
-            poly = poly.replace(/\\/g, '');
-            poly = poly.replace(/frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)');
-            poly = poly.replace(/\^\{([^}]+)\}/g, '**($1)');
-            poly = poly.replace(/\^([A-Za-z0-9_]+)/g, '**$1');
-            poly = poly.replace(/\s+/g, ' ').trim();
-            return poly;
-        }
-
-        function extractVariables() {
-            const varSet = new Set();
-            polynomials.forEach(poly => {
-                const matches = poly.readable.match(/x_\d+/g) || [];
-                matches.forEach(v => varSet.add(v));
-            });
-            const vars = Array.from(varSet).sort((a, b) => {
-                const numA = parseInt(a.match(/\d+/)[0]);
-                const numB = parseInt(b.match(/\d+/)[0]);
-                return numA - numB;
-            });
-            return vars.length > 0 ? vars : ['x_1'];
-        }
-
-        function computeResults() {
-            if (polynomials.length === 0) {
-                showError('Please add at least one polynomial ideal generator.');
-                return;
+        if (R.integral) {
+            facts.push([mix('$\\mathbb{Z}$-basis'), mix(`$${R.basisTex.join(',\\ ')}$`)]);
+            facts.push(['Index', mix(`$[${O} : R] = ${R.indexTex}$`)]);
+            facts.push(['Discriminant', mix(`$\\operatorname{disc} R = ${R.discTex}$`)]);
+        } else {
+            if (idx !== '1') {
+                facts.push(['Integral closure', mix(`$${Os}${R.sTex ? ` = ${O}\\left[\\frac{1}{${R.sTex}}\\right]` : ''}$`)]);
+                facts.push(['Index', mix(`$[${Os} : R] = ${R.indexTex}$`)]);
+                facts.push([mix(`$R \\cap ${O}$`), mix(`$${R.zsumTex}$, an order of index $${R.indexTex}$`)]);
+            } else if (!R.sTex && R.d > 1) {
+                facts.push(['Integral closure', mix(`$R = ${Os}$ is integrally closed`)]);
             }
-
-            hideError();
-            document.getElementById('loading').classList.add('active');
-            document.getElementById('workspace-results').style.display = 'none';
-
-            setTimeout(() => {
-                try {
-                    const variables = extractVariables();
-                    const n = variables.length;
-                    const ordering = document.getElementById('ordering-select').value;
-
-                    let ring, poly;
-
-                    if (n === 1) {
-                        // Single variable algebra/field analysis
-                        poly = parsePolynomial(polynomials[0].readable, 'x_1', 'Q');
-                        ring = NumberRing.fromPolynomial(poly);
-
-                        renderSingleVariableResults(ring, poly, variables);
-                        switchTab('structure');
-                    } else {
-                        // Multivariate ring ideal Gröbner basis calculation
-                        renderMultivariateResults(variables, ordering);
-                        switchTab('grobner');
-                    }
-                } catch (error) {
-                    showError(error.message);
-                } finally {
-                    document.getElementById('loading').classList.remove('active');
-                    document.getElementById('workspace-results').style.display = 'block';
-                }
-            }, 600);
+            const items = R.local.map((l) => {
+                const chips = l.primes.map((pr) => {
+                    const small = [pr.e > 1 ? `e=${pr.e}` : '', pr.f > 1 ? `f=${pr.f}` : ''].filter(Boolean).join(', ');
+                    return `<span class="pchip${pr.inS ? ' inS' : ''}" title="${pr.inS ? `in S (pole of order ${pr.pole})` : 'not in S'}">${tex(pr.tex)}${small ? `<small>${small}</small>` : ''}</span>`;
+                }).join('');
+                const note = l.saturated ? mix(` $\\Rightarrow \\tfrac1{${l.p}} \\in R$`) : mix(` $\\Rightarrow \\tfrac1{${l.p}} \\notin R$`);
+                return `<li><span class="over">${mix(`above $${l.p}$:`)}</span>${chips}<span class="note">${note}</span></li>`;
+            }).join('');
+            facts.push([mix('Primes $S$'), `<ul class="primes">${items}</ul><div class="legend"><span class="sw"></span>shaded primes are in S (inverted in R)</div>`]);
         }
+        $('ring-facts').innerHTML = facts.map(([dt, dd]) => `<dt>${dt}</dt><dd>${dd}</dd>`).join('');
+        $('ring-warn').innerHTML = R.certified ? '' : esc('Warning: a large factor of the discriminant could not be factored, so the ring of integers (and the index) may be off at a large prime.');
+    }
+    function listWords(a) {
+        const m = a.map((x) => `$${x}$`);
+        return m.length <= 1 ? m.join('') : `${m.slice(0, -1).join(', ')} and ${m[m.length - 1]}`;
+    }
 
-        function renderSingleVariableResults(ring, poly, variables) {
-            const info = ring.getInfo();
-            const disc = ring.discriminant();
+    // ── URL state ──
+    function saveHash(f, els) {
+        const h = `#f=${encodeURIComponent(f)}&e=${els.map(encodeURIComponent).join('|')}`;
+        if (location.hash !== h) history.replaceState(null, '', h);
+    }
+    function loadHash() {
+        const m = /^#f=([^&]*)&e=(.*)$/.exec(location.hash);
+        if (!m) return null;
+        try { return { f: decodeURIComponent(m[1]), e: m[2] ? m[2].split('|').map(decodeURIComponent) : [] }; } catch (e) { return null; }
+    }
 
-            // Structure Info
-            document.getElementById('ring-info').innerHTML = `
-                <p style="margin-bottom: 12px;"><strong>Representation:</strong> $K = \\mathbb{Q}[\\alpha]/(\\alpha^3 - ...)$</p>
-                <p style="margin-bottom: 12px;"><strong>Minimal Polynomial:</strong> $f(\\alpha) = ${poly.toString().replace(/x_1/g, '\\alpha')}$</p>
-                <p><strong>Extension Degree:</strong> $[K : \\mathbb{Q}] = ${poly.degree()}$</p>
-            `;
-
-            document.getElementById('properties-info').innerHTML = `
-                <p style="margin-bottom: 12px;"><strong>Module Rank over ℤ:</strong> ${info.rank}</p>
-                <p style="margin-bottom: 12px;"><strong>Algebraic Discriminant:</strong> $\\Delta = ${disc.toString()}$</p>
-                <p><strong>Integral Closure Maximal:</strong> ${info.isMaximal ? '<span style="color: var(--accent-emerald); font-weight: 600;">Yes (Maximal Order)</span>' : 'Unknown'}</p>
-            `;
-
-            // Valuations Info
-            const valuations = ring.getValuations();
-            let valHTML = `<p style="margin-bottom: 12px;">Total inequivalent non-trivial places (valuations): <strong>${valuations.length}</strong></p>`;
-
-            const archimedean = valuations.filter(v => v.type === 'archimedean');
-            const nonArchimedean = valuations.filter(v => v.type === 'non-archimedean');
-
-            if (archimedean.length > 0) {
-                valHTML += `<p style="color: var(--accent-purple); font-weight: 600; margin-top: 15px;">Infinite Archimedean Places:</p><ul style="margin-top: 8px;">`;
-                archimedean.forEach(v => {
-                    const placeType = v.isReal ? 'Real Embedding into ℝ' : 'Complex Conjugate Embedding Pair into ℂ';
-                    valHTML += `<li class="emerald"><strong>${v.description}:</strong> ${placeType}</li>`;
-                });
-                valHTML += '</ul>';
-            }
-
-            if (nonArchimedean.length > 0) {
-                valHTML += `<p style="color: var(--accent-coral); font-weight: 600; margin-top: 15px;">Finite Non-Archimedean Places (p-adic):</p><ul style="margin-top: 8px;">`;
-                nonArchimedean.forEach(v => {
-                    valHTML += `<li class="emerald"><strong>${v.description}:</strong> Splitting over the prime p = ${v.prime}</li>`;
-                });
-                valHTML += '</ul>';
-            }
-
-            if (ring.isLocalization) {
-                valHTML += `<p class="help-label" style="margin-top: 15px;">This Z-Algebra is localized at ℤ[1/${ring.localizationDenominator}].</p>`;
-            } else if (ring.signature) {
-                valHTML += `<p class="help-label" style="margin-top: 15px;">Field Signature: (r, s) = (${ring.signature.realEmbeddings}, ${ring.signature.complexPairs})</p>`;
-            }
-
-            document.getElementById('valuations-info').innerHTML = valHTML;
-
-            // Gröbner panel (not computed in single variable)
-            document.getElementById('grobner-basis-result').innerHTML = `<p style="color: var(--text-muted);">Ideal Gröbner bases calculations are automatically triggered for <strong>multivariate</strong> rings ($n \\ge 2$).</p>`;
-            document.getElementById('grobner-reduction-info').innerHTML = `<p style="color: var(--text-muted);">Awaiting multivariate system...</p>`;
-            document.getElementById('analysis-info').innerHTML = `<p style="color: var(--text-muted);">Awaiting multivariate system...</p>`;
-
-
-
-            if (window.MathJax) {
-                MathJax.typesetPromise();
-            }
-        }
-
-        function renderMultivariateResults(variables, ordering) {
-            const mvPolys = polynomials.map(p => MultivariatePolynomial.parse(p.readable));
-            const result = buchberger(mvPolys, ordering, { maxIterations: 1000 });
-            const grobnerBasis = result.basis;
-
-            // Render Structure tab
-            document.getElementById('ring-info').innerHTML = `
-                <p style="margin-bottom: 12px;"><strong>Polynomial Ring:</strong> $\\mathbb{Z}[${variables.join(', ')}]$</p>
-                <p style="margin-bottom: 12px;"><strong>Variable Dimension:</strong> ${variables.length}</p>
-                <p><strong>Ideal Generators:</strong> ${mvPolys.length}</p>
-            `;
-
-            document.getElementById('properties-info').innerHTML = `
-                <p style="margin-bottom: 12px;"><strong>Coefficients Field:</strong> Integers (Exact Arithmetic)</p>
-                <p style="margin-bottom: 12px;"><strong>Ordering Strategy:</strong> ${getOrderingName(ordering)}</p>
-                <p><strong>Z-Basis Computed:</strong> <span style="color: var(--accent-emerald); font-weight: 600;">Success</span></p>
-            `;
-
-            // Render Gröbner basis Tab
-            let basisHTML = `<p style="margin-bottom: 10px;">The computed reduced Gröbner basis for ideal $I$ consists of <strong>${grobnerBasis.length}</strong> polynomials:</p>`;
-            basisHTML += '<div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px solid var(--border-glass);">';
-            grobnerBasis.forEach((gb, idx) => {
-                basisHTML += `<p style="margin: 8px 0; font-size: 1.15rem;">$g_{${idx + 1}} = ${formatPolynomialToLatex(gb, variables)}$</p>`;
-            });
-            basisHTML += '</div>';
-            document.getElementById('grobner-basis-result').innerHTML = basisHTML;
-
-            // Ideal membership check
-            const hasConstant = grobnerBasis.some(gb => {
-                return gb.terms.length === 1 && gb.terms[0].exponents.every(e => e === 0) && gb.terms[0].coeff !== 0;
-            });
-            let membershipHTML = `<p>Ideal $I \\subseteq \\mathbb{Z}[${variables.join(', ')}]$</p>`;
-            if (hasConstant) {
-                membershipHTML += `<p style="color: var(--accent-coral); font-weight: bold; margin-top: 15px;">⚠ The Gröbner basis contains a non-zero integer constant! Therefore, the ideal contains 1 and equals the entire ring: $I = \\mathbb{Z}[${variables.join(', ')}]$.</p>`;
-            } else {
-                membershipHTML += `<p style="color: var(--accent-emerald); font-weight: 500; margin-top: 15px;">✓ Ideal is proper ($I \\subsetneq R$). No non-zero constants in Gröbner basis.</p>`;
-            }
-            document.getElementById('grobner-reduction-info').innerHTML = membershipHTML;
-
-            // Saturation Stats
-            document.getElementById('analysis-info').innerHTML = `
-                <p style="margin-bottom: 8px;"><strong>Algorithm Iterations:</strong> ${result.stats.iterations}</p>
-                <p style="margin-bottom: 8px;"><strong>S-Polynomials Built:</strong> ${result.stats.sPolynomialsComputed}</p>
-                <p style="margin-bottom: 8px;"><strong>Reductions Performed:</strong> ${result.stats.reductionsPerformed}</p>
-                <p><strong>Coefficient Primitivizations:</strong> ${result.stats.primitivizationsPerformed}</p>
-            `;
-
-            // Valuations tab indicates it is not used in multivariate
-            document.getElementById('valuations-info').innerHTML = `<p style="color: var(--text-muted);">Places and algebraic valuations calculations are automatically triggered for <strong>univariate</strong> algebraic number fields ($n = 1$).</p>`;
-
-
-
-            if (window.MathJax) {
-                MathJax.typesetPromise();
-            }
-        }
-
-        function formatPolynomialToLatex(poly, varNames) {
-            if (poly.isZero()) return '0';
-
-            const sortedTerms = poly._sortTerms('lex');
-            const termStrings = [];
-
-            for (let i = 0; i < sortedTerms.length; i++) {
-                const term = sortedTerms[i];
-                const absCoeff = Math.abs(term.coeff);
-                const isNegative = term.coeff < 0;
-                const isConstant = term.exponents.every(e => e === 0);
-
-                let termStr = '';
-                let varPart = '';
-                for (let j = 0; j < term.exponents.length; j++) {
-                    if (term.exponents[j] > 0) {
-                        const varName = varNames && varNames[j] ? varNames[j] : `x_{${j + 1}}`;
-                        if (term.exponents[j] === 1) {
-                            varPart += varName;
-                        } else {
-                            varPart += `${varName}^{${term.exponents[j]}}`;
-                        }
-                    }
-                }
-
-                if (isConstant) {
-                    termStr = absCoeff.toString();
-                } else {
-                    if (absCoeff === 1) {
-                        termStr = varPart;
-                    } else {
-                        termStr = `${absCoeff}${varPart}`;
-                    }
-                }
-
-                if (i === 0) {
-                    termStrings.push(isNegative ? '-' + termStr : termStr);
-                } else {
-                    termStrings.push(isNegative ? '- ' + termStr : '+ ' + termStr);
-                }
-            }
-
-            return termStrings.join(' ');
-        }
-
-        function getOrderingName(ordering) {
-            switch(ordering) {
-                case 'lex': return 'Lexicographic (lex)';
-                case 'grlex': return 'Graded Lexicographic (grlex)';
-                case 'grevlex': return 'Graded Reverse Lexicographic (grevlex)';
-                default: return ordering;
-            }
-        }
-
-
-
-        function showError(message) {
-            const toast = document.getElementById('error-message');
-            document.getElementById('error-text').textContent = message;
-            toast.classList.add('active');
-        }
-
-        function hideError() {
-            document.getElementById('error-message').classList.remove('active');
-        }
-    </script>
+    $('poly').addEventListener('input', () => schedule());
+    $('add').addEventListener('click', () => addRow('', true));
+    const start = loadHash() || DEFAULT;
+    setState(start.f, start.e);
+})();
+</script>
 <!-- golg-nav-bootstrap -->
 <script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
 </body>
