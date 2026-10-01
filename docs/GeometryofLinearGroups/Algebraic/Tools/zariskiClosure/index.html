@@ -1,221 +1,344 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Zariski Closure Calculator</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="style.css" />
-    <script>
-        window.MathJax = {
-            tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
-            svg: { fontCache: 'global' }
-        };
-    </script>
-    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zariski Closure</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <style>
+        :root {
+            --bg: #f7f6f2; --card: #ffffff; --ink: #1f2a37; --muted: #5f6b7a; --faint: #8a94a1; --line: #e3e0d8;
+            --accent: #2f5d8a; --accent-soft: #e8eff6; --good: #2e7d4f; --good-soft: #e6f3eb; --warn: #a2551a; --warn-soft: #fbefe4;
+            --bad: #b3261e; --input-bg: #fcfcfa;
+            --serif: Georgia, 'Times New Roman', serif;
+            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #15181d; --card: #1d2128; --ink: #e6e9ee; --muted: #a3acb8; --faint: #7d8794; --line: #2e343d;
+                --accent: #8fb8e0; --accent-soft: #233041; --good: #7fcf9d; --good-soft: #1f3328; --warn: #e9a46c; --warn-soft: #3a2a1d;
+                --bad: #f28b82; --input-bg: #171a20;
+            }
+        }
+        :root[data-theme="dark"] {
+            --bg: #15181d; --card: #1d2128; --ink: #e6e9ee; --muted: #a3acb8; --faint: #7d8794; --line: #2e343d;
+            --accent: #8fb8e0; --accent-soft: #233041; --good: #7fcf9d; --good-soft: #1f3328; --warn: #e9a46c; --warn-soft: #3a2a1d;
+            --bad: #f28b82; --input-bg: #171a20;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--ink); font-family: var(--serif); line-height: 1.55; }
+        .page { max-width: 780px; margin: 0 auto; padding: 40px 16px 64px; }
+        header h1 { font-weight: normal; font-size: 2.1rem; letter-spacing: 0.01em; }
+        header p { color: var(--muted); margin-top: 6px; font-size: 1.05rem; }
+
+        .examples { display: flex; flex-wrap: wrap; gap: 6px; margin: 22px 0 18px; align-items: center; }
+        .examples .label { font-family: var(--sans); font-size: 0.78rem; color: var(--faint); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px; }
+        .chip { font: inherit; font-size: 0.92rem; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; cursor: pointer; }
+        .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-bottom: 14px; }
+        .card h2 { font-family: var(--sans); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); margin-bottom: 12px; }
+
+        textarea.math { width: 100%; min-height: 76px; resize: vertical; font-family: var(--mono); font-size: 0.98rem; line-height: 1.5; color: var(--ink); background: var(--input-bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; outline: none; }
+        textarea.math:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        textarea.math.invalid { border-color: var(--bad); }
+        .hint { font-size: 0.86rem; color: var(--faint); margin-top: 6px; }
+        .hint code { font-family: var(--mono); font-size: 0.85em; color: var(--muted); }
+        .err { color: var(--bad); font-family: var(--sans); font-size: 0.9rem; }
+
+        .gens { display: grid; gap: 10px; margin-top: 14px; }
+        .gen { display: grid; grid-template-columns: 2.4em auto 1fr; gap: 6px 14px; align-items: center; padding-top: 10px; border-top: 1px dashed var(--line); }
+        .gen .lbl { color: var(--muted); text-align: right; }
+        .gen .mat { overflow-x: auto; overflow-y: hidden; }
+        .gen .meta { font-size: 0.9rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 14px; align-items: center; }
+        .tag { font-family: var(--sans); font-size: 0.74rem; border-radius: 999px; padding: 1px 8px; background: var(--accent-soft); color: var(--accent); }
+        .tag.fin { background: var(--good-soft); color: var(--good); }
+        .field-info { margin-top: 12px; color: var(--muted); font-size: 0.95rem; }
+
+        .result { border-color: var(--accent); }
+        .result .name { color: var(--muted); font-size: 1rem; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+        .result .head { font-size: 1.4rem; margin: 6px 0 4px; overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+        .result .head .katex-display { text-align: left; margin: 0; }
+        .result .head .katex-display > .katex { text-align: left; }
+        .result .summary { font-size: 1.02rem; margin-top: 8px; }
+        .result .status { color: var(--faint); font-family: var(--sans); font-size: 0.9rem; }
+        dl.facts { margin-top: 16px; border-top: 1px solid var(--line); display: grid; grid-template-columns: max-content 1fr; }
+        dl.facts dt, dl.facts dd { padding: 9px 0; border-bottom: 1px solid var(--line); }
+        dl.facts dt { font-family: var(--sans); font-size: 0.82rem; color: var(--faint); padding-right: 18px; padding-top: 11px; }
+        dl.facts dd { overflow-x: auto; overflow-y: hidden; }
+        dl.facts dd:last-of-type, dl.facts dt:last-of-type { border-bottom: none; }
+        .note { font-size: 0.9rem; color: var(--muted); }
+        .cong { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+        .cong h3 { font-family: var(--sans); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); margin-bottom: 8px; }
+        .cong p { margin-bottom: 8px; }
+        .cong table { width: 100%; border-collapse: collapse; font-size: 0.95rem; margin: 6px 0 10px; }
+        .cong th { font-family: var(--sans); font-size: 0.76rem; font-weight: 600; color: var(--faint); text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); }
+        .cong td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+        .cong td.st-full { color: var(--good); }
+        .cong td.st-deficient { color: var(--warn); }
+        .cong .wrap { overflow-x: auto; }
+
+        details.syntax { margin-top: 26px; color: var(--muted); font-size: 0.92rem; }
+        details.syntax summary { cursor: pointer; font-family: var(--sans); font-size: 0.85rem; color: var(--faint); }
+        details.syntax div { margin-top: 8px; display: grid; gap: 6px; }
+        details.syntax code { font-family: var(--mono); font-size: 0.88em; }
+
+        @media (max-width: 560px) {
+            .page { padding-top: 24px; }
+            header h1 { font-size: 1.7rem; }
+            .card { padding: 16px; }
+            dl.facts { grid-template-columns: 1fr; }
+            dl.facts dt { border-bottom: none; padding-bottom: 0; }
+            .gen { grid-template-columns: 2.2em 1fr; }
+            .gen .meta { grid-column: 2; }
+            .result .head { font-size: 1.2rem; }
+        }
+    </style>
 </head>
 <body>
-    <main class="page">
-        <!-- Hero -->
-        <header class="hero">
-            <div class="hero__content">
-                <h1>Zariski Closure Calculator</h1>
-                <p>
-                    Compute the Zariski closure of a finitely generated subgroup
-                    \(\langle S \rangle \subseteq \mathbb{G}(A)\),
-                    viewing \(\mathbb{G}\) as a \(\mathbb{Q}\)-group via restriction of scalars.
-                </p>
-            </div>
-            <div class="hero__accent">
-                <span class="hero__formula">\(\overline{\langle S \rangle}^{\mathrm{Zar}} \subseteq \mathrm{Res}_{A/\mathbb{Q}}(\mathbb{G})\)</span>
-            </div>
-        </header>
+<div class="page">
+    <header>
+        <h1>Zariski Closure</h1>
+        <p>Enter matrices generating a subgroup <span class="m">\Gamma \le \mathrm{PGL}_2(\overline{\mathbb{Q}})</span>. See its Zariski closure and, when <span class="m">\Gamma</span> is Zariski dense, the trace field, quaternion algebra and arithmetic group that contain it.</p>
+    </header>
 
-        <!-- Step 1: Define the ring A -->
-        <section class="card" id="ring-card">
-            <h2 class="card__title"><span class="step-badge">1</span> Define the Number Ring \(A\)</h2>
-            <p class="hint">
-                Enter polynomials \(f_i(x_1, \ldots, x_k) = 0\) to define
-                \(A = \mathbb{Z}[x_1, \ldots, x_k]/(f_1, \ldots, f_m) \hookrightarrow \overline{\mathbb{Q}}\).
-            </p>
+    <div class="examples" id="examples"><span class="label">Examples</span></div>
 
-            <div class="field field--math">
-                <div class="mq-shell">
-                    <div class="mq-editor" id="mq-ring-input"></div>
-                </div>
-            </div>
+    <section class="card">
+        <h2>Generators</h2>
+        <textarea id="gens" class="math" spellcheck="false" autocomplete="off"></textarea>
+        <p class="hint">2×2 matrices as <code>((a,b),(c,d))</code> or <code>[[a,b],[c,d]]</code>, separated by commas. Entries can use <code>i</code>, <code>sqrt(…)</code>, <code>cbrt(…)</code>, <code>zeta_n</code> and <code>ω</code>.</p>
+        <div class="field-info" id="field-info"></div>
+        <div class="gens" id="gen-list"></div>
+    </section>
 
-            <div class="actions">
-                <button class="button button--primary" id="btn-add-poly">Add polynomial</button>
-                <button class="button button--ghost" id="btn-clear-polys">Clear all</button>
-            </div>
+    <section class="card result" id="result">
+        <div class="name" id="r-name"></div>
+        <div class="head" id="r-head"></div>
+        <div class="head" id="r-head2"></div>
+        <p class="summary" id="r-summary"></p>
+        <dl class="facts" id="r-facts"></dl>
+        <div class="cong" id="r-cong" hidden></div>
+    </section>
 
-            <div class="poly-list" id="ring-poly-list"></div>
+    <details class="syntax">
+        <summary>What is computed, and how</summary>
+        <div>
+            <p>Each radical is adjoined to the field of entries <span class="m">K</span> at its principal complex value, so relations such as <span class="m">\sqrt{-2} = i\sqrt2</span> are respected. Matrices are taken up to scalars, so <span class="m">\operatorname{tr}^2/\det</span> is the basic invariant.</p>
+            <p>Over <span class="m">\overline{\mathbb{Q}}</span> the closure is decided exactly. Reducibility comes from the span of <span class="m">\Gamma</span>. Element orders come from Kronecker's theorem. An invariant pair of points comes from a regular semisimple element. The finite primitive groups <span class="m">A_4, S_4, A_5</span> are found by enumeration.</p>
+            <p>For dense <span class="m">\Gamma</span>, the invariant trace field <span class="m">k = \mathbb{Q}(\operatorname{tr}\operatorname{Ad}\Gamma)</span> is read off the <span class="m">\mathbb{Q}</span>-span of <span class="m">\operatorname{Ad}\Gamma</span>. The quaternion algebra is <span class="m">A = (\operatorname{tr}^2 G - 4,\ \operatorname{tr}[G,H] - 2)_k</span> for <span class="m">G = g^2/\det g</span> and <span class="m">H = h^2/\det h</span>. Its ramification is computed from tame symbols, a finite dyadic search and the real embeddings. <span class="m">S</span> is the set of primes where <span class="m">\operatorname{tr}^2/\det</span> fails to be integral on words of length at most 3; these are exactly the places where <span class="m">\Gamma</span> is unbounded.</p>
+            <p><span class="m">\Gamma</span> is unbounded at a real place where <span class="m">A</span> splits, at every complex place, and at the primes of <span class="m">S</span>, and bounded everywhere else. The symmetric space <span class="m">X</span> is the product of <span class="m">\mathbb{H}^2</span>, <span class="m">\mathbb{H}^3</span> and Bruhat–Tits trees over those places.</p>
+            <p>Congruence closure. At a prime <span class="m">\mathfrak{p} \notin S</span> the closure of <span class="m">\Gamma</span> is compact, so <span class="m">\Gamma</span> fixes a vertex of the tree, possibly not the standard one. The page first lists a finite set of primes: those dividing <span class="m">2\cdot 3\cdot 5</span>, the discriminant of <span class="m">k</span>, the ramification of <span class="m">A</span>, a commutator trace <span class="m">\operatorname{tr}[G,H]-2</span>, the values of <span class="m">\operatorname{tr}^2/\det</span> that A₄, S₄, A₅ allow, and the index of the trace ring. Every other prime is full, by Dickson and Serre. At the listed primes the image of <span class="m">\Gamma</span> modulo <span class="m">\mathfrak{p}^m</span> is computed at a fixed vertex (a <span class="m">\Gamma</span>-stable lattice, or a maximal order containing the order generated by <span class="m">\Gamma</span>). Kernels come from Schreier's lemma, and <span class="m">p</span>-th powers or commutators show when deeper levels are full. The closure is reported prime by prime. The closure in the product equals the product of these local closures unless two local quotients are correlated, which can only happen through small coincidences such as <span class="m">\mathrm{PSL}_2(\mathbb{F}_4) \cong \mathrm{PSL}_2(\mathbb{F}_5)</span>.</p>
+            <p>Zariski density does not imply finite index: the page shows the arithmetic group containing <span class="m">\Gamma</span> and its congruence closure, not whether <span class="m">\Gamma</span> is all of it.</p>
+        </div>
+    </details>
+</div>
 
-            <div>
-                <p class="hint" style="margin-bottom: 0.5rem;">Ring presets:</p>
-                <div class="presets" id="ring-presets"></div>
-            </div>
+<script src="../numberRings/ringEngine.js"></script>
+<script src="pgl2Engine.js"></script>
+<script>
+(function () {
+    'use strict';
+    const T237 = '(zeta_14 + zeta_14^-1)';
+    const EXAMPLES = [
+        { label: '\\mathrm{PU}_2(\\mathbb{Z}[\\tfrac15,\\tfrac1{13}])', src: '<((1+2i, 0), (0, 1-2i)), ((3, 2), (-2, 3))>' },
+        { label: '\\text{Sanov}', src: '<((1, 2), (0, 1)), ((1, 0), (2, 1))>' },
+        { label: 'D\\,\\mathrm{PGL}_2(\\mathbb{Z})\\,D^{-1}', src: '<((1, 5), (0, 1)), ((0, -5), (1/5, 0)), ((-1, 0), (0, 1))>' },
+        { label: '\\langle T, L^{7} \\rangle', src: '<((1, 1), (0, 1)), ((1, 0), (7, 1))>' },
+        { label: '\\mathrm{PGL}_2(\\mathbb{Z}[\\tfrac12])', src: '<((2, 0), (0, 1)), ((1, 1), (0, 1)), ((1, 0), (1, 1))>' },
+        { label: '\\text{figure-eight knot}', src: '<((1, 1), (0, 1)), ((1, 0), (-ω, 1))>' },
+        { label: '(2,3,7)\\text{ triangle}', src: `<((i, 0), (0, -i)), (((1 - i*${T237})/2, 1), ((${T237}^2 - 3)/4, (1 + i*${T237})/2))>` },
+        { label: '\\langle 1+\\sqrt2\\,i,\\ 1+j \\rangle', src: '<((1+sqrt(2)i, 0), (0, 1-sqrt(2)i)), ((1, 1), (-1, 1))>' },
+        { label: '\\mathrm{BS}(1,2)', src: '<((2, 0), (0, 1)), ((1, 1), (0, 1))>' },
+        { label: 'D_\\infty', src: '<((2, 0), (0, 1)), ((0, 1), (1, 0))>' },
+        { label: 'A_4', src: '<((-1, 0), (0, 1)), ((1, i), (1, -i))>' },
+        { label: 'S_4', src: '<((i, 0), (0, 1)), ((1, 1), (1, -1))>' },
+        { label: 'A_5', src: '<((zeta_5, 0), (0, 1)), ((zeta_5 - zeta_5^4, zeta_5^2 - zeta_5^3), (zeta_5^2 - zeta_5^3, zeta_5^4 - zeta_5))>' },
+    ];
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const tex = (t, display) => (window.katex ? katex.renderToString(t, { throwOnError: false, displayMode: !!display }) : esc(t));
+    const mix = (s) => s.split('$').map((part, i) => (i % 2 ? tex(part) : esc(part))).join('');
+    const list = (a) => (a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
 
-            <div class="actions">
-                <button class="button button--primary" id="btn-compute-ring" disabled>Compute ring</button>
-            </div>
+    document.querySelectorAll('.m').forEach((el) => { el.innerHTML = tex(el.textContent); });
+    EXAMPLES.forEach((x) => {
+        const b = document.createElement('button');
+        b.className = 'chip';
+        b.innerHTML = tex(x.label);
+        b.addEventListener('click', () => { $('gens').value = x.src; schedule(0); });
+        $('examples').appendChild(b);
+    });
 
-            <div class="hidden" id="ring-status">
-                <div class="status status--ok" id="ring-status-inner"></div>
-            </div>
-        </section>
+    // ── computation in a Web Worker, falling back to the page ──
+    let worker = null, seq = 0, busySince = 0, timer = null;
+    const startWorker = () => {
+        try {
+            worker = new Worker('zariskiWorker.js');
+            worker.onmessage = (e) => { busySince = 0; if (e.data.id === seq) render(e.data.result); };
+            worker.onerror = () => { worker = null; };
+        } catch (e) { worker = null; }
+    };
+    startWorker();
+    function schedule(delay = 300) { clearTimeout(timer); timer = setTimeout(run, delay); }
+    function run() {
+        const src = $('gens').value;
+        saveHash(src);
+        if (!src.trim()) { clear('Enter some generators, or pick an example.'); return; }
+        const id = ++seq;
+        if (worker) {
+            if (busySince && Date.now() - busySince > 2000) { worker.terminate(); startWorker(); }
+            busySince = Date.now();
+            worker.postMessage({ id, src });
+            setTimeout(() => { if (id === seq && busySince) $('r-summary').innerHTML = '<span class="status">Computing…</span>'; }, 300);
+        } else {
+            let result;
+            try { result = PGL2Engine.analyze(src); } catch (err) { result = { ok: false, error: err.message }; }
+            render(result);
+        }
+    }
 
-        <!-- Step 2: Choose algebraic group G -->
-        <section class="card" id="group-card">
-            <h2 class="card__title"><span class="step-badge">2</span> Choose Algebraic Group \(\mathbb{G}\)</h2>
-            <p class="hint">
-                Select a linear algebraic group \(\mathbb{G}\) defined over \(A\).
-                The group is specified as a subvariety of \(\mathrm{GL}_n\).
-            </p>
+    function clear(msg) {
+        ['r-name', 'r-head', 'r-head2', 'r-facts'].forEach((id) => { $(id).innerHTML = ''; });
+        $('r-cong').hidden = true;
+        $('r-summary').innerHTML = `<span class="status">${esc(msg)}</span>`;
+    }
 
-            <div class="actions">
-                <div class="select-field">
-                    <label for="group-select">Group:</label>
-                    <select id="group-select">
-                        <option value="GL">GL_n</option>
-                        <option value="SL">SL_n</option>
-                        <option value="B">B_n (upper triangular)</option>
-                        <option value="U">U_n (unipotent)</option>
-                        <option value="T">T_n (diagonal torus)</option>
-                    </select>
-                </div>
-                <div class="select-field">
-                    <label for="matrix-size">n =</label>
-                    <input type="number" id="matrix-size" value="2" min="1" max="5" />
-                </div>
-            </div>
+    function render(res) {
+        const ta = $('gens');
+        if (!res.ok) {
+            ta.classList.add('invalid');
+            $('field-info').innerHTML = `<span class="err">${esc(res.error)}</span>`;
+            $('gen-list').innerHTML = '';
+            clear('Fix the generators to continue.');
+            return;
+        }
+        ta.classList.remove('invalid');
+        const F = res.field;
+        $('field-info').innerHTML = F.n === 1 ? mix('All entries are rational: $K = \\mathbb{Q}$.')
+            : mix(`Entries lie in $K = \\mathbb{Q}(${F.atoms.join(', ')})$, a field of degree $${F.n}$.`);
+        $('gen-list').innerHTML = res.gens.map((g, i) => {
+            const kind = g.type === 'identity' ? 'scalar (trivial in PGL₂)' : g.order ? `${g.type}, order ${g.order}` : `${g.type}, infinite order`;
+            return `<div class="gen"><span class="lbl">${tex(`g_{${i + 1}}`)}</span><span class="mat">${tex(g.tex)}</span>
+                <span class="meta"><span>${tex(`\\det = ${g.detTex}`)}</span><span>${tex(`\\operatorname{tr}^2/\\det = ${g.tauTex}`)}</span><span class="tag${g.order ? ' fin' : ''}">${esc(kind)}</span></span></div>`;
+        }).join('');
 
-            <div id="group-info" class="hint"></div>
-        </section>
+        const C = res.closure, A = res.arith;
+        $('r-name').innerHTML = tex(`\\Gamma = \\langle ${res.gens.map((_, i) => `g_{${i + 1}}`).join(', ')} \\rangle \\le \\mathrm{PGL}_2(${F.n === 1 ? '\\mathbb{Q}' : 'K'})`);
+        $('r-head').innerHTML = tex(`\\overline{\\Gamma}^{\\,\\mathrm{Zar}} = ${C.tex}`, true);
+        $('r-head2').innerHTML = A ? tex(A.head.replace('\\langle S \\rangle', '\\Gamma'), true) : '';
 
-        <!-- Step 3: Input generators S -->
-        <section class="card" id="generators-card">
-            <h2 class="card__title"><span class="step-badge">3</span> Input Generators \(S\)</h2>
-            <p class="hint">
-                Enter generators as \(n \times n\) matrices with entries in \(A\).
-                For \(A = \mathbb{Z}[\sqrt{2}]\), use expressions like
-                <code>1+sqrt(2)</code>, <code>3</code>, <code>1/2</code>.
-            </p>
+        const facts = [];
+        let summary = C.summary.replace(/⟨S⟩/g, 'Γ');
+        facts.push([mix('Closure over $\\overline{\\mathbb{Q}}$'), mix(`$${C.tex}$, of dimension $${C.dim}$${C.order ? `; $|\\Gamma| = ${C.order}$` : ''}`)]);
+        if (A) {
+            const k = A.k;
+            const kName = k.d === 1 ? '$k = \\mathbb{Q}$' : `$k = ${k.tex}$`;
+            let alg;
+            if (A.A.split) alg = 'is split, $A \\cong M_2(k)$';
+            else if (A.A.hamilton) alg = `is Hamilton's quaternions $(-1,-1)_{\\mathbb{Q}}$`;
+            else alg = `is the division algebra $(${A.A.aTex},\\ ${A.A.bTex})_k$`;
+            const form = A.A.split ? (k.d === 1 ? 'the split form $\\mathrm{PGL}_2$' : `$\\mathrm{Res}_{k/\\mathbb{Q}}\\,\\mathrm{PGL}_2$`)
+                : A.A.hamilton ? 'the anisotropic form $\\mathrm{PU}_2 \\cong \\mathrm{SO}_3$' : (k.d === 1 ? '$\\mathrm{PGL}_1(A)$' : '$\\mathrm{Res}_{k/\\mathbb{Q}}\\,\\mathrm{PGL}_1(A)$');
+            const where = A.ring.S.length ? `Γ is unbounded exactly at ${A.ring.S.length === 1 ? 'the prime' : 'the primes'} ${list(A.ring.S.map((s) => `$${s.tex}$`))}` : 'Γ has integral traces';
+            const into = A.literal ? `and lies in $${A.head.replace(/^.*\\le /, '')}$` : `and, after conjugation, a finite-index subgroup lies in $${A.head.replace(/^.*\\le /, '')}$`;
+            const lat = A.lattice.length ? `, a lattice in $${A.lattice.join(' \\times ')}$` : '';
+            summary = `Γ is Zariski dense in PGL₂. Its invariant trace field is ${kName}, and its invariant quaternion algebra ${alg}, so its Zariski closure over ℚ is ${form}. ${where} ${into}${lat}.`;
 
-            <div class="generator-list" id="generator-list"></div>
+            let kFact = mix(kName);
+            if (k.d > 1) kFact += mix(`, degree $${k.d}$, signature $(${k.r1}, ${k.r2})$, $\\operatorname{disc} = ${k.discTex}$`);
+            if (k.d > 2) kFact += `<div class="note">${mix(`$\\theta = ${k.thetaTex}$, minimal polynomial $${k.minpolyTex}$`)}</div>`;
+            facts.push(['Trace field', kFact]);
+            const ramTex = A.A.ram.map((r) => (r.kind === 'real' && k.d > 1 && r.approx !== undefined ? `${r.tex}` : r.tex));
+            let algFact = A.A.split ? mix('$A \\cong M_2(k)$, split everywhere')
+                : mix(`$A = (${A.A.aTex},\\ ${A.A.bTex})_k$, ramified at $${ramTex.join(',\\ ')}$`) + (A.A.hamilton ? '<div class="note">Hamilton’s quaternions</div>' : '');
+            if (!A.A.determined) algFact += `<div class="note">${mix(`Could not decide the dyadic place${A.A.undetermined.length > 1 ? 's' : ''} $${A.A.undetermined.join(',\\ ')}$.`)}</div>`;
+            if (A.A.ram.some((r) => r.byParity)) algFact += '<div class="note">One place settled by the parity of the ramification set.</div>';
+            facts.push(['Quaternion algebra', algFact]);
+            facts.push([mix('Closure over $\\mathbb{Q}$'), mix(`${form}, of dimension $${A.G.dim}$`)]);
+            facts.push(['Unbounded at', A.ring.S.length ? mix(`$S = \\{${A.ring.S.map((s) => s.tex).join(',\\ ')}\\}$`) : mix('no finite place: $\\Gamma$ has integral traces')]);
+            if (A.spaces) {
+                const sp = A.spaces;
+                const parts = sp.factors.map((fct) => fct.kind === 'tree' ? `$${fct.space}$ for $${fct.place}$` : fct.kind === 'real' ? `$${fct.space}$ for ${k.d === 1 ? 'the real place' : `the real place $${fct.place}$`}` : `$${fct.space}$ for a complex place`);
+                let dd = mix(`$X = ${sp.productTex}$`) + `<div class="note">${mix(`$\\Gamma$ acts on $X$ properly discontinuously, with an unbounded orbit in each factor: ${list(parts)}.`)}`;
+                if (sp.bounded.length) dd += ' ' + mix(`It is bounded at $${sp.bounded.join(',\\ ')}$, where $A$ is ramified.`);
+                dd += ' ' + mix('$T_{q+1}$ is the Bruhat–Tits tree of $\\mathrm{PGL}_2$ over a local field with $q$ residues.') + '</div>';
+                facts.push(['Symmetric space', dd]);
+            }
+            const arith = mix(`$${A.head.replace('\\langle S \\rangle', '\\Gamma')}$`)
+                + `<div class="note">${A.literal ? 'Every generator lies in this group as written.' : A.literal === false ? 'After conjugation, and for a finite-index subgroup (e.g. the group generated by squares).' : 'Up to conjugation and finite index.'}${A.lattice.length ? ' ' + mix(`The group on the right is a lattice in $${A.lattice.join(' \\times ')}$, so $\\Gamma$ is discrete there.`) : ''}</div>`;
+            facts.push(['Arithmetic group', arith]);
+        }
+        $('r-summary').innerHTML = mix(summary.replace(/Γ/g, '$\\Gamma$').replace(/PGL₂/g, '$\\mathrm{PGL}_2$'));
+        $('r-facts').innerHTML = facts.map(([dt, dd]) => `<dt>${dt}</dt><dd>${dd}</dd>`).join('');
+        renderCongruence(A);
+    }
 
-            <div class="actions">
-                <button class="button button--primary" id="btn-add-gen">Add generator</button>
-                <button class="button button--ghost" id="btn-clear-gens">Clear all</button>
-            </div>
+    function renderCongruence(A) {
+        const box = $('r-cong');
+        if (!A || !A.congruence) { box.hidden = true; return; }
+        box.hidden = false;
+        const C = A.congruence, d = A.k.d;
+        if (C.error) { box.innerHTML = `<h3>Congruence closure</h3><p class="note">${esc('Could not compute: ' + C.error)}</p>`; return; }
+        // Γ(p^m) for rational or inert primes, Γ(𝔭^m) otherwise
+        const levelTex = (c) => (d === 1 || /^\(\d+\)$/.test(c.tex) ? `${BigInt(c.p) ** BigInt(c.level)}` : `\\mathfrak{p}^{${c.level}}`);
+        const closureCell = (c) => {
+            if (c.status === 'full') return 'full';
+            if (c.status === 'full-partial') return mix(`full modulo $${d === 1 ? `${c.p}^{${c.fullThrough}}` : `\\mathfrak{p}^{${c.fullThrough}}`}$; deeper levels not certified`);
+            if (c.status === 'deficient' && c.index) return mix(`index $${c.index}$${c.level ? `, contains $\\Gamma(${levelTex(c)})$` : ''}`);
+            if (c.status === 'deficient') return mix(c.indexAtLeast ? `index $\\ge ${c.indexAtLeast}$` : 'deficient');
+            return 'not determined';
+        };
+        const notes = (c) => {
+            const n = [];
+            if (c.cosmetic) n.push(c.vertexTex ? mix(`cosmetic: the matrices are not integral here, but $\\Gamma$ fixes the vertex $${c.vertexTex}$`) : 'cosmetic: the matrices are not integral here, but Γ is bounded');
+            if (c.ramifiedA) n.push(mix('$A$ is ramified: the local group is compact'));
+            if (c.inverts) n.push('Γ inverts an edge; shown for its index-2 subgroup');
+            if (c.note && c.status !== 'full-partial') n.push(esc(c.note));
+            return n.join('<br>');
+        };
+        const special = C.checked.filter((c) => c.status !== 'full' || c.cosmetic || c.ramifiedA);
+        const full = C.checked.filter((c) => c.status === 'full' && !c.cosmetic && !c.ramifiedA);
+        const bad = C.checked.filter((c) => c.status === 'deficient');
+        const undecided = C.checked.filter((c) => c.status === 'full-partial' || c.status === 'unknown');
+        let html = '<h3>Congruence closure</h3>';
+        const outside = A.ring.S.length ? 'Outside $S$, the' : 'The';
+        let lead;
+        if (!bad.length && !undecided.length) lead = `${outside} closure of $\\Gamma$ is as large as possible at every prime: at each $\\mathfrak{p}$ it contains the image of $\\mathrm{SL}_1$ of a maximal order (for split $\\mathfrak{p}$, the image of $\\mathrm{SL}_2(\\mathcal{O}_\\mathfrak{p})$).`;
+        else lead = `${outside} closure of $\\Gamma$ is as large as possible at every prime except ${list(bad.concat(undecided).map((c) => `$${c.tex}$`))}${C.totalIndex && !undecided.length && bad.length ? `; the product of the local indices is $${C.totalIndex}$` : ''}.`;
+        html += `<p>${mix(lead)}</p>`;
+        if (special.length) {
+            html += '<div class="wrap"><table><thead><tr><th>Prime</th><th>q</th><th>Closure</th><th>Notes</th></tr></thead><tbody>';
+            for (const c of special) html += `<tr><td>${tex(c.tex)}</td><td>${tex(c.q)}</td><td class="st-${c.status === 'full' ? 'full' : 'deficient'}">${closureCell(c)}</td><td class="note">${notes(c)}</td></tr>`;
+            html += '</tbody></table></div>';
+        }
+        const others = full.map((c) => `$${c.tex}$`);
+        const checkedPs = C.candidates.filter((p) => C.checked.some((c) => c.p === p));
+        html += `<p class="note">${mix(`Primes that needed checking: $${checkedPs.join(',\\ ')}$${others.length ? `; full at ${list(others)}` : ''}. Every other prime ${A.ring.S.length ? 'outside $S$ ' : ''}is full by Dickson's classification of subgroups of $\\mathrm{PGL}_2(\\mathbb{F}_q)$ and Serre's lifting lemma.`)}${C.complete ? '' : ' ' + esc('(Some norms could not be fully factored, so the list of primes may be incomplete.)')}</p>`;
+        html += `<p class="note">${mix('Indices are for the part of $\\Gamma$ with square determinant, inside the image of $\\mathrm{SL}_1$; levels $\\Gamma(\\mathfrak{p}^m)$ are principal congruence subgroups at a vertex fixed by $\\Gamma$, so primes that only appear through a conjugation cause no defect.')}</p>`;
+        if (C.dets) {
+            const D = C.dets;
+            html += `<p class="note">${D.length ? mix(`Determinants: those of $\\Gamma$ generate $\\langle ${D.join(',\\ ')} \\rangle$ in $\\mathbb{Q}^\\times/(\\mathbb{Q}^\\times)^2$. At a prime $p \\notin S$ the closure has elements of non-square determinant exactly when one of these is a non-square mod $p$. By Chebotarev that fails at infinitely many $p$, so the closure of $\\Gamma$ itself is never open in $\\prod_p \\mathrm{PGL}_2(\\mathbb{Z}_p)$; this is why the indices above are taken on the square-determinant part.`) : mix('Determinants: every element of $\\Gamma$ has square determinant, so $\\Gamma$ lies in the image of $\\mathrm{SL}_2$ at every prime.')}</p>`;
+        }
+        box.innerHTML = html;
+    }
 
-            <div>
-                <p class="hint" style="margin-bottom: 0.5rem;">Full presets (ring + group + generators):</p>
-                <div class="presets" id="full-presets"></div>
-            </div>
-        </section>
-
-        <!-- Step 4: Compute -->
-        <section class="card" id="compute-card">
-            <h2 class="card__title"><span class="step-badge">4</span> Compute Zariski Closure</h2>
-
-            <div class="actions">
-                <div class="select-field">
-                    <label for="max-deg">Max degree:</label>
-                    <select id="max-deg">
-                        <option value="1">1</option>
-                        <option value="2" selected>2</option>
-                        <option value="3">3</option>
-                    </select>
-                </div>
-                <div class="select-field">
-                    <label for="max-word-len">Max word length:</label>
-                    <select id="max-word-len">
-                        <option value="3">3</option>
-                        <option value="4">4</option>
-                        <option value="6" selected>6</option>
-                        <option value="8">8</option>
-                        <option value="10">10</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="actions">
-                <button class="button button--primary" id="btn-compute" disabled>Compute Zariski closure</button>
-            </div>
-        </section>
-
-        <!-- Loading -->
-        <section class="card hidden" id="loading-card">
-            <div class="spinner"></div>
-            <p class="loading-text" id="loading-text">Computing Zariski closure...</p>
-        </section>
-
-        <!-- Results: Ring info -->
-        <section class="card hidden" id="result-ring-card">
-            <h2 class="card__title">Number Ring</h2>
-            <div id="result-ring" class="result-box result-box--accent">
-                <div class="result-box__content"></div>
-            </div>
-        </section>
-
-        <!-- Results: Restriction of scalars -->
-        <section class="card hidden" id="result-res-card">
-            <h2 class="card__title">Restriction of Scalars</h2>
-            <div id="result-res" class="result-box result-box--info">
-                <div class="result-box__content"></div>
-            </div>
-        </section>
-
-        <!-- Results: Zariski closure -->
-        <section class="card hidden" id="result-closure-card">
-            <h2 class="card__title">Zariski Closure</h2>
-            <div id="result-closure" class="result-box result-box--success">
-                <div class="result-box__content"></div>
-            </div>
-        </section>
-
-        <!-- Results: Vanishing ideal -->
-        <section class="card hidden" id="result-ideal-card">
-            <h2 class="card__title">Vanishing Ideal</h2>
-            <div id="result-ideal" class="result-box result-box--accent">
-                <div class="result-box__content"></div>
-            </div>
-        </section>
-
-        <footer class="footer">
-            <p>
-                Part of the
-                <a href="../../../index.html">Geometry of Linear Groups</a> explorer.
-            </p>
-        </footer>
-    </main>
-
-    <!-- Dependencies -->
-    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
-
-    <!-- Math libraries (from sRingClosure) -->
-    <script src="js/rational.js"></script>
-    <script src="js/polynomial.js"></script>
-    <script src="js/factoring.js"></script>
-    <script src="js/numberField.js"></script>
-    <script src="js/integralBasis.js"></script>
-    <script src="js/sRingClosure.js"></script>
-    <script src="js/localData.js"></script>
-    <script src="js/grobner.js"></script>
-    <script src="js/parser.js"></script>
-
-    <!-- New modules -->
-    <script src="js/matrixArith.js"></script>
-    <script src="js/algebraicGroup.js"></script>
-    <script src="js/resScalars.js"></script>
-    <script src="js/zariskiEngine.js"></script>
-
-    <!-- App -->
-    <script src="js/app.js"></script>
+    // ── URL state ──
+    function saveHash(src) {
+        const h = '#g=' + encodeURIComponent(src);
+        if (location.hash !== h) history.replaceState(null, '', h);
+    }
+    function loadHash() {
+        const m = /^#g=(.*)$/.exec(location.hash);
+        try { return m ? decodeURIComponent(m[1]) : null; } catch (e) { return null; }
+    }
+    $('gens').addEventListener('input', () => schedule());
+    $('gens').value = loadHash() || EXAMPLES[0].src;
+    schedule(0);
+})();
+</script>
 <!-- golg-nav-bootstrap -->
 <script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
 </body>
