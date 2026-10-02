@@ -1,193 +1,364 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Quaternion Algebra Unit Group Explorer</title>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.css"
-    />
-    <link rel="stylesheet" href="styles.css" />
-    <script>
-      window.MathJax = {
-        tex: { inlineMath: [["\\(", "\\)"]] },
-        svg: { fontCache: "global" },
-      };
-    </script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg-full.js"
-    ></script>
-  </head>
-  <body>
-    <main class="page">
-      <header class="hero">
-        <div class="hero__content">
-          <h1>Quaternion Algebra Unit Group Explorer</h1>
-          <p>
-            Describe a quaternion algebra \(B = \left(\frac{a, b}{K}\right)\)
-            over your favorite number field and send it to SageMath Cell for a
-            unit group computation.
-          </p>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quaternion Algebras</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <style>
+        :root {
+            --bg: #f7f6f2;
+            --card: #ffffff;
+            --ink: #1f2a37;
+            --muted: #5f6b7a;
+            --faint: #8a94a1;
+            --line: #e3e0d8;
+            --accent: #2f5d8a;
+            --accent-soft: #e8eff6;
+            --good: #2e7d4f;
+            --good-soft: #e6f3eb;
+            --warn: #a2551a;
+            --warn-soft: #fbefe4;
+            --bad: #b3261e;
+            --input-bg: #fcfcfa;
+            --serif: Georgia, 'Times New Roman', serif;
+            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #15181d; --card: #1d2128; --ink: #e6e9ee; --muted: #a3acb8; --faint: #7d8794;
+                --line: #2e343d; --accent: #8fb8e0; --accent-soft: #233041; --good: #7fcf9d; --good-soft: #1f3328;
+                --warn: #e9a46c; --warn-soft: #3a2a1d; --bad: #f28b82; --input-bg: #171a20;
+            }
+        }
+        :root[data-theme="dark"] {
+            --bg: #15181d; --card: #1d2128; --ink: #e6e9ee; --muted: #a3acb8; --faint: #7d8794;
+            --line: #2e343d; --accent: #8fb8e0; --accent-soft: #233041; --good: #7fcf9d; --good-soft: #1f3328;
+            --warn: #e9a46c; --warn-soft: #3a2a1d; --bad: #f28b82; --input-bg: #171a20;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--ink); font-family: var(--serif); line-height: 1.55; }
+        .page { max-width: 820px; margin: 0 auto; padding: 40px 16px 64px; }
+        header h1 { font-weight: normal; font-size: 2.1rem; letter-spacing: 0.01em; }
+        header p { color: var(--muted); margin-top: 6px; font-size: 1.05rem; }
+
+        .examples { display: flex; flex-wrap: wrap; gap: 6px; margin: 22px 0 18px; align-items: center; }
+        .examples .label { font-family: var(--sans); font-size: 0.78rem; color: var(--faint); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px; }
+        .chip { font: inherit; font-size: 0.9rem; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; cursor: pointer; }
+        .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-bottom: 14px; }
+        .card h2 { font-family: var(--sans); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); margin-bottom: 12px; }
+
+        .inputs { display: grid; grid-template-columns: max-content 1fr; gap: 10px 12px; align-items: center; font-size: 1.05rem; }
+        .inputs label { color: var(--muted); text-align: right; white-space: nowrap; }
+        input.math { font-family: var(--mono); font-size: 1rem; color: var(--ink); background: var(--input-bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; min-width: 0; outline: none; }
+        input.math:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        input.math.invalid { border-color: var(--bad); }
+        .msg { grid-column: 2; font-family: var(--sans); font-size: 0.86rem; color: var(--bad); margin-top: -4px; }
+        .msg:empty { display: none; }
+        .hint { margin-top: 12px; font-size: 0.86rem; color: var(--faint); }
+        .hint code { font-family: var(--mono); font-size: 0.85em; color: var(--muted); }
+
+        .result { border-color: var(--accent); }
+        .result .head { font-size: 1.45rem; margin: 2px 0 10px; overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+        .result .head .katex-display { text-align: left; margin: 0; }
+        .result .head .katex-display > .katex { text-align: left; }
+        .result .summary { font-size: 1.02rem; }
+        .result .status { color: var(--faint); font-family: var(--sans); font-size: 0.9rem; }
+        .badge { display: inline-block; font-family: var(--sans); font-size: 0.74rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 999px; padding: 2px 9px; margin-right: 8px; vertical-align: 2px; }
+        .badge.div { background: var(--warn-soft); color: var(--warn); }
+        .badge.split { background: var(--good-soft); color: var(--good); }
+        .badge.kind { background: var(--accent-soft); color: var(--accent); }
+        dl.facts { margin-top: 16px; border-top: 1px solid var(--line); display: grid; grid-template-columns: max-content 1fr; }
+        dl.facts dt, dl.facts dd { padding: 9px 0; border-bottom: 1px solid var(--line); }
+        dl.facts dt { font-family: var(--sans); font-size: 0.82rem; color: var(--faint); padding-right: 18px; padding-top: 11px; }
+        dl.facts dd { overflow-x: auto; overflow-y: hidden; }
+        dl.facts dd:last-of-type, dl.facts dt:last-of-type { border-bottom: none; }
+        dl.facts:empty { display: none; }
+        .note { font-size: 0.9rem; color: var(--muted); }
+        .pchip { display: inline-block; border-radius: 6px; padding: 0 7px; margin: 2px 5px 2px 0; border: 1px solid var(--line); }
+        .pchip.ram { background: var(--warn-soft); border-color: transparent; }
+        .pchip small { font-family: var(--sans); color: var(--faint); font-size: 0.72rem; margin-left: 4px; }
+        .legend { font-family: var(--sans); font-size: 0.78rem; color: var(--faint); margin-top: 4px; }
+        .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--warn-soft); vertical-align: -1px; margin-right: 4px; }
+        .basis { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+        details.more summary { cursor: pointer; font-family: var(--sans); font-size: 0.84rem; color: var(--accent); }
+        details.more > div { margin-top: 8px; }
+        .ok { color: var(--good); font-family: var(--sans); font-size: 0.84rem; }
+        .err { color: var(--bad); font-family: var(--sans); font-size: 0.88rem; }
+
+        h3.sub { font-family: var(--sans); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); margin: 22px 0 6px; }
+        table.units { width: 100%; border-collapse: collapse; font-size: 0.98rem; }
+        table.units th { font-family: var(--sans); font-weight: 600; font-size: 0.76rem; color: var(--faint); text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); }
+        table.units td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+        table.units tr:last-child td { border-bottom: none; }
+        .table-wrap { overflow-x: auto; }
+        .kind-tag { font-family: var(--sans); font-size: 0.74rem; border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+        .kind-tag.elliptic { background: var(--accent-soft); color: var(--accent); }
+        .kind-tag.parabolic { background: var(--good-soft); color: var(--good); }
+        .kind-tag.hyperbolic, .kind-tag.loxodromic { background: var(--warn-soft); color: var(--warn); }
+        a.link { color: var(--accent); font-family: var(--sans); font-size: 0.86rem; text-decoration: none; }
+        a.link:hover { text-decoration: underline; }
+
+        details.syntax { margin-top: 26px; color: var(--muted); font-size: 0.92rem; }
+        details.syntax summary { cursor: pointer; font-family: var(--sans); font-size: 0.85rem; color: var(--faint); }
+        details.syntax div { margin-top: 8px; display: grid; gap: 6px; }
+        details.syntax code { font-family: var(--mono); font-size: 0.85em; color: var(--ink); }
+
+        @media (max-width: 560px) {
+            .page { padding-top: 24px; }
+            header h1 { font-size: 1.7rem; }
+            .card { padding: 16px; }
+            dl.facts { grid-template-columns: 1fr; }
+            dl.facts dt { border-bottom: none; padding-bottom: 0; }
+            .result .head { font-size: 1.2rem; }
+            .inputs { grid-template-columns: 1fr; gap: 4px; }
+            .inputs label { text-align: left; margin-top: 6px; }
+            .msg { grid-column: 1; margin-top: 0; }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <header>
+        <h1>Quaternion Algebras</h1>
+        <p>Choose a number field <span class="m">K</span> and <span class="m">a, b \in K^\times</span>. The page finds where <span class="m">B = \left(\frac{a,\,b}{K}\right)</span> ramifies, builds a maximal order <span class="m">\mathcal{O}</span>, and describes its norm-one units <span class="m">\mathcal{O}^1</span>. They form a finite group when <span class="m">B</span> is totally definite, and otherwise an arithmetic lattice acting on a product of copies of <span class="m">\mathbb{H}^2</span> and <span class="m">\mathbb{H}^3</span>.</p>
+    </header>
+
+    <div class="examples" id="examples"><span class="label">Examples</span></div>
+
+    <section class="card">
+        <h2>Algebra</h2>
+        <div class="inputs">
+            <label for="f"><span class="m">K = \mathbb{Q}(t),\ f(t) = 0:</span></label>
+            <input id="f" class="math" spellcheck="false" autocomplete="off" placeholder="x  (for K = ℚ)">
+            <div class="msg" id="f-msg"></div>
+            <label for="a"><span class="m">i^2 = a =</span></label>
+            <input id="a" class="math" spellcheck="false" autocomplete="off">
+            <div class="msg" id="a-msg"></div>
+            <label for="b"><span class="m">j^2 = b =</span></label>
+            <input id="b" class="math" spellcheck="false" autocomplete="off">
+            <div class="msg" id="b-msg"></div>
         </div>
-        <div class="hero__accent">
-          <span class="hero__badge">Powered by SageMath</span>
-          <span class="hero__formula">\(i^2 = a,\quad j^2 = b,\quad ij = -ji\)</span>
+        <p class="hint">Enter <span class="m">f</span> in <code>x</code> (use <code>x</code> itself for <span class="m">K = \mathbb{Q}</span>), and <span class="m">a, b</span> as rational expressions in the root, e.g. <code>-1</code>, <code>t</code>, <code>(1 + t)/2</code>.</p>
+    </section>
+
+    <section class="card result" id="result">
+        <div class="head" id="res-head"></div>
+        <p class="summary" id="res-summary"></p>
+        <dl class="facts" id="res-facts"></dl>
+        <div id="res-units"></div>
+    </section>
+
+    <details class="syntax">
+        <summary>What is computed, and how</summary>
+        <div>
+            <p><b>Ramification.</b> <span class="m">B</span> ramifies at a real place where <span class="m">a</span> and <span class="m">b</span> are both negative. At an odd prime the tame symbol decides it, and at a dyadic prime a finite search for a zero of <span class="m">ax^2 + by^2 - z^2</span> modulo <span class="m">\mathfrak{p}^{2e+3}</span>. The number of ramified places is even. The discriminant <span class="m">\mathfrak{D}</span> is the product of the ramified primes.</p>
+            <p><b>Maximal order.</b> The standard order <span class="m">\mathcal{O}_K\langle i, j\rangle</span> is enlarged at each prime above <span class="m">2ab</span>. At an odd split prime a square root of a unit supplies the missing idempotent, and at dyadic primes the enlargement is found by search. The local orders are then glued into a <span class="m">\mathbb{Z}</span>-basis. Maximality is certified by <span class="m">\operatorname{disc}_{\mathbb{Z}}\mathcal{O} = d_K^{4}\,N(\mathfrak{D})^2</span>.</p>
+            <p><b>Units.</b> If <span class="m">B</span> is totally definite, <span class="m">\operatorname{Tr}_{K/\mathbb{Q}}\operatorname{nrd}</span> is positive definite, and by AM–GM its value <span class="m">[K:\mathbb{Q}]</span> is attained exactly on <span class="m">\mathcal{O}^1</span>, which is enumerated and identified. Otherwise <span class="m">P\mathcal{O}^1</span> is a lattice in <span class="m">\mathrm{PSL}_2(\mathbb{R})^r \times \mathrm{PSL}_2(\mathbb{C})^s</span>, cocompact unless <span class="m">B \cong M_2(K)</span>. Its covolume is given by Borel's formula <span class="m">\operatorname{vol} = \frac{2(4\pi)^r (2\pi^2)^s\,|d_K|^{3/2}\,\zeta_K(2)\prod_{\mathfrak{p} \mid \mathfrak{D}}(N\mathfrak{p}-1)}{(4\pi^2)^{[K:\mathbb{Q}]}}</span>, where <span class="m">\zeta_K(2)</span> comes from its Euler product. For <span class="m">K = \mathbb{Q}</span> the signature of the Shimura curve comes from the counts of elliptic points. Sample units are short vectors for the majorant <span class="m">\sum_\sigma |\sigma x_0|^2 + |\sigma a||\sigma x_1|^2 + |\sigma b||\sigma x_2|^2 + |\sigma ab||\sigma x_3|^2</span>.</p>
         </div>
-      </header>
+    </details>
+</div>
 
-      <section class="card form-card">
-        <h2 class="card__title">Define the algebra</h2>
-        <form id="algebra-form" class="form">
-          <div class="field field--math">
-            <label class="field__label" for="field-polynomial-hidden">
-              Number field polynomial \(\,f(x)\)
-            </label>
-            <div class="mq-shell">
-              <span class="mq-prefix">\(f(x) =\)</span>
-              <div class="mq-editor" id="mq-field-polynomial"></div>
-            </div>
-            <input
-              type="hidden"
-              id="field-polynomial-hidden"
-              name="fieldPolynomial"
-              value="x^3 - 2"
-            />
-            <p class="hint">
-              Enter a monic irreducible polynomial, e.g. \(\,x^3 - 2\).
-            </p>
-          </div>
+<script src="../numberRings/ringEngine.js"></script>
+<script src="../zariskiClosure/pgl2Engine.js"></script>
+<script src="quatEngine.js"></script>
+<script>
+(function () {
+    'use strict';
+    const EXAMPLES = [
+        { label: '\\left(\\tfrac{-1,-1}{\\mathbb{Q}}\\right)', f: 'x', a: '-1', b: '-1' },
+        { label: '\\left(\\tfrac{-1,-3}{\\mathbb{Q}}\\right)', f: 'x', a: '-1', b: '-3' },
+        { label: '\\left(\\tfrac{-2,-5}{\\mathbb{Q}}\\right)', f: 'x', a: '-2', b: '-5' },
+        { label: '\\left(\\tfrac{-1,-1}{\\mathbb{Q}(\\sqrt2)}\\right)', f: 'x^2 - 2', a: '-1', b: '-1' },
+        { label: '\\text{icosians}', f: 'x^2 - x - 1', a: '-1', b: '-1' },
+        { label: 'M_2(\\mathbb{Q})', f: 'x', a: '1', b: '1' },
+        { label: '\\left(\\tfrac{-1,3}{\\mathbb{Q}}\\right)', f: 'x', a: '-1', b: '3' },
+        { label: '\\left(\\tfrac{2,5}{\\mathbb{Q}}\\right)', f: 'x', a: '2', b: '5' },
+        { label: '\\left(\\tfrac{-1,\\sqrt2}{\\mathbb{Q}(\\sqrt2)}\\right)', f: 'x^2 - 2', a: '-1', b: 't' },
+        { label: 'M_2(\\mathbb{Q}(i))', f: 'x^2 + 1', a: '-1', b: '-1' },
+        { label: 'M_2(\\mathbb{Q}(\\sqrt{-3}))', f: 'x^2 + 3', a: '-1', b: '-1' },
+        { label: '\\left(\\tfrac{-1,-1}{\\mathbb{Q}(t)}\\right),\\ t^3 = t - 1', f: 'x^3 - x + 1', a: '-1', b: '-1' },
+        { label: 'M_2(\\mathbb{Q}(\\sqrt5))', f: 'x^2 - 5', a: '1', b: '1' },
+    ];
+    const DEFAULT = EXAMPLES[0];
 
-          <div class="field">
-            <label class="field__label" for="field-generator">
-              Field generator symbol
-            </label>
-            <input
-              id="field-generator"
-              name="fieldGenerator"
-              type="text"
-              required
-              value="theta"
-              pattern="^[A-Za-z][A-Za-z0-9_]*$"
-              class="text-input"
-            />
-            <p class="hint">
-              Name for the root of \(f(x)\). Letters, digits, and underscores
-              only; must start with a letter.
-            </p>
-          </div>
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const tex = (t, display) => (window.katex ? katex.renderToString(t, { throwOnError: false, displayMode: !!display }) : esc(t));
+    const dtex = (t) => tex(`\\displaystyle ${t}`);
+    const mix = (s) => s.split('$').map((part, i) => (i % 2 ? tex(part) : esc(part))).join('');
+    const ordinal = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+    const fmt = (x, digits = 7) => (Math.abs(x) >= 1e5 || Math.abs(x) < 1e-3 ? x.toExponential(digits - 1) : x.toPrecision(digits)).replace(/(\.\d*?)0+(e|$)/, '$1$2').replace(/\.(e|$)/, '$1');
 
-          <div class="grid-two">
-            <div class="field field--math">
-              <label class="field__label" for="param-a-hidden">
-                Parameter \(a\) (so \(i^2 = a\))
-              </label>
-              <div class="mq-shell">
-                <span class="mq-prefix">\(a =\)</span>
-                <div class="mq-editor" id="mq-param-a"></div>
-              </div>
-              <input
-                type="hidden"
-                id="param-a-hidden"
-                name="paramA"
-                value="-1"
-              />
-              <p class="hint">
-                Expression inside \(K\). You can reference the generator, e.g.
-                \(-1\) or \(\theta\).
-              </p>
-            </div>
+    // ── examples ──
+    EXAMPLES.forEach((x) => {
+        const b = document.createElement('button');
+        b.className = 'chip';
+        b.innerHTML = tex(x.label);
+        b.addEventListener('click', () => setState(x.f, x.a, x.b));
+        $('examples').appendChild(b);
+    });
+    document.querySelectorAll('.m').forEach((el) => { el.innerHTML = tex(el.textContent); });
 
-            <div class="field field--math">
-              <label class="field__label" for="param-b-hidden">
-                Parameter \(b\) (so \(j^2 = b\))
-              </label>
-              <div class="mq-shell">
-                <span class="mq-prefix">\(b =\)</span>
-                <div class="mq-editor" id="mq-param-b"></div>
-              </div>
-              <input
-                type="hidden"
-                id="param-b-hidden"
-                name="paramB"
-                value="-1"
-              />
-              <p class="hint">
-                Expression inside \(K\). Fractions like \(\frac{1}{2}\) are
-                supported.
-              </p>
-            </div>
-          </div>
+    function setState(f, a, b) { $('f').value = f; $('a').value = a; $('b').value = b; schedule(0); }
 
-          <div class="field">
-            <label class="field__label" for="sage-prelude">
-              Extra Sage code (optional)
-            </label>
-            <textarea
-              id="sage-prelude"
-              name="sagePrelude"
-              rows="3"
-              placeholder="# e.g. print(B.ramified_places())"
-              class="text-area"
-            ></textarea>
-            <p class="hint">
-              This snippet runs before the unit group calculation. Use it for
-              sanity checks or additional diagnostics.
-            </p>
-          </div>
+    // ── computation (Web Worker when available) ──
+    let worker = null, seq = 0, busySince = 0, timer = null;
+    function startWorker() {
+        try {
+            worker = new Worker('quatWorker.js');
+            worker.onmessage = (e) => { busySince = 0; if (e.data.id === seq) render(e.data.result); };
+            worker.onerror = () => { worker = null; };
+        } catch (e) { worker = null; }
+    }
+    startWorker();
+    function schedule(delay = 250) { clearTimeout(timer); timer = setTimeout(run, delay); }
+    function run() {
+        const f = $('f').value, a = $('a').value, b = $('b').value;
+        saveHash(f, a, b);
+        const id = ++seq;
+        if (worker) {
+            if (busySince && Date.now() - busySince > 3000) { worker.terminate(); startWorker(); }
+            busySince = Date.now();
+            worker.postMessage({ id, f, a, b });
+            setTimeout(() => { if (id === seq && busySince) $('res-summary').innerHTML = '<span class="status">Computing…</span>'; }, 300);
+        } else {
+            let result;
+            try { result = QuatEngine.analyze(f, a, b); } catch (err) { result = { ok: false, error: err.message }; }
+            render(result);
+        }
+    }
 
-          <div class="actions">
-            <button type="submit" id="submit-button" class="button button--primary">
-              Compute unit group
-            </button>
-            <button type="button" id="cancel-button" class="button button--ghost">
-              Cancel
-            </button>
-          </div>
-        </form>
-      </section>
+    // ── rendering ──
+    function clearResult(msg) {
+        $('res-head').innerHTML = '';
+        $('res-summary').innerHTML = `<span class="status">${esc(msg)}</span>`;
+        $('res-facts').innerHTML = '';
+        $('res-units').innerHTML = '';
+    }
+    function render(res) {
+        ['f', 'a', 'b'].forEach((k) => {
+            const bad = !res.ok && (res.where === k || (!res.where && k === 'f'));
+            $(k).classList.toggle('invalid', bad);
+            $(`${k}-msg`).textContent = bad ? res.error : '';
+        });
+        if (!res.ok) { clearResult('Fix the highlighted input to continue.'); return; }
+        const F = res.field, Al = res.algebra;
+        const Ktex = F.tex;
+        $('res-head').innerHTML = tex(`B = \\left(\\frac{${Al.aTex},\\ ${Al.bTex}}{${Ktex}}\\right)${res.split ? ` \\cong M_2(${Ktex})` : ''}`, true);
 
-      <section class="card">
-        <h2 class="card__title">Status</h2>
-        <div id="status-message" class="status idle">
-          Fill out the form and click "Compute unit group".
-        </div>
-      </section>
+        // summary
+        const kindText = {
+            definite: 'totally definite, so $\\mathcal{O}^1$ is finite',
+            fuchsian: `split at exactly one real place${F.r1 > 1 ? ' and ramified at the others' : ''}, so $P\\mathcal{O}^1$ is an arithmetic Fuchsian group`,
+            kleinian: `split at the unique complex place of $K$${F.r1 ? ' and ramified at every real place' : ''}, so $P\\mathcal{O}^1$ is an arithmetic Kleinian group`,
+            product: `split at ${res.r + res.s} archimedean places, so $P\\mathcal{O}^1$ is an irreducible lattice in a product`,
+        }[res.kind];
+        const ramCount = res.ramified.count;
+        let s = res.split ? `$B$ splits everywhere, so $B \\cong M_2(${Ktex})$, and it is ` : `$B$ is a division algebra ramified at ${ramCount} place${ramCount === 1 ? '' : 's'}, and it is `;
+        s += kindText + '.';
+        const badge = res.split ? '<span class="badge split">split</span>' : '<span class="badge div">division</span>';
+        $('res-summary').innerHTML = badge + `<span class="badge kind">${esc({ definite: 'definite', fuchsian: 'Fuchsian', kleinian: 'Kleinian', product: 'product' }[res.kind])}</span>` + mix(s);
 
-      <section class="card">
-        <div class="card__header">
-          <h2 class="card__title">Sage code</h2>
-          <button type="button" id="copy-code" class="button button--tiny">
-            Copy
-          </button>
-        </div>
-        <pre id="sage-code" class="code-block">// Code will appear here once generated.</pre>
-      </section>
+        // facts
+        const facts = [];
+        if (F.n > 1) facts.push(['Field', mix(`$K = \\mathbb{Q}(${F.letter})$, $${F.polyTex.replace(/x/g, F.letter)} = 0$; degree $${F.n}$, signature $(${F.r1}, ${F.r2})$, $d_K = ${F.discTex}$`)]);
+        facts.push(['Presentation', mix(`$i^2 = ${Al.a0Tex},\\ j^2 = ${Al.b0Tex},\\ k = ij = -ji$`) + (Al.changed ? `<div class="note">${mix('(the same algebra, after removing square factors and clearing denominators)')}</div>` : '')]);
+        facts.push(['Reduced norm', tex(`\\operatorname{nrd}(x) = ${Al.normFormTex}`)]);
+        const chips = res.places.map((p) => {
+            const small = p.kind === 'finite' ? [p.e > 1 ? `e=${p.e}` : '', p.f > 1 ? `f=${p.f}` : '', `N=${p.Np}`].filter(Boolean).join(', ') : p.kind === 'real' && p.approx !== null && p.approx !== undefined ? `t ↦ ${fmt(p.approx, 5)}` : '';
+            const title = p.ramified ? `ramified${p.byParity ? ' (by parity)' : ''}` : 'split';
+            return `<span class="pchip${p.ramified ? ' ram' : ''}" title="${title}">${tex(p.tex)}${small ? `<small>${esc(small)}</small>` : ''}</span>`;
+        }).join('');
+        facts.push(['Places', `${chips}<div class="legend"><span class="sw"></span>shaded places are ramified; the other places shown divide 2ab or are archimedean, and B splits at every place not listed</div>`]);
+        facts.push(['Discriminant', mix(res.split ? '$\\mathfrak{D} = (1)$' : `$\\mathfrak{D} = ${res.disc.tex}$${res.disc.isQ ? '' : `, $N\\mathfrak{D} = ${res.disc.norm}$`}${res.ramified.real.length ? `; ramified at the real place${res.ramified.real.length > 1 ? 's' : ''} $${res.ramified.real.join(', ')}$` : ''}`)]);
+        facts.push(['Symmetric space', res.spaceTex ? mix(`$P\\mathcal{O}^1$ acts on $${res.spaceTex}$`) : mix('none: $B \\otimes \\mathbb{R}$ is a product of copies of Hamilton’s quaternions')]);
+        if (res.orderError) facts.push(['Maximal order', `<span class="err">${esc(res.orderError)}</span>`]);
+        else if (res.order) {
+            const list = `<div class="basis">${res.order.basisTex.map((t) => dtex(t)).join('')}</div>`;
+            const cert = res.order.verified
+                ? `<div class="ok">${mix(`maximal: $\\operatorname{disc}_{\\mathbb{Z}}\\mathcal{O} = d_K^4\\,N(\\mathfrak{D})^2 = ${res.order.discZ}$`)}</div>`
+                : `<div class="err">${esc(`not certified: disc = ${res.order.discZ}, expected ${res.order.expected}`)}</div>`;
+            const body = res.order.basisTex.length <= 4 ? list : `<details class="more"><summary>${esc(`ℤ-basis (${res.order.basisTex.length} elements)`)}</summary><div>${list}</div></details>`;
+            facts.push([mix('Maximal order $\\mathcal{O}$'), body + cert]);
+        }
+        $('res-facts').innerHTML = facts.map(([dt, dd]) => `<dt>${dt}</dt><dd>${dd}</dd>`).join('');
 
-      <section class="card">
-        <div class="card__header">
-          <h2 class="card__title">Results</h2>
-          <button type="button" id="clear-output" class="button button--tiny">
-            Clear
-          </button>
-        </div>
-        <pre id="output" class="code-block">// Output from SageMath Cell will appear here.</pre>
-      </section>
+        // units
+        $('res-units').innerHTML = res.units ? (res.units.finite ? finiteUnits(res) : latticeUnits(res)) : '';
+    }
 
-      <footer class="footer">
-        <p>
-          Remote computations courtesy of
-          <a href="https://sagecell.sagemath.org/" target="_blank" rel="noreferrer"
-            >SageMath Cell</a
-          >. Results depend on remote availability and may take a moment.
-        </p>
-      </footer>
-    </main>
+    function finiteUnits(res) {
+        const U = res.units, g = U.group;
+        let h = `<h3 class="sub">Norm-one units</h3>`;
+        h += `<p>${mix(`$\\mathcal{O}^1 \\cong ${g.tex}$, ${g.name} (order $${U.order}$). Its image $P\\mathcal{O}^1 = \\mathcal{O}^1/\\{\\pm 1\\}$ is ${g.image === '1' ? 'trivial' : `$${g.image}$`}, a finite group of rotations of $\\mathbb{R}^3$ acting on the pure quaternions.`)}</p>`;
+        const counts = U.orderCounts.map(({ order, count }) => `${count} of order ${order}`).join(', ');
+        h += `<p class="note">${esc(`Element orders: ${counts}.`)}</p>`;
+        if (U.list) h += `<details class="more"><summary>${esc(`all ${U.order} units`)}</summary><div class="basis">${U.list.map((t) => tex(t)).join('')}</div></details>`;
+        if (!U.complete) h += `<p class="err">The enumeration was cut off; the list may be incomplete.</p>`;
+        return h;
+    }
+    function latticeUnits(res) {
+        const U = res.units, V = res.volume;
+        let h = `<h3 class="sub">Norm-one units</h3><dl class="facts">`;
+        const dimName = res.kind === 'fuchsian' ? 'Area' : res.kind === 'kleinian' ? 'Volume' : 'Covolume';
+        const space = res.spaceTex;
+        let vol = V.exactTex ? `$${V.exactTex} \\approx ${fmt(V.value, 8)}$` : `$\\approx ${fmt(V.value, 7)}$`;
+        let volNote = '';
+        if (!V.zetaExact) volNote = ` (with $\\zeta_K(2) \\approx ${fmt(V.zeta2, 8)}$ from the Euler product over $p < ${V.P}$)`;
+        const gcd = (x, y) => (y ? gcd(y, x % y) : x);
+        const chiTex = () => { const g = gcd(V.Phi, 6), p = V.Phi / g, q = 6 / g; return q === 1 ? `-${p}` : `-\\tfrac{${p}}{${q}}`; };
+        if (res.kind === 'fuchsian') volNote += `; Euler characteristic $\\chi = -\\operatorname{area}/2\\pi${V.exactTex ? ` = ${chiTex()}` : ` \\approx ${fmt(-V.value / (2 * Math.PI), 6)}`}$`;
+        h += `<dt>${esc(dimName)}</dt><dd>${mix(`of $P\\mathcal{O}^1 \\backslash ${space}$: ${vol}${volNote}`)}</dd>`;
+        h += `<dt>Cocompact</dt><dd>${mix(res.split ? `no: $B \\cong M_2(K)$, so there are unipotent units and cusps` : 'yes, since $B$ is a division algebra')}</dd>`;
+        if (res.signature) {
+            const S = res.signature;
+            const per = [];
+            for (let i = 0; i < S.e2; i++) per.push('2');
+            for (let i = 0; i < S.e3; i++) per.push('3');
+            const sig = `(${S.g};\\ ${per.join(', ') || '-'}${S.cusps ? `;\\ ${S.cusps}\\ \\text{cusp}` : ''})`;
+            h += `<dt>Signature</dt><dd>${mix(`$${sig}$: the ${S.cusps ? 'modular curve' : 'Shimura curve'} $X_{${S.D}}$ has genus ${S.g}, ${S.e2} elliptic point${S.e2 === 1 ? '' : 's'} of order 2 and ${S.e3} of order 3`)}</dd>`;
+        }
+        h += '</dl>';
+        if (U.samples.length) {
+            const unr = res.places.filter((p) => (p.kind === 'real' && !p.ramified) || p.kind === 'complex').map((p) => p.tex);
+            h += `<h3 class="sub">Some units of $\\mathcal{O}^1$</h3>`.replace(/\$([^$]*)\$/g, (_, t) => tex(t));
+            h += `<div class="table-wrap"><table class="units"><thead><tr><th>unit</th><th>${mix('trace $\\operatorname{trd}$')}</th><th>${esc(unr.length > 1 ? 'type at ' : 'type')}${unr.length > 1 ? unr.map((t) => tex(t)).join(', ') : ''}</th></tr></thead><tbody>`;
+            for (const u of U.samples) {
+                const kinds = u.kinds.map((k) => `<span class="kind-tag ${k}">${k}${k === 'elliptic' && u.order ? `, order ${u.order}` : ''}</span>`).join(' ');
+                h += `<tr><td>${tex(u.tex)}</td><td>${tex(u.trTex)}</td><td>${kinds}</td></tr>`;
+            }
+            h += '</tbody></table></div>';
+            if (U.matrices && U.matrices.length) {
+                const src = `<${U.matrices.join(', ')}>`;
+                h += `<p class="note" style="margin-top:8px"><a class="link" href="../zariskiClosure/index.html#g=${encodeURIComponent(src)}" target="_blank" rel="noopener">Open these units as matrices in Zariski Closure →</a></p>`;
+            }
+        } else h += `<p class="note">No short units were found within the search bound.</p>`;
+        return h;
+    }
 
-    <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
-    <script src="app.js" type="module"></script>
-  <!-- golg-nav-bootstrap -->
+    // ── URL state ──
+    const enc = encodeURIComponent;
+    function saveHash(f, a, b) {
+        const h = `#f=${enc(f)}&a=${enc(a)}&b=${enc(b)}`;
+        if (location.hash !== h) history.replaceState(null, '', h);
+    }
+    function loadHash() {
+        const m = /^#f=([^&]*)&a=([^&]*)&b=(.*)$/.exec(location.hash);
+        if (!m) return null;
+        try { return { f: decodeURIComponent(m[1]), a: decodeURIComponent(m[2]), b: decodeURIComponent(m[3]) }; } catch (e) { return null; }
+    }
+
+    ['f', 'a', 'b'].forEach((k) => $(k).addEventListener('input', () => schedule()));
+    const start = loadHash() || DEFAULT;
+    setState(start.f, start.a, start.b);
+})();
+</script>
+<!-- golg-nav-bootstrap -->
 <script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
 </body>
 </html>

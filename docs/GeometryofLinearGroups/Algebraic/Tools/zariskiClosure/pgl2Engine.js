@@ -38,11 +38,16 @@ function csqrt(a) {
     const re = Math.sqrt((r + a.re) / 2), im = Math.sqrt(Math.max(0, (r - a.re) / 2));
     return cx(re, a.im < 0 ? -im : im);
 }
-function ccbrt(a) {
-    if (Math.abs(a.im) <= 1e-13 * Math.max(1, Math.abs(a.re))) return cx(Math.cbrt(a.re));
-    const r = Math.cbrt(cabs(a)), t = Math.atan2(a.im, a.re) / 3;
-    return cx(r * Math.cos(t), r * Math.sin(t));
+/** r-th root: the real one for odd r at real arguments (unless principal), else the principal branch. */
+function croot(a, r, principal = false) {
+    if (r === 2) return csqrt(a);
+    if (!principal && r % 2 === 1 && Math.abs(a.im) <= 1e-13 * Math.max(1, Math.abs(a.re))) return cx(Math.sign(a.re) * Math.pow(Math.abs(a.re), 1 / r));
+    const m = Math.pow(cabs(a), 1 / r), t = Math.atan2(a.im === 0 ? 0 : a.im, a.re) / r;
+    return cx(m * Math.cos(t), m * Math.sin(t));
 }
+/** Index of a radical node: sqrt → 2, cbrt → 3, root → a.r. */
+const radIndex = (a) => (a.f === 'sqrt' ? 2 : a.f === 'cbrt' ? 3 : a.r);
+const isAtomNode = (a) => a.t === 'i' || a.t === 'zeta' || a.t === 'fn' || a.t === 'conj';
 function ratToNum(r) {
     let n = r.n, d = r.d;
     const shift = Math.max(0, Math.max(n.toString().length, d.toString().length) - 300);
@@ -208,7 +213,8 @@ const astKey = (a) => {
         case 'num': return `${a.v.n}/${a.v.d}`;
         case 'i': return 'i';
         case 'zeta': return `z${a.n}`;
-        case 'fn': return `${a.f}(${astKey(a.a)})`;
+        case 'fn': return `${a.f}${a.r || ''}${a.principal ? 'p' : ''}(${astKey(a.a)})`;
+        case 'conj': return `conj(${astKey(a.a)})`;
         case 'neg': return `-(${astKey(a.a)})`;
         case 'pow': return `(${astKey(a.a)})^(${astKey(a.e)})`;
         default: return `(${astKey(a.a)}${{ add: '+', sub: '-', mul: '*', div: '/' }[a.t]}${astKey(a.b)})`;
@@ -220,7 +226,8 @@ function astTex(a, prec = 0) {
         case 'num': return X.ratTex(a.v);
         case 'i': return 'i';
         case 'zeta': return a.n === 3 ? '\\omega' : `\\zeta_{${a.n}}`;
-        case 'fn': return a.f === 'sqrt' ? `\\sqrt{${astTex(a.a)}}` : `\\sqrt[3]{${astTex(a.a)}}`;
+        case 'fn': return radIndex(a) === 2 ? `\\sqrt{${astTex(a.a)}}` : `\\sqrt[${radIndex(a)}]{${astTex(a.a)}}`;
+        case 'conj': return `\\overline{${astTex(a.a)}}`;
         case 'neg': return wrap(`-${astTex(a.a, 2)}`, 1);
         case 'add': return wrap(`${astTex(a.a, 1)} + ${astTex(a.b, 1)}`, 1);
         case 'sub': return wrap(`${astTex(a.a, 1)} - ${astTex(a.b, 2)}`, 1);
@@ -230,7 +237,7 @@ function astTex(a, prec = 0) {
     }
     return '?';
 }
-const hasAtom = (a) => a.t === 'i' || a.t === 'zeta' || a.t === 'fn' || ['a', 'b', 'e'].some((k) => a[k] && hasAtom(a[k]));
+const hasAtom = (a) => isAtomNode(a) || ['a', 'b', 'e'].some((k) => a[k] && hasAtom(a[k]));
 function constExponent(a) {
     if (hasAtom(a)) throw new Error('exponents must be integers');
     const v = evalWith(a, ratOps);
@@ -240,7 +247,7 @@ function constExponent(a) {
 function evalWith(a, D) {
     switch (a.t) {
         case 'num': return D.num(a.v);
-        case 'i': case 'zeta': case 'fn': return D.atom(a);
+        case 'i': case 'zeta': case 'fn': case 'conj': return D.atom(a);
         case 'neg': return D.neg(evalWith(a.a, D));
         case 'add': return D.add(evalWith(a.a, D), evalWith(a.b, D));
         case 'sub': return D.sub(evalWith(a.a, D), evalWith(a.b, D));
@@ -266,7 +273,7 @@ function atomNumeric(a, D) {
     if (a.t === 'i') return cx(0, 1);
     if (a.t === 'zeta') return cx(Math.cos(2 * Math.PI / a.n), Math.sin(2 * Math.PI / a.n));
     const v = evalWith(a.a, D);
-    return a.f === 'sqrt' ? csqrt(v) : ccbrt(v);
+    return a.t === 'conj' ? cx(v.re, -v.im) : croot(v, radIndex(a), !!a.principal);
 }
 
 // ─────────────────────── the field of entries K, built by adjoining radicals ───────────────────────
@@ -291,22 +298,22 @@ class FieldBuilder {
     /** Adjoin every radical occurring in ast (innermost first). */
     ensureAtoms(a) {
         for (const k of ['a', 'b']) if (a[k]) this.ensureAtoms(a[k]);
-        if (a.t !== 'i' && a.t !== 'zeta' && a.t !== 'fn') return;
+        if (!isAtomNode(a)) return;
         const key = astKey(a);
         if (this.atoms.has(key)) return;
-        let m, num;
+        let m, num, irreducible = a.t !== 'fn';
         if (a.t === 'i') { m = [R1, R0, R1]; num = cx(0, 1); }
-        else if (a.t === 'zeta') { m = [Rint(-1)].concat(new Array(a.n - 1).fill(R0), [R1]); num = atomNumeric(a, numOps); }
+        else if (a.t === 'zeta') { m = cyclotomic(a.n); num = atomNumeric(a, numOps); }
         else {
-            const arg = evalWith(a.a, this.ops()), argNum = evalWith(a.a, numOps);
-            num = a.f === 'sqrt' ? csqrt(argNum) : ccbrt(argNum);
+            const arg = evalWith(a.a, this.ops());
+            num = atomNumeric(a, numOps);
             if (this.alg.isZero(arg)) { this.register(key, a, this.alg.fromRat(R0), num, 1); return; }
-            const mp = this.alg.minpoly(arg), r = a.f === 'sqrt' ? 2 : 3;
+            const mp = this.alg.minpoly(arg), r = a.t === 'conj' ? 1 : radIndex(a);
             m = new Array((mp.length - 1) * r + 1).fill(R0);
             mp.forEach((c, j) => { m[j * r] = c; });
         }
         const before = this.n;
-        const val = this.adjoin(m, num);
+        const val = this.adjoin(m, num, irreducible, a.t === 'fn' ? { r: radIndex(a), c: evalWith(a.a, this.ops()) } : null);
         this.register(key, a, val, num, this.n / before);
     }
     register(key, a, val, num, deg) {
@@ -314,40 +321,61 @@ class FieldBuilder {
         this.order.push(key);
     }
     /** Adjoin a root α of m (choose the factor matching αNum); returns α in the new field. */
-    adjoin(m, aNum) {
+    /**
+     * Adjoin a root α of m (choosing the irreducible factor that matches αNum); returns α in the new field.
+     * For a radical α = c^{1/r} with c ∈ K, pass radical = { r, c }: the compositum is then built as
+     * K[z]/(z^r − c), which is smaller than K ⊗ Q[z]/(minpoly of α) when r < deg α.
+     */
+    adjoin(m, aNum, irreducible = false, radical = null) {
         let mq = X.qpTrim(m.map(X.ratOf));
-        const g = X.qpXgcd(mq, X.qpDeriv(mq))[0];
-        if (X.qpDeg(g) > 0) mq = X.qpDivmod(mq, g)[0];
-        const fac = pickFactor(mq, aNum);
+        let fac;
+        if (irreducible) fac = X.qpMonic(mq);
+        else {
+            const g = X.qpXgcd(mq, X.qpDeriv(mq))[0];
+            if (X.qpDeg(g) > 0) mq = X.qpDivmod(mq, g)[0];
+            fac = pickFactor(mq, aNum);
+        }
         if (fac.length === 2) return this.alg.fromRat(fac[0].neg()); // rational
         const n = this.n, k = fac.length - 1;
         if (n === 1) {
+            if (this.maxDegree && k > this.maxDegree) throw new Error(`this needs a field of degree up to ${k} (the limit is ${this.maxDegree})`);
             const c = this.alg.m[0].neg().div(this.alg.m[1]); // old θ (rational)
             const newAlg = new PolyAlg(fac);
             this.remap(newAlg, newAlg.fromRat(c), aNum);
             return newAlg.gen();
         }
-        // compositum through the tensor algebra Q[x]/(F) ⊗ Q[z]/(m): find s with γ = z + s·x primitive
-        const F = X.qpMonic(this.alg.m);
-        const dim = n * k;
-        const tmul = (u, v) => {
-            const P = Array.from({ length: 2 * n - 1 }, () => new Array(2 * k - 1).fill(R0));
-            for (let i1 = 0; i1 < n; i1++) for (let j1 = 0; j1 < k; j1++) {
-                const a = u[i1 * k + j1]; if (a.isZero()) continue;
-                for (let i2 = 0; i2 < n; i2++) for (let j2 = 0; j2 < k; j2++) {
-                    const b = v[i2 * k + j2]; if (b.isZero()) continue;
-                    P[i1 + i2][j1 + j2] = P[i1 + i2][j1 + j2].add(a.mul(b));
+        // compositum through the tensor algebra K ⊗ Q[z]/(fac), or K[z]/(z^r − c): find s with γ = z + s·θ primitive
+        const useRad = !!radical && radical.r < k;
+        const zd = useRad ? radical.r : k, dim = n * zd;
+        if (this.maxDegree && dim > this.maxDegree) throw new Error(`this needs a field of degree up to ${dim} (the limit is ${this.maxDegree})`);
+        const bgcd = (a, b) => { while (b) [a, b] = [b, a % b]; return a; };
+        // degree count: [K(α):Q] is a multiple of lcm(n, k) and at most dim, so equality means the algebra is a field
+        const isField = (n * k) / bgcd(n, k) === dim;
+        const K = this.alg, zero = () => K.fromRat(R0);
+        const reduceZ = useRad
+            ? (P) => { for (let b = P.length - 1; b >= zd; b--) if (!K.isZero(P[b])) P[b - zd] = K.add(P[b - zd], K.mul(P[b], radical.c)); return P.slice(0, zd); }
+            : (P) => {
+                for (let b = P.length - 1; b >= zd; b--) {
+                    if (K.isZero(P[b])) continue;
+                    for (let t = 0; t < zd; t++) if (!fac[t].isZero()) P[b - zd + t] = K.sub(P[b - zd + t], K.scale(P[b], fac[t]));
                 }
+                return P.slice(0, zd);
+            };
+        const split = (u) => Array.from({ length: zd }, (_, j) => Array.from({ length: n }, (_, i) => u[i * zd + j]));
+        const tmul = (u, v) => {
+            const U = split(u), V = split(v);
+            const P = Array.from({ length: 2 * zd - 1 }, zero);
+            for (let j1 = 0; j1 < zd; j1++) {
+                if (K.isZero(U[j1])) continue;
+                for (let j2 = 0; j2 < zd; j2++) if (!K.isZero(V[j2])) P[j1 + j2] = K.add(P[j1 + j2], K.mul(U[j1], V[j2]));
             }
-            for (const row of P) for (let b = 2 * k - 2; b >= k; b--) { const c = row[b]; if (c.isZero()) continue; row[b] = R0; for (let t = 0; t < k; t++) row[b - k + t] = row[b - k + t].sub(c.mul(fac[t])); }
-            for (let a = 2 * n - 2; a >= n; a--) for (let b = 0; b < k; b++) { const c = P[a][b]; if (c.isZero()) continue; P[a][b] = R0; for (let t = 0; t < n; t++) P[a - n + t][b] = P[a - n + t][b].sub(c.mul(F[t])); }
-            const out = new Array(dim).fill(R0);
-            for (let i = 0; i < n; i++) for (let j = 0; j < k; j++) out[i * k + j] = P[i][j];
+            const R = reduceZ(P), out = new Array(dim);
+            for (let i = 0; i < n; i++) for (let j = 0; j < zd; j++) out[i * zd + j] = R[j][i];
             return out;
         };
-        const unit = (i, j) => { const v = new Array(dim).fill(R0); v[i * k + j] = R1; return v; };
+        const unit = (i, j) => { const v = new Array(dim).fill(R0); v[i * zd + j] = R1; return v; };
         for (const s of [1, -1, 2, -2, 3, -3, 4, 5, 7, 11]) {
-            const gamma = unit(0, 1).map((x, idx) => (idx === k ? x.add(Rint(s)) : x)); // z + s·x
+            const gamma = unit(0, 1).map((x, idx) => (idx === zd ? x.add(Rint(s)) : x)); // z + s·θ
             // Krylov: 1, γ, γ², … — primitive iff they span the algebra
             const pows = [unit(0, 0)];
             for (let j = 1; j < dim; j++) pows.push(tmul(pows[j - 1], gamma));
@@ -356,7 +384,7 @@ class FieldBuilder {
             const top = X.ratSolveRows(pows, tmul(pows[dim - 1], gamma));
             const charpoly = top.map((c) => c.neg()).concat([R1]); // γ^dim = Σ top_j γ^j
             const gNum = cadd(aNum, cmul(cx(s), this.num));
-            const G = pickFactor(charpoly, gNum);
+            const G = isField ? charpoly : pickFactor(charpoly, gNum);
             const newAlg = new PolyAlg(G);
             const thetaImg = newAlg.reduce(xs), alphaImg = newAlg.reduce(zs);
             this.remap(newAlg, thetaImg, gNum);
@@ -378,12 +406,11 @@ class FieldBuilder {
             const at = this.atoms.get(key);
             if (at.deg <= 1) continue;
             const next = [];
-            for (const mo of monos) {
-                let v = mo.val, tex = mo.tex;
-                for (let e = 0; e < at.deg; e++) {
-                    next.push({ val: v, tex: e === 0 ? tex : tex + (tex ? '\\,' : '') + (at.tex.length > 1 && e > 1 ? `{${at.tex}}^{${e}}` : e > 1 ? `${at.tex}^{${e}}` : at.tex) });
-                    v = this.alg.mul(v, at.val);
-                }
+            let pw = this.alg.one();
+            for (let e = 0; e < at.deg; e++) { // earlier atoms vary fastest: 1, √2, √3, √2√3, …
+                const ptex = e === 0 ? '' : at.tex.length > 1 && e > 1 ? `{${at.tex}}^{${e}}` : e > 1 ? `${at.tex}^{${e}}` : at.tex;
+                for (const mo of monos) next.push({ val: this.alg.mul(mo.val, pw), tex: mo.tex && ptex ? `${mo.tex}\\,${ptex}` : mo.tex || ptex });
+                pw = this.alg.mul(pw, at.val);
             }
             monos = next;
         }
@@ -411,6 +438,12 @@ class FieldBuilder {
         return `\\frac{${numTex}}{${den}}`;
     }
     numeric(v) { return evalPolyC(v, this.num); }
+}
+/** The cyclotomic polynomial Φ_n (Rat coefficients, low → high). */
+function cyclotomic(n) {
+    let f = [Rint(-1)].concat(new Array(n - 1).fill(R0), [R1]);
+    for (let d = 1; d < n; d++) if (n % d === 0) f = X.qpDivmod(f, cyclotomic(d))[0];
+    return f;
 }
 function independent(rows) {
     const ech = [];
@@ -1852,7 +1885,7 @@ function localClosure(ctx, pr, ramifiedA) {
     return out;
 }
 
-const api = { analyze, parseGenerators, FieldBuilder, _internal: { elementOrder, classify, M2, isolateRealRoots, signAtRoot, localSpec, level1KernelFull, levelKernelFull, schreierKernel, residueRing, imageMod, algebraOps, debug: {} } };
+const api = { analyze, parseGenerators, FieldBuilder, _internal: { astKey, astTex, croot, cyclotomic, pickFactor, relResidual, ramification, orderTools, kRing, uniformizer, residueReps, localRing, squarefreePart, elementOrder, classify, M2, isolateRealRoots, signAtRoot, localSpec, level1KernelFull, levelKernelFull, schreierKernel, residueRing, imageMod, algebraOps, debug: {} } };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 else root.PGL2Engine = api;
 })(typeof self !== 'undefined' ? self : this);
