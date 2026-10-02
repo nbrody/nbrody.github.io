@@ -1,82 +1,48 @@
-import { getNodeID, Rational, TDist } from './pAdic.js';
-
 /**
- * Compute the Voronoi cell of [0]_0 with respect to the orbit
- * Returns vertices and half-edges that are closer to [0]_0 than to any other orbit point
+ * The Dirichlet (Voronoi) cell of the base vertex v₀ with respect to the
+ * computed orbit: the points of the drawn tree strictly closer to v₀ than to
+ * any other orbit vertex. The drawn tree is a subtree, hence convex, so the
+ * distances measured inside it are the true tree distances.
+ *
+ * Vertices are in or out; an edge from a vertex u in the cell to a vertex w
+ * outside it is in the cell up to the equidistant point, at fraction
+ * (d(u, other) − d(u, v₀)) / 2 ∈ {½, 1} of the way from u.
  */
-export function computeVoronoiCell(orbitMap, treeRoot, p) {
-    const zero_zero = { k: 0, q: new Rational(0n, 1n) };
-    const zero_zero_id = getNodeID(0, new Rational(0n, 1n));
-
-    // Check if [0]_0 is in the orbit
-    if (!orbitMap || !orbitMap.has(zero_zero_id)) {
-        return { vertices: new Set(), halfEdges: new Set(), fullEdges: new Set() };
-    }
-
-    // Get all orbit vertices except [0]_0
-    const otherOrbitVertices = [];
-    for (const [id, entry] of orbitMap) {
-        if (id !== zero_zero_id) {
-            otherOrbitVertices.push(entry.vertex);
+export function computeVoronoiCell(orbitIds, baseId, treeRoot) {
+    const vertices = new Set(), fullEdges = new Set(), partialEdges = new Map();
+    if (!orbitIds || !orbitIds.has(baseId)) return { vertices, fullEdges, partialEdges };
+    const nodes = treeRoot.descendants();
+    const adj = new Map(nodes.map((n) => [n, []]));
+    for (const n of nodes) if (n.parent) { adj.get(n).push(n.parent); adj.get(n.parent).push(n); }
+    const bfs = (sources) => {
+        const dist = new Map();
+        let frontier = sources;
+        for (const s of sources) dist.set(s, 0);
+        for (let d = 1; frontier.length; d++) {
+            const next = [];
+            for (const u of frontier) for (const w of adj.get(u)) if (!dist.has(w)) { dist.set(w, d); next.push(w); }
+            frontier = next;
+        }
+        return dist;
+    };
+    const base = nodes.find((n) => n.data.id === baseId);
+    const others = nodes.filter((n) => orbitIds.has(n.data.id) && n.data.id !== baseId);
+    if (!base) return { vertices, fullEdges, partialEdges };
+    const d0 = bfs([base]);
+    const d1 = others.length ? bfs(others) : new Map();
+    const inCell = (n) => d0.get(n) < (d1.has(n) ? d1.get(n) : Infinity);
+    for (const n of nodes) {
+        const a = inCell(n);
+        if (a) vertices.add(n.data.id);
+        if (!n.parent) continue;
+        const b = inCell(n.parent);
+        const key = `${n.parent.data.id}->${n.data.id}`;
+        if (a && b) fullEdges.add(key);
+        else if (a !== b) {
+            const u = a ? n : n.parent;               // the endpoint inside the cell
+            const t = Math.min(1, ((d1.get(u) ?? Infinity) - d0.get(u)) / 2);
+            partialEdges.set(key, { fromChild: a, t });
         }
     }
-
-    const cellVertices = new Set();
-    const halfEdges = new Set();
-    const fullEdges = new Set();
-
-    // For each vertex in the tree, check if it's in the Voronoi cell
-    treeRoot.descendants().forEach(node => {
-        const vertex = {
-            k: node.data.k,
-            q: new Rational(node.data.q_num, node.data.q_den)
-        };
-
-        const distToZero = TDist(vertex, zero_zero, p);
-
-        // Check if this vertex is closer to [0]_0 than to any other orbit point
-        let inCell = true;
-        for (const otherVertex of otherOrbitVertices) {
-            const distToOther = TDist(vertex, otherVertex, p);
-            if (distToOther <= distToZero) {
-                inCell = false;
-                break;
-            }
-        }
-
-        if (inCell) {
-            cellVertices.add(node.data.id);
-        }
-
-        // Check edges
-        if (node.parent) {
-            const parentVertex = {
-                k: node.parent.data.k,
-                q: new Rational(node.parent.data.q_num, node.parent.data.q_den)
-            };
-
-            const parentDistToZero = TDist(parentVertex, zero_zero, p);
-            let parentInCell = true;
-            for (const otherVertex of otherOrbitVertices) {
-                const distToOther = TDist(parentVertex, otherVertex, p);
-                if (distToOther <= parentDistToZero) {
-                    parentInCell = false;
-                    break;
-                }
-            }
-
-            const edgeKey = `${node.parent.data.id}->${node.data.id}`;
-
-            // If both endpoints are in the cell, mark as full edge
-            if (inCell && parentInCell) {
-                fullEdges.add(edgeKey);
-            }
-            // If exactly one endpoint is in the cell, mark as half-edge
-            else if (inCell !== parentInCell) {
-                halfEdges.add(edgeKey);
-            }
-        }
-    });
-
-    return { vertices: cellVertices, halfEdges, fullEdges };
+    return { vertices, fullEdges, partialEdges };
 }

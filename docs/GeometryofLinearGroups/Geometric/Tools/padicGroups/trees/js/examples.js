@@ -1,0 +1,68 @@
+/**
+ * Preset trees. `primeOf` picks the prime above p at which that element has
+ * positive valuation (so presets do not depend on the order of the primes).
+ * Matrix entries are LaTeX, as MathQuill shows them.
+ */
+export const EXAMPLES = [
+    {
+        name: 'ℚ₃ — a free group of rank two',
+        p: 3, field: null,
+        mats: [['3', '0', '0', '1'], ['5', '-4', '2', '-1']],
+        vertex: ['0', '0'], L: 3, r: 2,
+    },
+    {
+        name: 'ℚ(i), 3 inert — links are P¹(F₉)',
+        p: 3, field: { gen: 'i', poly: 'i^2+1' },
+        mats: [['1', '1', '0', '1'], ['1', 'i', '0', '1'], ['0', '-1', '1', '0'], ['3', '0', '0', '1']],
+        vertex: ['0', '0'], L: 2, r: 1,
+        note: 'The Gaussian integers at the inert prime 3: the tree of $\\mathsf{PGL}_2(\\mathbb{Q}_3(i))$ is 10-regular. The first three generators lie in $\\mathsf{PGL}_2(\\mathbb{Z}[i])$ and fix $\\lfloor 0\\rfloor_0$; open the stabilizer list to see them act on its link $\\mathbb{P}^1(\\mathbb{F}_9)$ as $x\\mapsto x+1$, $x\\mapsto x+i$ and $x\\mapsto -1/x$.',
+    },
+    {
+        name: 'ℚ(i), 5 split — two embeddings into ℚ₅',
+        p: 5, field: { gen: 'i', poly: 'i^2+1' }, primeOf: '2+i',
+        mats: [['2+i', '0', '0', '1'], ['1', '1', '0', '1'], ['1', '0', 'i', '1']],
+        vertex: ['0', '0'], L: 3, r: 1,
+        note: '$5 = (2+i)(2-i)$, so $\\mathbb{Q}(i)$ has two embeddings into $\\mathbb{Q}_5$, sending $i$ to the two Hensel lifts of $\\pm 2$. Here $\\mathrm{diag}(2+i, 1)$ is hyperbolic at $(2+i)$; switch to the other prime and it fixes $\\lfloor 0\\rfloor_0$.',
+    },
+    {
+        name: 'ℚ(i), 2 ramified — uniformizer 1 + i',
+        p: 2, field: { gen: 'i', poly: 'i^2+1' },
+        mats: [['1+i', '0', '0', '1'], ['1', '1', '0', '1'], ['0', '1', '1', '0']],
+        vertex: ['0', '0'], L: 4, r: 2,
+        note: '$2 = -i(1+i)^2$ ramifies. Levels count powers of $\\pi = 1+i$, so $\\mathrm{diag}(2,1)$ would translate by 2: each edge of the $\\mathbb{Q}_2$-tree is cut in two.',
+    },
+    {
+        name: 'ℚ(√2), 7 split — Hensel lifts of 3² ≡ 2',
+        p: 7, field: { gen: 'w', poly: 'w^2-2' }, primeOf: '3+w',
+        mats: [['3+w', '0', '0', '1'], ['1', 'w', '0', '1'], ['w', '1', '1', 'w']],
+        vertex: ['0', '0'], L: 3, r: 1,
+        note: '$w^2 - 2$ has the simple roots $\\pm 3$ mod 7, and each lifts uniquely to $\\mathbb{Z}_7$: the two primes above 7 are the two embeddings $\\mathbb{Q}(\\sqrt 2)\\hookrightarrow\\mathbb{Q}_7$. $3+w$ has norm 7, so it is a uniformizer at one of them and a unit at the other.',
+    },
+    {
+        name: 'ℚ(∛2), 5 = 𝔭₁𝔭₂ — the residue-degree-2 prime',
+        p: 5, field: { gen: 'a', poly: 'a^3-2' }, prime: 1,
+        mats: [['5', '0', '0', '1'], ['a', '1', '1', '0'], ['1', 'a^2', '0', '1']],
+        vertex: ['0', '0'], L: 2, r: 1,
+        note: '$a^3-2 \\equiv (a-3)(a^2+3a+4) \\pmod 5$: one prime of degree 1 (an embedding into $\\mathbb{Q}_5$) and one of degree 2, whose tree is 26-regular with links $\\mathbb{P}^1(\\mathbb{F}_{25})$. Switch primes to compare.',
+    },
+    {
+        name: 'Eisenstein integers, 2 inert — links P¹(F₄)',
+        p: 2, field: { gen: 'w', poly: 'w^2+w+1' },
+        mats: [['2', '0', '0', '1'], ['1', '1', '0', '1'], ['1', 'w', '0', '1']],
+        vertex: ['0', '0'], L: 3, r: 1,
+    },
+    {
+        name: 'ℚ(√−7), 2 split — w² + w + 2',
+        p: 2, field: { gen: 'w', poly: 'w^2+w+2' }, primeOf: 'w',
+        mats: [['w', '0', '0', '1'], ['1', '1', '0', '1'], ['0', '1', '1', '0']],
+        vertex: ['0', '0'], L: 4, r: 2,
+        note: '$w^2+w+2 \\equiv w(w+1) \\pmod 2$: two embeddings into $\\mathbb{Q}_2$. The product of the roots is 2, so $w$ is a uniformizer at one prime and a unit at the other.',
+    },
+    {
+        name: 'ℚ(√−3) as w² + 3 at 2 — ℤ[w] is not maximal',
+        p: 2, field: { gen: 'w', poly: 'w^2+3' },
+        mats: [['2', '0', '0', '1'], ['1', '\\frac{1+w}{2}', '0', '1'], ['1', '0', 'w', '1']],
+        vertex: ['0', '0'], L: 3, r: 1,
+        note: '$w^2+3\\equiv (w+1)^2 \\pmod 2$ looks ramified, but $\\mathbb{Z}[w]$ has index 2 in $\\mathcal{O}_K = \\mathbb{Z}[\\tfrac{1+w}{2}]$ and 2 is in fact inert. The tool works in the maximal order, so the tree is correctly 5-regular, and $\\begin{pmatrix}1 & (1+w)/2\\\\ 0 & 1\\end{pmatrix}$ fixes $\\lfloor 0\\rfloor_0$, rotating its link $\\mathbb{P}^1(\\mathbb{F}_4)$.',
+    },
+];
