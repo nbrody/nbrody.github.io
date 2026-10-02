@@ -35,6 +35,16 @@
     --accent-line: rgba(129, 140, 248, 0.45);
     --accent-glow: rgba(129, 140, 248, 0.28);
 
+    /* root picker (assets/js/rootPicker.js) */
+    --rp-accent: var(--accent);
+    --rp-ink: var(--ink);
+    --rp-dim: var(--ink-dim);
+    --rp-faint: var(--ink-faint);
+    --rp-bg: var(--field-bg);
+    --rp-dot: var(--bg);
+    --rp-line: var(--hairline-strong);
+    --rp-font: var(--font);
+
     /* shape & rhythm */
     --r-sm: 8px;
     --r-md: 10px;

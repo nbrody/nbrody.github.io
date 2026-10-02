@@ -611,6 +611,13 @@ function updatePermalink() {
 let exactOn = false;
 let currentField = null;
 let pendingConjExpr = null;
+let rootPicker = null;          // RootPicker: the embedding, chosen by clicking a root
+
+function syncRootPicker() {
+    if (!rootPicker) return;
+    const gen = (document.getElementById('field-gen-name').value || 'w').trim() || 'w';
+    rootPicker.set(currentField ? currentField.roots : [], currentField ? currentField.rootIndex : 0, gen);
+}
 
 function applyConj(field) {
     try { field.setConjugation(pendingConjExpr); }
@@ -645,6 +652,7 @@ function rebuildField({ rootIndex = null } = {}) {
         currentField = null;
         configureExact(null);
     }
+    syncRootPicker();
     refreshFromUI();
 }
 
@@ -658,6 +666,12 @@ function setExactUI(on) {
 function initExactPanel() {
     const exactBtn = document.getElementById('toggle-exact');
     const rootSel = document.getElementById('field-root');
+    const plot = document.getElementById('field-root-plot');
+    if (plot && window.RootPicker) {
+        rootPicker = window.RootPicker.create(plot, {
+            onSelect: (i) => { rootSel.value = String(i); rootSel.dispatchEvent(new Event('change')); },
+        });
+    } else if (rootSel) rootSel.hidden = false;    // no picker: fall back to the dropdown
     exactBtn?.addEventListener('click', () => { setExactUI(!exactOn); rebuildField(); });
     ['field-gen-name', 'field-minpoly'].forEach(id => document.getElementById(id)?.addEventListener('change', () => rebuildField()));
     rootSel?.addEventListener('change', () => {
@@ -665,6 +679,7 @@ function initExactPanel() {
         currentField.rootIndex = parseInt(rootSel.value, 10) || 0;
         applyConj(currentField);
         configureExact(currentField);
+        syncRootPicker();
         refreshFromUI();
     });
     // Presets and permalinks configure exact mode programmatically:

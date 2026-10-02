@@ -12,6 +12,8 @@
     <script src="../vendor/mathquill/build/mathquill.min.js"></script>
     <script src="../vendor/mathjs/math.min.js"></script>
     <script src="../vendor/jszip/jszip.min.js"></script>
+    <!-- Click-to-pick roots in the complex plane (the embedding of the exact field) -->
+    <script src="../../../../assets/js/rootPicker.js"></script>
 
     <!-- MathJax -->
     <script>
@@ -28,7 +30,7 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-09-25c';
+            const APP_VERSION = '2026-10-02a';
             window.APP_VERSION = APP_VERSION;
             const im = {
                 imports: {
@@ -121,9 +123,10 @@
                             <input id="field-minpoly" type="text" value="w^2+w+1" class="number-input"
                                 style="width: 11em;" spellcheck="false">
                         </div>
-                        <div class="control-row" style="margin-top: 8px;">
-                            <label for="field-root" class="control-label">Embedding</label>
-                            <select id="field-root" class="select-input"></select>
+                        <div style="margin-top: 8px;">
+                            <label id="field-root-label" class="control-label">Embedding</label>
+                            <select id="field-root" class="select-input" hidden aria-labelledby="field-root-label"></select>
+                            <div id="field-root-plot" style="margin-top: 6px;"></div>
                         </div>
                         <p class="label-hint" style="margin-top: 8px;">
                             Entries are polynomials in the generator with rational coefficients

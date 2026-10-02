@@ -14,6 +14,7 @@
             --bg: #f7f6f2; --card: #ffffff; --ink: #1f2a37; --muted: #5f6b7a; --faint: #8a94a1; --line: #e3e0d8;
             --accent: #2f5d8a; --accent-soft: #e8eff6; --good: #2e7d4f; --good-soft: #e6f3eb; --warn: #a2551a; --warn-soft: #fbefe4;
             --bad: #b3261e; --input-bg: #fcfcfa;
+            --rp-accent: var(--accent); --rp-ink: var(--ink); --rp-dim: var(--muted); --rp-faint: var(--faint); --rp-bg: var(--input-bg); --rp-line: var(--line); --rp-font: var(--sans);
             --serif: Georgia, 'Times New Roman', serif;
             --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -178,8 +179,8 @@
             <input id="field-gen" value="w" spellcheck="false" autocomplete="off">
             <label for="field-poly">Min. poly</label>
             <input id="field-poly" value="w^2 + w + 1" spellcheck="false" autocomplete="off">
-            <label for="field-root">Embedding</label>
-            <select id="field-root"></select>
+            <label id="field-root-label" style="align-self: start; padding-top: 6px;">Embedding</label>
+            <div><select id="field-root" hidden aria-labelledby="field-root-label"></select><div id="root-plot"></div></div>
             <div class="msg" id="field-msg"></div>
         </div>
         <p class="hint" id="field-hint" hidden>Entries may use the generator; the embedding says which complex root of the minimal polynomial it is. Write the polynomial in the generator, e.g. <code>w^3 - w^2 - 2w + 1</code>.</p>
@@ -211,6 +212,7 @@
 <script src="pgl2Engine.js"></script>
 <script src="../expressionParser/exprEngine.js"></script>
 <script src="zariskiInput.js"></script>
+<script src="../../../assets/js/rootPicker.js"></script>
 <script>
 (function () {
     'use strict';
@@ -294,8 +296,12 @@
         if (focus) row._name.focus();
     }
 
-    // ── number field ──
-    let roots = [];
+    // ── number field: the embedding is picked by clicking a root in the complex plane ──
+    let roots = [], fieldName = 'w';
+    const picker = RootPicker.create($('root-plot'), {
+        onSelect: (i) => { $('field-root').value = String(i); $('field-root').dispatchEvent(new Event('change')); },
+    });
+    const syncPicker = () => picker.set(roots, parseInt($('field-root').value, 10) || 0, fieldName);
     function fieldSpec() {
         if (!$('field-on').checked) return null;
         const i = parseInt($('field-root').value, 10) || 0;
@@ -309,7 +315,8 @@
         let nm = String($('field-gen').value || 'w').trim();
         try { nm = ExprEngine.parseName(nm).tex; } catch (e) { /* keep the raw name */ }
         $('field-label').innerHTML = tex(`K = \\mathbb{Q}(${nm || 'w'})`);
-        if (!res.ok) { roots = []; $('field-msg').textContent = res.error; return; }
+        if (!res.ok) { roots = []; $('field-msg').textContent = res.error; syncPicker(); return; }
+        fieldName = res.name;
         $('field-msg').textContent = '';
         roots = res.roots;
         const name = res.name, fmt = (x) => (Math.abs(x) < 5e-10 ? '0' : x.toFixed(6));
@@ -322,6 +329,7 @@
         let best = 0;
         if (prev) { let bd = Infinity; roots.forEach((r, i) => { const d = Math.hypot(r.re - prev.re, r.im - (prev.im || 0)); if (d < bd) { bd = d; best = i; } }); }
         sel.value = String(best);
+        syncPicker();
     }
     function setFieldUI(on) {
         $('field-on').checked = on;
@@ -347,7 +355,7 @@
             $('field-poly').value = st.field.poly || '';
             setFieldUI(true);
             refreshRoots(st.field.root || null);
-            if (!st.field.root && st.field.rootIndex !== undefined) $('field-root').value = String(st.field.rootIndex);
+            if (!st.field.root && st.field.rootIndex !== undefined) { $('field-root').value = String(st.field.rootIndex); syncPicker(); }
         } else setFieldUI(false);
         loading = false;
         schedule(0);
