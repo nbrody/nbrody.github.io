@@ -36,6 +36,8 @@
     </script>
     <script type="text/javascript" id="MathJax-script" async
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    <!-- three.js for the tower model, from poincare's vendored copy -->
+    <script type="importmap">{ "imports": { "three": "../../Kleinian/vendor/three/three.module.js" } }</script>
     <link rel="stylesheet" href="./css/styles.css">
 </head>
 
@@ -43,6 +45,13 @@
     <!-- The tree -->
     <div id="container">
         <svg id="tree-vis"></svg>
+        <div id="tower-host" hidden></div>
+    </div>
+
+    <!-- Discreteness verdict (as poincare's status banner) -->
+    <div id="status-banner" role="status" aria-live="polite" class="status-banner" hidden>
+        <span class="status-banner-text"></span>
+        <button class="status-banner-close" title="Minimize" aria-label="Minimize">×</button>
     </div>
 
     <!-- Floating Control Panel -->
@@ -50,8 +59,8 @@
         <div class="tab-navigation">
             <button class="tab-btn active" data-tab="group">Group</button>
             <button class="tab-btn" data-tab="orbit">Orbit</button>
+            <button class="tab-btn" data-tab="verdict">Verdict</button>
             <button class="tab-btn" data-tab="view">View</button>
-            <button class="tab-btn" data-tab="info">Info</button>
             <button id="refresh-btn" class="collapse-btn" title="Recalculate" aria-label="Recalculate">
                 <span class="collapse-icon">⟳</span>
             </button>
@@ -152,6 +161,36 @@
                         title="The URL encodes the field, prime, generators, base vertex and settings.">Copy link to
                         this tree</button>
                 </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">Vertices</h3>
+                    <p>A vertex is a ball $\lfloor x \rfloor_k = x + \pi^k\mathcal{O}_{\mathfrak p}$ in
+                        $K_{\mathfrak p}$, where $\pi$ is a uniformizer. Its label is canonical: the $\pi$-adic digits
+                        of $x$ below $\pi^k$, with digits drawn from a fixed set of $q$ representatives of the residue
+                        field $\mathbb{F}_q$. Over $\mathbb{Q}$ these are the familiar labels $x\in\mathbb{Z}[1/p]$
+                        with $0 \le x < p^k$.</p>
+                </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">Number Fields</h3>
+                    <p>Turn on <em>Number Field</em> and give a generator and its minimal polynomial. The prime $p$
+                        factors in $K$ as $p\,\mathcal{O}_K = \prod \mathfrak p_i^{e_i}$ with residue fields
+                        $\mathbb{F}_{p^{f_i}}$; choose one $\mathfrak p_i$ to choose the tree. Its link at every vertex
+                        is $\mathbb{P}^1(\mathbb{F}_{p^f})$, so it is $(p^f+1)$-regular.</p>
+                    <p><strong>$e = f = 1$.</strong> $K_{\mathfrak p} = \mathbb{Q}_p$, and $\mathfrak p$ is an
+                        embedding $K \hookrightarrow \mathbb{Q}_p$. It sends the generator to a $p$-adic root of its
+                        minimal polynomial: by Hensel's lemma each simple root mod $p$ lifts uniquely, so these
+                        choices are the flexibility in embedding $K$. The labels are the rationals of the
+                        $\mathbb{Q}_p$-tree.</p>
+                    <p><strong>$f &gt; 1$.</strong> $K_{\mathfrak p}$ contains the unramified extension of degree
+                        $f$; the links grow to $\mathbb{P}^1(\mathbb{F}_{p^f})$, and the $\mathbb{Q}_p$-tree is the
+                        subtree of vertices with all digits in $\{0,\dots,p-1\}$.</p>
+                    <p><strong>$e &gt; 1$.</strong> The uniformizer $\pi$ is not $p$; levels count powers of $\pi$,
+                        so the $\mathbb{Q}_p$-tree sits inside with each edge cut into $e$.</p>
+                    <p>Everything is exact: valuations come from an anti-uniformizer of $\mathfrak p$ in a $p$-maximal
+                        order (Round 2), with no $p$-adic approximation. Minimal polynomials whose ring
+                        $\mathbb{Z}[w]$ is not maximal (e.g. $w^2+3$ at $2$) are handled.</p>
+                </div>
             </div>
 
             <!-- Orbit Tab -->
@@ -203,12 +242,113 @@
                         $$
                     </div>
                 </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">Group Action</h3>
+                    <p>$\mathsf{PGL}_2(K)$ acts through $K\subset K_{\mathfrak p}$ by the formula in the Orbit tab. A
+                        generator $g$ has translation length
+                        $\ell(g)=\max\{0,\ v(\det g)-2\,v(\operatorname{tr} g)\}$; it is hyperbolic when this is
+                        positive and otherwise fixes a vertex or the midpoint of an edge.</p>
+                </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">Orbit, Hull and Dirichlet Cell</h3>
+                    <p>The orbit of the base vertex under reduced words up to the given length is shown in green; its
+                        convex hull (the smallest subtree containing it) in light blue; and the Dirichlet cell of the
+                        base vertex — the points closer to it than to the rest of the computed orbit — in yellow.</p>
+                    <p>Words fixing the base vertex act on its link $\mathbb{P}^1(\mathbb{F}_q)$, the $q+1$
+                        neighbouring vertices. The Orbit tab lists them with this permutation in cycle notation.</p>
+                </div>
+            </div>
+
+            <!-- Verdict Tab -->
+            <div id="tab-verdict" class="tab-content">
+                <div>
+                    <h2 class="panel-title">Discreteness</h2>
+                    <p class="panel-subtitle">Is the group discrete in $\mathsf{PGL}_2(K_{\mathfrak p})$? Decided
+                        exactly from the action on the tree, relative to the base vertex $v$.</p>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Verdict</label>
+                    <div id="verdict-box" class="result-box"><p class="empty-message">Calculate to decide.</p></div>
+                </div>
+
+                <div class="control-group" id="basis-group" hidden>
+                    <label class="control-label" id="basis-label">Nielsen basis</label>
+                    <div id="basis-list" class="scroll-list"></div>
+                    <button id="use-basis" class="btn btn-add-alt"
+                        title="Replace the generators by this basis (the group is unchanged when it is a basis of the whole group).">Use
+                        this basis as the generators</button>
+                </div>
+
+                <div class="control-group" id="witness-group" hidden>
+                    <label class="control-label">Witness</label>
+                    <div id="witness-box" class="result-box"></div>
+                </div>
+
+                <div class="control-group">
+                    <details class="cert-details" id="cert-details">
+                        <summary>Certificate <span class="label-hint">(each step of the decision)</span></summary>
+                        <div id="cert-log" class="cert-log">(not yet run)</div>
+                    </details>
+                    <div class="control-row">
+                        <label for="decide-seconds" class="control-label">Time budget</label>
+                        <input id="decide-seconds" type="number" min="1" max="120" value="6" class="number-input"
+                            title="Seconds the decision may run. Running out gives “unknown”, never a verdict.">
+                        <span class="label-hint">s</span>
+                        <button id="decide-again" class="btn btn-add-alt btn-inline">Decide again</button>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3 class="info-title">How It Works</h3>
+                    <p><strong>Bounded groups.</strong> If every generator and every product of two generators is
+                        elliptic, the group fixes a point of the tree (Serre's lemma and the Helly property). It is then
+                        discrete exactly when finite, which is decided exactly: elements of finite order $m$ in
+                        $\mathsf{PGL}_2(K)$ have $\varphi(m)\le 2[K:\mathbb{Q}]$.</p>
+                    <p><strong>Two generators.</strong> Conder's Nielsen test on translation lengths
+                        (<a href="https://arxiv.org/abs/1908.11114" target="_blank" rel="noopener">arXiv:1908.11114</a>)
+                        certifies a free, discrete, purely hyperbolic pair.</p>
+                    <p><strong>Any rank.</strong> Markowitz's reduction
+                        (<a href="https://arxiv.org/abs/2308.16359" target="_blank" rel="noopener">arXiv:2308.16359</a>)
+                        applies Nielsen moves that shorten the displacement $|g| = d(v, g v)$, breaking ties by the
+                        order of initial half-paths, until the basis is N-reduced — then the group is free on it and
+                        discrete, checked independently against N1–N3 — or contains an elliptic element. An elliptic of
+                        infinite order lies in a compact stabilizer, so the group is not discrete.</p>
+                    <p><strong>Torsion.</strong> A finite-order elliptic does not decide. The group passes to the
+                        congruence kernel mod a prime $\mathfrak q$ with $e(\mathfrak q|\ell) < \ell - 1$, which is
+                        torsion-free and of finite index; the same reduction then decides it. The complete
+                        two-generator classification of Conder–Schillewaert
+                        (<a href="https://arxiv.org/abs/2208.12404" target="_blank" rel="noopener">arXiv:2208.12404</a>)
+                        is not implemented wholesale. A resource limit gives <em>unknown</em>, never a verdict.</p>
+                </div>
             </div>
 
             <!-- View Tab -->
             <div id="tab-view" class="tab-content">
                 <div>
                     <h2 class="panel-title">View Options</h2>
+                </div>
+
+                <div class="control-group">
+                    <div class="seg-row">
+                        <span class="control-label">Model</span>
+                        <div class="seg-options" role="radiogroup" aria-label="Model of the tree">
+                            <button class="seg-opt model-opt active" data-model="halfplane"
+                                title="Rooted at the end ∞: levels k increase downward">Half-plane</button>
+                            <button class="seg-opt model-opt" data-model="disk"
+                                title="The Poincaré disk centred on v: unrooted, with the ends on the boundary circle">Disk</button>
+                            <button class="seg-opt model-opt" data-model="tower"
+                                title="Level k as a circle at height −k, each vertex at the angle of its digits (3D)">Tower</button>
+                        </div>
+                    </div>
+                    <div class="seg-row" id="spread-row" hidden>
+                        <span class="control-label">Spread</span>
+                        <input id="tower-spread" class="slider" type="range" min="0.02" max="1" step="0.01" value="0.25"
+                            title="How fast the level circles grow: 1 is the true factor q per level.">
+                    </div>
+                    <p id="model-note" class="label-hint"></p>
                 </div>
 
                 <div class="control-group">
@@ -234,15 +374,15 @@
                 <div class="control-group">
                     <label class="control-label">Legend</label>
                     <div class="legend">
-                        <div><span class="swatch" style="background:#1d4ed8;border-color:#2563eb"></span>Base vertex $v$</div>
-                        <div><span class="swatch" style="background:#059669;border-color:#34d399"></span>$g_1\cdot v$</div>
-                        <div><span class="swatch" style="background:#10b981;border-color:#34d399"></span>Orbit vertices</div>
-                        <div><span class="swatch" style="background:#93c5fd;border-color:#bfdbfe"></span>Convex hull of the orbit</div>
-                        <div><span class="swatch ring" style="border-color:#fbbf24"></span>The standard vertex $\lfloor 0\rfloor_0 = \mathcal{O}_{\mathfrak p}$</div>
-                        <div><span class="swatch ring" style="border-color:#f472b6"></span>Selected vertex, its link labelled by $\mathbb{P}^1(\mathbb{F}_q)$</div>
-                        <div><span class="swatch-line" style="background:#60a5fa"></span>Convex hull edges</div>
-                        <div><span class="swatch-line" style="background:#fbbf24"></span>Dirichlet cell of $v$: points closer to $v$ than to the rest of the orbit</div>
-                        <div><span class="swatch-line wide" style="background:rgba(245,245,244,0.35)"></span>$\mathbb{Q}_p$-subtree (when shown)</div>
+                        <div><span class="swatch" style="background:#1d4ed8;border-color:#2563eb"></span><span>Base vertex $v$</span></div>
+                        <div><span class="swatch" style="background:#059669;border-color:#34d399"></span><span>$g_1\cdot v$</span></div>
+                        <div><span class="swatch" style="background:#10b981;border-color:#34d399"></span><span>Orbit vertices</span></div>
+                        <div><span class="swatch" style="background:#93c5fd;border-color:#bfdbfe"></span><span>Convex hull of the orbit</span></div>
+                        <div><span class="swatch ring" style="border-color:#fbbf24"></span><span>The standard vertex $\lfloor 0\rfloor_0 = \mathcal{O}_{\mathfrak p}$</span></div>
+                        <div><span class="swatch ring" style="border-color:#f472b6"></span><span>Selected vertex, its link labelled by $\mathbb{P}^1(\mathbb{F}_q)$</span></div>
+                        <div><span class="swatch-line" style="background:#60a5fa"></span><span>Convex hull edges</span></div>
+                        <div><span class="swatch-line" style="background:#fbbf24"></span><span>Dirichlet cell of $v$: points closer to $v$ than to the rest of the orbit</span></div>
+                        <div><span class="swatch-line wide" style="background:rgba(245,245,244,0.35)"></span><span>$\mathbb{Q}_p$-subtree (when shown)</span></div>
                     </div>
                 </div>
 
@@ -255,62 +395,6 @@
                 </div>
             </div>
 
-            <!-- Info Tab -->
-            <div id="tab-info" class="tab-content">
-                <div>
-                    <h2 class="panel-title">About</h2>
-                    <p class="panel-subtitle">The Bruhat–Tits tree of $\mathsf{PGL}_2(K_{\mathfrak p})$, where $K$ is
-                        $\mathbb{Q}$ or a number field and $\mathfrak p$ is a prime of $K$ above $p$, and the action on
-                        it of a subgroup of $\mathsf{PGL}_2(K)$ given by generators.</p>
-                </div>
-
-                <div class="info-section">
-                    <h3 class="info-title">Vertices</h3>
-                    <p>A vertex is a ball $\lfloor x \rfloor_k = x + \pi^k\mathcal{O}_{\mathfrak p}$ in
-                        $K_{\mathfrak p}$, where $\pi$ is a uniformizer. Its label is canonical: the $\pi$-adic digits
-                        of $x$ below $\pi^k$, with digits drawn from a fixed set of $q$ representatives of the residue
-                        field $\mathbb{F}_q$. Over $\mathbb{Q}$ these are the familiar labels $x\in\mathbb{Z}[1/p]$
-                        with $0 \le x < p^k$.</p>
-                </div>
-
-                <div class="info-section">
-                    <h3 class="info-title">Number Fields</h3>
-                    <p>Turn on <em>Number Field</em> and give a generator and its minimal polynomial. The prime $p$
-                        factors in $K$ as $p\,\mathcal{O}_K = \prod \mathfrak p_i^{e_i}$ with residue fields
-                        $\mathbb{F}_{p^{f_i}}$; choose one $\mathfrak p_i$ to choose the tree. Its link at every vertex
-                        is $\mathbb{P}^1(\mathbb{F}_{p^f})$, so it is $(p^f+1)$-regular.</p>
-                    <p><strong>$e = f = 1$.</strong> $K_{\mathfrak p} = \mathbb{Q}_p$, and $\mathfrak p$ is an
-                        embedding $K \hookrightarrow \mathbb{Q}_p$. It sends the generator to a $p$-adic root of its
-                        minimal polynomial: by Hensel's lemma each simple root mod $p$ lifts uniquely, so these
-                        choices are the flexibility in embedding $K$. The labels are the rationals of the
-                        $\mathbb{Q}_p$-tree.</p>
-                    <p><strong>$f &gt; 1$.</strong> $K_{\mathfrak p}$ contains the unramified extension of degree
-                        $f$; the links grow to $\mathbb{P}^1(\mathbb{F}_{p^f})$, and the $\mathbb{Q}_p$-tree is the
-                        subtree of vertices with all digits in $\{0,\dots,p-1\}$.</p>
-                    <p><strong>$e &gt; 1$.</strong> The uniformizer $\pi$ is not $p$; levels count powers of $\pi$,
-                        so the $\mathbb{Q}_p$-tree sits inside with each edge cut into $e$.</p>
-                    <p>Everything is exact: valuations come from an anti-uniformizer of $\mathfrak p$ in a $p$-maximal
-                        order (Round 2), with no $p$-adic approximation. Minimal polynomials whose ring
-                        $\mathbb{Z}[w]$ is not maximal (e.g. $w^2+3$ at $2$) are handled.</p>
-                </div>
-
-                <div class="info-section">
-                    <h3 class="info-title">Group Action</h3>
-                    <p>$\mathsf{PGL}_2(K)$ acts through $K\subset K_{\mathfrak p}$ by the formula in the Orbit tab. A
-                        generator $g$ has translation length
-                        $\ell(g)=\max\{0,\ v(\det g)-2\,v(\operatorname{tr} g)\}$; it is hyperbolic when this is
-                        positive and otherwise fixes a vertex or the midpoint of an edge.</p>
-                </div>
-
-                <div class="info-section">
-                    <h3 class="info-title">Orbit, Hull and Dirichlet Cell</h3>
-                    <p>The orbit of the base vertex under reduced words up to the given length is shown in green; its
-                        convex hull (the smallest subtree containing it) in light blue; and the Dirichlet cell of the
-                        base vertex — the points closer to it than to the rest of the computed orbit — in yellow.</p>
-                    <p>Words fixing the base vertex act on its link $\mathbb{P}^1(\mathbb{F}_q)$, the $q+1$
-                        neighbouring vertices. The Orbit tab lists them with this permutation in cycle notation.</p>
-                </div>
-            </div>
         </div>
     </div>
 

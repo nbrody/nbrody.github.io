@@ -634,7 +634,10 @@ export class Place {
         const det = F.sub(F.mul(m.a, m.d), F.mul(m.b, m.c));
         if (F.isZero(det)) throw new Error('matrix has determinant 0');
         const g = { a: m.a, b: m.b, c: m.c, d: m.d, det, vdet: this.val(det), vc: this.val(m.c), cache: new Map() };
-        g.aOverC = F.isZero(m.c) ? null : F.div(m.a, m.c);
+        let aOverC;                                   // a/c, computed on first use
+        Object.defineProperty(g, 'aOverC', {
+            get: () => (aOverC !== undefined ? aOverC : (aOverC = F.isZero(m.c) ? null : F.div(m.a, m.c))),
+        });
         return g;
     }
     /** Projective inverse (the adjugate). */
