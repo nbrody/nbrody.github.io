@@ -29,14 +29,10 @@
     { section: 'Algebraic', icon: '𝔾', items: [
       { t: 'Algebraic — Overview',          u: 'Algebraic/index.html' },
       { t: 'Number Rings',                  u: 'Algebraic/Tools/numberRings/index.html' },
-      { t: 'S-Ring Closure',                u: 'Algebraic/Tools/sRingClosure/index.html' },
       { t: 'Minkowski Embeddings',          u: 'Algebraic/Tools/minkowskiEmbedding/index.html' },
       { t: 'Zariski Closure',               u: 'Algebraic/Tools/zariskiClosure/index.html' },
       { t: 'Quaternion Algebras',           u: 'Algebraic/Tools/quaternionAlgebras/index.html' },
-      { t: 'Tautological Representations',  u: 'Algebraic/Tools/tautologicalReps/index.html' },
-      { t: 'Discreteness Certificate',      u: 'Algebraic/Tools/discretenessCertificate.html' },
-      { t: 'Expression Parser',             u: 'Algebraic/Tools/mathParser.html' },
-      { t: 'Expression Parser (Simple)',    u: 'Algebraic/Tools/mathParserSimple.html' },
+      { t: 'Expression Parser',             u: 'Algebraic/Tools/expressionParser/index.html' },
     ]},
     { section: 'Arithmetic', icon: 'ℤ', items: [
       { t: 'Arithmetic — Overview',                 u: 'Arithmetic/index.html' },
