@@ -22,6 +22,8 @@ const DOD_1mM = '1-\\frac{w^2}{2}';                                     // 1−�
 const DOD_N1pM = '\\frac{w^2}{2}-1';                                    // −1+φi
 const DOD_N1mM = '-\\frac{w^2}{2}-1';                                   // −1−φi
 
+const RILEY = 'Riley slice — pleating-ray cusps';
+
 export const exampleLibrary = [
     {
         // Five-digit decimals of a finite-covolume group. Such a group is
@@ -136,13 +138,70 @@ export const exampleLibrary = [
         mats: [['1', '2w^2', '0', '1'], ['\\frac{w-w^3}{2}', '\\frac{w^3-w}{2}',
             '\\frac{w-w^3}{2}', '\\frac{w-w^3}{2}']]
     },
+    // ── Riley slice: the cusp groups at the ends of pleating rays ──
+    // Γ_z = ⟨X = (1 z; 0 1), S⟩ ≅ ℤ ∗ ℤ/2 contains the two-parabolic Riley group
+    // ⟨X, SXS⁻¹⟩, conjugate to ⟨(1 1; 0 1), (1 0; ρ 1)⟩ with ρ = −z². The Farey
+    // word W_{p/q} = X Y^ε₁ X^ε₂ ⋯ Y^ε_{2q−1}, ε_i = (−1)^⌊ip/q⌋, has trace
+    // Φ_{p/q}(ρ) ∈ ℤ[ρ] of degree q. The p/q pleating ray, the branch of
+    // Φ_{p/q}⁻¹((−∞, −2]) asymptotic to arg ρ = π(1 − p/q), ends at the cusp
+    // group P(p/q): there Φ_{p/q}(ρ) = −2 and W_{p/q} is an accidental parabolic.
+    // The presets use the mirror image z² = −ρ̄ with Re z > 0, exactly: w = z is a
+    // root of the factor of Φ_{p/q}(−w²) + 2 shown as its minimal polynomial.
+    // Along Farey sequences the cusps converge: P(n/(2n+1)) → P(1/2) and
+    // P(n/(3n+1)) → P(1/3). Along the Fibonacci slopes 3/5, 5/8, 8/13, 13/21, …
+    // → 1/φ they converge to the geometrically infinite group at the end of the
+    // irrational pleating ray of slope 1/φ. Some cusps, e.g. P(1/5), P(1/6),
+    // P(5/13), P(8/21) and P(8/13), leave two edge cycles unresolved at the
+    // default basepoint; conjugating S by (1 w/2; 0 1), which moves the basepoint
+    // over the midpoint between S's fixed axis and its X-translate, fixes this
+    // (P(8/13) below is presented that way).
+    {
+        name: 'P(1/2)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 1/2: z = 1 + i, a subgroup of PSL(2,Z[i]) whose commutator [X, SXS] is parabolic',
+        exact: { minpoly: 'w^2-2w+2', root: { re: 1, im: 1 } },
+        mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
+    },
+    {
+        // The cusp group at slope 2/5: XsXsXsxsxs (X = (1 z; 0 1), s = S)
+        // has trace −(z⁵ − z³ + z), and tr² = 4 cuts out the cubic
+        // z³ − z² − z + 2 = 0 at the root z ≈ 1.10278 + 0.66546i. The old
+        // four-digit decimal missed the cusp and did not certify.
+        name: 'P(2/5)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 2/5 — exact over a cubic field; first of 2/5, 3/7, 4/9, … → 1/2',
+        exact: { minpoly: 'w^3-w^2-w+2', root: { re: 1.1027847152, im: 0.6654569512 } },
+        depth: 10,                  // the 10-letter parabolic's walls need depth ≥ 10
+        mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
+    },
+    {
+        name: 'P(3/7)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 3/7 — degree 8; the cusps n/(2n+1) close in on P(1/2)',
+        exact: { minpoly: 'w^8-3w^6+6w^4-7w^2+4', root: { re: 1.0148989720, im: 0.7762184924 } },
+        mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
+    },
+    {
+        name: 'P(4/9)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 4/9 — degree 4; the cusps n/(2n+1) close in on P(1/2)',
+        exact: { minpoly: 'w^4-w^2+w+2', root: { re: 0.9840858578, im: 0.8499810880 } },
+        mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
+    },
+    {
+        name: 'P(5/11)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 5/11 — degree 12; the closest of these to P(1/2)',
+        exact: { minpoly: 'w^12-3w^10+8w^8-13w^6+15w^4-11w^2+4', root: { re: 0.9760382799, im: 0.8964375672 } },
+        mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
+    },
     {
         // The parabolic entry (√7+i)/2 is itself a primitive element:
         // w = (√7+i)/2 has minpoly w⁴−3w²+4, with √7 = (5w−w³)/2,
         // i = (w³−w)/2, and conjugation σ(w) = √7 − w = (3w−w³)/2.
         name: 'P(1/3)',
-        cat: 'Knots, links & bundles',
-        desc: 'Two-parabolic (Riley) group at slope 1/3',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 1/3 — exact over Q(√7, i); the limit of 1/4, 2/7, 3/10, …',
         exact: {
             minpoly: 'w^4-3w^2+4',
             root: { re: 1.32287566, im: 0.5 },
@@ -151,25 +210,75 @@ export const exampleLibrary = [
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
-        // No word with up to 14 letters is parabolic at this parameter, so it
-        // is not a cusp group; it is an interior point of the Riley slice,
-        // where the group is discrete and ≅ ℤ ∗ ℤ/2 (certifies as such).
-        name: 'Riley group (z ≈ 1.529+0.257i)',
-        cat: 'Knots, links & bundles',
-        desc: 'Riley slice interior: ⟨(1 z; 0 1), S⟩ is discrete and free, ℤ ∗ ℤ/2',
-        mats: [['1', '1.5291+0.2571i', '0', '1'], ['0', '-1', '1', '0']]
+        name: 'P(1/4)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 1/4 — degree 4; first of 1/4, 2/7, 3/10, … → 1/3',
+        exact: { minpoly: 'w^4-2w^3+2', root: { re: 1.5290855136, im: 0.2570658641 } },
+        mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
-        // The cusp group at slope 2/5: XsXsXsxsxs (X = (1 z; 0 1), s = S)
-        // has trace −(z⁵ − z³ + z), and tr² = 4 cuts out the cubic
-        // z³ − z² − z + 2 = 0 at the root z ≈ 1.10278 + 0.66546i. The old
-        // four-digit decimal missed the cusp and did not certify.
-        name: 'P(2/5)',
-        cat: 'Knots, links & bundles',
-        desc: 'Riley cusp group at slope 2/5 — exact over a cubic field',
-        exact: { minpoly: 'w^3-w^2-w+2', root: { re: 1.1027847152, im: 0.6654569512 } },
-        depth: 10,                  // the 10-letter parabolic's walls need depth ≥ 10
+        name: 'P(2/7)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 2/7 — degree 4; needs a deeper search (depth 14)',
+        exact: { minpoly: 'w^4-w^3-2w^2+w+2', root: { re: 1.3992317464, im: 0.3256401823 } },
+        depth: 14,
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
+    },
+    {
+        name: 'P(3/10)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 3/10 — degree 10; the cusps n/(3n+1) close in on P(1/3)',
+        exact: { minpoly: 'w^10-2w^9-2w^8+4w^7+3w^6-2w^5-2w^4-4w^3+w^2+2w+2', root: { re: 1.3425671751, im: 0.3765215068 } },
+        mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
+    },
+    {
+        name: 'P(3/8)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 3/8, between 1/3 and 2/5 — degree 8',
+        exact: { minpoly: 'w^8-2w^7+4w^5-4w^4+4w^2-4w+2', root: { re: 1.1691979002, im: 0.5573202322 } },
+        mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
+    },
+    {
+        name: 'P(2/9)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 2/9 — degree 5',
+        exact: { minpoly: 'w^5-w^4-3w^3+2w^2+w+2', root: { re: 1.5888206698, im: 0.1693607858 } },
+        mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
+    },
+    {
+        name: 'P(5/8)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 5/8, the mirror image of P(3/8) — degree 8; Fibonacci slopes 3/5, 5/8, 8/13, 13/21, … → 1/φ',
+        exact: { minpoly: 'w^8-2w^7+4w^6-4w^5+4w^4-4w^3+4w^2-4w+2', root: { re: 0.5573202322, im: 1.1691979002 } },
+        mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
+    },
+    {
+        // S is conjugated by (1 w/2; 0 1): (w/2, −w²/4 − 1; 1, −w/2) is the same
+        // half-turn about an axis over w/2 ± i. At the default basepoint (S itself)
+        // two edge cycles stay unresolved; this presentation certifies at depth 8.
+        name: 'P(8/13)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 8/13 — degree 7; S conjugated by (1 w/2; 0 1) so the domain certifies',
+        exact: { minpoly: 'w^7-w^6+3w^5-2w^4+4w^3-3w^2+3w-2', root: { re: 0.5910175297, im: 1.1218555814 } },
+        mats: [['1', 'w', '0', '1'], ['\\frac{w}{2}', '-\\frac{w^2}{4}-1', '1', '-\\frac{w}{2}']]
+    },
+    {
+        name: 'P(13/21)',
+        cat: RILEY,
+        desc: 'Riley cusp at slope 13/21 — degree 20; the closest of the Fibonacci cusps to the golden degenerate group',
+        exact: { minpoly: 'w^20+6w^18+19w^16+37w^14+47w^12+36w^10+11w^8-7w^6-6w^4+w^2+4', root: { re: 0.5683136416, im: 1.1360444385 } },
+        depth: 14,
+        mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
+    },
+    {
+        // P(1/4) rounded to four digits: the cusp is w ≈ 1.52909 + 0.25707i
+        // with w⁴ − 2w³ + 2 = 0. The rounding moves it off the boundary into the
+        // interior of the Riley slice: no word with up to 14 letters is
+        // parabolic, and the group is discrete and ≅ ℤ ∗ ℤ/2 (certifies as such).
+        name: 'Riley group (z ≈ 1.529+0.257i)',
+        cat: RILEY,
+        desc: 'Riley slice interior next to P(1/4): ⟨(1 z; 0 1), S⟩ is discrete and free, ℤ ∗ ℤ/2',
+        mats: [['1', '1.5291+0.2571i', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
         name: 'Hecke group',

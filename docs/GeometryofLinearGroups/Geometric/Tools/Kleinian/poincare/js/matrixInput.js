@@ -446,6 +446,7 @@ export function applyInputState(st) {
 // Categories are shown in this order; presets keep library order inside each.
 const CATEGORY_ORDER = [
     'Knots, links & bundles',
+    'Riley slice — pleating-ray cusps',
     'Kaleidoscopes — reflection groups',
     'Arithmetic & Bianchi groups',
     'Surfaces & Fuchsian groups',
