@@ -47,7 +47,14 @@ function croot(a, r, principal = false) {
 }
 /** Index of a radical node: sqrt → 2, cbrt → 3, root → a.r. */
 const radIndex = (a) => (a.f === 'sqrt' ? 2 : a.f === 'cbrt' ? 3 : a.r);
-const isAtomNode = (a) => a.t === 'i' || a.t === 'zeta' || a.t === 'fn' || a.t === 'conj';
+const isAtomNode = (a) => a.t === 'i' || a.t === 'zeta' || a.t === 'fn' || a.t === 'conj' || a.t === 'gen';
+/**
+ * A named generator of a user-defined number field: a root of the irreducible polynomial
+ * `poly` (Rat coefficients, low → high) at the complex value `num`.
+ */
+function fieldGenAtom(name, tex, poly, num) {
+    return { t: 'gen', name, tex, poly, num: cx(num.re, num.im), key: `gen:${name}:${poly.map((c) => `${c.n}/${c.d}`).join(',')}:${num.re.toFixed(9)},${num.im.toFixed(9)}` };
+}
 function ratToNum(r) {
     let n = r.n, d = r.d;
     const shift = Math.max(0, Math.max(n.toString().length, d.toString().length) - 300);
@@ -215,6 +222,7 @@ const astKey = (a) => {
         case 'zeta': return `z${a.n}`;
         case 'fn': return `${a.f}${a.r || ''}${a.principal ? 'p' : ''}(${astKey(a.a)})`;
         case 'conj': return `conj(${astKey(a.a)})`;
+        case 'gen': return a.key;
         case 'neg': return `-(${astKey(a.a)})`;
         case 'pow': return `(${astKey(a.a)})^(${astKey(a.e)})`;
         default: return `(${astKey(a.a)}${{ add: '+', sub: '-', mul: '*', div: '/' }[a.t]}${astKey(a.b)})`;
@@ -228,6 +236,7 @@ function astTex(a, prec = 0) {
         case 'zeta': return a.n === 3 ? '\\omega' : `\\zeta_{${a.n}}`;
         case 'fn': return radIndex(a) === 2 ? `\\sqrt{${astTex(a.a)}}` : `\\sqrt[${radIndex(a)}]{${astTex(a.a)}}`;
         case 'conj': return `\\overline{${astTex(a.a)}}`;
+        case 'gen': return a.tex;
         case 'neg': return wrap(`-${astTex(a.a, 2)}`, 1);
         case 'add': return wrap(`${astTex(a.a, 1)} + ${astTex(a.b, 1)}`, 1);
         case 'sub': return wrap(`${astTex(a.a, 1)} - ${astTex(a.b, 2)}`, 1);
@@ -247,7 +256,7 @@ function constExponent(a) {
 function evalWith(a, D) {
     switch (a.t) {
         case 'num': return D.num(a.v);
-        case 'i': case 'zeta': case 'fn': case 'conj': return D.atom(a);
+        case 'i': case 'zeta': case 'fn': case 'conj': case 'gen': return D.atom(a);
         case 'neg': return D.neg(evalWith(a.a, D));
         case 'add': return D.add(evalWith(a.a, D), evalWith(a.b, D));
         case 'sub': return D.sub(evalWith(a.a, D), evalWith(a.b, D));
@@ -272,6 +281,7 @@ const numOps = {
 function atomNumeric(a, D) {
     if (a.t === 'i') return cx(0, 1);
     if (a.t === 'zeta') return cx(Math.cos(2 * Math.PI / a.n), Math.sin(2 * Math.PI / a.n));
+    if (a.t === 'gen') return a.num;
     const v = evalWith(a.a, D);
     return a.t === 'conj' ? cx(v.re, -v.im) : croot(v, radIndex(a), !!a.principal);
 }
@@ -303,6 +313,7 @@ class FieldBuilder {
         if (this.atoms.has(key)) return;
         let m, num, irreducible = a.t !== 'fn';
         if (a.t === 'i') { m = [R1, R0, R1]; num = cx(0, 1); }
+        else if (a.t === 'gen') { m = a.poly; num = a.num; }
         else if (a.t === 'zeta') { m = cyclotomic(a.n); num = atomNumeric(a, numOps); }
         else {
             const arg = evalWith(a.a, this.ops());
@@ -574,10 +585,18 @@ function elementOrder(F, M, g) {
 
 // ─────────────────────── main analysis ───────────────────────
 
-function analyze(src) {
-    const asts = parseGenerators(src);
+function analyze(src) { return analyzeAsts(parseGenerators(src)); }
+/**
+ * The analysis for generators given as expression ASTs (4 per generator). Atoms in `first`
+ * (e.g. the generator of a user-defined number field) are adjoined before the entries' own
+ * atoms, so the display basis of K is built on them.
+ */
+function analyzeAsts(asts, first = []) {
+    if (!asts.length) throw new Error('enter at least one generator');
     if (asts.length > 8) throw new Error('at most 8 generators, please');
     const F = new FieldBuilder();
+    F.maxDegree = 64;
+    for (const a of first) F.ensureAtoms(a);
     for (const g of asts) for (const e of g) F.ensureAtoms(e);
     if (F.n > 32) throw new Error(`the entries generate a field of degree ${F.n}; please keep it at most 32`);
     const K = F.alg, M = M2(K), ops = F.ops();
@@ -1885,7 +1904,7 @@ function localClosure(ctx, pr, ramifiedA) {
     return out;
 }
 
-const api = { analyze, parseGenerators, FieldBuilder, _internal: { astKey, astTex, croot, cyclotomic, pickFactor, relResidual, ramification, orderTools, kRing, uniformizer, residueReps, localRing, squarefreePart, elementOrder, classify, M2, isolateRealRoots, signAtRoot, localSpec, level1KernelFull, levelKernelFull, schreierKernel, residueRing, imageMod, algebraOps, debug: {} } };
+const api = { analyze, analyzeAsts, fieldGenAtom, parseGenerators, FieldBuilder, _internal: { astKey, astTex, croot, cyclotomic, pickFactor, relResidual, ramification, orderTools, kRing, uniformizer, residueReps, localRing, squarefreePart, elementOrder, classify, M2, isolateRealRoots, signAtRoot, localSpec, level1KernelFull, levelKernelFull, schreierKernel, residueRing, imageMod, algebraOps, debug: {} } };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 else root.PGL2Engine = api;
 })(typeof self !== 'undefined' ? self : this);

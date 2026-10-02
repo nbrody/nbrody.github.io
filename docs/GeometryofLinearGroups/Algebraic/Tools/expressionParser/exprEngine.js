@@ -358,6 +358,7 @@ function texOf(a, prec = 0) {
         case 'const': return a.c === 'pi' ? '\\pi' : 'e';
         case 'zeta': return a.n === 3 ? '\\omega' : `\\zeta_{${a.n}}`;
         case 'var': return a.tex;
+        case 'atom': return a.tex;
         case 'neg': return wrap(`-${texOf(a.a, 2)}`, prec > 1);
         case 'add': return wrap(`${texOf(a.a, 1)} + ${texOf(a.b, 1)}`, prec > 1);
         case 'sub': return wrap(`${texOf(a.a, 1)} - ${texOf(a.b, 2)}`, prec > 1);
@@ -474,6 +475,7 @@ function numeric(a) {
         case 'const': return C(a.c === 'pi' ? Math.PI : Math.E);
         case 'zeta': return C(Math.cos(2 * Math.PI / a.n), Math.sin(2 * Math.PI / a.n));
         case 'var': throw new Error(`${a.name} has no value`);
+        case 'atom': return C(a.num.re, a.num.im);
         case 'neg': { const v = numeric(a.a); return C(-v.re, -v.im); }
         case 'add': return cadd(numeric(a.a), numeric(a.b));
         case 'sub': return csub(numeric(a.a), numeric(a.b));
@@ -823,6 +825,7 @@ function lower(a) {
         case 'zeta': return a.n === 1 ? num(1) : a.n === 2 ? num(-1) : a;
         case 'const': return a.c === 'pi' ? PI : E;
         case 'var': return { t: 'var', name: a.name, tex: a.tex };
+        case 'atom': return a.node; // an already-lowered atom, e.g. the generator of a user-defined number field
         case 'neg': return keepTranscendence(a, () => ({ t: 'neg', a: lower(a.a) }));
         case 'add': case 'sub': case 'mul': case 'div': return keepTranscendence(a, () => ({ t: a.t, a: lower(a.a), b: lower(a.b) }));
         case 'pow': return lowerPow(a);
@@ -1309,7 +1312,7 @@ function realRootCountZ(f) {
 }
 function sqfree(f) { const g = X.qpXgcd(f, X.qpDeriv(f))[0]; return X.qpDeg(g) > 0 ? X.qpDivmod(f, g)[0] : f; }
 
-const api = { evaluate, parse, parseName, texOf, _internal: { tokenize, lower, exactEval, numeric, NotExact } };
+const api = { evaluate, parse, parseName, texOf, _internal: { tokenize, lower, exactEval, numeric, substitute, freeVars, NotExact } };
 if (isNode) module.exports = api;
 else root.ExprEngine = api;
 })(typeof self !== 'undefined' ? self : this);

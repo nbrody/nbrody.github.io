@@ -6,6 +6,9 @@
     <title>Zariski Closure</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
     <style>
         :root {
             --bg: #f7f6f2; --card: #ffffff; --ink: #1f2a37; --muted: #5f6b7a; --faint: #8a94a1; --line: #e3e0d8;
@@ -41,21 +44,57 @@
         .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-bottom: 14px; }
         .card h2 { font-family: var(--sans); font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); margin-bottom: 12px; }
 
-        textarea.math { width: 100%; min-height: 76px; resize: vertical; font-family: var(--mono); font-size: 0.98rem; line-height: 1.5; color: var(--ink); background: var(--input-bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; outline: none; }
-        textarea.math:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-        textarea.math.invalid { border-color: var(--bad); }
         .hint { font-size: 0.86rem; color: var(--faint); margin-top: 6px; }
         .hint code { font-family: var(--mono); font-size: 0.85em; color: var(--muted); }
         .err { color: var(--bad); font-family: var(--sans); font-size: 0.9rem; }
+        .card h2 .opt { text-transform: none; letter-spacing: 0; font-weight: normal; margin-left: 6px; }
 
-        .gens { display: grid; gap: 10px; margin-top: 14px; }
-        .gen { display: grid; grid-template-columns: 2.4em auto 1fr; gap: 6px 14px; align-items: center; padding-top: 10px; border-top: 1px dashed var(--line); }
-        .gen .lbl { color: var(--muted); text-align: right; }
-        .gen .mat { overflow-x: auto; overflow-y: hidden; }
-        .gen .meta { font-size: 0.9rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 14px; align-items: center; }
-        .tag { font-family: var(--sans); font-size: 0.74rem; border-radius: 999px; padding: 1px 8px; background: var(--accent-soft); color: var(--accent); }
+        /* generators: 2×2 grids of MathQuill entries */
+        .mats { display: grid; gap: 4px; }
+        .mat-block { display: grid; grid-template-columns: 2.6em auto 1fr 30px; gap: 6px 12px; align-items: center; padding: 8px 0; }
+        .mat-block + .mat-block { border-top: 1px dashed var(--line); }
+        .mat-block .lbl { color: var(--muted); text-align: right; }
+        .grid2 { display: inline-grid; grid-template-columns: repeat(2, minmax(64px, auto)); gap: 6px 8px; padding: 5px 10px; border-left: 2px solid var(--muted); border-right: 2px solid var(--muted); border-radius: 14px; }
+        .mat-block.invalid .grid2 { border-color: var(--bad); }
+        .meta { font-size: 0.9rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 14px; align-items: center; min-width: 0; }
+        .tag { font-family: var(--sans); font-size: 0.74rem; border-radius: 999px; padding: 1px 8px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
         .tag.fin { background: var(--good-soft); color: var(--good); }
+        .del { font: inherit; font-size: 1.15rem; line-height: 1; width: 30px; height: 30px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--faint); cursor: pointer; }
+        .del:hover { color: var(--bad); border-color: var(--line); }
+        .mq-editable-field.cell, .mq-editable-field.cname, .mq-editable-field.cval { display: block; min-width: 64px; min-height: 34px; padding: 4px 8px; font-size: 1.05rem; color: var(--ink); background: var(--input-bg); border: 1px solid var(--line); border-radius: 6px; }
+        input.cell { min-width: 64px; }
+        .mq-editable-field.mq-focused { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .mq-editable-field.invalid, input.invalid { border-color: var(--bad) !important; }
+        .mq-math-mode .mq-cursor { border-left-color: var(--ink); }
+        .mq-math-mode .mq-empty { background: var(--accent-soft); }
+        .mq-editable-field .mq-selection, .mq-editable-field .mq-selection .mq-non-leaf, .mq-math-mode .mq-selection .mq-scaled { background: var(--accent-soft) !important; color: var(--ink) !important; }
+        .add-row { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+        .btn { font-family: var(--sans); font-size: 0.88rem; color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+        .btn:hover { border-color: var(--accent); }
         .field-info { margin-top: 12px; color: var(--muted); font-size: 0.95rem; }
+        details.import { margin-top: 12px; }
+        details.import summary { cursor: pointer; font-family: var(--sans); font-size: 0.84rem; color: var(--faint); }
+        details.import textarea { display: block; width: 100%; min-height: 64px; margin-top: 8px; resize: vertical; font-family: var(--mono); font-size: 0.92rem; color: var(--ink); background: var(--input-bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; outline: none; }
+        details.import textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        details.import .add-row .err { font-size: 0.86rem; }
+
+        /* constants and number field */
+        .sub-h { font-family: var(--sans); font-size: 0.82rem; color: var(--faint); margin: 2px 0 8px; }
+        .const-row { display: grid; grid-template-columns: 5.5em auto 1fr 30px; gap: 6px 8px; align-items: center; padding: 4px 0; }
+        .const-row .eq { color: var(--muted); }
+        .switch { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 0.88rem; color: var(--ink); cursor: pointer; }
+        .switch input { width: 16px; height: 16px; accent-color: var(--accent); }
+        .field-panel { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 12px; align-items: center; margin-top: 10px; }
+        .field-panel[hidden] { display: none; }
+        .field-panel label { font-family: var(--sans); font-size: 0.84rem; color: var(--muted); text-align: right; }
+        .field-panel input, .field-panel select { font-family: var(--mono); font-size: 0.95rem; color: var(--ink); background: var(--input-bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; outline: none; min-width: 0; }
+        .field-panel input:focus, .field-panel select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .field-panel #field-gen { width: 5em; }
+        .field-panel #field-poly { width: 100%; max-width: 22em; }
+        .field-panel select { width: 100%; max-width: 22em; }
+        .field-panel .msg { grid-column: 2; font-family: var(--sans); font-size: 0.86rem; color: var(--bad); }
+        .field-panel .msg:empty { display: none; }
+        .divider { border-top: 1px solid var(--line); margin: 16px 0 14px; }
 
         .result { border-color: var(--accent); }
         .result .name { color: var(--muted); font-size: 1rem; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
@@ -91,8 +130,13 @@
             .card { padding: 16px; }
             dl.facts { grid-template-columns: 1fr; }
             dl.facts dt { border-bottom: none; padding-bottom: 0; }
-            .gen { grid-template-columns: 2.2em 1fr; }
-            .gen .meta { grid-column: 2; }
+            .mat-block { grid-template-columns: 2.2em auto 1fr 30px; }
+            .mat-block .meta { grid-column: 2 / 5; grid-row: 2; }
+            .mat-block .del { grid-column: 4; grid-row: 1; }
+            .const-row { grid-template-columns: 4em auto 1fr 30px; }
+            .field-panel { grid-template-columns: 1fr; }
+            .field-panel label { text-align: left; }
+            .field-panel .msg { grid-column: 1; }
             .result .head { font-size: 1.2rem; }
         }
     </style>
@@ -108,10 +152,37 @@
 
     <section class="card">
         <h2>Generators</h2>
-        <textarea id="gens" class="math" spellcheck="false" autocomplete="off"></textarea>
-        <p class="hint">2×2 matrices as <code>((a,b),(c,d))</code> or <code>[[a,b],[c,d]]</code>, separated by commas. Entries can use <code>i</code>, <code>sqrt(…)</code>, <code>cbrt(…)</code>, <code>zeta_n</code> and <code>ω</code>.</p>
+        <div class="mats" id="mats"></div>
+        <div class="add-row">
+            <button class="btn" id="add-mat">+ Add matrix</button>
+            <span class="hint">Type <code>sqrt</code>, <code>zeta_5</code>, <code>omega</code>, <code>/</code> for fractions; entries may use <span class="m">i</span>, radicals, roots of unity, constants below and the generator of a number field. Space moves to the next entry.</span>
+        </div>
         <div class="field-info" id="field-info"></div>
-        <div class="gens" id="gen-list"></div>
+        <details class="import" id="import">
+            <summary>Import generators as text</summary>
+            <textarea id="import-text" spellcheck="false" autocomplete="off" placeholder="<((1+2i, 0), (0, 1-2i)), ((3, 2), (-2, 3))>"></textarea>
+            <div class="add-row"><button class="btn" id="import-btn">Load into the grid</button><span class="err" id="import-err"></span></div>
+            <p class="hint">2×2 matrices as <code>((a,b),(c,d))</code> or <code>[[a,b],[c,d]]</code>, separated by commas, with entries such as <code>sqrt(2)</code>, <code>cbrt(3)</code>, <code>zeta_7</code>, <code>ω</code>.</p>
+        </details>
+    </section>
+
+    <section class="card">
+        <h2>Constants and number field <span class="opt">optional</span></h2>
+        <div class="sub-h">Constants</div>
+        <div id="consts"></div>
+        <div class="add-row"><button class="btn" id="add-const">+ Add constant</button><span class="hint">Named values (radicals, roots of unity, …) that entries and later constants may use.</span></div>
+        <div class="divider"></div>
+        <label class="switch"><input type="checkbox" id="field-on"> Number field <span id="field-label"></span></label>
+        <div class="field-panel" id="field-panel" hidden>
+            <label for="field-gen">Generator</label>
+            <input id="field-gen" value="w" spellcheck="false" autocomplete="off">
+            <label for="field-poly">Min. poly</label>
+            <input id="field-poly" value="w^2 + w + 1" spellcheck="false" autocomplete="off">
+            <label for="field-root">Embedding</label>
+            <select id="field-root"></select>
+            <div class="msg" id="field-msg"></div>
+        </div>
+        <p class="hint" id="field-hint" hidden>Entries may use the generator; the embedding says which complex root of the minimal polynomial it is. Write the polynomial in the generator, e.g. <code>w^3 - w^2 - 2w + 1</code>.</p>
     </section>
 
     <section class="card result" id="result">
@@ -126,7 +197,7 @@
     <details class="syntax">
         <summary>What is computed, and how</summary>
         <div>
-            <p>Each radical is adjoined to the field of entries <span class="m">K</span> at its principal complex value, so relations such as <span class="m">\sqrt{-2} = i\sqrt2</span> are respected. Matrices are taken up to scalars, so <span class="m">\operatorname{tr}^2/\det</span> is the basic invariant.</p>
+            <p>Entries are read exactly, as in the Expression Parser. Each radical is adjoined to the field of entries <span class="m">K</span> at its principal complex value, so relations such as <span class="m">\sqrt{-2} = i\sqrt2</span> are respected; trigonometric values at rational multiples of <span class="m">\pi</span> become sums of roots of unity. A number field <span class="m">\mathbb{Q}(w)</span> is adjoined as the root of its minimal polynomial at the chosen embedding, and combined with any radicals in the entries. Matrices are taken up to scalars, so <span class="m">\operatorname{tr}^2/\det</span> is the basic invariant.</p>
             <p>Over <span class="m">\overline{\mathbb{Q}}</span> the closure is decided exactly. Reducibility comes from the span of <span class="m">\Gamma</span>. Element orders come from Kronecker's theorem. An invariant pair of points comes from a regular semisimple element. The finite primitive groups <span class="m">A_4, S_4, A_5</span> are found by enumeration.</p>
             <p>For dense <span class="m">\Gamma</span>, the invariant trace field <span class="m">k = \mathbb{Q}(\operatorname{tr}\operatorname{Ad}\Gamma)</span> is read off the <span class="m">\mathbb{Q}</span>-span of <span class="m">\operatorname{Ad}\Gamma</span>. The quaternion algebra is <span class="m">A = (\operatorname{tr}^2 G - 4,\ \operatorname{tr}[G,H] - 2)_k</span> for <span class="m">G = g^2/\det g</span> and <span class="m">H = h^2/\det h</span>. Its ramification is computed from tame symbols, a finite dyadic search and the real embeddings. <span class="m">S</span> is the set of primes where <span class="m">\operatorname{tr}^2/\det</span> fails to be integral on words of length at most 3; these are exactly the places where <span class="m">\Gamma</span> is unbounded.</p>
             <p><span class="m">\Gamma</span> is unbounded at a real place where <span class="m">A</span> splits, at every complex place, and at the primes of <span class="m">S</span>, and bounded everywhere else. The symmetric space <span class="m">X</span> is the product of <span class="m">\mathbb{H}^2</span>, <span class="m">\mathbb{H}^3</span> and Bruhat–Tits trees over those places.</p>
@@ -138,42 +209,172 @@
 
 <script src="../numberRings/ringEngine.js"></script>
 <script src="pgl2Engine.js"></script>
+<script src="../expressionParser/exprEngine.js"></script>
+<script src="zariskiInput.js"></script>
 <script>
 (function () {
     'use strict';
-    const T237 = '(zeta_14 + zeta_14^-1)';
     const EXAMPLES = [
-        { label: '\\mathrm{PU}_2(\\mathbb{Z}[\\tfrac15,\\tfrac1{13}])', src: '<((1+2i, 0), (0, 1-2i)), ((3, 2), (-2, 3))>' },
-        { label: '\\text{Sanov}', src: '<((1, 2), (0, 1)), ((1, 0), (2, 1))>' },
-        { label: 'D\\,\\mathrm{PGL}_2(\\mathbb{Z})\\,D^{-1}', src: '<((1, 5), (0, 1)), ((0, -5), (1/5, 0)), ((-1, 0), (0, 1))>' },
-        { label: '\\langle T, L^{7} \\rangle', src: '<((1, 1), (0, 1)), ((1, 0), (7, 1))>' },
-        { label: '\\mathrm{PGL}_2(\\mathbb{Z}[\\tfrac12])', src: '<((2, 0), (0, 1)), ((1, 1), (0, 1)), ((1, 0), (1, 1))>' },
-        { label: '\\text{figure-eight knot}', src: '<((1, 1), (0, 1)), ((1, 0), (-ω, 1))>' },
-        { label: '(2,3,7)\\text{ triangle}', src: `<((i, 0), (0, -i)), (((1 - i*${T237})/2, 1), ((${T237}^2 - 3)/4, (1 + i*${T237})/2))>` },
-        { label: '\\langle 1+\\sqrt2\\,i,\\ 1+j \\rangle', src: '<((1+sqrt(2)i, 0), (0, 1-sqrt(2)i)), ((1, 1), (-1, 1))>' },
-        { label: '\\mathrm{BS}(1,2)', src: '<((2, 0), (0, 1)), ((1, 1), (0, 1))>' },
-        { label: 'D_\\infty', src: '<((2, 0), (0, 1)), ((0, 1), (1, 0))>' },
-        { label: 'A_4', src: '<((-1, 0), (0, 1)), ((1, i), (1, -i))>' },
-        { label: 'S_4', src: '<((i, 0), (0, 1)), ((1, 1), (1, -1))>' },
-        { label: 'A_5', src: '<((zeta_5, 0), (0, 1)), ((zeta_5 - zeta_5^4, zeta_5^2 - zeta_5^3), (zeta_5^2 - zeta_5^3, zeta_5^4 - zeta_5))>' },
+        { label: '\\mathrm{PU}_2(\\mathbb{Z}[\\tfrac15,\\tfrac1{13}])', text: '<((1+2i, 0), (0, 1-2i)), ((3, 2), (-2, 3))>' },
+        { label: '\\text{Sanov}', text: '<((1, 2), (0, 1)), ((1, 0), (2, 1))>' },
+        { label: 'D\\,\\mathrm{PGL}_2(\\mathbb{Z})\\,D^{-1}', text: '<((1, 5), (0, 1)), ((0, -5), (1/5, 0)), ((-1, 0), (0, 1))>' },
+        { label: '\\langle T, L^{7} \\rangle', text: '<((1, 1), (0, 1)), ((1, 0), (7, 1))>' },
+        { label: '\\mathrm{PGL}_2(\\mathbb{Z}[\\tfrac12])', text: '<((2, 0), (0, 1)), ((1, 1), (0, 1)), ((1, 0), (1, 1))>' },
+        { label: '\\text{figure-eight knot}', gens: [['1', '1', '0', '1'], ['1', '0', '-w', '1']], field: { gen: 'w', poly: 'w^2 + w + 1', root: { re: -0.5, im: 0.8660254 } } },
+        { label: '(2,3,7)\\text{ triangle}', gens: [['i', '0', '0', '-i'], ['\\frac{1-iw}{2}', '1', '\\frac{w^2-3}{4}', '\\frac{1+iw}{2}']], field: { gen: 'w', poly: 'w^3 - w^2 - 2w + 1', root: { re: 1.8019377, im: 0 } } },
+        { label: '\\langle 1+\\sqrt2\\,i,\\ 1+j \\rangle', gens: [['1+si', '0', '0', '1-si'], ['1', '1', '-1', '1']], consts: [['s', '\\sqrt{2}']] },
+        { label: '\\mathrm{BS}(1,2)', text: '<((2, 0), (0, 1)), ((1, 1), (0, 1))>' },
+        { label: 'D_\\infty', text: '<((2, 0), (0, 1)), ((0, 1), (1, 0))>' },
+        { label: 'A_4', text: '<((-1, 0), (0, 1)), ((1, i), (1, -i))>' },
+        { label: 'S_4', text: '<((i, 0), (0, 1)), ((1, 1), (1, -1))>' },
+        { label: 'A_5', gens: [['z', '0', '0', '1'], ['z - z^4', 'z^2 - z^3', 'z^2 - z^3', 'z^4 - z']], field: { gen: 'z', poly: 'z^4 + z^3 + z^2 + z + 1', root: { re: 0.309017, im: 0.9510565 } } },
     ];
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const tex = (t, display) => (window.katex ? katex.renderToString(t, { throwOnError: false, displayMode: !!display }) : esc(t));
     const mix = (s) => s.split('$').map((part, i) => (i % 2 ? tex(part) : esc(part))).join('');
     const list = (a) => (a.length <= 1 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
+    const subDigits = (k) => String(k).split('').map((ch) => '₀₁₂₃₄₅₆₇₈₉'[+ch]).join('');
+
+    let worker = null, seq = 0, busySince = 0, timer = null, loading = false;
+    function schedule(delay = 300) { if (loading) return; clearTimeout(timer); timer = setTimeout(run, delay); }
+
+    // ── entry fields: MathQuill when available, plain inputs otherwise ──
+    const MQ = window.MathQuill ? MathQuill.getInterface(2) : null;
+    const MQ_CONFIG = {
+        spaceBehavesLikeTab: true,
+        leftRightIntoCmdGoes: 'up',
+        restrictMismatchedBrackets: true,
+        supSubsRequireOperand: true,
+        charsThatBreakOutOfSupSub: '+-=<>',
+        autoSubscriptNumerals: true,
+        autoCommands: 'pi sqrt nthroot zeta omega alpha beta gamma theta',
+        autoOperatorNames: 'sin cos tan exp ln log arg Re Im abs conj',
+    };
+    function makeField(host, cls, latex) {
+        if (MQ) {
+            host.classList.add(cls);
+            const mf = MQ.MathField(host, Object.assign({}, MQ_CONFIG, { handlers: { edit: () => schedule() } }));
+            mf.latex(latex || '');
+            return { get: () => mf.latex(), el: host, focus: () => mf.focus() };
+        }
+        const input = document.createElement('input');
+        input.className = cls; input.spellcheck = false; input.autocomplete = 'off';
+        input.value = latex || '';
+        input.addEventListener('input', () => schedule());
+        host.replaceWith(input);
+        return { get: () => input.value, el: input, focus: () => input.focus() };
+    }
+
+    // ── generators ──
+    const mats = $('mats');
+    function addMatrix(vals = ['1', '0', '0', '1'], focus = false) {
+        const block = document.createElement('div');
+        block.className = 'mat-block';
+        block.innerHTML = '<span class="lbl"></span><div class="grid2"><span></span><span></span><span></span><span></span></div><span class="meta"></span><button class="del" title="Remove" aria-label="Remove matrix">×</button>';
+        mats.appendChild(block);
+        block._cells = [...block.querySelectorAll('.grid2 > span')].map((h, k) => makeField(h, 'cell', vals[k]));
+        block.querySelector('.del').addEventListener('click', () => { block.remove(); relabel(); schedule(); });
+        relabel();
+        if (focus) block._cells[0].focus();
+    }
+    function relabel() { [...mats.children].forEach((b, i) => { b.querySelector('.lbl').innerHTML = tex(`g_{${i + 1}} =`); }); }
+
+    // ── constants ──
+    const constBox = $('consts');
+    function addConstant(name = '', value = '', focus = false) {
+        const row = document.createElement('div');
+        row.className = 'const-row';
+        row.innerHTML = '<span></span><span class="eq">=</span><span></span><button class="del" title="Remove" aria-label="Remove constant">×</button>';
+        constBox.appendChild(row);
+        const [hn, , hv] = row.children;
+        row._name = makeField(hn, 'cname', name);
+        row._value = makeField(hv, 'cval', value);
+        row.querySelector('.del').addEventListener('click', () => { row.remove(); schedule(); });
+        if (focus) row._name.focus();
+    }
+
+    // ── number field ──
+    let roots = [];
+    function fieldSpec() {
+        if (!$('field-on').checked) return null;
+        const i = parseInt($('field-root').value, 10) || 0;
+        return { gen: $('field-gen').value, poly: $('field-poly').value, rootIndex: i, root: roots[i] || null };
+    }
+    function refreshRoots(prefer) {
+        const res = ZariskiInput.fieldRoots({ gen: $('field-gen').value, poly: $('field-poly').value });
+        const sel = $('field-root');
+        const prev = prefer || roots[parseInt(sel.value, 10) || 0] || null;
+        sel.innerHTML = '';
+        let nm = String($('field-gen').value || 'w').trim();
+        try { nm = ExprEngine.parseName(nm).tex; } catch (e) { /* keep the raw name */ }
+        $('field-label').innerHTML = tex(`K = \\mathbb{Q}(${nm || 'w'})`);
+        if (!res.ok) { roots = []; $('field-msg').textContent = res.error; return; }
+        $('field-msg').textContent = '';
+        roots = res.roots;
+        const name = res.name, fmt = (x) => (Math.abs(x) < 5e-10 ? '0' : x.toFixed(6));
+        roots.forEach((r, i) => {
+            const o = document.createElement('option');
+            o.value = String(i);
+            o.textContent = r.im === 0 ? `${name} ≈ ${fmt(r.re)}` : `${name} ≈ ${fmt(r.re)} ${r.im > 0 ? '+' : '−'} ${fmt(Math.abs(r.im))}i`;
+            sel.appendChild(o);
+        });
+        let best = 0;
+        if (prev) { let bd = Infinity; roots.forEach((r, i) => { const d = Math.hypot(r.re - prev.re, r.im - (prev.im || 0)); if (d < bd) { bd = d; best = i; } }); }
+        sel.value = String(best);
+    }
+    function setFieldUI(on) {
+        $('field-on').checked = on;
+        $('field-panel').hidden = !on;
+        $('field-hint').hidden = !on;
+    }
+    $('field-on').addEventListener('change', () => { setFieldUI($('field-on').checked); if ($('field-on').checked) refreshRoots(); schedule(0); });
+    ['field-gen', 'field-poly'].forEach((id) => $(id).addEventListener('input', () => { refreshRoots(); schedule(); }));
+    $('field-root').addEventListener('change', () => schedule(0));
+
+    // ── whole state ──
+    function getState() {
+        const consts = [...constBox.children].map((r) => [r._name.get(), r._value.get()]);
+        return { gens: [...mats.children].map((b) => b._cells.map((c) => c.get())), consts, field: fieldSpec() };
+    }
+    function setState(st) {
+        loading = true;
+        mats.innerHTML = ''; constBox.innerHTML = '';
+        (st.gens && st.gens.length ? st.gens : [['1', '0', '0', '1']]).forEach((g) => addMatrix(g));
+        (st.consts || []).forEach(([n, v]) => addConstant(n, v));
+        if (st.field) {
+            $('field-gen').value = st.field.gen || 'w';
+            $('field-poly').value = st.field.poly || '';
+            setFieldUI(true);
+            refreshRoots(st.field.root || null);
+            if (!st.field.root && st.field.rootIndex !== undefined) $('field-root').value = String(st.field.rootIndex);
+        } else setFieldUI(false);
+        loading = false;
+        schedule(0);
+    }
+    const exampleState = (x) => (x.text ? { gens: ZariskiInput.fromText(x.text) } : { gens: x.gens.map((g) => g.slice()), consts: x.consts, field: x.field });
 
     document.querySelectorAll('.m').forEach((el) => { el.innerHTML = tex(el.textContent); });
+    $('field-label').innerHTML = tex('K = \\mathbb{Q}(w)');
     EXAMPLES.forEach((x) => {
         const b = document.createElement('button');
         b.className = 'chip';
         b.innerHTML = tex(x.label);
-        b.addEventListener('click', () => { $('gens').value = x.src; schedule(0); });
+        b.addEventListener('click', () => setState(exampleState(x)));
         $('examples').appendChild(b);
+    });
+    $('add-mat').addEventListener('click', () => { addMatrix(['1', '0', '0', '1'], true); schedule(); });
+    $('add-const').addEventListener('click', () => addConstant(['c', 'd', 'u', 'v'].find((n) => ![...constBox.children].some((r) => r._name.get() === n)) || '', '', true));
+    $('import-btn').addEventListener('click', () => {
+        try {
+            const gens = ZariskiInput.fromText($('import-text').value);
+            $('import-err').textContent = '';
+            const st = getState();
+            setState({ gens, consts: st.consts, field: st.field });
+        } catch (e) { $('import-err').textContent = e.message; }
     });
 
     // ── computation in a Web Worker, falling back to the page ──
-    let worker = null, seq = 0, busySince = 0, timer = null;
     const startWorker = () => {
         try {
             worker = new Worker('zariskiWorker.js');
@@ -182,22 +383,29 @@
         } catch (e) { worker = null; }
     };
     startWorker();
-    function schedule(delay = 300) { clearTimeout(timer); timer = setTimeout(run, delay); }
     function run() {
-        const src = $('gens').value;
-        saveHash(src);
-        if (!src.trim()) { clear('Enter some generators, or pick an example.'); return; }
+        const state = getState();
+        saveHash(state);
+        if (!state.gens.length) { markErrors(null); $('field-info').innerHTML = ''; clear('Add a generator, or pick an example.'); return; }
         const id = ++seq;
         if (worker) {
             if (busySince && Date.now() - busySince > 2000) { worker.terminate(); startWorker(); }
             busySince = Date.now();
-            worker.postMessage({ id, src });
+            worker.postMessage({ id, state });
             setTimeout(() => { if (id === seq && busySince) $('r-summary').innerHTML = '<span class="status">Computing…</span>'; }, 300);
         } else {
             let result;
-            try { result = PGL2Engine.analyze(src); } catch (err) { result = { ok: false, error: err.message }; }
+            try { result = ZariskiInput.analyze(state); } catch (err) { result = { ok: false, error: err.message }; }
             render(result);
         }
+    }
+    function markErrors(where) {
+        [...mats.children].forEach((b, g) => {
+            b.classList.toggle('invalid', !!where && where.gen === g && where.entry === undefined);
+            b._cells.forEach((c, k) => c.el.classList.toggle('invalid', !!where && where.gen === g && where.entry === k));
+        });
+        [...constBox.children].forEach((r, i) => { const bad = !!where && where.constant === i; r._name.el.classList.toggle('invalid', bad); r._value.el.classList.toggle('invalid', bad); });
+        $('field-poly').classList.toggle('invalid', !!where && !!where.field);
     }
 
     function clear(msg) {
@@ -207,23 +415,29 @@
     }
 
     function render(res) {
-        const ta = $('gens');
+        markErrors(res.ok ? null : res.where || {});
+        [...mats.children].forEach((b) => { b.querySelector('.meta').innerHTML = ''; });
+        if (res.where && res.where.field) $('field-msg').textContent = res.error;
         if (!res.ok) {
-            ta.classList.add('invalid');
             $('field-info').innerHTML = `<span class="err">${esc(res.error)}</span>`;
-            $('gen-list').innerHTML = '';
-            clear('Fix the generators to continue.');
+            clear('Fix the highlighted input to continue.');
             return;
         }
-        ta.classList.remove('invalid');
-        const F = res.field;
-        $('field-info').innerHTML = F.n === 1 ? mix('All entries are rational: $K = \\mathbb{Q}$.')
+        const F = res.field, FD = res.fieldDef;
+        let info = F.n === 1 ? mix('All entries are rational: $K = \\mathbb{Q}$.')
             : mix(`Entries lie in $K = \\mathbb{Q}(${F.atoms.join(', ')})$, a field of degree $${F.n}$.`);
-        $('gen-list').innerHTML = res.gens.map((g, i) => {
+        if (FD && FD.unused) info += ' ' + mix(`(The entries do not use $${FD.tex}$.)`);
+        else if (FD) {
+            const r = FD.root, num = r.im === 0 ? r.re.toFixed(6) : `${r.re.toFixed(6)} ${r.im > 0 ? '+' : '-'} ${Math.abs(r.im).toFixed(6)}i`;
+            info += ' ' + mix(`Here $${FD.tex} \\approx ${num}$ is a root of $${FD.polyTex}$.`);
+        }
+        $('field-info').innerHTML = info;
+        res.gens.forEach((g, i) => {
+            const b = mats.children[i];
+            if (!b) return;
             const kind = g.type === 'identity' ? 'scalar (trivial in PGL₂)' : g.order ? `${g.type}, order ${g.order}` : `${g.type}, infinite order`;
-            return `<div class="gen"><span class="lbl">${tex(`g_{${i + 1}}`)}</span><span class="mat">${tex(g.tex)}</span>
-                <span class="meta"><span>${tex(`\\det = ${g.detTex}`)}</span><span>${tex(`\\operatorname{tr}^2/\\det = ${g.tauTex}`)}</span><span class="tag${g.order ? ' fin' : ''}">${esc(kind)}</span></span></div>`;
-        }).join('');
+            b.querySelector('.meta').innerHTML = `<span>${tex(`\\det = ${g.detTex}`)}</span><span>${tex(`\\operatorname{tr}^2/\\det = ${g.tauTex}`)}</span><span class="tag${g.order ? ' fin' : ''}">${esc(kind)}</span>`;
+        });
 
         const C = res.closure, A = res.arith;
         $('r-name').innerHTML = tex(`\\Gamma = \\langle ${res.gens.map((_, i) => `g_{${i + 1}}`).join(', ')} \\rangle \\le \\mathrm{PGL}_2(${F.n === 1 ? '\\mathbb{Q}' : 'K'})`);
@@ -325,18 +539,29 @@
         box.innerHTML = html;
     }
 
-    // ── URL state ──
-    function saveHash(src) {
-        const h = '#g=' + encodeURIComponent(src);
+    // ── URL state: #s=<json> (grids, constants, field); old #g=<text> links still load ──
+    function saveHash(st) {
+        const o = { g: st.gens };
+        const consts = st.consts.filter(([n, v]) => n || v);
+        if (consts.length) o.c = consts;
+        if (st.field) o.f = { gen: st.field.gen, poly: st.field.poly, root: st.field.root ? [+st.field.root.re.toFixed(9), +st.field.root.im.toFixed(9)] : null };
+        const h = '#s=' + encodeURIComponent(JSON.stringify(o));
         if (location.hash !== h) history.replaceState(null, '', h);
     }
     function loadHash() {
-        const m = /^#g=(.*)$/.exec(location.hash);
-        try { return m ? decodeURIComponent(m[1]) : null; } catch (e) { return null; }
+        try {
+            let m = /^#s=(.*)$/.exec(location.hash);
+            if (m) {
+                const o = JSON.parse(decodeURIComponent(m[1]));
+                const f = o.f ? { gen: o.f.gen, poly: o.f.poly, root: o.f.root ? { re: o.f.root[0], im: o.f.root[1] } : null } : null;
+                return { gens: o.g, consts: o.c || [], field: f };
+            }
+            m = /^#g=(.*)$/.exec(location.hash);
+            if (m) return { gens: ZariskiInput.fromText(decodeURIComponent(m[1])) };
+        } catch (e) { /* fall through to the default */ }
+        return null;
     }
-    $('gens').addEventListener('input', () => schedule());
-    $('gens').value = loadHash() || EXAMPLES[0].src;
-    schedule(0);
+    setState(loadHash() || exampleState(EXAMPLES[0]));
 })();
 </script>
 <!-- golg-nav-bootstrap -->
