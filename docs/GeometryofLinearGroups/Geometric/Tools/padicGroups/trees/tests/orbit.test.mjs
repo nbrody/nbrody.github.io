@@ -9,6 +9,7 @@ const { GlobalField, Place } = await import('../js/localField.js');
 const { makeLetters, computeOrbit, stabilizerWords, linkPermutation, cycles, translationLength, wordString } = await import('../js/groupWords.js');
 const { generateTree } = await import('../js/treeGeneration.js');
 const { EXAMPLES } = await import('../js/examples.js');
+const { readGroup } = await import('../../../../../assets/js/hyperbolic/expr.js');
 
 const mat = (F, entries) => { const [a, b, c, d] = entries.map((s) => F.parse(s)); return { a, b, c, d }; };
 const O = { k: 0, lo: 0, d: [] };
@@ -62,17 +63,19 @@ test('a hyperbolic element at one prime above 5 is elliptic at the other', () =>
 
 test('the drawn tree contains the orbit and stays within budget', () => {
     for (const ex of EXAMPLES) {
-        const F = new GlobalField(ex.field);
+        const extra = [['1', ex.vertex[0], '0', '1']];
+        if (ex.primeOf) extra.push(['1', ex.primeOf, '0', '1']);
+        const read = readGroup({ mats: ex.mats.concat(extra), consts: ex.consts || [] });
+        assert.ok(read.exact, `${ex.name}: ${read.reason}`);
+        const F = GlobalField.fromTower(read.field, { primes: [BigInt(ex.p)] });
+        const all = read.gens.map((M) => ({ a: F.fromT(M.a), b: F.fromT(M.b), c: F.fromT(M.c), d: F.fromT(M.d) }));
+        const mats = all.slice(0, ex.mats.length);
         let idx = ex.prime || 0;
-        if (ex.primeOf) {
-            const x = F.parse(ex.primeOf);
-            idx = F.primesAbove(BigInt(ex.p)).findIndex((_, i) => new Place(F, ex.p, i).val(x) > 0);
-        }
+        if (ex.primeOf) idx = F.primesAbove(BigInt(ex.p)).findIndex((_, i) => new Place(F, ex.p, i).val(all[all.length - 1].b) > 0);
+        assert.ok(idx >= 0, ex.name);
         const P = new Place(F, ex.p, idx);
-        const plain = (s) => s.replace(/\\frac\{(.+?)\}\{(.+?)\}/g, '(($1)/($2))');
-        const mats = ex.mats.map((m) => mat(F, m.map(plain)));
         const letters = makeLetters(P, mats);
-        const base = P.canon(F.parse(ex.vertex[0]), Number(ex.vertex[1]));
+        const base = P.canon(all[ex.mats.length].b, Number(ex.vertex[1]));
         const orbit = computeOrbit(P, base, letters, ex.L);
         const verts = [...orbit.orbitMap.values()].map((e) => e.vertex);
         const tree = generateTree(P, verts, { radius: ex.r, budget: 3200 });

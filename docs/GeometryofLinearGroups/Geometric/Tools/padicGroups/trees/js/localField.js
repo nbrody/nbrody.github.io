@@ -23,12 +23,16 @@
  * (numberRings/ringEngine.js, loaded as the global NumberRingEngine).
  */
 
+import { Frac } from '../../../../../assets/js/hyperbolic/exact.js';
+import { TowerField, complexRoots, sortRoots, fracNum } from '../../../../../assets/js/hyperbolic/tower.js';
+
 const NR = globalThis.NumberRingEngine;
 if (!NR) throw new Error('localField.js needs numberRings/ringEngine.js (NumberRingEngine) loaded first');
 const X = NR._internal;
-const { Rat, R0, R1, bgcd, blcm, bmod, modInv, vpInt, pw, ratVecMat, ratInverse, rrefModP, idealMul,
-    valuationSV, primesAbove, unitVec, twoElement, isProbablePrime } = X;
+const { Rat, R0, R1, bgcd, blcm, bmod, modInv, vpInt, pw, ratVecMat, rrefModP, idealMul, ratSolveRows,
+    valuationSV, primesAbove, unitVec, isProbablePrime, Order, pMaximal, detInt, factorInt, hnf, hnfEq, identityHNF } = X;
 const { parseExpr } = NR;
+if (!pMaximal) throw new Error('localField.js needs a ringEngine.js that exports pMaximal');
 
 // ───────────────────────── elements: { v: BigInt[] (O-coordinates), den } ─────────────────────────
 
@@ -72,37 +76,57 @@ export function latexToPlain(latex) {
     return s;
 }
 
-/** Monic-polynomial display helpers, plain and TeX, ascending powers (a + b w + c w²). */
-function fmtCoeffTerm(c, mono, tex, first) {
+/** One term c·mono of a sum, for mode 'text' (display), 'tex' or 'src' (read back by expr.js). */
+function fmtCoeffTerm(c, mono, mode, first) {
     // c: Rat ≠ 0; mono: '' or the monomial string
+    const tex = mode === 'tex';
     const neg = c.n < 0n;
     const a = neg ? c.neg() : c;
     let coef;
     if (mono && a.n === 1n && a.d === 1n) coef = '';
     else if (tex) coef = a.d === 1n ? `${a.n}` : `\\tfrac{${a.n}}{${a.d}}`;
     else coef = a.d === 1n ? `${a.n}` : `${a.n}/${a.d}`;
-    const body = coef && mono ? (tex ? `${coef}${mono}` : `${coef} ${mono}`) : (coef || mono);
-    if (first) return (neg ? (tex ? '-' : '−') : '') + body;
-    return (neg ? (tex ? ' - ' : ' − ') : ' + ') + body;
+    const body = coef && mono ? (tex ? `${coef}${mono}` : mode === 'src' ? `${coef}*${mono}` : `${coef} ${mono}`) : (coef || mono);
+    const minus = mode === 'text' ? '−' : '-';
+    if (first) return (neg ? minus : '') + body;
+    return (neg ? ` ${minus} ` : ' + ') + body;
 }
 
 // ───────────────────────── the global field ─────────────────────────
 
+const toRat = (f) => new Rat(f.p, f.q);
+const toFrac = (r) => new Frac(r.n, r.d);
+const isIdent = (s) => /^[A-Za-zα-ωΑ-Ω]+$/.test(s);
+const GREEK_TEX = { 'α': '\\alpha', 'β': '\\beta', 'γ': '\\gamma', 'δ': '\\delta', 'ζ': '\\zeta', 'θ': '\\theta', 'ω': '\\omega', 'φ': '\\varphi', alpha: '\\alpha', theta: '\\theta' };
+
+/**
+ * K as a tower ℚ = L₀ ⊂ L₁ ⊂ … ⊂ L_m (tower.js), with a maximal order O.
+ *
+ * Elements are kept in O-coordinates. The ℚ-coordinates ("K-coords") are the
+ * tower's monomial basis y₁^{e₁}⋯y_m^{e_m}, so no primitive element is ever
+ * formed. O starts as the monomial order in the generators c_k·y_k, scaled
+ * so each P_k becomes integral over the order below, and is made maximal by
+ * Round 2 at every prime whose square divides its discriminant.
+ *
+ *   new GlobalField(null)                 ℚ
+ *   new GlobalField({ gen, poly })        ℚ(w), w a root of an irreducible polynomial
+ *   new GlobalField({ tower: K })         any tower, e.g. read by expr.js
+ */
 export class GlobalField {
-    /**
-     * spec = { gen: 'w', poly: 'w^2+1' }, or null for ℚ.
-     */
-    constructor(spec = null) {
-        this.isQ = !spec;
-        if (this.isQ) {
+    constructor(spec = null, { primes = [] } = {}) {
+        if (spec && spec.tower) {
+            this.tower = spec.tower;
+            this.parser = null;
             this.gen = null;
-            this.field = NR.defineField('x');
+        } else if (!spec) {
+            this.tower = new TowerField();
+            this.parser = NR.defineField('x').K;
+            this.gen = null;
         } else {
             const gen = String(spec.gen || 'w').trim() || 'w';
             if (!/^([A-Za-z]|alpha|theta|[α-ωΑ-Ω])$/.test(gen)) {
                 throw new Error('name the generator with a single letter, e.g. w (or α)');
             }
-            this.gen = gen;
             const polySrc = String(spec.poly || '').trim();
             if (!polySrc) throw new Error(`enter the minimal polynomial of ${gen}`);
             let ast;
@@ -110,50 +134,69 @@ export class GlobalField {
             const letters = new Set();
             (function walk(a) { if (a.t === 'var') letters.add(a.name); for (const k of ['a', 'b', 'e']) if (a[k]) walk(a[k]); })(ast);
             for (const L of letters) if (L !== gen) throw new Error(`write the minimal polynomial in ${gen} (found ${L})`);
-            try { this.field = NR.defineField(polySrc); }
+            let field;
+            try { field = NR.defineField(polySrc); }
             catch (e) {
                 throw new Error(e.message.replace(/\bf = /g, '').replace(/\bf\b/g, 'the polynomial').replace(/\bx\b/g, gen));
             }
+            const T = new TowerField({ maxDegree: Infinity });
+            if (field.n > 1) {
+                const Fq = field.F.map((c) => new Frac(c));
+                const approx = sortRoots(complexRoots(Fq.map((c) => ({ re: fracNum(c), im: 0 }))))[0];
+                T.adjoinRoot(Fq.map((c) => T.fromFrac(c)), approx, { text: gen, tex: GREEK_TEX[gen] || gen });
+                if (T.deg !== field.n) throw new Error('internal: the polynomial split');
+            }
+            this.tower = T;
+            this.parser = field.K;          // its coordinates 1, w, …, w^{n−1} are the tower's
+            this.gen = gen;
         }
-        const S = this.field.sub;
-        this.n = this.field.n;
-        this.K = this.field.K;                   // PolyAlg: coordinates in 1, w, …, w^{n−1}
-        this.O = S.O;                            // maximal order, rows in θ-coordinates
-        this.subData = S;
-        const Pinv = ratInverse(S.P);            // K-coords → θ-coords
-        this.M_KO = matMul(Pinv, S.O.Binv);      // K-coords → O-coords
-        this.M_OK = matMul(S.O.B, S.P);          // O-coords → K-coords
-        this.Fint = this.field.F;                // primitive integral polynomial (BigInt, low → high)
+        const T = this.tower;
+        this.n = T.deg;
+        this.isQ = this.n === 1;
+        this._top = T.levels[T.height];
+        this.O = towerOrder(T, primes.map(BigInt));
+        this.M_KO = this.O.Binv;                 // K-coords → O-coords
+        this.M_OK = this.O.B;                    // O-coords → K-coords
         this._primes = new Map();
         this._zero = { v: new Array(this.n).fill(0n), den: 1n };
         this._one = this.fromRat(R1);
+        // the generators y_k, with names for display (text, TeX) and for reading back (src)
+        this.gens = T.levels.slice(1).map((L, i) => ({
+            text: L.text, tex: L.tex, src: isIdent(L.text) ? L.text : L.tex,
+            elem: this.fromT(T.gen(i + 1)),
+        }));
+        this._monos = monomialNames(T);
     }
 
-    describe() { return this.isQ ? 'ℚ' : `ℚ(${this.gen})`; }
-    describeTex() { return this.isQ ? '\\mathbb{Q}' : `\\mathbb{Q}(${this.genTex()})`; }
-    genTex() {
-        const g = this.gen;
-        const map = { 'α': '\\alpha', 'β': '\\beta', 'γ': '\\gamma', 'δ': '\\delta', 'ζ': '\\zeta', 'θ': '\\theta', 'ω': '\\omega', 'φ': '\\varphi', alpha: '\\alpha', theta: '\\theta' };
-        return map[g] || g;
-    }
-    polyPlain() { return this.isQ ? '' : polyString(this.Fint, this.gen); }
-    polyTex() { return this.isQ ? '' : X.polyTex(this.Fint, this.genTex()); }
+    static fromTower(K, opts) { return new GlobalField({ tower: K }, opts); }
+
+    describe() { return this.tower.describe(); }
+    describeTex() { return this.tower.tex(); }
 
     // ── conversions ──
-    fromK(c) {                                    // Rat[] in w-coordinates
+    fromK(c) {                                    // Rat[] in the monomial basis of the tower
         const o = ratVecMat(c, this.M_KO);
         let den = 1n; for (const x of o) den = blcm(den, x.d);
         return svNorm(o.map((x) => x.n * (den / x.d)), den);
     }
-    toK(x) {
-        const c = ratVecMat(x.v.map((t) => new Rat(t, x.den)), this.M_OK);
-        return c;
-    }
-    fromRat(r) { return this.fromK(this.K.fromRat(r)); }
+    toK(x) { return ratVecMat(x.v.map((t) => new Rat(t, x.den)), this.M_OK); }
+    /** From a tower element (TElem). */
+    fromT(t) { return this.fromK(this.tower.lift(t).c.map(toRat)); }
+    /** To a tower element. */
+    toT(x) { return this.tower.wrap(this._top.unflat(this.toK(x).map(toFrac), 0)); }
+    fromRat(r) { const c = new Array(this.n).fill(R0); c[0] = r; return this.fromK(c); }
     fromInt(n) { return this.fromRat(new Rat(BigInt(n))); }
-    generator() { return this.isQ ? null : this.fromK(this.K.gen()); }
+    generator() { return this.gens.length ? this.gens[0].elem : null; }
     zero() { return this._zero; }
     one() { return this._one; }
+    /** The monomials of the tower, as elements, by total degree. */
+    monomials() {
+        if (!this._monoElems) {
+            this._monoElems = this._monos.map((m, i) => ({ deg: m.deg, x: this.fromK(unitRat(this.n, i)) }))
+                .sort((a, b) => a.deg - b.deg).map((m) => m.x);
+        }
+        return this._monoElems;
+    }
 
     // ── arithmetic ──
     add(a, b) {
@@ -180,7 +223,7 @@ export class GlobalField {
             // a = t·b with b the basis element; a⁻¹ = (1/t)·b⁻¹ and b = one⁻¹·1
             return svNorm([a.den * one * one], a.v[0]);
         }
-        return this.fromK(this.K.inv(this.toK(a)));
+        return this.fromT(this.toT(a).inv());
     }
     div(a, b) { return this.mul(a, this.inv(b)); }
     pow(a, k) {
@@ -193,16 +236,39 @@ export class GlobalField {
     equals(a, b) { return a.den === b.den && a.v.every((x, i) => x === b.v[i]); }
     key(a) { return `${a.v.join(',')}/${a.den}`; }
 
+    /** The minimal polynomial over ℚ: coprime integers, low → high, positive leading coefficient. */
+    minpolyQ(x) {
+        const rows = [];
+        let pw = this.one();
+        for (let k = 0; k <= this.n; k++) {
+            const v = this.toK(pw);
+            if (rows.length) {
+                const sol = ratSolveRows(rows, v);
+                if (sol) {
+                    const c = sol.map((t) => t.neg()).concat([R1]);
+                    let L = 1n; for (const t of c) L = blcm(L, t.d);
+                    const ints = c.map((t) => t.n * (L / t.d));
+                    let g = 0n; for (const t of ints) g = bgcd(g, t);
+                    return ints.map((t) => t / g);
+                }
+            }
+            rows.push(v);
+            pw = this.mul(pw, x);
+        }
+        throw new Error('internal: no minimal polynomial');
+    }
+
     // ── reading and writing ──
     /**
-     * Parse a plain-text expression (see latexToPlain for LaTeX input) to an element.
-     * scope: Map name → element (named constants).
+     * Parse a plain-text expression (ringEngine syntax) to an element. Only for
+     * ℚ and { gen, poly } fields; a tower is read through expr.js.
      */
     parse(src, scope = null) {
+        if (!this.parser) throw new Error('internal: this field is read through expr.js');
         const text = String(src ?? '').trim();
         if (!text) return this.zero();
         const ast = parseExpr(text);
-        const K = this.K;
+        const K = this.parser;
         const walk = (a) => {
             switch (a.t) {
                 case 'num': return K.fromRat(a.v);
@@ -235,18 +301,18 @@ export class GlobalField {
         return this.fromK(walk(ast));
     }
 
-    /** Plain text, re-readable by parse(): "1/3 + 2 w − w^2". */
-    format(x) { return this._fmt(x, false); }
+    /** Plain text for display: "1/3 + 2 w − w^2", "1 + √2·i". */
+    format(x) { return this._fmt(x, 'text'); }
     /** LaTeX. */
-    tex(x) { return this._fmt(x, true); }
-    _fmt(x, tex) {
+    tex(x) { return this._fmt(x, 'tex'); }
+    /** Text that expr.js reads back to x (LaTeX names where needed). */
+    source(x) { return this._fmt(x, 'src'); }
+    _fmt(x, mode) {
         const c = this.toK(x);
-        const g = tex ? this.genTex() : (this.gen || 'x');
         const parts = [];
         for (let i = 0; i < c.length; i++) {
             if (c[i].isZero()) continue;
-            const mono = i === 0 ? '' : i === 1 ? g : (tex ? `${g}^{${i}}` : `${g}^${i}`);
-            parts.push(fmtCoeffTerm(c[i], mono, tex, parts.length === 0));
+            parts.push(fmtCoeffTerm(c[i], this._monos[i][mode], mode, parts.length === 0));
         }
         return parts.length ? parts.join('') : '0';
     }
@@ -261,38 +327,115 @@ export class GlobalField {
     }
     /** "(5, w − 2)": the prime as a two-element ideal, TeX. */
     primeTex(pr) {
-        try {
-            const toTex = (ocoords) => this.tex(svNorm(ocoords.map((t) => BigInt(t)), 1n));
-            return twoElement(this.subData, pr, toTex);
-        } catch (e) { return `\\mathfrak{p}`; }
+        const p = pr.p, n = this.n, O = this.O;
+        if (pr.f === n) return `(${p})`;
+        const target = pr.H;
+        const generatesIt = (v) => {
+            const rows = identityHNF(n).map((r) => r.map((t) => t * p));
+            for (let i = 0; i < n; i++) rows.push(O.mulMod(v, unitVec(n, i), p));
+            return hnfEq(hnf(rows, n, p), target);
+        };
+        const cands = [];
+        const shifts = (x) => {
+            cands.push(x);
+            for (let r = 1n; r < p && r <= 12n; r++) { cands.push(this.sub(x, this.fromInt(r))); cands.push(this.add(x, this.fromInt(r))); }
+        };
+        for (const g of this.gens) shifts(g.elem);
+        for (const m of this.monomials().slice(1)) shifts(m);
+        for (let i = 0; i < n; i++) shifts(svNorm(unitVec(n, i), 1n));
+        for (const row of pr.H) cands.push(svNorm(row.slice(), 1n));
+        let best = null;
+        for (const x of cands) {
+            if (x.den !== 1n || this.isZero(x) || !generatesIt(x.v)) continue;
+            const t = this.tex(x);
+            if (!best || t.length < best.length) best = t;
+        }
+        return best ? `(${p},\\ ${best})` : '\\mathfrak{p}';
     }
 }
 
-function matMul(A, B) {
-    const n = A.length, m = B[0].length, k = B.length;
+const unitRat = (n, i) => { const v = new Array(n).fill(R0); v[i] = R1; return v; };
+
+/**
+ * Names of the monomials y^e of the tower, in its flat order
+ * (index i = Σ e_k N_{k−1}), as display text, TeX and expr.js source.
+ */
+function monomialNames(T) {
+    const levels = T.levels.slice(1);
+    const N = T.deg;
     const out = [];
-    for (let i = 0; i < n; i++) {
-        const row = new Array(m).fill(R0);
-        for (let t = 0; t < k; t++) {
-            if (A[i][t].isZero()) continue;
-            for (let j = 0; j < m; j++) if (!B[t][j].isZero()) row[j] = row[j].add(A[i][t].mul(B[t][j]));
+    for (let i = 0; i < N; i++) {
+        let r = i, deg = 0;
+        const t = [], x = [], s = [];
+        for (const L of levels) {
+            const e = r % L.d;
+            r = (r - e) / L.d;
+            if (!e) continue;
+            deg += e;
+            const simple = isIdent(L.text);
+            const src = simple ? L.text : L.tex;
+            if (e === 1) { t.push(L.text); x.push(L.tex); s.push(src); }
+            else {
+                t.push(simple ? `${L.text}^${e}` : `(${L.text})^${e}`);
+                x.push(/\\sqrt|\\cos|\\sin|[ (]/.test(L.tex) ? `\\left(${L.tex}\\right)^{${e}}` : `${L.tex}^{${e}}`);
+                s.push(simple ? `${src}^${e}` : `(${src})^${e}`);
+            }
         }
-        out.push(row);
+        out.push({ text: t.join('·'), tex: x.join(' '), src: s.join('*'), deg });
     }
     return out;
 }
 
-function polyString(F, x) {
-    const parts = [];
-    for (let i = F.length - 1; i >= 0; i--) {
-        if (F[i] === 0n) continue;
-        const neg = F[i] < 0n, a = neg ? -F[i] : F[i];
-        const mono = i === 0 ? '' : i === 1 ? x : `${x}^${i}`;
-        const coef = mono && a === 1n ? '' : `${a}`;
-        const body = coef + mono;
-        parts.push(parts.length ? `${neg ? ' − ' : ' + '}${body}` : `${neg ? '−' : ''}${body}`);
+/**
+ * A maximal order of the tower T, in its monomial coordinates: the monomial
+ * order of the scaled generators c_k·y_k (c_k clears the denominators of P_k
+ * over the order below, so P_k becomes monic and integral), then Round 2 at
+ * each prime whose square divides its discriminant (and at `extra` primes).
+ */
+function towerOrder(T, extra = []) {
+    const N = T.deg, top = T.levels[T.height];
+    let s = [1n];                                       // scale of each monomial, level by level
+    for (let k = 1; k <= T.height; k++) {
+        const L = T.levels[k];
+        let c = 1n;
+        for (let j = 0; j < L.d; j++) {
+            const flat = [];
+            L.base.flat(L.P[j], flat);
+            flat.forEach((f, i) => { c = blcm(c, new Frac(f.p, f.q * s[i]).q); });
+        }
+        const next = [];
+        for (let j = 0; j < L.d; j++) for (let i = 0; i < s.length; i++) next.push(s[i] * c ** BigInt(j));
+        s = next;
     }
-    return parts.join('') || '0';
+    const nf = {
+        n: N,
+        one: () => unitRat(N, 0),
+        mul: (u, v) => {
+            const out = [];
+            top.flat(top.mul(top.unflat(u.map(toFrac), 0), top.unflat(v.map(toFrac), 0)), out);
+            return out.map(toRat);
+        },
+    };
+    const B = s.map((si, i) => { const row = new Array(N).fill(R0); row[i] = new Rat(si); return row; });
+    let O = new Order(nf, B);
+    if (N === 1) return O;
+    // discriminant: det of the trace form Tr(b_i b_j), with Tr(b_l) = Σ_k C[l][k][k]
+    const tr = [];
+    for (let l = 0; l < N; l++) { let t = 0n; for (let k = 0; k < N; k++) t += O.C[l][k][k]; tr.push(t); }
+    const TF = [];
+    for (let i = 0; i < N; i++) {
+        const row = [];
+        for (let j = 0; j < N; j++) { let t = 0n; O.C[i][j].forEach((c, l) => { t += c * tr[l]; }); row.push(t); }
+        TF.push(row);
+    }
+    const disc = detInt(TF);
+    if (disc === 0n) throw new Error('internal: the tower is not separable');
+    const primes = new Set();
+    const { factors } = factorInt(disc);
+    for (const [p, e] of factors) if (e >= 2 && isProbablePrime(p)) primes.add(p);
+    for (const p of extra) if (disc % (p * p) === 0n) primes.add(p);
+    for (const p of [...primes].sort((a, b) => (a < b ? -1 : 1))) O = pMaximal(O, p);
+    return O;
 }
 
 /** Solve x·M = r over F_p for square invertible M (rows); returns x. */
@@ -478,36 +621,45 @@ export class Place {
 
     _chooseResidueBasis() {
         const F = this.F, p = this.p, f = this.f;
-        const cands = [F.one()];
-        if (!F.isQ) {
-            const w = F.generator();
-            let pw_ = F.one();
-            for (let k = 1; k < F.n; k++) { pw_ = F.mul(pw_, w); cands.push(pw_); }
+        const integral = (c) => vpInt(c.den, p) === 0;
+        const independent = (res) => rrefModP(res.map((x) => x.slice()), p).rows.length === res.length;
+        let beta = null, res = null;
+        this.residueGen = -1;
+        // Prefer the powers 1, ḡ, …, ḡ^{f−1} of one generator: then F_q = F_p[ḡ]/(…).
+        if (f > 1) {
+            for (let gi = 0; gi < F.gens.length && !beta; gi++) {
+                const pows = [F.one()];
+                for (let j = 1; j < f; j++) pows.push(F.mul(pows[j - 1], F.gens[gi].elem));
+                if (!pows.every(integral)) continue;
+                const r = pows.map((c) => this._residueVecIntegral(c));
+                if (independent(r)) { beta = pows; res = r; this.residueGen = gi; }
+            }
         }
-        for (let i = 0; i < F.n; i++) cands.push(svNorm(unitVec(F.n, i), 1n));
-        const beta = [], res = [];
-        for (const c of cands) {
-            if (beta.length === f) break;
-            if (vpInt(c.den, p) > 0) continue;       // only p-integral representatives
-            const r = this._residueVecIntegral(c);
-            // independent of the residues chosen so far?
-            const trial = res.concat([r]);
-            const { rows } = rrefModP(trial.map((x) => x.slice()), p);
-            if (rows.length === trial.length) { beta.push(c); res.push(r); }
+        if (!beta) {
+            // Otherwise the first independent monomials of the tower, then the basis of O.
+            const cands = [F.one(), ...F.monomials().slice(1)];
+            for (let i = 0; i < F.n; i++) cands.push(svNorm(unitVec(F.n, i), 1n));
+            beta = []; res = [];
+            for (const c of cands) {
+                if (beta.length === f) break;
+                if (!integral(c)) continue;               // only p-integral representatives
+                const r = this._residueVecIntegral(c);
+                if (independent(res.concat([r]))) { beta.push(c); res.push(r); }
+            }
+            if (beta.length !== f) throw new Error('internal: no residue basis');
         }
-        if (beta.length !== f) throw new Error('internal: no residue basis');
         this._beta = beta;
         this._betaRes = res;
         this._betaInv = f === 1 ? [[modInv(res[0][0], p)]] : null;
-        // Is the residue field generated by w̄ (β_j = w^j)? Then F_q = F_p[w̄]/(ḡ).
-        this.residueGeneratedByGen = !F.isQ && f > 1 && beta.every((b, j) => j === 0 || F.equals(b, F.pow(F.generator(), j)));
+        this.residueGeneratedByGen = this.residueGen >= 0;
+        this.residuePoly = null;
         if (this.residueGeneratedByGen) {
-            const wf = F.pow(F.generator(), f);
-            this.residuePoly = vpInt(wf.den, p) === 0 ? (() => {
-                const c = solveModP(res, this._residueVecIntegral(wf), p);
-                // w̄^f = Σ c_j w̄^j  →  ḡ(x) = x^f − Σ c_j x^j
-                return c.map((t) => bmod(-t, p)).concat([1n]);
-            })() : null;
+            const gf = F.pow(F.gens[this.residueGen].elem, f);
+            if (integral(gf)) {
+                // ḡ^f = Σ c_j ḡ^j  →  the minimal polynomial x^f − Σ c_j x^j over F_p
+                const c = solveModP(res, this._residueVecIntegral(gf), p);
+                this.residuePoly = c.map((t) => bmod(-t, p)).concat([1n]);
+            }
         }
     }
 
@@ -516,21 +668,15 @@ export class Place {
         if (this.e === 1) { this.pi = F.fromInt(p); return; }
         const cands = [];
         const push = (x) => { if (x && !F.isZero(x)) cands.push(x); };
-        if (!F.isQ) {
-            const w = F.generator();
-            const powers = [w];
-            for (let k = 2; k < F.n; k++) powers.push(F.mul(powers[powers.length - 1], w));
-            for (const b of powers) {
-                for (let r = 0n; r < p && r <= 12n; r++) {
-                    push(F.sub(b, F.fromInt(r)));
-                    if (r) push(F.add(b, F.fromInt(r)));
-                }
+        const shifts = (b) => {
+            for (let r = 0n; r < p && r <= 12n; r++) {
+                push(F.sub(b, F.fromInt(r)));
+                if (r) push(F.add(b, F.fromInt(r)));
             }
-        }
-        for (let i = 0; i < F.n; i++) {
-            const b = svNorm(unitVec(F.n, i), 1n);
-            for (let r = 0n; r < p && r <= 12n; r++) { push(F.sub(b, F.fromInt(r))); if (r) push(F.add(b, F.fromInt(r))); }
-        }
+        };
+        for (const g of F.gens) shifts(g.elem);
+        for (const m of F.monomials().slice(1)) shifts(m);
+        for (let i = 0; i < F.n; i++) shifts(svNorm(unitVec(F.n, i), 1n));
         for (const row of this.pr.H) push(svNorm(row.slice(), 1n));
         let best = null, bestScore = Infinity;
         for (const c of cands) {

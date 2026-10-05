@@ -1,6 +1,7 @@
-import { GlobalField, Place, latexToPlain, unramifiedPolynomial, sub } from './localField.js';
+import { GlobalField, Place, unramifiedPolynomial, sub } from './localField.js';
 import { drawTree, resetZoom, analyzeTree } from './treeVis.js';
-import { setupMatrixInput, readMatrices, getInputState, applyInputState } from './matrixInput.js';
+import { setupMatrixInput, readInputs, getInputState, applyInputState, addRootInput, freshName, setConstantsExpanded } from './matrixInput.js';
+import { serializeTowerContext } from '../../../../../assets/js/hyperbolic/tower.js';
 import { makeLetters, computeOrbit, stabilizerWords, linkPermutation, cycles, wordString, translationLength } from './groupWords.js';
 import { generateTree } from './treeGeneration.js';
 import { EXAMPLES } from './examples.js';
@@ -11,8 +12,8 @@ const TREE_BUDGET = 3200;
 // ───────────────────────── state ─────────────────────────
 
 const ui = {
-    fieldOn: false,
     primeIndex: 0,
+    primeOf: null,               // a preset's element: choose the prime above p where it has positive valuation
     selectedId: null,
     rational: false,
     model: 'halfplane',          // 'halfplane' | 'disk' | 'tower'
@@ -29,17 +30,23 @@ const typeset = (...els) => { if (window.MathJax && typeof MathJax.typeset === '
 const vertexHTML = (place, vt) => `⌊<span class="lbl">${esc(place.label(vt))}</span>⌋<sub>${vt.k}</sub>`;
 const vertexTex = (place, vt) => `\\lfloor ${place.labelTex(vt)} \\rfloor_{${vt.k}}`;
 
-function fieldSpec() {
-    if (!ui.fieldOn) return null;
-    return { gen: ($('field-gen').value || 'w').trim(), poly: ($('field-poly').value || '').trim() };
+/** A key for a tower: equal towers (same levels, same names) give equal keys. */
+function towerKey(K) {
+    return JSON.stringify(serializeTowerContext({ field: K, gens: [] }).levels.map((L) => [L.P, L.text]));
 }
-function getField(spec) {
-    const key = spec ? `${spec.gen}|${spec.poly.replace(/\s+/g, '')}` : 'Q';
-    if (!fieldCache.has(key)) fieldCache.set(key, new GlobalField(spec));
+/** The field for a tower, made maximal at p too (cached). */
+function getField(K, p) {
+    const key = `${towerKey(K)}|${p}`;
+    if (!fieldCache.has(key)) {
+        if (fieldCache.size > 12) fieldCache.clear();
+        const F = GlobalField.fromTower(K, { primes: [p] });
+        F.cacheKey = key;
+        fieldCache.set(key, F);
+    }
     return fieldCache.get(key);
 }
 function getPlace(F, p, idx) {
-    const key = `${F.isQ ? 'Q' : `${F.gen}|${F.polyPlain()}`}|${p}|${idx}`;
+    const key = `${F.cacheKey}|${idx}`;
     if (!placeCache.has(key)) {
         if (placeCache.size > 24) placeCache.clear();
         placeCache.set(key, new Place(F, p, idx));
@@ -115,10 +122,11 @@ function describePlace(F, place) {
         lines.push(`Residue field $\\mathbb{F}_{${p}}$, uniformizer $\\pi = ${p}$. Labels $\\lfloor x\\rfloor_k$ have $x\\in\\mathbb{Z}[1/${p}]$, $0\\le x<${p}^k$.`);
         return lines.map((l) => `<p>${l}</p>`).join('');
     }
-    const g = F.genTex();
     if (e === 1 && f === 1) {
         lines.push(`$K_{\\mathfrak p} = \\mathbb{Q}_{${p}}$: this prime is the embedding $K\\hookrightarrow\\mathbb{Q}_{${p}}$ with`);
-        lines.push(`<span class="expansion">$${g} \\mapsto ${expansionTex(place, F.generator(), 6)}$</span>`);
+        for (const g of F.gens.slice(0, 4)) {
+            lines.push(`<span class="expansion">$${g.tex} \\mapsto ${expansionTex(place, g.elem, 6)}$</span>`);
+        }
         lines.push(henselNote(F, place));
     } else {
         const Kp = e === 1 ? `the unramified extension of $\\mathbb{Q}_{${p}}$ of degree ${f}` : f === 1 ? `a ramified extension of $\\mathbb{Q}_{${p}}$ of degree ${e}` : `an extension of $\\mathbb{Q}_{${p}}$ of degree ${e * f}`;
@@ -126,7 +134,8 @@ function describePlace(F, place) {
         if (f > 1) {
             let rf = `Residue field $${Fq}$`;
             if (place.residueGeneratedByGen && place.residuePoly) {
-                rf += ` $= \\mathbb{F}_{${p}}[\\bar ${g}]/(${polyTexBar(place.residuePoly, g)})$`;
+                const g = barTex(F.gens[place.residueGen].tex);
+                rf += ` $= \\mathbb{F}_{${p}}[${g}]/(${polyTexBar(place.residuePoly, g)})$`;
             } else {
                 rf += `, spanned over $\\mathbb{F}_{${p}}$ by ${place._beta.map((b) => `$${F.tex(b)}$`).join(', ')}`;
             }
@@ -141,37 +150,45 @@ function describePlace(F, place) {
     return lines.map((l) => `<p>${l}</p>`).join('');
 }
 
+/** The residue ḡ of a generator, in TeX. */
+const barTex = (tex) => (/^[A-Za-z]$|^\\[a-z]+$/.test(tex) ? `\\bar ${tex}` : `\\overline{${tex}}`);
+
 function polyTexBar(c, g) {
     const parts = [];
     for (let i = c.length - 1; i >= 0; i--) {
         if (!c[i]) continue;
-        const mono = i === 0 ? '' : i === 1 ? `\\bar ${g}` : `\\bar ${g}^{${i}}`;
+        const mono = i === 0 ? '' : i === 1 ? g : `${g}^{${i}}`;
         const coef = mono && c[i] === 1n ? '' : String(c[i]);
         parts.push(coef + mono);
     }
     return parts.join(' + ');
 }
 
-/** The Hensel's-lemma story for a degree-one unramified prime. */
+/**
+ * The Hensel's-lemma story for a degree-one unramified prime: each generator
+ * of K goes to a p-adic root of its minimal polynomial over ℚ.
+ */
 function henselNote(F, place) {
-    const p = place.p, g = F.genTex();
-    const w = F.generator();
-    if (place.val(w) < 0) return `<span class="hint">(${F.gen} has a pole at $\\mathfrak p$, so the expansion starts at a negative power.)</span>`;
-    const r = BigInt(place.digitAt(place.canon(w, 1), 0));     // w mod 𝔭, as an integer
-    const Fz = F.Fint;
+    const p = place.p;
     const ev = (poly, x) => { let s = 0n; for (let i = poly.length - 1; i >= 0; i--) s = (s * x + poly[i]) % p; return ((s % p) + p) % p; };
-    const der = Fz.slice(1).map((c, i) => c * BigInt(i + 1));
-    const lead = ((Fz[Fz.length - 1] % p) + p) % p;
-    if (lead === 0n) return `<span class="hint">The leading coefficient of the minimal polynomial vanishes mod ${p}.</span>`;
-    const simple = ev(der, r) !== 0n;
-    const roots = [];
-    for (let x = 0n; x < p && x < 200n; x++) if (ev(Fz, x) === 0n) roots.push(x);
-    const others = roots.filter((x) => x !== r);
-    let s = `Here $${g}\\equiv ${r} \\pmod{\\mathfrak p}$. `;
-    if (simple) s += `Since $${r}$ is a simple root of the minimal polynomial mod $${p}$, Hensel's lemma lifts it to a unique root in $\\mathbb{Z}_{${p}}$.`;
-    else s += `The root $${r}$ is repeated mod $${p}$, so Hensel's lemma alone does not pin down the lift; the prime $\\mathfrak p$ does.`;
-    if (others.length) s += ` The other root${others.length > 1 ? 's' : ''} ${others.map((x) => `$${x}$`).join(', ')} mod $${p}$ give${others.length > 1 ? '' : 's'} the other choice${others.length > 1 ? 's' : ''}.`;
-    return `<span class="hint">${s}</span>`;
+    const notes = [];
+    for (const g of F.gens.slice(0, 4)) {
+        if (place.val(g.elem) < 0) { notes.push(`$${g.tex}$ has a pole at $\\mathfrak p$, so its expansion starts at a negative power.`); continue; }
+        const Fz = F.minpolyQ(g.elem);
+        if (Fz[Fz.length - 1] % p === 0n) { notes.push(`The minimal polynomial of $${g.tex}$ has leading coefficient divisible by $${p}$.`); continue; }
+        const r = BigInt(place.digitAt(place.canon(g.elem, 1), 0));       // g mod 𝔭, as an integer
+        const der = Fz.slice(1).map((c, i) => c * BigInt(i + 1));
+        const simple = ev(der, r) !== 0n;
+        const roots = [];
+        for (let x = 0n; x < p && x < 200n; x++) if (ev(Fz, x) === 0n) roots.push(x);
+        const others = roots.filter((x) => x !== r);
+        let s = `$${g.tex}\\equiv ${r} \\pmod{\\mathfrak p}$: `;
+        if (simple) s += `a simple root of its minimal polynomial mod $${p}$, which Hensel's lemma lifts uniquely to $\\mathbb{Z}_{${p}}$.`;
+        else s += `a repeated root of its minimal polynomial mod $${p}$, so Hensel's lemma alone does not pin down the lift; the prime $\\mathfrak p$ does.`;
+        if (others.length) s += ` The other root${others.length > 1 ? 's' : ''} ${others.map((x) => `$${x}$`).join(', ')} mod $${p}$ give${others.length > 1 ? '' : 's'} the other choice${others.length > 1 ? 's' : ''}.`;
+        notes.push(s);
+    }
+    return notes.map((t) => `<span class="hint">${t}</span>`).join('<br>');
 }
 
 // ───────────────────────── calculation ─────────────────────────
@@ -191,33 +208,42 @@ function readPrime() {
 
 function calculate({ refit = false } = {}) {
     showError('');
-    $('field-error').textContent = '';
-    let F, p, place;
+    let F, p, place, input;
     try {
         p = readPrime();
     } catch (e) { showError(e.message); return; }
+
+    // the generators, the constants, the base vertex (and a preset's prime) in one tower
+    const extra = [{ id: 'vertex_q', label: 'Base vertex', src: $('vertex_q').value }];
+    if (ui.primeOf) extra.push({ id: null, label: 'Example prime', src: ui.primeOf });
     try {
-        F = getField(fieldSpec());
-    } catch (e) {
-        $('field-error').textContent = e.message;
-        showError('Fix the number field to continue.');
-        return;
-    }
+        input = readInputs(extra);
+        if (!input.read.exact) {
+            const r = input.read;
+            throw new Error(`The tree needs exact numbers: ${r.reasonWhere ? `${r.reasonWhere}: ` : ''}${r.reason}.`);
+        }
+        if (!input.nMats) throw new Error('Add at least one matrix.');
+    } catch (e) { showError(e.message); return; }
+    const K = input.read.field;
     try {
+        F = getField(K, p);
         const nPrimes = F.primesAbove(p).length;
+        if (ui.primeOf) {
+            const x = F.fromT(input.extra[1]);
+            for (let i = 0; i < nPrimes; i++) if (getPlace(F, p, i).val(x) > 0) { ui.primeIndex = i; break; }
+            ui.primeOf = null;
+        }
         if (ui.primeIndex >= nPrimes) ui.primeIndex = 0;
         place = getPlace(F, p, ui.primeIndex);
-    } catch (e) { showError(e.message); return; }
+    } catch (e) { console.error(e); showError(e.message); return; }
     renderPlacePanel(F, p, place);
 
-    let mats, base;
+    const mats = input.gens.map((M) => ({ a: F.fromT(M.a), b: F.fromT(M.b), c: F.fromT(M.c), d: F.fromT(M.d) }));
+    let base;
     try {
-        mats = readMatrices(F);
-        if (!mats.length) throw new Error('Add at least one matrix.');
-        const x = F.parse(latexToPlain($('vertex_q').value));
         const k = parseInt($('vertex_k').value, 10);
         if (!Number.isFinite(k) || Math.abs(k) > 200) throw new Error('the level k must be an integer');
-        base = place.canon(x, k);
+        base = place.canon(F.fromT(input.extra[0]), k);
     } catch (e) { showError(e.message); return; }
 
     const t0 = performance.now();
@@ -233,7 +259,7 @@ function calculate({ refit = false } = {}) {
     const orbitIds = new Set(orbit.orbitMap.keys());
     const t1 = performance.now();
 
-    current = { F, p, place, mats, letters, orbit, base, baseId, image, imageId, orbitIds, wordLength };
+    current = { F, K, gensT: input.gens, p, place, mats, letters, orbit, base, baseId, image, imageId, orbitIds, wordLength };
 
     // results
     const lens = mats.map((m) => translationLength(place, m));
@@ -275,7 +301,7 @@ function updateVisualization({ refit = false } = {}) {
     const rationalOK = place.e === 1 && place.f > 1;
     $('rational-note').textContent = rationalOK
         ? `Vertices ⌊x⌋ₖ with x ∈ ℚ${sub(place.p)}: the ${place.pNum + 1}-regular tree of PGL₂(ℚ${sub(place.p)}) inside this ${place.q + 1}-regular one.`
-        : 'Available at an unramified prime of residue degree f > 1 (try the Quick unramified extension in the number-field panel).';
+        : 'Available at an unramified prime of residue degree f > 1 (try Unramified ℚ_{p^k} under Constants).';
     $('toggle-rational').disabled = !rationalOK;
     const onVertexClick = (vt) => { ui.selectedId = place.id(vt); showSelected(vt); showTab('orbit'); };
     const notesModel = {
@@ -312,7 +338,7 @@ function updateVisualization({ refit = false } = {}) {
 
 function makeBase(vt) {
     if (!current) return;
-    $('vertex_q').value = current.place.label(vt).replace(/−/g, '-');
+    $('vertex_q').value = current.F.source(current.place.elem(vt));
     $('vertex_k').value = String(vt.k);
     ui.selectedId = current.place.id(vt);
     calculate();
@@ -391,12 +417,12 @@ let worker = null, jobId = 0, workerBroken = false;
 
 function startDecision() {
     if (!current) return;
-    const { F, place, mats, base } = current;
+    const { F, K, gensT, place, mats, base } = current;
     const id = ++jobId;
     const seconds = Math.max(1, Math.min(120, parseFloat($('decide-seconds').value) || 6));
+    // the tower and the generators as plain data; the worker rebuilds the same field and place
     const job = {
-        id, spec: fieldSpec(), p: String(place.p), primeIndex: place.index, base, seconds,
-        mats: mats.map((m) => ['a', 'b', 'c', 'd'].map((k) => F.format(m[k]))),
+        id, tower: serializeTowerContext({ field: K, gens: gensT }), p: String(place.p), primeIndex: place.index, base, seconds,
     };
     current.decision = null;
     renderVerdict({ pending: true });
@@ -542,7 +568,6 @@ function getState() {
     return {
         v: 1,
         p: ($('prime').value || '').trim(),
-        field: ui.fieldOn ? { gen: $('field-gen').value.trim(), poly: $('field-poly').value.trim() } : null,
         prime: ui.primeIndex,
         mats, consts,
         vertex: [$('vertex_q').value, $('vertex_k').value],
@@ -552,32 +577,15 @@ function getState() {
     };
 }
 
-function setFieldUI(on) {
-    ui.fieldOn = on;
-    $('field-panel').hidden = !on;
-    const btn = $('toggle-field');
-    btn.classList.toggle('active', on);
-    btn.textContent = on ? 'Number field: on' : 'Number field';
-}
-
 function applyState(st) {
     $('prime').value = String(st.p ?? 3);
-    if (st.field) {
-        $('field-gen').value = st.field.gen || 'w';
-        $('field-poly').value = st.field.poly || '';
-    }
-    setFieldUI(!!st.field);
     ui.primeIndex = Number(st.prime) || 0;
-    if (st.primeOf && st.field) {
-        // choose the prime at which the given element has positive valuation
-        try {
-            const F = getField(st.field);
-            const x = F.parse(st.primeOf);
-            const n = F.primesAbove(BigInt(st.p)).length;
-            for (let i = 0; i < n; i++) if (getPlace(F, BigInt(st.p), i).val(x) > 0) { ui.primeIndex = i; break; }
-        } catch (e) { /* keep the index */ }
-    }
-    applyInputState({ mats: st.mats, consts: st.consts || [] });
+    ui.primeOf = st.primeOf || null;          // resolved by the next calculate()
+    const consts = (st.consts || []).slice();
+    // links from before constants and fields were merged carry { field: { gen, poly } }
+    // (i is built in, so ℚ(i) needs no row)
+    if (st.field && st.field.poly && st.field.gen !== 'i') consts.unshift({ name: st.field.gen || 'w', poly: st.field.poly, near: null });
+    applyInputState({ mats: st.mats, consts });
     $('vertex_q').value = String(st.vertex?.[0] ?? '0');
     $('vertex_k').value = String(st.vertex?.[1] ?? '0');
     $('wordLength').value = String(st.L ?? 3);
@@ -648,7 +656,7 @@ function setupTabs() {
 
 document.addEventListener('DOMContentLoaded', () => {
     setupTabs();
-    setupMatrixInput();
+    setupMatrixInput(() => calculate());
     setupExamples();
     $('budget-label').textContent = String(TREE_BUDGET);
 
@@ -680,23 +688,16 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const id of ['vertex_q', 'vertex_k']) {
         $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') calculate(); });
     }
-    $('toggle-field').addEventListener('click', () => {
-        setFieldUI(!ui.fieldOn);
-        ui.primeIndex = 0;
-        calculate({ refit: true });
-    });
-    for (const id of ['field-gen', 'field-poly']) {
-        $(id).addEventListener('change', () => { ui.primeIndex = 0; calculate({ refit: true }); });
-    }
     $('unram-btn').addEventListener('click', () => {
         try {
             const p = readPrime();
             const k = Math.max(2, Math.min(6, parseInt($('unram-k').value, 10) || 2));
-            const gen = ($('field-gen').value || 'w').trim() || 'w';
-            $('field-poly').value = unramifiedPolynomial(p, k, gen);
+            const name = freshName(['u', 'w', 'v', 'x', 'y', 'z']) || 'u';
+            addRootInput(name, unramifiedPolynomial(p, k, name));
+            setConstantsExpanded(true);
             ui.primeIndex = 0;
             calculate({ refit: true });
-        } catch (e) { $('field-error').textContent = e.message; }
+        } catch (e) { showError(e.message); }
     });
     $('toggle-rational').addEventListener('click', () => {
         ui.rational = !ui.rational;

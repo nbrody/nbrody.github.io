@@ -1,67 +1,69 @@
 /**
- * Preset trees. `primeOf` picks the prime above p at which that element has
- * positive valuation (so presets do not depend on the order of the primes).
- * Matrix entries are LaTeX, as MathQuill shows them.
+ * Preset trees. Entries are LaTeX, as MathQuill shows them, read exactly by
+ * expr.js: i, radicals and roots of unity may be written directly; `consts`
+ * rows are as in poincare (['name', 'expr'] or { name, poly, near }).
+ * `primeOf` picks the prime above p at which that element has positive
+ * valuation (so presets do not depend on the order of the primes).
  */
 export const EXAMPLES = [
     {
         group: 'Trees over number fields',
         name: 'ℚ₃ — a free group of rank two',
-        p: 3, field: null,
+        p: 3,
         mats: [['3', '0', '0', '1'], ['5', '-4', '2', '-1']],
         vertex: ['0', '0'], L: 3, r: 2,
     },
     {
         name: 'ℚ(i), 3 inert — links are P¹(F₉)',
-        p: 3, field: { gen: 'i', poly: 'i^2+1' },
+        p: 3,
         mats: [['1', '1', '0', '1'], ['1', 'i', '0', '1'], ['0', '-1', '1', '0'], ['3', '0', '0', '1']],
         vertex: ['0', '0'], L: 2, r: 1,
         note: 'The Gaussian integers at the inert prime 3: the tree of $\\mathsf{PGL}_2(\\mathbb{Q}_3(i))$ is 10-regular. The first three generators lie in $\\mathsf{PGL}_2(\\mathbb{Z}[i])$ and fix $\\lfloor 0\\rfloor_0$; open the stabilizer list to see them act on its link $\\mathbb{P}^1(\\mathbb{F}_9)$ as $x\\mapsto x+1$, $x\\mapsto x+i$ and $x\\mapsto -1/x$.',
     },
     {
         name: 'ℚ(i), 5 split — two embeddings into ℚ₅',
-        p: 5, field: { gen: 'i', poly: 'i^2+1' }, primeOf: '2+i',
+        p: 5, primeOf: '2+i',
         mats: [['2+i', '0', '0', '1'], ['1', '1', '0', '1'], ['1', '0', 'i', '1']],
         vertex: ['0', '0'], L: 3, r: 1,
         note: '$5 = (2+i)(2-i)$, so $\\mathbb{Q}(i)$ has two embeddings into $\\mathbb{Q}_5$, sending $i$ to the two Hensel lifts of $\\pm 2$. Here $\\mathrm{diag}(2+i, 1)$ is hyperbolic at $(2+i)$; switch to the other prime and it fixes $\\lfloor 0\\rfloor_0$.',
     },
     {
         name: 'ℚ(i), 2 ramified — uniformizer 1 + i',
-        p: 2, field: { gen: 'i', poly: 'i^2+1' },
+        p: 2,
         mats: [['1+i', '0', '0', '1'], ['1', '1', '0', '1'], ['0', '1', '1', '0']],
         vertex: ['0', '0'], L: 4, r: 2,
         note: '$2 = -i(1+i)^2$ ramifies. Levels count powers of $\\pi = 1+i$, so $\\mathrm{diag}(2,1)$ would translate by 2: each edge of the $\\mathbb{Q}_2$-tree is cut in two.',
     },
     {
         name: 'ℚ(√2), 7 split — Hensel lifts of 3² ≡ 2',
-        p: 7, field: { gen: 'w', poly: 'w^2-2' }, primeOf: '3+w',
+        p: 7, consts: [{ name: 'w', poly: 'w^2-2', near: { re: 1.4142, im: 0 } }], primeOf: '3+w',
         mats: [['3+w', '0', '0', '1'], ['1', 'w', '0', '1'], ['w', '1', '1', 'w']],
         vertex: ['0', '0'], L: 3, r: 1,
         note: '$w^2 - 2$ has the simple roots $\\pm 3$ mod 7, and each lifts uniquely to $\\mathbb{Z}_7$: the two primes above 7 are the two embeddings $\\mathbb{Q}(\\sqrt 2)\\hookrightarrow\\mathbb{Q}_7$. $3+w$ has norm 7, so it is a uniformizer at one of them and a unit at the other.',
     },
     {
         name: 'ℚ(∛2), 5 = 𝔭₁𝔭₂ — the residue-degree-2 prime',
-        p: 5, field: { gen: 'a', poly: 'a^3-2' }, prime: 1,
+        p: 5, consts: [{ name: 'a', poly: 'a^3-2', near: { re: 1.2599, im: 0 } }], prime: 1,
         mats: [['5', '0', '0', '1'], ['a', '1', '1', '0'], ['1', 'a^2', '0', '1']],
         vertex: ['0', '0'], L: 2, r: 1,
         note: '$a^3-2 \\equiv (a-3)(a^2+3a+4) \\pmod 5$: one prime of degree 1 (an embedding into $\\mathbb{Q}_5$) and one of degree 2, whose tree is 26-regular with links $\\mathbb{P}^1(\\mathbb{F}_{25})$. Switch primes to compare.',
     },
     {
         name: 'Eisenstein integers, 2 inert — links P¹(F₄)',
-        p: 2, field: { gen: 'w', poly: 'w^2+w+1' },
-        mats: [['2', '0', '0', '1'], ['1', '1', '0', '1'], ['1', 'w', '0', '1']],
+        p: 2,
+        mats: [['2', '0', '0', '1'], ['1', '1', '0', '1'], ['1', '\\omega', '0', '1']],
         vertex: ['0', '0'], L: 3, r: 1,
     },
     {
         name: 'ℚ(√−7), 2 split — w² + w + 2',
-        p: 2, field: { gen: 'w', poly: 'w^2+w+2' }, primeOf: 'w',
+        p: 2, consts: [{ name: 'w', poly: 'w^2+w+2', near: { re: -0.5, im: 1.3229 } }], primeOf: 'w',
         mats: [['w', '0', '0', '1'], ['1', '1', '0', '1'], ['0', '1', '1', '0']],
         vertex: ['0', '0'], L: 4, r: 2,
         note: '$w^2+w+2 \\equiv w(w+1) \\pmod 2$: two embeddings into $\\mathbb{Q}_2$. The product of the roots is 2, so $w$ is a uniformizer at one prime and a unit at the other.',
     },
     {
         name: 'ℚ(√−3) as w² + 3 at 2 — ℤ[w] is not maximal',
-        p: 2, field: { gen: 'w', poly: 'w^2+3' },
+        p: 2, consts: [{ name: 'w', poly: 'w^2+3', near: { re: 0, im: 1.7321 } }],
         mats: [['2', '0', '0', '1'], ['1', '\\frac{1+w}{2}', '0', '1'], ['1', '0', 'w', '1']],
         vertex: ['0', '0'], L: 3, r: 1,
         note: '$w^2+3\\equiv (w+1)^2 \\pmod 2$ looks ramified, but $\\mathbb{Z}[w]$ has index 2 in $\\mathcal{O}_K = \\mathbb{Z}[\\tfrac{1+w}{2}]$ and 2 is in fact inert. The tool works in the maximal order, so the tree is correctly 5-regular, and $\\begin{pmatrix}1 & (1+w)/2\\\\ 0 & 1\\end{pmatrix}$ fixes $\\lfloor 0\\rfloor_0$, rotating its link $\\mathbb{P}^1(\\mathbb{F}_4)$.',
@@ -69,7 +71,7 @@ export const EXAMPLES = [
     {
         group: 'Discreteness',
         name: 'ℚ₂ — a Schottky group of rank 3 (Markowitz)',
-        p: 2, field: null, model: 'disk',
+        p: 2, model: 'disk',
         mats: [['256', '0', '0', '1'], ['253', '-765', '255', '-767'], ['506', '-3060', '255', '-1534']],
         vertex: ['0', '0'], L: 2, r: 1,
         note: 'Conjugates of $\\mathrm{diag}(2^8, 1)$ with axes $0\\infty$, $(1,3)$ and $(2,6)$. Markowitz\'s reduction finds the basis already N-reduced from $v$: the group is free of rank 3 and discrete (Verdict tab).',
@@ -77,7 +79,7 @@ export const EXAMPLES = [
     {
         group: 'Discreteness',
         name: 'ℚ(i), 5 split — discrete at one prime only',
-        p: 5, field: { gen: 'i', poly: 'i^2+1' }, primeOf: '2+i', model: 'disk',
+        p: 5, primeOf: '2+i', model: 'disk',
         mats: [['-7+24i', '0', '0', '1'], ['-13+24i', '48-144i', '-8+24i', '43-144i']],
         vertex: ['0', '0'], L: 3, r: 1,
         note: '$\\lambda = (2+i)^4$ and a conjugate of $\\mathrm{diag}(\\lambda, 1)$ with axis $(1, 6)$. At $(2+i)$ Conder\'s test makes the pair free and discrete; at $(2-i)$ the same matrices fix $\\lfloor 0\\rfloor_0$ and generate an infinite bounded group. Switch primes and watch the verdict.',
@@ -85,14 +87,14 @@ export const EXAMPLES = [
     {
         group: 'Discreteness',
         name: 'ℚ(i), 3 inert — a Schottky group of rank 3',
-        p: 3, field: { gen: 'i', poly: 'i^2+1' }, model: 'disk',
+        p: 3, model: 'disk',
         mats: [['81', '0', '0', '1'], ['80-3i', '-80-240i', '80', '-80-243i'], ['-3+80i', '80-240i', '80', '-243-80i']],
         vertex: ['0', '0'], L: 2, r: 1,
     },
     {
         group: 'Discreteness',
         name: 'ℚ₃ — the infinite dihedral group (torsion)',
-        p: 3, field: null,
+        p: 3,
         mats: [['0', '1', '1', '0'], ['3', '0', '0', '1']],
         vertex: ['0', '0'], L: 4, r: 2,
         note: 'The involution $x \\mapsto 1/x$ is elliptic of finite order, which decides nothing. The group passes to its congruence kernel mod 5 (index 8, torsion-free), generated by $g_2^4$: free, so the group is discrete.',
@@ -100,14 +102,14 @@ export const EXAMPLES = [
     {
         group: 'Discreteness',
         name: 'ℚ₂ — an involution and a hyperbolic (kernel mod 3)',
-        p: 2, field: null,
+        p: 2,
         mats: [['0', '-1', '1', '0'], ['0', '-1', '4', '-1']],
         vertex: ['0', '0'], L: 4, r: 1,
     },
     {
         group: 'Discreteness',
         name: 'ℚ₃ — PSL₂(ℤ): bounded and infinite',
-        p: 3, field: null,
+        p: 3,
         mats: [['0', '-1', '1', '0'], ['1', '-1', '1', '0']],
         vertex: ['0', '0'], L: 3, r: 1,
         note: 'Every generator and their product fix $\\lfloor 0\\rfloor_0$, so the whole group does; it is infinite, hence not discrete in $\\mathsf{PGL}_2(\\mathbb{Q}_3)$.',
@@ -115,7 +117,7 @@ export const EXAMPLES = [
     {
         group: 'Discreteness',
         name: 'ℚ₇ — S₃, a finite group',
-        p: 7, field: null,
+        p: 7,
         mats: [['0', '-1', '1', '-1'], ['0', '1', '1', '0']],
         vertex: ['0', '0'], L: 3, r: 1,
     },

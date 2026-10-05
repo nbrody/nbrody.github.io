@@ -1454,7 +1454,7 @@ const api = {
     // building blocks shared with other tools (zariskiClosure) and tests
     _internal: {
         Rat, R0, R1, ratOf, factorInt, primeDivisors, isProbablePrime, zFactorSquarefree, zPrimitive, subfieldData, analyzeRing,
-        maximalOrderFor, primesAbove, valuationInt, valuationSV, toSV, hnf, hnfIndex, hnfContains, hnfEq, idealMul, closureInt,
+        maximalOrderFor, pMaximal, detInt, primesAbove, valuationInt, valuationSV, toSV, hnf, hnfIndex, hnfContains, hnfEq, idealMul, closureInt,
         identityHNF, unitVec, PolyAlg, NumField, Order, ratVecMat, ratInverse, ratSolveRows, ratLattice, ratLatticeRows,
         evalAst, fieldDomain, elemTex, polyTex, numTex, factorTex, ratTex, integralScale, realRootCount, rrefModP, leftKernelModP,
         qpTrim, qpDeg, qpAdd, qpSub, qpMul, qpScale, qpDivmod, qpMonic, qpXgcd, qpDeriv, twoElement, toA,

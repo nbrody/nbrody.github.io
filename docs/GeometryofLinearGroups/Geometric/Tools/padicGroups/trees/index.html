@@ -11,6 +11,8 @@
     <script src="https://cdn.jsdelivr.net/npm/mathquill@0.10.1/build/mathquill.min.js"></script>
     <!-- Exact number-field arithmetic: maximal orders, primes above p, valuations -->
     <script src="../../../../Algebraic/Tools/numberRings/ringEngine.js"></script>
+    <!-- Click-to-pick roots in the complex plane (root rows of the constants) -->
+    <script src="../../../../assets/js/rootPicker.js"></script>
     <script>
         MathJax = {
             _mjxQueue: [],
@@ -38,6 +40,8 @@
         src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
     <!-- three.js for the tower model, from poincare's vendored copy -->
     <script type="importmap">{ "imports": { "three": "../../Kleinian/vendor/three/three.module.js" } }</script>
+    <!-- ?hosted: another page defines the group and the prime (e.g. Tools/discretenessAlgorithm) -->
+    <script>if (new URLSearchParams(location.search).has('hosted')) document.documentElement.classList.add('hosted-mode');</script>
     <link rel="stylesheet" href="./css/styles.css">
 </head>
 
@@ -77,69 +81,65 @@
                     <p id="tree-subtitle" class="panel-subtitle"></p>
                 </div>
 
-                <div class="control-group">
+                <div class="control-group hosted-hide">
                     <div id="matrixInputs"></div>
                     <button id="addMatrixBtn" class="btn btn-add">+ Add Matrix</button>
                 </div>
 
-                <div class="control-group">
-                    <label class="control-label">Constants <span class="label-hint">(optional)</span></label>
-                    <div id="constantsInputs"></div>
-                    <button id="addConstantBtn" class="btn btn-add-alt">+ Add Constant</button>
-                </div>
-
-                <div class="control-group">
-                    <button id="toggle-field" class="toggle-btn"
-                        title="Let matrix entries lie in a number field K = Q(w). The tree is then the Bruhat–Tits tree of PGL₂(K_𝔭) for a prime 𝔭 of K above p.">
-                        Number Field</button>
-                    <div id="field-panel" class="field-panel" hidden>
-                        <div class="control-row">
-                            <label for="field-gen" class="control-label row-label">Generator</label>
-                            <input id="field-gen" type="text" value="w" class="number-input" style="width: 4em;"
-                                spellcheck="false">
+                <div id="constants-group" class="control-group constants-group hosted-hide">
+                    <button id="constants-toggle" class="constants-toggle" type="button"
+                        aria-expanded="false" aria-controls="constants-editor" title="Show the editor">
+                        <span class="control-label">Constants</span>
+                        <span class="constants-chev" aria-hidden="true"></span>
+                    </button>
+                    <div id="constants-summary" class="constants-summary"></div>
+                    <div id="constants-editor" class="constants-editor">
+                        <div id="constantsInputs"></div>
+                        <div class="constant-add-row">
+                            <button id="addConstantBtn" class="btn btn-add-alt"
+                                title="A named value, e.g. s = √2, that entries and later constants may use">+ Constant</button>
+                            <button id="addRootBtn" class="btn btn-add-alt"
+                                title="A named root of a polynomial, chosen by clicking it in the complex plane">+ Polynomial root</button>
                         </div>
-                        <div class="control-row">
-                            <label for="field-poly" class="control-label row-label">Min. poly</label>
-                            <input id="field-poly" type="text" value="w^2+1" class="number-input" style="flex: 1;"
-                                spellcheck="false">
-                        </div>
-                        <div class="control-row">
-                            <label for="unram-k" class="control-label row-label">Unramified</label>
-                            <span class="label-hint">$\mathbb{Q}_{p^k}$, $k =$</span>
+                        <div class="control-row unram-row">
+                            <span class="label-hint">Unramified $\mathbb{Q}_{p^k}$, $k =$</span>
                             <input id="unram-k" type="number" min="2" max="6" value="2" class="number-input"
-                                style="width: 4em;">
+                                style="width: 4em;" aria-label="degree k">
                             <button id="unram-btn" class="btn btn-add-alt btn-inline"
-                                title="Fill in a minimal polynomial in which p is inert of degree k, so the tree is that of PGL₂ over the unramified extension of degree k, with links P¹(F_{p^k})">Use</button>
+                                title="Add the root of a polynomial in which p is inert of degree k: the tree is then that of PGL₂ over the unramified extension of degree k, with links P¹(F_{p^k})">+ Root</button>
                         </div>
-                        <p class="label-hint">Entries are polynomials in the generator with rational coefficients;
-                            name it <code>i</code> with min. poly <code>i^2+1</code> to write Gaussian numbers.</p>
-                        <p id="field-error" class="error-message"></p>
+                        <p class="label-hint constants-hint">
+                            Entries are computed exactly: fractions and decimals, $i$, radicals, roots of unity, cos and
+                            sin at rational multiples of $\pi$, and roots of polynomials. The tree is built over the
+                            number field $K$ they generate.
+                        </p>
                     </div>
+                    <div id="field-status" class="field-status" aria-live="polite"></div>
                 </div>
 
                 <div class="control-group">
-                    <div class="control-row">
+                    <div class="control-row hosted-hide">
                         <label for="prime" class="control-label">Prime <span class="label-hint">p</span></label>
                         <input id="prime" type="text" value="3" class="number-input" spellcheck="false"
                             aria-label="prime p">
                     </div>
                     <div id="factorization" class="place-text"></div>
-                    <div id="prime-picker" class="prime-chips" role="radiogroup" aria-label="Prime above p"></div>
+                    <div id="prime-picker" class="prime-chips hosted-hide" role="radiogroup" aria-label="Prime above p"></div>
                     <div id="place-info" class="place-info"></div>
                 </div>
 
                 <div class="control-group">
-                    <div class="control-row">
+                    <div class="control-row hosted-hide">
                         <label for="example-select" class="control-label">Examples</label>
                         <select id="example-select" class="select-input"></select>
                     </div>
-                    <p id="example-note" class="label-hint example-note" hidden></p>
+                    <p id="example-note" class="label-hint example-note hosted-hide" hidden></p>
                     <div class="control-row">
                         <label for="vertex_q" class="control-label">Base vertex</label>
                         <div class="vertex-input">
                             <span class="floor">⌊</span>
                             <input type="text" id="vertex_q" value="0" spellcheck="false" aria-label="center x"
-                                class="number-input">
+                                class="number-input extra-input" title="Any element of K, e.g. 1/3 + 2i or w^2; constants may be used">
                             <span class="floor">⌋</span>
                             <input type="text" id="vertex_k" value="0" aria-label="level k"
                                 class="number-input vertex-k">
@@ -156,7 +156,7 @@
                 <p id="error-message" class="error-message"></p>
                 <p id="summary" class="summary-line"></p>
 
-                <div class="control-group">
+                <div class="control-group hosted-hide">
                     <button id="copy-link" class="btn btn-add-alt"
                         title="The URL encodes the field, prime, generators, base vertex and settings.">Copy link to
                         this tree</button>
@@ -173,7 +173,9 @@
 
                 <div class="info-section">
                     <h3 class="info-title">Number Fields</h3>
-                    <p>Turn on <em>Number Field</em> and give a generator and its minimal polynomial. The prime $p$
+                    <p>The entries and constants generate a number field $K$, built as a tower
+                        $\mathbb{Q}\subset L_1\subset\cdots\subset K$ with one level per adjoined number — $i$, a radical,
+                        a root of unity, a root row — and no primitive element, as in Poincaré. The prime $p$
                         factors in $K$ as $p\,\mathcal{O}_K = \prod \mathfrak p_i^{e_i}$ with residue fields
                         $\mathbb{F}_{p^{f_i}}$; choose one $\mathfrak p_i$ to choose the tree. Its link at every vertex
                         is $\mathbb{P}^1(\mathbb{F}_{p^f})$, so it is $(p^f+1)$-regular.</p>
@@ -187,9 +189,10 @@
                         subtree of vertices with all digits in $\{0,\dots,p-1\}$.</p>
                     <p><strong>$e &gt; 1$.</strong> The uniformizer $\pi$ is not $p$; levels count powers of $\pi$,
                         so the $\mathbb{Q}_p$-tree sits inside with each edge cut into $e$.</p>
-                    <p>Everything is exact: valuations come from an anti-uniformizer of $\mathfrak p$ in a $p$-maximal
-                        order (Round 2), with no $p$-adic approximation. Minimal polynomials whose ring
-                        $\mathbb{Z}[w]$ is not maximal (e.g. $w^2+3$ at $2$) are handled.</p>
+                    <p>Everything is exact: valuations come from an anti-uniformizer of $\mathfrak p$ in a maximal
+                        order of $K$, found by Round 2 from the monomial order of the tower, with no $p$-adic
+                        approximation. Polynomials whose ring $\mathbb{Z}[w]$ is not maximal (e.g. $w^2+3$ at $2$)
+                        are handled.</p>
                 </div>
             </div>
 
