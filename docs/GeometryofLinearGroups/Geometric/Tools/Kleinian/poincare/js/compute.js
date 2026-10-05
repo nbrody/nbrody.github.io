@@ -13,6 +13,7 @@ import { Matrix2x2, Complex, pslKey, applyMatrixToBall } from './math.js';
 import { computeCanonicalDomain, computeFordDomain } from './canonical.js';
 import { certifyDomain, transportBoundary } from './certifier.js';
 import { deserializeExactContext } from './exact.js';
+import { deserializeTowerContext } from './tower.js';
 import { polyhedronVolume } from './polyhedron.js';
 import {
     abelianization, abelianizationString, simplifyPresentation,
@@ -208,7 +209,8 @@ export function runCompute(input) {
     const t0 = Date.now();
     const gens = input.gens.map(arrToMat);
     const interleaved = gens.flatMap(g => [g, g.inv().normalized()]);
-    const exactCtx = input.exact ? deserializeExactContext(input.exact) : null;
+    const exactCtx = !input.exact ? null
+        : input.exact.kind === 'tower' ? deserializeTowerContext(input.exact) : deserializeExactContext(input.exact);
     const D = computeCanonicalDomain(interleaved, Matrix2x2.identity(), input.maxFaces, {
         maxDepth: input.maxDepth, fullDirichlet: !!input.fullDirichlet
     });

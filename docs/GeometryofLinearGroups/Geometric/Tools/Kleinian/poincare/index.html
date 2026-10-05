@@ -10,9 +10,8 @@
     <link rel="stylesheet" href="../vendor/mathquill/build/mathquill.css">
     <script src="../vendor/jquery/jquery-3.7.1.min.js"></script>
     <script src="../vendor/mathquill/build/mathquill.min.js"></script>
-    <script src="../vendor/mathjs/math.min.js"></script>
     <script src="../vendor/jszip/jszip.min.js"></script>
-    <!-- Click-to-pick roots in the complex plane (the embedding of the exact field) -->
+    <!-- Click-to-pick roots in the complex plane (the constants' roots of polynomials) -->
     <script src="../../../../assets/js/rootPicker.js"></script>
 
     <!-- MathJax -->
@@ -30,7 +29,7 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-10-02c';
+            const APP_VERSION = '2026-10-05e';
             window.APP_VERSION = APP_VERSION;
             const im = {
                 imports: {
@@ -43,7 +42,7 @@
                 'insideView', 'limitSet', 'polyhedron', 'presentation', 'invariants',
                 'app', 'domain', 'scene', 'overlays', 'isoAxis', 'inspector', 'panels',
                 'invariantsPanel', 'horoballs', 'tessellation', 'permalink', 'domainService',
-                'compute', 'format'];
+                'compute', 'format', 'tower', 'expr'];
             for (const m of mods) {
                 im.imports[new URL(`js/${m}.js`, location.href).href] = `./js/${m}.js?v=${APP_VERSION}`;
             }
@@ -78,9 +77,8 @@
     <div id="control-panel">
         <div class="tab-navigation">
             <button class="tab-btn active" data-tab="group">Group</button>
-            <button class="tab-btn" data-tab="polyhedron">Domain</button>
-            <button class="tab-btn" data-tab="invariants">Invariants</button>
             <button class="tab-btn" data-tab="graphics">View</button>
+            <button class="tab-btn" data-tab="info">Info</button>
             <button id="refresh-btn" class="collapse-btn" title="Recompute the domain" aria-label="Recompute the domain">
                 <span class="collapse-icon">⟳</span>
             </button>
@@ -102,38 +100,27 @@
                     <button id="addMatrixBtn" class="btn btn-add">+ Add Matrix</button>
                 </div>
 
-                <div class="control-group">
-                    <label class="control-label">Constants <span class="label-hint">(optional)</span></label>
-                    <div id="constantsInputs"></div>
-                    <button id="addConstantBtn" class="btn btn-add-alt">+ Add Constant</button>
-                </div>
-
-                <div class="control-group">
-                    <button id="toggle-exact" class="toggle-btn"
-                        title="Parse matrix entries exactly as elements of a number field Q(w). The floating-point geometry is derived from the chosen embedding, and the certifier verifies the Poincaré group relations exactly.">
-                        Exact Arithmetic</button>
-                    <div id="exact-field-panel" style="display:none; margin-top: 10px;">
-                        <div class="control-row">
-                            <label for="field-gen-name" class="control-label">Generator</label>
-                            <input id="field-gen-name" type="text" value="w" class="number-input"
-                                style="width: 4em;" spellcheck="false">
+                <div id="constants-group" class="control-group constants-group">
+                    <button id="constants-toggle" class="constants-toggle" type="button"
+                        aria-expanded="false" aria-controls="constants-editor" title="Show the editor">
+                        <span class="control-label">Constants</span>
+                        <span class="constants-chev" aria-hidden="true"></span>
+                    </button>
+                    <div id="constants-summary" class="constants-summary"></div>
+                    <div id="constants-editor" class="constants-editor">
+                        <div id="constantsInputs"></div>
+                        <div class="constant-add-row">
+                            <button id="addConstantBtn" class="btn btn-add-alt"
+                                title="A named value, e.g. p = (1+√5)/2, that entries and later constants may use">+ Constant</button>
+                            <button id="addRootBtn" class="btn btn-add-alt"
+                                title="A named root of a polynomial, chosen by clicking it in the complex plane">+ Polynomial root</button>
                         </div>
-                        <div class="control-row" style="margin-top: 8px;">
-                            <label for="field-minpoly" class="control-label">Min. poly</label>
-                            <input id="field-minpoly" type="text" value="w^2+w+1" class="number-input"
-                                style="width: 11em;" spellcheck="false">
-                        </div>
-                        <div style="margin-top: 8px;">
-                            <label id="field-root-label" class="control-label">Embedding</label>
-                            <select id="field-root" class="select-input" hidden aria-labelledby="field-root-label"></select>
-                            <div id="field-root-plot" style="margin-top: 6px;"></div>
-                        </div>
-                        <p class="label-hint" style="margin-top: 8px;">
-                            Entries are polynomials in the generator with rational coefficients
-                            (e.g. Q(i): min. poly w^2+1, write w for i). For plain Q use min. poly w.
+                        <p class="label-hint constants-hint">
+                            Entries are computed exactly whenever they are algebraic: fractions and decimals, i, radicals,
+                            roots of unity, cos and sin at rational multiples of π, and roots of polynomials.
                         </p>
-                        <p id="field-error" class="error-message"></p>
                     </div>
+                    <div id="field-status" class="field-status" aria-live="polite"></div>
                 </div>
 
                 <div class="control-group">
@@ -156,19 +143,25 @@
 
                 <div class="control-group">
                     <button id="copy-link" class="btn btn-add-alt"
-                        title="The URL encodes the generators, exact field, basepoint and view: anyone opening it sees this group.">Copy
+                        title="The URL encodes the generators, constants, basepoint and view: anyone opening it sees this group.">Copy
                         link to this group</button>
                 </div>
 
                 <p id="matrix-error-message" class="error-message"></p>
             </div>
 
-            <!-- Domain Tab -->
-            <div id="tab-polyhedron" class="tab-content">
+            <!-- Info Tab: the domain and its invariants -->
+            <div id="tab-info" class="tab-content">
+                <nav class="info-jump" aria-label="Sections of the Info tab">
+                    <button type="button" class="info-jump-btn active" data-jump="info-domain">Domain</button>
+                    <button type="button" class="info-jump-btn" data-jump="info-invariants">Invariants</button>
+                </nav>
+
+                <section id="info-domain" class="info-tab-section" aria-labelledby="info-domain-title">
                 <div>
-                    <h2 class="panel-title">Canonical Domain</h2>
-                    <p class="panel-subtitle">Dirichlet domain at the basepoint, intersected with a fundamental cone
-                        for the basepoint stabilizer.</p>
+                    <h2 id="info-domain-title" class="panel-title">Domain</h2>
+                    <p class="panel-subtitle">The canonical domain: the Dirichlet domain at the basepoint, intersected
+                        with a fundamental cone for the basepoint stabilizer.</p>
                 </div>
 
                 <div class="control-group">
@@ -251,16 +244,16 @@
                     <p>Click a generator to animate its isometry (⌘/Ctrl-click for the inverse). Double-click a face
                         to roll the domain across it.</p>
                 </div>
-            </div>
+                </section>
 
-            <!-- Invariants Tab -->
-            <div id="tab-invariants" class="tab-content">
+                <section id="info-invariants" class="info-tab-section" aria-labelledby="info-invariants-title">
                 <div>
-                    <h2 class="panel-title">Invariants</h2>
+                    <h2 id="info-invariants-title" class="panel-title">Invariants</h2>
                     <p class="panel-subtitle">Read off the certified domain: volume, homology, cusps, presentations,
                         closed geodesics, and the trace field.</p>
                 </div>
                 <div id="invariants-content"><p class="empty-message">Computing…</p></div>
+                </section>
             </div>
 
             <!-- View Tab -->

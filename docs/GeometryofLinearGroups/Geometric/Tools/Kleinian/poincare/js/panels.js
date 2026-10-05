@@ -1,5 +1,5 @@
 /**
- * The Domain tab and the status banner: certificate (clickable — each line
+ * The Info tab's Domain section and the status banner: certificate (clickable — each line
  * lights up what it refers to), Poincaré presentation, face-pairing
  * generators, stored elements and the current element.
  */

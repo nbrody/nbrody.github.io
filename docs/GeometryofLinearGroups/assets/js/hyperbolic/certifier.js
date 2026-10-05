@@ -271,7 +271,7 @@ export function certifyDomain(walls, basepoint, exactCtx = null, opts = {}) {
     };
     if (exactCtx) {
         emit('head', `— Exact mode: relations verified over ${exactCtx.field.describe()}` +
-            (exactCtx.field.deg > 1 ? ` (${exactCtx.field.gen} a root of the given minimal polynomial)` : '') + ' —');
+            (exactCtx.field.deg > 1 ? `, a number field of degree ${exactCtx.field.deg}` : '') + ' —');
     }
 
     const poly = opts.poly || buildPolyhedron(walls);

@@ -6,13 +6,13 @@
  */
 import * as THREE from 'three';
 import { Matrix2x2, reduceWord, invertWord, hypDist, translationTowards, applyMatrixToBall, wallSD } from './math.js';
-import { NumberField, parsePoly, serializeExactContext } from './exact.js';
+import { serializeTowerContext } from './tower.js';
 import { exportDomainAs3MF } from './export3mf.js';
 import { createInsideView } from './insideView.js';
 import { createLimitSet } from './limitSet.js';
 import { mirrorFragmentShader } from './mirror.js';
 import { vertexShader } from './shaders.js';
-import { setupMatrixInput, getMatricesFromUI, configureExact, getExactContext, getInputState, loadExample } from './matrixInput.js';
+import { setupMatrixInput, getMatricesFromUI, getExactContext, getInputState, loadExample } from './matrixInput.js';
 import { setupControlPanel, readBoundedInteger, updateToggleBtn } from './controlPanel.js';
 import { createDomainService } from './domainService.js';
 import { matToArr } from './compute.js';
@@ -171,7 +171,7 @@ function computeInput() {
         maxFaces: app.maxFaces,
         maxDepth: app.depth,
         fullDirichlet: app.fullDirichlet,
-        exact: exact ? serializeExactContext(exact) : null,
+        exact: exact ? serializeTowerContext(exact) : null,
         ford: app.fordOn ? { cusp: app.fordCusp } : null,
     };
 }
@@ -259,7 +259,8 @@ let staleShown = false;
 
 function showInputError() {
     staleShown = true;
-    setBanner('stale', `Input error — ${inputError} The picture still shows the last valid group.`, { persist: true });
+    const msg = /[.!?]$/.test(inputError) ? inputError : `${inputError}.`;
+    setBanner('stale', `Input error — ${msg} The picture still shows the last valid group.`, { persist: true });
     renderCertificate(app.report, true);
 }
 
@@ -583,16 +584,9 @@ function setBasepointFromBall(p) {
 
 function currentState() {
     const inputs = getInputState();
-    const exact = getExactContext();
     return {
         v: 1,
         ...inputs,
-        exact: exact ? {
-            gen: exact.field.gen,
-            minpoly: document.getElementById('field-minpoly')?.value || '',
-            rootIndex: exact.field.rootIndex,
-            conj: pendingConjExpr
-        } : null,
         depth: app.depth, faces: app.maxFaces,
         bp: app.basepointBall.some(x => Math.abs(x) > 1e-9) ? app.basepointBall : undefined,
         cusp: app.fordOn ? app.fordCusp : undefined,
@@ -604,110 +598,6 @@ function currentState() {
 function updatePermalink() {
     if (EMBED || inputError) return null;       // the URL keeps the last valid group
     try { return writeStateToURL(currentState()); } catch (e) { return null; }
-}
-
-// ---------------- exact arithmetic panel ----------------
-
-let exactOn = false;
-let currentField = null;
-let pendingConjExpr = null;
-let rootPicker = null;          // RootPicker: the embedding, chosen by clicking a root
-
-function syncRootPicker() {
-    if (!rootPicker) return;
-    const gen = (document.getElementById('field-gen-name').value || 'w').trim() || 'w';
-    rootPicker.set(currentField ? currentField.roots : [], currentField ? currentField.rootIndex : 0, gen);
-}
-
-function applyConj(field) {
-    try { field.setConjugation(pendingConjExpr); }
-    catch (e) { field.conjPowers = null; field.conjIsIdentity = false; }
-}
-
-function rebuildField({ rootIndex = null } = {}) {
-    const rootSel = document.getElementById('field-root');
-    const fieldErr = document.getElementById('field-error');
-    if (!exactOn) { currentField = null; configureExact(null); refreshFromUI(); return; }
-    const gen = (document.getElementById('field-gen-name').value || 'w').trim();
-    const mp = (document.getElementById('field-minpoly').value || gen).trim();
-    try {
-        const field = new NumberField(parsePoly(mp, gen), gen);
-        const prev = rootIndex ?? (parseInt(rootSel.value || '0', 10) || 0);
-        rootSel.innerHTML = '';
-        field.roots.forEach((r, i) => {
-            const o = document.createElement('option');
-            o.value = String(i);
-            const re = r.re.toFixed(6), im = Math.abs(r.im).toFixed(6);
-            o.textContent = r.im === 0 ? `${gen} ≈ ${re}` : `${gen} ≈ ${re} ${r.im > 0 ? '+' : '−'} ${im}i`;
-            rootSel.appendChild(o);
-        });
-        field.rootIndex = Math.min(prev, field.roots.length - 1);
-        rootSel.value = String(field.rootIndex);
-        if (fieldErr) fieldErr.textContent = '';
-        applyConj(field);
-        currentField = field;
-        configureExact(field);
-    } catch (e) {
-        if (fieldErr) fieldErr.textContent = e.message;
-        currentField = null;
-        configureExact(null);
-    }
-    syncRootPicker();
-    refreshFromUI();
-}
-
-function setExactUI(on) {
-    exactOn = on;
-    updateToggleBtn(document.getElementById('toggle-exact'), on);
-    const panel = document.getElementById('exact-field-panel');
-    if (panel) panel.style.display = on ? 'block' : 'none';
-}
-
-function initExactPanel() {
-    const exactBtn = document.getElementById('toggle-exact');
-    const rootSel = document.getElementById('field-root');
-    const plot = document.getElementById('field-root-plot');
-    if (plot && window.RootPicker) {
-        rootPicker = window.RootPicker.create(plot, {
-            onSelect: (i) => { rootSel.value = String(i); rootSel.dispatchEvent(new Event('change')); },
-        });
-    } else if (rootSel) rootSel.hidden = false;    // no picker: fall back to the dropdown
-    exactBtn?.addEventListener('click', () => { setExactUI(!exactOn); rebuildField(); });
-    ['field-gen-name', 'field-minpoly'].forEach(id => document.getElementById(id)?.addEventListener('change', () => rebuildField()));
-    rootSel?.addEventListener('change', () => {
-        if (!currentField) return;
-        currentField.rootIndex = parseInt(rootSel.value, 10) || 0;
-        applyConj(currentField);
-        configureExact(currentField);
-        syncRootPicker();
-        refreshFromUI();
-    });
-    // Presets and permalinks configure exact mode programmatically:
-    //   detail = { gen?, minpoly, root: {re, im}?, rootIndex?, conj? } | null
-    window.addEventListener('poincare:set-exact', (ev) => {
-        const spec = ev.detail;
-        if (!spec) {
-            if (exactOn) { setExactUI(false); pendingConjExpr = null; rebuildField(); }
-            else refreshFromUI();
-            return;
-        }
-        document.getElementById('field-gen-name').value = spec.gen || 'w';
-        document.getElementById('field-minpoly').value = spec.minpoly;
-        pendingConjExpr = spec.conj || null;
-        setExactUI(true);
-        let idx = spec.rootIndex ?? null;
-        if (idx === null && spec.root) {
-            try {
-                const f = new NumberField(parsePoly(spec.minpoly, spec.gen || 'w'), spec.gen || 'w');
-                let bd = Infinity;
-                f.roots.forEach((r, i) => {
-                    const d = Math.hypot(r.re - spec.root.re, r.im - spec.root.im);
-                    if (d < bd) { bd = d; idx = i; }
-                });
-            } catch (e) { idx = 0; }
-        }
-        rebuildField({ rootIndex: idx ?? 0 });
-    });
 }
 
 // ---------------- UI wiring ----------------
@@ -852,8 +742,6 @@ function initUI() {
         limitIters.addEventListener('input', () => limitSet.setIterations(parseInt(limitIters.value, 10)));
         limitSet.setIterations(parseInt(limitIters.value, 10));
     }
-
-    initExactPanel();
 
     document.querySelectorAll('.theme-opt').forEach(btn => btn.addEventListener('click', () => setTheme(btn.dataset.theme)));
 
@@ -1102,11 +990,7 @@ setTimeout(() => {
     }
     if (urlState && urlState.cusp !== undefined) { app.fordOn = true; app.fordCusp = urlState.cusp; horo.on = true; }
     if (urlState && urlState.model === 'uhs') setViewModel('uhs');
-    if (urlState && urlState.exact) {
-        window.dispatchEvent(new CustomEvent('poincare:set-exact', { detail: urlState.exact }));
-    } else {
-        refreshFromUI();
-    }
+    refreshFromUI();
     // The request above already asked for the Ford domain; this sets up the
     // rest of cusp view (buttons, translucency, framing once it arrives).
     if (app.fordOn) setCuspView(true, { recompute: false });

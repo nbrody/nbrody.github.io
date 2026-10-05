@@ -302,6 +302,57 @@ button {
     gap: 14px;
 }
 
+/* the Info tab: two sections, with a jump bar that stays at the top */
+.info-tab-section {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scroll-margin-top: 52px;
+}
+
+.info-tab-section + .info-tab-section {
+    margin-top: 10px;
+    padding-top: 20px;
+    border-top: 1px solid var(--hairline);
+}
+
+.info-jump {
+    position: sticky;
+    top: -16px;
+    z-index: 2;
+    display: flex;
+    gap: 3px;
+    margin: -16px -14px -4px;
+    padding: 10px 14px;
+    background: linear-gradient(var(--glass), var(--glass)), var(--bg);
+    border-bottom: 1px solid var(--hairline);
+}
+
+.info-jump-btn {
+    flex: 1;
+    padding: 6px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    color: var(--ink-dim);
+    font-family: var(--font);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.info-jump-btn:hover {
+    color: var(--ink);
+    background: var(--w05);
+}
+
+.info-jump-btn.active {
+    background: var(--accent-soft);
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
 /* headline of each tab */
 .panel-title {
     margin: 0 2px 2px;
@@ -969,10 +1020,13 @@ button {
 }
 
 .constant-block {
+    margin-bottom: 8px;
+}
+
+.constant-row {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 8px;
 }
 
 .constant-expr-input {
@@ -982,6 +1036,157 @@ button {
 .constant-equals {
     color: var(--ink-faint);
     font-size: 14px;
+}
+
+.constant-equals.constant-rootof {
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+/* root rows: the picker of roots sits under the row */
+.root-block .root-picker {
+    margin: 6px 0 2px;
+}
+
+.constant-add-row {
+    display: flex;
+    gap: 8px;
+}
+
+.constant-add-row .btn {
+    flex: 1;
+}
+
+.constants-hint {
+    margin: 8px 0 0;
+    font-size: 11.5px;
+    line-height: 1.45;
+}
+
+/* constants: a collapsed summary by default, the editor when expanded */
+.constants-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.constants-toggle:hover .control-label,
+.constants-toggle:hover .constants-chev {
+    color: var(--ink);
+    border-color: var(--ink);
+}
+
+.constants-toggle:focus-visible {
+    outline: 2px solid var(--accent-line);
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+/* a chevron: down when collapsed, up when expanded */
+.constants-chev {
+    width: 7px;
+    height: 7px;
+    margin: 0 4px 3px 0;
+    border-right: 1.5px solid var(--ink-faint);
+    border-bottom: 1.5px solid var(--ink-faint);
+    transform: rotate(45deg);
+    transition: transform 0.18s ease, border-color 0.15s ease;
+}
+
+.constants-group.expanded .constants-chev {
+    margin-bottom: -3px;
+    transform: rotate(-135deg);
+}
+
+.constants-group:not(.expanded) .constants-editor,
+.constants-group.expanded .constants-summary {
+    display: none;
+}
+
+.constants-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: -2px -8px;
+}
+
+.cs-item {
+    display: block;
+    width: 100%;
+    padding: 5px 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    color: var(--ink);
+    font-size: 14px;
+    text-align: left;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.cs-item:hover,
+.cs-item:focus-visible {
+    background: var(--w05);
+    border-color: var(--hairline);
+    outline: none;
+}
+
+.cs-item.cs-empty {
+    font-size: 12.5px;
+    color: var(--ink-faint);
+}
+
+/* exact field / floating point, after each parse */
+.field-status {
+    margin-top: 8px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--ink-dim);
+}
+
+.field-status:empty {
+    display: none;
+}
+
+.fs-badge {
+    display: inline-block;
+    margin-right: 4px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    vertical-align: 1px;
+}
+
+.fs-badge.exact {
+    color: var(--success);
+    background: rgba(74, 222, 128, 0.12);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.fs-badge.float {
+    color: var(--warning);
+    background: rgba(251, 191, 36, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.fs-where {
+    color: var(--ink-faint);
 }
 
 /* quiet little delete buttons; turn red on hover */
@@ -1006,7 +1211,7 @@ button {
 }
 
 /* ============================================================
-   DOMAIN TAB — current element, generators, certificate
+   INFO TAB, DOMAIN SECTION — current element, generators, certificate
    ============================================================ */
 .current-element-display {
     display: flex;
@@ -1566,7 +1771,7 @@ html.tutorial-mode #isometry-controls {
 }
 
 /* ================================================================
-   Presentation card (Domain tab) — typeset group presentation
+   Presentation card (Info tab, Domain section) — typeset group presentation
    ================================================================ */
 
 .presentation-display {
@@ -2127,7 +2332,9 @@ html.embed-mode .inside-hud-keys { display: none; }
 
 /* entries that failed to parse */
 .mq-matrix-input.mq-error,
-.mq-matrix-input.mq-error .mq-root-block {
+.mq-matrix-input.mq-error .mq-root-block,
+.constant-label-input.mq-error,
+.constant-expr-input.mq-error {
     box-shadow: 0 0 0 1.5px var(--danger);
     border-radius: 4px;
 }
@@ -2173,7 +2380,7 @@ html.light .face-label {
 }
 
 /* ============================================================
-   INVARIANTS tab
+   INFO TAB, INVARIANTS SECTION
    ============================================================ */
 .inv-section .control-label { margin-bottom: 6px; }
 .inv-row {
@@ -2216,7 +2423,7 @@ html.light .face-label {
 }
 .inv-apply:hover { color: var(--ink); border-color: var(--accent-line); }
 
-/* four tabs share the header: tighten them a little */
+/* the tabs share the header with two actions: tighten them a little */
 .tab-navigation .tab-btn { font-size: 12.5px; padding: 7px 2px; }
 
 /* disabled rows (cut-away needs the half-space model, etc.) */

@@ -43,7 +43,7 @@ and the tutorial resumes cleanly from wherever it was.
 | # | State shown | Idea |
 |---|-------------|------|
 | 1 | Hyperbolic dust (ball shell + 9000-mote scatter) | Hyperbolic space, uniform in hyperbolic volume. |
-| 2 | Matrices card, exact mode enabled (Q(w), w²+w+1=0, entry rewritten as w) | Entering matrices, with exact entries. |
+| 2 | Matrices card, rewritten over Q(w) (w²+w+1=0, entry rewritten as w) | Entering matrices, with exact entries. |
 | 3 | Interactive: chips for g₁ (parabolic), r = (w 0; 0 1) (elliptic), g₁g₂ (loxodromic); click applies, ⌘-click the inverse; dust streams, axis + flow lines, no polyhedron | The isometries the matrices determine. |
 | 4 | Orbit grows breadth-first from the basepoint | Growing the orbit. |
 | 5 | Cayley edges join the orbit | The Cayley graph. |
@@ -96,9 +96,11 @@ which maps it to `Reveal.next()/prev()` — so arrows feel seamless on stage.
 
 Decisions taken (formerly open questions): the figure-eight knot group for all
 11 steps; captions bottom-center with a step counter and clickable ‹ › arrows.
-Step 2 enables **exact mode** by driving the app's own Group-tab controls
-(minpoly `w^2+w+1`, root with Im > 0, the g₁ entry rewritten as `w`), so the
-matrices card and the step-10 certificate both read live app state. Step 3
+Step 2 rewrites the group over **Q(w)** through the app's own Group-tab
+inputs (a constant `w`, the root of `w^2+w+1` with Im > 0, and the g₁ entry
+rewritten as `w`), so the matrices card and the step-10 certificate both read
+live app state. The default entry (−1+√−3)/2 is already read exactly; the
+rewrite only makes the field match the caption. Step 3
 plays the isometry demos (`animateGenerator`); face pairings appear at step 8;
 steps 9–10 lift the theorem and the already-typeset `#presentation-display`
 HTML (plus the status banner, with tone) into fixed overlay cards; step 11 is

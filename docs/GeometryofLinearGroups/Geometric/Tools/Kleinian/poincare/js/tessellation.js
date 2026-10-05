@@ -226,7 +226,7 @@ export const honeycombFragmentShader = common + `
             sdEdges(p + e.xyy, A) - sdEdges(p - e.xyy, A),
             sdEdges(p + e.yxy, A) - sdEdges(p - e.yxy, A),
             sdEdges(p + e.yyx, A) - sdEdges(p - e.yyx, A)));
-        vec3 base = 0.5 * (u_wallColor[wa] + u_wallColor[wb]);
+        vec3 base = mix(0.5 * (u_wallColor[wa] + u_wallColor[wb]), vec3(1.0), 0.12);
         // The fundamental domain's own edges stand out: p itself lies in D.
         vec4 Xp = toHyp(p);
         bool inD = true;
@@ -235,13 +235,23 @@ export const honeycombFragmentShader = common + `
             if (mdot(u_walls[j], Xp) > u_tube) { inD = false; break; }
         }
         if (inD) base = mix(base, vec3(1.0, 0.92, 0.6), 0.65);
-        base = mix(base, mix(base, vec3(1.0), 0.45), u_lightMode);
-        vec3 L = normalize(vec3(1.0, 1.0, 1.0));
-        float diff = max(0.25, dot(n, L));
-        float spec = pow(max(0.0, dot(reflect(-L, n), -rd)), 24.0);
-        vec3 col = base * diff + 0.35 * spec;
-        float fog = smoothstep(0.55, 1.0, length(p) / u_rmax);
-        col = mix(col, u_bgColor, fog * 0.9);
+        base = mix(base, mix(base, vec3(1.0), 0.15), u_lightMode);
+        // A headlight, so whatever faces the camera is lit however the ball is
+        // turned, plus a key light for shape, a highlight, and a rim that
+        // outlines each tube against the background: bright on the dark
+        // theme, dark on the light one.
+        vec3 V = -rd;
+        float ndv = dot(n, V);
+        if (ndv < 0.0) { n = -n; ndv = -ndv; }      // the fold can flip the gradient
+        vec3 key = normalize(vec3(0.5, 0.8, 0.6));
+        float diff = 0.3 + 0.55 * ndv + 0.3 * max(0.0, dot(n, key));
+        float spec = pow(max(0.0, dot(n, normalize(key + V))), 32.0);
+        float rim = pow(1.0 - ndv, 3.0);
+        vec3 rimCol = mix(mix(base, vec3(1.0), 0.6), base * 0.4, u_lightMode);
+        vec3 col = mix(base * diff + (0.25 - 0.1 * u_lightMode) * spec, rimCol, 0.4 * rim);
+        // Fog only near the sphere at infinity, where the tubes shrink below a pixel.
+        float fog = smoothstep(0.72, 1.0, length(p) / u_rmax);
+        col = mix(col, u_bgColor, fog * 0.75);
         gl_FragDepth = depthOf(p);
         gl_FragColor = vec4(col, u_opacity);
     }

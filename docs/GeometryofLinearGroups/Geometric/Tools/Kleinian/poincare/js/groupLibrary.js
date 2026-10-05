@@ -1,26 +1,8 @@
-// Exact entries for the right-angled dodecahedron over K = Q(i, φ, √φ),
-// presented as Q(w) with w = √φ·(1+i), minpoly w⁸+12w⁴+16, and complex
-// conjugation σ(w) = −i·w = w⁷/8 + w³. In this basis:
-//   i  = −w⁶/8 − w²        φ  = −w⁴/4 − 1
-//   √φ = w⁷/16 + w³/2 + w/2   φi = w²/2
-const DOD_I = '-\\frac{w^6}{8}-w^2';                                    // i
-const DOD_NI = '\\frac{w^6}{8}+w^2';                                    // −i
-const DOD_P = '-\\frac{w^4}{4}-1';                                      // φ
-const DOD_NP = '\\frac{w^4}{4}+1';                                      // −φ
-const DOD_Q = '\\frac{w^7}{16}+\\frac{w^3}{2}+\\frac{w}{2}';            // √φ
-const DOD_NQ = '-\\frac{w^7}{16}-\\frac{w^3}{2}-\\frac{w}{2}';          // −√φ
-const DOD_PpQ = '\\frac{w^7}{16}-\\frac{w^4}{4}+\\frac{w^3}{2}+\\frac{w}{2}-1';   // φ+√φ
-const DOD_PmQ = '-\\frac{w^7}{16}-\\frac{w^4}{4}-\\frac{w^3}{2}-\\frac{w}{2}-1';  // φ−√φ
-const DOD_NPpQ = '\\frac{w^7}{16}+\\frac{w^4}{4}+\\frac{w^3}{2}+\\frac{w}{2}+1';  // −φ+√φ
-const DOD_NPmQ = '-\\frac{w^7}{16}+\\frac{w^4}{4}-\\frac{w^3}{2}-\\frac{w}{2}+1'; // −φ−√φ
-const DOD_1pQ = '\\frac{w^7}{16}+\\frac{w^3}{2}+\\frac{w}{2}+1';        // 1+√φ
-const DOD_1mQ = '-\\frac{w^7}{16}-\\frac{w^3}{2}-\\frac{w}{2}+1';       // 1−√φ
-const DOD_N1pQ = '\\frac{w^7}{16}+\\frac{w^3}{2}+\\frac{w}{2}-1';       // −1+√φ
-const DOD_N1mQ = '-\\frac{w^7}{16}-\\frac{w^3}{2}-\\frac{w}{2}-1';      // −1−√φ
-const DOD_1pM = '\\frac{w^2}{2}+1';                                     // 1+φi
-const DOD_1mM = '1-\\frac{w^2}{2}';                                     // 1−φi
-const DOD_N1pM = '\\frac{w^2}{2}-1';                                    // −1+φi
-const DOD_N1mM = '-\\frac{w^2}{2}-1';                                   // −1−φi
+// Presets are plain data: generators (LaTeX entries), optional mirror flags,
+// and constants. A constant is either ['name', 'expression'] or a root of a
+// polynomial, root(poly, re, im, name): the root nearest re + im·i. Entries
+// are read exactly whenever they are algebraic (expr.js).
+const root = (poly, re = 0, im = 0, name = 'w') => ({ name, poly, near: { re, im } });
 
 const RILEY = 'Riley slice — pleating-ray cusps';
 
@@ -40,27 +22,19 @@ export const exampleLibrary = [
         name: 'Apollonian Gasket',
         cat: 'Fractal limit sets',
         desc: 'Limit set is the Apollonian gasket',
-        exact: { minpoly: 'w^2+1', root: { re: 0, im: 1 } },     // w = i
-        mats: [['1', '1+w', '0', '1'], ['0', '-1', '1', '0']]
+        mats: [['1', '1+i', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
-        // Entries in Q(√2, i) = Q(ζ₈): w = ζ₈, √2 = w−w³, i = w²;
-        // σ(w) = w̄ = w⁻¹ = −w³ realizes conjugation.
+        // Entries in Q(√2, i) = Q(ζ₈).
         name: 'quasiSchottky',
         cat: 'Fractal limit sets',
         desc: 'Free two-generator group with fractal limit set',
-        exact: {
-            minpoly: 'w^4+1',
-            root: { re: 0.70710678, im: 0.70710678 },
-            conj: '-w^3'
-        },
-        mats: [['w-w^3', '1', '1', 'w-w^3'], ['w-w^3', 'w^2', '-w^2', 'w-w^3']]
+        mats: [['\\sqrt{2}', '1', '1', '\\sqrt{2}'], ['\\sqrt{2}', 'i', '-i', '\\sqrt{2}']]
     },
     {
         name: 'Modular group',
         cat: 'Arithmetic & Bianchi groups',
         desc: 'PSL(2,Z) — the modular group',
-        exact: { minpoly: 'w' },                                 // plain Q
         mats: [['1', '1', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
@@ -73,8 +47,7 @@ export const exampleLibrary = [
         name: 'Borromean rings group',
         cat: 'Knots, links & bundles',
         desc: 'Complement of the Borromean rings — three meridians in PSL(2,Z[i])',
-        exact: { minpoly: 'w^2+1', root: { re: 0, im: 1 } },     // w = i
-        mats: [['-w', '1', '-2w', '2+w'], ['1', '1', '0', '1'], ['1', '0', '-2w', '1']]
+        mats: [['-i', '1', '-2i', '2+i'], ['1', '1', '0', '1'], ['1', '0', '-2i', '1']]
     },
     {
         // This preset was once labelled "Borromean rings group", but it is not:
@@ -84,59 +57,48 @@ export const exampleLibrary = [
         name: 'Index-6 subgroup of PSL(2,Z[i])',
         cat: 'Arithmetic & Bianchi groups',
         desc: 'Four parabolics over Z[i]: covolume ¼ of the Borromean rings, with order-2 torsion',
-        exact: { minpoly: 'w^2+1', root: { re: 0, im: 1 } },     // w = i
-        mats: [['1', '2', '0', '1'], ['1', 'w', '0', '1'], ['1', '0', '-1-w', '1'], ['1', '0', '1-w', '1']]
+        mats: [['1', '2', '0', '1'], ['1', 'i', '0', '1'], ['1', '0', '-1-i', '1'], ['1', '0', '1-i', '1']]
     },
     {
         name: 'Z[i] congruence',
         cat: 'Arithmetic & Bianchi groups',
         desc: 'Congruence subgroup of the Bianchi group PSL(2,Z[i])',
-        exact: { minpoly: 'w^2+1', root: { re: 0, im: 1 } },     // w = i
-        mats: [['1', '2', '0', '1'], ['1', '2w', '0', '1'], ['0', '-1', '1', '0']]
+        mats: [['1', '2', '0', '1'], ['1', '2i', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
         name: 'Surface group',
         cat: 'Surfaces & Fuchsian groups',
         desc: 'Fuchsian surface group with rational entries',
-        exact: { minpoly: 'w' },                                 // plain Q
         mats: [['2', '-2', '0', '1/2'], ['3', '4', '2', '3']]
     },
     {
         name: 'Surface group 2',
         cat: 'Surfaces & Fuchsian groups',
         desc: 'Fuchsian surface group over Q(√2)',
-        exact: { minpoly: 'w^2-2', root: { re: 1.41421356, im: 0 } },   // w = √2
-        mats: [['w', '0', '0', '\\frac{w}{2}'], ['0', '-1', '1', '0'], ['1', '2',
+        mats: [['\\sqrt{2}', '0', '0', '\\frac{\\sqrt{2}}{2}'], ['0', '-1', '1', '0'], ['1', '2',
             '2', '5']]
     },
     {
         name: 'Long-Reid Group',
         cat: 'Arithmetic & Bianchi groups',
         desc: 'Integral two-generator group from the Long–Reid family',
-        exact: { minpoly: 'w' },                                 // plain Q
         mats: [['3', '0', '0', '\\frac{1}{3}'], ['\\frac{1}{8}', '\\frac{9}{8}', '\\frac{2}{8}', '\\frac{82}{8}']]
     },
     {
-        // Kept in float form deliberately: this is the tutorial's opening
-        // group, and step 2 of the talk demonstrates enabling exact mode
-        // live (minpoly w^2+w+1, entry rewritten as w).
+        // The tutorial's opening group: step 2 of the talk rewrites the entry
+        // as w, a root of w² + w + 1.
         name: 'Figure eight knot group',
         cat: 'Knots, links & bundles',
         desc: 'Complement of the figure-eight knot (the default group)',
-        mats: [['1', '\\frac{-1+ \\sqrt{3} i}{2}', '0', '1'], ['1', '0', '1', '1']]
+        mats: [['1', '\\frac{-1+\\sqrt{-3}}{2}', '0', '1'], ['1', '0', '1', '1']]
     },
     {
-        // Q(ζ₈) again: 2i = 2w², 1/√2 = (w−w³)/2.
+        // Q(√2, i) = Q(ζ₈) again.
         name: 'Dense circles',
         cat: 'Fractal limit sets',
         desc: 'Limit set a dense pattern of circles',
-        exact: {
-            minpoly: 'w^4+1',
-            root: { re: 0.70710678, im: 0.70710678 },
-            conj: '-w^3'
-        },
-        mats: [['1', '2w^2', '0', '1'], ['\\frac{w-w^3}{2}', '\\frac{w^3-w}{2}',
-            '\\frac{w-w^3}{2}', '\\frac{w-w^3}{2}']]
+        mats: [['1', '2i', '0', '1'], ['\\frac{\\sqrt{2}}{2}', '-\\frac{\\sqrt{2}}{2}',
+            '\\frac{\\sqrt{2}}{2}', '\\frac{\\sqrt{2}}{2}']]
     },
     // ── Riley slice: the cusp groups at the ends of pleating rays ──
     // Γ_z = ⟨X = (1 z; 0 1), S⟩ ≅ ℤ ∗ ℤ/2 contains the two-parabolic Riley group
@@ -159,7 +121,7 @@ export const exampleLibrary = [
         name: 'P(1/2)',
         cat: RILEY,
         desc: 'Riley cusp at slope 1/2: z = 1 + i, a subgroup of PSL(2,Z[i]) whose commutator [X, SXS] is parabolic',
-        exact: { minpoly: 'w^2-2w+2', root: { re: 1, im: 1 } },
+        consts: [root('w^2-2w+2', 1, 1)],
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
@@ -170,7 +132,7 @@ export const exampleLibrary = [
         name: 'P(2/5)',
         cat: RILEY,
         desc: 'Riley cusp at slope 2/5 — exact over a cubic field; first of 2/5, 3/7, 4/9, … → 1/2',
-        exact: { minpoly: 'w^3-w^2-w+2', root: { re: 1.1027847152, im: 0.6654569512 } },
+        consts: [root('w^3-w^2-w+2', 1.1027847152, 0.6654569512)],
         depth: 10,                  // the 10-letter parabolic's walls need depth ≥ 10
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
@@ -178,49 +140,42 @@ export const exampleLibrary = [
         name: 'P(3/7)',
         cat: RILEY,
         desc: 'Riley cusp at slope 3/7 — degree 8; the cusps n/(2n+1) close in on P(1/2)',
-        exact: { minpoly: 'w^8-3w^6+6w^4-7w^2+4', root: { re: 1.0148989720, im: 0.7762184924 } },
+        consts: [root('w^8-3w^6+6w^4-7w^2+4', 1.0148989720, 0.7762184924)],
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
         name: 'P(4/9)',
         cat: RILEY,
         desc: 'Riley cusp at slope 4/9 — degree 4; the cusps n/(2n+1) close in on P(1/2)',
-        exact: { minpoly: 'w^4-w^2+w+2', root: { re: 0.9840858578, im: 0.8499810880 } },
+        consts: [root('w^4-w^2+w+2', 0.9840858578, 0.8499810880)],
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
         name: 'P(5/11)',
         cat: RILEY,
         desc: 'Riley cusp at slope 5/11 — degree 12; the closest of these to P(1/2)',
-        exact: { minpoly: 'w^12-3w^10+8w^8-13w^6+15w^4-11w^2+4', root: { re: 0.9760382799, im: 0.8964375672 } },
+        consts: [root('w^12-3w^10+8w^8-13w^6+15w^4-11w^2+4', 0.9760382799, 0.8964375672)],
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
-        // The parabolic entry (√7+i)/2 is itself a primitive element:
-        // w = (√7+i)/2 has minpoly w⁴−3w²+4, with √7 = (5w−w³)/2,
-        // i = (w³−w)/2, and conjugation σ(w) = √7 − w = (3w−w³)/2.
+        // z = (√7 + i)/2, a root of z⁴ − 3z² + 4.
         name: 'P(1/3)',
         cat: RILEY,
         desc: 'Riley cusp at slope 1/3 — exact over Q(√7, i); the limit of 1/4, 2/7, 3/10, …',
-        exact: {
-            minpoly: 'w^4-3w^2+4',
-            root: { re: 1.32287566, im: 0.5 },
-            conj: '(3w-w^3)/2'
-        },
-        mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
+        mats: [['1', '\\frac{\\sqrt{7}+i}{2}', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
         name: 'P(1/4)',
         cat: RILEY,
         desc: 'Riley cusp at slope 1/4 — degree 4; first of 1/4, 2/7, 3/10, … → 1/3',
-        exact: { minpoly: 'w^4-2w^3+2', root: { re: 1.5290855136, im: 0.2570658641 } },
+        consts: [root('w^4-2w^3+2', 1.5290855136, 0.2570658641)],
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
         name: 'P(2/7)',
         cat: RILEY,
         desc: 'Riley cusp at slope 2/7 — degree 4; needs a deeper search (depth 14)',
-        exact: { minpoly: 'w^4-w^3-2w^2+w+2', root: { re: 1.3992317464, im: 0.3256401823 } },
+        consts: [root('w^4-w^3-2w^2+w+2', 1.3992317464, 0.3256401823)],
         depth: 14,
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
@@ -228,28 +183,28 @@ export const exampleLibrary = [
         name: 'P(3/10)',
         cat: RILEY,
         desc: 'Riley cusp at slope 3/10 — degree 10; the cusps n/(3n+1) close in on P(1/3)',
-        exact: { minpoly: 'w^10-2w^9-2w^8+4w^7+3w^6-2w^5-2w^4-4w^3+w^2+2w+2', root: { re: 1.3425671751, im: 0.3765215068 } },
+        consts: [root('w^10-2w^9-2w^8+4w^7+3w^6-2w^5-2w^4-4w^3+w^2+2w+2', 1.3425671751, 0.3765215068)],
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
         name: 'P(3/8)',
         cat: RILEY,
         desc: 'Riley cusp at slope 3/8, between 1/3 and 2/5 — degree 8',
-        exact: { minpoly: 'w^8-2w^7+4w^5-4w^4+4w^2-4w+2', root: { re: 1.1691979002, im: 0.5573202322 } },
+        consts: [root('w^8-2w^7+4w^5-4w^4+4w^2-4w+2', 1.1691979002, 0.5573202322)],
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
         name: 'P(2/9)',
         cat: RILEY,
         desc: 'Riley cusp at slope 2/9 — degree 5',
-        exact: { minpoly: 'w^5-w^4-3w^3+2w^2+w+2', root: { re: 1.5888206698, im: 0.1693607858 } },
+        consts: [root('w^5-w^4-3w^3+2w^2+w+2', 1.5888206698, 0.1693607858)],
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
         name: 'P(5/8)',
         cat: RILEY,
         desc: 'Riley cusp at slope 5/8, the mirror image of P(3/8) — degree 8; Fibonacci slopes 3/5, 5/8, 8/13, 13/21, … → 1/φ',
-        exact: { minpoly: 'w^8-2w^7+4w^6-4w^5+4w^4-4w^3+4w^2-4w+2', root: { re: 0.5573202322, im: 1.1691979002 } },
+        consts: [root('w^8-2w^7+4w^6-4w^5+4w^4-4w^3+4w^2-4w+2', 0.5573202322, 1.1691979002)],
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
@@ -259,14 +214,14 @@ export const exampleLibrary = [
         name: 'P(8/13)',
         cat: RILEY,
         desc: 'Riley cusp at slope 8/13 — degree 7; S conjugated by (1 w/2; 0 1) so the domain certifies',
-        exact: { minpoly: 'w^7-w^6+3w^5-2w^4+4w^3-3w^2+3w-2', root: { re: 0.5910175297, im: 1.1218555814 } },
+        consts: [root('w^7-w^6+3w^5-2w^4+4w^3-3w^2+3w-2', 0.5910175297, 1.1218555814)],
         mats: [['1', 'w', '0', '1'], ['\\frac{w}{2}', '-\\frac{w^2}{4}-1', '1', '-\\frac{w}{2}']]
     },
     {
         name: 'P(13/21)',
         cat: RILEY,
         desc: 'Riley cusp at slope 13/21 — degree 20; the closest of the Fibonacci cusps to the golden degenerate group',
-        exact: { minpoly: 'w^20+6w^18+19w^16+37w^14+47w^12+36w^10+11w^8-7w^6-6w^4+w^2+4', root: { re: 0.5683136416, im: 1.1360444385 } },
+        consts: [root('w^20+6w^18+19w^16+37w^14+47w^12+36w^10+11w^8-7w^6-6w^4+w^2+4', 0.5683136416, 1.1360444385)],
         depth: 14,
         mats: [['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
@@ -291,7 +246,7 @@ export const exampleLibrary = [
         name: 'Figure eight fiber',
         cat: 'Knots, links & bundles',
         desc: 'Fiber surface subgroup — geometrically infinite, so certification fails (as it should)',
-        exact: { minpoly: 'w^2+w+1', root: { re: -0.5, im: 0.86602540 } },
+        consts: [root('w^2+w+1', -0.5, 0.86602540)],
         mats: [['w+1', '1', 'w', '1'],
         ['w+1', '-1', '-w', '1']]
     },
@@ -299,7 +254,7 @@ export const exampleLibrary = [
         name: 'PSL(2,Z[w])',
         cat: 'Arithmetic & Bianchi groups',
         desc: 'Bianchi group over the Eisenstein integers Z[ω]',
-        exact: { minpoly: 'w^2+w+1', root: { re: -0.5, im: 0.86602540 } },
+        consts: [root('w^2+w+1', -0.5, 0.86602540)],
         mats: [['1', '1', '0', '1'], ['1', 'w', '0', '1'], ['0', '-1', '1', '0']]
     },
     {
@@ -311,7 +266,7 @@ export const exampleLibrary = [
         name: 'PSL(2,Z[√-5])',
         cat: 'Arithmetic & Bianchi groups',
         desc: 'Bianchi group over Z[√−5] — covolume 4.20397 (class number 2)',
-        exact: { minpoly: 'w^2+5', root: { re: 0, im: 2.23606798 } },    // w = √−5
+        consts: [root('w^2+5', 0, 2.23606798)],    // w = √−5
         mats: [['1', '1', '0', '1'], ['1', 'w', '0', '1'], ['2+w', '4', '2', '2-w'], ['0', '-1', '1', '0'],
             ['-4-w', '-2w', '2w', '-4+w']]
     },
@@ -321,19 +276,17 @@ export const exampleLibrary = [
         //   Rx = diag(1+i, 1−i)/√2          B = (√(b−1)/2)·(1+2b−i  −1−i; 1−i  1+2b+i)
         // The scalar prefactors are dropped (floats are normalized to det 1,
         // exact checks are projective), leaving entries in K = Q(b, i) of
-        // degree 6. Primitive element w = −b·i = 2^(1/3)·e^(iπ/6), minpoly
-        // w⁶+4, with i = w³/2, b = w⁴/2, b² = −w². No conj: b̄ ∉ K — fine,
-        // the group is orientation-preserving. Rz, Rx ∈ SU(2) generate the
-        // octahedral group fixing the basepoint (perturbed-basepoint domain).
+        // degree 6. Rz, Rx ∈ SU(2) generate the octahedral group fixing the
+        // basepoint (perturbed-basepoint domain).
         name: 'SO₃(Z[2<sup>1/3</sup>])',
         cat: 'Arithmetic & Bianchi groups',
         desc: 'Cocompact arithmetic group over Q(∛2) — exact over a sextic field',
-        exact: { minpoly: 'w^6+4', root: { re: 1.09112363597, im: 0.62996052495 } },
+        consts: [root('b^3-2', -0.62996052495, 1.09112363597, 'b')],
         mats: [
-            ['1', '\\frac{w^3}{2}', '\\frac{w^3}{2}', '1'],                                    // Rz
-            ['1-w^2+\\frac{w^3}{2}', '0', '0', '1-w^2-\\frac{w^3}{2}'],                        // A
-            ['1+w^4-\\frac{w^3}{2}', '-1-\\frac{w^3}{2}', '1-\\frac{w^3}{2}', '1+w^4+\\frac{w^3}{2}'], // B
-            ['1+\\frac{w^3}{2}', '0', '0', '1-\\frac{w^3}{2}']                                 // Rx
+            ['1', 'i', 'i', '1'],                                  // Rz
+            ['1+b^2+i', '0', '0', '1+b^2-i'],                      // A
+            ['1+2b-i', '-1-i', '1-i', '1+2b+i'],                   // B
+            ['1+i', '0', '0', '1-i']                               // Rx
         ]
     },
     {
@@ -359,15 +312,11 @@ export const exampleLibrary = [
         // bb + 1/bb = zz and the resolvent cubic zz³−2zz²+3zz−1 = 0 give the
         // sextic minpoly w⁶−2w⁵+6w⁴−5w³+6w²−2w+1 (irreducible: no real
         // roots, no rational quadratic factors), and th = 1/zz − 1 =
-        // w/(w²+1) − 1. No conj: Q(bb) is not conjugation-stable (the cubic
-        // is non-Galois) — fine, the group is orientation-preserving.
+        // w/(w²+1) − 1.
         name: 'Weeks manifold (closed)',
         cat: 'Closed 3-manifolds',
         desc: 'Smallest closed hyperbolic 3-manifold — exact over a sextic field',
-        exact: {
-            minpoly: 'w^6-2w^5+6w^4-5w^3+6w^2-2w+1',
-            root: { re: 0.61547315, im: 1.80372911 }
-        },
+        consts: [root('w^6-2w^5+6w^4-5w^3+6w^2-2w+1', 0.61547315, 1.80372911)],
         mats: [['\\frac{w}{w^2+1}-1', '-1', '1', '0'],
         ['0', 'w', '-\\frac{1}{w}', '\\frac{w}{w^2+1}-1']]
     },
@@ -376,24 +325,19 @@ export const exampleLibrary = [
         // orientable hyperbolic 3-manifold (vol = 0.98136882...). Exact
         // presentation via the trace triple (xx, 1+xx-xx^2, xx^2-xx^3), where
         // xx is the root (Im > 0) of t^4 - t^3 - 1 (the quartic field of
-        // discriminant -283), solved by Ferrari via the resolvent cubic
-        // 8m^3 + 8m + 1 = 0. Normal form as for the Weeks manifold.
-        // Float form: an exact preset would need a primitive element for
-        // Q(xx, bb) (likely degree 8) with xx expressed in it — the Weeks
-        // trick (th ∈ Q(zz)) has no obvious analogue for the quartic xx.
+        // discriminant -283). Normal form as for the Weeks manifold, with
+        // bb + 1/bb = zz. Exact over Q(x, √(z² − 4)), of degree 8.
         name: 'Meyerhoff manifold (closed)',
         cat: 'Closed 3-manifolds',
-        desc: 'Second-smallest closed hyperbolic 3-manifold',
+        desc: 'Second-smallest closed hyperbolic 3-manifold — exact over a field of degree 8',
         consts: [
-            ['mm', '\\sqrt[3]{-\\frac{1}{16}+\\frac{\\sqrt{849}}{144}}+\\sqrt[3]{-\\frac{1}{16}-\\frac{\\sqrt{849}}{144}}'],
-            ['ww', '\\sqrt{2mm+\\frac{1}{4}}'],
-            ['xx', '\\frac{\\frac{1}{2}-ww+\\sqrt{(\\frac{1}{2}-ww)^2-4(mm-\\frac{mm}{2ww})}}{2}'],
-            ['yy', '1+xx-xx^2'],
-            ['zz', 'xx^2-xx^3'],
-            ['bb', '\\frac{zz+\\sqrt{zz^2-4}}{2}']
+            root('x^4-x^3-1', 0.2194474721, 0.9144736630, 'x'),
+            ['y', '1+x-x^2'],
+            ['z', 'x^2-x^3'],
+            ['b', '\\frac{z+\\sqrt{z^2-4}}{2}']
         ],
-        mats: [['xx', '-1', '1', '0'],
-        ['0', 'bb', '-\\frac{1}{bb}', 'yy']]
+        mats: [['x', '-1', '1', '0'],
+        ['0', 'b', '-\\frac{1}{b}', 'y']]
     },
     {
         // FLMS Example 6.3 = m003(-4,1), the non-arithmetic closed manifold
@@ -411,10 +355,7 @@ export const exampleLibrary = [
         name: 'FLMS',
         cat: 'Closed 3-manifolds',
         desc: 'm003(-4,1) — non-arithmetic closed manifold with no totally geodesic surfaces',
-        exact: {
-            minpoly: 'w^10+4w^8+w^7+8w^6+w^5+8w^4+w^3+4w^2+1',
-            root: { re: 0.487334922689059, im: -1.435797175535177 }
-        },
+        consts: [root('w^10+4w^8+w^7+8w^6+w^5+8w^4+w^3+4w^2+1', 0.487334922689059, -1.435797175535177)],
         mats: [
             ['w^8+3w^6+w^5+5w^4+3w^2+w+1', '-1', '1', '0'],
             ['0', '-w', '-w^9-4w^7-w^6-8w^5-w^4-8w^3-w^2-4w',
@@ -433,7 +374,6 @@ export const exampleLibrary = [
         name: 'Ideal triangle kaleidoscope (3 mirrors)',
         cat: 'Kaleidoscopes — reflection groups',
         desc: 'Mirrors on the sides of an ideal triangle',
-        exact: { minpoly: 'w' },     // rational entries; σ = id (real field)
         anti: [true, true, true],
         mats: [['-1', '-1', '0', '1'],
         ['-1', '1', '0', '1'],
@@ -446,7 +386,6 @@ export const exampleLibrary = [
         name: 'Modular kaleidoscope (2,3,∞ mirrors)',
         cat: 'Kaleidoscopes — reflection groups',
         desc: 'Extended PGL(2,Z): the (2,3,∞) mirror triangle',
-        exact: { minpoly: 'w' },     // rational entries; σ = id (real field)
         anti: [true, true, true],
         mats: [['-1', '-\\frac{1}{2}', '0', '1'],
         ['-1', '\\frac{1}{2}', '0', '1'],
@@ -460,13 +399,12 @@ export const exampleLibrary = [
         name: 'Z[i] kaleidoscope (mirror box)',
         cat: 'Kaleidoscopes — reflection groups',
         desc: 'Coxeter mirror box over the Gaussian integers',
-        exact: { minpoly: 'w^2+1', root: { re: 0, im: 1 } },   // w = i; σ(w) = −w auto
         anti: [true, true, true, true, true],
         mats: [['-1', '-\\frac{1}{2}', '0', '1'],
         ['-1', '\\frac{1}{2}', '0', '1'],
-        ['1', '-\\frac{w}{2}', '0', '1'],
-        ['1', '\\frac{w}{2}', '0', '1'],
-        ['\\frac{-1-w}{4}', '\\frac{7}{8}', '1', '\\frac{1-w}{4}']]
+        ['1', '-\\frac{i}{2}', '0', '1'],
+        ['1', '\\frac{i}{2}', '0', '1'],
+        ['\\frac{-1-i}{4}', '\\frac{7}{8}', '1', '\\frac{1-i}{4}']]
     },
     {
         // Reflections in the 12 faces of the COMPACT right-angled regular
@@ -475,15 +413,17 @@ export const exampleLibrary = [
         // p = golden ratio; the right-angle condition forces the boundary
         // circles {B·v = √p} on S², whose stereographic reflections are
         //   z ↦ M·z̄,  M = [[−(v₁+iv₂), v₃+√p], [v₃−√p, v₁−iv₂]]  (det = −2).
-        // Exact entries in Q(i, p, √p): p = φ, q = √φ, m = φi (= √(−p²)).
-        // M·M̄ = 2·I (exact involutions); adjacent faces meet at exactly π/2.
+        // Exact entries in Q(√5, √p, i): p = φ, q = √φ, m = φi.
+        // M·M̄ = 2·I (exact involutions); adjacent faces meet at exactly π/2,
+        // and the certifier verifies rᵢ² = 1 and the 30 right-angle
+        // relations (rᵢrⱼ)² = 1 exactly in PGL₂(K).
         name: 'Right-angled dodecahedron (12 mirrors)',
         cat: 'Kaleidoscopes — reflection groups',
-        desc: 'Compact right-angled Coxeter chamber (float entries)',
+        desc: 'Compact right-angled Coxeter chamber — exact over Q(√5, √φ, i)',
         consts: [
             ['p', '\\frac{1+\\sqrt{5}}{2}'],
             ['q', '\\sqrt{p}'],
-            ['m', '\\sqrt{-p^2}']
+            ['m', 'ip']
         ],
         anti: [true, true, true, true, true, true, true, true, true, true, true, true],
         mats: [
@@ -502,40 +442,6 @@ export const exampleLibrary = [
             ['-p', '-1+q', '-1-q', 'p'],
             ['p', '1+q', '1-q', '-p'],
             ['p', '-1+q', '-1-q', '-p']
-        ]
-    },
-    {
-        // Same group with EXACT entries over Q(w), w = √φ·(1+i): selecting
-        // this preset auto-enables exact mode, so the certifier verifies all
-        // Poincaré relations (rᵢ² = 1 and the 30 right-angle relations
-        // (rᵢrⱼ)² = 1) exactly in PGL₂(K). The root hint picks the embedding
-        // w ≈ 1.272(1+i); σ(w) = −i·w = w⁷/8 + w³ realizes conjugation.
-        name: 'Right-angled dodecahedron (exact, 12 mirrors)',
-        cat: 'Kaleidoscopes — reflection groups',
-        desc: 'The same chamber, exact over Q(w) — fully certified',
-        exact: {
-            gen: 'w',
-            minpoly: 'w^8+12w^4+16',
-            root: { re: 1.272019649514, im: 1.272019649514 },
-            conj: 'w^7/8+w^3'
-        },
-        anti: [true, true, true, true, true, true, true, true, true, true, true, true],
-        mats: [
-            // v = (0, ±1, ±φ): [[∓i, ±φ+√φ], [±φ−√φ, ∓i]]
-            [DOD_NI, DOD_PpQ, DOD_PmQ, DOD_NI],
-            [DOD_NI, DOD_NPpQ, DOD_NPmQ, DOD_NI],
-            [DOD_I, DOD_PpQ, DOD_PmQ, DOD_I],
-            [DOD_I, DOD_NPpQ, DOD_NPmQ, DOD_I],
-            // v = (±1, ±φ, 0): [[∓1∓φi, √φ], [−√φ, ±1∓φi]]
-            [DOD_N1mM, DOD_Q, DOD_NQ, DOD_1mM],
-            [DOD_N1pM, DOD_Q, DOD_NQ, DOD_1pM],
-            [DOD_1mM, DOD_Q, DOD_NQ, DOD_N1mM],
-            [DOD_1pM, DOD_Q, DOD_NQ, DOD_N1pM],
-            // v = (±φ, 0, ±1): [[∓φ, ±1+√φ], [±1−√φ, ±φ]]
-            [DOD_NP, DOD_1pQ, DOD_1mQ, DOD_P],
-            [DOD_NP, DOD_N1pQ, DOD_N1mQ, DOD_P],
-            [DOD_P, DOD_1pQ, DOD_1mQ, DOD_NP],
-            [DOD_P, DOD_N1pQ, DOD_N1mQ, DOD_NP]
         ]
     }
 ];

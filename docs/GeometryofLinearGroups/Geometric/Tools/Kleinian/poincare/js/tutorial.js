@@ -20,6 +20,7 @@
 
 import * as THREE from 'three';
 import { exampleLibrary } from './groupLibrary.js';
+import { getInputState, applyInputState } from './matrixInput.js';
 
 const FIG8 = 'Figure eight knot group';
 
@@ -179,8 +180,8 @@ function setCaption(html) {
     typeset(ui.caption);
 }
 
-// The matrices card reads the LIVE inputs, so after the exact-mode rewrite
-// it shows the entry as `w` rather than the preset's decimal-free surd.
+// The matrices card reads the LIVE inputs, so after the rewrite over Q(w)
+// it shows the entry as `w` rather than the preset's surd.
 function setMatricesCard(show) {
     if (!show) { ui.card.style.display = 'none'; return; }
     const blocks = document.querySelectorAll('#matrixInputs .matrix-block');
@@ -201,7 +202,7 @@ function setMatricesCard(show) {
 }
 
 // Presentation + certificate card: lift the already-typeset presentation
-// out of the (hidden) Domain panel, topped with the certificate verdict.
+// out of the (hidden) Info tab, topped with the certificate verdict.
 function setPresCard(show) {
     if (!show) { ui.pres.style.display = 'none'; return; }
     const src = document.getElementById('presentation-display');
@@ -249,10 +250,11 @@ function buildOverlay(s) {
 
 // -------------------------------------------------------- exact set-up ----
 
-// Enable exact arithmetic once, by driving the app's own Group-tab controls:
-// field Q(w), w²+w+1 = 0, the figure-eight entry rewritten as w, and the
-// embedding with positive imaginary part. Sticky for the rest of the talk;
-// on any failure the tutorial simply continues numerically.
+// Rewrite the figure-eight group over Q(w) once, through the app's own
+// Group-tab inputs: a constant w, the root of w² + w + 1 with Im w > 0, and the
+// g₁ entry rewritten as w. (The default entry (−1+√−3)/2 is already exact; this
+// just shows the field as the caption names it.) Sticky for the rest of the
+// talk; on any failure the tutorial simply continues with the default group.
 let exactStarted = false;
 
 function ensureExact() {
@@ -267,21 +269,16 @@ function ensureExact() {
             resolve();
         };
         try {
-            const btn = document.getElementById('toggle-exact');
-            const mp = document.getElementById('field-minpoly');
-            const rs = document.getElementById('field-root');
-            if (!btn || !mp || !rs) { finish(); return; }
-            mp.value = 'w^2+w+1';
-            if (!btn.classList.contains('active')) btn.click();
-            const spans = document.querySelectorAll('#matrixInputs .matrix-block')[0]
-                ?.querySelectorAll('.mq-matrix-input');
-            if (spans && spans[1] && spans[1].MathQuill) spans[1].MathQuill().latex('w');
+            const st = getInputState();
+            if (!st.mats.length) { finish(); return; }
+            st.mats[0][1] = 'w';
+            st.consts = [{ name: 'w', poly: 'w^2+w+1', near: { re: -0.5, im: Math.sqrt(3) / 2 } }];
+            applyInputState(st);
             window.addEventListener('poincare:refreshed', finish);
-            rs.value = '1';                       // the root with Im(w) > 0
-            rs.dispatchEvent(new Event('change'));
+            setTimeout(() => api.refresh(), 50);  // let MathQuill settle first
             setTimeout(finish, 3000);             // never hang the tutorial on this
         } catch (e) {
-            console.warn('exact set-up failed — continuing numerically:', e);
+            console.warn('exact set-up failed — continuing with the default group:', e);
             finish();
         }
     });

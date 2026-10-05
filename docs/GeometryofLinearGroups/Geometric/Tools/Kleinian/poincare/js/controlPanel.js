@@ -148,6 +148,28 @@ export function setupControlPanel(handlers) {
     });
     if (tabBtns.length) activateTab([...tabBtns].find(b => b.classList.contains('active')) || tabBtns[0]);
 
+    // The Info tab holds two sections, Domain and Invariants: its jump bar
+    // scrolls to one and marks the one in view.
+    const scroller = document.querySelector('.panel-content');
+    const jumps = [...document.querySelectorAll('.info-jump-btn')];
+    function spyInfoSection() {
+        if (!scroller || !jumps.length || !document.getElementById('tab-info')?.classList.contains('active')) return;
+        const top = scroller.getBoundingClientRect().top;
+        const atEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
+        let current = jumps[0];
+        for (const b of jumps) {
+            const sec = document.getElementById(b.dataset.jump);
+            if (sec && sec.getBoundingClientRect().top - top < 90) current = b;
+        }
+        if (atEnd) current = jumps[jumps.length - 1];
+        jumps.forEach(b => b.classList.toggle('active', b === current));
+    }
+    jumps.forEach(b => b.addEventListener('click', () => {
+        document.getElementById(b.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+    scroller?.addEventListener('scroll', spyInfoSection, { passive: true });
+    tabBtns.forEach(btn => btn.addEventListener('click', spyInfoSection));
+
     const collapseBtn = document.getElementById('collapse-btn');
     const panel = document.getElementById('control-panel');
     const isometryControls = document.getElementById('isometry-controls');

@@ -6,65 +6,27 @@
 //   node --test --import ./tests/register.mjs tests/library.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
-
-// matrixInput.js evaluates entries with the page's global math.js.
-const require = createRequire(import.meta.url);
-globalThis.window = globalThis;
-globalThis.math = require('../../vendor/mathjs/math.min.js');
-
 const { Matrix2x2: M, Complex } = await import('../js/math.js');
-const { NumberField, parsePoly, parseKElem, ExactMat, serializeExactContext } = await import('../js/exact.js');
-const { latexToExpr, evalComplexExpression } = await import('../js/matrixInput.js');
+const { serializeTowerContext } = await import('../js/tower.js');
+const { buildGroup } = await import('../js/matrixInput.js');
 const { exampleLibrary } = await import('../js/groupLibrary.js');
 const { runCompute, matToArr } = await import('../js/compute.js');
 const { computeCanonicalDomain } = await import('../js/canonical.js');
 const { checkEuler, polyhedronVolume } = await import('../js/polyhedron.js');
 const P = await import('../js/presentation.js');
 
-/** Parse a preset exactly as the page does (constants, exact field, embedding). */
+/** Read a preset exactly as the page does (constants, exact field when algebraic). */
 function loadPreset(ex) {
-    const consts = {};
-    if (ex.name === 'Hecke group') consts.n = 5;
-    for (const [name, latex] of ex.consts || []) {
-        const v = evalComplexExpression(latexToExpr(latex), consts);
-        consts[name] = v.im === 0 ? v.re : math.complex(v.re, v.im);
-    }
-    let field = null;
-    const exactGens = [];
-    if (ex.exact) {
-        const gen = ex.exact.gen || 'w';
-        field = new NumberField(parsePoly(ex.exact.minpoly, gen), gen);
-        if (ex.exact.root) {
-            let best = 0, bd = Infinity;
-            field.roots.forEach((r, i) => {
-                const d = Math.hypot(r.re - ex.exact.root.re, r.im - ex.exact.root.im);
-                if (d < bd) { bd = d; best = i; }
-            });
-            field.rootIndex = best;
-        }
-        if (ex.exact.conj) field.setConjugation(ex.exact.conj);
-    }
-    const mats = ex.mats.map((vals, i) => {
-        const anti = !!(ex.anti && ex.anti[i]);
-        let z;
-        if (field) {
-            const K = vals.map(v => parseKElem(latexToExpr(String(v)), field));
-            exactGens.push(new ExactMat(...K, anti));
-            z = K.map(e => { const v = e.embed(); return new Complex(v.re, v.im); });
-        } else {
-            z = vals.map(v => evalComplexExpression(latexToExpr(String(v)), consts));
-        }
-        return new M(...z, anti).normalized();
-    });
-    return { mats, exactCtx: field ? { field, gens: exactGens } : null };
+    const consts = [...(ex.name === 'Hecke group' ? [['n', '5']] : []), ...(ex.consts || [])];
+    const { matrices, exactCtx } = buildGroup({ mats: ex.mats, anti: ex.anti || [], consts });
+    return { mats: matrices, exactCtx };
 }
 
 function compute(mats, { exactCtx = null, depth = 8, ford = null } = {}) {
     const input = {
         gens: mats.map(matToArr), origGens: mats.map(matToArr),
         B: matToArr(M.identity()), maxFaces: 96, maxDepth: depth, fullDirichlet: false,
-        exact: exactCtx ? serializeExactContext(exactCtx) : null, ford,
+        exact: exactCtx ? serializeTowerContext(exactCtx) : null, ford,
     };
     // Through JSON, like the postMessage to the worker.
     return runCompute(JSON.parse(JSON.stringify(input)));
@@ -112,7 +74,6 @@ const EXPECT = {
     'Modular kaleidoscope (2,3,∞ mirrors)': { faces: 3, h1: 'ℤ/2 ⊕ ℤ/2' },
     'Z[i] kaleidoscope (mirror box)': { faces: 5, vol: 0.3053218647 / 2, h1: 'ℤ/2 ⊕ ℤ/2 ⊕ ℤ/2' },
     'Right-angled dodecahedron (12 mirrors)': { faces: 12, vol: 4.3062076007, h1: Array(12).fill('ℤ/2').join(' ⊕ ') },
-    'Right-angled dodecahedron (exact, 12 mirrors)': { faces: 12, vol: 4.3062076007, h1: Array(12).fill('ℤ/2').join(' ⊕ ') },
 };
 // Presets that must NOT verify: a geometrically infinite fiber group (its
 // Dirichlet domain has infinitely many faces) and an unidentified example.
@@ -132,6 +93,7 @@ for (const ex of exampleLibrary) {
         const out = compute(mats, { exactCtx, depth: ex.depth || 8 });
         const inv = out.invariants;
         assert.equal(out.report.status, 'verified');
+        assert.ok(exactCtx && out.report.exactUsed, 'relations verified exactly');
         assert.equal(out.domain.walls.length, want.faces);
         assert.ok(out.report.membership.every(m => m.ok), 'every input generator is a product of face pairings');
         assert.ok(inv.presentationComplete);

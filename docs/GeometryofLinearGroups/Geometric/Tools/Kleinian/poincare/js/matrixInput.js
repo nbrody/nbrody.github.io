@@ -1,205 +1,247 @@
 /**
- * Matrix input: parsing entries (LaTeX → complex or exact field elements),
- * the generator and constant editors, the example library, and the page's
- * input state for permalinks.
+ * Matrix input: the generator and constant editors, the example library, and
+ * the page's input state for permalinks.
+ *
+ * Entries and constants are read by expr.js: exactly, into a tower of number
+ * fields, whenever every value is algebraic, and in floating point
+ * otherwise. The floating-point matrices are the embeddings of the exact
+ * ones, so the two agree by construction. Constants come in two kinds of
+ * row: `name = expression`, and `name root of polynomial` with the root
+ * chosen by clicking it in the complex plane.
  */
 
 import { Complex, Matrix2x2 } from './math.js';
 import { exampleLibrary } from './groupLibrary.js';
-import { parseKElem, ExactMat } from './exact.js';
+import { readGroup, numericPolyRoots } from './expr.js';
 
 // Re-export for use in other modules
 export { exampleLibrary };
 
-// --- Exact-arithmetic mode ---
-// When a NumberField is configured, entries are parsed EXACTLY as elements
-// of K and the floating-point matrices are derived from the embedding, so
-// the floats and the exact values agree by construction.
-let exactField = null;          // NumberField | null
-let lastExactGens = null;       // ExactMat[] from the most recent parse
-
-/** Enable (field) / disable (null) exact entry parsing. */
-export function configureExact(field) {
-    exactField = field;
-    lastExactGens = null;
-}
-
-/** { field, gens } from the last successful exact parse, or null. */
-export function getExactContext() {
-    if (!exactField || !lastExactGens) return null;
-    return { field: exactField, gens: lastExactGens };
-}
-
-// Convert LaTeX to expression string for math.js
-export function latexToExpr(latex) {
-    if (!latex || typeof latex !== 'string') return '0';
-    let parserString = String(latex);
-
-    // Normalize common wrappers / symbols
-    parserString = parserString.replace(/\\left|\\right/g, '');
-    parserString = parserString.replace(/\u2212/g, '-');
-    parserString = parserString.replace(/\\mathrm\{?i\}?/g, 'i');
-    parserString = parserString.replace(/\\operatorname\{?i\}?/g, 'i');
-
-    // Replace Greek letters
-    const greek = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'iota', 'kappa', 'lambda', 'mu', 'nu', 'xi', 'omicron', 'rho', 'sigma', 'tau', 'upsilon', 'phi', 'chi', 'psi', 'omega'];
-    greek.forEach(g => {
-        const re = new RegExp('\\\\' + g, 'g');
-        parserString = parserString.replace(re, g);
-    });
-
-    // Handle LaTeX constructs iteratively to support nesting
-    let prev;
-    do {
-        prev = parserString;
-        // frac{a}{b} -> (a)/(b)
-        // We use a regex that handles one level of nesting safely, then repeat
-        parserString = parserString.replace(/\\frac\s*\{((?:[^{}]|\{[^{}]*\})*)\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g, '($1)/($2)');
-        // sqrt[n]{a} -> nthRoot(a, n)
-        parserString = parserString.replace(/\\sqrt\s*\[((?:[^{}]|\{[^{}]*\})*)\]\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g, 'nthRoot($2, $1)');
-        // sqrt{a} -> sqrt(a)
-        parserString = parserString.replace(/\\sqrt\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g, 'sqrt($1)');
-    } while (parserString !== prev);
-
-    // Other replacements
-    parserString = parserString.replace(/x_\{(.+?)\}/g, 'x$1');
-    parserString = parserString.replace(/x_(\d+)/g, 'x$1');
-    parserString = parserString.replace(/\\(sin|cos|tan|csc|sec|cot|sinh|cosh|tanh)h?\((.*)?\)/g, '$1($2)');
-    parserString = parserString.replace(/\\log_\{(.+?)\}\((.+?)\)/g, 'log($2, $1)');
-    parserString = parserString.replace(/\\ln\((.+?)\)/g, 'log($1)');
-    parserString = parserString.replace(/\\pi/g, 'pi');
-    parserString = parserString.replace(/\\times/g, '*');
-    parserString = parserString.replace(/\\div/g, '/');
-    parserString = parserString.replace(/e\^\{(.+?)\}/g, 'exp($1)');
-
-    // Handle implicit multiplication
-    parserString = parserString.replace(/\)i(?![a-z])/g, ')*i');
-    parserString = parserString.replace(/(\d)i(?![a-z])/g, '$1*i');
-    parserString = parserString.replace(/(\d)([a-z])/gi, '$1*$2');
-    parserString = parserString.replace(/\)([a-z])/gi, ')*$1');
-
-    return parserString;
-}
-
-// Evaluate complex expression using math.js, with optional constants scope
-export function evalComplexExpression(expr, constants = {}) {
-    try {
-        if (typeof expr !== 'string') expr = String(expr || '0');
-        expr = expr.replace(/\u2212/g, '-');
-        const val = math.evaluate(expr, constants);
-
-        function toComplex(v) {
-            if (v == null) return new Complex(0, 0);
-            if (typeof v === 'object' && typeof v.re === 'number' && typeof v.im === 'number') {
-                return new Complex(v.re, v.im);
-            }
-            if (typeof v === 'object' && typeof v.valueOf === 'function') {
-                const num = Number(v.valueOf());
-                if (!Number.isNaN(num)) return new Complex(num, 0);
-            }
-            if (typeof v === 'number') return new Complex(v, 0);
-            if (typeof v === 'string') {
-                const n = Number(v);
-                if (!Number.isNaN(n)) return new Complex(n, 0);
-            }
-            return new Complex(NaN, NaN);
-        }
-
-        return toComplex(val);
-    } catch (e) {
-        const c = new Complex(NaN, NaN);
-        c.error = e.message;
-        return c;
-    }
-}
-
 const ENTRY_NAMES = ['(1,1)', '(1,2)', '(2,1)', '(2,2)'];
 
-/** Throw a readable error for an entry that did not parse to a finite number. */
-function checkEntry(z, latex, gen, k, span) {
-    if (Number.isFinite(z.re) && Number.isFinite(z.im)) {
-        span?.classList.remove('mq-error');
-        return z;
-    }
-    span?.classList.add('mq-error');
-    const why = z.error ? ` (${z.error})` : '';
-    throw new Error(`g${gen}, entry ${ENTRY_NAMES[k]}: could not read “${latex || '(empty)'}”${why}.`);
+let lastBuilt = null;           // { matrices, exactCtx, read } from the most recent successful parse
+
+/** { field, gens } from the last successful parse when it was exact, else null. */
+export function getExactContext() {
+    return lastBuilt ? lastBuilt.exactCtx : null;
 }
 
-// Add a constant input UI element
-export function addConstantInput(labelValue = '', exprValue = '') {
-    const container = document.getElementById('constantsInputs');
-    if (!container) return;
-
-    const constantBlock = document.createElement('div');
-    constantBlock.className = 'constant-block';
-    constantBlock.innerHTML = `
-        <span class="constant-label-input" data-initial="${labelValue}"></span>
-        <span class="constant-equals">=</span>
-        <span class="constant-expr-input" data-initial="${exprValue}"></span>
-        <button class="delete-constant-btn">✖</button>
-    `;
-
-    constantBlock.querySelector('.delete-constant-btn').addEventListener('click', () => {
-        constantBlock.remove();
+/**
+ * Read a group from plain data { mats, anti, consts } (no DOM): the
+ * normalized floating-point generators, the exact context when every entry
+ * is algebraic, and expr.js's report (field, fallback reason, root menus).
+ * Errors carry err.where = { constant } or { gen, entry }.
+ */
+export function buildGroup(state) {
+    const read = readGroup(state);
+    const matrices = read.entries.map((e, g) => {
+        const [a, b, c, d] = e.map(z => new Complex(z.re, z.im));
+        const det = a.mul(d).sub(b.mul(c));
+        // Written so that NaN fails too (NaN < x is false for every x).
+        if (!(det.normSq() >= 1e-12)) {
+            const err = new Error(`g${g + 1} has determinant 0 (not invertible)`);
+            err.where = { gen: g };
+            throw err;
+        }
+        // Normalize to determinant 1 so all downstream formulas (orbit maps,
+        // log/exp animation) can assume SL(2,C).
+        return new Matrix2x2(a, b, c, d, !!(state.anti && state.anti[g])).normalized();
     });
+    return { matrices, exactCtx: read.exact ? { field: read.field, gens: read.gens } : null, read };
+}
 
-    container.appendChild(constantBlock);
+// ---------------- MathQuill helpers ----------------
 
-    // Initialize MathQuill on the input fields
+function mathField(span, initial) {
     const MQ = window.MathQuill ? window.MathQuill.getInterface(2) : null;
-    if (MQ) {
-        const labelSpan = constantBlock.querySelector('.constant-label-input');
-        const exprSpan = constantBlock.querySelector('.constant-expr-input');
+    if (!MQ) { span.textContent = initial; return; }
+    const mf = MQ.MathField(span, { spaceBehavesLikeTab: true, handlers: { edit: () => { } } });
+    mf.latex(String(initial ?? '').replace(/\*\*/g, '^'));
+    span.MathQuill = () => mf;
+}
 
-        const labelField = MQ.MathField(labelSpan, {
-            spaceBehavesLikeTab: true,
-            handlers: { edit: () => { } }
-        });
-        const exprField = MQ.MathField(exprSpan, {
-            spaceBehavesLikeTab: true,
-            handlers: { edit: () => { } }
-        });
-
-        const labelInit = labelSpan.getAttribute('data-initial') || '';
-        const exprInit = exprSpan.getAttribute('data-initial') || '';
-
-        labelField.latex(String(labelInit).replace(/\*\*/g, '^'));
-        exprField.latex(String(exprInit).replace(/\*\*/g, '^'));
-
-        labelSpan.MathQuill = () => labelField;
-        exprSpan.MathQuill = () => exprField;
+function getLatex(el) {
+    try {
+        const api = el && typeof el.MathQuill === 'function' ? el.MathQuill() : null;
+        return api && typeof api.latex === 'function' ? api.latex() : (el ? el.textContent : '');
+    } catch {
+        return '';
     }
 }
 
-// Extract constants from UI
-export function getConstantsFromUI() {
-    const constants = {};
-    const blocks = document.querySelectorAll('#constantsInputs .constant-block');
+// ---------------- constants ----------------
 
-    for (const block of blocks) {
-        const labelSpan = block.querySelector('.constant-label-input');
-        const exprSpan = block.querySelector('.constant-expr-input');
-
-        const labelLatex = getLatex(labelSpan);
-        const exprLatex = getLatex(exprSpan);
-
-        // Convert label LaTeX to plain variable name
-        let varName = latexToExpr(labelLatex);
-        // Simple cleanup for variable names
-        varName = varName.replace(/[^a-zA-Z0-9_]/g, '');
-        if (!varName) continue;
-
-        // Evaluate expression with previously defined constants
-        const exprString = latexToExpr(exprLatex);
-        const complexVal = evalComplexExpression(exprString, constants);
-
-        // Store in constants scope for math.js
-        constants[varName] = complexVal.im === 0 ? complexVal.re : math.complex(complexVal.re, complexVal.im);
-    }
-
-    return constants;
+/** A row `name = expression`. */
+export function addConstantInput(labelValue = '', exprValue = '') {
+    const block = constantBlock('value');
+    if (!block) return null;
+    mathField(block.querySelector('.constant-label-input'), labelValue);
+    mathField(block.querySelector('.constant-expr-input'), exprValue);
+    return block;
 }
+
+/** A row `name root of polynomial`; `near` ({re, im}) picks the root, else the first. */
+export function addRootInput(name = 'w', poly = '', near = null) {
+    const block = constantBlock('root');
+    if (!block) return null;
+    mathField(block.querySelector('.constant-label-input'), name);
+    mathField(block.querySelector('.constant-expr-input'), poly);
+    block._near = near && Number.isFinite(near.re) ? { re: near.re, im: near.im || 0 } : null;
+    block._roots = [];
+    const plot = block.querySelector('.root-picker');
+    if (plot && window.RootPicker) {
+        block._picker = window.RootPicker.create(plot, {
+            onSelect: (i) => {
+                if (!block._roots[i]) return;
+                block._near = block._roots[i];
+                if (refreshCallback) refreshCallback();
+            },
+        });
+    }
+    return block;
+}
+
+function constantBlock(kind) {
+    const container = document.getElementById('constantsInputs');
+    if (!container) return null;
+    const block = document.createElement('div');
+    block.className = `constant-block${kind === 'root' ? ' root-block' : ''}`;
+    block.dataset.kind = kind;
+    block.innerHTML = kind === 'root'
+        ? `<div class="constant-row">
+               <span class="constant-label-input"></span>
+               <span class="constant-equals constant-rootof" title="The constant is the chosen root of this polynomial in it">root of</span>
+               <span class="constant-expr-input"></span>
+               <button class="delete-constant-btn" title="Remove" aria-label="Remove constant">✖</button>
+           </div>
+           <div class="root-picker"></div>`
+        : `<div class="constant-row">
+               <span class="constant-label-input"></span>
+               <span class="constant-equals">=</span>
+               <span class="constant-expr-input"></span>
+               <button class="delete-constant-btn" title="Remove" aria-label="Remove constant">✖</button>
+           </div>`;
+    block.querySelector('.delete-constant-btn').addEventListener('click', () => block.remove());
+    container.appendChild(block);
+    return block;
+}
+
+/** The constants as rows for expr.js: ['name', 'expr'] or { name, poly, near }. */
+function getConstantRows() {
+    return [...document.querySelectorAll('#constantsInputs .constant-block')].map(block => {
+        const name = getLatex(block.querySelector('.constant-label-input'));
+        const src = getLatex(block.querySelector('.constant-expr-input'));
+        return block.dataset.kind === 'root' ? { name, poly: src, near: block._near || null } : [name, src];
+    });
+}
+
+/** Show each root row's roots after a parse, and remember the chosen one. */
+function updateRootPickers(roots) {
+    document.querySelectorAll('#constantsInputs .constant-block').forEach((block, i) => {
+        if (block.dataset.kind !== 'root') return;
+        const data = roots && roots[i];
+        block._roots = data ? data.roots : [];
+        if (data && !block._near) block._near = data.roots[data.index];
+        if (block._picker) {
+            const name = getLatex(block.querySelector('.constant-label-input')).replace(/\\/g, '') || 'w';
+            block._picker.set(block._roots, data ? data.index : 0, name);
+        }
+    });
+}
+
+// ---------------- collapsed view ----------------
+
+// The constants show collapsed by default: one typeset line each, giving its
+// algebraic description (p = (1+√5)/2, or w² + w + 1 = 0 with w ≈ −0.5 + 0.866i).
+// Expanding shows the editor.
+let constantsExpanded = false;
+
+/** Show the editor (true) or the summary (false). */
+export function setConstantsExpanded(on) {
+    constantsExpanded = !!on;
+    document.getElementById('constants-group')?.classList.toggle('expanded', constantsExpanded);
+    const toggle = document.getElementById('constants-toggle');
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', String(constantsExpanded));
+        toggle.title = constantsExpanded ? 'Show the summary' : 'Show the editor';
+    }
+    if (constantsExpanded) {
+        // Fields laid out while hidden measure their radicals and fractions again.
+        document.querySelectorAll('#constantsInputs .constant-label-input, #constantsInputs .constant-expr-input').forEach(sp => {
+            try { sp.MathQuill?.().reflow(); } catch (e) { /* not a MathQuill field */ }
+        });
+    } else {
+        renderConstantsSummary();
+    }
+}
+
+function approxTex(z) {
+    const f = (x) => String(Number(x.toFixed(4)));
+    const re = Math.abs(z.re) < 5e-5 ? 0 : z.re, im = Math.abs(z.im) < 5e-5 ? 0 : z.im;
+    if (!im) return f(re);
+    const imPart = `${f(Math.abs(im)) === '1' ? '' : f(Math.abs(im))}i`;
+    return re ? `${f(re)} ${im < 0 ? '-' : '+'} ${imPart}` : `${im < 0 ? '-' : ''}${imPart}`;
+}
+
+/** One typeset line per constant; clicking one opens the editor at that row. */
+function renderConstantsSummary() {
+    const el = document.getElementById('constants-summary');
+    if (!el) return;
+    const items = [];
+    document.querySelectorAll('#constantsInputs .constant-block').forEach((block, i) => {
+        const name = getLatex(block.querySelector('.constant-label-input')).trim();
+        const src = getLatex(block.querySelector('.constant-expr-input')).trim();
+        if (!name && !src) return;
+        const tex = block.dataset.kind === 'root'
+            ? `${src || '?'} = 0` + (block._near ? `,\\quad ${name || '?'} \\approx ${approxTex(block._near)}` : '')
+            : `${name || '?'} = ${src || '?'}`;
+        items.push(`<button class="cs-item" type="button" data-row="${i}" title="Edit this constant">\\(\\displaystyle ${escapeHtml(tex)}\\)</button>`);
+    });
+    if (window.MathJax && MathJax.typesetClear) MathJax.typesetClear([el]);
+    el.innerHTML = items.length ? items.join('')
+        : '<button class="cs-item cs-empty" type="button" title="Add a constant">None</button>';
+    if (window.MathJax && MathJax.typesetPromise) {
+        MathJax.typesetPromise([el]).catch(err => console.warn('MathJax typeset error:', err));
+    }
+}
+
+function setupConstantsView() {
+    document.getElementById('constants-toggle')?.addEventListener('click', () => setConstantsExpanded(!constantsExpanded));
+    document.getElementById('constants-summary')?.addEventListener('click', (e) => {
+        const item = e.target.closest('.cs-item');
+        if (!item) return;
+        setConstantsExpanded(true);
+        const block = document.querySelectorAll('#constantsInputs .constant-block')[item.dataset.row];
+        try { block?.querySelector('.constant-expr-input')?.MathQuill?.().focus(); } catch (err) { /* not a MathQuill field */ }
+    });
+    setConstantsExpanded(constantsExpanded);
+}
+
+// ---------------- the field status line ----------------
+
+const escapeHtml = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function renderFieldStatus(read) {
+    const el = document.getElementById('field-status');
+    if (!el) return;
+    if (!read) { el.innerHTML = ''; return; }
+    if (read.exact) {
+        const K = read.field;
+        el.innerHTML = `<span class="fs-badge exact">exact</span> over \\(${K.tex()}\\)` +
+            (K.deg > 1 ? `, degree ${K.deg}` : '');
+        el.title = 'Every entry is an algebraic number: the certifier checks the group relations exactly in PGL₂ of this field.';
+    } else {
+        el.innerHTML = `<span class="fs-badge float">floating point</span> ` +
+            (read.reasonWhere ? `<span class="fs-where">${escapeHtml(read.reasonWhere)}:</span> ` : '') +
+            `${escapeHtml(read.reason)}.`;
+        el.title = 'Some value is not an algebraic number this tool can represent, so the group is computed numerically.';
+    }
+    if (window.MathJax && MathJax.typesetPromise) {
+        MathJax.typesetPromise([el]).catch(err => console.warn('MathJax typeset error:', err));
+    }
+}
+
+// ---------------- generators ----------------
 
 // Add a matrix input UI element. `anti` marks the generator as
 // orientation-reversing: the map z ↦ (a·z̄+b)/(c·z̄+d).
@@ -216,10 +258,10 @@ export function addMatrixInput(values = ['1', '0', '0', '1'], anti = false) {
                 <span class="matrix-label">g₍${idx + 1}₎ = </span>
                 <span class="matrix-bracket">(</span>
                 <span class="matrix-grid-inline">
-                    <span class="mq-matrix-input" data-initial="${values[0]}"></span>
-                    <span class="mq-matrix-input" data-initial="${values[1]}"></span>
-                    <span class="mq-matrix-input" data-initial="${values[2]}"></span>
-                    <span class="mq-matrix-input" data-initial="${values[3]}"></span>
+                    <span class="mq-matrix-input"></span>
+                    <span class="mq-matrix-input"></span>
+                    <span class="mq-matrix-input"></span>
+                    <span class="mq-matrix-input"></span>
                 </span>
                 <span class="matrix-bracket">)</span>
                 <label class="anti-toggle" title="Click to conjugate first: z ↦ (a·z̄+b)/(c·z̄+d) — an orientation-reversing generator (reflection / glide reflection).">
@@ -236,23 +278,7 @@ export function addMatrixInput(values = ['1', '0', '0', '1'], anti = false) {
     });
 
     container.appendChild(matrixBlock);
-
-    // Initialize MathQuill on the input fields
-    const MQ = window.MathQuill ? window.MathQuill.getInterface(2) : null;
-    if (MQ) {
-        const spans = matrixBlock.querySelectorAll('.mq-matrix-input');
-        spans.forEach(span => {
-            const mf = MQ.MathField(span, {
-                spaceBehavesLikeTab: true,
-                handlers: { edit: () => { } }
-            });
-            const init = span.getAttribute('data-initial') || '0';
-            const normalized = String(init).replace(/\*\*/g, '^');
-            mf.latex(normalized);
-            span.MathQuill = () => mf;
-        });
-    }
-
+    matrixBlock.querySelectorAll('.mq-matrix-input').forEach((span, k) => mathField(span, values[k] ?? '0'));
     updateMatrixLabels();
 }
 
@@ -269,85 +295,37 @@ function updateMatrixLabels() {
     }
 }
 
-// Get LaTeX from MathQuill field
-function getLatex(el) {
-    try {
-        const api = el && typeof el.MathQuill === 'function' ? el.MathQuill() : null;
-        return api && typeof api.latex === 'function' ? api.latex() : (el ? el.textContent : '0');
-    } catch {
-        return '0';
+/** Outline the field an error points at (err.where from expr.js). */
+function markError(where) {
+    document.querySelectorAll('#matrixInputs .mq-error, #constantsInputs .mq-error').forEach(el => el.classList.remove('mq-error'));
+    if (!where) return;
+    if (where.constant != null) {
+        setConstantsExpanded(true);
+        const block = document.querySelectorAll('#constantsInputs .constant-block')[where.constant];
+        block?.querySelectorAll('.constant-label-input, .constant-expr-input').forEach(el => el.classList.add('mq-error'));
+    } else if (where.gen != null) {
+        const block = document.querySelectorAll('#matrixInputs .matrix-block')[where.gen];
+        const spans = block ? block.querySelectorAll('.mq-matrix-input') : [];
+        if (where.entry != null) spans[where.entry]?.classList.add('mq-error');
+        else spans.forEach(el => el.classList.add('mq-error'));
     }
 }
 
 // Extract matrices from UI as Matrix2x2 objects
 export function getMatricesFromUI() {
-    // First, extract all constants
-    const constants = getConstantsFromUI();
-
-    const matrices = [];
-    const blocks = document.querySelectorAll('#matrixInputs .matrix-block');
-    const exactGens = exactField ? [] : null;
-    if (exactField && Object.keys(constants).length > 0) {
-        throw new Error('Exact mode does not support the Constants section — write entries in the field generator.');
+    let built;
+    try {
+        built = buildGroup(getInputState());
+    } catch (e) {
+        markError(e.where);
+        throw e;
     }
-
-    for (const block of blocks) {
-        const spans = block.querySelectorAll('.mq-matrix-input');
-        const antiBox = block.querySelector('.anti-checkbox');
-        const anti = !!(antiBox && antiBox.checked);
-        if (exactField && anti && !exactField.hasConj()) {
-            throw new Error('Orientation-reversing (z̄) generators in exact mode need complex ' +
-                'conjugation as a field automorphism, which is not configured for this field/root — ' +
-                'use a field closed under conjugation (real embedding or degree 2), a preset that ' +
-                'supplies σ(w), or turn off exact mode.');
-        }
-
-        let a, b, c, d;
-        if (exactField) {
-            // Exact path: parse each entry as an element of K, embed for floats.
-            const genNo = matrices.length + 1;
-            const toK = (k) => {
-                const latex = getLatex(spans[k]);
-                try {
-                    const v = parseKElem(latexToExpr(String(latex || '0')), exactField);
-                    spans[k]?.classList.remove('mq-error');
-                    return v;
-                } catch (e) {
-                    spans[k]?.classList.add('mq-error');
-                    throw new Error(`g${genNo}, entry ${ENTRY_NAMES[k]}: ${e.message}`);
-                }
-            };
-            const ea = toK(0), eb = toK(1), ec = toK(2), ed = toK(3);
-            const em = new ExactMat(ea, eb, ec, ed, anti);
-            if (em.det().isZero()) {
-                throw new Error('Matrix has determinant 0 exactly (not invertible)');
-            }
-            exactGens.push(em);
-            const z = (e) => { const v = e.embed(); return new Complex(v.re, v.im); };
-            a = z(ea); b = z(eb); c = z(ec); d = z(ed);
-        } else {
-            const genNo = matrices.length + 1;
-            const vals = [0, 1, 2, 3].map(k => {
-                const latex = getLatex(spans[k]);
-                const z = evalComplexExpression(latexToExpr(String(latex || '0')), constants);
-                return checkEntry(z, latex, genNo, k, spans[k]);
-            });
-            [a, b, c, d] = vals;
-        }
-
-        const det = a.mul(d).sub(b.mul(c));
-        // Written so that NaN fails too (NaN < x is false for every x).
-        if (!(det.normSq() >= 1e-12)) {
-            throw new Error(`g${matrices.length + 1} has determinant 0 (not invertible)`);
-        }
-
-        // Normalize to determinant 1 so all downstream formulas (orbit maps,
-        // log/exp animation) can assume SL(2,C).
-        matrices.push(new Matrix2x2(a, b, c, d, anti).normalized());
-    }
-
-    if (exactField) lastExactGens = exactGens;
-    return matrices;
+    markError(null);
+    lastBuilt = built;
+    updateRootPickers(built.read.roots);
+    if (!constantsExpanded) renderConstantsSummary();
+    renderFieldStatus(built.read);
+    return built.matrices;
 }
 
 // Get generators (matrices and their inverses) from UI
@@ -361,6 +339,33 @@ export function getGeneratorsFromUI() {
     return generators;
 }
 
+// ---------------- loading groups ----------------
+
+/** Add the constants rows of a preset or permalink. */
+function addConstantRows(consts) {
+    for (const row of consts || []) {
+        if (Array.isArray(row)) addConstantInput(row[0], row[1]);
+        else if (row && 'poly' in row) addRootInput(row.name, row.poly, row.near);
+    }
+}
+
+/**
+ * The root row replacing an old exact-arithmetic spec { gen, minpoly, root?,
+ * rootIndex? } (permalinks from before constants and fields were merged).
+ * rootIndex counted the roots sorted by real part, then imaginary part.
+ */
+function legacyExactRow(spec) {
+    const name = spec.gen || 'w', poly = String(spec.minpoly || name);
+    let near = spec.root || null;
+    if (!near) {
+        try {
+            const roots = numericPolyRoots(poly, name).sort((x, y) => (x.re - y.re) || (x.im - y.im));
+            near = roots[Math.min(spec.rootIndex || 0, roots.length - 1)] || null;
+        } catch (e) { near = null; }
+    }
+    return { name, poly, near };
+}
+
 // Load an example. `anti` is an optional per-matrix array of booleans marking
 // orientation-reversing generators.
 function setExample(example, exampleName = '', consts = null, anti = null) {
@@ -370,9 +375,8 @@ function setExample(example, exampleName = '', consts = null, anti = null) {
 
     // Clear matrices and constants
     matrixContainer.innerHTML = '';
-    if (constantsContainer) {
-        constantsContainer.innerHTML = '';
-    }
+    if (constantsContainer) constantsContainer.innerHTML = '';
+    renderFieldStatus(null);
 
     // Special handling for Hecke group - add random n constant
     if (exampleName === 'Hecke group') {
@@ -380,24 +384,12 @@ function setExample(example, exampleName = '', consts = null, anti = null) {
         addConstantInput('n', String(randomN));
     }
 
-    // Library-provided constants ([name, latex] pairs, defined in order)
-    if (consts) {
-        consts.forEach(([name, expr]) => addConstantInput(name, expr));
-    }
+    addConstantRows(consts);
+    if (!constantsExpanded) renderConstantsSummary();
 
     example.forEach((vals, i) => addMatrixInput(
         vals.map(v => String(v).replace(/\*\*/g, '^')),
         !!(anti && anti[i])));
-}
-
-/**
- * Configure exact mode for a library example: examples with an `exact` spec
- * ({gen?, minpoly, root, conj?}) enable exact mode with that field; examples
- * without one disable it (their entries are plain float expressions).
- * main.js owns the exact-panel state and listens for this event.
- */
-function setExampleExact(spec) {
-    window.dispatchEvent(new CustomEvent('poincare:set-exact', { detail: spec || null }));
 }
 
 // Store the onRefresh callback for use by the example picker
@@ -412,7 +404,6 @@ export function loadExample(idx) {
     const wl = document.getElementById('wordLength');
     if (wl) wl.value = String(example.depth || 8);
     window.dispatchEvent(new CustomEvent('poincare:example', { detail: { name: example.name } }));
-    setExampleExact(example.exact);
     // Trigger refresh after a short delay for MathQuill to initialize
     if (refreshCallback) {
         setTimeout(refreshCallback, 50);
@@ -428,17 +419,15 @@ export function getInputState() {
         mats.push([...block.querySelectorAll('.mq-matrix-input')].map(sp => getLatex(sp)));
         anti.push(!!block.querySelector('.anti-checkbox')?.checked);
     });
-    const consts = [];
-    document.querySelectorAll('#constantsInputs .constant-block').forEach(block => {
-        consts.push([getLatex(block.querySelector('.constant-label-input')), getLatex(block.querySelector('.constant-expr-input'))]);
-    });
-    return { mats, anti, consts };
+    return { mats, anti, consts: getConstantRows() };
 }
 
-/** Replace the inputs (no refresh). */
+/** Replace the inputs (no refresh). A state from before the merge may carry `exact`. */
 export function applyInputState(st) {
     if (!st || !Array.isArray(st.mats) || !st.mats.length) return false;
-    setExample(st.mats.map(m => m.map(String)), '', st.consts && st.consts.length ? st.consts : null, st.anti || null);
+    const consts = (st.consts || []).slice();
+    if (st.exact && st.exact.minpoly && !consts.some(r => r && !Array.isArray(r))) consts.unshift(legacyExactRow(st.exact));
+    setExample(st.mats.map(m => m.map(String)), '', consts.length ? consts : null, st.anti || null);
     return true;
 }
 
@@ -484,9 +473,7 @@ function buildExampleModal() {
                 <h4 class="example-cat-title">${cat}</h4>
                 <div class="example-grid">`;
         for (const { ex, idx } of cats.get(cat)) {
-            const badges =
-                (ex.exact ? '<span class="ex-badge exact" title="Certifies with exact arithmetic">exact</span>' : '') +
-                (ex.anti ? '<span class="ex-badge mirrors" title="Orientation-reversing generators">mirrors</span>' : '');
+            const badges = ex.anti ? '<span class="ex-badge mirrors" title="Orientation-reversing generators">mirrors</span>' : '';
             html += `<button class="example-card" data-idx="${idx}">
                     <span class="example-card-head">
                         <span class="example-name">${ex.name}</span>
@@ -573,18 +560,15 @@ export function setupMatrixInput(onRefresh, initialState = null) {
 
     // Example picker modal (opened by the Load Example button)
     buildExampleModal();
+    setupConstantsView();
 
-    // Add matrix button
-    const addMatrixBtn = document.getElementById('addMatrixBtn');
-    if (addMatrixBtn) {
-        addMatrixBtn.addEventListener('click', () => addMatrixInput());
-    }
-
-    // Add constant button
-    const addConstantBtn = document.getElementById('addConstantBtn');
-    if (addConstantBtn) {
-        addConstantBtn.addEventListener('click', () => addConstantInput());
-    }
+    document.getElementById('addMatrixBtn')?.addEventListener('click', () => addMatrixInput());
+    document.getElementById('addConstantBtn')?.addEventListener('click', () => addConstantInput());
+    document.getElementById('addRootBtn')?.addEventListener('click', () => {
+        const used = new Set(getConstantRows().map(r => (Array.isArray(r) ? r[0] : r.name)));
+        const name = ['w', 'u', 'v', 'x', 'y'].find(n => !used.has(n)) || '';
+        addRootInput(name, name ? `${name}^2+1` : '');
+    });
 
     // Refresh button
     const refreshBtn = document.getElementById('refresh-btn');
@@ -592,4 +576,3 @@ export function setupMatrixInput(onRefresh, initialState = null) {
         refreshBtn.addEventListener('click', onRefresh);
     }
 }
-

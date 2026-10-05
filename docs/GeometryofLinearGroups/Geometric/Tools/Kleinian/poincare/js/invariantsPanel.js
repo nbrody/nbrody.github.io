@@ -1,5 +1,5 @@
 /**
- * The Invariants tab: volume, homology, torsion, cusps and their shapes,
+ * The Info tab's Invariants section: volume, homology, torsion, cusps and their shapes,
  * simplified presentations (also in the user's own generators), the complex
  * length spectrum with closed geodesics drawn inside the domain, and the
  * invariant trace field with an arithmeticity test.
@@ -112,7 +112,7 @@ export function renderInvariants(onApplyWord) {
     const tf = inv.traceField;
     let f = '';
     if (!app.exactCtx) {
-        f = '<div class="inv-hint">Turn on Exact Arithmetic (Group tab) to compute the invariant trace field exactly.</div>';
+        f = '<div class="inv-hint">The entries are not all algebraic numbers (see the Group tab), so the invariant trace field is not computed.</div>';
     } else if (!tf || tf.note) {
         f = `<div class="inv-hint">${escapeHtml(tf && tf.note ? tf.note : 'not available')}</div>`;
     } else {
