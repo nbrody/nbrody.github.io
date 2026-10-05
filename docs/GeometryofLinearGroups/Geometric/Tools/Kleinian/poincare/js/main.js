@@ -47,6 +47,7 @@ import {
     manifoldFragmentShader, honeycombFragmentShader, makeTessellationUniforms, loadTessellationUniforms
 } from './tessellation.js';
 import { readStateFromURL, writeStateToURL } from './permalink.js';
+import { createPlanarView, isRealGroup, framePlanarCamera, planarPick, PLANAR_MAX_WALLS } from './planar.js';
 
 const EMBED = document.documentElement.classList.contains('embed-mode');
 const service = createDomainService({ version: window.APP_VERSION || '' });
@@ -74,6 +75,19 @@ const honeycombMaterial = makeTessMaterial(honeycombFragmentShader);
 const manifoldMaterial = makeTessMaterial(manifoldFragmentShader);
 const render = { honeycomb: false, manifold: false };
 
+// The plane picture (planar.js): a group in PGL₂(ℝ) is drawn as its tiling of
+// the hyperbolic plane over ℝ, by default. A new group resets the choice.
+const planarView = createPlanarView(scene, material.uniforms);
+const planar = { on: false, available: false, groupKey: null, keep3d: false };
+
+/** The raymarched domain and the plane share the polyhedron opacity. */
+function syncDomainVisibility() {
+    const o = material.uniforms.u_opacity.value;
+    mesh.visible = !planar.on && o > 0;
+    planarView.setVisible(planar.on && o > 0);
+    planarView.setOpacity(o);
+}
+
 function activeMaterial() {
     if (render.manifold && insideView.isActive()) return manifoldMaterial;
     if (render.honeycomb && view.model === 'ball' && !insideView.isActive()) return honeycombMaterial;
@@ -83,6 +97,7 @@ function activeMaterial() {
 function syncMaterial() {
     const m = activeMaterial();
     if (mesh.material !== m) mesh.material = m;
+    syncDomainVisibility();
     if (m === material) {
         const frag = mirrorMode ? mirrorFragmentShader : domainFragment;
         if (material.fragmentShader !== frag) { material.fragmentShader = frag; material.needsUpdate = true; }
@@ -106,12 +121,14 @@ function syncMaterial() {
 }
 
 function setMirrorMode(on) {
+    if (on && planar.on) setPlanar(false);
     mirrorMode = on;
     updateToggleBtn(document.getElementById('toggle-mirror'), on);
     syncMaterial();
 }
 
 function setHoneycomb(on) {
+    if (on && planar.on) setPlanar(false);
     render.honeycomb = on;
     updateToggleBtn(document.getElementById('toggle-honeycomb'), on);
     if (on && view.model !== 'ball') setViewModel('ball');
@@ -134,6 +151,11 @@ function onSceneMoved({ fast = false } = {}) {
     retargetScene();
     const D = displayedDomain();
     loadDomainUniforms(D, faceColors(D));
+    if (planar.on && !planarView.update(app.scene, faceColors(app.scene))) {
+        setBanner('warning', `2D view unavailable: the polygon has more than ${PLANAR_MAX_WALLS} edges.`);
+        setPlanar(false);
+        return;
+    }
     refreshLayers({ fast });
     updateLimitSet();
     if (mesh.material !== material && app.scene) loadTessellationUniforms(mesh.material.uniforms, app.scene, faceColors(app.scene));
@@ -296,6 +318,18 @@ function refreshFromUI() {
     inputError = null;
     app.viewMatrix = Matrix2x2.identity();
     app.cumulativeWord = [];
+    // A group in PGL₂(ℝ) is drawn in its plane by default; a new group resets the choice.
+    planar.available = isRealGroup(app.matrices);
+    const key = groupKey(app.matrices);
+    if (key !== planar.groupKey) {
+        planar.groupKey = key;
+        const want = planar.available && !planar.keep3d;
+        planar.keep3d = false;
+        setPlanar(want);
+    } else if (planar.on && !planar.available) {
+        setPlanar(false);
+    }
+    syncPlanarControls();
     if (insideView.isActive()) app.flyMatrix = entryFlyMatrix();
     updateIsometryButtons();
     renderUserElements(applyMatrixWord);
@@ -391,6 +425,7 @@ function entryFlyMatrix() {
 function setInsideView(on) {
     if (on === insideView.isActive()) return;
     if (!on) { insideView.exit(); return; }
+    if (planar.on) setPlanar(false);
     if (view.model !== 'ball') setViewModel('ball');
     if (mirrorMode) setMirrorMode(false);
     if (render.honeycomb) setHoneycomb(false);
@@ -462,12 +497,13 @@ function setViewModel(model) {
     const uhs = model === 'uhs';
     material.uniforms.u_uhs.value = uhs;
     mesh.geometry = uhs ? uhsBox : ballBox;
+    planarView.setModel(model);
     limitSet.setViewModel(model);
     if (uhs) {
         if (mirrorMode) setMirrorMode(false);
         if (render.honeycomb) setHoneycomb(false);
     }
-    setModelCamera();
+    if (planar.on) framePlanarCamera(camera, controls, model); else setModelCamera();
     clearFaceSelection();
     invalidateSkeleton();
     for (const id of ['toggle-mirror', 'toggle-honeycomb']) {
@@ -495,11 +531,61 @@ function setTheme(mode) {
     document.getElementById('theme-light')?.classList.toggle('active', mode === 'light');
 }
 
+// ---------------- the plane picture ----------------
+
+/** Signature of the generators, to tell a new group from a refresh of the same one. */
+function groupKey(mats) {
+    return mats.map(m => [m.a, m.b, m.c, m.d].map(z => `${z.re.toFixed(9)},${z.im.toFixed(9)}`).join(';') + (m.anti ? 'a' : '')).join('|');
+}
+
+function syncPlanarControls() {
+    const btn = document.getElementById('toggle-planar');
+    if (btn) {
+        updateToggleBtn(btn, planar.on);
+        btn.disabled = !planar.available;
+        btn.title = planar.available
+            ? 'The group lies in PGL₂(ℝ), so it preserves the hyperbolic plane over the real line: draw its tiling of that plane (2D), or the domain in hyperbolic space (3D).'
+            : 'Only for groups in PGL₂(ℝ), which preserve the hyperbolic plane over the real line.';
+    }
+    // The picture is the slice through the plane, so the basepoint stays on it.
+    const bpY = document.getElementById('bp-y');
+    if (bpY) bpY.disabled = planar.on;
+}
+
+/** Draw a group in PGL₂(ℝ) as its tiling of the plane over ℝ (true), or in 3D. */
+function setPlanar(on) {
+    on = !!on && planar.available;
+    if (on === planar.on) { syncPlanarControls(); return; }
+    planar.on = on;
+    if (on) {
+        if (insideView.isActive()) setInsideView(false);
+        if (app.fordOn) setCuspView(false);
+        if (render.honeycomb) setHoneycomb(false);
+        if (mirrorMode) setMirrorMode(false);
+        controls.autoRotate = false;
+        updateToggleBtn(document.getElementById('auto-rotate'), false);
+        if (Math.abs(app.basepointBall[1]) > 1e-12) {
+            const el = document.getElementById('bp-y');
+            if (el) el.value = '0';
+            setBasepointFromBall([app.basepointBall[0], 0, app.basepointBall[2]]);
+        }
+    }
+    inspect.planar = on;
+    clearFaceSelection();
+    syncPlanarControls();
+    syncMaterial();
+    if (on) framePlanarCamera(camera, controls, view.model); else setModelCamera();
+    if (app.scene) onSceneMoved();
+    rebuildFaceLabels();
+    if (app.home) updatePermalink();
+}
+
 // ---------------- cusp view (Ford domain + horoballs) ----------------
 
 let opacityBeforeCusp = null;
 
 function setCuspView(on, { recompute = true } = {}) {
+    if (on && planar.on) setPlanar(false);
     app.fordOn = on;
     updateToggleBtn(document.getElementById('toggle-cusp'), on);
     const hbBtn = document.getElementById('toggle-horoballs');
@@ -587,6 +673,7 @@ function currentState() {
     return {
         v: 1,
         ...inputs,
+        plane: planar.available && !planar.on ? false : undefined,
         depth: app.depth, faces: app.maxFaces,
         bp: app.basepointBall.some(x => Math.abs(x) > 1e-9) ? app.basepointBall : undefined,
         cusp: app.fordOn ? app.fordCusp : undefined,
@@ -646,7 +733,7 @@ let panelUI = null;
 /** Polyhedron opacity through the slider, so its display stays in sync. */
 function setPolyhedronOpacity(o) {
     material.uniforms.u_opacity.value = o;
-    mesh.visible = o > 0;
+    syncDomainVisibility();
     panelUI?.sliders?.polyhedron?.setValue(o);
 }
 
@@ -666,7 +753,7 @@ window.addEventListener('poincare:geodesic', (e) => {
 
 function initUI() {
     panelUI = setupControlPanel({
-        onPolyhedronOpacity: (o) => { material.uniforms.u_opacity.value = o; mesh.visible = o > 0; },
+        onPolyhedronOpacity: (o) => { material.uniforms.u_opacity.value = o; syncDomainVisibility(); },
         onWallsOpacity: (o) => setWallsOpacity(o),
         onCayleyModeChange: (mode) => { layers.cayleyMode = mode; updateCayley(); },
         onDualModeChange: (mode) => {
@@ -676,7 +763,11 @@ function initUI() {
         },
         onDualOpacityChange: (o) => setDualOpacity(o),
         onAutoRotateToggle: (btn) => { controls.autoRotate = !controls.autoRotate; updateToggleBtn(btn, controls.autoRotate); },
-        onResetCamera: (btn) => { setModelCamera(); controls.autoRotate = false; updateToggleBtn(btn, false); },
+        onResetCamera: (btn) => {
+            if (planar.on) framePlanarCamera(camera, controls, view.model); else setModelCamera();
+            controls.autoRotate = false;
+            updateToggleBtn(btn, false);
+        },
         onFaceCountChange: (count) => { app.maxFaces = count; requestCompute(); },
         onWordLengthChange: (depth) => { app.depth = depth; requestCompute(); },
         onPaletteChange: () => { invalidateFaceColors(); onSceneMoved(); rebuildFaceLabels(); },
@@ -684,6 +775,7 @@ function initUI() {
         controls, mesh, material
     });
 
+    bindToggle('toggle-planar', () => setPlanar(!planar.on));
     bindToggle('toggle-mirror', () => setMirrorMode(!mirrorMode));
     bindToggle('toggle-honeycomb', () => setHoneycomb(!render.honeycomb));
     bindToggle('toggle-manifold', () => setManifold(!render.manifold));
@@ -821,23 +913,25 @@ function initUI() {
         }
     });
 
-    // Picking
+    // Picking: the 3D walls, or in the plane picture the edges of the polygon
+    // (a click in a neighbouring tile picks the edge it lies across).
+    const pickAt = (e) => (planar.on ? planarPick(rayFromEvent(e), app.scene, view.model === 'uhs') : pickWall(rayFromEvent(e)));
     let downPos = null;
     renderer.domElement.addEventListener('pointerdown', (e) => { downPos = { x: e.clientX, y: e.clientY }; });
     renderer.domElement.addEventListener('click', (e) => {
         if (app.animating || !app.scene || insideView.isActive()) return;
         if (downPos && (e.clientX - downPos.x) ** 2 + (e.clientY - downPos.y) ** 2 > 36) return;
-        if (!e.shiftKey) {
+        if (!e.shiftKey && !planar.on) {
             const v = pickVertex(e.clientX, e.clientY);
             if (v) { selectVertex(v, () => { if (layers.showTiling) updateTiling(); }); return; }
         }
-        const hit = pickWall(rayFromEvent(e));
+        const hit = pickAt(e);
         if (hit.index < 0) { clearFaceSelection(); if (layers.showTiling) updateTiling(); return; }
         handleFaceClick(hit.index, e.shiftKey, () => { if (layers.showTiling) updateTiling(); });
     });
     renderer.domElement.addEventListener('dblclick', (e) => {
         if (insideView.isActive() || app.animating) return;
-        const hit = pickWall(rayFromEvent(e));
+        const hit = pickAt(e);
         if (hit.index < 0) return;
         // Roll the domain across THIS face: apply the element g whose wall it
         // is, sending the domain to the adjacent tile g·D.
@@ -866,6 +960,7 @@ function animate(time) {
         controls.update();
     }
     if (orbitRun && orbitRun.dirty) updateOrbitInstances(time);
+    if (planar.on) planarView.setSelection(app.scene, inspect.selectedFace);
     updateFaceLabels();
     const m = mesh.material;
     if (m.uniforms.u_cameraPos) m.uniforms.u_cameraPos.value.copy(camera.position);
@@ -977,6 +1072,7 @@ if (urlState) {
     }
     if (urlState.theme) setTheme(urlState.theme);
 }
+planar.keep3d = !!(urlState && (urlState.plane === false || urlState.cusp !== undefined));
 setupMatrixInput(refreshFromUI, urlState);
 applyViewOffset(panelWidth());
 setTimeout(() => {

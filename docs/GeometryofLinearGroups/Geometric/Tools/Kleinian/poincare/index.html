@@ -29,7 +29,7 @@
     <script>
         (function () {
             // APP_VERSION busts stale module caches; bump on releases.
-            const APP_VERSION = '2026-10-05e';
+            const APP_VERSION = '2026-10-05f';
             window.APP_VERSION = APP_VERSION;
             const im = {
                 imports: {
@@ -42,7 +42,7 @@
                 'insideView', 'limitSet', 'polyhedron', 'presentation', 'invariants',
                 'app', 'domain', 'scene', 'overlays', 'isoAxis', 'inspector', 'panels',
                 'invariantsPanel', 'horoballs', 'tessellation', 'permalink', 'domainService',
-                'compute', 'format', 'tower', 'expr'];
+                'compute', 'format', 'tower', 'expr', 'planar'];
             for (const m of mods) {
                 im.imports[new URL(`js/${m}.js`, location.href).href] = `./js/${m}.js?v=${APP_VERSION}`;
             }
@@ -337,6 +337,8 @@
 
                 <div class="control-group">
                     <label class="control-label">Model</label>
+                    <button id="toggle-planar" class="toggle-btn" disabled
+                        title="Only for groups in PGL₂(ℝ), which preserve the hyperbolic plane over the real line.">Plane (2D)</button>
                     <button id="view-uhs" class="toggle-btn"
                         title="Upper half-space model.">Upper Half-Space</button>
                     <div class="cayley-selector limit-depth-row disabled" id="cutaway-row">

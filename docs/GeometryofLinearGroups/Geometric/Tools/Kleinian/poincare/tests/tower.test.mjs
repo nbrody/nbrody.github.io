@@ -138,3 +138,34 @@ test('legacy minimal-polynomial roots', () => {
     const roots = numericPolyRoots('w^2+w+1', 'w').sort((x, y) => (x.re - y.re) || (x.im - y.im));
     assert.ok(near(roots[1], -0.5, Math.sqrt(3) / 2));
 });
+
+test('a split polynomial gives back the requested root (not another one in the field)', () => {
+    // The Weeks field Q(w) is palindromic, so 1/w is a root of w's polynomial in Q(w);
+    // asking for conj(w) must not return it.
+    const weeks = { name: 'w', poly: 'w^6-2w^5+6w^4-5w^3+6w^2-2w+1', near: { re: 0.61547315, im: 1.80372911 } };
+    const r = readGroup({ mats: [['w', '0', '0', '1']], consts: [weeks] });
+    const K = r.field, L = K.levels[1];
+    const want = { re: L.value.re, im: -L.value.im };
+    const x = K.adjoinRoot(L.P.map(c => K.wrap(c, 0)), want);
+    assert.ok(near(x.embed(), want.re, want.im, 1e-8), `got ${x.embed().re} ${x.embed().im}`);
+    assert.equal(K.height, 2);                                     // conj(w) ∉ Q(w)
+    // and the root that IS in Q(w), 1/w, is found there without a new level
+    const K1 = readGroup({ mats: [['w', '0', '0', '1']], consts: [weeks] }).field;
+    const inv = K1.adjoinRoot(K1.levels[1].P.map(c => K1.wrap(c, 0)), { re: 0.1694, im: -0.4966 });
+    assert.equal(K1.height, 1);
+    assert.ok(inv.mul(K1.gen(1)).equals(K1.one()));
+});
+
+test('σ is complex conjugation on every mirror preset and on Weeks with a mirror', () => {
+    const cases = exampleLibrary.filter(ex => ex.anti).map(ex => ({ name: ex.name, mats: ex.mats, anti: ex.anti, consts: ex.consts || [] }));
+    const weeks = exampleLibrary.find(e => e.name === 'Weeks manifold (closed)');
+    cases.push({ name: 'Weeks + mirror', mats: weeks.mats, anti: [true, false], consts: weeks.consts });
+    for (const c of cases) {
+        const r = readGroup(c);
+        assert.ok(r.exact, `${c.name}: ${r.reason}`);
+        for (const M of r.gens) for (const k of ['a', 'b', 'c', 'd']) {
+            const e = M[k].embed(), s = M[k].conj().embed();
+            assert.ok(near(s, e.re, -e.im, 1e-9), `${c.name}: σ(${k}) is not the complex conjugate`);
+        }
+    }
+});

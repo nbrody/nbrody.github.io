@@ -16,6 +16,7 @@ import { displayedDomain, displayedHome, faceColors, faceClasses } from './domai
 import { camera, renderer, view, toWorld, geomToWorld, disposeGroup, layer } from './scene.js';
 import { buildClippedFace, tubeGeometry, state as layerState } from './overlays.js';
 import { wordTex, matrixLatex, typeset, escapeHtml } from './format.js';
+import { planarEdgeMidpoints } from './planar.js';
 
 const highlightGroup = layer(true);
 const cycleGroup = layer(false);
@@ -27,6 +28,8 @@ export const inspect = {
     showCycles: false,
     showLabels: false,
     labels: [],            // [{el, home: Vector3, wall}]
+    planar: false,         // the 2D picture (planar.js) is on: labels on the polygon's edges,
+                           // and the plane shader highlights the selected edge
 };
 
 /** Scene isometry of the displayed domain's home frame. */
@@ -131,7 +134,7 @@ export function clearHighlights() {
 
 export function highlightFace(idx, color, group = highlightGroup) {
     const D = displayedDomain();
-    if (!D || idx < 0 || idx >= D.walls.length) return;
+    if (!D || idx < 0 || idx >= D.walls.length || inspect.planar) return;
     const geom = D.walls[idx].geom;
     const pole = projectToWall(D.conePoint, geom);
     const covs = [];
@@ -308,7 +311,9 @@ export function handleFaceClick(idx, shift, onFocus) {
         `<div class="fi-row"><span class="fi-key">${escapeHtml(faceLabelText(idx))}</span><span>\\(${wordTex(wall.word, 20)}\\)</span></div>` +
         `<div class="fi-type">${typeLabel}</div>` + partner +
         (M ? `<div class="fi-matrix">${matrixLatex(M)}</div>` : '') +
-        '<div class="fi-hint">shift-click a neighbour for the edge · double-click to roll across · click a corner for a vertex</div>');
+        (inspect.planar
+            ? '<div class="fi-hint">click a neighbouring tile for its edge · double-click to roll across</div>'
+            : '<div class="fi-hint">shift-click a neighbour for the edge · double-click to roll across · click a corner for a vertex</div>'));
     if (onFocus) onFocus();
 }
 
@@ -411,8 +416,9 @@ export function rebuildFaceLabels() {
     const H = displayedHome();
     if (!inspect.showLabels || !H) return;
     const colors = faceColors();
+    const mids = inspect.planar ? planarEdgeMidpoints(displayedDomain()) : null;
     H.walls.forEach((w, i) => {
-        const home = faceCenterHome(i, H);
+        const home = mids ? (mids[i] ? new THREE.Vector3() : null) : faceCenterHome(i, H);
         if (!home) return;
         const el = document.createElement('div');
         el.className = 'face-label';
@@ -432,7 +438,17 @@ export function updateFaceLabels() {
     const S = displayedScene();
     const rect = renderer.domElement.getBoundingClientRect();
     const camPos = camera.position;
+    const mids = inspect.planar ? planarEdgeMidpoints(D) : null;
     for (const L of inspect.labels) {
+        if (mids) {
+            // 2D: on the edge of the polygon (it moves with the view, so recompute)
+            const m = mids[L.wall];
+            const ndc = m ? toWorld(m).project(camera) : null;
+            const vis = !!ndc && ndc.z < 1 && Math.abs(ndc.x) < 1.1 && Math.abs(ndc.y) < 1.1;
+            L.el.style.display = vis ? 'block' : 'none';
+            if (vis) L.el.style.transform = `translate(${(ndc.x * 0.5 + 0.5) * rect.width}px, ${(-ndc.y * 0.5 + 0.5) * rect.height}px) translate(-50%, -50%)`;
+            continue;
+        }
         const p = applyMatrixToBall(S, L.home);
         const w = toWorld(p);
         const wall = D.walls[L.wall];

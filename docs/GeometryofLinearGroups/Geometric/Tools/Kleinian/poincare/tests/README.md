@@ -23,3 +23,5 @@ Uses the existing sibling `vendor/three` files; no dependency installation is re
   constants and entries (field degrees, root rows, π-multiples, the floating-point fallback and
   its reason, error locations), complex conjugation (found inside the field or adjoined),
   serialization across the worker boundary, and that every preset reads exactly.
+- `planar.test.mjs` — the plane picture: which presets lie in PGL₂(ℝ) (up to scalars, mirrors
+  included), and that slicing the 3D domain by the plane over ℝ gives one polygon edge per face.

@@ -312,7 +312,8 @@ export const exampleLibrary = [
         // bb + 1/bb = zz and the resolvent cubic zz³−2zz²+3zz−1 = 0 give the
         // sextic minpoly w⁶−2w⁵+6w⁴−5w³+6w²−2w+1 (irreducible: no real
         // roots, no rational quadratic factors), and th = 1/zz − 1 =
-        // w/(w²+1) − 1.
+        // w/(w²+1) − 1. Q(bb) is not closed under complex conjugation, so a
+        // mirror generator would make the tower adjoin conj(w) as well.
         name: 'Weeks manifold (closed)',
         cat: 'Closed 3-manifolds',
         desc: 'Smallest closed hyperbolic 3-manifold — exact over a sextic field',

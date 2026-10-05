@@ -302,6 +302,9 @@ button {
     gap: 14px;
 }
 
+/* the basepoint's y slider is off in the plane picture (the basepoint stays on the plane) */
+.bp-grid input:disabled { opacity: 0.35; cursor: not-allowed; }
+
 /* the Info tab: two sections, with a jump bar that stays at the top */
 .info-tab-section {
     display: flex;

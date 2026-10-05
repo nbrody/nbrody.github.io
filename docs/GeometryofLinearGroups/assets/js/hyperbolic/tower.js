@@ -352,6 +352,11 @@ export class TowerField {
         }
         const alpha = this._refine(P, L, approx);
         const G = P.length === 2 ? P : this._factorFor(P, L, alpha);
+        // The factor must have the requested root: never hand back a different root of P.
+        const miss = Math.min(...complexRoots(G.map(c => L.embed(c))).map(r => Math.hypot(r.re - alpha.re, r.im - alpha.im)));
+        if (!(miss <= 1e-6 * Math.max(1, Math.hypot(alpha.re, alpha.im)))) {
+            throw new NotExact('could not isolate the requested root exactly');
+        }
         if (G.length === 2) return this.wrap(L.neg(G[0]));
         const N = L.N * (G.length - 1);
         if (N > this.maxDegree) {
@@ -408,14 +413,24 @@ export class TowerField {
                 const gamma = A.add(A.gen(), A.fromBase(st.v));
                 const chi = charpolyQ(A, gamma, N);
                 if (!isSquarefreeModP(chi)) continue;       // γ does not (provably) generate A
-                const g = cadd(alpha, st.embed());
                 const facs = factorQ(chi, { squarefree: true });
                 if (facs.length === 1) return P;            // A is a field: P is irreducible over L
-                const chij = pickFactor(facs, g);
-                let R = A.zero();
-                for (let i = chij.length - 1; i >= 0; i--) R = A.add(A.mul(R, gamma), A.fromFrac(chij[i]));
-                const G = pGcd(L, P, R);
-                if (G.length >= 2 && G.length <= P.length) return G;
+                // Each ℚ-factor χ_j cuts out one component of A, that is one factor
+                // G_j = gcd(P, χ_j(γ)) of P over L. Keep the G_j with alpha as a root,
+                // judged by G_j's own low-degree roots: the floating-point roots of a
+                // large-coefficient χ_j are not reliable enough to choose between them.
+                let best = null, bd = Infinity;
+                for (const chij of facs) {
+                    let R = A.zero();
+                    for (let i = chij.length - 1; i >= 0; i--) R = A.add(A.mul(R, gamma), A.fromFrac(chij[i]));
+                    const G = pGcd(L, P, R);
+                    if (G.length < 2 || G.length > P.length) continue;
+                    for (const r of complexRoots(G.map(c => L.embed(c)))) {
+                        const dd = Math.hypot(r.re - alpha.re, r.im - alpha.im);
+                        if (dd < bd) { bd = dd; best = G; }
+                    }
+                }
+                if (best) return best;
             }
         }
         throw new NotExact('could not separate the roots of a polynomial over the field');
