@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discreteness Algorithm</title>
+
+    <!-- The group is entered exactly as in Kleinian/poincare: its vendored MathQuill, its root picker -->
+    <link rel="stylesheet" href="../Kleinian/vendor/mathquill/build/mathquill.css">
+    <script src="../Kleinian/vendor/jquery/jquery-3.7.1.min.js"></script>
+    <script src="../Kleinian/vendor/mathquill/build/mathquill.min.js"></script>
+    <script src="../../../assets/js/rootPicker.js"></script>
+
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script src="../Kleinian/vendor/mathjax/tex-mml-chtml.js"></script>
+
+    <!-- poincare's design system, then this page's layout -->
+    <link rel="stylesheet" href="../Kleinian/poincare/style.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- The tool for the chosen place: poincare (places at ∞) or trees (finite places) -->
+    <main id="stage">
+        <nav id="place-bar" aria-label="Places of the field"></nav>
+        <div id="stage-body">
+            <div id="stage-empty" class="stage-empty">
+                <div class="stage-card">
+                    <p class="stage-title">Is there a place where Γ is discrete?</p>
+                    <p id="stage-status" class="stage-status">Enter generators and press Decide.</p>
+                </div>
+            </div>
+        </div>
+        <div id="stage-foot">
+            <span id="stage-caption" class="stage-caption"></span>
+            <a id="open-tool" class="stage-link" target="_blank" rel="noopener" hidden>Open in a new tab ↗</a>
+        </div>
+    </main>
+
+    <!-- Control panel -->
+    <div id="control-panel">
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="group">Group</button>
+            <button class="tab-btn" data-tab="places">Places</button>
+            <button class="tab-btn" data-tab="about">About</button>
+            <button id="refresh-btn" class="collapse-btn" title="Decide again" aria-label="Decide again">
+                <span class="collapse-icon">⟳</span>
+            </button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel" aria-label="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
+
+        <div class="panel-content">
+            <!-- Group tab -->
+            <div id="tab-group" class="tab-content active">
+                <div>
+                    <h2 class="panel-title">Discreteness Algorithm</h2>
+                    <p class="panel-subtitle">Generators of a subgroup Γ of PGL₂(ℚ̄). Is there a place of their field
+                        at which Γ is discrete?</p>
+                </div>
+
+                <div class="control-group">
+                    <div id="matrixInputs"></div>
+                    <button id="addMatrixBtn" class="btn btn-add">+ Add Matrix</button>
+                </div>
+
+                <div id="constants-group" class="control-group constants-group">
+                    <button id="constants-toggle" class="constants-toggle" type="button"
+                        aria-expanded="false" aria-controls="constants-editor" title="Show the editor">
+                        <span class="control-label">Constants</span>
+                        <span class="constants-chev" aria-hidden="true"></span>
+                    </button>
+                    <div id="constants-summary" class="constants-summary"></div>
+                    <div id="constants-editor" class="constants-editor">
+                        <div id="constantsInputs"></div>
+                        <div class="constant-add-row">
+                            <button id="addConstantBtn" class="btn btn-add-alt"
+                                title="A named value, e.g. p = (1+√5)/2, that entries and later constants may use">+ Constant</button>
+                            <button id="addRootBtn" class="btn btn-add-alt"
+                                title="A named root of a polynomial, chosen by clicking it in the complex plane">+ Polynomial root</button>
+                        </div>
+                        <p class="label-hint constants-hint">
+                            Entries are read exactly as in Poincaré: fractions and decimals, i, radicals, roots of
+                            unity, cos and sin at rational multiples of π, and roots of polynomials. The chosen root
+                            only names your embedding; every embedding is tested.
+                        </p>
+                    </div>
+                    <div id="field-status" class="field-status" aria-live="polite"></div>
+                </div>
+
+                <div class="control-group">
+                    <button id="decide-btn" class="btn btn-add da-decide">Decide</button>
+                    <div class="control-row" style="margin-top: 12px;">
+                        <label class="control-label">Examples</label>
+                        <button id="da-example-btn" class="toggle-btn" title="Browse the example library">Load Example…</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Search</label>
+                    <div class="control-row">
+                        <label for="wordLength" class="control-label row-label" title="Places at ∞: depth of poincare's orbit search for walls">Word length (∞)</label>
+                        <input id="wordLength" type="number" value="8" min="1" max="32" step="1" class="number-input">
+                    </div>
+                    <div class="control-row">
+                        <label for="face-count-input" class="control-label row-label" title="Places at ∞: cap on the number of walls">Max faces (∞)</label>
+                        <input id="face-count-input" type="number" value="96" min="1" max="256" step="4" class="number-input">
+                    </div>
+                    <div class="control-row">
+                        <label for="decide-seconds" class="control-label row-label" title="Finite places: seconds the tree decision may run at each prime. Running out gives “undecided”, never a verdict.">Seconds per prime</label>
+                        <input id="decide-seconds" type="number" value="4" min="1" max="60" step="1" class="number-input">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <button id="copy-link" class="btn btn-add-alt"
+                        title="The URL holds the generators, constants and settings">Copy link to this group</button>
+                </div>
+
+                <p id="matrix-error-message" class="error-message"></p>
+            </div>
+
+            <!-- Places tab -->
+            <div id="tab-places" class="tab-content">
+                <div>
+                    <h2 class="panel-title">Places</h2>
+                    <p class="panel-subtitle">Each place of the field of definition F gives a metric on F, and a
+                        topology on PGL₂ of its completion. Click a place to see Γ there.</p>
+                </div>
+
+                <div id="verdict-summary" class="da-summary"><p class="empty-message">Press Decide.</p></div>
+
+                <div class="control-group">
+                    <label class="control-label">Field of definition</label>
+                    <div id="field-card" class="da-field"></div>
+                    <div id="embedding-picker" class="da-picker"></div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">At ∞ <span class="label-hint">— PSL₂(ℝ) or PSL₂(ℂ), by Poincaré</span></label>
+                    <div id="arch-list" class="da-list"></div>
+                </div>
+
+                <div class="control-group">
+                    <label class="control-label">Finite places <span class="label-hint">— trees of PGL₂(F<sub>𝔭</sub>)</span></label>
+                    <div id="finite-list" class="da-list"></div>
+                </div>
+            </div>
+
+            <!-- About tab -->
+            <div id="tab-about" class="tab-content">
+                <div>
+                    <h2 class="panel-title">How it Works</h2>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">The field of definition</h3>
+                    <p>A matrix in PGL₂ is defined only up to a scalar, so each generator is divided by its first
+                        nonzero entry. The entries then generate the smallest field F with Γ ⊂ PGL₂(F), written
+                        F = ℚ(w) for a primitive element w with minimal polynomial f. A place of a larger field gives
+                        the same answer as the place of F below it, so testing the places of F tests every place.</p>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">Places at ∞</h3>
+                    <p>One for each real root of f, and one for each pair of complex conjugate roots (a conjugate
+                        group is a mirror image). At each, Γ is read for that embedding and handed to
+                        <a href="../Kleinian/poincare/" target="_blank" rel="noopener">Poincaré</a>, whose canonical
+                        Dirichlet domain and polyhedron theorem prove discreteness. Non-discreteness is proved
+                        exactly from short words: an elliptic element of infinite order (an elliptic of order m in
+                        PGL₂(F) has φ(m) ≤ 2[F:ℚ]), or a pair breaking Shimizu’s lemma.</p>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">Finite places</h3>
+                    <p>At a prime 𝔭, PGL₂(F<sub>𝔭</sub>) acts on its Bruhat–Tits tree. If the normalized entries
+                        are 𝔭-integral and the determinants 𝔭-units, Γ fixes the standard vertex: it is bounded, and
+                        then discrete exactly when it is finite. This holds for all but the finitely many primes
+                        dividing a denominator or the norm of a determinant; one prime outside them decides
+                        finiteness for all of them. The rest are decided by
+                        <a href="../padicGroups/trees/" target="_blank" rel="noopener">Trees</a>: Serre–Helly
+                        boundedness, Conder’s two-generator test, Markowitz’s reduction, and congruence kernels for
+                        torsion.</p>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">What the verdicts mean</h3>
+                    <p><b>Discrete</b> and <b>Not discrete</b> are proofs. <b>Undecided</b> means a search ran out:
+                        Poincaré’s conditions failed at this word length, or the tree decision ran out of time.
+                        Γ can be discrete at no single place and still be discrete in a product of them, as a
+                        subgroup of PGL₂(ℤ[½]) is in PGL₂(ℝ) × PGL₂(ℚ₂): the S-arithmetic picture.</p>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">Modular</h3>
+                    <p>The input, exact arithmetic and domains are Poincaré’s modules; the local fields and the
+                        tree decision are Trees’ modules; each view is the tool itself. Changes to either tool appear
+                        here.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="example-host"></div>
+
+    <script type="module" src="./js/main.js"></script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+
+</html>

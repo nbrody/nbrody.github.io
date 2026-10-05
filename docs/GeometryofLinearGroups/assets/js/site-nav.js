@@ -119,6 +119,7 @@
       { t: 'Triangle-Square Tiling',         u: 'Geometric/Tools/Euclidean/triangleSquare/index.html' },
     ]},
     { section: 'Geometric · p-adic', icon: 'ℚₚ', items: [
+      { t: 'Discreteness Algorithm',           u: 'Geometric/Tools/discretenessAlgorithm/index.html' },
       { t: 'Bruhat–Tits Tree Viewer',          u: 'Geometric/Tools/padicGroups/trees/index.html' },
       { t: 'Globe Game',                       u: 'Geometric/Tools/padicGroups/globeGame/index.html' },
       { t: 'Globe Game — Beam Search',         u: 'Geometric/Tools/padicGroups/globeGame/beamSearch/index.html' },
