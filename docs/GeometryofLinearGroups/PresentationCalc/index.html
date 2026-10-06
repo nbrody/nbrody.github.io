@@ -148,6 +148,13 @@
                             <label for="max-reps" class="control-label row-label" title="Most orbit representatives the certificate may use">Max representatives</label>
                             <input id="max-reps" type="number" value="24" min="1" max="200" step="1" class="number-input">
                         </div>
+                        <div class="control-row">
+                            <label for="tree-metric" class="control-label row-label" title="Length of a tree edge in the ℓ² metric on the adelic product: log q matches H² and H³ (diag(p, 1) moves log p at ∞ and at p); 1 is the SO₃ project's convention">Tree edges</label>
+                            <select id="tree-metric" class="number-input">
+                                <option value="log" selected>log q</option>
+                                <option value="unit">1</option>
+                            </select>
+                        </div>
                     </div>
                 </details>
 
@@ -196,12 +203,19 @@
                         mod 𝔭<sup>m</sup> at the rest). Its index is a lower bound for [Λ : Γ⁽²⁾].</p>
                 </div>
                 <div class="info-section">
-                    <h3 class="info-title">4 · S-arithmetic, by FlashBeam</h3>
-                    <p>Λ acts on the product of trees X = ∏<sub>𝔭∈S</sub> T<sub>𝔭</sub>. A FlashBeam search
-                        multiplies a beam of words by a persistent flash of the best words found so far. It looks
-                        for a finite set R of vertices, with o ∈ R, and for each neighbour n of a vertex of R, a word
-                        w and r ∈ R with w·r = n. Pairs of words whose images are adjacent count too. Then
-                        Γ·R = X, because X is connected. Every word is checked again exactly.</p>
+                    <h3 class="info-title">4 · FlashBeam in the adelic product</h3>
+                    <p>As in the SO₃ decision project, Γ is studied in the product X of the symmetric spaces of
+                        every place where it is unbounded: H² or H³ at ∞, the tree T<sub>𝔭</sub> at each 𝔭 ∈ S,
+                        with the ℓ² metric. Γ is discrete there. FlashBeam multiplies a beam of words by a
+                        persistent flash of the lowest elements found, scored by the height d(o, g·o). Two words
+                        reaching one element give a relation, checked exactly. An element g is a Dirichlet
+                        generator when the midpoint of [o, g·o] has only o and g·o as nearest orbit points. Its
+                        bisector then carries a facet of the Dirichlet domain. These are measured against the
+                        points found, as in the SO₃ project.</p>
+                    <p>The proof that Γ is S-arithmetic comes from the same search. It needs a finite set R of
+                        vertices of the trees, with o ∈ R, and for each neighbour n of a vertex of R, a word w and
+                        r ∈ R with w·r = n. Pairs of words whose images are adjacent count too. Then Γ·R is every
+                        vertex, because the product of trees is connected. Every word is checked again exactly.</p>
                     <p>If A is ramified at every place at ∞, vertex stabilizers in Λ are finite, and Γ has finite
                         index in Λ. If A splits at one place σ at ∞, the elements of Γ fixing o that the search
                         found must also have finite covolume at σ. Poincaré checks this from a Dirichlet domain

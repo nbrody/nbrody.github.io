@@ -23,6 +23,7 @@
  *   multiply(a, b)   the node for a·b (null to discard it)
  *   isIdentity(n)    true for the identity element (never kept in the flash)
  *   visit(n)         called once for every new node (record hits here)
+ *   collide(n)       optional: n's element was seen before, under another word
  *   done()           true when the search has what it needs
  * and nodes { state, word, key, score, stratum }. Words are arrays of signed
  * letters ±(i+1); see `concatWords`.
@@ -72,7 +73,8 @@ export class FlashBeam {
     }
 
     _see(node) {
-        if (this.visited.has(node.key)) return false;
+        // collisions are checked before deduplication: two words, one element
+        if (this.visited.has(node.key)) { if (this.problem.collide) this.problem.collide(node); return false; }
         this.visited.add(node.key);
         this.problem.visit(node);
         return true;

@@ -26,12 +26,21 @@
  * Either way Γ is commensurable with Λ: Γ is S-arithmetic. The search only
  * ever proves this; when it runs out it claims nothing.
  *
+ * The search. FlashBeam runs as in the SO₃ project
+ * (SO3DecisionAlgorithm/algorithm/geometry/flashbeam.py): the score is the
+ * height d(o, g·o) in the adelic product X of all the symmetric spaces where
+ * Γ is unbounded (H² or H³ at ∞, the trees at S; adelic.js), the flash keeps
+ * the lowest elements found, and two words reaching one element give a
+ * relation, checked exactly. At the end, adelic.js reads off the Dirichlet
+ * generators of the partial Dirichlet domain cut out by the elements found.
+ *
  * Arithmetic. Matrices are kept projectively, as integral primitive matrices
  * over the maximal order of F (O-coordinates, BigInt). The displacement of o
  * at 𝔭 is v_𝔭(det g) − 2·min v_𝔭(entries); vertices and their images are
  * trees' exact vertices (padicGroups/trees/js/localField.js, Place.act).
  */
 import { FlashBeam, concatWords, invertWord } from './flashbeam.js';
+import { makeArch, displacements, canonicalRelator } from './adelic.js';
 
 const babs = (x) => (x < 0n ? -x : x);
 function bgcd(a, b) { a = babs(a); b = babs(b); while (b) [a, b] = [b, a % b]; return a; }
@@ -317,15 +326,16 @@ export function choosePlaces(deps, F, mats, S, sameField) {
 
 // ───────────────────────── the search problem ─────────────────────────
 
-const H_WEIGHT = 0.004;       // per bit of the largest coordinate
-const L_WEIGHT = 0.0005;      // per letter
+const L_WEIGHT = 0.0005;      // per letter, after the adelic height
 
 export class CoveringProblem {
     /**
      * @param F       GlobalField
      * @param places  [Place] (one per 𝔭 ∈ S)
      * @param mats    generators as { a, b, c, d } over F
-     * @param opts    { maxReps, stabCap, archiveCap, repRadius, orbitRadius, collisions }
+     * @param opts    { maxReps, stabCap, archiveCap, repRadius, orbitRadius, collisions,
+     *                  arch: [{ re, im, kind }] (the places at ∞ where Γ is unbounded),
+     *                  metric: 'log' (tree edges of length log q) | 'unit' }
      */
     constructor(F, places, mats, opts = {}) {
         this.F = F;
@@ -336,6 +346,18 @@ export class CoveringProblem {
         this.one = integralMatrix(F, { a: F.one(), b: F.zero(), c: F.zero(), d: F.one() });
         this.fast = places.map((P) => { try { return fastPlace(F, P); } catch (e) { return null; } });
         this.vals = places.map((P, j) => (this.fast[j] ? this.fast[j].val : valuationAt(F, P)));
+        this.archs = (opts.arch || []).map((e) => makeArch(F, e));
+        this.weights = places.map((P) => (opts.metric === 'unit' ? 1 : Math.log(P.q)));
+        this.certify = places.length > 0;
+        // relations (two words, one element) and the lowest elements, for the Dirichlet generators
+        this.registry = new Map();
+        this.registryCap = opts.registryCap ?? 300000;
+        this.relations = [];
+        this.relKeys = new Set();
+        this.relationCap = opts.relationCap ?? 64;
+        this.lowPool = [];
+        this.lowCap = opts.lowCap ?? 1500;
+        this.collisionsSeen = 0;
         this.slowActs = 0;
         this.o = places.map((P) => P.canon(F.zero(), 0));
         this.maxReps = opts.maxReps ?? 24;
@@ -508,7 +530,7 @@ export class CoveringProblem {
         if (h.rep === i) {
             if (i === 0) {
                 const M = normalizeM(mulM(this.R, normalizeM(adjM(this.R, h.state)), g.state));
-                if (!isScalarM(this.R, M)) this._keepStab({ word, state: M, key: keyM(M), h: heightM(M) });
+                if (!isScalarM(this.R, M)) this._keepStab({ word, state: M, key: keyM(M), h: displacements(this, M).h, bits: heightM(M) });
             }
         } else if (this.repLinks.length < 64) this.repLinks.push([i, h.rep, word]);
     }
@@ -533,18 +555,14 @@ export class CoveringProblem {
     }
 
     // ── FlashBeam's interface ──
+    /** A node: its displacements in X, the ℓ² height h = d(o, g·o), and FlashBeam's score. */
     _node(M, word) {
-        const R = this.R;
-        const det = detM(R, M);
-        const disp = this.vals.map((v) => {
-            let m = Infinity;
-            for (const e of M) { if (!R.isZero(e)) { const t = v(e); if (t < m) m = t; } }
-            return v(det) - 2 * m;
-        });
-        const stratum = disp.reduce((a, b) => a + b, 0);
-        const h = heightM(M);
-        return { state: M, word, key: keyM(M), disp, stratum, h, score: stratum + H_WEIGHT * h + L_WEIGHT * word.length };
+        const { tree, arch, h } = displacements(this, M);
+        const stratum = tree.reduce((a, b) => a + b, 0);
+        const score = (Number.isFinite(h) ? h : 1e9) + L_WEIGHT * word.length;
+        return { state: M, word, key: keyM(M), disp: tree, arch, stratum, h, bits: heightM(M), score };
     }
+    isIdentityM(M) { return isScalarM(this.R, M); }
     identity() { return this._node(this.one, []); }
     generators() {
         const out = [];
@@ -560,7 +578,14 @@ export class CoveringProblem {
     }
     isIdentity(n) { return isScalarM(this.R, n.state); }
     visit(node) {
-        if (this.isIdentity(node)) return;
+        if (this.registry.size < this.registryCap) this.registry.set(node.key, node.word);
+        if (this.isIdentity(node)) { if (node.word.length) this._relation(node.word); return; }
+        this.lowPool.push(node);
+        if (this.lowPool.length > 2 * this.lowCap) {
+            this.lowPool.sort((x, y) => x.h - y.h || x.word.length - y.word.length);
+            this.lowPool.length = this.lowCap;
+        }
+        if (!this.certify) return;            // no tree: nothing to cover
         if (node.stratum === 0) this._keepStab(node);
         if (node.stratum <= this.radius + this.maxRepDist) {
             this._recordImages(node, this.reps.map((_, i) => i));
@@ -571,14 +596,43 @@ export class CoveringProblem {
             }
         }
     }
-    done() { return !this.harvesting && this.complete(); }
+    done() { return !this.harvesting && !this.exploring && this.certify && this.complete(); }
+
+    /** FlashBeam met an element it has seen: the two words give a relation. */
+    collide(node) {
+        this.collisionsSeen++;
+        const old = this.registry.get(node.key);
+        if (!old) return;
+        if (node.word.length < old.length) this.registry.set(node.key, node.word);
+        this._relation(concatWords(node.word, invertWord(old)));
+    }
+
+    /** Record a relator after checking it exactly. */
+    _relation(word) {
+        const r = canonicalRelator(word);
+        if (!r.length) return;
+        const k = r.join(',');
+        if (this.relKeys.has(k)) return;
+        // at the cap, a shorter relator replaces the longest
+        let drop = -1;
+        if (this.relations.length >= this.relationCap) {
+            drop = 0;
+            this.relations.forEach((x, i) => { if (x.length > this.relations[drop].length) drop = i; });
+            if (this.relations[drop].length <= r.length) return;
+        }
+        if (!isScalarM(this.R, wordMatrix(this.R, this.gens, r, this.one))) throw new Error('internal: a relation failed its exact check');
+        this.relKeys.add(k);
+        if (drop >= 0) this.relations[drop] = r; else this.relations.push(r);
+    }
 
     _keepStab(node) {
         if (this.stabKeys.has(node.key)) return;
         this.stabKeys.add(node.key);
-        this.stab.push({ word: node.word, M: node.state, key: node.key, h: node.h });
+        // ranked by entry size: small matrices (translations, S, …) generate arithmetic groups;
+        // the elements nearest a generic base point tend to be elliptic
+        this.stab.push({ word: node.word, M: node.state, key: node.key, h: node.h, bits: node.bits ?? heightM(node.state) });
         if (this.stab.length > 2 * this.stabCap) {
-            this.stab.sort((x, y) => x.h - y.h || x.word.length - y.word.length);
+            this.stab.sort(byBits);
             this.stab.length = this.stabCap;
         }
     }
@@ -587,7 +641,7 @@ export class CoveringProblem {
      * without powers of chosen words (g² adds nothing to a generating set).
      */
     stabilizerElements(k) {
-        const s = this.stab.slice().sort((x, y) => x.h - y.h || x.word.length - y.word.length);
+        const s = this.stab.slice().sort(byBits);
         const out = [], seen = new Set();
         const isPowerOf = (w, u) => {
             if (!u.length || w.length % u.length) return false;
@@ -650,6 +704,8 @@ export class CoveringProblem {
     }
 }
 
+const byBits = (x, y) => x.bits - y.bits || x.word.length - y.word.length || x.h - y.h;
+
 function popcount(x) { let c = 0; while (x) { c += x & 1; x >>= 1; } return c; }
 
 // ───────────────────────── running it ─────────────────────────
@@ -670,23 +726,36 @@ export function runCovering(problem, opts = {}, onProgress = () => { }) {
     const deadline = Date.now() + 1000 * (opts.seconds ?? 30);
     const maxIter = opts.maxIterations ?? 200;
     const patience = opts.patience ?? 3;
-    let stall = 0, status = 'budget';
+    // after the covering is complete (or with no tree to cover), keep going a
+    // little, for the Dirichlet generators and relations
+    const extra = opts.extraIterations ?? 4;
+    const noTrees = !problem.certify;
+    let stall = 0, status = noTrees ? 'none' : 'budget', after = 0;
     beam.start();
-    if (problem.complete()) status = 'covered';
-    while (status !== 'covered') {
-        if (Date.now() > deadline || beam.iteration >= maxIter) { status = 'budget'; break; }
+    problem.exploring = true;
+    if (!noTrees && problem.complete()) status = 'covered';
+    for (;;) {
+        if (status === 'covered' || noTrees) {
+            if (after >= extra) break;
+            after++;
+            // exploring for Dirichlet generators: a narrow beam, as in the SO₃ project
+            beam.beamWidth = Math.min(beam.beamWidth, opts.exploreWidth ?? 400);
+        }
+        if (Date.now() > deadline || beam.iteration >= maxIter) { if (status !== 'covered' && !noTrees) status = 'budget'; break; }
         problem.newCover = 0;
         const stats = beam.step();
         let promoted = null;
-        if (problem.complete()) status = 'covered';
-        else {
-            stall = problem.newCover ? 0 : stall + 1;
-            if (stall >= patience) { promoted = problem.promote(); stall = 0; }
+        if (!noTrees && status !== 'covered') {
+            if (problem.complete()) status = 'covered';
+            else {
+                stall = problem.newCover ? 0 : stall + 1;
+                if (stall >= patience) { promoted = problem.promote(); stall = 0; }
+            }
         }
-        onProgress({ stats, reps: problem.reps.length, targets: problem.targets.size, covered: problem.coveredCount(), promoted });
-        if (status === 'covered') break;
-        if (stats.exhausted) { status = 'exhausted'; break; }
+        onProgress({ stats, reps: problem.reps.length, targets: problem.targets.size, covered: problem.coveredCount(), promoted, relations: problem.relations.length });
+        if (stats.exhausted) { if (status !== 'covered' && !noTrees) status = 'exhausted'; break; }
     }
+    problem.exploring = false;
     const out = { status, problem, beam };
     if (status === 'covered') out.verify = problem.verify(problem.certificate());
     return out;

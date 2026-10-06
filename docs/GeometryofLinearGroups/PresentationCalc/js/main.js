@@ -27,9 +27,9 @@ import { ToolFrames, toolURL } from '../../Geometric/Tools/discretenessAlgorithm
 import { CURATED, CAT_ORDER, allExamples } from './examples.js';
 import { archClasses } from './archPlaces.js';
 import { zariskiCard, congruenceCard, zariskiLine, congruenceLine, texToText, esc, mix } from './zariskiView.js';
-import { sarithCard, liveNumbers, wordText } from './sarithView.js';
+import { sarithCard, liveNumbers, wordText, gapText } from './sarithView.js';
 
-const VERSION = '2026-10-05a';          // busts the workers' module caches
+const VERSION = '2026-10-05b';          // busts the workers' module caches
 const ARCH_TIMEOUT = 120;               // seconds for one place at ∞
 const ZARISKI_TIMEOUT = 120;
 const MAX_PRIMES = 12;
@@ -70,6 +70,7 @@ function readSettings() {
         flash: intIn('flash-size', 0, 400, 40),
         beamSeconds: intIn('beam-seconds', 5, 1800, 60),
         maxReps: intIn('max-reps', 1, 200, 24),
+        metric: $('tree-metric') && $('tree-metric').value === 'unit' ? 'unit' : 'log',
     };
 }
 
@@ -438,47 +439,65 @@ function startCongruence() {
     startSarith();
 }
 
-// ───────────────────────── step 4: S-arithmetic ─────────────────────────
+// ───────────────────────── step 4: FlashBeam in the adelic product ─────────────────────────
 
-/** Can the covering certificate apply? Returns { ok, note, arch } (arch: the place at ∞ to check, or null). */
-function sarithApplicable(R) {
-    const A = R.zariski.arith, m = R.model;
-    const S = A.ring.S;
+/** The places at ∞ where Γ is unbounded: one embedding of F over each place of k (real ones preferred). */
+function archFactors(R) {
+    // the Zariski engine decides exactly whether A splits at some place at ∞
+    const archF = R.zariski.arith.spaces.factors.filter((f) => f.kind === 'real' || f.kind === 'complex');
+    if (!archF.length) return [];
+    const byClass = new Map();
+    for (const a of archClasses(R.model).filter((x) => x.noncompact)) {
+        if (!byClass.has(a.classKey)) byClass.set(a.classKey, []);
+        byClass.get(a.classKey).push(a);
+    }
+    return [...byClass.values()].map((g) => {
+        const a = g.find((x) => x.kind === 'real' && x.isDefault) || g.find((x) => x.kind === 'real') || g.find((x) => x.isDefault) || g[0];
+        return { re: a.root.re, im: a.root.im, kind: a.kind, n: a.n, key: a.key };
+    });
+}
+
+/**
+ * Can the covering certificate apply? { certifiable, note, arch }: arch is the
+ * one place at ∞ whose vertex stabilizer must be checked (null when A is
+ * ramified at every place at ∞). FlashBeam runs either way.
+ */
+function sarithApplicable(R, factors) {
+    const A = R.zariski.arith;
     const archF = A.spaces.factors.filter((f) => f.kind === 'real' || f.kind === 'complex');
-    if (!S.length) {
-        return { ok: false, note: 'Γ is unbounded at no prime, so Λ is an arithmetic group with no tree to act on. As Γ is not discrete at any one place at ∞, Λ would be a lattice in a product of at least two of them (a Hilbert modular group, say). Certifying finite index there needs a domain in that product, which this tool does not compute.' };
+    if (!A.ring.S.length) {
+        return { certifiable: false, note: 'Γ is unbounded at no prime, so $X$ has no trees: as Γ is not discrete at any one place at ∞, it would be a lattice in a product of at least two of them (a Hilbert modular group, say). Certifying finite covolume there is beyond this tool.' };
     }
     if (archF.length >= 2) {
-        return { ok: false, note: `$A$ splits at ${archF.length} places at ∞, so a vertex stabilizer $\\Lambda_o$ is a lattice in a product of ${archF.length} symmetric spaces. This certificate needs at most one.` };
+        return { certifiable: false, note: `$A$ splits at ${archF.length} places at ∞, so a vertex stabilizer $\\Lambda_o$ is a lattice in a product of ${archF.length} symmetric spaces. The covering certificate needs at most one.` };
     }
-    if (!archF.length) return { ok: true, arch: null };
-    const kind = archF[0].kind;
-    const cls = archClasses(m).filter((a) => a.noncompact);
-    const keys = new Set(cls.map((a) => a.classKey));
-    if (keys.size !== 1) {
-        return { ok: false, note: `The places at ∞ of the field of definition where Γ is unbounded could not be matched with the one place of $k$ where $A$ splits (${keys.size} classes found).` };
+    if (!archF.length) return { certifiable: true, arch: null };
+    if (factors.length !== 1) {
+        return { certifiable: false, note: `The places at ∞ of the field of definition where Γ is unbounded could not be matched with the one place of $k$ where $A$ splits (${factors.length} classes found).` };
     }
-    let cand = cls;
-    if (kind === 'real') cand = cls.filter((a) => a.kind === 'real');
-    if (!cand.length) {
-        return { ok: false, note: 'At the real place of $k$ where $A$ splits, the field of definition has only complex places: Γ is conjugate into $\\mathrm{PGL}_2(\\mathbb{R})$ but not written there, which the area test needs.' };
+    const f = factors[0];
+    if (archF[0].kind === 'real' && f.kind !== 'real') {
+        return { certifiable: false, note: 'At the real place of $k$ where $A$ splits, the field of definition has only complex places: Γ is conjugate into $\\mathrm{PGL}_2(\\mathbb{R})$ but not written there, which the area test needs.' };
     }
-    const a = cand.find((x) => x.isDefault) || cand[0];
-    return { ok: true, arch: { kind, root: a.root, n: a.n, key: a.key } };
+    return { certifiable: true, arch: { kind: archF[0].kind, root: { re: f.re, im: f.im }, n: f.n, key: f.key } };
 }
 
 function startSarith() {
     const R = run, A = R.zariski.arith, m = R.model, st = R.settings;
-    const ap = sarithApplicable(R);
-    R.sarith = { phase: ap.ok ? 'search' : 'na', note: ap.note, arch: ap.ok ? ap.arch : null, history: [], places: [], status: 'running' };
-    if (!ap.ok) {
-        R.sarith.status = 'open';
-        setStep('sarith', 'open', 'Not applicable', texToText(ap.note.replace(/\$/g, '')));
+    const factors = archFactors(R);
+    const ap = sarithApplicable(R, factors);
+    R.sarith = {
+        phase: 'search', note: ap.note, certifiable: ap.certifiable, arch: ap.certifiable ? ap.arch : null,
+        archFactors: factors, metric: st.metric, history: [], places: [], status: 'running',
+    };
+    if (!A.ring.S.length && !factors.length) {
+        Object.assign(R.sarith, { phase: 'na', status: 'open', note: 'Γ is bounded at every place, so there is nothing to search.' });
+        setStep('sarith', 'open', 'Not applicable', R.sarith.note);
         renderVerdict();
         if (!R.userPicked) showView('sarith', null, { auto: true });
         return;
     }
-    setStep('sarith', 'running', 'Searching…', 'FlashBeam is looking for a covering of the product of trees.');
+    setStep('sarith', 'running', 'Searching…', 'FlashBeam in the adelic product of symmetric spaces.');
     R.sarith.head = 'FlashBeam is searching.';
     if (!R.userPicked) showView('sarith', 'covering', { auto: true });
     let worker;
@@ -500,7 +519,10 @@ function startSarith() {
             R.sarith.progress = msg;
             const frac = msg.targets ? msg.covered / msg.targets : 0;
             R.sarith.history.push({ it: msg.stats.iteration, frac, reps: msg.reps });
-            setStep('sarith', 'running', 'Searching…', `Iteration ${msg.stats.iteration}: ${msg.covered} of ${msg.targets} neighbours, ${msg.reps} representative${msg.reps === 1 ? '' : 's'}.`);
+            const rel = `${msg.relations || 0} relation${msg.relations === 1 ? '' : 's'}`;
+            setStep('sarith', 'running', 'Searching…', R.sarith.places.length
+                ? `Iteration ${msg.stats.iteration}: ${msg.covered} of ${msg.targets} neighbours, ${msg.reps} representative${msg.reps === 1 ? '' : 's'}, ${rel}.`
+                : `Iteration ${msg.stats.iteration}: ${rel}.`);
             patchSarith(msg.promoted);
         } else if (msg.type === 'error') {
             clearTimeout(timer); stop();
@@ -508,7 +530,7 @@ function startSarith() {
         } else if (msg.type === 'done') {
             clearTimeout(timer);
             // the worker stays up while the stabilizer may need more elements
-            if (!(msg.status === 'covered' && R.sarith.arch)) stop();
+            if (!(msg.status === 'covered' && R.sarith.certifiable && R.sarith.arch)) stop();
             sarithDone(R, msg);
         } else if (msg.type === 'stab') {
             const h = R.sarith.harvestWaiting;
@@ -524,6 +546,8 @@ function startSarith() {
             mats: m.mats.map((r) => r.map((e) => e.src)),
             S: A.ring.S.map((s) => ({ p: s.p, e: s.e, f: s.f })),
             sameField: m.degree === A.k.d,
+            arch: factors.map((f) => ({ re: f.re, im: f.im, kind: f.kind })),
+            metric: st.metric,
             opts: { beamWidth: st.beam, flashSize: st.flash, seconds: st.beamSeconds, maxReps: st.maxReps },
             stabCount: 12,
         },
@@ -538,18 +562,29 @@ function sarithError(R, err) {
     refreshView('sarith');
 }
 
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
 function sarithDone(R, msg) {
     const S = R.sarith;
     S.result = msg;
-    if (msg.history) S.history = msg.history;
     const L = liveNumbers(S);
     S.history.push({ it: L.it, frac: L.frac, reps: L.reps });
+    const D = msg.dirichlet;
+    S.found = `${plural(D.pairs.length, 'Dirichlet generator')} and ${plural(msg.relations.length, 'relation')}`;
+    if (!S.certifiable) {
+        Object.assign(S, { phase: 'done', status: 'open' });
+        S.head = `FlashBeam found ${S.found} in $X$. ${S.note}`;
+        setStep('sarith', 'open', 'No certificate', `${S.found}. ${texToText(S.note.replace(/\$/g, ''))}`);
+        renderVerdict();
+        refreshView('sarith');
+        return;
+    }
     if (msg.status !== 'covered' || !(msg.verify && msg.verify.ok)) {
         Object.assign(S, { phase: 'done', status: 'open' });
         S.head = msg.status === 'covered'
-            ? 'A covering was found but did not survive the exact re-check, so nothing is claimed.'
-            : `No covering within the budget (${msg.iterations} iterations, ${msg.seconds.toFixed(0)} s, ${msg.reps.length} representatives, ${msg.covered} of ${msg.targets} neighbours). Nothing is claimed: Γ may still be S-arithmetic, or it may be thin.`;
-        setStep('sarith', 'open', 'No certificate', `${msg.covered} of ${msg.targets} neighbours covered with ${msg.reps.length} representatives.`);
+            ? `FlashBeam found ${S.found}. A covering was found but did not survive the exact re-check, so nothing is claimed.`
+            : `FlashBeam found ${S.found}, but no covering of the trees within the budget (${msg.iterations} iterations, ${msg.seconds.toFixed(0)} s, ${msg.reps.length} representatives, ${msg.covered} of ${msg.targets} neighbours). Nothing is claimed: Γ may still be S-arithmetic, or it may be thin.`;
+        setStep('sarith', 'open', 'No certificate', `${S.found}; ${msg.covered} of ${msg.targets} neighbours covered with ${msg.reps.length} representatives.`);
         renderVerdict();
         refreshView('sarith');
         return;
@@ -557,15 +592,15 @@ function sarithDone(R, msg) {
     const nR = msg.reps.length;
     if (!S.arch) {
         Object.assign(S, { phase: 'done', status: 'yes' });
-        S.head = `Γ is S-arithmetic. Γ has at most ${nR} orbit${nR === 1 ? '' : 's'} on the vertices of $X$, and $A$ is ramified at every place at ∞, so vertex stabilizers in Λ are finite: $[\\Lambda : \\Gamma^{(2)}] < \\infty$.`;
-        setStep('sarith', 'yes', 'S-arithmetic', `Covering with ${nR} representative${nR === 1 ? '' : 's'}, re-checked exactly; stabilizers are finite.`);
+        S.head = `Γ is S-arithmetic. It has at most ${plural(nR, 'orbit')} on the vertices of the trees, and $A$ is ramified at every place at ∞, so vertex stabilizers in Λ are finite: $[\\Lambda : \\Gamma^{(2)}] < \\infty$. FlashBeam found ${S.found}.`;
+        setStep('sarith', 'yes', 'S-arithmetic', `${S.found}; covering with ${plural(nR, 'representative')}, re-checked exactly; stabilizers are finite.`);
         renderVerdict();
         refreshView('sarith');
         return;
     }
     // the stabilizer of o must have finite covolume at the place at ∞
     S.phase = 'stab';
-    S.head = `The covering is complete (${nR} representative${nR === 1 ? '' : 's'}, re-checked exactly). It remains to see that the stabilizer of $o$ is a lattice at ∞.`;
+    S.head = `FlashBeam found ${S.found}, and the covering of the trees is complete (${plural(nR, 'representative')}, re-checked exactly). It remains to see that the stabilizer of $o$ is a lattice at ∞.`;
     setStep('sarith', 'running', 'Checking the stabilizer…', 'Poincaré on the elements fixing o.');
     renderVerdict();
     refreshView('sarith');
@@ -640,12 +675,12 @@ function finishStab(R, ok) {
     S.phase = 'done';
     if (ok) {
         S.status = 'yes';
-        S.head = `Γ is S-arithmetic. It has at most ${nR} orbit${nR === 1 ? '' : 's'} on the vertices of $X$, and its stabilizer of $o$ has finite ${S.arch.kind === 'real' ? 'area' : 'covolume'} at ∞, so it has finite index in $\\Lambda_o$: $[\\Lambda : \\Gamma^{(2)}] < \\infty$.`;
-        setStep('sarith', 'yes', 'S-arithmetic', `Covering with ${nR} representative${nR === 1 ? '' : 's'}; the stabilizer of o is a lattice at ∞.`);
+        S.head = `Γ is S-arithmetic. It has at most ${plural(nR, 'orbit')} on the vertices of the trees, and its stabilizer of $o$ has finite ${S.arch.kind === 'real' ? 'area' : 'covolume'} at ∞, so it has finite index in $\\Lambda_o$: $[\\Lambda : \\Gamma^{(2)}] < \\infty$. FlashBeam found ${S.found}.`;
+        setStep('sarith', 'yes', 'S-arithmetic', `${S.found}; covering with ${plural(nR, 'representative')}; the stabilizer of o is a lattice at ∞.`);
     } else {
         S.status = 'open';
-        S.head = `The covering is complete, with ${nR} representative${nR === 1 ? '' : 's'}, but the stabilizer of $o$ was not shown to be a lattice at ∞. No certificate.`;
-        setStep('sarith', 'open', 'No certificate', 'The covering is complete; the stabilizer check failed.');
+        S.head = `FlashBeam found ${S.found}. The covering is complete, with ${plural(nR, 'representative')}, but the stabilizer of $o$ was not shown to be a lattice at ∞. No certificate.`;
+        setStep('sarith', 'open', 'No certificate', `${S.found}; the covering is complete; the stabilizer check failed.`);
     }
     renderVerdict();
     refreshView('sarith');
@@ -795,7 +830,7 @@ function renderView(changed) {
             return;
         }
         R._shownPlace = null;
-        showCard(sarithCard(S, R.model), 'FlashBeam covering search');
+        showCard(sarithCard(S, R.model, R.model.mats.length), 'FlashBeam in the adelic product');
         wireSarithButtons();
     }
 }
@@ -805,7 +840,8 @@ let patchPending = false;
 function patchSarith(promoted) {
     const R = run;
     if (!R || !R.view || R.view.step !== 'sarith' || R.view.sub === 'stabilizer') return;
-    if (promoted || !$('cov-it')) { renderView(false); return; }
+    const needStars = R.sarith && R.sarith.progress && R.sarith.progress.links && R.sarith.places.length && !document.querySelector('#view-card .cov-reps');
+    if (promoted || !$('cov-it') || needStars) { renderView(false); return; }
     if (patchPending) return;
     patchPending = true;
     requestAnimationFrame(() => {
@@ -813,16 +849,18 @@ function patchSarith(promoted) {
         if (!run || !run.sarith || !$('cov-it')) return;
         const S = run.sarith;
         const L = liveNumbers(S);
-        $('cov-it').textContent = L.it;
-        $('cov-visited').textContent = L.visited.toLocaleString();
-        $('cov-reps').textContent = L.reps;
-        $('cov-covered').textContent = `${L.covered} / ${L.targets}`;
-        $('cov-bar').style.width = `${(100 * L.frac).toFixed(1)}%`;
+        const put = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+        put('cov-it', L.it);
+        put('cov-visited', L.visited.toLocaleString());
+        put('cov-rels', S.progress ? S.progress.relations || 0 : 0);
+        put('cov-reps', L.reps);
+        put('cov-covered', `${L.covered} / ${L.targets}`);
+        if ($('cov-bar')) $('cov-bar').style.width = `${(100 * L.frac).toFixed(1)}%`;
         // the stars and the chart are cheap: rebuild them from a fresh card
         const tmp = document.createElement('div');
-        tmp.innerHTML = sarithCard(S, run.model);
+        tmp.innerHTML = sarithCard(S, run.model, run.model.mats.length);
         const chart = tmp.querySelector('#cov-chart');
-        if (chart) $('cov-chart').innerHTML = chart.innerHTML;
+        if (chart && $('cov-chart')) $('cov-chart').innerHTML = chart.innerHTML;
         const reps = tmp.querySelector('.cov-reps');
         const cur = document.querySelector('#view-card .cov-reps');
         if (reps && cur) cur.querySelectorAll('.cov-rep').forEach((el, i) => {
@@ -848,6 +886,13 @@ function wireSarithButtons() {
         catch (e) { copy.textContent = 'Copy failed'; }
         setTimeout(() => { copy.textContent = 'Copy the certificate (JSON)'; }, 1600);
     });
+    const gap = $('copy-gap');
+    if (gap) gap.addEventListener('click', async () => {
+        const r = run.sarith.result;
+        try { await navigator.clipboard.writeText(gapText(run.model.mats.length, r.relations)); gap.textContent = 'Copied'; }
+        catch (e) { gap.textContent = 'Copy failed'; }
+        setTimeout(() => { gap.textContent = 'Copy ⟨g | relations⟩ for GAP'; }, 1600);
+    });
     const show = $('show-stab');
     if (show) show.addEventListener('click', () => showView('sarith', 'stabilizer'));
 }
@@ -872,7 +917,7 @@ function renderSubBar() {
     } else if (R.view.step === 'sarith' && R.sarith && R.sarith.stab && R.sarith.stab.state) {
         const cur = R.view.sub === 'stabilizer' ? 'stabilizer' : 'covering';
         const stStatus = { running: 'running', yes: 'yes', no: 'open' }[R.sarith.stab.status] || 'idle';
-        bar.innerHTML = `<button class="place-chip${cur === 'covering' ? ' selected' : ''}" data-sub="covering" data-status="${R.sarith.result && R.sarith.result.status === 'covered' ? 'yes' : 'running'}"><span class="dot"></span>Covering of X</button>`
+        bar.innerHTML = `<button class="place-chip${cur === 'covering' ? ' selected' : ''}" data-sub="covering" data-status="${R.sarith.result && R.sarith.result.status === 'covered' ? 'yes' : 'running'}"><span class="dot"></span>FlashBeam in X</button>`
             + `<button class="place-chip${cur === 'stabilizer' ? ' selected' : ''}" data-sub="stabilizer" data-status="${stStatus}"><span class="dot"></span>Stabilizer of o at ∞</button>`;
     } else bar.innerHTML = '';
 }
@@ -881,7 +926,7 @@ function renderSubBar() {
 
 function currentState() {
     const st = readSettings();
-    return { v: 1, ...getInputState(), depth: st.depth, faces: st.faces, secs: st.seconds, beam: st.beam, flash: st.flash, bsecs: st.beamSeconds, reps: st.maxReps };
+    return { v: 1, ...getInputState(), depth: st.depth, faces: st.faces, secs: st.seconds, beam: st.beam, flash: st.flash, bsecs: st.beamSeconds, reps: st.maxReps, metric: st.metric };
 }
 
 function updatePermalink() {
@@ -891,7 +936,7 @@ function updatePermalink() {
 function applySettings(st) {
     const set = (id, v) => { if (v != null) $(id).value = String(v); };
     set('wordLength', st.depth); set('face-count-input', st.faces); set('decide-seconds', st.secs);
-    set('beam-width', st.beam); set('flash-size', st.flash); set('beam-seconds', st.bsecs); set('max-reps', st.reps);
+    set('beam-width', st.beam); set('flash-size', st.flash); set('beam-seconds', st.bsecs); set('max-reps', st.reps); set('tree-metric', st.metric);
 }
 
 function loadExample(ex) {

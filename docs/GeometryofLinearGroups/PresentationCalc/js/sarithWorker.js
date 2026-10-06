@@ -9,6 +9,7 @@
  *        ringEngine text (discretenessAlgorithm's field model)
  *        S: [{ p, e, f }], the primes of k where Γ is unbounded; sameField: F = k
  *        opts: { beamWidth, flashSize, seconds, maxReps }
+ *        arch: [{ re, im, kind }], the places at ∞ where Γ is unbounded; metric: 'log' | 'unit'
  * Out: { id, msg } with msg.type
  *        'places'    { places: [{ p, index, e, f, q, primeTex }], notes }
  *        'progress'  { stats, reps, targets, covered, promoted, links }
@@ -21,6 +22,7 @@ import { readJob } from '../../Geometric/Tools/discretenessAlgorithm/js/finite.j
 import { polyInW } from '../../Geometric/Tools/discretenessAlgorithm/js/field.js';
 import { Frac } from '../../Geometric/Tools/Kleinian/poincare/js/exact.js';
 import { CoveringProblem, runCovering, choosePlaces, harvest } from './covering.js';
+import { dirichletGenerators } from './adelic.js';
 
 let problem = null, beam = null, field = null;
 
@@ -65,7 +67,7 @@ self.onmessage = (ev) => {
     try {
         const { F, mats } = readJob({ GlobalField }, job);
         field = F;
-        const ch = choosePlaces({ Place }, F, mats, job.S, job.sameField);
+        const ch = job.S.length ? choosePlaces({ Place }, F, mats, job.S, job.sameField) : { places: [], notes: [] };
         if (ch.error) { send({ type: 'error', error: ch.error }); return; }
         const places = ch.places.map((P) => {
             let primeTex = null;
@@ -74,7 +76,7 @@ self.onmessage = (ev) => {
         });
         send({ type: 'places', places, notes: ch.notes });
         const opts = job.opts || {};
-        problem = new CoveringProblem(F, ch.places, mats, { maxReps: opts.maxReps ?? 24 });
+        problem = new CoveringProblem(F, ch.places, mats, { maxReps: opts.maxReps ?? 24, arch: job.arch || [], metric: job.metric || 'log' });
         const t0 = Date.now();
         let last = 0;
         const res = runCovering(problem, opts, (p) => {
@@ -85,11 +87,16 @@ self.onmessage = (ev) => {
         });
         const P = problem;
         beam = res.beam;
+        const dir = dirichletGenerators(P);
         const out = {
             type: 'done', status: res.status, iterations: res.beam.iteration, seconds: (Date.now() - t0) / 1000,
             visited: res.beam.visited.size, notes: ch.notes, links: links(P),
             reps: P.reps.map((r) => ({ dist: r.dist, tex: r.tuple.map((vt, j) => vertexTex(P, j, vt)) })),
             targets: P.targets.size, covered: P.coveredCount(), slowActs: P.slowActs,
+            certify: P.certify, weights: P.weights, archKinds: P.archs.map((A) => A.kind),
+            dirichlet: { pairs: dir.pairs, active: dir.active.length, tied: dir.tied.length, considered: dir.considered, points: dir.points },
+            relations: P.relations.slice().sort((a, b) => a.length - b.length || (a.join() < b.join() ? -1 : 1)),
+            collisions: P.collisionsSeen,
         };
         if (res.status === 'covered') {
             out.verify = res.verify;

@@ -42,8 +42,12 @@ function tauValues(model, root) {
     const letters = gens.flatMap((g) => [scale(g), scale(adj(g))]);
     const out = [];
     let layer = letters;
+    // scalar words (A·A⁻¹, S·S for an involution S) are the identity: tr²/det = 4 means nothing there
+    const scalar = (A) => Math.hypot(A[1].re, A[1].im) < 1e-9 && Math.hypot(A[2].re, A[2].im) < 1e-9
+        && Math.hypot(A[0].re - A[3].re, A[0].im - A[3].im) < 1e-9;
     for (let len = 1; len <= 3; len++) {
         for (const A of layer) {
+            if (scalar(A)) continue;
             const tr = add(A[0], A[3]), det = sub(mul(A[0], A[3]), mul(A[1], A[2]));
             out.push(div(mul(tr, tr), det));
         }

@@ -133,3 +133,40 @@ test('wordMatrix multiplies out a word', () => {
     const M = wordMatrix(R, [T, S], [2, 1, 2, 1, 2, 1], one);
     assert.ok(M[1].every((t) => t === 0n) && M[2].every((t) => t === 0n) && M[0].every((t, i) => t === M[3][i]));
 });
+
+const { dirichletGenerators, canonicalRelator } = await import('../js/adelic.js');
+
+test('relators are reduced to a canonical rotation', () => {
+    assert.deepEqual(canonicalRelator([1, 2, -2, 3, -1]), [-3]);   // g₁g₃g₁⁻¹ ~ g₃, least rotation of it or its inverse
+    assert.deepEqual(canonicalRelator([2, 1, 2, 1]), canonicalRelator([1, 2, 1, 2]));
+    assert.deepEqual(canonicalRelator([1, 2]), canonicalRelator([-2, -1]));
+});
+
+test('PSL₂(ℤ) in H²: Dirichlet generators S and TS, relations S² and (TS)³', () => {
+    const F = field(null);
+    const M = mats(F, [['1', '1', '0', '1'], ['0', '-1', '1', '0']]);
+    const P = new CoveringProblem(F, [], M, { arch: [{ re: 0, im: 0, kind: 'real' }] });
+    const res = runCovering(P, { seconds: 5 });
+    assert.equal(res.status, 'none', 'no tree: nothing to certify');
+    const D = dirichletGenerators(P);
+    const words = D.pairs.map((g) => g.word.join(','));
+    assert.ok(words.includes('2') || words.includes('-2'), 'S');
+    assert.ok(D.pairs.length === 2, `two generators up to inverses, got ${words}`);
+    const rels = P.relations.map((r) => r.join(','));
+    assert.ok(rels.includes(canonicalRelator([2, 2]).join(',')), 'S² = 1');
+    assert.ok(rels.includes(canonicalRelator([1, 2, 1, 2, 1, 2]).join(',')), '(TS)³ = 1');
+});
+
+test('Hurwitz quaternions at 5 and 13: the Dirichlet generators are the 3 + 7 prime letters', () => {
+    const quatGens = [quat(1, 2, 0, 0), quat(1, 0, 2, 0), quat(1, 0, 0, 2), quat(3, 2, 0, 0), quat(3, 0, 2, 0)];
+    const F = field('w^2+1');
+    const M = mats(F, quatGens);
+    const ch = choosePlaces({ Place }, F, M, [{ p: 5, e: 1, f: 1 }, { p: 13, e: 1, f: 1 }], false);
+    const P = new CoveringProblem(F, ch.places, M, { metric: 'unit' });
+    const res = runCovering(P, { seconds: 30 });
+    assert.equal(res.status, 'covered');
+    const D = dirichletGenerators(P);
+    assert.equal(D.pairs.length, 10);
+    assert.equal(D.pairs.filter((g) => g.tree[0] === 1 && g.tree[1] === 0).length, 3);
+    assert.equal(D.pairs.filter((g) => g.tree[0] === 0 && g.tree[1] === 1).length, 7);
+});
