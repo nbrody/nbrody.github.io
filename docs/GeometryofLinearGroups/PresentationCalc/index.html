@@ -15,75 +15,46 @@
 </head>
 <body>
 <div class="page">
-    <header>
+    <header class="top">
         <h1>Presentation Calculator</h1>
-        <p>Enter matrices generating a subgroup <span class="m">\Gamma \le \mathrm{PGL}_2(\overline{\mathbb{Q}})</span>. The
-            calculator finds its Zariski closure; for a dense <span class="m">\Gamma</span>, whether it is discrete at some
-            place, its congruence closure, and a FlashBeam search for its Dirichlet generators and an
-            <span class="m">S</span>-arithmetic certificate.</p>
+        <div class="ex-wrap">
+            <button class="quiet" id="examples-btn" aria-haspopup="true" aria-expanded="false">examples</button><button class="quiet die" id="dice-btn" title="A random example" aria-label="Load a random example">🎲</button>
+            <div class="ex-pop" id="ex-pop" hidden></div>
+        </div>
     </header>
 
-    <div class="examples" id="examples"><span class="label">Examples</span></div>
+    <div class="mats" id="mats"></div>
+    <button class="quiet add-mat" id="add-mat" title="Add a matrix" aria-label="Add a matrix">+</button>
 
-    <section class="card">
-        <h2>Generators</h2>
-        <div class="mats" id="mats"></div>
-        <div class="add-row">
-            <button class="btn" id="add-mat">+ Add matrix</button>
-            <span class="hint">Type <code>sqrt</code>, <code>zeta_5</code>, <code>omega</code>, <code>/</code> for fractions; entries may use <span class="m">i</span>, radicals, roots of unity, constants below and the generator of a number field. Space moves to the next entry; Enter computes.</span>
+    <div class="field">
+        <div class="field-line" title="Symbols (w), named numbers (a = √2) or numbers (i, √2, ζ₅), separated by commas. A symbol is a root of a polynomial, chosen below.">
+            <span id="field-open"></span><span id="fgen"></span><span id="field-close"></span>
+            <span class="field-status" id="field-status"></span>
         </div>
-        <div class="field-info" id="field-info"></div>
-        <details class="import" id="import">
-            <summary>Import generators as text</summary>
-            <textarea id="import-text" spellcheck="false" autocomplete="off" placeholder="<((1+2i, 0), (0, 1-2i)), ((3, 2), (-2, 3))>"></textarea>
-            <div class="add-row"><button class="btn" id="import-btn">Load into the grid</button><span class="err" id="import-err"></span></div>
-            <p class="hint">2×2 matrices as <code>((a,b),(c,d))</code> or <code>[[a,b],[c,d]]</code>, separated by commas, with entries such as <code>sqrt(2)</code>, <code>i</code>, <code>1/2</code>.</p>
-        </details>
-    </section>
-
-    <section class="card">
-        <h2>Constants and number field <span class="opt">optional</span></h2>
-        <div class="sub-h">Constants</div>
-        <div id="consts"></div>
-        <div class="add-row"><button class="btn" id="add-const">+ Add constant</button><span class="hint">Named values (radicals, roots of unity, cos(π/5), …) that entries and later constants may use.</span></div>
-        <div class="divider"></div>
-        <label class="switch"><input type="checkbox" id="field-on"> Number field <span id="field-label"></span></label>
-        <div class="field-panel" id="field-panel" hidden>
-            <label for="field-gen">Generator</label>
-            <input id="field-gen" value="w" spellcheck="false" autocomplete="off">
-            <label for="field-poly">Min. poly</label>
-            <input id="field-poly" value="w^2 + w + 1" spellcheck="false" autocomplete="off">
-            <label id="field-root-label" style="align-self: start; padding-top: 6px;">Embedding</label>
-            <div id="root-plot"></div>
-            <div class="msg" id="field-msg"></div>
-        </div>
-        <p class="hint" id="field-hint" hidden>Entries may use the generator; click a root to say which complex root of the minimal polynomial it is. Write the polynomial in the generator, e.g. <code>w^3 - w^2 - 2w + 1</code>. Every embedding is tested in step 2.</p>
-    </section>
+        <div id="defs"></div>
+    </div>
 
     <div class="compute-row">
         <button class="btn primary" id="compute-btn">Compute</button>
-        <button class="btn" id="copy-link" title="The URL holds the generators, constants, field and settings">Copy link</button>
+        <button class="quiet" id="settings-btn" aria-expanded="false">settings</button>
         <span class="status" id="compute-status"></span>
     </div>
-    <details class="settings">
-        <summary>Search settings</summary>
-        <div class="settings-grid">
-            <span class="sub-h">Step 2 · discreteness</span>
-            <label for="wordLength">Word length at ∞</label><input id="wordLength" type="number" value="8" min="1" max="32" step="1">
-            <label for="face-count-input">Max faces at ∞</label><input id="face-count-input" type="number" value="96" min="1" max="256" step="4">
-            <label for="decide-seconds">Seconds per prime</label><input id="decide-seconds" type="number" value="4" min="1" max="60" step="1">
-            <span class="sub-h">Step 4 · FlashBeam</span>
-            <label for="beam-width">Beam width</label><input id="beam-width" type="number" value="1500" min="100" max="20000" step="100">
-            <label for="flash-size">Flash size</label><input id="flash-size" type="number" value="40" min="0" max="400" step="5">
-            <label for="beam-seconds">Seconds</label><input id="beam-seconds" type="number" value="60" min="5" max="1800" step="5">
-            <label for="max-reps">Max representatives</label><input id="max-reps" type="number" value="24" min="1" max="200" step="1">
-            <label for="tree-metric">Tree edges</label>
-            <select id="tree-metric" title="Length of a tree edge in the ℓ² metric on the adelic product: log q matches H² and H³ (diag(p, 1) moves log p at ∞ and at p); 1 is the SO₃ project's convention">
-                <option value="log" selected>log q</option>
-                <option value="unit">1</option>
-            </select>
-        </div>
-    </details>
+    <div class="settings-grid" id="settings" hidden>
+        <span class="sub-h">Step 2 · discreteness</span>
+        <label for="wordLength">Word length at ∞</label><input id="wordLength" type="number" value="8" min="1" max="32" step="1">
+        <label for="face-count-input">Max faces at ∞</label><input id="face-count-input" type="number" value="96" min="1" max="256" step="4">
+        <label for="decide-seconds">Seconds per prime</label><input id="decide-seconds" type="number" value="4" min="1" max="60" step="1">
+        <span class="sub-h">Step 4 · FlashBeam</span>
+        <label for="beam-width">Beam width</label><input id="beam-width" type="number" value="1500" min="100" max="20000" step="100">
+        <label for="flash-size">Flash size</label><input id="flash-size" type="number" value="40" min="0" max="400" step="5">
+        <label for="beam-seconds">Seconds</label><input id="beam-seconds" type="number" value="60" min="5" max="1800" step="5">
+        <label for="max-reps">Max representatives</label><input id="max-reps" type="number" value="24" min="1" max="200" step="1">
+        <label for="tree-metric">Tree edges</label>
+        <select id="tree-metric" title="Length of a tree edge in the ℓ² metric on the adelic product: log q matches H² and H³ (diag(p, 1) moves log p at ∞ and at p); 1 is the SO₃ project's convention">
+            <option value="log" selected>log q</option>
+            <option value="unit">1</option>
+        </select>
+    </div>
 
     <!-- results: the verdict, then one card per step -->
     <section class="card result" id="verdict" hidden>
@@ -118,6 +89,8 @@
         </div>
     </section>
 
+    <div class="after" id="after" hidden>
+        <button class="quiet" id="copy-link" title="The URL holds the generators, the field and the settings">copy link</button>
     <details class="syntax">
         <summary>What is computed, and how</summary>
         <div>
@@ -128,6 +101,7 @@
             <p>The proof that <span class="m">\Gamma</span> is <span class="m">S</span>-arithmetic comes from the same search: a finite set <span class="m">R</span> of vertices of the trees, with every neighbour of every <span class="m">r \in R</span> equal to <span class="m">w\cdot r'</span> for a word <span class="m">w</span> and some <span class="m">r' \in R</span>, re-checked exactly. Then <span class="m">\Gamma R</span> is every vertex. If <span class="m">A</span> is ramified at every place at ∞ this gives finite index; if it splits at one place <span class="m">\sigma</span>, the elements fixing <span class="m">o</span> must also have finite covolume at <span class="m">\sigma</span>, which Poincaré checks. A search that runs out claims nothing.</p>
         </div>
     </details>
+    </div>
 </div>
 
 <script type="module" src="./js/main.js"></script>

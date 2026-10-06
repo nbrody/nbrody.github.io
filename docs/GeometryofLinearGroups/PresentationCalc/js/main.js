@@ -15,9 +15,10 @@
  *                        the covering certificate, then poincare on the
  *                        stabilizer of o when A splits at one place at ∞.
  *
- * The page looks like the Zariski Closure page (input.js): matrix grids,
- * constants and a number field. Entries are read by poincare's exact reader
- * (buildGroup), and the views of the places are poincare and trees themselves.
+ * The page opens to the matrix grids and the field they live over, defined
+ * as in the Discreteness Algorithm (input.js: roots of polynomials and named
+ * numbers, read by poincare's exact reader into a tower of fields). The views
+ * of the places are poincare and trees themselves.
  */
 import { buildGroup } from '../../Geometric/Tools/Kleinian/poincare/js/matrixInput.js';
 import { readStateFromURL, writeStateToURL } from '../../Geometric/Tools/Kleinian/poincare/js/permalink.js';
@@ -28,7 +29,7 @@ import { CURATED, CAT_ORDER, allExamples } from './examples.js';
 import { archClasses } from './archPlaces.js';
 import { zariskiCard, congruenceCard, zariskiLine, congruenceLine, texToText, esc, mix } from './zariskiView.js';
 import { sarithCard, liveNumbers, wordText, gapText } from './sarithView.js';
-import { createInput, toPoincareState, fromPoincareState } from './input.js';
+import { createInput, fromZariskiStyle } from './input.js';
 
 const VERSION = '2026-10-06a';          // busts the workers' module caches
 const ARCH_TIMEOUT = 120;               // seconds for one place at ∞
@@ -106,28 +107,31 @@ function setStep(name, status, head, detail = '') {
     renderSteps();
 }
 
-/** Read the inputs exactly: { pstate, read } or { error, where }. */
+/** Read the inputs exactly: { pstate, exactCtx, read } or { pstate, error } (or { blank } before anything is typed). */
 function readInputs() {
-    const st = input.getState();
-    const pstate = toPoincareState(st);
+    const pstate = input.getState();
+    if (input.isBlank()) { input.markErrors(null); return { pstate, blank: true, error: 'Enter the generators.' }; }
+    const bad = input.entryErrors();
+    if (bad.length) { input.markErrors(null, true); return { pstate, error: `${bad[0].src}: ${bad[0].error}` }; }
     try {
         const { exactCtx, read } = buildGroup(pstate);
-        input.markErrors(null, !!st.field);
-        return { st, pstate, exactCtx, read };
+        input.markErrors(null);
+        input.showRoots(read.roots);
+        return { pstate, exactCtx, read };
     } catch (e) {
-        input.markErrors(e.where || null, !!st.field);
-        return { st, pstate, error: e.message.replace(/^constant ([^:]*): /, (m, n) => (st.field && e.where && e.where.constant === 0 ? 'number field: ' : m)) };
+        input.markErrors(e.where || null);
+        return { pstate, error: e.message };
     }
 }
 
 function compute() {
     cancelRun();
     const r = readInputs();
-    showFieldInfo(r);
-    if (r.error) { setStageStatus(`Fix the input: ${r.error}`); return; }
+    showFieldStatus(r);
+    if (r.error) { setStageStatus(r.blank ? r.error : `Fix the input: ${r.error}`); return; }
     const settings = readSettings();
     run = {
-        seq: ++seq, input: r.pstate, state: r.st, settings, exact: r.exactCtx, model: null, workers: new Set(),
+        seq: ++seq, input: r.pstate, state: r.pstate, settings, exact: r.exactCtx, model: null, workers: new Set(),
         steps: Object.fromEntries(STEPS.map((s) => [s, newStep()])),
         zariski: null,
         places: [], byKey: new Map(), finiteDone: false, primes: null, generic: null, standard: [], finiteError: null,
@@ -137,7 +141,7 @@ function compute() {
     };
     updatePermalink();
     resetCards();
-    input.clearMeta();
+    $('after').hidden = false;
     if (!r.exactCtx) {
         run.error = `Some entry is not an algebraic number that can be read exactly${r.read && r.read.reason ? ` (${r.read.reason})` : ''}. Every step here needs exact arithmetic.`;
     } else {
@@ -793,21 +797,13 @@ function refreshView(step) {
     if (step === 'zariski') {
         if (!R.zariski) html = `<p class="lead">${esc(R.error || 'Computing…')}</p>`;
         else if (!R.zariski.ok) html = `<div class="banner" data-status="open"><span class="dot"></span><div>${esc(R.zariski.error)}</div></div>`;
-        else { html = zariskiCard(R.zariski, R.model); showMeta(R.zariski); }
+        else html = zariskiCard(R.zariski, R.model);
     } else if (step === 'places') html = placesCard(R);
     else if (step === 'congruence') html = congruenceCard(R.zariski && R.zariski.arith);
     else if (step === 'sarith') html = R.sarith ? sarithCard(R.sarith, R.model, R.model.mats.length) : '';
     body.innerHTML = html;
     typeset(body);
     if (step === 'sarith') wireSarithButtons();
-}
-
-/** The Zariski engine's invariants of each generator, beside its grid. */
-function showMeta(res) {
-    res.gens.forEach((g, i) => {
-        const kind = g.type === 'identity' ? 'scalar (trivial in PGL₂)' : g.order ? `${g.type}, order ${g.order}` : `${g.type}, infinite order`;
-        input.setMeta(i, `<span>${tex(`\\operatorname{tr}^2/\\det = ${g.tauTex}`)}</span><span class="tag${g.order ? ' fin' : ''}">${esc(kind)}</span>`);
-    });
 }
 
 function showView(step, sub = null, { auto = false } = {}) {
@@ -966,17 +962,17 @@ function wireSarithButtons() {
 
 // ───────────────────────── live field information ─────────────────────────
 
-function showFieldInfo(r) {
-    const el = $('field-info');
+/** Beside ℚ( … ): what is wrong, or quietly the degree of the field the entries generate. */
+function showFieldStatus(r) {
+    const el = $('field-status');
+    if (r.blank) { el.innerHTML = ''; return; }
     if (r.error) { el.innerHTML = `<span class="err">${esc(r.error)}</span>`; return; }
     if (!r.exactCtx) {
-        el.innerHTML = `<span class="err">${esc(`Read in floating point${r.read && r.read.reason ? `: ${r.read.reason}` : ''}. The calculator needs exact algebraic entries.`)}</span>`;
+        el.innerHTML = `<span class="err">${esc(`not exact${r.read && r.read.reason ? `: ${r.read.reason}` : ''}`)}</span>`;
         return;
     }
     const K = r.exactCtx.field;
-    el.innerHTML = K.deg === 1 ? mix('All entries are rational: $K = \\mathbb{Q}$.')
-        : `${mix('Entries lie in')} ${tex(`K = ${K.tex()}`)}${esc(`, a field of degree ${K.deg}.`)}`;
-    typeset(el);
+    el.innerHTML = K.deg > 1 ? esc(`degree ${K.deg}`) : '';
 }
 
 let editTimer = null;
@@ -984,7 +980,7 @@ function edited() {
     clearTimeout(editTimer);
     editTimer = setTimeout(() => {
         const r = readInputs();
-        showFieldInfo(r);
+        showFieldStatus(r);
         if (run) setStageStatus('The inputs changed: press Compute.');
     }, 250);
 }
@@ -993,8 +989,7 @@ function edited() {
 
 function currentState() {
     const st = readSettings();
-    const s = input.getState();
-    return { v: 1, gens: s.gens, consts: s.consts.filter(([n, v]) => n || v), field: s.field, depth: st.depth, faces: st.faces, secs: st.seconds, beam: st.beam, flash: st.flash, bsecs: st.beamSeconds, reps: st.maxReps, metric: st.metric };
+    return { v: 1, ...input.getState(), depth: st.depth, faces: st.faces, secs: st.seconds, beam: st.beam, flash: st.flash, bsecs: st.beamSeconds, reps: st.maxReps, metric: st.metric };
 }
 
 function updatePermalink() {
@@ -1007,67 +1002,71 @@ function applySettings(st) {
     set('beam-width', st.beam); set('flash-size', st.flash); set('beam-seconds', st.bsecs); set('max-reps', st.reps); set('tree-metric', st.metric);
 }
 
-/** The page's state from a permalink: this page's own, or an older poincare-style one. */
+/** The input state of a permalink: poincare's own, or this page's Zariski-style one of 2026-10-06. */
 function stateFromURL(u) {
     if (!u) return null;
-    if (u.gens) return { gens: u.gens, consts: u.consts || [], field: u.field || null };
-    if (u.mats) return fromPoincareState(u);
+    if (u.mats) return { mats: u.mats, anti: u.mats.map(() => false), consts: u.consts || [] };
+    if (u.gens) return fromZariskiStyle(u);
     return null;
 }
 
 function loadExample(ex) {
-    const st = fromPoincareState(ex);
-    if (!st) return;
-    input.setState(st);
+    input.setState({ mats: ex.mats, anti: ex.mats.map(() => false), consts: ex.consts || [] });
     $('wordLength').value = String(ex.depth || 8);
+    closeExamples();
     compute();
 }
 
+let exampleList = [];
+/** A quiet popover: the curated groups, then the Discreteness Algorithm's library. */
 async function buildExamples() {
-    const host = $('examples');
-    for (const ex of CURATED) {
-        const b = document.createElement('button');
-        b.className = 'chip';
-        b.title = ex.desc || ex.name;
-        b.innerHTML = ex.chip ? tex(ex.chip) : esc(ex.name);
-        b.addEventListener('click', () => loadExample(ex));
-        host.appendChild(b);
-    }
+    const pop = $('ex-pop');
     const all = await allExamples();
-    const curated = new Set(CURATED.map((e) => e.name));
     const seen = new Set();
-    const more = all.filter((ex) => {
-        if (curated.has(ex.name) || (ex.anti || []).some(Boolean) || !fromPoincareState(ex)) return false;
+    const list = all.filter((ex) => {
+        if ((ex.anti || []).some(Boolean)) return false;
         const k = JSON.stringify([ex.mats, ex.consts || []]);
         if (seen.has(k)) return false;
         seen.add(k);
         return true;
     });
-    const sel = document.createElement('select');
-    sel.innerHTML = '<option value="">More examples…</option>';
+    exampleList = list;
     const cats = new Map();
-    more.forEach((ex, i) => { if (!cats.has(ex.cat)) cats.set(ex.cat, []); cats.get(ex.cat).push(i); });
+    list.forEach((ex, i) => { if (!cats.has(ex.cat)) cats.set(ex.cat, []); cats.get(ex.cat).push(i); });
     const order = [...CAT_ORDER.filter((c) => cats.has(c)), ...[...cats.keys()].filter((c) => !CAT_ORDER.includes(c))];
-    for (const c of order) {
-        const g = document.createElement('optgroup');
-        g.label = c;
-        for (const i of cats.get(c)) { const o = document.createElement('option'); o.value = String(i); o.textContent = more[i].name; g.appendChild(o); }
-        sel.appendChild(g);
-    }
-    sel.addEventListener('change', () => { if (sel.value !== '') { loadExample(more[+sel.value]); sel.value = ''; } });
-    host.appendChild(sel);
+    pop.innerHTML = order.map((c) => `<div class="ex-cat">${esc(c)}</div>${cats.get(c).map((i) => `<button data-ex="${i}" title="${esc(list[i].desc || '')}">${esc(list[i].name)}</button>`).join('')}`).join('');
+    pop.addEventListener('click', (e) => { const b = e.target.closest('[data-ex]'); if (b) loadExample(list[+b.dataset.ex]); });
 }
+function closeExamples() { $('ex-pop').hidden = true; $('examples-btn').setAttribute('aria-expanded', 'false'); }
 
 // ───────────────────────── wiring and boot ─────────────────────────
 
 function wire() {
     $('compute-btn').addEventListener('click', compute);
+    $('settings-btn').addEventListener('click', () => {
+        const on = $('settings').hidden;
+        $('settings').hidden = !on;
+        $('settings-btn').setAttribute('aria-expanded', String(on));
+    });
+    $('examples-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const on = $('ex-pop').hidden;
+        $('ex-pop').hidden = !on;
+        $('examples-btn').setAttribute('aria-expanded', String(on));
+    });
+    $('dice-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const list = exampleList.length ? exampleList : CURATED;
+        loadExample(list[Math.floor(Math.random() * list.length)]);
+    });
+    document.addEventListener('click', (e) => { if (!$('ex-pop').hidden && !e.target.closest('.ex-wrap')) closeExamples(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeExamples(); });
     $('copy-link').addEventListener('click', async () => {
         const url = updatePermalink() || location.href;
         const btn = $('copy-link');
-        try { await navigator.clipboard.writeText(url); btn.textContent = 'Link copied'; }
-        catch (e) { btn.textContent = 'Copy failed — the URL bar has the link'; }
-        setTimeout(() => { btn.textContent = 'Copy link'; }, 1800);
+        try { await navigator.clipboard.writeText(url); btn.textContent = 'link copied'; }
+        catch (e) { btn.textContent = 'copy failed — the URL bar has the link'; }
+        setTimeout(() => { btn.textContent = 'copy link'; }, 1800);
     });
     $('step-list').addEventListener('click', (e) => {
         const row = e.target.closest('[data-step]');
@@ -1084,8 +1083,10 @@ function wire() {
 input = createInput({ onEdit: edited, onEnter: compute, tex });
 wire();
 const urlState = readStateFromURL();
-const initial = stateFromURL(urlState) || fromPoincareState(CURATED[0]);
+const fromURL = stateFromURL(urlState);
 if (urlState) applySettings(urlState);
-input.setState(initial);
+input.setState(fromURL || { mats: [], consts: [] });   // blank grids
+showFieldStatus(readInputs());
 buildExamples();
-setTimeout(compute, 100);
+// a shared link shows its results; a fresh visit shows only the inputs
+if (fromURL) setTimeout(compute, 100);

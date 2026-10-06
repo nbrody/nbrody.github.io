@@ -1,16 +1,18 @@
 /**
- * input.js — the page's input, as on the Zariski Closure page: generators as
- * 2×2 grids of MathQuill entries, named constants, and an optional number
- * field K = ℚ(w) given by a minimal polynomial, with its embedding picked by
- * clicking a root in the complex plane.
+ * input.js — the page's input, kept minimal: generators as 2×2 grids of
+ * MathQuill entries, and one entry for the field they live over:
  *
- * The state { gens, consts, field } becomes poincare's input state
- * { mats, anti, consts } for its exact reader (expr.js readGroup): the field is
- * a root row { name, poly, near } placed first, so constants and entries may
- * use its generator.
+ *     over ℚ( w, a = √2, i )
+ *
+ * Its items are read as in the Discreteness Algorithm (poincare's input), into
+ * a tower of number fields:
+ *     w          a symbol: a row appears below, "w root of P(w)", with the
+ *                root of P picked by clicking it in the complex plane;
+ *     a = …      a named number (radicals, i, ζ, cos(π/5), (1+√5)/2, …);
+ *     √2, i, …   a number adjoined as it is (entries may use it directly).
+ * The state is poincare's own input state { mats, anti, consts }.
  */
-import { parse, texOf, parseName, numericPolyRoots } from '../../assets/js/hyperbolic/expr.js';
-import { sortRoots, nearestIndex } from '../../assets/js/hyperbolic/tower.js';
+import { parse, parseName } from '../../assets/js/hyperbolic/expr.js';
 
 const $ = (id) => document.getElementById(id);
 const MQ_CONFIG = {
@@ -18,108 +20,99 @@ const MQ_CONFIG = {
     leftRightIntoCmdGoes: 'up',
     restrictMismatchedBrackets: true,
     supSubsRequireOperand: true,
-    charsThatBreakOutOfSupSub: '+-=<>',
+    charsThatBreakOutOfSupSub: '+-=<>,',
     autoSubscriptNumerals: true,
     autoCommands: 'pi sqrt nthroot zeta omega alpha beta gamma theta',
     autoOperatorNames: 'sin cos tan exp ln log arg Re Im abs conj',
 };
+const BLANK = ['', '', '', ''];
 
-/** poincare's input state for the page's state. */
-export function toPoincareState(st) {
+/** The state of an older permalink of this page ({ gens, consts, field }) as poincare's state. */
+export function fromZariskiStyle(st) {
     const consts = [];
     if (st.field) consts.push({ name: st.field.gen, poly: st.field.poly, near: st.field.root || null });
-    for (const [n, v] of st.consts || []) if (String(n || '').trim() || String(v || '').trim()) consts.push([n, v]);
-    return { mats: st.gens.map((g) => g.slice()), anti: st.gens.map(() => false), consts };
+    for (const [n, v] of st.consts || []) consts.push([n, v]);
+    return { mats: st.gens, anti: st.gens.map(() => false), consts };
 }
 
-/** The page's state for poincare's input state (the first root row becomes the number field). */
-export function fromPoincareState(ps) {
-    let field = null;
-    const consts = [];
-    for (const r of ps.consts || []) {
-        if (Array.isArray(r)) consts.push([r[0], r[1]]);
-        else if (r && 'poly' in r && !field) field = { gen: r.name, poly: r.poly, root: r.near || null };
-        else if (r && 'poly' in r) return null;           // more than one root: not representable here
-        else if (r) consts.push([r.name, r.value]);
-    }
-    return { gens: (ps.mats || []).map((g) => g.map(String)), consts, field };
-}
-
-/** Split at top-level commas, respecting (), [], {}. */
-function splitTop(s) {
+/** Split LaTeX at top-level occurrences of `sep` (outside {}, (), [], \left…\right). */
+function splitTop(s, sep) {
     const out = [];
     let depth = 0, start = 0;
     for (let i = 0; i < s.length; i++) {
+        if (s.startsWith('\\left', i)) { depth++; i += 4; continue; }
+        if (s.startsWith('\\right', i)) { depth--; i += 5; continue; }
         const ch = s[i];
-        if ('([{'.includes(ch)) depth++;
-        else if (')]}'.includes(ch)) depth--;
-        else if ((ch === ',' || ch === ';') && depth === 0) { out.push(s.slice(start, i)); start = i + 1; }
+        if ('{(['.includes(ch)) depth++;
+        else if ('})]'.includes(ch)) depth--;
+        else if (ch === sep && depth === 0) { out.push(s.slice(start, i)); start = i + 1; }
     }
     out.push(s.slice(start));
-    return out.map((x) => x.trim()).filter((x) => x.length);
-}
-function flatten(s) {
-    s = s.trim();
-    const close = { '(': ')', '[': ']' }[s[0]];
-    if (close && s[s.length - 1] === close) {
-        let depth = 0, end = -1;
-        for (let i = 0; i < s.length; i++) {
-            if ('([{'.includes(s[i])) depth++;
-            else if (')]}'.includes(s[i])) { depth--; if (depth === 0) { end = i; break; } }
-        }
-        if (end === s.length - 1) {
-            const inner = splitTop(s.slice(1, -1));
-            if (inner.length > 1) return inner.flatMap(flatten);
-        }
-    }
-    return [s];
-}
-/** "<((a,b),(c,d)), …>" → generators of LaTeX entries. */
-export function fromText(src) {
-    const s = String(src || '').trim().replace(/^[<⟨]\s*/, '').replace(/\s*[>⟩]$/, '');
-    const gens = [];
-    for (const item of splitTop(s)) {
-        const f = flatten(item);
-        if (f.length === 4) gens.push(f);
-        else if (f.length % 4 === 0 && /^[([]/.test(item)) for (let i = 0; i < f.length; i += 4) gens.push(f.slice(i, i + 4));
-        else throw new Error(`each generator must be a 2×2 matrix (found ${f.length} entr${f.length === 1 ? 'y' : 'ies'} in “${item}”)`);
-    }
-    if (!gens.length) throw new Error('no generators found');
-    const toLatex = (x) => { try { const a = parse(x); return a ? texOf(a) : '0'; } catch (e) { return x; } };
-    return gens.map((g) => g.map(toLatex));
+    return out.map((x) => x.trim());
 }
 
 /**
- * Build the input on the page's elements. onEdit() is called after every
- * change, onEnter() for Enter in an entry. Returns the input's interface.
+ * The items of the field entry:
+ *   { kind: 'value', name, src }   a = …
+ *   { kind: 'root', name }         a bare symbol, defined below
+ *   { kind: 'number', src }        an explicit number
+ *   { kind: 'bad', src, error }
+ */
+export function fieldItems(latex) {
+    const items = [];
+    for (const raw of splitTop(String(latex || ''), ',')) {
+        if (!raw) continue;
+        const eq = splitTop(raw, '=');
+        try {
+            if (eq.length === 2) {
+                const nm = parseName(eq[0]);
+                if (!nm) throw new Error('name the number before =');
+                if (!eq[1]) throw new Error(`give ${eq[0]} a value`);
+                items.push({ kind: 'value', name: eq[0], src: eq[1] });
+                continue;
+            }
+            if (eq.length > 2) throw new Error('one = per item');
+            const ast = parse(raw);
+            if (ast && ast.t === 'var') items.push({ kind: 'root', name: raw });
+            else items.push({ kind: 'number', src: raw });
+        } catch (e) {
+            items.push({ kind: 'bad', src: raw, error: e.message });
+        }
+    }
+    return items;
+}
+
+/**
+ * Build the input on the page's elements. onEdit() after every change,
+ * onEnter() for Enter in an entry.
  */
 export function createInput({ onEdit = () => { }, onEnter = () => { }, tex = (t) => t }) {
     const MQ = window.MathQuill ? window.MathQuill.getInterface(2) : null;
     let loading = false;
     const edited = () => { if (!loading) onEdit(); };
 
-    function makeField(host, cls, latex) {
+    function makeField(host, cls, latex, onChange = edited) {
         if (MQ) {
             host.classList.add(cls);
-            const mf = MQ.MathField(host, Object.assign({}, MQ_CONFIG, { handlers: { edit: edited, enter: () => onEnter() } }));
+            const mf = MQ.MathField(host, Object.assign({}, MQ_CONFIG, { handlers: { edit: () => onChange(), enter: () => onEnter() } }));
             mf.latex(latex || '');
-            return { get: () => mf.latex(), set: (v) => mf.latex(v), el: host, focus: () => mf.focus() };
+            return { get: () => mf.latex(), set: (v) => mf.latex(v || ''), el: host, focus: () => mf.focus() };
         }
         const input = document.createElement('input');
         input.className = cls; input.spellcheck = false; input.autocomplete = 'off';
         input.value = latex || '';
-        input.addEventListener('input', edited);
+        input.addEventListener('input', () => onChange());
         input.addEventListener('keydown', (e) => { if (e.key === 'Enter') onEnter(); });
         host.replaceWith(input);
-        return { get: () => input.value, set: (v) => { input.value = v; }, el: input, focus: () => input.focus() };
+        return { get: () => input.value, set: (v) => { input.value = v || ''; }, el: input, focus: () => input.focus() };
     }
 
     // ── generators ──
     const mats = $('mats');
-    function addMatrix(vals = ['1', '0', '0', '1'], focus = false) {
+    function addMatrix(vals = BLANK, focus = false) {
         const block = document.createElement('div');
         block.className = 'mat-block';
-        block.innerHTML = '<span class="lbl"></span><div class="grid2"><span></span><span></span><span></span><span></span></div><span class="meta"></span><button class="del" title="Remove" aria-label="Remove matrix">×</button>';
+        block.innerHTML = '<span class="lbl"></span><div class="grid2"><span></span><span></span><span></span><span></span></div><button class="del" title="Remove" aria-label="Remove matrix">×</button>';
         mats.appendChild(block);
         block._cells = [...block.querySelectorAll('.grid2 > span')].map((h, k) => makeField(h, 'cell', vals[k]));
         block.querySelector('.del').addEventListener('click', () => { block.remove(); relabel(); edited(); });
@@ -128,98 +121,110 @@ export function createInput({ onEdit = () => { }, onEnter = () => { }, tex = (t)
     }
     function relabel() { [...mats.children].forEach((b, i) => { b.querySelector('.lbl').innerHTML = tex(`g_{${i + 1}} =`); }); }
 
-    // ── constants ──
-    const constBox = $('consts');
-    function addConstant(name = '', value = '', focus = false) {
+    // ── the field: ℚ( entry ), and a row for each symbol in it ──
+    $('field-open').innerHTML = `over ${tex('\\mathbb{Q}(')}`;
+    $('field-close').innerHTML = tex(')');
+    // MathQuill calls the edit handler while it builds the field: fgen is null until then
+    let fgen = null;
+    fgen = makeField($('fgen'), 'fgen', '', () => { if (fgen) { syncRoots(); edited(); } });
+    const defs = $('defs');
+    const rows = new Map();          // symbol → its row (kept while the symbol is in the entry)
+    const remembered = new Map();    // symbol → { poly, near }, so a symbol typed again keeps its polynomial
+
+    function rootRow(name) {
         const row = document.createElement('div');
-        row.className = 'const-row';
-        row.innerHTML = '<span></span><span class="eq">=</span><span></span><button class="del" title="Remove" aria-label="Remove constant">×</button>';
-        constBox.appendChild(row);
-        const [hn, , hv] = row.children;
-        row._name = makeField(hn, 'cname', name);
-        row._value = makeField(hv, 'cval', value);
-        row.querySelector('.del').addEventListener('click', () => { row.remove(); edited(); });
-        if (focus) row._name.focus();
-    }
-
-    // ── number field ──
-    let roots = [], rootIndex = 0, fieldName = 'w';
-    const picker = window.RootPicker ? window.RootPicker.create($('root-plot'), {
-        onSelect: (i) => { rootIndex = i; syncPicker(); edited(); },
-    }) : null;
-    const syncPicker = () => { if (picker) picker.set(roots, rootIndex, fieldName); };
-    function refreshRoots(prefer = null) {
-        const gen = String($('field-gen').value || 'w').trim() || 'w';
-        let nm = null;
-        try { nm = parseName(gen); } catch (e) { nm = null; }
-        $('field-label').innerHTML = tex(`K = \\mathbb{Q}(${nm ? nm.tex : 'w'})`);
-        const prev = prefer || roots[rootIndex] || null;
-        try {
-            if (!nm) throw new Error('name the generator, e.g. w');
-            const rs = sortRoots(numericPolyRoots($('field-poly').value, nm.name));
-            if (rs.length < 1) throw new Error(`enter a polynomial in ${gen}`);
-            roots = rs; rootIndex = prev ? nearestIndex(rs, prev) : 0; fieldName = gen;
-            $('field-msg').textContent = '';
-        } catch (e) {
-            roots = []; rootIndex = 0;
-            $('field-msg').textContent = e.message.replace(/^constant [^:]*: /, '');
+        row.className = 'def';
+        row.innerHTML = '<div class="def-row"><span class="dname"></span><span class="op">root of</span><span></span></div><div class="def-picker" hidden></div>';
+        row.querySelector('.dname').innerHTML = tex(name);
+        const keep = remembered.get(name) || {};
+        row._name = name;
+        row._poly = makeField(row.querySelector('.def-row').children[2], 'dsrc', keep.poly || '');
+        row._near = keep.near || null;
+        row._roots = [];
+        if (window.RootPicker) {
+            row._picker = window.RootPicker.create(row.querySelector('.def-picker'), {
+                onSelect: (i) => { if (!row._roots[i]) return; row._near = row._roots[i]; edited(); },
+            });
         }
-        syncPicker();
+        return row;
     }
-    function setFieldUI(on) {
-        $('field-on').checked = on;
-        $('field-panel').hidden = !on;
-        $('field-hint').hidden = !on;
+    /** Rows follow the symbols of the entry, in order. */
+    function syncRoots() {
+        const names = fieldItems(fgen.get()).filter((it) => it.kind === 'root').map((it) => it.name);
+        for (const [name, row] of rows) {
+            remembered.set(name, { poly: row._poly.get(), near: row._near });
+            if (!names.includes(name)) { row.remove(); rows.delete(name); }
+        }
+        for (const name of names) {
+            if (!rows.has(name)) rows.set(name, rootRow(name));
+            defs.appendChild(rows.get(name));        // (re)ordered as in the entry
+        }
     }
-    $('field-on').addEventListener('change', () => { setFieldUI($('field-on').checked); if ($('field-on').checked) refreshRoots(); edited(); });
-    ['field-gen', 'field-poly'].forEach((id) => $(id).addEventListener('input', () => { refreshRoots(); edited(); }));
-    ['field-gen', 'field-poly'].forEach((id) => $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') onEnter(); }));
 
-    // ── whole state ──
+    // ── whole state: poincare's input state ──
+    let constMap = [];               // consts index → { kind, name } of the item it came from
     function getState() {
-        const consts = [...constBox.children].map((r) => [r._name.get(), r._value.get()]);
-        const field = $('field-on').checked ? { gen: $('field-gen').value, poly: $('field-poly').value, root: roots[rootIndex] || null } : null;
-        return { gens: [...mats.children].map((b) => b._cells.map((c) => c.get())), consts, field };
+        const gens = [...mats.children].map((b) => b._cells.map((c) => c.get()));
+        const consts = [];
+        constMap = [];
+        for (const it of fieldItems(fgen.get())) {
+            if (it.kind === 'value') { consts.push([it.name, it.src]); constMap.push(it); }
+            else if (it.kind === 'root') {
+                const row = rows.get(it.name);
+                const poly = row ? row._poly.get() : '';
+                // a polynomial still to be typed is left out, not flagged
+                consts.push(String(poly).trim() ? { name: it.name, poly, near: row._near || null } : ['', '']);
+                constMap.push(it);
+            }
+        }
+        return { mats: gens, anti: gens.map(() => false), consts };
     }
+    /** Errors in the entry itself (items that do not parse), before any reading. */
+    function entryErrors() { return fieldItems(fgen.get()).filter((it) => it.kind === 'bad'); }
+    function isBlank() { return [...mats.children].every((b) => b._cells.every((c) => !String(c.get()).trim())); }
+
     function setState(st) {
         loading = true;
-        mats.innerHTML = ''; constBox.innerHTML = '';
-        (st.gens && st.gens.length ? st.gens : [['1', '0', '0', '1']]).forEach((g) => addMatrix(g));
-        (st.consts || []).forEach(([n, v]) => addConstant(n, v));
-        if (st.field) {
-            $('field-gen').value = st.field.gen || 'w';
-            $('field-poly').value = st.field.poly || '';
-            setFieldUI(true);
-            roots = []; rootIndex = 0;
-            refreshRoots(st.field.root || null);
-        } else setFieldUI(false);
+        mats.innerHTML = '';
+        const ms = st.mats && st.mats.length ? st.mats : [BLANK, BLANK];
+        ms.forEach((g) => addMatrix(g.map((x) => String(x ?? ''))));
+        const items = [];
+        for (const [name] of rows) { rows.get(name).remove(); }
+        rows.clear(); remembered.clear();
+        for (const r of st.consts || []) {
+            if (Array.isArray(r)) { if (r[0]) items.push(`${r[0]}=${r[1]}`); }
+            else if (r && 'poly' in r) { items.push(r.name); remembered.set(r.name, { poly: r.poly, near: r.near || null }); }
+            else if (r && r.name) items.push(`${r.name}=${r.value}`);
+        }
+        fgen.set(items.join(','));
+        syncRoots();
         loading = false;
     }
-    /** Mark the entry, constant or field that an error points at (err.where of readGroup, in poincare's rows). */
-    function markErrors(where, hasField) {
+    /** After a read: each symbol's roots, for its picker (readGroup's roots, by consts index). */
+    function showRoots(roots) {
+        constMap.forEach((it, i) => {
+            if (it.kind !== 'root') return;
+            const row = rows.get(it.name);
+            if (!row) return;
+            const data = roots && roots[i];
+            row._roots = data ? data.roots : [];
+            if (data && !row._near) row._near = data.roots[data.index];
+            if (row._picker) row._picker.set(row._roots, data ? data.index : 0, it.name.replace(/\\/g, ''));
+            row.querySelector('.def-picker').hidden = !row._roots.length;
+        });
+    }
+    /** Mark what an error points at: readGroup's err.where, or the entry for its own items. */
+    function markErrors(where, entryBad = false) {
         [...mats.children].forEach((b, g) => {
             b.classList.toggle('invalid', !!where && where.gen === g && where.entry === undefined);
             b._cells.forEach((c, k) => c.el.classList.toggle('invalid', !!where && where.gen === g && where.entry === k));
         });
-        const ci = where && where.constant !== undefined ? where.constant - (hasField ? 1 : 0) : -2;
-        [...constBox.children].forEach((r, i) => { const bad = i === ci; r._name.el.classList.toggle('invalid', bad); r._value.el.classList.toggle('invalid', bad); });
-        $('field-poly').classList.toggle('invalid', ci === -1);
+        const it = where && where.constant !== undefined ? constMap[where.constant] : null;
+        fgen.el.classList.toggle('invalid', entryBad || (!!it && it.kind === 'value'));
+        for (const [name, row] of rows) row._poly.el.classList.toggle('invalid', !!it && it.kind === 'root' && it.name === name);
     }
-    function setMeta(i, html) { const b = mats.children[i]; if (b) b.querySelector('.meta').innerHTML = html; }
-    function clearMeta() { [...mats.children].forEach((b) => { b.querySelector('.meta').innerHTML = ''; }); }
 
-    $('add-mat').addEventListener('click', () => { addMatrix(['1', '0', '0', '1'], true); edited(); });
-    $('add-const').addEventListener('click', () => addConstant(['c', 'd', 'u', 'v'].find((n) => ![...constBox.children].some((r) => r._name.get() === n)) || '', '', true));
-    $('import-btn').addEventListener('click', () => {
-        try {
-            const gens = fromText($('import-text').value);
-            $('import-err').textContent = '';
-            const st = getState();
-            setState({ gens, consts: st.consts, field: st.field });
-            edited();
-        } catch (e) { $('import-err').textContent = e.message; }
-    });
-    $('field-label').innerHTML = tex('K = \\mathbb{Q}(w)');
+    $('add-mat').addEventListener('click', () => { addMatrix(BLANK, true); edited(); });
 
-    return { getState, setState, markErrors, setMeta, clearMeta };
+    return { getState, setState, showRoots, markErrors, entryErrors, isBlank };
 }
