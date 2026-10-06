@@ -113,10 +113,13 @@ export function archCertificate(ctx, { maxLen = null, cap = 600 } = {}) {
         if (t.sub(four).isZero()) { parabolics.push({ ...e, tr, det }); e.tr = tr; e.det = det; continue; }
         e.tr = tr; e.det = det;
         const tv = t.embed();
-        if (!(tv.re > -MARGIN && tv.re < 4 - MARGIN)) continue;
+        // Elliptic only when σ(t) is clearly inside (0, 4). The old lower bound
+        // −MARGIN let an exact value in (−10⁻⁹, 0) through; sqrt then clamped it
+        // to 0, so a loxodromic (trace not real) was reported as rotation by π.
+        if (!(tv.re > MARGIN && tv.re < 4 - MARGIN)) continue;
         if (!isRealAt(K, t)) continue;
         // elliptic at σ: rotation angle θ with σ(t) = 4cos²(θ/2); a finite order m has mθ ∈ 2πℤ
-        const theta = 2 * Math.acos(Math.min(1, Math.sqrt(Math.max(0, tv.re)) / 2));
+        const theta = 2 * Math.acos(Math.min(1, Math.sqrt(tv.re) / 2));
         let finite = false;
         for (const m of orders) {
             const k = m * theta / (2 * Math.PI);
