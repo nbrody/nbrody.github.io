@@ -11,9 +11,10 @@
  * stylesheet added to its same-origin document, until it does.
  */
 
+// Paths are relative to this module, so pages elsewhere can use it too.
 export const TOOLS = {
-    poincare: { path: '../Kleinian/poincare/index.html', title: 'Poincaré — canonical Dirichlet domains' },
-    trees: { path: '../padicGroups/trees/index.html', title: 'Bruhat–Tits tree' },
+    poincare: { path: '../../Kleinian/poincare/index.html', title: 'Poincaré — canonical Dirichlet domains' },
+    trees: { path: '../../padicGroups/trees/index.html', title: 'Bruhat–Tits tree' },
 };
 
 function toB64(str) {
@@ -25,7 +26,7 @@ function toB64(str) {
 
 /** The tool's URL for a state; `hosted` adds ?hosted and a nonce so a new state always reloads. */
 export function toolURL(tool, state, { hosted = true, nonce = 0 } = {}) {
-    const u = new URL(TOOLS[tool].path, location.href);
+    const u = new URL(TOOLS[tool].path, import.meta.url);
     if (hosted) { u.searchParams.set('hosted', '1'); u.searchParams.set('n', String(nonce)); }
     u.hash = `s=${toB64(JSON.stringify({ v: 1, ...state }))}`;
     return u.href;
@@ -43,7 +44,9 @@ html.hosted-mode #wt-backdrop { display: none !important; }
 html.hosted-mode .da-hosted-note { margin: 0 0 4px; font-size: 12px; line-height: 1.5; color: var(--ink-dim, #9aa5bd); }
 `;
 
-function hostPoincare(doc) {
+const DEFAULT_NOTE = 'The generators and constants are set in the Discreteness panel. The settings here belong to this view.';
+
+function hostPoincare(doc, note = DEFAULT_NOTE) {
     doc.documentElement.classList.add('hosted-mode');
     if (!doc.getElementById('da-hosted-style')) {
         const st = doc.createElement('style');
@@ -55,7 +58,7 @@ function hostPoincare(doc) {
     if (tab && !tab.querySelector('.da-hosted-note')) {
         const p = doc.createElement('p');
         p.className = 'da-hosted-note';
-        p.textContent = 'The generators and constants are set in the Discreteness panel. The settings here belong to this view.';
+        p.textContent = note;
         tab.prepend(p);
     }
     // The first-visit walkthrough opens a moment after load: remove it if it does.
@@ -67,9 +70,10 @@ function hostPoincare(doc) {
 }
 
 export class ToolFrames {
-    /** host: the element the iframes fill. */
-    constructor(host) {
+    /** host: the element the iframes fill; note: the line shown above poincare's settings. */
+    constructor(host, { note = DEFAULT_NOTE } = {}) {
         this.host = host;
+        this.note = note;
         this.frames = {};
         this.nonce = 0;
         this.current = null;
@@ -84,7 +88,7 @@ export class ToolFrames {
         f.hidden = true;
         f.addEventListener('load', () => {
             if (tool !== 'poincare') return;
-            try { hostPoincare(f.contentDocument); } catch (e) { /* not same-origin (file://): leave it as is */ }
+            try { hostPoincare(f.contentDocument, this.note); } catch (e) { /* not same-origin (file://): leave it as is */ }
         });
         this.host.appendChild(f);
         this.frames[tool] = f;

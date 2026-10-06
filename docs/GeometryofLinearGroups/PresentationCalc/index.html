@@ -1,190 +1,228 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Presentation Calculator - Geometry of Linear Groups</title>
-  <link rel="stylesheet" href="../assets/css/main.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presentation Calculator</title>
 
-  <!-- jQuery (dependency for MathQuill) -->
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery-3.7.1/jquery.min.js"></script>
-  <!-- MathQuill -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.js"></script>
+    <!-- The group is entered exactly as in Kleinian/poincare: its vendored MathQuill, its root picker -->
+    <link rel="stylesheet" href="../Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.css">
+    <script src="../Geometric/Tools/Kleinian/vendor/jquery/jquery-3.7.1.min.js"></script>
+    <script src="../Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.min.js"></script>
+    <script src="../assets/js/rootPicker.js"></script>
 
-  <!-- MathJax -->
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script src="../Geometric/Tools/Kleinian/vendor/mathjax/tex-mml-chtml.js"></script>
 
-  <style>
-    /* Light enhancements for MathQuill fields to match card aesthetic */
-    .mq-editable-field, .mq-static-math {
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 10px 12px;
-      font-size: 18px;
-      min-height: 44px;
-      background: #fff;
-    }
-    .mq-editable-field.mq-focused {
-      border-color: var(--accent-color);
-      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
-    }
-    .section-card {
-      background: var(--background-alt);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: var(--card-shadow);
-      margin-bottom: 24px;
-    }
-    .section-card h3 { color: var(--primary-color); font-weight: normal; margin-bottom: 10px; }
-    .section-card p { color: var(--text-light); margin-bottom: 12px; }
-    .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-    .controls { display: flex; gap: 10px; flex-wrap: wrap; }
-    .btn {
-      display: inline-block;
-      padding: 10px 14px;
-      background: var(--accent-color);
-      color: #fff;
-      border: 1px solid var(--accent-color);
-      border-radius: 6px;
-      cursor: pointer;
-      text-decoration: none;
-      transition: all 0.2s ease;
-      font-family: Arial, sans-serif;
-      font-size: 14px;
-    }
-    .btn:hover { filter: brightness(0.95); }
-    .btn-secondary {
-      background: #eef6fd;
-      color: var(--accent-color);
-      border-color: var(--accent-color);
-    }
-    .matrix-item { margin-bottom: 12px; }
-    .help { font-size: 0.9em; color: var(--text-light); }
-    #output { min-height: 120px; }
-    .visually-hidden { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip: rect(1px, 1px, 1px, 1px); white-space: nowrap; }
-  </style>
+    <!-- poincare's design system, then this page's layout -->
+    <link rel="stylesheet" href="../Geometric/Tools/Kleinian/poincare/style.css">
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-  <div class="container">
-    <header>
-      <nav class="breadcrumb">
-        <a href="../index.html">Home</a> / Calculate a presentation
-      </nav>
-      <h1>Presentation Calculator</h1>
-    </header>
-
-    <main>
-      <div class="section-intro">
-        <p>
-          Define a number ring \(A\) by specifying algebraic numbers \(x_i\), then enter generators as
-          matrices in \(\mathsf{PGL}_2(A)\). We will compute a presentation and provide interactive
-          visualizations in future iterations.
-        </p>
-      </div>
-
-      <!-- Number ring definition -->
-      <section class="section-card" aria-labelledby="ring-label">
-        <h3 id="ring-label">Number ring \(A\)</h3>
-        <p class="help">Describe \(A\), e.g. \(A = \mathbb{Z}[x_1,x_2]/(x_1^2-2,\; x_2^3-x_1-1)\).</p>
-        <div class="row">
-          <label for="ringField" class="visually-hidden">Ring definition</label>
-          <span id="ringField"></span>
+    <!-- The stage: one view per step of the pipeline -->
+    <main id="stage">
+        <nav id="step-bar" aria-label="Steps">
+            <button class="step-chip" data-step="zariski" data-status="idle"><span class="dot"></span><span class="step-num">1</span>Zariski closure</button>
+            <span class="step-arrow" aria-hidden="true">→</span>
+            <button class="step-chip" data-step="places" data-status="idle"><span class="dot"></span><span class="step-num">2</span>Discreteness</button>
+            <span class="step-arrow" aria-hidden="true">→</span>
+            <button class="step-chip" data-step="congruence" data-status="idle"><span class="dot"></span><span class="step-num">3</span>Congruence closure</button>
+            <span class="step-arrow" aria-hidden="true">→</span>
+            <button class="step-chip" data-step="sarith" data-status="idle"><span class="dot"></span><span class="step-num">4</span>S-arithmetic</button>
+        </nav>
+        <nav id="sub-bar" aria-label="Views of this step"></nav>
+        <div id="stage-body">
+            <div id="stage-empty" class="stage-empty">
+                <div class="stage-card">
+                    <p class="stage-title">What is Γ?</p>
+                    <p id="stage-status" class="stage-status">Enter generators and press Compute.</p>
+                </div>
+            </div>
+            <div id="view-card" class="view-card" hidden></div>
         </div>
-      </section>
-
-      <!-- Matrices input -->
-      <section class="section-card" aria-labelledby="matrices-label">
-        <h3 id="matrices-label">Generators in \(\mathsf{PGL}_2(A)\)</h3>
-        <p class="help">Enter each generator</p>
-        <div id="matrices"></div>
-        <div class="controls">
-          <button id="addMatrix" class="btn btn-secondary" type="button">+ Add Matrix</button>
+        <div id="stage-foot">
+            <span id="stage-caption" class="stage-caption"></span>
+            <a id="open-tool" class="stage-link" target="_blank" rel="noopener" hidden>Open in a new tab ↗</a>
         </div>
-      </section>
-
-      <!-- Actions -->
-      <section class="section-card" aria-labelledby="actions-label">
-        <h3 id="actions-label">Compute</h3>
-        <div class="controls">
-          <button id="computeBtn" class="btn" type="button">Compute Presentation</button>
-        </div>
-        <div id="output" class="section-intro"></div>
-      </section>
     </main>
 
-    <footer>
-      <p>Created by Nic Brody, UC Santa Cruz</p>
-    </footer>
-  </div>
+    <!-- Control panel -->
+    <div id="control-panel">
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="group">Group</button>
+            <button class="tab-btn" data-tab="verdict">Verdict</button>
+            <button class="tab-btn" data-tab="about">About</button>
+            <button id="refresh-btn" class="collapse-btn" title="Compute again" aria-label="Compute again">
+                <span class="collapse-icon">⟳</span>
+            </button>
+            <button id="collapse-btn" class="collapse-btn" title="Collapse panel" aria-label="Collapse panel">
+                <span class="collapse-icon">×</span>
+            </button>
+        </div>
 
-  <script>
-    // Initialize MathQuill
-    const MQ = MathQuill.getInterface(2);
+        <div class="panel-content">
+            <!-- Group tab -->
+            <div id="tab-group" class="tab-content active">
+                <div>
+                    <h2 class="panel-title">Presentation Calculator</h2>
+                    <p class="panel-subtitle">Generators of a subgroup Γ of PGL₂(ℚ̄). What is its Zariski closure, is it
+                        discrete at some place, and if not, is it S-arithmetic?</p>
+                </div>
 
-    // Render any static math examples in help text
-    document.querySelectorAll('.mq-static-math').forEach(span => {
-      try { MQ.StaticMath(span); } catch (_) {}
-    });
+                <div class="control-group">
+                    <div id="matrixInputs"></div>
+                    <button id="addMatrixBtn" class="btn btn-add">+ Add Matrix</button>
+                </div>
 
-    // Ring field
-    const ringSpan = document.getElementById('ringField');
-    const ringField = MQ.MathField(ringSpan, { spaceBehavesLikeTab: true });
-    ringField.latex('A = \\mathbb{Z}[x_1]/(x_1^2-2)');
+                <div id="constants-group" class="control-group constants-group">
+                    <button id="constants-toggle" class="constants-toggle" type="button"
+                        aria-expanded="false" aria-controls="constants-editor" title="Show the editor">
+                        <span class="control-label">Constants</span>
+                        <span class="constants-chev" aria-hidden="true"></span>
+                    </button>
+                    <div id="constants-summary" class="constants-summary"></div>
+                    <div id="constants-editor" class="constants-editor">
+                        <div id="constantsInputs"></div>
+                        <div class="constant-add-row">
+                            <button id="addConstantBtn" class="btn btn-add-alt"
+                                title="A named value, e.g. p = (1+√5)/2, that entries and later constants may use">+ Constant</button>
+                            <button id="addRootBtn" class="btn btn-add-alt"
+                                title="A named root of a polynomial, chosen by clicking it in the complex plane">+ Polynomial root</button>
+                        </div>
+                        <p class="label-hint constants-hint">
+                            Entries are read exactly as in Poincaré: fractions and decimals, i, radicals, roots of
+                            unity, cos and sin at rational multiples of π, and roots of polynomials. Every entry must
+                            be an algebraic number.
+                        </p>
+                    </div>
+                    <div id="field-status" class="field-status" aria-live="polite"></div>
+                </div>
 
-    // Matrices list (default two entries)
-    const matricesWrap = document.getElementById('matrices');
-    const addMatrixBtn = document.getElementById('addMatrix');
-    const computeBtn = document.getElementById('computeBtn');
-    const output = document.getElementById('output');
+                <div class="control-group">
+                    <button id="compute-btn" class="btn btn-add pc-compute">Compute</button>
+                    <div class="control-row" style="margin-top: 12px;">
+                        <label class="control-label">Examples</label>
+                        <button id="pc-example-btn" class="toggle-btn" title="Browse the example library">Load Example…</button>
+                    </div>
+                </div>
 
-    function addMatrix(initialLatex = '\\begin{pmatrix}1 & 0 \\\\ 0 & 1\\end{pmatrix}') {
-      const container = document.createElement('div');
-      container.className = 'matrix-item';
+                <details class="control-group pc-settings">
+                    <summary class="control-label">Search settings</summary>
+                    <div class="pc-settings-body">
+                        <p class="label-hint">Step 2 — discreteness</p>
+                        <div class="control-row">
+                            <label for="wordLength" class="control-label row-label" title="Places at ∞: depth of poincare's orbit search for walls">Word length (∞)</label>
+                            <input id="wordLength" type="number" value="8" min="1" max="32" step="1" class="number-input">
+                        </div>
+                        <div class="control-row">
+                            <label for="face-count-input" class="control-label row-label" title="Places at ∞: cap on the number of walls">Max faces (∞)</label>
+                            <input id="face-count-input" type="number" value="96" min="1" max="256" step="4" class="number-input">
+                        </div>
+                        <div class="control-row">
+                            <label for="decide-seconds" class="control-label row-label" title="Finite places: seconds the tree decision may run at each prime">Seconds per prime</label>
+                            <input id="decide-seconds" type="number" value="4" min="1" max="60" step="1" class="number-input">
+                        </div>
+                        <p class="label-hint">Step 4 — FlashBeam</p>
+                        <div class="control-row">
+                            <label for="beam-width" class="control-label row-label" title="Elements kept per iteration">Beam width</label>
+                            <input id="beam-width" type="number" value="1500" min="100" max="20000" step="100" class="number-input">
+                        </div>
+                        <div class="control-row">
+                            <label for="flash-size" class="control-label row-label" title="Best elements kept across iterations and multiplied into the beam">Flash size</label>
+                            <input id="flash-size" type="number" value="40" min="0" max="400" step="5" class="number-input">
+                        </div>
+                        <div class="control-row">
+                            <label for="beam-seconds" class="control-label row-label" title="Time budget for the covering search">Seconds</label>
+                            <input id="beam-seconds" type="number" value="60" min="5" max="1800" step="5" class="number-input">
+                        </div>
+                        <div class="control-row">
+                            <label for="max-reps" class="control-label row-label" title="Most orbit representatives the certificate may use">Max representatives</label>
+                            <input id="max-reps" type="number" value="24" min="1" max="200" step="1" class="number-input">
+                        </div>
+                    </div>
+                </details>
 
-      const fieldSpan = document.createElement('span');
-      container.appendChild(fieldSpan);
-      matricesWrap.appendChild(container);
+                <div class="control-group">
+                    <button id="copy-link" class="btn btn-add-alt"
+                        title="The URL holds the generators, constants and settings">Copy link to this group</button>
+                </div>
 
-      const mf = MQ.MathField(fieldSpan, { spaceBehavesLikeTab: true });
-      mf.latex(initialLatex);
-      container._mf = mf;
+                <p id="matrix-error-message" class="error-message"></p>
+            </div>
 
-      // Attach a small remove control
-      const remove = document.createElement('button');
-      remove.type = 'button';
-      remove.className = 'btn btn-secondary';
-      remove.textContent = 'Remove';
-      remove.style.marginLeft = '10px';
-      remove.addEventListener('click', () => container.remove());
-      container.appendChild(remove);
-    }
+            <!-- Verdict tab -->
+            <div id="tab-verdict" class="tab-content">
+                <div>
+                    <h2 class="panel-title">Verdict</h2>
+                    <p class="panel-subtitle">The answer first, then each step. Click a step to see its view.</p>
+                </div>
+                <div id="verdict-head" class="pc-verdict"><p class="empty-message">Press Compute.</p></div>
+                <div id="step-list" class="pc-steps"></div>
+            </div>
 
-    // Seed two matrices by default
-    addMatrix('\\begin{pmatrix}0 & -1 \\\\ 1 & x_1\\end{pmatrix}');
-    addMatrix('\\begin{pmatrix}1 & 1 \\\\ 0 & 1\\end{pmatrix}');
+            <!-- About tab -->
+            <div id="tab-about" class="tab-content">
+                <div>
+                    <h2 class="panel-title">How it Works</h2>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">1 · Zariski closure</h3>
+                    <p>The <a href="../Algebraic/Tools/zariskiClosure/" target="_blank" rel="noopener">Zariski
+                        Closure</a> engine classifies the closure of Γ over ℚ̄: finite, a torus or its normalizer, a
+                        Borel or unipotent group, or all of PGL₂. A Zariski-dense Γ has an invariant trace field k and
+                        quaternion algebra A, its closure over ℚ is Res<sub>k/ℚ</sub> PGL₁(A), and Γ⁽²⁾ lies in an
+                        S-arithmetic group Λ of it, where S is the set of primes at which Γ is unbounded.</p>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">2 · Discreteness</h3>
+                    <p>For a dense Γ, the <a href="../Geometric/Tools/discretenessAlgorithm/" target="_blank"
+                        rel="noopener">Discreteness Algorithm</a> tests every place of the field of definition:
+                        Poincaré’s polyhedron theorem at ∞ and the Bruhat–Tits tree at each prime. A discrete place
+                        ends the search and shows Γ there, with its presentation when Poincaré finds one.</p>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">3 · Congruence closure</h3>
+                    <p>The closure of Γ in ∏<sub>𝔭∉S</sub> PGL₁(A<sub>𝔭</sub>), prime by prime (Dickson’s
+                        classification and Serre’s lifting lemma away from finitely many primes; exact images
+                        mod 𝔭<sup>m</sup> at the rest). Its index is a lower bound for [Λ : Γ⁽²⁾].</p>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">4 · S-arithmetic, by FlashBeam</h3>
+                    <p>Λ acts on the product of trees X = ∏<sub>𝔭∈S</sub> T<sub>𝔭</sub>. A FlashBeam search
+                        multiplies a beam of words by a persistent flash of the best words found so far. It looks
+                        for a finite set R of vertices, with o ∈ R, and for each neighbour n of a vertex of R, a word
+                        w and r ∈ R with w·r = n. Pairs of words whose images are adjacent count too. Then
+                        Γ·R = X, because X is connected. Every word is checked again exactly.</p>
+                    <p>If A is ramified at every place at ∞, vertex stabilizers in Λ are finite, and Γ has finite
+                        index in Λ. If A splits at one place σ at ∞, the elements of Γ fixing o that the search
+                        found must also have finite covolume at σ. Poincaré checks this from a Dirichlet domain
+                        (relations exact, geometry in floating point, as in Poincaré itself). Then Γ is
+                        S-arithmetic. A search that runs out claims nothing.</p>
+                </div>
+                <div class="info-section">
+                    <h3 class="info-title">Modular</h3>
+                    <p>The input, exact arithmetic and domains are Poincaré’s; the Zariski and congruence data are
+                        the Zariski Closure engine’s; the places are the Discreteness Algorithm’s; the trees are
+                        Trees’. Changes to those tools appear here.</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    addMatrixBtn.addEventListener('click', () => addMatrix());
+    <div id="example-host"></div>
 
-    // Compute (stub): collect LaTeX and log for now
-    computeBtn.addEventListener('click', () => {
-      const ringLatex = ringField.latex();
-      const matrixLatex = Array.from(matricesWrap.children)
-        .map(c => c._mf && typeof c._mf.latex === 'function' ? c._mf.latex() : '')
-        .filter(s => s && s.trim().length > 0);
-
-      // For now, leave output area blank as requested; just log.
-      console.log('Ring:', ringLatex);
-      console.log('Generators:', matrixLatex);
-
-      if (window.MathJax) {
-        MathJax.typesetPromise([output]);
-      }
-    });
-  </script>
+    <script type="module" src="./js/main.js"></script>
 <!-- golg-nav-bootstrap -->
 <script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
 </body>
+
 </html>
