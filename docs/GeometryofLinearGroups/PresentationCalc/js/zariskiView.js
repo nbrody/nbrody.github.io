@@ -52,7 +52,6 @@ export function zariskiCard(res, model) {
     const F = res.field, C = res.closure, A = res.arith;
     const nGens = res.gens.length;
     let html = '<div class="vc-inner">';
-    html += `<h2>Step 1 · Zariski closure</h2>`;
     html += `<p class="lead">${mix(`Each generator is normalized by its first nonzero entry. The entries then lie in $F = ${model.degree === 1 ? '\\mathbb{Q}' : `\\mathbb{Q}(w)`}$${model.degree > 1 ? `, $${model.polyTex} = 0$` : ''}, and the closure is computed by the Zariski Closure engine.`)}</p>`;
     html += `<div class="head-math">${tex(`\\Gamma = \\langle ${res.gens.map((_, i) => `g_{${i + 1}}`).join(', ')} \\rangle \\le \\mathrm{PGL}_2(${F.n === 1 ? '\\mathbb{Q}' : 'K'})`, true)}</div>`;
     html += `<div class="head-math">${tex(`\\overline{\\Gamma}^{\\,\\mathrm{Zar}} = ${C.tex}`, true)}</div>`;
@@ -98,7 +97,7 @@ export function zariskiCard(res, model) {
 
 /** Step 3 as a card. */
 export function congruenceCard(A) {
-    let html = '<div class="vc-inner"><h2>Step 3 · Congruence closure</h2>';
+    let html = '<div class="vc-inner">';
     if (!A || !A.congruence) return html + '<p class="lead">Not computed.</p></div>';
     const C = A.congruence, d = A.k.d;
     if (C.error) return html + `<p class="lead">${esc('Could not compute: ' + C.error)}</p></div>`;

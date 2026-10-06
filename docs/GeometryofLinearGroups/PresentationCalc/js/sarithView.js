@@ -39,8 +39,6 @@ export function placeTex(pl, degree) {
     return `T_{${pl.q + 1}} \\text{ at } ${name}`;
 }
 
-const COLORS = { self: '#34d399', other: '#5eead4', rep: '#a5b4fc', open: '#f87171' };
-
 /** The link of a representative in one tree: the parent on top, the q children below. */
 function star(states) {
     const n = states.length, R = 34, c = 44;
@@ -48,23 +46,22 @@ function star(states) {
     states.forEach((st, k) => {
         const a = -Math.PI / 2 + (2 * Math.PI * k) / n;
         const x = c + R * Math.cos(a), y = c + R * Math.sin(a);
-        const col = COLORS[st] || COLORS.open;
-        s += `<line x1="${c}" y1="${c}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${col}" stroke-opacity="${st === 'open' ? 0.35 : 0.8}" stroke-width="1.6"/>`;
-        s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${n > 20 ? 2.4 : 3.4}" fill="${st === 'open' ? 'none' : col}" stroke="${col}" stroke-width="1.2"/>`;
+        const cls = ['self', 'other', 'rep'].includes(st) ? `st-${st}` : 'st-open';
+        s += `<line class="${cls}" x1="${c}" y1="${c}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke-opacity="${cls === 'st-open' ? 0.35 : 0.8}" stroke-width="1.6"/>`;
+        s += `<circle class="${cls}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${n > 20 ? 2.4 : 3.4}" stroke-width="1.2"/>`;
     });
-    return s + `<circle cx="${c}" cy="${c}" r="5" fill="#e0e7ff"/></svg>`;
+    return s + `<circle class="st-center" cx="${c}" cy="${c}" r="5"/></svg>`;
 }
 
 function chart(history) {
     if (history.length < 2 || history[history.length - 1].it <= history[0].it) return '';
-    const W = 600, H = 110, last = history[history.length - 1].it || 1;
+    const W = 600, H = 90, last = history[history.length - 1].it || 1;
     const pts = history.map((h) => `${(W * h.it / last).toFixed(1)},${(H - 6 - (H - 12) * h.frac).toFixed(1)}`).join(' ');
     const reps = history.filter((h, i) => i && h.reps !== history[i - 1].reps)
-        .map((h) => `<line x1="${(W * h.it / last).toFixed(1)}" y1="4" x2="${(W * h.it / last).toFixed(1)}" y2="${H - 4}" stroke="#a5b4fc" stroke-opacity="0.35" stroke-dasharray="3 3"/>`).join('');
+        .map((h) => `<line class="promo" x1="${(W * h.it / last).toFixed(1)}" y1="4" x2="${(W * h.it / last).toFixed(1)}" y2="${H - 4}" stroke-dasharray="3 3"/>`).join('');
     return `<svg class="cov-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Neighbours covered, by iteration">
-        <line x1="0" y1="${H - 6}" x2="${W}" y2="${H - 6}" stroke="rgba(255,255,255,0.12)"/>
-        <line x1="0" y1="6" x2="${W}" y2="6" stroke="rgba(255,255,255,0.06)"/>
-        ${reps}<polyline points="${pts}" fill="none" stroke="#34d399" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+        <line class="axis" x1="0" y1="${H - 6}" x2="${W}" y2="${H - 6}"/>
+        ${reps}<polyline class="curve" points="${pts}" fill="none" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
 }
 
 function stat(k, v, id) { return `<div class="cov-stat"><span class="k">${k}</span><span class="v"${id ? ` id="${id}"` : ''}>${v}</span></div>`; }
@@ -104,11 +101,11 @@ function scatter(points, weights, nArch) {
     const W = 560, H = 220, m = 30;
     const sx = (x) => m + (W - 2 * m) * x / X, sy = (y) => H - m - (H - 2 * m) * y / Y;
     let svg = `<svg class="dir-scatter" viewBox="0 0 ${W} ${H}" aria-label="Orbit points found">`;
-    svg += `<line x1="${m}" y1="${H - m}" x2="${W - m}" y2="${H - m}" stroke="rgba(255,255,255,0.18)"/><line x1="${m}" y1="${m}" x2="${m}" y2="${H - m}" stroke="rgba(255,255,255,0.18)"/>`;
-    svg += `<text x="${W - m}" y="${H - 9}" text-anchor="end" fill="#8b93a7" font-size="11">${esc(xl)} →</text>`;
-    if (yl) svg += `<text x="${m + 4}" y="${m - 10}" fill="#8b93a7" font-size="11">↑ ${esc(yl)}</text>`;
-    for (const p of pts.filter((q) => !q.a)) svg += `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="2.2" fill="#64748b" fill-opacity="0.55"/>`;
-    for (const p of pts.filter((q) => q.a)) svg += `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="4" fill="#34d399" stroke="#065f46"/>`;
+    svg += `<line class="axis" x1="${m}" y1="${H - m}" x2="${W - m}" y2="${H - m}"/><line class="axis" x1="${m}" y1="${m}" x2="${m}" y2="${H - m}"/>`;
+    svg += `<text class="lbl" x="${W - m}" y="${H - 9}" text-anchor="end">${esc(xl)} →</text>`;
+    if (yl) svg += `<text class="lbl" x="${m + 4}" y="${m - 10}">↑ ${esc(yl)}</text>`;
+    for (const p of pts.filter((q) => !q.a)) svg += `<circle class="pt" cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="2.2"/>`;
+    for (const p of pts.filter((q) => q.a)) svg += `<circle class="gen" cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="4"/>`;
     return svg + '</svg>';
 }
 
@@ -120,7 +117,7 @@ export function gapText(n, rels) {
 }
 
 export function sarithCard(S, model, nGens) {
-    let html = '<div class="vc-inner"><h2>Step 4 · FlashBeam in the adelic product</h2>';
+    let html = '<div class="vc-inner">';
     if (S.phase === 'na') {
         html += `<div class="banner" data-status="open"><span class="dot"></span><div>${mix(S.note)}</div></div>`;
         return html + '</div>';
@@ -187,7 +184,7 @@ export function sarithCard(S, model, nGens) {
     const links = r ? r.links : S.progress ? S.progress.links : null;
     const repTex = r ? r.reps.map((x) => x.tex) : null;
     if (trees && links) {
-        html += `<h3>The covering certificate</h3><p class="note">${mix('A finite set $R$ of vertices of the trees, with every neighbour of every $r \\in R$ equal to $w \\cdot r\'$ for a word $w$ and some $r\' \\in R$. Then $\\Gamma R$ is every vertex. Each star is the link of a representative in one tree, with the parent at the top:')} <span style="color:${COLORS.self}">●</span> reached from the same representative, <span style="color:${COLORS.other}">●</span> from another, <span style="color:${COLORS.rep}">●</span> itself a representative, <span style="color:${COLORS.open}">○</span> open.</p>`;
+        html += `<h3>The covering certificate</h3><p class="note">${mix('A finite set $R$ of vertices of the trees, with every neighbour of every $r \\in R$ equal to $w \\cdot r\'$ for a word $w$ and some $r\' \\in R$. Then $\\Gamma R$ is every vertex. Each star is the link of a representative in one tree, with the parent at the top:')} <span class="key-self">●</span> reached from the same representative, <span class="key-other">●</span> from another, <span class="key-rep">●</span> itself a representative, <span class="key-open">○</span> open.</p>`;
         html += '<div class="cov-reps">';
         links.forEach((perPlace, i) => {
             const name = i === 0 ? '<b>o</b>' : `<b>r${subN(i)}</b>`;

@@ -1,242 +1,137 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Presentation Calculator</title>
-
-    <!-- The group is entered exactly as in Kleinian/poincare: its vendored MathQuill, its root picker -->
-    <link rel="stylesheet" href="../Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.css">
-    <script src="../Geometric/Tools/Kleinian/vendor/jquery/jquery-3.7.1.min.js"></script>
-    <script src="../Geometric/Tools/Kleinian/vendor/mathquill/build/mathquill.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js"></script>
     <script src="../assets/js/rootPicker.js"></script>
-
-    <script>
-        window.MathJax = {
-            tex: {
-                inlineMath: [['$', '$'], ['\\(', '\\)']],
-                displayMath: [['$$', '$$'], ['\\[', '\\]']]
-            }
-        };
-    </script>
-    <script src="../Geometric/Tools/Kleinian/vendor/mathjax/tex-mml-chtml.js"></script>
-
-    <!-- poincare's design system, then this page's layout -->
-    <link rel="stylesheet" href="../Geometric/Tools/Kleinian/poincare/style.css">
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-    <!-- The stage: one view per step of the pipeline -->
-    <main id="stage">
-        <nav id="step-bar" aria-label="Steps">
-            <button class="step-chip" data-step="zariski" data-status="idle"><span class="dot"></span><span class="step-num">1</span>Zariski closure</button>
-            <span class="step-arrow" aria-hidden="true">→</span>
-            <button class="step-chip" data-step="places" data-status="idle"><span class="dot"></span><span class="step-num">2</span>Discreteness</button>
-            <span class="step-arrow" aria-hidden="true">→</span>
-            <button class="step-chip" data-step="congruence" data-status="idle"><span class="dot"></span><span class="step-num">3</span>Congruence closure</button>
-            <span class="step-arrow" aria-hidden="true">→</span>
-            <button class="step-chip" data-step="sarith" data-status="idle"><span class="dot"></span><span class="step-num">4</span>S-arithmetic</button>
-        </nav>
-        <nav id="sub-bar" aria-label="Views of this step"></nav>
-        <div id="stage-body">
-            <div id="stage-empty" class="stage-empty">
-                <div class="stage-card">
-                    <p class="stage-title">What is Γ?</p>
-                    <p id="stage-status" class="stage-status">Enter generators and press Compute.</p>
-                </div>
-            </div>
-            <div id="view-card" class="view-card" hidden></div>
+<div class="page">
+    <header>
+        <h1>Presentation Calculator</h1>
+        <p>Enter matrices generating a subgroup <span class="m">\Gamma \le \mathrm{PGL}_2(\overline{\mathbb{Q}})</span>. The
+            calculator finds its Zariski closure; for a dense <span class="m">\Gamma</span>, whether it is discrete at some
+            place, its congruence closure, and a FlashBeam search for its Dirichlet generators and an
+            <span class="m">S</span>-arithmetic certificate.</p>
+    </header>
+
+    <div class="examples" id="examples"><span class="label">Examples</span></div>
+
+    <section class="card">
+        <h2>Generators</h2>
+        <div class="mats" id="mats"></div>
+        <div class="add-row">
+            <button class="btn" id="add-mat">+ Add matrix</button>
+            <span class="hint">Type <code>sqrt</code>, <code>zeta_5</code>, <code>omega</code>, <code>/</code> for fractions; entries may use <span class="m">i</span>, radicals, roots of unity, constants below and the generator of a number field. Space moves to the next entry; Enter computes.</span>
         </div>
-        <div id="stage-foot">
-            <span id="stage-caption" class="stage-caption"></span>
-            <a id="open-tool" class="stage-link" target="_blank" rel="noopener" hidden>Open in a new tab ↗</a>
+        <div class="field-info" id="field-info"></div>
+        <details class="import" id="import">
+            <summary>Import generators as text</summary>
+            <textarea id="import-text" spellcheck="false" autocomplete="off" placeholder="<((1+2i, 0), (0, 1-2i)), ((3, 2), (-2, 3))>"></textarea>
+            <div class="add-row"><button class="btn" id="import-btn">Load into the grid</button><span class="err" id="import-err"></span></div>
+            <p class="hint">2×2 matrices as <code>((a,b),(c,d))</code> or <code>[[a,b],[c,d]]</code>, separated by commas, with entries such as <code>sqrt(2)</code>, <code>i</code>, <code>1/2</code>.</p>
+        </details>
+    </section>
+
+    <section class="card">
+        <h2>Constants and number field <span class="opt">optional</span></h2>
+        <div class="sub-h">Constants</div>
+        <div id="consts"></div>
+        <div class="add-row"><button class="btn" id="add-const">+ Add constant</button><span class="hint">Named values (radicals, roots of unity, cos(π/5), …) that entries and later constants may use.</span></div>
+        <div class="divider"></div>
+        <label class="switch"><input type="checkbox" id="field-on"> Number field <span id="field-label"></span></label>
+        <div class="field-panel" id="field-panel" hidden>
+            <label for="field-gen">Generator</label>
+            <input id="field-gen" value="w" spellcheck="false" autocomplete="off">
+            <label for="field-poly">Min. poly</label>
+            <input id="field-poly" value="w^2 + w + 1" spellcheck="false" autocomplete="off">
+            <label id="field-root-label" style="align-self: start; padding-top: 6px;">Embedding</label>
+            <div id="root-plot"></div>
+            <div class="msg" id="field-msg"></div>
         </div>
-    </main>
+        <p class="hint" id="field-hint" hidden>Entries may use the generator; click a root to say which complex root of the minimal polynomial it is. Write the polynomial in the generator, e.g. <code>w^3 - w^2 - 2w + 1</code>. Every embedding is tested in step 2.</p>
+    </section>
 
-    <!-- Control panel -->
-    <div id="control-panel">
-        <div class="tab-navigation">
-            <button class="tab-btn active" data-tab="group">Group</button>
-            <button class="tab-btn" data-tab="verdict">Verdict</button>
-            <button class="tab-btn" data-tab="about">About</button>
-            <button id="refresh-btn" class="collapse-btn" title="Compute again" aria-label="Compute again">
-                <span class="collapse-icon">⟳</span>
-            </button>
-            <button id="collapse-btn" class="collapse-btn" title="Collapse panel" aria-label="Collapse panel">
-                <span class="collapse-icon">×</span>
-            </button>
-        </div>
-
-        <div class="panel-content">
-            <!-- Group tab -->
-            <div id="tab-group" class="tab-content active">
-                <div>
-                    <h2 class="panel-title">Presentation Calculator</h2>
-                    <p class="panel-subtitle">Generators of a subgroup Γ of PGL₂(ℚ̄). What is its Zariski closure, is it
-                        discrete at some place, and if not, is it S-arithmetic?</p>
-                </div>
-
-                <div class="control-group">
-                    <div id="matrixInputs"></div>
-                    <button id="addMatrixBtn" class="btn btn-add">+ Add Matrix</button>
-                </div>
-
-                <div id="constants-group" class="control-group constants-group">
-                    <button id="constants-toggle" class="constants-toggle" type="button"
-                        aria-expanded="false" aria-controls="constants-editor" title="Show the editor">
-                        <span class="control-label">Constants</span>
-                        <span class="constants-chev" aria-hidden="true"></span>
-                    </button>
-                    <div id="constants-summary" class="constants-summary"></div>
-                    <div id="constants-editor" class="constants-editor">
-                        <div id="constantsInputs"></div>
-                        <div class="constant-add-row">
-                            <button id="addConstantBtn" class="btn btn-add-alt"
-                                title="A named value, e.g. p = (1+√5)/2, that entries and later constants may use">+ Constant</button>
-                            <button id="addRootBtn" class="btn btn-add-alt"
-                                title="A named root of a polynomial, chosen by clicking it in the complex plane">+ Polynomial root</button>
-                        </div>
-                        <p class="label-hint constants-hint">
-                            Entries are read exactly as in Poincaré: fractions and decimals, i, radicals, roots of
-                            unity, cos and sin at rational multiples of π, and roots of polynomials. Every entry must
-                            be an algebraic number.
-                        </p>
-                    </div>
-                    <div id="field-status" class="field-status" aria-live="polite"></div>
-                </div>
-
-                <div class="control-group">
-                    <button id="compute-btn" class="btn btn-add pc-compute">Compute</button>
-                    <div class="control-row" style="margin-top: 12px;">
-                        <label class="control-label">Examples</label>
-                        <button id="pc-example-btn" class="toggle-btn" title="Browse the example library">Load Example…</button>
-                    </div>
-                </div>
-
-                <details class="control-group pc-settings">
-                    <summary class="control-label">Search settings</summary>
-                    <div class="pc-settings-body">
-                        <p class="label-hint">Step 2 — discreteness</p>
-                        <div class="control-row">
-                            <label for="wordLength" class="control-label row-label" title="Places at ∞: depth of poincare's orbit search for walls">Word length (∞)</label>
-                            <input id="wordLength" type="number" value="8" min="1" max="32" step="1" class="number-input">
-                        </div>
-                        <div class="control-row">
-                            <label for="face-count-input" class="control-label row-label" title="Places at ∞: cap on the number of walls">Max faces (∞)</label>
-                            <input id="face-count-input" type="number" value="96" min="1" max="256" step="4" class="number-input">
-                        </div>
-                        <div class="control-row">
-                            <label for="decide-seconds" class="control-label row-label" title="Finite places: seconds the tree decision may run at each prime">Seconds per prime</label>
-                            <input id="decide-seconds" type="number" value="4" min="1" max="60" step="1" class="number-input">
-                        </div>
-                        <p class="label-hint">Step 4 — FlashBeam</p>
-                        <div class="control-row">
-                            <label for="beam-width" class="control-label row-label" title="Elements kept per iteration">Beam width</label>
-                            <input id="beam-width" type="number" value="1500" min="100" max="20000" step="100" class="number-input">
-                        </div>
-                        <div class="control-row">
-                            <label for="flash-size" class="control-label row-label" title="Best elements kept across iterations and multiplied into the beam">Flash size</label>
-                            <input id="flash-size" type="number" value="40" min="0" max="400" step="5" class="number-input">
-                        </div>
-                        <div class="control-row">
-                            <label for="beam-seconds" class="control-label row-label" title="Time budget for the covering search">Seconds</label>
-                            <input id="beam-seconds" type="number" value="60" min="5" max="1800" step="5" class="number-input">
-                        </div>
-                        <div class="control-row">
-                            <label for="max-reps" class="control-label row-label" title="Most orbit representatives the certificate may use">Max representatives</label>
-                            <input id="max-reps" type="number" value="24" min="1" max="200" step="1" class="number-input">
-                        </div>
-                        <div class="control-row">
-                            <label for="tree-metric" class="control-label row-label" title="Length of a tree edge in the ℓ² metric on the adelic product: log q matches H² and H³ (diag(p, 1) moves log p at ∞ and at p); 1 is the SO₃ project's convention">Tree edges</label>
-                            <select id="tree-metric" class="number-input">
-                                <option value="log" selected>log q</option>
-                                <option value="unit">1</option>
-                            </select>
-                        </div>
-                    </div>
-                </details>
-
-                <div class="control-group">
-                    <button id="copy-link" class="btn btn-add-alt"
-                        title="The URL holds the generators, constants and settings">Copy link to this group</button>
-                </div>
-
-                <p id="matrix-error-message" class="error-message"></p>
-            </div>
-
-            <!-- Verdict tab -->
-            <div id="tab-verdict" class="tab-content">
-                <div>
-                    <h2 class="panel-title">Verdict</h2>
-                    <p class="panel-subtitle">The answer first, then each step. Click a step to see its view.</p>
-                </div>
-                <div id="verdict-head" class="pc-verdict"><p class="empty-message">Press Compute.</p></div>
-                <div id="step-list" class="pc-steps"></div>
-            </div>
-
-            <!-- About tab -->
-            <div id="tab-about" class="tab-content">
-                <div>
-                    <h2 class="panel-title">How it Works</h2>
-                </div>
-                <div class="info-section">
-                    <h3 class="info-title">1 · Zariski closure</h3>
-                    <p>The <a href="../Algebraic/Tools/zariskiClosure/" target="_blank" rel="noopener">Zariski
-                        Closure</a> engine classifies the closure of Γ over ℚ̄: finite, a torus or its normalizer, a
-                        Borel or unipotent group, or all of PGL₂. A Zariski-dense Γ has an invariant trace field k and
-                        quaternion algebra A, its closure over ℚ is Res<sub>k/ℚ</sub> PGL₁(A), and Γ⁽²⁾ lies in an
-                        S-arithmetic group Λ of it, where S is the set of primes at which Γ is unbounded.</p>
-                </div>
-                <div class="info-section">
-                    <h3 class="info-title">2 · Discreteness</h3>
-                    <p>For a dense Γ, the <a href="../Geometric/Tools/discretenessAlgorithm/" target="_blank"
-                        rel="noopener">Discreteness Algorithm</a> tests every place of the field of definition:
-                        Poincaré’s polyhedron theorem at ∞ and the Bruhat–Tits tree at each prime. A discrete place
-                        ends the search and shows Γ there, with its presentation when Poincaré finds one.</p>
-                </div>
-                <div class="info-section">
-                    <h3 class="info-title">3 · Congruence closure</h3>
-                    <p>The closure of Γ in ∏<sub>𝔭∉S</sub> PGL₁(A<sub>𝔭</sub>), prime by prime (Dickson’s
-                        classification and Serre’s lifting lemma away from finitely many primes; exact images
-                        mod 𝔭<sup>m</sup> at the rest). Its index is a lower bound for [Λ : Γ⁽²⁾].</p>
-                </div>
-                <div class="info-section">
-                    <h3 class="info-title">4 · FlashBeam in the adelic product</h3>
-                    <p>As in the SO₃ decision project, Γ is studied in the product X of the symmetric spaces of
-                        every place where it is unbounded: H² or H³ at ∞, the tree T<sub>𝔭</sub> at each 𝔭 ∈ S,
-                        with the ℓ² metric. Γ is discrete there. FlashBeam multiplies a beam of words by a
-                        persistent flash of the lowest elements found, scored by the height d(o, g·o). Two words
-                        reaching one element give a relation, checked exactly. An element g is a Dirichlet
-                        generator when the midpoint of [o, g·o] has only o and g·o as nearest orbit points. Its
-                        bisector then carries a facet of the Dirichlet domain. These are measured against the
-                        points found, as in the SO₃ project.</p>
-                    <p>The proof that Γ is S-arithmetic comes from the same search. It needs a finite set R of
-                        vertices of the trees, with o ∈ R, and for each neighbour n of a vertex of R, a word w and
-                        r ∈ R with w·r = n. Pairs of words whose images are adjacent count too. Then Γ·R is every
-                        vertex, because the product of trees is connected. Every word is checked again exactly.</p>
-                    <p>If A is ramified at every place at ∞, vertex stabilizers in Λ are finite, and Γ has finite
-                        index in Λ. If A splits at one place σ at ∞, the elements of Γ fixing o that the search
-                        found must also have finite covolume at σ. Poincaré checks this from a Dirichlet domain
-                        (relations exact, geometry in floating point, as in Poincaré itself). Then Γ is
-                        S-arithmetic. A search that runs out claims nothing.</p>
-                </div>
-                <div class="info-section">
-                    <h3 class="info-title">Modular</h3>
-                    <p>The input, exact arithmetic and domains are Poincaré’s; the Zariski and congruence data are
-                        the Zariski Closure engine’s; the places are the Discreteness Algorithm’s; the trees are
-                        Trees’. Changes to those tools appear here.</p>
-                </div>
-            </div>
-        </div>
+    <div class="compute-row">
+        <button class="btn primary" id="compute-btn">Compute</button>
+        <button class="btn" id="copy-link" title="The URL holds the generators, constants, field and settings">Copy link</button>
+        <span class="status" id="compute-status"></span>
     </div>
+    <details class="settings">
+        <summary>Search settings</summary>
+        <div class="settings-grid">
+            <span class="sub-h">Step 2 · discreteness</span>
+            <label for="wordLength">Word length at ∞</label><input id="wordLength" type="number" value="8" min="1" max="32" step="1">
+            <label for="face-count-input">Max faces at ∞</label><input id="face-count-input" type="number" value="96" min="1" max="256" step="4">
+            <label for="decide-seconds">Seconds per prime</label><input id="decide-seconds" type="number" value="4" min="1" max="60" step="1">
+            <span class="sub-h">Step 4 · FlashBeam</span>
+            <label for="beam-width">Beam width</label><input id="beam-width" type="number" value="1500" min="100" max="20000" step="100">
+            <label for="flash-size">Flash size</label><input id="flash-size" type="number" value="40" min="0" max="400" step="5">
+            <label for="beam-seconds">Seconds</label><input id="beam-seconds" type="number" value="60" min="5" max="1800" step="5">
+            <label for="max-reps">Max representatives</label><input id="max-reps" type="number" value="24" min="1" max="200" step="1">
+            <label for="tree-metric">Tree edges</label>
+            <select id="tree-metric" title="Length of a tree edge in the ℓ² metric on the adelic product: log q matches H² and H³ (diag(p, 1) moves log p at ∞ and at p); 1 is the SO₃ project's convention">
+                <option value="log" selected>log q</option>
+                <option value="unit">1</option>
+            </select>
+        </div>
+    </details>
 
-    <div id="example-host"></div>
+    <!-- results: the verdict, then one card per step -->
+    <section class="card result" id="verdict" hidden>
+        <div class="v-head" id="v-head"></div>
+        <p class="summary" id="v-sub"></p>
+        <div class="v-pres" id="v-pres"></div>
+        <div class="steps" id="step-list"></div>
+    </section>
 
-    <script type="module" src="./js/main.js"></script>
+    <section class="card step" id="card-zariski" data-step="zariski" hidden>
+        <h2><span class="num">1</span> Zariski closure <span class="tag" data-tag></span></h2>
+        <div class="step-body"></div>
+    </section>
+    <section class="card step" id="card-places" data-step="places" hidden>
+        <h2><span class="num">2</span> Discreteness at each place <span class="tag" data-tag></span></h2>
+        <div class="step-body"></div>
+        <div class="frame-wrap" id="places-frame-wrap" hidden>
+            <div class="frame-host" id="places-frame"></div>
+            <div class="frame-foot"><span id="places-caption"></span><a id="places-open" target="_blank" rel="noopener">Open in a new tab ↗</a></div>
+        </div>
+    </section>
+    <section class="card step" id="card-congruence" data-step="congruence" hidden>
+        <h2><span class="num">3</span> Congruence closure <span class="tag" data-tag></span></h2>
+        <div class="step-body"></div>
+    </section>
+    <section class="card step" id="card-sarith" data-step="sarith" hidden>
+        <h2><span class="num">4</span> FlashBeam in the adelic product <span class="tag" data-tag></span></h2>
+        <div class="step-body"></div>
+        <div class="frame-wrap" id="stab-frame-wrap" hidden>
+            <div class="frame-host" id="stab-frame"></div>
+            <div class="frame-foot"><span id="stab-caption"></span><a id="stab-open" target="_blank" rel="noopener">Open in a new tab ↗</a></div>
+        </div>
+    </section>
+
+    <details class="syntax">
+        <summary>What is computed, and how</summary>
+        <div>
+            <p><b>1 · Zariski closure.</b> The <a href="../Algebraic/Tools/zariskiClosure/" target="_blank" rel="noopener">Zariski Closure</a> engine classifies the closure of <span class="m">\Gamma</span> over <span class="m">\overline{\mathbb{Q}}</span>: finite, a torus or its normalizer, a Borel or unipotent group, or all of <span class="m">\mathrm{PGL}_2</span>. A dense <span class="m">\Gamma</span> has an invariant trace field <span class="m">k</span> and quaternion algebra <span class="m">A</span>; its closure over <span class="m">\mathbb{Q}</span> is <span class="m">\mathrm{Res}_{k/\mathbb{Q}}\mathrm{PGL}_1(A)</span>, and <span class="m">\Gamma^{(2)}</span> lies in an <span class="m">S</span>-arithmetic group <span class="m">\Lambda</span>, where <span class="m">S</span> is the set of primes at which <span class="m">\Gamma</span> is unbounded.</p>
+            <p><b>2 · Discreteness.</b> For a dense <span class="m">\Gamma</span>, the <a href="../Geometric/Tools/discretenessAlgorithm/" target="_blank" rel="noopener">Discreteness Algorithm</a> tests every place of the field of definition: Poincaré’s polyhedron theorem at ∞ and the Bruhat–Tits tree at each prime. A discrete place ends the computation and is shown live, with its presentation when Poincaré finds one.</p>
+            <p><b>3 · Congruence closure.</b> The closure of <span class="m">\Gamma</span> in <span class="m">\prod_{\mathfrak{p}\notin S}\mathrm{PGL}_1(A_\mathfrak{p})</span>, prime by prime. Its index is a lower bound for <span class="m">[\Lambda : \Gamma^{(2)}]</span>.</p>
+            <p><b>4 · FlashBeam in the adelic product.</b> As in the SO₃ decision project, <span class="m">\Gamma</span> acts on the product <span class="m">X</span> of the symmetric spaces of the places where it is unbounded (<span class="m">\mathbb{H}^2</span> or <span class="m">\mathbb{H}^3</span> at ∞, the tree <span class="m">T_\mathfrak{p}</span> at each <span class="m">\mathfrak{p} \in S</span>) with the <span class="m">\ell^2</span> metric, and is discrete there. FlashBeam multiplies a beam of words by a persistent flash of the lowest elements found, scored by the height <span class="m">d(o, g\cdot o)</span>. Two words reaching one element give a relation, checked exactly. An element <span class="m">g</span> is a Dirichlet generator when the midpoint of <span class="m">[o, g\cdot o]</span> has only <span class="m">o</span> and <span class="m">g\cdot o</span> as nearest orbit points found.</p>
+            <p>The proof that <span class="m">\Gamma</span> is <span class="m">S</span>-arithmetic comes from the same search: a finite set <span class="m">R</span> of vertices of the trees, with every neighbour of every <span class="m">r \in R</span> equal to <span class="m">w\cdot r'</span> for a word <span class="m">w</span> and some <span class="m">r' \in R</span>, re-checked exactly. Then <span class="m">\Gamma R</span> is every vertex. If <span class="m">A</span> is ramified at every place at ∞ this gives finite index; if it splits at one place <span class="m">\sigma</span>, the elements fixing <span class="m">o</span> must also have finite covolume at <span class="m">\sigma</span>, which Poincaré checks. A search that runs out claims nothing.</p>
+        </div>
+    </details>
+</div>
+
+<script type="module" src="./js/main.js"></script>
 <!-- golg-nav-bootstrap -->
 <script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
 </body>
-
 </html>

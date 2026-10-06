@@ -10,41 +10,49 @@
  *                        (discretenessAlgorithm/js/finiteWorker.js). A discrete
  *                        place ends the pipeline and is shown.
  *   3  Congruence        step 1's congruence closure, shown.
- *   4  S-arithmetic      FlashBeam's covering certificate on ∏_{𝔭∈S} T_𝔭
- *                        (sarithWorker.js), then poincare on the stabilizer of
- *                        o when A splits at one place at ∞.
+ *   4  FlashBeam         in the adelic product of symmetric spaces
+ *                        (sarithWorker.js): Dirichlet generators, relations, and
+ *                        the covering certificate, then poincare on the
+ *                        stabilizer of o when A splits at one place at ∞.
  *
- * Input, permalinks and the views are poincare's and trees' own modules and
- * pages; nothing of them is copied.
+ * The page looks like the Zariski Closure page (input.js): matrix grids,
+ * constants and a number field. Entries are read by poincare's exact reader
+ * (buildGroup), and the views of the places are poincare and trees themselves.
  */
-import {
-    setupMatrixInput, getMatricesFromUI, getExactContext, getInputState, applyInputState,
-} from '../../Geometric/Tools/Kleinian/poincare/js/matrixInput.js';
+import { buildGroup } from '../../Geometric/Tools/Kleinian/poincare/js/matrixInput.js';
 import { readStateFromURL, writeStateToURL } from '../../Geometric/Tools/Kleinian/poincare/js/permalink.js';
 import { presentationTex } from '../../Geometric/Tools/Kleinian/poincare/js/presentation.js';
 import { fieldModel, poincareStateFor } from '../../Geometric/Tools/discretenessAlgorithm/js/field.js';
-import { ToolFrames, toolURL } from '../../Geometric/Tools/discretenessAlgorithm/js/frames.js';
+import { ToolFrames } from '../../Geometric/Tools/discretenessAlgorithm/js/frames.js';
 import { CURATED, CAT_ORDER, allExamples } from './examples.js';
 import { archClasses } from './archPlaces.js';
 import { zariskiCard, congruenceCard, zariskiLine, congruenceLine, texToText, esc, mix } from './zariskiView.js';
 import { sarithCard, liveNumbers, wordText, gapText } from './sarithView.js';
+import { createInput, toPoincareState, fromPoincareState } from './input.js';
 
-const VERSION = '2026-10-05b';          // busts the workers' module caches
+const VERSION = '2026-10-06a';          // busts the workers' module caches
 const ARCH_TIMEOUT = 120;               // seconds for one place at ∞
 const ZARISKI_TIMEOUT = 120;
 const MAX_PRIMES = 12;
 const STEPS = ['zariski', 'places', 'congruence', 'sarith'];
-const STEP_NAMES = { zariski: 'Zariski closure', places: 'Discreteness', congruence: 'Congruence closure', sarith: 'S-arithmetic' };
+const STEP_NAMES = { zariski: 'Zariski closure', places: 'Discreteness', congruence: 'Congruence closure', sarith: 'FlashBeam' };
 
 const $ = (id) => document.getElementById(id);
 const SUB = '₀₁₂₃₄₅₆₇₈₉';
 const sub = (n) => String(n).split('').map((c) => SUB[+c] ?? c).join('');
 
+/** KaTeX, for labels. */
+const tex = (t, display = false) => (window.katex ? window.katex.renderToString(t, { throwOnError: false, displayMode: display }) : esc(t));
+/** Render the \( … \) and \[ … \] in an element with KaTeX. */
 function typeset(...els) {
-    const list = els.filter(Boolean);
-    if (!list.length || !window.MathJax || !MathJax.typesetPromise) return;
-    try { MathJax.typesetClear?.(list); } catch (e) { /* not yet typeset */ }
-    MathJax.typesetPromise(list).catch((err) => console.warn('MathJax:', err));
+    if (!window.renderMathInElement) return;
+    for (const el of els) {
+        if (!el) continue;
+        window.renderMathInElement(el, {
+            delimiters: [{ left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }],
+            throwOnError: false,
+        });
+    }
 }
 
 const fmtC = (z, digits = 4) => {
@@ -76,9 +84,12 @@ function readSettings() {
 
 // ───────────────────────── the run ─────────────────────────
 
-const frames = new ToolFrames($('stage-body'), { note: 'The generators and constants are set in the Presentation Calculator panel. The settings here belong to this view.' });
+const FRAME_NOTE = 'The generators and constants are set on the Presentation Calculator page. The settings here belong to this view.';
+const placeFrames = new ToolFrames($('places-frame'), { note: FRAME_NOTE });
+const stabFrames = new ToolFrames($('stab-frame'), { note: FRAME_NOTE });
 let run = null;
 let seq = 0;
+let input = null;
 
 const newStep = () => ({ status: 'idle', head: '', detail: '' });
 
@@ -95,46 +106,53 @@ function setStep(name, status, head, detail = '') {
     renderSteps();
 }
 
+/** Read the inputs exactly: { pstate, read } or { error, where }. */
+function readInputs() {
+    const st = input.getState();
+    const pstate = toPoincareState(st);
+    try {
+        const { exactCtx, read } = buildGroup(pstate);
+        input.markErrors(null, !!st.field);
+        return { st, pstate, exactCtx, read };
+    } catch (e) {
+        input.markErrors(e.where || null, !!st.field);
+        return { st, pstate, error: e.message.replace(/^constant ([^:]*): /, (m, n) => (st.field && e.where && e.where.constant === 0 ? 'number field: ' : m)) };
+    }
+}
+
 function compute() {
     cancelRun();
-    const errEl = $('matrix-error-message');
-    errEl.textContent = '';
-    try {
-        getMatricesFromUI();
-    } catch (e) {
-        errEl.textContent = e.message;
-        if (!run) setStageStatus(`Input error — ${e.message}`);
-        return;
-    }
-    const exact = getExactContext();
-    const input = getInputState();
+    const r = readInputs();
+    showFieldInfo(r);
+    if (r.error) { setStageStatus(`Fix the input: ${r.error}`); return; }
     const settings = readSettings();
     run = {
-        seq: ++seq, input, settings, exact, model: null, workers: new Set(),
+        seq: ++seq, input: r.pstate, state: r.st, settings, exact: r.exactCtx, model: null, workers: new Set(),
         steps: Object.fromEntries(STEPS.map((s) => [s, newStep()])),
         zariski: null,
         places: [], byKey: new Map(), finiteDone: false, primes: null, generic: null, standard: [], finiteError: null,
         placeSel: null, placesDone: false,
         sarith: null,
-        view: null, userPicked: false, error: null,
+        view: { step: null }, userPicked: false, error: null,
     };
     updatePermalink();
-    if (!exact) {
-        run.error = 'Some entry is not an algebraic number that can be read exactly. Every step here needs exact arithmetic.';
-    } else if ((input.anti || []).some(Boolean)) {
-        run.error = 'Mirror generators (z̄) are not in PGL₂(ℚ̄). Turn them off to run the pipeline.';
+    resetCards();
+    input.clearMeta();
+    if (!r.exactCtx) {
+        run.error = `Some entry is not an algebraic number that can be read exactly${r.read && r.read.reason ? ` (${r.read.reason})` : ''}. Every step here needs exact arithmetic.`;
     } else {
-        try { run.model = fieldModel(exact); } catch (e) { run.error = `The field of definition could not be found: ${e.message}`; }
+        try { run.model = fieldModel(r.exactCtx); } catch (e) { run.error = `The field of definition could not be found: ${e.message}`; }
     }
     if (run.error) {
         setStep('zariski', 'open', 'Not run', run.error);
         renderVerdict();
-        showView('zariski', null, { auto: true });
+        refreshView('zariski');
         return;
     }
     setStep('zariski', 'running', 'Computing…');
+    setStageStatus('Computing…');
     renderVerdict();
-    showView('zariski', null, { auto: true });
+    refreshView('zariski');
     startZariski();
 }
 
@@ -427,7 +445,7 @@ function placeChanged() {
         startCongruence();
     }
     renderVerdict();
-    if (R.view && R.view.step === 'places') renderSubBar();
+    renderSubBar();
 }
 
 // ───────────────────────── step 3: congruence closure ─────────────────────────
@@ -713,135 +731,184 @@ function verdict() {
     return { cls: 'open', head: 'No certificate.', sub: `${p.head}. ${s.head}: ${s.detail}` };
 }
 
+
+// ───────────────────────── the result cards ─────────────────────────
+
+function setStageStatus(text) { $('compute-status').textContent = text; }
+
 function renderVerdict() {
     const v = verdict();
-    const el = $('verdict-head');
-    if (!v) { el.innerHTML = '<p class="empty-message">Press Compute.</p>'; return; }
-    let html = `<p class="pc-head ${v.cls}">${mix(v.head)}</p>`;
-    if (v.sub) html += `<p>${mix(v.sub)}</p>`;
-    // the presentation, when poincare has one
+    const card = $('verdict');
+    if (!v) { card.hidden = true; return; }
+    card.hidden = false;
+    $('v-head').className = `v-head ${v.cls}`;
+    $('v-head').innerHTML = mix(v.head);
+    $('v-sub').innerHTML = v.sub ? mix(v.sub) : '';
+    let pres = '';
     const pl = v.place;
     if (pl && pl.summary && pl.summary.presentation) {
         const P = pl.summary.presentation;
-        html += `<p class="label-hint">Presentation in your generators${pl.summary.presentationComplete ? '' : ' (some relations may be missing)'}:</p><div class="pc-pres">\\[${presentationTex(P, (i) => `g_{${i}}`, { maxRelators: 8 })}\\]</div>`;
+        pres = `<p class="note">Presentation in your generators${pl.summary.presentationComplete ? '' : ' (some relations may be missing)'}:</p>\\[${presentationTex(P, (i) => `g_{${i}}`, { maxRelators: 8 })}\\]`;
     } else if (pl && pl.decision && pl.decision.kind === 'free') {
-        html += `<p class="label-hint">Γ is free of rank ${pl.decision.freeRank}.</p>`;
+        pres = `<p class="note">Γ is free of rank ${pl.decision.freeRank}.</p>`;
     }
-    el.innerHTML = html;
-    typeset(el);
-    if (!$('stage-empty').hidden) setStageStatus(texToText(v.head.replace(/\$/g, '')));
+    $('v-pres').innerHTML = pres;
+    typeset(card);
+    const busy = run && STEPS.some((s) => run.steps[s].status === 'running');
+    setStageStatus(busy ? 'Computing…' : '');
 }
 
 function renderSteps() {
     const R = run;
-    for (const b of document.querySelectorAll('.step-chip')) {
-        const st = R ? R.steps[b.dataset.step] : null;
-        b.dataset.status = st ? st.status : 'idle';
-        b.title = st && st.head ? `${st.head}${st.detail ? ' — ' + st.detail : ''}` : STEP_NAMES[b.dataset.step];
-        b.classList.toggle('selected', !!(R && R.view && R.view.step === b.dataset.step));
-    }
     const list = $('step-list');
     if (!R) { list.innerHTML = ''; return; }
     list.innerHTML = STEPS.map((s, i) => {
         const st = R.steps[s];
-        return `<button class="pc-step${R.view && R.view.step === s ? ' selected' : ''}" data-step="${s}" data-status="${st.status}">
-            <div class="pc-step-head"><span class="dot"></span>${esc(STEP_NAMES[s])}<span class="step-num">${i + 1}</span></div>
-            <div class="pc-step-verdict">${esc(st.head || (st.status === 'idle' ? 'Waiting' : ''))}</div>
-            ${st.detail ? `<div class="pc-step-detail">${esc(st.detail)}</div>` : ''}
-        </button>`;
+        return `<div class="step-row" data-step="${s}" data-status="${st.status}">
+            <span class="num">${i + 1}</span><span class="step-name">${esc(STEP_NAMES[s])}</span>
+            <span class="step-text"><b>${esc(st.head || (st.status === 'idle' ? 'Waiting' : ''))}</b>${st.detail ? ` <span>— ${esc(st.detail)}</span>` : ''}</span>
+        </div>`;
     }).join('');
+    for (const s of STEPS) {
+        const card = $(`card-${s}`), st = R.steps[s];
+        card.dataset.status = st.status;
+        card.hidden = st.status === 'idle' || st.status === 'skipped';
+        card.querySelector('[data-tag]').textContent = st.status === 'idle' ? '' : st.head;
+    }
 }
 
-// ───────────────────────── the stage ─────────────────────────
-
-function setStageStatus(text) { $('stage-status').textContent = text; }
-
-function showCard(html, caption = '') {
-    frames.hide();
-    $('stage-empty').hidden = true;
-    const card = $('view-card');
-    card.hidden = false;
-    card.innerHTML = html;
-    typeset(card);
-    $('stage-caption').textContent = caption;
-    $('open-tool').hidden = true;
+function resetCards() {
+    for (const s of STEPS) { const c = $(`card-${s}`); c.hidden = true; c.querySelector('.step-body').innerHTML = ''; }
+    placeFrames.hide(); stabFrames.hide();
+    $('places-frame-wrap').hidden = true; $('stab-frame-wrap').hidden = true;
+    renderSteps();
 }
 
-function showFrame(tool, state, caption) {
-    $('view-card').hidden = true;
-    $('stage-empty').hidden = true;
-    const url = frames.show(tool, state);
-    const link = $('open-tool');
-    link.href = url; link.hidden = false;
-    $('stage-caption').textContent = caption;
+/** Re-render one step's card. */
+function refreshView(step) {
+    const R = run;
+    if (!R) return;
+    const body = $(`card-${step}`).querySelector('.step-body');
+    let html = '';
+    if (step === 'zariski') {
+        if (!R.zariski) html = `<p class="lead">${esc(R.error || 'Computing…')}</p>`;
+        else if (!R.zariski.ok) html = `<div class="banner" data-status="open"><span class="dot"></span><div>${esc(R.zariski.error)}</div></div>`;
+        else { html = zariskiCard(R.zariski, R.model); showMeta(R.zariski); }
+    } else if (step === 'places') html = placesCard(R);
+    else if (step === 'congruence') html = congruenceCard(R.zariski && R.zariski.arith);
+    else if (step === 'sarith') html = R.sarith ? sarithCard(R.sarith, R.model, R.model.mats.length) : '';
+    body.innerHTML = html;
+    typeset(body);
+    if (step === 'sarith') wireSarithButtons();
 }
 
-/** Show a step (and a sub-view of it). */
+/** The Zariski engine's invariants of each generator, beside its grid. */
+function showMeta(res) {
+    res.gens.forEach((g, i) => {
+        const kind = g.type === 'identity' ? 'scalar (trivial in PGL₂)' : g.order ? `${g.type}, order ${g.order}` : `${g.type}, infinite order`;
+        input.setMeta(i, `<span>${tex(`\\operatorname{tr}^2/\\det = ${g.tauTex}`)}</span><span class="tag${g.order ? ' fin' : ''}">${esc(kind)}</span>`);
+    });
+}
+
 function showView(step, sub = null, { auto = false } = {}) {
     const R = run;
     if (!R) return;
     if (!auto) R.userPicked = true;
-    const prev = R.view;
-    R.view = { step, sub };
-    renderSteps();
-    renderSubBar();
-    renderView(!prev || prev.step !== step || prev.sub !== sub);
-}
-
-/** Re-render the current view if it is this step. */
-function refreshView(step) {
-    if (run && run.view && run.view.step === step) { renderSubBar(); renderView(false); }
-}
-
-function renderView(changed) {
-    const R = run, v = R.view;
-    if (v.step === 'zariski') {
-        if (!R.zariski) { showCard(`<div class="vc-inner"><h2>Step 1 · Zariski closure</h2><p class="lead">${esc(R.error || 'Computing…')}</p></div>`, 'Zariski Closure engine'); return; }
-        if (!R.zariski.ok) { showCard(`<div class="vc-inner"><h2>Step 1 · Zariski closure</h2><div class="banner" data-status="open"><span class="dot"></span><div>${esc(R.zariski.error)}</div></div></div>`); return; }
-        showCard(zariskiCard(R.zariski, R.model), 'From the Zariski Closure engine');
-    } else if (v.step === 'places') {
-        const pl = R.byKey.get(v.sub || R.placeSel);
-        if (!pl) { showCard(`<div class="vc-inner"><h2>Step 2 · Discreteness</h2><p class="lead">${esc(R.steps.places.status === 'skipped' ? 'Not needed: Γ is not Zariski dense.' : 'Waiting for step 1.')}</p></div>`); return; }
-        R.placeSel = pl.key;
-        if (changed || frames.current !== pl.tool || R._shownPlace !== pl.key) {
-            R._shownPlace = pl.key;
-            const st = R.settings;
-            const state = pl.tool === 'poincare' ? { ...pl.state, depth: st.depth, faces: st.faces } : pl.state;
-            showFrame(pl.tool, state, placeCaption(pl));
-        } else $('stage-caption').textContent = placeCaption(pl);
-    } else if (v.step === 'congruence') {
-        const A = R.zariski && R.zariski.arith;
-        if (R.steps.congruence.status === 'skipped' || R.steps.congruence.status === 'idle') {
-            const why = R.steps.congruence.status === 'skipped' ? R.steps.congruence.detail : 'Runs when no place is discrete.';
-            showCard(`<div class="vc-inner"><h2>Step 3 · Congruence closure</h2><p class="lead">${esc(why)}</p>${A ? congruenceCard(A).replace('<div class="vc-inner"><h2>Step 3 · Congruence closure</h2>', '<div><h3>Computed anyway, in step 1</h3>') : ''}</div>`);
-        } else showCard(congruenceCard(A), 'From the Zariski Closure engine');
-    } else if (v.step === 'sarith') {
-        const S = R.sarith;
-        if (!S) {
-            const st = R.steps.sarith;
-            showCard(`<div class="vc-inner"><h2>Step 4 · Is Γ S-arithmetic?</h2><p class="lead">${esc(st.status === 'skipped' ? st.detail : 'Runs when no place is discrete.')}</p></div>`);
-            return;
-        }
-        if (v.sub === 'stabilizer' && S.stab && S.stab.state) {
-            if (changed || frames.current !== 'poincare' || R._shownPlace !== 'stab') {
-                R._shownPlace = 'stab';
-                showFrame('poincare', { ...S.stab.state, depth: R.settings.depth, faces: R.settings.faces }, `The elements of Γ fixing o, at ${S.arch.kind === 'real' ? 'the real place' : 'the complex place'} — in Poincaré`);
-            }
-            return;
-        }
-        R._shownPlace = null;
-        showCard(sarithCard(S, R.model, R.model.mats.length), 'FlashBeam in the adelic product');
-        wireSarithButtons();
+    if (step === 'places' && sub) {
+        R.placeSel = sub;
+        const pl = R.byKey.get(sub);
+        if (pl && (!auto || pl.status === 'discrete')) showPlaceFrame(pl);
     }
+    if (step === 'sarith' && sub === 'stabilizer') showStabFrame();
+    refreshView(step);
+}
+function renderSubBar() { refreshView('places'); }
+
+// ── step 2 ──
+
+function placeName(pl) {
+    const m = run.model;
+    if (pl.tool === 'poincare') return { name: `\\(\\sigma_{${pl.n}}\\)`, sub: `${m && m.degree > 1 ? `w ↦ ${fmtC(pl.root)} · ` : ''}${pl.kind === 'real' ? 'real' : 'complex'}${pl.isDefault ? ' · yours' : ''}` };
+    if (pl.kind === 'generic') return { name: 'Every other prime', sub: `tested at ${pl.p}` };
+    if (m && m.degree > 1 && pl.primeTex) return { name: `\\(${pl.count > 1 ? `\\mathfrak p_{${pl.index + 1}}` : '\\mathfrak p'} = ${pl.primeTex}\\)`, sub: `above ${pl.p} · e=${pl.e} f=${pl.f}` };
+    return { name: `\\(p = ${pl.p}\\)`, sub: `ℚ${sub(pl.p)}` };
+}
+
+function placesCard(R) {
+    const m = R.model;
+    if (!m) return '';
+    const [r1, r2] = m.signature;
+    let html = `<p class="lead">${m.degree === 1
+        ? mix('The field of definition is $F = \\mathbb{Q}$: one place at ∞, and the primes.')
+        : mix(`The field of definition is $F = \\mathbb{Q}(w)$ with $${m.polyTex} = 0$, of degree ${m.degree}: ${r1} real and ${r2} complex place${r2 === 1 ? '' : 's'} at ∞, and the primes.`)} Each is tested; a discrete one is shown below, live.</p>`;
+    html += '<div class="place-list">';
+    for (const pl of placeOrder(R)) {
+        const nm = placeName(pl);
+        const detail = pl.kind === 'generic' ? genericDetail(pl) : pl.detail;
+        html += `<div class="place-row${pl.key === R.placeSel && !$('places-frame-wrap').hidden ? ' selected' : ''}" data-status="${pl.status}">
+            <span class="dot"></span>
+            <span class="p-name">${nm.name}<span class="p-sub">${esc(nm.sub)}</span></span>
+            <span class="p-verdict">${esc(pl.headline)}</span>
+            <button class="view-btn" data-place="${pl.key}">View in ${pl.tool === 'poincare' ? 'Poincaré' : 'Trees'}</button>
+            ${detail ? `<span class="p-detail">${esc(detail)}</span>` : ''}
+        </div>`;
+    }
+    html += '</div>';
+    if (!R.finiteDone) html += '<p class="note" style="margin-top:8px">Deciding at the primes…</p>';
+    if (R.finiteError) html += `<p class="err">${esc(R.finiteError)}</p>`;
+    if (R.primes && R.primes.capped) html += `<p class="note">Only the first ${MAX_PRIMES} of ${R.primes.capped} candidate primes were tested.</p>`;
+    return html;
+}
+
+function genericDetail(pl) {
+    const R = run;
+    const parts = [];
+    const nBad = R.primes ? R.primes.primes.length : 0;
+    parts.push(nBad
+        ? `Outside ${R.primes.primes.join(', ')}, every generator lies in PGL₂(𝒪_𝔭): Γ fixes the standard vertex of every tree.`
+        : 'Every generator lies in PGL₂(𝒪_𝔭) at every prime: Γ fixes the standard vertex of every tree.');
+    if (R.standard.length) parts.push(`So do the primes above ${[...new Set(R.standard.map((s) => s.p))].join(', ')}.`);
+    if (pl.detail) parts.push(pl.detail);
+    return parts.join(' ');
+}
+
+function placeCaption(pl) {
+    const m = run.model;
+    if (pl.tool === 'poincare') {
+        const at = m && m.degree > 1 ? `w ↦ ${fmtC(pl.root)}` : 'the only embedding';
+        return `σ${sub(pl.n)}: ${at} — ${pl.headline} — in Poincaré${pl.isDefault ? ' (your embedding)' : ''}`;
+    }
+    if (pl.kind === 'generic') return `${pl.p}, a prime where Γ is bounded — ${pl.headline} — in Trees`;
+    return `${placeLabel(pl)}: the ${Number(pl.q) + 1}-regular tree — ${pl.headline} — in Trees`;
+}
+
+function showPlaceFrame(pl) {
+    const st = run.settings;
+    const state = pl.tool === 'poincare' ? { ...pl.state, depth: st.depth, faces: st.faces } : pl.state;
+    const url = placeFrames.show(pl.tool, state);
+    $('places-frame-wrap').hidden = false;
+    $('places-caption').textContent = placeCaption(pl);
+    $('places-open').href = url;
+}
+
+// ── step 4 ──
+
+function showStabFrame() {
+    const S = run.sarith;
+    if (!S || !S.stab || !S.stab.state) return;
+    const url = stabFrames.show('poincare', { ...S.stab.state, depth: run.settings.depth, faces: run.settings.faces });
+    $('stab-frame-wrap').hidden = false;
+    $('stab-caption').textContent = `The elements of Γ fixing o, at ${S.arch.kind === 'real' ? 'the real place' : 'the complex place'} — in Poincaré`;
+    $('stab-open').href = url;
 }
 
 /** Update the live numbers of step 4 without rebuilding the card (rebuild when the representatives change). */
 let patchPending = false;
 function patchSarith(promoted) {
     const R = run;
-    if (!R || !R.view || R.view.step !== 'sarith' || R.view.sub === 'stabilizer') return;
-    const needStars = R.sarith && R.sarith.progress && R.sarith.progress.links && R.sarith.places.length && !document.querySelector('#view-card .cov-reps');
-    if (promoted || !$('cov-it') || needStars) { renderView(false); return; }
+    if (!R || !R.sarith) return;
+    const needStars = R.sarith.progress && R.sarith.progress.links && R.sarith.places.length && !document.querySelector('#card-sarith .cov-reps');
+    if (promoted || !$('cov-it') || needStars) { refreshView('sarith'); return; }
     if (patchPending) return;
     patchPending = true;
     requestAnimationFrame(() => {
@@ -856,13 +923,12 @@ function patchSarith(promoted) {
         put('cov-reps', L.reps);
         put('cov-covered', `${L.covered} / ${L.targets}`);
         if ($('cov-bar')) $('cov-bar').style.width = `${(100 * L.frac).toFixed(1)}%`;
-        // the stars and the chart are cheap: rebuild them from a fresh card
         const tmp = document.createElement('div');
         tmp.innerHTML = sarithCard(S, run.model, run.model.mats.length);
         const chart = tmp.querySelector('#cov-chart');
         if (chart && $('cov-chart')) $('cov-chart').innerHTML = chart.innerHTML;
         const reps = tmp.querySelector('.cov-reps');
-        const cur = document.querySelector('#view-card .cov-reps');
+        const cur = document.querySelector('#card-sarith .cov-reps');
         if (reps && cur) cur.querySelectorAll('.cov-rep').forEach((el, i) => {
             const fresh = reps.children[i];
             if (!fresh) return;
@@ -877,10 +943,11 @@ function wireSarithButtons() {
     if (copy) copy.addEventListener('click', async () => {
         const S = run.sarith, r = S.result;
         const data = {
-            group: run.input, field: run.model.degree > 1 ? run.model.polySrc : 'Q',
-            places: S.places, representatives: r.reps.map((x) => x.tex),
+            group: run.state, places: S.places, representatives: r.reps.map((x) => x.tex),
             witnesses: r.witnesses.map((w) => ({ from: w.from, tree: w.place, neighbour: w.nbr, word: w.word, rep: w.rep, text: wordText(w.word, 1e9) })),
             stabilizer: S.stab && S.stab.used ? S.stab.used.map((e) => ({ word: e.word, matrix: e.tex })) : null,
+            dirichlet: r.dirichlet ? r.dirichlet.pairs.map((g) => ({ word: g.word, text: wordText(g.word, 1e9), height: g.h, clearance: g.clearance })) : null,
+            relations: r.relations,
         };
         try { await navigator.clipboard.writeText(JSON.stringify(data, null, 1)); copy.textContent = 'Copied'; }
         catch (e) { copy.textContent = 'Copy failed'; }
@@ -897,36 +964,37 @@ function wireSarithButtons() {
     if (show) show.addEventListener('click', () => showView('sarith', 'stabilizer'));
 }
 
-function placeCaption(pl) {
-    const m = run.model;
-    if (pl.tool === 'poincare') {
-        const at = m && m.degree > 1 ? `w ↦ ${fmtC(pl.root)}` : 'the only embedding';
-        return `σ${sub(pl.n)}: ${at} — ${pl.headline} — in Poincaré${pl.isDefault ? ' (your embedding)' : ''}`;
+// ───────────────────────── live field information ─────────────────────────
+
+function showFieldInfo(r) {
+    const el = $('field-info');
+    if (r.error) { el.innerHTML = `<span class="err">${esc(r.error)}</span>`; return; }
+    if (!r.exactCtx) {
+        el.innerHTML = `<span class="err">${esc(`Read in floating point${r.read && r.read.reason ? `: ${r.read.reason}` : ''}. The calculator needs exact algebraic entries.`)}</span>`;
+        return;
     }
-    if (pl.kind === 'generic') return `${pl.p}, a prime where Γ is bounded — ${pl.headline} — in Trees`;
-    const valence = Number(pl.q) + 1;
-    return `${placeLabel(pl)}: the ${valence}-regular tree — ${pl.headline} — in Trees`;
+    const K = r.exactCtx.field;
+    el.innerHTML = K.deg === 1 ? mix('All entries are rational: $K = \\mathbb{Q}$.')
+        : `${mix('Entries lie in')} ${tex(`K = ${K.tex()}`)}${esc(`, a field of degree ${K.deg}.`)}`;
+    typeset(el);
 }
 
-function renderSubBar() {
-    const R = run, bar = $('sub-bar');
-    if (!R || !R.view) { bar.innerHTML = ''; return; }
-    if (R.view.step === 'places' && R.places.length) {
-        bar.innerHTML = placeOrder(R).map((pl) => `<button class="place-chip${pl.key === R.placeSel ? ' selected' : ''}" data-place="${pl.key}" data-status="${pl.status}" title="${esc(pl.headline)}"><span class="dot"></span>${esc(placeLabel(pl))}</button>`).join('')
-            + (!R.finiteDone ? '<span class="place-chip" data-status="pending" style="cursor:default"><span class="dot"></span>finding primes…</span>' : '');
-    } else if (R.view.step === 'sarith' && R.sarith && R.sarith.stab && R.sarith.stab.state) {
-        const cur = R.view.sub === 'stabilizer' ? 'stabilizer' : 'covering';
-        const stStatus = { running: 'running', yes: 'yes', no: 'open' }[R.sarith.stab.status] || 'idle';
-        bar.innerHTML = `<button class="place-chip${cur === 'covering' ? ' selected' : ''}" data-sub="covering" data-status="${R.sarith.result && R.sarith.result.status === 'covered' ? 'yes' : 'running'}"><span class="dot"></span>FlashBeam in X</button>`
-            + `<button class="place-chip${cur === 'stabilizer' ? ' selected' : ''}" data-sub="stabilizer" data-status="${stStatus}"><span class="dot"></span>Stabilizer of o at ∞</button>`;
-    } else bar.innerHTML = '';
+let editTimer = null;
+function edited() {
+    clearTimeout(editTimer);
+    editTimer = setTimeout(() => {
+        const r = readInputs();
+        showFieldInfo(r);
+        if (run) setStageStatus('The inputs changed: press Compute.');
+    }, 250);
 }
 
-// ───────────────────────── permalinks, examples, wiring ─────────────────────────
+// ───────────────────────── permalinks and examples ─────────────────────────
 
 function currentState() {
     const st = readSettings();
-    return { v: 1, ...getInputState(), depth: st.depth, faces: st.faces, secs: st.seconds, beam: st.beam, flash: st.flash, bsecs: st.beamSeconds, reps: st.maxReps, metric: st.metric };
+    const s = input.getState();
+    return { v: 1, gens: s.gens, consts: s.consts.filter(([n, v]) => n || v), field: s.field, depth: st.depth, faces: st.faces, secs: st.seconds, beam: st.beam, flash: st.flash, bsecs: st.beamSeconds, reps: st.maxReps, metric: st.metric };
 }
 
 function updatePermalink() {
@@ -939,100 +1007,85 @@ function applySettings(st) {
     set('beam-width', st.beam); set('flash-size', st.flash); set('beam-seconds', st.bsecs); set('max-reps', st.reps); set('tree-metric', st.metric);
 }
 
+/** The page's state from a permalink: this page's own, or an older poincare-style one. */
+function stateFromURL(u) {
+    if (!u) return null;
+    if (u.gens) return { gens: u.gens, consts: u.consts || [], field: u.field || null };
+    if (u.mats) return fromPoincareState(u);
+    return null;
+}
+
 function loadExample(ex) {
-    applyInputState({ mats: ex.mats, anti: ex.anti || [], consts: ex.consts || [] });
+    const st = fromPoincareState(ex);
+    if (!st) return;
+    input.setState(st);
     $('wordLength').value = String(ex.depth || 8);
-    showTab('verdict');
-    setTimeout(compute, 60);
+    compute();
 }
 
-async function buildExampleModal() {
-    const all = await allExamples();
-    const seen = new Set();
-    const examples = all.filter((ex) => { const k = JSON.stringify([ex.mats, ex.consts || []]); if (seen.has(k)) return false; seen.add(k); return true; });
-    const modal = document.createElement('div');
-    modal.id = 'pc-example-modal';
-    modal.className = 'example-modal';
-    modal.hidden = true;
-    const cats = new Map();
-    examples.forEach((ex, idx) => {
-        if (!cats.has(ex.cat)) cats.set(ex.cat, []);
-        cats.get(ex.cat).push({ ex, idx });
-    });
-    const ordered = [...CAT_ORDER.filter((c) => cats.has(c)), ...[...cats.keys()].filter((c) => !CAT_ORDER.includes(c))];
-    let html = `<div class="example-modal-backdrop"></div>
-        <div class="example-modal-panel" role="dialog" aria-label="Example library">
-            <div class="example-modal-head"><h3>Example Library</h3><button class="example-modal-close" aria-label="Close">×</button></div>
-            <div class="example-modal-body">`;
-    for (const cat of ordered) {
-        html += `<section class="example-cat"><h4 class="example-cat-title">${esc(cat)}</h4><div class="example-grid">`;
-        for (const { ex, idx } of cats.get(cat)) {
-            const badges = ex.anti && ex.anti.some(Boolean) ? '<span class="ex-badge mirrors" title="Orientation-reversing generators: not in PGL₂(ℚ̄)">mirrors</span>' : '';
-            html += `<button class="example-card" data-idx="${idx}">
-                <span class="example-card-head"><span class="example-name">${ex.name}</span><span class="example-badges">${badges}</span></span>
-                ${ex.desc ? `<span class="example-desc">${esc(ex.desc)}</span>` : ''}</button>`;
-        }
-        html += '</div></section>';
+async function buildExamples() {
+    const host = $('examples');
+    for (const ex of CURATED) {
+        const b = document.createElement('button');
+        b.className = 'chip';
+        b.title = ex.desc || ex.name;
+        b.innerHTML = ex.chip ? tex(ex.chip) : esc(ex.name);
+        b.addEventListener('click', () => loadExample(ex));
+        host.appendChild(b);
     }
-    modal.innerHTML = html + '</div></div>';
-    $('example-host').appendChild(modal);
-    const close = () => { modal.hidden = true; };
-    modal.querySelector('.example-modal-backdrop').addEventListener('click', close);
-    modal.querySelector('.example-modal-close').addEventListener('click', close);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) close(); });
-    modal.querySelectorAll('.example-card').forEach((card) => card.addEventListener('click', () => {
-        close();
-        loadExample(examples[+card.dataset.idx]);
-    }));
-    $('pc-example-btn').addEventListener('click', () => { modal.hidden = false; });
+    const all = await allExamples();
+    const curated = new Set(CURATED.map((e) => e.name));
+    const seen = new Set();
+    const more = all.filter((ex) => {
+        if (curated.has(ex.name) || (ex.anti || []).some(Boolean) || !fromPoincareState(ex)) return false;
+        const k = JSON.stringify([ex.mats, ex.consts || []]);
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+    });
+    const sel = document.createElement('select');
+    sel.innerHTML = '<option value="">More examples…</option>';
+    const cats = new Map();
+    more.forEach((ex, i) => { if (!cats.has(ex.cat)) cats.set(ex.cat, []); cats.get(ex.cat).push(i); });
+    const order = [...CAT_ORDER.filter((c) => cats.has(c)), ...[...cats.keys()].filter((c) => !CAT_ORDER.includes(c))];
+    for (const c of order) {
+        const g = document.createElement('optgroup');
+        g.label = c;
+        for (const i of cats.get(c)) { const o = document.createElement('option'); o.value = String(i); o.textContent = more[i].name; g.appendChild(o); }
+        sel.appendChild(g);
+    }
+    sel.addEventListener('change', () => { if (sel.value !== '') { loadExample(more[+sel.value]); sel.value = ''; } });
+    host.appendChild(sel);
 }
 
-function showTab(name) {
-    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
-    document.querySelectorAll('.tab-content').forEach((c) => c.classList.toggle('active', c.id === `tab-${name}`));
-}
+// ───────────────────────── wiring and boot ─────────────────────────
 
 function wire() {
-    document.querySelectorAll('.tab-btn').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
-    $('collapse-btn').addEventListener('click', () => {
-        const on = $('control-panel').classList.toggle('collapsed');
-        document.body.classList.toggle('panel-collapsed', on);
-    });
-    $('compute-btn').addEventListener('click', () => { compute(); showTab('verdict'); });
-    $('tab-group').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && e.target.closest('.mq-editable-field')) { e.preventDefault(); compute(); showTab('verdict'); }
-    });
-    $('step-bar').addEventListener('click', (e) => {
-        const b = e.target.closest('[data-step]');
-        if (b && run) showView(b.dataset.step, b.dataset.step === 'places' ? run.placeSel : null);
-    });
-    $('step-list').addEventListener('click', (e) => {
-        const b = e.target.closest('[data-step]');
-        if (b && run) showView(b.dataset.step, b.dataset.step === 'places' ? run.placeSel : null);
-    });
-    $('sub-bar').addEventListener('click', (e) => {
-        const p = e.target.closest('[data-place]');
-        if (p && run && run.byKey.has(p.dataset.place)) { run.placeSel = p.dataset.place; showView('places', p.dataset.place); return; }
-        const s = e.target.closest('[data-sub]');
-        if (s && run) showView('sarith', s.dataset.sub);
-    });
+    $('compute-btn').addEventListener('click', compute);
     $('copy-link').addEventListener('click', async () => {
         const url = updatePermalink() || location.href;
         const btn = $('copy-link');
         try { await navigator.clipboard.writeText(url); btn.textContent = 'Link copied'; }
         catch (e) { btn.textContent = 'Copy failed — the URL bar has the link'; }
-        setTimeout(() => { btn.textContent = 'Copy link to this group'; }, 1800);
+        setTimeout(() => { btn.textContent = 'Copy link'; }, 1800);
     });
+    $('step-list').addEventListener('click', (e) => {
+        const row = e.target.closest('[data-step]');
+        const card = row && $(`card-${row.dataset.step}`);
+        if (card && !card.hidden) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    $('card-places').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-place]');
+        if (b && run && run.byKey.has(b.dataset.place)) showView('places', b.dataset.place);
+    });
+    document.querySelectorAll('.m').forEach((el) => { el.innerHTML = tex(el.textContent); });
 }
 
-// ───────────────────────── boot ─────────────────────────
-
-const urlState = readStateFromURL();
-const initial = urlState || CURATED[0];
+input = createInput({ onEdit: edited, onEnter: compute, tex });
 wire();
+const urlState = readStateFromURL();
+const initial = stateFromURL(urlState) || fromPoincareState(CURATED[0]);
 if (urlState) applySettings(urlState);
-// poincare's editor: generators, constants (root rows with their pickers), the
-// field status line, and ⟳ (#refresh-btn), all calling `compute`.
-setupMatrixInput(compute, { mats: initial.mats, anti: initial.anti || [], consts: initial.consts || [] });
-buildExampleModal();
-setTimeout(compute, 200);
+input.setState(initial);
+buildExamples();
+setTimeout(compute, 100);
