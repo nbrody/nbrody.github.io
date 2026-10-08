@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalan's Constant, by Determinants</title>
+<meta name="description" content="An interactive walkthrough of the claimed proof that Catalan's constant is irrational, “Catalan's constant is irrational” (OpenAI, September 2026).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>
+  (function () {
+    try { var t = localStorage.getItem('ip-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  })();
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      macros: {
+        Q: '\\mathbb{Q}', Z: '\\mathbb{Z}', F: '\\mathbb{F}', R: '\\mathbb{R}', C: '\\mathbb{C}', Hyp: '\\mathbb{H}',
+        sgn: '\\operatorname{sgn}', supp: '\\operatorname{supp}', Log: '\\operatorname{Log}', den: '\\operatorname{den}',
+        GL: '\\operatorname{GL}', rank: '\\operatorname{rank}', vol: '\\operatorname{vol}', PSL: '\\operatorname{PSL}',
+        cL: '\\mathcal{L}', cF: '\\mathcal{F}', cT: '\\mathcal{T}', cB: '\\mathcal{B}', cR: '\\mathcal{R}',
+        cV: '\\mathcal{V}', cI: '\\mathcal{I}', cH: '\\mathcal{H}', cE: '\\mathcal{E}', cP: '\\mathcal{P}'
+      }
+    },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'canvas'] },
+    chtml: { scale: 0.98 }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode">◐ theme</button>
+
+<div class="page">
+
+<nav class="toc" aria-label="Contents">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#s1">1 · The theorem</a></li>
+    <li><a href="#map">The proof at a glance</a></li>
+    <li><a href="#s2">2 · Rows and moments</a></li>
+    <li class="sub"><a href="#s2-1">ζ(2) cancels</a></li>
+    <li class="sub"><a href="#s2-2">The prime two</a></li>
+    <li><a href="#s3">3 · Odd primes</a></li>
+    <li class="sub"><a href="#s3-1">Digit reductions</a></li>
+    <li class="sub"><a href="#s3-2">Paired columns</a></li>
+    <li class="sub"><a href="#s3-3">The central layer</a></li>
+    <li class="sub"><a href="#s3-4">Summing the losses</a></li>
+    <li><a href="#s4">4 · Nonvanishing</a></li>
+    <li class="sub"><a href="#s4-2">Frobenius</a></li>
+    <li class="sub"><a href="#s4-4">The mod-101 certificate</a></li>
+    <li><a href="#s5">5 · The real place</a></li>
+    <li class="sub"><a href="#s5-1">Two sheets</a></li>
+    <li class="sub"><a href="#s5-2">A uniform interpolant</a></li>
+    <li class="sub"><a href="#s5-3">Hilbert space</a></li>
+    <li><a href="#s6">6 · An energy bound</a></li>
+    <li><a href="#s7">7 · The certificate</a></li>
+    <li><a href="#s8">8 · Conclusion</a></li>
+    <li><a href="#guide">Reading guide</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header class="hero">
+  <div class="kicker">Interactive walkthrough</div>
+  <h1>Catalan's Constant, by Determinants</h1>
+  <p class="sub">How a family of $48N\times48N$ determinants, which would be rational if $G$ were, gets caught between an arithmetic floor and an analytic ceiling about $10^{-4}$ apart. The page follows the September 2026 proof section by section.</p>
+
+  <div class="status">
+    <strong>Status (October 7, 2026)</strong>
+    <p>The paper <a href="https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/Catalans-constant-is-irrational-September-24-2026/paper.pdf"><em>Catalan's constant is irrational</em></a> (OpenAI, dated September 24, 2026) was posted on October 6, 2026 in the <code>openai/math</code> repository (commit <code>adc7f12</code>), as family 005 of that collection. It has not been refereed.</p>
+    <p>The repository also contains a Lean 4 development, <a href="https://github.com/openai/math/tree/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/Catalan"><code>OAI/NumberTheory/Catalan</code></a> (981 files, about 574,000 lines). Its top-level theorem has the statement of the comparator challenge <a href="https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/Catalan.lean"><code>Catalan.lean</code></a>, namely <code>Irrational (∑' j : ℕ, (-1)^j / (2j+1)^2)</code>. The challenge file is the statement alone, ending in <code>sorry</code>, as comparator challenges do. Its configuration names the solution module <code>OAI.NumberTheory.Catalan.Main</code> and permits only the axioms <code>propext</code>, <code>Quot.sound</code> and <code>Classical.choice</code>. A text search of the solution module on October 7, 2026 finds no <code>sorry</code> and no <code>native_decide</code>. This page has not compiled the development or run the comparator.</p>
+    <p>The paper notes that Sun has announced a proof of the same statement (arXiv:2609.04176), and uses nothing from it.</p>
+    <p>This page explains the argument as the paper gives it. Section, proposition and equation numbers match the paper. The figures are models. Several recompute a numbered step exactly at the smallest size $N=1$, but they are not part of the proof.</p>
+  </div>
+</header>
+
+<!-- ======================================================= 1 -->
+<section id="s1">
+<h2><span class="secnum">1</span>The theorem</h2>
+
+<p>Catalan's constant is the alternating sum of inverse odd squares,</p>
+$$G=\beta(2)=\sum_{j\ge0}\frac{(-1)^j}{(2j+1)^2}=1-\frac19+\frac1{25}-\frac1{49}+\cdots=0.9159655941\ldots$$
+<p>Here $\beta(s)=\sum_j(-1)^j(2j+1)^{-s}$ is the Dirichlet beta function, so $G=L(2,\chi_{-4})$ for the odd character of conductor $4$. The odd values of $\beta$ are rational multiples of powers of $\pi$, for example $\beta(1)=\pi/4$ and $\beta(3)=\pi^3/32$. The even values have resisted every method so far, and $G$ is the first of them.</p>
+
+<div class="thm key"><span class="label">Theorem 1.1.</span> Catalan's constant is irrational.</div>
+
+<p><b>Earlier work.</b> Before this paper, the arithmetic of $G$ was known only through families of values and through approximations that fell just short.</p>
+<ul>
+  <li><em>Families.</em> Rivoal and Zudilin (2003) proved that infinitely many even beta values are irrational, and that one of $\beta(2),\beta(4),\ldots,\beta(14)$ is. Zudilin (2019) and Lai–Zhou (2022) shortened the list to $\beta(2),\ldots,\beta(10)$. Fischler (2020) proved quantitative versions for Dirichlet $L$-values. None of these singles out $\beta(2)$.</li>
+  <li><em>Approximations.</em> To prove a single number irrational, one needs <em>nonzero integer linear forms</em> $A_mG-B_m$ that tend to $0$. Apéry's recurrences (1979) and Beukers' integrals (1979) achieve this for $\zeta(2)$ and $\zeta(3)$. For $G$, Zudilin (2003) built Apéry-like recurrences, a continued fraction and double integrals. The quotients $B_m/A_m$ converge fast, but once the denominators are cleared the linear forms no longer tend to zero. Work of Rivoal, Krattenthaler–Rivoal, Krattenthaler–Zudilin, Nesterenko, Marcovecchio–Viola and Eskandari sharpened the denominators and the approximation exponents. The denominator cost was still too high.</li>
+  <li><em>Neighbors.</em> Calegari, Dimitrov and Tang (2024) proved $1$, $\pi^2$ and $L(2,\chi_{-3})$ linearly independent over $\Q$. Their character has conductor $3$, not $4$. Calegari (2005) proved a $2$-adic analogue of $G$ irrational. The corresponding real identity carries an extra $\pi^2$ term, which is why the $2$-adic result does not settle the real one. The same extra $\zeta(2)$ has to be cancelled here (§2.1).</li>
+</ul>
+
+<p><b>The strategy.</b> Instead of one sequence of linear forms, the paper builds <em>determinants</em> $\Delta_N$ of size $n=48N$. Each entry is a combination of moments of two elementary kernels, and every moment is a rational combination of $1$, $G$ and $\zeta(2)$. The rows are designed so that $\zeta(2)$ cancels from every entry. So if $G$ were rational, every $\Delta_N$ would be rational. A nonzero rational number $\Delta$ obeys the product formula</p>
+$$\log|\Delta|=\sum_p v_p(\Delta)\log p .$$
+<p>Bounding the denominators of $\Delta_N$ prime by prime therefore bounds $\log|\Delta_N|$ <em>from below</em>. An integral formula for the same determinant bounds it <em>from above</em>. Both bounds live on the scale $n^2$, and the paper tracks the normalized logarithm</p>
+$$\cL_N=\frac{\log|\Delta_N|}{(48N)^2}-\frac12\log 2. \tag{1}$$
+<p>Assuming $G\in\Q$, the finite places give $\liminf\cL_N>-2.29084$ along a sequence of prime $N$ for which $\Delta_N\neq0$. Without any assumption, the real place gives $\limsup\cL_N\le-2.290939875$. The stated constants are $10^{-4}$ apart, and the exact lower constant, $-2.290810\ldots$, leaves a true margin of $1.3\times10^{-4}$. Every constant in the $n^2$ terms has to be computed exactly, which is why much of the paper is bookkeeping and two of its steps are finite certificates.</p>
+
+<p>Zudilin's determinantal criterion (2017) is the closest precedent. There, Hankel determinants of a positive moment sequence are squared-Vandermonde integrals, so positivity gives nonvanishing for free. Zudilin also explained why the denominators of the then-known Catalan families were too large for his criterion. Here the determinant is <em>mixed and signed</em>, so nonvanishing (§4) and the real estimate (§5–7) need new arguments. The paper identifies three features that make the comparison close:</p>
+<ol>
+  <li><b>Chebyshev rows</b> give both the Taylor contact that cancels $\zeta(2)$ and the divisibility needed at primes. Denominators of order $p^2$ and of order $p$ are controlled in two separate layers.</li>
+  <li><b>Nonvanishing is arithmetic.</b> When $N=p$ is prime, Frobenius folds the $48p\times48p$ matrix modulo $p$ into three fixed $48\times48$ rational matrices. One finite computation shows they are invertible.</li>
+  <li><b>The real estimate respects two sheets</b> of the parametrization $t=2x/(1+x^2)$. A bounded holomorphic interpolant handles one range of configurations, Hadamard's inequality the other. The remaining logarithmic energy is reduced to one-variable functions, and explicit rational trial coefficients finish the bound.</li>
+</ol>
+
+<h3 id="map">The proof at a glance</h3>
+<p>The whole argument is a squeeze on one number, $\cL_N$. Assuming $G$ rational, the left column bounds it from below; the right column bounds it from above with no assumption. Click a box to jump to that step.</p>
+
+<div class="map" role="list">
+  <a class="node" href="#s2" role="listitem"><b>Chebyshev rows, mixed moments, determinant Δ<sub>N</sub></b><span>§2 · entries lie in ℚ + ℚG + ℚζ(2)</span></a>
+  <div class="arrow">↓</div>
+  <a class="node" href="#s2-1" role="listitem"><b>Taylor contact cancels ζ(2)</b><span>Prop 2.1 · if G ∈ ℚ then Δ<sub>N</sub> ∈ ℚ</span></a>
+  <div class="split">
+    <div class="col">
+      <div class="branch-label">finite places (assume G ∈ ℚ)</div>
+      <a class="node" href="#s2-2"><b>The prime 2</b><span>Prop 2.2 · v₂(Δ<sub>N</sub>) ≥ −(505/4608) n²</span></a>
+      <a class="node" href="#s3-1"><b>Odd primes, two layers</b><span>§3.1–3.3 · digit reductions, paired columns, central elimination</span></a>
+      <a class="node classic" href="#s3-4"><b>Prime number theorem</b><span>§3.4 · weighted sum → ∫d = 8609/2</span></a>
+      <a class="node" href="#s4"><b>Δ<sub>p</sub> ≠ 0 for large primes p</b><span>Prop 4.1 · Frobenius + certificate mod 101</span></a>
+      <div class="arrow">↓</div>
+      <a class="node" href="#s3-4"><b>lim inf 𝓛<sub>p</sub> &gt; −2.29084</b><span>Prop 3.4</span></a>
+    </div>
+    <div class="col">
+      <div class="branch-label">real place (no assumption)</div>
+      <a class="node classic" href="#s5-1"><b>Andréief + Cauchy</b><span>§5.1 · Δ<sub>N</sub> as a 2n-fold integral on two sheets</span></a>
+      <a class="node" href="#s5-2"><b>Interpolation or Hadamard</b><span>Lemma 5.1, Props 5.2–5.3 · uniform in the nodes</span></a>
+      <a class="node" href="#s6"><b>Energy → one-variable suprema</b><span>Prop 6.1 · Chebyshev squares, trial sequences</span></a>
+      <a class="node" href="#s7"><b>Exact certificate</b><span>Prop 7.1 · Descartes brackets, rational logs</span></a>
+      <div class="arrow">↓</div>
+      <a class="node" href="#s7"><b>lim sup 𝓛<sub>N</sub> ≤ −2.290939875</b><span>Prop 7.1</span></a>
+    </div>
+  </div>
+  <div class="arrow">↓</div>
+  <a class="node contra" href="#s8" role="listitem"><b>−2.29084 &gt; −2.2909: contradiction</b><span>§8 · so G ∉ ℚ</span></a>
+  <div class="arrow">↓</div>
+  <a class="node goal" href="#s8" role="listitem"><b>Catalan's constant is irrational</b><span>Theorem 1.1 · and so are certain hyperbolic volumes</span></a>
+  <div class="legend">Shaded boxes are classical inputs. White boxes are the new argument.</div>
+</div>
+</section>
+
+<!-- ======================================================= 2 -->
+<section id="s2">
+<h2><span class="secnum">2</span>Polynomial rows and mixed moments</h2>
+
+<p>Everything is built from a single scale $N$. The size, degrees and padding are fixed multiples of it:</p>
+$$n=48N,\quad a=11N,\quad b=7N,\quad q=g=4N,\quad h=2N,\qquad L=59N,\quad C=63N,\quad H=65N,\quad A=19N. \tag{2}$$
+<p>These ratios are where all the constants of the paper come from. For instance $L=n+a$ is the contact order, $H$ bounds the degrees, and $A$ is the lowest degree in any row.</p>
+
+<p><b>Two sheets of one variable.</b> Put $f(t)=\sqrt{1-t^2}$ and $w=t/(1+f)$. Then $t=2w/(1+w^2)$ and $f=(1-w^2)/(1+w^2)$: this is the rational parametrization of the circle $t^2+f^2=1$. The involution $w\mapsto w^{-1}$, written as a star, fixes $t$ and changes the sign of $f$. The rows are</p>
+$$R_r=(1-t)^h\,t^{C-1}\,w^{r-g},\qquad P_r=\frac{R_r+R_r^*}{2},\qquad D_r=\frac{t\,(R_r^*-R_r)}{2f}\qquad(0\le r\lt n). \tag{3}$$
+<p>Since $(w+w^{-1})/2=1/t$ and $(w^{-1}-w)/2=f/t$, these are Chebyshev polynomials in disguise. With $d=|r-g|$,</p>
+$$P_r=(1-t)^h t^{C-1}T_d(1/t),\qquad D_r=\sgn(r-g)\,(1-t)^h t^{C-1}U_{d-1}(1/t).$$
+<p>Both are polynomials with integer coefficients, supported in degrees $A,\ldots,H-1$ (4). Their key property is <em>Taylor contact</em>. Since $w=t/2+O(t^3)$,</p>
+$$\frac{tP_r}{f}-D_r=\frac{tR_r}{f}=O\big(t^{C+r-g}\big)=O(t^L). \tag{5}$$
+
+<p><b>Moments.</b> Two kernels are integrated against the rows. For $i,j\ge0$,</p>
+$$M(i,j)=\int_{-1}^1\!\int_0^1\frac{|t|}{f(t)}\,\frac{t^is^j}{1-ts}\,ds\,dt,\qquad Z(i,j)=\int_0^1\!\int_0^1\frac{t^is^j}{1-ts}\,ds\,dt, \tag{6}$$
+<p>extended bilinearly to polynomials. The raw entries are $F_j(r)=M(P_r,j)-\tfrac32Z(D_r,j)$ for $b\le j\lt L$, and the determinant is</p>
+$$\Delta_N=\det_{0\le r,k\lt n}\Big(M\big(P_r,s^{b+k}(1-s)^q\big)-\tfrac32 Z\big(D_r,s^{b+k}(1-s)^q\big)\Big). \tag{7}$$
+<p>Expanding $(1-s)^q$ shows that this matrix is $\cF\cT$. Here $\cF$ is the $n\times(n+q)$ matrix of raw columns $F_j$, and $\cT$ is an integer "filter" matrix of signed binomial coefficients (8). The filter is the reason the column pool has $q$ more columns than the determinant needs. Every raw column it uses lies in the contact range $j\lt L$.</p>
+
+<h3 id="s2-1"><span class="secnum">2.1</span>Moment evaluation and the cancellation of ζ(2)</h3>
+<p>With $c_l=4^{-l}\binom{2l}{l}$, the one-variable moments are $m_i=\int t^i|t|\,dt/f=2/((i+1)c_{i/2})$ for even $i$ and $0$ for odd $i$ (9). Expanding $1/(1-ts)$ gives $M(i,j)=\sum_{u\ge0}m_{i+u}/(j+u+1)$ (10). So $M$ is determined by a diagonal recurrence $M(i,j)-M(i+1,j+1)=m_i/(j+1)$ and its values on the two boundaries $M(d,0)$ and $M(0,d)$. Each boundary satisfies a three-term recurrence (11) that steps $d$ by $2$. The recurrence forces $M(1,0)=2$, which leaves two free starting values. They are the only transcendental input:</p>
+$$M(0,0)=4G,\qquad M(0,1)=\frac{\pi^2}{4}=\frac32\zeta(2). \tag{12}$$
+<p>The first comes from $t=\sin\theta$ and $-4\int_0^{\pi/4}\log\tan v\,dv=4G$. The second is the value at $1$ of the series of $(\arcsin x)^2$. Propagating the starts through the recurrences gives</p>
+$$M(i,j)=M^0(i,j)+4G\,c_{(i-j)/2}+\tfrac32\zeta(2)\,c_{(j-i-1)/2},\qquad Z(i,j)=Z^0(i,j)+[i=j]\,\zeta(2), \tag{17}$$
+<p>where $M^0,Z^0$ are explicit rational arrays, built from harmonic sums and the central binomials $c_l$ (14)–(16), and $c_z=0$ unless $z$ is a nonnegative integer. In words, $G$ sits on the main diagonal and every second diagonal below it ($i-j\ge0$ even), and $\zeta(2)$ on every second diagonal above it ($j-i$ odd).</p>
+
+<div class="thm key"><span class="label">Proposition 2.1.</span> Every raw entry $F_j(r)$ lies in $\Q+\Q G$. Consequently, if $G\in\Q$, then $\Delta_N\in\Q$ for every $N\ge1$.</div>
+<details class="proof"><summary>Proof</summary>
+<p>Since $1/f=\sum_l c_lt^{2l}$, the $\zeta(2)$-coefficient of $F_j(r)$ is</p>
+$$\tfrac32\Big(\sum_i[t^i]P_r\,c_{(j-i-1)/2}-[t^j]D_r\Big)=\tfrac32\,[t^j]\Big(\frac{tP_r}{f}-D_r\Big),$$
+<p>which vanishes for $j\lt L$ by the contact (5). What remains is a rational combination of $1$ and $G$:</p>
+$$F_j(r)=\sum_i[t^i]P_r\,\big(M^0(i,j)+4G\,c_{(i-j)/2}\big)-\tfrac32\sum_i[t^i]D_r\,Z^0(i,j). \tag{20}$$
+</details>
+<p>This is where the weight $\tfrac32$ in (7) comes from. It is the same $\tfrac32$ that appears in $M(0,1)=\tfrac32\zeta(2)$, and it lets the $Z$-kernel's diagonal $\zeta(2)$ cancel the $M$-kernel's off-diagonal one. Figure 1 computes these coefficients exactly.</p>
+
+<figure class="fig" id="fig-contact" data-fig="contact">
+  <div class="fig-head"><span class="num">Figure 1</span><span class="title">Taylor contact cancels ζ(2) (Proposition 2.1)</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>The actual rows of (3) at $N=1$ ($n=48$ rows, raw columns $j=0,\ldots,64$), with every coefficient computed in exact rational arithmetic. <b>Left:</b> the $\zeta(2)$-coefficient that the $M$-kernel alone contributes to each entry, $\tfrac32[t^j](tP_r/f)$. It fills the band of used columns $b\le j\lt L$ (framed). <b>Right:</b> the $\zeta(2)$-coefficient of $M(P_r,j)-w\,Z(D_r,j)$. At the paper's weight $w=\tfrac32$ the $Z$-kernel removes it <em>exactly</em> everywhere left of the green staircase $j=C+r-g$, the contact order of row $r$ in (5), and the staircase starts at $L$. <b>Move the weight</b> off $\tfrac32$ and the cancellation fails across the band. <b>Show the G-coefficient</b> on the right to see that $G$ survives, which is why the hypothesis $G\in\Q$ is needed. <b>Hover</b> a cell to see the two pieces and their exact sum. Below, <b>pick $(i,j)$</b> to check (17) against an independent numerical evaluation of the double integral (6). The value $M(0,0)=4G=3.6638623767\ldots$ is also the volume of the Whitehead link complement (§8).</figcaption>
+</figure>
+
+<h3 id="s2-2"><span class="secnum">2.2</span>A uniform estimate at the prime two</h3>
+<p>From here to the end of §4, assume $G\in\Q$. The prime $2$ is special because the Chebyshev coefficients are highly divisible by $2$ and the moments $m_u$ are very small $2$-adically.</p>
+<div class="thm"><span class="label">Proposition 2.2.</span> With $\delta=(q+g+h)/n=5/24$, for every $N\ge1$,
+$$v_2(\Delta_N)\ \ge\ -\Big(\frac\delta2+\frac{\delta^2}8\Big)n^2-O_G\big(n\log(n+2)\big)=-\frac{505}{4608}\,n^2-O_G\big(n\log(n+2)\big). \tag{21}$$
+The same bound holds for every full minor of the raw column matrix.</div>
+<details class="proof"><summary>How the quadratic arises</summary>
+<p>Because $v_2(m_u)\ge u+1-\log_2(u+1)$, the series (10) converges $2$-adically and defines a "smoothed" array $M_{\rm s}$. It satisfies the same recurrences as the rational part, so it differs from $M^0+4Gc$ by only two fixed $2$-adic constants $e_1,e_2$ (24). Each raw column then splits into three types (25): smoothed columns, which are divisible by about $2^C$, and two kinds of exceptional columns. The exceptional columns of each kind are combinations of fixed coefficient vectors $\mathbf p_u$ or $\mathbf d_u$, whose valuations grow with $u$ (27).</p>
+<p>The key observation is alternation. In a determinant, two exceptional columns that use the same $\mathbf p_u$ give zero. So $m$ columns of the first kind must use distinct $u$'s, and $\sum u\ge m(m-1)/2$. The valuation gained grows <em>quadratically</em> in $m$. Minimizing $-(H-b)m+\tfrac32m^2+\tfrac12l^2+C(n-m-l)$ (30) over the numbers $m,l$ of exceptional columns gives the minimum $-(\delta/2+\delta^2/8)n^2$, at $l=n-m$, $m=(2+\delta)n/4$.</p>
+</details>
+</section>
+
+<!-- ======================================================= 3 -->
+<section id="s3">
+<h2><span class="secnum">3</span>Odd primes and the finite-place lower bound</h2>
+<p>Fix an odd prime $p$ with $2\sqrt H\lt p\le H$. Primes below $2\sqrt H$ cost only $o(n^2)$, and primes above $H$ never divide a denominator. The section shows that every raw column lies in $p^{-2}\Z_p^n$, then makes invertible column operations over $\Z_p$ that push many columns into $p^{-1}\Z_p^n$ or $\Z_p^n$. If a full minor uses $r$ columns of the first kind and $s$ of the second, its valuation is at least $-(2r+s)$. Cauchy–Binet transfers this from the raw pool to the filtered determinant, because the column changes and the filter are integral. There are two layers: first residues after multiplying by $p^2$, then (for $p\gt H/2$) residues after multiplying by $p$.</p>
+
+<h3 id="s3-1"><span class="secnum">3.1</span>Digit reduction of the rational moments</h3>
+<p>Put $E(t)=(1-t^2)^{(p-1)/2}=\sum_dE_dt^d$ in $\F_p[t]$. Its even coefficients are the central binomials, $E_{2k}\equiv c_k\pmod p$, because $(-1)^k\binom{(p-1)/2}{k}\equiv4^{-k}\binom{2k}{k}$.</p>
+<div class="thm key"><span class="label">Lemma 3.1 (Digit reductions).</span> For $0\le i,j\lt H$ let $\ell=j\bmod p$, $d=(j-i-1)\bmod p$, $j'=\lfloor j/p\rfloor$ and $i'=(i+1+d-\ell)/p-1$. Then $i'\ge-1$ and, with $M^0(-1,j')=k^+_{j'+1}$,
+$$p^2M^0(i,j)\equiv E_d\,M^0(i',j')\pmod p,\qquad p^2Z^0(i,j)\equiv\begin{cases}Z^0(\lfloor i/p\rfloor,j'),&i\equiv j\ (p),\\0,&i\not\equiv j\ (p).\end{cases} \tag{31}$$
+Both sides are $p$-integral.</div>
+<p>The lemma says that, after multiplying by $p^2$, a moment array of size $H$ looks modulo $p$ like a tiny array indexed by the <em>high base-$p$ digits</em> $(i',j')$, times one factor $E_d$ that depends only on the low digits. The proof is careful carry-counting. Kummer's theorem gives the valuations of the factors $\binom{z}{z/2}$ in the explicit formulas (19), and a block identity $\sum_{j\le(p-1)/2}c_j^2\equiv(-1)^{(p-1)/2}\pmod p$ comes from $(1+x)^s(1+x)^s$. The condition $p\gt2\sqrt H$ guarantees there are only two digits. Figure 2 checks (31) cell by cell.</p>
+
+<figure class="fig" id="fig-digits" data-fig="digits">
+  <div class="fig-head"><span class="num">Figure 2</span><span class="title">Base-p digits of the moment arrays (Lemmas 3.1–3.2)</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><b>Moments view:</b> the exact rational array $M^0(i,j)$ (or $Z^0$) for $0\le i,j\lt H$, colored by its $p$-adic valuation: <b style="color:var(--accent-2)">orange</b> for $p^{-2}$, <b style="color:var(--accent-4)">purple</b> for $p^{-1}$, pale for integral. Grid lines mark multiples of $p$, so the base-$p$ digit structure of Lemma 3.1 is visible as blocks. The readout runs the congruence (31) on <em>every</em> cell for the chosen prime. <b>Hover</b> a cell to see its digits $\ell,d,i',j'$ and both sides of (31). <b>Columns view:</b> the actual raw columns $F_j$ at $N=1$ ($48$ rows, $b\le j\lt L$), computed modulo $p^3$, with each column's denominator $p^2$, $p$ or $1$. <b>Pair</b> replaces the high column $F_{p+\ell}$ by $F_\ell+F_{p+\ell}$, as in §3.2, and its denominator drops to $p$. For $p\gt H/2$ the <b>central</b> columns of Lemma 3.2 already have denominator $p$. <b>Change the prime</b> and watch the pairs and central columns trade places.</figcaption>
+</figure>
+
+<h3 id="s3-2"><span class="secnum">3.2</span>The leading layer and paired raw columns</h3>
+<p>Collect Lemma 3.1 over a whole column. For a residue $\ell$, extract coefficient vectors of the rows,</p>
+$$P'_u=[t^{(u+1)p+\ell}]\,tP(t)E(t),\qquad D'_u=[t^{up+\ell}]\,D(t),$$
+<p>so that</p>
+$$X_{kp+\ell}:=p^2F_{kp+\ell}\bmod p=\sum_uP'_uM^0(u,k)-\tfrac32\sum_uD'_uZ^0(u,k). \tag{36}$$
+<p>The $G$ term disappears: its coefficients $c_l$ are $p$-integral. If $\ell\ge H-2p$, only $u\le1$ occurs, and a small table of $M^0$ and $Z^0$ values gives</p>
+$$X_\ell=V_\ell,\qquad X_{p+\ell}=U_\ell-V_\ell,\qquad V_\ell=2P'_1-\tfrac32D'_1,\ \ U_\ell=2P'_{-1}-\tfrac32D'_0. \tag{37}$$
+<p>For $\ell\le A$ the rows have no terms of low degree, so $U_\ell=0$. Then the leading residues of $F_\ell$ and $F_{p+\ell}$ cancel, and the sum $F_\ell+F_{p+\ell}$ lies in $p^{-1}\Z_p^n$. Replacing the high column of each such pair by the pair sum is a unimodular column operation. If there are $d_0$ such pairs, any choice of $n$ columns from the pool of $n+q$ contains at least $(d_0-q)_+$ improved ones, so for $2\sqrt H\lt p\le H/2$</p>
+$$v_p(\Delta_N)\ \ge\ -2n+(d_0-q)_+. \tag{38}$$
+<p>The $q$ extra raw columns are a cost: a minor can avoid up to $q$ improved columns.</p>
+
+<h3 id="s3-3"><span class="secnum">3.3</span>The central layer and integral column elimination</h3>
+<p>For $p\gt H/2$, the large raw indices $j$ have only one digit, and these "central" columns already have denominator at most $p$. Their next residues are made of the same vectors $V_\ell$.</p>
+<div class="thm"><span class="label">Lemma 3.2 (Central layer).</span> Suppose $H/2\lt p\le H$ and write $K=L-p$, $J=H-p$. Every central column, meaning $b\le j\lt\min(p,L)$ and $j\ge J$, satisfies
+$$pF_j\in\Z_p^n,\qquad pF_j\equiv-\sum_{0\le\ell\lt J}\frac{V_\ell}{j-\ell}\pmod p, \tag{39}$$
+and all denominators $j-\ell$ are units.</div>
+<div class="thm key"><span class="label">Lemma 3.3 (Elimination over the local integers).</span> For $H/2\lt p\le H$ put
+$$R=K_++(K-A)_++(J-\max(b,K))_+,\qquad S=(\min(A,K)-b)_++(\min(b,J)-\max(0,K))_+.$$
+Then every full raw minor, and hence $\Delta_N$, satisfies $v_p(\Delta_N)\ge-\min(2n,\,n+R,\,2R+S)$. (40)</div>
+<details class="proof"><summary>Proof idea</summary>
+<p>Keep every noncentral column and pair up those that can be paired. The kept columns supply, as leading residues, every $V_\ell$ with $0\le\ell\lt J$ except those in an exceptional set $\cE$ of size $e$. Add $p$ times suitable integral multiples of these kept columns to each central column. This is a shear with integral inverse, and by (39) it cancels every $V_\ell$ with $\ell\notin\cE$ from the scaled residues. The scaled residues of the central columns then lie in the span of the $e$ exceptional vectors, so they have rank $d\le e$. A change of basis in $\GL_c(\Z_p)$ makes all but $d$ central columns integral. The pool now has $R$ columns with denominator $p^2$, at most $S$ with denominator $p$, and the rest integral, and a minor with $r$ and $s$ columns of the first two kinds loses at most $2r+s$.</p>
+<p>The paper insists on two points. No column is discarded, and no column's denominator is lowered just because its leading residue depends linearly on others. Only explicit integral operations are used.</p>
+</details>
+
+<h3 id="s3-4"><span class="secnum">3.4</span>Summing the prime losses</h3>
+<p>Write $x=p/N$. The bounds (38) and (40) say $v_p(\Delta_N)\ge-N\,d(x)$, where $d$ is an explicit continuous piecewise-linear function on $[0,65]$:</p>
+<table class="params">
+  <tr><th>$x$ range</th><th>$d(x)$</th><th>endpoint values</th><th>$\int d$</th></tr>
+  <tr><td>$[0,25]$</td><td>$96$</td><td>$96,\,96$</td><td>$2400$</td></tr>
+  <tr><td>$[25,29]$</td><td>$146-2x$</td><td>$96,\,88$</td><td>$368$</td></tr>
+  <tr><td>$[29,\tfrac{65}2]$</td><td>$88$</td><td>$88,\,88$</td><td>$308$</td></tr>
+  <tr><td>$[\tfrac{65}2,\tfrac{69}2]$</td><td>$153-2x$</td><td>$88,\,84$</td><td>$172$</td></tr>
+  <tr><td>$[\tfrac{69}2,40]$</td><td>$222-4x$</td><td>$84,\,62$</td><td>$803/2$</td></tr>
+  <tr><td>$[40,58]$</td><td>$182-3x$</td><td>$62,\,8$</td><td>$630$</td></tr>
+  <tr><td>$[58,59]$</td><td>$124-2x$</td><td>$8,\,6$</td><td>$7$</td></tr>
+  <tr><td>$[59,65]$</td><td>$65-x$</td><td>$6,\,0$</td><td>$18$</td></tr>
+</table>
+<p>This is table (43), and $\int_0^{65}d(x)\,dx=8609/2$ (44). The prime number theorem, in the form $\sum_{p\le y}\log p\sim y$, turns the sum over primes into this integral:</p>
+$$\frac1N\sum_{p\le65N}d(p/N)\log p\ \longrightarrow\ \int_0^{65}d(x)\,dx. \tag{45}$$
+
+<div class="thm key"><span class="label">Proposition 3.4 (Finite-place bound).</span> Assume $G\in\Q$. Along any sequence $N\to\infty$ with $\Delta_N\neq0$,
+$$\liminf_{N\to\infty}\Big(\frac{\log|\Delta_N|}{n^2}-\frac12\log2\Big)\ \ge\ -\frac{8609}{4608}-\Big(\frac12+\frac{505}{4608}\Big)\log2\ \gt\ -2.29084. \tag{42}$$</div>
+<p>The first term is $\int d/2304$, from the odd primes, since $n^2=2304N^2$. The second is the prime $2$ (Prop. 2.2) plus the normalization in (1). The primes below $2\sqrt H$ contribute $O(n\sqrt H\log H)=o(n^2)$, and primes above $H$ contribute nothing. The final digits use a rational upper bound $\log2\lt0.693149$, obtained from the series $\log2=2\sum_j3^{-(2j+1)}/(2j+1)$.</p>
+
+<figure class="fig" id="fig-loss" data-fig="loss">
+  <div class="fig-head"><span class="num">Figure 3</span><span class="title">Where the denominators go, and how close the squeeze is</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><b>Top:</b> the loss function $d(x)$, recomputed from the integer formulas (38) and (40) rather than copied from table (43), together with the per-prime bounds $\mathrm{loss}_p/N$ at the actual primes $2\sqrt H\lt p\le H$ for the chosen $N$. The readout checks $\int d=8609/2$ and the weighted prime sum (45). <b>Raise $N$</b> and the prime sum creeps toward the integral, as the prime number theorem says it must. <b>Switch the bookkeeping:</b> "first layer only" leaves the central columns of §3.3 at denominator $p$, and "no column operations" charges $2n$ at every prime. <b>Bottom:</b> the resulting lower bound for $\cL_N$, stacked from its three parts, against the real-place upper bound of Proposition 7.1, stacked from the four terms of §7.4. <b>Zoom</b> into the gap. With both layers the floor sits $1.3\times10^{-4}$ above the ceiling, which is the contradiction. With either weaker bookkeeping it falls far below and nothing follows.</figcaption>
+</figure>
+</section>
+
+<!-- ======================================================= 4 -->
+<section id="s4">
+<h2><span class="secnum">4</span>Nonvanishing along the prime sequence</h2>
+<p>The product formula needs $\Delta_N\neq0$. For Hankel determinants of a positive measure this is automatic, but $\Delta_N$ is a mixed, signed determinant, and the paper does not claim it has a sign. Instead it proves nonvanishing <em>arithmetically</em>, by computing $\Delta_N$ exactly modulo $p$ when $N=p$ is itself prime.</p>
+<div class="thm key"><span class="label">Proposition 4.1.</span> Assume $G\in\Q$. For every sufficiently large prime $p$, the determinant with $N=p$ satisfies
+$$v_p(\Delta_p)=-96p. \tag{46}$$
+In particular $\Delta_p\neq0$.</div>
+<p>Since $2n=96p$, this says the leading layer is as large as it can be: $p^{2n}\Delta_p$ is a $p$-adic unit. The proof reduces the $48p\times48p$ matrix modulo $p$ to three fixed $48\times48$ rational matrices. Build the base rows $\underline P_r,\underline D_r$ with $N=1$, including one auxiliary row $r=48$, and set</p>
+$$\cB(r,k)=\sum_{j=0}^4(-1)^j\binom4j\Big\{M^0(\underline P_r,7+k+j)-\tfrac32Z^0(\underline D_r,7+k+j)\Big\}\qquad(0\le r\le48,\ 0\le k\lt48). \tag{47}$$
+<p>With $\cB_0$ the first $48$ rows and $\cB_1$ the last $48$, the finite certificate proves</p>
+$$\det\cB_0\neq0,\qquad\det(\cB_0+\cB_1)\neq0,\qquad\det(\cB_0-\cB_1)\neq0. \tag{48}$$
+
+<h3 id="s4-1"><span class="secnum">4.1</span>Two palindromic bases</h3>
+<p>Over $\F_p$, the palindromic polynomials of degree at most $2p-2$ form a $p$-dimensional space $\cP_p$. It has two natural bases:</p>
+$$U_\ell(w)=(2w)^\ell(1+w^2)^{p-1-\ell},\qquad Q_i(w)=w^i\sum_{j=0}^{p-i-1}w^{2j}\qquad(0\le\ell,i\lt p).$$
+<p>The change of basis $Q_i=\sum_\ell a_{\ell i}U_\ell$ is lower triangular with $a_{ii}=2^{-i}$, so $\det\mathbf a=2^{-p(p-1)/2}\neq0$ (49). Let $\mathbf b=\mathbf a\Pi$, where $\Pi e_0=0$ and $\Pi e_i=e_{p-i}$ (50). Because $\binom{p-1}{j}\equiv(-1)^j$, one has $Q_i+w^pQ_{p-i}=w^i(1-w^2)^{p-1}$ for $1\le i\lt p$, and $Q_0=(1-w^2)^{p-1}$. Dividing by $(1+w^2)^{p-1}$ gives, with $t=2w/(1+w^2)$,</p>
+$$E(t)\,w^i=\sum_{\ell=0}^{p-1}t^\ell\big(a_{\ell i}+b_{\ell i}w^p\big). \tag{51}$$
+
+<h3 id="s4-2"><span class="secnum">4.2</span>Frobenius and the two extraction shifts</h3>
+<p>Now take $N=p$ and write each row index as $r=pr_0+i$ with $0\le i\lt p$. In characteristic $p$, Frobenius maps $t,w,f$ to $t'=t^p$, $w'=w^p$, $f'=f^p$, and these satisfy the same relations. Since $C=63p$, $h=2p$ and $g=4p$, the row at scale $p$ factors through a row at scale $1$:</p>
+$$tR_rE(t)=\sum_{\ell=0}^{p-1}t^\ell\,t'\Big(a_{\ell i}\,\underline R_{r_0}(t',w')+b_{\ell i}\,\underline R_{r_0+1}(t',w')\Big). \tag{52}$$
+<p>The factor $w'$ in the second term moves to the next base row, which is why the auxiliary row $48$ is needed. Separating the parts fixed and negated by the star gives separate identities for $tP_rE$ and for $D_r$ (53)–(54). Extracting the coefficient of $t^\ell$ identifies the vectors $P'_u,D'_u$ of §3.2 with the base rows (55). The factor $t'$ in (52) is exactly absorbed by the shift $u+1$ in the $P$-extraction.</p>
+
+<h3 id="s4-3"><span class="secnum">4.3</span>The residue blocks and their determinant</h3>
+<p>Order the rows by $(i,r_0)$ and the columns by $(\ell,k_0)$, where $k=\ell+pk_0$. Then the filter respects residues, since $s^{7p+k}(1-s)^{4p}=s^\ell(s^p)^{7+k_0}(1-s^p)^4$ in $\F_p[s]$. Combining this with (36) and (55), the matrix $p^2\cF_p\cT$ reduces modulo $p$, after reordering, to</p>
+$$\cL_p=\mathbf a^{\mathsf T}\otimes\cB_0+\mathbf b^{\mathsf T}\otimes\cB_1,\qquad \cL_p\big((\mathbf a^{\mathsf T})^{-1}\otimes I_{48}\big)=I_p\otimes\cB_0+\Pi^{\mathsf T}\otimes\cB_1. \tag{59}$$
+<p>The permutation-like matrix $\Pi$ has eigenvalue $0$ once (on $e_0$) and $\pm1$ each $(p-1)/2$ times (on $e_i\pm e_{p-i}$). Diagonalizing it splits the determinant:</p>
+$$\det\cL_p=(\det\mathbf a)^{48}\,\det\cB_0\,\det(\cB_0+\cB_1)^{(p-1)/2}\det(\cB_0-\cB_1)^{(p-1)/2}. \tag{60}$$
+
+<figure class="fig" id="fig-frobenius" data-fig="frobenius">
+  <div class="fig-head"><span class="num">Figure 4</span><span class="title">Frobenius folds a 48p × 48p matrix into three 48 × 48 ones</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><b>Left:</b> the change-of-basis matrix $\mathbf a$ between the palindromic bases over $\F_p$ (nonzero entries shaded, lower triangular, diagonal $2^{-i}$), and $\mathbf b=\mathbf a\Pi$. The readout checks identity (51) as a polynomial identity for every $i\lt p$. <b>Middle:</b> the block matrix $\cL_p=\mathbf a^{\mathsf T}\otimes\cB_0+\mathbf b^{\mathsf T}\otimes\cB_1$ of (59), built from small stand-in blocks $\cB_0,\cB_1$ (here $3\times3$, random over $\F_p$) so that the whole matrix fits on screen. Its determinant is computed by elimination and compared with the factorization (60). <b>Change $p$</b> or <b>reroll</b> the blocks. <b>Make $\cB_0+\cB_1$ singular</b> to see $\det\cL_p$ vanish, which is why all three determinants in (48) are needed. <b>Right:</b> the real certificate. The browser builds the actual $49\times48$ matrix $\cB$ of (47) by the recipe of §4.4 over $\F_{101}$, runs the paper's elimination rule for $\cB_0+\sigma\cB_1$, and compares the $3\times48$ pivots and the row swaps with Table 1. Choose another modulus to see that $101$ is not special.</figcaption>
+</figure>
+
+<h3 id="s4-4"><span class="secnum">4.4</span>An exact certificate for the fixed matrices</h3>
+<p>Every entry of $\cB$ is built from the recurrences for $m_i$, $k^\pm_d$, the diagonal reduction, harmonic sums and the Chebyshev recurrence. Every denominator is a product of integers of size at most $65$, so the whole construction can be carried out in $\F_{101}$. Gaussian elimination there finds $3\times48$ nonzero pivots, with only two row swaps, $(30,31)$ and $(45,46)$, for $\sigma=1$. This is Table 1, and it proves (48).</p>
+<p><b>Completing the proof of Proposition 4.1.</b> Exclude the finitely many primes dividing the denominator of $G$, a denominator of an entry of $\cB$, or a numerator or denominator of the three nonzero determinants in (48). For any other prime $p\gt260$, all three matrices are invertible modulo $p$, so $\det\cL_p\neq0$ by (60). Hence $p^{2n}\Delta_p=\det(p^2\cF_p\cT)$ is a unit in $\Z_{(p)}$, and $v_p(\Delta_p)=-2n=-96p$. The modulus $101$ only certifies three fixed matrices; the growing determinants use arbitrary large primes.</p>
+</section>
+
+<!-- ======================================================= 5 -->
+<section id="s5">
+<h2><span class="secnum">5</span>The real-place determinant estimates</h2>
+<p>Now the upper bound. This part makes <em>no</em> rationality assumption, and every constant must be uniform in the positions of $2n$ integration variables, including when they nearly collide. Write $\alpha=a/n=11/48$, $\beta=b/n=7/48$, $\gamma=g/n=q/n=4/48$, $\eta=h/n=2/48$ and $D_*=n-1-2g=40N-1$ (61).</p>
+
+<h3 id="s5-1"><span class="secnum">5.1</span>The integral and its two sheets</h3>
+<p>With $d\mu(t)=|t|\,dt/f(t)$, $A_r(t)=P_r(t)-\tfrac32\mathbf 1_{t\gt0}\,\frac{f(t)}tD_r(t)$ and $\psi_k(s)=s^{b+k}(1-s)^q$, each entry of (7) is $\iint A_r(t)\,\psi_k(s)\,(1-ts)^{-1}\,ds\,d\mu(t)$. Two classical identities turn the determinant into one big integral:</p>
+<ul>
+  <li><b>Andréief's identity</b>, used twice, turns the determinant of single integrals into</li>
+</ul>
+$$\Delta_N=\frac1{(n!)^2}\int_{(-1,1)^n}\int_{(0,1)^n}\det[A_r(t_i)]\,\det\Big[\frac1{1-t_is_j}\Big]\,\det[\psi_k(s_j)]\,ds\,d\mu^n(t). \tag{62}$$
+<ul>
+  <li><b>Cauchy's double alternant</b> evaluates the middle factor (63), and the last factor is $V(s)\prod_js_j^b(1-s_j)^q$:</li>
+</ul>
+$$\det\Big[\frac1{1-t_is_j}\Big]=\frac{V(t)\,V(s)}{\prod_{i,j}(1-t_is_j)}. \tag{63}$$
+<p>Use the coordinate $x=t/(1+\sqrt{1-t^2})$, so $t=2x/(1+x^2)$ (64), with $x\in(-1,1)$. Since $fD_r/t=(R_r^*-R_r)/2$, the row is $(R_r+R_r^*)/2$ on $t\lt0$ and $(5R_r-R_r^*)/4$ on $t\gt0$. Here $R_r\propto x^{r-g}$ is evaluated on the <em>near</em> sheet $x$, and $R_r^*\propto x^{g-r}$ on the <em>far</em> sheet $1/x$. Factoring out the common powers leaves the sheet determinant</p>
+$$\cR_n(x)=\det\big[\xi_{\rm f}(x_i)\,x_i^{g-r}+\xi_{\rm n}(x_i)\,x_i^{r-g}\big]_{r,i},\qquad(\xi_{\rm f},\xi_{\rm n})=\begin{cases}(\tfrac12,\tfrac12),&x\lt0,\\(-\tfrac14,\tfrac54),&x\gt0,\end{cases}$$
+<p>and an exact formula (65) with one $t$-Vandermonde and two $s$-Vandermondes. Everything except $\cR_n$ is positive. The analytic problem is to bound $\cR_n$.</p>
+
+<h3 id="s5-2"><span class="secnum">5.2</span>A uniform interpolating function</h3>
+<p>Factor out the far-sheet weight: the $i$th column becomes $\xi_{\rm f}(x_i)x_i^{g-(n-1)}\big(x_i^{n-1-r}+c_ix_i^{D_*}x_i^r\big)$, with $c_i=\xi_{\rm n}/\xi_{\rm f}$ equal to $1$ or $-5$ (66). If one holomorphic function $h_*$ has the values $h_*(x_i)=c_ix_i^{D_*}$, the bracket is $x_i^{n-1-r}+h_*(x_i)x_i^r$. The first estimate applies when the nodes are not too concentrated near $0$:</p>
+$$\sum_{i=1}^n\frac{1-x_i^2}{1+x_i^2}\ \le\ D_*. \tag{67}$$
+<p>Since $(1-x^2)/(1+x^2)=f(t)=\sqrt{1-t^2}$, this condition says the average of $\sqrt{1-t_i^2}$ is at most about $5/6$.</p>
+
+<div class="thm key"><span class="label">Lemma 5.1.</span> Let $x_1,\ldots,x_n$ be distinct nonzero reals in $(-1,1)$ satisfying (67). There is $h_*$, holomorphic near the closed unit disk, with
+$$h_*(x_i)=c_ix_i^{D_*},\qquad c_i=\begin{cases}1,&x_i\lt0,\\-5,&x_i\gt0,\end{cases}\qquad\sup_{|z|\le1}|h_*(z)|\le K_0n,\quad K_0=10e^{12}.$$
+The bound does not depend on the nodes, however close together they are.</div>
+<details class="proof"><summary>The construction</summary>
+<p>Let $B(z)=\prod_i(z-x_i)/(1-x_iz)$ be the Blaschke product with the nodes as zeros, and $F=z^{D_*}/B$. On the imaginary axis the logarithmic derivative satisfies $\tfrac{d}{d\log u}\log|B(iu)|\le\sum_i(1-x_i^2)/(1+x_i^2)$, one term per factor. So (67) gives $|B(iu)|\ge u^{D_*}$, and hence $|F(iu)|\le e^2$ on the segment $\Gamma=[-i(1+2/n),\,i(1+2/n)]$ (68).</p>
+<p>The required values jump from $c_-=1$ on the left half-disk to $c_+=-5$ on the right. To bridge this, glue the two half-plane functions with a Cauchy integral over $\Gamma$:</p>
+$$h_*(z)=c_\pm z^{D_*}-B(z)\,\mathcal C(z)\quad(\pm\operatorname{Re}z\gt0),\qquad\mathcal C(z)=\frac1{2\pi i}\int_\Gamma\frac{6F(w)}{w-z}\,dw. \tag{69}$$
+<p>By the Plemelj jump, $\mathcal C$ jumps by $6F$ across $\Gamma$, and $6BF=6z^{D_*}=(c_--c_+)z^{D_*}$. So the two formulas agree and $h_*$ is holomorphic. Since $B(x_i)=0$, $h_*$ interpolates. On the circle $|B|=1$, so it remains to bound $\mathcal C$. Away from $\pm i$ the distance to $\Gamma$ controls it. Near $\pm i$ the contour is pushed around $z$ by a small rectangle of width $1/n$, where $|F|\le e^{12}$ (70). Maximum modulus then gives the bound on the disk.</p>
+</details>
+
+<figure class="fig" id="fig-interp" data-fig="interp">
+  <div class="fig-head"><span class="num">Figure 5</span><span class="title">The Blaschke product on the imaginary axis (Lemma 5.1)</span></div>
+  <div class="fig-mount"></div>
+  <figcaption><b>Left:</b> $n=48$ nodes $x_i$ on $(-1,1)$ (the case $N=1$, so $D_*=39$), and $\log|F(z)|$ for $F=z^{D_*}/B$ on the disk. <b style="color:var(--accent-2)">Orange</b> marks where $|F|\gt e^2$; the poles of $F$ are the nodes. The segment $\Gamma$ is the vertical line. <b>Right, top:</b> $\log|F(iu)|$ along $\Gamma$, against the bound $\log e^2=2$ of (68). <b>Right, bottom:</b> $|h_*|$ on the unit circle. The browser computes the glued function (69) by adaptive quadrature over $\Gamma$, using the paper's rectangular detour near $\pm i$, and plots it against the lemma's bound $K_0n\approx7.8\times10^7$ (off the chart). The readout reports condition (67), the two bounds, and the <em>gluing defect</em>: the two formulas in (69), compared on the same point, agree to machine precision. <b>Drag</b> nodes, or <b>squeeze</b> them toward $0$. Once (67) fails, $|F(iu)|$ blows up near $u=0$ and the proof switches to the Hadamard estimate. The <b>two clumps</b> preset puts 24 nodes within $0.0023$ of each other at each end, and $h_*$ stays small: the uniformity the lemma claims.</figcaption>
+</figure>
+
+<h3 id="s5-3"><span class="secnum">5.3</span>Evaluation in a finite-dimensional Hilbert space</h3>
+<div class="thm key"><span class="label">Proposition 5.2 (Interpolation estimate).</span> Under (67),
+$$|\cR_n(x)|\ \le\ (1+K_0n)^n\,\cV(1/x)\prod_i|x_i|^g, \tag{71}$$
+where $\cV$ is the absolute Vandermonde. The prefactor is $\exp(O(n\log n))$, uniformly in the nodes.</div>
+<p>The point is to avoid dividing by a Vandermonde determinant. When the nodes cluster, that determinant is tiny and its inverse matrix is badly conditioned. The paper instead works in the $n$-dimensional space $\cH_Q=\{v/Q:\deg v\lt n\}$, with $Q(z)=\prod_i(1-x_iz)$, under the Hardy space $H^2$ norm. In this space:</p>
+<ul>
+  <li>the kernels $k_i=1/(1-x_iz)$ form a basis, and $\langle u,k_i\rangle=u(x_i)$, so orthogonal projection $\Pi_Q$ preserves the values at the nodes;</li>
+  <li>the reflection $R(v/Q)=z^{n-1}v(1/z)/Q$ is an isometric involution;</li>
+  <li>$J=\Pi_QM_{h_*}$ has norm at most $\|h_*\|_\infty$, so $L=I+JR$ has $\|L\|\le1+K_0n$.</li>
+</ul>
+<p>If $E$ is evaluation at the nodes, then $ELR(v/Q)=\big(\tilde v(x_i)+h_*(x_i)v(x_i)\big)_i$ (72), which are exactly the mixed evaluations. Since $\det E=V(x)$ and $|\det R|=1$, the mixed determinant equals $V(x)\det L$ in absolute value, and $|\det L|\le\|L\|^n$. The Vandermonde cancels algebraically; no inverse appears. This is the kernel and compression viewpoint of Sarason (1967).</p>
+
+<div class="thm"><span class="label">Proposition 5.3 (Hadamard estimate).</span> For every list of distinct nonzero reals in $(-1,1)$,
+$$|\cR_n(x)|\ \le\ (3/2)^n\,n^{n/2}\,2^{-\binom n2}\prod_i(1+x_i^2)^{(n-1)/2}|x_i|^{g-(n-1)}. \tag{73}$$</div>
+<p>Expand by choosing a sheet $z_i\in\{x_i,1/x_i\}$ in each column. With $z_i=\tan\phi_i$, the Vandermonde of the $z_i$ becomes $\prod(1+z_i^2)^{(n-1)/2}$ times $2^{-\binom n2}$ times a Vandermonde on the unit circle, and Hadamard bounds that by $n^{n/2}$. The factor $2^{-\binom n2}$ is kept, because on the scale $n^2$ it contributes $-\tfrac12\log2$.</p>
+
+<h3 id="s5-4"><span class="secnum">5.4</span>The two principal integrands</h3>
+<p>Combining (65) with the two estimates gives majorants $\cI_{2,n}$ (interpolation, on the set $\Omega_{2,n}$ where (67) holds) and $\cI_{1,n}$ (Hadamard, on its complement) (74). The index $\kappa\in\{1,2\}$ is the exponent of the $x$-Vandermonde after the substitution $t=2x/(1+x^2)$. Since $d\mu^n\,ds$ has mass $2^n$, and factorials and sheet sums are $\exp(O(n\log n))$,</p>
+$$\frac{\log|\Delta_N|}{n^2}-\frac12\log2\ \le\ \max_{\kappa\in\{1,2\}}\ \sup_{\Omega_{\kappa,n}}\Big(\frac{\log\cI_{\kappa,n}}{n^2}-\frac12\log2\Big)+O\Big(\frac{\log(n+2)}n\Big). \tag{75}$$
+</section>
+
+<!-- ======================================================= 6 -->
+<section id="s6">
+<h2><span class="secnum">6</span>A uniform energy bound</h2>
+<p>The majorants are products over $2n$ points, so their logarithms are <em>energies of charged particles</em>. Each majorant puts $n$ charges $x_i\in[-1,1)$ and $n$ charges $s_j\in(0,1)$ in external fields</p>
+$$W_\kappa(x)=(\alpha+2\gamma)\log|x|+2\eta\log(1-x)-\big(\tfrac\kappa2+\alpha+\eta+\gamma\big)\log(1+x^2),\qquad W_s(s)=\beta\log s+\gamma\log(1-s), \tag{76}$$
+<p>with pairwise interactions (80)</p>
+$$\tfrac\kappa2\log|x-x'|+\tfrac12\log(1-xx')+\log|s-s'|-\log(1-2xs+x^2).$$
+<p>The goal is to bound the maximum energy as $n\to\infty$ by one-variable quantities. For a sequence $u=(u_k)$ decaying exponentially, define</p>
+$$\|u\|_*^2=\sum_{k\ge1}\frac{u_k^2}k,\qquad T(u,x)=\sum_{k\ge1}\frac{u_kT_k(x)}k,\qquad S(u,x)=\sum_{k\ge1}\frac{u_kx^k}k. \tag{77}$$
+
+<div class="thm key"><span class="label">Proposition 6.1.</span> Let $p,v$ be two such sequences, with $\lambda=0$ if $\kappa=2$ and any $\lambda\ge0$ if $\kappa=1$. Then
+$$\limsup_{N\to\infty}\sup_{\text{case }\kappa}\Big(\frac{\log\cI_{\kappa,n}}{n^2}-\frac12\log2\Big)\ \le\ (-1+\alpha+\gamma)\log2+\kappa\|p\|_*^2+\tfrac12\|v\|_*^2+\sup_{x}\big\{W_\kappa+\lambda D-2\kappa T(p,\cdot)-S(v,\cdot)\big\}+\sup_{s}\big\{W_s+2T(v,\cdot)\big\}, \tag{78}$$
+where $D(x)=2\gamma-2x^2/(1+x^2)$, $x$ ranges over $[-1,1)\setminus\{0\}$ and $s$ over $(0,1)$.</div>
+<p>The mechanism takes three steps.</p>
+<ol>
+  <li><b>Chebyshev expansion of the log kernel.</b> On $[-1,1]$ (82),
+$$\log|u-u'|=-\log2-2\sum_k\frac{T_k(u)\,T_k(u')}k.$$ The other two kernels expand in powers, $\log(1-zz')=-\sum_kz^kz'^k/k$, and in Chebyshev–power products for the cross term. Including the diagonal, the interactions become $-\log2$ minus <em>squares</em> of empirical moments: $-\kappa\sum_kA_k^2/k$ and $-\tfrac12\sum_k(B_k-2C_k)^2/k$ (86)–(87).</li>
+  <li><b>Damping.</b> The diagonal terms are infinite, so the expansions are damped: $\tau=1-\varepsilon$, $\rho(x)=1-\varepsilon(1-x)$, $\sigma(s)=1-\varepsilon\sqrt{1-s}$ (83). The scales $1-x$ and $\sqrt{1-s}$ match the cross kernel near the corner $(1,1)$, where $|1-xe^{i\arccos s}|^2=(1-x)^2+2x(1-s)$. Every comparison costs $O(\varepsilon)$, and the diagonal corrections cost $O_\varepsilon(1/n)$, uniformly in the configuration. Limits are taken in the order $n\to\infty$, then $\varepsilon\to0$.</li>
+  <li><b>Trial sequences.</b> The inequality $-a^2\le b^2-2ab$, with $b=p_k$ and $b=v_k$, replaces each negative square by an expression that is affine in the empirical measure. The many-particle supremum then splits into one supremum over $x$ and one over $s$. Any choice of $p,v$ gives a valid bound. For $\kappa=1$, failure of (67) means $\langle D(x)\rangle\gt-1/n$, so the multiplier term $\lambda D$ costs nothing.</li>
+</ol>
+<p>The bound is sharp when $p_k$ and $v_k$ equal the moments of the equilibrium measures. Then each one-variable function is constant on the support of its charges.</p>
+</section>
+
+<!-- ======================================================= 7 -->
+<section id="s7">
+<h2><span class="secnum">7</span>An exact certificate for the two barriers</h2>
+<div class="thm key"><span class="label">Proposition 7.1.</span> For the determinants (7),
+$$\limsup_{N\to\infty}\Big(\frac{\log|\Delta_N|}{n^2}-\frac12\log2\Big)\ \le\ -2.290939875\ \lt\ -2.2909. \tag{88}$$
+The separate bounds for the cases $\kappa=2$ and $\kappa=1$ are $-2.290939875$ and $-2.296789875$.</div>
+
+<h3 id="s7-1"><span class="secnum">7.1</span>Exact trial sequences</h3>
+<p>Each trial sequence is a finite polynomial part plus exponential tails, $u_k=l_k+\sum_zr_zz^k$ (89). For $\kappa=2$ the finite parts have length $10$; the tail bases are real or come in conjugate pairs, such as $0.85$, $0.7i$ and $0.092+0.92i$, with moduli at most $0.94$ for $p$ and $0.984$ for $v$. For $\kappa=1$ there are no tails and $\lambda_1=2.47405979$. All coefficients are integers times $10^{-8}$. Summing the series in closed form gives finite formulas with principal logarithms (90), for example</p>
+$$T(u,x)=\sum_{k\le d}\frac{l_kT_k(x)}k-\frac12\sum_zr_z\Log(1-2xz+z^2).$$
+<p>This defines the two <em>barrier functions</em>:</p>
+$$X_\kappa=W_\kappa+\lambda_\kappa D-2\kappa\,T(p,\cdot)-S(v,\cdot),\qquad Y_\kappa=\beta\log x+\gamma\log(1-x)+2\,T(v,\cdot). \tag{91}$$
+
+<figure class="fig" id="fig-barriers" data-fig="barriers">
+  <div class="fig-head"><span class="num">Figure 6</span><span class="title">The two barriers equioscillate</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>The barrier functions $X_\kappa$ on $[-1,1)$ and $Y_\kappa$ on $(0,1)$, evaluated in floating point from the paper's trial sequences by the closed forms (90). Ticks mark the root brackets of §7.2, and dots mark the candidate values of Table 2. <b>Lower the magnification</b> to see each barrier whole: a plateau between walls at its singular points. <b>Raise it</b> to see the plateau's fine structure. For $\kappa=2$ the top of $X_2$ is a row of ten maxima, all within $10^{-6}$ of $-0.984034$, and the maxima of $Y_2$ lie within about $10^{-5}$ of $-1.60896$. This equioscillation is the signature of a nearly optimal dual (end of §6): the effective potential is almost constant where the charges sit. The <b>dashed line</b> is the cutoff in (98). The readout recomputes all fifty entries of Table 2, the norm constants $\kappa\|p\|_*^2+\tfrac12\|v\|_*^2$, and a fine-grid supremum. <b>Switch to κ = 1</b>, the Hadamard case, which has more room.</figcaption>
+</figure>
+
+<h3 id="s7-2"><span class="secnum">7.2</span>Derivative numerators and exhaustive root brackets</h3>
+<p>A plot is not a proof of a supremum. Multiplying $X_\kappa'$ and $Y_\kappa'$ by explicit positive denominators gives polynomials $A_X,A_Y$ with rational coefficients (93), of degrees $36$ and $24$ for $\kappa=2$ and $13$ and $9$ for $\kappa=1$. Their real roots are the stationary points. On each subinterval $(b,c)$, the substitution $x=(b+ct)/(1+t)$ and <b>Descartes' rule of signs</b> bound the number of roots (94). The paper then lists disjoint brackets $(m,m+2)/10^{10}$ where the numerator changes sign (95). The number of brackets equals the Descartes bound on each subinterval, so each bracket holds exactly one simple root, and there are no others.</p>
+
+<h3 id="s7-3"><span class="secnum">7.3</span>Rational logarithms and all candidate values</h3>
+<p>To evaluate the barriers without floating point, every logarithm is replaced by a rational truncation with an explicit error. Real logs use $\log y=2\operatorname{artanh}\frac{y-1}{y+1}$ with $18$ terms after scaling by powers of $2$ (96). Arguments use a rotation into an octant and $\pi/4=\arctan\frac12+\arctan\frac13$, with $24$ terms (97). Each complex log is then accurate to $10^{-15}$. Table 2 lists rational upper bounds at all fifty candidate points: the left ends of the brackets and the finite division points. The cutoffs actually used are (98):</p>
+<table class="params">
+  <tr><th>$\kappa$</th><th>$\kappa\|p\|_*^2+\tfrac12\|v\|_*^2$</th><th>$\sup X_\kappa$</th><th>$\sup Y_\kappa$</th></tr>
+  <tr><td>$2$</td><td>$0.77844$</td><td>$-0.98399$</td><td>$-1.60890$</td></tr>
+  <tr><td>$1$</td><td>$0.9321$</td><td>$-1.3244$</td><td>$-1.4280$</td></tr>
+</table>
+
+<h3 id="s7-4"><span class="secnum">7.4</span>From bracket values to global suprema</h3>
+<p>On every bracket $|X_\kappa'|,|Y_\kappa'|\lt120000$, from the coefficient bounds and the fact that all brackets stay at distance more than $0.0007$ from $0$ and $1$. So moving from a bracket's left end to its stationary point gains less than $120000\cdot2\cdot10^{-10}=0.000024$. The singular endpoints have limit $-\infty$. Since $-1+\alpha+\gamma=-11/16$ and $\log2\gt0.693146$, the two cases give</p>
+$$-\tfrac{11}{16}(0.693146)+0.77844-0.98399-1.60890+0.000048=-2.290939875,$$
+$$-\tfrac{11}{16}(0.693146)+0.9321-1.3244-1.4280+0.000048=-2.296789875.$$
+
+<figure class="fig" id="fig-certificate" data-fig="certificate">
+  <div class="fig-head"><span class="num">Figure 7</span><span class="title">Re-running the certificate of §7 in exact arithmetic</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>The browser rebuilds the four derivative numerators $A_X,A_Y$ of (93) from the trial sequences, exactly. It uses Gaussian-rational coefficients for the conjugate tail pairs and checks that every imaginary part cancels. On each subinterval it applies the Descartes transform (94) and counts sign variations, then evaluates the sign of $N_A$ (95) at both ends of every bracket using big integers. Each row of the table compares the result with the paper. The strip for each function shows the interval, its division points, and the bracketed stationary points, colored by whether the barrier has a local maximum or minimum there. <b>Click a row</b> to draw it. The last panel redoes the final arithmetic of §7.4 and sets it against the finite-place bound of Proposition 3.4.</figcaption>
+</figure>
+</section>
+
+<!-- ======================================================= 8 -->
+<section id="s8">
+<h2><span class="secnum">8</span>Conclusion</h2>
+<p><b>Proof of Theorem 1.1.</b> Suppose $G\in\Q$. Then every $\Delta_N$ is rational (Prop. 2.1), and $\Delta_p\neq0$ for all large primes $p$ (Prop. 4.1). Along these primes the product formula and Proposition 3.4 give $\liminf\cL_p\gt-2.29084$. Proposition 7.1 gives $\limsup\cL_N\le-2.290939875\lt-2.2909$ along every sequence. Since $-2.29084\gt-2.2909$, these are incompatible. So $G$ is irrational.</p>
+<div class="note"><span class="label">The shape of the argument</span> Under $G\in\Q$, the determinant $\Delta_p$ is a nonzero rational number whose denominator is controlled prime by prime: by a $2$-adic smoothing at $2$, by base-$p$ digit reductions and two layers of column elimination at odd primes, and by the prime number theorem in aggregate. Its size is controlled by an integral with two sheets, a uniform interpolation estimate, a log-gas energy and an exact certificate. The two estimates miss each other by $1.3\times10^{-4}$ in the normalized logarithm. The argument gives no irrationality measure: that would need control of all rational approximations, not just one squeeze.</div>
+
+<p><b>Hyperbolic volumes.</b> Normalize curvature to $-1$. Agol (2010) proved that the minimum volume of an orientable complete finite-volume hyperbolic 3-manifold with exactly two cusps is $4G=3.6638623767\ldots$. It is attained by the complements of the Whitehead link and the $(-2,3,8)$ pretzel link. These volumes are therefore irrational.</p>
+<p>More generally, every orientable arithmetic hyperbolic 3-orbifold defined over $\Q(i)$ has irrational volume. Such a lattice is commensurable with the norm-one group $\Gamma^1(\mathcal O)$ of a maximal order in a quaternion algebra $B/\Q(i)$, and since $\zeta_{\Q(i)}(2)=\zeta(2)L(2,\chi_{-4})=\frac{\pi^2}6G$, the volume formula gives</p>
+$$\vol\big(\Gamma^1(\mathcal O)\backslash\Hyp^3\big)=\frac G3\prod_{\mathfrak p\mid\mathfrak D}(N\mathfrak p-1).$$
+<p>Commensurable lattices have volumes in rational ratio, so each such volume is a positive rational multiple of $G$. The split case is the Picard orbifold:</p>
+$$\vol\big(\PSL_2(\Z[i])\backslash\Hyp^3\big)=\frac G3=0.3053218647\ldots$$
+</section>
+
+<!-- ======================================================= guide -->
+<section id="guide">
+<h2>Reading guide: what is classical, and what is new</h2>
+<table class="params">
+  <tr><th>Part</th><th>Status</th><th>Where the weight sits</th></tr>
+  <tr><td>§2.1, Prop 2.1</td><td>new design, elementary proof</td><td>The contact order $C+r-g\ge L$ of the Chebyshev rows, and the weight $\tfrac32$</td></tr>
+  <tr><td>Prop 2.2</td><td>new</td><td>$2$-adic smoothing with two discrepancies; alternation forces the quadratic gain</td></tr>
+  <tr><td>Lemma 3.1</td><td>new, elementary $p$-adic</td><td>Carry counting for $H_z^*$ and the complete-block identity</td></tr>
+  <tr><td>Lemmas 3.2–3.3</td><td>new</td><td>The shear and the rank count; no column is discarded</td></tr>
+  <tr><td>Prop 3.4</td><td>new bookkeeping, classical PNT</td><td>The piecewise table (43); small primes are $o(n^2)$</td></tr>
+  <tr><td>§4</td><td>new</td><td>Frobenius identities (52)–(55), the auxiliary row $48$, the certificate mod $101$</td></tr>
+  <tr><td>§5.1</td><td>classical (Andréief, Cauchy)</td><td>Sheet weights $(\tfrac12,\tfrac12)$ and $(-\tfrac14,\tfrac54)$</td></tr>
+  <tr><td>Lemma 5.1, Prop 5.2</td><td>new</td><td>Uniformity in the nodes: contour detours near $\pm i$, Hilbert-space cancellation</td></tr>
+  <tr><td>Prop 5.3</td><td>classical (Hadamard)</td><td>Keeping $2^{-\binom n2}$</td></tr>
+  <tr><td>Prop 6.1</td><td>new</td><td>Matched damping, diagonal corrections, order of limits</td></tr>
+  <tr><td>Prop 7.1</td><td>finite computation</td><td>Exact rational certificate: Descartes counts, brackets, log truncations</td></tr>
+</table>
+<p>The margin is $1.3\times10^{-4}$ on the scale $n^2$, so no constant in a leading term can be lost. A careful reader should check the counting formulas behind table (43), especially the claim that the central elimination of Lemma 3.3 is integral and invertible. They should also check that the constants in §5–6 are truly independent of the node positions, since the suprema range over all configurations, and the order of limits in Proposition 6.1. The certificates of §4.4 and §7 are finite and mechanical, and Figures 4 and 7 rerun them. The Lean development described in the status box is meant to cover the entire chain.</p>
+</section>
+
+<!-- ======================================================= refs -->
+<section id="refs">
+<h2>References</h2>
+<p>The source is <a href="https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/Catalans-constant-is-irrational-September-24-2026/paper.pdf">OpenAI, <em>Catalan's constant is irrational</em>, September 24, 2026</a>, with its LaTeX source in the same folder. Other works mentioned on this page:</p>
+<ol class="refs">
+  <li>I. Agol, The minimal volume orientable hyperbolic 2-cusped 3-manifolds, <em>Proc. AMS</em> 138 (2010).</li>
+  <li>R. Apéry, Irrationalité de ζ(2) et ζ(3), <em>Journées Arithmétiques de Luminy</em> (1979); F. Beukers, A note on the irrationality of ζ(2) and ζ(3), <em>Bull. LMS</em> 11 (1979).</li>
+  <li>F. Calegari, Irrationality of certain p-adic periods for small p, <em>IMRN</em> (2005).</li>
+  <li>F. Calegari, V. Dimitrov, Y. Tang, The linear independence of 1, ζ(2), and L(2,χ₋₃), arXiv:2408.15403 (2024); Arithmetic holonomy bounds and effective Diophantine approximation, arXiv:2510.04156 (2025).</li>
+  <li>R. Descartes, <em>La Géométrie</em> (1637).</li>
+  <li>P. Eskandari, Improved rational approximations to Catalan's constant, arXiv:2609.26354 (2026).</li>
+  <li>S. Fischler, Irrationality of values of L-functions of Dirichlet characters, <em>J. London Math. Soc.</em> 101 (2020).</li>
+  <li>P. J. Forrester, Meet Andréief, Bordeaux 1886, and Andreev, Kharkov 1882–83, arXiv:1806.10411 (2018).</li>
+  <li>S. Garoufalidis, I. Popescu, Analyticity of the planar limit of a matrix model, <em>Ann. Henri Poincaré</em> 14 (2013).</li>
+  <li>C. Krattenthaler, Advanced determinant calculus, <em>Sém. Lothar. Combin.</em> 42 (1999).</li>
+  <li>C. Krattenthaler, T. Rivoal, On a linear form for Catalan's constant, <em>South East Asian J. Math. Math. Sci.</em> 6 (2008); T. Rivoal, Nombres d'Euler, approximants de Padé et constante de Catalan, <em>Ramanujan J.</em> 11 (2006).</li>
+  <li>C. Krattenthaler, W. Zudilin, Hypergeometry inspired by irrationality questions, <em>Kyushu J. Math.</em> 73 (2019).</li>
+  <li>L. Lai, L. Zhou, <em>Publ. Math. Debrecen</em> 101 (2022), Theorem 6.1, as cited by the paper.</li>
+  <li>Yu. V. Nesterenko, On Catalan's constant, <em>Proc. Steklov Inst. Math.</em> 292 (2016).</li>
+  <li>T. Rivoal, W. Zudilin, Diophantine properties of numbers related to Catalan's constant, <em>Math. Ann.</em> 326 (2003).</li>
+  <li>E. B. Saff, Logarithmic potential theory with applications to approximation theory, <em>Surveys in Approximation Theory</em> 5 (2010).</li>
+  <li>D. Sarason, Generalized interpolation in H<sup>∞</sup>, <em>Trans. AMS</em> 127 (1967).</li>
+  <li>Z.-W. Sun, Catalan's constant is irrational, arXiv:2609.04176 (2026).</li>
+  <li>C. Viola, Rational approximations to Catalan's constant, <em>Oberwolfach Reports</em> 19 (2022).</li>
+  <li>J. Voight, <em>Quaternion Algebras</em>, Springer GTM 288 (2021).</li>
+  <li>D. Zagier, Newman's short proof of the prime number theorem, <em>Amer. Math. Monthly</em> 104 (1997).</li>
+  <li>W. Zudilin, An Apéry-like difference equation for Catalan's constant, <em>Electron. J. Combin.</em> 10 (2003); A determinantal approach to irrationality, <em>Constr. Approx.</em> 45 (2017); Arithmetic of Catalan's constant and its relatives, <em>Abh. Math. Sem. Univ. Hamburg</em> 89 (2019).</li>
+</ol>
+<footer class="end">This page explains the claimed proof; it is not a verification of it. The figures are models: Figures 1, 2, 4 and 7 recompute steps of the paper exactly at the size $N=1$ or for its finite certificates, and Figures 3, 5 and 6 evaluate its formulas numerically.</footer>
+</section>
+
+</main>
+</div>
+</body>
+</html>
