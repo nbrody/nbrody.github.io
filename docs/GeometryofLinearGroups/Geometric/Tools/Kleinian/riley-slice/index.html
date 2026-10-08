@@ -332,7 +332,9 @@
         the Ford domain of ⟨X, E⟩, E(z) = 1/(ρz) &mdash; the Ford domain of ⟨X, Y⟩
         taken at <b>both</b> cusps (E swaps ∞ and 0, E X E = Y). Computed exactly
         (power cells by half-plane clipping, faces closed under products) in
-        parallel workers. First walls: |ρ| = 4 (white) and the cardioid
+        parallel workers, once per region: along each row the walls are found
+        from the Ford domain's algebraic certificate &mdash; nearly every wall
+        is a corner of the ideal boundary being covered by a third circle. First walls: |ρ| = 4 (white) and the cardioid
         |ρ| = 2(1 + |cos arg ρ|) (black); dashed, the one-cusp wall |ρ ∓ 2| = 2.
         In the √ρ plane these become the circle |z| = 2, the four circles
         |z ∓ 1| = 1, |z ∓ i| = 1, and two lemniscates.</p>
@@ -1269,33 +1271,22 @@ async function computeFordLayer() {
    Ford domain of <X, Y> at BOTH cusps.  Its face count is what Riley's
    colours show.  Workers are built from fordCoreFactory's source text, so
    this runs from file:// too.  Rows go out interlaced (every 8th first), in
-   small batches with two in flight per worker so the workers keep going
-   while the main thread is busy tracing rays; each pixel's closure is
-   seeded with its left neighbour's faces.                                  */
+   batches of two with three in flight per worker so the workers keep going
+   while the main thread is busy tracing rays.  Each row is scanned by
+   FordCore.scanRow: a Ford domain is computed once per region, and the
+   walls in between are found from its algebraic certificate.              */
 let fordEngine = "ext";
 const EXT_SRC = `
   const FordCore = (${fordCoreFactory.toString()})();
   const inLens = FordCore.makeLensTest(FordCore.sliceBoundary(64));
-  function hash(s) {
-    let h = 2166136261 >>> 0;
-    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
-    return h | 0;
-  }
+  const skip = (rr, ri) => (rr === 0 && ri === 0) || inLens(rr, ri);
   onmessage = (e) => {
     const { gen, rows, nx, x0, dx, sqrt } = e.data;
     rows.forEach(([r, y], k) => {
-      const counts = new Int16Array(nx), hashes = new Int32Array(nx);
-      let left = null;
-      for (let c = 0; c < nx; c++) {
+      const { counts, hashes } = FordCore.scanRow(nx, c => {
         const wx = x0 + (c + 0.5) * dx;
-        const rr = sqrt ? wx * wx - y * y : wx, ri = sqrt ? 2 * wx * y : y;
-        if ((rr === 0 && ri === 0) || inLens(rr, ri)) { left = null; continue; }
-        const fd = FordCore.fordDomain(rr, ri, { seed: left });
-        left = fd.faces.map(f => f.word);
-        if (!fd.complete) continue;
-        counts[c] = fd.faces.length;
-        hashes[c] = hash(FordCore.signature(fd.faces));
-      }
+        return sqrt ? [wx * wx - y * y, 2 * wx * y] : [wx, y];
+      }, { skip });
       postMessage({ gen, r, counts, hashes, last: k === rows.length - 1 },
                   [counts.buffer, hashes.buffer]);
     });
@@ -1342,8 +1333,8 @@ function feedExt() {
   if (!L || L.engine !== "ext") return;
   const dx = (L.x1 - L.x0) / L.nx, dy = (L.y1 - L.y0) / L.ny;
   for (const w of extWorkers) {
-    while (w.inflight < 2 && extQueue.length) {
-      const rows = extQueue.splice(0, 6).map(r => [r, L.y1 - (r + 0.5) * dy]);
+    while (w.inflight < 3 && extQueue.length) {
+      const rows = extQueue.splice(0, 2).map(r => [r, L.y1 - (r + 0.5) * dy]);
       w.inflight++;
       w.postMessage({ gen: L.token, rows, nx: L.nx, x0: L.x0, dx, sqrt: L.plane === "sqrt" });
     }
