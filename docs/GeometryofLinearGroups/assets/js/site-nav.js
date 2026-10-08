@@ -63,6 +63,7 @@
       { t: 'Fuchsian / H² Viewer',          u: 'Geometric/Tools/Kleinian/fuchsian/index.html' },
       { t: 'Riley Slice Explorer',          u: 'Geometric/Tools/Kleinian/riley/index.html' },
       { t: 'Riley Slice (alt)',             u: 'Geometric/Tools/Kleinian/rileySlice/index.html' },
+      { t: 'Riley Slice — Ford Regions',    u: 'Geometric/Tools/Kleinian/riley-slice/index.html' },
       { t: 'Riley Half-Spaces (ℍ³)',        u: 'Geometric/Tools/Kleinian/rileyHalfspaces/index.html' },
       { t: 'Schottky Group Visualizer',     u: 'Geometric/Tools/Kleinian/schottky/index.html' },
       { t: 'Limit Sets',                    u: 'Geometric/Tools/Kleinian/limitsets.html' },

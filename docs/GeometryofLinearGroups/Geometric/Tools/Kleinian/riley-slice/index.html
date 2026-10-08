@@ -1,0 +1,2207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riley Slice — Ford Regions</title>
+<meta name="description"
+      content="Interactive Riley slice: Riley's Ford-domain regions (face counts of the Ford domain at both cusps) overlaid with Keen-Series pleating rays, cusp groups and Heckoid points, in the rho and square-root planes.">
+<style>
+  :root {
+    --bg: #020617;
+    --surface: #1e293b;
+    --primary: #38bdf8;
+    --primary-dim: rgba(56, 189, 248, 0.2);
+    --accent: #6366f1;
+    --accent-dim: rgba(99, 102, 241, 0.2);
+    --text: #f8fafc;
+    --text-dim: #94a3b8;
+    --text-muted: #64748b;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-light: rgba(255, 255, 255, 0.15);
+    --glass-bg: rgba(15, 23, 42, 0.85);
+    --glass-hover: rgba(255, 255, 255, 0.08);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow: hidden;
+  }
+
+  /* Full-screen stage */
+  #stage { position: fixed; inset: 0; z-index: 0; cursor: grab; }
+  #stage.dragging { cursor: grabbing; }
+  #stage canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+  #status {
+    position: fixed; left: 14px; bottom: 12px; z-index: 50;
+    font-size: 11.5px; color: var(--text-dim);
+    background: var(--glass-bg); backdrop-filter: blur(10px);
+    border: 1px solid var(--border); padding: 4px 10px; border-radius: 8px;
+    font-variant-numeric: tabular-nums; pointer-events: none;
+  }
+
+  /* ============ floating glass control panel ============ */
+  #control-panel {
+    position: fixed; top: 20px; right: 20px;
+    width: 360px; max-height: calc(100vh - 40px);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-light); border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    z-index: 100;
+    display: flex; flex-direction: column; overflow: hidden;
+    transition: width 0.38s cubic-bezier(0.4,0,0.2,1),
+                height 0.38s cubic-bezier(0.4,0,0.2,1),
+                border-radius 0.38s cubic-bezier(0.4,0,0.2,1);
+  }
+  .panel-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 56px 12px 18px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+  .panel-title {
+    flex: 1; font-size: 1.02rem; font-weight: 600; margin: 0;
+    background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .panel-subtitle { font-size: 0.72rem; color: var(--text-muted); margin: 2px 0 0; white-space: nowrap; }
+  .panel-subtitle a { color: var(--primary); text-decoration: none; }
+  #collapseBtn {
+    position: absolute; top: 12px; right: 12px; z-index: 5;
+    width: 32px; height: 32px; padding: 0;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border); border-radius: 50%;
+    color: var(--text); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: top 0.38s cubic-bezier(0.4,0,0.2,1),
+                right 0.38s cubic-bezier(0.4,0,0.2,1),
+                width 0.38s cubic-bezier(0.4,0,0.2,1),
+                height 0.38s cubic-bezier(0.4,0,0.2,1),
+                background 0.25s ease, border-color 0.25s ease;
+  }
+  #collapseBtn:hover { background: var(--glass-hover); border-color: var(--border-light); }
+  .collapse-icon {
+    display: block;
+    transform: rotate(45deg);   /* the + reads as x while the panel is open */
+    transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .panel-content, .header-text {
+    transition: opacity 0.25s ease 0.14s, visibility 0s linear 0s;
+  }
+  #control-panel.collapsed { width: 56px; height: 56px; min-height: 56px; border-radius: 28px; }
+  #control-panel.collapsed .panel-content,
+  #control-panel.collapsed .header-text {
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0s linear 0.15s;
+  }
+  #control-panel.collapsed .panel-header { background: transparent; border-bottom-color: transparent; }
+  #control-panel.collapsed #collapseBtn {
+    top: 0; right: 0; width: 54px; height: 54px;
+    background: transparent; border-color: transparent;
+  }
+  #control-panel.collapsed .collapse-icon { transform: rotate(0deg); }
+
+  .panel-content {
+    flex: 1; padding: 14px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 12px;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .panel-content::-webkit-scrollbar { width: 6px; }
+  .panel-content::-webkit-scrollbar-track { background: transparent; }
+  .panel-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .control-group {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .control-group:hover { background: rgba(255,255,255,0.05); border-color: var(--border-light); }
+  .group-title {
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-muted); margin: 0;
+  }
+  .control-row { display: flex; align-items: center; gap: 10px; }
+  .control-label { font-size: 0.82rem; font-weight: 500; color: var(--text-dim); white-space: nowrap; }
+  .label-val { color: var(--text); font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
+
+  .select-input {
+    flex: 1; width: 100%;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 7px 10px; font-size: 0.82rem;
+    transition: all 0.2s ease;
+  }
+  .select-input:focus {
+    outline: none; background: rgba(30,41,59,0.95);
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
+
+  .slider-input {
+    flex: 1; height: 6px; -webkit-appearance: none; appearance: none;
+    background: rgba(30,41,59,0.8);
+    border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
+    min-width: 0;
+  }
+  .slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; background: var(--accent); border-radius: 50%;
+    cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: all 0.2s ease;
+  }
+  .slider-input::-webkit-slider-thumb:hover { transform: scale(1.1); box-shadow: 0 2px 8px rgba(99,102,241,0.5); }
+  .slider-input::-moz-range-thumb {
+    width: 16px; height: 16px; background: var(--accent); border: none; border-radius: 50%;
+    cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  .seg { display: flex; flex: 1; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button {
+    flex: 1; padding: 7px 0; background: rgba(255,255,255,0.05);
+    border: none; border-right: 1px solid var(--border);
+    color: var(--text-dim); font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s ease; text-align: center;
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button:hover { background: var(--glass-hover); color: var(--text); }
+  .seg button.active {
+    background: var(--accent-dim); color: var(--text);
+    box-shadow: inset 0 0 12px rgba(99,102,241,0.15);
+  }
+
+  .btn {
+    flex: 1; padding: 8px 12px; border-radius: 8px;
+    font-size: 0.8rem; font-weight: 500; cursor: pointer;
+    transition: all 0.2s ease; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.05); color: var(--text-dim);
+  }
+  .btn:hover { background: var(--glass-hover); color: var(--text); transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn:disabled:hover { background: rgba(255,255,255,0.05); color: var(--text-dim); transform: none; }
+  .btn.primary {
+    background: var(--accent-dim); border-color: rgba(99,102,241,0.4);
+    color: var(--text); box-shadow: 0 0 12px rgba(99,102,241,0.15);
+  }
+
+  .chk { display: flex; align-items: center; gap: 7px; font-size: 0.82rem; color: var(--text-dim); cursor: pointer; }
+  .chk input { margin: 0; accent-color: var(--accent); }
+
+  input[type="color"] {
+    width: 34px; height: 24px; padding: 1px;
+    background: rgba(30,41,59,0.8);
+    border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+  }
+
+  .hint { color: var(--text-muted); font-size: 0.72rem; line-height: 1.45; margin: 0; }
+  .info-section {
+    background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px;
+    font-size: 0.74rem; color: var(--text-dim); line-height: 1.55;
+  }
+  .info-section b { color: var(--text); }
+
+  @media (max-width: 768px) {
+    #control-panel { width: calc(100vw - 40px); max-width: 360px; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="canvas"></canvas>
+</div>
+<div id="status">loading…</div>
+
+<div id="control-panel">
+  <button id="collapseBtn" title="Collapse panel" aria-label="Collapse panel">
+    <svg class="collapse-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+    </svg>
+  </button>
+  <div class="panel-header">
+    <div class="header-text" style="flex:1; min-width:0">
+      <h1 class="panel-title">Riley Slice</h1>
+      <p class="panel-subtitle">Ford regions &amp; pleating rays &middot; <a href="../../../index.html">Geometric Tools</a></p>
+    </div>
+  </div>
+  <div class="panel-content">
+
+    <div class="control-group">
+      <p class="group-title">Plane</p>
+      <div class="seg" id="planeSeg">
+        <button data-plane="rho" class="active">ρ &mdash; Riley slice</button>
+        <button data-plane="sqrt">√ρ &mdash; square root</button>
+      </div>
+      <p class="hint">The √ρ plane shows the z for which
+        ⟨(1&nbsp;z; 0&nbsp;1), (1&nbsp;0; z&nbsp;1)⟩ is discrete and free:
+        conjugating by diag(√z, 1/√z) turns this pair into the Riley
+        generators with ρ = z², so the picture is the pullback of the Riley
+        slice under z ↦ z² &mdash; a double cover, symmetric under z ↦ −z,
+        with cusps at ±2 and ±2i.</p>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Selection</p>
+      <div id="selInfo" class="hint">Click a bead, cusp, or dot &mdash; or any
+        point of the plane &mdash; to inspect it.</div>
+      <canvas id="fordInset"
+              style="display:none; width:100%; height:180px; border-radius:10px;
+                     background:#0b1220; border:1px solid var(--border)"></canvas>
+      <div class="control-row">
+        <button class="btn primary" id="exportBtn" disabled>Open in Dirichlet tool</button>
+        <button class="btn" id="copyBtn" disabled>Copy ρ</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Depth</p>
+      <div class="control-row">
+        <span class="control-label">Ray slopes</span>
+        <input type="range" class="slider-input" id="rayQ" min="8" max="72" step="1" value="48">
+        <span class="control-label label-val" data-out="rayQ">48</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Dot slopes</span>
+        <input type="range" class="slider-input" id="dotQ" min="0" max="32" step="1" value="26">
+        <span class="control-label label-val" data-out="dotQ">26</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Extensions</span>
+        <input type="range" class="slider-input" id="arcQ" min="0" max="20" step="1" value="14">
+        <span class="control-label label-val" data-out="arcQ">14</span>
+      </div>
+      <button class="btn primary" id="recompute">Recompute</button>
+      <p class="hint">Slopes p/q up to the chosen denominator. Depth 72 traces ~1600 rays and takes ~10 s.
+        Extensions continue each pleating ray past its cusp into the interior.</p>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Ford regions</p>
+      <div class="control-row" style="flex-wrap:wrap; gap:12px">
+        <label class="chk"><input type="checkbox" id="showRegions" checked> Show regions</label>
+        <label class="chk"><input type="checkbox" id="showWalls"> First walls</label>
+        <label class="chk"><input type="checkbox" id="fillOuter"> Fill outermost</label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Ford domain</span>
+        <div class="seg" id="fordEngineSeg">
+          <button data-engine="ext" class="active" title="Ford domain of ⟨A, E⟩, E(z) = 1/(ρz): Riley's picture">Both cusps</button>
+          <button data-engine="alg" title="Ford domain of ⟨X, Y⟩ at ∞ alone">Cusp ∞ only</button>
+        </div>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Color by</span>
+        <div class="seg" id="regionModeSeg">
+          <button data-mode="level" class="active">Face count</button>
+          <button data-mode="sig">Signature</button>
+        </div>
+      </div>
+      <div class="control-row" data-for="level">
+        <span class="control-label">Palette</span>
+        <select class="select-input" id="regionPal"></select>
+      </div>
+      <div class="control-row" data-for="cyc">
+        <span class="control-label">Cycle</span>
+        <input type="range" class="slider-input" id="regionCycle" min="3" max="16" step="1" value="9">
+        <span class="control-label label-val" data-out="regionCycle">9</span>
+      </div>
+      <div class="control-row" data-for="hue">
+        <span class="control-label">Hue shift</span>
+        <input type="range" class="slider-input" id="regionHue" min="0" max="359" step="1" value="0">
+        <span class="control-label label-val" data-out="regionHue">0</span>
+      </div>
+      <div id="regionLegend" data-for="level" data-display="grid"
+           style="display:grid; grid-template-columns:repeat(10,1fr); gap:3px; font-size:0.66rem;
+                  color:var(--text-muted); text-align:center"></div>
+      <div class="control-row" data-for="alg">
+        <span class="control-label">Slope depth</span>
+        <input type="range" class="slider-input" id="fordQ" min="4" max="64" step="1" value="24">
+        <span class="control-label label-val" data-out="fordQ">24</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Opacity</span>
+        <input type="range" class="slider-input" id="fordAlpha" min="10" max="100" value="70">
+        <span class="control-label label-val" data-out="fordAlpha">70</span>
+      </div>
+      <p class="hint" data-for="ext">Riley's picture. Colour = number of faces of
+        the Ford domain of ⟨X, E⟩, E(z) = 1/(ρz) &mdash; the Ford domain of ⟨X, Y⟩
+        taken at <b>both</b> cusps (E swaps ∞ and 0, E X E = Y). Computed exactly
+        (power cells by half-plane clipping, faces closed under products) in
+        parallel workers. First walls: |ρ| = 4 (white) and the cardioid
+        |ρ| = 2(1 + |cos arg ρ|) (black); dashed, the one-cusp wall |ρ ∓ 2| = 2.
+        In the √ρ plane these become the circle |z| = 2, the four circles
+        |z ∓ 1| = 1, |z ∓ i| = 1, and two lemniscates.</p>
+      <p class="hint" data-for="alg">The Ford domain of ⟨X, Y⟩ at ∞ alone,
+        computed algebraically. Faces: powers
+        W<sup>k</sup> of the p/q Farey word, visible iff
+        |S<sub>k−1</sub>(Φ<sub>p/q</sub>)| &lt; |S<sub>j−1</sub>| +
+        |S<sub>k−j−1</sub>| for all j (Chebyshev subadditivity; the k = 2 wall
+        is |Φ<sub>p/q</sub>(ρ)| = 2). Edges: which visible isometric circles
+        overlap, |C−C′−n| &lt; r+r′ &mdash; crossing an edge wall relinks the
+        face graph without changing the faces, carving each fan into the
+        curvilinear panels of Jorgensen's picture. Colour = face pairs, shade =
+        linking class. Its first wall is the Lyndon–Ullman circle
+        |ρ − 2| = 2, not Riley's |ρ| = 4: it misses the faces of the cusp at 0.</p>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Palette</p>
+      <select class="select-input" id="preset">
+        <option value="classic">Classic rainbow</option>
+        <option value="fire">Fire</option>
+        <option value="ocean">Ocean</option>
+        <option value="candy">Candy</option>
+        <option value="ink">Ink (monochrome)</option>
+        <option value="random">Surprise me</option>
+      </select>
+      <div class="control-row">
+        <span class="control-label">Hue, slope 1</span>
+        <input type="range" class="slider-input" id="hueL" min="0" max="360" value="0">
+        <span class="control-label label-val" data-out="hueL">0</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Hue, slope 0</span>
+        <input type="range" class="slider-input" id="hueR" min="0" max="360" value="299">
+        <span class="control-label label-val" data-out="hueR">299</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Hue curve γ</span>
+        <input type="range" class="slider-input" id="gamma" min="0.4" max="2.6" step="0.05" value="1.25">
+        <span class="control-label label-val" data-out="gamma">1.25</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Saturation</span>
+        <input type="range" class="slider-input" id="sat" min="0" max="100" value="90">
+        <span class="control-label label-val" data-out="sat">90</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Brightness</span>
+        <input type="range" class="slider-input" id="val" min="20" max="100" value="80">
+        <span class="control-label label-val" data-out="val">80</span>
+      </div>
+      <label class="chk"><input type="checkbox" id="wheel"> Full color wheel (unmirror halves)</label>
+      <button class="btn" id="randomize">Random palette</button>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">Layers &amp; Style</p>
+      <div class="control-row" style="flex-wrap:wrap; gap:12px">
+        <label class="chk"><input type="checkbox" id="showRays" checked> Rays</label>
+        <label class="chk"><input type="checkbox" id="showDots" checked> Dots</label>
+        <label class="chk"><input type="checkbox" id="showArcs" checked> Extensions</label>
+        <label class="chk"><input type="checkbox" id="showFill" checked> Region fill</label>
+        <label class="chk"><input type="checkbox" id="inkRays"> Ink rays</label>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Ray width</span>
+        <input type="range" class="slider-input" id="lw" min="0.2" max="2" step="0.05" value="0.65">
+        <span class="control-label label-val" data-out="lw">0.65</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Ray opacity</span>
+        <input type="range" class="slider-input" id="alpha" min="5" max="100" value="60">
+        <span class="control-label label-val" data-out="alpha">60</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Dot size</span>
+        <input type="range" class="slider-input" id="dotSize" min="0.2" max="3" step="0.1" value="1">
+        <span class="control-label label-val" data-out="dotSize">1</span>
+      </div>
+      <div class="control-row" style="flex-wrap:wrap; gap:12px">
+        <label class="chk">Background <input type="color" id="bgCol" value="#e3e3e3"></label>
+        <label class="chk">Region <input type="color" id="fillCol" value="#ffffff"></label>
+        <label class="chk">Dots <input type="color" id="dotCol" value="#000000"></label>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <p class="group-title">View</p>
+      <div class="control-row">
+        <button class="btn" id="resetView">Reset view</button>
+        <button class="btn" id="export">Export PNG</button>
+      </div>
+      <p class="hint">Drag to pan · scroll to zoom · double-click to reset.</p>
+    </div>
+
+    <div class="info-section">
+      The dark region is (approximately) where
+      <b>⟨X,Y⟩</b>, X = [[1,1],[0,1]], Y = [[1,0],[ρ,1]], fails to be free and
+      discrete; its complement is the <b>Riley slice</b>. Colored curves are the
+      Keen–Series <b>pleating rays</b>: for each slope p/q, the branch of
+      Φ<sub>p/q</sub><sup>−1</sup>((−∞,−2]) asymptotic to arg ρ = πp/q, traced
+      inward from ∞ by Newton continuation — pairwise disjoint, landing on the
+      p/q cusp. Dots are roots of the Farey polynomial Φ<sub>p/q</sub> + 2.
+      <b>Extensions</b> continue each ray past its cusp into the interior along
+      Φ<sub>p/q</sub> ∈ (−2, 2], where the p/q word is elliptic; the beads mark
+      Φ<sub>p/q</sub> = −2cos(π/n) — parameters of the <b>Heckoid groups</b> of
+      slope p/q and order n, accumulating at the cusp as n → ∞.
+      The <b>Ford regions</b> reproduce Riley's original picture: the colour
+      counts the faces of the Ford domain of ⟨X, E⟩, E(z) = 1/(ρz), which
+      swaps the two cusps ∞ and 0 and conjugates X to Y &mdash; that is, the
+      Ford domain of ⟨X, Y⟩ taken at <b>both</b> of its cusps (Riley's palette:
+      1 black, 3 blue, 5 green, 7 red, …). Its first walls are |ρ| = 4, where the
+      isometric circle of E meets its translate, and the cardioid
+      |ρ| = 2(1 + |cos arg ρ|), where the circles of E, EX⁻¹ and Y⁻¹ are
+      concurrent; each later wall is a vertex of the Ford domain reaching the
+      sphere at infinity, and the walls pile up at every cusp. “Cusp ∞ only”
+      shows the Ford domain of ⟨X, Y⟩ at ∞ alone, whose walls are algebraic:
+      the faces over the p/q arc are powers of the Farey word, W<sup>k</sup>
+      visible iff |S<sub>k−1</sub>(Φ<sub>p/q</sub>)| &lt; |S<sub>j−1</sub>| +
+      |S<sub>k−j−1</sub>| for 0 &lt; j &lt; k (Chebyshev S<sub>m</sub>), so each
+      fan opens on |Φ<sub>p/q</sub>(ρ)| = 2; its first wall is the
+      Lyndon–Ullman circle |ρ − 2| = 2.
+      Dot placement uses double-precision Aberth iteration, so keep dot depth
+      ≲ 28: the root cluster at ±4 is badly conditioned beyond that.
+    </div>
+
+  </div>
+</div>
+
+<script src="fordCore.js"></script>
+<script>
+"use strict";
+
+/* ---------------- Farey polynomials (exact BigInt coefficients) ---------- */
+
+const QCAP = 72;                       // hard cap of ray slider
+const polyZ = new Map();               // "p/q" -> BigInt[] ascending
+const pathZ = new Map();               // "p/q" -> [0|1,...] Stern-Brocot path
+polyZ.set("0/1", [2n, -1n]);
+polyZ.set("1/1", [2n, 1n]);
+polyZ.set("1/0", [2n]);
+pathZ.set("0/1", null);                // the two endpoint slopes are linear
+pathZ.set("1/1", null);
+let fareyFractions = [];               // [p, q] for all 0 <= p/q <= 1, q <= QCAP
+
+function convZ(a, b) {
+  const out = new Array(a.length + b.length - 1).fill(0n);
+  for (let i = 0; i < a.length; i++)
+    for (let j = 0; j < b.length; j++) out[i + j] += a[i] * b[j];
+  return out;
+}
+function buildPolynomials() {
+  fareyFractions = [[0, 1], [1, 1]];
+  const stack = [[[0, 1], [1, 1], []]];
+  while (stack.length) {
+    const [[pl, ql], [pr, qr], pth] = stack.pop();
+    const pm = pl + pr, qm = ql + qr;
+    if (qm > QCAP) continue;
+    const prod = convZ(polyZ.get(pl + "/" + ql), polyZ.get(pr + "/" + qr));
+    const diff = polyZ.get(Math.abs(pr - pl) + "/" + Math.abs(qr - ql));
+    const n = Math.max(prod.length, diff.length);
+    const out = new Array(n).fill(0n);
+    out[0] = 8n;
+    for (let i = 0; i < prod.length; i++) out[i] -= prod[i];
+    for (let i = 0; i < diff.length; i++) out[i] -= diff[i];
+    polyZ.set(pm + "/" + qm, out);
+    pathZ.set(pm + "/" + qm, pth);
+    fareyFractions.push([pm, qm]);
+    stack.push([[pl, ql], [pm, qm], pth.concat(0)]);
+    stack.push([[pm, qm], [pr, qr], pth.concat(1)]);
+  }
+  fareyFractions.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+}
+function coeffsFloat(p, q, shift) {   // ascending Float64, + shift on constant
+  const z = polyZ.get(p + "/" + q);
+  const c = new Float64Array(z.length);
+  for (let i = 0; i < z.length; i++) c[i] = Number(z[i]);
+  c[0] += shift;
+  return c;
+}
+
+/* ---------------- cancellation-free evaluation of Phi ---------------------
+   Phi_{p/q} must NEVER be evaluated from its expanded coefficients.  They
+   reach 1e25 by q = 64 while |Phi| ~ 2 on the boundary, so double-precision
+   Horner returns pure noise there -- 2.2e7 instead of -2 at the 31/64 cusp.
+   Descending the Stern-Brocot tree instead, the state is the triple
+     (Phi_L, Phi_R, Phi_{R-L})   for the current Farey pair (L, R),
+   with mediant value m = 8 - Phi_L*Phi_R - Phi_{R-L}.  Stepping left gives
+   the pair (L, M) whose difference is M - L = R; stepping right gives (M, R)
+   whose difference is R - M = L.  Error at that same cusp: 5e-13.
+   Returns [Phi_re, Phi_im, Phi'_re, Phi'_im].                              */
+const PHI_OUT = [0, 0, 0, 0];
+function phiRec(pth, zr, zi) {
+  let ar = 2 - zr, ai = -zi, br = 2 + zr, bi = zi, cr = 2, ci = 0;
+  let dar = -1, dai = 0, dbr = 1, dbi = 0, dcr = 0, dci = 0;
+  let mr = 0, mi = 0, dmr = 0, dmi = 0;
+  for (let k = -1; k < pth.length; k++) {
+    if (k >= 0) {
+      if (pth[k] === 0) {                       // (L, M),  M - L = R
+        cr = br; ci = bi; dcr = dbr; dci = dbi;
+        br = mr; bi = mi; dbr = dmr; dbi = dmi;
+      } else {                                  // (M, R),  R - M = L
+        cr = ar; ci = ai; dcr = dar; dci = dai;
+        ar = mr; ai = mi; dar = dmr; dai = dmi;
+      }
+    }
+    const pr = ar * br - ai * bi, pi = ar * bi + ai * br;
+    mr = 8 - pr - cr; mi = -pi - ci;
+    const t1r = dar * br - dai * bi, t1i = dar * bi + dai * br;
+    const t2r = ar * dbr - ai * dbi, t2i = ar * dbi + ai * dbr;
+    dmr = -(t1r + t2r) - dcr; dmi = -(t1i + t2i) - dci;
+  }
+  PHI_OUT[0] = mr; PHI_OUT[1] = mi; PHI_OUT[2] = dmr; PHI_OUT[3] = dmi;
+  return PHI_OUT;
+}
+function evaluator(p, q) {            // (zr, zi) -> [Phi, Phi'] for this slope
+  const pth = pathZ.get(p + "/" + q);
+  if (pth !== null && pth !== undefined) return (zr, zi) => phiRec(pth, zr, zi);
+  const s = p === 0 ? -1 : 1;                   // Phi = 2 - z  /  2 + z
+  return (zr, zi) => {
+    PHI_OUT[0] = 2 + s * zr; PHI_OUT[1] = s * zi;
+    PHI_OUT[2] = s; PHI_OUT[3] = 0;
+    return PHI_OUT;
+  };
+}
+
+/* ---------------- Aberth-Ehrlich root finder ------------------------------ */
+
+/* Roots of Phi_{p/q} + 2 (the cusp / accidental-parabolic parameters).
+   Aberth-Ehrlich from circular seeds, but with Phi and Phi' supplied by the
+   recursion above -- evaluating them from the expanded coefficients puts two
+   thirds of these roots in the wrong place (measured errors up to 1.5). */
+function rootsOfPhiPlus2(p, q) {
+  if (q === 1) return [[p === 0 ? 4 : -4, 0]];
+  const ev = evaluator(p, q);
+  const c = coeffsFloat(p, q, 2);               // magnitudes only: root bound
+  let n = c.length - 1;
+  while (n > 0 && c[n] === 0) n--;
+  if (n < 1) return [];
+  let R = 0;                                    // Fujiwara bound
+  for (let k = 0; k < n; k++) {
+    const t = Math.pow(Math.abs(c[k] / c[n]) * (k === 0 ? 0.5 : 1), 1 / (n - k));
+    if (t > R) R = t;
+  }
+  R = 2 * R + 0.5;
+  const zr = new Float64Array(n), zi = new Float64Array(n);
+  for (let k = 0; k < n; k++) {
+    const th = 2 * Math.PI * k / n + 0.43;
+    const rad = R * (0.6 + 0.4 * (k % 3) / 2);
+    zr[k] = rad * Math.cos(th); zi[k] = rad * Math.sin(th);
+  }
+  const last = new Float64Array(n).fill(1);
+  for (let iter = 0; iter < 300; iter++) {
+    let maxStep = 0;
+    for (let k = 0; k < n; k++) {
+      const e = ev(zr[k], zi[k]);
+      const pr = e[0] + 2, pi = e[1], gr = e[2], gi = e[3];
+      const gden = gr * gr + gi * gi || 1e-300;
+      const wr = (pr * gr + pi * gi) / gden, wi = (pi * gr - pr * gi) / gden;
+      let sr = 0, si = 0;
+      for (let j = 0; j < n; j++) if (j !== k) {
+        const xr = zr[k] - zr[j], xi = zi[k] - zi[j];
+        const m = xr * xr + xi * xi || 1e-300;
+        sr += xr / m; si -= xi / m;
+      }
+      const qr = 1 - (wr * sr - wi * si), qi = -(wr * si + wi * sr);
+      const qm = qr * qr + qi * qi || 1e-300;
+      const cr = (wr * qr + wi * qi) / qm, ci = (wi * qr - wr * qi) / qm;
+      zr[k] -= cr; zi[k] -= ci;
+      last[k] = Math.hypot(cr, ci);
+      if (last[k] > maxStep) maxStep = last[k];
+    }
+    if (maxStep < 1e-13) break;
+  }
+  const roots = [];
+  for (let k = 0; k < n; k++)                    // keep only converged roots
+    if (last[k] < 1e-6 * Math.max(1, Math.hypot(zr[k], zi[k])))
+      roots.push([zr[k], zi[k]]);
+  return roots;
+}
+
+/* ---------------- geometry: rays, dots, extensions, envelope -------------- */
+
+const R0 = 30.0, XLIM = 5.6, YLIM = 3.67;   // R0 must be large: the q branches
+                                            // of Phi^-1((-inf,-2]) are 2pi/q
+                                            // apart in argument, and a settle
+                                            // started too far in lands on the
+                                            // WRONG one -- at R0 = 7.2 a third
+                                            // of the slopes hop a branch and
+                                            // then cross their neighbours.
+                                            // R0 > 4.47^2 also keeps the ray
+                                            // truncation circle off-screen
+                                            // in the sqrt plane.
+let rays = [];        // {pts: [x0,y0,...], slope, flat}
+let dots = [];        // {x, y, q}
+let exts = [];        // {pts, beads: [{x, y, n}]}
+let regionPoly = [];  // [[x,y],...]
+let geomVersion = 0;
+
+function traceRay(ev, slope) {
+  let zr = R0 * Math.cos(Math.PI * slope), zi = R0 * Math.sin(Math.PI * slope);
+  let e = ev(zr, zi);
+  const T = Math.hypot(e[0], e[1]);             // FIXED target modulus: a
+  for (let it = 0; it < 12; it++) {             // moving target (-|Phi(z)|)
+    e = ev(zr, zi);                             // lets the iterate drift
+    const rr = e[0] + T, ri = e[1];             // radially inward and hop
+    const gr = e[2], gi = e[3];                 // onto a neighbouring branch
+    const gden = gr * gr + gi * gi || 1e-300;
+    zr -= (rr * gr + ri * gi) / gden;
+    zi -= (ri * gr - rr * gi) / gden;
+  }
+  let t = T - 2;
+  const pts = [zr, zi];
+  let scale = 1;
+  for (let step = 0; step < 2000 && t > 1e-9; step++) {
+    e = ev(zr, zi);
+    const gr = e[2], gi = e[3], gm = Math.hypot(gr, gi);
+    const cap = Math.max(0.06, 0.05 * Math.hypot(zr, zi));   // loose far out,
+    const dt = Math.min(scale * cap * gm, 0.6 * t);          // tight near in
+    const tn = t - dt, target = -2 - tn;
+    const gden = gr * gr + gi * gi || 1e-300;
+    let nzr = zr + dt * gr / gden, nzi = zi - dt * gi / gden;
+    for (let it = 0; it < 3; it++) {
+      const h = ev(nzr, nzi);
+      const rr = h[0] - target, ri = h[1];
+      const hr = h[2], hi = h[3];
+      const hden = hr * hr + hi * hi || 1e-300;
+      nzr -= (rr * hr + ri * hi) / hden;
+      nzi -= (ri * hr - rr * hi) / hden;
+    }
+    const f = ev(nzr, nzi);
+    const err = Math.hypot(f[0] - target, f[1]);
+    const stepLen = Math.hypot(nzr - zr, nzi - zi);
+    if (err < 1e-7 * (1 + Math.abs(target)) && stepLen < cap * 1.001) {
+      zr = nzr; zi = nzi; t = tn;
+      scale = Math.min(scale * 1.4, 1);
+      pts.push(zr, zi);
+    } else {
+      scale *= 0.5;
+      if (scale < 1e-9) break;
+    }
+  }
+  return { pts, landed: t <= 1e-6 };
+}
+
+/* Extension of the p/q ray past its cusp: Phi = -2 + s, s: 0 -> 4, i.e. the
+   locus where the p/q word is elliptic. Beads at Phi = -2cos(pi/n) are the
+   order-n Heckoid parameters of slope p/q. */
+const BEAD_NMAX = 24;
+const BEAD_S = [];                    // ascending s-targets; index i <-> n = NMAX - i
+for (let n = BEAD_NMAX; n >= 1; n--) BEAD_S.push(2 - 2 * Math.cos(Math.PI / n));
+
+function traceExtension(ev, x0, y0) {
+  let zr = x0, zi = y0, s = 0, scale = 1, bi = 0;
+  const pts = [zr, zi], beads = [];
+  for (let step = 0; step < 700 && s < 4 - 1e-9; step++) {
+    const e = ev(zr, zi);
+    const gr = e[2], gi = e[3], gm = Math.hypot(gr, gi);
+    const dt = Math.min(0.035 * scale * gm, 0.3 * (4 - s) + 0.005);
+    let sn = Math.min(s + dt, 4), hit = -1;
+    if (bi < BEAD_S.length && sn >= BEAD_S[bi] - 1e-12) { sn = BEAD_S[bi]; hit = bi; }
+    const target = -2 + sn;
+    const gden = gr * gr + gi * gi || 1e-300;
+    let nzr = zr + (sn - s) * gr / gden, nzi = zi - (sn - s) * gi / gden;
+    for (let it = 0; it < 4; it++) {
+      const h = ev(nzr, nzi);
+      const rr = h[0] - target, ri = h[1];
+      const hr = h[2], hi = h[3];
+      const hden = hr * hr + hi * hi || 1e-300;
+      nzr -= (rr * hr + ri * hi) / hden;
+      nzi -= (ri * hr - rr * hi) / hden;
+    }
+    const f = ev(nzr, nzi);
+    const er = f[0], ei = f[1];
+    const err = Math.hypot(er - target, ei);
+    const stepLen = Math.hypot(nzr - zr, nzi - zi);
+    if (err < 1e-6 * (1 + Math.abs(target)) && stepLen < 0.08) {
+      zr = nzr; zi = nzi; s = sn;
+      scale = Math.min(scale * 1.4, 1);
+      pts.push(zr, zi);
+      if (hit >= 0) { beads.push({ x: zr, y: zi, n: BEAD_NMAX - hit }); bi++; }
+      if (Math.abs(zr) > 6 || Math.abs(zi) > 6) break;
+    } else {
+      scale *= 0.5;
+      if (scale < 1e-6) break;
+    }
+  }
+  return pts.length >= 4 ? { pts, beads } : null;
+}
+
+function buildEnvelope() {
+  const nx = 560, xs = [], h = new Float64Array(nx);
+  for (let i = 0; i < nx; i++) xs.push(-4 + 8 * i / (nx - 1));
+  const safe = dots.filter(o => o.q <= 22 && o.y >= -1e-9);
+  for (const o of safe) {
+    const i = Math.max(0, Math.min(nx - 1, Math.round((o.x + 4) / 8 * (nx - 1))));
+    if (o.y > h[i]) h[i] = o.y;
+  }
+  const gi = [], gv = [];
+  for (let i = 0; i < nx; i++) if (h[i] > 0) { gi.push(i); gv.push(h[i]); }
+  if (gi.length < 2) { regionPoly = []; return; }
+  for (let i = 0; i < nx; i++) {
+    if (h[i] > 0) continue;
+    let j = 0;
+    while (j < gi.length && gi[j] < i) j++;
+    if (j === 0) h[i] = gv[0];
+    else if (j === gi.length) h[i] = gv[gv.length - 1];
+    else {
+      const f = (i - gi[j - 1]) / (gi[j] - gi[j - 1]);
+      h[i] = gv[j - 1] * (1 - f) + gv[j] * f;
+    }
+  }
+  const w = 3, hm = new Float64Array(nx);       // running median + smooth
+  for (let i = 0; i < nx; i++) {
+    const win = [];
+    for (let j = Math.max(0, i - w); j <= Math.min(nx - 1, i + w); j++) win.push(h[j]);
+    win.sort((a, b) => a - b);
+    hm[i] = win[Math.floor(win.length / 2)];
+  }
+  for (let i = 1; i < nx - 1; i++) h[i] = 0.25 * hm[i - 1] + 0.5 * hm[i] + 0.25 * hm[i + 1];
+  h[0] = hm[0]; h[nx - 1] = hm[nx - 1];
+  regionPoly = [];
+  for (let i = 0; i < nx; i++) regionPoly.push([xs[i], h[i]]);
+  for (let i = nx - 1; i >= 0; i--) regionPoly.push([xs[i], -h[i]]);
+}
+
+/* ---------------- square-root plane (rho = z^2 pullback) ------------------ */
+
+function csqrt(x, y) {                // principal branch
+  const r = Math.hypot(x, y);
+  const wr = Math.sqrt(Math.max((r + x) / 2, 0));
+  let wi = Math.sqrt(Math.max((r - x) / 2, 0));
+  if (y < 0) wi = -wi;
+  return [wr, wi];
+}
+function sqrtPath(pts) {              // branch-continuous along the polyline
+  const out = new Float64Array(pts.length);
+  let pr = 0, pi = 0;
+  for (let k = 0; k < pts.length; k += 2) {
+    let [wr, wi] = csqrt(pts[k], pts[k + 1]);
+    if (k > 0) {
+      const d1 = (wr - pr) ** 2 + (wi - pi) ** 2;
+      const d2 = (wr + pr) ** 2 + (wi + pi) ** 2;
+      if (d2 < d1) { wr = -wr; wi = -wi; }
+    }
+    out[k] = wr; out[k + 1] = wi;
+    pr = wr; pi = wi;
+  }
+  return out;
+}
+function negPath(pts) {
+  const o = new Float64Array(pts.length);
+  for (let k = 0; k < pts.length; k++) o[k] = -pts[k];
+  return o;
+}
+function isFlatPath(pts) {
+  for (let k = 1; k < pts.length; k += 2)
+    if (Math.abs(pts[k]) > 1e-9) return false;
+  return true;
+}
+
+let sqrtCache = null;
+function ensureSqrt() {
+  if (sqrtCache && sqrtCache.version === geomVersion &&
+      sqrtCache.nRays === rays.length && sqrtCache.nExts === exts.length &&
+      sqrtCache.nDots === dots.length) return;
+  const sq = { version: geomVersion, nRays: rays.length, nExts: exts.length,
+               nDots: dots.length, rays: [], exts: [], beads: [], dots: [],
+               region: [] };
+  for (const ray of rays) {
+    const s1 = sqrtPath(ray.pts);
+    for (const pts of [s1, negPath(s1)])
+      sq.rays.push({ pts, slope: ray.slope, flat: isFlatPath(pts) });
+  }
+  for (const e of exts) {
+    const s1 = sqrtPath(e.pts);
+    sq.exts.push(s1, negPath(s1));
+    for (const b of e.beads) {
+      const [wr, wi] = csqrt(b.x, b.y);
+      sq.beads.push({ x: wr, y: wi, n: b.n }, { x: -wr, y: -wi, n: b.n });
+    }
+  }
+  for (const o of dots) {
+    const [wr, wi] = csqrt(o.x, o.y);
+    sq.dots.push({ x: wr, y: wi, q: o.q }, { x: -wr, y: -wi, q: o.q });
+  }
+  if (regionPoly.length) {            // one loop upstairs = boundary twice
+    const flat = new Float64Array(regionPoly.length * 2);
+    for (let i = 0; i < regionPoly.length; i++) {
+      flat[2 * i] = regionPoly[i][0]; flat[2 * i + 1] = regionPoly[i][1];
+    }
+    const s1 = sqrtPath(flat);
+    for (let k = 0; k < s1.length; k += 2) sq.region.push([s1[k], s1[k + 1]]);
+    for (let k = 0; k < s1.length; k += 2) sq.region.push([-s1[k], -s1[k + 1]]);
+  }
+  sqrtCache = sq;
+}
+
+function activeGeom() {
+  if (plane === "sqrt") {
+    ensureSqrt();
+    return { rayList: sqrtCache.rays, extList: sqrtCache.exts,
+             beadList: sqrtCache.beads, dotList: sqrtCache.dots,
+             regionPts: sqrtCache.region };
+  }
+  const beadList = [];
+  for (const e of exts) for (const b of e.beads) beadList.push(b);
+  return { rayList: rays, extList: exts.map(e => e.pts), beadList,
+           dotList: dots, regionPts: regionPoly };
+}
+
+/* ---------------- Ford-domain combinatorics (Riley's regions) --------------
+   For rho in the slice, the Ford domain of <X,Y> is the part of H^3 above
+   every isometric hemisphere; its combinatorial type is the set of group
+   elements whose hemispheres are VISIBLE from above.  Riley's original plot
+   marked this type at grid points -- the loci of constant type tessellate the
+   exterior (cf. Jorgensen / Akiyoshi-Sakuma-Wada-Yamashita).
+   Isometric circle of g=[[a,b],[c,d]], c != 0: center -d/c, radius 1/|c|.
+   Left/right multiplication by X = [[1,1],[0,1]] fixes the circle mod
+   horizontal translation, so circles come in families indexed by double
+   cosets <X> g <X>, normal form  Y^m1 X^n1 ... Y^mk  (alternating, exponents
+   nonzero).  Enumeration is branch-and-bound on |c| (radius >= rMin recorded,
+   explored up to 3x beyond to survive cancellation near cusps).  Visibility:
+   sample the upper envelope of h^2 = r^2 - |z-v|^2 over one X-period; the
+   signature is the set of visible words up to inversion (face pairing).     */
+
+function canonKey(w) {                 // min of word and its inverse word
+  const k = w.length, inv = new Array(k);
+  for (let i = 0; i < k; i++) inv[i] = -w[k - 1 - i];
+  let use = w;
+  for (let i = 0; i < k; i++) {
+    if (inv[i] < w[i]) { use = inv; break; }
+    if (inv[i] > w[i]) break;
+  }
+  return use.join(",");
+}
+
+function fordFamilies(rr, ri, rMin, maxSyl) {
+  const rAbs2 = rr * rr + ri * ri;
+  if (rAbs2 < 1e-12) return [];
+  const cRec2 = 1 / (rMin * rMin);
+  const cB = 3 / rMin, cB2 = cB * cB;
+  const EMAX = 40, FAM_CAP = 2000, NODE_CAP = 60000;
+  const rAbs = Math.sqrt(rAbs2);
+  const fams = [];
+  let nodes = 0;
+  function push(cr, ci, dr, di, word) {
+    const c2 = cr * cr + ci * ci;
+    const r = 1 / Math.sqrt(c2);
+    let vx = -(dr * cr + di * ci) / c2;
+    const vy = -(di * cr - dr * ci) / c2;
+    vx -= Math.floor(vx);
+    fams.push({ vx, vy, r, r2: r * r, key: canonKey(word), hidden: false });
+  }
+  function rec(ar, ai, br, bi, cr, ci, dr, di, word, syl) {
+    if (nodes++ > NODE_CAP || fams.length >= FAM_CAP) return;
+    const c2 = cr * cr + ci * ci;
+    if (c2 <= cRec2 && c2 > 1e-18) push(cr, ci, dr, di, word);
+    if (syl >= maxSyl) return;
+    const cAbs = Math.sqrt(c2);
+    for (const dn of [1, -1]) {
+      let prevW = Infinity;
+      for (let k = 1; k <= EMAX; k++) {
+        const n = dn * k;
+        const ur = ar * n + br, ui = ai * n + bi;    // u = a n + b
+        const wr = cr * n + dr, wi = ci * n + di;    // w = c n + d
+        const wAbs = Math.hypot(wr, wi);
+        const wRho = wAbs * rAbs;                    // child |c| >= |m| wRho - cAbs
+        if (wRho - cAbs > cB && wAbs >= prevW) break;
+        prevW = wAbs;
+        const pr = wr * rr - wi * ri, pi = wr * ri + wi * rr;   // w rho
+        const qr = ur * rr - ui * ri, qi = ur * ri + ui * rr;   // u rho
+        for (const dm of [1, -1]) {
+          for (let j = 1; j <= EMAX; j++) {
+            if (j * wRho - cAbs > cB) break;
+            const m = dm * j;
+            const ncr = cr + m * pr, nci = ci + m * pi;
+            if (ncr * ncr + nci * nci <= cB2)
+              rec(ar + m * qr, ai + m * qi, ur, ui, ncr, nci, wr, wi,
+                  word.concat(n, m), syl + 1);
+          }
+        }
+      }
+    }
+  }
+  for (const dm of [1, -1]) {          // roots: the double cosets of Y^m
+    for (let j = 1; j <= EMAX; j++) {
+      const m = dm * j;
+      const cr = m * rr, ci = m * ri;
+      if (cr * cr + ci * ci > cB2) break;
+      rec(1, 0, 0, 0, cr, ci, 1, 0, [m], 1);
+    }
+  }
+  return fams;
+}
+
+function fordVisible(fams, rMin) {
+  if (!fams.length) return { sig: "", vis: [], live: [] };
+  fams.sort((a, b) => b.r - a.r);
+  for (let i = 0; i < fams.length; i++) {   // contained (incl. internally
+    const a = fams[i];                      // tangent parabolic pencils) are
+    if (a.hidden) continue;                 // never visible
+    for (let j = 0; j < i; j++) {
+      const b = fams[j];
+      if (b.hidden) continue;
+      let dx = Math.abs(a.vx - b.vx); dx = Math.min(dx, 1 - dx);
+      if (Math.hypot(dx, a.vy - b.vy) <= b.r - a.r + 1e-9) { a.hidden = true; break; }
+    }
+  }
+  const live = fams.filter(f => !f.hidden);
+  const del = Math.max(0.015, 0.6 * rMin);
+  let ymin = Infinity, ymax = -Infinity;
+  for (const f of live) { ymin = Math.min(ymin, f.vy - f.r); ymax = Math.max(ymax, f.vy + f.r); }
+  const hFloor = (0.15 * rMin) ** 2;   // ignore sub-resolution slivers
+  const nx = Math.ceil(1 / del);
+  for (const f of live) f.seen = 0;
+  for (let y = ymin + del / 2; y <= ymax; y += del) {
+    for (let ix = 0; ix < nx; ix++) {
+      const x = (ix + 0.5) / nx;
+      let best = -1, bestH = hFloor;
+      for (let i = 0; i < live.length; i++) {
+        const f = live[i];
+        if (f.r2 <= bestH) break;      // sorted by r descending
+        let dx = Math.abs(x - f.vx); if (dx > 0.5) dx = 1 - dx;
+        const dy = y - f.vy;
+        const h = f.r2 - dx * dx - dy * dy;
+        if (h > bestH) { bestH = h; best = i; }
+      }
+      if (best >= 0) live[best].seen++;
+    }
+  }
+  // one-sample wins are numerical noise at the walls; demand two
+  const vis = live.filter(f => f.seen >= 2);
+  const keys = [...new Set(vis.map(f => f.key))].sort();
+  return { sig: keys.join("|"), vis, live };
+}
+
+/* ------- algebraic region engine (traces only) -----------------------------
+   The Ford combinatorics is determined ALGEBRAICALLY by the Farey traces
+   t = Phi_{p/q}(rho).  The faces over the p/q arc are powers W_{p/q}^k, and
+   W^k = S_{k-1}(t) W - S_{k-2}(t) I  (Chebyshev, S_m = sin((m+1)theta)/sin
+   theta for t = 2cos theta), so its isometric circle has radius
+   r_W / |S_{k-1}(t)| and center offset (1/c) S_{k-2}/S_{k-1}.  Hemisphere k
+   is hidden under hemisphere j exactly when its disk is contained (heights
+   subtract linearly), and |C_k - C_j| collapses via
+   S_{k-2}S_{j-1} - S_{j-2}S_{k-1} = S_{k-j-1} to the closed criterion:
+       W^k visible  <=>  |S_{k-1}| < |S_{j-1}| + |S_{k-j-1}|  for all 0<j<k.
+   k = 2 gives |Phi_{p/q}| < 2: the first wall of every fan is the algebraic
+   curve |Phi_{p/q}(rho)| = 2.  Verified against the exact Ford engine below:
+   420/420 sample points agree, including points hugging the boundary.      */
+
+function powersVisible(tr, ti, KMAX) {
+  const sr = [0, 1, tr], si = [0, 0, ti];      // S_{-1}, S_0, S_1
+  const sig = [0, 1, Math.hypot(tr, ti)];      // sig[j] = |S_{j-1}|
+  const ks = [];
+  let run = 0;
+  for (let k = 2; k <= KMAX; k++) {
+    if (sig.length <= k) {
+      const j = sig.length;
+      const r2 = tr * sr[j - 1] - ti * si[j - 1] - sr[j - 2];
+      const i2 = tr * si[j - 1] + ti * sr[j - 1] - si[j - 2];
+      sr.push(r2); si.push(i2); sig.push(Math.hypot(r2, i2));
+    }
+    let vis = true;
+    for (let j = 1; j < k; j++)
+      if (sig[k] >= sig[j] + sig[k - j] - 1e-12) { vis = false; break; }
+    if (vis) { ks.push(k); run = 0; } else if (++run >= 3) break;
+  }
+  return { ks, sr, si };
+}
+
+function wordMatrix(p, q, rr, ri) {
+  // W_{p/q} = prod_i X^{e_{2i-1}} Y^{e_{2i}}, e_j = (-1)^floor(j(q-p)/q);
+  // tr W = Phi_{p/q} (checked to 4e-15 for all q <= 20)
+  let ar = 1, ai = 0, br = 0, bi = 0, cr = 0, ci = 0, dr = 1, di = 0;
+  const pb = q - p;
+  for (let i = 1; i <= q; i++) {
+    const e1 = (Math.floor((2 * i - 1) * pb / q) & 1) ? -1 : 1;
+    const e2 = (Math.floor((2 * i) * pb / q) & 1) ? -1 : 1;
+    br += e1 * ar; bi += e1 * ai; dr += e1 * cr; di += e1 * ci;
+    const er = e2 * rr, ei = e2 * ri;
+    ar += er * br - ei * bi; ai += er * bi + ei * br;
+    cr += er * dr - ei * di; ci += er * di + ei * dr;
+  }
+  return [ar, ai, br, bi, cr, ci, dr, di];
+}
+
+function algSignature(rr, ri, qCap, KMAX) {
+  const PRT = 6;                       // descend while some trace is small
+  const slopes = [];
+  const test = (p, q, tr, ti) => {
+    const pv = powersVisible(tr, ti, KMAX);
+    if (pv.ks.length) slopes.push({ p, q, s: p / q, ks: pv.ks, sr: pv.sr, si: pv.si });
+  };
+  test(0, 1, 2 - rr, -ri);
+  test(1, 1, 2 + rr, ri);
+  const stack = [[0, 1, 1, 1, 2 - rr, -ri, 2 + rr, ri, 2, 0]];
+  while (stack.length) {
+    const [pl, ql, pr, qr, alr, ali, arr, ari, adr, adi] = stack.pop();
+    const pm = pl + pr, qm = ql + qr;
+    if (qm > qCap) continue;
+    const mr = 8 - (alr * arr - ali * ari) - adr;
+    const mi = -(alr * ari + ali * arr) - adi;
+    test(pm, qm, mr, mi);
+    if (Math.hypot(mr, mi) < PRT || Math.hypot(alr, ali) < PRT ||
+        Math.hypot(arr, ari) < PRT) {
+      stack.push([pl, ql, pm, qm, alr, ali, mr, mi, arr, ari]);
+      stack.push([pm, qm, pr, qr, mr, mi, arr, ari, alr, ali]);
+    }
+  }
+  slopes.sort((a, b) => a.s - b.s);
+  let nf = 1;
+  const faceStrs = [];
+  for (const s of slopes) { nf += s.ks.length; faceStrs.push(`${s.p}/${s.q}:${s.ks.join(",")}`); }
+
+  // circles of every visible face family (one X-period), from the word
+  // matrices: C_k = C_1 + (1/c) S_{k-2}/S_{k-1},  C_{-k} = a/c - (1/c) S_{k-2}/S_{k-1},
+  // r_k = 1 / (|c| |S_{k-1}|)
+  const modx = v => v - Math.floor(v);
+  const rAbs2 = rr * rr + ri * ri;
+  const circles = [
+    { fam: "Y", x: modx(-rr / rAbs2), y: ri / rAbs2, r: 1 / Math.sqrt(rAbs2) },
+    { fam: "Y", x: modx(rr / rAbs2), y: -ri / rAbs2, r: 1 / Math.sqrt(rAbs2) },
+  ];
+  for (const s of slopes) {
+    const M = wordMatrix(s.p, s.q, rr, ri);
+    const ar = M[0], ai = M[1], cr = M[4], ci = M[5], dr = M[6], di = M[7];
+    const c2 = cr * cr + ci * ci, cAbs = Math.sqrt(c2);
+    const icr = cr / c2, ici = -ci / c2;                      // 1/c
+    const C1x = -(dr * cr + di * ci) / c2, C1y = -(di * cr - dr * ci) / c2;
+    const A1x = (ar * cr + ai * ci) / c2, A1y = (ai * cr - ar * ci) / c2;
+    for (const k of s.ks) {
+      const den = s.sr[k] * s.sr[k] + s.si[k] * s.si[k];      // |S_{k-1}|^2
+      const ux = (s.sr[k - 1] * s.sr[k] + s.si[k - 1] * s.si[k]) / den;
+      const uy = (s.si[k - 1] * s.sr[k] - s.sr[k - 1] * s.si[k]) / den;
+      const wx = icr * ux - ici * uy, wy = icr * uy + ici * ux;
+      const rk = 1 / (cAbs * Math.sqrt(den));
+      circles.push({ fam: `${s.p}/${s.q}:+${k}`, x: modx(C1x + wx), y: C1y + wy, r: rk });
+      circles.push({ fam: `${s.p}/${s.q}:-${k}`, x: modx(A1x - wx), y: A1y - wy, r: rk });
+    }
+  }
+  // overlap (edge) classes; tangencies (parabolic pencils) excluded by the
+  // strict margin.  dn is the X-translate offset between the two circles.
+  if (circles.length > 320) {          // degenerate deep zones: keep largest
+    circles.sort((a, b) => b.r - a.r);
+    circles.length = 320;
+  }
+  const edges = new Set();
+  let ne = 0;
+  for (let i = 0; i < circles.length; i++) {
+    for (let j = i; j < circles.length; j++) {
+      const A = circles[i], B = circles[j];
+      const rs = A.r + B.r, dy = B.y - A.y;
+      if (dy * dy >= rs * rs) continue;
+      for (const dn of i === j ? [1] : [-1, 0, 1]) {
+        const dx = B.x + dn - A.x;
+        if (dx * dx + dy * dy >= rs * rs) continue;
+        const d = Math.hypot(dx, dy);
+        if (d >= rs * (1 - 1e-9) ||
+            d <= Math.abs(A.r - B.r) * (1 + 1e-9)) continue;
+        let f1 = A.fam, f2 = B.fam, dd = dn;
+        if (f2 < f1) { const t = f1; f1 = f2; f2 = t; dd = -dn; }
+        if (f1 === f2) dd = Math.abs(dd);
+        const lbl = `${f1}~${f2}@${dd}`;
+        if (!edges.has(lbl)) {
+          edges.add(lbl);
+          if (dd !== 0 || f1.split(":")[0] !== f2.split(":")[0]) ne++;
+        }
+      }
+    }
+  }
+  const sig = faceStrs.join("|") +
+              (edges.size ? "||" + [...edges].sort().join(";") : "");
+  return { sig, n: nf, e: ne };
+}
+
+/* ------- signature registry, coloring, and the overlay raster ------------- */
+
+const sigList = [];   // id -> {sig, n = face pairs, e = linking edge classes}
+const sigIds = new Map();
+function sigIdOf(sig, n, e) {
+  let id = sigIds.get(sig);
+  if (id === undefined) {
+    id = sigList.length;
+    sigList.push({ sig, n, e });
+    sigIds.set(sig, id);
+  }
+  return id;
+}
+
+function hashStr(s) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h;
+}
+function hslRgb(h, s, l) {
+  const f = n => {
+    const k = (n + h * 12) % 12;
+    return Math.round(255 * (l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1))));
+  };
+  return [f(0), f(8), f(4)];
+}
+let regionMode = "level";
+const regionPal = { name: "rainbow", cycle: 9, hue: 0 };   // FordCore.PALETTES
+const CLEAR = [0, 0, 0, 0];
+/* colour of a region with `count` Ford faces (palette from fordCore.js);
+   count 1 -- the outermost region -- stays clear unless "Fill outermost" */
+function countColor(count) {
+  if (count <= 0) return CLEAR;
+  if (count <= 2 && !ui.fillOuter.checked) return CLEAR;
+  return [...FordCore.paletteColor(regionPal.name, count, regionPal), 255];
+}
+function colorForId(id) {              // one-cusp (algebraic) engine
+  const s = sigList[id];
+  if (!s || !s.n) return CLEAR;
+  if (regionMode === "level") {
+    // colour by face pairs (n pairs <-> 2n - 1 faces in the palette's
+    // indexing), darkened stepwise by linking-edge classes so the triangle
+    // subdivision inside each fan stays visible
+    const c = countColor(2 * s.n - 1);
+    if (!c[3]) return c;
+    const f = 1 - 0.14 * ((s.e || 0) % 5);
+    return [Math.round(c[0] * f), Math.round(c[1] * f), Math.round(c[2] * f), 255];
+  }
+  if (s.n === 1 && !ui.fillOuter.checked) return CLEAR;
+  const [r, g, b] = hslRgb((hashStr(s.sig) % 360) / 360, 0.62, 0.55);
+  return [r, g, b, 255];
+}
+
+function inRegionPoly(x, y) {          // even-odd test against the envelope
+  const P = regionPoly;
+  if (P.length < 3 || Math.abs(x) > 4.2 || Math.abs(y) > 2.4) return false;
+  let inside = false;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+    const xi = P[i][0], yi = P[i][1], xj = P[j][0], yj = P[j][1];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+      inside = !inside;
+  }
+  return inside;
+}
+
+let fordLayer = null;   // {cnv, codes, nx, ny, x0, y0, x1, y1, plane}
+let fordToken = 0, fordTimer = 0;
+
+function repaintFordLayer() {
+  if (!fordLayer) return;
+  if (fordLayer.engine === "ext") return repaintExtLayer();
+  const { cnv, codes, nx, ny } = fordLayer;
+  const g2 = cnv.getContext("2d");
+  const img = g2.createImageData(nx, ny);
+  const cache = new Map();
+  for (let py = 0; py < ny; py++) {
+    for (let px = 0; px < nx; px++) {
+      let c = -2;                      // nearest computed ancestor in the
+      for (const L of [1, 2, 4, 8]) {  // progressive refinement grid
+        c = codes[(py - py % L) * nx + (px - px % L)];
+        if (c !== -2) break;
+      }
+      if (c < 0) continue;             // interior / not yet computed
+      let col = cache.get(c);
+      if (!col) { col = colorForId(c); cache.set(c, col); }
+      const o = 4 * (py * nx + px);
+      img.data[o] = col[0]; img.data[o + 1] = col[1];
+      img.data[o + 2] = col[2]; img.data[o + 3] = col[3];
+    }
+  }
+  g2.putImageData(img, 0, 0);
+}
+
+async function computeFordLayer() {
+  if (!ui.showRegions.checked) return;
+  if (fordEngine === "ext") return computeExtLayer();
+  extQueue = [];                       // drop any two-cusp rows still queued
+  const token = ++fordToken;
+  const W = canvas.width, H = canvas.height;
+  if (!W || !H) return;
+  const s = baseScale(W, H);
+  const x0 = view.cx - W / 2 / s, x1 = view.cx + W / 2 / s;
+  const y0 = view.cy - H / 2 / s, y1 = view.cy + H / 2 / s;
+  const nx = Math.max(160, Math.min(640, Math.round(canvas.clientWidth / 2)));
+  const ny = Math.max(120, Math.min(520, Math.round(canvas.clientHeight / 2)));
+  const codes = new Int32Array(nx * ny).fill(-2);
+  const qCap = +ui.fordQ.value, KMAX = 16;
+  const curPlane = plane;
+  const cnv = document.createElement("canvas");
+  cnv.width = nx; cnv.height = ny;
+  fordLayer = { engine: "alg", cnv, codes, nx, ny, x0, y0, x1, y1, plane: curPlane };
+  const sampleAt = (gx, gy) => {
+    const wx = x0 + (gx + 0.5) / nx * (x1 - x0);
+    const wy = y1 - (gy + 0.5) / ny * (y1 - y0);
+    let rr, ri;
+    if (curPlane === "sqrt") { rr = wx * wx - wy * wy; ri = 2 * wx * wy; }
+    else { rr = wx; ri = wy; }
+    if (inRegionPoly(rr, ri)) return -1;
+    const a = algSignature(rr, ri, qCap, KMAX);
+    return sigIdOf(a.sig, a.n, a.e);
+  };
+  let lastYield = performance.now();
+  for (const L of [8, 4, 2, 1]) {
+    for (let gy = 0; gy < ny; gy += L) {
+      for (let gx = 0; gx < nx; gx += L) {
+        const idx = gy * nx + gx;
+        if (codes[idx] !== -2) continue;
+        let val = -2;
+        if (L < 8) {                   // constant coarse block: inherit
+          const B = 2 * L;
+          const bx = Math.floor(gx / B) * B, by = Math.floor(gy / B) * B;
+          const bx2 = bx + B < nx ? bx + B : bx, by2 = by + B < ny ? by + B : by;
+          const c00 = codes[by * nx + bx], c01 = codes[by * nx + bx2];
+          const c10 = codes[by2 * nx + bx], c11 = codes[by2 * nx + bx2];
+          if (c00 !== -2 && c00 === c01 && c00 === c10 && c00 === c11) val = c00;
+        }
+        codes[idx] = val !== -2 ? val : sampleAt(gx, gy);
+        if (performance.now() - lastYield > 40) {
+          repaintFordLayer(); draw();
+          statusEl.textContent =
+            `Ford regions: pass ${4 - [8, 4, 2, 1].indexOf(L)}/4, row ${gy + 1}/${ny}`;
+          await new Promise(r => setTimeout(r, 0));
+          if (token !== fordToken) return;
+          lastYield = performance.now();
+        }
+      }
+    }
+    repaintFordLayer(); draw();
+    await new Promise(r => setTimeout(r, 0));
+    if (token !== fordToken) return;
+  }
+  const seen = new Set();
+  for (const c of codes) if (c >= 0 && sigList[c].n) seen.add(c);
+  statusEl.textContent = `Ford regions: ${seen.size} combinatorial types on screen`;
+}
+/* ------- two-cusp engine: Riley's picture, exact, in workers ---------------
+   fordCore.js computes the Ford domain of <X, E>, E(z) = 1/(rho z) -- the
+   Ford domain of <X, Y> at BOTH cusps.  Its face count is what Riley's
+   colours show.  Workers are built from fordCoreFactory's source text, so
+   this runs from file:// too.  Rows go out interlaced (every 8th first), in
+   small batches with two in flight per worker so the workers keep going
+   while the main thread is busy tracing rays; each pixel's closure is
+   seeded with its left neighbour's faces.                                  */
+let fordEngine = "ext";
+const EXT_SRC = `
+  const FordCore = (${fordCoreFactory.toString()})();
+  const inLens = FordCore.makeLensTest(FordCore.sliceBoundary(64));
+  function hash(s) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return h | 0;
+  }
+  onmessage = (e) => {
+    const { gen, rows, nx, x0, dx, sqrt } = e.data;
+    rows.forEach(([r, y], k) => {
+      const counts = new Int16Array(nx), hashes = new Int32Array(nx);
+      let left = null;
+      for (let c = 0; c < nx; c++) {
+        const wx = x0 + (c + 0.5) * dx;
+        const rr = sqrt ? wx * wx - y * y : wx, ri = sqrt ? 2 * wx * y : y;
+        if ((rr === 0 && ri === 0) || inLens(rr, ri)) { left = null; continue; }
+        const fd = FordCore.fordDomain(rr, ri, { seed: left });
+        left = fd.faces.map(f => f.word);
+        if (!fd.complete) continue;
+        counts[c] = fd.faces.length;
+        hashes[c] = hash(FordCore.signature(fd.faces));
+      }
+      postMessage({ gen, r, counts, hashes, last: k === rows.length - 1 },
+                  [counts.buffer, hashes.buffer]);
+    });
+  };`;
+let extWorkers = null, extQueue = [], extPaintAt = 0;
+function ensureExtWorkers() {
+  if (extWorkers) return extWorkers;
+  const url = URL.createObjectURL(new Blob([EXT_SRC], { type: "text/javascript" }));
+  const n = Math.max(2, Math.min(16, (navigator.hardwareConcurrency || 4) - 1));
+  extWorkers = [];
+  for (let i = 0; i < n; i++) {
+    const w = new Worker(url);
+    w.inflight = 0;                    // batches posted and not yet finished
+    w.onmessage = onExtRow;
+    extWorkers.push(w);
+  }
+  return extWorkers;
+}
+function computeExtLayer() {
+  const W = canvas.width, H = canvas.height;
+  if (!W || !H) return;
+  const s = baseScale(W, H);
+  const x0 = view.cx - W / 2 / s, x1 = view.cx + W / 2 / s;
+  const y0 = view.cy - H / 2 / s, y1 = view.cy + H / 2 / s;
+  const nx = Math.max(160, Math.min(1100, Math.round(canvas.clientWidth)));
+  const ny = Math.max(120, Math.round(nx * (y1 - y0) / (x1 - x0)));
+  const key = [plane, x0, x1, y0, y1, nx].join("|");
+  if (fordLayer && fordLayer.engine === "ext" && fordLayer.key === key) return;
+  const token = ++fordToken;
+  const cnv = document.createElement("canvas");
+  cnv.width = nx; cnv.height = ny;
+  fordLayer = { engine: "ext", key, token, cnv, nx, ny, x0, y0, x1, y1, plane,
+                counts: new Int16Array(nx * ny), hashes: new Int32Array(nx * ny),
+                done: new Uint8Array(ny), ndone: 0, t0: performance.now() };
+  const seen = new Uint8Array(ny);
+  extQueue = [];
+  for (const step of [8, 4, 2, 1])
+    for (let r = 0; r < ny; r += step) if (!seen[r]) { seen[r] = 1; extQueue.push(r); }
+  ensureExtWorkers();
+  feedExt();
+}
+function feedExt() {
+  const L = fordLayer;
+  if (!L || L.engine !== "ext") return;
+  const dx = (L.x1 - L.x0) / L.nx, dy = (L.y1 - L.y0) / L.ny;
+  for (const w of extWorkers) {
+    while (w.inflight < 2 && extQueue.length) {
+      const rows = extQueue.splice(0, 6).map(r => [r, L.y1 - (r + 0.5) * dy]);
+      w.inflight++;
+      w.postMessage({ gen: L.token, rows, nx: L.nx, x0: L.x0, dx, sqrt: L.plane === "sqrt" });
+    }
+  }
+}
+function onExtRow(e) {
+  const { gen, r, counts, hashes, last } = e.data;
+  if (last) this.inflight--;
+  const L = fordLayer;
+  if (L && L.engine === "ext" && gen === L.token) {
+    L.counts.set(counts, r * L.nx);
+    L.hashes.set(hashes, r * L.nx);
+    if (!L.done[r]) { L.done[r] = 1; L.ndone++; }
+    const finished = L.ndone === L.ny, now = performance.now();
+    if (finished || now - extPaintAt > 120) {
+      extPaintAt = now;
+      repaintExtLayer(); draw();
+    }
+    statusEl.textContent = finished
+      ? `Ford regions (both cusps): ${L.nx}×${L.ny} in ${((now - L.t0) / 1000).toFixed(1)} s`
+      : `Ford regions: ${Math.round(100 * L.ndone / L.ny)}%`;
+  }
+  feedExt();
+}
+function repaintExtLayer() {
+  const L = fordLayer;
+  const { cnv, nx, ny, counts, hashes, done } = L;
+  const g2 = cnv.getContext("2d");
+  const img = g2.createImageData(nx, ny), d = img.data;
+  const cache = new Map();
+  const sig = regionMode === "sig";
+  let src = -1;
+  for (let r = 0; r < ny; r++) {      // rows not yet computed copy the last one above
+    if (done[r]) src = r;
+    if (src < 0) continue;
+    for (let c = 0; c < nx; c++) {
+      const i = src * nx + c, v = counts[i];
+      if (v <= 0) continue;
+      const k = sig ? hashes[i] : v;
+      let col = cache.get(k);
+      if (!col) {
+        if (sig && v === 1 && !ui.fillOuter.checked) col = CLEAR;
+        else if (sig) {
+          const [R, G, B] = hslRgb(((hashes[i] >>> 0) % 360) / 360, 0.62, 0.55);
+          col = [R, G, B, 255];
+        } else col = countColor(v);
+        cache.set(k, col);
+      }
+      const o = 4 * (r * nx + c);
+      d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = col[3];
+    }
+  }
+  g2.putImageData(img, 0, 0);
+}
+
+function scheduleFord(ms) {
+  clearTimeout(fordTimer);
+  fordTimer = setTimeout(computeFordLayer, ms);
+}
+
+/* ---------------- compute pipeline (chunked, async) ----------------------- */
+
+const statusEl = document.getElementById("status");
+let computeToken = 0;
+
+async function recomputeAll() {
+  const token = ++computeToken;
+  const rayQ = +ui.rayQ.value, dotQ = +ui.dotQ.value, arcQ = +ui.arcQ.value;
+  rays = []; dots = []; exts = []; regionPoly = [];
+  geomVersion++;
+
+  // dots
+  const dotFracs = fareyFractions.filter(([, q]) => q <= dotQ);
+  for (let i = 0; i < dotFracs.length; i++) {
+    if (token !== computeToken) return;
+    const [p, q] = dotFracs[i];
+    const roots = rootsOfPhiPlus2(p, q);
+    let ki = 0;
+    for (const [x, y] of roots)
+      if (Math.abs(x) <= 4.005 && Math.abs(y) <= 2.01)
+        dots.push({ x, y, p, q, i: ki++ });
+    if (i % 25 === 24) {
+      statusEl.textContent = `roots: ${i + 1}/${dotFracs.length}`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+  dots.push({ x: 0, y: 0, q: 1, origin: true }); // rho = 0
+  buildEnvelope();
+  draw();
+  scheduleFord(0);                    // provisional envelope is good enough
+
+  // principal pleating rays + extensions past the cusp
+  const rayFracs = fareyFractions.filter(([, q]) => q <= rayQ);
+  for (let i = 0; i < rayFracs.length; i++) {
+    if (token !== computeToken) return;
+    const [p, q] = rayFracs[i];
+    const ev = evaluator(p, q);
+    const res = traceRay(ev, p / q);
+    rays.push({ pts: res.pts, slope: p / q, flat: isFlatPath(res.pts),
+                landed: res.landed, p, q });
+    if (q <= arcQ && res.landed) {
+      const m = res.pts.length;
+      const ext = traceExtension(ev, res.pts[m - 2], res.pts[m - 1]);
+      if (ext) exts.push({ pts: ext.pts, beads: ext.beads, p, q });
+    }
+    if (i % 40 === 39) {
+      statusEl.textContent = `tracing rays: ${i + 1}/${rayFracs.length}`;
+      draw();
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+  // The ray landing points sit exactly on the boundary — a far cleaner
+  // envelope source than the double-precision root dots.  Order them by
+  // SLOPE, not by x: near the cusps at +-4 the boundary is not a graph over x.
+  const cusps = [];
+  for (const r of rays) if (r.landed) {
+    const m = r.pts.length;
+    cusps.push([r.pts[m - 2], Math.abs(r.pts[m - 1]), r.slope]);
+  }
+  if (cusps.length > 20) {
+    cusps.sort((a, b) => a[2] - b[2]);
+    regionPoly = cusps.map(c => [c[0], c[1]]);
+    for (let i = cusps.length - 1; i >= 0; i--)
+      regionPoly.push([cusps[i][0], -cusps[i][1]]);
+    geomVersion++;                    // invalidate the sqrt-plane cache
+  }
+  statusEl.textContent =
+    `${rays.length} rays · ${dots.length} dots · ${exts.length} extensions`;
+  draw();
+  scheduleFord(50);                   // final envelope: redo the interior mask
+}
+
+/* ---------------- rendering ---------------------------------------------- */
+
+const stage = document.getElementById("stage");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+let view = { cx: 0, cy: 0, scale: 1 };
+let plane = "rho";
+
+function fitView() { view = { cx: 0, cy: 0, scale: 0 }; }
+fitView();
+
+function extents() { return plane === "sqrt" ? [3.1, 2.3] : [XLIM, YLIM]; }
+function baseScale(W, H) {
+  const [xw, yw] = extents();
+  const fit = Math.min(W / (2 * xw), H / (2 * yw));
+  return fit * (view.scale === 0 ? 1 : view.scale);
+}
+
+function hueForSlope(slope, lower) {
+  const g = +ui.gamma.value;
+  if (ui.wheel.checked) {
+    const a = Math.PI * slope * (lower ? -1 : 1);   // signed asymptotic angle
+    let u = ((a / (2 * Math.PI)) % 1 + 1) % 1;
+    return 360 * u;
+  }
+  const u = Math.pow(1 - slope, g);
+  const hl = +ui.hueL.value, hr = +ui.hueR.value;
+  return hl + (hr - hl) * u;
+}
+
+function drawScene(g, W, H, pixelRatio) {
+  const s = baseScale(W, H);
+  const toX = x => W / 2 + (x - view.cx) * s;
+  const toY = y => H / 2 - (y - view.cy) * s;
+  const { rayList, extList, beadList, dotList, regionPts } = activeGeom();
+  g.fillStyle = ui.bgCol.value;
+  g.fillRect(0, 0, W, H);
+
+  if (ui.showRegions.checked && fordLayer && fordLayer.plane === plane) {
+    const rx = toX(fordLayer.x0), ry = toY(fordLayer.y1);
+    const rw = (fordLayer.x1 - fordLayer.x0) * s, rh = (fordLayer.y1 - fordLayer.y0) * s;
+    g.globalAlpha = +ui.fordAlpha.value / 100;
+    g.drawImage(fordLayer.cnv, rx, ry, rw, rh);
+    g.globalAlpha = 1;
+  }
+
+  if (ui.showRays.checked) {
+    g.lineWidth = +ui.lw.value * pixelRatio;
+    g.globalAlpha = +ui.alpha.value / 100;
+    const sat = +ui.sat.value, val = +ui.val.value;
+    for (const ray of rayList) {
+      for (const lower of ray.flat ? [false] : [false, true]) {
+        if (ui.inkRays.checked) g.strokeStyle = ui.dotCol.value;
+        else {
+          const hue = hueForSlope(ray.slope, lower);
+          g.strokeStyle = `hsl(${hue.toFixed(1)} ${sat}% ${(val * 0.55).toFixed(0)}%)`;
+        }
+        g.beginPath();
+        const pts = ray.pts, m = lower ? -1 : 1;
+        g.moveTo(toX(pts[0]), toY(m * pts[1]));
+        for (let k = 2; k < pts.length; k += 2)
+          g.lineTo(toX(pts[k]), toY(m * pts[k + 1]));
+        g.stroke();
+      }
+    }
+    g.globalAlpha = 1;
+  }
+
+  if (ui.showFill.checked && regionPts.length) {
+    g.fillStyle = ui.fillCol.value;
+    g.beginPath();
+    g.moveTo(toX(regionPts[0][0]), toY(regionPts[0][1]));
+    for (let i = 1; i < regionPts.length; i++)
+      g.lineTo(toX(regionPts[i][0]), toY(regionPts[i][1]));
+    g.closePath();
+    g.fill();
+  }
+
+  if (ui.showWalls.checked) {
+    for (const wl of wallCurves()) {
+      for (const [width, color] of [[3.2, wl.halo], [1.4, wl.color]]) {
+        g.lineWidth = width * pixelRatio;
+        g.strokeStyle = color;
+        g.setLineDash(wl.dash.map(v => v * pixelRatio));
+        for (const pts of wl.paths) {
+          g.beginPath();
+          g.moveTo(toX(pts[0]), toY(pts[1]));
+          for (let k = 2; k < pts.length; k += 2) g.lineTo(toX(pts[k]), toY(pts[k + 1]));
+          g.stroke();
+        }
+      }
+    }
+    g.setLineDash([]);
+  }
+
+  if (ui.showArcs.checked) {
+    g.strokeStyle = ui.dotCol.value;
+    g.globalAlpha = 0.45;
+    g.lineWidth = 0.6 * pixelRatio;
+    for (const pts of extList) {
+      for (const m of [1, -1]) {                // conjugate mirror
+        g.beginPath();
+        g.moveTo(toX(pts[0]), toY(m * pts[1]));
+        for (let k = 2; k < pts.length; k += 2)
+          g.lineTo(toX(pts[k]), toY(m * pts[k + 1]));
+        g.stroke();
+      }
+    }
+    g.globalAlpha = 1;
+    g.fillStyle = ui.dotCol.value;              // Heckoid beads
+    const mult = +ui.dotSize.value * pixelRatio;
+    for (const b of beadList) {
+      const r = Math.min(2.4, 0.5 + 2.2 / b.n) * mult;
+      for (const m of Math.abs(b.y) > 1e-9 ? [1, -1] : [1]) {
+        g.beginPath();
+        g.arc(toX(b.x), toY(m * b.y), r, 0, 2 * Math.PI);
+        g.fill();
+      }
+    }
+  }
+
+  if (ui.showDots.checked) {
+    g.fillStyle = ui.dotCol.value;
+    const mult = +ui.dotSize.value * pixelRatio;
+    for (const o of dotList) {
+      const r = Math.min(6, Math.max(0.35, 5.5 / Math.pow(o.q, 1.1))) * mult;
+      g.beginPath();
+      g.arc(toX(o.x), toY(o.y), r, 0, 2 * Math.PI);
+      g.fill();
+    }
+  }
+
+  if (sel) {                                    // selection marker
+    const [px, py] = plane === "sqrt" ? [sel.zx, sel.zy] : [sel.x, sel.y];
+    g.strokeStyle = "#6366f1";
+    g.lineWidth = 2 * pixelRatio;
+    g.beginPath();
+    g.arc(toX(px), toY(py), 7 * pixelRatio, 0, 2 * Math.PI);
+    g.stroke();
+  }
+}
+
+/* First walls of the Ford regions, in rho: |rho| = 4 and the cardioid
+   |rho| = 2(1 + |cos arg rho|) for both cusps; |rho -+ 2| = 2 (Lyndon-Ullman)
+   for the cusp at infinity alone.  In the sqrt plane each pulls back to a
+   branch-continuous path and its negative: |z| = 2, the circles |z -+ 1| = 1
+   and |z -+ i| = 1, and two lemniscates.                                    */
+let wallCache = null;
+function wallCurves() {
+  if (wallCache && wallCache.plane === plane) return wallCache.list;
+  const N = 1440;
+  const loop = f => {
+    const p = new Float64Array(2 * (N + 1));
+    for (let i = 0; i <= N; i++) {
+      const [x, y] = f(2 * Math.PI * i / N);
+      p[2 * i] = x; p[2 * i + 1] = y;
+    }
+    return p;
+  };
+  const circle = (cx, r) => loop(t => [cx + r * Math.cos(t), r * Math.sin(t)]);
+  const card = loop(t => { const r = 2 * (1 + Math.abs(Math.cos(t))); return [r * Math.cos(t), r * Math.sin(t)]; });
+  const lift = p => plane === "sqrt" ? (q => [q, negPath(q)])(sqrtPath(p)) : [p];
+  const list = [
+    { paths: lift(circle(0, 4)), color: "#ffffff", halo: "rgba(0,0,0,0.55)", dash: [] },
+    { paths: lift(card), color: "#111111", halo: "rgba(255,255,255,0.75)", dash: [] },
+    { paths: [...lift(circle(2, 2)), ...lift(circle(-2, 2))],
+      color: "rgba(17,17,17,0.85)", halo: "rgba(255,255,255,0.5)", dash: [6, 5] },
+  ];
+  wallCache = { plane, list };
+  return list;
+}
+
+function draw() {
+  const pr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth * pr, H = canvas.clientHeight * pr;
+  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+  drawScene(ctx, W, H, pr);
+}
+
+/* ---------------- UI wiring ----------------------------------------------- */
+
+const ui = {};
+for (const id of ["rayQ", "dotQ", "arcQ", "hueL", "hueR", "gamma", "sat", "val",
+                  "wheel", "lw", "alpha", "dotSize", "bgCol", "fillCol", "dotCol",
+                  "showRays", "showDots", "showArcs", "showFill", "preset",
+                  "showRegions", "fordQ", "fordAlpha", "showWalls", "fillOuter",
+                  "inkRays", "regionPal", "regionCycle", "regionHue"])
+  ui[id] = document.getElementById(id);
+
+for (const id of ["rayQ", "dotQ", "arcQ", "hueL", "hueR", "gamma", "sat", "val",
+                  "lw", "alpha", "dotSize", "fordQ", "fordAlpha",
+                  "regionCycle", "regionHue"]) {
+  const out = document.querySelector(`[data-out=${id}]`);
+  ui[id].addEventListener("input", () => { if (out) out.textContent = ui[id].value; });
+}
+for (const id of ["hueL", "hueR", "gamma", "sat", "val", "wheel", "lw", "alpha",
+                  "dotSize", "bgCol", "fillCol", "dotCol",
+                  "showRays", "showDots", "showArcs", "showFill", "showWalls", "inkRays"])
+  ui[id].addEventListener("input", draw);
+
+document.getElementById("recompute").addEventListener("click", recomputeAll);
+
+ui.fordAlpha.addEventListener("input", draw);
+ui.fordQ.addEventListener("change", () => scheduleFord(150));
+ui.showRegions.addEventListener("input", () => {
+  draw();
+  if (ui.showRegions.checked) scheduleFord(0);
+});
+document.getElementById("regionModeSeg").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  for (const x of e.currentTarget.querySelectorAll("button"))
+    x.classList.toggle("active", x === b);
+  regionMode = b.dataset.mode;
+  syncRegionUI();
+  repaintFordLayer();
+  draw();
+});
+
+/* region palette, legend, and which controls apply to the current engine */
+for (const [k, v] of Object.entries(FordCore.PALETTES)) ui.regionPal.add(new Option(v.label, k));
+ui.regionPal.value = regionPal.name;
+function syncRegionUI() {
+  const P = FordCore.PALETTES[regionPal.name] || {};
+  const show = {
+    level: regionMode === "level",
+    cyc: regionMode === "level" && P.cyclic,
+    hue: regionMode === "level" && P.hue,
+    ext: fordEngine === "ext",
+    alg: fordEngine === "alg",
+  };
+  document.querySelectorAll("[data-for]").forEach(el => {
+    el.style.display = show[el.dataset.for] ? (el.dataset.display || "") : "none";
+  });
+  const leg = document.getElementById("regionLegend");
+  leg.innerHTML = "";
+  for (let i = 0; i < 10; i++) {          // both cusps: faces; cusp infinity: face pairs
+    const n = fordEngine === "ext" ? 2 * i + 1 : i + 1;
+    const c = FordCore.paletteColor(regionPal.name, fordEngine === "ext" ? n : 2 * n - 1, regionPal);
+    const d = document.createElement("div");
+    d.innerHTML = `<span style="display:block;height:13px;border-radius:3px;margin-bottom:2px;
+      border:1px solid var(--border);background:rgb(${c})"></span>${n}`;
+    leg.appendChild(d);
+  }
+}
+function onRegionPalette() {
+  regionPal.name = ui.regionPal.value;
+  regionPal.cycle = +ui.regionCycle.value;
+  regionPal.hue = +ui.regionHue.value;
+  syncRegionUI();
+  repaintFordLayer();
+  draw();
+}
+for (const id of ["regionPal", "regionCycle", "regionHue", "fillOuter"])
+  ui[id].addEventListener("input", onRegionPalette);
+document.getElementById("fordEngineSeg").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  for (const x of e.currentTarget.querySelectorAll("button"))
+    x.classList.toggle("active", x === b);
+  fordEngine = b.dataset.engine;
+  syncRegionUI();
+  fordLayer = null;
+  draw();
+  scheduleFord(0);
+  if (sel) describeSelection();
+});
+syncRegionUI();
+
+document.getElementById("planeSeg").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  for (const x of e.currentTarget.querySelectorAll("button"))
+    x.classList.toggle("active", x === b);
+  plane = b.dataset.plane;
+  fitView();
+  draw();
+  scheduleFord(100);
+});
+
+/* ---------------- selection & export to the Dirichlet tool ---------------- */
+
+let sel = null;   // {kind, p?, q?, n?, i?, x, y (rho), zx, zy (chosen sqrt)}
+const selInfoEl = document.getElementById("selInfo");
+const exportBtn = document.getElementById("exportBtn");
+const copyBtn = document.getElementById("copyBtn");
+
+function fmtNum(v, digits) {
+  if (Math.abs(v) < 5e-13) return "0";
+  return String(parseFloat(v.toFixed(digits)));
+}
+function fmtC(re, im, digits = 5, compact = false) {
+  const sep = compact ? "" : " ";
+  if (Math.abs(im) < 5e-13) return fmtNum(re, digits);
+  const imAbs = fmtNum(Math.abs(im), digits) + "i";
+  if (Math.abs(re) < 5e-13) return (im < 0 ? "-" : "") + imAbs;
+  return fmtNum(re, digits) + sep + (im < 0 ? "-" : "+") + sep + imAbs;
+}
+
+function selectables() {              // everything clickable, in rho coords
+  const items = [];
+  for (const e of exts) for (const b of e.beads) {
+    items.push({ kind: "heckoid", p: e.p, q: e.q, n: b.n, x: b.x, y: b.y });
+    if (Math.abs(b.y) > 1e-9)
+      items.push({ kind: "heckoid", p: e.p, q: e.q, n: b.n, x: b.x, y: -b.y });
+  }
+  for (const r of rays) if (r.landed) {
+    const m = r.pts.length, x = r.pts[m - 2], y = r.pts[m - 1];
+    items.push({ kind: "cusp", p: r.p, q: r.q, x, y });
+    if (Math.abs(y) > 1e-9) items.push({ kind: "cusp", p: r.p, q: r.q, x, y: -y });
+  }
+  for (const o of dots)
+    items.push(o.origin ? { kind: "origin", x: 0, y: 0 }
+                        : { kind: "root", p: o.p, q: o.q, i: o.i, x: o.x, y: o.y });
+  return items;
+}
+
+function wordHTML(key) {               // "m1,n1,m2,..." -> Y^m1 X^n1 Y^m2 ...
+  const a = key.split(",").map(Number);
+  let s = "";
+  for (let i = 0; i < a.length; i++)
+    s += (i % 2 === 0 ? "Y" : "X") + (a[i] === 1 ? "" : `<sup>${a[i]}</sup>`);
+  return s;
+}
+
+const fordInsetEl = document.getElementById("fordInset");
+function drawFordInset(vis, live) {
+  const pr = window.devicePixelRatio || 1;
+  fordInsetEl.style.display = "block";
+  const W = Math.max(1, Math.round(fordInsetEl.clientWidth * pr));
+  const H = Math.max(1, Math.round(fordInsetEl.clientHeight * pr));
+  fordInsetEl.width = W; fordInsetEl.height = H;
+  const g = fordInsetEl.getContext("2d");
+  g.fillStyle = "#0b1220"; g.fillRect(0, 0, W, H);
+  let rTop = 0.3;
+  for (const f of vis) rTop = Math.max(rTop, f.r);
+  const sc = Math.min(W / 2.4, H / (2.1 * rTop));
+  const tx = x => W / 2 + (x - 0.5) * sc;
+  const ty = y => H / 2 - y * sc;
+  g.strokeStyle = "rgba(148,163,184,0.35)"; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(0, ty(0)); g.lineTo(W, ty(0)); g.stroke();
+  g.setLineDash([4, 4]);
+  for (const x of [0, 1]) {            // one X-period of the strip
+    g.beginPath(); g.moveTo(tx(x), 0); g.lineTo(tx(x), H); g.stroke();
+  }
+  g.setLineDash([]);
+  const drawFam = (f, visFlag) => {
+    for (let t = -2; t <= 2; t++) {
+      const cx = f.vx + t;
+      if ((cx + f.r) * sc + tx(0) < -20 || (cx - f.r) * sc + tx(0) > W + 20) continue;
+      g.beginPath();
+      g.arc(tx(cx), ty(f.vy), f.r * sc, 0, 2 * Math.PI);
+      if (visFlag) {
+        const hue = hashStr(f.key) % 360;
+        g.fillStyle = `hsla(${hue} 70% 60% / 0.18)`; g.fill();
+        g.strokeStyle = `hsl(${hue} 70% 62%)`; g.lineWidth = 1.5 * pr;
+      } else {
+        g.strokeStyle = "rgba(148,163,184,0.22)"; g.lineWidth = 1;
+      }
+      g.stroke();
+    }
+  };
+  for (const f of live) if (!f.seen) drawFam(f, false);
+  for (const f of vis) drawFam(f, true);
+  g.fillStyle = "rgba(148,163,184,0.8)";
+  g.font = `${10 * pr}px sans-serif`;
+  g.fillText("isometric circles, one X-period of the z-plane", 8 * pr, H - 6 * pr);
+}
+
+/* the two-cusp Ford domain seen from infinity: each face's power cell cut by
+   its isometric disk; a face and its partner share a hue, faces of gE
+   (bisectors with horoballs at images of 0) are hatched.  Framed on the
+   small faces, which crowd around the junction Re z = 1/2.                 */
+let insetHatch = null;
+function drawFordInsetExt(faces) {
+  const pr = window.devicePixelRatio || 1;
+  fordInsetEl.style.display = "block";
+  const W = Math.max(1, Math.round(fordInsetEl.clientWidth * pr));
+  const H = Math.max(1, Math.round(fordInsetEl.clientHeight * pr));
+  fordInsetEl.width = W; fordInsetEl.height = H;
+  const g = fordInsetEl.getContext("2d");
+  g.fillStyle = "#0b1220"; g.fillRect(0, 0, W, H);
+  let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
+  for (const f of faces) {
+    if (!f.word.length) continue;
+    const k = Math.round(0.5 - f.x);
+    for (const [u, v] of f.poly) {
+      const cu = Math.min(Math.max(u, f.x - f.r), f.x + f.r) + k;
+      const cv = Math.min(Math.max(v, f.y - f.r), f.y + f.r);
+      bx0 = Math.min(bx0, cu); bx1 = Math.max(bx1, cu);
+      by0 = Math.min(by0, cv); by1 = Math.max(by1, cv);
+    }
+  }
+  if (!isFinite(bx0)) { bx0 = -0.6; bx1 = 1.6; by0 = -0.6; by1 = 0.6; }
+  const ccx = (bx0 + bx1) / 2, ccy = (by0 + by1) / 2;
+  const vw = Math.min(2.2, Math.max(1.1, 1.3 * (bx1 - bx0), 1.3 * (by1 - by0) * W / H));
+  const sc = W / vw, xlo = ccx - vw / 2, xhi = ccx + vw / 2;
+  const tx = x => W / 2 + (x - ccx) * sc, ty = y => H / 2 - (y - ccy) * sc;
+  if (!insetHatch) {
+    const c = document.createElement("canvas"); c.width = c.height = 8;
+    const x = c.getContext("2d");
+    x.strokeStyle = "rgba(10,14,28,0.35)"; x.lineWidth = 1.6;
+    x.beginPath(); x.moveTo(-2, 10); x.lineTo(10, -2); x.moveTo(-2, 2); x.lineTo(2, -2);
+    x.moveTo(6, 10); x.lineTo(10, 6); x.stroke();
+    insetHatch = g.createPattern(c, "repeat");
+  }
+  const hueOf = w => {
+    if (!w.length) return null;
+    const a = w.join(","), b = w.slice().reverse().map(n => -n).join(",");
+    return (hashStr(a < b ? a : b) * 0.618034 * 360) % 360;
+  };
+  const shown = f => k => !(f.x + k + f.r < xlo - 0.05 || f.x + k - f.r > xhi + 0.05);
+  const labels = [];
+  for (const f of faces) {
+    const hue = hueOf(f.word), cross = !FordCore.inGamma(f.word);
+    const fill = hue === null ? "hsl(215 30% 72%)" : `hsl(${hue.toFixed(0)} 70% ${cross ? 70 : 58}%)`;
+    let area = 0;
+    for (let i = 0; i < f.poly.length; i++) {
+      const p = f.poly[i], q = f.poly[(i + 1) % f.poly.length];
+      area += p[0] * q[1] - q[0] * p[1];
+    }
+    area = Math.abs(area / 2) * sc * sc;
+    for (let k = -2; k <= 2; k++) {
+      if (!shown(f)(k)) continue;
+      g.save();
+      g.beginPath(); g.arc(tx(f.x + k), ty(f.y), f.r * sc, 0, 2 * Math.PI); g.clip();
+      g.beginPath();
+      f.poly.forEach(([u, v], i) => i ? g.lineTo(tx(u + k), ty(v)) : g.moveTo(tx(u + k), ty(v)));
+      g.closePath();
+      g.fillStyle = fill; g.fill();
+      if (cross) { g.fillStyle = insetHatch; g.fill(); }
+      g.restore();
+      if (area > 500 * pr * pr) {
+        let cx = 0, cy = 0;
+        for (const [u, v] of f.poly) { cx += u; cy += v; }
+        cx /= f.poly.length; cy /= f.poly.length;
+        const dx = cx - f.x, dy = cy - f.y, d = Math.hypot(dx, dy);
+        if (d > 0.85 * f.r) { cx = f.x + dx * 0.85 * f.r / d; cy = f.y + dy * 0.85 * f.r / d; }
+        labels.push([FordCore.gammaName(f.word).replace(/A/g, "X").replace(/B/g, "Y"), tx(cx + k), ty(cy)]);
+      }
+    }
+  }
+  g.lineWidth = 0.8 * pr; g.strokeStyle = "rgba(255,255,255,0.35)";
+  for (const f of faces) for (let k = -2; k <= 2; k++) {
+    if (!shown(f)(k)) continue;
+    g.beginPath(); g.arc(tx(f.x + k), ty(f.y), f.r * sc, 0, 2 * Math.PI); g.stroke();
+  }
+  g.setLineDash([4 * pr, 4 * pr]); g.strokeStyle = "rgba(255,255,255,0.5)";
+  for (const u of [-0.5, 0.5, 1.5]) { g.beginPath(); g.moveTo(tx(u), 0); g.lineTo(tx(u), H); g.stroke(); }
+  g.setLineDash([]);
+  g.font = `600 ${10.5 * pr}px sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+  for (const [t, lx, ly] of labels) {
+    if (lx < 8 * pr || lx > W - 8 * pr) continue;
+    g.lineWidth = 3 * pr; g.strokeStyle = "rgba(11,18,32,0.85)"; g.strokeText(t, lx, ly);
+    g.fillStyle = "#fff"; g.fillText(t, lx, ly);
+  }
+  g.textAlign = "left"; g.textBaseline = "alphabetic";
+  g.fillStyle = "rgba(148,163,184,0.8)";
+  g.font = `${10 * pr}px sans-serif`;
+  g.fillText("Ford domain at both cusps, seen from ∞ · dashed: Re z = ½ + n", 8 * pr, H - 6 * pr);
+}
+
+function describeSelection() {
+  if (!sel) return;
+  const lines = [];
+  if (sel.kind === "heckoid")
+    lines.push(`<b>Heckoid point</b> — slope ${sel.p}/${sel.q}, order n = ${sel.n}`);
+  else if (sel.kind === "cusp")
+    lines.push(`<b>${sel.p}/${sel.q} cusp</b> — the ${sel.p}/${sel.q} pleating ray lands here`);
+  else if (sel.kind === "root")
+    lines.push(`<b>Root of Φ<sub>${sel.p}/${sel.q}</sub> + 2</b> (root #${sel.i + 1})`);
+  else if (sel.kind === "origin")
+    lines.push(`<b>ρ = 0</b> — degenerate (Y is trivial)`);
+  else
+    lines.push(`<b>Point</b>`);
+  lines.push(`ρ = ${fmtC(sel.x, sel.y)}`);
+  lines.push(`√ρ = ${fmtC(sel.zx, sel.zy)}`);
+  if (sel.p !== undefined && sel.q !== undefined && !(sel.kind === "origin")) {
+    const ev = evaluator(sel.p, sel.q);         // recursion, not Horner:
+    const e = ev(sel.x, sel.y);                 // Horner is noise out here
+    let line = `Φ<sub>${sel.p}/${sel.q}</sub>(ρ) = ${fmtC(e[0], e[1], 4)}`;
+    if (sel.kind === "heckoid") line += ` &nbsp;(−2cos(π/${sel.n}))`;
+    lines.push(line);
+  }
+  if (sel.kind === "origin" || inRegionPoly(sel.x, sel.y)) {
+    lines.push(`<b>Ford domain</b>: inside the non-discrete / non-free region
+      &mdash; no Ford domain to speak of.`);
+    fordInsetEl.style.display = "none";
+  } else if (fordEngine === "ext") {
+    const fd = FordCore.fordDomain(sel.x, sel.y, { polys: true });
+    const n = fd.faces.length;
+    const c = FordCore.paletteColor(regionPal.name, n, regionPal);
+    const xy = w => FordCore.gammaName(w).replace(/A/g, "X").replace(/B/g, "Y");
+    const names = fd.faces.slice()
+      .sort((a, b) => a.word.length - b.word.length || (a.word.join() < b.word.join() ? -1 : 1))
+      .map(f => FordCore.inGamma(f.word) ? xy(f.word) : `<i>${xy(f.word)}</i>`);
+    lines.push(`<b>Region</b>: <span style="display:inline-block;width:10px;height:10px;
+      border-radius:2px;vertical-align:-1px;background:rgb(${c})"></span>
+      ${n} face${n === 1 ? "" : "s"} of the Ford domain at both cusps${fd.complete ? "" : " (face cap reached)"}`);
+    lines.push(`<b>Faces</b>: ${names.slice(0, 10).join(", &nbsp;")}${
+      names.length > 10 ? ` &nbsp;+${names.length - 10} more` : ""}
+      <br><span class="hint">italic = gE, the faces of the cusp at 0 (hatched below)</span>`);
+    drawFordInsetExt(fd.faces);
+  } else {
+    const alg = algSignature(sel.x, sel.y, Math.max(+ui.fordQ.value, 30), 16);
+    const facePart = alg.sig.split("||")[0];
+    if (!facePart) {
+      lines.push(`<b>Region</b>: trivial &mdash; every |Φ<sub>p/q</sub>(ρ)| ≥ 2,
+        only the Y<sup>&plusmn;1</sup> hemispheres are visible.`);
+    } else {
+      const desc = facePart.split("|").map(s => {
+        const [fr, ks] = s.split(":");
+        return `${fr} (|Φ| &lt; 2, powers W<sup>${ks.replace(/,/g, ",")}</sup>)`;
+      }).join("; &nbsp;");
+      lines.push(`<b>Region</b>: ${alg.n} face pairs, ${alg.e} linking
+        edge class${alg.e === 1 ? "" : "es"} &mdash; ${desc}`);
+    }
+    const rMin = 0.03, maxSyl = 10;    // exact cross-check via word search
+    const { vis, live } = fordVisible(
+      fordFamilies(sel.x, sel.y, rMin, maxSyl), rMin);
+    const keys = [...new Set(vis.map(f => f.key))]
+      .sort((a, b) => a.length - b.length || (a < b ? -1 : 1));
+    const shown = keys.slice(0, 6).map(wordHTML).join(", &nbsp;");
+    const extra = keys.length > 6 ? ` &nbsp;+${keys.length - 6} more` : "";
+    lines.push(`<b>Ford check</b>: ${keys.length} pair${
+      keys.length === 1 ? "" : "s"} by direct word search &mdash; ${shown}${extra}`);
+    drawFordInset(vis, live);
+  }
+  selInfoEl.innerHTML = lines.join("<br>");
+  exportBtn.disabled = false;
+  copyBtn.disabled = false;
+}
+
+function handleClick(clientX, clientY) {
+  const pr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (clientX - rect.left) * pr, my = (clientY - rect.top) * pr;
+  const s = baseScale(canvas.width, canvas.height);
+  const px = view.cx + (mx - canvas.width / 2) / s;
+  const py = view.cy - (my - canvas.height / 2) / s;
+  let rx, ry, zx, zy;
+  if (plane === "sqrt") {             // clicked z; rho = z^2
+    zx = px; zy = py;
+    rx = px * px - py * py; ry = 2 * px * py;
+  } else {
+    rx = px; ry = py;
+    [zx, zy] = csqrt(rx, ry);
+  }
+  // pick the nearest selectable within ~12 screen px, measured in rho units
+  const jac = plane === "sqrt" ? 2 * Math.max(Math.hypot(zx, zy), 0.05) : 1;
+  const thr = 12 * pr / s * jac;
+  let best = null, bestD = thr;
+  for (const it of selectables()) {
+    const d = Math.hypot(it.x - rx, it.y - ry);
+    if (d < bestD) { bestD = d; best = it; }
+  }
+  sel = best ? { ...best } : { kind: "point", x: rx, y: ry };
+  const [wr, wi] = csqrt(sel.x, sel.y);   // sqrt branch nearest the click
+  if ((wr - zx) ** 2 + (wi - zy) ** 2 <= (wr + zx) ** 2 + (wi + zy) ** 2) {
+    sel.zx = wr; sel.zy = wi;
+  } else {
+    sel.zx = -wr; sel.zy = -wi;
+  }
+  describeSelection();
+  draw();
+}
+
+exportBtn.addEventListener("click", () => {
+  if (!sel) return;
+  // The sibling Dirichlet-domain tool takes ?riley=re,im (classical rho) or
+  // ?rileyz=re,im (symmetric z with rho = z^2).
+  const num = v => String(Number(v.toPrecision(12)));
+  const url = plane === "sqrt"
+    ? `../poincare2/?rileyz=${num(sel.zx)},${num(sel.zy)}`
+    : `../poincare2/?riley=${num(sel.x)},${num(sel.y)}`;
+  window.open(url, "_blank");
+});
+copyBtn.addEventListener("click", () => {
+  if (!sel) return;
+  navigator.clipboard.writeText(fmtC(sel.x, sel.y, 12, true));
+  copyBtn.textContent = "Copied!";
+  setTimeout(() => { copyBtn.textContent = "Copy ρ"; }, 1200);
+});
+
+const presets = {
+  classic: { hueL: 0, hueR: 299, gamma: 1.25, sat: 90, val: 80,
+             bgCol: "#e3e3e3", fillCol: "#ffffff", dotCol: "#000000", wheel: false },
+  fire:    { hueL: 55, hueR: 0, gamma: 1.0, sat: 95, val: 90,
+             bgCol: "#17120e", fillCol: "#0d0a08", dotCol: "#ffd9a0", wheel: false },
+  ocean:   { hueL: 150, hueR: 255, gamma: 1.1, sat: 75, val: 85,
+             bgCol: "#f2f5f7", fillCol: "#ffffff", dotCol: "#0c2a3d", wheel: false },
+  candy:   { hueL: 320, hueR: 170, gamma: 0.9, sat: 70, val: 95,
+             bgCol: "#fff7fb", fillCol: "#ffffff", dotCol: "#5a2a4a", wheel: false },
+  ink:     { hueL: 0, hueR: 0, gamma: 1, sat: 0, val: 45,
+             bgCol: "#f4f1ea", fillCol: "#faf8f4", dotCol: "#1a1a1a", wheel: false },
+};
+function applyPreset(p) {
+  for (const [k, v] of Object.entries(p)) {
+    if (typeof v === "boolean") ui[k].checked = v;
+    else ui[k].value = v;
+    const out = document.querySelector(`[data-out=${k}]`);
+    if (out) out.textContent = v;
+  }
+  draw();
+}
+ui.preset.addEventListener("change", () => {
+  if (ui.preset.value === "random") randomPalette();
+  else applyPreset(presets[ui.preset.value]);
+});
+function randomPalette() {
+  const h1 = Math.floor(Math.random() * 360);
+  const h2 = (h1 + 90 + Math.floor(Math.random() * 180)) % 360;
+  const darkBg = Math.random() < 0.35;
+  applyPreset({
+    hueL: h1, hueR: h2, gamma: +(0.7 + Math.random() * 1.2).toFixed(2),
+    sat: 60 + Math.floor(Math.random() * 40), val: 70 + Math.floor(Math.random() * 30),
+    bgCol: darkBg ? "#14151a" : "#ececec",
+    fillCol: darkBg ? "#0b0c10" : "#ffffff",
+    dotCol: darkBg ? "#e8e4d8" : "#000000", wheel: Math.random() < 0.25,
+  });
+}
+document.getElementById("randomize").addEventListener("click", randomPalette);
+document.getElementById("resetView").addEventListener("click", () => { fitView(); draw(); scheduleFord(150); });
+
+document.getElementById("export").addEventListener("click", () => {
+  const off = document.createElement("canvas");
+  off.width = 2 * canvas.width; off.height = 2 * canvas.height;
+  drawScene(off.getContext("2d"), off.width, off.height,
+            2 * (window.devicePixelRatio || 1));
+  off.toBlob(b => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = plane === "sqrt" ? "riley-sqrt.png" : "riley-slice.png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }, "image/png");
+});
+
+/* FLIP-style collapse: measure both end states, animate between them
+   explicitly, and freeze the innards' width so nothing reflows. */
+function setPanelCollapsed(panel, collapsed) {
+  const frozen = panel.querySelectorAll('.panel-header, .panel-content');
+  const from = panel.getBoundingClientRect();
+  panel.classList.toggle('collapsed', collapsed);
+  panel.style.transition = 'none';
+  panel.style.width = '';
+  panel.style.height = '';
+  const to = panel.getBoundingClientRect();
+  const wide = Math.max(from.width, to.width) - 2;   // inside the 1px borders
+  for (const el of frozen) el.style.minWidth = wide + 'px';
+  panel.style.width = from.width + 'px';
+  panel.style.height = from.height + 'px';
+  void panel.offsetWidth;   // commit the start state before re-enabling the transition
+  panel.style.transition = '';
+  panel.style.width = to.width + 'px';
+  panel.style.height = to.height + 'px';
+  clearTimeout(panel._collapseTimer);
+  panel._collapseTimer = setTimeout(() => {
+    panel.style.width = '';
+    panel.style.height = '';
+    for (const el of frozen) el.style.minWidth = '';
+  }, 420);
+}
+document.getElementById('collapseBtn').addEventListener('click', e => {
+  const panel = document.getElementById('control-panel');
+  const collapsed = !panel.classList.contains('collapsed');
+  setPanelCollapsed(panel, collapsed);
+  e.currentTarget.title = collapsed ? 'Expand panel' : 'Collapse panel';
+});
+
+/* pan & zoom (a press that never moves is a selection click) */
+let dragging = null;
+canvas.addEventListener("pointerdown", e => {
+  dragging = { x: e.clientX, y: e.clientY, cx: view.cx, cy: view.cy, moved: false };
+  stage.classList.add("dragging");
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  if (Math.abs(e.clientX - dragging.x) + Math.abs(e.clientY - dragging.y) > 4)
+    dragging.moved = true;
+  if (!dragging.moved) return;
+  const pr = window.devicePixelRatio || 1;
+  const s = baseScale(canvas.width, canvas.height) / pr;
+  view.cx = dragging.cx - (e.clientX - dragging.x) / s;
+  view.cy = dragging.cy + (e.clientY - dragging.y) / s;
+  draw();
+});
+canvas.addEventListener("pointerup", e => {
+  const wasClick = dragging && !dragging.moved;
+  const panned = dragging && dragging.moved;
+  dragging = null;
+  stage.classList.remove("dragging");
+  canvas.releasePointerCapture(e.pointerId);
+  if (wasClick) handleClick(e.clientX, e.clientY);
+  if (panned) scheduleFord(350);
+});
+canvas.addEventListener("dblclick", () => { fitView(); draw(); scheduleFord(200); });
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const pr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * pr, my = (e.clientY - rect.top) * pr;
+  const sOld = baseScale(canvas.width, canvas.height);
+  const wx = view.cx + (mx - canvas.width / 2) / sOld;
+  const wy = view.cy - (my - canvas.height / 2) / sOld;
+  const f = Math.exp(-e.deltaY * 0.0015);
+  view.scale = Math.min(200, Math.max(0.2, (view.scale === 0 ? 1 : view.scale) * f));
+  const sNew = baseScale(canvas.width, canvas.height);
+  view.cx = wx - (mx - canvas.width / 2) / sNew;
+  view.cy = wy + (my - canvas.height / 2) / sNew;
+  draw();
+  scheduleFord(450);
+}, { passive: false });
+
+window.addEventListener("resize", () => { draw(); scheduleFord(600); });
+
+/* ---------------- boot ---------------------------------------------------- */
+
+statusEl.textContent = "building Farey polynomials…";
+setTimeout(() => {
+  buildPolynomials();
+  recomputeAll();
+}, 20);
+</script>
+<!-- golg-nav-bootstrap -->
+<script>(function(){if(window.self!==window.top)return;var p=location.pathname,m="/GeometryofLinearGroups/",i=p.indexOf(m),b=i>=0?p.substring(0,i+m.length):p.replace(/[^/]*$/,"");var s=document.createElement("script");s.src=b+"assets/js/site-nav.js";s.defer=true;document.head.appendChild(s);})();</script>
+</body>
+</html>
