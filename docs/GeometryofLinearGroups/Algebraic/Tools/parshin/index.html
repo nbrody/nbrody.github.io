@@ -65,6 +65,19 @@
         <div id="gen-summary" class="gen-summary"></div>
       </div>
 
+      <div class="control-group" id="spec-group">
+        <div class="control-row">
+          <label class="control-label" for="spec-a">Specialize</label>
+          <span class="spec-eq">t =</span>
+          <input id="spec-a" type="text" class="number-input" value="1" spellcheck="false" aria-label="the value of t">
+        </div>
+        <div class="slider-row"><label for="spec-s" class="cayley-label">Collapse</label><input id="spec-s" class="opacity-slider" type="range" min="0" max="1" step="0.005" value="0"><output id="spec-sO">t = ∞</output></div>
+        <button id="spec-go" class="toggle-btn">Collapse to t = 1</button>
+        <p id="spec-err" class="error-message"></p>
+        <div id="spec-list" class="gen-summary"></div>
+        <p class="label-hint">Setting t = a sends PGL₂(ℚ[t, 1/t]) to PGL₂(ℚ), which acts on one hyperbolic plane. Every plane X(v) is laid onto it by its frame, z ↦ g_v(a)·z; collapsed, the generators act on it by their values at t = a. Planes that land as the same tessellation are drawn once.</p>
+      </div>
+
       <div class="control-group">
         <div class="control-row">
           <label class="control-label">Current element</label>
@@ -105,8 +118,8 @@
       </div>
 
       <div class="control-group">
-        <div class="slider-row"><label for="dep" class="cayley-label">Depth</label><input id="dep" class="opacity-slider" type="range" min="1" max="5" step="1" value="3"><output id="depO"></output></div>
-        <div class="slider-row"><label for="den" class="cayley-label">Max q</label><input id="den" class="opacity-slider" type="range" min="2" max="12" step="1" value="6"><output id="denO"></output></div>
+        <div class="slider-row"><label for="dep" class="cayley-label">Depth</label><input id="dep" class="opacity-slider" type="range" min="1" max="6" step="1" value="4"><output id="depO"></output></div>
+        <div class="slider-row"><label for="den" class="cayley-label">Max q</label><input id="den" class="opacity-slider" type="range" min="2" max="16" step="1" value="8"><output id="denO"></output></div>
         <div class="slider-row"><label for="lam" class="cayley-label">Child scale</label><input id="lam" class="opacity-slider" type="range" min="0.3" max="1" step="0.05" value="0.6"><output id="lamO"></output></div>
         <div class="slider-row"><label for="hgt" class="cayley-label">Edge length</label><input id="hgt" class="opacity-slider" type="range" min="-2" max="2" step="0.05" value="-1"><output id="hgtO"></output></div>
         <div class="slider-row"><label for="dur" class="cayley-label">Animation</label><input id="dur" class="opacity-slider" type="range" min="0.4" max="4" step="0.1" value="1.6"><output id="durO"></output></div>
@@ -149,7 +162,13 @@
         <h3 class="info-title">Frames and the action</h3>
         <p>A vertex is named by its path of cusps $w_1, \dots, w_n$ from $v_0$, and its plane is drawn in the frame $g_v = T_{w_1} \cdots T_{w_n}$ with $T_w = \begin{pmatrix} \pi & w \\ 0 & 1 \end{pmatrix}$, $T_\infty = \begin{pmatrix} 0 & -1 \\ \pi & 0 \end{pmatrix}$: the cusp $\infty$ of every plane points back to its parent.</p>
         <p>An element $\gamma$ sends $v$ to $\gamma v$, and $g_{\gamma v}^{-1}\gamma\, g_v$ is, up to a power of $\pi$, in $\mathrm{SL}_2(\mathbb{Q}[[\pi]])$; its reduction mod $\pi$ is the Möbius map $X(v) \to X(\gamma v)$. The animation moves every plane to its image while turning its contents by that map. All of it is computed exactly.</p>
+        <p>When the base plane itself moves, the upper half-plane rolls up into a disk, through the round disks $z \mapsto z/(1 - i\tau z/2)$ with $\tau$ going from $0$ to $2$ (each one a conformal picture of $\mathbb{H}$), and the plane taking its place unrolls the same way.</p>
         <p>$\gamma$ translates an axis of the tree by $\max(0, v(\det\gamma) - 2v(\operatorname{tr}\gamma))$, which is $2\max(0, \deg \operatorname{tr}\gamma)$ in $\mathrm{SL}_2$; otherwise it fixes a vertex, or swaps the ends of an edge when $v(\det\gamma)$ is odd.</p>
+      </div>
+      <div class="info-section">
+        <h3 class="info-title">Specializing t</h3>
+        <p>Evaluating at $t = a \neq 0$ sends $\mathrm{PGL}_2(\mathbb{Q}[t, 1/t])$ to $\mathrm{PGL}_2(\mathbb{Q})$, which acts on a single plane $\mathbb{H}$. The frames specialize too, and $z \mapsto g_v(a)\cdot z$ identifies every plane $X(v)$ with $\mathbb{H}$; the collapse lays each plane onto the base that way, so the plane carried at $u = gv$ lands as $g(a)\,g_v(a)$. At $t = 1$ the planes at integer cusps land exactly on the base tessellation; at $t = 2$ the plane at $0$ lands scaled by $\tfrac12$.</p>
+        <p>The tree is the other end of the same family: $g_{\gamma v}(T)^{-1}\,\gamma(T)\,g_v(T)$ tends to the local map as $T \to \infty$. So the collapse does not commute with the tree's action, and the collapsed plane carries its own: $\gamma$ acts there by $\gamma(a)$, rigidly.</p>
       </div>
       <div class="info-section">
         <h3 class="info-title">All of PGL₂(ℚ(t))</h3>

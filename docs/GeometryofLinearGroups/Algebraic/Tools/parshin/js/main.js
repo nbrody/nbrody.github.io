@@ -17,7 +17,10 @@ import { fromPoly, mmul, adj, det, IDENTITY, isScalar, lTex, normalizePGL } from
 import { parseRat } from './polyParse.js';
 import { polyMatrix } from './poly.js';
 import { frameOf, vertexOf, localMap, classify, keyOf, cuspKey, isPrefix, toFloat, fmul, finv, fdet, fnorm, RHO, mobiusPath } from './treeAction.js';
-import { HALF, childFrame, standardChild, edgeGap, rootFrame, frameAt, lerpFrame, scaleOf } from './layout.js';
+import { HALF, attach, childFrame, standardChild, edgeGap, rootFrame, frameAt, lerpFrame, scaleOf, toCF, lerpCF, cfPoint, cfDisk } from './layout.js';
+import { Q } from './rational.js';
+import { primitive } from './poly.js';
+import { specMat, qmul, qdet, latticeKey } from './specialize.js';
 import * as UI from './panel.js';
 import { EXAMPLES } from './examples.js';
 
@@ -25,11 +28,11 @@ const $ = (id) => document.getElementById(id);
 const cv = $('cv');
 
 const MAXP = 30000;       // planes per build
-const MIN_PX = 1.2;       // planes smaller than this (projected radius) are dropped with their subtrees
+const MIN_PX = 0.6;       // planes smaller than this (projected radius) are dropped with their subtrees
 const DETAIL_PX = 18;     // Farey geodesics and horocycles only on planes at least this big
 const ORTHO_DIST = 60;
 
-const st = { dep: 3, N: 6, lam: 0.6, h: -1, edges: 'q', base: 'half', far: true, hor: false, ortho: false, dur: 1.6 };
+const st = { dep: 4, N: 8, lam: 0.6, h: -1, edges: 'q', base: 'half', far: true, hor: false, ortho: false, dur: 1.6 };
 
 // ---------- palette ----------
 const PAL = {
@@ -84,12 +87,29 @@ for (const m of [diskHi, diskLo]) {
     scene.add(m);
 }
 
+// Translucent disks for planes landing on the base when t is specialized (a per-instance opacity).
+const GHOSTS = 8000;
+const ghostMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 });
+ghostMat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aAlpha;\nvarying float vAlpha;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvAlpha = aAlpha;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vAlpha;')
+        .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n\tgl_FragColor.a *= vAlpha;');
+};
+const ghostGeo = flatDisk(64);
+ghostGeo.setAttribute('aAlpha', new THREE.InstancedBufferAttribute(new Float32Array(GHOSTS), 1));
+const ghosts = new THREE.InstancedMesh(ghostGeo, ghostMat, GHOSTS);
+ghosts.setColorAt(0, new THREE.Color());
+ghosts.count = 0;
+ghosts.frustumCulled = false;
+scene.add(ghosts);
+
 // The upper half-plane, truncated to [−X, X] × [0, Y] and faded out at the cut.
 const fade = (x, y) => {
-    const s = (t) => { t = Math.min(1, Math.max(0, t / HALF.FADE)); return t * t * (3 - 2 * t); };
-    return y < -1e-9 ? 0 : s(HALF.X - Math.abs(x)) * s(HALF.Y - y);
+    const s = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
+    return y < -1e-9 ? 0 : s((HALF.X - Math.abs(x)) / HALF.FADEX) * s((HALF.Y - y) / HALF.FADEY);
 };
-const halfGeo = new THREE.PlaneGeometry(2 * HALF.X, HALF.Y, 120, 48).rotateX(-Math.PI / 2).translate(0, 0, -HALF.Y / 2);
+const halfGeo = new THREE.PlaneGeometry(2 * HALF.X, HALF.Y, 40 * HALF.X, 48).rotateX(-Math.PI / 2).translate(0, 0, -HALF.Y / 2);
 halfGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(halfGeo.attributes.position.count * 4), 4));
 const halfMesh = new THREE.Mesh(halfGeo, new THREE.MeshBasicMaterial({
     vertexColors: true, transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
@@ -168,9 +188,9 @@ function geodesicLocal(L_, F, [ax, ay], [cx, cy], rs, col) {
 
 function drawDisk(L_, rec, rs) {
     const F = rec.F, C = rec.C;
-    circleLocal(L_, F, 0, 0, 1, rs, mixRGBA(P.str, rec));
-    if (!(rs > DETAIL_PX && (st.far || st.hor))) return;
-    const Nc = rs > 140 ? st.N : rs > 50 ? Math.min(st.N, 4) : Math.min(st.N, 2);
+    if (!rec.noAxis) circleLocal(L_, F, 0, 0, 1, rs, mixRGBA(P.str, rec));
+    if (rec.bare || !(rs > DETAIL_PX && (st.far || st.hor))) return;
+    const Nc = Math.min(rec.Nc || st.N, rs > 140 ? st.N : rs > 50 ? 4 : 2);
     // carried contents can bring the cusps near ∞ into view, so use the set closed under S
     const full = C || rec.labels.length === 0, set = full ? baseDiskSet(Nc) : diskSet(Nc);
     if (st.far) {
@@ -224,7 +244,8 @@ function halfGeodesic(L_, V1, V2, col) {
 function halfHorocycle(L_, [P_, Q_], col) {
     if (Math.abs(Q_) < 1e-9) {
         const y = P_ * P_;
-        if (y <= HALF.Y) for (let i = 0; i < 60; i++) fseg(L_, -HALF.X + 2 * HALF.X * i / 60, y, -HALF.X + 2 * HALF.X * (i + 1) / 60, y, col);
+        const n = 20 * HALF.X;
+        if (y <= HALF.Y) for (let i = 0; i < n; i++) fseg(L_, -HALF.X + 2 * HALF.X * i / n, y, -HALF.X + 2 * HALF.X * (i + 1) / n, y, col);
         return;
     }
     const x = P_ / Q_, r = 1 / (2 * Q_ * Q_);
@@ -235,9 +256,11 @@ function drawHalf(L_, rec) {
     const { X } = HALF, C = rec.C;
     halfFlip = rec.F.flip || 0;
     halfMesh.rotation.z = halfFlip;
-    for (let i = 0; i < 60; i++) fseg(L_, -X + 2 * X * i / 60, 0, -X + 2 * X * (i + 1) / 60, 0, P.axis);
+    if (!rec.noAxis) for (let i = 0, n = 20 * X; i < n; i++) fseg(L_, -X + 2 * X * i / n, 0, -X + 2 * X * (i + 1) / n, 0, P.axis);
+    if (rec.bare) return;
+    const N = rec.Nc || st.N;
     if (!C) {
-        const R0 = farey(-X, X, st.N);
+        const R0 = farey(-X, X, N);
         if (st.far) {
             for (const [p1, q1, p2, q2] of R0.e) halfGeodesic(L_, [p1, q1], [p2, q2], P.line);
             for (let n = -X; n <= X; n++) halfGeodesic(L_, [n, 1], [1, 0], P.line);
@@ -248,9 +271,113 @@ function drawHalf(L_, rec) {
         }
         return;
     }
-    const set = baseDiskSet(st.N);
+    const set = baseDiskSet(N);
     if (st.far) for (const [p1, q1, p2, q2] of set.e) halfGeodesic(L_, vec(C, p1, q1), vec(C, p2, q2), P.line);
     if (st.hor) for (const [p, q] of set.v) halfHorocycle(L_, vec(C, p, q), P.horo[0]);
+}
+
+// ---------- a plane between the half-plane and a disk (layout.js, conformal frames) ----------
+// Its contents are sampled in the unit-disk picture ζ, carried to ℍ by z = (1 − iζ)/(ζ − i),
+// and drawn by the frame. While it is mostly the half-plane it fades out where the strip does;
+// as it rounds into a disk the rest of it fades in. Only the base plane and the plane replacing
+// it ever morph, so two fills are enough.
+const smooth01 = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
+function invCay(a, b) {
+    const nr = 1 + b, ni = -a, dr = a, di = b - 1, d2 = dr * dr + di * di;
+    if (d2 < 1e-12) return [0, 1e4];
+    return [(nr * dr + ni * di) / d2, (ni * dr - nr * di) / d2];
+}
+function morphMesh() {
+    const NR = 36, NA = 144, zeta = [], idx = [];
+    for (let i = 0; i <= NR; i++) {
+        const r = 1 - Math.pow(1 - i / NR, 1.7);            // rings crowd toward the boundary, where the strip is
+        for (let j = 0; j < NA; j++) zeta.push(r * Math.cos(2 * Math.PI * j / NA), r * Math.sin(2 * Math.PI * j / NA));
+    }
+    for (let i = 0; i < NR; i++) {
+        for (let j = 0; j < NA; j++) {
+            const a = i * NA + j, b = i * NA + (j + 1) % NA, c = a + NA, d = b + NA;
+            idx.push(a, b, c, b, d, c);
+        }
+    }
+    const n = zeta.length / 2, geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3 * n), 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(4 * n), 4));
+    geo.setIndex(idx);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+        vertexColors: true, transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+    }));
+    mesh.userData.zeta = new Float32Array(zeta);
+    mesh.frustumCulled = false;
+    mesh.visible = false;
+    scene.add(mesh);
+    return mesh;
+}
+const morphMeshes = [morphMesh(), morphMesh()];
+
+// the arc of the unit disk joining two boundary points, as a parametrized curve
+function zetaArc([ax, ay], [cx, cy], k) {
+    const D = Math.acos(Math.max(-1, Math.min(1, ax * cx + ay * cy)));
+    if (D < 1e-9) return null;
+    if (Math.PI - D < 1e-9) return (i) => [ax + (cx - ax) * i / k, ay + (cy - ay) * i / k];
+    const ml = Math.hypot(ax + cx, ay + cy), dist = 1 / Math.cos(D / 2), rho = Math.tan(D / 2);
+    const mx = (ax + cx) / ml * dist, my = (ay + cy) / ml * dist, a1 = Math.atan2(ay - my, ax - mx);
+    let da = Math.atan2(cy - my, cx - mx) - a1;
+    while (da > Math.PI) da -= 2 * Math.PI;
+    while (da < -Math.PI) da += 2 * Math.PI;
+    return (i) => [mx + rho * Math.cos(a1 + da * i / k), my + rho * Math.sin(a1 + da * i / k)];
+}
+
+// a point of the unit-disk picture ζ on a conformal frame: world position and the strip's fade there
+function cfAt(F, a, b) {
+    const lam = smooth01(F.tau / 2), [x, y] = invCay(a, b), [px, py, lift] = cfPoint(F, x, y);
+    return [px, F.z + lift, -py, lam + (1 - lam) * fade(x, y)];
+}
+const farPt = (p) => Math.abs(p[0]) + Math.abs(p[1]) + Math.abs(p[2]) > 1e3;
+function cfPoly(L_, F, k, f, col, mult = 1) {
+    let p0 = cfAt(F, ...f(0));
+    for (let i = 1; i <= k; i++) {
+        const p1 = cfAt(F, ...f(i)), a0 = p0[3] * mult, a1 = p1[3] * mult;
+        if ((a0 > 0.003 || a1 > 0.003) && !farPt(p0) && !farPt(p1)) L_.seg(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], col, a0, a1);
+        p0 = p1;
+    }
+}
+const circleZ = (k) => (i) => [Math.cos(2 * Math.PI * i / k), Math.sin(2 * Math.PI * i / k)];
+// the Farey tessellation (and the Ford horocycles) carried by C, drawn on a conformal frame
+function cfFarey(L_, F, C, Nc, k, mult, rec) {
+    const set = baseDiskSet(Nc);
+    if (st.far) {
+        for (const [p1, q1, p2, q2] of set.e) {
+            const f = zetaArc(Bv(...vec(C, p1, q1)), Bv(...vec(C, p2, q2)), k);
+            if (f) cfPoly(L_, F, k, f, P.line, mult);
+        }
+    }
+    if (st.hor) {
+        for (const [p, q] of set.v) {
+            const [P_, Q_] = vec(C, p, q), D = 2 / (1 + P_ * P_ + Q_ * Q_);
+            if (D < 0.004) continue;
+            const [ba, bb] = Bv(P_, Q_), ca = ba * (1 - D / 2), cb = bb * (1 - D / 2), r = D / 2;
+            cfPoly(L_, F, 48, (i) => [ca + r * Math.cos(2 * Math.PI * i / 48), cb + r * Math.sin(2 * Math.PI * i / 48)], mixRGBA(P.horo, rec), mult);
+        }
+    }
+}
+
+function drawMorph(L_, rec, mesh) {
+    const F = rec.F, C = rec.C, lam = smooth01(F.tau / 2), at = (a, b) => cfAt(F, a, b);
+    if (mesh) {
+        const pos = mesh.geometry.attributes.position, col = mesh.geometry.attributes.color, Z = mesh.userData.zeta, c = mixColor(P.fill, rec);
+        for (let i = 0; i < pos.count; i++) {
+            const p = at(Z[2 * i], Z[2 * i + 1]);
+            pos.setXYZ(i, p[0], p[1], p[2]);
+            col.setXYZW(i, c.r, c.g, c.b, p[3]);
+        }
+        pos.needsUpdate = true;
+        col.needsUpdate = true;
+        mesh.visible = true;
+    }
+    // the boundary: the real axis curling up into the circle
+    const S = mixRGBA(P.str, rec), edgeCol = P.axis.map((x, i) => x + (S[i] - x) * lam);
+    cfPoly(L_, F, 360, circleZ(360), edgeCol);
+    cfFarey(L_, F, C, st.N, 40, 1, rec);
 }
 
 // Planes are coloured by the parity of their distance from v₀. An element whose determinant has
@@ -326,6 +453,12 @@ function visit(F, gap, labels, parent, dep) {
 
 function build() {
     if (anim) return;
+    if (spec.items) {                       // specialized: draw the collapse instead of the tree
+        if (spec.run || spec.act) return;
+        if (spec.sig !== settingsSig()) refreshItems();
+        drawCollapse(ease(spec.s));
+        return;
+    }
     const t0 = performance.now();
     setupCull();
     recs = []; truncated = false;
@@ -348,23 +481,36 @@ function build() {
 
 // Draw a list of planes: fills as instances, everything else as one set of line segments.
 const axis = new THREE.Vector3(), S3 = new THREE.Vector3();
+// a disk frame's instance matrix, turned about its diameter through ∞ when flipping
+function diskMatrix(F) {
+    if (F.flip) return M4.makeRotationAxis(axis.set(F.ux, 0, -F.uy), -F.flip).scale(S3.set(F.R, 1, F.R)).setPosition(F.cx, F.z, -F.cy);
+    return M4.makeScale(F.R, 1, F.R).setPosition(F.cx, F.z, -F.cy);
+}
 function drawRecs(list) {
-    let nHi = 0, nLo = 0;
+    ghosts.count = 0;
+    let nHi = 0, nLo = 0, nMorph = 0;
     halfFlip = 0;
     halfMesh.rotation.z = 0;
+    halfMesh.visible = list.some((r) => r.F.half);
     const L_ = new Segs();
     for (const rec of list) {
         const F = rec.F;
         rec.mesh = null;
         if (F.half) { drawHalf(L_, rec); continue; }
+        if (F.cf) {
+            drawMorph(L_, rec, morphMeshes[nMorph++]);
+            if (rec.gap) {
+                const [ax, ay, , , lift] = attach(F, 1, 0);
+                L_.seg(ax, F.z + lift, -ay, ax, F.z + lift - rec.gap, -ay, P.edge);
+            }
+            continue;
+        }
         const rs = rec.rs ?? pxRadius(F.cx, F.z, F.cy, F.R);
         if (rs < MIN_PX) continue;
         const hi = rs > 60;
         if ((hi ? nHi : nLo) >= MAXP) continue;
         const m = hi ? diskHi : diskLo, i = hi ? nHi++ : nLo++;
-        if (F.flip) M4.makeRotationAxis(axis.set(F.ux, 0, -F.uy), -F.flip).scale(S3.set(F.R, 1, F.R)).setPosition(F.cx, F.z, -F.cy);
-        else M4.makeScale(F.R, 1, F.R).setPosition(F.cx, F.z, -F.cy);
-        m.setMatrixAt(i, M4);
+        m.setMatrixAt(i, diskMatrix(F));
         m.setColorAt(i, mixColor(P.fill, rec));
         rec.mesh = m; rec.inst = i;
         drawDisk(L_, rec, rs);
@@ -373,6 +519,7 @@ function drawRecs(list) {
             L_.seg(ax, F.z, -ay, ax, F.z - rec.gap, -ay, P.edge);
         }
     }
+    for (let k = nMorph; k < morphMeshes.length; k++) morphMeshes[k].visible = false;
     for (const [m, n] of [[diskHi, nHi], [diskLo, nLo]]) {
         m.count = n;
         m.instanceMatrix.needsUpdate = true;
@@ -399,6 +546,10 @@ const ease = (s) => (s < 0.5 ? 2 * s * s : 1 - Math.pow(-2 * s + 2, 2) / 2);
 function applyGenerator(i, inverse) {
     const G = gens[i];
     if (!G) return;
+    if (spec.items) {                       // collapsed: γ acts on the one plane by γ(a)
+        if (spec.s >= 1) { specQueue.push([i, inverse]); if (!spec.act && !spec.run) startSpecAct(); }
+        return;
+    }
     queue.push(inverse ? { M: G.Minv, Minv: G.M, letter: [i, -1] } : { M: G.M, Minv: G.Minv, letter: [i, 1] });
     if (!anim) startNext();
 }
@@ -406,10 +557,6 @@ function applyGenerator(i, inverse) {
 function startNext() {
     const job = queue.shift();
     if (!job) return;
-    if (st.base === 'half' && vertexOf(job.M).length) {
-        setBase('disk');
-        flash('This element moves the base plane, so it is shown in the disk picture.');
-    }
     clearTimeout(buildTimer);
     build();
     setHover(-1);
@@ -432,6 +579,9 @@ function startNext() {
         const a = frameAt(it.labels, st, fc), b = frameAt(lu, st, fc);
         Object.assign(it, { F0: a.F, F1: b.F, gap0: a.gap, gap1: b.gap });
         it.spine = isPrefix(it.labels, spine);
+        // the half-plane rolls up into a disk (or a disk unrolls into it) through conformal frames
+        it.morph = it.spine && !a.F.half !== !b.F.half;
+        if (it.morph) { it.C0 = toCF(a.F); it.C1 = toCF(b.F); }
         if (it.spine) continue;
         it.parentKey = keyOf(it.labels.slice(0, -1));
         const w = it.labels[it.labels.length - 1].map(Number), w1 = lu[lu.length - 1].map(Number);
@@ -450,7 +600,7 @@ function animFrame(s) {
     for (const it of anim.order) {
         let F, gap;
         if (it.spine) {
-            F = lerpFrame(it.F0, it.F1, e);
+            F = it.morph ? lerpCF(it.C0, it.C1, e) : lerpFrame(it.F0, it.F1, e);
             gap = it.gap0 + (it.gap1 - it.gap0) * e;
         } else {
             // ride the parent's cusp while the parent turns by its local map
@@ -475,17 +625,21 @@ function stepAnim(now) {
     const s = reduceMotion() ? 1 : Math.min(1, (now - anim.t0) / anim.dur);
     animFrame(s);
     if (s < 1) return;
-    const { job } = anim;
+    commitJob(anim.job);
+    anim = null;
+    build();
+    showElement();
+    startNext();
+}
+
+// The current element becomes γ·g.
+function commitJob(job) {
     g = normalizePGL(mmul(job.M, g));
     gInv = normalizePGL(mmul(gInv, job.Minv));
     gIsId = isScalar(g);
     const [i, e] = job.letter;
     if (word.length && word[0][0] === i && word[0][1] === -e) word.shift(); else word.unshift(job.letter);
     decor.clear();
-    anim = null;
-    build();
-    showElement();
-    startNext();
 }
 
 function resetElement() {
@@ -495,8 +649,196 @@ function resetElement() {
     gIsId = true;
     word = [];
     decor.clear();
+    if (spec.items) refreshItems();
     build();
     showElement();
+}
+
+// ---------- specializing t ↦ a: the planes collapse onto one ----------
+// Evaluating at t = a sends PGL₂(ℚ[t, 1/t]) to PGL₂(ℚ), which acts on a single hyperbolic plane;
+// the plane X(v) is identified with it by its frame, z ↦ g_v(a)·z (specialize.js). The tree
+// view shows g applied to the standard tree, so the plane at u = gv, which carries X(v) by the
+// local map h, lands as g(a)·g_v(a). The collapse unrolls every plane onto the base through
+// the conformal frames of layout.js while its contents move from h to g(a)·g_v(a); collapsed,
+// the generators act on the one plane by γ(a). The planes landing as the same tessellation
+// (the same lattice g(a)·g_v(a)·ℤ² up to scale) are drawn once.
+const spec = { a: Q.ONE, s: 0, items: null, sources: null, sig: '', run: null, act: null };
+const specQueue = [];
+const OVERLAYS = 24, SPEC_MIN_PX = 2;
+const ID = [1, 0, 0, 1];
+const settingsSig = () => `${st.base}|${st.edges}|${st.h}|${st.lam}`;
+
+function specItems(sources) {
+    const ga = specMat(g, spec.a), fc = new Map(), baseCF = toCF(rootFrame(st));
+    return sources.map((v) => {
+        let u = v, d = null;
+        if (!gIsId) { const lm = localMap(g, v); u = lm.labels; d = fnorm(toFloat(lm.h)); }
+        const { F, gap } = frameAt(u, st, fc);
+        const Mq = qmul(ga, specMat(frameOf(v), spec.a)), M = fnorm(Mq.map((x) => x.toNumber()));
+        // Where it lands: on the half-plane, M = A·K with A: z ↦ β + αz taking i to M·i and K a
+        // rotation about i, so the plane unrolls around its own place in the frame A and only K
+        // turns its contents. (A disk base has no such frames, so there it is the base and K = M.)
+        let CFt = baseCF, K = M;
+        if (baseCF.tau === 0) {
+            const z0 = fdet(M) > 0 ? [0, 1] : [0, -1];   // the isometry is z ↦ M·z, or M·z̄ when det M < 0
+            const nr = M[0] * z0[0] + M[1], ni = M[0] * z0[1], dr = M[2] * z0[0] + M[3], di = M[2] * z0[1], dd = dr * dr + di * di;
+            const beta = (nr * dr + ni * di) / dd, alpha = (ni * dr - nr * di) / dd;
+            CFt = { ...baseCF, T: [beta, 0], kap: alpha };
+            K = fnorm(fmul([1, -beta, 0, alpha], M));
+        }
+        const rel = d ? fmul(K, finv(d)) : K, flip = fdet(rel) < 0;
+        return {
+            key: keyOf(v), v, u, root: !u.length, dep: u.length, F0: F, CF0: F.half ? null : toCF(F), CFt, gap0: gap,
+            d, M, Mq, flip, P: mobiusPath(flip ? fmul(RHO, rel) : rel),
+        };
+    });
+}
+// The planes with the biggest pictures keep their tessellations, one for each lattice.
+function chooseOverlays(items) {
+    setupCull();
+    for (const it of items) it.rs = it.root ? Infinity : pxRadius(it.F0.cx, it.F0.z, it.F0.cy, it.F0.R);
+    const seen = new Set();
+    for (const it of [...items].sort((a, b) => b.rs - a.rs)) {
+        const k = latticeKey(it.Mq);
+        it.overlay = !seen.has(k) && seen.size < OVERLAYS;
+        if (it.overlay) seen.add(k);
+    }
+}
+function prepareCollapse() {
+    setupCull();
+    const seen = new Set(), sources = [];
+    for (const r of recs) {
+        if (r.labels.length && (r.rs ?? 0) < SPEC_MIN_PX) continue;
+        const src = (decor.get(r.key) || {}).src || r.labels, k = keyOf(src);
+        if (!seen.has(k)) { seen.add(k); sources.push(src); }
+    }
+    spec.sources = sources;
+    spec.items = specItems(sources);
+    chooseOverlays(spec.items);
+    spec.sig = settingsSig();
+    setHover(-1);
+    recs = [];
+}
+// Recompute after the element, the settings or a change: the same planes, the same overlays.
+function refreshItems(rechoose = false) {
+    const keep = new Map(spec.items.map((it) => [it.key, it]));
+    spec.items = specItems(spec.sources);
+    if (rechoose) chooseOverlays(spec.items);
+    else for (const it of spec.items) { const o = keep.get(it.key); it.overlay = o && o.overlay; it.rs = o ? o.rs : 0; }
+    spec.sig = settingsSig();
+}
+
+// One frame of the collapse at amount e (0 the tree, 1 one plane), or of γ(a) acting once collapsed.
+function drawCollapse(e, act) {
+    setupCull();
+    const L_ = new Segs(), root = rootFrame(st), ga = ghosts.geometry.attributes.aAlpha;
+    let nHi = 0, nLo = 0, nG = 0, rootDrawn = false;
+    halfFlip = 0;
+    halfMesh.rotation.z = 0;
+    halfMesh.visible = !!root.half;
+    for (const k of morphMeshes) k.visible = false;
+    const drawBase = (rec) => {
+        if (root.half) { drawHalf(L_, rec); return; }
+        const m = diskHi, i = nHi++;
+        m.setMatrixAt(i, diskMatrix(rec.F));
+        m.setColorAt(i, P.fill[0]);
+        drawDisk(L_, rec, pxRadius(rec.F.cx, rec.F.z, rec.F.cy, rec.F.R));
+    };
+    for (const it of spec.items) {
+        // its contents: from the tree picture (h) to the identification g(a)·g_v(a), then γ(a)
+        let C, flip;
+        if (e >= 1) { C = it.M; flip = 0; } else { C = fmul(it.P(e), it.d || ID); flip = it.flip ? Math.PI * e : 0; }
+        if (act) { C = fmul(act.Hs, C); flip += act.flip; }
+        if (it.root) { drawBase({ F: { ...root, flip }, C, labels: [], dep: 0, gap: 0 }); rootDrawn = true; continue; }
+        if (e >= 1) {                       // landed: only the overlays remain, drawn on the base itself
+            if (it.overlay) {
+                const rec = { F: { ...root, flip }, C, labels: [], dep: it.dep, gap: 0, noAxis: true, Nc: Math.min(st.N, 6) };
+                if (root.half) drawHalf(L_, rec); else drawDisk(L_, rec, pxRadius(root.cx, root.z, root.cy, root.R));
+            }
+            continue;
+        }
+        const F = { ...lerpCF(it.CF0, it.CFt, e), flip }, fadeA = 1 - e;
+        const D = F.tau > 0.02 ? cfDisk(F) : null, rs = D ? pxRadius(D.cx, D.z, D.cy, D.R) : Infinity;
+        if (fadeA > 0.01) {
+            if (D && rs > MIN_PX && nG < GHOSTS) {
+                ghosts.setMatrixAt(nG, diskMatrix(D));
+                ghosts.setColorAt(nG, P.fill[it.dep % 2]);
+                ga.setX(nG++, 0.9 * fadeA * fadeA);
+            }
+            const k = Math.min(200, Math.max(16, Math.ceil(rs * 0.8)));
+            if (rs > 1.5) cfPoly(L_, F, k, circleZ(k), P.str[it.dep % 2], fadeA);
+            const [ax, ay, , , lift] = attach(F, 1, 0), gp = it.gap0 * fadeA;
+            if (gp) L_.seg(ax, F.z + lift, -ay, ax, F.z + lift - gp, -ay, P.edge, fadeA, fadeA);
+        }
+        // the overlays keep their tessellations; the rest fade as they land on a copy of one
+        const rsNow = Math.min(rs, it.rs || 0, 400);
+        if (it.overlay) cfFarey(L_, F, C, Math.min(st.N, 5), 36, 1, it);
+        else if (fadeA > 0.01 && rsNow > DETAIL_PX) cfFarey(L_, F, C, rsNow > 140 ? Math.min(st.N, 5) : 2, 24, fadeA, it);
+    }
+    if (!rootDrawn) drawBase({ F: { ...root, flip: act ? act.flip : 0 }, C: null, labels: [], dep: 0, gap: 0, bare: true });
+    ghosts.count = nG;
+    ghosts.instanceMatrix.needsUpdate = true;
+    if (ghosts.instanceColor) ghosts.instanceColor.needsUpdate = true;
+    ga.needsUpdate = true;
+    for (const [mm, n] of [[diskHi, nHi], [diskLo, nLo]]) {
+        mm.count = n;
+        mm.instanceMatrix.needsUpdate = true;
+        mm.instanceColor.needsUpdate = true;
+    }
+    lines.geometry.dispose();
+    lines.geometry = L_.geometry();
+    hiLines.geometry.dispose();
+    hiLines.geometry = new THREE.BufferGeometry();
+    dirty = true;
+}
+
+function startSpecRun(to) {
+    if (anim || spec.act || spec.run) return;
+    if (!spec.items) { if (to <= 0) return; clearTimeout(buildTimer); prepareCollapse(); }
+    spec.run = { from: spec.s, to, t0: performance.now(), dur: st.dur * 1600 };
+    // the camera follows: down onto the one plane, or back out to the tree
+    const v = to > 0 ? collapsedView() : defaultView();
+    flyTo(v.target, v.dir, v.size, spec.run.dur);
+    syncSpecUI();
+}
+function collapsedView() {
+    const half = st.base === 'half', dir = new THREE.Vector3(0, Math.cos(0.75), Math.sin(0.75));
+    return { target: new THREE.Vector3(0, 0, half ? -0.9 : 0), dir, size: half ? 1.7 : 1.4 };
+}
+function startSpecAct() {
+    const next = specQueue.shift();
+    if (!next) return;
+    const [i, inverse] = next, G = gens[i];
+    if (!G) return;
+    const job = inverse ? { M: G.Minv, Minv: G.M, letter: [i, -1] } : { M: G.M, Minv: G.Minv, letter: [i, 1] };
+    const Ma = specMat(job.M, spec.a);
+    if (qdet(Ma).isZero()) { startSpecAct(); return; }
+    const hf = fnorm(toFloat(Ma)), fl = fdet(hf) < 0;
+    spec.act = { job, H: mobiusPath(fl ? fmul(RHO, hf) : hf), fl, t0: performance.now(), dur: st.dur * 1000 };
+}
+function stepSpec(now) {
+    if (spec.act) {
+        const A = spec.act, k = reduceMotion() ? 1 : Math.min(1, (now - A.t0) / A.dur), e = ease(k);
+        drawCollapse(1, { Hs: A.H(e), flip: A.fl ? Math.PI * e : 0 });
+        if (k < 1) return;
+        commitJob(A.job);
+        spec.act = null;
+        refreshItems();
+        drawCollapse(1);
+        showElement();
+        syncSpecUI();
+        startSpecAct();
+        return;
+    }
+    if (!spec.run) return;
+    const r = spec.run, k = reduceMotion() ? 1 : Math.min(1, (now - r.t0) / r.dur);
+    spec.s = r.from + (r.to - r.from) * k;
+    if (k >= 1) {
+        spec.s = r.to;
+        spec.run = null;
+        if (spec.s <= 0) { spec.items = null; spec.s = 0; build(); } else drawCollapse(ease(spec.s));
+    } else drawCollapse(ease(spec.s));
+    syncSpecUI();
 }
 
 // ---------- generators ----------
@@ -529,6 +871,7 @@ function refreshGenerators() {
     }
     UI.setGeneratorButtons(gens.length, applyGenerator);
     showGenSummary();
+    syncSpecUI();
 }
 let editTimer = 0;
 UI.onMatrixEdit(() => { clearTimeout(editTimer); editTimer = setTimeout(refreshGenerators, 350); });
@@ -554,7 +897,69 @@ function showElement() {
     const el = $('current-matrix');
     el.innerHTML = `\\[\\begin{pmatrix} ${lTex(g[0])} & ${lTex(g[1])} \\\\ ${lTex(g[2])} & ${lTex(g[3])} \\end{pmatrix}\\]`;
     UI.typeset([el]);
+    showSpecList();
 }
+
+// ---------- the specialization panel ----------
+const aName = () => spec.a.toString().replace('-', '−');
+function qMatTex(Mq) {
+    const e = primitive(Mq.map((q) => (q.isZero() ? [] : [q]))).map((p) => (p.length ? p[0].toString() : '0'));
+    return `\\begin{pmatrix} ${e[0]} & ${e[1]} \\\\ ${e[2]} & ${e[3]} \\end{pmatrix}`;
+}
+function showSpecList() {
+    const el = $('spec-list'), a = aName();
+    const rows = gens.map((G, i) => {
+        const Ma = specMat(G.M, spec.a);
+        return qdet(Ma).isZero() ? `<div><b>${gName(i)}</b>(${a}) is singular, so it does not act once t = ${a}</div>`
+            : `<div><b>${gName(i)}</b>(${a}) = \\(${qMatTex(Ma)}\\)</div>`;
+    });
+    rows.push(`<div>current element at t = ${a}: \\(${qMatTex(specMat(g, spec.a))}\\)</div>`);
+    el.innerHTML = rows.join('');
+    UI.typeset([el]);
+}
+function syncSpecUI() {
+    const collapsed = !!spec.items && spec.s >= 1 && !spec.run;
+    $('spec-s').value = spec.s;
+    $('spec-sO').textContent = spec.s <= 0 ? 't = ∞' : spec.s >= 1 ? `t = ${aName()}` : '→';
+    $('spec-go').textContent = collapsed ? 'Expand back to the tree' : `Collapse to t = ${aName()}`;
+    document.querySelectorAll('#isometry-controls .isometry-btn').forEach((b, i) => {
+        const G = gens[i], singular = G && qdet(specMat(G.M, spec.a)).isZero();
+        b.disabled = !!spec.items && (!collapsed || singular);
+        b.title = !spec.items ? 'Apply this generator (⌘/Ctrl-click for its inverse)'
+            : !collapsed ? 'Finish collapsing or expanding first'
+                : singular ? `Singular at t = ${aName()}` : `Act on the plane by its value at t = ${aName()} (⌘/Ctrl-click for the inverse)`;
+    });
+}
+function readSpecA() {
+    try {
+        const { num, den } = parseRat($('spec-a').value);
+        if (den.length !== 1 || num.length > 1) throw new Error('t can only be set to a number.');
+        if (!num.length) throw new Error('t = 0 is not allowed: frames and entries involve 1/t.');
+        spec.a = num[0];
+        $('spec-err').textContent = '';
+    } catch (err) {
+        $('spec-err').textContent = err.message;
+        return;
+    }
+    if (spec.items) { refreshItems(true); if (!spec.run && !spec.act) drawCollapse(ease(spec.s)); }
+    showSpecList();
+    syncSpecUI();
+}
+let specTimer = 0;
+$('spec-a').addEventListener('input', () => { clearTimeout(specTimer); specTimer = setTimeout(readSpecA, 300); });
+$('spec-s').addEventListener('input', (ev) => {
+    if (anim || spec.run || spec.act) { syncSpecUI(); return; }
+    const s = parseFloat(ev.target.value);
+    if (!spec.items) {
+        if (s <= 0) return;
+        clearTimeout(buildTimer);
+        prepareCollapse();
+    }
+    spec.s = s;
+    if (s <= 0) { spec.items = null; spec.s = 0; build(); } else drawCollapse(ease(s));
+    syncSpecUI();
+});
+$('spec-go').onclick = () => startSpecRun(spec.items && spec.s >= 1 ? 0 : 1);
 
 function loadExample(i) {
     const ex = EXAMPLES[i];
@@ -565,7 +970,7 @@ function loadExample(i) {
 }
 
 // ---------- hover & path ----------
-let hoverIdx = -1, lastPointer = null, flashText = '', flashTimer = 0;
+let hoverIdx = -1, lastPointer = null;
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 
 function pick(X, Y) {
@@ -621,11 +1026,10 @@ function setHover(i) {
     showInfo();
     dirty = true;
 }
-function hover(X, Y) { if (!anim) setHover(pick(X, Y)); }
+function hover(X, Y) { if (!anim && !spec.items) setHover(pick(X, Y)); }
 
 function showInfo() {
     const chip = $('hover-chip');
-    if (flashText) { chip.textContent = flashText; return; }
     const rec = recs[hoverIdx];
     if (!rec || anim) { chip.textContent = ''; return; }
     const n = recs.length + (truncated ? '+' : '');
@@ -633,12 +1037,6 @@ function showInfo() {
     const carried = d && keyOf(d.src) !== rec.key ? ` · carries the plane of ${pathName(d.src)} under the current element` : '';
     chip.innerHTML = (rec.labels.length ? `<b>${pathName(rec.labels)}</b> · distance ${rec.dep} from v₀`
         : '<b>Base plane X(v₀)</b>, where SL₂(ℤ) acts') + carried + ` · ${n} planes drawn`;
-}
-function flash(text) {
-    flashText = text;
-    showInfo();
-    clearTimeout(flashTimer);
-    flashTimer = setTimeout(() => { flashText = ''; showInfo(); }, 4500);
 }
 
 // ---------- camera ----------
@@ -657,12 +1055,12 @@ function setView(target, dir, size) {
     } else camera.position.copy(target).addScaledVector(dir, size / fovTan());
 }
 
-function flyTo(target, dir, size) {
-    fly = { t0: performance.now(), T0: controls.target.clone(), T1: target.clone(), D0: viewDir(), D1: dir.clone().normalize(), s0: viewSize(), s1: size };
+function flyTo(target, dir, size, dur = 700) {
+    fly = { t0: performance.now(), dur, T0: controls.target.clone(), T1: target.clone(), D0: viewDir(), D1: dir.clone().normalize(), s0: viewSize(), s1: size };
 }
 function stepFly(now) {
     if (!fly) return;
-    const k = ease(reduceMotion() ? 1 : Math.min(1, (now - fly.t0) / 700));
+    const k = ease(reduceMotion() ? 1 : Math.min(1, (now - fly.t0) / fly.dur));
     const s = Math.exp(Math.log(fly.s0) + (Math.log(fly.s1) - Math.log(fly.s0)) * k);
     const kk = Math.abs(fly.s1 - fly.s0) < 1e-9 ? k : (s - fly.s0) / (fly.s1 - fly.s0);
     setView(new THREE.Vector3().lerpVectors(fly.T0, fly.T1, kk), fly.D0.clone().lerp(fly.D1, k).normalize(), s);
@@ -753,18 +1151,10 @@ cv.addEventListener('pointerleave', () => { lastPointer = null; setHover(-1); })
 cv.addEventListener('pointerup', (e) => {
     if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) { down = null; return; }
     down = null;
-    if (anim) return;
+    if (anim || spec.items) return;
     const b = cv.getBoundingClientRect(), i = pick(e.clientX - b.left, e.clientY - b.top);
     if (i >= 0) flyToPlane(i);
 });
-
-function setBase(v) {
-    if (st.base === v) return;
-    st.base = v;
-    segBase.set(v);
-    build();
-    resetView(false);
-}
 
 UI.setupPanel({ onLayout: (w) => { panelSpace = w; applyViewOffset(); dirty = true; } });
 const segBase = UI.segmented('seg-base', (v) => { st.base = v; build(); resetView(); });
@@ -829,6 +1219,7 @@ function frameLoop(now) {
     stepFly(now);
     controls.update();
     if (anim) stepAnim(now);
+    if (spec.run || spec.act) stepSpec(now);
     if (dirty) { dirty = false; render(); }
 }
 
@@ -842,4 +1233,6 @@ requestAnimationFrame(frameLoop);
 window.__parshin = {
     st, build, render, get camera() { return camera; }, controls, get recs() { return recs; }, get anim() { return anim; },
     setHover, flyToPlane, resetView, stepFly, stepAnim, applyGenerator, setProjection, get g() { return g; },
+    spec, startSpecRun, stepSpec, drawCollapse,
+    nonFinite: () => [...lines.geometry.attributes.position.array].filter((x) => !Number.isFinite(x)).length,
 };

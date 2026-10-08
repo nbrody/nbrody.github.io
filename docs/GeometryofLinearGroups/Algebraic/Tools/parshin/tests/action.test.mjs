@@ -3,6 +3,7 @@ import { Q } from '../js/rational.js';
 import { fromPoly, mmul, adj, det, polyTex, normalizePGL } from '../js/laurent.js';
 import { parsePoly, parseRat } from '../js/polyParse.js';
 import { polyMatrix } from '../js/poly.js';
+import { evalAt, specMat, qmul, latticeKey } from '../js/specialize.js';
 import { frameOf, vertexOf, localMap, classify, keyOf, INF } from '../js/treeAction.js';
 
 let fails = 0, checks = 0;
@@ -121,6 +122,38 @@ ok(qdet(localMap(Rf, [[3n, 1n], [1n, 2n]]).h).sign() < 0 && keyOf(localMap(Rf, [
 ok(sameProj(localMap(Lt, []).h, [Q.ONE, Q.ZERO, Q.ZERO, Q.ONE]) && sameProj(localMap(Lt, [[2n, 3n]]).h, [Q.ONE, Q.ONE, Q.ZERO, Q.ONE]), '(1 1/t; 0 1): trivial on X(v₀), z ↦ z+1 at its neighbours');
 ok(sameProj(localMap(Rt1, []).h, [Q.ONE, Q.ONE, Q.ZERO, Q.ONE]), '(1 t/(t−1); 0 1) acts on X(v₀) as z ↦ z+1');
 ok(sameProj(localMap(Rt2, []).h, [Q.ONE, Q.ZERO, Q.ZERO, Q.ONE]) && !vertexOf(Rt2).length, '(1 0; 1/(1+t) 1) fixes X(v₀) pointwise');
+
+// --- specializing t ↦ a ---
+const at = (src, a) => evalAt(fromPoly(parsePoly(src)), Q.of(a)).toString();
+ok(at('1+2t', 3) === '7', 'evaluate 1 + 2t at 3');
+ok(evalAt(pgl('1', '\\frac{1}{t}', '0', '1')[1], Q.of(2)).div(evalAt(pgl('1', '\\frac{1}{t}', '0', '1')[0], Q.of(2))).toString() === '1/2', '1/t at t = 2');
+for (let t = 0; t < 100; t++) {
+    const A = pgens[rnd(pgens.length)], Bm = pgens[rnd(pgens.length)], a = Q.of(rnd(9) - 4 || 3, 1 + rnd(3));
+    ok(sameProj(specMat(mmul(A, Bm), a), qmul(specMat(A, a), specMat(Bm, a))), 'specialization is multiplicative');
+}
+const I2 = [Q.ONE, Q.ZERO, Q.ZERO, Q.ONE];
+const Zgens = [[Q.ZERO, Q.int(-1), Q.ONE, Q.ZERO], [Q.ONE, Q.ONE, Q.ZERO, Q.ONE], [Q.int(-1), Q.ZERO, Q.ZERO, Q.ONE]];
+for (let t = 0; t < 100; t++) {
+    const M = [Q.of(rnd(9) - 4, 1 + rnd(4)), Q.of(rnd(9) - 4, 1 + rnd(4)), Q.of(rnd(9) - 4, 1 + rnd(4)), Q.of(rnd(9) - 4, 1 + rnd(4))];
+    if (qdet(M).isZero()) continue;
+    const U = Zgens[rnd(3)], c = Q.of(rnd(5) + 1, rnd(3) + 1);
+    ok(latticeKey(M) === latticeKey(qmul(M, U)) && latticeKey(M) === latticeKey(M.map((x) => x.mul(c))), 'lattice key ignores PGL₂(ℤ) and scaling');
+}
+ok(latticeKey(I2) === latticeKey(specMat(frameOf([[3n, 1n], [-2n, 1n]]), Q.ONE)), 'at t = 1 the planes at integer cusps land on the base tessellation');
+ok(latticeKey(I2) !== latticeKey(specMat(frameOf([[1n, 2n]]), Q.ONE)), 'the plane at 1/2 lands as a shifted tessellation');
+ok(latticeKey(I2) !== latticeKey(specMat(frameOf([[0n, 1n]]), Q.of(2))), 'at t = 2 the plane at 0 lands scaled by 1/2');
+// the tree is the t → ∞ limit: g_{γv}(T)⁻¹ γ(T) g_v(T) tends to the local map h
+const projDist = (A, Bq) => {             // distance between A and the line through B, after scaling both to unit length
+    const n = (X) => { const m = Math.hypot(...X); return X.map((x) => x / m); };
+    const a = n(A), b = n(Bq.map((x) => x.toNumber())), d1 = Math.hypot(...a.map((x, i) => x - b[i])), d2 = Math.hypot(...a.map((x, i) => x + b[i]));
+    return Math.min(d1, d2);
+};
+for (let t = 0; t < 40; t++) {
+    const gm = pgens[rnd(pgens.length)], v = randLabels(1 + rnd(3));
+    const { labels: u, h } = localMap(gm, v), K = mmul(mmul(adj(frameOf(u)), gm), frameOf(v));
+    const dists = [1e2, 1e4, 1e6].map((T) => projDist(specMat(K, Q.of(T)).map((x) => x.toNumber()), h));
+    ok(dists[2] < 1e-3 && dists[2] <= dists[0] + 1e-12, `local map is the t → ∞ limit at ${keyOf(v)}: ${dists.map((x) => x.toExponential(1))}`);
+}
 
 // --- known cases ---
 const S = gens[0], U = gens[2];

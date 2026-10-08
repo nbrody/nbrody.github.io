@@ -453,6 +453,9 @@ html.light .info-section { background: rgba(255, 255, 255, 0.5); }
 html.light #isometry-controls .isometry-btn { border-color: var(--hairline-strong); box-shadow: 0 8px 22px -12px rgba(23, 28, 43, 0.35); }
 #isometry-controls .isometry-btn:hover { transform: translateY(-2px); border-color: var(--accent-line); box-shadow: 0 14px 30px -10px rgba(0, 0, 0, 0.6), 0 0 18px var(--accent-glow); }
 #isometry-controls .isometry-btn:active { transform: translateY(0) scale(0.97); }
+#isometry-controls .isometry-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+.spec-eq { font-size: 13px; color: var(--ink-dim); font-style: italic; }
+#spec-a { width: 84px; }
 
 /* hover readout, top left */
 .hover-chip {
