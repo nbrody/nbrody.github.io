@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hyperbolic, Not Residually Finite</title>
+<meta name="description" content="An interactive walkthrough of “A torsion-free hyperbolic group that is not residually finite” (OpenAI, September 2026).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+<script>
+  (function () {
+    try { var t = localStorage.getItem('ip-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  })();
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      macros: {
+        R: '\\mathbb{R}', Z: '\\mathbb{Z}', F: '\\mathbb{F}', N: '\\mathbb{N}', C: '\\mathbb{C}',
+        GL: '\\operatorname{GL}', BS: '\\operatorname{BS}', rank: '\\operatorname{rank}', tr: '\\operatorname{tr}',
+        length: '\\operatorname{length}', T: '\\mathsf{T}'
+      }
+    },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'canvas'] },
+    chtml: { scale: 0.98 }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode">◐ theme</button>
+
+<div class="page">
+
+<nav class="toc" aria-label="Contents">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#s1">1 · The question</a></li>
+    <li class="sub"><a href="#s1-residual">The finite residual</a></li>
+    <li class="sub"><a href="#s1-context">Earlier work</a></li>
+    <li><a href="#map">The proof at a glance</a></li>
+    <li><a href="#s2">2 · Construction and rank</a></li>
+    <li class="sub"><a href="#s2-1">The geometric criterion</a></li>
+    <li class="sub"><a href="#s2-2">Punctured lines</a></li>
+    <li class="sub"><a href="#s2-3">Blocks and triangles</a></li>
+    <li class="sub"><a href="#s2-4">Rank over ℝ and 𝔽_q</a></li>
+    <li class="sub"><a href="#s2-5">The global certificate</a></li>
+    <li><a href="#s3">3 · Fillings and torsion</a></li>
+    <li class="sub"><a href="#s3-2">Reduced fillings</a></li>
+    <li class="sub"><a href="#s3-3">Angular Gauss–Bonnet</a></li>
+    <li class="sub"><a href="#s3-4">Torsion</a></li>
+    <li><a href="#s4">4 · Thinness</a></li>
+    <li><a href="#guide">Reading guide</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<header class="hero">
+  <div class="kicker">Interactive walkthrough</div>
+  <h1>Hyperbolic, yet not residually finite</h1>
+  <p class="sub">How a finite triangle complex with very large links gives a torsion-free hyperbolic group in which some nontrivial element dies in every finite quotient, following the September 2026 preprint section by section.</p>
+
+  <div class="status">
+    <strong>Status (October 7, 2026)</strong>
+    <p>The paper <a href="https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/a-torsion-free-hyperbolic-group-that-is-not-residually-finite-September-23-2026/paper.pdf"><em>A torsion-free hyperbolic group that is not residually finite</em></a> (OpenAI, dated September 23, 2026) was posted on October 6, 2026 in the <code>openai/math</code> repository (commit <code>adc7f12</code>), where it is family 252 of the catalogue. It has not been refereed.</p>
+    <p>The repository includes a Lean 4 development for this result: 29 files, about 10,700 lines, in <a href="https://github.com/openai/math/tree/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/GroupTheory/Hyperbolic"><code>lean/OAI/GroupTheory/Hyperbolic</code></a>. Its theorem <code>OAI.Release075.main</code> states that some group is torsion-free, word-hyperbolic and not residually finite. Torsion-freeness and hyperbolicity (thin geodesic triangles in the Cayley graph of a finite generating set) are defined in the challenge file <a href="https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/TorsionFreeHyperbolic.lean"><code>TorsionFreeHyperbolic.lean</code></a>; residual finiteness is Mathlib's. The proof files contain no <code>sorry</code>, and the Comparator configuration admits only the axioms <code>propext</code>, <code>Quot.sound</code> and <code>Classical.choice</code>. This page has not re-run that check. The formal statement does not include Corollary 1.2. The Lean proof follows the paper's rank argument, but it reaches hyperbolicity through a combinatorial linear filling bound rather than the Euclidean-metric argument of §§3–4.</p>
+    <p>This page explains the argument as the paper gives it. Section, lemma and equation numbers match the paper. The figures are models: they compute the mechanism of one step on small examples, and they are not part of the proof.</p>
+  </div>
+</header>
+
+<!-- ======================================================= 1 -->
+<section id="s1">
+<h2><span class="secnum">1</span>The question</h2>
+
+<p>A finitely generated group is <em>word-hyperbolic</em> if geodesic triangles in its Cayley graph are uniformly thin: each side lies within a fixed distance of the other two. Free groups, fundamental groups of closed negatively curved manifolds, and small-cancellation groups are examples. A group $G$ is <em>residually finite</em> if every element $g\ne1$ survives in some finite quotient, that is, some homomorphism $\varphi\colon G\to Q$ to a finite group has $\varphi(g)\ne1$.</p>
+
+<p>Whether every hyperbolic group is residually finite has been one of the best-known open questions about hyperbolic groups since the early years of Gromov's theory. It asks whether coarse negative curvature alone forces a group to be visible in its finite quotients. The paper answers it negatively.</p>
+
+<div class="thm key"><span class="label">Theorem 1.1.</span> There exists a torsion-free word-hyperbolic group that is not residually finite.</div>
+
+<p>The group is the fundamental group of a finite complex built from Euclidean triangles. The proof exhibits an explicit finite set $\mathcal R$ of nontrivial elements, the <em>rectangular words</em>, and shows that at least one of them is killed by every homomorphism to every finite group. The argument does not say which one. The construction is not explicit either: Lemma 2.2 produces its data by a random choice, over a prime $q$ with more than a hundred digits (Figure 2).</p>
+
+<h3 id="s1-residual">The finite residual</h3>
+<p>The <em>finite residual</em> $R_f(G)$ is the intersection of the kernels of all homomorphisms from $G$ to finite groups. $G$ is residually finite exactly when $R_f(G)=1$. Theorem 1.1 shows $R_f(G)\cap\mathcal R\ne\emptyset$. This has a classical consequence for linear representations.</p>
+
+<div class="thm"><span class="label">Corollary 1.2 (Finite-dimensional linear obstruction).</span> For the group $G$ of Theorem 1.1, every commutative field $K$, every $n\ge1$ and every homomorphism $\rho\colon G\to\GL_n(K)$, we have $R_f(G)\subseteq\ker\rho$. In particular $G$ is not linear over any commutative field.</div>
+<p>The image $\rho(G)$ is a finitely generated linear group, hence residually finite by Malcev's theorem, in every characteristic. So anything in $R_f(G)$ maps to $1$. One fixed nonidentity element of $G$ is therefore killed by every finite-dimensional representation over every field at once. The corollary does not say that representations are trivial, and it says nothing about skew fields or infinite-dimensional representations.</p>
+
+<p>Figure 1 makes the finite residual concrete in the classical non-hyperbolic example, the Baumslag–Solitar group $\BS(2,3)=\langle a,t\mid ta^2t^{-1}=a^3\rangle$.</p>
+
+<figure class="fig" id="fig-residual" data-fig="residual">
+  <div class="fig-head"><span class="num">Figure 1</span><span class="title">A nontrivial element that every finite quotient kills</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>Every action of a two-generator group on at most $n$ points, found by exhaustive search: one permutation for $a$ per cycle type, and every permutation for $t$. A finite quotient of order at most $n$ acts faithfully on itself, so the search covers every finite quotient of order at most $n$. The circle shows one action: <b style="color:var(--accent)">blue</b> arrows are $x\mapsto x\cdot a$, <b style="color:var(--accent-2)">orange</b> arrows are $x\mapsto x\cdot t$, and the <b style="color:var(--accent-4)">purple</b> path follows the word $w$ from the ringed point. <b>Pick</b> a word or type one. <b>Step</b> through actions with ◀ ▶, and <b>click</b> a point to start the path there. At $n=9$ the search checks 409,311 actions. In $\BS(2,3)$ the commutator $[tat^{-1},a]$ is nontrivial by Britton's lemma, yet its path closes up in every action, so it lies in $R_f$. The generator $a$ survives, for example as a 5-cycle. In $\BS(1,2)$, which is linear and hence residually finite, the same commutator is already trivial, and $[a,t]$ survives.</figcaption>
+</figure>
+
+<details class="proof"><summary>Why $[tat^{-1},a]$ dies in every finite quotient of $\BS(2,3)$</summary>
+<p>In a finite quotient let $a$ have order $k$. The elements $a^2$ and $a^3$ are conjugate, so they have the same order: $k/\gcd(k,2)=k/\gcd(k,3)$. Hence $k$ is prime to $6$. Then $2$ is invertible modulo $k$, so $a$ is a power of $a^2$, and $tat^{-1}$ is a power of $ta^2t^{-1}=a^3$. That commutes with $a$. On the other hand, the word $tat^{-1}\,a\,ta^{-1}t^{-1}\,a^{-1}$ contains no pinch $ta^{2j}t^{-1}$ or $t^{-1}a^{3j}t$, so it is nontrivial by Britton's lemma. Baumslag and Solitar introduced this group in 1962 as a non-Hopfian group; by Malcev's theorem that already rules out residual finiteness.</p>
+</details>
+
+<p>This mechanism cannot work in a hyperbolic group. An element of infinite order there has positive stable translation length, which is conjugation-invariant and multiplies under powers, so $g^2$ is never conjugate to $g^3$. The paper's obstruction is of a different kind: it is linear algebra over a finite field.</p>
+
+<h3 id="s1-context">Earlier work</h3>
+<ul>
+  <li><em>Equivalent forms.</em> I. Kapovich and Wise (2000) showed that all hyperbolic groups are residually finite if and only if every nontrivial hyperbolic group has a nontrivial finite quotient, and if and only if every hyperbolic group is virtually torsion-free. Combined with Theorem 1.1, some nontrivial hyperbolic group has no nontrivial finite quotient, and some hyperbolic group is not virtually torsion-free. These are statements about the class, not properties of the group built here.</li>
+  <li><em>Consequences of a positive answer.</em> Agol, Groves and Manning (2009) proved that if all hyperbolic groups were residually finite, then every quasiconvex subgroup of every hyperbolic group would be separable. Their argument needs residual finiteness of hyperbolic quotients produced by Dehn filling, not just of the original group.</li>
+  <li><em>Structure that forces residual finiteness.</em> Haglund and Wise (2008) showed that compact virtually special cube complexes have linear, hence residually finite, fundamental groups. Agol (2013) showed that a hyperbolic group acting properly and cocompactly on a CAT(0) cube complex is virtually special. So the group of Theorem 1.1 has no such cubulation.</li>
+  <li><em>Nonpositive curvature without hyperbolicity.</em> Wise's complete square complexes (thesis 1996, published 2007) and the Burger–Mozes simple groups (1997) act geometrically on products of trees and are not residually finite. Products of trees contain flat planes, so these groups are not hyperbolic.</li>
+  <li><em>Non-linear hyperbolic groups.</em> M. Kapovich (2005) built an infinite hyperbolic group all of whose finite-dimensional representations have finite image. Tholozan and Tsouvalas (2025) built residually finite non-linear hyperbolic groups, so non-linearity alone does not rule out residual finiteness. Corollary 1.2 is stronger in one respect: all representations share a common nontrivial kernel element.</li>
+</ul>
+
+<p><b>The two constraints.</b> A counterexample has to reconcile local geometry with a global algebraic obstruction. The geometry must do more than prove hyperbolicity: it must certify that the specific elements used by the obstruction are nontrivial. The algebra has a uniformity requirement: the complex, including the characteristic $q$ of the field used for interpolation, is fixed before anyone names a finite quotient. A rank bound that needed a larger characteristic for larger quotients would be useless.</p>
+
+<h3 id="map">The proof at a glance</h3>
+<p>Section 2 builds the complex and proves the algebraic contradiction, assuming the geometric criterion Theorem 2.1. Sections 3 and 4 prove that criterion. Click a box to jump to that step.</p>
+
+<div class="map" role="list">
+  <a class="node" href="#s2-2" role="listitem"><b>Marked, punctured lines over 𝔽_q</b><span>§2.2 · Lemma 2.2: incidence graph of girth ≥ 14; almost every point lies on ≥ 4r² lines</span></a>
+  <div class="arrow">↓</div>
+  <a class="node" href="#s2-3" role="listitem"><b>The triangle complex K on three vertices O, V, W</b><span>§2.3 · an r×r array of edges per line; triangles (2.4) from shifted block coordinates</span></a>
+  <div class="split">
+    <div class="col">
+      <div class="branch-label">geometry</div>
+      <a class="node" href="#s2-3"><b>Link bounds</b><span>Lemma 2.3 · girth 4 × 3π/5 at O; ≥ 14 × π/5 at V and W</span></a>
+      <div class="arrow">↓</div>
+      <a class="node classic" href="#s3"><b>Angular-link criterion</b><span>Thm 2.1, §§3–4 · Gauss–Bonnet, shortest loops, thin diagrams</span></a>
+      <div class="arrow">↓</div>
+      <a class="node" href="#s2-3"><b>G torsion-free hyperbolic; every rectangular word ≠ 1</b><span>(2.6) · turns between same-label directions are ≥ π</span></a>
+    </div>
+    <div class="col">
+      <div class="branch-label">suppose a finite Q keeps all of 𝓡</div>
+      <a class="node" href="#s2-4"><b>Edge arrays have large rank</b><span>§2.4 · traces (2.8)–(2.9); Lemma 2.4: rank over 𝔽_q ≥ rD/4</span></a>
+      <div class="arrow">↓</div>
+      <a class="node" href="#s2-5"><b>Block sums factor</b><span>(2.11)–(2.12) · rank ≤ 2D at every regular point</span></a>
+      <div class="arrow">↓</div>
+      <a class="node" href="#s2-5"><b>Interpolation on punctured lines</b><span>(2.13)–(2.14) · ⊕Yᵢ = −Σ H(z) ⊗ Z(z)</span></a>
+      <div class="arrow">↓</div>
+      <a class="node contra" href="#s2-5"><b>NrD/4 ≤ 2mD + r|E|D</b><span>contradicts the gap (2.2)</span></a>
+    </div>
+  </div>
+  <div class="arrow">↓</div>
+  <a class="node goal" href="#s2-5"><b>Some w ∈ 𝓡 dies in every finite quotient</b><span>Theorem 1.1</span></a>
+  <div class="arrow">↓</div>
+  <a class="node classic" href="#s1-residual"><b>Not linear over any field</b><span>Corollary 1.2, by Malcev's theorem</span></a>
+  <div class="legend">Shaded boxes are classical inputs (proved in full in the paper where marked §§3–4). White boxes are the new argument.</div>
+</div>
+</section>
+
+<!-- ======================================================= 2 -->
+<section id="s2">
+<h2><span class="secnum">2</span>The construction and the rank obstruction</h2>
+
+<h3 id="s2-1"><span class="secnum">2.1</span>The geometric criterion</h3>
+<p>A <em>finite Euclidean triangle complex</em> is a finite graph with finitely many Euclidean triangles glued along their full boundaries by isometries, with each closed edge and triangle embedded. The <em>angular link</em> at a vertex has one vertex for each edge germ at it and one edge for each triangle corner there, of length equal to that corner's angle. A walk is <em>reduced</em> if it never immediately reverses, and <em>cyclically reduced</em> if this also holds across its closing seam.</p>
+
+<div class="thm"><span class="label">Theorem 2.1 (Triangle complex criterion).</span> Let $K$ be a connected finite Euclidean triangle complex. Suppose there is $\eta>0$ such that every nonempty cyclically reduced closed edge walk in each vertex link has angular length at least $2\pi+\eta$. Then $\pi_1(K)$ is torsion-free and word-hyperbolic. Moreover, a nonempty closed edge path in $K$ is not nullhomotopic if every cyclic turn has link distance at least $\pi$.</div>
+<p>The first condition is Gromov's link condition with a margin. Links of angular girth at least $2\pi$ make $K$ locally CAT(0); the margin $\eta$ is a strict excess of angle at every vertex, which is what produces negative curvature on large scales. A <em>turn</em> of a closed path compares the direction back along the arriving edge with the direction of the departing edge. A turn of at least $\pi$ means the path is locally straight there. The second statement says a closed path that is straight at every vertex cannot be contracted. The paper proves both parts from scratch in §§3–4, in the original Euclidean metric.</p>
+
+<h3 id="s2-2"><span class="secnum">2.2</span>Punctured lines with few short cycles</h3>
+<p>The construction starts from incidences between points and lines in a large vector space over a prime field. Fix</p>
+$$h=20,\qquad c=100^{-h},\qquad r\in\N\ \text{ with } cr\ge100. \tag{2.1}$$
+<p>Let $q$ be a large prime, $P=\F_q^h$, $m=q^h$, and choose $S\subset\F_q$ with $|S|=\lfloor q/100\rfloor$. All limits are as $q\to\infty$ with these constants fixed.</p>
+
+<div class="thm"><span class="label">Lemma 2.2.</span> For all sufficiently large primes $q$ there are $N=(c+o(1))m$ affine lines $\ell_i\subset P$, $i\in I$, with distinct marked points $a_i\in S^h\cap\ell_i$, and a set $E\subset P$, such that:
+<ol style="margin:.3rem 0 0">
+  <li>the bipartite graph on $P\sqcup I$, with $z\sim i$ when $z\in\ell_i\setminus\{a_i\}$, has no cycle of length at most $12$;</li>
+  <li>$|I(z)|\ge4r^2$ for $z\notin E$, where $I(z)=\{i\in I: z\in\ell_i\setminus\{a_i\}\}$;</li>
+  <li>$|E|=o(m)$.</li>
+</ol>
+In particular the data can be fixed with
+$$q>r,\qquad \frac{Nr}{4}>2m+r|E|. \tag{2.2}$$</div>
+
+<p>Each line carries its own <em>mark</em> $a_i$, and a point is incident to line $i$ only when it lies on $\ell_i$ <em>away from</em> its mark. The marks matter twice. They sit on the grid $S^h$, where Lagrange interpolation can isolate each line (§2.5). And because the mark is excluded, a sum over the line's incident points is a full line sum minus one term (2.13). The girth condition will become the link condition at $V$ and $W$; the degree condition will make room for the blocks of §2.3. The inequality (2.2) is the numerical gap that the final rank count contradicts.</p>
+
+<details class="proof"><summary>Proof idea (random lines and deletion)</summary>
+<p>Use every point of $S^h$ as a mark and give the line through it an independent uniform direction among the $J=(q^h-1)/(q-1)$ directions. A fixed point $z$ then lies on each other line with probability $1/J$, so its degree is binomial with mean $\mu_z\sim cq$. Since $\mu_z\ge8r^2$ for large $q$, Chebyshev's inequality makes a degree below $4r^2$ have probability $O(q^{-1})$, and with high probability at most $mq^{-1/2}$ points are deficient. For short cycles with $s\le6$ points and $s$ lines: at most $m^s$ choices of points, at most $q$ marks on each line through consecutive points, and probability $J^{-s}$ that the directions match. That is at most $m^sq^sJ^{-s}\le q^{2s}$ expected cycles, so with high probability at most $q^{13}$ cycles of length $\le12$ in total. This is Erdős's alteration method: delete every label on such a cycle (at most $6q^{13}$ of them), and put into $E$ the deficient points and every point of a deleted line. Deleting labels creates no cycles and changes no degree outside $E$, and $|E|\le mq^{-1/2}+6q^{14}=o(m)$ because $h=20>14$.</p>
+</details>
+
+<p>These estimates force enormous parameters. The constant $c=10^{-40}$ forces $r\ge10^{42}$, and a typical point has only about $cq$ incident lines while (ii) asks for $4r^2$. So $q$ has about 125 digits, and $m=q^{20}$ has about 2,500. Figure 2 computes the sizes. The paper fixes these data once: no later choice of finite quotient changes $q$ or the lines.</p>
+
+<figure class="fig" id="fig-scale" data-fig="scale">
+  <div class="fig-head"><span class="num">Figure 2</span><span class="title">How large is K?</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>Lower bounds forced by the estimates in the proof, plotted by their base-10 exponents. With $c=(|S|/q)^h$, the gap (2.2) needs $cr$ bounded below; the degree bound needs the mean degree $cq$ to reach $8r^2$; and the interpolation in §2.5 needs $2h(|S|-1)\lt q-1$, that is $|S|\lt q/(2h)$ roughly. The triangle count is about $r^2$ per incidence. <b>Move</b> the sliders or <b>pick</b> a preset. With the paper's constants $q$ is about $10^{125}$ and $P$ has about $10^{2498}$ points; even the smallest choice these estimates allow ($h=15$) leaves $P$ with more than $10^{1000}$ points. Below $h=15$ the deletion bound $6q^{14}$ is no longer small compared with $m=q^h$, and with too many marks the identity (2.13) fails, as Figure 5 shows. These are bounds from the paper's estimates, not optimal values.</figcaption>
+</figure>
+
+<h3 id="s2-3"><span class="secnum">2.3</span>Blocks and triangular relations</h3>
+<p>At each regular point $z\notin E$, split the incident labels $I(z)$ into two <em>blocks</em> $I_b$ whose sizes factor as $|I_b|=s_bt_b$ with $s_b,t_b\ge r$. This is always possible when $d=|I(z)|\ge4r^2$: choose $n_2\in[r,2r-1]$ with $n_2\equiv d\pmod r$ and write $d=rn_1+(r+1)n_2$, so that $n_1\ge r$; use blocks of sizes $r\cdot n_1$ and $(r+1)\cdot n_2$. Exceptional points get no blocks. Each block gets a bijection to a discrete torus,</p>
+$$i\longmapsto\big(\alpha_b(i),\beta_b(i)\big)\in\Z/s_b\Z\times\Z/t_b\Z. \tag{2.3}$$
+
+<p>The complex $K$ has three vertices $O,V,W$ and three families of edges. Write $[r]=\{0,\dots,r-1\}$.</p>
+<ul>
+  <li>For each line label $i$, an $r\times r$ <em>array</em> of edges $x_{iuv}\colon V\to W$, $u,v\in[r]$.</li>
+  <li>For each block, edges $L_{b,u,j}\colon O\to V$ with $u\in[r]$, $j\in\Z/s_b\Z$, and $R_{b,v,k}\colon O\to W$ with $v\in[r]$, $k\in\Z/t_b\Z$.</li>
+</ul>
+<p>For every block $b$, label $i\in I_b$ and $u,v\in[r]$, attach a triangle with sides</p>
+$$x_{iuv},\qquad L_{b,u,\alpha_b(i)+v},\qquad R_{b,v,\beta_b(i)+u}. \tag{2.4}$$
+<p>Every triangle has the same shape, with angles $3\pi/5$ at $O$ and $\pi/5$ at $V$ and $W$. A label $i$ lies in one block at each regular point of its punctured line, so each edge $x_{iuv}$ bounds many triangles, one for each such point. Note the <em>shift</em>: the $L$-coordinate is moved by the opposite array index $v$, and the $R$-coordinate by $u$.</p>
+
+<div class="thm key"><span class="label">Lemma 2.3.</span> $K$ satisfies Theorem 2.1 with $\eta=2\pi/5$. At $V$ or $W$, the link distance between two distinct $x$-directions with the same label $i$ is at least $14\pi/5$, or infinite.</div>
+<ul>
+  <li><b>At $O$.</b> For fixed $u,v,j,k$ the equations $\alpha_b(i)=j-v$, $\beta_b(i)=k-u$ have exactly one solution $i\in I_b$. So each block contributes a complete bipartite graph between its $L$- and $R$-directions with exactly one edge per pair. Reduced cycles have at least four edges, of total angle at least $4\cdot3\pi/5=2\pi+2\pi/5$.</li>
+  <li><b>At $V$.</b> Send an $x_{iuv}$-direction to the line $i$ and an $L_{b,u,j}$-direction to the point $p(b)$. This maps the link at $V$ to the incidence graph of Lemma 2.2, and it is <em>locally injective</em>. At $x_{iuv}$, two triangles over the same point would put $i$ in two blocks there. At $L_{b,u,j}$, fixing $i$ determines $v$ from $j=\alpha_b(i)+v$, because $s_b\ge r$; this is where the shift is used. A locally injective map sends cyclically reduced walks to cyclically reduced walks, and the incidence graph has no cycles of length $\le12$. So every link cycle at $V$ has at least $14$ edges, of total angle at least $14\pi/5$. The argument at $W$ is the same with $t_b\ge r$.</li>
+  <li><b>Same-label directions.</b> A reduced link path between $x_{iuv}$ and $x_{iu'v'}$ projects to a closed walk at $i$, reduced except possibly at its seam. It still contains a cycle, so it has at least $14$ edges.</li>
+</ul>
+
+<p>Set $G=\pi_1(K,O)$. By Theorem 2.1 and Lemma 2.3, $G$ is torsion-free and word-hyperbolic. Choose paths from $O$ to $V$ and $W$, let $g_e\in G$ be the loop through an edge $e$, and write $g_{iuv}=g_{x_{iuv}}$. Each triangle gives a relation</p>
+$$g_{iuv}=g^{-1}_{L_{b,u,\alpha_b(i)+v}}\;g_{R_{b,v,\beta_b(i)+u}}\qquad(i\in I_b), \tag{2.5}$$
+<p>and the geometry gives the elements that the algebra will use:</p>
+$$g_{iuv}\,g_{iu'v}^{-1}\,g_{iu'v'}\,g_{iuv'}^{-1}\ \ne\ 1\qquad(u\ne u',\ v\ne v'). \tag{2.6}$$
+<p>This word is conjugate to the closed four-edge path $V\to W\to V\to W\to V$ along $x_{iuv}$, $x_{iu'v}$ backwards, $x_{iu'v'}$, $x_{iuv'}$ backwards. It runs around a "rectangle" in the array of line $i$: two distinct rows and two distinct columns. Each of its four turns compares two distinct directions with the same label, so it has link distance at least $14\pi/5\ge\pi$ by Lemma 2.3, and Theorem 2.1 says the path is not nullhomotopic. Let $\mathcal R$ be the finite set of these <em>rectangular words</em>. It remains to show that no finite quotient keeps all of $\mathcal R$ nontrivial.</p>
+
+<figure class="fig" id="fig-blocks" data-fig="blocks">
+  <div class="fig-head"><span class="num">Figure 3</span><span class="title">One block: the triangles as a table, and what the shift does</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>One block $I_b$ at a regular point of degree $d$. Rows are the $rs_b$ directions $L_{b,u,j}$ at $O$; columns are the $rt_b$ directions $R_{b,v,k}$. The cell in row $(u,j)$ and column $(v,k)$ holds the label $i$ of the triangle (2.4) with those two sides, so the table is the link at $O$ for this block. Thick lines separate the $r\times r$ macro-blocks $(u,v)$. Each label occurs $r^2$ times, once per macro-block, and those cells are the triangles on its edge array $x_{iuv}$. <b>Hover</b> a cell to outline its label's array and label the triangle. <b>Switch</b> to “no shift”, which uses $L_{b,u,\alpha_b(i)}$ and $R_{b,v,\beta_b(i)}$. Either way every cell is filled exactly once. That makes the link at $O$ complete bipartite with simple edges, and makes each macro-block a full copy of $\Z/s_b\times\Z/t_b$, which is the factorization (2.11). The shift is what keeps a label from repeating within a row or a column. A row is the star of an $L$-direction in the link at $V$. Since every label also lies in blocks at other points, a repeated label in a row closes a 4-cycle in the link at $V$, of angle $4\pi/5\lt2\pi$, and the criterion fails (<b style="color:var(--accent-2)">orange</b> segments).</figcaption>
+</figure>
+
+<h3 id="s2-4"><span class="secnum">2.4</span>Rank over the reals and over a fixed prime field</h3>
+<p>The algebra works with matrices over $\F_q$, the same prime that built the lines. The first step is a way to choose that characteristic before knowing any finite quotient.</p>
+
+<div class="thm"><span class="label">Lemma 2.4 (Rank under reduction).</span> Let $M$ be an integer matrix whose rows have Euclidean norm at most $\sqrt r$, with $r\ge1$. For every prime $q>r$,
+$$\rank_{\F_q}M\ \ge\ \tfrac12\rank_{\R}M.$$</div>
+<details class="proof"><summary>Proof</summary>
+<p>Let $d=\rank_\R M$ and take a nonzero $d\times d$ minor $B$. By Hadamard's inequality $1\le|\det B|\le r^{d/2}$. If $B$ has rank $d'$ modulo $q$, integer row operations that preserve $\det B$ make $d-d'$ of its rows divisible by $q$, so $q^{d-d'}$ divides $\det B$. Then $q^{d-d'}\le r^{d/2}\lt q^{d/2}$, which gives $d'\gt d/2$.</p>
+</details>
+
+<p>Now <b>suppose a finite quotient $Q$ of $G$ keeps every member of $\mathcal R$ nontrivial</b>, and put $D=|Q|$. Let $U(g)$ be the $D\times D$ permutation matrix of left multiplication by the image of $g$. Then $U$ is a homomorphism and $U(g)^\T=U(g^{-1})$. For each line label $i$, form the $rD\times rD$ integer matrix</p>
+$$Y_i=\big(U(g_{iuv})\big)_{u,v\in[r]}. \tag{2.7}$$
+<p>The trace of $U(g)$ is $D$ if $g$ maps to $1$ in $Q$ and $0$ otherwise. Expanding in blocks,</p>
+$$\tr\big(Y_iY_i^\T\big)=r^2D, \tag{2.8}$$
+$$\tr\big((Y_iY_i^\T)^2\big)=(2r^3-r^2)D. \tag{2.9}$$
+<p>In (2.9) each term is the trace of $U$ of a rectangular word. It equals $D$ when $u=u'$ or $v=v'$, which happens for $2r^3-r^2$ index choices, and $0$ otherwise because $Q$ keeps (2.6). Apply Cauchy–Schwarz to the eigenvalues of the positive semidefinite matrix $Y_iY_i^\T$:</p>
+$$\rank_\R Y_i\ \ge\ \frac{\big(\tr Y_iY_i^\T\big)^2}{\tr(Y_iY_i^\T)^2}=\frac{r^4D^2}{(2r^3-r^2)D}=\frac{r^2D}{2r-1}\ \ge\ \frac{rD}{2}.$$
+<p>Each row of $Y_i$ has exactly $r$ entries equal to $1$, so Lemma 2.4 applies:</p>
+$$\rank_{\F_q}Y_i\ \ge\ \frac{rD}{4}. \tag{2.10}$$
+<p>No condition on $D$ is needed. In particular $q$ may divide $|Q|$, where reduction mod $q$ can destroy a lot of rank; the bound $q>r$ alone keeps half. In words: if the rectangles survive, an edge array looks "generic" and has nearly full rank. If the array were a product $g_{uv}=a_ub_v$, every rectangle would die and the rank would be exactly $D$.</p>
+
+<figure class="fig" id="fig-rank" data-fig="rank">
+  <div class="fig-head"><span class="num">Figure 4</span><span class="title">An edge array in a real finite group</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>A finite group $Q$, an $r\times r$ array $g_{uv}\in Q$, and its matrix $Y=(U(g_{uv}))$ of regular permutation matrices (left), as in (2.7). The right panel lays out the $r^4$ index choices $(u,u';v,v')$ in the trace (2.9): gray when degenerate, <b style="color:var(--accent)">blue</b> when the rectangular word is nontrivial in $Q$, <b style="color:var(--accent-2)">orange</b> when it is trivial. Ranks are computed by exact elimination: modulo two primes near $46{,}000$ for the rank over $\R$ (each a lower bound for it, and in practice equal), and modulo the chosen $q$. <b>Pick</b> a group, an array type and a prime. When every nondegenerate rectangle survives, the rank over $\R$ exceeds the trace bound $r^2D/(2r-1)\ge rD/2$. A product array $g_{uv}=a_ub_v$ kills every rectangle and has rank exactly $D$; this is what the block sums of §2.5 look like. With $q\gt r$ Lemma 2.4 keeps at least half of the rank, and the bilinear array $g_{uv}=uv$ in $\Z/23$ at $q=23$ comes close to that half. With $q\le r$ the lemma promises nothing: in the additive groups of $\F_8$ and $\F_{16}$ with $g_{uv}=uv$ and $q=2$, the rank falls below half.</figcaption>
+</figure>
+
+<h3 id="s2-5"><span class="secnum">2.5</span>Local factorizations and the global certificate</h3>
+<p>The contradiction writes the direct sum of the high-rank matrices $Y_i$ as a sum of terms of small total rank. The triangles give the small local ranks, and interpolation supplies weights that glue them together. Work over $\F_q$ from now on, and for each point put</p>
+$$Z(z)=\sum_{i\in I(z)}Y_i\qquad(z\in P).$$
+
+<p><b>Local factorization.</b> At a regular point $z\notin E$, each of its two blocks satisfies</p>
+$$\sum_{i\in I_b}Y_i=\Big(\sum_{j\in\Z/s_b\Z}U\big(g_{L_{b,u,j}}^{-1}\big)\Big)_{u\in[r]}\Big(\sum_{k\in\Z/t_b\Z}U\big(g_{R_{b,v,k}}\big)\Big)_{v\in[r]}. \tag{2.11}$$
+<p>The first factor is a block column and the second a block row, so the product has inner dimension $D$. To see it, fix $u,v$. By (2.5) the $(u,v)$ block of the left side is $\sum_iU(g_{L}^{-1})U(g_{R})$, and as $i$ runs through $I_b$ the shifted coordinates $(\alpha_b(i)+v,\beta_b(i)+u)$ run through every pair $(j,k)$ exactly once. So the block is a sum over all pairs, which factors, and the factors do not depend on the opposite index. The order of the factors is kept, so no commutativity is used. Hence</p>
+$$\rank Z(z)\ \le\ \begin{cases}2D, & z\notin E,\\ rD, & z\in E,\end{cases} \tag{2.12}$$
+<p>where at exceptional points one just uses the size of the matrix.</p>
+
+<p><b>Interpolation weights.</b> For each label $i$, with mark $a_i=(a_{i1},\dots,a_{ih})\in S^h$, the product Lagrange polynomial</p>
+$$f_i(X_1,\dots,X_h)=\prod_{t=1}^{h}\ \prod_{a\in S\setminus\{a_{it}\}}\frac{X_t-a}{a_{it}-a}$$
+<p>has total degree at most $h(|S|-1)$ and satisfies $f_i(a_{i'})=\delta_{ii'}$. Let $f$ be the column of all $N$ of these and $H(z)=f(z)f(z)^\T$, an $N\times N$ matrix of rank at most one with $H(a_i)=E_{ii}$. Each entry of $H$ restricted to an affine line is a polynomial of degree at most $2h(|S|-1)\lt q-1$. Over $\F_q$ such a polynomial sums to zero over the line: $\sum_{t\in\F_q}t^j=0$ for $0\le j\lt q-1$. Removing the mark from line $i$ therefore leaves</p>
+$$\sum_{z:\ i\in I(z)}H(z)=-H(a_i)=-E_{ii}. \tag{2.13}$$
+<p>Other marks that happen to lie on $\ell_i$ stay in the sum; only $a_i$ is removed. Exchanging finite sums gives the tensor identity</p>
+$$-\bigoplus_{i\in I}Y_i\;=\;-\sum_{i\in I}E_{ii}\otimes Y_i\;=\;\sum_{z\in P}H(z)\otimes Z(z). \tag{2.14}$$
+
+<figure class="fig" id="fig-interp" data-fig="interp">
+  <div class="fig-head"><span class="num">Figure 5</span><span class="title">Punctured lines and the interpolation identity</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>The plane $P=\F_q^2$, so $h=2$ here instead of $20$. The marks are the grid $S^2$ (circles), each with a line through it in a random direction. Numbers are the values of $f_i$ for the chosen label; blank cells are zeros. The zeros form the grid lines through the other marks' coordinates, which is why $f_i(a_{i'})=\delta_{ii'}$. The <b style="color:var(--accent-2)">orange</b> outline is $\ell_i$, and the strip lists $f_if_k$ at its $q$ points with the running sum mod $q$. <b>Click</b> a mark to choose $i$; switch to “picks k” to choose a second label. Over the whole line the values sum to $0$; dropping the mark ($t=0$) leaves exactly $-1$ for $f_i^2$ and $0$ for $f_if_k$. That is (2.13). The readout also checks (2.14) entry by entry with random $2\times2$ matrices in place of the $Y_i$. It holds for any blocks, which shows that all the group theory sits in the rank bounds. <b>Raise $|S|$</b> until $4(|S|-1)\ge q-1$: both identities break.</figcaption>
+</figure>
+
+<p><b>Counting ranks.</b> By (2.10) the left side of (2.14) has rank at least $N\cdot rD/4$. On the right, each term $H(z)\otimes Z(z)$ has rank at most $\rank Z(z)$ because $\rank H(z)\le1$. Rank is subadditive, so (2.12) gives</p>
+<div class="thm key"><span class="label">The rank contradiction (§2.5).</span>
+$$\frac{NrD}{4}\ \le\ 2mD+r|E|D.$$
+After cancelling $D$, this contradicts the gap (2.2). So no finite quotient keeps every member of $\mathcal R$ nontrivial.</div>
+
+<p>Finally, if each $w\in\mathcal R$ had a nontrivial image in some finite group, the product of those finitely many homomorphisms, followed by taking the image, would be a finite quotient keeping all of $\mathcal R$. So one fixed $w\in\mathcal R$ maps to the identity in every finite quotient. Since $w\ne1$ in $G$ by (2.6), $R_f(G)\ne1$, which proves Theorem 1.1 modulo Theorem 2.1.</p>
+
+<div class="note"><span class="label">The shape of the argument</span>
+The geometry and the algebra pull in opposite directions on the same finite set $\mathcal R$. Large links make $K$ nonpositively curved with a strict excess, so $G$ is torsion-free and hyperbolic and every rectangular word is nontrivial. In a finite quotient where all of $\mathcal R$ survives, every edge array is a high-rank matrix. But the triangles force the arrays in each block to sum to a matrix of rank at most $D$, and interpolation over $\F_q$ on punctured lines writes the direct sum of all arrays as a combination of those block sums with rank-one weights. Counting ranks on both sides gives $Nr/4\le2m+r|E|$, and the parameters were chosen to violate it. The characteristic $q$ is chosen before the quotient, and Lemma 2.4 is what makes that possible.</div>
+</section>
+
+<!-- ======================================================= 3 -->
+<section id="s3">
+<h2><span class="secnum">3</span>Metrics, planar fillings, and torsion</h2>
+<p>Sections 3 and 4 prove Theorem 2.1 for any complex $K$ satisfying its hypothesis. The approach is the classical one (Gromov's link condition, as in Bridson–Haefliger), written out completely: van Kampen diagrams with a reducedness property, an angular Gauss–Bonnet formula, shortest loops, and a thin-triangles estimate.</p>
+
+<h3 id="s3-1"><span class="secnum">3.1</span>Subdivisions and shortest paths</h3>
+<p>Barycentric subdivision turns $K$ into a genuine simplicial complex. At an original vertex this only subdivides the link, keeping its metric. A new point inside a triangle has a link circle of length $2\pi$, and a new point inside an edge has links made of arcs of length $\pi$. So every cyclically reduced closed link walk has length at least $2\pi$ everywhere, and at least $2\pi+\eta$ at original vertices. These bounds survive any further subdivision.</p>
+<div class="thm"><span class="label">Lemma 3.1 (Metric preliminaries).</span> The intrinsic path metric induces the topology of $K$; any two points are joined by a shortest path; every local geodesic on a compact interval, or closed, has finitely many straight pieces. If such a path runs in the edges of a subdivision, each of its turns has link distance at least $\pi$.</div>
+<p>The last claim is the useful one: if a turn were sharper than $\pi$, unfolding the sectors between the two directions gives a Euclidean wedge of angle less than $\pi$, where a straight chord shortens the path.</p>
+
+<h3 id="s3-2"><span class="secnum">3.2</span>Reduced planar fillings with a prescribed boundary</h3>
+<div class="thm"><span class="label">Lemma 3.2 (Reduced fillings).</span> Let $S$ be the barycentric subdivision of $K$ or a further subdivision. Every nonempty nullhomotopic closed edge path in $S$ is the exterior walk of a planar diagram $\Delta$ (a finite connected complex of edges and triangles in the plane, with no holes) mapping triangles and edges isometrically into $S$. At every interior vertex of $\Delta$ the cyclic sequence of corners maps to a nonempty cyclically reduced closed walk in the target link.</div>
+<p>This is a van Kampen diagram with no cancelling pairs. The proof starts from any disk filling, approximates it by a simplicial map, and reads off a labelled "picture" (the preimages of ties between barycentric coordinates). Among pictures with the given boundary it takes one with the fewest trivalent nodes. Two nodes joined by an arc and labelled by the same target triangle could be cancelled inside a thin disk, as in the paper's Figure 2. So in a minimal picture adjacent triangles never fold onto each other. The planar dual of the picture is the diagram, and minimality is exactly the reducedness of interior links. Combined with the link hypothesis, every interior vertex of $\Delta$ has total angle at least $2\pi$, and at least $2\pi+\eta$ if it maps to an original vertex.</p>
+
+<h3 id="s3-3"><span class="secnum">3.3</span>Angular curvature and nontrivial closed paths</h3>
+<p>For a vertex $y$ of a diagram let $\theta_y$ be the sum of its triangle angles and $n_y$ the number of times the exterior walk visits it, so $n_y=0$ at interior vertices. With $v,e,t$ the numbers of vertices, edges and triangles, planarity without holes gives $v-e+t=1$, counting exterior edge sides gives $\sum_yn_y=2e-3t$, and each triangle has angle sum $\pi$. Together:</p>
+$$\sum_y\Big((2-n_y)\pi-\theta_y\Big)=2\pi v-\pi(2e-3t)-\pi t=2\pi. \tag{3.1}$$
+<p>This angular Gauss–Bonnet identity counts exterior visits with multiplicity, so it needs no simple boundary.</p>
+
+<div class="thm key"><span class="label">Proposition 3.3 (Closed paths).</span> In $K$, or in any compatible Euclidean subdivision of it, a nonempty closed edge path whose every cyclic turn has link distance at least $\pi$ is not nullhomotopic.</div>
+<p>If such a path were nullhomotopic, take a reduced filling and look at the summands of (3.1). Interior vertices have $\theta_y\ge2\pi$, so their summands are at most $0$. A boundary vertex visited once has its interior corners forming a link path between the two boundary directions, so $\theta_y$ is at least the turn, which is at least $\pi$; its summand $\pi-\theta_y$ is at most $0$. Vertices visited twice or more have summand at most $-\theta_y\le0$. The total would be at most $0$, not $2\pi$. A path in $K$ itself is first subdivided; the new straight-through turns along original edges have distance $\pi$.</p>
+
+<figure class="fig" id="fig-diagram" data-fig="diagram">
+  <div class="fig-head"><span class="num">Figure 6</span><span class="title">Angular Gauss–Bonnet in a model diagram (3.1)</span></div>
+  <div class="fig-mount"></div>
+  <figcaption>A model of a reduced diagram in which every interior vertex has the least total angle $K$ allows: $4$ triangles around each $O$ and $14$ around each $V$ and $W$. The combinatorics is the tiling of the hyperbolic plane by triangles with angles $\pi/2,\pi/7,\pi/7$, drawn in the Poincaré disk with a $V$ at the center. The angles counted are the paper's Euclidean ones, $3\pi/5$ at $O$ and $\pi/5$ at $V,W$, so interior vertices have $12\pi/5$ or $14\pi/5$. <b>Click</b> triangles to build a disk, or <b>pick</b> a preset. The ledger always totals exactly $2\pi$. <b style="color:var(--accent-3)">Interior</b> vertices contribute $-2\pi/5$ or $-4\pi/5$, so the boundary must pay with <b style="color:var(--accent-2)">corners</b>, boundary vertices whose inside angle is less than $\pi$. A boundary with every turn at least $\pi$ has no corners, so it bounds no disk: that is Proposition 3.3. The more interior vertices a disk holds, the more corners it needs, which is the count behind Lemma 4.1. In the star of $V$, the seven $W$-corners carry $3\pi/5$ each and pay for the center and the seven reflex $O$-vertices.</figcaption>
+</figure>
+
+<h3 id="s3-4"><span class="secnum">3.4</span>Shortest free loops and torsion</h3>
+<div class="thm"><span class="label">Proposition 3.4.</span> The group $\pi_1(K)$ is torsion-free.</div>
+<p>Let $g\ne1$. Its free homotopy class contains a loop of least length: loops of length below a fixed $5\epsilon$ are contractible, uniformly close loops are freely homotopic, and a minimizing sequence has a uniformly convergent subsequence. A shortest loop is a closed local geodesic, including across its seam, and by Lemma 3.1 it has finitely many straight pieces. Subdivide $K$ so that the loop runs in edges; then every turn has link distance at least $\pi$. If $g^n=1$, the $n$-fold repetition of this loop would be nullhomotopic, and it still has all turns at least $\pi$. That contradicts Proposition 3.3.</p>
+</section>
+
+<!-- ======================================================= 4 -->
+<section id="s4">
+<h2><span class="secnum">4</span>Uniform thinness and the Cayley graph</h2>
+<p>The last step turns the angle excess into thin triangles, first in reduced diagrams with their own piecewise Euclidean metric $d_\Delta$, then in a Cayley graph of $G$. From now on the triangulation is the fixed barycentric subdivision, in which every small triangle has an original vertex of $K$ among its corners.</p>
+
+<h3 id="s4-1"><span class="secnum">4.1</span>Angle excess and thin diagrams</h3>
+<div class="thm key"><span class="label">Lemma 4.1 (Uniform thinness of reduced diagrams).</span> Let $M$ exceed every diameter and edge length of the finitely many model triangles, and put
+$$A=M+\frac{2M\pi}{\eta},\qquad\delta=10(A+1).$$
+Every geodesic triangle in every reduced diagram is $\delta$-thin.</div>
+<p>The constant depends only on $K$, not on the diagram. The proof has three steps.</p>
+<ol>
+  <li><b>Few interior vertices.</b> Take a point $p$ on one side not on the other two. The arc of that side around $p$, together with at most two subarcs of the other sides, bounds a Jordan disk $\Omega$ with at most three corners. Inside $\Omega$, each original vertex has its full excess $\eta$, the boundary has inside angle at least $\pi$ away from corners (it is geodesic), and each corner has deficit at most $\pi$. Applying (3.1) to $\Omega$ gives $2\pi\le3\pi-n\eta$, so $\Omega$ contains at most $n\le\pi/\eta$ original vertices.</li>
+  <li><b>Small inradius.</b> Every point of $\Omega$ lies within $M$ of an original vertex in its small triangle, and the distance to $\partial\Omega$ is $1$-Lipschitz. Covering the range of that distance function by $n$ intervals of length $2M$ gives
+  $$d_\Delta(x,\partial\Omega)\le M+2Mn\le A\qquad(x\in\Omega). \tag{4.1}$$</li>
+  <li><b>A level arc.</b> Suppose $p$ were farther than $10(A+1)$ from the other two sides. A level set of a piecewise linear approximation to $d_\Delta(p,\cdot)$, at a height between a third and two thirds of that distance, contains an arc $\gamma$ across $\Omega$ with its two ends on the side through $p$, one on each side of $p$. Choose $y\in\gamma$ with $d_\Delta(a,y)=d_\Delta(a,p)$, where $a$ is an end of that side's arc. By (4.1), $y$ is within $A$ of a point $z$ of the side, and since the side is geodesic, $z$ is within $A$ of $p$. So $d_\Delta(p,y)\le2A$, which is too small for a point at that height.</li>
+</ol>
+
+<h3 id="s4-2"><span class="secnum">4.2</span>Stability of controlled paths</h3>
+<div class="thm classical"><span class="label">Lemma 4.2 (Morse stability, with explicit constants).</span> In a geodesic space with $\delta$-thin triangles, fix $\lambda\ge1$, $C\ge0$. There is $D=D(\delta,\lambda,C)$ such that every rectifiable path $\sigma$ with
+$$\length(\sigma|_{[u,v]})\le\lambda\,d(\sigma(u),\sigma(v))+C\quad\text{for all }u\le v \tag{4.2}$$
+lies within $D$ of a geodesic with the same endpoints, which in turn lies within $2D$ of $\sigma$. Triangles whose sides satisfy (4.2) are $(3D+\delta)$-thin.</div>
+<p>This is the classical Morse lemma (Bridson–Haefliger III.H.1.7), proved here with constants suited to the next step: excursions far from the geodesic project to short intervals (4.3), and the length control (4.2) then bounds their length.</p>
+
+<h3 id="s4-3"><span class="secnum">4.3</span>Passage to word distance</h3>
+<div class="thm"><span class="label">Proposition 4.3 (Transfer to the Cayley graph).</span> The group $G=\pi_1(K)$ is word-hyperbolic.</div>
+<p>Generate $G$ by the loops through edges, using a spanning tree. Expand a geodesic triangle of the Cayley graph letter by letter into edge loops in $K$, of length at most $B_2$ each, and fill the resulting nullhomotopic path by a reduced diagram. Inside the diagram, edge-path distance is at most $B_1$ times $d_\Delta$, because a straight segment through a triangle can be rerouted along its sides at a bounded cost (4.5). Two marks on the boundary walk have group distance at most their edge distance, so at most $B_1d_\Delta$ (4.6). Hence each expanded side satisfies (4.2) with $\lambda=\max\{1,B_1B_2\}$ and $C=2\lambda B_2$. Lemmas 4.1 and 4.2 make the expanded triangle uniformly thin in the diagram, and (4.6) carries this back to the Cayley graph with constant $H=B_1(3D+\delta+B_2)+1$, and $4H+2$ for triangles with corners inside edges. Together with Propositions 3.3 and 3.4 this proves Theorem 2.1, and with it Theorem 1.1. $\blacksquare$</p>
+</section>
+
+<!-- ======================================================= guide -->
+<section id="guide">
+<h2>Reading guide: what is classical, and what is new</h2>
+<table class="params">
+  <tr><th>Part</th><th>Status</th><th>Where the weight sits</th></tr>
+  <tr><td>Thm 2.1, §§3–4</td><td>classical approach (link condition, Gauss–Bonnet, Morse lemma), proved in full</td><td>Reduced fillings; turns ≥ π give nontrivial loops; angle excess gives thin diagrams</td></tr>
+  <tr><td>Lemma 2.2</td><td>classical method (Erdős alteration)</td><td>Punctured incidences; girth ≥ 14 while almost every point has degree ≥ 4r²</td></tr>
+  <tr><td>§2.3, Lemma 2.3</td><td>new construction</td><td>Shifted block coordinates: complete bipartite link at O, immersion of the links at V and W</td></tr>
+  <tr><td>(2.6)</td><td>new, from Thm 2.1</td><td>Rectangular words are nontrivial because same-label turns are ≥ 14π/5</td></tr>
+  <tr><td>(2.8)–(2.10), Lemma 2.4</td><td>new, elementary</td><td>Trace count and Cauchy–Schwarz; characteristic fixed in advance, only q &gt; r needed</td></tr>
+  <tr><td>(2.11)–(2.14)</td><td>new</td><td>Block factorization (rank ≤ 2D per point) glued by punctured-line interpolation</td></tr>
+  <tr><td>Cor 1.2</td><td>classical (Malcev)</td><td>Non-linearity over every commutative field</td></tr>
+</table>
+<p>The rank comparison itself is short and elementary once (2.6) is known. A reader checking the argument should spend the most time on three places. First, the link computations in Lemma 2.3, which are what make the rectangular words nontrivial; Figure 3 shows how the shift enters. Second, the counting in Lemma 2.2: cycles through labels that share a geometric line, and the claim that deletion changes no degree outside $E$. Third, the bookkeeping behind (2.14), where exceptional points keep all their incidences and other marks on a line stay in its sum. Sections 3–4 prove a version of a classical criterion; the Lean development reaches the same conclusion by a combinatorial route.</p>
+</section>
+
+<!-- ======================================================= refs -->
+<section id="refs">
+<h2>References</h2>
+<p>The source is <a href="https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/a-torsion-free-hyperbolic-group-that-is-not-residually-finite-September-23-2026/paper.pdf">OpenAI, <em>A torsion-free hyperbolic group that is not residually finite</em>, September 23, 2026</a>, with its <a href="https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/docs/252.md">formalization notes</a>. Other works mentioned on this page:</p>
+<ol class="refs">
+  <li>I. Agol, The virtual Haken conjecture, <em>Doc. Math.</em> 18 (2013), 1045–1087.</li>
+  <li>I. Agol, D. Groves, J. F. Manning, Residual finiteness, QCERF and fillings of hyperbolic groups, <em>Geom. Topol.</em> 13 (2009), 1043–1073.</li>
+  <li>G. Baumslag, D. Solitar, Some two-generator one-relator non-Hopfian groups, <em>Bull. AMS</em> 68 (1962), 199–201.</li>
+  <li>M. R. Bridson, A. Haefliger, <em>Metric Spaces of Non-Positive Curvature</em>, Springer, 1999.</li>
+  <li>J. L. Britton, The word problem, <em>Ann. of Math.</em> 77 (1963), 16–32.</li>
+  <li>M. Burger, S. Mozes, Finitely presented simple groups and products of trees, <em>C. R. Acad. Sci. Paris</em> 324 (1997), 747–752.</li>
+  <li>P. Erdős, Graph theory and probability, <em>Canad. J. Math.</em> 11 (1959), 34–38.</li>
+  <li>M. Gromov, Hyperbolic groups, in <em>Essays in Group Theory</em>, MSRI Publ. 8 (1987), 75–263.</li>
+  <li>F. Haglund, D. T. Wise, Special cube complexes, <em>Geom. Funct. Anal.</em> 17 (2008), 1551–1620.</li>
+  <li>I. Kapovich, D. T. Wise, The equivalence of some residual properties of word-hyperbolic groups, <em>J. Algebra</em> 223 (2000), 562–583.</li>
+  <li>M. Kapovich, Representations of polygons of finite groups, <em>Geom. Topol.</em> 9 (2005), 1915–1951.</li>
+  <li>A. Malcev, On isomorphic matrix representations of infinite groups, <em>Mat. Sb.</em> 8(50) (1940), 405–422.</li>
+  <li>N. Tholozan, K. Tsouvalas, Residually finite non-linear hyperbolic groups, <em>Comment. Math. Helv.</em> 100 (2025), 1–9.</li>
+  <li>D. T. Wise, Complete square complexes, <em>Comment. Math. Helv.</em> 82 (2007), 683–724.</li>
+</ol>
+<footer class="end">This page explains the claimed proof; it is not a verification of it. The figures are models: Figure 1 searches a classical non-hyperbolic group, Figures 3–6 compute individual steps on small examples, and the sizes in Figure 2 come from the paper's estimates.</footer>
+</section>
+
+</main>
+</div>
+</body>
+</html>
