@@ -17,7 +17,7 @@ import { fromPoly, mmul, adj, det, IDENTITY, isScalar, lTex, normalizePGL } from
 import { parseRat } from './polyParse.js';
 import { polyMatrix } from './poly.js';
 import { frameOf, vertexOf, localMap, classify, keyOf, cuspKey, isPrefix, toFloat, fmul, finv, fdet, fnorm, RHO, mobiusPath } from './treeAction.js';
-import { HALF, attach, childFrame, standardChild, edgeGap, rootFrame, frameAt, lerpFrame, scaleOf, toCF, lerpCF, cfPoint, cfDisk } from './layout.js';
+import { HALF, attach, childFrame, standardChild, edgeGap, edgeSign, towardInf, rootFrame, frameAt, lerpFrame, scaleOf, toCF, lerpCF, cfPoint, cfDisk } from './layout.js';
 import { Q } from './rational.js';
 import { primitive } from './poly.js';
 import { specMat, qmul, qdet, latticeKey } from './specialize.js';
@@ -25,6 +25,8 @@ import * as UI from './panel.js';
 import { EXAMPLES } from './examples.js';
 import { FIELDS, cusps as kCusps, circles as kCircles, cuspName as kCuspName, planeThrough } from './fieldK.js';
 import { makeKEngine } from './kengine.js';
+import { startTutorial } from './tutorial.js';
+import { PALETTES, RULES, shades, swatch } from './coloring.js';
 import { cpath, cmul, cinv, capply, sphereOf } from './cmobius.js';
 
 const $ = (id) => document.getElementById(id);
@@ -35,7 +37,14 @@ const MIN_PX = 0.6;       // planes smaller than this (projected radius) are dro
 const DETAIL_PX = 18;     // Farey geodesics and horocycles only on planes at least this big
 const ORTHO_DIST = 60;
 
-const st = { dep: 4, N: 8, lam: 0.6, h: -1, edges: 'q', base: 'half', far: true, hor: false, ortho: false, dur: 1.6, field: 'Q' };
+const st = { dep: 4, N: 8, lam: 0.6, h: -1, edges: 'q', base: 'half', far: true, hor: false, ortho: false, dur: 1.6, field: 'Q',
+    palette: 'iris', rule: 'type', carry: false };
+try {       // the colouring is remembered between visits
+    const c = JSON.parse(localStorage.getItem('twoDimFields-colour') || '{}');
+    if (PALETTES.some((p) => p.id === c.palette)) st.palette = c.palette;
+    if (RULES.some((r) => r.id === c.rule)) st.rule = c.rule;
+    st.carry = !!c.carry;
+} catch (e) { /* storage blocked */ }
 {   // ?field=i or ?field=omega opens the tree of balls over ℚ(i) or ℚ(ω)
     const f = new URLSearchParams(location.search).get('field');
     if (f && FIELDS[f]) st.field = f;
@@ -43,30 +52,32 @@ const st = { dep: 4, N: 8, lam: 0.6, h: -1, edges: 'q', base: 'half', far: true,
 const KF = () => FIELDS[st.field];
 
 // ---------- palette ----------
+// The planes and balls take their colours from the chosen palette (coloring.js): P.fill, P.str,
+// P.horo and P.ball hold TN + 1 shades along it and a neutral one at NEUTRAL, and each plane
+// carries the index of its shade (rec.tc, from the colouring rule further down).
 const PAL = {
-    dark: { bg: '#0b0d16', fill: ['#26215C', '#04342C'], str: ['#AFA9EC', '#5DCAA5'], horo: ['#7F77DD', '#1D9E75'],
-        line: ['#ffffff', 0.2], edge: ['#ffffff', 0.32], axis: ['#ffffff', 0.55], hi: '#F0997B', hiFill: '#712B13',
-        ball: ['#4E46B8', '#1B7F62'], ballLine: ['#ffffff', 0.42], hiBall: '#C8613C' },
-    light: { bg: '#f3f5fb', fill: ['#E6E4FD', '#DAF2E8'], str: ['#534AB7', '#0F6E56'], horo: ['#AFA9EC', '#5DCAA5'],
-        line: ['#000000', 0.17], edge: ['#000000', 0.28], axis: ['#000000', 0.45], hi: '#D85A30', hiFill: '#FAECE7',
-        ball: ['#B9B2F4', '#97D9C1'], ballLine: ['#231d5c', 0.4], hiBall: '#F2A98C' },
+    dark: { bg: '#0b0d16', line: ['#ffffff', 0.2], edge: ['#ffffff', 0.32], axis: ['#ffffff', 0.55], hi: '#F0997B', hiFill: '#712B13',
+        ballLine: ['#ffffff', 0.42], hiBall: '#C8613C' },
+    light: { bg: '#f3f5fb', line: ['#000000', 0.17], edge: ['#000000', 0.28], axis: ['#000000', 0.45], hi: '#D85A30', hiFill: '#FAECE7',
+        ballLine: ['#231d5c', 0.4], hiBall: '#F2A98C' },
 };
+const TN = 64, NEUTRAL = TN + 1;
 const rgba = (hex, a = 1) => { const c = new THREE.Color(hex); return [c.r, c.g, c.b, a]; };
 const isLight = () => document.documentElement.classList.contains('light');
+const palette = () => PALETTES.find((x) => x.id === st.palette) || PALETTES[0];
 let P;
 function setPalette() {
-    const p = isLight() ? PAL.light : PAL.dark;
+    const p = isLight() ? PAL.light : PAL.dark, S = shades(palette(), isLight() ? 'light' : 'dark', TN);
+    const col = ([r, g_, b]) => new THREE.Color(r, g_, b);
     P = {
         bg: new THREE.Color(p.bg),
-        fill: p.fill.map((h) => new THREE.Color(h)),
+        fill: S.fill.map(col), str: S.str.map((c) => [...c, 1]), horo: S.horo.map((c) => [...c, 0.9]), ball: S.ball.map(col),
         hiFill: new THREE.Color(p.hiFill),
-        str: p.str.map((h) => rgba(h)),
-        horo: p.horo.map((h) => rgba(h, 0.9)),
         line: rgba(...p.line), edge: rgba(...p.edge), axis: rgba(...p.axis), hi: rgba(p.hi),
-        ball: p.ball.map((h) => new THREE.Color(h)), ballLine: rgba(...p.ballLine), hiBall: new THREE.Color(p.hiBall),
+        ballLine: rgba(...p.ballLine), hiBall: new THREE.Color(p.hiBall),
     };
     renderer.setClearColor(P.bg);
-    paintHalf();
+    halfPainted = -1;
 }
 
 // ---------- scene ----------
@@ -143,8 +154,12 @@ const halfMesh = new THREE.Mesh(halfGeo, new THREE.MeshBasicMaterial({
     vertexColors: true, transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
 }));
 scene.add(halfMesh);
-function paintHalf() {
-    const pos = halfGeo.attributes.position, col = halfGeo.attributes.color, c = P.fill[0];
+let halfPainted = -1;
+function paintHalf(c) {
+    const hex = c.getHex();
+    if (hex === halfPainted) return;
+    halfPainted = hex;
+    const pos = halfGeo.attributes.position, col = halfGeo.attributes.color;
     for (let i = 0; i < pos.count; i++) col.setXYZW(i, c.r, c.g, c.b, fade(pos.getX(i), -pos.getZ(i)));
     col.needsUpdate = true;
 }
@@ -284,6 +299,8 @@ function drawHalf(L_, rec) {
     const { X } = HALF, C = rec.C;
     halfFlip = rec.F.flip || 0;
     halfMesh.rotation.z = halfFlip;
+    if (!rec.noAxis) paintHalf(mixColor(P.fill, rec));    // (overlays in the collapse draw on it, unfilled)
+    const horo = mixRGBA(P.horo, rec);
     if (!rec.noAxis) for (let i = 0, n = 20 * X; i < n; i++) fseg(L_, -X + 2 * X * i / n, 0, -X + 2 * X * (i + 1) / n, 0, P.axis);
     if (rec.bare) return;
     const N = rec.Nc || st.N;
@@ -294,14 +311,14 @@ function drawHalf(L_, rec) {
             for (let n = -X; n <= X; n++) halfGeodesic(L_, [n, 1], [1, 0], P.line);
         }
         if (st.hor) {
-            for (const [p, q] of R0.v) halfHorocycle(L_, [p, q], P.horo[0]);
-            halfHorocycle(L_, [1, 0], P.horo[0]);
+            for (const [p, q] of R0.v) halfHorocycle(L_, [p, q], horo);
+            halfHorocycle(L_, [1, 0], horo);
         }
         return;
     }
     const set = baseDiskSet(N);
     if (st.far) for (const [p1, q1, p2, q2] of set.e) halfGeodesic(L_, vec(C, p1, q1), vec(C, p2, q2), P.line);
-    if (st.hor) for (const [p, q] of set.v) halfHorocycle(L_, vec(C, p, q), P.horo[0]);
+    if (st.hor) for (const [p, q] of set.v) halfHorocycle(L_, vec(C, p, q), horo);
 }
 
 // ---------- a plane between the half-plane and a disk (layout.js, conformal frames) ----------
@@ -408,19 +425,62 @@ function drawMorph(L_, rec, mesh) {
     cfFarey(L_, F, C, st.N, 40, 1, rec);
 }
 
-// Planes are coloured by the parity of their distance from v₀. An element whose determinant has
-// odd valuation swaps the two classes, and the animation cross-fades: rec.mix = [k0, k1, e].
+// A plane's shade is rec.tc; while it moves its shade may change, and the animation cross-fades
+// between the two: rec.mix = [k0, k1, e].
 const mixC = new THREE.Color();
 function mixColor(list, rec) {
-    if (!rec.mix) return list[rec.dep % 2];
+    if (!rec.mix) return list[rec.tc ?? 0];
     const [k0, k1, e] = rec.mix;
     return mixC.copy(list[k0]).lerp(list[k1], e);
 }
 function mixRGBA(list, rec) {
-    if (!rec.mix) return list[rec.dep % 2];
+    if (!rec.mix) return list[rec.tc ?? 0];
     const [k0, k1, e] = rec.mix, A = list[k0], B = list[k1];
     return A.map((x, i) => x + (B[i] - x) * e);
 }
+const mixOf = (k0, k1, e) => (k0 === k1 ? null : [k0, k1, e]);
+
+// ---------- the colouring rules (coloring.js) ----------
+// A vertex is its list of labels from v₀; a plane is coloured by the vertex it sits at, or, when
+// the colours travel with the planes, by the vertex whose picture it carries (decor src). Labels
+// are cusps of ℙ¹(ℚ) as [p, q] over ℚ and fieldK.js cusps over ℚ(i), ℚ(ω); A reads them.
+const LQ = {
+    inf: (l) => l[1] === 0n, zero: (l) => l[0] === 0n, same: (a, b) => a[0] === b[0] && a[1] === b[1],
+    ht: (l) => (l[1] === 0n ? 1 : Number(l[1])),
+    // the angle of the cusp on the boundary circle (0 at the bottom, ∞ at the top), as a turn
+    br: (l) => { const p = Number(l[0]), q = Number(l[1]); return (Math.atan2(p * p - q * q, 2 * p * q) / (2 * Math.PI) + 1.25) % 1; },
+};
+const LK = {
+    inf: (c) => c.absq === 0, zero: (c) => !c.p[0] && !c.p[1], same: (a, b) => a.key === b.key, ht: (c) => Math.max(1, c.absq),
+    // the argument of the cusp, shifted by its latitude so the poles (0 and ∞) differ
+    br: (c) => (Math.atan2(c.dir[1], c.dir[0]) / (2 * Math.PI) + 1 + (1 + c.dir[2]) / 4) % 1,
+};
+const shadeAt = (t) => Math.round(Math.min(1, Math.max(0, t)) * TN);
+function common(a, b, A) { let k = 0; while (k < a.length && k < b.length && A.same(a[k], b[k])) k++; return k; }
+// The shade of the plane at vertex v carrying the picture of vertex src.
+function shadeOf(v, src, A) {
+    if (st.rule === 'moved') { const d = v.length + src.length - 2 * common(v, src, A); return shadeAt(d / (2 * Math.max(1, st.dep))); }
+    if (st.carry) v = src;
+    const n = v.length;
+    switch (st.rule) {
+        case 'depth': return shadeAt(n / Math.max(1, st.dep));
+        case 'level': {           // up one level for each edge toward ∞, down one for each away
+            let k = 0;
+            while (k < n && (k ? A.zero(v[k]) : A.inf(v[k]))) k++;
+            return shadeAt(0.5 + (2 * k - n) / (2 * Math.max(1, st.dep)));
+        }
+        case 'branch': {
+            if (!n) return NEUTRAL;
+            const t = A.br(v[0]);
+            return shadeAt(palette().cyclic ? t : 1 - Math.abs(2 * t - 1));
+        }
+        case 'height': return n ? shadeAt(Math.log(A.ht(v[n - 1])) / Math.log(Math.max(2, st.N))) : NEUTRAL;
+        default: return n % 2 ? (palette().cyclic ? TN / 2 : TN) : 0;
+    }
+}
+const srcOf = (key, labels) => (decor.get(key) || {}).src || labels;
+const shadeQ = (labels, key) => shadeOf(labels, srcOf(key, labels), LQ);
+const cuspsOfK = (labels) => labels.map((w) => kE().cuspOfLabel(w));
 
 // ---------- the current element and the decorations it carries ----------
 let gens = [];
@@ -458,22 +518,23 @@ function visit(F, gap, labels, parent, dep) {
     const rs = pxRadius(F.cx, F.z, F.cy, F.R);
     if (dep > 0 && rs < MIN_PX) return false;
     const left = st.dep - dep, R = F.R;
-    const zext = st.edges === 'levels' ? st.h * left : 2 * st.h * R, ext = left > 0 ? 3 * R : R;
-    box.min.set(F.cx - ext, Math.min(F.z, F.z + zext), -F.cy - ext);
-    box.max.set(F.cx + ext, Math.max(F.z, F.z + zext), -F.cy + ext);
+    const zext = st.edges === 'zero' ? 0 : st.edges === 'levels' ? st.h * left : 2 * st.h * R, ext = left > 0 ? 3 * R : R;
+    const both = left > 0 && st.base === 'half' && towardInf(labels);     // on the ray to ∞ the subtree also climbs
+    box.min.set(F.cx - ext, Math.min(F.z, F.z + zext, both ? F.z - zext : F.z), -F.cy - ext);
+    box.max.set(F.cx + ext, Math.max(F.z, F.z + zext, both ? F.z - zext : F.z), -F.cy + ext);
     if (!frustum.intersectsBox(box)) return false;
     if (recs.length >= MAXP) { truncated = true; return false; }
-    const idx = recs.length, key = keyOf(labels);
-    recs.push({ F, gap, labels, key, parent, dep, rs, C: decorOf(labels, key) });
+    const idx = recs.length, key = keyOf(labels), C = decorOf(labels, key);
+    recs.push({ F, gap, labels, key, parent, dep, rs, C, tc: shadeQ(labels, key) });
     if (left > 0) {
         // every child lies within 2R across and one edge down, which bounds how close it can be
-        const gapMax = Math.abs(st.h) * (st.edges === 'levels' ? 1 : R);
+        const gapMax = st.edges === 'zero' ? 0 : Math.abs(st.h) * (st.edges === 'levels' ? 1 : R);
         const near = st.ortho ? 1 : Math.max(1e-9, Math.hypot(F.cx - camPos.x, F.z - camPos.y, -F.cy - camPos.z) - 2 * R - gapMax);
         for (const [p, q] of (dep === 0 ? baseDiskSet(st.N) : diskSet(st.N)).v) {
             const { sigma, ell } = standardChild(F, p, q, st), r = sigma * R;
             if (r * pxk / near < MIN_PX) break;                      // the cusps come largest first
-            const gp = edgeGap(ell, R, st);
-            visit(childFrame(F, p, q, r, gp), gp, [...labels, [BigInt(p), BigInt(q)]], idx, dep + 1);
+            const lc = [...labels, [BigInt(p), BigInt(q)]], gp = edgeSign(lc, st) * edgeGap(ell, R, st);
+            visit(childFrame(F, p, q, r, gp), gp, lc, idx, dep + 1);
         }
     }
     return true;
@@ -495,10 +556,10 @@ function build() {
     const root = rootFrame(st);
     halfMesh.visible = !!root.half;
     if (root.half) {
-        recs.push({ F: root, gap: 0, labels: [], key: '', parent: -1, dep: 0, rs: Infinity, C: decorOf([], '') });
+        recs.push({ F: root, gap: 0, labels: [], key: '', parent: -1, dep: 0, rs: Infinity, C: decorOf([], ''), tc: shadeQ([], '') });
         for (const [p, q] of halfKids(st.N)) {
-            const { sigma, ell } = standardChild(root, p, q, st), gp = edgeGap(ell, 1, st);
-            visit(childFrame(root, p, q, sigma, gp), gp, [[BigInt(p), BigInt(q)]], 0, 1);
+            const lc = [[BigInt(p), BigInt(q)]], { sigma, ell } = standardChild(root, p, q, st), gp = edgeSign(lc, st) * edgeGap(ell, 1, st);
+            visit(childFrame(root, p, q, sigma, gp), gp, lc, 0, 1);
         }
     } else visit(root, 0, [], -1, 0);
     drawRecs(recs);
@@ -582,7 +643,7 @@ const ballPx = (F) => (st.ortho ? F.R * pxk : F.R * pxk / Math.max(1e-9, Math.hy
 const bsphere = new THREE.Sphere();
 // the child's radius and edge, in units of the parent's radius (the base ball uses √(Ford size))
 const ballChild = (c, base) => ({ sigma: st.lam * c.D / 2, ell: base ? Math.sqrt(c.D) : 1 / c.absq });
-const ballGap = (ell, R) => Math.abs(st.h) * (st.edges === 'levels' ? 1 : ell * R);
+const ballGap = (ell, R) => (st.edges === 'zero' ? 0 : Math.abs(st.h) * (st.edges === 'levels' ? 1 : ell * R));
 
 // The exact engine over K (kengine.js), one per field; the labels of a ball rec, read off its cusps.
 const KENG = {};
@@ -608,6 +669,10 @@ function visitBall(K, F, gap, cusps, parent, dep) {
     if (recs.length >= BALLS) { truncated = true; return false; }
     const idx = recs.length, rec = { F, gap, cusps, parent, dep, rs, key: 'k:' + cusps.map((c) => c.key).join(' ') };
     if (!gIsId && rs > MIN_PX * 4) rec.C = decorOfK(labelsOf(rec), rec.key);
+    // its shade; a speck too small to carry a picture takes its parent's when the source matters
+    if (gIsId || (!st.carry && st.rule !== 'moved')) rec.tc = shadeOf(cusps, cusps, LK);
+    else if (rec.C) rec.tc = shadeOf(cusps, cuspsOfK(decor.get(rec.key).src), LK);
+    else rec.tc = parent >= 0 ? recs[parent].tc : shadeOf(cusps, cusps, LK);
     recs.push(rec);
     if (left > 0) {
         const near = st.ortho ? 1 : Math.max(1e-9, Math.hypot(F.c[0] - camPos.x, F.c[1] - camPos.y, F.c[2] - camPos.z) - ext);
@@ -733,7 +798,9 @@ function startNextBall(job) {
         it.H = cpath(E.toComplex(h));
         it.d = decorOfK(it.labels, 'k*' + it.key);
         it.dep = it.labels.length;
-        it.dep1 = lu.length;
+        const src = cuspsOfK(srcOf('k*' + it.key, it.labels));
+        it.tc0 = shadeOf(cuspsOfK(it.labels), src, LK);
+        it.tc1 = shadeOf(cuspsOfK(lu), src, LK);
         const a = ballFrameAt(it.labels, fc), b = ballFrameAt(lu, fc);
         Object.assign(it, { F0: a.F, F1: b.F, gap0: a.gap, gap1: b.gap });
         it.spine = T.isPrefix(it.labels, spine);
@@ -764,8 +831,7 @@ function animFrameBall(s) {
         }
         it.Hs = it.H(e);
         frames.set(it.key, F);
-        const mix = it.dep % 2 !== it.dep1 % 2 ? [it.dep % 2, it.dep1 % 2, e] : null;
-        out.push({ F, gap, dep: it.dep, mix, C: it.d ? cmul(it.Hs, it.d) : it.Hs });
+        out.push({ F, gap, dep: it.dep, tc: it.tc0, mix: mixOf(it.tc0, it.tc1, e), C: it.d ? cmul(it.Hs, it.d) : it.Hs });
     }
     recs = out;
     drawBallRecs(out);
@@ -820,7 +886,10 @@ function startNext() {
         it.H = mobiusPath(it.flip ? fmul(RHO, hf) : hf);
         it.d = decorOf(it.labels, it.key);
         it.dep = it.labels.length;
-        it.dep1 = lu.length;
+        // its shade where it starts and where it lands (it keeps its picture, so the same source)
+        const src = srcOf(it.key, it.labels);
+        it.tc0 = shadeOf(it.labels, src, LQ);
+        it.tc1 = shadeOf(lu, src, LQ);
         const a = frameAt(it.labels, st, fc), b = frameAt(lu, st, fc);
         Object.assign(it, { F0: a.F, F1: b.F, gap0: a.gap, gap1: b.gap });
         it.spine = isPrefix(it.labels, spine);
@@ -832,7 +901,7 @@ function startNext() {
         const w = it.labels[it.labels.length - 1].map(Number), w1 = lu[lu.length - 1].map(Number);
         const c0 = standardChild(frameAt(it.labels.slice(0, -1), st, fc).F, w[0], w[1], st);
         const c1 = standardChild(frameAt(lu.slice(0, -1), st, fc).F, w1[0], w1[1], st);
-        Object.assign(it, { w, sig0: c0.sigma, sig1: c1.sigma, ell0: c0.ell, ell1: c1.ell });
+        Object.assign(it, { w, sig0: c0.sigma, sig1: c1.sigma, ell0: c0.ell, ell1: c1.ell, sg0: edgeSign(it.labels, st), sg1: edgeSign(lu, st) });
     }
     const order = [...items.values()].sort((a, b) => a.dep - b.dep);
     for (const it of order) if (!it.spine && !items.has(it.parentKey)) it.spine = true;
@@ -852,14 +921,13 @@ function animFrame(s) {
             const Pf = frames.get(it.parentKey), Hp = anim.items.get(it.parentKey).Hs;
             const V = [Hp[0] * it.w[0] + Hp[1] * it.w[1], Hp[2] * it.w[0] + Hp[3] * it.w[1]];
             const sc = scaleOf(Pf), sig = Math.exp(Math.log(it.sig0) + (Math.log(it.sig1) - Math.log(it.sig0)) * e);
-            gap = edgeGap(it.ell0 + (it.ell1 - it.ell0) * e, sc, st);
+            gap = (it.sg0 + (it.sg1 - it.sg0) * e) * edgeGap(it.ell0 + (it.ell1 - it.ell0) * e, sc, st);
             F = childFrame(Pf, V[0], V[1], sig * sc, gap);
         }
         if (it.flip) F = { ...F, flip: Math.PI * e };
         it.Hs = it.H(e);
         frames.set(it.key, F);
-        const mix = it.dep % 2 !== it.dep1 % 2 ? [it.dep % 2, it.dep1 % 2, e] : null;
-        out.push({ F, gap, labels: it.labels, key: it.key, dep: it.dep, mix, C: it.d ? fmul(it.Hs, it.d) : it.Hs });
+        out.push({ F, gap, labels: it.labels, key: it.key, dep: it.dep, tc: it.tc0, mix: mixOf(it.tc0, it.tc1, e), C: it.d ? fmul(it.Hs, it.d) : it.Hs });
     }
     recs = out;
     drawRecs(out);
@@ -867,7 +935,7 @@ function animFrame(s) {
 
 function stepAnim(now) {
     if (!anim) return;
-    const s = reduceMotion() ? 1 : Math.min(1, (now - anim.t0) / anim.dur);
+    const s = reduceMotion() ? 1 : Math.min(1, Math.max(0, (now - anim.t0) / anim.dur));
     if (anim.ball) animFrameBall(s); else animFrame(s);
     if (s < 1) return;
     commitJob(anim.job);
@@ -911,7 +979,7 @@ const spec = { a: Q.ONE, s: 0, items: null, sources: null, sig: '', run: null, a
 const specQueue = [];
 const OVERLAYS = 24, SPEC_MIN_PX = 2;
 const ID = [1, 0, 0, 1];
-const settingsSig = () => `${st.base}|${st.edges}|${st.h}|${st.lam}`;
+const settingsSig = () => `${st.base}|${st.edges}|${st.h}|${st.lam}|${st.rule}|${st.carry}|${st.dep}|${st.N}`;
 
 function specItems(sources) {
     const ga = specMat(g, spec.a), fc = new Map(), baseCF = toCF(rootFrame(st));
@@ -933,7 +1001,7 @@ function specItems(sources) {
         }
         const rel = d ? fmul(K, finv(d)) : K, flip = fdet(rel) < 0;
         return {
-            key: keyOf(v), v, u, root: !u.length, dep: u.length, F0: F, CF0: F.half ? null : toCF(F), CFt, gap0: gap,
+            key: keyOf(v), v, u, root: !u.length, dep: u.length, tc: shadeOf(u, v, LQ), F0: F, CF0: F.half ? null : toCF(F), CFt, gap0: gap,
             d, M, Mq, flip, P: mobiusPath(flip ? fmul(RHO, rel) : rel),
         };
     });
@@ -986,7 +1054,7 @@ function drawCollapse(e, act) {
         if (root.half) { drawHalf(L_, rec); return; }
         const m = diskHi, i = nHi++;
         m.setMatrixAt(i, diskMatrix(rec.F));
-        m.setColorAt(i, P.fill[0]);
+        m.setColorAt(i, mixColor(P.fill, rec));
         drawDisk(L_, rec, pxRadius(rec.F.cx, rec.F.z, rec.F.cy, rec.F.R));
     };
     for (const it of spec.items) {
@@ -994,10 +1062,10 @@ function drawCollapse(e, act) {
         let C, flip;
         if (e >= 1) { C = it.M; flip = 0; } else { C = fmul(it.P(e), it.d || ID); flip = it.flip ? Math.PI * e : 0; }
         if (act) { C = fmul(act.Hs, C); flip += act.flip; }
-        if (it.root) { drawBase({ F: { ...root, flip }, C, labels: [], dep: 0, gap: 0 }); rootDrawn = true; continue; }
+        if (it.root) { drawBase({ F: { ...root, flip }, C, labels: [], dep: 0, gap: 0, tc: it.tc }); rootDrawn = true; continue; }
         if (e >= 1) {                       // landed: only the overlays remain, drawn on the base itself
             if (it.overlay) {
-                const rec = { F: { ...root, flip }, C, labels: [], dep: it.dep, gap: 0, noAxis: true, Nc: Math.min(st.N, 6) };
+                const rec = { F: { ...root, flip }, C, labels: [], dep: it.dep, tc: it.tc, gap: 0, noAxis: true, Nc: Math.min(st.N, 6) };
                 if (root.half) drawHalf(L_, rec); else drawDisk(L_, rec, pxRadius(root.cx, root.z, root.cy, root.R));
             }
             continue;
@@ -1007,11 +1075,11 @@ function drawCollapse(e, act) {
         if (fadeA > 0.01) {
             if (D && rs > MIN_PX && nG < GHOSTS) {
                 ghosts.setMatrixAt(nG, diskMatrix(D));
-                ghosts.setColorAt(nG, P.fill[it.dep % 2]);
+                ghosts.setColorAt(nG, P.fill[it.tc]);
                 ga.setX(nG++, 0.9 * fadeA * fadeA);
             }
             const k = Math.min(200, Math.max(16, Math.ceil(rs * 0.8)));
-            if (rs > 1.5) cfPoly(L_, F, k, circleZ(k), P.str[it.dep % 2], fadeA);
+            if (rs > 1.5) cfPoly(L_, F, k, circleZ(k), P.str[it.tc], fadeA);
             const [ax, ay, , , lift] = attach(F, 1, 0), gp = it.gap0 * fadeA;
             if (gp) L_.seg(ax, F.z + lift, -ay, ax, F.z + lift - gp, -ay, P.edge, fadeA, fadeA);
         }
@@ -1020,7 +1088,7 @@ function drawCollapse(e, act) {
         if (it.overlay) cfFarey(L_, F, C, Math.min(st.N, 5), 36, 1, it);
         else if (fadeA > 0.01 && rsNow > DETAIL_PX) cfFarey(L_, F, C, rsNow > 140 ? Math.min(st.N, 5) : 2, 24, fadeA, it);
     }
-    if (!rootDrawn) drawBase({ F: { ...root, flip: act ? act.flip : 0 }, C: null, labels: [], dep: 0, gap: 0, bare: true });
+    if (!rootDrawn) drawBase({ F: { ...root, flip: act ? act.flip : 0 }, C: null, labels: [], dep: 0, tc: shadeQ([], ''), gap: 0, bare: true });
     ghosts.count = nG;
     ghosts.instanceMatrix.needsUpdate = true;
     if (ghosts.instanceColor) ghosts.instanceColor.needsUpdate = true;
@@ -1063,7 +1131,7 @@ function startSpecAct() {
 }
 function stepSpec(now) {
     if (spec.act) {
-        const A = spec.act, k = reduceMotion() ? 1 : Math.min(1, (now - A.t0) / A.dur), e = ease(k);
+        const A = spec.act, k = reduceMotion() ? 1 : Math.min(1, Math.max(0, (now - A.t0) / A.dur)), e = ease(k);
         drawCollapse(1, { Hs: A.H(e), flip: A.fl ? Math.PI * e : 0 });
         if (k < 1) return;
         commitJob(A.job);
@@ -1076,7 +1144,7 @@ function stepSpec(now) {
         return;
     }
     if (!spec.run) return;
-    const r = spec.run, k = reduceMotion() ? 1 : Math.min(1, (now - r.t0) / r.dur);
+    const r = spec.run, k = reduceMotion() ? 1 : Math.min(1, Math.max(0, (now - r.t0) / r.dur));
     spec.s = r.from + (r.to - r.from) * k;
     if (k >= 1) {
         spec.s = r.to;
@@ -1297,7 +1365,7 @@ function setHover(i) {
     if (i === hoverIdx) return;
     const old = recs[hoverIdx];
     const ballMode = st.field !== 'Q';
-    if (old && old.mesh) { old.mesh.setColorAt(old.inst, (ballMode ? P.ball : P.fill)[old.dep % 2]); old.mesh.instanceColor.needsUpdate = true; }
+    if (old && old.mesh) { old.mesh.setColorAt(old.inst, mixColor(ballMode ? P.ball : P.fill, old)); old.mesh.instanceColor.needsUpdate = true; }
     hoverIdx = i;
     const rec = recs[i];
     if (rec && rec.mesh) { rec.mesh.setColorAt(rec.inst, ballMode ? P.hiBall : P.hiFill); rec.mesh.instanceColor.needsUpdate = true; }
@@ -1359,10 +1427,11 @@ function stepFly(now) {
 
 // Frame a rough bounding box of the tree from the front, a little above.
 function defaultView() {
-    const zext = st.h * (st.edges === 'levels' ? st.dep : 1.7);
+    const zext = st.edges === 'zero' ? 0 : st.h * (st.edges === 'levels' ? st.dep : 1.7);
     const E = 1 + 1.2 * st.lam, B = 1 + 0.55 * (Math.abs(st.h) + st.lam);
-    const [x0, x1, y0, y1] = st.base === 'disk' ? [-E, E, -E, E] : [-2.4, 2.4, -1 - 0.5 * st.lam, 1.8];
-    let lo = new THREE.Vector3(x0, Math.min(0, zext), -y1), hi = new THREE.Vector3(x1, Math.max(0, zext), -y0);
+    // on the half-plane, take in the plane at ∞ beyond the top of the strip, and the ray climbing from it
+    const half = st.base !== 'disk', [x0, x1, y0, y1] = half ? [-2.4, 2.4, -1 - 0.5 * st.lam, 2 * HALF.RHO + 1] : [-E, E, -E, E];
+    let lo = new THREE.Vector3(x0, Math.min(0, zext), -y1), hi = new THREE.Vector3(x1, Math.max(0, zext, half ? -zext : 0), -y0);
     if (st.field !== 'Q') { lo = new THREE.Vector3(-B, -B, -B); hi = new THREE.Vector3(B, B, B); }
     const target = lo.clone().add(hi).multiplyScalar(0.5);
     const dir = st.field !== 'Q' ? new THREE.Vector3(0.35, Math.cos(1.1), Math.sin(1.1)).normalize() : new THREE.Vector3(0, Math.cos(1.0), Math.sin(1.0));
@@ -1478,13 +1547,17 @@ const segEdges = UI.segmented('seg-edges', (v) => { st.edges = v; build(); reset
 segBase.set(st.base);
 segProj.set('persp');
 segEdges.set(st.edges);
-UI.slider('dep', (v) => String(v), (v) => { st.dep = v; build(); });
-UI.slider('den', (v) => String(v), (v) => { st.N = v; build(); });
-UI.slider('lam', (v) => v.toFixed(2), (v) => { st.lam = v; build(); });
-UI.slider('hgt', (v) => v.toFixed(2).replace('-', '−'), (v) => { st.h = v; build(); });
+const sliders = {
+    dep: UI.slider('dep', (v) => String(v), (v) => { st.dep = v; build(); }),
+    N: UI.slider('den', (v) => String(v), (v) => { st.N = v; build(); }),
+    lam: UI.slider('lam', (v) => v.toFixed(2), (v) => { st.lam = v; build(); }),
+    h: UI.slider('hgt', (v) => v.toFixed(2).replace('-', '−'), (v) => { st.h = v; build(); }),
+};
 UI.slider('dur', (v) => `${v.toFixed(1)} s`, (v) => { st.dur = v; });
-UI.toggle('toggle-farey', st.far, (v) => { st.far = v; build(); });
-UI.toggle('toggle-horo', st.hor, (v) => { st.hor = v; build(); });
+const toggles = {
+    far: UI.toggle('toggle-farey', st.far, (v) => { st.far = v; build(); }),
+    hor: UI.toggle('toggle-horo', st.hor, (v) => { st.hor = v; build(); }),
+};
 $('top-view').onclick = () => flyTo(controls.target, new THREE.Vector3(0, 1, 1e-4), viewSize());
 $('reset-view').onclick = () => resetView();
 $('save-png').onclick = () => {
@@ -1502,16 +1575,133 @@ const exSel = $('example-select');
 fillExamples();
 exSel.onchange = () => loadExample(+exSel.value);
 
+// The theme: the Dark/Light pair in the View tab, and the sun/moon in the panel header.
 const themeBtns = [...document.querySelectorAll('.theme-opt')];
-const syncTheme = () => themeBtns.forEach((b) => b.classList.toggle('active', (b.dataset.theme === 'light') === isLight()));
-themeBtns.forEach((b) => b.addEventListener('click', () => {
-    document.documentElement.classList.toggle('light', b.dataset.theme === 'light');
-    try { localStorage.setItem('twoDimFields-theme', b.dataset.theme); } catch (e) { /* storage blocked */ }
+function syncTheme() {
+    themeBtns.forEach((b) => b.classList.toggle('active', (b.dataset.theme === 'light') === isLight()));
+    const tip = isLight() ? 'Switch to dark mode' : 'Switch to light mode';
+    $('theme-btn').title = tip;
+    $('theme-btn').setAttribute('aria-label', tip);
+}
+function setTheme(t) {
+    document.documentElement.classList.toggle('light', t === 'light');
+    try { localStorage.setItem('twoDimFields-theme', t); } catch (e) { /* storage blocked */ }
     syncTheme();
     setPalette();
     build();
-}));
+    dirty = true;
+}
+themeBtns.forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.theme)));
+$('theme-btn').onclick = () => setTheme(isLight() ? 'dark' : 'light');
 syncTheme();
+
+// The colouring: a rule, a palette (coloring.js), and whether colours go with the planes' pictures.
+const ruleSel = $('color-rule');
+for (const r of RULES) ruleSel.add(new Option(r.name, r.id));
+const paletteBtns = PALETTES.map((p) => {
+    const b = document.createElement('button');
+    b.className = 'palette-chip';
+    b.dataset.id = p.id;
+    b.setAttribute('role', 'radio');
+    b.innerHTML = `<span class="swatch" style="background: ${swatch(p)}"></span><span>${p.name}</span>`;
+    $('palette-grid').appendChild(b);
+    return b;
+});
+function syncColour() {
+    ruleSel.value = st.rule;
+    $('color-hint').textContent = RULES.find((r) => r.id === st.rule).hint;
+    for (const b of paletteBtns) { const on = b.dataset.id === st.palette; b.classList.toggle('active', on); b.setAttribute('aria-checked', String(on)); }
+}
+function recolour() {
+    try { localStorage.setItem('twoDimFields-colour', JSON.stringify({ palette: st.palette, rule: st.rule, carry: st.carry })); } catch (e) { /* storage blocked */ }
+    syncColour();
+    build();
+    dirty = true;
+}
+ruleSel.onchange = () => { st.rule = ruleSel.value; recolour(); };
+for (const b of paletteBtns) b.onclick = () => { st.palette = b.dataset.id; setPalette(); recolour(); };
+UI.toggle('toggle-carry', st.carry, (v) => { st.carry = v; recolour(); });
+syncColour();
+
+// ---------- the walkthrough ----------
+// tutorial.js names each step by a state, which this sets up from scratch: the field, the
+// default settings, an example, the current element, t = a and the collapse, and a camera.
+// A step's effect then plays as the buttons would, or (stepping back) is applied at once.
+const TUT_DEFAULTS = { dep: 4, N: 8, lam: 0.6, h: -1, edges: 'q', base: 'half', far: true, hor: false };
+const idle = () => !anim && !queue.length && !spec.run && !spec.act && !specQueue.length;
+const until = (ok) => new Promise((res) => { const t = setInterval(() => { if (ok()) { clearInterval(t); res(); } }, 50); });
+const jobOf = (i, inv) => { const G = gens[i]; return inv ? { M: G.Minv, Minv: G.M, letter: [i, -1] } : { M: G.M, Minv: G.Minv, letter: [i, 1] }; };
+
+function actNow(i, inv) {
+    if (!gens[i]) return;
+    commitJob(jobOf(i, inv));
+    if (spec.items) { refreshItems(); drawCollapse(1); } else build();
+    showElement();
+    syncSpecUI();
+}
+// Collapse at once, keeping the planes the default view would show (the camera stays put).
+function collapseNow() {
+    if (spec.items) return;
+    const T = controls.target.clone(), D = viewDir(), S = viewSize(), v = defaultView();
+    setView(v.target, v.dir, v.size);
+    build();
+    prepareCollapse();
+    spec.s = 1;
+    setView(T, D, S);
+    drawCollapse(1);
+    syncSpecUI();
+}
+function tutorialView(kind) {
+    if (kind === 'collapsed') return collapsedView();
+    const v = defaultView();
+    return kind === 'top' ? { target: new THREE.Vector3(0, 0, v.target.z), dir: new THREE.Vector3(0, 1, 1e-4), size: v.size * 0.75 } : v;
+}
+function tutorialPrepare(s) {
+    fly = null;
+    anim = null;
+    queue.length = specQueue.length = 0;
+    if (spec.items) { spec.items = null; spec.run = spec.act = null; spec.s = 0; }
+    setHover(-1);
+    const fresh = s.field !== st.field;
+    if (fresh) { segField.set(s.field); setField(s.field); }
+    Object.assign(st, TUT_DEFAULTS, s.settings || {}, { dep: s.dep ?? TUT_DEFAULTS.dep });
+    for (const k in sliders) sliders[k].set(st[k]);
+    for (const k in toggles) toggles[k].set(st[k]);
+    segBase.set(st.base);
+    segEdges.set(st.edges);
+    if (st.ortho) { setProjection(false); segProj.set('persp'); }
+    const list = examplesHere();
+    const ex = s.example ? list.findIndex((e) => e.name === s.example) : list.findIndex((e) => (e.field || 'Q') === st.field);
+    loadExample(Math.max(0, ex));                   // resets the element and builds
+    for (const [i, inv] of s.apply || []) actNow(i, inv);
+    if (s.specA && st.field === 'Q') { $('spec-a').value = s.specA; readSpecA(); }
+    if (s.collapsed) collapseNow();
+    const v = tutorialView(s.view);
+    if (fresh) { setView(v.target, v.dir, v.size); controls.update(); build(); } else flyTo(v.target, v.dir, v.size, 900);
+    dirty = true;
+}
+async function tutorialEffect(play, instant) {
+    if (play.collapse) {
+        if (instant) { collapseNow(); const v = collapsedView(); flyTo(v.target, v.dir, v.size, 900); } else startSpecRun(1);
+    }
+    for (const [i, inv] of play.gens || []) (instant ? actNow : applyGenerator)(i, inv);
+    if (!instant) await until(idle);
+}
+const tutorialAPI = {
+    prepare: tutorialPrepare,
+    effect: tutorialEffect,
+    settle: async () => { await until(() => !fly); await new Promise((r) => setTimeout(r, 350)); },
+    typeset: (el) => UI.typeset([el]),
+    finish: () => {
+        const url = new URL(location.href);
+        if (url.searchParams.has('tutorial')) { url.searchParams.delete('tutorial'); history.replaceState(null, '', url); }
+    },
+};
+$('help-btn').onclick = () => {
+    // on a phone the panel covers the top of the picture: fold it away for the tour
+    if (innerWidth <= 768 && !$('control-panel').classList.contains('collapsed')) $('collapse-btn').click();
+    startTutorial(tutorialAPI);
+};
 
 function resize() {
     const w = cv.clientWidth, h = cv.clientHeight;
@@ -1544,11 +1734,12 @@ resetView(false);
 loadExample(0);
 if (st.field !== 'Q') setField(st.field);
 requestAnimationFrame(frameLoop);
+if (new URLSearchParams(location.search).has('tutorial')) startTutorial(tutorialAPI);
 
 // For headless checks (rAF may not run in a hidden pane).
 window.__twoDim = {
     st, build, render, get camera() { return camera; }, controls, get recs() { return recs; }, get anim() { return anim; },
     setHover, flyToPlane, resetView, stepFly, stepAnim, applyGenerator, setProjection, get g() { return g; },
-    spec, startSpecRun, stepSpec, drawCollapse,
+    spec, startSpecRun, stepSpec, drawCollapse, setTheme, tutorialAPI,
     nonFinite: () => [...lines.geometry.attributes.position.array].filter((x) => !Number.isFinite(x)).length,
 };

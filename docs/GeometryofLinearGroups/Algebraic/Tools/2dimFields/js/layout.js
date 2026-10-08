@@ -68,15 +68,23 @@ export function standardChild(F, p, q, st) {
     return { sigma: st.lam * D / 2, ell: F.base || !q ? Math.sqrt(D) : 1 / q };
 }
 // The signed height of an edge of relative length ℓ below (or above) a plane of this scale.
-export const edgeGap = (ell, scale, st) => st.h * (st.edges === 'levels' ? 1 : ell * scale);
+export const edgeGap = (ell, scale, st) => (st.edges === 'zero' ? 0 : st.h * (st.edges === 'levels' ? 1 : ell * scale));
+
+// On the half-plane the tree climbs toward its end ∞. The vertices ∞, ∞ → 0, ∞ → 0 → 0, … are the
+// ray from v₀ to that end (the lattices ⟨e₁, πᵏe₂⟩; on each plane of it the cusp 0 points away
+// from v₀), and their edges go the other way from every other edge: with the default negative
+// edge length each plane on the ray sits above its parent, and heights follow the horocycle
+// levels about ∞ (exactly so with equal edges).
+export const towardInf = (labels) => labels.length > 0 && labels[0][1] === 0n && labels.every((l, i) => !i || l[0] === 0n);
+export const edgeSign = (labels, st) => (st.base === 'half' && towardInf(labels) ? -1 : 1);
 
 export function rootFrame(st) {
     return st.base === 'half' ? { half: true, z: 0 } : { cx: 0, cy: 0, R: 1, ux: 0, uy: 1, z: 0, base: true };
 }
 
 // The standard child frame, and the gap of its edge.
-export function standardFrame(F, p, q, st) {
-    const { sigma, ell } = standardChild(F, p, q, st), sc = scaleOf(F), gap = edgeGap(ell, sc, st);
+export function standardFrame(F, p, q, st, sign = 1) {
+    const { sigma, ell } = standardChild(F, p, q, st), sc = scaleOf(F), gap = sign * edgeGap(ell, sc, st);
     return { F: childFrame(F, p, q, sigma * sc, gap), gap };
 }
 
@@ -87,7 +95,7 @@ export function frameAt(labels, st, cache) {
     if (cache && cache.has(key)) return cache.get(key);
     const { F: parent } = frameAt(labels.slice(0, -1), st, cache);
     const [p, q] = labels[labels.length - 1];
-    const out = standardFrame(parent, Number(p), Number(q), st);
+    const out = standardFrame(parent, Number(p), Number(q), st, edgeSign(labels, st));
     if (cache) cache.set(key, out);
     return out;
 }

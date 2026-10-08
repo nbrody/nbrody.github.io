@@ -34,6 +34,11 @@
     <button class="tab-btn active" data-tab="group">Group</button>
     <button class="tab-btn" data-tab="view">View</button>
     <button class="tab-btn" data-tab="info">Info</button>
+    <button id="help-btn" class="collapse-btn" title="Walkthrough" aria-label="Start the walkthrough"><span class="collapse-icon">?</span></button>
+    <button id="theme-btn" class="collapse-btn" title="Switch to light mode" aria-label="Switch to light mode">
+      <svg class="icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8a8.4 8.4 0 1 0 10.8 10.8z"/></svg>
+    </button>
     <button id="refresh-btn" class="collapse-btn" title="Read the generators again" aria-label="Read the generators again"><span class="collapse-icon">⟳</span></button>
     <button id="collapse-btn" class="collapse-btn" title="Collapse panel (H)"><span class="collapse-icon">×</span></button>
   </div>
@@ -122,6 +127,7 @@
           <div class="cayley-options" id="seg-edges">
             <button class="cayley-opt" data-value="q" title="The edge to the plane at p/q has length 1/q (times the parent's radius on a disk)">Length 1/q</button>
             <button class="cayley-opt" data-value="levels" title="Every edge has the same length: planes sit at their distance from v₀">Levels</button>
+            <button class="cayley-opt" data-value="zero" title="Every edge has length 0: each plane (or ball) touches its parent at the cusp, and the tree lies in one picture">Length 0</button>
           </div>
         </div>
       </div>
@@ -146,6 +152,16 @@
 
       <div class="control-group">
         <div class="control-row">
+          <label for="color-rule" class="control-label">Colour by</label>
+          <select id="color-rule" class="select-input" aria-describedby="color-hint"></select>
+        </div>
+        <p id="color-hint" class="label-hint"></p>
+        <div id="palette-grid" class="palette-grid" role="radiogroup" aria-label="Palette"></div>
+        <button id="toggle-carry" class="toggle-btn" title="Colour each plane by the vertex whose picture it shows, so the colours move with the action">Colours travel with the planes</button>
+      </div>
+
+      <div class="control-group">
+        <div class="control-row">
           <span class="control-label">Theme</span>
           <div class="theme-options" role="group" aria-label="Background theme">
             <button class="theme-opt" data-theme="dark">Dark</button>
@@ -166,6 +182,8 @@
         <h3 class="info-title">The picture</h3>
         <p>Put $\pi = 1/t$, so $\mathbb{Z}[t] \subset K = \mathbb{Q}((\pi))$, whose valuation ring $\mathbb{Q}[[\pi]]$ has residue field $\mathbb{Q}$. The link of each vertex of the tree of $\mathrm{SL}_2(K)$ is $\mathbb{P}^1(\mathbb{Q})$, the rational cusps of a hyperbolic plane, so every vertex $v$ gets a plane $X(v)$ and every cusp of $X(v)$ carries the plane of a neighbour.</p>
         <p>The base vertex $v_0$ is the lattice $\mathbb{Q}[[\pi]]^2$; its stabilizer is $\mathrm{SL}_2(\mathbb{Z})$, acting on $X(v_0)$ as usual. The plane at $p/q$ hangs off the cusp $p/q$ as its reflected Ford circle, joined by an edge of length $1/q$.</p>
+        <p>On the half-plane the tree climbs toward its end $\infty$: the planes at $\infty$, then at the cusp $0$ of that one, and so on, are the ray from $v_0$ to the end (the lattices $\langle e_1, \pi^k e_2\rangle$), and each sits above its parent where every other plane hangs below. With equal edges a plane's height is then its horocycle level about $\infty$, the Busemann function that goes up one along each edge toward $\infty$ and down one along every other.</p>
+        <p>The colours follow a rule chosen in the View tab: the type of the vertex (the tree is bipartite), its distance from $v_0$, its horocycle level, the branch at $v_0$ it lies in, the height of its cusp, or how far the current element moves it. They belong to the place a plane sits, or, with <em>Colours travel with the planes</em>, to the vertex whose picture it shows, so that the action visibly moves them.</p>
       </div>
       <div class="info-section">
         <h3 class="info-title">Frames and the action</h3>
